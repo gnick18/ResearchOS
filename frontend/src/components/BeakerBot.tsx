@@ -97,12 +97,32 @@ import styles from "./BeakerBot.module.css";
  *                       appears in front of BeakerBot, eyes scan
  *                       left/right across the pages, every ~6s the
  *                       right page flips to the left. Looping infinite.
+ *  - `panicked`       - scene-tone pose: wide circle eyes with small
+ *                       pupils, small "O" mouth, both arms thrown
+ *                       wide in a Y-shape. Used for "something
+ *                       startling just happened" beats (Ladder fall,
+ *                       Centrifuge out-of-control explosion).
+ *                       Static silhouette, no looping animation.
+ *  - `amazed`         - scene-tone pose: wide oval eyes with small
+ *                       pupils + raised brows, open ellipse mouth
+ *                       ("wow"), both hands clasped low in front.
+ *                       Used for "something wondrous" beats (Eureka
+ *                       bulb-on, TooManyBeakers phew save). Static
+ *                       silhouette.
+ *  - `embarrassed`    - scene-tone pose: half-closed eyes glancing
+ *                       aside, slight wavy mouth, one hand rubbing
+ *                       the back of the head (sheepish neck-rub),
+ *                       small pink blush dots on each cheek. Used
+ *                       for "post-mistake reaction" beats (Centrifuge
+ *                       post-explosion, TooManyBeakers post-drop).
+ *                       Static silhouette.
  *
  * The `pointing*` poses emit a triangle tip used by pointer-line
  * overlays; the non-pointing poses (`cheering`, `waving`, `bouncing`,
  * `thinking`, `typing`, `typing-on-laptop`, `bow-wink`,
- * `volcano-eruption`, `sleeping`, `hiccup`, `yawn`, `reading`) are
- * used in the modal mascot slot and don't drive a pointer line.
+ * `volcano-eruption`, `sleeping`, `hiccup`, `yawn`, `reading`,
+ * `panicked`, `amazed`, `embarrassed`) are used in the modal mascot
+ * slot and don't drive a pointer line.
  */
 
 export type BeakerBotPose =
@@ -123,7 +143,10 @@ export type BeakerBotPose =
   | "sleeping"
   | "hiccup"
   | "yawn"
-  | "reading";
+  | "reading"
+  | "panicked"
+  | "amazed"
+  | "embarrassed";
 
 export interface BeakerBotProps {
   pose: BeakerBotPose;
@@ -496,8 +519,11 @@ export default function BeakerBot({
       <path d="M11 12 L29 12" />
       {/* Left eye: wrapped in a <g> so the sleeping pose can close it
           to a flat line and the reading pose can horizontally scan it
-          across the book. Idle / pointing / etc. leave the wrapper as
-          a no-op pass-through. */}
+          across the book. Scene-tone poses (panicked, amazed,
+          embarrassed) override the inner geometry to convey emotion
+          (wide circles, wide ovals, half-closed slits respectively).
+          Idle / pointing / etc. leave the wrapper as a no-op pass-
+          through with the default dot pupil. */}
       <g
         className={
           animated && effectivePose === "sleeping"
@@ -507,11 +533,62 @@ export default function BeakerBot({
               : undefined
         }
       >
-        <circle cx="17" cy="18" r="1.2" fill="currentColor" stroke="none" />
+        {effectivePose === "panicked" ? (
+          <>
+            {/* Wide circle eye + small dark pupil = startled. */}
+            <circle
+              cx="17"
+              cy="18"
+              r="1.9"
+              fill="white"
+              stroke="currentColor"
+              strokeWidth="0.7"
+            />
+            <circle cx="17" cy="18" r="0.7" fill="currentColor" stroke="none" />
+          </>
+        ) : effectivePose === "amazed" ? (
+          <>
+            {/* Wide vertical oval + small pupil = wondrous "wow." */}
+            <ellipse
+              cx="17"
+              cy="18"
+              rx="1.4"
+              ry="1.9"
+              fill="white"
+              stroke="currentColor"
+              strokeWidth="0.7"
+            />
+            <circle cx="17" cy="18" r="0.6" fill="currentColor" stroke="none" />
+            {/* Raised brow: small arc above the eye. */}
+            <path
+              d="M 15.4 14.6 Q 17 13.8, 18.6 14.6"
+              stroke="currentColor"
+              strokeWidth="0.7"
+              fill="none"
+            />
+          </>
+        ) : effectivePose === "embarrassed" ? (
+          /* Half-closed eye: thin horizontal ellipse glancing aside.
+             Slight offset on cx shifts the gaze to the right (away
+             from whatever just went wrong). */
+          <ellipse
+            cx="17.3"
+            cy="18.2"
+            rx="1.2"
+            ry="0.4"
+            fill="currentColor"
+            stroke="none"
+          />
+        ) : (
+          <circle cx="17" cy="18" r="1.2" fill="currentColor" stroke="none" />
+        )}
       </g>
       {/* Right eye: wrapped in a <g> so the bow-wink pose can scale
           it to a closed line independently of the body's bow tilt.
-          Also closes for the sleeping pose and scans for reading. */}
+          Also closes for the sleeping pose and scans for reading.
+          Scene-tone poses override the inner geometry the same way the
+          left eye does (panicked = wide circle, amazed = wide oval
+          + brow, embarrassed = half-closed slit). */}
       <g
         className={
           animated && effectivePose === "bow-wink"
@@ -523,11 +600,56 @@ export default function BeakerBot({
                 : undefined
         }
       >
-        <circle cx="23" cy="18" r="1.2" fill="currentColor" stroke="none" />
+        {effectivePose === "panicked" ? (
+          <>
+            <circle
+              cx="23"
+              cy="18"
+              r="1.9"
+              fill="white"
+              stroke="currentColor"
+              strokeWidth="0.7"
+            />
+            <circle cx="23" cy="18" r="0.7" fill="currentColor" stroke="none" />
+          </>
+        ) : effectivePose === "amazed" ? (
+          <>
+            <ellipse
+              cx="23"
+              cy="18"
+              rx="1.4"
+              ry="1.9"
+              fill="white"
+              stroke="currentColor"
+              strokeWidth="0.7"
+            />
+            <circle cx="23" cy="18" r="0.6" fill="currentColor" stroke="none" />
+            <path
+              d="M 21.4 14.6 Q 23 13.8, 24.6 14.6"
+              stroke="currentColor"
+              strokeWidth="0.7"
+              fill="none"
+            />
+          </>
+        ) : effectivePose === "embarrassed" ? (
+          <ellipse
+            cx="22.7"
+            cy="18.2"
+            rx="1.2"
+            ry="0.4"
+            fill="currentColor"
+            stroke="none"
+          />
+        ) : (
+          <circle cx="23" cy="18" r="1.2" fill="currentColor" stroke="none" />
+        )}
       </g>
       {/* Mouth: smile by default, open-laugh for giggle/rolling, yawn-
        *  oval for yawn (wrapped in a scaling <g> to animate open/close),
        *  closed flat line for sleeping (peaceful).
+       *  Scene-tone poses (panicked, amazed, embarrassed) get their own
+       *  shapes: panicked = small "O", amazed = wider open ellipse,
+       *  embarrassed = small wavy lip line.
        *  Open-mouth path is wider + filled so it reads as "ha ha"
        *  rather than a static smile during the laugh poses. */}
       {effectivePose === "giggle" ||
@@ -559,6 +681,34 @@ export default function BeakerBot({
       ) : effectivePose === "sleeping" ? (
         /* Sleeping: tiny flat-line mouth, no smile curve. Peaceful. */
         <path d="M18.5 23 L21.5 23" />
+      ) : effectivePose === "panicked" ? (
+        /* Panicked: small "O" of surprise. Slightly taller than wide so
+         * it reads as a quick gasp rather than a yawn. */
+        <ellipse
+          cx="20"
+          cy="23"
+          rx="0.9"
+          ry="1.1"
+          fill="currentColor"
+          stroke="currentColor"
+          strokeWidth="0.4"
+        />
+      ) : effectivePose === "amazed" ? (
+        /* Amazed: wider open ellipse "wow." Larger than panicked but
+         * still distinct from the yawn shape. */
+        <ellipse
+          cx="20"
+          cy="23.2"
+          rx="1.4"
+          ry="1.6"
+          fill="currentColor"
+          stroke="currentColor"
+          strokeWidth="0.4"
+        />
+      ) : effectivePose === "embarrassed" ? (
+        /* Embarrassed: small wavy lip — slight S-curve to suggest a
+         * sheepish, off-center grimace rather than a clean smile. */
+        <path d="M17.8 22.6 Q 19 23.4, 20 22.8 T 22.2 22.6" />
       ) : (
         <path d="M18 22 Q 20 24, 22 22" />
       )}
@@ -1056,6 +1206,122 @@ export default function BeakerBot({
             opacity="0.7"
           />
         </g>
+      )}
+
+      {/* Panicked: scene-tone pose for "something startling just
+       *  happened" beats (Ladder fall, Centrifuge explosion). Wide
+       *  circle eyes + small "O" mouth render above. Here we add the
+       *  arm geometry: both arms thrown out wide in a Y-shape, palms
+       *  open (hand dots), direction-agnostic so flipping is
+       *  unnecessary. The wider angle (vs. cheering's V) is what makes
+       *  this read as "alarm" rather than "celebration." */}
+      {effectivePose === "panicked" && (
+        <>
+          {/* Left arm: out and slightly down, wider than cheering's V. */}
+          <path d="M12 18 L6 12" />
+          {/* Right arm: mirror of the left, out and slightly down. */}
+          <path d="M28 18 L34 12" />
+          {/* Open palms: hand dots at the ends of each arm. */}
+          <circle cx="6" cy="12" r="1" fill="currentColor" stroke="none" />
+          <circle cx="34" cy="12" r="1" fill="currentColor" stroke="none" />
+          {/* Two small surprise marks at the upper corners — a single
+           *  short stroke each, suggesting motion lines. */}
+          <path
+            d="M 4 8 L 5.2 9.2"
+            stroke="currentColor"
+            strokeWidth="0.9"
+          />
+          <path
+            d="M 36 8 L 34.8 9.2"
+            stroke="currentColor"
+            strokeWidth="0.9"
+          />
+        </>
+      )}
+
+      {/* Amazed: scene-tone pose for "wondrous moment" beats (Eureka
+       *  bulb-on, TooManyBeakers phew save). Wide oval eyes + open
+       *  ellipse mouth render above. Here we add the arms: hands
+       *  clasped low in front of the body, suggesting reverent /
+       *  amazed posture (both arms come in toward the centerline at
+       *  roughly waist height). Sparkles flank the head to amplify
+       *  the "wow." */}
+      {effectivePose === "amazed" && (
+        <>
+          {/* Left arm: in toward the centerline at waist height. */}
+          <path d="M14 22 L18 26" />
+          {/* Right arm: mirror, meeting the left at the clasp point. */}
+          <path d="M26 22 L22 26" />
+          {/* Clasped hands: small overlapping circles at the meet
+           *  point, slightly larger than a single hand dot so the
+           *  clasp reads as two hands held together. */}
+          <circle cx="19" cy="26.4" r="1" fill="currentColor" stroke="none" />
+          <circle cx="21" cy="26.4" r="1" fill="currentColor" stroke="none" />
+          {/* Sparkles flanking the head: classic four-point sparkle
+           *  glyphs that amplify the "wow" mood. */}
+          <path
+            d="M 5 10 L 7 10 M 6 9 L 6 11"
+            stroke="currentColor"
+            strokeWidth="0.9"
+          />
+          <path
+            d="M 33 10 L 35 10 M 34 9 L 34 11"
+            stroke="currentColor"
+            strokeWidth="0.9"
+          />
+          <path
+            d="M 8 5 L 9 5 M 8.5 4.5 L 8.5 5.5"
+            stroke="currentColor"
+            strokeWidth="0.7"
+          />
+          <path
+            d="M 31 5 L 32 5 M 31.5 4.5 L 31.5 5.5"
+            stroke="currentColor"
+            strokeWidth="0.7"
+          />
+        </>
+      )}
+
+      {/* Embarrassed: scene-tone pose for "post-mistake reaction"
+       *  beats (Centrifuge post-explosion, TooManyBeakers post-drop).
+       *  Half-closed eyes + wavy mouth render above. Here we add the
+       *  characteristic sheepish "rubbing the back of the head" hand
+       *  gesture: one arm raised up and curving back, hand dot
+       *  positioned just above and behind the head. The other arm
+       *  hangs down loosely at the side. Two small pink blush dots
+       *  on each cheek. */}
+      {effectivePose === "embarrassed" && (
+        <>
+          {/* Right arm: raised up and back toward the head — classic
+           *  "rubbing the back of the neck" sheepish gesture. The
+           *  curve uses a quadratic so the arm reads as bent at the
+           *  elbow rather than a straight stick. */}
+          <path d="M 28 18 Q 33 14, 30 8" fill="none" />
+          {/* Hand at the back of the head. */}
+          <circle cx="30" cy="8" r="1" fill="currentColor" stroke="none" />
+          {/* Left arm: hangs down loosely at the side, slightly bent. */}
+          <path d="M 12 20 Q 10 24, 11 28" fill="none" />
+          <circle cx="11" cy="28" r="0.9" fill="currentColor" stroke="none" />
+          {/* Cheek blush: small pink semicircle dots on each cheek.
+           *  Sits just above the measurement-mark cheek dashes (y=26)
+           *  so the blush + dashes don't visually collide. */}
+          <circle
+            cx="14.5"
+            cy="22"
+            r="1"
+            fill="#F9A8D4"
+            stroke="none"
+            opacity="0.85"
+          />
+          <circle
+            cx="25.5"
+            cy="22"
+            r="1"
+            fill="#F9A8D4"
+            stroke="none"
+            opacity="0.85"
+          />
+        </>
       )}
 
       {/* Laugh-text speech bubble: pops up above BeakerBot during the

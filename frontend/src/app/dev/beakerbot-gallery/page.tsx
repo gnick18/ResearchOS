@@ -6,15 +6,15 @@
 // via its real product flow.
 //
 // Catalog covers:
-//   - 18 poses from the BeakerBotPose union (idle, pointing,
+//   - 21 poses from the BeakerBotPose union (idle, pointing,
 //     pointing-up, pointing-down, cheering, waving, bouncing,
 //     thinking, typing, typing-on-laptop, bow-wink, giggle,
 //     rolling-laughing, volcano-eruption, sleeping, hiccup, yawn,
-//     reading)
+//     reading, panicked, amazed, embarrassed)
 //   - 8 multi-stage scene components (Ladder, BugStomp, Skateboard,
 //     ScreenBump, TooManyBeakers, MouseWave, Centrifuge, Eureka)
 //   - 3 pose-celebration variants (cheering, bouncing, volcano-eruption)
-//   = 29 entries total
+//   = 32 entries total
 //
 // Loop mechanic:
 //   - Scenes: on onComplete, flip active=false, wait 500ms, bump a
@@ -105,7 +105,7 @@ type CatalogEntry = PoseEntry | SceneEntry | PoseCelebrationEntry;
 
 // ── Catalog data ───────────────────────────────────────────────────────────
 
-/** All 18 poses from the BeakerBotPose union, in the order they appear
+/** All 21 poses from the BeakerBotPose union, in the order they appear
  *  in BeakerBot.tsx. Tests rely on this length so adding/removing a
  *  pose here requires an explicit test update. */
 const POSES: PoseEntry[] = [
@@ -285,6 +285,36 @@ const POSES: PoseEntry[] = [
     description:
       "Small book appears, eyes scan left/right, right page flips every ~6s.",
     timingNote: "Looping",
+  },
+  {
+    kind: "pose",
+    id: "pose:panicked",
+    label: "panicked",
+    pose: "panicked",
+    loopType: "looping",
+    description:
+      "Wide circle eyes + small 'O' mouth + arms thrown out in a Y. Scene-tone pose for startle / disruption beats (Ladder fall, Centrifuge explosion).",
+    timingNote: "Static silhouette",
+  },
+  {
+    kind: "pose",
+    id: "pose:amazed",
+    label: "amazed",
+    pose: "amazed",
+    loopType: "looping",
+    description:
+      "Wide oval eyes + raised brows + open 'wow' mouth, hands clasped low in front, sparkles flank the head. Scene-tone pose for wondrous beats (Eureka bulb-on, TooManyBeakers phew save).",
+    timingNote: "Static silhouette",
+  },
+  {
+    kind: "pose",
+    id: "pose:embarrassed",
+    label: "embarrassed",
+    pose: "embarrassed",
+    loopType: "looping",
+    description:
+      "Half-closed eyes glancing aside + wavy mouth + one hand rubbing the back of the head + pink cheek blush. Scene-tone pose for post-mistake reactions (Centrifuge post-explosion, TooManyBeakers post-drop).",
+    timingNote: "Static silhouette",
   },
 ];
 

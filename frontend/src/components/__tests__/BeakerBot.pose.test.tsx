@@ -31,6 +31,9 @@ const ALL_POSES: BeakerBotPose[] = [
   "hiccup",
   "yawn",
   "reading",
+  "panicked",
+  "amazed",
+  "embarrassed",
 ];
 
 describe("BeakerBot pose mechanism", () => {
