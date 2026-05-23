@@ -39,6 +39,7 @@ import { useAccountType } from "@/hooks/useAccountType";
 import { deriveVisibleTabs } from "@/lib/onboarding/feature-picks-tabs";
 import { headerGradient } from "@/lib/colors";
 import { useOptionalTourController } from "@/components/onboarding/v4/TourController";
+import EditSessionBanner from "@/components/EditSessionBanner";
 
 const SETTINGS_HREF = "/settings";
 
@@ -439,6 +440,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </Tooltip>
         </div>
       </header>
+
+      {/* Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23): global
+          edit-session banner. Visible across every route while a session
+          is unlocked so the PI sees the countdown after navigating away
+          from the record popup they unlocked on (decision #4 — session
+          survives navigation). Renders nothing when no session is
+          active; no scoping (the popup-level banners further refine to
+          the active record). */}
+      <EditSessionBanner />
 
       {/* Main content with route-specific sidebar */}
       <div className="flex flex-1 overflow-hidden">

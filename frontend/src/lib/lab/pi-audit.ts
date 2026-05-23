@@ -1,0 +1,175 @@
+// Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23): append-only
+// writer for the per-user PI audit log.
+//
+// Decision #2 (Grant 2026-05-23): FULL old/new field diff per edit. We
+// capture both the pre-edit value and the post-edit value verbatim. No
+// summarization. One entry per changed field — a single save that
+// touches N fields writes N audit entries.
+//
+// Storage shape (per proposal section 2c): one file per target user at
+// `users/<target_user>/_pi_audit.json`. The PI already has shared-folder
+// write access (that's what lab mode is), so no new permission model is
+// needed; per-user files avoid the cross-user write race a single lab-
+// root log would create.
+//
+// File schema:
+//
+//   {
+//     "version": 1,
+//     "entries": [ ...PiAuditEntry ]
+//   }
+//
+// Append-only by design. There is no `removeAuditEntry` export. Old
+// records can never be edited or deleted via the application; if a user
+// wants to scrub history they must do so directly on disk and accept
+// the integrity break.
+
+import { fileService } from "../file-system/file-service";
+
+/**
+ * One audit log entry. One per field change per save.
+ *
+ * `field_path` is a dot-separated path through the record shape (e.g.
+ * `"name"`, `"sub_tasks.0.title"`, `"comments[3].text"`). Free-form
+ * string so callers don't need a schema enumeration.
+ *
+ * `old_value` / `new_value` are JSON-cloneable. For complex sub-trees
+ * (a whole sub_tasks array, for instance) the caller may pass the
+ * stringified JSON instead so the file stays diffable on disk. Both
+ * shapes round-trip through `JSON.stringify(data, null, 2)`.
+ */
+export interface PiAuditEntry {
+  /** Unique entry id. UUID-style. */
+  id: string;
+  /** Session id from `edit-session.startEditSession`. Ties all entries
+   *  written in one 5-min unlock window together. */
+  session_id: string;
+  /** Lab head who made the edit (the "actor"). Always === the session's
+   *  username at write time. Stored alongside session_id so a reader
+   *  doesn't have to cross-reference a separate session index. */
+  actor: string;
+  /** Target user (i.e. the user whose folder this file lives in).
+   *  Recorded redundantly so an entry copied out of context is still
+   *  self-describing. */
+  target_user: string;
+  /** Record type: "task" | "note" | "purchase_item" | (future kinds).
+   *  Free-form string so new record types don't break the writer. */
+  record_type: string;
+  /** Record identifier (numeric id for tasks/notes/items; string ok). */
+  record_id: string | number;
+  /** Dot path through the record shape. See class docs. */
+  field_path: string;
+  /** Pre-edit value. JSON-cloneable. */
+  old_value: unknown;
+  /** Post-edit value. JSON-cloneable. */
+  new_value: unknown;
+  /** ISO 8601 timestamp. */
+  timestamp: string;
+}
+
+interface PiAuditFile {
+  version: 1;
+  entries: PiAuditEntry[];
+}
+
+function auditPath(targetUser: string): string {
+  return `users/${targetUser}/_pi_audit.json`;
+}
+
+function newEntryId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `a-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/**
+ * Append one or more audit entries to `users/<target_user>/_pi_audit.json`.
+ * The file is created if missing. Each input is filled with `id` and
+ * `timestamp` if the caller didn't provide them.
+ *
+ * Concurrent writes: this is a read-modify-write. The shared-folder
+ * model already serializes writes through the FS API (no two tabs hit
+ * the same file simultaneously in normal usage), but a defensive merge
+ * here would still race; lab-mode editing is per-PI and short, so the
+ * trade-off matches the rest of the per-user-file pattern.
+ */
+export async function appendAuditEntries(
+  targetUser: string,
+  entries: Array<Omit<PiAuditEntry, "id" | "timestamp"> & { id?: string; timestamp?: string }>,
+): Promise<void> {
+  if (entries.length === 0) return;
+
+  const now = new Date().toISOString();
+  const filled: PiAuditEntry[] = entries.map((e) => ({
+    id: e.id ?? newEntryId(),
+    timestamp: e.timestamp ?? now,
+    session_id: e.session_id,
+    actor: e.actor,
+    target_user: e.target_user,
+    record_type: e.record_type,
+    record_id: e.record_id,
+    field_path: e.field_path,
+    old_value: e.old_value,
+    new_value: e.new_value,
+  }));
+
+  const existing = await fileService.readJson<PiAuditFile>(auditPath(targetUser));
+  const merged: PiAuditFile = {
+    version: 1,
+    entries: [...(existing?.entries ?? []), ...filled],
+  };
+  await fileService.writeJson(auditPath(targetUser), merged);
+}
+
+/**
+ * Read all audit entries for a user. Returns [] if the file doesn't
+ * exist. The reader is not paginated — labs accumulate a few hundred
+ * entries at most over the lifetime of the demo and the file is JSON,
+ * so a full scan is fine.
+ */
+export async function readAuditEntries(targetUser: string): Promise<PiAuditEntry[]> {
+  const data = await fileService.readJson<PiAuditFile>(auditPath(targetUser));
+  if (!data || !Array.isArray(data.entries)) return [];
+  return data.entries;
+}
+
+/**
+ * Build per-field-diff entries from an old / new object pair. The
+ * caller decides which fields are "edit-worthy" by passing them in
+ * `fieldPaths`. Each entry compares `JSON.stringify(old[f]) !==
+ * JSON.stringify(new[f])` — i.e. structural equality. Unchanged fields
+ * are skipped.
+ *
+ * Helper for the popup save handlers: rather than each popup
+ * hand-computing diff entries, they collect a list of touched field
+ * paths and pass them here.
+ */
+export function buildFieldDiffEntries(args: {
+  actor: string;
+  session_id: string;
+  target_user: string;
+  record_type: string;
+  record_id: string | number;
+  oldRecord: Record<string, unknown>;
+  newRecord: Record<string, unknown>;
+  fieldPaths: string[];
+}): Array<Omit<PiAuditEntry, "id" | "timestamp">> {
+  const out: Array<Omit<PiAuditEntry, "id" | "timestamp">> = [];
+  for (const path of args.fieldPaths) {
+    const oldVal = args.oldRecord[path];
+    const newVal = args.newRecord[path];
+    if (JSON.stringify(oldVal) === JSON.stringify(newVal)) continue;
+    out.push({
+      session_id: args.session_id,
+      actor: args.actor,
+      target_user: args.target_user,
+      record_type: args.record_type,
+      record_id: args.record_id,
+      field_path: path,
+      old_value: oldVal ?? null,
+      new_value: newVal ?? null,
+    });
+  }
+  return out;
+}

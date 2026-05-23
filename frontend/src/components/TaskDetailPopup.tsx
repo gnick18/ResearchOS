@@ -50,6 +50,14 @@ import { stripAttachmentReferences } from "@/lib/attachments/strip-references";
 import { imageEvents } from "@/lib/attachments/image-events";
 import { recordProjectActivity } from "@/lib/project-activity/event-log";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useLabHeadEditGate } from "@/hooks/useLabHeadEditGate";
+import RequestEditButton from "./RequestEditButton";
+import EditSessionBanner from "./EditSessionBanner";
+import AuditTrailNotice from "./AuditTrailNotice";
+import {
+  appendAuditEntries,
+  buildFieldDiffEntries,
+} from "@/lib/lab/pi-audit";
 
 interface TaskDetailPopupProps {
   task: Task;
@@ -71,11 +79,22 @@ export default function TaskDetailPopup({
   project,
   onClose,
   onNavigateToTask,
-  readOnly = false,
+  readOnly: propReadOnly = false,
   username,
   initialTab,
 }: TaskDetailPopupProps) {
   const queryClient = useQueryClient();
+  // Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23): wrap the
+  // prop-passed `readOnly` flag with the edit-mode gate. When the active
+  // user is a lab head and has unlocked a session for this record, the
+  // effective readOnly flips false so write inputs (and the save handlers
+  // that audit-log the diff) become available. Otherwise the gate is a
+  // no-op pass-through of `propReadOnly`.
+  const labHeadGate = useLabHeadEditGate({
+    readOnly: propReadOnly,
+    recordOwner: username ?? initialTask.owner ?? null,
+  });
+  const readOnly = labHeadGate.effectiveReadOnly;
   const isExperiment = initialTask.task_type === "experiment";
   const isPurchase = initialTask.task_type === "purchase";
   const isSimpleTask = initialTask.task_type === "list";
@@ -115,7 +134,72 @@ export default function TaskDetailPopup({
   // Owner-aware view of tasksApi: when this popup is showing a task that was
   // shared to the current user with edit permission, every mutating call
   // routes through the owner's directory instead of the current user's.
-  const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
+  //
+  // Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23): when the popup
+  // is in an unlocked PI edit session, mutations also route to the record
+  // owner's folder AND each `update` writes per-field audit entries.
+  const baseScopedTasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
+  const labHeadOwner = labHeadGate.unlocked
+    ? (username ?? task.owner ?? null)
+    : null;
+  const labHeadSessionId = labHeadGate.sessionId;
+  const labHeadActor = labHeadGate.activeUser;
+  const tasksApi = useMemo(() => {
+    if (!labHeadOwner || !labHeadSessionId || !labHeadActor) {
+      return baseScopedTasksApi;
+    }
+    // PI edit-session wrapper. Routes every mutation to the record-owner's
+    // folder (the PI is editing IN their folder, not the PI's) and emits
+    // per-field audit entries on update().
+    const owner = labHeadOwner;
+    const sessionId = labHeadSessionId;
+    const actor = labHeadActor;
+    return {
+      ...baseScopedTasksApi,
+      get: (id: number) => rawTasksApi.get(id, owner),
+      update: async (
+        id: number,
+        data: Parameters<typeof rawTasksApi.update>[1],
+      ) => {
+        // Read the pre-edit record so we can build a diff. Owner-routed.
+        const before = await rawTasksApi.get(id, owner);
+        const updated = await rawTasksApi.update(id, data, owner);
+        if (before && updated) {
+          const oldRecord = before as unknown as Record<string, unknown>;
+          const newRecord = updated as unknown as Record<string, unknown>;
+          const touchedFields = Object.keys(data).filter(
+            (k) => k in oldRecord || k in newRecord,
+          );
+          const entries = buildFieldDiffEntries({
+            actor,
+            session_id: sessionId,
+            target_user: owner,
+            record_type: "task",
+            record_id: id,
+            oldRecord,
+            newRecord,
+            fieldPaths: touchedFields,
+          });
+          if (entries.length > 0) {
+            try {
+              await appendAuditEntries(owner, entries);
+            } catch (err) {
+              console.warn(
+                "[TaskDetailPopup] appendAuditEntries failed",
+                err,
+              );
+            }
+          }
+        }
+        return updated;
+      },
+    };
+  }, [
+    baseScopedTasksApi,
+    labHeadOwner,
+    labHeadSessionId,
+    labHeadActor,
+  ]);
 
   // Cross-owner unshare: clears `external_project` on the task AND removes
   // the manifest entry on the destination project's side. Available on the
@@ -365,7 +449,16 @@ export default function TaskDetailPopup({
   // pattern). Distinct from `ownerScopedTasksApi`, which only routes
   // when `shared_permission === "edit"` — reads should follow the same
   // directory regardless of whether the receiver can mutate.
-  const ownerForTask = initialTask.is_shared_with_me ? initialTask.owner : undefined;
+  // Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23): when the PI
+  // has unlocked edit mode on another member's record, the on-disk file
+  // lives in the OWNER's directory and the fetch must owner-route to it.
+  // Without this the popup would re-read from the PI's folder and clobber
+  // the editable state with the wrong record.
+  const ownerForTask = initialTask.is_shared_with_me
+    ? initialTask.owner
+    : labHeadGate.unlocked
+      ? (username ?? initialTask.owner)
+      : undefined;
   const { data: freshTask } = useQuery({
     queryKey: ["task", taskKey(initialTask)],
     queryFn: () => rawTasksApi.get(initialTask.id, ownerForTask),
@@ -447,9 +540,23 @@ export default function TaskDetailPopup({
           style={{ borderLeftColor: project?.color || "#3b82f6" }}
           onClick={(e) => e.stopPropagation()}
         >
+          {/* Lab Head Phase 5 — simple-task branch banner. */}
+          {labHeadGate.unlocked && labHeadGate.activeUser && (
+            <EditSessionBanner
+              contextLabel={`${username ?? task.owner ?? "lab member"}'s list: ${task.name}`}
+              scopedToUsername={labHeadGate.activeUser}
+            />
+          )}
           {/* Minimal Header */}
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
             <div className="flex items-center gap-2 flex-1 mr-2 min-w-0">
+              {/* Lab Head Phase 5 — Request edit button (simple-task header). */}
+              {labHeadGate.canRequestEdit && !labHeadGate.unlocked && labHeadGate.activeUser && (
+                <RequestEditButton
+                  username={labHeadGate.activeUser}
+                  targetLabel={`${username ?? task.owner ?? "member"}'s list: ${task.name}`}
+                />
+              )}
               {/* Completion toggle with hint - hidden in readOnly mode */}
               {!readOnly && !task.is_complete && (
                 <span className="text-[11px] text-gray-400 italic flex-shrink-0">Mark as complete →</span>
@@ -589,6 +696,17 @@ export default function TaskDetailPopup({
         onDragOver={handleUniversalDragOver}
         onDrop={handleUniversalDrop}
       >
+        {/* Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23):
+            unlocked-session timer banner. Renders only while the PI's
+            session is unlocked AND it's THIS user's session (so a stale
+            session on another popup doesn't bleed visual chrome here). */}
+        {labHeadGate.unlocked && labHeadGate.activeUser && (
+          <EditSessionBanner
+            contextLabel={`${username ?? task.owner ?? "lab member"}'s task: ${task.name}`}
+            scopedToUsername={labHeadGate.activeUser}
+          />
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div className="flex items-center gap-3">
@@ -659,9 +777,29 @@ export default function TaskDetailPopup({
                 {task.duration_days !== 1 ? "s" : ""}
                 {task.is_complete && " · Complete"}
               </p>
+              {/* Lab Head Phase 5 — record-level "Edited by PI" notice.
+                  Shows any prior PI audit entries for this task; the inline
+                  per-field notices below the field inputs are handled
+                  separately (this one is the catch-all at the header). */}
+              {propReadOnly && (username || task.owner) && (
+                <AuditTrailNotice
+                  targetUser={(username ?? task.owner) as string}
+                  recordType="task"
+                  recordId={task.id}
+                />
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Lab Head Phase 5: Request edit button. Visible only when
+                this is a PI viewing another member's record + no session
+                is currently unlocked. Clicking opens the password modal. */}
+            {labHeadGate.canRequestEdit && !labHeadGate.unlocked && labHeadGate.activeUser && (
+              <RequestEditButton
+                username={labHeadGate.activeUser}
+                targetLabel={`${username ?? task.owner ?? "member"}'s task: ${task.name}`}
+              />
+            )}
             {/* Completion toggle with hint - hidden in readOnly mode */}
             {!readOnly && !task.is_complete && (
               <span className="text-xs text-gray-400 italic">Mark as complete →</span>

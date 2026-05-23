@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "audit-mira-alex-1",
+      "session_id": "demo-sess-2026-05-15-alex",
+      "actor": "mira",
+      "target_user": "alex",
+      "record_type": "task",
+      "record_id": 5,
+      "field_path": "name",
+      "old_value": "Yeast transformation screen",
+      "new_value": "Yeast transformation screen (LiAc)",
+      "timestamp": "2026-05-15T14:32:18Z"
+    },
+    {
+      "id": "audit-mira-alex-2",
+      "session_id": "demo-sess-2026-05-15-alex",
+      "actor": "mira",
+      "target_user": "alex",
+      "record_type": "task",
+      "record_id": 5,
+      "field_path": "duration_days",
+      "old_value": 3,
+      "new_value": 4,
+      "timestamp": "2026-05-15T14:32:45Z"
+    }
+  ]
+}
