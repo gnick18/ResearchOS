@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
+import { useDraftPersistence } from "@/hooks/useDraftPersistence";
 import {
   methodsApi as rawMethodsApi,
   filesApi,
@@ -97,6 +99,27 @@ export function CreateMethodModal({
   // both buttons (+ Cancel) while either flow is in flight.
   const [savingMode, setSavingMode] = useState<"save" | "extend" | null>(null);
   const saving = savingMode !== null;
+
+  // Draft persistence + navigation guard for the method name + type.
+  // Heavier state (PCR params, plate wells, etc.) is intentionally not
+  // persisted: restoring a partially-filled PCR form would be confusing,
+  // and the name + type are the most-frequently-lost fields.
+  const METHOD_DRAFT_KEY = "researchos:draft:new-method";
+  const hasMethodContent = name.trim().length > 0;
+  const { clearDraft: clearMethodDraft } = useDraftPersistence(
+    METHOD_DRAFT_KEY,
+    { name, folder, uploadType },
+    hasMethodContent,
+    {
+      onRestore: (saved) => {
+        if (!saved.name?.trim()) return;
+        setName(saved.name ?? "");
+        if (saved.folder) setFolder(saved.folder);
+        if (saved.uploadType) setUploadType(saved.uploadType as MethodTypeId);
+      },
+    },
+  );
+  useUnsavedChangesGuard(hasMethodContent);
 
   // Onboarding v4 §6.4 open-picker beat dispatches a custom DOM event the
   // moment the modal mounts so the `methods-open-picker` walkthrough step
@@ -593,6 +616,7 @@ export function CreateMethodModal({
             }),
           );
         }
+        clearMethodDraft();
         onCreated();
       }
     } catch (error: unknown) {
@@ -601,7 +625,7 @@ export function CreateMethodModal({
     } finally {
       setSavingMode(null);
     }
-  }, [performSave, onCreated, saving, name]);
+  }, [performSave, onCreated, saving, name, clearMethodDraft]);
 
   // Save the method, then wrap it into a freshly-created compound and hand
   // the compound back to the parent so the CompoundMethodBuilder opens with
@@ -640,6 +664,7 @@ export function CreateMethodModal({
         }),
       );
     }
+    clearMethodDraft();
     try {
       const compound = await methodsApi.wrapAsCompound(created.id);
       onCreated(compound);
@@ -653,7 +678,7 @@ export function CreateMethodModal({
     } finally {
       setSavingMode(null);
     }
-  }, [performSave, onCreated, saving, name]);
+  }, [performSave, onCreated, saving, name, clearMethodDraft]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">

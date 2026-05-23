@@ -7,6 +7,8 @@ import { useAppStore } from "@/lib/store";
 import type { SmartGoal, HighLevelGoal, Project } from "@/lib/types";
 import DynamicAnimation from "./DynamicAnimation";
 import Tooltip from "./Tooltip";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
+import { useDraftPersistence } from "@/hooks/useDraftPersistence";
 
 interface HighLevelGoalModalProps {
   projects: Project[];
@@ -61,6 +63,26 @@ export default function HighLevelGoalModal({
   const handleAnimationComplete = useCallback(() => {
     setCelebrationPosition(null);
   }, []);
+
+  // Draft persistence for new goals (not editing). Skip when editing an
+  // existing goal -- the server copy IS the source of truth there.
+  const GOAL_DRAFT_KEY = "researchos:draft:new-goal";
+  const hasGoalContent = !isEditing && name.trim().length > 0;
+  const { clearDraft: clearGoalDraft } = useDraftPersistence(
+    GOAL_DRAFT_KEY,
+    { name, startDate, endDate, color },
+    hasGoalContent,
+    {
+      onRestore: (saved) => {
+        if (!saved.name?.trim()) return;
+        setName(saved.name ?? "");
+        if (saved.startDate) setStartDate(saved.startDate);
+        if (saved.endDate) setEndDate(saved.endDate);
+        if (saved.color) setColor(saved.color);
+      },
+    },
+  );
+  useUnsavedChangesGuard(hasGoalContent);
 
   // Only own projects are selectable. Goals are always current-user-owned;
   // cross-owner goal creation was never supported, so a shared-in project
@@ -170,6 +192,7 @@ export default function HighLevelGoalModal({
         });
       }
       await queryClient.refetchQueries({ queryKey: ["goals"] });
+      if (!isEditing) clearGoalDraft();
       onClose();
     } catch (err) {
       console.error("Failed to save goal:", err);
@@ -177,7 +200,7 @@ export default function HighLevelGoalModal({
     } finally {
       setSaving(false);
     }
-  }, [name, startDate, endDate, projectId, color, smartGoals, isEditing, editingGoal, queryClient, onClose]);
+  }, [name, startDate, endDate, projectId, color, smartGoals, isEditing, editingGoal, queryClient, onClose, clearGoalDraft]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">

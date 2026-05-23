@@ -9,6 +9,8 @@ import {
   ensureMiscProject,
   isMiscProject,
 } from "@/lib/purchases/misc-project";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
+import { useDraftPersistence } from "@/hooks/useDraftPersistence";
 
 /**
  * Quick "+ New Purchase" modal mounted from the /purchases page.
@@ -166,6 +168,23 @@ export default function NewPurchaseModal({
   const [form, setForm] = useState<NewPurchaseFormState>(EMPTY_STATE);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Draft persistence: warn on navigation and survive accidental closes.
+  // Key is per-user so two accounts on the same browser don't share drafts.
+  const draftKey = `researchos:draft:new-purchase:${currentUser}`;
+  const hasMeaningfulContent = form.name.trim().length > 0 || form.vendor.trim().length > 0 || form.fundingString.trim().length > 0;
+  const { clearDraft } = useDraftPersistence(draftKey, form, hasMeaningfulContent, {
+    onRestore: (saved) => {
+      // Only restore if the modal is already open (it always is when mounted)
+      // and the form is still at the initial empty state.
+      setForm((prev) => {
+        const isStillEmpty =
+          !prev.name.trim() && !prev.vendor.trim() && !prev.fundingString.trim();
+        return isStillEmpty ? saved : prev;
+      });
+    },
+  });
+  useUnsavedChangesGuard(hasMeaningfulContent && open);
 
   // Project list powers the Category select. Hidden projects are
   // intentionally NOT requested here: the picker offers real projects +
@@ -378,6 +397,7 @@ export default function NewPurchaseModal({
         await queryClient.refetchQueries({ queryKey: ["funding-accounts"] });
         await queryClient.refetchQueries({ queryKey: ["projects"] });
 
+        clearDraft();
         onClose();
       } catch (err) {
         const msg =
@@ -387,7 +407,7 @@ export default function NewPurchaseModal({
         setSaving(false);
       }
     },
-    [form, fundingAccounts, queryClient, onClose, currentUser],
+    [form, fundingAccounts, queryClient, onClose, currentUser, clearDraft],
   );
 
   if (!open) return null;

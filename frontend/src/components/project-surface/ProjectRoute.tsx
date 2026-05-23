@@ -14,6 +14,7 @@ import GoalsSection from "@/components/project-surface/GoalsSection";
 import ActivityFeed from "@/components/project-surface/ActivityFeed";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useFeaturePicks } from "@/hooks/useFeaturePicks";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import type { Project } from "@/lib/types";
 
 const DEFAULT_COLOR = "#3b82f6";
@@ -536,12 +537,32 @@ function OverviewSection({ project, ownerHint, editOwner, readOnly }: OverviewSe
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedFlashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Keep a ref to the latest draft so the flush function can write it without
+  // a stale closure. Updated synchronously whenever draft changes.
+  const draftRef = useRef<string>("");
+  draftRef.current = draft;
+
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       if (savedFlashTimeoutRef.current) clearTimeout(savedFlashTimeoutRef.current);
     };
   }, []);
+
+  // Flush the pending autosave timer immediately (used by beforeunload).
+  const flushOverviewSave = useCallback(() => {
+    if (!saveTimeoutRef.current) return;
+    clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = null;
+    // Fire-and-forget: we can't await in beforeunload. The write is
+    // best-effort; for tab-close scenarios the browser sometimes allows a
+    // brief async operation to complete before the process exits.
+    rawProjectsApi.setOverview(projectId, draftRef.current, editOwner).catch(() => {});
+  }, [projectId, editOwner]);
+
+  // Guard against navigating away with a pending autosave debounce window.
+  const hasOverviewUnsavedChanges = saveStatus === "saving" && !readOnly;
+  useUnsavedChangesGuard(hasOverviewUnsavedChanges, { onFlush: flushOverviewSave });
 
   const handleChange = useCallback(
     (next: string) => {

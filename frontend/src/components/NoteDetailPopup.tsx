@@ -13,6 +13,7 @@ import { attachImageToTask } from "@/lib/attachments/attach-image";
 import { fileEvents } from "@/lib/attachments/file-events";
 import { checkForDuplicates } from "@/lib/attachments/duplicate-check";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 
 interface NoteDetailPopupProps {
   note: Note;
@@ -107,6 +108,13 @@ export default function NoteDetailPopup({
   const isSavingRef = useRef(false);
   const isClosingRef = useRef(false);
 
+  // Warn before navigating away when there is a pending debounced save.
+  // We read the ref directly inside the handler so we always get the latest
+  // value without needing a separate piece of state that would require
+  // re-renders to stay current. flushRef is wired to the debounced flush
+  // function after it is declared below.
+  const flushRef = useRef<() => void>(() => {});
+
   // Set initial active tab
   useEffect(() => {
     if (note.entries.length > 0 && !activeTab) {
@@ -154,12 +162,28 @@ export default function NoteDetailPopup({
   );
 
   // Debounced save (1.5 seconds after user stops typing)
-  const { debounced: debouncedSave, cancel: cancelDebouncedSave } = useDebouncedCallback(
+  const { debounced: debouncedSave, cancel: cancelDebouncedSave, flush: flushDebouncedSave } = useDebouncedCallback(
     (entryId: string, content: string) => {
       saveEntryContent(entryId, content);
     },
     1500
   );
+  // Keep the beforeunload flush ref pointing at the latest flush function.
+  flushRef.current = flushDebouncedSave;
+
+  // Warn before navigating away when there is a pending debounced save.
+  // Reads the ref directly inside the handler so we always see the latest
+  // state without needing a re-render to propagate the boolean.
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (unsavedContentRef.current.size === 0) return;
+      flushRef.current();
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
 
   // Handle close with save - saves any pending changes before closing
   const handleClose = useCallback(async () => {

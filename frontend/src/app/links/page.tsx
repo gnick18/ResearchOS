@@ -8,6 +8,8 @@ import { labLinksApi } from "@/lib/local-api";
 import type { LabLink } from "@/lib/types";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useFeaturePicks } from "@/hooks/useFeaturePicks";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
+import { useDraftPersistence } from "@/hooks/useDraftPersistence";
 
 // Predefined colors for link cards
 const CARD_COLORS = [
@@ -56,6 +58,29 @@ export default function LabLinksPage() {
   const [category, setCategory] = useState("");
   const [color, setColor] = useState(CARD_COLORS[0].value);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+
+  // Draft persistence + navigation guard for the create form.
+  // Edit form drafts are intentionally skipped: the server copy is
+  // always fresh and a stale edit draft would overwrite the user's
+  // most recent saved data on return.
+  const LINK_DRAFT_KEY = "researchos:draft:new-lab-link";
+  const hasLinkContent = isCreating && (title.trim().length > 0 || url.trim().length > 0);
+  const { clearDraft: clearLinkDraft } = useDraftPersistence(
+    LINK_DRAFT_KEY,
+    { title, url, description, category, color },
+    hasLinkContent,
+    {
+      onRestore: (saved) => {
+        if (!saved.title?.trim() && !saved.url?.trim()) return;
+        setTitle(saved.title ?? "");
+        setUrl(saved.url ?? "");
+        setDescription(saved.description ?? "");
+        setCategory(saved.category ?? "");
+        if (saved.color) setColor(saved.color);
+      },
+    },
+  );
+  useUnsavedChangesGuard(hasLinkContent);
 
   const { data: links = [], isLoading } = useQuery({
     queryKey: ["lab-links"],
@@ -106,6 +131,7 @@ export default function LabLinksPage() {
         preview_image_url: previewImageUrl,
       });
       queryClient.invalidateQueries({ queryKey: ["lab-links"] });
+      clearLinkDraft();
       resetForm();
       setIsCreating(false);
     } catch {

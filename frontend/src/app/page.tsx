@@ -18,6 +18,8 @@ import SubTaskProgressDots from "@/components/workbench/SubTaskProgressDots";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useAppStore } from "@/lib/store";
 import type { Task } from "@/lib/types";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
+import { useDraftPersistence } from "@/hooks/useDraftPersistence";
 
 // Only redirect to the user's default landing tab once per tab/session. If
 // they manually navigate back to "/" later, we respect that.
@@ -56,6 +58,24 @@ export default function HomePage() {
   const { currentUser: providerCurrentUser, isLoading: fsLoading } = useFileSystem();
   const currentUser = providerCurrentUser ?? "";
   const checkingUser = fsLoading;
+
+  // Draft persistence + navigation guard for the create-project inline form.
+  const PROJECT_DRAFT_KEY = `researchos:draft:new-project:${currentUser}`;
+  const hasProjectContent = creating && newName.trim().length > 0;
+  const { clearDraft: clearProjectDraft } = useDraftPersistence(
+    PROJECT_DRAFT_KEY,
+    { name: newName, tags: newTags, color: newColor },
+    hasProjectContent,
+    {
+      onRestore: (saved) => {
+        if (!saved.name?.trim()) return;
+        setNewName(saved.name ?? "");
+        if (saved.tags) setNewTags(saved.tags);
+        if (saved.color) setNewColor(saved.color);
+      },
+    },
+  );
+  useUnsavedChangesGuard(hasProjectContent);
 
   // Drag and drop state
   const [draggedProjectId, setDraggedProjectId] = useState<number | null>(null);
@@ -228,6 +248,7 @@ export default function HomePage() {
         color: newColor,
       });
       await queryClient.refetchQueries({ queryKey: ["projects"] });
+      clearProjectDraft();
       setCreating(false);
       setNewName("");
       setNewTags("");
@@ -235,7 +256,7 @@ export default function HomePage() {
     } catch {
       alert("Failed to create project");
     }
-  }, [newName, newWeekendActive, newTags, newColor, queryClient]);
+  }, [newName, newWeekendActive, newTags, newColor, queryClient, clearProjectDraft]);
 
   // Drag and drop handlers
   //

@@ -12,6 +12,8 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import MethodPicker from "@/components/MethodPicker";
 import TaskPicker from "@/components/TaskPicker";
 import Tooltip from "@/components/Tooltip";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
+import { useDraftPersistence } from "@/hooks/useDraftPersistence";
 
 interface TaskModalProps {
   projects: Project[];
@@ -98,6 +100,30 @@ export default function TaskModal({ projects }: TaskModalProps) {
   // Duplicate warning state
   const [duplicateWarning, setDuplicateWarning] = useState<DuplicateCheckResult | null>(null);
   const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
+
+  // Draft persistence + navigation guard. TaskModal is controlled via a
+  // global store flag (isCreatingTask), not a parent prop, so the modal
+  // component is always mounted and the draft key is stable.
+  const TASK_DRAFT_KEY = "researchos:draft:new-task";
+  const hasTaskContent = name.trim().length > 0;
+  const { clearDraft: clearTaskDraft } = useDraftPersistence(
+    TASK_DRAFT_KEY,
+    { name, projectId, taskType, startDate, durationDays },
+    hasTaskContent,
+    {
+      onRestore: (saved) => {
+        if (!saved.name?.trim()) return;
+        setName(saved.name ?? "");
+        if (saved.taskType) setTaskType(saved.taskType);
+        if (saved.startDate) {
+          // setStartDate is local state -- update it
+          setStartDate(saved.startDate);
+        }
+        if (typeof saved.durationDays === "number") setDurationDays(saved.durationDays);
+      },
+    },
+  );
+  useUnsavedChangesGuard(hasTaskContent && isCreatingTask);
 
   // Load methods for the dropdown
   const { data: methods = [] } = useQuery({
@@ -292,6 +318,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
       await queryClient.refetchQueries({ queryKey: ["tasks"] });
       await queryClient.refetchQueries({ queryKey: ["dependencies"] });
       setGanttLoading(false);
+      clearTaskDraft();
       setIsCreatingTask(false);
       resetForm();
     } catch (error: unknown) {
@@ -319,6 +346,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
     setGanttLoading,
     projects,
     resetForm,
+    clearTaskDraft,
   ]);
 
   const handleSubmit = useCallback(
