@@ -1048,3 +1048,29 @@ describe("TourController step onEnter invocation", () => {
     expect(result.current.currentStep).not.toBe(TEST_STEP_ID);
   });
 });
+
+// Wave 2 Fix 1/9: popstate handler + sacrificial history entry.
+describe("TourController — Wave 2 Fix 1: popstate guard", () => {
+  beforeEach(() => {
+    pushMock.mockClear();
+    window.history.pushState({}, "", "/");
+  });
+
+  it("exposes popstateToastVisible state defaulting to false", () => {
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: wrapper(),
+    });
+    expect(result.current.popstateToastVisible).toBe(false);
+    expect(typeof result.current.dismissPopstateToast).toBe("function");
+  });
+
+  it("dismissPopstateToast() is callable as a no-op when no toast pending", () => {
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: wrapper(),
+    });
+    act(() => {
+      result.current.dismissPopstateToast();
+    });
+    expect(result.current.popstateToastVisible).toBe(false);
+  });
+});

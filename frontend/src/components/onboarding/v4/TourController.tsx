@@ -245,6 +245,13 @@ export interface TourControllerActions {
    *  active step declares `pageLock.pillLabel`. Rendered by
    *  TourPageLock as a bottom-center reassurance pill. */
   readonly pageLockPillLabel: string | null;
+  /** Wave 2 Fix 1/9: popstate toast visibility. True while the
+   *  controller is surfacing the "tour is still running" toast after
+   *  the user pressed browser Back. Auto-dismisses 4s after the
+   *  popstate event. */
+  readonly popstateToastVisible: boolean;
+  /** Wave 2 Fix 1/9: explicit dismiss for the popstate toast. */
+  dismissPopstateToast(): void;
 }
 
 export type TourControllerValue = TourControllerState & TourControllerActions;
@@ -930,6 +937,84 @@ export function TourControllerProvider({
     router.push(`${expected}${search}`);
   }, [state.currentStep, state.paused, router]);
 
+  // Wave 2 Fix 1/9: popstate guard.
+  // When the user hits the browser Back button during an active tour
+  // step that declares an `expectedRoute`, the tour ends up rendering
+  // against a route the step body did not anticipate (BeakerBot keeps
+  // pointing at things that no longer exist on screen). Re-push the
+  // expected route so the tour stays anchored, then surface a toast
+  // telling the user the tour is still running with an inline
+  // "Exit Tour" button to cleanly end the run. The sacrificial
+  // history entry pushed by TourBootstrap on tour start ensures the
+  // FIRST Back from step 0 still has somewhere to land (same URL,
+  // empty state), so this listener doesn't fire on the first Back.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!state.currentStep || state.paused) return;
+    const onPopState = () => {
+      if (!stateRef.current.currentStep) return;
+      const cur = stateRef.current;
+      const body = getStep(cur.currentStep!);
+      if (!body?.expectedRoute) return;
+      const expected = body.expectedRoute;
+      const pathname = window.location.pathname;
+      const matched =
+        expected === "/" ? pathname === "/" : pathname.startsWith(expected);
+      if (matched) return;
+      // Carry the same query-param contract as the expectedRoute
+      // auto-navigate effect above.
+      const search = window.location.search;
+      router.push(`${expected}${search}`);
+      setPopstateToastVisible(true);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+    };
+  }, [state.currentStep, state.paused, router]);
+
+  // Wave 2 Fix 1/9: sacrificial history entry. Push a sentinel
+  // history entry the moment the tour transitions from inactive
+  // (currentStep == null) to active. The first Back press from the
+  // first step then pops the sentinel and lands on the same URL with
+  // the same query string; the popstate listener above sees pathname
+  // already matches expected and stays quiet. Without the sentinel,
+  // pressing Back at step 0 would pop into whatever entry sat
+  // beneath the tour's start (often the previous page), triggering
+  // a noisy re-push immediately on launch.
+  const wasActiveRef = useRef(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const active = !!state.currentStep;
+    if (active && !wasActiveRef.current) {
+      try {
+        window.history.pushState(
+          { tourSentinel: true },
+          "",
+          window.location.href,
+        );
+      } catch {
+        // Some browsers reject pushState on file:// or with a
+        // mismatched origin URL; swallow so a sandboxed launch
+        // doesn't crash the tour.
+      }
+    }
+    wasActiveRef.current = active;
+  }, [state.currentStep]);
+
+  // Popstate toast visibility — flipped on by the popstate listener,
+  // auto-dismisses 4s later, also cleared on tour end / step change.
+  const [popstateToastVisible, setPopstateToastVisible] = useState(false);
+  useEffect(() => {
+    if (!popstateToastVisible) return;
+    const timer = window.setTimeout(() => setPopstateToastVisible(false), 4000);
+    return () => window.clearTimeout(timer);
+  }, [popstateToastVisible]);
+  // Clear toast on tour end so it doesn't linger after exitTour.
+  useEffect(() => {
+    if (!state.currentStep) setPopstateToastVisible(false);
+  }, [state.currentStep]);
+
   // Expose the current step id on document.body so global CSS rules can
   // target it. Used by steps that need a secondary "soft" affordance to
   // pulse alongside the primary spotlight, eg. §6.3 silence highlights
@@ -950,6 +1035,10 @@ export function TourControllerProvider({
   // -------------------------------------------------------------------
   // Memoized context value
   // -------------------------------------------------------------------
+
+  const dismissPopstateToast = useCallback(() => {
+    setPopstateToastVisible(false);
+  }, []);
 
   const value = useMemo<TourControllerValue>(
     () => ({
@@ -973,6 +1062,8 @@ export function TourControllerProvider({
       pageLockWrongClickFlash,
       pageLockPillLabel,
       branchTo,
+      popstateToastVisible,
+      dismissPopstateToast,
     }),
     [
       state,
@@ -995,6 +1086,8 @@ export function TourControllerProvider({
       pageLockWrongClickFlash,
       pageLockPillLabel,
       branchTo,
+      popstateToastVisible,
+      dismissPopstateToast,
     ],
   );
 
@@ -1046,6 +1139,20 @@ function TourOverlay({
 
   if (!controller.currentStep || controller.paused) return null;
 
+  // Wave 2 Fix 1/9: popstate toast — rendered alongside whichever phase
+  // surface owns the current step. The toast itself short-circuits to
+  // null when `popstateToastVisible` is false.
+  const toast = (
+    <PopstateBackToast
+      visible={controller.popstateToastVisible}
+      onExit={() => {
+        controller.dismissPopstateToast();
+        controller.exitTour();
+      }}
+      onDismiss={controller.dismissPopstateToast}
+    />
+  );
+
   // Phase 1 modal-setup surface (P4). Per L9 the setup phase stays
   // modal-contained because the questions are pure data collection with
   // no real product surface to anchor on. The shell mirrors v3's
@@ -1056,16 +1163,19 @@ function TourOverlay({
     const descriptor = getSetupDescriptor(controller.currentStep);
     if (!descriptor) return null;
     return (
-      <ModalSetupShell
-        stepId={controller.currentStep}
-        descriptor={descriptor}
-        sidecar={sidecar}
-        patchSidecar={patchSidecar}
-        onAdvance={controller.advance}
-        onBack={controller.goBack}
-        onSkipStep={controller.skipStep}
-        onExitTour={controller.exitTour}
-      />
+      <>
+        <ModalSetupShell
+          stepId={controller.currentStep}
+          descriptor={descriptor}
+          sidecar={sidecar}
+          patchSidecar={patchSidecar}
+          onAdvance={controller.advance}
+          onBack={controller.goBack}
+          onSkipStep={controller.skipStep}
+          onExitTour={controller.exitTour}
+        />
+        {toast}
+      </>
     );
   }
 
@@ -1095,15 +1205,115 @@ function TourOverlay({
   const isAtFirstStep =
     controller.currentStep === firstApplicableStep(controller.featurePicks);
   return (
-    <InProductWalkthroughOverlay
-      currentStep={controller.currentStep}
-      onManualAdvance={controller.noteManualAdvance}
-      onSkipStep={controller.skipStep}
-      onExitTour={controller.exitTour}
-      onBack={controller.goBack}
-      onBranchTo={controller.branchTo}
-      canGoBack={!isAtFirstStep}
-    />
+    <>
+      <InProductWalkthroughOverlay
+        currentStep={controller.currentStep}
+        onManualAdvance={controller.noteManualAdvance}
+        onSkipStep={controller.skipStep}
+        onExitTour={controller.exitTour}
+        onBack={controller.goBack}
+        onBranchTo={controller.branchTo}
+        canGoBack={!isAtFirstStep}
+      />
+      {toast}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Wave 2 Fix 1/9: Popstate-back toast
+// ---------------------------------------------------------------------------
+
+interface PopstateBackToastProps {
+  visible: boolean;
+  /** Exit Tour button — dismiss the toast and end the tour. */
+  onExit: () => void;
+  /** Auto-dismiss (timer fired). Surfaced so the close-X can call it. */
+  onDismiss: () => void;
+}
+
+/**
+ * Wave 2 Fix 1/9 — small bottom-center toast that flashes when the user
+ * presses browser Back during an active tour. The controller's popstate
+ * handler re-pushes the expected route; this toast tells the user the
+ * tour is still running and offers a clean exit hatch.
+ *
+ * Auto-dismisses 4s after mount (timer lives in the controller). Inline
+ * "Exit Tour" button calls `controller.exitTour()` via the parent prop.
+ */
+function PopstateBackToast({
+  visible,
+  onExit,
+  onDismiss,
+}: PopstateBackToastProps) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- client-only mount detection so the portal target is safe.
+    setMounted(true);
+  }, []);
+  if (!mounted || !visible) return null;
+  return createPortal(
+    <div
+      role="status"
+      aria-live="polite"
+      data-testid="tour-popstate-toast"
+      style={{
+        position: "fixed",
+        bottom: 24,
+        left: "50%",
+        transform: "translateX(-50%)",
+        backgroundColor: "rgba(15, 23, 42, 0.92)",
+        color: "white",
+        fontSize: 13,
+        fontWeight: 500,
+        padding: "10px 14px 10px 16px",
+        borderRadius: 12,
+        boxShadow: "0 6px 16px rgba(0, 0, 0, 0.25)",
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        zIndex: 460,
+        pointerEvents: "auto",
+        maxWidth: "calc(100vw - 32px)",
+      }}
+    >
+      <span>The tour is still running. Click Exit Tour to end early.</span>
+      <button
+        type="button"
+        onClick={onExit}
+        data-testid="tour-popstate-toast-exit"
+        style={{
+          backgroundColor: "#0ea5e9",
+          color: "white",
+          fontSize: 12,
+          fontWeight: 600,
+          padding: "5px 12px",
+          borderRadius: 999,
+          border: "none",
+          cursor: "pointer",
+        }}
+      >
+        Exit Tour
+      </button>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Dismiss"
+        data-testid="tour-popstate-toast-dismiss"
+        style={{
+          background: "transparent",
+          color: "rgba(255,255,255,0.7)",
+          border: "none",
+          cursor: "pointer",
+          fontSize: 16,
+          lineHeight: 1,
+          padding: 2,
+        }}
+      >
+        ×
+      </button>
+    </div>,
+    document.body,
   );
 }
 
