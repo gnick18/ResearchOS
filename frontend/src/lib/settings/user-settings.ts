@@ -13,7 +13,7 @@ export type DateFormat = "MDY" | "DMY" | "YMD";
 export type TimeFormat = "12h" | "24h";
 // Lab Head Phase 1 (2026-05-23): per-user account role inside a shared lab.
 // `member` = regular lab researcher (the existing behavior, defaults here).
-// `lab_head` = PI / principal investigator; reveals the Lab Inbox surface
+// `lab_head` = PI / principal investigator; reveals the Lab Overview surface
 // and (in Phase 2+) gains audit + soft-write capabilities. This is
 // orthogonal to `FeaturePicks.account_type` ("solo" | "lab") which captures
 // the onboarding-wizard choice of workspace shape; this field captures the
@@ -69,7 +69,8 @@ export interface UserSettings {
 
   // Lab Head Phase 1: role inside the lab. Defaults to `member` for every
   // existing user via plain object spread in `normalize()`. `lab_head`
-  // reveals the Lab Inbox sidebar entry and (Phase 2+) audit + soft-write
+  // reveals the Lab Overview top-nav entry (renamed from "Lab Inbox" +
+  // promoted out of the sidebar 2026-05-23) and (Phase 2+) audit + soft-write
   // surfaces. Multiple users in a lab can hold `lab_head` (co-PIs are
   // allowed by design, per Grant's 2026-05-23 decisions).
   account_type: AccountType;

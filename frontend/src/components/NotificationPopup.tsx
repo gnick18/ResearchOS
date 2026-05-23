@@ -333,15 +333,17 @@ export default function NotificationPopup({
                   return;
                 }
                 // For Phase 2 the comment notification's deep-link target
-                // is the Lab Inbox feed — the inline source-surface link
-                // there lets the user jump to the underlying record. The
-                // Lab Inbox is the single feed where every cross-lab
-                // comment lives, so it's a natural landing spot for the
-                // bell click. Mark read + close before navigating.
+                // is the Lab Overview comments feed — the inline source-
+                // surface link there lets the user jump to the underlying
+                // record. Lab Overview is the single feed where every
+                // cross-lab comment lives, so it's a natural landing spot
+                // for the bell click. (Renamed from "Lab Inbox" 2026-05-23
+                // — lab overview rename manager.) Mark read + close before
+                // navigating.
                 if (!notification.read) {
                   void handleMarkRead(notification.id);
                 }
-                router.push("/lab-inbox");
+                router.push("/lab-overview");
                 onClose();
               };
               const handleDismissShiftAlert = async (e: React.MouseEvent) => {
@@ -474,7 +476,7 @@ export default function NotificationPopup({
                             onClick={handleOpenLabComment}
                             className="mt-1.5 text-[11px] text-blue-600 hover:text-blue-800 font-medium"
                           >
-                            Open in Lab Inbox →
+                            Open in Lab Overview →
                           </button>
                         </>
                       )}
@@ -752,12 +754,12 @@ function LabPhase3Row({ notification, onMarkRead, onNavigate }: LabPhase3RowProp
         )}
         <button
           onClick={() => {
-            router.push("/lab-inbox");
+            router.push("/lab-overview");
             onNavigate();
           }}
           className="mt-1.5 text-[11px] text-blue-600 hover:text-blue-800 font-medium"
         >
-          Open Lab Inbox →
+          Open Lab Overview →
         </button>
       </>
     );
@@ -778,14 +780,14 @@ function LabPhase3Row({ notification, onMarkRead, onNavigate }: LabPhase3RowProp
           onClick={() => {
             // Deep-linking to a foreign owner's individual task popup
             // isn't a robust route yet (mirrors the shift-alert handler's
-            // comment). Route to Lab Inbox so the user can find the task
-            // via the existing surfaces.
-            router.push("/lab-inbox");
+            // comment). Route to Lab Overview so the user can find the
+            // task via the existing surfaces.
+            router.push("/lab-overview");
             onNavigate();
           }}
           className="mt-1.5 text-[11px] text-blue-600 hover:text-blue-800 font-medium"
         >
-          Open Lab Inbox →
+          Open Lab Overview →
         </button>
       </>
     );
@@ -840,7 +842,7 @@ function LabPhase3Row({ notification, onMarkRead, onNavigate }: LabPhase3RowProp
           } else if (notification.record_type === "note") {
             router.push("/notes");
           } else {
-            router.push("/lab-inbox");
+            router.push("/lab-overview");
           }
           onNavigate();
         }}

@@ -465,9 +465,10 @@ function ProfileSection({ settings, update }: SectionProps) {
 /**
  * Lab Head Phase 1 (lab head Phase 1 manager, 2026-05-23): account-role
  * picker. Member vs Lab Head. Member is the default and matches the
- * existing behavior — picking Lab Head reveals the Lab Inbox sidebar
- * entry and (Phase 2+) audit + soft-write surfaces. Multiple users in
- * the same lab can hold Lab Head (co-PIs allowed by design).
+ * existing behavior — picking Lab Head reveals the Lab Overview top-nav
+ * entry (renamed from "Lab Inbox" + promoted to top-nav 2026-05-23) and
+ * (Phase 2+) audit + soft-write surfaces. Multiple users in the same
+ * lab can hold Lab Head (co-PIs allowed by design).
  *
  * No password gate yet — Phase 5 will reuse the account password to
  * unlock soft-write edit mode. For now the toggle is unguarded.
@@ -487,7 +488,7 @@ function AccountTypeSection({ settings, update }: SectionProps) {
       value: "lab_head",
       title: "Lab Head",
       description:
-        "Principal investigator. Adds a Lab Inbox surface; can leave comments and run audit oversight (coming soon).",
+        "Principal investigator. Adds a Lab Overview surface; can leave comments and run audit oversight (coming soon).",
     },
   ];
 
