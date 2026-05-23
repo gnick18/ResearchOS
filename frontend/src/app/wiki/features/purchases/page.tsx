@@ -11,8 +11,8 @@ export default function PurchasesFeaturePage() {
     >
       <Screenshot
         src="/wiki/screenshots/purchases-unified-scroll.png"
-        alt="The Purchases page header reading 'Purchases · N orders · $X.XX total' above a single reverse-chronological list of purchase orders. Completed orders carry a green dot and ' · Complete' suffix."
-        caption="One list, newest first. Completed orders stay in place with a green dot and a ' · Complete' suffix rather than getting hidden in a separate section."
+        alt="The Purchases page header with an amber '+ New Purchase' button at the top right, the three filter chips 'All / Project purchases / Miscellaneous' below the header, and a single reverse-chronological list of purchase orders beneath."
+        caption="Header, filter chips, and the unified order list. The amber '+ New Purchase' button and the segmented filter chips were added in the 2026-05-22 Purchases redesign."
       />
 
       <h2>Cost transparency, not a filing cabinet</h2>
@@ -34,9 +34,89 @@ export default function PurchasesFeaturePage() {
         leaving the page.
       </p>
 
+      <h2>Creating a purchase</h2>
+      <p>
+        The amber <strong>+ New Purchase</strong> button in the top-right of the
+        page header opens <code>NewPurchaseModal</code>. The modal collapses the
+        two-step data model (parent purchase task + first line item) into a single
+        form, so the common case of logging one item takes one interaction instead
+        of two.
+      </p>
+
+      <Screenshot
+        src="/wiki/screenshots/purchases-new-purchase-modal.png"
+        alt="The New Purchase modal open over the Purchases page, showing fields for Item Name, Vendor, Category select, Price per unit, Quantity, and Funding string."
+        caption="The New Purchase modal. Item Name is focused on open; selecting a prior item auto-fills Vendor and Price. Category defaults to the first owned project, or Miscellaneous if none exist."
+      />
+
+      <p>
+        The modal has six fields:
+      </p>
+      <ul>
+        <li>
+          <strong>Item Name</strong> (required): a native <code>&lt;datalist&gt;</code>
+          autocomplete surfaces every distinct item name from your purchase history,
+          de-duped case-insensitively with the most-recent record winning. When the
+          typed value matches a prior item name exactly, <strong>Vendor</strong> and
+          {" "}<strong>Price per unit</strong> fill in automatically. Quantity stays
+          at 1; funding string stays unchanged (recurring purchases often re-bill
+          against a different grant).
+        </li>
+        <li>
+          <strong>Vendor</strong>: free text, optional. Not auto-filled unless an
+          exact Item Name match triggers the recall logic above.
+        </li>
+        <li>
+          <strong>Category</strong>: a <code>&lt;select&gt;</code> listing your
+          non-archived, non-shared owned projects plus a synthetic{" "}
+          <strong>Miscellaneous</strong> option at the bottom. Defaults to the first
+          owned project alphabetically; falls back to Miscellaneous if you have no
+          owned projects yet. Choosing Miscellaneous routes the purchase to the
+          hidden <code>_misc_purchases</code> bucket (see below).
+        </li>
+        <li>
+          <strong>Price per unit</strong> and <strong>Quantity</strong>: numeric
+          free-text inputs. Price defaults blank; quantity defaults to 1.
+        </li>
+        <li>
+          <strong>Funding string</strong>: a <code>&lt;datalist&gt;</code>
+          autocomplete pulls from your existing funding accounts (for example,{" "}
+          <code>NIH-R01-12345</code>). Typing a new string and saving creates a
+          budget-zero funding account automatically so the string appears in future
+          dropdowns without a separate setup step. The field is optional; leave it
+          blank to record the purchase without a funding association.
+        </li>
+      </ul>
+      <p>
+        On save, the modal creates a <code>task_type: &quot;purchase&quot;</code> parent
+        task dated today with a one-day duration, then immediately creates the first
+        line item under it. After saving you can expand the row in the list and use
+        the inline PurchaseEditor to add more line items to the same order.
+      </p>
+
+      <Callout variant="info" title="Tour integration">
+        During the onboarding tour, a <code>DemoPurchasesViewer</code> component
+        mounts on the <code>/purchases</code> route to show Alex&apos;s fixture
+        data as a read-only overlay. The tour also drives this modal end-to-end via
+        the BeakerBot cursor script. Production users who are not in the tour never
+        see the demo overlay.
+      </Callout>
+
       <h2>The unified scroll</h2>
       <p>
-        The list is a single column sorted by start date, newest first. There is no
+        Above the order list is a three-chip segmented control that scopes what
+        you see. <strong>All</strong> shows every purchase task and is always
+        visible. <strong>Project purchases</strong> filters to orders attached to
+        a real project, hiding the Miscellaneous bucket. The third chip,{" "}
+        <strong>Miscellaneous</strong>, shows only the ad-hoc purchases in the
+        hidden <code>_misc_purchases</code> bucket; this chip is hidden entirely
+        when <code>miscTaskCount === 0</code> so a freshly-onboarded account does
+        not see a confusing empty bucket. All three chips display a live count
+        badge that reflects the full purchase list, not just the filtered view,
+        so the badge numbers stay stable as you switch tabs.
+      </p>
+      <p>
+        The list itself is a single column sorted by start date, newest first. There is no
         active vs earlier split. A completed order looks almost identical to an
         in-flight one: same row, same colors, with a small green dot and the text{" "}
         <code>· Complete</code> appended to the metadata line. The row itself is
@@ -62,6 +142,40 @@ export default function PurchasesFeaturePage() {
         caption="An expanded order. Vendor and category are first-class columns, and both inputs draw from a datalist of values used elsewhere in your purchase history."
       />
 
+      <h2>The Miscellaneous bucket</h2>
+      <p>
+        The existing data model requires every purchase task to have a{" "}
+        <code>project_id</code>. Purchases that do not belong to any real project,
+        like conference flights, lab snacks, or one-off equipment, still need
+        somewhere to land. Rather than making <code>project_id</code> nullable and
+        updating every reader (Gantt, Workbench, search, activity log), ResearchOS
+        creates a per-user hidden project named <code>_misc_purchases</code> and
+        routes those purchases there.
+      </p>
+      <p>
+        The hidden project never appears on Home, Workbench, Gantt, the project
+        picker, or anywhere in the app that calls{" "}
+        <code>fetchAllProjectsIncludingShared</code> without explicitly opting in.
+        The <code>/purchases</code> route is the only surface that passes{" "}
+        <code>{"{ includeHidden: true }"}</code>, so the bucket is visible
+        (and filterable) there but invisible everywhere else.
+      </p>
+
+      <Callout variant="tip" title="Two things named Miscellaneous">
+        Be careful not to conflate two distinct concepts that share the same
+        label. The <strong>Category select in NewPurchaseModal</strong> picks
+        which project the parent purchase task routes to: choosing
+        &ldquo;Miscellaneous&rdquo; routes to the{" "}
+        <code>_misc_purchases</code> hidden project. Separately, the{" "}
+        <strong>Miscellaneous filter chip</strong> on the order list surfaces
+        exactly those tasks. Neither of these is the same as the free-text{" "}
+        <strong>category column on individual PurchaseItems</strong> inside an
+        expanded order (documented below in &ldquo;Vendor and category as
+        first-class fields&rdquo;). That column is per-line-item, nullable,
+        and never auto-set except when the modal save path writes the reserved{" "}
+        <code>Miscellaneous</code> string to signal downstream filters.
+      </Callout>
+
       <h2>Vendor and category as first-class fields</h2>
       <p>
         Lab purchasing has heavy vendor reuse. The same supplier shows up across
@@ -84,12 +198,22 @@ export default function PurchasesFeaturePage() {
       </p>
 
       <Callout variant="tip" title="Why not an enum?">
-        A free-text field with autocomplete keeps the surface low-friction for
+        This applies to the free-text <strong>vendor</strong> and{" "}
+        <strong>category</strong> columns on individual <code>PurchaseItem</code>{" "}
+        rows inside PurchaseEditor, not to the top-level project routing. A
+        free-text field with autocomplete keeps the surface low-friction for
         researchers who already know what vendor they mean, while still letting
         the dashboard group <code>Sigma Aldrich</code> and{" "}
         <code>Sigma-Aldrich</code> together once someone fixes the spelling. An
         enum would force every lab to either use one of our buckets or carry a{" "}
         <em>misc.</em> tail forever.
+        <br /><br />
+        Note that the top-level purchase routing (which project a purchase task
+        belongs to) does have one reserved bucket: <strong>Miscellaneous</strong>{" "}
+        routes to the hidden <code>_misc_purchases</code> project. That routing
+        is effectively enum-like. The two concepts are distinct: one is the
+        project the order lives in, the other is a per-line-item annotation
+        inside an order.
       </Callout>
 
       <h2>The loose model and the soft warning</h2>
