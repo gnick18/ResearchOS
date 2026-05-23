@@ -40,14 +40,32 @@ export default function TodaysAnnouncementsWidget(_props?: {
       {pinned.slice(0, 5).map((a) => (
         <li
           key={a.id}
-          className="text-xs text-gray-700 truncate"
+          className="text-xs text-gray-700 truncate flex items-start gap-1"
           title={a.text}
         >
-          <span className="text-emerald-500 mr-1">📌</span>
-          {/* First line only — the compact sidebar format calls for
+          {/* Pin icon. Inline SVG (project does not depend on
+              lucide-react). Replaces the earlier 📌 emoji per Grant's
+              no-emojis rule. */}
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            className="text-emerald-500 flex-shrink-0 mt-0.5"
+          >
+            <line x1="12" y1="17" x2="12" y2="22" />
+            <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24z" />
+          </svg>
+          {/* First line only, the compact sidebar format calls for
               titles, not the full body. The full text shows in the
               canvas Announcements widget. */}
-          {a.text.split("\n")[0]}
+          <span className="truncate">{a.text.split("\n")[0]}</span>
         </li>
       ))}
     </ul>

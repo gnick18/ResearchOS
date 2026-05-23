@@ -48,11 +48,94 @@ interface FeedItem {
   href?: string;
 }
 
-const KIND_ICON: Record<Kind, string> = {
-  comment: "💬",
-  task: "🧪",
-  flag: "🚩",
-  announcement: "📣",
+/**
+ * Inline SVG icons (project does not depend on lucide-react). Each
+ * icon renders inside a 14px square next to the activity row. Stroke
+ * inherits `currentColor` so the parent's text color drives the tint.
+ * Replaces the earlier emoji set (Grant rule: no emojis in production
+ * UI, they read tacky on the dashboard).
+ */
+const KIND_ICON: Record<Kind, React.ReactElement> = {
+  // chat bubble (comment)
+  comment: (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  ),
+  // beaker (task / experiment)
+  task: (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M10 2v7.31" />
+      <path d="M14 9.3V2" />
+      <path d="M8.5 2h7" />
+      <path d="M14 9.3a6.5 6.5 0 1 1-4 0" />
+    </svg>
+  ),
+  // flag
+  flag: (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+      <line x1="4" y1="22" x2="4" y2="15" />
+    </svg>
+  ),
+  // megaphone (announcement)
+  announcement: (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 11l18-5v12L3 14v-3z" />
+      <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
+    </svg>
+  ),
+};
+
+const KIND_ICON_COLOR: Record<Kind, string> = {
+  comment: "text-blue-500",
+  task: "text-emerald-500",
+  flag: "text-amber-500",
+  announcement: "text-purple-500",
 };
 
 export default function RecentActivityWidget(_props?: {
@@ -173,7 +256,7 @@ export default function RecentActivityWidget(_props?: {
           <div className="flex items-start gap-1.5 min-w-0">
             <span
               aria-hidden="true"
-              className="text-xs flex-shrink-0 mt-0.5"
+              className={`flex-shrink-0 mt-0.5 ${KIND_ICON_COLOR[item.kind]}`}
               title={item.kind}
             >
               {KIND_ICON[item.kind]}
