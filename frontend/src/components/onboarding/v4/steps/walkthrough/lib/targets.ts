@@ -249,6 +249,14 @@ export const TOUR_TARGETS = {
 
   // §6.10 Settings
   settingsColorPicker: "settings-color-picker",
+  /** "Tint header with my color" toggle in the Profile section. The v4 tour
+   *  used to demo color-picking here (auto-click a swatch). Now that users
+   *  pick their color during user creation via UserColorPickerPopup, the
+   *  walkthrough beat re-points at this toggle and invites users to play
+   *  with the chrome tint + tweak colors if they want before moving on.
+   *  Stamped on a div wrapper around the ToggleRow so the spotlight wraps
+   *  the whole row. */
+  settingsColorTintToggle: "settings-color-tint-toggle",
   settingsAiHelperSection: "settings-ai-helper-section",
   settingsAiHelperTabFull: "settings-ai-helper-tab-full",
   settingsAiHelperTabMedium: "settings-ai-helper-tab-medium",

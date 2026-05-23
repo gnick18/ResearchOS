@@ -551,12 +551,14 @@ function ProfileSection({ settings, update }: SectionProps) {
         />
       </div>
 
-      <ToggleRow
-        label="Tint header with my color"
-        description="When off, the top bar stays white. Your avatar bubbles around the app still use your color either way."
-        checked={settings.coloredHeader}
-        onChange={(v) => void update({ coloredHeader: v })}
-      />
+      <div data-tour-target="settings-color-tint-toggle">
+        <ToggleRow
+          label="Tint header with my color"
+          description="When off, the top bar stays white. Your avatar bubbles around the app still use your color either way."
+          checked={settings.coloredHeader}
+          onChange={(v) => void update({ coloredHeader: v })}
+        />
+      </div>
     </SectionShell>
   );
 }

@@ -1,19 +1,11 @@
 /**
- * §6.10 Settings — refined `personalization-color` step tests.
+ * §6.10 Settings — `personalization-color` step tests.
  *
- * Settings manager 2026-05-22 (§6.10 phase redesign). The prior single-
- * paragraph speech ("Now let's pick your color. Watch the chrome shift
- * live.") gains a second paragraph inviting the optional secondary
- * pick, AND the step mounts a page-lock allow-list so the user can
- * optionally click any palette swatch (primary + secondary, once the
- * gradient sub-bot a621daf4 ships) + the Clear-secondary button.
- *
- * Defensive primary-only (gradient sub-bot in flight): the allow-list
- * permits the existing `[data-color-swatch]` attribute on every
- * palette button and the new `settings-color-picker-clear-secondary`
- * anchor. The secondary palette UI doesn't exist yet, so the cursor
- * script clicks only the primary swatch and leaves the optional stage
- * to whatever palette ships.
+ * Pivoted 2026-05-23 (master inline edit). Users now pick their color
+ * during user creation via UserColorPickerPopup, so the walkthrough
+ * step no longer demos color-picking. Instead it spotlights the "Tint
+ * header with my color" toggle, runs entirely user-paced (no cursor
+ * demo), and lets the user toggle, tweak colors, or just continue.
  *
  * The legacy `settingsMoreStep` survives in the file with @deprecated
  * JSDoc but is no longer in TOUR_STEP_ORDER. Tests for that body are
@@ -45,23 +37,25 @@ describe("personalization-color (refined, §6.10 phase redesign)", () => {
     expect(settingsColorStep.expectedRoute).toBe("/settings");
   });
 
-  it("targets the settings color picker", () => {
+  it("targets the tint-header toggle (not the color picker anymore)", () => {
     expect(settingsColorStep.targetSelector).toBe(
-      "[data-tour-target=\"settings-color-picker\"]",
+      "[data-tour-target=\"settings-color-tint-toggle\"]",
     );
   });
 
-  it("retains the cursorScript for the primary swatch demo", () => {
-    expect(settingsColorStep.cursorScript).toBeDefined();
+  it("has no cursorScript: the step is user-paced from mount", () => {
+    expect(settingsColorStep.cursorScript).toBeUndefined();
   });
 
-  it("speech invites the optional secondary pick", () => {
+  it("speech explains the toggle + invites the user to tweak colors", () => {
     const text = renderSpeech(settingsColorStep);
-    // Primary demo phrase from the prior body.
-    expect(text).toMatch(/Watch the chrome shift live/);
-    // New: optional-secondary invitation.
-    expect(text).toMatch(/gradient/i);
-    expect(text).toMatch(/second color/i);
+    // Explains the toggle's purpose.
+    expect(text).toMatch(/top bar/i);
+    // References that color was already picked at account creation.
+    expect(text).toMatch(/picked your color/i);
+    // Invites the user to refine colors here if they want.
+    expect(text).toMatch(/swatches/i);
+    // Manual advance prompt.
     expect(text).toMatch(/Got it, next/i);
   });
 
@@ -69,18 +63,17 @@ describe("personalization-color (refined, §6.10 phase redesign)", () => {
     expect(renderSpeech(settingsColorStep)).not.toContain("—");
   });
 
-  it("mounts a page-lock allow-list permitting palette swatches + Got-it button", () => {
+  it("mounts a page-lock allow-list permitting toggle + palette swatches", () => {
     expect(settingsColorStep.pageLock).toBeDefined();
     expect(settingsColorStep.pageLock?.allowList).toBeDefined();
     const allow = settingsColorStep.pageLock!.allowList as ReadonlyArray<string>;
-    // Primary + (future) secondary palette swatches share the
-    // data-color-swatch attribute, so the allow-list extends to both
-    // without a follow-up edit when the gradient sub-bot lands.
+    // Tint toggle itself + its descendants.
+    expect(allow.some((s) => s.includes("settings-color-tint-toggle"))).toBe(
+      true,
+    );
+    // Palette swatches stay reachable so the user can refine colors.
     expect(allow).toContain("[data-color-swatch]");
-    // Defensive: the Clear-secondary button (gradient sub-bot)
-    // anchor is allow-listed even though the anchor doesn't exist
-    // yet — when gradient ships, the user can clear the secondary
-    // pick without the page-lock blocking the click.
+    // Clear-secondary button anchor (gradient feature) stays permitted.
     expect(allow.some((s) => s.includes("settings-color-picker-clear-secondary"))).toBe(
       true,
     );
