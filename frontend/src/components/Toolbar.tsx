@@ -313,7 +313,7 @@ export default function Toolbar({
                   disabled={projectFilterMode === "explicit" && selectedProjectIds.length === 0}
                   className="text-xs text-blue-600 hover:text-blue-800 hover:underline disabled:text-gray-300 disabled:cursor-default disabled:hover:no-underline"
                 >
-                  Clear
+                  Unselect all
                 </button>
               </div>
             </div>
@@ -395,7 +395,7 @@ export default function Toolbar({
             )}
             {projectFilterMode === "explicit" && selectedProjectIds.length === 0 && (
               <p className="px-3 py-1.5 text-[11px] text-gray-400 border-t border-gray-100">
-                Showing no projects. Pick rows or click Select all.
+                Showing no projects. Pick rows or click Select all to reset.
               </p>
             )}
           </div>
