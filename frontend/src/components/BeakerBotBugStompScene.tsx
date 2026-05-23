@@ -2,38 +2,43 @@
 
 // frontend/src/components/BeakerBotBugStompScene.tsx
 //
-// Side easter-egg scene (R2 rewrite): a swarm of cartoon "software bugs"
-// scatters across the viewport, then BeakerBot sneaks in with a fly
-// swatter, stalks the nearest target with predatory body language, and
-// WHACKS it — leaving a splat residue on the ground as proof. The splat
-// stays on screen through the celebrate + walk-off stages, which is the
-// satisfying punchline (v1's bug evaporated, this one leaves evidence).
+// Side easter-egg scene (R3 simplification). ONE bug sits on the
+// ground; BeakerBot walks in carrying a fly swatter, spots it, sneaks
+// HORIZONTALLY across the screen to close the distance, then arcs the
+// swatter down on the bug. The bug becomes a splat residue that stays
+// on screen as the satisfying punchline while BeakerBot cheers and
+// walks off.
 //
-// Built on the same skeleton as the other side scenes (Ladder, Eureka,
-// TooManyBeakers): multi-stage CSS keyframe animation, portaled into
-// document.body, position:fixed, pointer-events:none, z-index 800.
-// All motion runs via scoped @keyframes + animation-delay so the
-// browser owns the timing.
+// Why R3? R2 had three problems Grant called out:
+//   1. The PoseStack cross-fade mechanism rendered all three poses at
+//      full opacity simultaneously, giving BeakerBot three visible
+//      arms.
+//   2. A 5-bug swarm overcrowded the gag (just one bug is funnier).
+//   3. BeakerBot stayed in place — the swatter waved around in empty
+//      space, never reaching a bug.
 //
-// Stage timeline (~6.3s total in motion mode):
-//   1. bugsScatter   0      -> 1500ms  (4-6 bugs spawn from center, scatter)
-//   2. spot          1500   -> 2000ms  (BeakerBot enters, panicked pose)
-//   3. sneak         2000   -> 3800ms  (pointing-down + lean, tip-toe jerky)
-//   4. whack         3800   -> 4100ms  (swatter arcs down, body squash)
-//   5. splat         4100   -> 4700ms  (residue appears, holds remaining)
-//   6. celebrate     4700   -> 5500ms  (cheering pose, swatter raised, "!")
-//   7. exit          5500   -> 6300ms  (walks off, body bob, splat holds)
+// R3 fixes all three: a single `pose` prop on a single <BeakerBot/>,
+// ONE bug at a deterministic position, and a real translateX sneak
+// covering ~40+vw so the whack happens NEXT TO the bug.
 //
-// Reduced-motion fallback: static tableau (BeakerBot mid-cheer with
-// swatter raised, one splat residue, 2-3 frozen bugs scattered) for 2s,
-// then onComplete.
+// Stage timeline (~5.0s total in motion mode):
+//   1. walkIn     0    -> 600ms   BeakerBot enters from chosen side
+//                                  carrying the swatter, idle pose
+//   2. spot       600  -> 1100ms  Stops, panicked pose (sees the bug)
+//   3. sneak      1100 -> 2600ms  pointing-down + lean, translateX
+//                                  the long distance to next-to-bug
+//   4. whack      2600 -> 3000ms  Stops. Swatter arcs down (0->90deg
+//                                  in 200ms anticipation, snap back
+//                                  0deg in 200ms). Body squashes.
+//   5. splat      3000 -> 3500ms  Bug -> splat residue (scale 0 ->
+//                                  1.1 -> 1.0 + opacity). Holds.
+//   6. celebrate  3500 -> 4300ms  cheering pose, swatter raised, "!"
+//   7. exit       4300 -> 5000ms  Walks back off the side he came
+//                                  from, idle pose. Splat HOLDS.
 //
-// API
-//   <BeakerBotBugStompScene
-//     active
-//     onComplete={() => setShowScene(false)}
-//     beakerBotEntersFrom="right"  // default
-//   />
+// Reduced-motion fallback: a static tableau (BeakerBot mid-cheer with
+// swatter raised + splat residue, no bug) holds for 2s, then
+// onComplete.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -50,60 +55,59 @@ export interface BeakerBotBugStompSceneProps {
    *  set `active=false` in response — the component does not unmount
    *  itself. */
   onComplete: () => void;
-  /** Side BeakerBot enters from. Default "right". The bug swarm
-   *  spawns from a center point on the viewport, so this prop only
-   *  affects BeakerBot's entry/exit edge — the bugs are always in
-   *  the middle. */
+  /** Side BeakerBot enters from. Default "right". The single bug
+   *  spawns at a fixed deterministic position; only BeakerBot's entry
+   *  edge changes. */
   beakerBotEntersFrom?: "left" | "right";
 }
 
 /** Stage durations in ms. Exported so tests can re-derive the total. */
 export const STAGE_DURATIONS = {
-  bugsScatter: 1500,
+  walkIn: 600,
   spot: 500,
-  sneak: 1800,
-  whack: 300,
-  splat: 600,
+  sneak: 1500,
+  whack: 400,
+  splat: 500,
   celebrate: 800,
-  exit: 800,
+  exit: 700,
 } as const;
 
 export const SCENE_DURATION_MS =
-  STAGE_DURATIONS.bugsScatter +
+  STAGE_DURATIONS.walkIn +
   STAGE_DURATIONS.spot +
   STAGE_DURATIONS.sneak +
   STAGE_DURATIONS.whack +
   STAGE_DURATIONS.splat +
   STAGE_DURATIONS.celebrate +
-  STAGE_DURATIONS.exit; // 6300ms
+  STAGE_DURATIONS.exit; // 5000ms
 
 /** Cumulative stage start offsets (ms from scene start). */
 const STAGE_OFFSETS = {
-  bugsScatter: 0,
-  spot: STAGE_DURATIONS.bugsScatter,
-  sneak: STAGE_DURATIONS.bugsScatter + STAGE_DURATIONS.spot,
+  walkIn: 0,
+  spot: STAGE_DURATIONS.walkIn,
+  sneak: STAGE_DURATIONS.walkIn + STAGE_DURATIONS.spot,
   whack:
-    STAGE_DURATIONS.bugsScatter + STAGE_DURATIONS.spot + STAGE_DURATIONS.sneak,
+    STAGE_DURATIONS.walkIn + STAGE_DURATIONS.spot + STAGE_DURATIONS.sneak,
   /** 200ms into the whack stage — when the swatter is at the bottom
-   *  of its arc and the bug should poof. */
+   *  of its arc and the bug should disappear into the splat. */
   whackImpact:
-    STAGE_DURATIONS.bugsScatter +
+    STAGE_DURATIONS.walkIn +
     STAGE_DURATIONS.spot +
     STAGE_DURATIONS.sneak +
     200,
   splat:
-    STAGE_DURATIONS.bugsScatter +
+    STAGE_DURATIONS.walkIn +
     STAGE_DURATIONS.spot +
     STAGE_DURATIONS.sneak +
     STAGE_DURATIONS.whack,
   celebrate:
-    STAGE_DURATIONS.bugsScatter +
+    STAGE_DURATIONS.walkIn +
     STAGE_DURATIONS.spot +
     STAGE_DURATIONS.sneak +
     STAGE_DURATIONS.whack +
     STAGE_DURATIONS.splat,
   exit:
-    STAGE_DURATIONS.bugsScatter +
+    STAGE_DURATIONS.walkIn +
     STAGE_DURATIONS.spot +
     STAGE_DURATIONS.sneak +
     STAGE_DURATIONS.whack +
@@ -115,22 +119,13 @@ const STAGE_OFFSETS = {
  *  ~2s, then onComplete. */
 const REDUCED_MOTION_DURATION_MS = 2000;
 
-/** Number of bugs in the swarm. Deterministic so tests can assert. */
-const BUG_COUNT = 5;
-
-/** Pre-computed scatter targets for each bug. Hand-picked so the
- *  swarm spreads across the visible area without overlapping. Bug 0
- *  is the TARGET (the one BeakerBot whacks); bugs 1..N stay scattered
- *  as witnesses then panic-scatter further during exit. Coordinates
- *  are { xVw, yPx }: xVw is absolute viewport-width position, yPx
- *  is offset above the ground line (positive = higher up). */
-const BUG_TARGETS: ReadonlyArray<{ xVw: number; yPx: number }> = [
-  { xVw: 50, yPx: 0 }, // target — on ground line near center
-  { xVw: 32, yPx: 40 }, // upper-left of swarm
-  { xVw: 65, yPx: -20 }, // lower-right
-  { xVw: 28, yPx: -10 },
-  { xVw: 72, yPx: 30 },
-];
+/** Single bug position. xVw is absolute viewport-width position,
+ *  yPx is offset above the ground line (positive = higher up). The
+ *  bug sits on the ground line near 65vw, so BeakerBot entering from
+ *  the left has a satisfying ~50vw sneak path. (When BeakerBot enters
+ *  from the right, the path is the mirror — bug is positioned at
+ *  35vw instead; see `bugX` in the direction memo.) */
+const BUG_Y_PX = 0;
 
 /** Tiny "software bug" SVG — oval body, two antennae, six legs. */
 function BugGlyph({
@@ -288,6 +283,30 @@ function SplatResidue({ className }: { className?: string }) {
   );
 }
 
+/** Which stage we're currently in. Drives the single <BeakerBot/>
+ *  pose prop swap. */
+type Stage =
+  | "walkIn"
+  | "spot"
+  | "sneak"
+  | "whack"
+  | "splat"
+  | "celebrate"
+  | "exit";
+
+/** Pose for each stage. Used by the single <BeakerBot/> instance so
+ *  we never render more than one BeakerBot SVG at a time (= no
+ *  three-arm bug from R2's PoseStack). */
+const STAGE_POSES: Record<Stage, BeakerBotPose> = {
+  walkIn: "idle",
+  spot: "panicked",
+  sneak: "pointing-down",
+  whack: "pointing-down",
+  splat: "pointing-down",
+  celebrate: "cheering",
+  exit: "idle",
+};
+
 export default function BeakerBotBugStompScene({
   active,
   onComplete,
@@ -295,6 +314,7 @@ export default function BeakerBotBugStompScene({
 }: BeakerBotBugStompSceneProps) {
   const [mounted, setMounted] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [stage, setStage] = useState<Stage>("walkIn");
   // Capture onComplete in a ref so the timer effect doesn't re-fire
   // (and reset the sequence) every time the parent re-renders with a
   // new inline-fn reference.
@@ -319,6 +339,38 @@ export default function BeakerBotBugStompScene({
     setReducedMotion(mq.matches);
   }, []);
 
+  // Stage scheduler — drives the single BeakerBot pose swap from
+  // `walkIn` -> `spot` -> ... -> `exit` at the stage boundaries.
+  // Each stage transition is one React re-render with a new `pose`
+  // prop on the same single <BeakerBot/> instance; the CSS animations
+  // (driven by animation-delay) run independently and don't restart
+  // when state changes.
+  useEffect(() => {
+    if (!active || reducedMotion) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot reset of stage state when the scene is inactive or in reduced-motion mode; needed so toggling active false -> true restarts the sequence from walkIn rather than wherever the previous play left it.
+      setStage("walkIn");
+      return;
+    }
+    const handles: number[] = [];
+    const schedule = (delay: number, next: Stage) => {
+      handles.push(
+        window.setTimeout(() => {
+          setStage(next);
+        }, delay),
+      );
+    };
+    setStage("walkIn");
+    schedule(STAGE_OFFSETS.spot, "spot");
+    schedule(STAGE_OFFSETS.sneak, "sneak");
+    schedule(STAGE_OFFSETS.whack, "whack");
+    schedule(STAGE_OFFSETS.splat, "splat");
+    schedule(STAGE_OFFSETS.celebrate, "celebrate");
+    schedule(STAGE_OFFSETS.exit, "exit");
+    return () => {
+      handles.forEach((h) => window.clearTimeout(h));
+    };
+  }, [active, reducedMotion]);
+
   // Timer: fires onComplete after the full scene duration (or the
   // reduced-motion shortcut). Keyed to `active` so toggling
   // false -> true restarts the sequence cleanly.
@@ -331,22 +383,26 @@ export default function BeakerBotBugStompScene({
     return () => window.clearTimeout(handle);
   }, [active, reducedMotion]);
 
-  // Direction memo — drives the keyframe x-coords. Bug 0 (the target)
-  // is always at 50vw so BeakerBot's stalk path crosses the swarm
-  // regardless of his entry side.
+  // Direction memo — drives the keyframe x-coords. The bug sits on
+  // the OPPOSITE side from BeakerBot's entry so the sneak path is
+  // long and visible (~50vw of horizontal travel).
   const direction = useMemo(() => {
     const beakerFromLeft = beakerBotEntersFrom === "left";
     return {
       beakerStartX: beakerFromLeft ? "-20vw" : "120vw",
       // Spot pause — BeakerBot stops near his entry edge to react to
-      // the swarm before he starts stalking.
-      beakerSpotX: beakerFromLeft ? "10vw" : "90vw",
-      // Sneak ends a few vw "behind" bug 0 from BeakerBot's side
-      // (he's stalking, not standing on top of it).
-      beakerStalkX: beakerFromLeft ? "42vw" : "58vw",
+      // the bug before he starts stalking.
+      beakerSpotX: beakerFromLeft ? "12vw" : "88vw",
+      // Sneak ends a few vw "behind" the bug from BeakerBot's side
+      // (he's stalking, not standing on top of it). The bug is on
+      // the opposite side of the screen.
+      beakerStalkX: beakerFromLeft ? "58vw" : "42vw",
       beakerExitX: beakerFromLeft ? "-30vw" : "130vw",
+      /** Bug X position (vw). On the opposite side from BeakerBot's
+       *  entry so the sneak distance is long. */
+      bugX: beakerFromLeft ? "68vw" : "32vw",
       // +1 if walking rightward (entered from left), -1 if leftward.
-      // Drives swatter hand-side and exit bob direction.
+      // Drives swatter hand-side.
       sneakSign: (beakerFromLeft ? 1 : -1) as 1 | -1,
     };
   }, [beakerBotEntersFrom]);
@@ -402,11 +458,6 @@ export default function BeakerBotBugStompScene({
               <FlySwatter className="w-8 h-10" />
             </div>
           </div>
-          {/* 2 frozen bugs scattered nearby. */}
-          <div style={{ display: "flex", gap: 24, marginLeft: 12 }}>
-            <BugGlyph className="w-8 h-8 text-neutral-800" />
-            <BugGlyph className="w-8 h-8 text-neutral-800" />
-          </div>
         </div>
       </div>,
       document.body,
@@ -414,49 +465,12 @@ export default function BeakerBotBugStompScene({
   }
 
   // Full animated scene.
+  const currentPose = STAGE_POSES[stage];
   return createPortal(
     <>
       {/* Scoped keyframes for the full sequence. */}
       <style>{`
-        /* Bug scatter: each bug starts at center spawn point (0,0
-           relative to its container which is pinned to 50vw) and
-           translates to its assigned target. Path arcs slightly upward
-           mid-flight to read as scuttle, not slide. */
-        @keyframes bbs-bug-scatter {
-          0%   { transform: translate(0, 0) scale(0.6); opacity: 0; }
-          15%  { opacity: 1; }
-          50%  {
-            transform: translate(calc(var(--bbs-bug-target-x) * 0.5), calc(var(--bbs-bug-target-y) - 6px)) scale(1);
-            opacity: 1;
-          }
-          100% {
-            transform: translate(var(--bbs-bug-target-x), var(--bbs-bug-target-y)) scale(1);
-            opacity: 1;
-          }
-        }
-        /* Bug idle wiggle — once scattered, bugs jitter in place. */
-        @keyframes bbs-bug-idle {
-          0%, 100% { transform: translate(var(--bbs-bug-target-x), var(--bbs-bug-target-y)) rotate(0deg); }
-          25%      { transform: translate(calc(var(--bbs-bug-target-x) + 1px), var(--bbs-bug-target-y)) rotate(2deg); }
-          75%      { transform: translate(calc(var(--bbs-bug-target-x) - 1px), var(--bbs-bug-target-y)) rotate(-2deg); }
-        }
-        /* Target bug poof — fires at whack impact (200ms into whack
-           stage). Quick opacity dump + scale-down; the splat residue
-           handles the "evidence stays" beat. */
-        @keyframes bbs-bug-poof {
-          0%   { opacity: 1; transform: translate(var(--bbs-bug-target-x), var(--bbs-bug-target-y)) scale(1); }
-          100% { opacity: 0; transform: translate(var(--bbs-bug-target-x), var(--bbs-bug-target-y)) scale(0.3); }
-        }
-        /* Other bugs panic-scatter during exit — radiate outward
-           faster than the original scatter. */
-        @keyframes bbs-bug-panic {
-          0%   { transform: translate(var(--bbs-bug-target-x), var(--bbs-bug-target-y)) scale(1); opacity: 1; }
-          100% {
-            transform: translate(calc(var(--bbs-bug-target-x) * 1.6), calc(var(--bbs-bug-target-y) - 20px)) scale(0.7);
-            opacity: 0.3;
-          }
-        }
-        /* Bug-leg wiggle (preserved from v1). */
+        /* Bug-leg wiggle (preserved from v1/R2). */
         @keyframes bbs-bug-legs {
           0%, 100% { transform: translateY(0); }
           50%      { transform: translateY(-0.5px); }
@@ -471,6 +485,14 @@ export default function BeakerBotBugStompScene({
           animation-direction: reverse;
         }
 
+        /* Bug poof: fires at whack impact (200ms into whack stage).
+           Quick opacity dump + scale-down; the splat residue handles
+           the "evidence stays" beat. */
+        @keyframes bbs-bug-poof {
+          0%   { opacity: 1; transform: translate(-50%, 0) scale(1); }
+          100% { opacity: 0; transform: translate(-50%, 0) scale(0.3); }
+        }
+
         /* Splat residue — appears at start of splat stage, holds for
            the remainder of the scene. */
         @keyframes bbs-splat-appear {
@@ -480,26 +502,29 @@ export default function BeakerBotBugStompScene({
           100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
         }
 
-        /* BeakerBot entry: slides in to spot position over 500ms. */
-        @keyframes bbs-beaker-enter {
+        /* BeakerBot entry: slides in to spot position over 600ms.
+           Body bobs gently (walking gait). */
+        @keyframes bbs-beaker-walkIn {
           0%   { transform: translate(var(--bbs-beaker-start-x), 0) rotate(0deg); }
+          25%  { transform: translate(calc(var(--bbs-beaker-start-x) + (var(--bbs-beaker-spot-x) - var(--bbs-beaker-start-x)) * 0.25), -4px) rotate(0deg); }
+          50%  { transform: translate(calc(var(--bbs-beaker-start-x) + (var(--bbs-beaker-spot-x) - var(--bbs-beaker-start-x)) * 0.50), 0) rotate(0deg); }
+          75%  { transform: translate(calc(var(--bbs-beaker-start-x) + (var(--bbs-beaker-spot-x) - var(--bbs-beaker-start-x)) * 0.75), -4px) rotate(0deg); }
           100% { transform: translate(var(--bbs-beaker-spot-x), 0) rotate(0deg); }
         }
-        /* Sneak: tip-toe jerky movement spot -> stalk over 1.8s.
-           Discrete jumps (~5 steps), each step lands then pauses.
-           Body leans forward via rotate(-15deg) throughout. */
+        /* Spot: hold in place. (Pose change handles the "saw the bug" beat.) */
+        @keyframes bbs-beaker-spot {
+          0%, 100% { transform: translate(var(--bbs-beaker-spot-x), 0) rotate(0deg); }
+        }
+        /* Sneak: smooth horizontal translation from spot to next-to-bug
+           over 1500ms. Body leans forward via rotate(-15deg) throughout.
+           A subtle 2-step bob keeps the tip-toe energy without the
+           heavy jerky stop-start that read as "stuck" in R2. */
         @keyframes bbs-beaker-sneak {
           0%   { transform: translate(var(--bbs-beaker-spot-x), 0) rotate(0deg); }
-          5%   { transform: translate(var(--bbs-beaker-spot-x), 0) rotate(-15deg); }
-          12%  { transform: translate(calc(var(--bbs-beaker-spot-x) + (var(--bbs-beaker-stalk-x) - var(--bbs-beaker-spot-x)) * 0.2), 0) rotate(-15deg); }
-          22%  { transform: translate(calc(var(--bbs-beaker-spot-x) + (var(--bbs-beaker-stalk-x) - var(--bbs-beaker-spot-x)) * 0.2), 0) rotate(-15deg); }
-          32%  { transform: translate(calc(var(--bbs-beaker-spot-x) + (var(--bbs-beaker-stalk-x) - var(--bbs-beaker-spot-x)) * 0.4), 0) rotate(-15deg); }
-          42%  { transform: translate(calc(var(--bbs-beaker-spot-x) + (var(--bbs-beaker-stalk-x) - var(--bbs-beaker-spot-x)) * 0.4), 0) rotate(-15deg); }
-          52%  { transform: translate(calc(var(--bbs-beaker-spot-x) + (var(--bbs-beaker-stalk-x) - var(--bbs-beaker-spot-x)) * 0.6), 0) rotate(-15deg); }
-          62%  { transform: translate(calc(var(--bbs-beaker-spot-x) + (var(--bbs-beaker-stalk-x) - var(--bbs-beaker-spot-x)) * 0.6), 0) rotate(-15deg); }
-          72%  { transform: translate(calc(var(--bbs-beaker-spot-x) + (var(--bbs-beaker-stalk-x) - var(--bbs-beaker-spot-x)) * 0.8), 0) rotate(-15deg); }
-          82%  { transform: translate(calc(var(--bbs-beaker-spot-x) + (var(--bbs-beaker-stalk-x) - var(--bbs-beaker-spot-x)) * 0.8), 0) rotate(-15deg); }
-          95%  { transform: translate(var(--bbs-beaker-stalk-x), 0) rotate(-15deg); }
+          8%   { transform: translate(var(--bbs-beaker-spot-x), 0) rotate(-15deg); }
+          25%  { transform: translate(calc(var(--bbs-beaker-spot-x) + (var(--bbs-beaker-stalk-x) - var(--bbs-beaker-spot-x)) * 0.22), -3px) rotate(-15deg); }
+          50%  { transform: translate(calc(var(--bbs-beaker-spot-x) + (var(--bbs-beaker-stalk-x) - var(--bbs-beaker-spot-x)) * 0.50), 0) rotate(-15deg); }
+          75%  { transform: translate(calc(var(--bbs-beaker-spot-x) + (var(--bbs-beaker-stalk-x) - var(--bbs-beaker-spot-x)) * 0.78), -3px) rotate(-15deg); }
           100% { transform: translate(var(--bbs-beaker-stalk-x), 0) rotate(-15deg); }
         }
         /* Whack: body squashes vertically on impact (1.0 -> 0.95 -> 1.0).
@@ -529,11 +554,11 @@ export default function BeakerBotBugStompScene({
           100% { transform: translate(var(--bbs-beaker-exit-x), 0) rotate(0deg); }
         }
 
-        /* Swatter whack: 0 -> 90deg in first 66% of the 300ms (200ms,
-           anticipation snap), then back 90 -> 0 in the last 34% (100ms). */
+        /* Swatter whack: 0 -> 90deg in first half (200ms, anticipation),
+           then back 90 -> 0 in the second half (200ms, snap). */
         @keyframes bbs-swatter-whack {
           0%   { transform: rotate(0deg); }
-          66%  { transform: rotate(90deg); }
+          50%  { transform: rotate(90deg); }
           100% { transform: rotate(0deg); }
         }
         /* Swatter raised on celebrate (rotate +30deg, hold). */
@@ -555,6 +580,7 @@ export default function BeakerBotBugStompScene({
       <div
         data-testid="beakerbot-bug-stomp-scene"
         data-reduced-motion="false"
+        data-stage={stage}
         style={
           {
             position: "fixed",
@@ -570,7 +596,7 @@ export default function BeakerBotBugStompScene({
         aria-hidden="true"
       >
         {/* Ground line anchor — shared SCENE_GROUND_BOTTOM_VH so the
-            swarm + BeakerBot land on the same baseline as other
+            bug + BeakerBot land on the same baseline as other
             bench-style scenes. */}
         <div
           style={{
@@ -581,56 +607,33 @@ export default function BeakerBotBugStompScene({
             height: 0,
           }}
         >
-          {/* Bug swarm — BUG_COUNT bugs spawn from a center point
-              (50vw) and scatter to their targets. Bug 0 is the target
-              (poofed at whack impact); bugs 1..N panic-scatter
-              outward during exit. */}
-          {Array.from({ length: BUG_COUNT }).map((_, i) => {
-            const target = BUG_TARGETS[i] ?? BUG_TARGETS[0];
-            const isTarget = i === 0;
-            const exitAnim = isTarget
-              ? `bbs-bug-poof 100ms ease-out ${STAGE_OFFSETS.whackImpact}ms forwards`
-              : `bbs-bug-panic 800ms ease-out ${STAGE_OFFSETS.exit}ms forwards`;
-            return (
-              <div
-                key={i}
-                data-testid={`beakerbot-bug-stomp-bug-${i}`}
-                data-bug-is-target={isTarget ? "true" : "false"}
-                style={
-                  {
-                    position: "absolute",
-                    left: "50vw",
-                    top: 0,
-                    transform: "translate(0, 0)",
-                    "--bbs-bug-target-x": `${target.xVw - 50}vw`,
-                    "--bbs-bug-target-y": `${-target.yPx}px`,
-                    animation: [
-                      // Scatter: 0 -> 1500ms. Stagger entries by 80ms
-                      // per bug so they don't all spawn on one frame.
-                      `bbs-bug-scatter ${1500 - i * 80}ms ease-out ${i * 80}ms both`,
-                      // Idle wiggle: kicks in after scatter, loops.
-                      `bbs-bug-idle 600ms ease-in-out ${STAGE_OFFSETS.spot}ms infinite`,
-                      // Exit beat (poof for target, panic-scatter
-                      // for the rest).
-                      exitAnim,
-                    ].join(", "),
-                    willChange: "transform, opacity",
-                  } as React.CSSProperties
-                }
-              >
-                <BugGlyph className="w-10 h-10 text-neutral-800 block" />
-              </div>
-            );
-          })}
+          {/* Single bug — sits at `direction.bugX` (opposite side from
+              BeakerBot's entry). Wiggles its legs in place from mount
+              until the whack impact, then poofs into nothing. The
+              splat residue (rendered separately below) handles the
+              "evidence remains" payoff. */}
+          <div
+            data-testid="beakerbot-bug-stomp-bug-0"
+            data-bug-is-target="true"
+            style={{
+              position: "absolute",
+              left: direction.bugX,
+              top: `${-BUG_Y_PX}px`,
+              transform: "translate(-50%, 0)",
+              animation: `bbs-bug-poof 120ms ease-out ${STAGE_OFFSETS.whackImpact}ms forwards`,
+              willChange: "transform, opacity",
+            }}
+          >
+            <BugGlyph className="w-10 h-10 text-neutral-800 block" />
+          </div>
 
           {/* Splat residue — appears at start of splat stage at the
-              target bug's position (50vw, ground line), HOLDS through
-              celebrate + exit (the satisfying gag). */}
+              bug's position, HOLDS through celebrate + exit. */}
           <div
             data-testid="beakerbot-bug-stomp-splat"
             style={{
               position: "absolute",
-              left: "50vw",
+              left: direction.bugX,
               top: -8,
               transform: "translate(-50%, 0) scale(0)",
               opacity: 0,
@@ -642,10 +645,12 @@ export default function BeakerBotBugStompScene({
             <SplatResidue className="w-12 h-10" />
           </div>
 
-          {/* BeakerBot — chained enter -> sneak -> whack -> celebrate
-              -> exit. Each segment uses fill-mode: both so the final
-              transform of each segment holds while the next segment
-              is in its delay window. */}
+          {/* BeakerBot — chained walkIn -> spot -> sneak -> whack ->
+              celebrate -> exit. Each segment uses fill-mode: both so
+              the final transform of each segment holds while the next
+              segment is in its delay window. The pose prop on the
+              single <BeakerBot/> instance is swapped via React state
+              at stage boundaries (no overlapping pose stack). */}
           <div
             className="bbs-beaker"
             style={{
@@ -655,11 +660,12 @@ export default function BeakerBotBugStompScene({
               top: "-80px",
               transform: `translate(${direction.beakerStartX}, 0)`,
               animation: [
-                `bbs-beaker-enter 500ms ease-out ${STAGE_OFFSETS.spot}ms both`,
-                `bbs-beaker-sneak 1800ms linear ${STAGE_OFFSETS.sneak}ms both`,
-                `bbs-beaker-whack 300ms ease-in ${STAGE_OFFSETS.whack}ms both`,
+                `bbs-beaker-walkIn 600ms ease-out ${STAGE_OFFSETS.walkIn}ms both`,
+                `bbs-beaker-spot 500ms linear ${STAGE_OFFSETS.spot}ms both`,
+                `bbs-beaker-sneak 1500ms linear ${STAGE_OFFSETS.sneak}ms both`,
+                `bbs-beaker-whack 400ms ease-in ${STAGE_OFFSETS.whack}ms both`,
                 `bbs-beaker-celebrate 800ms ease-out ${STAGE_OFFSETS.celebrate}ms both`,
-                `bbs-beaker-exit 800ms ease-in ${STAGE_OFFSETS.exit}ms both`,
+                `bbs-beaker-exit 700ms ease-in ${STAGE_OFFSETS.exit}ms both`,
               ].join(", "),
               willChange: "transform, opacity",
             }}
@@ -686,14 +692,20 @@ export default function BeakerBotBugStompScene({
                 !
               </div>
 
-              {/* BeakerBot pose stack — three poses cross-faded by
-                  timed opacity keyframes (panicked / pointing-down /
-                  cheering). */}
-              <PoseStack />
+              {/* Single BeakerBot — the `pose` prop is swapped via
+                  React state at stage boundaries. ONE BeakerBot in
+                  the DOM at all times (no overlapping pose stack =
+                  no three-arm bug from R2). */}
+              <BeakerBot
+                pose={currentPose}
+                className="w-32 h-32 text-sky-500"
+                ariaLabel="BeakerBot bug stomper"
+              />
 
               {/* Fly swatter — anchored to BeakerBot's hand area, on
                   the bug-facing side. Whack rotation pivots from the
-                  grip (bottom corner). Hidden until sneak start. */}
+                  grip (bottom corner). Visible the whole scene since
+                  he's carrying it from walkIn through exit. */}
               <SwatterRig sneakSign={direction.sneakSign} />
             </div>
           </div>
@@ -705,142 +717,50 @@ export default function BeakerBotBugStompScene({
 }
 
 /**
- * Three BeakerBot poses stacked, cross-faded via opacity keyframes:
- *   - `panicked`      during bugsScatter + spot (0 -> 2000ms)
- *   - `pointing-down` during sneak + whack + splat (2000 -> 4700ms)
- *   - `cheering`      during celebrate + exit (4700 -> 6300ms)
- *
- * Toggling via CSS opacity (not React state) keeps the swap inside
- * the animation pipeline so the parent's chained transform animations
- * don't reset.
- */
-function PoseStack() {
-  // Stage-relative opacity keyframe breakpoints as percentages of
-  // SCENE_DURATION_MS (6300ms).
-  const sneakStartPct = (STAGE_OFFSETS.sneak / SCENE_DURATION_MS) * 100; // ~31.7%
-  const celebrateStartPct = (STAGE_OFFSETS.celebrate / SCENE_DURATION_MS) * 100; // ~74.6%
-  // 1% crossfade gap on either side of each transition.
-  const fadeGap = 1;
-  return (
-    <>
-      <style>{`
-        @keyframes bbs-pose-panicked {
-          0%, ${sneakStartPct.toFixed(2)}%   { opacity: 1; }
-          ${(sneakStartPct + fadeGap).toFixed(2)}%, 100% { opacity: 0; }
-        }
-        @keyframes bbs-pose-pointing {
-          0%, ${sneakStartPct.toFixed(2)}%   { opacity: 0; }
-          ${(sneakStartPct + fadeGap).toFixed(2)}%, ${celebrateStartPct.toFixed(2)}% { opacity: 1; }
-          ${(celebrateStartPct + fadeGap).toFixed(2)}%, 100% { opacity: 0; }
-        }
-        @keyframes bbs-pose-cheering {
-          0%, ${celebrateStartPct.toFixed(2)}%   { opacity: 0; }
-          ${(celebrateStartPct + fadeGap).toFixed(2)}%, 100% { opacity: 1; }
-        }
-      `}</style>
-      <div style={{ position: "absolute", inset: 0 }}>
-        <BeakerBot
-          pose={"panicked" as BeakerBotPose}
-          className="w-32 h-32 text-sky-500"
-          ariaLabel="BeakerBot spots swarm"
-        />
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            opacity: 1,
-            animation: `bbs-pose-panicked ${SCENE_DURATION_MS}ms linear forwards`,
-          }}
-        />
-      </div>
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          opacity: 0,
-          animation: `bbs-pose-pointing ${SCENE_DURATION_MS}ms linear forwards`,
-        }}
-      >
-        <BeakerBot
-          pose={"pointing-down" as BeakerBotPose}
-          className="w-32 h-32 text-sky-500"
-          ariaLabel="BeakerBot sneaking"
-        />
-      </div>
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          opacity: 0,
-          animation: `bbs-pose-cheering ${SCENE_DURATION_MS}ms linear forwards`,
-        }}
-      >
-        <BeakerBot
-          pose={"cheering" as BeakerBotPose}
-          className="w-32 h-32 text-sky-500"
-          ariaLabel="BeakerBot victorious"
-        />
-      </div>
-    </>
-  );
-}
-
-/**
  * Fly swatter rig — anchored to BeakerBot's lower-hand area on the
  * bug-facing side. During whack, the swatter rotates 0 -> 90 -> 0
  * (anticipation snap down + quick return) pivoting from the grip.
- * During celebrate, it raises to +30deg. Hidden until sneak start
- * so the panicked-entry frame doesn't have a swatter floating in air.
+ * During celebrate, it raises to +30deg. Visible from the moment
+ * BeakerBot walks in (he's carrying it the whole time).
  */
 function SwatterRig({ sneakSign }: { sneakSign: 1 | -1 }) {
   // sneakSign +1 = walking rightward (entered from left), bug is to
   // the right -> swatter on the right hand. -1 = mirror.
   const isRightSide = sneakSign === 1;
-  const sneakStartPct = (STAGE_OFFSETS.sneak / SCENE_DURATION_MS) * 100;
   return (
-    <>
-      <style>{`
-        @keyframes bbs-swatter-appear {
-          0%, ${sneakStartPct.toFixed(2)}% { opacity: 0; }
-          ${(sneakStartPct + 1).toFixed(2)}%, 100% { opacity: 1; }
-        }
-      `}</style>
+    <div
+      data-testid="beakerbot-bug-stomp-swatter"
+      style={{
+        position: "absolute",
+        [isRightSide ? "right" : "left"]: 16,
+        bottom: 36,
+        width: 28,
+        height: 40,
+        // Mirror SVG horizontally when BeakerBot is walking
+        // leftward so the head leads the strike toward the bug.
+        transform: isRightSide ? "none" : "scaleX(-1)",
+        transformOrigin: "center bottom",
+        pointerEvents: "none",
+      }}
+      aria-hidden="true"
+    >
+      {/* Inner wrapper handles the rotation animations. Pivot is
+          the bottom-right corner = grip. */}
       <div
-        data-testid="beakerbot-bug-stomp-swatter"
         style={{
-          position: "absolute",
-          [isRightSide ? "right" : "left"]: 16,
-          bottom: 36,
-          width: 28,
-          height: 40,
-          opacity: 0,
-          // Mirror SVG horizontally when BeakerBot is walking
-          // leftward so the head leads the strike toward the bug.
-          transform: isRightSide ? "none" : "scaleX(-1)",
-          transformOrigin: "center bottom",
-          animation: `bbs-swatter-appear ${SCENE_DURATION_MS}ms linear forwards`,
-          pointerEvents: "none",
+          width: "100%",
+          height: "100%",
+          transformOrigin: "bottom right",
+          transform: "rotate(0deg)",
+          animation: [
+            `bbs-swatter-whack 400ms ease-in ${STAGE_OFFSETS.whack}ms both`,
+            `bbs-swatter-celebrate 800ms ease-out ${STAGE_OFFSETS.celebrate}ms both`,
+          ].join(", "),
+          willChange: "transform",
         }}
-        aria-hidden="true"
       >
-        {/* Inner wrapper handles the rotation animations. Pivot is
-            the bottom-right corner = grip. */}
-        <div
-          style={{
-            width: "100%",
-            height: "100%",
-            transformOrigin: "bottom right",
-            transform: "rotate(0deg)",
-            animation: [
-              `bbs-swatter-whack 300ms ease-in ${STAGE_OFFSETS.whack}ms both`,
-              `bbs-swatter-celebrate 800ms ease-out ${STAGE_OFFSETS.celebrate}ms both`,
-            ].join(", "),
-            willChange: "transform",
-          }}
-        >
-          <FlySwatter className="w-7 h-10" />
-        </div>
+        <FlySwatter className="w-7 h-10" />
       </div>
-    </>
+    </div>
   );
 }
