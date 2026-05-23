@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { useDraftPersistence } from "@/hooks/useDraftPersistence";
 import {
@@ -44,7 +44,9 @@ import type {
   QPCRMeltCurveConfig,
   QPCRReference,
   QPCRStandardCurvePoint,
+  SharedUser,
 } from "@/lib/types";
+import { WHOLE_LAB_SENTINEL } from "@/lib/sharing/unified";
 import LcGradientEditor from "@/components/LcGradientEditor";
 import PlateLayoutEditor, { wellsToRegionLabels } from "@/components/PlateLayoutEditor";
 import CellCultureScheduleEditor from "@/components/CellCultureScheduleEditor";
@@ -72,15 +74,17 @@ async function pickUniqueImageName(dirPath: string, desired: string): Promise<st
 export function CreateMethodModal({
   existingFolders,
   prefilledFolder,
-  initialIsPublic = false,
+  initialWholeLab = false,
   onClose,
   onCreated,
 }: {
   existingFolders: string[];
   prefilledFolder?: string;
-  /** When true, the "Make this method public" checkbox starts checked.
-   *  Wired up to the `/methods?createMethod=public` deep link. */
-  initialIsPublic?: boolean;
+  /** When true, the create modal opens with the whole-lab share
+   *  pre-selected (used by the `/methods?createMethod=public` deep
+   *  link). At save time this maps to
+   *  `shared_with: [{ username: "*", level: "read" }]`. */
+  initialWholeLab?: boolean;
   onClose: () => void;
   /** Fires after a successful save. When the user clicks "Create & extend
    *  into kit", the just-created method is wrapped into a freshly-created
@@ -93,19 +97,23 @@ export function CreateMethodModal({
   const [name, setName] = useState("");
   const [folder, setFolder] = useState(prefilledFolder || "");
   const [tags, setTags] = useState("");
-  // Lab Mode retirement R1c (R1c methods canRead manager, 2026-05-23):
-  // the dual-write to `is_public` was dropped from new method creation.
-  // `initialIsPublic` is still consumed (the `/methods?createMethod=public`
-  // deep link uses it to route into `publicMethodsStore` at create time,
-  // since `methodsApi.create` still branches on `is_public` for that
-  // routing). Tracked for a follow-up that migrates the public-methods
-  // store to a `shared_with: [{username: "*", level: "read"}]` pattern;
-  // until then the legacy boolean is the only way to write into the
-  // public namespace.
-  // TODO(R1d): rip out `initialIsPublic` once `methodsApi.create` accepts
-  //   a `shared_with: [...]` payload and the public-methods store either
-  //   goes away or starts reading the unified field.
-  const isPublic = initialIsPublic;
+  // Lab Mode retirement R1d (R1d shared_with API manager, 2026-05-23):
+  // the modal now models its "share with the whole lab on create" choice
+  // as a single boolean that maps to the unified `shared_with` array at
+  // save time. The `/methods?createMethod=public` deep link seeds this
+  // to true via `initialWholeLab`. The structured-protocol APIs
+  // (pcrApi.create, lcGradientApi.create, etc.) still take the legacy
+  // `is_public` boolean (their R1d cousin is a separate later phase),
+  // so `isWholeLab` is forwarded into them as a boolean and into
+  // `methodsApi.create` as a shared_with sentinel.
+  const isWholeLab = initialWholeLab;
+  const methodSharedWith = useMemo<SharedUser[]>(
+    () =>
+      isWholeLab
+        ? [{ username: WHOLE_LAB_SENTINEL, level: "read" }]
+        : [],
+    [isWholeLab],
+  );
   // Discriminated saving state: "save" = plain create, "extend" = create +
   // wrap-as-compound. Drives the per-button spinner labels and disables
   // both buttons (+ Cancel) while either flow is in flight.
@@ -417,7 +425,7 @@ export function CreateMethodModal({
           .split(",")
           .map((t) => t.trim())
           .filter(Boolean),
-        is_public: isPublic,
+        shared_with: methodSharedWith,
       });
     }
     if (uploadType === "pdf" && pdfFile) {
@@ -441,7 +449,7 @@ export function CreateMethodModal({
           .split(",")
           .map((t) => t.trim())
           .filter(Boolean),
-        is_public: isPublic,
+        shared_with: methodSharedWith,
       });
     }
     if (uploadType === "pcr") {
@@ -451,7 +459,7 @@ export function CreateMethodModal({
         ingredients: pcrIngredients,
         notes: pcrNotes || null,
         folder_path: folder.trim() || null,
-        is_public: isPublic,
+        is_public: isWholeLab,
       });
       return await methodsApi.create({
         name: name.trim(),
@@ -462,7 +470,7 @@ export function CreateMethodModal({
           .split(",")
           .map((t) => t.trim())
           .filter(Boolean),
-        is_public: isPublic,
+        shared_with: methodSharedWith,
       });
     }
     if (uploadType === "lc_gradient") {
@@ -474,7 +482,7 @@ export function CreateMethodModal({
         detection_wavelength_nm: lcWavelength,
         ingredients: lcIngredients,
         folder_path: folder.trim() || null,
-        is_public: isPublic,
+        is_public: isWholeLab,
       });
       return await methodsApi.create({
         name: name.trim(),
@@ -485,7 +493,7 @@ export function CreateMethodModal({
           .split(",")
           .map((t) => t.trim())
           .filter(Boolean),
-        is_public: isPublic,
+        shared_with: methodSharedWith,
       });
     }
     if (uploadType === "plate") {
@@ -495,7 +503,7 @@ export function CreateMethodModal({
         plate_size: platePlateSize,
         region_labels: wellsToRegionLabels(plateWells),
         folder_path: folder.trim() || null,
-        is_public: isPublic,
+        is_public: isWholeLab,
       });
       return await methodsApi.create({
         name: name.trim(),
@@ -506,7 +514,7 @@ export function CreateMethodModal({
           .split(",")
           .map((t) => t.trim())
           .filter(Boolean),
-        is_public: isPublic,
+        shared_with: methodSharedWith,
       });
     }
     if (uploadType === "cell_culture") {
@@ -517,7 +525,7 @@ export function CreateMethodModal({
         media: ccMedia,
         planned_events: ccPlannedEvents,
         folder_path: folder.trim() || null,
-        is_public: isPublic,
+        is_public: isWholeLab,
       });
       return await methodsApi.create({
         name: name.trim(),
@@ -528,7 +536,7 @@ export function CreateMethodModal({
           .split(",")
           .map((t) => t.trim())
           .filter(Boolean),
-        is_public: isPublic,
+        shared_with: methodSharedWith,
       });
     }
     if (uploadType === "mass_spec") {
@@ -542,7 +550,7 @@ export function CreateMethodModal({
         scan: msScan,
         calibration: msCalibration,
         folder_path: folder.trim() || null,
-        is_public: isPublic,
+        is_public: isWholeLab,
       });
       return await methodsApi.create({
         name: name.trim(),
@@ -553,7 +561,7 @@ export function CreateMethodModal({
           .split(",")
           .map((t) => t.trim())
           .filter(Boolean),
-        is_public: isPublic,
+        shared_with: methodSharedWith,
       });
     }
     if (uploadType === "coding_workflow") {
@@ -566,7 +574,7 @@ export function CreateMethodModal({
         external_path: cwExternalPath,
         output_renderer: cwOutputRenderer,
         folder_path: folder.trim() || null,
-        is_public: isPublic,
+        is_public: isWholeLab,
       });
       return await methodsApi.create({
         name: name.trim(),
@@ -577,7 +585,7 @@ export function CreateMethodModal({
           .split(",")
           .map((t) => t.trim())
           .filter(Boolean),
-        is_public: isPublic,
+        shared_with: methodSharedWith,
       });
     }
     if (uploadType === "qpcr_analysis") {
@@ -591,7 +599,7 @@ export function CreateMethodModal({
         melt_curve: qpcrMeltCurve,
         use_delta_delta_cq: qpcrUseDeltaDeltaCq,
         folder_path: folder.trim() || null,
-        is_public: isPublic,
+        is_public: isWholeLab,
       });
       return await methodsApi.create({
         name: name.trim(),
@@ -602,11 +610,11 @@ export function CreateMethodModal({
           .split(",")
           .map((t) => t.trim())
           .filter(Boolean),
-        is_public: isPublic,
+        shared_with: methodSharedWith,
       });
     }
     return null;
-  }, [name, slug, uploadType, mdContent, pdfFile, folder, tags, isPublic, pcrGradient, pcrIngredients, pcrNotes, lcGradientSteps, lcColumn, lcWavelength, lcDescription, lcIngredients, platePlateSize, plateWells, plateDescription, ccCellLine, ccMedia, ccPlannedEvents, ccDescription, msIonizationMode, msIonizationLabel, msInstrument, msDescription, msSource, msScan, msCalibration, cwLanguage, cwLanguageLabel, cwEmbeddedCode, cwExternalPath, cwDescription, cwOutputRenderer, qpcrChemistry, qpcrChemistryLabel, qpcrDescription, qpcrUseDeltaDeltaCq, qpcrReferences, qpcrStandardCurve, qpcrMeltCurve]);
+  }, [name, slug, uploadType, mdContent, pdfFile, folder, tags, isWholeLab, methodSharedWith, pcrGradient, pcrIngredients, pcrNotes, lcGradientSteps, lcColumn, lcWavelength, lcDescription, lcIngredients, platePlateSize, plateWells, plateDescription, ccCellLine, ccMedia, ccPlannedEvents, ccDescription, msIonizationMode, msIonizationLabel, msInstrument, msDescription, msSource, msScan, msCalibration, cwLanguage, cwLanguageLabel, cwEmbeddedCode, cwExternalPath, cwDescription, cwOutputRenderer, qpcrChemistry, qpcrChemistryLabel, qpcrDescription, qpcrUseDeltaDeltaCq, qpcrReferences, qpcrStandardCurve, qpcrMeltCurve]);
 
   const handleSave = useCallback(async () => {
     if (saving || !name.trim()) return;
@@ -774,14 +782,17 @@ export function CreateMethodModal({
               </div>
             </div>
 
-            {/* Lab Mode retirement R1b (R1b sharing completion manager,
-                2026-05-23): the "Make this method public" checkbox is
-                removed. Methods are now shared via the unified
-                ShareDialog (open from the method viewer's Share
-                button), same surface as tasks / projects. The
-                `is_public` field is still written for one release of
-                backward compat — defaulted to false here; the Share
-                dialog flips it via the "+ Share with whole lab" chip. */}
+            {/* Lab Mode retirement R1d (R1d shared_with API manager,
+                2026-05-23): the "Make this method public" checkbox
+                stays removed (R1b). Methods are shared via the
+                unified ShareDialog after creation. The deep link
+                `/methods?createMethod=public` seeds `initialWholeLab`
+                so the public namespace stays one-click-reachable;
+                the modal maps that boolean to
+                `shared_with: [{ username: "*", level: "read" }]` at
+                save time. The legacy `is_public` field is still
+                written by `methodsApi.create` for one more release
+                of receiver-side back-compat. */}
 
             {/* Markdown editor */}
             {uploadType === "markdown" && (

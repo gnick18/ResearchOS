@@ -22,13 +22,10 @@
 // the same way they did with SharePopup.
 
 import { useCallback } from "react";
-import { sharingApi, methodsApi } from "@/lib/local-api";
+import { sharingApi } from "@/lib/local-api";
 import type { SharedUser } from "@/lib/types";
 import ShareDialog, { type ShareDialogRecordType } from "./ShareDialog";
-import {
-  isWholeLabShared,
-  normalizeSharedWith,
-} from "@/lib/sharing/unified";
+import { normalizeSharedWith } from "@/lib/sharing/unified";
 
 export interface ShareDialogAdapterProps {
   isOpen: boolean;
@@ -138,19 +135,15 @@ export default function ShareDialogAdapter({
         );
       }
 
-      // 3. Method `is_public` legacy mirror. The dialog now uses the
-      // "*" sentinel; for methods, also flip `is_public` for one
-      // release so any read path that still checks the boolean keeps
-      // working. The R1 migration drops `is_public`; this just
-      // bridges the in-progress UI.
-      if (recordType === "method") {
-        const wantPublic = isWholeLabShared(after);
-        try {
-          await methodsApi.update(recordId, { is_public: wantPublic });
-        } catch (err) {
-          console.warn("ShareDialogAdapter: methodsApi.update is_public failed", err);
-        }
-      }
+      // Lab Mode retirement R1d (R1d shared_with API manager,
+      // 2026-05-23): the method `is_public` legacy mirror block was
+      // removed. The dialog now writes to `shared_with` exclusively
+      // via `sharingApi.shareMethod` / `unshareMethod`; the on-disk
+      // `is_public` field is no longer maintained from the share
+      // surface. Any remaining receiver-side read that still checks
+      // the boolean is reading stale data, by design, for one
+      // release of back-compat. The unified `canRead` /
+      // `isWholeLabShared` helpers are the source of truth.
 
       onShared();
     },

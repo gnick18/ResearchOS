@@ -718,6 +718,21 @@ export interface MethodCreate {
   folder_path?: string | null;
   parent_method_id?: number | null;
   tags?: string[];
+  /**
+   * R1d unified sharing primitive. Pass
+   * `[{ username: "*", level: "read" }]` to create the method in the
+   * whole-lab (public) namespace; pass `[]` (or omit) for a private
+   * method. The "*" sentinel is expanded at read time by `canRead` /
+   * `isWholeLabShared`. See `frontend/src/lib/sharing/unified.ts`.
+   */
+  shared_with?: SharedUser[];
+  /**
+   * @deprecated Pass `shared_with: [{ username: "*", level: "read" }]`
+   *   instead. Will be removed after one release of back-compat (R1
+   *   schema rip phase, post-R1d). Still honored by `methodsApi.create`
+   *   for transitional callers, with a one-shot runtime warning when it
+   *   is the only sharing signal supplied.
+   */
   is_public?: boolean;
   components?: CompoundComponent[];
 }

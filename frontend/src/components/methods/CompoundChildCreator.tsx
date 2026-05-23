@@ -52,6 +52,7 @@ import type {
   QPCRMeltCurveConfig,
   QPCRReference,
   QPCRStandardCurvePoint,
+  SharedUser,
 } from "@/lib/types";
 
 /**
@@ -124,16 +125,14 @@ export function CompoundChildCreator({
   const [name, setName] = useState("");
   const [folder, setFolder] = useState("");
   const [tags, setTags] = useState("");
-  // Lab Mode retirement R1c (R1c methods canRead manager, 2026-05-23):
-  // the state setter is gone. Compound children inherit their parent
-  // compound's sharing surface (read at parent-method-load time, not
-  // duplicated here), so this creator never needs to flip is_public.
-  // The constant `false` is still passed through to method-create
-  // payloads because `methodsApi.create` routes on the boolean to
-  // decide between the user's private store and the public store.
-  // Children always land in the private store; the legacy field
-  // stays on disk for one more release.
-  const isPublic = false;
+  // Lab Mode retirement R1d (R1d shared_with API manager, 2026-05-23):
+  // compound children are never public — they inherit the parent
+  // compound's sharing at read time via the unified `canRead` helper.
+  // We pass `shared_with: []` (empty) into `methodsApi.create` so the
+  // routing always lands in the user's private store. The legacy
+  // `is_public: false` is still forwarded into the structured-protocol
+  // APIs (pcrApi, lcGradientApi, etc.) because those still take the
+  // boolean; their R1d cousin is a separate later phase.
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
@@ -366,11 +365,16 @@ export function CompoundChildCreator({
     try {
       let created: Method;
       const folderPath = folder.trim() || null;
+      // Compound children always land in the private store (R1d): an
+      // empty `shared_with` keeps them out of the public namespace.
+      // The unified read path (canRead) computes effective visibility
+      // for receivers from the parent compound's shared_with at view
+      // time.
       const sharedBase = {
         name: name.trim(),
         folder_path: folderPath,
         tags: tagList,
-        is_public: isPublic,
+        shared_with: [] as SharedUser[],
       };
       if (phase.type === "markdown") {
         const sourcePath = `methods/${slug}/${slug}.md`;
@@ -411,7 +415,7 @@ export function CompoundChildCreator({
           ingredients: pcrIngredients,
           notes: pcrNotes || null,
           folder_path: folderPath,
-          is_public: isPublic,
+          is_public: false,
         });
         created = await methodsApi.create({
           ...sharedBase,
@@ -427,7 +431,7 @@ export function CompoundChildCreator({
           detection_wavelength_nm: lcWavelength,
           ingredients: lcIngredients,
           folder_path: folderPath,
-          is_public: isPublic,
+          is_public: false,
         });
         created = await methodsApi.create({
           ...sharedBase,
@@ -441,7 +445,7 @@ export function CompoundChildCreator({
           plate_size: platePlateSize,
           region_labels: wellsToRegionLabels(plateWells),
           folder_path: folderPath,
-          is_public: isPublic,
+          is_public: false,
         });
         created = await methodsApi.create({
           ...sharedBase,
@@ -456,7 +460,7 @@ export function CompoundChildCreator({
           media: ccMedia,
           planned_events: ccPlannedEvents,
           folder_path: folderPath,
-          is_public: isPublic,
+          is_public: false,
         });
         created = await methodsApi.create({
           ...sharedBase,
@@ -474,7 +478,7 @@ export function CompoundChildCreator({
           scan: msScan,
           calibration: msCalibration,
           folder_path: folderPath,
-          is_public: isPublic,
+          is_public: false,
         });
         created = await methodsApi.create({
           ...sharedBase,
@@ -491,7 +495,7 @@ export function CompoundChildCreator({
           external_path: cwExternalPath,
           output_renderer: cwOutputRenderer,
           folder_path: folderPath,
-          is_public: isPublic,
+          is_public: false,
         });
         created = await methodsApi.create({
           ...sharedBase,
@@ -509,7 +513,7 @@ export function CompoundChildCreator({
           melt_curve: qpcrMeltCurve,
           use_delta_delta_cq: qpcrUseDeltaDeltaCq,
           folder_path: folderPath,
-          is_public: isPublic,
+          is_public: false,
         });
         created = await methodsApi.create({
           ...sharedBase,
@@ -575,7 +579,6 @@ export function CompoundChildCreator({
     qpcrStandardCurve,
     qpcrMeltCurve,
     tagList,
-    isPublic,
     onCreated,
   ]);
 

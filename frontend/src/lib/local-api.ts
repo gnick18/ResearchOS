@@ -86,6 +86,11 @@ import type {
   ShiftedAlertsFile,
   SeenShiftAlertsFile,
 } from "./types";
+import {
+  WHOLE_LAB_SENTINEL,
+  isWholeLabShared,
+  normalizeSharedWith,
+} from "./sharing/unified";
 
 const projectsStore = new JsonStore<Project>("projects");
 const tasksStore = new JsonStore<Task>("tasks");
@@ -1534,6 +1539,23 @@ function normalizeMethodRecord(raw: Method): Method {
   return raw;
 }
 
+// R1d: a one-shot warning fired when a caller routes a `methodsApi.create`
+// to the public namespace using only the deprecated `is_public: true`
+// alias (no whole-lab "*" entry in `shared_with`). The flag is module
+// scoped so the warning never spams a session no matter how many
+// migration-era callsites still pass the boolean. Cleared in the R1
+// schema rip phase when the alias goes away.
+let __methodsCreateLegacyIsPublicWarned = false;
+function warnLegacyIsPublicOnMethodCreateOnce(): void {
+  if (__methodsCreateLegacyIsPublicWarned) return;
+  __methodsCreateLegacyIsPublicWarned = true;
+  console.warn(
+    "[methodsApi.create] `is_public: true` is deprecated. Pass " +
+      "`shared_with: [{ username: \"*\", level: \"read\" }]` instead. " +
+      "The boolean alias will be removed after one release of back-compat.",
+  );
+}
+
 export const methodsApi = {
   list: async (): Promise<Method[]> => {
     const privateMethods = await methodsStore.listAll();
@@ -1574,7 +1596,35 @@ export const methodsApi = {
   },
 
   create: async (data: MethodCreate): Promise<Method> => {
-    if (data.is_public) {
+    // Lab Mode retirement R1d (R1d shared_with API manager,
+    // 2026-05-23): the unified sharing primitive is now the source of
+    // truth for the public-vs-private routing decision. Callers pass
+    // `shared_with: [{ username: "*", level: "read" }]` to land in the
+    // whole-lab (public) namespace; an empty / absent `shared_with`
+    // means private. The legacy `is_public: true` boolean is still
+    // honored as a deprecated alias for one release of back-compat,
+    // with a one-shot console.warn when it is the only sharing signal
+    // (i.e. no `shared_with` whole-lab entry to corroborate it). The
+    // on-disk record still gets `is_public` written so receiver-side
+    // back-compat readers keep working until the R1 schema rip lands.
+    const sharedWithInput = normalizeSharedWith(data.shared_with);
+    const wholeLabViaSharedWith = isWholeLabShared(sharedWithInput);
+    const legacyIsPublic = data.is_public === true;
+    if (legacyIsPublic && !wholeLabViaSharedWith) {
+      warnLegacyIsPublicOnMethodCreateOnce();
+    }
+    const wantPublic = wholeLabViaSharedWith || legacyIsPublic;
+
+    if (wantPublic) {
+      // Ensure the unified "*" entry lands on disk even when the caller
+      // only passed the legacy boolean. Preserves any other recipients
+      // the caller listed alongside the sentinel.
+      const hasSentinel = sharedWithInput.some(
+        (s) => s.username === WHOLE_LAB_SENTINEL,
+      );
+      const sharedWithPersisted: SharedUser[] = hasSentinel
+        ? sharedWithInput
+        : [...sharedWithInput, { username: WHOLE_LAB_SENTINEL, level: "read" }];
       return publicMethodsStore.create({
         ...data,
         source_path: data.source_path ?? null,
@@ -1585,7 +1635,7 @@ export const methodsApi = {
         is_public: true,
         created_by: null,
         owner: "public",
-        shared_with: [],
+        shared_with: sharedWithPersisted,
       });
     }
 
@@ -1600,7 +1650,7 @@ export const methodsApi = {
       is_public: false,
       created_by: null,
       owner: currentUser,
-      shared_with: [],
+      shared_with: sharedWithInput,
     });
   },
 

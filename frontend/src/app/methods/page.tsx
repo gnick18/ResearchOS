@@ -119,9 +119,11 @@ export default function MethodsPage() {
   // both create and edit flows).
   const [editingCompound, setEditingCompound] = useState<Method | null>(null);
   /** When the user lands on `/methods?createMethod=public`, the
-   *  create-method modal opens with "Make this method public" pre-
-   *  checked. Stays false the rest of the time. */
-  const [forcePublicOnCreate, setForcePublicOnCreate] = useState(false);
+   *  create-method modal opens with the whole-lab sharing pre-
+   *  selected. Maps to
+   *  `shared_with: [{ username: "*", level: "read" }]` at save time
+   *  (R1d). Stays false the rest of the time. */
+  const [forceWholeLabOnCreate, setForceWholeLabOnCreate] = useState(false);
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [draggedMethod, setDraggedMethod] = useState<Method | null>(null);
   const [dropTargetFolder, setDropTargetFolder] = useState<string | null>(null);
@@ -130,13 +132,13 @@ export default function MethodsPage() {
   const [isHydrated, setIsHydrated] = useState(false);
 
   // Deep-link: `/methods?createMethod=public` auto-opens the create
-  // modal with the public checkbox pre-checked.
+  // modal with the whole-lab sharing pre-selected.
   const router = useRouter();
   const searchParams = useSearchParams();
   useEffect(() => {
     if (searchParams?.get("createMethod") !== "public") return;
     setCreating(true);
-    setForcePublicOnCreate(true);
+    setForceWholeLabOnCreate(true);
     const next = new URLSearchParams(searchParams.toString());
     next.delete("createMethod");
     const query = next.toString();
@@ -767,11 +769,11 @@ export default function MethodsPage() {
         <CreateMethodModal
           existingFolders={existingFolders}
           prefilledFolder={prefilledFolder}
-          initialIsPublic={forcePublicOnCreate}
+          initialWholeLab={forceWholeLabOnCreate}
           onClose={() => {
             setCreating(false);
             setPrefilledFolder("");
-            setForcePublicOnCreate(false);
+            setForceWholeLabOnCreate(false);
           }}
           onCreated={handleMethodCreated}
         />
