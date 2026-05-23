@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import styles from "./BeakerBot.module.css";
 
 /**
@@ -364,10 +364,15 @@ export default function BeakerBot({
   animated = true,
   easterEgg = "tickle",
 }: BeakerBotProps) {
-  // Unique gradient id per mount so multiple BeakerBots on the same
-  // page don't collide on the url(#...) reference.
-  const rawId = useId();
-  const gradId = `beaker-liquid-${rawId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
+  // Fixed gradient id. Was `useId()` historically (one per mount, to avoid
+  // url(#...) collisions across multiple BeakerBots), but that triggered a
+  // React 19 hydration mismatch warning whenever any upstream layout drift
+  // shifted the useId counter between server + client renders. Every
+  // BeakerBot uses the IDENTICAL hardcoded gradient stops, so duplicate
+  // ids across instances are visually harmless — `url(#beaker-liquid)`
+  // resolves to the same colors no matter which `<linearGradient>` the
+  // browser picks. Same logic for the hiccup-bubble radial gradient.
+  const gradId = "beaker-liquid";
 
   // Easter egg state: tickle override. When the user clicks or rapidly
   // jiggles the cursor over BeakerBot, we temporarily override the
