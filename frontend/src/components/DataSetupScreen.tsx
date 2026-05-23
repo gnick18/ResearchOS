@@ -6,6 +6,7 @@ import BetaDonationButton from "@/components/BetaDonationButton";
 import FeedbackModal from "@/components/FeedbackModal";
 import Tooltip from "@/components/Tooltip";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
+import { clearAllStickyDemoFlags } from "@/lib/file-system/wiki-capture-mock";
 
 interface DataSetupScreenProps {
   isOpen: boolean;
@@ -26,7 +27,18 @@ export default function DataSetupScreen({ isOpen, onClose }: DataSetupScreenProp
     setDisconnecting(true);
     try {
       await disconnect();
-      window.location.reload();
+      // Clear sticky demo / wiki-capture sessionStorage flags so the
+      // post-reload render doesn't fall back into the demo branch of
+      // providers.tsx (`isDemoOrWikiCapture() && currentUser` → demo
+      // fixture re-installs). LeaveDemoModal already calls this; the
+      // disconnect path was missed, which left a user who had ever
+      // visited /demo this tab "trapped" in demo mode after disconnect.
+      clearAllStickyDemoFlags();
+      // Hard navigate to `/` instead of reloading the current URL —
+      // a reload at `/demo/*` would re-trigger the URL-based demo gate
+      // even after the sticky flag is cleared. `href = "/"` both
+      // navigates AND reloads.
+      window.location.href = "/";
     } finally {
       setDisconnecting(false);
     }
