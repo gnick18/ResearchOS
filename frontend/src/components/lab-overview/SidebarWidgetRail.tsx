@@ -132,7 +132,6 @@ export default function SidebarWidgetRail({
   return (
     <aside
       className="w-64 shrink-0 border-r border-gray-200 bg-gray-50 overflow-y-auto flex flex-col"
-      data-tour-target="lab-overview-sidebar"
     >
       <header className="flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-white">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">

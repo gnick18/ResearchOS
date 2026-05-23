@@ -844,8 +844,8 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
     const soloCount = totalApplicableSteps(soloMin);
     const labCount = totalApplicableSteps(labMax);
     expect(labCount).toBeGreaterThan(soloCount);
-    // Gantt + Purchases + Hybrid + Lab Overview combined math (R4 Lab
-    // Mode retirement, 2026-05-23):
+    // Gantt + Purchases + Hybrid combined math (R4 lab-overview
+    // placeholder nuker, 2026-05-23):
     //
     // Gantt manager: lab tour Phase 3 retired (lab-prompt /
     // lab-spawn-beakerbot / lab-permission-practice gone), only
@@ -860,11 +860,11 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
     // is empty at module load (no branch click fired), so the gate
     // evaluates to "gated out" — applies to both solo and lab paths.
     //
-    // R4 Lab Mode retirement: the prior 12-step §6.16 Lab Mode cluster
-    // (lab-mode-prompt → lab-mode-exit) is REPLACED by the 6-step Lab
-    // Overview cluster (lab-overview-intro → lab-overview-exit). The
-    // gate flipped to `lab_head === true` per the setup-q1c lab head
-    // manager 2026-05-23 chip (the cluster is a PI tool).
+    // R4 lab-overview placeholder nuker 2026-05-23: the 6 placeholder
+    // lab-overview-* bodies R4 shipped were throwaway and have been
+    // removed from TOUR_STEP_ORDER ahead of the Mira-substrate
+    // walkthrough redesign. The cluster no longer contributes to the
+    // gated-step math on either path.
     //
     // setup-q1c lab head manager 2026-05-23: added one new modal-setup
     // step (`setup-q1c`) gated on `account_type === "lab"`. Solo
@@ -882,16 +882,14 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
     // links, gantt-goals-overview) + 3 ai-helper-* (was 1
     // ai-helper-deep-explain; now 3 split beats sharing the same gate)
     // + 8 purchases cluster + 1 lab-cleanup + 7 Gantt share cluster
-    // + 6 Lab Overview cluster + 1 HE-3 (branch-gated) + 2
-    // settings-tour-* conditional (calendar, telegram; lab-mode-toggle
-    // FIRES for solo) + 1 setup-q1c (lab-only) = 33 gated out for solo.
-    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 33);
-    // Lab+max (labMax has no lab_head pick, so the 6-step Lab Overview
-    // cluster gates out under the new lab_head === true gate). HE-3
-    // still branch-gated + settings-tour-lab-mode-toggle gates out for
-    // lab + 6 Lab Overview cluster steps gated by missing lab_head
-    // = 8 gated out.
-    expect(labCount).toBe(TOUR_STEP_ORDER.length - 8);
+    // + 1 HE-3 (branch-gated) + 2 settings-tour-* conditional
+    // (calendar, telegram; lab-mode-toggle FIRES for solo) +
+    // 1 setup-q1c (lab-only) = 27 gated out for solo.
+    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 27);
+    // Lab+max only has HE-3 (branch-gated, choice cache empty) +
+    // settings-tour-lab-mode-toggle (gates on solo, so lab skips it)
+    // = 2 gated out.
+    expect(labCount).toBe(TOUR_STEP_ORDER.length - 2);
   });
 
   it("applicableStepIndex is 1-based and skips gated steps", () => {
@@ -911,119 +909,11 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
   });
 });
 
-// =============================================================================
-// R4 Lab Overview tour cluster (R4 Lab Mode retirement, 2026-05-23).
-// Six new step ids inserted between the conditional walkthrough cluster
-// (telegram / purchases / calendar / links) and `lab-cleanup`. Every
-// entry gates on `picks.account_type === "lab"`. Replaces the prior
-// 12-step `lab-mode-*` cluster (DemoLabModeViewer overlay walk) with a
-// real-surface walkthrough of the user's own `/lab-overview`.
-// =============================================================================
-const LAB_OVERVIEW_CLUSTER = [
-  "lab-overview-intro",
-  "lab-overview-widget-canvas",
-  "lab-overview-sidebar-rail",
-  "lab-overview-add-widget",
-  "lab-overview-sharing",
-  "lab-overview-exit",
-] as const;
-
-describe("TOUR_STEP_ORDER — Lab Overview cluster (R4 Lab Mode retirement 2026-05-23)", () => {
-  it("includes every lab-overview-* step id in cluster order", () => {
-    const indices = LAB_OVERVIEW_CLUSTER.map((id) => TOUR_STEP_ORDER.indexOf(id));
-    indices.forEach((idx, i) => {
-      expect(idx, `${LAB_OVERVIEW_CLUSTER[i]} missing`).toBeGreaterThanOrEqual(0);
-      if (i > 0) {
-        expect(
-          idx,
-          `${LAB_OVERVIEW_CLUSTER[i]} must follow ${LAB_OVERVIEW_CLUSTER[i - 1]}`,
-        ).toBe(indices[i - 1] + 1);
-      }
-    });
-  });
-
-  it("sits before lab-cleanup in TOUR_STEP_ORDER", () => {
-    const exitIdx = TOUR_STEP_ORDER.indexOf("lab-overview-exit");
-    const cleanupIdx = TOUR_STEP_ORDER.indexOf("lab-cleanup");
-    expect(exitIdx).toBeGreaterThanOrEqual(0);
-    expect(cleanupIdx).toBeGreaterThan(exitIdx);
-  });
-
-  // setup-q1c lab head manager 2026-05-23: the lab-overview cluster's
-  // gate flipped from `account_type === "lab"` to `lab_head === true`.
-  // Lab members (account_type=lab + lab_head=false) skip the cluster;
-  // only lab heads see it. Solo accounts and null picks still skip.
-  it("gates every step on picks.lab_head === true", () => {
-    const labHead = picks({ account_type: "lab", lab_head: true });
-    const labMember = picks({ account_type: "lab", lab_head: false });
-    const labUndecided = picks({ account_type: "lab" });
-    const solo = picks({ account_type: "solo" });
-    for (const id of LAB_OVERVIEW_CLUSTER) {
-      expect(isStepGatedOut(id, solo), `${id} should hide for solo`).toBe(true);
-      expect(
-        isStepGatedOut(id, labHead),
-        `${id} should show for lab heads`,
-      ).toBe(false);
-      expect(
-        isStepGatedOut(id, labMember),
-        `${id} should hide for lab members`,
-      ).toBe(true);
-      expect(
-        isStepGatedOut(id, labUndecided),
-        `${id} should hide when lab_head is undefined`,
-      ).toBe(true);
-    }
-    // null picks → all hide.
-    for (const id of LAB_OVERVIEW_CLUSTER) {
-      expect(isStepGatedOut(id, null), `${id} should hide for null picks`).toBe(
-        true,
-      );
-    }
-  });
-
-  it("solo walk skips the entire lab-overview cluster", () => {
-    const visited = walkForward("welcome", picks({ account_type: "solo" }));
-    for (const id of LAB_OVERVIEW_CLUSTER) {
-      expect(visited).not.toContain(id);
-    }
-  });
-
-  it("lab head walk includes every lab-overview cluster step", () => {
-    const visited = walkForward(
-      "welcome",
-      picks({ account_type: "lab", lab_head: true }),
-    );
-    for (const id of LAB_OVERVIEW_CLUSTER) {
-      expect(visited).toContain(id);
-    }
-  });
-
-  it("lab member walk skips the entire lab-overview cluster", () => {
-    const visited = walkForward(
-      "welcome",
-      picks({ account_type: "lab", lab_head: false }),
-    );
-    for (const id of LAB_OVERVIEW_CLUSTER) {
-      expect(visited).not.toContain(id);
-    }
-  });
-
-  it("getNextStep on lab-overview-intro with lab head picks lands on lab-overview-widget-canvas", () => {
-    expect(
-      getNextStep(
-        "lab-overview-intro",
-        picks({ account_type: "lab", lab_head: true }),
-      ),
-    ).toBe("lab-overview-widget-canvas");
-  });
-
-  it("getNextStep on lab-overview-exit with lab head picks lands on lab-cleanup", () => {
-    expect(
-      getNextStep(
-        "lab-overview-exit",
-        picks({ account_type: "lab", lab_head: true }),
-      ),
-    ).toBe("lab-cleanup");
-  });
-});
+// R4 Lab Overview tour cluster — RETIRED 2026-05-23. The 6 placeholder
+// bodies R4 shipped were throwaway; Grant chose nuke-now-rebuild-fresh
+// ahead of the Mira-substrate walkthrough redesign. The corresponding
+// describe block (cluster-order + gate + walk-forward assertions) was
+// deleted alongside the step-machine constants. Future Mira-substrate
+// rebuild will introduce a fresh test suite for whatever ids replace
+// this slot.
 

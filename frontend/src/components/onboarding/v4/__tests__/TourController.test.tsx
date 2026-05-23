@@ -367,13 +367,12 @@ describe("TourController — setFeaturePicks", () => {
     expect(result.current.currentStep).toBe("tour-goodbye");
     // Flip to lab head and re-enter the terminal wiki-pointer beat;
     // advance now lands on the first applicable post-wiki step. After
-    // the R4 Lab Mode retirement 2026-05-23, the new 6-step Lab Overview
-    // cluster sits between the conditional walkthroughs and lab-cleanup,
-    // so the first applicable lab-only step is `lab-overview-intro`.
-    // setup-q1c lab head manager 2026-05-23: the cluster gate is now
-    // `lab_head === true`, not `account_type === "lab"`. Use lab_head:
-    // true so the cluster fires; a plain lab pick would skip straight
-    // to lab-cleanup.
+    // the R4 lab-overview placeholder nuker 2026-05-23, the 6-step Lab
+    // Overview cluster is GONE from TOUR_STEP_ORDER (placeholder bodies
+    // were throwaway; rebuild lands with the Mira-substrate walkthrough
+    // redesign). The first applicable lab-only step after the wiki
+    // cluster is now `lab-cleanup` — the same terminal lab step that
+    // already existed before the lab-overview cluster was inserted.
     act(() =>
       result.current.setFeaturePicks(
         picks({ account_type: "lab", lab_head: true }),
@@ -381,7 +380,7 @@ describe("TourController — setFeaturePicks", () => {
     );
     act(() => result.current.start("wiki-pointer-back-demo"));
     act(() => result.current.advance());
-    expect(result.current.currentStep).toBe("lab-overview-intro");
+    expect(result.current.currentStep).toBe("lab-cleanup");
   });
 });
 

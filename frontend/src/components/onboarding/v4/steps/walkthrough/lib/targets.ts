@@ -378,22 +378,13 @@ export const TOUR_TARGETS = {
   // both the empty-state and the populated-state branches.
   hybridEditorShortcutBar: "hybrid-editor-shortcut-bar",
 
-  // ----- R4 Lab Overview targets (R4 Lab Mode retirement, 2026-05-23).
-  // Anchors for the 6-step Lab Overview tour cluster that walks the
-  // user's own `/lab-overview` widget canvas + the unified sharing
-  // primitive. Replaces the prior lab-mode-* tab targets (which lived
-  // on the soon-to-be-retired `/lab` pseudo-account surface).
-  // Stamped on:
-  //   - WidgetCanvas's grid wrapper (lab-overview-canvas)
-  //   - SidebarWidgetRail's <aside> (lab-overview-sidebar)
-  //   - WidgetCanvas's "+ Add widget" toolbar button (lab-overview-add-widget)
-  //   - A sample share button on a canvas record (lab-overview-share-button);
-  //     when no record exposes the anchor, the step degrades to speech-only
-  //     narration of the sharing primitive.
-  labOverviewCanvas: "lab-overview-canvas",
-  labOverviewSidebar: "lab-overview-sidebar",
-  labOverviewAddWidget: "lab-overview-add-widget",
-  labOverviewShareButton: "lab-overview-share-button",
+  // ----- R4 Lab Overview targets — RETIRED 2026-05-23. The 4 anchors
+  // here (labOverviewCanvas / labOverviewSidebar / labOverviewAddWidget /
+  // labOverviewShareButton) pointed at the now-deleted 6-step Lab
+  // Overview walkthrough cluster. The cluster was throwaway placeholder
+  // R4 code; Grant chose nuke-now-rebuild-fresh ahead of the
+  // Mira-substrate walkthrough redesign. The data-tour-target attributes
+  // on WidgetCanvas + SidebarWidgetRail have been stripped to match.
 } as const;
 
 export type TourTargetName = (typeof TOUR_TARGETS)[keyof typeof TOUR_TARGETS];

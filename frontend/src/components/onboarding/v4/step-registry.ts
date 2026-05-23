@@ -63,18 +63,13 @@ import { linksConditionalStep } from "./steps/walkthrough/LinksConditionalStep";
 // `steps/lab/` with @deprecated JSDoc for git-history reference; the
 // imports are dropped here so unused-export warnings don't accumulate.
 import { buildLabCleanupStep } from "./steps/lab/LabAutoCleanupStep";
-// R4 Lab Overview tour cluster (R4 Lab Mode retirement, 2026-05-23).
-// Six new step bodies that walk the user's own `/lab-overview` widget
-// canvas + the unified sharing primitive. All gate on
-// `picks.account_type === "lab"`. Replaces the prior 12-step
-// `lab-mode-*` cluster (which mounted a DemoLabModeViewer overlay over
-// the soon-to-be-retired `/lab` pseudo-account).
-import { labOverviewIntroStep } from "./steps/lab-overview/LabOverviewIntroStep";
-import { labOverviewWidgetCanvasStep } from "./steps/lab-overview/LabOverviewWidgetCanvasStep";
-import { labOverviewSidebarRailStep } from "./steps/lab-overview/LabOverviewSidebarRailStep";
-import { labOverviewAddWidgetStep } from "./steps/lab-overview/LabOverviewAddWidgetStep";
-import { labOverviewSharingStep } from "./steps/lab-overview/LabOverviewSharingStep";
-import { labOverviewExitStep } from "./steps/lab-overview/LabOverviewExitStep";
+// R4 Lab Overview tour cluster (R4 Lab Mode retirement, 2026-05-23): the
+// 6 placeholder step bodies (lab-overview-intro through lab-overview-exit)
+// that R4 shipped were throwaway. Grant chose nuke-now-rebuild-fresh ahead
+// of the Mira-substrate walkthrough redesign, so the imports + registry
+// entries + tests + tour-targets have been removed. The Lab Overview
+// surface itself (R3's production widget canvas) is untouched; only the
+// walkthrough cluster is gone.
 import {
   onEnterGanttGoalsOverview,
   onEnterHybridEditorImageDrop,
@@ -360,17 +355,6 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   // step; the body lives in steps/cleanup/TourGoodbyeStep.tsx alongside
   // the retired Phase 4 cleanup-grid sources (marked @deprecated).
   [tourGoodbyeStep.id]: tourGoodbyeStep,
-  // R4 Lab Overview tour cluster (R4 Lab Mode retirement, 2026-05-23).
-  // Order matches TOUR_STEP_ORDER: intro → canvas → sidebar → add
-  // widget → sharing → exit. Each step's conditionalOn gates on
-  // `account_type === "lab"`. Replaces the legacy 12-step lab-mode-*
-  // cluster.
-  [labOverviewIntroStep.id]: labOverviewIntroStep,
-  [labOverviewWidgetCanvasStep.id]: labOverviewWidgetCanvasStep,
-  [labOverviewSidebarRailStep.id]: labOverviewSidebarRailStep,
-  [labOverviewAddWidgetStep.id]: labOverviewAddWidgetStep,
-  [labOverviewSharingStep.id]: labOverviewSharingStep,
-  [labOverviewExitStep.id]: labOverviewExitStep,
 };
 
 /**

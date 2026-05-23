@@ -302,18 +302,13 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "links",
 
   // ----- Phase 2c: Lab Overview tour cluster (R4 Lab Mode retirement,
-  // 2026-05-23). The legacy `lab-mode-*` cluster (12 steps, prompt +
-  // warp + 8 demo-viewer tab beats + exit) is RETIRED. The new shape
-  // is a 6-step walkthrough of the user's own `/lab-overview` widget
-  // canvas + the unified sharing primitive. Every entry gates on
-  // `picks.account_type === "lab"`. No warp-to-demo prompt: the tour
-  // runs against the user's real lab-overview, using their own data.
-  "lab-overview-intro",
-  "lab-overview-widget-canvas",
-  "lab-overview-sidebar-rail",
-  "lab-overview-add-widget",
-  "lab-overview-sharing",
-  "lab-overview-exit",
+  // 2026-05-23) — RETIRED 2026-05-23. The 6 placeholder bodies R4 shipped
+  // (lab-overview-intro through lab-overview-exit) were throwaway. Grant
+  // chose nuke-now-rebuild-fresh ahead of the Mira-substrate walkthrough
+  // redesign, so the cluster has been removed from TOUR_STEP_ORDER, the
+  // step bodies + tests have been deleted, and the data-tour-target
+  // attributes have been stripped from WidgetCanvas + SidebarWidgetRail.
+  // The future Mira-substrate rebuild will reshape this slot.
 
   // ----- Phase 2c: lab cleanup terminal step (§6.16c, conditional on Q1=lab)
   // Gantt redesign 2026-05-22 (Gantt manager): the prior lab tour cluster
@@ -393,21 +388,6 @@ const GANTT_SHARE_LAB_ONLY_STEP_IDS: ReadonlySet<TourStepId> =
     "gantt-share-user-sees-edit",
   ]);
 
-/** Lab Overview tour cluster step ids (R4 Lab Mode retirement, 2026-05-23).
- *  Replaces the legacy 12-step `lab-mode-*` cluster with a 6-step walk
- *  of the user's own `/lab-overview` widget canvas + the unified sharing
- *  primitive. All 6 entries gate on `picks.account_type === "lab"`. No
- *  prompt step, no warp-to-demo, no resume-guard sidecar field: the new
- *  tour runs against the user's real lab-overview surface. */
-const LAB_OVERVIEW_STEP_IDS: ReadonlySet<TourStepId> = new Set<TourStepId>([
-  "lab-overview-intro",
-  "lab-overview-widget-canvas",
-  "lab-overview-sidebar-rail",
-  "lab-overview-add-widget",
-  "lab-overview-sharing",
-  "lab-overview-exit",
-]);
-
 /** True when this step is one of the Phase 1 modal setup questions. */
 export function isSetupPhaseStep(step: TourStepId): boolean {
   return SETUP_STEP_IDS.has(step);
@@ -423,24 +403,6 @@ export function isLabPhaseStep(step: TourStepId): boolean {
  *  but is gated by `picks.account_type === "lab"`. */
 export function isGanttShareLabStep(step: TourStepId): boolean {
   return GANTT_SHARE_LAB_ONLY_STEP_IDS.has(step);
-}
-
-/** True when this step belongs to the R4 Lab Overview tour cluster
- *  (R4 Lab Mode retirement, 2026-05-23). Gated by
- *  `picks.account_type === "lab"`. Replaces the prior
- *  `isLabModeTourStep` helper; the export name changed to track the
- *  new cluster identity. */
-export function isLabOverviewTourStep(step: TourStepId): boolean {
-  return LAB_OVERVIEW_STEP_IDS.has(step);
-}
-
-/** @deprecated Back-compat alias for the prior `isLabModeTourStep`
- *  helper. Returns false for every input now that the lab-mode cluster
- *  is retired. Kept so external callers don't crash mid-flight; remove
- *  in a follow-up sweep once every importer migrates to
- *  `isLabOverviewTourStep`. */
-export function isLabModeTourStep(_step: TourStepId): boolean {
-  return false;
 }
 
 /**
@@ -575,19 +537,11 @@ export function isStepGatedOut(
     return picks?.account_type !== "lab";
   }
 
-  // R4 Lab Overview tour cluster (R4 Lab Mode retirement, 2026-05-23).
-  // setup-q1c lab head manager 2026-05-23: the cluster now gates on
-  // `lab_head === true` (was `account_type === "lab"`). The Lab Overview
-  // dashboard is a PI tool — widget curation, member spotlighting, and
-  // sharing concepts target the person running the lab, not every lab
-  // member. Lab members (who picked "Lab" on Q1 but "No" on Q1c) still
-  // see the universal walkthrough; they just skip this 6-step cluster.
-  // No prompt step + no warp, so no resume-guard sidecar field is needed;
-  // the cluster walks the user's real `/lab-overview` instead of a demo
-  // overlay.
-  if (LAB_OVERVIEW_STEP_IDS.has(step)) {
-    return picks?.lab_head !== true;
-  }
+  // R4 Lab Overview tour cluster — RETIRED 2026-05-23. The 6 placeholder
+  // bodies R4 shipped were throwaway; Grant chose nuke-now-rebuild-fresh
+  // ahead of the Mira-substrate walkthrough redesign. No ids remain in
+  // TOUR_STEP_ORDER for this cluster, so no gate predicate is needed
+  // here; the future rebuild will introduce its own ids + gating contract.
 
   return false;
 }
