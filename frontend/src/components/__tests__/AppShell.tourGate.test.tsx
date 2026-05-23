@@ -57,10 +57,13 @@ vi.mock("@/hooks/useFeaturePicks", () => ({
   useFeaturePicks: () => null,
 }));
 
-// useUserColor → useQuery; stub to a stable color so headerGradient
-// doesn't throw.
+// useUserColor + useUserColors → useQuery; stub stable values so
+// headerGradient doesn't throw. AppShell calls `useUserColors` (plural)
+// to read both primary and optional secondary; older modules may still
+// pull `useUserColor` (singular) too.
 vi.mock("@/hooks/useUserColor", () => ({
   useUserColor: () => "#3b82f6",
+  useUserColors: () => ({ primary: "#3b82f6", secondary: null }),
 }));
 
 vi.mock("@/hooks/useErrorReporting", () => ({
@@ -230,5 +233,55 @@ describe("AppShell — top-nav gate", () => {
     const before = window.location.pathname;
     firstDisabledBtn.click();
     expect(window.location.pathname).toBe(before);
+  });
+
+  // Break-bot B P1-2 (Wave 1 gear icon gating): the Settings gear icon
+  // sits outside <nav>, so it was missed by the original L23 gate.
+  // Mid-walkthrough click did a soft-nav to /settings, spotlight went
+  // dark, tour parked. Gear must match the top-nav disabled pattern;
+  // the Help/`?` icon next to it stays a Link because the wiki-pointer
+  // cluster step 3 needs the user to click it.
+  describe("Settings gear icon gate", () => {
+    it("renders gear as Link when no tour is active", () => {
+      const { container } = renderShell({ withProvider: false });
+      const gearLink = container.querySelector(
+        `a[href="/settings"]`,
+      ) as HTMLAnchorElement | null;
+      expect(gearLink).toBeTruthy();
+      // No disabled gear button.
+      expect(
+        container.querySelector(`button[data-tour-nav-item="/settings"]`),
+      ).toBeNull();
+    });
+
+    it("renders gear as disabled button during in-product walkthrough", () => {
+      const { container } = renderShell({
+        withProvider: true,
+        initialStep: "home-create-project",
+      });
+      const gearBtn = container.querySelector(
+        `button[data-tour-nav-item="/settings"]`,
+      ) as HTMLButtonElement | null;
+      expect(gearBtn).toBeTruthy();
+      expect(gearBtn!.disabled).toBe(true);
+      expect(gearBtn!.getAttribute("aria-disabled")).toBe("true");
+      expect(gearBtn!.className).toMatch(/cursor-not-allowed/);
+      expect(gearBtn!.className).toMatch(/opacity-50/);
+      // The Link form must NOT also be in the DOM.
+      expect(container.querySelector(`a[href="/settings"]`)).toBeNull();
+    });
+
+    it("Help / `?` icon stays a Link during walkthrough (intentionally not gated)", () => {
+      const { container } = renderShell({
+        withProvider: true,
+        initialStep: "home-create-project",
+      });
+      // The wiki entry-point href starts with /wiki; it should remain
+      // a clickable anchor so the wiki-pointer cluster step 3 works.
+      const helpAnchors = Array.from(container.querySelectorAll("a")).filter(
+        (a) => a.getAttribute("aria-label") === "Open the ResearchOS wiki",
+      );
+      expect(helpAnchors.length).toBe(1);
+    });
   });
 });
