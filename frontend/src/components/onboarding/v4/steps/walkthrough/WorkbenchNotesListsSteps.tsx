@@ -141,8 +141,8 @@ export const workbenchNotesIntroStep = buildWalkthroughStep({
       <p>
         Two flavors. Single notes are one-off, like a quick takeaway
         from a conference talk. Running logs grow over time, one entry
-        per session. A weekly PI 1-on-1 is a perfect fit: one note
-        titled &quot;Student / PI 1-on-1, Fall 2026&quot;, a new entry
+        per session. A weekly Lab Head 1-on-1 is a perfect fit: one note
+        titled &quot;Student / Lab Head 1-on-1, Fall 2026&quot;, a new entry
         each week. One file to find later, not fifteen.
       </p>
     </>

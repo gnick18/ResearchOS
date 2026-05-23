@@ -7,7 +7,7 @@ export default function PurchasesFeaturePage() {
   return (
     <WikiPage
       title="Purchases & Funding"
-      intro="The Purchases page answers a single question for grant management: where is the money going right now? It pairs a flat reverse-chronological list of every purchase order with a live spending dashboard, so a PI can scan recent activity and check budget burn without leaving the page."
+      intro="The Purchases page answers a single question for grant management: where is the money going right now? It pairs a flat reverse-chronological list of every purchase order with a live spending dashboard, so a Lab Head can scan recent activity and check budget burn without leaving the page."
     >
       <Screenshot
         src="/wiki/screenshots/purchases-unified-scroll.png"

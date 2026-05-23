@@ -19,7 +19,7 @@ export default function LabModePurchasesPage() {
       <p>
         The personal Purchases page tracks one user&apos;s spend. The Lab Mode
         version pulls in every selected user&apos;s purchase orders and groups
-        the spend by funding account, so a PI or admin can see how the lab is
+        the spend by funding account, so a Lab Head or admin can see how the lab is
         burning down each grant.
       </p>
       <p>The page is two stacked layers:</p>
