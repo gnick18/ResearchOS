@@ -2460,6 +2460,386 @@ function buildEntries() {
     },
   ]);
 
+  // ── Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23) ──────────
+  //
+  // Adds the four soft-write action surfaces to the demo lab. Each piece
+  // is a small override at the end of buildEntries so the existing
+  // records earlier in the file stay readable — the demo writer + the
+  // fixture mock both use a key-based map, so later out.push entries
+  // overwrite earlier ones for the same path.
+  //
+  // Showcase plan:
+  //   - 3 announcements (one pinned about a lab meeting)
+  //   - 1 task assignment (Mira → morgan on alex's task 14, "Review
+  //     morgan's draft figures") which is already shared into morgan's
+  //     project 2, giving a natural cross-owner story
+  //   - 1 approved purchase (alex item 3, Phusion polymerase)
+  //   - 1 flagged record (morgan task 4, Draft Chapter 2 outline)
+  //     with reason text per the brief example
+  //
+  // The audit log appendings mirror what Phase 5 R1's owner-scoped
+  // wrappers would write; we slot them into the same _pi_audit.json
+  // files already declared above by appending entries client-side.
+
+  const DEMO_SESSION_C = "demo-sess-2026-05-19-phase3";
+  const ANN_NOW = "2026-05-19T09:30:00Z";
+  const ANN_EARLIER = "2026-05-12T17:30:00Z";
+
+  out.push([
+    "_announcements.json",
+    {
+      version: 1,
+      announcements: [
+        {
+          id: "ann-mira-lab-meeting",
+          author: "mira",
+          text:
+            "Lab meeting this Friday 2pm in Bio 4203. Bring strain " +
+            "design notes and any qPCR data from this week.",
+          created_at: ANN_NOW,
+          pinned: true,
+        },
+        {
+          id: "ann-mira-doe-renewal",
+          author: "mira",
+          text:
+            "DOE renewal abstract is due May 29. Please flag any " +
+            "preliminary-data figures you want me to include — " +
+            "I'm anchoring on the FakeYeast biofuel results plus " +
+            "morgan's 96-well screen.",
+          created_at: ANN_EARLIER,
+          pinned: false,
+        },
+        {
+          id: "ann-mira-freezer-cleanout",
+          author: "mira",
+          text:
+            "Reminder: freezer 5 cleanout this Saturday. Label any " +
+            "tubes you want kept by Friday EOD. Unlabeled tubes go " +
+            "into the discard bin per lab SOP.",
+          created_at: "2026-05-15T11:00:00Z",
+          pinned: false,
+        },
+      ],
+    },
+  ]);
+
+  // Lab-wide audit log alongside `_announcements.json` — captures Mira
+  // posting the pinned announcement. Lab-level audit (target_user
+  // "_lab") is distinct from the per-user `users/<u>/_pi_audit.json`
+  // entries created above.
+  out.push([
+    "_pi_audit.json",
+    {
+      version: 1,
+      entries: [
+        {
+          id: "audit-mira-ann-1",
+          session_id: DEMO_SESSION_C,
+          actor: "mira",
+          target_user: "_lab",
+          record_type: "announcement",
+          record_id: "ann-mira-lab-meeting",
+          field_path: "text",
+          old_value: null,
+          new_value:
+            "Lab meeting this Friday 2pm in Bio 4203. Bring strain " +
+            "design notes and any qPCR data from this week.",
+          timestamp: ANN_NOW,
+        },
+      ],
+    },
+  ]);
+
+  // ── Task assignment override: alex task 14 (Review morgan's draft
+  // figures) gets reassigned to morgan. Alex still owns the task; the
+  // brief asked for owner !== assignee so the chip story reads:
+  // "Assigned to morgan · Owner: alex".
+  out.push([
+    "users/alex/tasks/14.json",
+    {
+      id: 14,
+      project_id: 4,
+      name: "Review morgan's draft figures",
+      start_date: "2026-05-12",
+      duration_days: 3,
+      end_date: "2026-05-14",
+      is_high_level: false,
+      is_complete: false,
+      task_type: "list",
+      weekend_override: null,
+      method_id: null,
+      method_ids: [],
+      deviation_log: null,
+      tags: null,
+      sort_order: 14,
+      experiment_color: null,
+      sub_tasks: [
+        { id: "st1", text: "Read intro + methods sections", is_complete: true },
+        { id: "st2", text: "Annotate figures 1–3 with margin comments", is_complete: false },
+        { id: "st3", text: "Cross-check stats - n values + error bar definitions", is_complete: true },
+        { id: "st4", text: "Flag any panels that need re-rendering at 300dpi", is_complete: false },
+        { id: "st5", text: "Send consolidated feedback to morgan", is_complete: false },
+      ],
+      pcr_gradient: null,
+      pcr_ingredients: null,
+      method_attachments: [],
+      owner: "alex",
+      shared_with: [],
+      external_project: { owner: "morgan", id: 2, sharedAt: "2026-05-13T16:00:00Z" },
+      comments: [],
+      // Lab Head Phase 3 — Mira reassigns this list to morgan herself
+      // since she's been doing the figure rework.
+      assignee: "morgan",
+    },
+  ]);
+
+  // ── Approved purchase override: alex item 3 (Phusion polymerase) gets
+  // a green PI-approved badge.
+  out.push([
+    "users/alex/purchase_items/3.json",
+    {
+      id: 3,
+      task_id: 7,
+      item_name: "Phusion polymerase (demo)",
+      quantity: 1,
+      link: "https://example.org/demo-neb",
+      cas: null,
+      price_per_unit: 285,
+      shipping_fees: 0,
+      total_price: 285,
+      notes: "For DemoCheck PCR.",
+      funding_string: "DEMO-NIH-GM999999",
+      vendor: "NEB",
+      category: "Reagents",
+      // Lab Head Phase 3 — Mira approved this purchase during the
+      // 2026-05-19 review session.
+      approved: true,
+      approved_by: "mira",
+      approved_at: "2026-05-19T09:42:11Z",
+    },
+  ]);
+
+  // ── Flagged record: morgan's task 4 (Draft Chapter 2 outline).
+  out.push([
+    "users/morgan/tasks/4.json",
+    {
+      id: 4,
+      project_id: 2,
+      name: "Draft Chapter 2 outline",
+      start_date: "2026-05-06",
+      duration_days: 3,
+      end_date: "2026-05-09",
+      is_high_level: false,
+      is_complete: false,
+      task_type: "list",
+      weekend_override: null,
+      method_id: null,
+      method_ids: [],
+      deviation_log: null,
+      tags: null,
+      sort_order: 4,
+      experiment_color: null,
+      sub_tasks: [
+        { id: "st1", text: "Pull figures + key results from the 96-well screen project", is_complete: false },
+        { id: "st2", text: "Sketch section headers - intro, methods, results, discussion", is_complete: false },
+        { id: "st3", text: "List open questions to bring up with advisor", is_complete: false },
+        { id: "st4", text: "Draft figure list with target panels (Fig 2.1 - 2.6)", is_complete: false },
+        { id: "st5", text: "Block 2 mornings on calendar for first writing pass", is_complete: false },
+      ],
+      pcr_gradient: null,
+      pcr_ingredients: null,
+      method_attachments: [],
+      owner: "morgan",
+      shared_with: [],
+      external_project: null,
+      comments: [],
+      // Lab Head Phase 3 — Mira flagged this for review during 1:1 prep.
+      flagged: {
+        by: "mira",
+        at: "2026-05-19T09:48:30Z",
+        reason: "Let's chat about this in our 1:1 — I want the chapter outline scoped tighter before you start the writing pass.",
+      },
+    },
+  ]);
+
+  // ── Phase 3 audit appendings: extend the per-user audit files with
+  // entries for the assignment, approval, and flag actions.
+  out.push([
+    "users/alex/_pi_audit.json",
+    {
+      version: 1,
+      entries: [
+        {
+          id: "audit-mira-alex-1",
+          session_id: DEMO_SESSION_A,
+          actor: "mira",
+          target_user: "alex",
+          record_type: "task",
+          record_id: 5,
+          field_path: "name",
+          old_value: "Yeast transformation screen",
+          new_value: "Yeast transformation screen (LiAc)",
+          timestamp: "2026-05-15T14:32:18Z",
+        },
+        {
+          id: "audit-mira-alex-2",
+          session_id: DEMO_SESSION_A,
+          actor: "mira",
+          target_user: "alex",
+          record_type: "task",
+          record_id: 5,
+          field_path: "duration_days",
+          old_value: 3,
+          new_value: 4,
+          timestamp: "2026-05-15T14:32:45Z",
+        },
+        {
+          id: "audit-mira-alex-3",
+          session_id: DEMO_SESSION_C,
+          actor: "mira",
+          target_user: "alex",
+          record_type: "task",
+          record_id: 14,
+          field_path: "assignee",
+          old_value: null,
+          new_value: "morgan",
+          timestamp: "2026-05-19T09:45:01Z",
+        },
+        {
+          id: "audit-mira-alex-4",
+          session_id: DEMO_SESSION_C,
+          actor: "mira",
+          target_user: "alex",
+          record_type: "purchase_item",
+          record_id: 3,
+          field_path: "approved",
+          old_value: false,
+          new_value: true,
+          timestamp: "2026-05-19T09:42:11Z",
+        },
+      ],
+    },
+  ]);
+  out.push([
+    "users/morgan/_pi_audit.json",
+    {
+      version: 1,
+      entries: [
+        {
+          id: "audit-mira-morgan-1",
+          session_id: DEMO_SESSION_B,
+          actor: "mira",
+          target_user: "morgan",
+          record_type: "note",
+          record_id: 2,
+          field_path: "description",
+          old_value:
+            "Plate layouts for the 96-well growth-curve screen.",
+          new_value:
+            "Plate layouts for the 96-well growth-curve screen. Includes corner-evaporation controls per PI request.",
+          timestamp: "2026-05-17T10:08:22Z",
+        },
+        {
+          id: "audit-mira-morgan-2",
+          session_id: DEMO_SESSION_C,
+          actor: "mira",
+          target_user: "morgan",
+          record_type: "task",
+          record_id: 4,
+          field_path: "flagged",
+          old_value: null,
+          new_value: {
+            by: "mira",
+            at: "2026-05-19T09:48:30Z",
+            reason:
+              "Let's chat about this in our 1:1 — I want the chapter outline scoped tighter before you start the writing pass.",
+          },
+          timestamp: "2026-05-19T09:48:30Z",
+        },
+      ],
+    },
+  ]);
+
+  // ── Bell notifications for the assignment / approval / flag. The
+  // recipients are the users impacted (assignee, owner, owner). One
+  // announcement notification per non-author lab member.
+  out.push([
+    "users/alex/_notifications.json",
+    {
+      version: 1,
+      notifications: [
+        {
+          id: "notif-alex-announcement-1",
+          type: "lab_announcement",
+          from_user: "mira",
+          announcement_id: "ann-mira-lab-meeting",
+          preview:
+            "Lab meeting this Friday 2pm in Bio 4203. Bring strain " +
+            "design notes and any qPCR data from this week.",
+          created_at: ANN_NOW,
+          read: false,
+        },
+        {
+          id: "notif-alex-purchase-approval-1",
+          type: "lab_purchase_approval",
+          from_user: "mira",
+          owner_username: "alex",
+          purchase_item_id: 3,
+          item_name: "Phusion polymerase (demo)",
+          created_at: "2026-05-19T09:42:11Z",
+          read: false,
+        },
+      ],
+    },
+  ]);
+  out.push([
+    "users/morgan/_notifications.json",
+    {
+      version: 1,
+      notifications: [
+        {
+          id: "notif-morgan-announcement-1",
+          type: "lab_announcement",
+          from_user: "mira",
+          announcement_id: "ann-mira-lab-meeting",
+          preview:
+            "Lab meeting this Friday 2pm in Bio 4203. Bring strain " +
+            "design notes and any qPCR data from this week.",
+          created_at: ANN_NOW,
+          read: false,
+        },
+        {
+          id: "notif-morgan-task-assigned-1",
+          type: "lab_task_assignment",
+          from_user: "mira",
+          owner_username: "alex",
+          task_id: 14,
+          task_name: "Review morgan's draft figures",
+          note:
+            "You've been doing the bulk of the figure rework — taking " +
+            "this off alex's plate.",
+          created_at: "2026-05-19T09:45:01Z",
+          read: false,
+        },
+        {
+          id: "notif-morgan-flag-1",
+          type: "lab_flag_for_review",
+          from_user: "mira",
+          owner_username: "morgan",
+          record_type: "task",
+          record_id: 4,
+          record_name: "Draft Chapter 2 outline",
+          reason:
+            "Let's chat about this in our 1:1 — I want the chapter " +
+            "outline scoped tighter before you start the writing pass.",
+          created_at: "2026-05-19T09:48:30Z",
+          read: false,
+        },
+      ],
+    },
+  ]);
+
   return out;
 }
 

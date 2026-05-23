@@ -54,6 +54,9 @@ import { useLabHeadEditGate } from "@/hooks/useLabHeadEditGate";
 import RequestEditButton from "./RequestEditButton";
 import EditSessionBanner from "./EditSessionBanner";
 import AuditTrailNotice from "./AuditTrailNotice";
+import AssignTaskButton from "./lab-head/AssignTaskButton";
+import FlagForReviewButton from "./lab-head/FlagForReviewButton";
+import FlagBanner from "./lab-head/FlagBanner";
 import {
   appendAuditEntries,
   buildFieldDiffEntries,
@@ -800,6 +803,34 @@ export default function TaskDetailPopup({
                 targetLabel={`${username ?? task.owner ?? "member"}'s task: ${task.name}`}
               />
             )}
+            {/* Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23):
+                Assign + Flag-for-review buttons. Only render while the
+                PI's edit session is unlocked AND this is a cross-owner
+                view (the canRequestEdit gate covers the latter). */}
+            {labHeadGate.canRequestEdit && labHeadGate.unlocked && labHeadGate.activeUser && labHeadGate.sessionId && (
+              <>
+                <AssignTaskButton
+                  task={task}
+                  actor={labHeadGate.activeUser}
+                  sessionId={labHeadGate.sessionId}
+                  onAssigned={() => {
+                    void queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
+                  }}
+                />
+                <FlagForReviewButton
+                  recordType="task"
+                  recordId={task.id}
+                  recordName={task.name}
+                  targetOwner={task.owner}
+                  actor={labHeadGate.activeUser}
+                  sessionId={labHeadGate.sessionId}
+                  currentFlag={task.flagged ?? null}
+                  onFlagged={() => {
+                    void queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
+                  }}
+                />
+              </>
+            )}
             {/* Completion toggle with hint - hidden in readOnly mode */}
             {!readOnly && !task.is_complete && (
               <span className="text-xs text-gray-400 italic">Mark as complete →</span>
@@ -919,6 +950,39 @@ export default function TaskDetailPopup({
             </Tooltip>
           </div>
         </div>
+
+        {/* Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23): flag
+            banner + assignee chip. The banner shows for everyone who can
+            see the task (PI + owner), with a "Clear flag" affordance
+            scoped to the owner. The assignee chip surfaces when an
+            assignee is set AND differs from the owner. */}
+        {task.flagged && (
+          <div className="px-6 pt-3">
+            <FlagBanner
+              flag={task.flagged}
+              recordType="task"
+              recordId={task.id}
+              owner={task.owner}
+              activeUser={currentUser}
+              onCleared={() => {
+                void queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
+              }}
+            />
+          </div>
+        )}
+        {task.assignee && task.assignee !== task.owner && (
+          <div className="px-6 pt-2 flex items-center gap-2 text-xs">
+            <span className="text-gray-500">Assigned to</span>
+            <span
+              className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-medium border border-emerald-200"
+              data-testid="task-assignee-chip"
+            >
+              {task.assignee}
+            </span>
+            <span className="text-gray-400">·</span>
+            <span className="text-gray-500">Owner: {task.owner}</span>
+          </div>
+        )}
 
         {/* Tabs */}
         <div

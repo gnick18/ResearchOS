@@ -18,6 +18,8 @@ import { useLabHeadEditGate } from "@/hooks/useLabHeadEditGate";
 import RequestEditButton from "./RequestEditButton";
 import EditSessionBanner from "./EditSessionBanner";
 import AuditTrailNotice from "./AuditTrailNotice";
+import FlagForReviewButton from "./lab-head/FlagForReviewButton";
+import FlagBanner from "./lab-head/FlagBanner";
 
 interface NoteDetailPopupProps {
   note: Note;
@@ -708,6 +710,21 @@ export default function NoteDetailPopup({
                   targetLabel={`${note.username ?? "member"}'s note: ${title}`}
                 />
               )}
+              {/* Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23):
+                  Flag-for-review button. Shows while the PI session is
+                  unlocked for this note. Notes have no "assign" surface
+                  in v1 — that's a Task-only concept. */}
+              {labHeadGate.canRequestEdit && labHeadGate.unlocked && labHeadGate.activeUser && labHeadGate.sessionId && note.username && (
+                <FlagForReviewButton
+                  recordType="note"
+                  recordId={note.id}
+                  recordName={title}
+                  targetOwner={note.username}
+                  actor={labHeadGate.activeUser}
+                  sessionId={labHeadGate.sessionId}
+                  currentFlag={note.flagged ?? null}
+                />
+              )}
               <Tooltip label={isExpanded ? "Exit fullscreen" : "Fullscreen"} placement="bottom">
                 <button
                   onClick={() => setIsExpanded(!isExpanded)}
@@ -737,6 +754,21 @@ export default function NoteDetailPopup({
               </Tooltip>
             </div>
           </div>
+
+          {/* Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23):
+              flag banner. Shown to everyone who can view this note;
+              owner sees a Clear-flag affordance. */}
+          {note.flagged && note.username && (
+            <div className="mt-3">
+              <FlagBanner
+                flag={note.flagged}
+                recordType="note"
+                recordId={note.id}
+                owner={note.username}
+                activeUser={currentUser}
+              />
+            </div>
+          )}
 
           {/* Sharing toggle */}
           {!readOnly && (

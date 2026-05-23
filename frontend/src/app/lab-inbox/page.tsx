@@ -3,25 +3,30 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import LabInboxAnnouncements from "@/components/lab-inbox/LabInboxAnnouncements";
 import LabInboxComments from "@/components/lab-inbox/LabInboxComments";
 import LabInboxMetrics from "@/components/lab-inbox/LabInboxMetrics";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { readUserSettings } from "@/lib/settings/user-settings";
+import { readOnboarding } from "@/lib/onboarding/sidecar";
 
 /**
- * Lab Inbox — the principal investigator's surface (Lab Head Phase 1
- * 2026-05-23 — lab head Phase 1 manager).
+ * Lab Inbox — Lab Head Phase 1 shipped the shell, Phase 2 added the
+ * comment feed, Phase 4 added cross-lab metrics, and Phase 3 (lab head
+ * Phase 3 manager, 2026-05-23) added the announcement composer.
  *
- * Phase 1 shipped the shell. Phase 2 fills it with the cross-lab comment
- * feed (mentions, replies, threads on the PI's lab's records). Phase 4
- * adds the metrics dashboard (Gantt overlay tinted by owner, funding
- * rollup, roadmap aggregation). Phase 3 will add the announcement composer
- * + action queue.
+ * Phase 3 visibility shift: every lab member now lands on this surface
+ * to SEE pinned announcements (the brief explicitly calls for "Members
+ * CAN see them but cannot post"). Lab-head-only sections (composer
+ * controls, cross-lab metrics) gate themselves internally on
+ * `account_type === "lab_head"`. The comments feed renders for everyone
+ * — its "Only on my records" toggle was added in Phase 2 for non-PIs
+ * who land here via a bell-row click.
  *
- * Visibility: gated by `UserSettings.account_type === "lab_head"`. A regular
- * member who navigates here directly (typed URL, stale bookmark) is bounced
- * to Home — the sidebar nav entry only renders for lab heads, so the only
- * way to land here as a member is intentional.
+ * The previous "bounce non-lab_head to Home" guard was relaxed in
+ * Phase 3. Non-lab-mode users (solo accounts with no lab folder) still
+ * shouldn't land here — they have no lab to read. We gate on
+ * `isConnected` (= a lab folder is opened) instead of account_type.
  */
 export default function LabInboxPage() {
   return (
@@ -34,8 +39,9 @@ export default function LabInboxPage() {
 function LabInboxBody() {
   const router = useRouter();
   const { currentUser, isConnected } = useFileSystem();
-  // `undefined` = still loading, `null` = no lab_head access, `true` = ok.
+  // `undefined` = still loading, `null` = no lab access, `true` = ok.
   const [allowed, setAllowed] = useState<boolean | null | undefined>(undefined);
+  const [accountType, setAccountType] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,9 +51,18 @@ function LabInboxBody() {
         return;
       }
       try {
-        const settings = await readUserSettings(currentUser);
+        const [settings, onboarding] = await Promise.all([
+          readUserSettings(currentUser),
+          readOnboarding(currentUser),
+        ]);
         if (!cancelled) {
-          setAllowed(settings.account_type === "lab_head" ? true : null);
+          const at = settings.account_type;
+          setAccountType(at);
+          // Phase 3 relaxes the Phase 1 lab_head-only guard so ordinary
+          // lab members can see PI announcements. Solo accounts (no lab
+          // workspace) still bounce — they have no lab to display.
+          const inLab = onboarding.feature_picks?.account_type === "lab";
+          setAllowed(at === "lab_head" || (at === "member" && inLab) ? true : null);
         }
       } catch {
         if (!cancelled) setAllowed(null);
@@ -59,10 +74,7 @@ function LabInboxBody() {
   }, [currentUser, isConnected]);
 
   useEffect(() => {
-    // Bounce regular members back to Home — they shouldn't be here. We do
-    // this client-side (no server) since the gate lives in settings.json
-    // which is also read client-side. The redirect waits until the
-    // settings read resolves so we don't bounce mid-load.
+    // Bounce solo users — no lab folder, nothing to render.
     if (allowed === null) router.replace("/");
   }, [allowed, router]);
 
@@ -75,36 +87,34 @@ function LabInboxBody() {
   }
 
   if (!allowed) {
-    // The redirect effect above handles navigation; render nothing in the
-    // intermediate frame to avoid flashing a forbidden-style message at
-    // someone we're about to bounce.
     return null;
   }
 
+  const isLabHead = accountType === "lab_head";
+
   return (
     <div className="flex-1 overflow-y-auto">
-      {/* Phase 4 widened the container to 6xl so the Gantt overlay has room
-       *  to breathe without horizontal-scrolling at typical laptop widths.
-       *  Phase 2's comment feed renders fine inside the wider column. */}
       <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
         <header>
           <h1 className="text-2xl font-bold text-gray-900">Lab Inbox</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Comments and audit notifications across your lab&apos;s shared
-            content. Phase 3 will add the announcement composer + action queue.
+            {isLabHead
+              ? "Announcements, lab-wide comments, and cross-lab metrics. The composer below posts to everyone in the lab."
+              : "Announcements from your lab head and recent comments across the lab."}
           </p>
         </header>
+
+        {/* Phase 3: PI-posted announcements visible to everyone; composer
+         *  gated on Phase 5 edit-mode session. */}
+        <LabInboxAnnouncements />
 
         {/* Phase 2: cross-lab comment feed with source-surface links,
          *  threaded replies, @mention chips, bell notifications. */}
         <LabInboxComments />
 
-        {/* Phase 4: cross-lab metrics dashboard — tabbed view across the
-         *  Gantt overlay (every member's tasks tinted by owner), funding
-         *  rollup (lab-wide spend), and roadmap aggregation (all high-level
-         *  goals with progress). All three read existing data — no new
-         *  sidecars. */}
-        <LabInboxMetrics />
+        {/* Phase 4: cross-lab metrics dashboard — lab-head-only signal.
+         *  Members don't see other members' aggregated workload. */}
+        {isLabHead && <LabInboxMetrics />}
       </div>
     </div>
   );

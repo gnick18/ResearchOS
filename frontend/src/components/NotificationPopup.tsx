@@ -6,7 +6,11 @@ import { sharingApi } from "@/lib/local-api";
 import { useCalendarNavStore } from "@/lib/calendar/calendar-nav-store";
 import Tooltip from "./Tooltip";
 import type {
+  LabAnnouncementNotification,
   LabCommentNotification,
+  LabFlagForReviewNotification,
+  LabPurchaseApprovalNotification,
+  LabTaskAssignmentNotification,
   Notification,
   ShiftAlertNotification,
 } from "@/lib/types";
@@ -276,6 +280,14 @@ export default function NotificationPopup({
                 notification.type === "comment_mention" ||
                 notification.type === "comment_on_owned" ||
                 notification.type === "comment_lab_head_feed";
+              // Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23):
+              // bell types for the soft-write quartet — announcement,
+              // assignment, approval, flag-for-review.
+              const isLabPhase3 =
+                notification.type === "lab_announcement" ||
+                notification.type === "lab_task_assignment" ||
+                notification.type === "lab_purchase_approval" ||
+                notification.type === "lab_flag_for_review";
               // Row click only acknowledges the entry — never navigates and
               // never closes the popup. Navigation lives on an explicit
               // "Open in calendar" link inside reminder rows (or "View task"
@@ -373,11 +385,13 @@ export default function NotificationPopup({
                           ? getShiftAlertIcon()
                           : isLabComment
                             ? getLabCommentIcon()
-                            : notification.type === "task_shared" ||
-                                notification.type === "method_shared" ||
-                                notification.type === "project_shared"
-                              ? getItemTypeIcon(notification.item_type)
-                              : null}
+                            : isLabPhase3
+                              ? getLabPhase3Icon(notification.type)
+                              : notification.type === "task_shared" ||
+                                  notification.type === "method_shared" ||
+                                  notification.type === "project_shared"
+                                ? getItemTypeIcon(notification.item_type)
+                                : null}
                     </div>
                     <div className="flex-1 min-w-0">
                       {notification.type === "event_reminder" ? (
@@ -428,6 +442,24 @@ export default function NotificationPopup({
                             </span>
                           </div>
                         </>
+                      ) : isLabPhase3 ? (
+                        // Lab Head Phase 3 (lab head Phase 3 manager,
+                        // 2026-05-23): announcement / assignment /
+                        // approval / flag-for-review.
+                        <LabPhase3Row
+                          notification={notification as
+                            | LabAnnouncementNotification
+                            | LabTaskAssignmentNotification
+                            | LabPurchaseApprovalNotification
+                            | LabFlagForReviewNotification}
+                          onMarkRead={() => handleMarkRead(notification.id)}
+                          onNavigate={() => {
+                            if (!notification.read) {
+                              void handleMarkRead(notification.id);
+                            }
+                            onClose();
+                          }}
+                        />
                       ) : (
                         // Remaining notification family is the Lab Head
                         // Phase 2 comment-feed trio (comment_mention /
@@ -643,6 +675,179 @@ function LabCommentBody({
           {notification.preview}
         </p>
       )}
+    </>
+  );
+}
+
+// Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23): icon picker
+// for the soft-write quartet. Each subtype uses a distinct glyph so a PI
+// scanning the inbox can tell at a glance which surface fired.
+function getLabPhase3Icon(
+  type:
+    | "lab_announcement"
+    | "lab_task_assignment"
+    | "lab_purchase_approval"
+    | "lab_flag_for_review"
+    | string,
+) {
+  if (type === "lab_announcement") {
+    // Megaphone — lab-wide broadcast.
+    return (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5l-7 4v6l7 4V5zM15 9v6m4-8v10" />
+      </svg>
+    );
+  }
+  if (type === "lab_task_assignment") {
+    // User-plus — assignment.
+    return (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth={2} fill="none" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 8v6M22 11h-6" />
+      </svg>
+    );
+  }
+  if (type === "lab_purchase_approval") {
+    // Checkmark in circle — approved.
+    return (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth={2} fill="none" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12l3 3 5-6" />
+      </svg>
+    );
+  }
+  // lab_flag_for_review — flag.
+  return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 22V4a2 2 0 0 1 2-2h8l2 4h4v10h-6l-2-4H6v10" />
+    </svg>
+  );
+}
+
+interface LabPhase3RowProps {
+  notification:
+    | LabAnnouncementNotification
+    | LabTaskAssignmentNotification
+    | LabPurchaseApprovalNotification
+    | LabFlagForReviewNotification;
+  onMarkRead: () => void;
+  onNavigate: () => void;
+}
+
+function LabPhase3Row({ notification, onMarkRead, onNavigate }: LabPhase3RowProps) {
+  const router = useRouter();
+  void onMarkRead;
+  const { from_user } = notification;
+
+  if (notification.type === "lab_announcement") {
+    return (
+      <>
+        <p className="text-sm text-gray-900">
+          <span className="font-medium">{from_user}</span>
+          {" posted a lab announcement"}
+        </p>
+        {notification.preview && (
+          <p className="text-xs text-gray-600 mt-1 line-clamp-2">{notification.preview}</p>
+        )}
+        <button
+          onClick={() => {
+            router.push("/lab-inbox");
+            onNavigate();
+          }}
+          className="mt-1.5 text-[11px] text-blue-600 hover:text-blue-800 font-medium"
+        >
+          Open Lab Inbox →
+        </button>
+      </>
+    );
+  }
+
+  if (notification.type === "lab_task_assignment") {
+    return (
+      <>
+        <p className="text-sm text-gray-900">
+          <span className="font-medium">{from_user}</span>
+          {" assigned you a task: "}
+          <span className="font-medium">{notification.task_name}</span>
+        </p>
+        {notification.note && (
+          <p className="text-xs text-gray-600 mt-1 line-clamp-2">{notification.note}</p>
+        )}
+        <button
+          onClick={() => {
+            // Deep-linking to a foreign owner's individual task popup
+            // isn't a robust route yet (mirrors the shift-alert handler's
+            // comment). Route to Lab Inbox so the user can find the task
+            // via the existing surfaces.
+            router.push("/lab-inbox");
+            onNavigate();
+          }}
+          className="mt-1.5 text-[11px] text-blue-600 hover:text-blue-800 font-medium"
+        >
+          Open Lab Inbox →
+        </button>
+      </>
+    );
+  }
+
+  if (notification.type === "lab_purchase_approval") {
+    return (
+      <>
+        <p className="text-sm text-gray-900">
+          <span className="font-medium">{from_user}</span>
+          {" approved your purchase: "}
+          <span className="font-medium">{notification.item_name}</span>
+        </p>
+        <button
+          onClick={() => {
+            router.push("/purchases");
+            onNavigate();
+          }}
+          className="mt-1.5 text-[11px] text-blue-600 hover:text-blue-800 font-medium"
+        >
+          View purchase →
+        </button>
+      </>
+    );
+  }
+
+  // lab_flag_for_review
+  const recordNoun =
+    notification.record_type === "task"
+      ? "task"
+      : notification.record_type === "note"
+        ? "note"
+        : "purchase item";
+  return (
+    <>
+      <p className="text-sm text-gray-900">
+        <span className="font-medium">{from_user}</span>
+        {" flagged your "}
+        {recordNoun}
+        {": "}
+        <span className="font-medium">{notification.record_name}</span>
+      </p>
+      {notification.reason && (
+        <p className="text-xs text-gray-600 mt-1 line-clamp-2">{notification.reason}</p>
+      )}
+      <button
+        onClick={() => {
+          // Route to the surface that hosts the record type. Notes /
+          // tasks live in Lab Mode; purchase items live in /purchases.
+          if (notification.record_type === "purchase_item") {
+            router.push("/purchases");
+          } else if (notification.record_type === "note") {
+            router.push("/notes");
+          } else {
+            router.push("/lab-inbox");
+          }
+          onNavigate();
+        }}
+        className="mt-1.5 text-[11px] text-blue-600 hover:text-blue-800 font-medium"
+      >
+        Open record →
+      </button>
     </>
   );
 }
