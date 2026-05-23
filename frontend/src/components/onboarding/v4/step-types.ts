@@ -210,6 +210,26 @@ export interface TourStep {
     allowList?: ReadonlyArray<string>;
     pillLabel?: string;
   };
+  /** Wave 2 Fix 2/9 — target-detach watcher recovery hint. Optional.
+   *
+   *  The TourController mounts a MutationObserver on document.body for
+   *  every step that has a `targetSelector`. When the resolved target
+   *  disappears from the DOM mid-step (e.g. the user pressed Esc on a
+   *  popup modal that contained the spotlight target), the speech
+   *  bubble swaps to a recovery line: "Looks like that closed. Click
+   *  {buttonLabel} to re-open and try again." When the target
+   *  re-appears, the original speech swaps back.
+   *
+   *  Set `buttonLabel` to the user-readable label of the button that
+   *  re-opens the dismissable surface (e.g. the popup trigger). Steps
+   *  with popup-dependent demos (NewPurchaseModal, CalendarFeedsModal,
+   *  TaskDetailPopup, NoteDetailPopup, HighLevelGoalModal,
+   *  CompoundMethodBuilder) should populate this. Steps that don't set
+   *  it fall back to "the button you clicked before".
+   */
+  recoveryHint?: {
+    buttonLabel: string;
+  };
   /** Pathname (or pathname prefix) the step expects to render against.
    *  When set, the TourController auto-navigates here on step enter if
    *  `window.location.pathname` doesn't already match.

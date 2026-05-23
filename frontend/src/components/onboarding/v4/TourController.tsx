@@ -252,6 +252,12 @@ export interface TourControllerActions {
   readonly popstateToastVisible: boolean;
   /** Wave 2 Fix 1/9: explicit dismiss for the popstate toast. */
   dismissPopstateToast(): void;
+  /** Wave 2 Fix 2/9: when the active step's target detached, the
+   *  speech bubble swaps to a recovery line. The label is sourced
+   *  from `step.recoveryHint?.buttonLabel` (or the generic fallback
+   *  "the button you clicked before"). Null when no recovery is
+   *  pending. */
+  readonly targetDetachRecoveryLabel: string | null;
 }
 
 export type TourControllerValue = TourControllerState & TourControllerActions;
@@ -1002,6 +1008,78 @@ export function TourControllerProvider({
     wasActiveRef.current = active;
   }, [state.currentStep]);
 
+  // Wave 2 Fix 2/9: target-detach watcher state. The label is the
+  // resolved recovery copy ("Click X to re-open and try again"); null
+  // when the target is present (or there's no target at all). The
+  // step-change effect below tears down the observer + resets the
+  // state on every transition so a stale detach from the prior step
+  // never bleeds into the next.
+  const [targetDetachRecoveryLabel, setTargetDetachRecoveryLabel] =
+    useState<string | null>(null);
+  useEffect(() => {
+    setTargetDetachRecoveryLabel(null);
+    if (typeof document === "undefined") return;
+    if (!state.currentStep || state.paused) return;
+    const body = getStep(state.currentStep);
+    if (!body) return;
+    const selector = body.targetSelector;
+    const hint = body.recoveryHint?.buttonLabel ?? "the button you clicked before";
+    const isLabStep = isLabPhaseStep(state.currentStep);
+
+    let mo: MutationObserver | null = null;
+    let detached = false;
+
+    const evaluate = () => {
+      if (!selector) return;
+      const present = !!document.querySelector(selector);
+      if (!present && !detached) {
+        detached = true;
+        setTargetDetachRecoveryLabel(hint);
+      } else if (present && detached) {
+        detached = false;
+        setTargetDetachRecoveryLabel(null);
+      }
+    };
+
+    if (selector) {
+      // Defer the first evaluate by a tick so the step's onEnter /
+      // cursor-script effects have a chance to mount whatever they
+      // need first. Without this the watcher races the step entry
+      // and reports a false-positive detach on every step change.
+      const initialTimer = window.setTimeout(evaluate, 200);
+      if (typeof MutationObserver !== "undefined") {
+        mo = new MutationObserver(() => {
+          evaluate();
+        });
+        mo.observe(document.body, { childList: true, subtree: true });
+      }
+      const onLabClose = () => {
+        if (!isLabStep) return;
+        detached = true;
+        setTargetDetachRecoveryLabel(hint);
+      };
+      window.addEventListener("lab-mode-tour:close", onLabClose);
+      return () => {
+        window.clearTimeout(initialTimer);
+        mo?.disconnect();
+        window.removeEventListener("lab-mode-tour:close", onLabClose);
+      };
+    }
+
+    // Lab-mode steps without a fixed targetSelector still subscribe to
+    // the close event so the speech swaps even when the spotlight has
+    // no DOM anchor.
+    if (isLabStep) {
+      const onLabClose = () => {
+        setTargetDetachRecoveryLabel(hint);
+      };
+      window.addEventListener("lab-mode-tour:close", onLabClose);
+      return () => {
+        window.removeEventListener("lab-mode-tour:close", onLabClose);
+      };
+    }
+  }, [state.currentStep, state.paused]);
+
   // Popstate toast visibility — flipped on by the popstate listener,
   // auto-dismisses 4s later, also cleared on tour end / step change.
   const [popstateToastVisible, setPopstateToastVisible] = useState(false);
@@ -1064,6 +1142,7 @@ export function TourControllerProvider({
       branchTo,
       popstateToastVisible,
       dismissPopstateToast,
+      targetDetachRecoveryLabel,
     }),
     [
       state,
@@ -1088,6 +1167,7 @@ export function TourControllerProvider({
       branchTo,
       popstateToastVisible,
       dismissPopstateToast,
+      targetDetachRecoveryLabel,
     ],
   );
 
@@ -1544,7 +1624,14 @@ function InProductWalkthroughOverlay({
         onBack={onBack}
         onBranchTo={onBranchTo}
         canGoBack={canGoBack}
-        flashSpeech={pageLockFlash}
+        flashSpeech={
+          pageLockFlash ??
+          (controller.targetDetachRecoveryLabel ? (
+            <span data-testid="tour-target-detach-recovery">
+              Looks like that closed. Click {controller.targetDetachRecoveryLabel} to re-open and try again.
+            </span>
+          ) : null)
+        }
       />
     </>
   );

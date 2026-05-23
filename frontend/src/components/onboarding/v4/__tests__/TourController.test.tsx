@@ -1074,3 +1074,13 @@ describe("TourController — Wave 2 Fix 1: popstate guard", () => {
     expect(result.current.popstateToastVisible).toBe(false);
   });
 });
+
+// Wave 2 Fix 2/9: target-detach watcher + lab-mode-tour:close event.
+describe("TourController — Wave 2 Fix 2: target-detach watcher", () => {
+  it("exposes targetDetachRecoveryLabel defaulting to null", () => {
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: wrapper(),
+    });
+    expect(result.current.targetDetachRecoveryLabel).toBeNull();
+  });
+});
