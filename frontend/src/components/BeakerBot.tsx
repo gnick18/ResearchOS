@@ -1016,13 +1016,51 @@ export default function BeakerBot({
 
       {effectivePose === "thinking" && (
         <>
-          {/* Three small thought dots floating up and to the right.
-              Static positions; the head-tilt comes from the root
-              rotation keyframe so we don't need to animate the dots
-              themselves. */}
-          <circle cx="30" cy="9" r="0.9" fill="currentColor" stroke="none" />
-          <circle cx="33" cy="6" r="1.1" fill="currentColor" stroke="none" />
-          <circle cx="36" cy="3.5" r="1.3" fill="currentColor" stroke="none" />
+          {/* Classic thought-bubble convention: two small cascading
+           *  mini-bubbles trailing up from the head to a fluffy cloud
+           *  containing a question mark. Distinct from `sleeping` (which
+           *  uses Zzz letters), so a glance reads as "thinking" not
+           *  "snoozing." Cloud + bubbles use white fill with a
+           *  currentColor outline so the silhouette pops against any
+           *  background. The "?" inherits currentColor (sky-500) and
+           *  sits centered in the cloud at extra-bold weight for crisp
+           *  legibility at small sizes. */}
+          <circle
+            cx="28.5"
+            cy="11"
+            r="0.7"
+            fill="white"
+            stroke="currentColor"
+            strokeWidth="0.4"
+          />
+          <circle
+            cx="30.5"
+            cy="9"
+            r="1"
+            fill="white"
+            stroke="currentColor"
+            strokeWidth="0.5"
+          />
+          {/* Cloud silhouette: single path with 4 rounded bumps along
+           *  the top, gentle curves on the sides, flat bottom. */}
+          <path
+            d="M 31 6.5 Q 29.5 6.5 29.5 5 Q 29.5 3.5 31 3 Q 31 1.5 33 1.5 Q 34 0.5 35.5 1.5 Q 37 0.5 38 2 Q 40 2.5 40 4 Q 41 5.5 39.5 6 Q 38 7 31 6.5 Z"
+            fill="white"
+            stroke="currentColor"
+            strokeWidth="0.6"
+          />
+          {/* Question mark — bold + centered in the cloud */}
+          <text
+            x="35"
+            y="5.5"
+            textAnchor="middle"
+            fontSize="5"
+            fontWeight="900"
+            fill="currentColor"
+            fontFamily="sans-serif"
+          >
+            ?
+          </text>
         </>
       )}
 
