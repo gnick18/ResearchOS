@@ -11,10 +11,11 @@
 //     thinking, typing, typing-on-laptop, bow-wink, giggle,
 //     rolling-laughing, volcano-eruption, sleeping, hiccup, yawn,
 //     reading, panicked, amazed, embarrassed)
-//   - 8 multi-stage scene components (Ladder, BugStomp, Skateboard,
-//     ScreenBump, TooManyBeakers, MouseWave, Centrifuge, Eureka)
+//   - 10 multi-stage scene components (Ladder, BugStomp, Skateboard,
+//     ScreenBump, TooManyBeakers, MouseWave, Centrifuge, Eureka,
+//     CoffeeRefill, MicroscopeBubble)
 //   - 3 pose-celebration variants (cheering, bouncing, volcano-eruption)
-//   = 32 entries total
+//   = 34 entries total
 //
 // Loop mechanic:
 //   - Scenes: on onComplete, flip active=false, wait 500ms, bump a
@@ -50,6 +51,7 @@ import BeakerBotMouseWaveScene from "@/components/BeakerBotMouseWaveScene";
 import BeakerBotCentrifugeScene from "@/components/BeakerBotCentrifugeScene";
 import BeakerBotEurekaScene from "@/components/BeakerBotEurekaScene";
 import BeakerBotCoffeeRefillScene from "@/components/BeakerBotCoffeeRefillScene";
+import BeakerBotMicroscopeBubbleScene from "@/components/BeakerBotMicroscopeBubbleScene";
 import BeakerBotPoseCelebrationScene from "@/components/onboarding/BeakerBotPoseCelebrationScene";
 
 // ── Catalog types ──────────────────────────────────────────────────────────
@@ -401,6 +403,15 @@ const SCENES: SceneEntry[] = [
     Component: BeakerBotCoffeeRefillScene as unknown as SceneComponent,
     description:
       "BeakerBot walks to a mug, pours pastel-brown coffee from his beaker, blows on it, sips, eyes go heart-shaped with hearts drifting up, walks off carrying the mug.",
+    timingNote: "~5000ms total",
+  },
+  {
+    kind: "scene",
+    id: "scene:microscope-bubble",
+    label: "BeakerBotMicroscopeBubbleScene",
+    Component: BeakerBotMicroscopeBubbleScene as unknown as SceneComponent,
+    description:
+      "BeakerBot peers through a microscope, the eyepiece glows, a big soap bubble with a tiny BeakerBot inside rises out and pops mid-air with a 'pop!'.",
     timingNote: "~5000ms total",
   },
 ];
