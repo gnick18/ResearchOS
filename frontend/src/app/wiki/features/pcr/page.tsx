@@ -10,6 +10,7 @@ export default function PCRFeaturePage() {
       title="PCR Protocols"
       intro="Save reusable PCR programs (temperature steps plus reagent mix) and attach them to experiments the same way you attach a method."
     >
+      {/* pcr-editor.png needs recapture: predates cyan band + Add Cycle modal + StepEditPopup flow */}
       <Screenshot
         src="/wiki/screenshots/pcr-editor.png"
         alt="The PCR protocol editor with a row of colored temperature blocks on top and a reagent table below."
@@ -79,10 +80,10 @@ export default function PCRFeaturePage() {
         </li>
       </ul>
       <p>
-        Block color is keyed to temperature: blue for cold holds, green and
-        yellow through the mid-range, orange and red at high temperatures. A
-        step typed in at the wrong temperature is visually obvious because
-        its color doesn&apos;t match its neighbors.
+        Block color is keyed to temperature across six bands: blue (≤ 15 °C),
+        cyan (≤ 30 °C), green (≤ 50 °C), amber (≤ 70 °C), orange (≤ 85 °C),
+        and red (above 85 °C). A step typed in at the wrong temperature is
+        visually obvious because its color doesn&apos;t match its neighbors.
       </p>
 
       <h2>Build a protocol step by step</h2>
@@ -121,8 +122,10 @@ export default function PCRFeaturePage() {
           <strong>Remove from Cycle</strong> button appears next to the
           arrows. When a block outside the cycle is selected, a purple{" "}
           <strong>Add to Cycle</strong> button appears with a dropdown
-          listing each cycle by name. Pick a cycle and the block jumps into
-          its rectangle.
+          listing each cycle by position and repeat count (e.g.,{" "}
+          <em>Cycle 1 (x35)</em>, <em>Cycle 2 (x35)</em>). Cycles have no
+          name field; the positional label is the only identifier. Pick a
+          cycle and the block jumps into its rectangle.
         </Step>
         <Step>
           <strong>Adjust the repeat count.</strong> Click the purple{" "}
@@ -131,15 +134,24 @@ export default function PCRFeaturePage() {
         </Step>
         <Step>
           <strong>Add or remove blocks.</strong> The toolbar has{" "}
-          <strong>+ Add Step</strong> (drops a new block at the far right,
-          just before the hold) and <strong>+ Add Cycle</strong> (drops a new
-          empty cycled rectangle next to the existing one, which you fill by
-          adding steps and using <em>Add to Cycle</em>). To delete, switch on
-          the red <strong>Gradient Eraser</strong> and click any block to
-          remove it. The purple <strong>Cycle Eraser</strong> works
-          differently: click a <code>x35</code> badge and it removes just the
-          cycle rectangle, leaving its steps behind as ordinary final steps.{" "}
-          <strong>Clear All</strong> wipes the whole gradient back to empty.
+          <strong>+ Add Step</strong> (opens a{" "}
+          <strong>StepEditPopup</strong> pre-populated with{" "}
+          &quot;New Step&quot;, 60 °C, 30 sec; the block only lands in the
+          gradient after you click <strong>Save</strong>) and{" "}
+          <strong>+ Add Cycle</strong> (opens an{" "}
+          <strong>Add Empty Cycle</strong> confirmation modal with{" "}
+          <strong>Cancel</strong> and <strong>Add</strong> buttons; the new
+          empty cycled rectangle only appears after you click{" "}
+          <strong>Add</strong>, and you fill it by adding steps and using{" "}
+          <em>Add to Cycle</em>). To delete, switch on the red{" "}
+          <strong>Gradient Eraser</strong> and click any block to remove it.
+          The purple <strong>Cycle Eraser</strong> works differently: click a{" "}
+          <code>x35</code> badge and it removes just the cycle rectangle,
+          leaving its steps behind as ordinary final steps. In normal (non-
+          eraser) mode, clicking the same <code>x35</code> badge opens the{" "}
+          <strong>Edit Cycle Repeats</strong> popup so you can change the
+          repeat count. <strong>Clear All</strong> wipes the whole gradient
+          back to empty.
         </Step>
         <Step>
           Hit <strong>✓ Done Editing</strong> to leave editing mode. The
@@ -185,19 +197,35 @@ export default function PCRFeaturePage() {
         protocol starts from the unedited values.
       </p>
 
+      {/* pcr-reagent-totals.png needs recapture: predates ingredient checkoff column */}
       <Screenshot
         src="/wiki/screenshots/pcr-reagent-totals.png"
-        alt="The Reaction Recipe table with rows for each ingredient and a Total row at the bottom."
+        alt="The Reaction Recipe table with rows for each ingredient and a checkoff checkbox column, plus a Total row at the bottom."
         caption="The recipe table sits below the gradient. The Total row at the bottom is a manual entry that holds your target reaction volume."
       />
 
+      <h2>Checking off ingredients at the bench</h2>
+      <p>
+        When you open a PCR protocol on an experiment (via the{" "}
+        <strong>Method</strong> tab), the Reaction Recipe table gains a{" "}
+        <strong>checkoff column</strong> on the left. Each ingredient row has
+        a small checkbox. Tick it as you pipette each reagent into your
+        tube. Checked rows turn green and a progress bar at the top of the
+        table advances from left to right as you work through the recipe.
+        The Total row has no checkbox (it&apos;s a math row, not an
+        ingredient). Checkoff state is per-experiment and does not affect
+        the shared library protocol.
+      </p>
+
       <h2>Sharing</h2>
       <p>
-        Protocols can be saved <strong>privately</strong> (under your user)
-        or as <strong>shared</strong>, which writes to{" "}
-        <code>users/public/pcr_protocols/</code> and is visible to every user
-        in the lab folder. The picker on each experiment shows your own
-        protocols and the shared ones together.
+        Protocols are stored under your user by default and visible only to
+        you. The API supports a public flag that would write to{" "}
+        <code>users/public/pcr_protocols/</code>, but the{" "}
+        <strong>creation UI does not expose this toggle</strong>. Sharing a
+        PCR protocol is currently backend-only. The picker on each experiment
+        shows protocols from your own user folder and any that exist in the
+        public folder.
       </p>
 
       <Callout variant="tip" title="Variations stay on the experiment">

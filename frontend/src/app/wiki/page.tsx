@@ -38,8 +38,9 @@ export default function WikiLandingPage() {
           can&apos;t read local folders yet.
         </li>
         <li>
-          Click <strong>Connect Folder</strong> and pick (or create) an empty folder
-          on your disk. This is your ResearchOS folder.
+          Click <strong>Link Folder</strong> to pick an existing folder on
+          your disk, or <strong>Create New Folder</strong> to start fresh.
+          This is your ResearchOS folder.
         </li>
         <li>
           Pick a username. Your data lives under{" "}
@@ -47,8 +48,14 @@ export default function WikiLandingPage() {
           optional password to gate access on a shared machine.
         </li>
         <li>
-          Start adding projects, tasks, methods, and experiments. Everything syncs
-          to disk immediately.
+          BeakerBot&apos;s guided welcome tour auto-starts on first login. Click
+          through to learn the major surfaces. See{" "}
+          <Link href="/wiki/getting-started/welcome-wizard">Welcome Wizard</Link>{" "}
+          for a breakdown of each step.
+        </li>
+        <li>
+          Start adding projects, methods, experiments, and Gantt tasks. Everything
+          syncs to disk immediately.
         </li>
       </ol>
 
@@ -87,12 +94,22 @@ export default function WikiLandingPage() {
           opens this wiki.
         </li>
         <li>
-          On the folder-connect screen, look for the <em>New here?</em> link to
-          jump straight to the setup guide.
+          On the folder-connect screen, look for the{" "}
+          <em>New here? Read the setup guide</em> link, which goes to the{" "}
+          <Link href="/wiki/getting-started/connecting-your-folder">
+            Connecting Your Folder
+          </Link>{" "}
+          page.
         </li>
         <li>
           Use <strong>Ctrl</strong>+<strong>F</strong> /{" "}
           <strong>Cmd</strong>+<strong>F</strong> to search within a wiki page.
+        </li>
+        <li>
+          Looking for security and privacy details? The{" "}
+          <Link href="/wiki/security">Security</Link> page covers data storage,
+          encryption, and what never leaves your machine. It does not appear in
+          the section grid above because it has no sub-pages.
         </li>
       </ul>
     </WikiPage>

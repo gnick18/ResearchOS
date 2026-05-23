@@ -11,8 +11,8 @@ export default function CreatingAUserPage() {
     >
       <Screenshot
         src="/wiki/screenshots/user-login.png"
-        alt="The user-picker screen with the + Create New User button, the existing-user list, and a Lab Mode button."
-        caption="The user-picker screen, shown right after you connect a folder."
+        alt="The user-picker screen with the + Create New User button, the existing-user list, a Lab Mode button, and the BeakerBot brand mark in the gradient pill at the top."
+        caption="The user-picker screen, shown right after you connect a folder. (Screenshot pending recapture — predates 2026-05-21 BeakerBot brand mark addition. Use ?wikiCapture=1 when recapturing.)"
       />
 
       <h2>What &quot;user&quot; means here</h2>
@@ -101,12 +101,32 @@ export default function CreatingAUserPage() {
         own work. See <Link href="/wiki/features/lab-mode">Lab Mode</Link>.
       </p>
 
+      <h2>Main user</h2>
+      <p>
+        One user can be marked as the <strong>main user</strong>. They get a
+        star badge on their avatar in the picker and are auto-selected as the
+        default on the next visit. To set a main user, hover any user row on
+        the picker and click the star (outline) icon that appears on the
+        right. The main badge persists between sessions.
+      </p>
+
       <h2>Renaming or deleting a user</h2>
       <p>
-        There&apos;s no in-app rename today. To rename, close ResearchOS,
-        rename the <code>users/&lt;old-name&gt;/</code> directory in Finder /
-        Explorer, and reopen the app. To delete a user, delete that
-        subdirectory the same way.
+        To <strong>rename</strong> a user, hover their row on the user-picker
+        and click the pencil (edit) icon. The row switches to an inline input
+        with the current username pre-filled. Edit the name and press{" "}
+        <strong>Enter</strong> or click the green checkmark to save. Press{" "}
+        <strong>Escape</strong> or the red X to cancel. The same username
+        rules apply (letters, numbers, underscores only). The rename
+        renames the <code>users/&lt;old-name&gt;/</code> directory on disk
+        and updates all internal references.
+      </p>
+      <p>
+        To <strong>delete</strong> a user, hover their row and click the trash
+        icon. A two-step confirmation dialog appears with an optional
+        &ldquo;Archive data before deletion&rdquo; checkbox (checked by
+        default). The archive step downloads a ZIP of the user&apos;s folder
+        before the directory is removed.
       </p>
     </WikiPage>
   );

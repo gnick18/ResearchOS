@@ -1500,12 +1500,16 @@ function DataInventorySection() {
             /api/calendar-feed
           </code>{" "}
           on this app&apos;s origin, which fetches ICS calendars on your behalf
-          with the URL in a header; (c){" "}
+          with the subscription URL in the{" "}
+          <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
+            x-calendar-url
+          </code>{" "}
+          request header; (c){" "}
           <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
             /api/telegram-file
           </code>{" "}
           on this app&apos;s origin, which proxies Telegram CDN file downloads;
-          and (d){" "}
+          (d){" "}
           <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
             va.vercel-scripts.com
           </code>{" "}
@@ -1513,7 +1517,14 @@ function DataInventorySection() {
           <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
             vitals.vercel-insights.com
           </code>{" "}
-          for anonymous page-view pings via Vercel Web Analytics. Toggle
+          for anonymous page-view pings via Vercel Web Analytics; and (e){" "}
+          <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
+            research-os-xi.vercel.app
+          </code>{" "}
+          only if you click{" "}
+          <strong>Pull latest from research-os-xi.vercel.app</strong> in the AI
+          Helper section above — a user-initiated, on-demand fetch of the newest
+          AI Helper prompt when the bundled copy is stale. Toggle
           &quot;Offline mode&quot; below to disable destinations (b), (c), and
           (d) durably. Direct{" "}
           <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">

@@ -8,7 +8,7 @@ export default function ImportFromELNPage() {
   return (
     <WikiPage
       title="Import from LabArchives"
-      intro="The 6-step wizard that turns a LabArchives Offline Notebook ZIP into native ResearchOS tasks, plus the bulk-sort screen for cleaning up after."
+      intro="The 7-step wizard that turns a LabArchives Offline Notebook ZIP into native ResearchOS tasks, plus the bulk-sort screen for cleaning up after."
     >
       <h2>Page-as-task</h2>
       <p>
@@ -47,7 +47,7 @@ export default function ImportFromELNPage() {
         and you can re-run it whenever you have a fresher ZIP.
       </Callout>
 
-      <h2>The 6-step wizard</h2>
+      <h2>The 7-step wizard</h2>
       <p>
         The wizard runs a fixed sequence of steps. You can back out at
         any point before the apply phase starts. The step header in the
@@ -82,11 +82,6 @@ export default function ImportFromELNPage() {
           URLs rather than bundling them, an amber banner here calls
           that out so you know to expect the <em>Fetch images</em> step
           later.
-          <Screenshot
-            src="/wiki/screenshots/import-eln-preview.png"
-            alt="The Preview step showing notebook metadata, four stat cards (Folders, Pages, Entries, Attachments) and a tree-preview panel."
-            caption="Step 3, a read-only summary of what landed in the parser. Nothing is written yet."
-          />
         </Step>
         <Step>
           <strong>Map projects.</strong> One row per top-level notebook
@@ -95,11 +90,6 @@ export default function ImportFromELNPage() {
           edit), <em>Use existing</em> (pick from your live project
           list), or <em>No project</em> (the pages on that branch land
           unassigned). Project mapping is covered in more depth below.
-          <Screenshot
-            src="/wiki/screenshots/import-eln-project-mapping.png"
-            alt="The Map projects step rendered as a table with one row per notebook folder, a Decision dropdown, a Project column, and an Affects column showing the page count."
-            caption="Step 4, one row per folder. Switch the dropdown to point at an existing project or skip the bucket entirely."
-          />
         </Step>
         <Step>
           <strong>Fetch images</strong> (optional). If the notebook has
@@ -123,8 +113,9 @@ export default function ImportFromELNPage() {
           becomes <code>users/&lt;you&gt;/results/task-&lt;id&gt;/</code>{" "}
           with a <code>notes.md</code>, a <code>notes/Files/</code>{" "}
           folder for attachments, a <code>notes/Images/</code> folder
-          for inline images, and an <code>_import_source.json</code>{" "}
-          sidecar.
+          for inline images, and a{" "}
+          <code>notes/_import_source.json</code> sidecar (inside the{" "}
+          <code>notes/</code> subdirectory, not at the task root).
         </Step>
         <Step>
           <strong>Done.</strong> The summary lists how many tasks and
@@ -137,11 +128,14 @@ export default function ImportFromELNPage() {
       </Steps>
 
       <Callout variant="info" title="A note on screenshots">
-        Some wizard-step screenshots above are pending capture. Steps 2
+        Several wizard-step screenshots are pending capture. Steps 2
         (Upload) and 5 (Fetch images) require an actual notebook ZIP and
         a signed-in LabArchives session, neither of which the
-        wiki-capture fixture seeds. Run the wizard against your own
-        Offline Notebook ZIP to see those steps live.
+        wiki-capture fixture seeds. Steps 3 (Preview notebook), 4 (Map
+        projects), and the bulk-sort screen are also missing captures and
+        are queued for the next fixture-mode screenshot pass. Run the
+        wizard against your own Offline Notebook ZIP to see those steps
+        live.
       </Callout>
 
       <h2>Project mapping in detail</h2>
@@ -175,10 +169,10 @@ export default function ImportFromELNPage() {
         </li>
       </ul>
       <p>
-        The <em>Continue</em> button stays disabled while any row has a
+        The <em>Start import</em> button stays disabled while any row has a
         validation error (empty new-project name, no existing project
-        picked). Once the mapping is valid, clicking <em>Start
-        import</em> kicks off the apply phase.
+        picked). Once the mapping is valid, clicking <em>Start import</em>{" "}
+        kicks off the apply phase.
       </p>
 
       <h2>The bulk-sort screen</h2>
@@ -213,16 +207,11 @@ export default function ImportFromELNPage() {
         through to disk one row at a time, so you can leave the screen
         partway through and the work already done stays.
       </p>
-      <Screenshot
-        src="/wiki/screenshots/import-eln-bulk-sort.png"
-        alt="The bulk-sort screen with imported tasks grouped under their project headings, each row showing a checkbox, page name, project dropdown, task-type dropdown, and Delete button."
-        caption="The post-import bulk-sort screen, grouped by project. Check rows to expose the bulk action bar."
-      />
 
       <h2 id="re-running">Re-running the import</h2>
       <p>
         Every imported task carries a sidecar file at{" "}
-        <code>results/task-&lt;id&gt;/notes/_import_source.json</code>{" "}
+        <code>users/&lt;you&gt;/results/task-&lt;id&gt;/notes/_import_source.json</code>{" "}
         with the source ZIP path, the LabArchives page id, the entry
         count at the time of import, and the import timestamp. The
         importer uses those sidecars to decide what to skip on a

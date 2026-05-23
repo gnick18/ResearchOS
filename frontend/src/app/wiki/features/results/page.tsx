@@ -36,6 +36,10 @@ export default function ResultsFeaturePage() {
         alt="The Earlier results section at the bottom of the Workbench page, with completed experiment cards grouped by project."
         caption="The Earlier results section sits at the bottom of the Workbench. The project-grouping toggle in its header flips between flat and project-grouped views."
       />
+      <Callout variant="info" title="Screenshot pending recapture">
+        <code>workbench-earlier.png</code> is queued for recapture to reflect
+        the current Workbench layout.
+      </Callout>
 
       <h2>Completed purchases → Purchases unified scroll</h2>
       <p>
