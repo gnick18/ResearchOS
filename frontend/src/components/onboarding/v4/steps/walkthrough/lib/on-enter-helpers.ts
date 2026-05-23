@@ -141,36 +141,58 @@ export async function onEnterGanttChainedDeps(ctx: {
     // labelled "Start after" which is the most intuitive default for
     // the demo's narrative ("chains move as a unit when you reschedule").
     if (spawned.length === 3) {
+      // Wave 1 sidecar hardening manager (v2): destructure into named
+      // locals + explicit truthy checks. spawnDemoDependencyTasks types
+      // its return as `number[]`; a partial-failure path could still
+      // hand us `[undefined, undefined, undefined]` if a downstream
+      // refactor stops filtering. Guarding the IDs here means the dep
+      // create call below never gets a falsy parent_id / child_id.
       const [aId, bId, cId] = spawned;
-      try {
-        await dependenciesApi.create({
-          parent_id: aId,
-          child_id: bId,
-          dep_type: "FS",
-        });
-        await dependenciesApi.create({
-          parent_id: bId,
-          child_id: cId,
-          dep_type: "FS",
-        });
-        // Refresh the Gantt's task + dependency queries so the bars
-        // and chain accents mount BEFORE the cursor's first visual
-        // drag fires. Without this refetch, the user would briefly
-        // see three unlinked bars (then a delayed chain render) which
-        // breaks the "I wired them up" narrative.
-        await Promise.all([
-          appQueryClient.refetchQueries({ queryKey: ["tasks"] }),
-          appQueryClient.refetchQueries({ queryKey: ["dependencies"] }),
-        ]);
-      } catch (err) {
-        // Dependency creation failure is non-fatal: the demo still
-        // shows three bars, just without the cascade. Surface in the
-        // console so authors can spot it during dev.
+      if (!aId || !bId || !cId) {
         console.warn(
-          "[onboarding-v4] gantt-chained-deps: dep create failed",
-          err,
+          "[onboarding-v4] gantt-chained-deps: spawned ids missing; skip dep create",
+          { aId, bId, cId },
         );
+      } else {
+        try {
+          await dependenciesApi.create({
+            parent_id: aId,
+            child_id: bId,
+            dep_type: "FS",
+          });
+          await dependenciesApi.create({
+            parent_id: bId,
+            child_id: cId,
+            dep_type: "FS",
+          });
+          // Refresh the Gantt's task + dependency queries so the bars
+          // and chain accents mount BEFORE the cursor's first visual
+          // drag fires. Without this refetch, the user would briefly
+          // see three unlinked bars (then a delayed chain render) which
+          // breaks the "I wired them up" narrative.
+          await Promise.all([
+            appQueryClient.refetchQueries({ queryKey: ["tasks"] }),
+            appQueryClient.refetchQueries({ queryKey: ["dependencies"] }),
+          ]);
+        } catch (err) {
+          // Dependency creation failure is non-fatal: the demo still
+          // shows three bars, just without the cascade. Surface in the
+          // console so authors can spot it during dev.
+          console.warn(
+            "[onboarding-v4] gantt-chained-deps: dep create failed",
+            err,
+          );
+        }
       }
+    } else {
+      // Wave 1 sidecar hardening manager (v2): explicit log on the
+      // partial-spawn path. Previously a < 3 result silently dropped
+      // the dependency-edge creation, leaving the user with N bars and
+      // no cascade — defeating the demo with no console trail.
+      console.warn(
+        "[onboarding-v4] gantt-chained-deps: expected 3 spawned tasks, got",
+        spawned.length,
+      );
     }
     // Record one `task` artifact per spawned demo so the Phase 4
     // cleanup grid shows three rows under "Tasks" with
@@ -465,8 +487,12 @@ export async function onEnterGanttGoalsOverview(ctx: {
   // write doesn't roll back the spawn — the goal stays in the user's
   // store and they can delete it manually if cleanup doesn't reach
   // it — which matches the brief's "best-effort" contract for
-  // onEnter helpers.
-  if (ctx.username) {
+  // onEnter helpers. Wave 1 sidecar hardening manager (v2): also guard
+  // on `createdId !== null` so a successful spawn with a falsy id
+  // (defensive: shouldn't happen with the early-return above, but the
+  // typed signature permits it) doesn't append `"null"` to the
+  // sidecar's artifact list.
+  if (ctx.username && createdId !== null) {
     try {
       await patchOnboarding(ctx.username, (cur) =>
         appendArtifact(cur, {
@@ -484,6 +510,10 @@ export async function onEnterGanttGoalsOverview(ctx: {
         err,
       );
     }
+  } else if (ctx.username && createdId === null) {
+    console.warn(
+      "[onboarding-v4] gantt-goals-overview: createdId null after spawn; skip artifact persist",
+    );
   }
 
   return createdId;

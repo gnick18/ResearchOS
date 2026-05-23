@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
+  onSidecarWriteError,
   patchOnboarding,
   readOnboarding,
   type OnboardingSidecar,
+  type SidecarWriteErrorEvent,
 } from "@/lib/onboarding/sidecar";
 import TourBootstrap from "./TourBootstrap";
 import { TourControllerProvider } from "./TourController";
@@ -50,6 +52,23 @@ export default function V4MountForUser({
   children,
 }: V4MountForUserProps) {
   const [sidecar, setSidecar] = useState<OnboardingSidecar | null>(null);
+  // Wave 1 sidecar hardening manager (v2) 2026-05-22: persist-failure
+  // surface. The sidecar bus dispatches on any writeOnboarding /
+  // patchOnboarding rejection scoped to the active user. We render an
+  // inline amber alert with a Retry affordance so the user can recover
+  // without ending the tour blindly. `lastError` carries the most
+  // recent dispatch; the `retryRef` holds the failed operation so the
+  // Retry button can re-fire it.
+  const [persistError, setPersistError] =
+    useState<SidecarWriteErrorEvent | null>(null);
+  const retryRef = useRef<(() => Promise<void>) | null>(null);
+  // Track in-flight patches so a Retry click re-runs the same patch
+  // (not just a stale snapshot). Wrapped in a ref because the most
+  // recent patch closure is what we want to re-fire; capturing it in
+  // state would force a re-render every patchSidecar call.
+  const lastPatchRef = useRef<
+    ((cur: OnboardingSidecar) => OnboardingSidecar) | null
+  >(null);
 
   // One-shot load on mount + username change. Failures fall through to
   // a null sidecar; the TourController degrades to a no-persist mode in
@@ -70,16 +89,54 @@ export default function V4MountForUser({
     };
   }, [username]);
 
+  // Subscribe to the sidecar's persist-error bus. The dispatch happens
+  // from inside the rethrow path of writeOnboarding / patchOnboarding,
+  // so the rejection still propagates to the caller (TourController
+  // logs + moves on). The subscriber below is the ONLY UI-facing
+  // notice that disk state is wedged — without it the tour silently
+  // diverges from disk and a refresh teleports the user backwards.
+  // Scope to the active username so a multi-user tab swap doesn't
+  // light up the toast for someone else's wedge.
+  useEffect(() => {
+    const unsubscribe = onSidecarWriteError((event) => {
+      if (event.username !== username) return;
+      setPersistError(event);
+    });
+    return unsubscribe;
+  }, [username]);
+
   // Stable patch hook that keeps the local sidecar snapshot in sync
   // with disk. The setup step bodies await this so the Next button
-  // gating tracks the persisted state correctly.
+  // gating tracks the persisted state correctly. Wave 1 v2: stashes
+  // the latest patch in a ref so the persist-error toast's Retry
+  // button can re-fire the exact patch that failed.
   const patchSidecar = useCallback(
     async (patch: (cur: OnboardingSidecar) => OnboardingSidecar) => {
+      lastPatchRef.current = patch;
       const next = await patchOnboarding(username, patch);
       setSidecar(next);
     },
     [username],
   );
+
+  // Retry handler: re-fire the most recent failed patch (if any).
+  // Clears the error state on success; re-arms it on a second failure
+  // via the same bus subscription above. Falls back to a no-op when no
+  // patch is tracked (e.g. a writeOnboarding-only failure).
+  retryRef.current = useCallback(async () => {
+    const patch = lastPatchRef.current;
+    if (!patch) {
+      setPersistError(null);
+      return;
+    }
+    try {
+      await patchSidecar(patch);
+      setPersistError(null);
+    } catch {
+      // The bus subscription above re-arms persistError on a second
+      // failure; nothing to do here.
+    }
+  }, [patchSidecar]);
 
   return (
     <TourControllerProvider
@@ -90,6 +147,39 @@ export default function V4MountForUser({
     >
       <TourBootstrap username={username} />
       {children}
+      {persistError && (
+        <div
+          role="alert"
+          data-testid="onboarding-persist-error"
+          className="fixed bottom-4 right-4 z-[1000] max-w-sm rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-lg"
+        >
+          <p className="font-medium">Tour can&apos;t save your progress.</p>
+          <p className="mt-1 text-xs">
+            Check that your folder allows writes, or click Exit Tour to
+            end early.
+          </p>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                void retryRef.current?.();
+              }}
+              data-testid="onboarding-persist-error-retry"
+              className="rounded bg-amber-600 px-2 py-1 text-xs font-medium text-white hover:bg-amber-700"
+            >
+              Retry
+            </button>
+            <button
+              type="button"
+              onClick={() => setPersistError(null)}
+              data-testid="onboarding-persist-error-dismiss"
+              className="rounded border border-amber-300 px-2 py-1 text-xs text-amber-900 hover:bg-amber-100"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
       {/* Lab Mode redesign 2026-05-22 — Phase 2c demo viewer host.
           Window-event-driven; renders nothing until the
           `lab-mode-warp-to-demo` step dispatches the open event. */}

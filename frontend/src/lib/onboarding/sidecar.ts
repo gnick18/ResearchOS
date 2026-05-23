@@ -390,20 +390,103 @@ export async function readOnboarding(
   return normalize(raw);
 }
 
+// ---------------------------------------------------------------------------
+// Persist-error event bus
+//
+// Wave 1 sidecar hardening manager (v2) 2026-05-22: silent-wedge guard.
+// Both `writeOnboarding` and `patchOnboarding` previously swallowed disk
+// errors only via the per-user queue's `.catch(() => {})` chain reset;
+// the caller still got the rejection, but the v4 TourController's
+// step-transition persist effect logs and moves on. That means a
+// read-only folder (or any transient FS error) leaves the user advancing
+// in-memory while disk state stays frozen. On refresh the resume
+// machinery teleports the user back to the last persisted step with no
+// surfaced explanation.
+//
+// The bus below lets a UI layer (V4MountForUser today) subscribe and
+// surface a toast / banner when a sidecar write fails. The bus is a
+// module-level singleton because the call sites that dispatch are
+// scattered (write, patch, future helpers) and the subscriber lives in
+// an outer mount component that can't thread through every callsite.
+// ---------------------------------------------------------------------------
+
+/** Payload dispatched on a persist failure. Includes the username so
+ *  multi-user tabs can scope notices; the operation lets the toast
+ *  distinguish "couldn't save your tour progress" from "couldn't update
+ *  feature_picks", and `error` is the original rejection so the
+ *  subscriber can log + retry. */
+export interface SidecarWriteErrorEvent {
+  username: string;
+  operation: "writeOnboarding" | "patchOnboarding";
+  error: unknown;
+}
+
+type SidecarWriteErrorCallback = (event: SidecarWriteErrorEvent) => void;
+
+const sidecarErrorSubscribers = new Set<SidecarWriteErrorCallback>();
+
+/** Subscribe to sidecar persist failures. Returns an unsubscribe fn.
+ *  Subscribers should be lightweight — the dispatch happens INSIDE the
+ *  queue chain so a slow callback would stall the next queued write. */
+export function onSidecarWriteError(
+  callback: SidecarWriteErrorCallback,
+): () => void {
+  sidecarErrorSubscribers.add(callback);
+  return () => {
+    sidecarErrorSubscribers.delete(callback);
+  };
+}
+
+/** Test-seam: clear every registered subscriber. Production callers
+ *  should not invoke this (use the returned unsubscribe from
+ *  `onSidecarWriteError` instead). */
+export function _clearSidecarWriteErrorSubscribersForTest(): void {
+  sidecarErrorSubscribers.clear();
+}
+
+function dispatchSidecarWriteError(event: SidecarWriteErrorEvent): void {
+  // Iterate a snapshot so a subscriber that unsubscribes itself inside
+  // its own callback doesn't trip the underlying Set iteration.
+  for (const sub of [...sidecarErrorSubscribers]) {
+    try {
+      sub(event);
+    } catch (err) {
+      // A subscriber that throws should NOT block the rethrow path; log
+      // + continue so the next subscriber still gets the event.
+      console.error("[onboarding sidecar] error-bus subscriber threw", err);
+    }
+  }
+}
+
 /** Persist the full sidecar. Callers should pass the complete object;
  *  partial updates happen via `patchOnboarding()`. Routed through the
  *  per-user write queue so a writeOnboarding cannot overlap a pending
- *  patchOnboarding on the same path. */
+ *  patchOnboarding on the same path.
+ *
+ *  Wave 1 sidecar hardening manager (v2): on failure, dispatches a
+ *  `SidecarWriteErrorEvent` on the module bus BEFORE rethrowing so a
+ *  TourController-side subscriber can surface a toast. The original
+ *  rejection still propagates to the caller; the bus is purely
+ *  observational. */
 export async function writeOnboarding(
   username: string,
   data: OnboardingSidecar,
 ): Promise<void> {
-  await enqueueOnboardingWrite(username, async () => {
-    await fileService.writeJson(sidecarPath(username), {
-      ...data,
-      version: SCHEMA_VERSION,
+  try {
+    await enqueueOnboardingWrite(username, async () => {
+      await fileService.writeJson(sidecarPath(username), {
+        ...data,
+        version: SCHEMA_VERSION,
+      });
     });
-  });
+  } catch (err) {
+    dispatchSidecarWriteError({
+      username,
+      operation: "writeOnboarding",
+      error: err,
+    });
+    throw err;
+  }
 }
 
 /** Read-modify-write helper. The `patch` callback receives the current
@@ -412,20 +495,34 @@ export async function writeOnboarding(
  *  concurrent patches against the same user serialize cleanly (without
  *  the queue, two patches that read in parallel would each compute a
  *  next-state against the same stale current and the later writer
- *  would clobber the earlier one — plus the .tmp move would race). */
+ *  would clobber the earlier one — plus the .tmp move would race).
+ *
+ *  Wave 1 sidecar hardening manager (v2): on failure, dispatches a
+ *  `SidecarWriteErrorEvent` on the module bus BEFORE rethrowing. The
+ *  TourController persist effect catches and logs the rethrow without
+ *  surfacing UX; the bus subscriber is what reaches the user. */
 export async function patchOnboarding(
   username: string,
   patch: (current: OnboardingSidecar) => OnboardingSidecar,
 ): Promise<OnboardingSidecar> {
-  return enqueueOnboardingWrite(username, async () => {
-    const current = await readOnboarding(username);
-    const next = patch(current);
-    await fileService.writeJson(sidecarPath(username), {
-      ...next,
-      version: SCHEMA_VERSION,
+  try {
+    return await enqueueOnboardingWrite(username, async () => {
+      const current = await readOnboarding(username);
+      const next = patch(current);
+      await fileService.writeJson(sidecarPath(username), {
+        ...next,
+        version: SCHEMA_VERSION,
+      });
+      return next;
     });
-    return next;
-  });
+  } catch (err) {
+    dispatchSidecarWriteError({
+      username,
+      operation: "patchOnboarding",
+      error: err,
+    });
+    throw err;
+  }
 }
 
 /** Reset the wizard's "user has been through it" state so the v3
@@ -477,4 +574,103 @@ export async function replayOnboarding(
   username: string,
 ): Promise<OnboardingSidecar> {
   return readOnboarding(username);
+}
+
+// ---------------------------------------------------------------------------
+// Orphaned-artifact recovery helpers
+//
+// Wave 1 sidecar hardening manager (v2) 2026-05-22: surface a count for
+// the Settings recovery banner. The leak: a user whose `wizard_resume_state`
+// still carries `artifacts_created` entries AND whose
+// `wizard_completed_at` (or `wizard_skipped_at`) is set has exited the
+// tour without the end-of-tour auto-cleanup ever running (e.g. a hard
+// refresh between the cleanup mount and the auto-cleanup dispatch, or
+// the cleanup overlay erroring). The demo artifacts persist on their
+// real account until the user re-runs the tour through to completion.
+//
+// `readArtifactsCreated` is forward-compatible: it reads from
+// `wizard_resume_state.artifacts_created` (the canonical v4 location)
+// AND from a hypothetical top-level `artifacts_created` field that a
+// future schema bump might move the list to. Either shape resolves to
+// the same artifact array; the merge prefers the resume-state copy
+// when both are present (the resume-state path is what the v4 tour
+// writes today, so it's the source of truth).
+// ---------------------------------------------------------------------------
+
+/** Extract the artifact list from a sidecar, tolerating two possible
+ *  locations: `wizard_resume_state.artifacts_created` (canonical v4) or
+ *  a hypothetical top-level `artifacts_created` (future-compat). When
+ *  both are present, the resume-state copy wins. Returns an empty array
+ *  when no list is present or when the field is malformed. */
+export function readArtifactsCreated(
+  sidecar: OnboardingSidecar | null | undefined,
+): WizardArtifact[] {
+  if (!sidecar) return [];
+  // Canonical v4 location.
+  const resumeArtifacts = sidecar.wizard_resume_state?.artifacts_created;
+  if (Array.isArray(resumeArtifacts) && resumeArtifacts.length > 0) {
+    return resumeArtifacts;
+  }
+  // Forward-compat: a future schema might hoist the list to the top
+  // level. Cast to a shape-permissive view; if the field exists and is
+  // an array, use it.
+  const maybeTopLevel = (
+    sidecar as unknown as { artifacts_created?: unknown }
+  ).artifacts_created;
+  if (Array.isArray(maybeTopLevel)) {
+    return maybeTopLevel.filter(
+      (entry): entry is WizardArtifact =>
+        !!entry &&
+        typeof entry === "object" &&
+        typeof (entry as { type?: unknown }).type === "string" &&
+        typeof (entry as { id?: unknown }).id === "string",
+    );
+  }
+  // Defensive default: even when `resumeArtifacts` was the empty array,
+  // we land here and return `[]` (the early-return only triggers on a
+  // non-empty array).
+  return Array.isArray(resumeArtifacts) ? resumeArtifacts : [];
+}
+
+/** Count artifacts that are "orphaned" on the user's real account: the
+ *  tour has wholesale ended (completed OR skipped) but artifacts from a
+ *  prior run still live in the sidecar. Returns 0 in two non-leak
+ *  conditions:
+ *
+ *    1. Tour is in-progress (`wizard_completed_at` AND `wizard_skipped_at`
+ *       are both null). An in-progress tour with artifacts is the
+ *       normal mid-walkthrough state, not a leak — the auto-cleanup
+ *       still owns clearing them on completion.
+ *    2. No artifacts present.
+ *
+ *  Used by the Settings "Re-run welcome tour" section to render an
+ *  amber recovery banner when the user has demo data left behind.
+ *  Re-running the tour through to the auto-cleanup sweep is the
+ *  intended recovery path; we don't expose a standalone "clean these
+ *  up now" button because the cleanup needs the same project-id
+ *  context (`firstProjectId`) the tour passes to `runEndOfTourAutoCleanup`.
+ *
+ *  Implementation note: reads the RAW JSON (not the normalized sidecar)
+ *  so the forward-compat top-level `artifacts_created` field survives
+ *  the count check. `normalize()` strips unknown top-level fields, so
+ *  a future schema that hoists the list would invisibly count as 0
+ *  through the normalized path. */
+export async function countOrphanedArtifacts(username: string): Promise<number> {
+  const raw = await fileService.readJson<Record<string, unknown>>(
+    sidecarPath(username),
+  );
+  if (!raw) return 0;
+  const tourEnded =
+    typeof raw.wizard_completed_at === "string" ||
+    typeof raw.wizard_skipped_at === "string";
+  if (!tourEnded) return 0;
+  // Build a minimal sidecar-shaped view that carries the two artifact
+  // locations readArtifactsCreated understands. We can't pass `raw`
+  // directly because the helper's type signature expects the
+  // normalized OnboardingSidecar; the cast through unknown is safe
+  // because readArtifactsCreated only reads the two artifact paths +
+  // optional-chains everything else.
+  const view = raw as unknown as OnboardingSidecar;
+  const artifacts = readArtifactsCreated(view);
+  return artifacts.length;
 }

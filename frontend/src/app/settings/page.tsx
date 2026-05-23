@@ -65,11 +65,10 @@ import {
 } from "@/lib/file-system/user-color-collisions";
 import {
   clearWizardCompletion,
+  countOrphanedArtifacts,
   patchOnboarding,
   readOnboarding,
   replayOnboarding,
-  setOnboardingMode,
-  type OnboardingMode,
 } from "@/lib/onboarding/sidecar";
 import { useOptionalTourController } from "@/components/onboarding/v4/TourController";
 import { forgetAllTelegramTokenCache } from "@/lib/telegram/telegram-token-cache";
@@ -2563,6 +2562,40 @@ function TipsSection() {
   const tourController = useOptionalTourController();
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Wave 1 sidecar hardening manager (v2): orphan-artifact recovery
+  // banner. On mount (and when the active user changes) we read the
+  // sidecar's artifacts-created count, scoped to the case where the
+  // wizard wholesale ended (completed OR skipped). A positive count
+  // means a prior tour left demo data on the real account that the
+  // end-of-tour auto-cleanup never reached. The amber banner below
+  // surfaces the count and pushes the user toward the existing Re-run
+  // CTA, which runs the tour through to its auto-cleanup sweep.
+  const [orphanedArtifactCount, setOrphanedArtifactCount] = useState(0);
+
+  useEffect(() => {
+    if (!currentUser) {
+      setOrphanedArtifactCount(0);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const count = await countOrphanedArtifacts(currentUser);
+        if (!cancelled) setOrphanedArtifactCount(count);
+      } catch (err) {
+        // Best-effort probe; an unreadable sidecar means we just don't
+        // show the banner. The Re-run CTA itself still works.
+        console.warn(
+          "[Settings/Tips] orphan-artifact probe failed",
+          err,
+        );
+        if (!cancelled) setOrphanedArtifactCount(0);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser]);
 
   const handleRerunWizard = useCallback(async () => {
     if (!currentUser) return;
@@ -2605,6 +2638,17 @@ function TipsSection() {
       tourTarget="settings-rerun-section"
       description="Re-run the welcome tour to revisit setup picks and the BeakerBot walkthrough on your real account."
     >
+      {orphanedArtifactCount > 0 && (
+        <div
+          className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+          data-testid="settings-orphan-artifact-banner"
+        >
+          Your previous tour left {orphanedArtifactCount} demo
+          {orphanedArtifactCount > 1 ? " items" : " item"} in your folder.
+          Re-running the tour will offer to clean
+          {orphanedArtifactCount > 1 ? " them" : " it"} up at the end.
+        </div>
+      )}
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <p className="text-sm text-gray-800">Re-run welcome tour</p>

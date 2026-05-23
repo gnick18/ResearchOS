@@ -39,11 +39,18 @@ vi.mock("@/lib/file-system/file-service", () => ({
 }));
 
 import {
+  _clearSidecarWriteErrorSubscribersForTest,
   clearWizardCompletion,
+  countOrphanedArtifacts,
+  onSidecarWriteError,
+  patchOnboarding,
+  readArtifactsCreated,
   readOnboarding,
   writeOnboarding,
   type FeaturePicks,
   type OnboardingSidecar,
+  type SidecarWriteErrorEvent,
+  type WizardArtifact,
   type WizardResumeState,
 } from "./sidecar";
 
@@ -461,5 +468,307 @@ describe("clearWizardCompletion (v4 Re-run-tour bypass)", () => {
 
     const sc2 = await readOnboarding(USER);
     expect(sc2.lab_tour_dismissed_at).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Wave 1 sidecar hardening manager (v2): orphan-artifact recovery helpers
+// ---------------------------------------------------------------------------
+
+describe("readArtifactsCreated", () => {
+  function baseSidecar(): OnboardingSidecar {
+    return {
+      version: 4,
+      first_seen_at: "2026-05-22T09:00:00.000Z",
+      active_seconds: 0,
+      feature_picks: null,
+      wizard_completed_at: null,
+      wizard_skipped_at: null,
+      wizard_force_show: false,
+      wizard_resume_state: null,
+      lab_tour_pending: false,
+      lab_tour_dismissed_at: null,
+      lab_mode_tour_choice: null,
+    };
+  }
+
+  it("returns [] when sidecar is null", () => {
+    expect(readArtifactsCreated(null)).toEqual([]);
+  });
+
+  it("returns [] when wizard_resume_state is null", () => {
+    expect(readArtifactsCreated(baseSidecar())).toEqual([]);
+  });
+
+  it("returns artifacts from wizard_resume_state.artifacts_created", () => {
+    const sc = baseSidecar();
+    const artifact: WizardArtifact = {
+      type: "project",
+      id: "42",
+      cleanup_default: "discard",
+    };
+    sc.wizard_resume_state = {
+      current_step: "tour-goodbye",
+      skipped_steps: [],
+      artifacts_created: [artifact],
+    };
+    expect(readArtifactsCreated(sc)).toEqual([artifact]);
+  });
+
+  it("falls back to a hypothetical top-level artifacts_created field", () => {
+    // Forward-compat: a future schema bump might hoist the list to the
+    // top level. Cast through unknown to attach the future-shape field.
+    const sc = baseSidecar() as unknown as Record<string, unknown>;
+    const artifact: WizardArtifact = {
+      type: "goal",
+      id: "9",
+      cleanup_default: "discard",
+    };
+    sc.artifacts_created = [artifact];
+    expect(readArtifactsCreated(sc as unknown as OnboardingSidecar)).toEqual([
+      artifact,
+    ]);
+  });
+
+  it("filters malformed entries on the top-level fallback", () => {
+    const sc = baseSidecar() as unknown as Record<string, unknown>;
+    sc.artifacts_created = [
+      { type: "task", id: "1", cleanup_default: "discard" },
+      { id: "missing-type" },
+      { type: "still-bad" },
+      null,
+      "garbage",
+    ];
+    const result = readArtifactsCreated(sc as unknown as OnboardingSidecar);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("1");
+  });
+});
+
+describe("countOrphanedArtifacts", () => {
+  const U = "orphan-user";
+  const P = `users/${U}/_onboarding.json`;
+  function sidecarWith(overrides: Partial<OnboardingSidecar>): OnboardingSidecar {
+    return {
+      version: 4,
+      first_seen_at: "2026-05-22T09:00:00.000Z",
+      active_seconds: 0,
+      feature_picks: null,
+      wizard_completed_at: null,
+      wizard_skipped_at: null,
+      wizard_force_show: false,
+      wizard_resume_state: null,
+      lab_tour_pending: false,
+      lab_tour_dismissed_at: null,
+      lab_mode_tour_choice: null,
+      ...overrides,
+    };
+  }
+
+  it("returns 0 when no artifacts field is present", async () => {
+    memFs.set(
+      P,
+      sidecarWith({ wizard_completed_at: "2026-05-22T10:00:00.000Z" }),
+    );
+    expect(await countOrphanedArtifacts(U)).toBe(0);
+  });
+
+  it("returns 0 when the tour is still in-progress (in-progress short-circuit)", async () => {
+    // wizard_completed_at AND wizard_skipped_at both null === in-progress.
+    // Artifacts in-flight are expected, not a leak.
+    memFs.set(
+      P,
+      sidecarWith({
+        wizard_completed_at: null,
+        wizard_skipped_at: null,
+        wizard_resume_state: {
+          current_step: "phase4-cleanup",
+          skipped_steps: [],
+          artifacts_created: [
+            { type: "project", id: "1", cleanup_default: "discard" },
+            { type: "task", id: "2", cleanup_default: "discard" },
+          ],
+        },
+      }),
+    );
+    expect(await countOrphanedArtifacts(U)).toBe(0);
+  });
+
+  it("counts artifacts when wizard_completed_at is set (top-level location)", async () => {
+    // Forward-compat: a future schema bump might hoist artifacts_created
+    // to the top level. The helper must still count those.
+    const raw = sidecarWith({
+      wizard_completed_at: "2026-05-22T10:00:00.000Z",
+    }) as unknown as Record<string, unknown>;
+    raw.artifacts_created = [
+      { type: "project", id: "1", cleanup_default: "discard" },
+      { type: "task", id: "2", cleanup_default: "discard" },
+      { type: "goal", id: "3", cleanup_default: "discard" },
+    ];
+    memFs.set(P, raw);
+    expect(await countOrphanedArtifacts(U)).toBe(3);
+  });
+
+  it("counts artifacts under wizard_resume_state.artifacts_created (canonical location)", async () => {
+    memFs.set(
+      P,
+      sidecarWith({
+        wizard_completed_at: "2026-05-22T10:00:00.000Z",
+        wizard_resume_state: {
+          current_step: "tour-goodbye",
+          skipped_steps: [],
+          artifacts_created: [
+            { type: "project", id: "10", cleanup_default: "discard" },
+            { type: "method", id: "11", cleanup_default: "keep" },
+          ],
+        },
+      }),
+    );
+    expect(await countOrphanedArtifacts(U)).toBe(2);
+  });
+
+  it("filters malformed entries from the top-level fallback before counting", async () => {
+    const raw = sidecarWith({
+      wizard_skipped_at: "2026-05-22T10:00:00.000Z",
+    }) as unknown as Record<string, unknown>;
+    raw.artifacts_created = [
+      { type: "project", id: "1", cleanup_default: "discard" },
+      null,
+      { id: "missing-type" },
+      42,
+    ];
+    memFs.set(P, raw);
+    expect(await countOrphanedArtifacts(U)).toBe(1);
+  });
+
+  it("tolerates a non-array artifacts_created field defensively", async () => {
+    const raw = sidecarWith({
+      wizard_completed_at: "2026-05-22T10:00:00.000Z",
+    }) as unknown as Record<string, unknown>;
+    raw.artifacts_created = "not-an-array";
+    memFs.set(P, raw);
+    expect(await countOrphanedArtifacts(U)).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Wave 1 sidecar hardening manager (v2): persist-error event bus
+// ---------------------------------------------------------------------------
+
+describe("sidecar persist-error bus", () => {
+  const U = "bus-user";
+  const P = `users/${U}/_onboarding.json`;
+
+  beforeEach(() => {
+    _clearSidecarWriteErrorSubscribersForTest();
+  });
+
+  it("dispatches a writeOnboarding error AND rethrows", async () => {
+    // Force writeJson to reject for this test.
+    const { fileService } = await import("@/lib/file-system/file-service");
+    const original = fileService.writeJson;
+    const boom = new Error("disk full");
+    (fileService as { writeJson: typeof original }).writeJson = vi.fn(
+      async () => {
+        throw boom;
+      },
+    ) as unknown as typeof original;
+
+    const captured: SidecarWriteErrorEvent[] = [];
+    const unsub = onSidecarWriteError((event) => {
+      captured.push(event);
+    });
+
+    const sidecar: OnboardingSidecar = {
+      version: 4,
+      first_seen_at: "2026-05-22T09:00:00.000Z",
+      active_seconds: 0,
+      feature_picks: null,
+      wizard_completed_at: null,
+      wizard_skipped_at: null,
+      wizard_force_show: false,
+      wizard_resume_state: null,
+      lab_tour_pending: false,
+      lab_tour_dismissed_at: null,
+      lab_mode_tour_choice: null,
+    };
+
+    await expect(writeOnboarding(U, sidecar)).rejects.toBe(boom);
+    expect(captured).toHaveLength(1);
+    expect(captured[0].username).toBe(U);
+    expect(captured[0].operation).toBe("writeOnboarding");
+    expect(captured[0].error).toBe(boom);
+
+    unsub();
+    // Restore writeJson so later tests in this file pass.
+    (fileService as { writeJson: typeof original }).writeJson = original;
+  });
+
+  it("dispatches a patchOnboarding error AND rethrows", async () => {
+    const { fileService } = await import("@/lib/file-system/file-service");
+    const original = fileService.writeJson;
+    const boom = new Error("read-only folder");
+    (fileService as { writeJson: typeof original }).writeJson = vi.fn(
+      async () => {
+        throw boom;
+      },
+    ) as unknown as typeof original;
+
+    const captured: SidecarWriteErrorEvent[] = [];
+    onSidecarWriteError((event) => {
+      captured.push(event);
+    });
+
+    await expect(
+      patchOnboarding(U, (cur) => ({
+        ...cur,
+        wizard_completed_at: "2026-05-22T10:00:00.000Z",
+      })),
+    ).rejects.toBe(boom);
+    expect(captured).toHaveLength(1);
+    expect(captured[0].username).toBe(U);
+    expect(captured[0].operation).toBe("patchOnboarding");
+    expect(captured[0].error).toBe(boom);
+
+    (fileService as { writeJson: typeof original }).writeJson = original;
+  });
+
+  it("does NOT dispatch on the success path", async () => {
+    memFs.delete(P);
+    const captured: SidecarWriteErrorEvent[] = [];
+    onSidecarWriteError((event) => {
+      captured.push(event);
+    });
+
+    await patchOnboarding(U, (cur) => ({
+      ...cur,
+      wizard_completed_at: "2026-05-22T10:00:00.000Z",
+    }));
+
+    expect(captured).toHaveLength(0);
+  });
+
+  it("respects the unsubscribe contract", async () => {
+    const { fileService } = await import("@/lib/file-system/file-service");
+    const original = fileService.writeJson;
+    const boom = new Error("nope");
+    (fileService as { writeJson: typeof original }).writeJson = vi.fn(
+      async () => {
+        throw boom;
+      },
+    ) as unknown as typeof original;
+
+    const captured: SidecarWriteErrorEvent[] = [];
+    const unsubscribe = onSidecarWriteError((event) => {
+      captured.push(event);
+    });
+    unsubscribe();
+
+    await expect(
+      patchOnboarding(U, (cur) => ({ ...cur })),
+    ).rejects.toBe(boom);
+    expect(captured).toHaveLength(0);
+
+    (fileService as { writeJson: typeof original }).writeJson = original;
   });
 });
