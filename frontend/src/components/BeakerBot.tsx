@@ -151,6 +151,21 @@ export interface BeakerBotProps {
    *  silhouette. Animation is ALSO disabled regardless of this
    *  prop when the user's OS has `prefers-reduced-motion: reduce`. */
   animated?: boolean;
+  /** Per-instance click easter-egg selector.
+   *  - `"tickle"` (default): click + cursor-jiggle escalate to the
+   *    giggle then rolling-laughing poses. Used everywhere BeakerBot
+   *    is rendered at a readable size (modal mascot, gallery, scene
+   *    cards) so the laughter motion + speech bubble are legible.
+   *  - `"heart"`: click triggers a brief 200ms body wobble plus a
+   *    pink heart that pops, drifts upward, and fades. Designed for
+   *    SMALL render sizes (~24px) where the laughing animation is
+   *    impossible to parse — specifically the AppShell brand-mark
+   *    logo. Multiple rapid clicks stack hearts (capped at 6
+   *    simultaneous, staggered fan-out via per-spawn translateX) for
+   *    a "hearts everywhere" feel without one click eating another.
+   *  - `"none"`: click is inert visually. The SVG is still focusable
+   *    and accepts the click handler shape, just no animation runs. */
+  easterEgg?: "tickle" | "heart" | "none";
 }
 
 const DIRECTIONAL_POSES: ReadonlySet<BeakerBotPose> = new Set([
@@ -299,6 +314,47 @@ const MOUSEMOVE_MIN_PX = 5;
 // BeakerBot doesn't trigger anything.
 const REVERSAL_TICKLE_WEIGHT = 0.35;
 
+// Heart easter-egg config: cap concurrent hearts so a spam-click doesn't
+// queue an unbounded number of timeout closures. Six reads as "hearts
+// everywhere" without thrashing the React reconciler. Lifetime matches
+// the .heartPop keyframe duration (700ms) so each instance is GC'd as
+// soon as its animation completes.
+const HEART_LIFETIME_MS = 700;
+const HEART_MAX_CONCURRENT = 6;
+// Brief root wobble duration; mirrors the beakerBotHeartWobble keyframe.
+const HEART_WOBBLE_DURATION_MS = 200;
+
+// Horizontal drift presets for sequential heart spawns. Each click cycles
+// through these (modulo length) so rapid spam fans the hearts out left +
+// right instead of stacking exactly on top of each other. Units are SVG
+// view-box pixels; the keyframe applies them via the --heart-drift-x var.
+const HEART_DRIFT_X_PATTERN = [0, -4, 3, -2, 5, -5, 2, -3];
+
+// Heart fill: warm pink/rose that reads against the sky-blue BeakerBot
+// silhouette. Picked over a saturated red (would clash with currentColor
+// outline) and over magenta (too cool against the pastel-rainbow liquid).
+const HEART_FILL = "#ff5b8a";
+
+// Heart SVG path, positioned at the heart's spawn point (20, 14) in
+// view-box units (just above BeakerBot's beaker lip). Classic two-curve
+// heart with a downward point. ~7 view-box units wide. We bake the
+// position into the path data (instead of using a wrapping <g transform>)
+// because the keyframe animation rewrites `transform` on the same node,
+// which would clobber a static <g transform>. The CSS animation's
+// transform-origin (set in .heartPop to 20px 14px) is what anchors the
+// scale + drift to the heart's center.
+const HEART_PATH =
+  "M 20 12 C 18.5 10.5, 16.5 10.5, 16.5 12.8 C 16.5 14.8, 18.5 16, 20 17 C 21.5 16, 23.5 14.8, 23.5 12.8 C 23.5 10.5, 21.5 10.5, 20 12 Z";
+
+interface HeartInstance {
+  /** Monotonic id used as the React key + setTimeout target. */
+  id: number;
+  /** Per-spawn horizontal drift offset (SVG view-box units). Passed to
+   *  the .heartPop keyframe via the --heart-drift-x CSS custom property
+   *  on inline style. */
+  driftX: number;
+}
+
 export default function BeakerBot({
   pose,
   direction = "right",
@@ -306,6 +362,7 @@ export default function BeakerBot({
   ariaLabel = "ResearchOS assistant",
   noLiquid = false,
   animated = true,
+  easterEgg = "tickle",
 }: BeakerBotProps) {
   // Unique gradient id per mount so multiple BeakerBots on the same
   // page don't collide on the url(#...) reference.
@@ -334,10 +391,36 @@ export default function BeakerBot({
     dy: number;
   } | null>(null);
 
+  // Heart easter-egg state. Only active when easterEgg === "heart".
+  // - hearts: live list of heart instances currently animating. Each entry
+  //   carries its own id + driftX so React can key + position it. After
+  //   HEART_LIFETIME_MS each instance is filtered out by a setTimeout.
+  // - heartWobble: brief boolean that triggers the .heartWobbling root
+  //   class for HEART_WOBBLE_DURATION_MS, giving BeakerBot a "you tapped
+  //   me" squash beat.
+  // - heartSpawnCounterRef: monotonic counter for unique heart ids AND
+  //   the index into HEART_DRIFT_X_PATTERN so sequential spawns fan out.
+  const [hearts, setHearts] = useState<HeartInstance[]>([]);
+  const [heartWobble, setHeartWobble] = useState(false);
+  const heartSpawnCounterRef = useRef(0);
+  const heartCleanupTimeoutsRef = useRef<Set<ReturnType<typeof setTimeout>>>(
+    new Set(),
+  );
+  const heartWobbleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+
   useEffect(() => {
+    const cleanupTimeouts = heartCleanupTimeoutsRef.current;
     return () => {
       if (decayTimeoutRef.current) clearTimeout(decayTimeoutRef.current);
       if (overrideTimeoutRef.current) clearTimeout(overrideTimeoutRef.current);
+      if (heartWobbleTimeoutRef.current)
+        clearTimeout(heartWobbleTimeoutRef.current);
+      // Drain any in-flight heart cleanup timers so we don't try to
+      // setHearts on an unmounted component.
+      for (const t of cleanupTimeouts) clearTimeout(t);
+      cleanupTimeouts.clear();
     };
   }, []);
 
@@ -376,11 +459,60 @@ export default function BeakerBot({
     }
   };
 
+  const spawnHeart = () => {
+    const id = heartSpawnCounterRef.current++;
+    const driftX =
+      HEART_DRIFT_X_PATTERN[id % HEART_DRIFT_X_PATTERN.length] ?? 0;
+    setHearts((prev) => {
+      // Cap concurrent hearts: drop the oldest if we'd exceed the cap.
+      // Keeps the visual feeling of "more hearts on rapid clicks" while
+      // bounding the number of live keyframes the browser is animating.
+      const next = [...prev, { id, driftX }];
+      if (next.length > HEART_MAX_CONCURRENT) {
+        return next.slice(next.length - HEART_MAX_CONCURRENT);
+      }
+      return next;
+    });
+    // Schedule removal after the animation completes so the <g> unmounts
+    // and the browser releases its keyframe state.
+    const timeout = setTimeout(() => {
+      heartCleanupTimeoutsRef.current.delete(timeout);
+      setHearts((prev) => prev.filter((h) => h.id !== id));
+    }, HEART_LIFETIME_MS);
+    heartCleanupTimeoutsRef.current.add(timeout);
+
+    // Trigger the brief body wobble. Restart by toggling false -> true
+    // across a microtask boundary so a rapid second click re-fires the
+    // keyframe even if the previous wobble is still mid-animation.
+    if (heartWobbleTimeoutRef.current)
+      clearTimeout(heartWobbleTimeoutRef.current);
+    setHeartWobble(false);
+    // Use rAF (and not setTimeout(0)) so React commits the false state
+    // before we flip back to true; otherwise the same render reads true
+    // and no class change is observed.
+    requestAnimationFrame(() => {
+      setHeartWobble(true);
+      heartWobbleTimeoutRef.current = setTimeout(() => {
+        setHeartWobble(false);
+      }, HEART_WOBBLE_DURATION_MS);
+    });
+  };
+
   const handleClick = () => {
+    if (easterEgg === "none") return;
+    if (easterEgg === "heart") {
+      spawnHeart();
+      return;
+    }
+    // Default: tickle (giggle -> rolling-laughing).
     bumpTickle(1);
   };
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    // Mouse-jiggle escalation is exclusive to the tickle easter egg. The
+    // heart variant intentionally only responds to discrete clicks so
+    // hovering the small AppShell logo doesn't accidentally spam hearts.
+    if (easterEgg !== "tickle") return;
     const prev = lastMoveRef.current;
     if (!prev) {
       lastMoveRef.current = { x: e.clientX, y: e.clientY, dx: 0, dy: 0 };
@@ -418,9 +550,19 @@ export default function BeakerBot({
   const flip = DIRECTIONAL_POSES.has(effectivePose) && direction === "left";
 
   const rootAnim = rootAnimationClass(effectivePose, animated);
+  // Heart-wobble override: when easterEgg=heart and we're currently
+  // mid-wobble after a click, override the pose's root animation class
+  // with the brief 200ms beakerBotHeartWobble keyframe so the click
+  // reads as "BeakerBot reacted." We override (not stack) because two
+  // simultaneous root animations on the same element fight; the wobble
+  // is the more salient feedback for the moment after a click.
+  const showHeartWobble = easterEgg === "heart" && heartWobble && animated;
+  const effectiveRootAnim = showHeartWobble
+    ? `${styles.heartWobbling} ${styles.animated}`
+    : rootAnim;
   const wrapperClass = [
     styles.root,
-    rootAnim,
+    effectiveRootAnim,
     className ?? "w-10 h-10 text-sky-500",
   ]
     .filter(Boolean)
@@ -438,10 +580,17 @@ export default function BeakerBot({
       aria-label={ariaLabel}
       data-pose={effectivePose}
       data-animated={animated ? "true" : "false"}
+      data-easter-egg={easterEgg}
       className={wrapperClass}
       style={{
         ...(flip ? { transform: "scaleX(-1)" } : undefined),
         cursor: "pointer",
+        // overflow:visible lets the heart easter-egg paint outside the
+        // 40x40 viewBox (hearts drift upward to y=-3 in view-box units
+        // and would otherwise clip at small render sizes like the 24px
+        // AppShell brand-mark logo). Harmless for other poses because
+        // none of them draw outside the viewBox.
+        overflow: "visible",
       }}
       onClick={handleClick}
       onMouseMove={handleMouseMove}
@@ -1108,6 +1257,30 @@ export default function BeakerBot({
           >
             {effectivePose === "rolling-laughing" ? "HAHA!" : "hehe!"}
           </text>
+        </g>
+      )}
+
+      {/* Heart easter-egg overlay layer. Rendered LAST in document order
+       *  so the hearts paint on top of everything else (SVG has no z-index;
+       *  paint order is document order). Each heart is keyed by its spawn
+       *  id and applies its own staggered .heartPop animation via the
+       *  inline --heart-drift-x var. The container itself never renders
+       *  unless easterEgg="heart" so other instances pay zero DOM cost. */}
+      {easterEgg === "heart" && hearts.length > 0 && (
+        <g className={styles.heartLayer} aria-hidden="true">
+          {hearts.map((h) => (
+            <g
+              key={h.id}
+              className={styles.heartPop}
+              style={
+                {
+                  ["--heart-drift-x" as string]: `${h.driftX}px`,
+                } as React.CSSProperties
+              }
+            >
+              <path d={HEART_PATH} fill={HEART_FILL} stroke="none" />
+            </g>
+          ))}
         </g>
       )}
     </svg>
