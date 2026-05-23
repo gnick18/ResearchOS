@@ -200,26 +200,84 @@ export async function setUserMetadataColors(
   secondary: string | null,
 ): Promise<UserMetadataEntry | null> {
   if (!fileService.isConnected()) return null;
-  const file = await readMetadataFile();
-  const existing = file.users[username];
-  if (existing) {
-    file.users[username] = {
-      ...existing,
-      color: primary,
-      color_secondary: secondary,
-    };
-  } else {
-    file.users[username] = {
-      color: primary,
-      color_secondary: secondary,
-      created_at: new Date().toISOString(),
-    };
-  }
-  try {
-    await fileService.writeJson(METADATA_PATH, file);
-  } catch (err) {
-    console.error("setUserMetadataColors: failed to persist", err);
-    return null;
-  }
-  return file.users[username];
+  // Route through the same serial queue as `setUserMetadataField` and
+  // `ensureLabUserMetadata`. Without this, a `setUserMetadataColors` call
+  // from `writeUserSettings` (Settings → color picker) could race a
+  // concurrent `ensureLabUserMetadata` (login-screen list refresh, lab-mode
+  // user-tasks lookup) and both try to `createWritable` on
+  // `_user_metadata.json.tmp` at the same time, throwing
+  // NoModificationAllowedError. Grant hit this 2026-05-23 immediately after
+  // renaming a user and then trying to change the color from Settings.
+  return enqueueMetadataWrite(async () => {
+    const file = await readMetadataFile();
+    const existing = file.users[username];
+    if (existing) {
+      file.users[username] = {
+        ...existing,
+        color: primary,
+        color_secondary: secondary,
+      };
+    } else {
+      file.users[username] = {
+        color: primary,
+        color_secondary: secondary,
+        created_at: new Date().toISOString(),
+      };
+    }
+    try {
+      await fileService.writeJson(METADATA_PATH, file);
+    } catch (err) {
+      console.error("setUserMetadataColors: failed to persist", err);
+      return null;
+    }
+    return file.users[username];
+  });
+}
+
+/**
+ * Migrate a user's metadata entry from `oldUsername` to `newUsername`,
+ * preserving all fields (color, color_secondary, created_at,
+ * hide_goals_from_lab, is_tutorial, etc.). No-op when:
+ *  - oldUsername has no entry (nothing to migrate; the caller can still
+ *    proceed — the new user will get a fresh palette entry on first read).
+ *  - oldUsername === newUsername.
+ *
+ * Called from `usersApi.rename` so a user's color travels with them across
+ * a folder rename. Without this, after a rename the entry stays keyed by
+ * the old username and the user appears to "lose" their color (the next
+ * write creates a fresh entry under the new key, taking the next available
+ * palette slot rather than the color they actually picked). See rename
+ * bug-fix 2026-05-23.
+ *
+ * If the new key already has an entry, the migrate is skipped (the caller
+ * is responsible for refusing the rename in the collision-check path; we
+ * defensively keep the new key's existing entry intact here as well).
+ */
+export async function renameUserMetadataEntry(
+  oldUsername: string,
+  newUsername: string,
+): Promise<void> {
+  if (!fileService.isConnected()) return;
+  if (oldUsername === newUsername) return;
+  return enqueueMetadataWrite(async () => {
+    const file = await readMetadataFile();
+    const entry = file.users[oldUsername];
+    if (!entry) return;
+    if (file.users[newUsername]) {
+      // Collision at the metadata level — leave both entries in place
+      // and let the caller surface the collision (the rename-folder
+      // step would have errored first). Better than silently merging.
+      console.warn(
+        `renameUserMetadataEntry: refusing to overwrite existing entry for '${newUsername}'`,
+      );
+      return;
+    }
+    file.users[newUsername] = { ...entry };
+    delete file.users[oldUsername];
+    try {
+      await fileService.writeJson(METADATA_PATH, file);
+    } catch (err) {
+      console.error("renameUserMetadataEntry: failed to persist", err);
+    }
+  });
 }

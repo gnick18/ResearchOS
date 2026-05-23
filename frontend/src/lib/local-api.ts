@@ -11,7 +11,7 @@ import {
   legacyTaskResultsBase,
 } from "./tasks/results-paths";
 import { discoverUsers } from "./file-system/user-discovery";
-import { ensureLabUserMetadata, fallbackUserColor, setUserMetadataField, getUserMetadata, readAllUserMetadata, type UserMetadataEntry } from "./file-system/user-metadata";
+import { ensureLabUserMetadata, fallbackUserColor, setUserMetadataField, getUserMetadata, readAllUserMetadata, renameUserMetadataEntry, type UserMetadataEntry } from "./file-system/user-metadata";
 import JSZip from "jszip";
 import type {
   Project,
@@ -4561,11 +4561,16 @@ export const usersApi = {
   },
   
   rename: async (oldUsername: string, newUsername: string): Promise<{ status: string; old_username: string; new_username: string }> => {
+    // Allow underscores AND hyphens (matches what `usersApi.create` /
+    // ensureFolderStructure accept). The UserLoginScreen surface validates
+    // letters/digits/underscores only, but archive imports may have created
+    // hyphenated names — keep the rename character class a superset of those.
     const sanitized = newUsername.trim().replace(/[^a-zA-Z0-9_-]/g, "");
     if (!sanitized) throw new Error("New username is empty or contains only invalid characters");
     if (sanitized === oldUsername) {
       return { status: "ok", old_username: oldUsername, new_username: sanitized };
     }
+
     const root = fileService.getDirectoryHandle();
     if (!root) throw new Error("File system not connected");
     const usersDir = await fileService.getDirectory("users");
@@ -4577,13 +4582,43 @@ export const usersApi = {
       values: () => AsyncIterable<FileSystemHandle>;
     };
 
-    // Refuse to overwrite an existing user directory.
-    try {
-      await usersHandle.getDirectoryHandle(sanitized);
-      throw new Error(`User '${sanitized}' already exists`);
-    } catch (err) {
-      if (err instanceof Error && err.message.includes("already exists")) throw err;
-      // NotFoundError is expected — proceed.
+    // Collision check (case-insensitive + tombstone-aware). FSA's
+    // `getDirectoryHandle(name)` alone does not catch:
+    //   1. `Alice` vs `alice` collisions on case-insensitive filesystems
+    //      (macOS APFS default, NTFS) — the OS would happily keep both as
+    //      the same on-disk folder, corrupting both users.
+    //   2. Tombstoned users (`deleted_at` set in _user_metadata.json) whose
+    //      folder bytes may have been removed but whose metadata entry is
+    //      still occupying the name slot. Renaming over a tombstone would
+    //      silently un-tombstone and merge the deleted user's history.
+    // discoverUsers() filters out tombstones, listDirectories() returns the
+    // raw on-disk names — we combine both to detect every collision class.
+    const [siblingDirs, metaSnapshot] = await Promise.all([
+      fileService.listDirectories("users"),
+      readAllUserMetadata(),
+    ]);
+    const sanitizedLower = sanitized.toLowerCase();
+    const collidingDir = siblingDirs.find(
+      (name) => name.toLowerCase() === sanitizedLower && name !== oldUsername,
+    );
+    if (collidingDir) {
+      throw new Error(
+        `Username '${sanitized}' is already in use (matches existing folder '${collidingDir}'). Pick another.`,
+      );
+    }
+    const collidingMetaKey = Object.keys(metaSnapshot).find(
+      (key) => key.toLowerCase() === sanitizedLower && key !== oldUsername,
+    );
+    if (collidingMetaKey) {
+      const meta = metaSnapshot[collidingMetaKey];
+      if (meta?.deleted_at) {
+        throw new Error(
+          `Username '${sanitized}' was previously deleted and is still tombstoned. Pick a different name.`,
+        );
+      }
+      throw new Error(
+        `Username '${sanitized}' is already in use. Pick another.`,
+      );
     }
 
     const sourceDir = await usersHandle.getDirectoryHandle(oldUsername);
@@ -4614,6 +4649,26 @@ export const usersApi = {
 
     await copyTree(sourceDir, targetDir);
     await usersHandle.removeEntry(oldUsername, { recursive: true });
+
+    // Migrate the _user_metadata.json entry so the user's color / hide-flag
+    // / created_at / tutorial-marker travels with the rename. Without this
+    // step, the renamed user's color "disappears" — every metadata read
+    // would miss the old key, and the next setUserMetadataColors call would
+    // create a brand-new entry under the new key (next-available palette
+    // slot, not the color the user actually chose). Routed through the same
+    // serial queue as setUserMetadataField so a concurrent
+    // ensureLabUserMetadata call can't interleave.
+    try {
+      await renameUserMetadataEntry(oldUsername, sanitized);
+    } catch (err) {
+      // Best-effort: the folder move already succeeded above. Logging is
+      // enough; the user can re-pick their color in Settings if the entry
+      // didn't migrate cleanly.
+      console.warn(
+        `usersApi.rename: metadata entry migration failed for '${oldUsername}' → '${sanitized}'`,
+        err,
+      );
+    }
 
     // If renaming the current user, keep them logged in under the new name.
     const current = await getCurrentUser();
