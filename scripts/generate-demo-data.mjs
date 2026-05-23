@@ -177,6 +177,35 @@ const METHOD_HEATSHOCK_MD =
   "5. Grow 48 h at 30 °C. Photograph plates; count colonies at the dilution with 10–100 colonies.\n\n" +
   "Survival = (CFU heat shock) / (CFU control) × 100%.\n";
 
+// ─── Demo user onboarding sidecar ─────────────────────────────────────────────
+//
+// Each demo user (alex, morgan, mira) ships with a `_onboarding.json` that
+// marks the v4 walkthrough as already completed. Without this, TourBootstrap
+// treats demo users as fresh signups and auto-fires the welcome prompt the
+// moment the user navigates anywhere outside the /demo URL gate (e.g. the
+// help icon → /wiki → wiki layout falls through Providers' normal flow and
+// mounts V4MountForUser). Setting wizard_completed_at short-circuits the
+// bootstrap before any auto-start path runs.
+//
+// Date is anchored to mid-Jan 2026 so the rebase math (which shifts ALL
+// dates forward by `today - BASE_DATE`) keeps it in the user's recent past
+// regardless of when the demo is opened.
+//
+// SCHEMA_VERSION must stay in sync with lib/onboarding/sidecar.ts.
+const DEMO_ONBOARDING_SIDECAR = {
+  version: 4,
+  first_seen_at: "2026-01-01T00:00:00.000Z",
+  active_seconds: 0,
+  feature_picks: null,
+  wizard_completed_at: "2026-01-15T12:00:00.000Z",
+  wizard_skipped_at: null,
+  wizard_force_show: false,
+  wizard_resume_state: null,
+  lab_tour_pending: false,
+  lab_tour_dismissed_at: null,
+  lab_mode_tour_choice: null,
+};
+
 // ─── Build entries (single source of truth) ───────────────────────────────────
 
 /**
@@ -420,6 +449,7 @@ function buildEntries() {
       account_type: "member",
     },
   ]);
+  out.push(["users/alex/_onboarding.json", DEMO_ONBOARDING_SIDECAR]);
   // Alex receives one shared task and one shared project from morgan.
   // This unlocks the receiver-side fixture coverage for shared sharing
   // surfaces (hide-Share-button on receiver, listByProject threading for
@@ -1865,6 +1895,7 @@ function buildEntries() {
       account_type: "member",
     },
   ]);
+  out.push(["users/morgan/_onboarding.json", DEMO_ONBOARDING_SIDECAR]);
 
   out.push(...projects("morgan", [
     // Project 1 is shared with alex (view) so the fixture covers the
@@ -2330,6 +2361,7 @@ function buildEntries() {
       account_type: "lab_head",
     },
   ]);
+  out.push(["users/mira/_onboarding.json", DEMO_ONBOARDING_SIDECAR]);
 
   // Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23): demo
   // `_lab_head_auth.json` for Mira. Mirrors the on-disk PBKDF2 hash that
