@@ -76,6 +76,14 @@ export interface SnapshotCanvasProps {
   /** Optional empty-state copy shown when the canvas has zero widgets.
    *  Defaults to a generic "no widgets pinned" message. */
   emptyStateMessage?: string;
+  /** Optional content rendered at the LEFT of the toolbar row. Use for a
+   *  section label or title so it sits on the same row as the action
+   *  buttons instead of stacking above. */
+  toolbarLeft?: React.ReactNode;
+  /** Optional buttons rendered ALONGSIDE the built-in toolbar buttons
+   *  (typically a `<ToolsLauncher>`). Lets the consumer fold its launcher
+   *  into the same row as Add widget / Edit layout / Reset. */
+  toolbarExtras?: React.ReactNode;
 }
 
 interface SurfaceAdapter {
@@ -120,6 +128,8 @@ export default function SnapshotCanvas({
   surface = "canvas",
   resetConfirmMessage,
   emptyStateMessage,
+  toolbarLeft,
+  toolbarExtras,
 }: SnapshotCanvasProps) {
   const adapter = surface === "home" ? HOME_ADAPTER : CANVAS_ADAPTER;
   const [isEditing, setIsEditing] = useState(false);
@@ -270,8 +280,13 @@ export default function SnapshotCanvas({
 
   return (
     <div className="space-y-3">
-      {/* Toolbar */}
-      <div className="flex items-center justify-end gap-2 relative">
+      {/* Toolbar. `toolbarLeft` slot lets the consumer drop a section title
+          on the same row as the action buttons so we don't stack two
+          headers (the awkward shape Grant flagged 2026-05-24). */}
+      <div className="flex items-center justify-between gap-2 relative flex-wrap">
+        <div className="flex items-center gap-2 min-w-0">{toolbarLeft}</div>
+        <div className="flex items-center gap-2 flex-wrap">
+        {toolbarExtras}
         <Tooltip label="Add a widget to the canvas" placement="bottom">
           <button
             type="button"
@@ -310,6 +325,7 @@ export default function SnapshotCanvas({
             Reset
           </button>
         </Tooltip>
+        </div>
 
         {showPalette && (
           <div

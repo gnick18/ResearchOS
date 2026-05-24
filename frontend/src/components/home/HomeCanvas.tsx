@@ -83,25 +83,23 @@ export default function HomeCanvas({ username }: HomeCanvasProps) {
       className="mt-12"
       aria-label="Home widgets"
     >
-      <header className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <h3 className="text-lg font-semibold text-gray-700">Widgets</h3>
-          <span className="text-xs text-gray-400">
-            Pin lab signals to your home page
-          </span>
-        </div>
-        {/* Tools launcher scoped to home-eligible Tools so members
-            don't see options that would open into a popup with no
-            corresponding widget they can pin from /home. */}
-        <ToolsLauncher accountType={accountType} surface="home" />
-      </header>
-
+      {/* No stacked header: the section title rides inside the canvas
+          toolbar's `toolbarLeft` slot so the title + action buttons sit
+          on one row instead of two (per Grant 2026-05-24 polish). Tools
+          launcher rides in `toolbarExtras` alongside Add widget / Edit
+          layout / Reset. */}
       <SnapshotCanvas
         username={username}
         accountType={accountType}
         surface="home"
         resetConfirmMessage="Reset Home widgets to default? Your widget order will be lost."
         emptyStateMessage="No widgets pinned. Use Add widget or Tools to bring some back."
+        toolbarLeft={
+          <h3 className="text-lg font-semibold text-gray-700">Widgets</h3>
+        }
+        toolbarExtras={
+          <ToolsLauncher accountType={accountType} surface="home" />
+        }
       />
     </section>
   );
