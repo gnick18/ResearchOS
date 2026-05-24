@@ -317,6 +317,7 @@ export default function CustomizableSidebar() {
                         void handleToggle(id);
                       }}
                       className="absolute top-0.5 right-0.5 z-10 p-0.5 rounded text-gray-400 hover:bg-red-50 hover:text-red-600 bg-white/80 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                      data-force-hover-controls-target
                     >
                       <svg
                         width="10"

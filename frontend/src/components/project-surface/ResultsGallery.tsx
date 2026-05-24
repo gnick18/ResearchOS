@@ -254,7 +254,7 @@ export default function ResultsGallery({ project }: ResultsGalleryProps) {
                           ) : (
                             <div className="w-full h-full bg-gray-100" />
                           )}
-                          <span className="absolute inset-x-0 bottom-0 px-1 py-0.5 text-[9px] text-white bg-black/60 truncate opacity-0 group-hover:opacity-100 transition-opacity">
+                          <span className="absolute inset-x-0 bottom-0 px-1 py-0.5 text-[9px] text-white bg-black/60 truncate opacity-0 group-hover:opacity-100 transition-opacity" data-force-hover-controls-target>
                             {img.name}
                           </span>
                         </button>

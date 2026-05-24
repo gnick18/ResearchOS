@@ -431,7 +431,7 @@ function StepBlock({
 
             {/* Erase indicator */}
             {isErasing && isEditing && (
-              <div className="absolute inset-0 flex items-center justify-center bg-red-500/20 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="absolute inset-0 flex items-center justify-center bg-red-500/20 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" data-force-hover-controls-target>
                 <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>

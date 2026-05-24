@@ -1452,7 +1452,7 @@ export default function GanttChart({
                         onMouseLeave={() => setHoveredGoal(null)}
                       >
                         {/* Hover tooltip */}
-                        <div className="absolute left-0 top-full mt-1 bg-gray-900 text-white text-xs px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none">
+                        <div className="absolute left-0 top-full mt-1 bg-gray-900 text-white text-xs px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none" data-force-hover-controls-target>
                           <div className="font-medium">{goal.name}</div>
                           <div className={isOverdue ? 'text-red-300' : isUrgent ? 'text-yellow-300' : 'text-gray-300'}>
                             {isOverdue 

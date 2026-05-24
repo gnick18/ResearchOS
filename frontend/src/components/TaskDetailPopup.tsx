@@ -1493,6 +1493,7 @@ function SimpleTaskChecklist({
                 <button
                   onClick={() => handleDeleteSubTask(st.id)}
                   className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-opacity"
+                  data-force-hover-controls-target
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M18 6L6 18M6 6l12 12"/>
@@ -2543,6 +2544,7 @@ function DetailsTab({
                   <button
                     onClick={() => handleDeleteSubTask(st.id)}
                     className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 text-xs transition-opacity"
+                    data-force-hover-controls-target
                   >
                     ✕
                   </button>
@@ -4640,6 +4642,7 @@ function PdfAttachmentsPanel({
                     }}
                     className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all"
                     aria-label={`Delete ${file.name}`}
+                    data-force-hover-controls-target
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="18" y1="6" x2="6" y2="18" />

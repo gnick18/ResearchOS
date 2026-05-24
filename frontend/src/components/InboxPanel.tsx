@@ -508,6 +508,7 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
                           });
                         }}
                         className="opacity-0 group-hover:opacity-100 focus:opacity-100 px-2 py-1.5 text-xs text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-all"
+                        data-force-hover-controls-target
                       >
                         ⋯
                       </button>

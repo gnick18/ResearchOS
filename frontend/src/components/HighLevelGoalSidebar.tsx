@@ -146,7 +146,7 @@ export default function HighLevelGoalSidebar({
               className="bg-white rounded-lg shadow-sm border-l-4 relative group"
               style={{ borderLeftColor: goal.color || "#f59e0b" }}
             >
-              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" data-force-hover-controls-target>
                 <Tooltip label="Edit goal" placement="bottom">
                   <button
                     onClick={() => onEditGoal(goal)}
@@ -277,6 +277,7 @@ export default function HighLevelGoalSidebar({
                               handleDeleteSmartGoal(goal, sg.id);
                             }}
                             className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-opacity flex-shrink-0"
+                            data-force-hover-controls-target
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                               <path d="M18 6L6 18M6 6l12 12"/>

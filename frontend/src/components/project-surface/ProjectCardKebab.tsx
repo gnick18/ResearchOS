@@ -147,6 +147,7 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
       ref={menuRef}
       className={`absolute top-2 right-2 transition-opacity z-10 ${kebabVisibilityClass}`}
       onClick={stop}
+      data-force-hover-controls-target
     >
       <button
         type="button"

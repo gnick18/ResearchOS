@@ -180,6 +180,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
                       }}
                       disabled={saving}
                       className="opacity-0 group-hover:opacity-100 hover:bg-gray-300 rounded p-0.5 transition-opacity"
+                      data-force-hover-controls-target
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M18 6L6 18M6 6l12 12"/>

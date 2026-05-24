@@ -454,6 +454,7 @@ export default function VariationNotesPanel({ task, methodId, variationNotes, on
                               disabled={saving}
                               className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity disabled:opacity-50"
                               aria-label="Delete this variation"
+                              data-force-hover-controls-target
                             >
                             <svg
                               width="14"

@@ -629,7 +629,7 @@ export default function LabGanttChart({
                                 )}
 
                                 {/* Hover tooltip */}
-                                <div className="absolute left-0 top-full mt-1 bg-gray-900 text-white text-xs px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none">
+                                <div className="absolute left-0 top-full mt-1 bg-gray-900 text-white text-xs px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none" data-force-hover-controls-target>
                                   <div className="font-medium">{task.name}</div>
                                   <div className="text-gray-300">{task.username} • {getProjectName(task.project_id, task.username)}</div>
                                   <div className="text-gray-400">{task.start_date} → {task.end_date}</div>

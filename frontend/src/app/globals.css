@@ -441,25 +441,50 @@ body[data-tour-step="notifications-silence"] .tour-secondary-pulse[data-tour-sec
  * so static screenshot tools (Playwright, Puppeteer) can capture hover-
  * revealed UI without firing a real cursor.
  *
- * Rules below mirror each component's `:hover` reveal rule so the same
- * elements that fade in on hover are forced visible. Scope rules tightly:
- * one rule per component so a future cleanup chip can apply this to more
- * surfaces without a "force everything everywhere" foot-gun.
+ * The single rule below targets any element marked with the
+ * `data-force-hover-controls-target` attribute and forces opacity to 1
+ * when `.force-hover-controls` is on the body. Each opt-in is local to
+ * the component (just add the data attribute alongside the existing
+ * `opacity-0 group-hover:opacity-100` Tailwind classes) so behaviour
+ * stays additive: hover still works the same way, and the flag only
+ * changes anything when the body class is present.
  *
- * Today: LabRoster row controls (the brief scopes Item B to LabRoster).
- * The LabRoster Archive button is sessionUnlocked-gated, not hover-gated,
- * so the force-hover-controls path is a future-proofing seam: if the
- * roster grows hover-only inline controls (e.g. quick-edit display name)
- * they will just need to add the dual `:hover, .force-hover-controls`
- * selector pattern to ride the same flag.
+ * Originally introduced in commit d3b7fb65 for LabRoster (future-proofing
+ * seam; that component had no hover-only controls at the time). The
+ * forceControls flag expansion chip (this commit) extended the
+ * opt-in attribute to the 17 hover-only sites surfaced by the original
+ * FOLLOW-UP grep:
  *
- * FOLLOW-UP candidates (out of scope for this chip): the broader hover-
- * only patterns surfaced by grep are in HighLevelGoalSidebar, TaskDetailPopup,
- * InboxPanel, MethodTabs, VariationNotesPanel, SidebarWidgetRail,
- * CustomizableSidebar, UserLoginScreen, ProjectCardKebab, ResultsGallery,
- * ImageStrip, ImageGalleryPopup, InteractiveGradientEditor, LabGanttChart,
- * GanttChart, ExpandableListCard, TaskModal. Any of those that need to
- * appear in wiki screenshots can add a dual selector rule here.
+ *   HighLevelGoalSidebar (edit-goal toolbar + delete-smart-goal button)
+ *   TaskDetailPopup (delete subtask x2, delete file)
+ *   InboxPanel (kebab/more button)
+ *   MethodTabs (remove-method button)
+ *   methods/VariationNotesPanel (delete-variation button)
+ *   lab-overview/SidebarWidgetRail (remove-widget button)
+ *   lab-overview/CustomizableSidebar (remove-widget button)
+ *   UserLoginScreen (set-main, rename, password, delete buttons)
+ *   project-surface/ProjectCardKebab (kebab wrapper)
+ *   project-surface/ResultsGallery (image filename caption)
+ *   ImageStrip (image filename caption)
+ *   ImageGalleryPopup ("Click to Insert" overlay)
+ *   InteractiveGradientEditor (erase indicator)
+ *   LabGanttChart (hover tooltip)
+ *   GanttChart (hover tooltip)
+ *   workbench/ExpandableListCard (delete-item button)
+ *   TaskModal (delete-subtask button)
+ *
+ * Intentionally NOT extended: the `block group-hover/complete:hidden` /
+ * `hidden group-hover/complete:block` icon-swap inside TaskDetailPopup's
+ * complete toggle (forcing both icons visible would render the swap
+ * as a stacked overlap, not a useful screenshot state). Per-button
+ * tooltip popovers nested in `group/icon` containers inside
+ * UserLoginScreen are also left as pure hover affordances; the 4 sites
+ * the brief flagged are the buttons themselves, not their tooltips.
+ *
+ * If a future component needs the same behaviour, just add
+ * `data-force-hover-controls-target` to the element that owns the
+ * `opacity-0 group-hover:opacity-100` classes and update the inventory
+ * comment above.
  */
 .force-hover-controls [data-force-hover-controls-target] {
   opacity: 1 !important;
