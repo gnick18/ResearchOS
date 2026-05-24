@@ -144,17 +144,21 @@ export interface WidgetDefinition {
   description?: string;
   /**
    * Phase C (Tools refactor manager, 2026-05-23): the Tool this widget
-   * is a tile-variant of. The popup body (`ExpandedView`) is looked up
-   * via the Tool registry by this id, NOT from `widget.ExpandedView` —
-   * so multiple widget variants of the same tool open the SAME popup.
+   * is a tile-variant of. The popup body is looked up via the Tool
+   * registry by this id, so multiple widget variants of the same tool
+   * open the SAME popup.
    *
    * Example: `lab-purchases`, `lab-purchases-burn-rate`, and
    * `lab-purchases-pending-count` are three widget variants whose
-   * `toolId` is all `"purchases"`. Click any of them → the LabPurchases
+   * `toolId` is all `"purchases"`. Click any of them, the LabPurchases
    * 4-tab popup opens.
    *
-   * Required. Catalog entries without a matching tool id fall back to
-   * the legacy per-widget `ExpandedView` (see consumers).
+   * Required. A catalog entry whose `toolId` doesn't match a registered
+   * Tool is a registry-shape bug: `resolveExpandedView` renders a clear
+   * diagnostic placeholder rather than crashing the surface.
+   * (Back-compat removal manager, 2026-05-23: dropped the per-widget
+   * `ExpandedView` fallback field; the Tool registry is now the single
+   * source of truth.)
    */
   toolId: string;
   /**
@@ -165,26 +169,18 @@ export interface WidgetDefinition {
    */
   variantId?: string;
   /** The snapshot-tile component. Renders inside the snapshot canvas
-   *  and the sidebar rail. Click opens the popup with `ExpandedView`. */
+   *  and the sidebar rail. Click opens the popup with the Tool's
+   *  ExpandedView (resolved by `toolId`). */
   SnapshotTile: ComponentType<SnapshotTileProps>;
   /** The sidebar-tile component. Renders inside the lab_head
    *  `CustomizableSidebar` (and any other narrow vertical rail). Shape
-   *  is distinct from `SnapshotTile` — slim horizontal row vs square
-   *  card. Click opens the popup with `ExpandedView`, same as the
-   *  snapshot tile. Added 2026-05-23 by #146 customizable PI sidebar
-   *  manager; the registry will eventually require this for every
-   *  entry once Phase B per-widget designs land. */
+   *  is distinct from `SnapshotTile`, slim horizontal row vs square
+   *  card. Click opens the same popup the snapshot tile does. Added
+   *  2026-05-23 by #146 customizable PI sidebar manager; the registry
+   *  will eventually require this for every entry once Phase B
+   *  per-widget designs land. */
   SidebarTile: ComponentType<SidebarTileProps>;
-  /**
-   * Phase C: optional per-widget fallback. The Tool registry now owns
-   * the canonical popup body; this field is kept ONLY as a defensive
-   * back-compat path (catalog entries whose `toolId` doesn't resolve
-   * fall through to `widget.ExpandedView`). Every catalog entry today
-   * still wires this — removing it is a follow-up after we verify the
-   * Tool registry is stable across all consumers.
-   */
-  ExpandedView: ComponentType<ExpandedViewProps>;
-  /** Default sizing on the free-grid canvas — retained for the layout
+  /** Default sizing on the free-grid canvas, retained for the layout
    *  migration's append-at-bottom logic + Phase B forward-compat. */
   defaultLayout: WidgetDefaultLayout;
   /** Which surface(s) the widget is allowed to mount on. */

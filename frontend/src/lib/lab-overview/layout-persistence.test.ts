@@ -33,7 +33,6 @@ import type {
 
 const NullSnapshot = () => null;
 const NullSidebar = () => null;
-const NullExpanded = () => null;
 
 const fakeCatalog: WidgetDefinition[] = [
   {
@@ -42,7 +41,6 @@ const fakeCatalog: WidgetDefinition[] = [
     title: "Announcements",
     SnapshotTile: NullSnapshot,
     SidebarTile: NullSidebar,
-    ExpandedView: NullExpanded,
     defaultLayout: { w: 12, h: 3 },
     surface: "canvas",
     memberVisible: true,
@@ -53,7 +51,6 @@ const fakeCatalog: WidgetDefinition[] = [
     title: "Lab comments",
     SnapshotTile: NullSnapshot,
     SidebarTile: NullSidebar,
-    ExpandedView: NullExpanded,
     defaultLayout: { w: 8, h: 6 },
     surface: "canvas",
     memberVisible: true,
@@ -64,7 +61,6 @@ const fakeCatalog: WidgetDefinition[] = [
     title: "Lab metrics",
     SnapshotTile: NullSnapshot,
     SidebarTile: NullSidebar,
-    ExpandedView: NullExpanded,
     defaultLayout: { w: 4, h: 6 },
     surface: "canvas",
     memberVisible: false,
@@ -75,7 +71,6 @@ const fakeCatalog: WidgetDefinition[] = [
     title: "Recent lab activity",
     SnapshotTile: NullSnapshot,
     SidebarTile: NullSidebar,
-    ExpandedView: NullExpanded,
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
     memberVisible: true,
@@ -87,7 +82,6 @@ const fakeCatalog: WidgetDefinition[] = [
     title: "Overdue",
     SnapshotTile: NullSnapshot,
     SidebarTile: NullSidebar,
-    ExpandedView: NullExpanded,
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
     memberVisible: true,

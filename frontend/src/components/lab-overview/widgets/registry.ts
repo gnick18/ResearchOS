@@ -12,88 +12,79 @@
  * renamed in copy, leave the id; rename `title` only.
  *
  * Widget canvas Phase A (Phase A redispatch manager, 2026-05-23): a
- * catalog entry now lists `SnapshotTile` + `ExpandedView` instead of a
- * single `Component`. The snapshot is the small tile rendered on the
- * canvas + sidebar; the expanded view is the rich body that previously
- * mounted directly. The existing widget bodies are preserved
- * unchanged — they're simply re-exposed under the `ExpandedView` name
- * (see each widget file's bottom for the alias). The snapshot tile is
- * a small placeholder built on the shared `<StatTile>` template; Phase
- * B chips replace each per-widget design.
+ * catalog entry now lists `SnapshotTile` + a sidebar variant instead of
+ * a single `Component`. The snapshot is the small tile rendered on the
+ * canvas + sidebar; the rich body that previously mounted directly is
+ * now the Tool popup. The existing widget bodies are preserved
+ * unchanged, re-exposed as `ExpandedView` named exports for the Tool
+ * registry to import (see each widget file's bottom for the alias).
  *
- * Tools refactor — Phase C (Tools refactor manager, 2026-05-23): every
+ * Tools refactor, Phase C (Tools refactor manager, 2026-05-23): every
  * entry now carries a `toolId` (the canonical popup it opens, looked
- * up in `lib/lab-overview/tool-registry.ts`) and an optional
+ * up in `lib/lab-overview/tool-registry.tsx`) and an optional
  * `variantId` (the tile-shape slug within that Tool). Multiple widget
- * entries can share a `toolId` — those become variants of the same
- * tool (e.g. the three `purchases` variants below). Click any variant
- * → the same Tool popup opens.
+ * entries can share a `toolId`, those become variants of the same
+ * tool (e.g. the three `purchases` variants below). Click any variant,
+ * the same Tool popup opens.
+ *
+ * Back-compat removal (Back-compat removal manager, 2026-05-23): the
+ * defensive per-widget `ExpandedView` routing field has been dropped.
+ * The Tool registry is now the single source of truth for popup bodies.
+ * A widget whose `toolId` doesn't resolve renders a diagnostic
+ * placeholder via `resolveExpandedView` (registry-shape bug).
  */
 import type { WidgetDefinition } from "./types";
 import AnnouncementsWidget, {
   SnapshotTile as AnnouncementsSnapshot,
   SidebarTile as AnnouncementsSidebar,
-  ExpandedView as AnnouncementsExpanded,
 } from "./AnnouncementsWidget";
 import CommentFeedWidget, {
   SnapshotTile as CommentFeedSnapshot,
   SidebarTile as CommentFeedSidebar,
-  ExpandedView as CommentFeedExpanded,
 } from "./CommentFeedWidget";
 import MetricsWidget, {
   SnapshotTile as MetricsSnapshot,
   SidebarTile as MetricsSidebar,
-  ExpandedView as MetricsExpanded,
 } from "./MetricsWidget";
 import RecentActivityWidget, {
   SnapshotTile as RecentActivitySnapshot,
   SidebarTile as RecentActivitySidebar,
-  ExpandedView as RecentActivityExpanded,
 } from "./RecentActivityWidget";
 import PiActionsWidget, {
   SnapshotTile as PiActionsSnapshot,
   SidebarTile as PiActionsSidebar,
-  ExpandedView as PiActionsExpanded,
 } from "./PiActionsWidget";
 import MemberWorkloadWidget, {
   SnapshotTile as MemberWorkloadSnapshot,
   SidebarTile as MemberWorkloadSidebar,
-  ExpandedView as MemberWorkloadExpanded,
 } from "./MemberWorkloadWidget";
 import TodaysAnnouncementsWidget, {
   SnapshotTile as TodaysAnnouncementsSnapshot,
   SidebarTile as TodaysAnnouncementsSidebar,
-  ExpandedView as TodaysAnnouncementsExpanded,
 } from "./TodaysAnnouncementsWidget";
 import LabNotesWidget, {
   SnapshotTile as LabNotesSnapshot,
   SidebarTile as LabNotesSidebar,
-  ExpandedView as LabNotesExpanded,
 } from "./LabNotesWidget";
 import LabExperimentsWidget, {
   SnapshotTile as LabExperimentsSnapshot,
   SidebarTile as LabExperimentsSidebar,
-  ExpandedView as LabExperimentsExpanded,
 } from "./LabExperimentsWidget";
 import LabActivityWidget, {
   SnapshotTile as LabActivitySnapshot,
   SidebarTile as LabActivitySidebar,
-  ExpandedView as LabActivityExpanded,
 } from "./LabActivityWidget";
 import LabPurchasesWidget, {
   SnapshotTile as LabPurchasesSnapshot,
   SidebarTile as LabPurchasesSidebar,
-  ExpandedView as LabPurchasesExpanded,
 } from "./LabPurchasesWidget";
 import {
   SnapshotTile as LabPurchasesBurnRateSnapshot,
   SidebarTile as LabPurchasesBurnRateSidebar,
-  ExpandedView as LabPurchasesBurnRateExpanded,
 } from "./LabPurchasesBurnRateWidget";
 import {
   SnapshotTile as LabPurchasesPendingCountSnapshot,
   SidebarTile as LabPurchasesPendingCountSidebar,
-  ExpandedView as LabPurchasesPendingCountExpanded,
 } from "./LabPurchasesPendingCountWidget";
 import {
   OverdueTasksSnapshot,
@@ -102,14 +93,10 @@ import {
   OverdueTasksSidebarTile,
   TodaysTasksSidebarTile,
   UpcomingTasksSidebarTile,
-  OverdueTasksExpanded,
-  TodaysTasksExpanded,
-  UpcomingTasksExpanded,
 } from "./TaskListWidgets";
 import {
   SnapshotTile as DailyTasksSnapshot,
   SidebarTile as DailyTasksSidebarTile,
-  ExpandedView as DailyTasksExpanded,
 } from "./DailyTasksWidget";
 
 // Touch the default exports so TypeScript doesn't flag them as unused
@@ -138,7 +125,6 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     description: "Lab-wide updates. PI composer + pinned posts.",
     SnapshotTile: AnnouncementsSnapshot,
     SidebarTile: AnnouncementsSidebar,
-    ExpandedView: AnnouncementsExpanded,
     defaultLayout: { w: 12, h: 3, minW: 4, minH: 2 },
     surface: "canvas",
     memberVisible: true,
@@ -150,7 +136,6 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     description: "Every comment thread across the lab, newest first.",
     SnapshotTile: CommentFeedSnapshot,
     SidebarTile: CommentFeedSidebar,
-    ExpandedView: CommentFeedExpanded,
     defaultLayout: { w: 8, h: 6, minW: 4, minH: 3 },
     surface: "canvas",
     memberVisible: true,
@@ -162,7 +147,6 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     description: "Cross-lab Gantt overlay + funding + roadmap rollup.",
     SnapshotTile: MetricsSnapshot,
     SidebarTile: MetricsSidebar,
-    ExpandedView: MetricsExpanded,
     defaultLayout: { w: 4, h: 6, minW: 4, minH: 4 },
     surface: "canvas",
     memberVisible: false, // lab_head only
@@ -178,7 +162,6 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
       "Cross-lab notes the viewer can read (canRead filter), searchable + filterable.",
     SnapshotTile: LabNotesSnapshot,
     SidebarTile: LabNotesSidebar,
-    ExpandedView: LabNotesExpanded,
     defaultLayout: { w: 6, h: 6, minW: 4, minH: 4 },
     surface: "canvas",
     memberVisible: true,
@@ -190,7 +173,6 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     description: "Outcome gallery of every lab member's experiments.",
     SnapshotTile: LabExperimentsSnapshot,
     SidebarTile: LabExperimentsSidebar,
-    ExpandedView: LabExperimentsExpanded,
     defaultLayout: { w: 6, h: 6, minW: 4, minH: 4 },
     surface: "canvas",
     memberVisible: true,
@@ -207,7 +189,6 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
       "Deep, paginated activity feed across the lab (comments, tasks, flags, announcements).",
     SnapshotTile: LabActivitySnapshot,
     SidebarTile: LabActivitySidebar,
-    ExpandedView: LabActivityExpanded,
     defaultLayout: { w: 6, h: 8, minW: 4, minH: 5 },
     surface: "canvas",
     // Members can see the same activity buckets the sidebar
@@ -233,7 +214,6 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
       "Pending approvals, recent purchases, and funding rollup. Lab head only.",
     SnapshotTile: LabPurchasesSnapshot,
     SidebarTile: LabPurchasesSidebar,
-    ExpandedView: LabPurchasesExpanded,
     defaultLayout: { w: 6, h: 8, minW: 4, minH: 5 },
     surface: "canvas",
     memberVisible: false, // lab_head only; replaces the /purchases nav for PIs
@@ -249,7 +229,6 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
       "Approved purchase spend over the last 4 weeks. Lab head only.",
     SnapshotTile: LabPurchasesBurnRateSnapshot,
     SidebarTile: LabPurchasesBurnRateSidebar,
-    ExpandedView: LabPurchasesBurnRateExpanded,
     defaultLayout: { w: 4, h: 6, minW: 3, minH: 4 },
     surface: "canvas",
     memberVisible: false,
@@ -265,7 +244,6 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
       "Count + total dollar value of unapproved purchases. Lab head only.",
     SnapshotTile: LabPurchasesPendingCountSnapshot,
     SidebarTile: LabPurchasesPendingCountSidebar,
-    ExpandedView: LabPurchasesPendingCountExpanded,
     defaultLayout: { w: 3, h: 4, minW: 2, minH: 3 },
     surface: "canvas",
     memberVisible: false,
@@ -279,7 +257,6 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     description: "Newest comments, shares, and task creations across the lab.",
     SnapshotTile: RecentActivitySnapshot,
     SidebarTile: RecentActivitySidebar,
-    ExpandedView: RecentActivityExpanded,
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
     memberVisible: true,
@@ -291,7 +268,6 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     description: "Purchase approvals + flag queue counts (R3).",
     SnapshotTile: PiActionsSnapshot,
     SidebarTile: PiActionsSidebar,
-    ExpandedView: PiActionsExpanded,
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
     memberVisible: false, // PI-only signal
@@ -303,7 +279,6 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     description: "Open + overdue counts per lab member.",
     SnapshotTile: MemberWorkloadSnapshot,
     SidebarTile: MemberWorkloadSidebar,
-    ExpandedView: MemberWorkloadExpanded,
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
     memberVisible: false,
@@ -315,7 +290,6 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     description: "Pinned announcements, titles only.",
     SnapshotTile: TodaysAnnouncementsSnapshot,
     SidebarTile: TodaysAnnouncementsSidebar,
-    ExpandedView: TodaysAnnouncementsExpanded,
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
     memberVisible: true,
@@ -342,7 +316,6 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     description: "Your past-due open tasks.",
     SnapshotTile: OverdueTasksSnapshot,
     SidebarTile: OverdueTasksSidebarTile,
-    ExpandedView: OverdueTasksExpanded,
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
     memberVisible: true,
@@ -356,7 +329,6 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     description: "Tasks scheduled to land today.",
     SnapshotTile: TodaysTasksSnapshot,
     SidebarTile: TodaysTasksSidebarTile,
-    ExpandedView: TodaysTasksExpanded,
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
     memberVisible: true,
@@ -370,7 +342,6 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     description: "Tasks starting after today.",
     SnapshotTile: UpcomingTasksSnapshot,
     SidebarTile: UpcomingTasksSidebarTile,
-    ExpandedView: UpcomingTasksExpanded,
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
     memberVisible: true,
@@ -394,7 +365,6 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
       "The standard daily-tasks sidebar (overdue, today, upcoming, per-project grouping). The default member sidebar, also pinnable by lab heads.",
     SnapshotTile: DailyTasksSnapshot,
     SidebarTile: DailyTasksSidebarTile,
-    ExpandedView: DailyTasksExpanded,
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
     memberVisible: true,

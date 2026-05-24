@@ -316,20 +316,42 @@ export function visibleTools(accountType: AccountType): ToolDefinition[] {
 }
 
 /**
- * Resolve a widget's popup body via its `toolId`. Falls back to the
- * widget's own legacy `ExpandedView` field if no matching Tool exists
- * (defensive — every catalog entry today has both, but the fallback
- * keeps the door open for partial migrations).
- *
- * The fallback is `null` only if the widget itself doesn't carry an
- * ExpandedView, which would be a registry shape error.
+ * Resolve a widget's popup body via its `toolId`. The Tool registry is
+ * the single source of truth (Back-compat removal manager, 2026-05-23:
+ * the per-widget `ExpandedView` field on `WidgetDefinition` was dropped;
+ * there is no widget-level fallback). If `toolId` doesn't match a
+ * registered Tool the resolver returns a diagnostic placeholder so the
+ * surface keeps rendering and the bug is obvious in the popup, rather
+ * than crashing the canvas / sidebar tree.
  */
 export function resolveExpandedView(widget: {
   toolId: string;
-  ExpandedView: ComponentType<ExpandedViewProps>;
 }): ComponentType<ExpandedViewProps> {
   const tool = getTool(widget.toolId);
-  return tool?.ExpandedView ?? widget.ExpandedView;
+  if (tool) return tool.ExpandedView;
+  const missingId = widget.toolId;
+  const MissingToolPlaceholder: ComponentType<ExpandedViewProps> = () => (
+    <div
+      role="alert"
+      style={{
+        padding: 24,
+        color: "#b91c1c",
+        fontFamily: "system-ui, sans-serif",
+        fontSize: 14,
+        lineHeight: 1.5,
+      }}
+    >
+      <strong>Widget configuration error.</strong>
+      <div style={{ marginTop: 8 }}>
+        Tool <code>{missingId}</code> is not registered in
+        <code> TOOL_REGISTRY</code>. Add the tool definition in
+        <code> lib/lab-overview/tool-registry.tsx</code> or fix the
+        widget&apos;s <code>toolId</code>.
+      </div>
+    </div>
+  );
+  MissingToolPlaceholder.displayName = "MissingToolPlaceholder";
+  return MissingToolPlaceholder;
 }
 
 /**
