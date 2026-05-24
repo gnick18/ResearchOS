@@ -86,6 +86,21 @@ import {
   SnapshotTile as LabPurchasesPendingCountSnapshot,
   SidebarTile as LabPurchasesPendingCountSidebar,
 } from "./LabPurchasesPendingCountWidget";
+// Tool variants batch (Tool variants batch manager, 2026-05-24): three
+// new tile-shape variants of existing Tools. Each variant shares its
+// Tool's ExpandedView via toolId; no new popups.
+import {
+  SnapshotTile as CommentMentionsSnapshot,
+  SidebarTile as CommentMentionsSidebar,
+} from "./CommentMentionsWidget";
+import {
+  SnapshotTile as ExperimentsReadySnapshot,
+  SidebarTile as ExperimentsReadySidebar,
+} from "./ExperimentsReadyWidget";
+import {
+  SnapshotTile as LabActivityByTypeSnapshot,
+  SidebarTile as LabActivityByTypeSidebar,
+} from "./LabActivityByTypeWidget";
 import {
   OverdueTasksSnapshot,
   TodaysTasksSnapshot,
@@ -147,6 +162,24 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     surfaces: { canvas: true, home: true },
     memberVisible: true,
   },
+  // Tool variants batch (Tool variants batch manager, 2026-05-24):
+  // @-mentions tile-variant of the Comments Tool. Same toolId =>
+  // clicking opens the canonical Comments popup.
+  {
+    id: "comment-mentions",
+    toolId: "comments",
+    variantId: "mentions",
+    title: "@-mentions",
+    description: "Comments that @-mention you, across the lab.",
+    SnapshotTile: CommentMentionsSnapshot,
+    SidebarTile: CommentMentionsSidebar,
+    defaultLayout: { w: 4, h: 6, minW: 3, minH: 3 },
+    // Member-relevant (their own pings) + PI-relevant (their own pings
+    // too). Opt-in via the Add widget palette on both /lab-overview and
+    // /home — not auto-added to either default layout.
+    surfaces: { canvas: true, home: true },
+    memberVisible: true,
+  },
   {
     id: "metrics",
     toolId: "metrics",
@@ -191,6 +224,22 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     surfaces: { canvas: true },
     memberVisible: true,
   },
+  // Tool variants batch (Tool variants batch manager, 2026-05-24):
+  // ready-writeup tile-variant of the Experiments Tool. Same toolId =>
+  // clicking opens the canonical Experiments popup.
+  {
+    id: "experiments-ready-writeup",
+    toolId: "experiments",
+    variantId: "ready-writeup",
+    title: "Ready to write up",
+    description:
+      "Completed experiments that don't have a writeup attached yet.",
+    SnapshotTile: ExperimentsReadySnapshot,
+    SidebarTile: ExperimentsReadySidebar,
+    defaultLayout: { w: 4, h: 6, minW: 3, minH: 3 },
+    surfaces: { canvas: true, home: true },
+    memberVisible: true,
+  },
   // Widget catalog cleanup (widget catalog cleanup manager, 2026-05-23):
   // Lab Links + Lab Search dropped. Both surfaces already exist as
   // top-nav tabs (/links + the global search affordances), so the
@@ -212,6 +261,22 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     // RecentActivityWidget already surfaces (no PI-only fields). If a
     // later refinement adds purchase approvals or audit entries here
     // this should flip to false.
+    memberVisible: true,
+  },
+  // Tool variants batch (Tool variants batch manager, 2026-05-24):
+  // by-type tile-variant of the Lab Activity Tool. Three small columns
+  // (tasks / notes / purchases) for today's activity. Same toolId =>
+  // clicking opens the canonical Lab Activity popup.
+  {
+    id: "lab-activity-by-type",
+    toolId: "lab-activity",
+    variantId: "by-type",
+    title: "Activity by area",
+    description: "Today's activity split into tasks, notes, and purchases.",
+    SnapshotTile: LabActivityByTypeSnapshot,
+    SidebarTile: LabActivityByTypeSidebar,
+    defaultLayout: { w: 4, h: 4, minW: 3, minH: 3 },
+    surfaces: { canvas: true, home: true },
     memberVisible: true,
   },
 
