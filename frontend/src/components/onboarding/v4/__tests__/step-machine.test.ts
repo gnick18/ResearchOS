@@ -212,6 +212,59 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER).not.toContain("setup-q1b");
   });
 
+  it("contains setup-wrapup between setup-q7 and home-create-project (v4 setup wrap-up step manager 2026-05-24)", () => {
+    // The wrap-up confirmation beat materializes the README's longstanding
+    // "Step 7: confirmation. Each setup decision is echoed back, with an
+    // optional feature tour link before 'Go to home.'" promise. It sits
+    // BETWEEN the last setup question (setup-q7) and the first beat of
+    // the in-product walkthrough (home-create-project). Modal-contained
+    // (same chrome as the Q steps), but the body owns its own CTAs.
+    const q7Idx = TOUR_STEP_ORDER.indexOf("setup-q7");
+    const wrapupIdx = TOUR_STEP_ORDER.indexOf("setup-wrapup");
+    const homeIdx = TOUR_STEP_ORDER.indexOf("home-create-project");
+    expect(q7Idx).toBeGreaterThanOrEqual(0);
+    expect(wrapupIdx).toBe(q7Idx + 1);
+    expect(homeIdx).toBeGreaterThan(wrapupIdx);
+  });
+
+  it("setup-wrapup is a setup-phase step (modal-contained)", () => {
+    expect(isSetupPhaseStep("setup-wrapup")).toBe(true);
+  });
+
+  it("setup-wrapup is NEVER gated out (every user sees it once)", () => {
+    // The wrap-up beat is unconditional: every user finishing setup
+    // sees it regardless of which features they opted into. The body
+    // just echoes back whatever picks are present in the sidecar.
+    const allYes = picks({
+      account_type: "lab",
+      purchases: "yes",
+      calendar: "yes",
+      goals: "yes",
+      telegram: "yes",
+      ai_helper: "full",
+    });
+    const allNo = picks();
+    expect(isStepGatedOut("setup-wrapup", allYes)).toBe(false);
+    expect(isStepGatedOut("setup-wrapup", allNo)).toBe(false);
+    expect(isStepGatedOut("setup-wrapup", null)).toBe(false);
+  });
+
+  it("getNextStep from setup-q7 lands on setup-wrapup (not home-create-project)", () => {
+    // The wrap-up beat MUST sit between Q7 and the walkthrough. If a
+    // future refactor moves it (or removes it), this guard catches it.
+    const next = getNextStep("setup-q7", picks());
+    expect(next).toBe("setup-wrapup");
+  });
+
+  it("getNextStep from setup-wrapup lands on the first in-product step", () => {
+    // "Take the feature tour" in the wrap-up body calls
+    // controller.advance(), which traverses the next applicable step
+    // via getNextStep. The next step under default picks should be the
+    // start of the in-product walkthrough (home-create-project).
+    const next = getNextStep("setup-wrapup", picks());
+    expect(next).toBe("home-create-project");
+  });
+
   it("contains the three §6.3 notification sub-step ids", () => {
     // Grant 2026-05-21: split the original single `notifications` step
     // into three beats (bell → silence → delete). The old id MUST be

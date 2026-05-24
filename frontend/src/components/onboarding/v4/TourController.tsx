@@ -2017,7 +2017,7 @@ function ModalSetupShell({
 
   if (!mounted) return null;
 
-  const { Component, title, pose } = descriptor;
+  const { Component, title, pose, hideFooter } = descriptor;
   const isWelcome = stepId === "welcome";
   const nextLabel = isWelcome ? "Let's go" : "Next";
 
@@ -2082,48 +2082,61 @@ function ModalSetupShell({
           />
         </div>
 
-        <div className="px-7 pb-4 pt-2 flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={onBack}
-            disabled={isWelcome}
-            className="px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-          >
-            Back
-          </button>
+        {/* v4 setup wrap-up step manager 2026-05-24: the setup-wrapup
+            beat sets `hideFooter: true` on its descriptor so the body
+            can render its own CTAs (Go to home / Take the feature
+            tour). The shell's Back / Skip / Next / Skip-walkthrough
+            footer is hidden for that step only. Padding is preserved
+            so the modal rounded-bottom doesn't sit flush against the
+            body. */}
+        {hideFooter ? (
+          <div className="pb-4" />
+        ) : (
+          <>
+            <div className="px-7 pb-4 pt-2 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={onBack}
+                disabled={isWelcome}
+                className="px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+              >
+                Back
+              </button>
 
-          {!isWelcome && (
-            <button
-              type="button"
-              onClick={onSkipStep}
-              className="text-xs text-gray-500 hover:text-gray-700 underline"
-            >
-              Skip this step
-            </button>
-          )}
+              {!isWelcome && (
+                <button
+                  type="button"
+                  onClick={onSkipStep}
+                  className="text-xs text-gray-500 hover:text-gray-700 underline"
+                >
+                  Skip this step
+                </button>
+              )}
 
-          <button
-            type="button"
-            onClick={handleNext}
-            disabled={nextDisabled}
-            data-tour-next="setup"
-            data-next-disabled={nextDisabled ? "true" : "false"}
-            className="px-4 py-2 text-sm font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {nextLabel}
-          </button>
-        </div>
+              <button
+                type="button"
+                onClick={handleNext}
+                disabled={nextDisabled}
+                data-tour-next="setup"
+                data-next-disabled={nextDisabled ? "true" : "false"}
+                className="px-4 py-2 text-sm font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {nextLabel}
+              </button>
+            </div>
 
-        <div className="px-7 pb-4 border-t border-gray-100 pt-3 text-center">
-          <button
-            type="button"
-            onClick={() => setShowSkipConfirm(true)}
-            className="text-xs text-gray-500 hover:text-gray-700 underline"
-            aria-label="Skip walkthrough"
-          >
-            Skip walkthrough
-          </button>
-        </div>
+            <div className="px-7 pb-4 border-t border-gray-100 pt-3 text-center">
+              <button
+                type="button"
+                onClick={() => setShowSkipConfirm(true)}
+                className="text-xs text-gray-500 hover:text-gray-700 underline"
+                aria-label="Skip walkthrough"
+              >
+                Skip walkthrough
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       {showSkipConfirm && (

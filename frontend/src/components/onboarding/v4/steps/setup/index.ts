@@ -35,6 +35,12 @@ import Q4GoalsStep from "./Q4GoalsStep";
 import Q5TelegramStep from "./Q5TelegramStep";
 import Q6AiHelperStep from "./Q6AiHelperStep";
 import Q7LinksStep from "./Q7LinksStep";
+// v4 setup wrap-up step manager 2026-05-24. Confirmation beat between
+// Q7 and the in-product walkthrough; echoes back the user's picks and
+// offers Take-the-tour / Go-to-home CTAs. The body owns its CTAs so
+// the descriptor sets `hideFooter: true` to hide the modal shell's
+// Back / Skip / Next footer.
+import SetupWrapupStep from "./SetupWrapupStep";
 
 export interface SetupStepDescriptor {
   /** Modal-header title shown above the step body. */
@@ -42,7 +48,8 @@ export interface SetupStepDescriptor {
   /** BeakerBot pose displayed in the modal header for this step.
    *  Welcome uses `waving`; the Q1-Q6 picks use `thinking` so the mascot
    *  reads as "considering options with the user" (matches v3's setup
-   *  pose). */
+   *  pose). The setup-wrapup beat uses `cheering` to read as
+   *  accomplishment ("you made it"). */
   pose: BeakerBotPose;
   /** Short prose the BeakerBot speech bubble can show alongside the modal
    *  body. The shell can choose to render this (or not); the registry
@@ -51,6 +58,13 @@ export interface SetupStepDescriptor {
   speech: string;
   /** The body component. The shell mounts it with SetupStepProps. */
   Component: ComponentType<SetupStepProps>;
+  /** When true, the modal shell hides its Back / Skip this step / Next /
+   *  Skip walkthrough footer. The body owns its own CTAs. Used by the
+   *  setup-wrapup beat (v4 setup wrap-up step manager 2026-05-24) so
+   *  the wrap-up confirmation can render its own "Go to home" /
+   *  "Take the feature tour" buttons without the shell's default footer
+   *  cluttering the layout. Defaults to false (shell renders footer). */
+  hideFooter?: boolean;
 }
 
 /**
@@ -124,6 +138,18 @@ export const SETUP_STEP_DESCRIPTORS: Partial<
       "Want a page for VPN, calendar, freezer inventory, manuscript drafts? Toggle it on or off.",
     Component: Q7LinksStep,
   },
+  // v4 setup wrap-up step manager 2026-05-24. Confirmation beat. The
+  // body owns its own CTAs (Go to home / Take the feature tour), so
+  // `hideFooter: true` removes the shell's default Back / Skip / Next
+  // footer. Pose is `cheering` to read as accomplishment.
+  "setup-wrapup": {
+    title: "You're all set",
+    pose: "cheering",
+    speech:
+      "Quick recap of what you picked, then we'll get you to the home page (or into the feature tour if you want it).",
+    Component: SetupWrapupStep,
+    hideFooter: true,
+  },
 };
 
 /** Look up the setup descriptor for a step id. Returns `undefined` when
@@ -146,5 +172,6 @@ export {
   Q5TelegramStep,
   Q6AiHelperStep,
   Q7LinksStep,
+  SetupWrapupStep,
 };
 export type { SetupStepProps };

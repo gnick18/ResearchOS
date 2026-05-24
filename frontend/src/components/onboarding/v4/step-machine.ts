@@ -79,6 +79,16 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // + lab); the surface name itself is account-type-conditional
   // ("Links" for solo, "Lab Links" for lab).
   "setup-q7",
+  // Setup wrap-up beat (v4 setup wrap-up step manager 2026-05-24). Sits
+  // between the last setup question and the in-product walkthrough.
+  // Echoes back the user's Q1-Q7 picks (account type, integrations,
+  // tabs that will be visible) and gives the user a single choice:
+  // take the feature tour, or jump straight to home. Modal-contained
+  // (added to SETUP_STEP_IDS below) so it reuses the same modal chrome
+  // as the Q steps. NEVER gated (every user sees it once); resuming or
+  // re-running the wizard re-shows it because there is no completion
+  // flag on the step itself; the gate is the wizard-completion flag.
+  "setup-wrapup",
 
   // ----- Phase 2: universal walkthrough (§6.1 - §6.12)
   // Home + first project (§6.1). Split into TRIGGER (highlight the
@@ -334,7 +344,12 @@ const STEP_INDEX: ReadonlyMap<TourStepId, number> = new Map(
   TOUR_STEP_ORDER.map((id, i) => [id, i]),
 );
 
-/** Setup phase 1 step ids (modal-contained per L9). */
+/** Setup phase 1 step ids (modal-contained per L9). The wrap-up beat
+ *  (v4 setup wrap-up step manager 2026-05-24) is included here so it
+ *  routes through the same ModalSetupShell as the Q steps; the body
+ *  itself renders its own primary CTAs ("Take the feature tour" /
+ *  "Go to home") so the shell's footer is hidden via the descriptor's
+ *  `hideFooter` flag. */
 const SETUP_STEP_IDS: ReadonlySet<TourStepId> = new Set<TourStepId>([
   "welcome",
   "setup-q1",
@@ -348,6 +363,7 @@ const SETUP_STEP_IDS: ReadonlySet<TourStepId> = new Set<TourStepId>([
   "setup-q5",
   "setup-q6",
   "setup-q7",
+  "setup-wrapup",
 ]);
 
 /** Lab tour step ids (gated on Q1=lab). Gantt redesign 2026-05-22:
