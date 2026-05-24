@@ -64,6 +64,7 @@ import { useExternalEvents } from "@/lib/calendar/use-external-events";
 import { hasEnded } from "@/lib/calendar/event-status";
 import { getReadableTextColor } from "@/lib/colors";
 import Tooltip from "@/components/Tooltip";
+import { usePopupActions } from "@/lib/lab-overview/popup-actions";
 import {
   assignLanes,
   EVENT_TYPE_COLORS,
@@ -190,6 +191,11 @@ const ENDED_CLASSES = "line-through opacity-60";
 // ── Component ────────────────────────────────────────────────────────────
 
 export default function CalendarDayPopupView(_props: ExpandedViewProps) {
+  // Popup-close hook (commit 911614ba): "Open full calendar" tears
+  // down the popup before client-nav so the user lands on /calendar
+  // without the popup still mounted on top. Outside a popup the hook
+  // is a no-op default.
+  const { closePopup } = usePopupActions();
   // Selected day. Stored as a Date so step / today helpers stay
   // straightforward, but compared via toLocalDateString to dodge the
   // timezone trap that bites toISOString().
@@ -327,15 +333,8 @@ export default function CalendarDayPopupView(_props: ExpandedViewProps) {
         )}
         <div className="flex-1" />
         <Link
-          // FOLLOW-UP (parallel chip dependency): when
-          // `usePopupActions().closePopup()` from
-          // `lib/lab-overview/popup-actions.tsx` ships, wrap this in
-          // `onClick={() => closePopup()}` so the popup tears down
-          // before the route push. For now the popup stays mounted
-          // over /calendar (also fine, since the user is navigating
-          // to that route on purpose, and Esc / outside-click both
-          // close the popup).
           href="/calendar"
+          onClick={() => closePopup()}
           className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:underline"
         >
           Open full calendar

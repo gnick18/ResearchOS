@@ -38,9 +38,11 @@
  * affordances. */
 
 import { useMemo } from "react";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { eventsApi } from "@/lib/local-api";
 import { useExternalEvents } from "@/lib/calendar/use-external-events";
+import { usePopupActions } from "@/lib/lab-overview/popup-actions";
 import {
   EVENT_TYPE_COLORS,
   formatTime,
@@ -196,6 +198,11 @@ export default function CalendarEventsTodayWidget(_props?: {
   surface?: "canvas" | "sidebar";
 }) {
   const { rows, isLoading } = useTodayRows();
+  // Popup-close hook (commit 911614ba): clicking "Open full calendar"
+  // tears down the popup before the client nav so the user lands on
+  // /calendar without the widget popup still mounted. Outside a popup
+  // the hook is a no-op default.
+  const { closePopup } = usePopupActions();
 
   if (isLoading) {
     return <div className="text-xs text-gray-400 italic">Loading...</div>;
@@ -206,12 +213,13 @@ export default function CalendarEventsTodayWidget(_props?: {
       <div className="flex flex-col items-center justify-center gap-2 py-6 text-gray-400">
         <span aria-hidden="true">{EMPTY_TEA_SVG}</span>
         <p className="text-xs italic">Nothing on the calendar today</p>
-        <a
+        <Link
           href="/calendar"
+          onClick={() => closePopup()}
           className="mt-2 text-[11px] text-blue-600 hover:underline"
         >
           Open full calendar
-        </a>
+        </Link>
       </div>
     );
   }
@@ -248,12 +256,13 @@ export default function CalendarEventsTodayWidget(_props?: {
           );
         })}
       </ul>
-      <a
+      <Link
         href="/calendar"
+        onClick={() => closePopup()}
         className="mt-1 pt-2 border-t border-gray-100 text-[11px] text-blue-600 hover:underline self-start"
       >
         Open full calendar
-      </a>
+      </Link>
     </div>
   );
 }
