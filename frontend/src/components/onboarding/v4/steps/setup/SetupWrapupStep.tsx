@@ -95,13 +95,7 @@ export default function SetupWrapupStep({
         <SummaryRow
           icon={<AccountIcon />}
           label="Account type"
-          value={
-            picks?.account_type === "lab"
-              ? "Lab (shared folder, multiple users)"
-              : picks?.account_type === "solo"
-                ? "Solo (just you on this account)"
-                : "Not set"
-          }
+          value={formatAccountType(picks)}
           settingsHref="/settings"
           settingsLabel="Change in Settings"
         />
@@ -162,6 +156,40 @@ export default function SetupWrapupStep({
 // ---------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------
+
+/** Render the Account type summary. For lab accounts, the optional
+ *  `lab_head` follow-up (Q1c) is surfaced as a "you are the lab head"
+ *  addendum so the wrap-up echoes back the full Q1+Q1c answer. Solo
+ *  accounts never see Q1c (the step-machine gates it on
+ *  `account_type === "lab"`) and never carry the `lab_head` field.
+ *
+ *  FeaturePicks.lab_head field manager 2026-05-24: Option A wiring.
+ *  The field already exists on FeaturePicks and Q1c persists it; this
+ *  renderer is the missing read-side for the wrap-up confirmation beat.
+ *  Option B (read account_type from `_user_settings.json` via
+ *  useAccountType) was considered but rejected because Q1c's answer
+ *  semantically belongs to the setup-question pile the wrap-up is
+ *  echoing back, and the `_user_settings.account_type` field uses a
+ *  different enum ("member" / "lab_head") than FeaturePicks.account_type
+ *  ("solo" / "lab"); mixing the two on one row would muddy the source
+ *  of truth. */
+function formatAccountType(picks: FeaturePicks | null): string {
+  if (picks?.account_type === "lab") {
+    if (picks.lab_head === true) {
+      return "Lab (shared folder, multiple users). You run this lab.";
+    }
+    if (picks.lab_head === false) {
+      return "Lab (shared folder, multiple users). You are a member.";
+    }
+    // Q1c was skipped or never reached. Fall back to the bare lab line
+    // so the row still reads cleanly.
+    return "Lab (shared folder, multiple users)";
+  }
+  if (picks?.account_type === "solo") {
+    return "Solo (just you on this account)";
+  }
+  return "Not set";
+}
 
 /** Render the visible tab list as a comma-joined human-readable string.
  *  Uses the NAV_ITEMS label for each href, with the account-type-aware

@@ -313,6 +313,57 @@ describe("sidecar v4 round-trip", () => {
     const sc = await readOnboarding(USER);
     expect(sc.lab_tour_pending).toBe(false);
   });
+
+  it("preserves feature_picks.lab_head (Q1c follow-up) through a write + read", async () => {
+    // FeaturePicks.lab_head field manager 2026-05-24: regression cover for
+    // the gap where parseFeaturePicks dropped the Q1c answer on reload.
+    // A `true` value (PI) and a `false` value (member) must both survive
+    // the round trip; non-boolean garbage must drop silently (the field
+    // is optional so dropping is the safe default).
+    const labHead: OnboardingSidecar = {
+      version: 5,
+      first_seen_at: "2026-05-20T08:00:00.000Z",
+      active_seconds: 0,
+      feature_picks: { account_type: "lab", lab_head: true },
+      wizard_completed_at: null,
+      wizard_skipped_at: null,
+      wizard_force_show: false,
+      wizard_resume_state: null,
+      lab_tour_pending: false,
+      lab_tour_dismissed_at: null,
+      lab_mode_tour_choice: null,
+      archived: false,
+      archived_at: null,
+      archived_by: null,
+    };
+    await writeOnboarding(USER, labHead);
+    const sc = await readOnboarding(USER);
+    expect(sc.feature_picks?.lab_head).toBe(true);
+
+    const labMember: OnboardingSidecar = {
+      ...labHead,
+      feature_picks: { account_type: "lab", lab_head: false },
+    };
+    await writeOnboarding(USER, labMember);
+    const sc2 = await readOnboarding(USER);
+    expect(sc2.feature_picks?.lab_head).toBe(false);
+
+    // Garbage value drops to undefined (field is optional).
+    memFs.set(PATH, {
+      version: 5,
+      first_seen_at: "2026-05-20T08:00:00.000Z",
+      active_seconds: 0,
+      feature_picks: { account_type: "lab", lab_head: "yes" },
+      wizard_completed_at: null,
+      wizard_skipped_at: null,
+      wizard_force_show: false,
+      wizard_resume_state: null,
+      lab_tour_pending: false,
+      lab_tour_dismissed_at: null,
+    });
+    const sc3 = await readOnboarding(USER);
+    expect(sc3.feature_picks?.lab_head).toBeUndefined();
+  });
 });
 
 describe("existing-user invisibility invariant (L1/L22)", () => {

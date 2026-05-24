@@ -422,6 +422,17 @@ function parseFeaturePicks(raw: unknown): FeaturePicks | null {
   if (typeof o.lab_storage === "string" && LAB_STORAGES.has(o.lab_storage)) {
     picks.lab_storage = o.lab_storage as FeaturePicks["lab_storage"];
   }
+  // Q1c lab-head follow-up (setup-q1c lab head manager 2026-05-23): the
+  // field was added to the FeaturePicks type and Q1c writes it through
+  // patchSidecar, but this parser was never extended to preserve it on
+  // read. That meant a fresh write survived in-memory but the value
+  // dropped on the next disk reload, leaving the wrap-up renderer (and
+  // any other reader that consults the sidecar after a refresh) with
+  // `lab_head === undefined` even for a user who answered "yes" at Q1c.
+  // FeaturePicks.lab_head field manager 2026-05-24 added the round-trip.
+  if (typeof o.lab_head === "boolean") {
+    picks.lab_head = o.lab_head;
+  }
   return picks;
 }
 
