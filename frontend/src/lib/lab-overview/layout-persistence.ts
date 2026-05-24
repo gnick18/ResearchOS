@@ -421,10 +421,13 @@ export async function resetLayout(username: string): Promise<void> {
  * Home canvas default for a fresh member: the 4 signals Grant called
  * out ("announcements + comments-on-my-work + lab activity + today's
  * events"). All 4 widget ids exist in the catalog with `surfaces.home:
- * true`. The "today's events" slot uses
- * `sidebar-todays-announcements` as the closest available match (the
- * catalog doesn't have a dedicated calendar-events-today widget yet —
- * see report follow-up).
+ * true`. The today's-events slot points at `calendar-events-today`
+ * (CalendarEventsTodayWidget manager, 2026-05-24), the dedicated
+ * calendar-events tile that reads the calendar feed plus subscribed
+ * external feeds. The previous slot held `sidebar-todays-announcements`
+ * as a stand-in because no calendar-events-today widget existed yet;
+ * users who saved that order keep it (resolveHomeLayout is
+ * append-only), but fresh users now land on the true events tile.
  */
 function defaultMemberHomeLayout(): LabOverviewLayout {
   return {
@@ -434,7 +437,7 @@ function defaultMemberHomeLayout(): LabOverviewLayout {
         "announcements",
         "comment-feed",
         "lab-activity",
-        "sidebar-todays-announcements",
+        "calendar-events-today",
       ],
       // Home sidebar is unused today (see note above). Leave empty so
       // the home canvas reader has a stable shape to read.
@@ -458,7 +461,7 @@ function defaultLabHeadHomeLayout(): LabOverviewLayout {
         "announcements",
         "comment-feed",
         "lab-activity",
-        "sidebar-todays-announcements",
+        "calendar-events-today",
       ],
       sidebar: [],
     },

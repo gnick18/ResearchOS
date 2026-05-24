@@ -113,6 +113,10 @@ import {
   SnapshotTile as DailyTasksSnapshot,
   SidebarTile as DailyTasksSidebarTile,
 } from "./DailyTasksWidget";
+import CalendarEventsTodayWidget, {
+  SnapshotTile as CalendarEventsTodaySnapshot,
+  SidebarTile as CalendarEventsTodaySidebar,
+} from "./CalendarEventsTodayWidget";
 
 // Touch the default exports so TypeScript doesn't flag them as unused
 // imports — we intentionally import them for symmetry / side-effect
@@ -130,6 +134,7 @@ void LabNotesWidget;
 void LabExperimentsWidget;
 void LabActivityWidget;
 void LabPurchasesWidget;
+void CalendarEventsTodayWidget;
 
 export const WIDGET_CATALOG: WidgetDefinition[] = [
   // ── Canvas widgets ───────────────────────────────────────────────────
@@ -374,17 +379,37 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     SnapshotTile: TodaysAnnouncementsSnapshot,
     SidebarTile: TodaysAnnouncementsSidebar,
     defaultLayout: { w: 1, h: 1 },
-    // Home canvas migration (2026-05-23): Grant called out a "today's
-    // events widget" as one of the four default home signals. The
-    // catalog doesn't have a dedicated calendar-events-today widget yet
-    // (FOLLOW-UP), so we use TodaysAnnouncementsWidget as the closest
-    // semantic match — both surface "what's happening / pinned today".
-    // The widget originally lived only on the lab-overview sidebar;
-    // adding `canvas: true` lets it render correctly in the home grid
-    // (the home canvas uses the SnapshotTile, which this widget already
-    // ships from Phase B Batch B2).
+    // Home canvas migration (2026-05-23): originally chosen as the
+    // home "today's events" slot because no dedicated calendar-events-
+    // today widget existed. CalendarEventsTodayWidget (added 2026-05-24)
+    // is now the canonical today's-events tile and the default home
+    // layout points at it instead. This widget stays in the catalog so
+    // members and lab heads can still opt to pin it via Add widget on
+    // either home or sidebar.
     surfaces: { sidebar: true, canvas: true, home: true },
     memberVisible: true,
+  },
+  // CalendarEventsTodayWidget (CalendarEventsTodayWidget manager,
+  // 2026-05-24): the true "today's events" tile, replacing the
+  // TodaysAnnouncementsWidget stand-in in the default home layout.
+  // Sits next to its today-themed sibling in the catalog so both read
+  // as related variants. Canvas-eligible too so a lab head can pin it
+  // on /lab-overview if they want a today's-events tile on the dense
+  // PI dashboard. toolId is the new `calendar` Tool registered in
+  // `lib/lab-overview/tool-registry.tsx`.
+  {
+    id: "calendar-events-today",
+    toolId: "calendar",
+    variantId: "today",
+    title: "Today's events",
+    description:
+      "Calendar events scheduled for today, across all your subscribed feeds.",
+    SnapshotTile: CalendarEventsTodaySnapshot,
+    SidebarTile: CalendarEventsTodaySidebar,
+    defaultLayout: { w: 4, h: 6, minW: 3, minH: 3 },
+    surfaces: { canvas: true, home: true },
+    memberVisible: true,
+    labHeadVisible: true,
   },
 
   // ── Sidebar widgets (task-centric, the existing sidebar surface) ─────

@@ -410,6 +410,20 @@ describe("resolveHomeLayout + defaultHomeLayoutFor", () => {
       memberVisible: true,
     },
     {
+      // CalendarEventsTodayWidget manager (2026-05-24): the home
+      // default's today's-events slot now points at this widget instead
+      // of sidebar-todays-announcements.
+      id: "calendar-events-today",
+      toolId: "calendar",
+      variantId: "today",
+      title: "Today's events",
+      SnapshotTile: NullSnapshot,
+      SidebarTile: NullSidebar,
+      defaultLayout: { w: 4, h: 6 },
+      surfaces: { canvas: true, home: true },
+      memberVisible: true,
+    },
+    {
       id: "metrics",
       toolId: "metrics",
       title: "Lab metrics",
@@ -426,12 +440,15 @@ describe("resolveHomeLayout + defaultHomeLayoutFor", () => {
   it("falls back to the member default when home_layout is undefined", () => {
     const layout = resolveHomeLayout(undefined, "member", homeCatalog);
     expect(layout.version).toBe(LAB_OVERVIEW_LAYOUT_VERSION);
-    // The four Grant-called-out signals, in order.
+    // The four Grant-called-out signals, in order. The today's-events
+    // slot points at the new CalendarEventsTodayWidget (2026-05-24);
+    // sidebar-todays-announcements remains in the catalog but is no
+    // longer the default.
     expect(layout.widgetOrder.canvas).toEqual([
       "announcements",
       "comment-feed",
       "lab-activity",
-      "sidebar-todays-announcements",
+      "calendar-events-today",
     ]);
     // Home doesn't use the sidebar axis (today).
     expect(layout.widgetOrder.sidebar).toEqual([]);

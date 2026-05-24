@@ -64,6 +64,7 @@ import { ExpandedView as LabExperimentsExpanded } from "@/components/lab-overvie
 import { ExpandedView as LabActivityExpanded } from "@/components/lab-overview/widgets/LabActivityWidget";
 import { ExpandedView as LabPurchasesExpanded } from "@/components/lab-overview/widgets/LabPurchasesWidget";
 import { ExpandedView as DailyTasksExpanded } from "@/components/lab-overview/widgets/DailyTasksWidget";
+import { ExpandedView as CalendarEventsTodayExpanded } from "@/components/lab-overview/widgets/CalendarEventsTodayWidget";
 
 // ── Small inline icons (no emojis, no lucide-react) ───────────────────────
 // Each tool gets a 16x16 SVG. Pulled from / mirrors the existing widget
@@ -177,6 +178,16 @@ const TODAYS_ANNOUNCEMENTS_ICON = (
   <svg {...ICON_PROPS}>
     <line x1="12" y1="17" x2="12" y2="22" />
     <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24z" />
+  </svg>
+);
+
+const CALENDAR_ICON = (
+  // Calendar grid. Mirrors CALENDAR_SVG from CalendarEventsTodayWidget.
+  <svg {...ICON_PROPS}>
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+    <line x1="16" y1="2" x2="16" y2="6" />
+    <line x1="8" y1="2" x2="8" y2="6" />
+    <line x1="3" y1="10" x2="21" y2="10" />
   </svg>
 );
 
@@ -299,6 +310,21 @@ export const TOOL_REGISTRY: ToolDefinition[] = [
     description: "Pinned announcements, titles only.",
     Icon: TODAYS_ANNOUNCEMENTS_ICON,
     ExpandedView: TodaysAnnouncementsExpanded,
+    memberVisible: true,
+  },
+  {
+    // Calendar Tool (CalendarEventsTodayWidget manager, 2026-05-24):
+    // a popup body for the calendar surface. The canonical full
+    // calendar view lives at /calendar (app-level page that depends on
+    // AppShell chrome), so today the ExpandedView renders a richer
+    // today-list with a "View full calendar" CTA. FOLLOW-UP: build a
+    // popup-shell calendar variant (e.g. DayView wrapper sized for the
+    // popup) and swap it in here.
+    id: "calendar",
+    title: "Calendar",
+    description: "Today's events across your subscribed calendars.",
+    Icon: CALENDAR_ICON,
+    ExpandedView: CalendarEventsTodayExpanded,
     memberVisible: true,
   },
 ];
