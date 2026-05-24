@@ -7,7 +7,6 @@ import { labApi } from "@/lib/local-api";
 import { useLabData } from "@/hooks/useLabData";
 import { listAnnouncements } from "@/lib/lab/announcements";
 import UserAvatar from "@/components/UserAvatar";
-import StatTile from "./snapshot/StatTile";
 import type { Note } from "@/lib/types";
 import type { SnapshotTileProps } from "./types";
 
@@ -47,6 +46,8 @@ import type { SnapshotTileProps } from "./types";
 
 type Kind = "comment" | "task" | "flag" | "announcement";
 type Filter = "all" | Kind;
+/** Phase B Batch B1: time-window selector on the ExpandedView header. */
+type DateRange = "today" | "yesterday" | "week" | "all";
 
 interface FeedItem {
   kind: Kind;
@@ -150,12 +151,25 @@ const FILTER_LABEL: Record<Filter, string> = {
   announcement: "Announcements",
 };
 
+const DATE_RANGE_LABEL: Record<DateRange, string> = {
+  today: "Today",
+  yesterday: "Yesterday",
+  week: "This week",
+  all: "All time",
+};
+
 export default function LabActivityWidget(_props?: {
   isEditing?: boolean;
   surface?: "canvas" | "sidebar";
 }) {
   const { tasks } = useLabData();
   const [filter, setFilter] = useState<Filter>("all");
+  // Phase B Batch B1: time-range pre-filter applied BEFORE the kind
+  // filter, so the kind chips' counts reflect "of the items in this
+  // window". Default "week" matches the long-tail feed expectation
+  // ("recent stuff") without flooding with months of legacy task
+  // creations.
+  const [dateRange, setDateRange] = useState<DateRange>("week");
   const [pageCount, setPageCount] = useState(1);
 
   const { data: notes = [], isLoading: notesLoading } = useQuery<Note[]>({
@@ -253,10 +267,18 @@ export default function LabActivityWidget(_props?: {
     return out;
   }, [notes, tasks, announcements]);
 
+  // Phase B Batch B1: apply the time-range pre-filter FIRST so the
+  // kind-chip counts and the "Showing X of Y" indicator both reflect
+  // the active window.
+  const rangedItems = useMemo(
+    () => filterByRange(allItems, dateRange),
+    [allItems, dateRange],
+  );
+
   const filteredItems = useMemo(() => {
-    if (filter === "all") return allItems;
-    return allItems.filter((i) => i.kind === filter);
-  }, [allItems, filter]);
+    if (filter === "all") return rangedItems;
+    return rangedItems.filter((i) => i.kind === filter);
+  }, [rangedItems, filter]);
 
   const visibleItems = useMemo(
     () => filteredItems.slice(0, pageCount * PAGE_SIZE),
@@ -270,22 +292,63 @@ export default function LabActivityWidget(_props?: {
 
   const counts: Record<Filter, number> = useMemo(() => {
     const c: Record<Filter, number> = {
-      all: allItems.length,
+      all: rangedItems.length,
       comment: 0,
       task: 0,
       flag: 0,
       announcement: 0,
     };
-    for (const it of allItems) c[it.kind]++;
+    for (const it of rangedItems) c[it.kind]++;
     return c;
-  }, [allItems]);
+  }, [rangedItems]);
 
   const stillLoading = notesLoading || announcementsLoading;
   const hasMore = visibleItems.length < filteredItems.length;
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Filter chips */}
+      {/* Phase B Batch B1: date-range selector. Pre-filters the feed
+          before kind-chip counts are computed, so the chip counts
+          always reflect "of items inside the active window". */}
+      <div className="flex items-center justify-between gap-2 mb-2 flex-shrink-0 flex-wrap">
+        <div
+          role="tablist"
+          aria-label="Date range"
+          className="inline-flex border border-gray-200 rounded-full overflow-hidden bg-white"
+        >
+          {(["today", "yesterday", "week", "all"] as const).map((r, idx) => {
+            const active = dateRange === r;
+            return (
+              <button
+                key={r}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => {
+                  setDateRange(r);
+                  setPageCount(1);
+                }}
+                className={`px-3 py-1 text-[11px] transition-colors ${
+                  idx > 0 ? "border-l border-gray-200" : ""
+                } ${
+                  active
+                    ? "bg-gray-900 text-white"
+                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                }`}
+              >
+                {DATE_RANGE_LABEL[r]}
+              </button>
+            );
+          })}
+        </div>
+        <span className="text-[10px] text-gray-400 tabular-nums">
+          {visibleItems.length === filteredItems.length
+            ? `Showing all ${filteredItems.length} event${filteredItems.length === 1 ? "" : "s"}`
+            : `Showing ${visibleItems.length} of ${filteredItems.length} events`}
+        </span>
+      </div>
+
+      {/* Kind filter chips with per-kind counts. */}
       <div className="flex items-center gap-1.5 flex-wrap mb-3 flex-shrink-0">
         {(["all", "comment", "task", "flag", "announcement"] as const).map(
           (f) => {
@@ -452,6 +515,24 @@ interface DayBucket {
   items: FeedItem[];
 }
 
+/** Phase B Batch B1: time-window pre-filter for the activity feed. */
+function filterByRange(items: FeedItem[], range: DateRange): FeedItem[] {
+  if (range === "all") return items;
+  const today = startOfTodayISO();
+  if (range === "today") {
+    return items.filter((i) => i.timestamp.slice(0, 10) === today);
+  }
+  if (range === "yesterday") {
+    const y = new Date();
+    y.setDate(y.getDate() - 1);
+    const yIso = y.toISOString().slice(0, 10);
+    return items.filter((i) => i.timestamp.slice(0, 10) === yIso);
+  }
+  // "week" — last 7 days inclusive of today.
+  const cutoff = isoDaysAgo(6);
+  return items.filter((i) => i.timestamp.slice(0, 10) >= cutoff);
+}
+
 function groupByDay(items: FeedItem[]): DayBucket[] {
   const buckets = new Map<string, FeedItem[]>();
   for (const it of items) {
@@ -466,8 +547,148 @@ function groupByDay(items: FeedItem[]): DayBucket[] {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Phase A snapshot + expanded contract
+// Phase B Batch B1 — unique SnapshotTile + SidebarTile (Phase B Batch
+// B1 manager, 2026-05-23). The snapshot tile gives the PI a 2-row
+// glance: count of events today + a mini preview of the most-recent
+// event (avatar + verb, truncated). The sidebar tile takes a more
+// vertical shape: icon + "Activity" label + count + two stacked
+// avatar pills for the most-recent actors. Both share the body's
+// feed-item construction (factored into `buildFeedItems`) so the
+// tile data stays in lockstep with the timeline.
 // ─────────────────────────────────────────────────────────────────────
+import HeroNumberTile from "./snapshot/HeroNumberTile";
+import type { SidebarTileProps } from "./types";
+
+const ACTIVITY_ICON = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+  </svg>
+);
+
+const QUIET_ICON = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <circle cx="12" cy="12" r="9" />
+    <polyline points="12 7 12 12 15 14" />
+  </svg>
+);
+
+const ACTIVITY_SIDEBAR_ICON = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M3 12a9 9 0 1 0 9-9" />
+    <polyline points="3 4 3 12 11 12" />
+  </svg>
+);
+
+interface FeedSources {
+  tasks: ReturnType<typeof useLabData>["tasks"];
+  notes: Note[];
+  announcements: Awaited<ReturnType<typeof listAnnouncements>>;
+}
+
+/** Shared feed-item construction so the snapshot + sidebar tiles see
+ *  exactly the same shape the ExpandedView body does. Mirrors the
+ *  `allItems` useMemo in `LabActivityWidget` above. */
+function buildFeedItems({ tasks, notes, announcements }: FeedSources): FeedItem[] {
+  const out: FeedItem[] = [];
+  for (const note of notes) {
+    for (const c of note.comments ?? []) {
+      out.push({
+        kind: "comment",
+        username: c.author,
+        summary: `commented on “${note.title || "Untitled note"}”`,
+        timestamp: c.created_at,
+        href: "/lab-overview",
+        key: `comment:${note.username}:${note.id}:${c.id}`,
+      });
+    }
+  }
+  for (const t of tasks) {
+    if (!t.start_date) continue;
+    const label =
+      t.task_type === "experiment"
+        ? "started experiment"
+        : t.task_type === "purchase"
+          ? "added purchase"
+          : "added task";
+    out.push({
+      kind: "task",
+      username: t.username,
+      summary: `${label}: ${t.name}`,
+      timestamp: `${t.start_date}T00:00:00`,
+      href: "/lab-overview",
+      key: `task:${t.username}:${t.id}`,
+    });
+  }
+  for (const t of tasks as Array<
+    typeof tasks[number] & {
+      flagged?: { by: string; at: string; reason?: string | null } | null;
+    }
+  >) {
+    const flag = t.flagged;
+    if (!flag || !flag.at) continue;
+    out.push({
+      kind: "flag",
+      username: flag.by,
+      summary: `flagged ${
+        t.task_type === "purchase"
+          ? "purchase"
+          : t.task_type === "experiment"
+            ? "experiment"
+            : "task"
+      }: ${t.name}`,
+      timestamp: flag.at,
+      href: "/lab-overview",
+      key: `flag:${t.username}:${t.id}:${flag.at}`,
+    });
+  }
+  for (const a of announcements) {
+    out.push({
+      kind: "announcement",
+      username: a.author,
+      summary:
+        a.text.split("\n")[0].slice(0, 120) +
+        (a.text.length > 120 || a.text.includes("\n") ? "…" : ""),
+      timestamp: a.created_at,
+      href: "/lab-overview",
+      key: `announcement:${a.id}`,
+    });
+  }
+  out.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  return out;
+}
 
 export function SnapshotTile(_props: SnapshotTileProps) {
   const { tasks } = useLabData();
@@ -484,66 +705,87 @@ export function SnapshotTile(_props: SnapshotTileProps) {
     refetchOnWindowFocus: false,
   });
 
-  // Headline reads "X events today". The snapshot's job is to signal
-  // current-day activity volume. Comments + announcements are stamped
-  // with full ISO timestamps; tasks use start_date as a "scheduled on
-  // this day" proxy (same convention as the body + the sidebar
-  // RecentActivityWidget).
+  const items = useMemo(
+    () => buildFeedItems({ tasks, notes, announcements }),
+    [tasks, notes, announcements],
+  );
   const today = startOfTodayISO();
-  const cutoff24h = isoDaysAgo(0);
-  // Match the comment-counting precision used by the body (full
-  // timestamp). For tasks + announcements we count anything stamped
-  // today.
-  let todayCount = 0;
-  for (const n of notes) {
-    for (const c of n.comments ?? []) {
-      if (c.created_at && c.created_at.slice(0, 10) === today) todayCount++;
-    }
-  }
-  for (const t of tasks) {
-    if (t.start_date && t.start_date >= cutoff24h) todayCount++;
-  }
-  for (const a of announcements) {
-    if (a.created_at && a.created_at.slice(0, 10) === today) todayCount++;
+  const todayItems = useMemo(
+    () => items.filter((i) => i.timestamp.slice(0, 10) === today),
+    [items, today],
+  );
+  const todayCount = todayItems.length;
+  const mostRecent = items[0]; // newest-first sort guaranteed by builder
+
+  // 0 events today → muted "Quiet today" with the clock icon. Anything
+  // else → big count + a 2-line preview of the most-recent event so the
+  // tile is more than a number.
+  if (isLoading && items.length === 0) {
+    return (
+      <HeroNumberTile
+        icon={ACTIVITY_ICON}
+        label="Lab activity"
+        primary="—"
+        secondary=""
+        accent="calm"
+      />
+    );
   }
 
+  if (todayCount === 0) {
+    return (
+      <HeroNumberTile
+        icon={QUIET_ICON}
+        label="Lab activity"
+        primary="Quiet today"
+        secondary={
+          mostRecent
+            ? `last: ${mostRecent.username} ${truncate(mostRecent.summary, 36)}`
+            : "No events yet"
+        }
+        accent="calm"
+      />
+    );
+  }
+
+  // todayCount > 0 — render the standard hero plus a custom preview
+  // line. We bypass HeroNumberTile's flat layout for the "preview"
+  // case so we can include an avatar inline.
+  const previewItem = todayItems[0] ?? mostRecent;
   return (
-    <StatTile
-      icon={
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-        </svg>
-      }
-      iconClassName="text-emerald-600"
-      label="Lab activity"
-      stat={isLoading ? "—" : todayCount}
-      sub={
-        todayCount === 0
-          ? "Quiet today"
-          : `event${todayCount === 1 ? "" : "s"} today`
-      }
-    />
+    <div className="flex flex-col h-full min-h-0 gap-1.5">
+      <div className="flex items-center gap-2 min-w-0">
+        <span aria-hidden="true" className="text-emerald-600 flex-shrink-0">
+          {ACTIVITY_ICON}
+        </span>
+        <span className="text-[10px] uppercase tracking-wide text-gray-500 font-medium truncate">
+          Events today
+        </span>
+      </div>
+      <div className="flex-1 flex flex-col justify-center min-h-0 gap-1.5">
+        <div className="text-4xl font-semibold text-emerald-700 leading-none tabular-nums">
+          {todayCount}
+        </div>
+        {previewItem && (
+          <div className="flex items-start gap-1.5 min-w-0">
+            <span className="flex-shrink-0 mt-0.5">
+              <UserAvatar username={previewItem.username} size="sm" />
+            </span>
+            <p
+              className="text-[11px] text-gray-600 leading-tight line-clamp-2 min-w-0"
+              title={`${previewItem.username} ${previewItem.summary}`}
+            >
+              <span className="font-medium text-gray-800">{previewItem.username}</span>{" "}
+              {previewItem.summary}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
 export const ExpandedView = LabActivityWidget;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SidebarTile (customizable PI sidebar manager #146, 2026-05-23)
-// ─────────────────────────────────────────────────────────────────────────────
-import SidebarStatTile from "./snapshot/SidebarStatTile";
-import type { SidebarTileProps } from "./types";
 
 export function SidebarTile({ onClick }: SidebarTileProps) {
   const { tasks } = useLabData();
@@ -559,43 +801,84 @@ export function SidebarTile({ onClick }: SidebarTileProps) {
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
-  const today = startOfTodayISO();
-  const cutoff24h = isoDaysAgo(0);
-  let todayCount = 0;
-  for (const n of notes) {
-    for (const c of n.comments ?? []) {
-      if (c.created_at && c.created_at.slice(0, 10) === today) todayCount++;
-    }
-  }
-  for (const t of tasks) {
-    if (t.start_date && t.start_date >= cutoff24h) todayCount++;
-  }
-  for (const a of announcements) {
-    if (a.created_at && a.created_at.slice(0, 10) === today) todayCount++;
-  }
-  return (
-    <SidebarStatTile
-      icon={
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-        </svg>
-      }
-      iconClassName="text-emerald-600"
-      label="Activity today"
-      stat={isLoading ? "—" : todayCount}
-      sub={todayCount === 0 ? "Quiet today" : undefined}
-      onClick={onClick}
-    />
+
+  const items = useMemo(
+    () => buildFeedItems({ tasks, notes, announcements }),
+    [tasks, notes, announcements],
   );
+  const today = startOfTodayISO();
+  const todayItems = useMemo(
+    () => items.filter((i) => i.timestamp.slice(0, 10) === today),
+    [items, today],
+  );
+  const todayCount = todayItems.length;
+
+  // Stack the two most-recent unique actors as avatar pills (no text).
+  // We pull from the full feed (not just `todayItems`) so the row
+  // never reads empty when the lab is quiet today but has activity in
+  // recent days.
+  const recentActors = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const it of items) {
+      if (seen.has(it.username)) continue;
+      seen.add(it.username);
+      out.push(it.username);
+      if (out.length === 2) break;
+    }
+    return out;
+  }, [items]);
+
+  const interactive = !!onClick;
+  return (
+    <div
+      role={interactive ? "button" : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={
+        interactive
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick?.();
+              }
+            }
+          : undefined
+      }
+      className={`w-full flex flex-col gap-1.5 px-2.5 py-2 rounded-md transition-colors ${
+        interactive
+          ? "cursor-pointer hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+          : ""
+      }`}
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        <span aria-hidden="true" className="text-emerald-600 flex-shrink-0 flex items-center justify-center">
+          {ACTIVITY_SIDEBAR_ICON}
+        </span>
+        <span className="text-xs font-medium text-gray-700 truncate flex-1 min-w-0">
+          Activity
+        </span>
+        <span className="text-sm font-semibold text-gray-900 tabular-nums flex-shrink-0">
+          {isLoading ? "—" : `${todayCount} today`}
+        </span>
+      </div>
+      {recentActors.length > 0 && (
+        <div className="flex items-center gap-1 pl-6">
+          {recentActors.map((username) => (
+            <span key={username} title={username} className="block">
+              <UserAvatar username={username} size="sm" />
+            </span>
+          ))}
+          <span className="text-[10px] text-gray-400 truncate">
+            recent
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Local truncate to avoid pulling in a util just for the preview text. */
+function truncate(s: string, max: number): string {
+  return s.length > max ? `${s.slice(0, max - 1)}…` : s;
 }

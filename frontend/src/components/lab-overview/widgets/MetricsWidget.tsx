@@ -729,100 +729,193 @@ function startOfTodayISO(): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Phase A snapshot + expanded contract (Phase A redispatch manager, 2026-05-23)
+// Phase B Batch B1 — unique SnapshotTile + SidebarTile (Phase B Batch B1
+// manager, 2026-05-23). Replaces the Phase A `<StatTile>` placeholders
+// with the iOS-home-screen "one big number" pattern: this-month spend
+// from funding-rollup data (the most-glanced PI signal). Both tiles
+// honor the body's `isApproved` predicate (approved === undefined →
+// approved, matches Mira-Skeptic P0 #3 back-compat) so headline number
+// and the rollup tab agree.
 // ─────────────────────────────────────────────────────────────────────────────
-// The widget body above is unchanged from R3 + Mira-Skeptic
-// approved-filter + Mira-polish archived-user filter. The Phase A
-// snapshot reads the same caches the body uses (useLabData +
-// getAllPurchaseItems) so no extra network. The `isApproved` predicate
-// is preserved INSIDE the body — the snapshot here uses the same
-// `approved === false` literal to keep the two surfaces in sync.
-import StatTile from "./snapshot/StatTile";
-import type { SnapshotTileProps } from "./types";
+import HeroNumberTile from "./snapshot/HeroNumberTile";
+import SidebarStatTile from "./snapshot/SidebarStatTile";
+import type { SnapshotTileProps, SidebarTileProps } from "./types";
+
+/** Inline copy of the body's approved predicate so the snapshot stays
+ *  in sync with the rollup tab. */
+function isApprovedItem(item: { approved?: boolean }) {
+  return item.approved === undefined || item.approved === true;
+}
+
+/** Sum approved spend for the current calendar month, attributed by the
+ *  parent purchase task's `start_date` (same proxy LabPurchasesPanel +
+ *  the rollup tab use — purchase items have no own timestamp). */
+function thisMonthSpend(
+  items: Array<{ username: string; task_id: number; total_price: number | null; approved?: boolean }>,
+  tasksByKey: Map<string, { start_date: string | null }>,
+): number {
+  const now = new Date();
+  const ymPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  let total = 0;
+  for (const it of items) {
+    if (!isApprovedItem(it)) continue;
+    const parent = tasksByKey.get(`${it.username}:${it.task_id}`);
+    if (!parent?.start_date) continue;
+    if (parent.start_date.slice(0, 7) !== ymPrefix) continue;
+    total += it.total_price ?? 0;
+  }
+  return total;
+}
+
+/** Sum pending (unapproved) spend across all time. Mirrors the body's
+ *  `pendingItems` reduction so the snapshot's "pending" secondary
+ *  matches the FundingRollup "Pending approval" card exactly. */
+function pendingSpend(
+  items: Array<{ total_price: number | null; approved?: boolean }>,
+): { count: number; value: number } {
+  let count = 0;
+  let value = 0;
+  for (const it of items) {
+    if (!isApprovedItem(it)) {
+      count++;
+      value += it.total_price ?? 0;
+    }
+  }
+  return { count, value };
+}
+
+function formatCompactCurrency(n: number): string {
+  if (!Number.isFinite(n) || n === 0) return "$0";
+  if (n >= 100_000) return `$${(n / 1000).toFixed(0)}k`;
+  if (n >= 10_000) return `$${(n / 1000).toFixed(1)}k`;
+  if (n >= 1_000) return `$${(n / 1000).toFixed(1)}k`;
+  return `$${Math.round(n)}`;
+}
+
+const METRICS_ICON = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M3 3v18h18" />
+    <path d="M7 14l4-4 4 4 5-6" />
+  </svg>
+);
+
+const METRICS_SIDEBAR_ICON = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M3 3v18h18" />
+    <path d="M7 14l4-4 4 4 5-6" />
+  </svg>
+);
 
 export function SnapshotTile(_props: SnapshotTileProps) {
   const { tasks } = useLabData();
-  const { data: items = [], isLoading } = useQuery({
+  const archivedSet = useArchivedUsers();
+  const { data: rawItems = [], isLoading } = useQuery({
     queryKey: ["lab", "purchase-items"],
     queryFn: () => labApi.getAllPurchaseItems(),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
-  const pending = items.filter((it: { approved?: boolean }) => it.approved === false).length;
+  const items = useMemo(
+    () => rawItems.filter((it) => !archivedSet.has(it.username)),
+    [rawItems, archivedSet],
+  );
+  const tasksByKey = useMemo(() => {
+    const m = new Map<string, { start_date: string | null }>();
+    for (const t of tasks) {
+      if (t.task_type === "purchase") m.set(`${t.username}:${t.id}`, t);
+    }
+    return m;
+  }, [tasks]);
+  const monthSpend = useMemo(
+    () => thisMonthSpend(items, tasksByKey),
+    [items, tasksByKey],
+  );
+  const pending = useMemo(() => pendingSpend(items), [items]);
+
+  // Headline: this-month approved spend. Secondary tells the PI either
+  // how much is still awaiting their decision (urgent, amber) or — when
+  // nothing pends — drops back to a calm "all caught up" line so the
+  // tile reads quiet when the lab is quiet.
+  const accent: "amber" | "emerald" = pending.value > 0 ? "amber" : "emerald";
+  const secondary = pending.value > 0
+    ? `${formatCompactCurrency(pending.value)} pending approval`
+    : "All approved";
+
   return (
-    <StatTile
-      icon={
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M3 3v18h18" />
-          <path d="M7 14l4-4 4 4 5-6" />
-        </svg>
-      }
-      iconClassName="text-emerald-600"
-      label="Lab metrics"
-      stat={isLoading ? "—" : tasks.length}
-      sub={
-        pending > 0
-          ? `${pending} pending approval${pending === 1 ? "" : "s"}`
-          : "tasks in flight"
-      }
+    <HeroNumberTile
+      icon={METRICS_ICON}
+      label="Spent this month"
+      primary={isLoading ? "—" : formatCompactCurrency(monthSpend)}
+      secondary={isLoading ? "" : secondary}
+      accent={accent}
     />
   );
 }
 
 export const ExpandedView = MetricsWidget;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SidebarTile (customizable PI sidebar manager #146, 2026-05-23)
-// ─────────────────────────────────────────────────────────────────────────────
-// Reuses the same purchase-items cache. `isApproved` preservation rule
-// from Phase A is honored (we use the same `approved === false`
-// literal to keep the two surfaces consistent).
-import SidebarStatTile from "./snapshot/SidebarStatTile";
-import type { SidebarTileProps } from "./types";
-
 export function SidebarTile({ onClick }: SidebarTileProps) {
-  const { tasks } = useLabData();
-  const { data: items = [], isLoading } = useQuery({
+  const archivedSet = useArchivedUsers();
+  const { data: rawItems = [], isLoading } = useQuery({
     queryKey: ["lab", "purchase-items"],
     queryFn: () => labApi.getAllPurchaseItems(),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
-  const pending = items.filter((it: { approved?: boolean }) => it.approved === false).length;
+  const items = useMemo(
+    () => rawItems.filter((it) => !archivedSet.has(it.username)),
+    [rawItems, archivedSet],
+  );
+  const pending = useMemo(() => pendingSpend(items), [items]);
+
+  // The sidebar tile is a single slim row, so it has space for ONE
+  // headline value. The most-urgent metric is "pending approval $" if
+  // anything pends, otherwise we fall back to total approved spend so
+  // the row never reads empty.
+  const totalApproved = useMemo(
+    () => items.reduce((s, it) => s + (isApprovedItem(it) ? (it.total_price ?? 0) : 0), 0),
+    [items],
+  );
+  const stat = isLoading
+    ? "—"
+    : pending.value > 0
+      ? formatCompactCurrency(pending.value)
+      : formatCompactCurrency(totalApproved);
+  const sub = isLoading
+    ? undefined
+    : pending.value > 0
+      ? `${pending.count} pending approval${pending.count === 1 ? "" : "s"}`
+      : "All approved";
+
   return (
     <SidebarStatTile
-      icon={
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M3 3v18h18" />
-          <path d="M7 14l4-4 4 4 5-6" />
-        </svg>
-      }
-      iconClassName="text-emerald-600"
+      icon={METRICS_SIDEBAR_ICON}
+      iconClassName={pending.value > 0 ? "text-amber-600" : "text-emerald-600"}
       label="Metrics"
-      stat={isLoading ? "—" : tasks.length}
-      sub={pending > 0 ? `${pending} pending approval${pending === 1 ? "" : "s"}` : undefined}
+      stat={stat}
+      sub={sub}
       onClick={onClick}
     />
   );

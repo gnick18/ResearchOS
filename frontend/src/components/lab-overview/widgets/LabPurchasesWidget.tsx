@@ -8,7 +8,6 @@ import { useLabData } from "@/hooks/useLabData";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAccountType } from "@/hooks/useAccountType";
 import UserAvatar from "@/components/UserAvatar";
-import StatTile from "./snapshot/StatTile";
 import type {
   PurchaseItem,
   FundingAccount,
@@ -182,7 +181,7 @@ export default function LabPurchasesWidget(_props?: {
               <li key={`${it.username}:${it.id}`}>
                 <Link
                   href="/purchases"
-                  className="flex items-center gap-2 px-3 py-2 hover:bg-amber-50/50 transition-colors min-w-0"
+                  className="flex items-center gap-3 px-3 py-2.5 hover:bg-amber-50/60 transition-colors min-w-0 group"
                   title="Open the purchases page to review + approve"
                 >
                   <div className="flex-shrink-0">
@@ -205,6 +204,9 @@ export default function LabPurchasesWidget(_props?: {
                   <span className="text-xs tabular-nums text-gray-700 flex-shrink-0">
                     {formatCurrency(it.total_price ?? 0)}
                   </span>
+                  <span className="text-[10px] text-amber-700 font-medium flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                    Approve in Purchases →
+                  </span>
                 </Link>
               </li>
             ))}
@@ -212,9 +214,9 @@ export default function LabPurchasesWidget(_props?: {
               <li className="text-center">
                 <Link
                   href="/purchases"
-                  className="block text-[11px] text-gray-600 hover:text-gray-900 py-1.5"
+                  className="block text-[11px] text-amber-700 hover:text-amber-900 py-1.5 font-medium"
                 >
-                  + {pendingApprovals.length - 8} more on /purchases
+                  + {pendingApprovals.length - 8} more on /purchases →
                 </Link>
               </li>
             )}
@@ -311,29 +313,37 @@ export default function LabPurchasesWidget(_props?: {
         </div>
       </section>
 
-      {/* Funding rollup */}
+      {/* Funding rollup — mini cards only. Phase B Batch B1: the full
+          per-member / per-category / per-account breakdown is the
+          MetricsWidget's Funding tab; we link out rather than recompute
+          to keep the two surfaces aligned. */}
       {fundingAccounts.length > 0 && (
         <section className="flex-shrink-0">
-          <header className="flex items-center gap-2 mb-2">
-            <span className="text-emerald-600 flex-shrink-0" aria-hidden="true">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <line x1="12" y1="1" x2="12" y2="23" />
-                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-              </svg>
+          <header className="flex items-center justify-between gap-2 mb-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-emerald-600 flex-shrink-0" aria-hidden="true">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="12" y1="1" x2="12" y2="23" />
+                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                </svg>
+              </span>
+              <h3 className="text-sm font-semibold text-gray-900 truncate">
+                Funding
+              </h3>
+            </div>
+            <span className="text-[10px] text-gray-500 italic flex-shrink-0">
+              View full breakdown in Metrics widget
             </span>
-            <h3 className="text-sm font-semibold text-gray-900 truncate">
-              Funding
-            </h3>
           </header>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {fundingAccounts.map((acct) => {
@@ -408,8 +418,59 @@ function formatDay(iso: string): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Phase A snapshot + expanded contract
+// Phase B Batch B1 — unique SnapshotTile + SidebarTile (Phase B Batch
+// B1 manager, 2026-05-23). The PI's most-urgent purchases signal is
+// the pending-approval queue, so both tiles lead with that count. The
+// snapshot tile uses the hero-number primitive (big amber count, value
+// secondary); the sidebar tile is a single ultra-compact row.
 // ─────────────────────────────────────────────────────────────────────
+import HeroNumberTile from "./snapshot/HeroNumberTile";
+import SidebarStatTile from "./snapshot/SidebarStatTile";
+import type { SidebarTileProps } from "./types";
+
+const PURCHASES_ICON = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M9 11l3 3L22 4" />
+    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+  </svg>
+);
+
+const PURCHASES_SIDEBAR_ICON = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M9 11l3 3L22 4" />
+    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+  </svg>
+);
+
+function formatCompactCurrencyPurchases(n: number): string {
+  if (!Number.isFinite(n) || n === 0) return "$0";
+  if (n >= 100_000) return `$${(n / 1000).toFixed(0)}k`;
+  if (n >= 10_000) return `$${(n / 1000).toFixed(1)}k`;
+  if (n >= 1_000) return `$${(n / 1000).toFixed(1)}k`;
+  return `$${Math.round(n)}`;
+}
 
 export function SnapshotTile(_props: SnapshotTileProps) {
   const { currentUser } = useCurrentUser();
@@ -427,45 +488,32 @@ export function SnapshotTile(_props: SnapshotTileProps) {
 
   const pending = items.filter((it) => !it.approved);
   const pendingValue = pending.reduce((s, it) => s + (it.total_price ?? 0), 0);
+  const hasPending = pending.length > 0;
 
   return (
-    <StatTile
-      icon={
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <rect x="2" y="5" width="20" height="14" rx="2" />
-          <line x1="2" y1="10" x2="22" y2="10" />
-        </svg>
+    <HeroNumberTile
+      icon={PURCHASES_ICON}
+      label="Pending approvals"
+      primary={isLoading ? "—" : pending.length}
+      secondary={
+        isLoading
+          ? ""
+          : hasPending
+            ? (
+              <span className="inline-flex items-center gap-1">
+                <span className="tabular-nums">{formatCompactCurrencyPurchases(pendingValue)}</span>
+                <span className="text-gray-400">awaiting review</span>
+                <span aria-hidden="true" className="text-amber-600">→</span>
+              </span>
+            )
+            : "All approved"
       }
-      iconClassName="text-amber-600"
-      label="Lab purchases"
-      stat={isLoading ? "—" : pending.length}
-      sub={
-        pending.length === 0
-          ? "All approved"
-          : `${formatCurrency(pendingValue)} pending`
-      }
+      accent={hasPending ? "amber" : "calm"}
     />
   );
 }
 
 export const ExpandedView = LabPurchasesWidget;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SidebarTile (customizable PI sidebar manager #146, 2026-05-23)
-// ─────────────────────────────────────────────────────────────────────────────
-import SidebarStatTile from "./snapshot/SidebarStatTile";
-import type { SidebarTileProps } from "./types";
 
 export function SidebarTile({ onClick }: SidebarTileProps) {
   const { currentUser } = useCurrentUser();
@@ -480,31 +528,33 @@ export function SidebarTile({ onClick }: SidebarTileProps) {
     enabled: accountType === "lab_head",
   });
   if (accountType !== "lab_head") return null;
+
   const pending = items.filter((it) => !it.approved);
   const pendingValue = pending.reduce((s, it) => s + (it.total_price ?? 0), 0);
+  const hasPending = pending.length > 0;
+
+  // Brief: even more compact than the snapshot. Single row with a
+  // clipboard-like icon + "Pending: N" + dollar amount in muted text
+  // after. If N=0, render "No pending purchases" in gray.
   return (
     <SidebarStatTile
-      icon={
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <rect x="2" y="5" width="20" height="14" rx="2" />
-          <line x1="2" y1="10" x2="22" y2="10" />
-        </svg>
+      icon={PURCHASES_SIDEBAR_ICON}
+      iconClassName={hasPending ? "text-amber-600" : "text-gray-400"}
+      label={hasPending ? "Pending" : "No pending purchases"}
+      stat={
+        isLoading
+          ? "—"
+          : hasPending
+            ? (
+              <span className="inline-flex items-baseline gap-1.5">
+                <span>{pending.length}</span>
+                <span className="text-[11px] text-gray-500 font-normal">
+                  {formatCompactCurrencyPurchases(pendingValue)}
+                </span>
+              </span>
+            )
+            : ""
       }
-      iconClassName="text-amber-600"
-      label="Purchases"
-      stat={isLoading ? "—" : pending.length}
-      sub={pending.length === 0 ? "All approved" : `${formatCurrency(pendingValue)} pending`}
       onClick={onClick}
     />
   );
