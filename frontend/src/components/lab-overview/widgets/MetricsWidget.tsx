@@ -8,6 +8,7 @@ import { useArchivedUsers } from "@/hooks/useArchivedUsers";
 import LabGanttChart from "@/components/LabGanttChart";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import UserAvatar from "@/components/UserAvatar";
+import { isPurchasePending } from "@/lib/types";
 import type { Task } from "@/lib/types";
 
 /**
@@ -272,7 +273,7 @@ function FundingRollup() {
   // (PiActions follow-up `07a1b7b3`), not awaiting review; matches the
   // pending filter used by LabPurchasesWidget + PiActionsWidget.
   const pendingItems = useMemo(
-    () => items.filter((i) => !isApproved(i) && !i.declined_at),
+    () => items.filter(isPurchasePending),
     [items],
   );
 

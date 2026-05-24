@@ -26,6 +26,7 @@ import {
   MISC_CATEGORY_LABEL,
   isMiscProject,
 } from "@/lib/purchases/misc-project";
+import { isPurchasePending } from "@/lib/types";
 import type {
   PurchaseItem,
   FundingAccount,
@@ -346,7 +347,7 @@ export default function LabPurchasesWidget(_props?: {
   // declined items leak in as pending — the PiActions popup already gets
   // this right; we mirror it here so the two surfaces agree.
   const pendingItems = useMemo(
-    () => items.filter((it) => !it.approved && !it.declined_at),
+    () => items.filter(isPurchasePending),
     [items],
   );
 
@@ -1086,9 +1087,7 @@ function AllPurchasesTab({
               // (mirrors PurchaseDeclinedBadge color), and the green
               // "Approved" pill only appears when every item is approved
               // (no pending, no declined).
-              const anyPending = taskItems.some(
-                (it) => !it.approved && !it.declined_at,
-              );
+              const anyPending = taskItems.some(isPurchasePending);
               const anyDeclined = taskItems.some(
                 (it) => !it.approved && !!it.declined_at,
               );
@@ -1649,9 +1648,7 @@ export function SnapshotTile(_props: SnapshotTileProps) {
   // PurchaseDeclinedBadge polish manager (2026-05-23): mirror the popup's
   // pending filter (`!approved && !declined_at`) so the SnapshotTile count
   // matches Tab A; declined items are a terminal state, not pending.
-  const pendingCount = items.filter(
-    (it) => !isApproved(it) && !it.declined_at,
-  ).length;
+  const pendingCount = items.filter(isPurchasePending).length;
 
   return (
     <div className="relative h-full overflow-hidden flex flex-col">
@@ -1759,7 +1756,7 @@ export function SidebarTile({ onClick }: SidebarTileProps) {
   // PurchaseDeclinedBadge polish manager (2026-05-23): exclude declined
   // items from the SidebarTile's pending stat — they're a terminal state,
   // not waiting on the PI. Matches Tab A + SnapshotTile + PiActions.
-  const pending = items.filter((it) => !it.approved && !it.declined_at);
+  const pending = items.filter(isPurchasePending);
   const pendingValue = pending.reduce((s, it) => s + (it.total_price ?? 0), 0);
   const hasPending = pending.length > 0;
 

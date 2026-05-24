@@ -1489,6 +1489,16 @@ export interface PurchaseItem {
   declined_by?: string | null;
 }
 
+/** Pending = waiting for the lab head's approval. Approved and declined
+ *  are both terminal states (declined can be re-approved via
+ *  declinePurchase / setPurchaseApproval flips, but at any given moment
+ *  an item is exactly one of pending / approved / declined).
+ *  Centralizing this predicate prevents the `!approved` drift that
+ *  leaked declined items into the Pending tab pre-db53d92e. */
+export function isPurchasePending(item: PurchaseItem): boolean {
+  return !item.approved && !item.declined_at;
+}
+
 export interface PurchaseItemCreate {
   task_id: number;
   item_name: string;

@@ -19,6 +19,7 @@ import {
   declinePurchase,
 } from "@/lib/lab/pi-actions";
 import { fileService } from "@/lib/file-system/file-service";
+import { isPurchasePending } from "@/lib/types";
 import type { PurchaseItem, Task } from "@/lib/types";
 import type { LabUserProfileMap } from "@/hooks/useLabUserProfiles";
 import type { LabTask } from "@/lib/local-api";
@@ -293,7 +294,7 @@ export default function PiActionsWidget(_props?: {
   // count badge so the PI doesn't get nagged about items they already
   // turned down.
   const pendingItems = useMemo(
-    () => items.filter((it) => !it.approved && !it.declined_at),
+    () => items.filter(isPurchasePending),
     [items],
   );
   const declinedItems = useMemo(
@@ -1602,7 +1603,7 @@ function usePiActionCounts() {
   // Tab 1 pending list — the PI shouldn't get nagged into clicking
   // through for items they already turned down.
   const pending = useMemo(
-    () => items.filter((it) => !it.approved && !it.declined_at).length,
+    () => items.filter(isPurchasePending).length,
     [items],
   );
   const flagsByMe = useMemo(() => {
