@@ -382,6 +382,75 @@ export default function MarkdownEditorPage() {
         more than one.
       </p>
 
+      <h2>What a real ResearchOS note looks like</h2>
+      <Callout variant="tip" title="Lab-recipe, not prose">
+        These are lab-recipe examples. Your notes should look like lab work,
+        not prose paragraphs. The markdown editor handles tables and code
+        blocks well; lean on them.
+      </Callout>
+      <p>
+        A typical note in a working lab is mostly tables, measurements, and
+        small annotations. The four examples below are the shape to aim for.
+      </p>
+
+      <h3>PCR reaction setup</h3>
+      <pre className="text-xs bg-gray-100 rounded p-3 overflow-x-auto">
+        <code>{`## PCR reaction (25 uL, Q5)
+
+| Reagent              | Stock     | Final     | Volume (uL) |
+|----------------------|-----------|-----------|-------------|
+| Q5 master mix (2x)   | 2x        | 1x        | 12.5        |
+| Forward primer F1    | 10 uM     | 0.5 uM    | 1.25        |
+| Reverse primer R1    | 10 uM     | 0.5 uM    | 1.25        |
+| Template (gDNA)      | 50 ng/uL  | 1 ng/uL   | 0.5         |
+| Nuclease-free water  |           |           | 9.5         |
+| **Total**            |           |           | **25.0**    |
+
+Program: pcr_program_id = 142  (Tm = 62 C, 30 cycles, 35 s elongation)
+Variation: dropped extension to 30 s, single template lot.`}</code>
+      </pre>
+
+      <h3>Plasmid metadata</h3>
+      <pre className="text-xs bg-gray-100 rounded p-3 overflow-x-auto">
+        <code>{`## pGN-027  (parent: pGN-012)
+
+- Resistance: Kan (50 ug/mL)
+- Size: 5.4 kb
+- Source: Gibson assembly of pGN-012 backbone + amplicon FN-1
+- Sequence: Files/pGN-027.gbk
+- Glycerol stock: -80 B, box 4, position B3
+- Verified by: Sanger seqs SP1/SP2 (Files/pGN-027-seq.zip)`}</code>
+      </pre>
+
+      <h3>Sample measurement record</h3>
+      <pre className="text-xs bg-gray-100 rounded p-3 overflow-x-auto">
+        <code>{`## OD600 readings, 2026-05-22 08:14 CT
+
+Instrument: BioTek Synergy H1 (SN 19F-3204)
+
+| Sample  | Strain        | Media | OD600  | QC  |
+|---------|---------------|-------|--------|-----|
+| A1      | WT            | YPD   | 0.412  | ok  |
+| A2      | dADE2         | YPD   | 0.398  | ok  |
+| A3      | dADE2-comp    | YPD   | 0.087  | low |
+| A4      | media blank   | YPD   | 0.041  | ok  |
+
+Subtracted media blank (0.041) from A1-A3 before plotting.
+A3 looks suspect, repeat tomorrow morning.`}</code>
+      </pre>
+
+      <h3>Equipment log</h3>
+      <pre className="text-xs bg-gray-100 rounded p-3 overflow-x-auto">
+        <code>{`## Centrifuge 5424R service log
+
+- Serial: 5424R-7831
+- Location: lab room 314, bench 4
+- Last service: 2025-11-09 (annual calibration, certified)
+- Belt replaced: 2024-04-02
+- Rotor: FA-45-24-11 (max 21,130 x g)
+- Notes: unbalanced load alarm fixed 2026-03-15, gasket reseated.`}</code>
+      </pre>
+
       <h2>Tables, lists, and other markdown</h2>
       <p>
         Standard GitHub-flavored markdown all works:

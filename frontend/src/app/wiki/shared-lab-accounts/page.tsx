@@ -9,14 +9,14 @@ export default function SharedLabAccountsPage() {
   const providers = node?.children ?? [];
   return (
     <WikiPage
-      intro="One folder, shared across your whole lab. Everyone keeps their own data, and Lab Mode rolls it all up."
+      intro="One folder, shared across your whole lab. Everyone keeps their own data, and the Lab Head's dashboard rolls it all up."
     >
-      <Callout variant="info" title="Want to feel out Lab Mode first?">
+      <Callout variant="info" title="Want to feel out the shared model first?">
         Open{" "}
         <Link href="/wiki/getting-started/demo-mode">Demo Mode</Link> for a
         no-setup preview. It seeds two researchers (alex and morgan) into one
-        shared folder, so the Lab tab already has cross-user data to click
-        around in.
+        shared folder, so cross-user data is already wired up for you to
+        click around in.
       </Callout>
 
       <h2>How it works</h2>
@@ -108,14 +108,13 @@ export default function SharedLabAccountsPage() {
         </li>
       </ul>
 
-      <Callout variant="tip" title="Lab Mode aggregates everyone">
-        Once everyone is set up, anyone can switch to the special{" "}
-        <code>lab</code> user (or click the <strong>Lab</strong> tab) to see a
-        combined Gantt, activity feed, methods library, and purchases view
-        across every member. See{" "}
-        <Link href="/wiki/features/lab-mode">Lab Mode</Link>. If you only
-        want one labmate&apos;s work surfaced on your own Home page (rather
-        than the whole lab), they can share an individual project
+      <Callout variant="tip" title="The Lab Head sees the lab roll-up">
+        Once everyone is set up, the Lab Head sees a customizable dashboard
+        at <code>/lab-overview</code> with widgets for cross-lab activity,
+        purchases, member workload, announcements, and more. See{" "}
+        <Link href="/wiki/features/lab-overview">Lab Overview</Link>. If you
+        only want one labmate&apos;s work surfaced on your own Home page
+        (rather than the whole lab), they can share an individual project
         or task with you instead; see{" "}
         <Link href="/wiki/features/home">Home &amp; Projects</Link>.
       </Callout>

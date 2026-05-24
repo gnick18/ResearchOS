@@ -126,57 +126,11 @@ export default function SearchFeaturePage() {
         bundles and which one to pick.
       </p>
 
-      <h2>Search in Lab Mode</h2>
-      <p>
-        Lab Mode has its own search panel (find it on the Lab tab). The form
-        is the same shape with one addition: a <strong>User</strong> dropdown
-        that scopes the search to one labmate&apos;s data, or to whoever is
-        currently selected in the global lab user filter. The lab search also
-        returns project and method cards alongside task cards, badged with
-        the owner&apos;s name and color.
-      </p>
-      <p>
-        Two important differences from regular <code>/search</code>:
-      </p>
-      <ul>
-        <li>
-          <strong>Tags are not matched.</strong> The LabTask cache shape drops
-          task and method tags, so Lab Mode keyword search cannot match on tags.
-          Regular <code>/search</code> does match task tags and method tags.
-        </li>
-        <li>
-          <strong>Deviation log is matched.</strong> Lab Mode keyword search
-          checks the deviation log (the notes field on each task) and surfaces
-          a &ldquo;Matched in deviation_log&rdquo; snippet when the keyword
-          appears there. Regular <code>/search</code> does not search note bodies.
-        </li>
-        <li>
-          <strong>Keyword is one substring, not an AND-list.</strong> Whatever
-          you type in the Lab Mode keyword box is treated as a single substring
-          match. Regular <code>/search</code> splits on spaces and requires all
-          words to appear (AND semantics), but Lab Mode does not split: typing{" "}
-          <code>yeast pcr</code> looks for the literal string{" "}
-          <code>&ldquo;yeast pcr&rdquo;</code> rather than tasks that contain
-          both <code>yeast</code> and <code>pcr</code> separately.
-        </li>
-      </ul>
-      <p>
-        Lab search inherits the same <strong>Select</strong> →{" "}
-        <strong>Export selected</strong> flow. Project and method cards stay
-        non-selectable (the export pipeline only packages tasks), but you can
-        tick experiments across multiple labmates in one selection and the
-        Export dialog resolves each owner&apos;s data automatically. The
-        action button is green to match Lab Mode&apos;s accent.
-      </p>
-
       <Callout variant="tip" title="What gets searched, and what doesn't">
-        In regular <code>/search</code>, keywords match against task names,
-        task tags, and method names/tags, not against note bodies, results
-        text, or PCR protocol contents. In Lab Mode search, tags are not
-        matched (dropped from the cache), but the deviation log (notes field)
-        is also searched and a snippet is shown when the keyword matches there.
-        Use the Notes page or a method&apos;s own editor to search the inside
-        of those files.
+        Keywords match against task names, task tags, and method names and tags;
+        they do not match against note bodies, results text, or PCR protocol
+        contents. Open the Notes page or a method&apos;s own editor to search
+        the inside of those files.
       </Callout>
     </WikiPage>
   );

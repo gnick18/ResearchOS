@@ -235,7 +235,7 @@ export default function PurchasesFeaturePage() {
       <Screenshot
         src="/wiki/screenshots/purchases-non-purchase-warning.png"
         alt="The PurchaseEditor showing a yellow informational banner above the line-item table, reading 'This task is not typed as a purchase order. Items added here will appear in the spending dashboard's Items on non-purchase tasks line.'"
-        caption="The soft amber note in PurchaseEditor when the parent task is not a purchase. Lab Mode does not show this warning, since multi-user review wants a quieter surface."
+        caption="The soft amber note in PurchaseEditor when the parent task is not a purchase. The Lab Overview surface does not show this warning, since the lab-wide review wants a quieter dashboard."
       />
 
       <h2>The spending dashboard</h2>
@@ -336,27 +336,117 @@ export default function PurchasesFeaturePage() {
         caption="Expanded view of the amber panel. From here, open the host task in /workbench to reclassify it as a purchase or move the item to a proper purchase order."
       />
 
-      <h3>CSV export and Lab Mode link</h3>
+      <h3>CSV export</h3>
       <p>
-        The top-right of the dashboard has two affordances. <strong>Export
-        CSV</strong> downloads the currently filtered scope (time range plus
-        project filter, plus any funding-card filter you have clicked) as a flat
-        file named <code>purchases-export-YYYY-MM-DD.csv</code>. Columns are
-        item id, item name, vendor, category, funding string, project name,
-        task name, start date, total price, and owner.
+        The top-right of the dashboard has an <strong>Export CSV</strong>{" "}
+        button that downloads the currently filtered scope (time range plus
+        project filter, plus any funding-card filter you have clicked) as a
+        flat file named <code>purchases-export-YYYY-MM-DD.csv</code>. Columns
+        are item id, item name, vendor, category, funding string, project
+        name, task name, start date, total price, and owner.
       </p>
 
+      {/* TODO screenshot agent: recapture the dashboard header to drop the old "View in Lab Mode" link.
+          Route: /purchases (scrolled to dashboard)
+          Fixture: ?wikiCapture=1
+          Viewport: desktop 1440x900
+          State: any user fixture; dashboard with the Export CSV button visible (no Lab Mode link)
+          Save to: frontend/public/wiki/screenshots/purchases-csv-export.png
+      */}
       <Screenshot
         src="/wiki/screenshots/purchases-csv-export.png"
-        alt="The dashboard header showing the 'View in Lab Mode →' link and the green 'Export CSV' button at the top right."
-        caption="Export CSV downloads only what is currently in scope. The View in Lab Mode link opens /lab?tab=purchases for cross-lab investigation."
+        alt="The dashboard header with the green Export CSV button at the top right."
+        caption="Export CSV downloads only what is currently in scope."
       />
 
       <p>
-        Next to the export button, <strong>View in Lab Mode →</strong> opens{" "}
-        <code>/lab?tab=purchases</code>. Lab Mode pools every labmate&apos;s
-        purchases against the shared funding accounts and is documented in{" "}
-        <Link href="/wiki/features/lab-mode/purchases">Lab Mode &rarr; Lab-wide purchases</Link>.
+        Next to the export button, Lab Heads see a{" "}
+        <strong>Open in Lab Overview</strong> shortcut that opens the same
+        purchase data inside the LabPurchases Tool popup on{" "}
+        <Link href="/wiki/features/lab-overview">/lab-overview</Link>,
+        where the funding-bar, burn-rate, and pending-approval surfaces all
+        live in one place.
+      </p>
+
+      <h2>The Lab Head experience</h2>
+      <p>
+        Lab Heads do not have <code>/purchases</code> in their nav. The
+        canonical surface for them is the LabPurchases Tool inside the Lab
+        Overview, opened either from a pinned widget tile or from the Tools
+        launcher in the header. The popup is a four-tab dashboard:
+      </p>
+      <ul>
+        <li>
+          <strong>Pending approvals</strong>. The work queue. Each row is a
+          purchase waiting on the Lab Head with inline{" "}
+          <strong>Approve</strong> and <strong>Decline</strong> buttons. The
+          first action of a fresh session unlocks the 5-minute edit window;
+          subsequent rows process without re-prompting. See{" "}
+          <Link href="/wiki/features/lab-head/edit-session-and-password">
+            Edit session and password
+          </Link>.
+        </li>
+        <li>
+          <strong>All purchases</strong>. A flat lab-wide view of every
+          purchase across every member, filterable by member, project, and
+          funding string.
+        </li>
+        <li>
+          <strong>Funding</strong>. The funding-account cards (spent vs.
+          budget) rolled up across the whole lab, not just the Lab
+          Head&apos;s own purchases.
+        </li>
+        <li>
+          <strong>Spending</strong>. The full spend-over-time chart and the
+          breakdown lenses (project / vendor / category), same shape as the
+          dashboard at the bottom of <code>/purchases</code> but with lab-wide
+          scope.
+        </li>
+      </ul>
+
+      <h3>The decline state</h3>
+      <p>
+        A declined purchase carries a <code>declined_at</code> timestamp and
+        renders with a red <code>PurchaseDeclinedBadge</code> wherever it
+        appears: in the member&apos;s own list, in the All Purchases tab, in
+        the Lab Activity stream. The Pending Approvals tab also shows a{" "}
+        <strong>Recently declined</strong> section at the bottom so a Lab
+        Head can <strong>Re-approve</strong> a previously-declined purchase
+        without making the member resubmit. Each decline and each re-approve
+        writes a row to the audit log (see{" "}
+        <Link href="/wiki/features/lab-head/audit-log">Audit log</Link>).
+      </p>
+
+      <h3>The three purchases widget variants</h3>
+      <p>
+        On the Lab Overview, the purchases Tool has three tile variants you
+        can pin to the canvas or the sidebar rail:
+      </p>
+      <ul>
+        <li>
+          <strong>Funding bars.</strong> A horizontal bar per funding account
+          showing spent vs. budget. Good for &quot;how much grant is
+          left.&quot;
+        </li>
+        <li>
+          <strong>Burn rate.</strong> A small trend chart of weekly spend
+          with a range selector. The range buttons are <strong>4w</strong>,{" "}
+          <strong>8w</strong>, <strong>12w</strong>, and <strong>6mo</strong>.
+          Good for &quot;are we accelerating.&quot;
+        </li>
+        <li>
+          <strong>Pending count.</strong> A single big number plus the top
+          few waiting purchases. Good for &quot;do I need to approve
+          something right now.&quot;
+        </li>
+      </ul>
+      <p>
+        Clicking any of the three variant tiles opens the same four-tab
+        popup described above. See{" "}
+        <Link href="/wiki/features/lab-overview/widgets-and-tools">
+          Widgets and Tools
+        </Link>{" "}
+        for the broader catalog.
       </p>
 
       <Callout variant="info" title="Empty state">

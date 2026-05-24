@@ -31,8 +31,8 @@ export default function DemoModePage() {
         research. Each project has experiments on the Gantt, methods in the
         library, a couple of PCR protocols, a funded purchase list, and a few
         results pages with lab notes. A second researcher named{" "}
-        <strong>morgan</strong> shares one project with alex, so the Lab Mode
-        tab has cross-user data to play with too.
+        <strong>morgan</strong> shares one project with alex, so shared
+        records are visible across both users for you to click through.
       </p>
       <p>
         Bare <code>/demo</code> stays at <code>/demo</code> in the URL bar

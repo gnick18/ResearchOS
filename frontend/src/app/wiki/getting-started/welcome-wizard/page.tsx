@@ -102,9 +102,9 @@ export default function WelcomeWizardPage() {
       <p>
         The first call is whether you are flying solo (one user, your own
         account) or running a multi-person lab (everyone points their
-        ResearchOS at the same shared folder). The pick determines whether the
-        Lab Mode walkthrough cluster fires later in the tour and whether the Lab
-        Links surface is called &quot;Links&quot; or &quot;Lab Links&quot;.
+        ResearchOS at the same shared folder). The pick determines whether
+        the Lab Head follow-up question (Q1c, below) fires and whether the
+        Lab Links surface is called &quot;Links&quot; or &quot;Lab Links&quot;.
       </p>
 
       <Screenshot
@@ -112,6 +112,27 @@ export default function WelcomeWizardPage() {
         alt="Q1 in the welcome tour showing two radio cards: Solo (selected) and Lab. BeakerBot stands in the upper-left in thinking pose."
         caption="Q1 picks your account flavor. You can revisit this in Settings."
       />
+
+      <Callout variant="info" title="Q1 auto-skips when other users exist">
+        When the lab folder already has other users in it (someone signed in
+        before you), the wizard auto-skips Q1 and assumes Lab. The reasoning:
+        if there is already a lab to join, you are joining a lab, not
+        starting a solo workspace. Q1 still appears for the first user in a
+        fresh folder so a single-person workflow stays a deliberate choice.
+      </Callout>
+
+      <h3>Q1c: are you the Lab Head?</h3>
+      <p>
+        Conditional on Q1 = Lab. After picking Lab, BeakerBot follows up with
+        a single binary question: are you the Lab Head, or are you a member?
+        Picking <strong>Lab Head</strong> sets{" "}
+        <code>account_type</code> to <code>&quot;lab_head&quot;</code> on this
+        account; picking <strong>Member</strong> leaves it at the default. One
+        person in the lab fills the Lab Head slot. The picker badge in the
+        login screen, the audit log, and the Lab Overview surface are all
+        gated on the resulting <code>account_type</code>. See{" "}
+        <Link href="/wiki/features/lab-head">Lab Head</Link>.
+      </p>
 
       <h3>Q2 through Q6: feature picks</h3>
       <p>
@@ -393,12 +414,12 @@ export default function WelcomeWizardPage() {
         beats across the major Settings sections, then three AI Helper beats:
       </p>
       <Steps>
-        <Step><strong>personalization-animations.</strong> BeakerBot demos the animation picker inside the Settings page (the per-tile grid under the Animation section), picking &ldquo;celebration&rdquo; so you see a preview fire.</Step>
+        <Step><strong>personalization-animations.</strong> Animated on the Gantt toolbar: BeakerBot demos the animations toggle.</Step>
         <Step><strong>personalization-color.</strong> BeakerBot demos the primary accent color picker and invites you to pick a secondary color at your own pace.</Step>
         <Step><strong>settings-tour-folder.</strong> Universal: explains that the connected lab folder is set; switching folders means signing out and picking a new one from the entry screen.</Step>
         <Step><strong>settings-tour-calendar.</strong> Conditional on Q3 = yes: calendar feeds are managed from the Calendar tab, not Settings (yet).</Step>
         <Step><strong>settings-tour-telegram.</strong> Conditional on Q5 = yes: Telegram wiring lives in this Settings section if you didn&apos;t link it during setup.</Step>
-        <Step><strong>settings-tour-lab-mode-toggle.</strong> Conditional on Q1 = solo: explains how to pivot from solo to a lab account via the user picker (no dedicated Settings toggle yet).</Step>
+        <Step><strong>settings-tour-pivot-to-lab.</strong> Conditional on Q1 = solo: explains how to pivot from solo to a lab account via the user picker (no dedicated Settings toggle yet).</Step>
         <Step><strong>settings-tour-visible-tabs.</strong> Universal: tabs you said no to are hidden; check the box here to turn one back on, or hide tabs you don&apos;t need.</Step>
         <Step><strong>settings-tour-streak.</strong> Universal: the streak counter is private and on by default; toggle it off here if you prefer not to be reminded.</Step>
         <Step><strong>settings-tour-rerun.</strong> Universal: BeakerBot points at the Re-run tour button and tells you the whole walkthrough can be replayed from here.</Step>
@@ -474,48 +495,18 @@ export default function WelcomeWizardPage() {
         </li>
       </ul>
 
-      <h2>Lab Overview tour (lab accounts only)</h2>
-      <p>
-        If Q1 was Lab, Phase 2 ends with a short walkthrough of the Lab
-        Overview surface: a customizable widget dashboard that sits at{" "}
-        <code>/lab-overview</code>. The cluster runs against your real lab
-        overview using your own data (no demo overlay, no warp). Six beats,
-        each one a small concept the user picks up on their actual surface.
-      </p>
-      <p>
-        The cluster opens with BeakerBot waving on the empty (or
-        nearly-empty) overview, sets the scene, then walks four anchor
-        points (canvas, sidebar rail, the Add widget catalog, and the
-        unified sharing primitive) before waving the user back out to
-        customize the dashboard at their own pace.
-      </p>
-      <p>
-        The six steps cover:
-      </p>
-      <Steps>
-        <Step><strong>lab-overview-intro.</strong> BeakerBot sets the scene: the Lab Overview is a customizable widget dashboard, the home base for everything cross-lab.</Step>
-        <Step><strong>lab-overview-widget-canvas.</strong> Spotlights the widget grid wrapper. BeakerBot narrates the drag, resize, and remove affordances available in Edit mode.</Step>
-        <Step><strong>lab-overview-sidebar-rail.</strong> Spotlights the sidebar widget rail on the left of the page (recent activity, PI quick actions, member workload). The rail has its own edit affordance via the gear icon.</Step>
-        <Step><strong>lab-overview-add-widget.</strong> Cursor glides to the + Add widget toolbar button. BeakerBot describes the catalog popover that opens, where each row toggles a widget on or off the canvas.</Step>
-        <Step><strong>lab-overview-sharing.</strong> Narration-only. BeakerBot explains the unified Share button that every record (tasks, notes, lists, methods, links, goals, projects) carries on its detail popup, with the Whole lab sentinel for everyone-visible and per-user shares for one-to-one sharing.</Step>
-        <Step><strong>lab-overview-exit.</strong> Wraps up. BeakerBot waves the user back out into the dashboard so they can customize it however helps them work.</Step>
-      </Steps>
-
-      <p>
-        After the Lab Overview cluster, a single <code>lab-cleanup</code>{" "}
-        step runs to wipe the BeakerBot fake user that was spawned during
-        the Gantt share cluster.
-      </p>
-
-      <Callout variant="info" title="If you remember the old Lab Mode tour">
-        Earlier builds shipped a twelve-step Lab Mode tour that warped the
-        user into a read-only DemoLabModeViewer overlay populated with fake
-        cross-user data. That cluster has been retired. The new Lab
-        Overview tour teaches the same cross-lab concepts (announcements,
-        member activity, shared records) on the real customizable
-        dashboard at <code>/lab-overview</code> instead of a demo overlay.
-        Sharing now lives on every record type via the unified Share
-        button, not as a separate &quot;cross-user&quot; surface.
+      <Callout variant="info" title="The retired Lab Mode tour cluster">
+        Earlier builds ended Phase 2 with a multi-step walkthrough of the
+        old Lab Mode aggregated surface. Lab Mode itself has been retired in
+        favor of the per-user{" "}
+        <Link href="/wiki/features/lab-overview">Lab Overview</Link>{" "}
+        (Lab Heads) and{" "}
+        <Link href="/wiki/features/home">Home canvas</Link> (members), so
+        the cluster no longer fires. The Lab Head cluster that runs in its
+        place introduces the Lab Overview dashboard, the announcement
+        surface, and the soft-write affordances. A single{" "}
+        <code>lab-cleanup</code> step still runs at the end to wipe the
+        BeakerBot fake user that was spawned during the Gantt share cluster.
       </Callout>
 
       <h2>Terminal step: tour-goodbye</h2>
@@ -550,12 +541,12 @@ export default function WelcomeWizardPage() {
       <ul>
         <li><strong>Idle</strong>, the always-on baseline bob.</li>
         <li><strong>Waving</strong>, the welcome screen and the resume modal.</li>
-        <li><strong>Thinking</strong>, head-tilt during setup Q1 to Q7 and the Lab Mode prompt.</li>
+        <li><strong>Thinking</strong>, head-tilt during setup Q1 to Q7 and the Lab Head prompt.</li>
         <li><strong>Pointing</strong>, universal walkthrough steps where BeakerBot directs your attention to a UI element at eye level.</li>
         <li><strong>Pointing-up</strong>, steps where BeakerBot directs attention to the top bar (the <code>?</code> wiki icon cluster).</li>
         <li><strong>Typing</strong>, steps where BeakerBot live-types into a form or field.</li>
         <li><strong>Typing-on-laptop</strong>, a one-hand typing variant used on notes and list creation beats.</li>
-        <li><strong>Cheering</strong>, the tour-goodbye outro animation and the lab-mode-warp-to-demo step.</li>
+        <li><strong>Cheering</strong>, the tour-goodbye outro animation.</li>
         <li><strong>Bouncing</strong>, a ~650 ms burst on every step transition.</li>
       </ul>
 
@@ -630,7 +621,7 @@ export default function WelcomeWizardPage() {
       </p>
       <ul>
         <li><strong>Always visible:</strong> Home, Workbench, Methods, Experiments, Gantt, Search.</li>
-        <li><strong>Lab Mode</strong> appears only when <code>account_type === &quot;lab&quot;</code>.</li>
+        <li><strong>Lab Overview</strong> appears only when <code>account_type === &quot;lab_head&quot;</code> (the Lab Head dashboard at <code>/lab-overview</code>).</li>
         <li><strong>Purchases</strong> appears only when <code>purchases === &quot;yes&quot;</code>.</li>
         <li><strong>Calendar</strong> appears only when <code>calendar === &quot;yes&quot;</code>.</li>
         <li><strong>Goals</strong> appears only when <code>goals === &quot;yes&quot;</code>.</li>
@@ -721,8 +712,9 @@ export default function WelcomeWizardPage() {
           <Link href="/wiki/features/settings">Settings</Link>.
         </li>
         <li>
-          For the Lab Mode surface that the tour demos, see{" "}
-          <Link href="/wiki/features/lab-mode">Lab Mode</Link>.
+          For the Lab Overview dashboard that the Lab Head cluster
+          introduces, see{" "}
+          <Link href="/wiki/features/lab-overview">Lab Overview</Link>.
         </li>
         <li>
           For a hands-on tour against seeded data (no real folder needed), see{" "}

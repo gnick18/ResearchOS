@@ -475,8 +475,8 @@ export default function ExperimentsFeaturePage() {
         The Export icon on an experiment popup is single-experiment
         only. To bundle a batch of experiments into one download, use{" "}
         <strong>Select</strong> on the{" "}
-        <Link href="/wiki/features/search">Search</Link> page (or its
-        Lab Mode counterpart). Tick the result cards you want, click{" "}
+        <Link href="/wiki/features/search">Search</Link> page. Tick the
+        result cards you want, click{" "}
         <strong>Export selected</strong>, and the same dialog packages
         every chosen experiment into an{" "}
         <code>experiments-&lt;YYYY-MM-DD&gt;.zip</code> with one entry

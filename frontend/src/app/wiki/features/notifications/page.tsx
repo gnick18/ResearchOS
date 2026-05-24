@@ -216,6 +216,36 @@ export default function NotificationsFeaturePage() {
         lets you attach it in one click without opening the Inbox modal at all.
       </Callout>
 
+      <h2>Lab Inbox and comments</h2>
+      <p>
+        The bell handles your personal queue (shared-with-me, reminders,
+        shift alerts). Comments and announcements live in a separate
+        surface: the{" "}
+        <Link href="/wiki/features/lab-inbox">Lab Inbox</Link>. The two are
+        intentionally distinct.
+      </p>
+      <ul>
+        <li>
+          <strong>The bell pings you</strong> for things you need to
+          acknowledge: a labmate shared a task with you, a calendar reminder
+          fired, your task was shifted by someone with edit access.
+        </li>
+        <li>
+          <strong>The Lab Inbox is ambient.</strong> Comments people left on
+          your tasks and notes appear there, alongside the lab-wide
+          announcement stream and the @-mention filter.
+        </li>
+      </ul>
+      <p>
+        The bell does ping for one comment case: when someone{" "}
+        <strong>@-mentions you</strong> by name in a comment, that mention
+        shows up as a row in the bell so you do not miss a direct callout.
+        General comments on records you can read stay in the Lab Inbox only.
+        See{" "}
+        <Link href="/wiki/features/lab-inbox/comments">Comments</Link> for
+        the threading and mention model.
+      </p>
+
       <h2>Event reminders</h2>
       <p>
         Reminders are a single setting that applies to every timed event on

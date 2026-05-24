@@ -11,8 +11,8 @@ export default function CreatingAUserPage() {
     >
       <Screenshot
         src="/wiki/screenshots/user-login.png"
-        alt="The user-picker screen with the + Create New User button, the existing-user list, a Lab Mode button, and the BeakerBot brand mark in the gradient pill at the top."
-        caption="The user-picker screen, shown right after you connect a folder. (Screenshot pending recapture — predates 2026-05-21 BeakerBot brand mark addition. Use ?wikiCapture=1 when recapturing.)"
+        alt="The user-picker screen with the + Create New User button, the existing-user list, and the BeakerBot brand mark in the gradient pill at the top."
+        caption="The user-picker screen, shown right after you connect a folder. (Screenshot pending recapture; the Lab Mode button shown in older captures has been removed and the BeakerBot brand mark added. Use ?wikiCapture=1 when recapturing.)"
       />
 
       <h2>What &quot;user&quot; means here</h2>
@@ -90,15 +90,6 @@ export default function CreatingAUserPage() {
         Click your avatar in the top-right of the header, then{" "}
         <strong>Switch user</strong>. Pick another user from the list. Your view
         and data reload to that user&apos;s namespace.
-      </p>
-
-      <h2>Jumping straight to Lab Mode</h2>
-      <p>
-        The user-picker has a dedicated <strong>Lab Mode</strong> button below
-        the user list. Clicking it skips picking a personal user and takes you
-        straight to the Lab Mode page, which aggregates data across every user
-        in the folder. Useful when you want a top-down view rather than your
-        own work. See <Link href="/wiki/features/lab-mode">Lab Mode</Link>.
       </p>
 
       <h2>Main user</h2>

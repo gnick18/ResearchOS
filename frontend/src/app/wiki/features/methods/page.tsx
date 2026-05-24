@@ -139,45 +139,54 @@ export default function MethodsFeaturePage() {
         browser until at least one method lives there or you remove it.
       </p>
 
-      <h2>Public versus private</h2>
+      <h2>Sharing a method with the lab</h2>
       <p>
-        Every method is private to you by default. Two ways to make a method
-        visible to everyone in the lab folder:
-      </p>
-      <ul>
-        <li>
-          Tick <strong>Make this method public</strong> in the create-method
-          modal.
-        </li>
-        <li>
-          Open an existing method and click the <strong>🔒 Private</strong>{" "}
-          pill in the header. The share popup opens. In the{" "}
-          <strong>User</strong> dropdown, select{" "}
-          <strong>🌐 All Lab Users</strong>. A confirmation box appears
-          below. Click <strong>Apply</strong>. The pill updates to{" "}
-          <strong>🌐 Public</strong> and a green message confirms the change.
-        </li>
-      </ul>
-      <p>
-        Public methods show a green <strong>Public</strong> badge on their
-        card and appear in every user&apos;s library.
+        Every method is private to you by default. To make one visible to the
+        rest of the lab, open the method and click the{" "}
+        <strong>Private</strong> pill in the header. The share popup opens.
+        In the <strong>User</strong> dropdown, select{" "}
+        <strong>All Lab Users</strong>. A confirmation box appears below.
+        Click <strong>Apply</strong>. The pill updates to{" "}
+        <strong>Shared with the lab</strong> and a green message confirms
+        the change.
       </p>
       <p>
-        Once a <strong>Markdown</strong> method is public, the inline Edit
-        button disappears for everyone, including the creator, and the body
-        becomes read-only. To change a published Markdown protocol, flip it
-        back to Private via the share popup, edit, then republish.
+        Lab-shared methods show a green <strong>Shared</strong> badge on
+        their card and appear in every user&apos;s library.
+      </p>
+
+      <h3>How method sharing works</h3>
+      <p>
+        Sharing is stored on the method&apos;s <code>shared_with</code>{" "}
+        array. Choosing <strong>All Lab Users</strong> writes the{" "}
+        <code>WHOLE_LAB_SENTINEL</code> value into the array, which the
+        permission system expands to &quot;every user in this lab folder,
+        present and future.&quot; Read access is gated by the{" "}
+        <code>canRead</code> primitive: owner, anyone explicitly in{" "}
+        <code>shared_with</code>, the sentinel, or a Lab Head. See{" "}
+        <Link href="/wiki/features/sharing-and-permissions">
+          Sharing and permissions
+        </Link>{" "}
+        for the full model and the migration from the older{" "}
+        <code>is_public</code> boolean (now retired).
+      </p>
+      <p>
+        Once a <strong>Markdown</strong> method is shared with the lab, the
+        inline Edit button disappears for everyone, including the creator,
+        and the body becomes read-only. To change a published Markdown
+        protocol, flip it back to private via the share popup, edit, then
+        republish.
       </p>
       <p>
         <strong>Structured-method editors</strong> (PCR, LC Gradient, Plate
         Layout, and others) behave differently. The creator retains edit
-        access even when the method is public, because the editor is gated
-        by <code>canModify</code> (which passes for the original creator
-        regardless of public status). Other lab members can read and attach
+        access even when the method is shared, because the editor is gated
+        by <code>canWrite</code> (which passes for the original creator
+        regardless of sharing status). Other lab members can read and attach
         the method but cannot modify the shared copy.
       </p>
       <p>
-        All users can always attach a public method to their own experiments
+        All users can always attach a shared method to their own experiments
         and record per-run variations without touching the shared library copy.
       </p>
 

@@ -23,6 +23,32 @@ export default function SettingsFeaturePage() {
         if you ever need to hand-edit or copy them between labs.
       </p>
 
+      <h2>Search settings</h2>
+      <p>
+        At the very top of the page, above every panel, a search bar filters
+        the visible settings down to whatever matches your typed substring.
+        Type <code>password</code> and the page collapses to the Security
+        panel; type <code>animation</code> and it narrows to the Animation
+        section. The filter matches section headings and the body text inside
+        each panel, so a query like <code>telegram</code> surfaces both the
+        Notifications row and the Data inventory Telegram-cache control.
+        Clear the bar to restore the full stack.
+      </p>
+
+      <h2>Personal vs Lab Mode tabs</h2>
+      <p>
+        Lab Head accounts (<code>account_type === &quot;lab_head&quot;</code>)
+        see a two-tab strip at the top of the page: <strong>Personal</strong>{" "}
+        (the default, every panel documented below) and <strong>Lab Mode</strong>{" "}
+        (the lab-wide configuration that only a Lab Head can change). The
+        Personal tab is identical to what every account sees. The Lab Mode tab
+        holds the LabRoster (see{" "}
+        <Link href="/wiki/getting-started/user-archiving">User archiving</Link>),
+        the announcement defaults, and the Lab Head password reset. Members do
+        not see the tab strip at all because they never have access to the Lab
+        Mode controls.
+      </p>
+
       <h2>Profile</h2>
       <p>
         The top panel sets how the rest of the app addresses you. A large
@@ -253,11 +279,12 @@ export default function SettingsFeaturePage() {
           power-user use.
         </li>
         <li>
-          <strong>Hide my goals from lab view</strong>, when on, other lab
-          members won&apos;t see your goals in their aggregated Lab Mode
-          roadmap. The flag is also mirrored to the shared{" "}
-          <code>_user_metadata.json</code> file so the lab-mode reader picks it
-          up immediately.
+          <strong>Hide my goals from lab view</strong>, when on, the Lab
+          Head will not see your goals on their{" "}
+          <Link href="/wiki/features/lab-overview">Lab Overview</Link>{" "}
+          dashboard. The flag is also mirrored to the shared{" "}
+          <code>_user_metadata.json</code> file so the dashboard reader picks
+          it up immediately.
         </li>
       </ul>
 
@@ -327,7 +354,7 @@ export default function SettingsFeaturePage() {
         </li>
         <li>
           <code>keyval-store / keyval / research-os-main-user</code>:
-          the primary Lab Mode account when Lab Mode is active.
+          the primary account when a Lab Head is signed in.
         </li>
         <li>
           <code>research-os-telegram-token-cache / tokens / &#123;folderName, username&#125;</code>:

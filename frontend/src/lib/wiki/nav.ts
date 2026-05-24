@@ -15,6 +15,7 @@ export const APP_ROUTE_TO_WIKI: Record<string, string> = {
   "/pcr": "/wiki/features/pcr",
   "/purchases": "/wiki/features/purchases",
   "/calendar": "/wiki/features/calendar",
+  "/lab-overview": "/wiki/features/lab-overview",
   "/search": "/wiki/features/search",
   "/links": "/wiki/features/links",
   "/settings": "/wiki/features/settings",
@@ -84,6 +85,11 @@ export const WIKI_NAV: WikiNode[] = [
         href: "/wiki/getting-started/demo-mode",
         label: "Demo Mode",
         blurb: "Try ResearchOS in the browser with a seeded yeast lab.",
+      },
+      {
+        href: "/wiki/getting-started/user-archiving",
+        label: "User Archiving",
+        blurb: "Hide a former member from active views while preserving their data.",
       },
       {
         href: "/wiki/getting-started/labarchives-export",
@@ -171,36 +177,70 @@ export const WIKI_NAV: WikiNode[] = [
         blurb: "Native events plus external read-only feeds.",
       },
       {
-        href: "/wiki/features/lab-mode",
-        label: "Lab Mode",
-        blurb: "Aggregated view across every user in the folder.",
+        href: "/wiki/features/lab-overview",
+        label: "Lab Overview",
+        blurb: "The Lab Head's customizable dashboard at /lab-overview.",
         children: [
           {
-            href: "/wiki/features/lab-mode/activity",
-            label: "Activity",
-            blurb: "Running now, recently completed, recent shared notes.",
+            href: "/wiki/features/lab-overview/widgets-and-tools",
+            label: "Widgets and Tools",
+            blurb: "The 12 Tools, widget variants, and the + Add widget palette.",
           },
           {
-            href: "/wiki/features/lab-mode/gantt",
-            label: "Combined GANTT",
-            blurb: "Every user's tasks on one timeline, colored by owner.",
+            href: "/wiki/features/lab-overview/customizable-sidebar",
+            label: "Customizable sidebar",
+            blurb: "The always-visible right-edge tile rail for Lab Heads.",
           },
           {
-            href: "/wiki/features/lab-mode/purchases",
-            label: "Lab-wide purchases",
-            blurb: "Cross-user spend rolled up by funding account.",
-          },
-          {
-            href: "/wiki/features/lab-mode/cross-user-lists",
-            label: "Cross-user lists",
-            blurb: "Experiments, Methods, Roadmaps, and Notes across the lab.",
-          },
-          {
-            href: "/wiki/features/lab-mode/user-filter",
-            label: "The user filter",
-            blurb: "Pick who shows up on every tab, plus the per-user side panel.",
+            href: "/wiki/features/lab-overview/snapshot-tiles-and-expanded-views",
+            label: "Snapshot tiles and expanded views",
+            blurb: "Tile-to-popup model, drag to reorder, edit mode, Reset to default.",
           },
         ],
+      },
+      {
+        href: "/wiki/features/lab-inbox",
+        label: "Lab Inbox",
+        blurb: "Lab-wide comments, @-mentions, and announcements in one stream.",
+        children: [
+          {
+            href: "/wiki/features/lab-inbox/comments",
+            label: "Comments",
+            blurb: "Threaded replies on tasks, notes, and purchases, with @-mention chips.",
+          },
+          {
+            href: "/wiki/features/lab-inbox/announcements",
+            label: "Announcements",
+            blurb: "Lab Head broadcasts: pin, edit, audit trail, draft persistence.",
+          },
+        ],
+      },
+      {
+        href: "/wiki/features/lab-head",
+        label: "Lab Head",
+        blurb: "The per-user role that unlocks the Lab Overview and soft-write surfaces.",
+        children: [
+          {
+            href: "/wiki/features/lab-head/edit-session-and-password",
+            label: "Edit session and password",
+            blurb: "The 5-minute password-gated unlock that fronts every soft-write.",
+          },
+          {
+            href: "/wiki/features/lab-head/soft-write-actions",
+            label: "Soft-write actions",
+            blurb: "Purchase approval / decline, task assignment, flag for review.",
+          },
+          {
+            href: "/wiki/features/lab-head/audit-log",
+            label: "Audit log",
+            blurb: "_pi_audit.json: every soft-write captured as a forensic row.",
+          },
+        ],
+      },
+      {
+        href: "/wiki/features/sharing-and-permissions",
+        label: "Sharing and permissions",
+        blurb: "shared_with, the WHOLE_LAB_SENTINEL, canRead vs canWrite, Lab Head view-all.",
       },
       {
         href: "/wiki/features/search",
@@ -220,7 +260,7 @@ export const WIKI_NAV: WikiNode[] = [
       {
         href: "/wiki/features/import-from-eln",
         label: "Import from LabArchives",
-        blurb: "The 6-step wizard, page-as-task semantics, and idempotent re-runs.",
+        blurb: "The 7-step wizard, page-as-task semantics, and idempotent re-runs.",
       },
       {
         href: "/wiki/features/settings",
@@ -231,6 +271,11 @@ export const WIKI_NAV: WikiNode[] = [
         href: "/wiki/features/notifications",
         label: "Notifications & Inbox",
         blurb: "Bell, Telegram inbox, event reminders.",
+      },
+      {
+        href: "/wiki/features/feedback",
+        label: "Feedback",
+        blurb: "Bug, feature, and feedback reports via pre-filled GitHub issues.",
       },
     ],
   },
@@ -251,7 +296,7 @@ export const WIKI_NAV: WikiNode[] = [
       {
         href: "/wiki/integrations/labarchives",
         label: "LabArchives",
-        blurb: "Import Offline Notebook ZIPs and (optionally) connect your account so the importer can fetch online-only inline images.",
+        blurb: "Import Offline Notebook ZIPs via the credential-free path; optional API path for online-only inline images.",
       },
     ],
   },

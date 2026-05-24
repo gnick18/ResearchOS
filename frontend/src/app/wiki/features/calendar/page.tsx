@@ -16,12 +16,14 @@ export default function CalendarFeaturePage() {
 
       <h2>The Calendar page</h2>
       <p>
-        The Calendar page lays out your ResearchOS events on a grid alongside
-        any read-only items pulled in from a linked Google, Outlook, or
-        iCloud calendar. ResearchOS events render as solid colored blocks.
-        Events pulled from a linked calendar render as outlined blocks
-        (white fill with a colored border) and carry a small link icon, so
-        the two are easy to tell apart at a glance.
+        The Calendar page lays out your ResearchOS events on a grid
+        alongside any read-only items pulled in from a linked Google,
+        Outlook, or iCloud calendar. Both kinds of event render with a
+        filled colored background; the text color flips between black and
+        white automatically so the title stays readable regardless of
+        which color a feed picks. External events also carry a small link
+        icon in the corner, which is the visual cue that the event came
+        from a linked calendar rather than from a ResearchOS write.
       </p>
       <p>
         The header strip holds the current date heading, prev/next arrows,
@@ -97,7 +99,7 @@ export default function CalendarFeaturePage() {
 
       <h2>Edit or delete an event</h2>
       <p>
-        Click a ResearchOS event block (the solid-color one) to open its
+        Click a ResearchOS event block to open its
         details popover. <strong>Edit</strong> swaps the popover into a
         form with every field, including a &ldquo;Clear times (make
         all-day)&rdquo; shortcut. <strong>Save</strong> writes the change.

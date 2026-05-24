@@ -31,10 +31,10 @@ export default function HomeFeaturePage() {
       </p>
       <p>
         The color you pick follows the project everywhere: the bar on the{" "}
-        <Link href="/wiki/features/gantt">Gantt</Link>, the badge in{" "}
-        <Link href="/wiki/features/lab-mode">Lab Mode</Link>, and the
-        overlay on the calendar. Pick distinct colors early so a busy Gantt
-        stays readable.
+        <Link href="/wiki/features/gantt">Gantt</Link>, the badge on the{" "}
+        <Link href="/wiki/features/lab-overview">Lab Overview</Link>{" "}
+        widgets, and the overlay on the calendar. Pick distinct colors
+        early so a busy Gantt stays readable.
       </p>
       <p>
         Clicking a task name <em>inside</em> the <strong>Next Up</strong>{" "}
@@ -149,12 +149,13 @@ export default function HomeFeaturePage() {
         file.
       </p>
 
-      <Callout variant="tip" title="Want everyone&rsquo;s work at once?">
+      <Callout variant="tip" title="Want a lab-wide read-only roll-up?">
         Project sharing is the right tool when one labmate wants a
         specific other labmate to follow along on a specific project. For
-        a single view that rolls up every labmate&apos;s projects, tasks,
-        and methods all at once, switch to{" "}
-        <Link href="/wiki/features/lab-mode">Lab Mode</Link> instead.
+        a single dashboard that rolls up every labmate&apos;s projects,
+        tasks, purchases, and announcements at once, the Lab Head opens
+        the <Link href="/wiki/features/lab-overview">Lab Overview</Link>{" "}
+        at <code>/lab-overview</code>.
       </Callout>
 
       <h2>Create a new project</h2>
@@ -203,9 +204,55 @@ export default function HomeFeaturePage() {
 
       <Callout variant="tip" title="Color is visual grouping everywhere">
         The color you pick on Home drives every project bar on the Gantt,
-        every badge in Lab Mode, and the calendar overlay. Pick distinct
-        colors early so the Gantt stays readable as the project count grows.
+        every badge across the Lab Overview widgets, and the calendar
+        overlay. Pick distinct colors early so the Gantt stays readable
+        as the project count grows.
       </Callout>
+
+      <h2>The customizable widget canvas</h2>
+      <p>
+        Beyond the project grid, Home is also a customizable widget canvas.
+        Members see a default layout (today&apos;s announcements, recent
+        lab activity, the comments stream, today&apos;s events) and can
+        pin or remove widgets to match their own workflow. The canvas works
+        the same way as the{" "}
+        <Link href="/wiki/features/lab-overview">Lab Overview</Link>{" "}
+        canvas: tiles open into full popups, drag-and-drop reorders them,
+        and edit mode (gear icon, top-right) reveals the layout controls.
+      </p>
+      {/* TODO screenshot agent: capture Home with the default widget canvas + project grid below.
+          Route: /home
+          Fixture: ?wikiCapture=1
+          Viewport: desktop 1440x900
+          State: member fixture with default widget set + 3 project cards
+          Save to: frontend/public/wiki/screenshots/home-widget-canvas.png
+      */}
+      <Screenshot
+        src="/wiki/screenshots/home-widget-canvas.png"
+        alt="The Home page showing the default widget canvas at the top (announcements, activity, today's events) with the project grid below."
+        caption="Home, with the default widget canvas on top and the project grid below. Pin and reorder the widgets that match how you start your day."
+      />
+      <ul>
+        <li>
+          <strong>+ Add widget</strong> opens the palette of every available
+          widget (the same catalog the Lab Overview uses). Drag a tile onto
+          the canvas to pin it.
+        </li>
+        <li>
+          <strong>Drag tiles to reorder</strong> with edit mode on. Tiles
+          snap to the grid and the layout persists in your settings sidecar.
+        </li>
+        <li>
+          <strong>Tools launcher</strong> in the header opens any Tool
+          popup directly, without pinning. Useful for one-shot looks.
+        </li>
+        <li>
+          <strong>Default widgets</strong>: announcements, comments, lab
+          activity, today&apos;s events. The defaults are what most members
+          want at the start of the day; you can remove any of them or pin
+          extras.
+        </li>
+      </ul>
     </WikiPage>
   );
 }
