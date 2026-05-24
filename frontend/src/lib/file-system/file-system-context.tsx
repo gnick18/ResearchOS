@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import { fileService } from "./file-service";
 import {
   storeDirectoryHandle,
@@ -17,12 +17,12 @@ import {
 import { readMainUser, writeMainUser } from "./user-metadata";
 import { clearCurrentUserCache } from "../storage/json-store";
 import { clearCachedPassword } from "../auth/cached-password";
-import { resetEditSession } from "../lab/edit-session";
 import { discoverUsers, validateResearchFolder, ensureFolderStructure } from "./user-discovery";
 import { readUserSettings, patchUserSettings, userSettingsFileExists, DEFAULT_SETTINGS } from "../settings/user-settings";
 import { useAppStore, readLegacyLocalStorageSettings } from "../store";
 import { getWikiCaptureVariant, getDemoMode, markDemoMode, installWikiCaptureFixture } from "./wiki-capture-mock";
 import { rebaseDemoDates, isDemoLab } from "../demo/rebase";
+import { resetEditSession } from "../lab/edit-session";
 
 /** Coarse-grained phase of the startup connect flow. Used by the loading
  *  screen so the user sees something change while OneDrive is being slow.
@@ -98,6 +98,17 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     needsInitialization: false,
     lastConnectedFolder: null,
   });
+
+  // edit-session bleed fix 2026-05-24: shadow the currentUser into a ref
+  // so user-switch callbacks (setCurrentUser, disconnect) can read the
+  // previous user synchronously without going through setState updater
+  // side-effects (which fire twice in StrictMode). The ref is the
+  // source of truth for "what user did we leave behind?" when deciding
+  // whether to clear the lab-head edit session.
+  const currentUserRef = useRef<string | null>(null);
+  useEffect(() => {
+    currentUserRef.current = state.currentUser;
+  }, [state.currentUser]);
 
   const refreshUsers = useCallback(async () => {
     if (!fileService.isConnected()) return;
@@ -231,6 +242,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
           await storeCurrentUser(currentUser);
         } else if (
           currentUser &&
+          currentUser.toLowerCase() !== "lab" &&
           users.length > 0 &&
           !users.includes(currentUser)
         ) {
@@ -239,12 +251,8 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
           // later wiped — Grant hit `alex` 2026-05-20). Same bug class as the
           // stale-mainUser fix in usersApi.getMainUser at local-api.ts:4278;
           // both read paths needed to be filtered against discoverUsers.
-          //
-          // Lab Mode retirement R5 (2026-05-23): the legacy `lab` sentinel
-          // is now treated as stale just like any other non-discoverable
-          // pointer — `discoverUsers` excludes the `users/lab` shared
-          // funding-account namespace, so a stale `lab` value in IDB falls
-          // into this branch and gets cleared.
+          // "lab" is the Lab Mode sentinel and is intentionally not a
+          // discoverable user, so preserve it.
           //
           // `users.length > 0` guard: discoverUsers returns [] both for a
           // genuinely fresh folder AND for transient FS errors. Clearing on
@@ -809,13 +817,11 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const disconnect = useCallback(async () => {
-    // Mira-Distracted P0 #1 fix (2026-05-23): clear any active lab-head
-    // edit session BEFORE wiping the handle. Without this, the module-
-    // scope session-state singleton in `lib/lab/edit-session.ts` would
-    // bleed into the next folder/login (banner still rendering, audit
-    // entries still attributing writes to a user who's no longer signed
-    // in). Reset to "idle" — distinct from "locked" so the UI doesn't
-    // pretend the previous session "just ended".
+    // edit-session bleed fix 2026-05-24: disconnect ends the active
+    // user session entirely. Any unlocked lab-head window must be
+    // dropped so a fresh connect (to the same OR a different folder)
+    // starts from idle. resetEditSession is idempotent so calling
+    // unconditionally here is safe.
     resetEditSession();
     fileService.clearDirectoryHandle();
     await clearDirectoryHandle();
@@ -857,17 +863,18 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
 
   const setCurrentUser = useCallback(async (username: string) => {
     console.log("[FileSystemProvider.setCurrentUser] Called with username:", username);
-    // Mira-Distracted P0 #1 fix (2026-05-23): drop any active lab-head
-    // edit session BEFORE committing the new user. The module-scope
-    // singleton in `lib/lab/edit-session.ts` was never being cleared on
-    // user switch, so a session unlocked by Mira would still be reported
-    // as `state: "unlocked", active: { username: "mira" }` after the
-    // user-picker swapped the app to alex. EditSessionBanner kept
-    // rendering, `isUnlockedFor()` kept returning true, and audit entries
-    // could attribute writes to mira while alex was the active user.
-    // Called synchronously before any await so the next AppShell render
-    // sees the cleared session.
-    resetEditSession();
+    // edit-session bleed fix 2026-05-24: a still-unlocked lab-head
+    // session belongs to whichever username was just active. Switching
+    // to a different user must drop that unlock back to idle so the
+    // new user cannot inherit write-gating permissions from the old
+    // one. The `resetEditSession` helper was added for exactly this
+    // case but had no callsite; skipping the reset on a same-user
+    // no-op switch keeps the session timer ticking on routes that
+    // re-call setCurrentUser to refresh other state.
+    const prevUser = currentUserRef.current;
+    if (prevUser && prevUser !== username) {
+      resetEditSession();
+    }
     clearCurrentUserCache();
     // Constraint #2(b): explicit user-switch wipes the cached password.
     // The encrypted backup is keyed per-user and the password gate

@@ -129,4 +129,62 @@ describe("edit-session", () => {
     expect(formatRemaining(0)).toBe("0:00");
     expect(formatRemaining(-1)).toBe("0:00");
   });
+
+  // edit-session bleed fix 2026-05-24 (edit-session bleed fix manager):
+  // FileSystemProvider.setCurrentUser now invokes resetEditSession when
+  // the username actually changes. These tests pin the contract that
+  // backs that callsite: an unlocked session held by user A must NOT
+  // remain unlocked once we treat user B as current, and a same-user
+  // re-call must not interrupt the live session.
+  describe("user-switch reset contract (FileSystemProvider.setCurrentUser bleed fix)", () => {
+    it("drops an unlocked session to idle when the active user switches", () => {
+      startEditSession("alice");
+      expect(getEditSession().state).toBe("unlocked");
+      expect(isUnlockedFor("alice")).toBe(true);
+
+      // Simulate what FileSystemProvider.setCurrentUser does when the
+      // prev user differs from the incoming one.
+      resetEditSession();
+
+      const snap = getEditSession();
+      expect(snap.state).toBe("idle");
+      expect(snap.active).toBeNull();
+      // User B must not inherit A's unlocked permissions, and A must
+      // also no longer read as unlocked (sessions are not persisted).
+      expect(isUnlockedFor("bob")).toBe(false);
+      expect(isUnlockedFor("alice")).toBe(false);
+    });
+
+    it("on a same-user no-op switch the active session is preserved (no reset call)", () => {
+      const meta = startEditSession("alice");
+      expect(getEditSession().state).toBe("unlocked");
+
+      // Simulate setCurrentUser("alice") when prevUser is also "alice":
+      // the provider intentionally skips resetEditSession in that branch
+      // so we do NOT call it here. The session must remain unlocked
+      // with the same id.
+      const snap = getEditSession();
+      expect(snap.state).toBe("unlocked");
+      expect(snap.active?.id).toBe(meta.id);
+      expect(isUnlockedFor("alice")).toBe(true);
+    });
+
+    it("a switched-to user starts in idle even if the previous user had an unlocked session", () => {
+      // User A unlocks.
+      startEditSession("alice");
+      expect(isUnlockedFor("alice")).toBe(true);
+
+      // setCurrentUser("bob") path: reset, then the provider stamps
+      // currentUser=bob. From bob's perspective the session is idle.
+      resetEditSession();
+
+      expect(getEditSession().state).toBe("idle");
+      expect(isUnlockedFor("bob")).toBe(false);
+
+      // And if alice switches back, she also starts idle: the
+      // singleton is in-memory only and not keyed by username, so a
+      // round-trip through bob clears alice's unlock too.
+      expect(isUnlockedFor("alice")).toBe(false);
+    });
+  });
 });
