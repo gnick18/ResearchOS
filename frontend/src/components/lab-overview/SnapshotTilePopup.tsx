@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Tooltip from "@/components/Tooltip";
+import { PopupActionsProvider } from "@/lib/lab-overview/popup-actions";
 
 /**
  * Widget canvas Phase A (Phase A redispatch manager, 2026-05-23):
@@ -168,7 +169,16 @@ export default function SnapshotTilePopup({
             </button>
           </Tooltip>
         </header>
-        <div className="flex-1 min-h-0 overflow-auto p-4">{children}</div>
+        <div className="flex-1 min-h-0 overflow-auto p-4">
+          {/* PopupActionsProvider lets the ExpandedView body call
+              `closePopup()` before navigating away (see
+              popup-close hook manager note in popup-actions.tsx).
+              Wrapping here means every consumer surface (canvas,
+              sidebar, tools launcher) gets the provider for free. */}
+          <PopupActionsProvider closePopup={onClose}>
+            {children}
+          </PopupActionsProvider>
+        </div>
       </div>
     </div>
   );

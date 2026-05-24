@@ -7,6 +7,7 @@ import { labApi } from "@/lib/local-api";
 import { useLabData } from "@/hooks/useLabData";
 import { listAnnouncements } from "@/lib/lab/announcements";
 import UserAvatar from "@/components/UserAvatar";
+import { usePopupActions } from "@/lib/lab-overview/popup-actions";
 import type { Note } from "@/lib/types";
 
 /**
@@ -168,6 +169,11 @@ export default function RecentActivityWidget(_props?: {
   surface?: "canvas" | "sidebar";
 }) {
   const { tasks } = useLabData();
+  // popup-close hook: when this body is rendered inside a
+  // SnapshotTilePopup, navigating away should close the popup first
+  // so the user doesn't hit back and find it still mounted. Outside a
+  // popup (inline canvas body), `closePopup` is a no-op.
+  const { closePopup } = usePopupActions();
 
   // Shared notes (carry their `.comments` field — same query the
   // CommentFeedWidget uses, so the cache is warm).
@@ -322,6 +328,7 @@ export default function RecentActivityWidget(_props?: {
               {item.href ? (
                 <Link
                   href={item.href}
+                  onClick={() => closePopup()}
                   className="block rounded hover:bg-gray-50 -mx-1 px-1 py-1"
                 >
                   {row}
@@ -350,6 +357,7 @@ export default function RecentActivityWidget(_props?: {
        */}
       <Link
         href="/lab-overview"
+        onClick={() => closePopup()}
         className="text-[11px] text-blue-600 hover:text-blue-700 hover:underline self-start pl-1"
       >
         View full activity

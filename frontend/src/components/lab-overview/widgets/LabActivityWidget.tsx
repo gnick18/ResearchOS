@@ -7,6 +7,7 @@ import { labApi } from "@/lib/local-api";
 import { useLabData } from "@/hooks/useLabData";
 import { listAnnouncements } from "@/lib/lab/announcements";
 import UserAvatar from "@/components/UserAvatar";
+import { usePopupActions } from "@/lib/lab-overview/popup-actions";
 import type { Note } from "@/lib/types";
 import type { SnapshotTileProps } from "./types";
 
@@ -473,6 +474,10 @@ export default function LabActivityWidget(_props?: {
 }
 
 function ActivityRow({ item }: { item: FeedItem }) {
+  // popup-close hook: close the SnapshotTilePopup before navigating to
+  // the linked surface so the user doesn't land back on a popup overlay.
+  // No-op outside a popup.
+  const { closePopup } = usePopupActions();
   const body = (
     <div className="flex items-start gap-2 min-w-0">
       <span
@@ -498,6 +503,7 @@ function ActivityRow({ item }: { item: FeedItem }) {
     return (
       <Link
         href={item.href}
+        onClick={() => closePopup()}
         className="block rounded hover:bg-gray-50 -mx-1 px-1 py-1"
       >
         {body}
