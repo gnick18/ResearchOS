@@ -41,7 +41,12 @@
  *     personal task widgets use it).
  */
 import type { ComponentType } from "react";
-import type { ExpandedViewProps } from "@/components/lab-overview/widgets/types";
+import {
+  visibleCatalog,
+  widgetHasSurface,
+  type ExpandedViewProps,
+} from "@/components/lab-overview/widgets/types";
+import { WIDGET_CATALOG } from "@/components/lab-overview/widgets/registry";
 import type { AccountType } from "@/lib/settings/user-settings";
 
 // ── ExpandedView imports ─────────────────────────────────────────────────
@@ -307,12 +312,38 @@ export function getTool(id: string): ToolDefinition | undefined {
  * Filter the tool registry to the entries a given account type is
  * allowed to open. Mirrors `visibleCatalog` from widgets/types.ts but
  * runs over Tools, not Widgets.
+ *
+ * Home canvas migration (Home canvas migration manager, 2026-05-23):
+ * the optional `surface` arg further scopes the launcher to Tools
+ * whose AT LEAST ONE widget variant is eligible for the given surface.
+ * Otherwise the /home launcher would list (e.g.) "PI actions" — a Tool
+ * whose only widget is sidebar-only, opening a popup the user can't
+ * pin via the home canvas. Pass `undefined` for the legacy
+ * "all-allowed-tools" behavior used by /lab-overview's launcher (it
+ * sees every Tool the viewer can open, regardless of where its
+ * widgets live).
  */
-export function visibleTools(accountType: AccountType): ToolDefinition[] {
-  if (accountType === "lab_head") {
-    return TOOL_REGISTRY.filter((t) => t.labHeadVisible !== false);
-  }
-  return TOOL_REGISTRY.filter((t) => t.memberVisible);
+export function visibleTools(
+  accountType: AccountType,
+  surface?: "canvas" | "sidebar" | "home",
+): ToolDefinition[] {
+  const accountFiltered =
+    accountType === "lab_head"
+      ? TOOL_REGISTRY.filter((t) => t.labHeadVisible !== false)
+      : TOOL_REGISTRY.filter((t) => t.memberVisible);
+  if (!surface) return accountFiltered;
+
+  // Build the set of tool ids that have at least one widget variant
+  // eligible for the requested surface AND visible to this account
+  // type. Without the account filter on the widget side, the launcher
+  // could surface a tool that's PI-only via a hidden PI widget.
+  const widgetCatalogForAccount = visibleCatalog(WIDGET_CATALOG, accountType);
+  const eligibleToolIds = new Set(
+    widgetCatalogForAccount
+      .filter((w) => widgetHasSurface(w, surface))
+      .map((w) => w.toolId),
+  );
+  return accountFiltered.filter((t) => eligibleToolIds.has(t.id));
 }
 
 /**

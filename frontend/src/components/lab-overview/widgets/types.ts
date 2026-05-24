@@ -53,18 +53,88 @@
 import type { ComponentType } from "react";
 import type { AccountType } from "@/lib/settings/user-settings";
 
-/** Which area(s) a widget can mount into. Most widgets pick exactly
- *  one; sidebar widgets are vertical-only by design, canvas widgets
- *  free-grid. A widget marked `"both"` is allowed in either surface
- *  but its default-layout entry still goes through the area-specific
- *  default-layout config (see `defaults.ts`). */
+/** Legacy single-surface field (kept for back-compat — see `surfaces`
+ *  below for the new model). Pre-home-canvas migration, every widget
+ *  declared exactly one surface or `"both"`. Home canvas migration
+ *  (2026-05-23): replaced by the multi-surface `surfaces` map; the
+ *  `surface` field is kept on the type so older catalog entries
+ *  type-check while the migration rolls out. Consumers should read
+ *  `widget.surfaces.canvas|sidebar|home` (via `widgetHasSurface`) — the
+ *  legacy `surface` field is translated by the helper for any entry
+ *  that hasn't been ported yet. */
 export type WidgetSurface = "canvas" | "sidebar" | "both";
+
+/** Which surface(s) a widget is allowed to mount on. Home canvas
+ *  migration (Home canvas migration manager, 2026-05-23): decoupled
+ *  surface from a single-string enum so a widget can independently
+ *  opt into the lab-overview canvas, the sidebar rail, AND the new
+ *  home canvas without needing a `"canvas-or-sidebar-or-home"` cartesian
+ *  product enum.
+ *
+ *  Conceptual model:
+ *    - `canvas`  → the /lab-overview snapshot canvas (PI dashboard)
+ *    - `sidebar` → the customizable sidebar rail (in-page on
+ *      /lab-overview, AppShell-level for lab heads on other routes)
+ *    - `home`    → the new /home widget canvas (every user)
+ *
+ *  Existing widgets that haven't migrated still carry the legacy
+ *  `surface` field. The `widgetHasSurface` helper translates either
+ *  shape, so consumers don't need to care which one the catalog
+ *  entry uses. */
+export interface WidgetSurfaces {
+  canvas?: boolean;
+  sidebar?: boolean;
+  /** Home canvas migration (2026-05-23): widgets that should appear
+   *  in the /home page's customizable canvas. Independent from
+   *  `canvas` (which targets /lab-overview only) so a PI dashboard
+   *  widget like Metrics can stay lab-overview-only while
+   *  announcements / comments / lab-activity opt into both. */
+  home?: boolean;
+}
+
+/** Pure helper: does this widget definition allow `target` as a mount
+ *  surface? Reads the new `surfaces` map first; falls back to the
+ *  legacy `surface` string for catalog entries that haven't been
+ *  ported. The legacy `"both"` value maps to canvas + sidebar (its
+ *  original meaning) but NOT home (home is opt-in via the new
+ *  `surfaces.home` field — never auto-inferred from `"both"`).
+ *
+ *  This is the canonical way for consumers (canvas / sidebar / home
+ *  filters, palette renderers, etc.) to check surface eligibility.
+ *  Direct reads of `widget.surface` or `widget.surfaces` break the
+ *  back-compat path. */
+export function widgetHasSurface(
+  widget: { surface?: WidgetSurface; surfaces?: WidgetSurfaces },
+  target: "canvas" | "sidebar" | "home",
+): boolean {
+  if (widget.surfaces) {
+    return widget.surfaces[target] === true;
+  }
+  if (!widget.surface) return false;
+  if (target === "home") {
+    // The legacy `surface` field never described /home eligibility;
+    // home is opt-in via the new `surfaces.home` field only.
+    return false;
+  }
+  if (widget.surface === target) return true;
+  if (widget.surface === "both" && (target === "canvas" || target === "sidebar")) {
+    return true;
+  }
+  return false;
+}
 
 /** Props passed to a widget's `SnapshotTile`. Snapshot tiles are
  *  click-to-open: they don't get edit-mode chrome (the canvas owns
  *  drag handles + the remove button on the wrapper). They DO need to
  *  know their surface so a wider canvas tile can show a slightly
- *  richer headline than the narrow sidebar variant. */
+ *  richer headline than the narrow sidebar variant.
+ *
+ *  Home canvas migration (2026-05-23): home tiles render with the same
+ *  "canvas" shape (they live in the /home widget grid which mirrors
+ *  the /lab-overview snapshot canvas), so we keep the prop union at
+ *  `"canvas" | "sidebar"` and pass `"canvas"` when mounted on /home.
+ *  If a per-surface tile design ever forks (e.g. home wants narrower
+ *  tiles than lab-overview), widen this union then. */
 export interface SnapshotTileProps {
   surface: "canvas" | "sidebar";
 }
@@ -183,8 +253,37 @@ export interface WidgetDefinition {
   /** Default sizing on the free-grid canvas, retained for the layout
    *  migration's append-at-bottom logic + Phase B forward-compat. */
   defaultLayout: WidgetDefaultLayout;
-  /** Which surface(s) the widget is allowed to mount on. */
-  surface: WidgetSurface;
+  /**
+   * Legacy single-surface field. Pre-home-canvas, every widget declared
+   * exactly one surface (or `"both"` for the rare two-surface case).
+   * Home canvas migration (Home canvas migration manager, 2026-05-23)
+   * replaced this with the multi-surface `surfaces` map below; this
+   * field is kept on the type as a back-compat fallback for catalog
+   * entries that haven't been ported. Consumers read surface eligibility
+   * via `widgetHasSurface(widget, "canvas" | "sidebar" | "home")`, which
+   * checks `surfaces` first and falls back to this field.
+   *
+   * Optional after the migration — new entries should set `surfaces`
+   * directly and leave `surface` undefined.
+   */
+  surface?: WidgetSurface;
+  /**
+   * Home canvas migration (Home canvas migration manager, 2026-05-23):
+   * the canonical surface eligibility map. Set `canvas: true` for the
+   * /lab-overview snapshot canvas, `sidebar: true` for the customizable
+   * sidebar rail, `home: true` for the new /home widget canvas. A
+   * widget can opt into any combination — Announcements / Comments /
+   * LabActivity / TodaysAnnouncements set both `canvas` and `home` so
+   * they surface on both PI dashboard AND member home. PI-only widgets
+   * (Metrics, PI actions, purchases) keep `canvas: true` only — they
+   * stay on /lab-overview where lab heads expect them. Lab heads CAN
+   * still pin them on /home manually via the catalog drawer, but the
+   * default Home canvas stays clean.
+   *
+   * If both `surface` and `surfaces` are present, `surfaces` wins.
+   * If neither is present, the widget is hidden from every surface.
+   */
+  surfaces?: WidgetSurfaces;
   /** Allow this widget into a regular member's catalog? `false` → PI only. */
   memberVisible: boolean;
   /**

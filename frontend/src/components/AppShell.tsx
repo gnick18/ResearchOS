@@ -136,11 +136,25 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // the primary lab-mode landing surface alongside Home. The label
   // changes from "Lab Inbox" to "Lab Overview"; the route directory
   // moved to /lab-overview (legacy /lab-inbox redirects).
+  //
+  // Home canvas migration (Home canvas migration manager, 2026-05-23):
+  // /lab-overview is retired for lab MEMBERS — the same announcements
+  // + comments + lab-activity signals now live on the Home page via
+  // the new customizable home canvas. Lab heads keep /lab-overview
+  // as the PI dashboard. The nav entry is therefore lab-head-only
+  // post-migration; members never see it. (The /lab-overview route
+  // itself still exists and the page-level guard redirects members
+  // to "/" if they navigate there directly.) Solo accounts continue
+  // to never see the tab.
   const accountType = useAccountType(currentUser ?? null);
-  const isLabWorkspace = featurePicks?.account_type === "lab";
-  const showLabOverview =
-    accountType === "lab_head" ||
-    (accountType === "member" && isLabWorkspace);
+  // isLabWorkspace was previously used to surface /lab-overview for
+  // lab MEMBERS (so they could see PI announcements). Kept as a
+  // variable in case a future chip needs to gate something else by
+  // workspace shape; the underscore-prefixed alias signals "computed
+  // but intentionally unused in the current gate".
+  const _isLabWorkspace = featurePicks?.account_type === "lab";
+  void _isLabWorkspace;
+  const showLabOverview = accountType === "lab_head";
   // Widget catalog cleanup (widget catalog cleanup manager, 2026-05-23):
   // for lab_head accounts the /purchases top-nav entry is hidden because
   // the LabPurchasesWidget on Lab Overview now covers their workflow

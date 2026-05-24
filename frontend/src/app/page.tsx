@@ -15,6 +15,7 @@ import ProjectCardKebab from "@/components/project-surface/ProjectCardKebab";
 import Tooltip from "@/components/Tooltip";
 import UserLoginScreen from "@/components/UserLoginScreen";
 import SubTaskProgressDots from "@/components/workbench/SubTaskProgressDots";
+import HomeCanvas from "@/components/home/HomeCanvas";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useAppStore } from "@/lib/store";
 import type { Task } from "@/lib/types";
@@ -814,6 +815,18 @@ export default function HomePage() {
             </button>
           </div>
         )}
+
+        {/* Home canvas migration (Home canvas migration manager,
+            2026-05-23): the customizable widget canvas mounts at the
+            bottom of the home page, below the project snapshots.
+            Defaults to 4 widgets (announcements, comment-feed,
+            lab-activity, today's-announcements) which both members
+            and lab heads see. Lab heads keep /lab-overview for the
+            dense PI dashboard. Members no longer have access to
+            /lab-overview — they get the same lab signals on /home
+            via this canvas. Only renders for signed-in users (the
+            pre-login UserLoginScreen path returns earlier above). */}
+        {currentUser && <HomeCanvas username={currentUser} />}
       </div>
 
       {/* Task Detail Popup */}

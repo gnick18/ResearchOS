@@ -4,18 +4,28 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Widget from "./widgets/Widget";
 import SnapshotTilePopup from "./SnapshotTilePopup";
 import { WIDGET_CATALOG, getWidget } from "./widgets/registry";
-import { visibleCatalog } from "./widgets/types";
+import {
+  visibleCatalog,
+  widgetHasSurface,
+  type WidgetDefinition,
+} from "./widgets/types";
 import {
   addCanvasWidget,
+  addHomeCanvasWidget,
   patchCanvasOrder,
+  patchHomeCanvasOrder,
+  readResolvedHomeLayout,
   readResolvedLayout,
   removeCanvasWidget,
+  removeHomeCanvasWidget,
+  resetHomeLayout,
   resetLayout,
 } from "@/lib/lab-overview/layout-persistence";
 import {
   resolveExpandedView,
   resolveToolTitle,
 } from "@/lib/lab-overview/tool-registry";
+import type { LabOverviewLayout } from "@/lib/settings/user-settings";
 import type { AccountType } from "@/lib/settings/user-settings";
 import Tooltip from "@/components/Tooltip";
 
@@ -39,16 +49,79 @@ import Tooltip from "@/components/Tooltip";
  * dashboard-like uniform grid that the eye can scan. Phase B adds
  * per-tile customization (sparkline, mini-feed, etc.) inside each
  * widget's `SnapshotTile` component, not on the canvas frame.
+ *
+ * Home canvas migration (Home canvas migration manager, 2026-05-23):
+ * `SnapshotCanvas` is now reusable across pages via the `surface` prop.
+ *   - `surface="canvas"` → /lab-overview, reads/writes `lab_overview_layout`
+ *   - `surface="home"`   → /home,         reads/writes `home_layout`
+ * Each surface has its own catalog filter, mutators, and default
+ * layout — wired below via per-surface adapter objects so the
+ * component body stays a single render path.
  */
 export interface SnapshotCanvasProps {
   username: string;
   accountType: AccountType;
+  /**
+   * Which surface this canvas instance represents. Controls the catalog
+   * filter (canvas-eligible vs home-eligible widgets), the persistence
+   * field (`lab_overview_layout` vs `home_layout`), and the default
+   * layout. Defaults to `"canvas"` for back-compat with the existing
+   * /lab-overview mount.
+   */
+  surface?: "canvas" | "home";
+  /** Reset-confirmation copy. Defaults to the lab-overview wording.
+   *  Home uses a different label since the user perceives it as a
+   *  different "page". */
+  resetConfirmMessage?: string;
+  /** Optional empty-state copy shown when the canvas has zero widgets.
+   *  Defaults to a generic "no widgets pinned" message. */
+  emptyStateMessage?: string;
 }
+
+interface SurfaceAdapter {
+  /** Read the resolved layout for this surface. */
+  readResolvedLayout: (
+    username: string,
+    catalog: WidgetDefinition[],
+  ) => Promise<LabOverviewLayout>;
+  /** Persist a new canvas order. */
+  patchCanvasOrder: (username: string, order: string[]) => Promise<void>;
+  /** Add a widget. */
+  addCanvasWidget: (username: string, w: WidgetDefinition) => Promise<void>;
+  /** Remove a widget. */
+  removeCanvasWidget: (username: string, id: string) => Promise<void>;
+  /** Reset to default. */
+  resetLayout: (username: string) => Promise<void>;
+  /** Which surface key to read from `visibleCatalog` results. */
+  surfaceKey: "canvas" | "home";
+}
+
+const CANVAS_ADAPTER: SurfaceAdapter = {
+  readResolvedLayout,
+  patchCanvasOrder,
+  addCanvasWidget,
+  removeCanvasWidget,
+  resetLayout,
+  surfaceKey: "canvas",
+};
+
+const HOME_ADAPTER: SurfaceAdapter = {
+  readResolvedLayout: readResolvedHomeLayout,
+  patchCanvasOrder: patchHomeCanvasOrder,
+  addCanvasWidget: addHomeCanvasWidget,
+  removeCanvasWidget: removeHomeCanvasWidget,
+  resetLayout: resetHomeLayout,
+  surfaceKey: "home",
+};
 
 export default function SnapshotCanvas({
   username,
   accountType,
+  surface = "canvas",
+  resetConfirmMessage,
+  emptyStateMessage,
 }: SnapshotCanvasProps) {
+  const adapter = surface === "home" ? HOME_ADAPTER : CANVAS_ADAPTER;
   const [isEditing, setIsEditing] = useState(false);
   const [order, setOrder] = useState<string[] | null>(null);
   const [showPalette, setShowPalette] = useState(false);
@@ -61,8 +134,8 @@ export default function SnapshotCanvas({
     [accountType],
   );
   const canvasCatalog = useMemo(
-    () => catalog.filter((w) => w.surface === "canvas" || w.surface === "both"),
-    [catalog],
+    () => catalog.filter((w) => widgetHasSurface(w, adapter.surfaceKey)),
+    [catalog, adapter.surfaceKey],
   );
 
   // ── Load initial layout ────────────────────────────────────────────────
@@ -70,7 +143,7 @@ export default function SnapshotCanvas({
     let cancelled = false;
     (async () => {
       try {
-        const resolved = await readResolvedLayout(username, catalog);
+        const resolved = await adapter.readResolvedLayout(username, catalog);
         if (!cancelled) setOrder(resolved.widgetOrder.canvas);
       } catch (err) {
         console.warn("[SnapshotCanvas] failed to load layout", err);
@@ -80,7 +153,7 @@ export default function SnapshotCanvas({
     return () => {
       cancelled = true;
     };
-  }, [username, catalog]);
+  }, [username, catalog, adapter]);
 
   // ── Native HTML5 drag-and-drop reorder ─────────────────────────────────
   // Pattern source: `app/page.tsx` project-card reorder. Same lifecycle:
@@ -135,12 +208,12 @@ export default function SnapshotCanvas({
       // Persist once per drop — no per-tick writes. Mirrors the
       // project-card reorder pattern.
       try {
-        await patchCanvasOrder(username, next);
+        await adapter.patchCanvasOrder(username, next);
       } catch (err) {
         console.warn("[SnapshotCanvas] failed to persist canvas order", err);
       }
     },
-    [order, dragId, username],
+    [order, dragId, username, adapter],
   );
 
   const handleDragEnd = useCallback(() => {
@@ -153,34 +226,36 @@ export default function SnapshotCanvas({
     async (widgetId: string) => {
       const def = getWidget(widgetId);
       if (!def) return;
-      await addCanvasWidget(username, def);
-      const resolved = await readResolvedLayout(username, catalog);
+      await adapter.addCanvasWidget(username, def);
+      const resolved = await adapter.readResolvedLayout(username, catalog);
       setOrder(resolved.widgetOrder.canvas);
     },
-    [username, catalog],
+    [username, catalog, adapter],
   );
 
   const handleRemoveWidget = useCallback(
     async (widgetId: string) => {
-      await removeCanvasWidget(username, widgetId);
-      const resolved = await readResolvedLayout(username, catalog);
+      await adapter.removeCanvasWidget(username, widgetId);
+      const resolved = await adapter.readResolvedLayout(username, catalog);
       setOrder(resolved.widgetOrder.canvas);
     },
-    [username, catalog],
+    [username, catalog, adapter],
   );
 
+  const defaultResetMsg =
+    surface === "home"
+      ? "Reset Home layout to default? Your widget order will be lost."
+      : "Reset Lab Overview layout to default? Your widget order will be lost.";
+  const resetMsg = resetConfirmMessage ?? defaultResetMsg;
+
   const handleReset = useCallback(async () => {
-    if (
-      !window.confirm(
-        "Reset Lab Overview layout to default? Your widget order will be lost.",
-      )
-    ) {
+    if (!window.confirm(resetMsg)) {
       return;
     }
-    await resetLayout(username);
-    const resolved = await readResolvedLayout(username, catalog);
+    await adapter.resetLayout(username);
+    const resolved = await adapter.readResolvedLayout(username, catalog);
     setOrder(resolved.widgetOrder.canvas);
-  }, [username, catalog]);
+  }, [username, catalog, adapter, resetMsg]);
 
   if (order === null) {
     return (
@@ -302,6 +377,20 @@ export default function SnapshotCanvas({
           </div>
         )}
       </div>
+
+      {/* Empty-state copy when the user has removed every widget.
+          Home canvas migration (2026-05-23): a brand-new home user
+          starts with the 4 default widgets and can remove them — if
+          they remove all four, this hint replaces the empty grid so
+          the page doesn't read as broken. */}
+      {order.length === 0 && (
+        <div className="rounded-lg border border-dashed border-gray-200 p-6 text-center">
+          <p className="text-sm text-gray-500">
+            {emptyStateMessage ??
+              "No widgets pinned. Use Add widget to bring some back."}
+          </p>
+        </div>
+      )}
 
       {/* 2-column snapshot grid */}
       <div

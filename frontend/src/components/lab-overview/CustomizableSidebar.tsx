@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import SnapshotTilePopup from "./SnapshotTilePopup";
 import { WIDGET_CATALOG, getWidget } from "./widgets/registry";
-import { visibleCatalog } from "./widgets/types";
+import { visibleCatalog, widgetHasSurface } from "./widgets/types";
 import {
   patchSidebarOrder,
   readResolvedLayout,
@@ -77,7 +77,7 @@ export default function CustomizableSidebar() {
     [accountType],
   );
   const sidebarCatalog = useMemo(
-    () => catalog.filter((w) => w.surface === "sidebar" || w.surface === "both"),
+    () => catalog.filter((w) => widgetHasSurface(w, "sidebar")),
     [catalog],
   );
 

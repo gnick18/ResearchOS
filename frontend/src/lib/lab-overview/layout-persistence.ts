@@ -38,7 +38,10 @@ import {
   type LabOverviewLayout,
   type LabOverviewLayoutV1,
 } from "@/lib/settings/user-settings";
-import type { WidgetDefinition } from "@/components/lab-overview/widgets/types";
+import {
+  widgetHasSurface,
+  type WidgetDefinition,
+} from "@/components/lab-overview/widgets/types";
 
 /** Current shape version. v1 = R2 free-grid; v2 = Phase A snapshot
  *  canvas order list. Bumped only on schema-changing shape
@@ -190,16 +193,15 @@ export function resolveLayout(
 ): LabOverviewLayout {
   const migrated = migrateLayoutToV2(saved) ?? defaultLayoutFor(accountType);
 
-  // Split catalog by surface for the append-at-end rules.
+  // Split catalog by surface for the append-at-end rules. Home canvas
+  // migration (2026-05-23): surface check goes through `widgetHasSurface`
+  // so both the new `surfaces` map and the legacy `surface` string
+  // resolve to the same eligibility decision.
   const canvasIds = new Set(
-    catalog
-      .filter((w) => w.surface === "canvas" || w.surface === "both")
-      .map((w) => w.id),
+    catalog.filter((w) => widgetHasSurface(w, "canvas")).map((w) => w.id),
   );
   const sidebarIds = new Set(
-    catalog
-      .filter((w) => w.surface === "sidebar" || w.surface === "both")
-      .map((w) => w.id),
+    catalog.filter((w) => widgetHasSurface(w, "sidebar")).map((w) => w.id),
   );
 
   function normalizeOrder(
@@ -241,13 +243,13 @@ export function resolveLayout(
         migrated.widgetOrder.canvas,
         canvasIds,
         catalog,
-        (w) => w.surface === "canvas" || w.surface === "both",
+        (w) => widgetHasSurface(w, "canvas"),
       ),
       sidebar: normalizeOrder(
         migrated.widgetOrder.sidebar,
         sidebarIds,
         catalog,
-        (w) => w.surface === "sidebar" || w.surface === "both",
+        (w) => widgetHasSurface(w, "sidebar"),
       ),
     },
   };
@@ -393,5 +395,238 @@ export async function resetLayout(username: string): Promise<void> {
   const current = await readUserSettings(username);
   await patchUserSettings(username, {
     lab_overview_layout: defaultLayoutFor(current.account_type),
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Home canvas (Home canvas migration, 2026-05-23)
+// ─────────────────────────────────────────────────────────────────────────
+//
+// The /home page now has its own customizable widget canvas, scoped to
+// widgets that opt into the `home` surface (see `WIDGET_CATALOG`).
+// Lives in a separate `_user_settings.json:home_layout` field so the
+// /home customization is independent of /lab-overview customization
+// (a lab head can have a dense PI dashboard on /lab-overview AND a
+// quieter personal home canvas).
+//
+// The home layout shape mirrors the lab-overview shape (v2 ordered
+// list per surface) so the same `SnapshotCanvas`-style mechanics can
+// be reused. The "sidebar" axis is currently UNUSED on /home —
+// /home keeps its existing AppShell sidebar (DailyTasksSidebar /
+// CustomizableSidebar) untouched. We allocate the slot in the shape
+// anyway so a future "customizable home sidebar" chip doesn't need a
+// schema migration.
+
+/**
+ * Home canvas default for a fresh member: the 4 signals Grant called
+ * out ("announcements + comments-on-my-work + lab activity + today's
+ * events"). All 4 widget ids exist in the catalog with `surfaces.home:
+ * true`. The "today's events" slot uses
+ * `sidebar-todays-announcements` as the closest available match (the
+ * catalog doesn't have a dedicated calendar-events-today widget yet —
+ * see report follow-up).
+ */
+function defaultMemberHomeLayout(): LabOverviewLayout {
+  return {
+    version: LAB_OVERVIEW_LAYOUT_VERSION,
+    widgetOrder: {
+      canvas: [
+        "announcements",
+        "comment-feed",
+        "lab-activity",
+        "sidebar-todays-announcements",
+      ],
+      // Home sidebar is unused today (see note above). Leave empty so
+      // the home canvas reader has a stable shape to read.
+      sidebar: [],
+    },
+  };
+}
+
+/**
+ * Home canvas default for a fresh lab head. Grant's brief: "Lab heads
+ * ALSO get the Home canvas (they can pin personal widgets there
+ * alongside their projects)." Lab heads get the same 4 default home
+ * signals as members — they can extend per taste, and they still have
+ * /lab-overview for the dense PI dashboard.
+ */
+function defaultLabHeadHomeLayout(): LabOverviewLayout {
+  return {
+    version: LAB_OVERVIEW_LAYOUT_VERSION,
+    widgetOrder: {
+      canvas: [
+        "announcements",
+        "comment-feed",
+        "lab-activity",
+        "sidebar-todays-announcements",
+      ],
+      sidebar: [],
+    },
+  };
+}
+
+/** Account-type-aware home canvas default. */
+export function defaultHomeLayoutFor(
+  accountType: AccountType,
+): LabOverviewLayout {
+  return accountType === "lab_head"
+    ? defaultLabHeadHomeLayout()
+    : defaultMemberHomeLayout();
+}
+
+/**
+ * Resolve a saved home layout against the current catalog + viewer.
+ * Mirrors `resolveLayout` for /lab-overview but reads from the `home`
+ * surface eligibility (not `canvas`) and the `home_layout` settings
+ * field (not `lab_overview_layout`).
+ */
+export function resolveHomeLayout(
+  saved: LabOverviewLayout | LabOverviewLayoutV1 | undefined,
+  accountType: AccountType,
+  catalog: WidgetDefinition[],
+): LabOverviewLayout {
+  const migrated = migrateLayoutToV2(saved) ?? defaultHomeLayoutFor(accountType);
+
+  const homeIds = new Set(
+    catalog.filter((w) => widgetHasSurface(w, "home")).map((w) => w.id),
+  );
+
+  function normalizeOrder(
+    saved: string[],
+    eligible: Set<string>,
+    catalogForAppend: WidgetDefinition[],
+    surfaceCheck: (w: WidgetDefinition) => boolean,
+  ): string[] {
+    const renamed = applyIdRenames(saved);
+    const seen = new Set<string>();
+    const next: string[] = [];
+    for (const id of renamed) {
+      if (!eligible.has(id)) {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn(
+            `[home-canvas/layout] Dropping unknown widget id "${id}" from saved home layout.`,
+          );
+        }
+        continue;
+      }
+      if (seen.has(id)) continue;
+      seen.add(id);
+      next.push(id);
+    }
+    // Home canvas migration choice: do NOT auto-append every home-eligible
+    // widget to a user's saved layout. The default seeds 4 widgets; if
+    // the catalog later adds a 5th home-eligible widget, the user can
+    // add it via the palette but their existing saved order isn't
+    // perturbed by an automatic insert. This is a softer contract than
+    // /lab-overview (which appends every new catalog widget): home is
+    // user-curated, lab-overview is a dashboard.
+    void catalogForAppend;
+    void surfaceCheck;
+    return next;
+  }
+
+  return {
+    version: LAB_OVERVIEW_LAYOUT_VERSION,
+    widgetOrder: {
+      canvas: normalizeOrder(
+        migrated.widgetOrder.canvas,
+        homeIds,
+        catalog,
+        (w) => widgetHasSurface(w, "home"),
+      ),
+      // Home sidebar is allocated in the shape but unused today.
+      sidebar: [],
+    },
+  };
+}
+
+/** Convenience: read settings + return the resolved home layout in one call. */
+export async function readResolvedHomeLayout(
+  username: string,
+  catalog: WidgetDefinition[],
+): Promise<LabOverviewLayout> {
+  const settings = await readUserSettings(username);
+  return resolveHomeLayout(
+    settings.home_layout,
+    settings.account_type,
+    catalog,
+  );
+}
+
+/** Replace the entire home layout. Used by Reset on /home. */
+export async function writeHomeLayout(
+  username: string,
+  layout: LabOverviewLayout,
+): Promise<void> {
+  await patchUserSettings(username, { home_layout: layout });
+}
+
+/** Patch the home canvas order. Called once per drop. */
+export async function patchHomeCanvasOrder(
+  username: string,
+  nextCanvasOrder: string[],
+): Promise<void> {
+  const current = await readUserSettings(username);
+  const existing =
+    migrateLayoutToV2(current.home_layout) ??
+    defaultHomeLayoutFor(current.account_type);
+  await patchUserSettings(username, {
+    home_layout: {
+      version: LAB_OVERVIEW_LAYOUT_VERSION,
+      widgetOrder: {
+        canvas: nextCanvasOrder,
+        sidebar: existing.widgetOrder.sidebar,
+      },
+    },
+  });
+}
+
+/** Add a home canvas widget at the end. No-op if already present. */
+export async function addHomeCanvasWidget(
+  username: string,
+  widget: WidgetDefinition,
+): Promise<void> {
+  const current = await readUserSettings(username);
+  const existing =
+    migrateLayoutToV2(current.home_layout) ??
+    defaultHomeLayoutFor(current.account_type);
+  if (existing.widgetOrder.canvas.includes(widget.id)) return;
+  await patchUserSettings(username, {
+    home_layout: {
+      version: LAB_OVERVIEW_LAYOUT_VERSION,
+      widgetOrder: {
+        canvas: [...existing.widgetOrder.canvas, widget.id],
+        sidebar: existing.widgetOrder.sidebar,
+      },
+    },
+  });
+}
+
+/** Remove a home canvas widget. No-op if absent. */
+export async function removeHomeCanvasWidget(
+  username: string,
+  widgetId: string,
+): Promise<void> {
+  const current = await readUserSettings(username);
+  const existing =
+    migrateLayoutToV2(current.home_layout) ??
+    defaultHomeLayoutFor(current.account_type);
+  if (!existing.widgetOrder.canvas.includes(widgetId)) return;
+  await patchUserSettings(username, {
+    home_layout: {
+      version: LAB_OVERVIEW_LAYOUT_VERSION,
+      widgetOrder: {
+        canvas: existing.widgetOrder.canvas.filter((id) => id !== widgetId),
+        sidebar: existing.widgetOrder.sidebar,
+      },
+    },
+  });
+}
+
+/** Reset the home layout to the account-type default. */
+export async function resetHomeLayout(username: string): Promise<void> {
+  const current = await readUserSettings(username);
+  await patchUserSettings(username, {
+    home_layout: defaultHomeLayoutFor(current.account_type),
   });
 }

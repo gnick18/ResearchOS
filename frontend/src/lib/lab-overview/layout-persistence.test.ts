@@ -2,11 +2,14 @@ import { describe, it, expect } from "vitest";
 import {
   LAB_OVERVIEW_LAYOUT_VERSION,
   WIDGET_ID_RENAMES,
+  defaultHomeLayoutFor,
   migrateLayoutToV2,
+  resolveHomeLayout,
   resolveLayout,
 } from "./layout-persistence";
 import {
   visibleCatalog,
+  widgetHasSurface,
   type WidgetDefinition,
 } from "@/components/lab-overview/widgets/types";
 import type {
@@ -278,6 +281,48 @@ describe("migrateLayoutToV2", () => {
     expect(Object.keys(WIDGET_ID_RENAMES).length).toBe(0);
   });
 
+  it("widgetHasSurface translates legacy `surface` field for canvas+sidebar", () => {
+    const legacyCanvas: WidgetDefinition = {
+      id: "x",
+      toolId: "x",
+      title: "x",
+      SnapshotTile: NullSnapshot,
+      SidebarTile: NullSidebar,
+      ExpandedView: NullExpanded,
+      defaultLayout: { w: 1, h: 1 },
+      surface: "canvas",
+      memberVisible: true,
+    };
+    expect(widgetHasSurface(legacyCanvas, "canvas")).toBe(true);
+    expect(widgetHasSurface(legacyCanvas, "sidebar")).toBe(false);
+    expect(widgetHasSurface(legacyCanvas, "home")).toBe(false);
+
+    const legacyBoth: WidgetDefinition = { ...legacyCanvas, surface: "both" };
+    expect(widgetHasSurface(legacyBoth, "canvas")).toBe(true);
+    expect(widgetHasSurface(legacyBoth, "sidebar")).toBe(true);
+    // Legacy "both" never auto-infers home — home is opt-in only.
+    expect(widgetHasSurface(legacyBoth, "home")).toBe(false);
+  });
+
+  it("widgetHasSurface prefers the new `surfaces` map when both are present", () => {
+    const ported: WidgetDefinition = {
+      id: "x",
+      toolId: "x",
+      title: "x",
+      SnapshotTile: NullSnapshot,
+      SidebarTile: NullSidebar,
+      ExpandedView: NullExpanded,
+      defaultLayout: { w: 1, h: 1 },
+      // surfaces wins over surface when both are present
+      surface: "canvas",
+      surfaces: { home: true, sidebar: true },
+      memberVisible: true,
+    };
+    expect(widgetHasSurface(ported, "canvas")).toBe(false);
+    expect(widgetHasSurface(ported, "sidebar")).toBe(true);
+    expect(widgetHasSurface(ported, "home")).toBe(true);
+  });
+
   it("resolveLayout migrates a v1 payload end-to-end", () => {
     const v1: LabOverviewLayoutV1 = {
       version: 1,
@@ -311,5 +356,159 @@ describe("migrateLayoutToV2", () => {
     const idxRecent = layout.widgetOrder.sidebar.indexOf("sidebar-recent-activity");
     const idxOverdue = layout.widgetOrder.sidebar.indexOf("sidebar-overdue");
     expect(idxOverdue).toBeGreaterThan(idxRecent);
+  });
+});
+
+/**
+ * Home canvas migration (Home canvas migration manager, 2026-05-23):
+ * tests for the new `home_layout` reader / mutator + `defaultHomeLayoutFor`.
+ *
+ * The home canvas reads from a separate settings field (`home_layout`,
+ * not `lab_overview_layout`), filters the catalog by the `home` surface
+ * (not `canvas`), and uses a smaller curated default. Unlike the
+ * lab-overview reader, the home reader does NOT auto-append every
+ * home-eligible catalog widget — home is user-curated.
+ */
+describe("resolveHomeLayout + defaultHomeLayoutFor", () => {
+  const homeCatalog: WidgetDefinition[] = [
+    {
+      id: "announcements",
+      toolId: "announcements",
+      title: "Announcements",
+      SnapshotTile: NullSnapshot,
+      SidebarTile: NullSidebar,
+      ExpandedView: NullExpanded,
+      defaultLayout: { w: 12, h: 3 },
+      surfaces: { canvas: true, home: true },
+      memberVisible: true,
+    },
+    {
+      id: "comment-feed",
+      toolId: "comments",
+      title: "Lab comments",
+      SnapshotTile: NullSnapshot,
+      SidebarTile: NullSidebar,
+      ExpandedView: NullExpanded,
+      defaultLayout: { w: 8, h: 6 },
+      surfaces: { canvas: true, home: true },
+      memberVisible: true,
+    },
+    {
+      id: "lab-activity",
+      toolId: "lab-activity",
+      title: "Lab activity",
+      SnapshotTile: NullSnapshot,
+      SidebarTile: NullSidebar,
+      ExpandedView: NullExpanded,
+      defaultLayout: { w: 6, h: 8 },
+      surfaces: { canvas: true, home: true },
+      memberVisible: true,
+    },
+    {
+      id: "sidebar-todays-announcements",
+      toolId: "todays-announcements",
+      title: "Today's announcements",
+      SnapshotTile: NullSnapshot,
+      SidebarTile: NullSidebar,
+      ExpandedView: NullExpanded,
+      defaultLayout: { w: 1, h: 1 },
+      surfaces: { sidebar: true, canvas: true, home: true },
+      memberVisible: true,
+    },
+    {
+      id: "metrics",
+      toolId: "metrics",
+      title: "Lab metrics",
+      SnapshotTile: NullSnapshot,
+      SidebarTile: NullSidebar,
+      ExpandedView: NullExpanded,
+      defaultLayout: { w: 4, h: 6 },
+      // PI-only dashboard, NOT home-eligible. The home reader should
+      // drop this id if it ever appears in a saved home layout.
+      surfaces: { canvas: true },
+      memberVisible: false,
+    },
+  ];
+
+  it("falls back to the member default when home_layout is undefined", () => {
+    const layout = resolveHomeLayout(undefined, "member", homeCatalog);
+    expect(layout.version).toBe(LAB_OVERVIEW_LAYOUT_VERSION);
+    // The four Grant-called-out signals, in order.
+    expect(layout.widgetOrder.canvas).toEqual([
+      "announcements",
+      "comment-feed",
+      "lab-activity",
+      "sidebar-todays-announcements",
+    ]);
+    // Home doesn't use the sidebar axis (today).
+    expect(layout.widgetOrder.sidebar).toEqual([]);
+  });
+
+  it("uses the same default for lab heads (they get /lab-overview for the dense dashboard)", () => {
+    const memberDefault = defaultHomeLayoutFor("member");
+    const headDefault = defaultHomeLayoutFor("lab_head");
+    expect(headDefault.widgetOrder.canvas).toEqual(
+      memberDefault.widgetOrder.canvas,
+    );
+  });
+
+  it("drops widget ids that aren't home-eligible", () => {
+    const saved: LabOverviewLayout = {
+      version: 2,
+      widgetOrder: {
+        // metrics is canvas-only, not home — it must NOT survive.
+        canvas: ["announcements", "metrics", "comment-feed"],
+        sidebar: [],
+      },
+    };
+    const layout = resolveHomeLayout(saved, "lab_head", homeCatalog);
+    expect(layout.widgetOrder.canvas).toEqual([
+      "announcements",
+      "comment-feed",
+    ]);
+    expect(layout.widgetOrder.canvas).not.toContain("metrics");
+  });
+
+  it("preserves the user's custom order", () => {
+    const saved: LabOverviewLayout = {
+      version: 2,
+      widgetOrder: {
+        canvas: ["lab-activity", "announcements"],
+        sidebar: [],
+      },
+    };
+    const layout = resolveHomeLayout(saved, "member", homeCatalog);
+    expect(layout.widgetOrder.canvas).toEqual([
+      "lab-activity",
+      "announcements",
+    ]);
+  });
+
+  it("does NOT auto-append home-eligible widgets to a user's saved layout", () => {
+    // /home is user-curated: a new home-eligible widget in the catalog
+    // does NOT silently appear in everyone's saved layout. (This is the
+    // opposite of /lab-overview, which is a dashboard and does append.)
+    const saved: LabOverviewLayout = {
+      version: 2,
+      widgetOrder: {
+        canvas: ["announcements"],
+        sidebar: [],
+      },
+    };
+    const layout = resolveHomeLayout(saved, "member", homeCatalog);
+    expect(layout.widgetOrder.canvas).toEqual(["announcements"]);
+    expect(layout.widgetOrder.canvas).not.toContain("comment-feed");
+  });
+
+  it("drops unknown widget ids from the saved home canvas", () => {
+    const saved: LabOverviewLayout = {
+      version: 2,
+      widgetOrder: {
+        canvas: ["announcements", "deleted-widget-from-prior-version"],
+        sidebar: [],
+      },
+    };
+    const layout = resolveHomeLayout(saved, "member", homeCatalog);
+    expect(layout.widgetOrder.canvas).toEqual(["announcements"]);
   });
 });

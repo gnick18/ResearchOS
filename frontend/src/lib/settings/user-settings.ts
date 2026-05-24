@@ -156,6 +156,21 @@ export interface UserSettings {
   // ordered lists) so disk payloads from before the migration still
   // type-check. `readResolvedLayout` migrates v1 → v2 on the fly.
   lab_overview_layout?: LabOverviewLayout | LabOverviewLayoutV1;
+
+  // Home canvas migration (Home canvas migration manager, 2026-05-23):
+  // separate per-user persistence for the new /home widget canvas.
+  // Reuses the same v2 shape as `lab_overview_layout` so the
+  // SnapshotCanvas-style mechanics can be reused. Independent field so
+  // the two pages' customizations stay decoupled — a lab head can have
+  // a dense PI dashboard on /lab-overview AND a quieter personal
+  // canvas on /home. Optional; absent → account-type default kicks in
+  // (see `defaultHomeLayoutFor` in `lab-overview/layout-persistence.ts`).
+  //
+  // Migration safety: members who previously customized
+  // `lab_overview_layout` keep that payload on disk after this
+  // migration — it just becomes orphaned (members no longer have
+  // /lab-overview). New `home_layout` starts unset; defaults apply.
+  home_layout?: LabOverviewLayout | LabOverviewLayoutV1;
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {

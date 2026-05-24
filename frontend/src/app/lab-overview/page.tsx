@@ -52,8 +52,20 @@ export default function LabOverviewPage() {
 function LabOverviewBody() {
   const router = useRouter();
   const { currentUser, isConnected } = useFileSystem();
-  // `undefined` = still loading, `null` = no lab access, `true` = ok.
-  const [allowed, setAllowed] = useState<boolean | null | undefined>(undefined);
+  // `undefined` = still loading. `null` = solo (no lab → bounce to "/").
+  // `"redirect-to-home"` = lab member, retired from /lab-overview →
+  // bounce to /home. `true` = lab_head, render the page.
+  //
+  // Home canvas migration (Home canvas migration manager, 2026-05-23):
+  // Grant 2026-05-23 decision: "im really just not convinced the lab
+  // overview page is necessary for non lab heads." For lab members
+  // we now redirect to the Home page (route "/" / HOME_HREF), where
+  // the customizable widget canvas now surfaces the same
+  // announcements + comments + lab-activity signals. Lab heads still
+  // see /lab-overview as the PI dashboard.
+  const [allowed, setAllowed] = useState<
+    boolean | null | "redirect-to-home" | undefined
+  >(undefined);
   const [accountType, setAccountType] = useState<AccountType | null>(null);
 
   useEffect(() => {
@@ -71,11 +83,18 @@ function LabOverviewBody() {
         if (!cancelled) {
           const at = settings.account_type;
           setAccountType(at);
-          // Phase 3 relaxes the Phase 1 lab_head-only guard so ordinary
-          // lab members can see PI announcements. Solo accounts (no lab
-          // workspace) still bounce — they have no lab to display.
           const inLab = onboarding.feature_picks?.account_type === "lab";
-          setAllowed(at === "lab_head" || (at === "member" && inLab) ? true : null);
+          if (at === "lab_head") {
+            setAllowed(true);
+          } else if (at === "member" && inLab) {
+            // Lab member who used to land here for announcements.
+            // Redirect to /home where the home canvas now surfaces
+            // the same widgets.
+            setAllowed("redirect-to-home");
+          } else {
+            // Solo account (no lab workspace) — original bounce to "/".
+            setAllowed(null);
+          }
         }
       } catch {
         if (!cancelled) setAllowed(null);
@@ -87,8 +106,18 @@ function LabOverviewBody() {
   }, [currentUser, isConnected]);
 
   useEffect(() => {
-    // Bounce solo users — no lab folder, nothing to render.
-    if (allowed === null) router.replace("/");
+    if (allowed === null) {
+      // Solo users — no lab folder, nothing to render. Bounce to root.
+      router.replace("/");
+    } else if (allowed === "redirect-to-home") {
+      // Lab members — /lab-overview is retired for them; their lab
+      // signals now live on the Home page (route "/", not "/home" —
+      // HOME_HREF is "/"). `router.replace` (not `push`) so the back
+      // button doesn't trap them in a redirect loop. The closest
+      // client-side equivalent to a true 307 redirect — Next.js 16
+      // client pages don't get server-side response codes.
+      router.replace("/");
+    }
   }, [allowed, router]);
 
   if (allowed === undefined) {
@@ -99,9 +128,18 @@ function LabOverviewBody() {
     );
   }
 
-  if (!allowed || !currentUser || !accountType) {
+  // For both the "/" bounce and the "/home" bounce, return null until
+  // the router.replace lands. Avoids a flash of stale content during
+  // the redirect tick.
+  if (
+    allowed === null ||
+    allowed === "redirect-to-home" ||
+    !currentUser ||
+    !accountType
+  ) {
     return null;
   }
+  if (allowed !== true) return null;
 
   const isLabHead = accountType === "lab_head";
 

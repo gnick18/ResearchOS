@@ -126,7 +126,12 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     SnapshotTile: AnnouncementsSnapshot,
     SidebarTile: AnnouncementsSidebar,
     defaultLayout: { w: 12, h: 3, minW: 4, minH: 2 },
-    surface: "canvas",
+    // Home canvas migration (2026-05-23): Announcements is one of the
+    // four signals Grant called out for /home ("im really just not
+    // convinced the lab overview page is necessary for non lab heads.
+    // Like i do see a utility to showing the announcements or comments
+    // on their work by others"). Both canvas + home.
+    surfaces: { canvas: true, home: true },
     memberVisible: true,
   },
   {
@@ -137,7 +142,9 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     SnapshotTile: CommentFeedSnapshot,
     SidebarTile: CommentFeedSidebar,
     defaultLayout: { w: 8, h: 6, minW: 4, minH: 3 },
-    surface: "canvas",
+    // Home canvas migration (2026-05-23): comments-on-my-work is the
+    // second Grant-called-out home signal.
+    surfaces: { canvas: true, home: true },
     memberVisible: true,
   },
   {
@@ -148,7 +155,11 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     SnapshotTile: MetricsSnapshot,
     SidebarTile: MetricsSidebar,
     defaultLayout: { w: 4, h: 6, minW: 4, minH: 4 },
-    surface: "canvas",
+    // PI-only dashboard signal — stays on /lab-overview; not opted
+    // into /home. Lab heads can manually pin it on Home if they want,
+    // but the default home stays focused on lab signals members care
+    // about.
+    surfaces: { canvas: true },
     memberVisible: false, // lab_head only
   },
 
@@ -163,7 +174,10 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     SnapshotTile: LabNotesSnapshot,
     SidebarTile: LabNotesSidebar,
     defaultLayout: { w: 6, h: 6, minW: 4, minH: 4 },
-    surface: "canvas",
+    // Stays lab-overview-only by default (members can still pin it
+    // via the Home palette if they want, but it's not one of Grant's
+    // called-out home defaults).
+    surfaces: { canvas: true },
     memberVisible: true,
   },
   {
@@ -174,7 +188,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     SnapshotTile: LabExperimentsSnapshot,
     SidebarTile: LabExperimentsSidebar,
     defaultLayout: { w: 6, h: 6, minW: 4, minH: 4 },
-    surface: "canvas",
+    surfaces: { canvas: true },
     memberVisible: true,
   },
   // Widget catalog cleanup (widget catalog cleanup manager, 2026-05-23):
@@ -190,7 +204,10 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     SnapshotTile: LabActivitySnapshot,
     SidebarTile: LabActivitySidebar,
     defaultLayout: { w: 6, h: 8, minW: 4, minH: 5 },
-    surface: "canvas",
+    // Home canvas migration (2026-05-23): lab activity is the third
+    // Grant-called-out home signal ("announcements + comments-on-my-
+    // work + lab activity + today's events").
+    surfaces: { canvas: true, home: true },
     // Members can see the same activity buckets the sidebar
     // RecentActivityWidget already surfaces (no PI-only fields). If a
     // later refinement adds purchase approvals or audit entries here
@@ -215,7 +232,8 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     SnapshotTile: LabPurchasesSnapshot,
     SidebarTile: LabPurchasesSidebar,
     defaultLayout: { w: 6, h: 8, minW: 4, minH: 5 },
-    surface: "canvas",
+    // PI-only dashboard signal — stays on /lab-overview.
+    surfaces: { canvas: true },
     memberVisible: false, // lab_head only; replaces the /purchases nav for PIs
   },
   {
@@ -230,7 +248,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     SnapshotTile: LabPurchasesBurnRateSnapshot,
     SidebarTile: LabPurchasesBurnRateSidebar,
     defaultLayout: { w: 4, h: 6, minW: 3, minH: 4 },
-    surface: "canvas",
+    surfaces: { canvas: true },
     memberVisible: false,
   },
   {
@@ -245,7 +263,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     SnapshotTile: LabPurchasesPendingCountSnapshot,
     SidebarTile: LabPurchasesPendingCountSidebar,
     defaultLayout: { w: 3, h: 4, minW: 2, minH: 3 },
-    surface: "canvas",
+    surfaces: { canvas: true },
     memberVisible: false,
   },
 
@@ -258,7 +276,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     SnapshotTile: RecentActivitySnapshot,
     SidebarTile: RecentActivitySidebar,
     defaultLayout: { w: 1, h: 1 },
-    surface: "sidebar",
+    surfaces: { sidebar: true },
     memberVisible: true,
   },
   {
@@ -269,7 +287,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     SnapshotTile: PiActionsSnapshot,
     SidebarTile: PiActionsSidebar,
     defaultLayout: { w: 1, h: 1 },
-    surface: "sidebar",
+    surfaces: { sidebar: true },
     memberVisible: false, // PI-only signal
   },
   {
@@ -280,7 +298,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     SnapshotTile: MemberWorkloadSnapshot,
     SidebarTile: MemberWorkloadSidebar,
     defaultLayout: { w: 1, h: 1 },
-    surface: "sidebar",
+    surfaces: { sidebar: true },
     memberVisible: false,
   },
   {
@@ -291,7 +309,16 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     SnapshotTile: TodaysAnnouncementsSnapshot,
     SidebarTile: TodaysAnnouncementsSidebar,
     defaultLayout: { w: 1, h: 1 },
-    surface: "sidebar",
+    // Home canvas migration (2026-05-23): Grant called out a "today's
+    // events widget" as one of the four default home signals. The
+    // catalog doesn't have a dedicated calendar-events-today widget yet
+    // (FOLLOW-UP), so we use TodaysAnnouncementsWidget as the closest
+    // semantic match — both surface "what's happening / pinned today".
+    // The widget originally lived only on the lab-overview sidebar;
+    // adding `canvas: true` lets it render correctly in the home grid
+    // (the home canvas uses the SnapshotTile, which this widget already
+    // ships from Phase B Batch B2).
+    surfaces: { sidebar: true, canvas: true, home: true },
     memberVisible: true,
   },
 
@@ -317,7 +344,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     SnapshotTile: OverdueTasksSnapshot,
     SidebarTile: OverdueTasksSidebarTile,
     defaultLayout: { w: 1, h: 1 },
-    surface: "sidebar",
+    surfaces: { sidebar: true },
     memberVisible: true,
     labHeadVisible: false,
   },
@@ -330,7 +357,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     SnapshotTile: TodaysTasksSnapshot,
     SidebarTile: TodaysTasksSidebarTile,
     defaultLayout: { w: 1, h: 1 },
-    surface: "sidebar",
+    surfaces: { sidebar: true },
     memberVisible: true,
     labHeadVisible: false,
   },
@@ -343,7 +370,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     SnapshotTile: UpcomingTasksSnapshot,
     SidebarTile: UpcomingTasksSidebarTile,
     defaultLayout: { w: 1, h: 1 },
-    surface: "sidebar",
+    surfaces: { sidebar: true },
     memberVisible: true,
     labHeadVisible: false,
   },
@@ -366,7 +393,16 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     SnapshotTile: DailyTasksSnapshot,
     SidebarTile: DailyTasksSidebarTile,
     defaultLayout: { w: 1, h: 1 },
-    surface: "sidebar",
+    // Home canvas migration (2026-05-23): members already see this
+    // sidebar widget via AppShell's `<DailyTasksSidebar>`, so making
+    // it home-eligible lets a lab head ALSO pin daily tasks on /home
+    // (mirroring the brief: "the existing DailyTasksSidebar may need
+    // to be the home variant since it's the richer one"). The default
+    // Home layout doesn't include this — the right sidebar /
+    // DailyTasksSidebar already covers it — but it's available in the
+    // Home palette for users who want to pin a daily-tasks card
+    // directly on the canvas.
+    surfaces: { sidebar: true, home: true },
     memberVisible: true,
   },
 ];

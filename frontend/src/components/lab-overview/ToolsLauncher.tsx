@@ -39,15 +39,29 @@ import type { AccountType } from "@/lib/settings/user-settings";
  */
 export interface ToolsLauncherProps {
   accountType: AccountType;
+  /**
+   * Home canvas migration (2026-05-23): when set, scopes the launcher
+   * to Tools whose at least one widget variant is eligible for the
+   * given surface (so /home's launcher doesn't list a tool whose only
+   * widget lives on the lab-overview sidebar). Defaults to undefined =
+   * the legacy "all account-allowed tools" set used by /lab-overview.
+   */
+  surface?: "canvas" | "sidebar" | "home";
 }
 
-export default function ToolsLauncher({ accountType }: ToolsLauncherProps) {
+export default function ToolsLauncher({
+  accountType,
+  surface,
+}: ToolsLauncherProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [openToolId, setOpenToolId] = useState<string | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
 
-  const tools = useMemo(() => visibleTools(accountType), [accountType]);
+  const tools = useMemo(
+    () => visibleTools(accountType, surface),
+    [accountType, surface],
+  );
 
   // Close popover on Esc (only when no popup is open — Esc on the
   // popup is handled by SnapshotTilePopup itself).
