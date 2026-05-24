@@ -4,24 +4,30 @@
  * Tool variants batch (Tool variants batch manager, 2026-05-24): the
  * `ready-writeup` variant of the Experiments Tool.
  *
- * Filters the same `useLabData().tasks` set LabExperimentsWidget reads,
- * narrowing to experiments that look ready for a writeup pass:
- * `is_complete === false` AND `end_date < today` (the existing
- * `awaiting_writeup` proxy mirrored from LabExperimentsWidget's
- * `useExperimentData` helper). This is the model's best in-data signal
- * for "experiment ran past its window but the writeup hasn't landed"
- * without adding a per-task filesystem probe — Task has no explicit
- * writeup field today (`frontend/src/lib/types.ts` Task interface).
+ * Ready-to-writeup refiner (Ready-to-writeup refiner manager, 2026-05-24):
+ * the initial v1 of this tile used an in-data proxy
+ * (`is_complete === false && end_date < today` — really "overdue
+ * experiments"). The canonical semantics, per Grant 2026-05-24, are:
  *
- * Pragmatic trade-off: an experiment marked `is_complete === true` with
- * no results.md / Images would be the strictest reading of "ready to
- * write up". Detecting that requires per-task fs probes (the gallery
- * pattern in LabExperimentsPanel) which would dominate the snapshot
- * tile's latency. Sticking to the in-data `awaiting_writeup` proxy keeps
- * the tile snappy and shares the `useLabData` cache with every other
- * task-aware widget. FOLLOW-UP: a single batched `probeTaskResults`
- * query keyed by experiment-id-set could refine this if Grant wants the
- * stricter definition.
+ *   experiment IS complete  AND  no result attached on disk
+ *
+ * "No result" follows the same rule LabExperimentsPanel's `awaiting`
+ * section uses: no non-empty `results.md` AND no images in either
+ * `Images/` folder. The probe lives in
+ * `frontend/src/lib/experiments/findTaskResultsBase.ts:probeTaskResults`
+ * and is reused here via the `useExperimentsAwaitingWriteup` React
+ * Query hook (which batches the per-task probes with Promise.all and
+ * caches the result for 60s so SnapshotTile + SidebarTile share one
+ * fetch). FOLLOW-UP also lives on that hook: the probe is
+ * O(experiments-complete) per cold render; a `hasResult` sidecar
+ * cache would make it O(1).
+ *
+ * "completed Nd ago" caveat: LabTask has no completion timestamp
+ * field (no `is_complete_at`, no `updated_at`), so the sub-label uses
+ * scheduled `end_date` as the fallback. The phrase reads "completed
+ * Nd ago" but is technically "scheduled to end Nd ago" — close enough
+ * for the awaiting-writeup signal since the writeup nudge only
+ * matters when the run is past its planned window.
  *
  * Wiring: Tool = `experiments`, variantId = `ready-writeup`. Clicking
  * the tile opens the same Experiments popup
@@ -32,11 +38,12 @@
  * to file the writeup; PI-relevant: lab-wide backlog at a glance).
  */
 
-import { useMemo } from "react";
-import { useLabData } from "@/hooks/useLabData";
 import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
+import {
+  useExperimentsAwaitingWriteup,
+  type AwaitingWriteupRow,
+} from "@/hooks/useExperimentsAwaitingWriteup";
 import UserAvatar from "@/components/UserAvatar";
-import type { LabTask } from "@/lib/local-api";
 import type { SidebarTileProps, SnapshotTileProps } from "./types";
 import SidebarStatTile from "./snapshot/SidebarStatTile";
 import LabExperimentsWidget from "./LabExperimentsWidget";
@@ -84,64 +91,22 @@ const CHECK_SVG = (
   </svg>
 );
 
-type ReadyRow = {
-  task: LabTask;
-  /** Days since the experiment's end_date passed (positive = past). */
-  daysSinceEnd: number;
-};
-
-function todayMs(): number {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-}
-
-function todayIso(): string {
-  return new Date(todayMs()).toISOString().slice(0, 10);
+function formatCompletedAgo(days: number): string {
+  if (days === 0) return "completed today";
+  if (days === 1) return "completed 1d ago";
+  return `completed ${days}d ago`;
 }
 
 /**
- * Build the ready-for-writeup row list from the lab task set.
- *
- * Same predicate the canonical LabExperimentsWidget uses for its
- * `awaiting_writeup` bucket (end_date in the past, not yet marked
- * complete). Sorted by days-since-end DESC so the most-overdue rows
- * surface first (the user-actionable ordering).
- */
-function collectReadyRows(tasks: ReadonlyArray<LabTask>): ReadyRow[] {
-  const today = todayIso();
-  const todayStartMs = todayMs();
-  const out: ReadyRow[] = [];
-  for (const t of tasks) {
-    if (t.task_type !== "experiment") continue;
-    if (t.is_complete) continue;
-    if (!t.end_date || t.end_date >= today) continue;
-    const endMs = new Date(`${t.end_date}T00:00:00`).getTime();
-    const daysSinceEnd = Number.isFinite(endMs)
-      ? Math.max(0, Math.round((todayStartMs - endMs) / 86_400_000))
-      : 0;
-    out.push({ task: t, daysSinceEnd });
-  }
-  out.sort((a, b) => b.daysSinceEnd - a.daysSinceEnd);
-  return out;
-}
-
-function formatDaysAgo(days: number): string {
-  if (days === 0) return "ended today";
-  if (days === 1) return "ended 1d ago";
-  return `ended ${days}d ago`;
-}
-
-/**
- * SnapshotTile: top 3 ready-to-write-up experiments. Each row shows the
- * experiment name, owner avatar + name, and an "ended Nd ago" cue.
+ * SnapshotTile: top 3 experiments awaiting writeup (completed, no
+ * results.md / Images). Each row shows the experiment name, owner
+ * avatar + name, and a "completed Nd ago" cue.
  * "X awaiting writeup" pill in the top-right when count > 0; full-width
  * "All caught up" empty state with a green check otherwise.
  */
 export function SnapshotTile(_props: SnapshotTileProps) {
-  const { tasks } = useLabData();
+  const { rows } = useExperimentsAwaitingWriteup();
   const profileMap = useLabUserProfileMap();
-  const rows = useMemo(() => collectReadyRows(tasks), [tasks]);
   const top3 = rows.slice(0, 3);
   const total = rows.length;
 
@@ -170,7 +135,7 @@ export function SnapshotTile(_props: SnapshotTileProps) {
             <p className="text-xs italic">All caught up</p>
           </div>
         ) : (
-          top3.map((row) => {
+          top3.map((row: AwaitingWriteupRow) => {
             const owner =
               profileMap[row.task.username]?.displayName?.trim() ||
               row.task.username;
@@ -190,7 +155,7 @@ export function SnapshotTile(_props: SnapshotTileProps) {
                     <span>{owner}</span>
                     <span className="text-gray-400"> · </span>
                     <span className="tabular-nums">
-                      {formatDaysAgo(row.daysSinceEnd)}
+                      {formatCompletedAgo(row.daysSinceEnd)}
                     </span>
                   </p>
                 </div>
@@ -208,8 +173,8 @@ export function SnapshotTile(_props: SnapshotTileProps) {
  * count badge.
  */
 export function SidebarTile({ onClick }: SidebarTileProps) {
-  const { tasks } = useLabData();
-  const count = useMemo(() => collectReadyRows(tasks).length, [tasks]);
+  const { rows } = useExperimentsAwaitingWriteup();
+  const count = rows.length;
   return (
     <SidebarStatTile
       icon={BEAKER_ICON_14}
