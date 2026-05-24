@@ -64,7 +64,12 @@ import { ExpandedView as LabExperimentsExpanded } from "@/components/lab-overvie
 import { ExpandedView as LabActivityExpanded } from "@/components/lab-overview/widgets/LabActivityWidget";
 import { ExpandedView as LabPurchasesExpanded } from "@/components/lab-overview/widgets/LabPurchasesWidget";
 import { ExpandedView as DailyTasksExpanded } from "@/components/lab-overview/widgets/DailyTasksWidget";
-import { ExpandedView as CalendarEventsTodayExpanded } from "@/components/lab-overview/widgets/CalendarEventsTodayWidget";
+// Calendar Tool DayView variant manager (2026-05-24): the calendar
+// Tool's popup body is now the DayView popup variant, not the
+// today's-list placeholder from chip 06947539. The today's-list still
+// powers the SnapshotTile + SidebarTile of CalendarEventsTodayWidget,
+// it's only the popup ExpandedView that switches.
+import { ExpandedView as CalendarDayPopupExpanded } from "@/components/lab-overview/widgets/CalendarDayPopupView";
 
 // ── Small inline icons (no emojis, no lucide-react) ───────────────────────
 // Each tool gets a 16x16 SVG. Pulled from / mirrors the existing widget
@@ -313,18 +318,18 @@ export const TOOL_REGISTRY: ToolDefinition[] = [
     memberVisible: true,
   },
   {
-    // Calendar Tool (CalendarEventsTodayWidget manager, 2026-05-24):
-    // a popup body for the calendar surface. The canonical full
-    // calendar view lives at /calendar (app-level page that depends on
-    // AppShell chrome), so today the ExpandedView renders a richer
-    // today-list with a "View full calendar" CTA. FOLLOW-UP: build a
-    // popup-shell calendar variant (e.g. DayView wrapper sized for the
-    // popup) and swap it in here.
+    // Calendar Tool. SnapshotTile + SidebarTile of
+    // CalendarEventsTodayWidget still summarise today's events. The
+    // popup body is the DayView variant (Calendar Tool DayView variant
+    // manager, 2026-05-24): a single-day timeline sized for the popup
+    // shell, with prev/next-day nav and an "Open full calendar" CTA.
+    // Replaces the today's-list placeholder from chip 06947539 which
+    // couldn't host the AppShell-dependent /calendar grid.
     id: "calendar",
     title: "Calendar",
     description: "Today's events across your subscribed calendars.",
     Icon: CALENDAR_ICON,
-    ExpandedView: CalendarEventsTodayExpanded,
+    ExpandedView: CalendarDayPopupExpanded,
     memberVisible: true,
   },
 ];
