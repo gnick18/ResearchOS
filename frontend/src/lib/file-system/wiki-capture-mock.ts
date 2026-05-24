@@ -235,15 +235,20 @@ export function isWikiCaptureMode(): boolean {
 const DEMO_MODE_KEY = "researchos:demo-mode";
 
 /** All sessionStorage keys whose presence makes the tab behave as if it's
- *  in some flavor of demo / preview / fixture mode. Today there's only the
- *  one sticky flag (`DEMO_MODE_KEY`); the list exists so future sticky
- *  flags (wiki-capture stickiness, v4 onboarding preview, etc.) get added
- *  in one place and `<LeaveDemoModal>` clears them automatically without
- *  having to grow a new `sessionStorage.removeItem` line.
+ *  in some flavor of demo / preview / fixture mode. The list exists so
+ *  future sticky flags (wiki-capture stickiness, v4 onboarding preview,
+ *  etc.) get added in one place and `<LeaveDemoModal>` clears them
+ *  automatically without having to grow a new `sessionStorage.removeItem`
+ *  line.
  *
  *  Anything appended here is wiped by `clearAllStickyDemoFlags()` on the
  *  leave-demo confirm path, so a confirmed-leave never leaves the user
- *  stuck in fixture / preview mode until tab close. */
+ *  stuck in fixture / preview mode until tab close. The wiki-capture
+ *  fixture flags (forceControls + unlockSession) are appended later in
+ *  this file once their keys are declared; they're guarded by
+ *  `isWikiCaptureMode()` internally, so leaving fixture mode also
+ *  effectively disables them, but explicit cleanup keeps the
+ *  sessionStorage tidy. */
 const STICKY_DEMO_MODE_KEYS: readonly string[] = [DEMO_MODE_KEY] as const;
 
 /** Public in-browser demo mode. True when:
@@ -307,12 +312,19 @@ export function clearDemoMode(): void {
  *  out" exits cleanly: no fixture mode, no preview mode, no half-state
  *  that survives until they close the tab.
  *
- *  Today this clears just `DEMO_MODE_KEY`; the indirection (the
- *  `STICKY_DEMO_MODE_KEYS` list above) lets future flags get cleared
- *  automatically by being added in one place. */
+ *  Clears `DEMO_MODE_KEY` plus the wiki-capture fixture flags
+ *  (`FORCE_CONTROLS_STICKY_KEY`, `UNLOCK_SESSION_STICKY_KEY`). The
+ *  wiki-capture sticky itself is cleared via its own helper path;
+ *  the fixture-only flags ride along here since they're guarded by
+ *  `isWikiCaptureMode()` and only meaningful while it's active. */
 export function clearAllStickyDemoFlags(): void {
   if (typeof window === "undefined") return;
-  for (const key of STICKY_DEMO_MODE_KEYS) {
+  const keys: readonly string[] = [
+    ...STICKY_DEMO_MODE_KEYS,
+    FORCE_CONTROLS_STICKY_KEY,
+    UNLOCK_SESSION_STICKY_KEY,
+  ];
+  for (const key of keys) {
     try {
       window.sessionStorage.removeItem(key);
     } catch {
@@ -327,6 +339,86 @@ export function clearAllStickyDemoFlags(): void {
  *  this. */
 export function isDemoOrWikiCapture(): boolean {
   return isWikiCaptureMode() || getDemoMode();
+}
+
+/** sessionStorage key for the sticky force-controls fixture flag. Set
+ *  whenever the URL carries `?forceControls=1` while wikiCapture is
+ *  active, cleared on tab close. Stickiness mirrors the wiki-capture
+ *  pattern so in-tab navigations that strip the query string don't
+ *  drop the flag mid-route. */
+const FORCE_CONTROLS_STICKY_KEY = "researchos:wiki-capture-force-controls";
+
+/** sessionStorage key for the sticky unlock-session fixture flag. Set
+ *  whenever the URL carries `?unlockSession=1` while wikiCapture is
+ *  active. Mirrors the wiki-capture pattern. */
+const UNLOCK_SESSION_STICKY_KEY = "researchos:wiki-capture-unlock-session";
+
+/** True when `?forceControls=1` is set AND wiki-capture mode is active.
+ *  Gates the `.force-hover-controls` body class that makes hover-only
+ *  controls visible in static screenshot capture (puppeteer / playwright
+ *  can't fire CSS `:hover` without a real cursor).
+ *
+ *  Strictly gated to wiki-capture mode (no broader demo / production
+ *  exposure) so real users can never hit this code path. SSR-safe.
+ *
+ *  Stickiness mirrors `getWikiCaptureVariant()`: once observed on a
+ *  URL we remember it for the session so router.push calls that strip
+ *  the query string keep the flag alive. */
+export function isForceControlsMode(): boolean {
+  if (typeof window === "undefined") return false;
+  if (!isWikiCaptureMode()) return false;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("forceControls") === "1") {
+      try {
+        window.sessionStorage.setItem(FORCE_CONTROLS_STICKY_KEY, "1");
+      } catch {
+        // sessionStorage can throw in private-mode browsers; ignore.
+      }
+      return true;
+    }
+    try {
+      return (
+        window.sessionStorage.getItem(FORCE_CONTROLS_STICKY_KEY) === "1"
+      );
+    } catch {
+      return false;
+    }
+  } catch {
+    return false;
+  }
+}
+
+/** True when `?unlockSession=1` is set AND wiki-capture mode is active.
+ *  Synthesizes an unlocked lab-head edit session for the active fixture
+ *  user so the announcements composer + LabRoster archive controls
+ *  render in their post-unlock state for screenshot capture.
+ *
+ *  Strictly gated to wiki-capture mode (no real-data leak). SSR-safe.
+ *  Stickiness mirrors `isForceControlsMode()`. */
+export function isUnlockSessionMode(): boolean {
+  if (typeof window === "undefined") return false;
+  if (!isWikiCaptureMode()) return false;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("unlockSession") === "1") {
+      try {
+        window.sessionStorage.setItem(UNLOCK_SESSION_STICKY_KEY, "1");
+      } catch {
+        // sessionStorage can throw in private-mode browsers; ignore.
+      }
+      return true;
+    }
+    try {
+      return (
+        window.sessionStorage.getItem(UNLOCK_SESSION_STICKY_KEY) === "1"
+      );
+    } catch {
+      return false;
+    }
+  } catch {
+    return false;
+  }
 }
 
 /** Tutorial-mode probe.

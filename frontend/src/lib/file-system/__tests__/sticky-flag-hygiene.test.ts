@@ -77,11 +77,15 @@ import {
   clearDemoMode,
   getDemoMode,
   getWikiCaptureVariant,
+  isForceControlsMode,
+  isUnlockSessionMode,
   isWikiCaptureMode,
   markDemoMode,
 } from "../wiki-capture-mock";
 
 const DEMO_MODE_KEY = "researchos:demo-mode";
+const FORCE_CONTROLS_STICKY_KEY = "researchos:wiki-capture-force-controls";
+const UNLOCK_SESSION_STICKY_KEY = "researchos:wiki-capture-unlock-session";
 
 describe("clearAllStickyDemoFlags", () => {
   it("removes the demo-mode sticky key when it was set", () => {
@@ -159,5 +163,107 @@ describe("getWikiCaptureVariant hostname gate (existing contract)", () => {
   it("returns 'picker' for ?wikiCapture=picker in non-production env", () => {
     mountWindow({ search: "?wikiCapture=picker", hostname: "localhost" });
     expect(getWikiCaptureVariant()).toBe("picker");
+  });
+});
+
+// ── Wiki-screenshot fixture flag gates ───────────────────────────────────
+//
+// Both flags below are strictly gated to `isWikiCaptureMode()`: they are
+// no-ops outside the fixture so real users can never hit the code paths
+// they unlock. Stickiness mirrors the wiki-capture sticky pattern so
+// in-tab nav that strips the query string keeps the flag alive.
+
+describe("isForceControlsMode", () => {
+  it("returns false outside wikiCapture mode", () => {
+    mountWindow({ search: "?forceControls=1", hostname: "localhost" });
+    expect(isForceControlsMode()).toBe(false);
+  });
+
+  it("returns true when both wikiCapture and forceControls are set", () => {
+    mountWindow({
+      search: "?wikiCapture=1&forceControls=1",
+      hostname: "localhost",
+    });
+    expect(isForceControlsMode()).toBe(true);
+  });
+
+  it("returns false when wikiCapture is set but forceControls is not", () => {
+    mountWindow({ search: "?wikiCapture=1", hostname: "localhost" });
+    expect(isForceControlsMode()).toBe(false);
+  });
+
+  it("sticks via sessionStorage after first observation", () => {
+    mountWindow({
+      search: "?wikiCapture=1&forceControls=1",
+      hostname: "localhost",
+    });
+    expect(isForceControlsMode()).toBe(true);
+    expect(fakeSessionStorage.getItem(FORCE_CONTROLS_STICKY_KEY)).toBe("1");
+
+    // Subsequent reads with `forceControls` stripped from the URL still
+    // see the sticky flag: wikiCapture stays alive via the URL so the
+    // gate inside `isForceControlsMode` still passes. The forceControls
+    // sticky alone carries the flag forward.
+    fakeLocation.search = "?wikiCapture=1";
+    expect(isForceControlsMode()).toBe(true);
+  });
+
+  it("clearAllStickyDemoFlags wipes the forceControls sticky", () => {
+    mountWindow({
+      search: "?wikiCapture=1&forceControls=1",
+      hostname: "localhost",
+    });
+    expect(isForceControlsMode()).toBe(true);
+    expect(fakeSessionStorage.getItem(FORCE_CONTROLS_STICKY_KEY)).toBe("1");
+
+    clearAllStickyDemoFlags();
+    expect(fakeSessionStorage.getItem(FORCE_CONTROLS_STICKY_KEY)).toBeNull();
+  });
+});
+
+describe("isUnlockSessionMode", () => {
+  it("returns false outside wikiCapture mode", () => {
+    mountWindow({ search: "?unlockSession=1", hostname: "localhost" });
+    expect(isUnlockSessionMode()).toBe(false);
+  });
+
+  it("returns true when both wikiCapture and unlockSession are set", () => {
+    mountWindow({
+      search: "?wikiCapture=1&unlockSession=1",
+      hostname: "localhost",
+    });
+    expect(isUnlockSessionMode()).toBe(true);
+  });
+
+  it("returns false when wikiCapture is set but unlockSession is not", () => {
+    mountWindow({ search: "?wikiCapture=1", hostname: "localhost" });
+    expect(isUnlockSessionMode()).toBe(false);
+  });
+
+  it("sticks via sessionStorage after first observation", () => {
+    mountWindow({
+      search: "?wikiCapture=1&unlockSession=1",
+      hostname: "localhost",
+    });
+    expect(isUnlockSessionMode()).toBe(true);
+    expect(fakeSessionStorage.getItem(UNLOCK_SESSION_STICKY_KEY)).toBe("1");
+
+    // wikiCapture stays on the URL so the gate inside
+    // `isUnlockSessionMode` still passes; the unlockSession sticky
+    // carries the flag forward without needing the URL param.
+    fakeLocation.search = "?wikiCapture=1";
+    expect(isUnlockSessionMode()).toBe(true);
+  });
+
+  it("clearAllStickyDemoFlags wipes the unlockSession sticky", () => {
+    mountWindow({
+      search: "?wikiCapture=1&unlockSession=1",
+      hostname: "localhost",
+    });
+    expect(isUnlockSessionMode()).toBe(true);
+    expect(fakeSessionStorage.getItem(UNLOCK_SESSION_STICKY_KEY)).toBe("1");
+
+    clearAllStickyDemoFlags();
+    expect(fakeSessionStorage.getItem(UNLOCK_SESSION_STICKY_KEY)).toBeNull();
   });
 });

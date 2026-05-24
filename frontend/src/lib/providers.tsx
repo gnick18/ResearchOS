@@ -22,6 +22,7 @@ import SceneTriggerHost from "@/components/SceneTriggerHost";
 import AutoErrorConfirmHost from "@/components/AutoErrorConfirmHost";
 import V4MountForUser from "@/components/onboarding/v4/V4MountForUser";
 import CelebrationManager from "@/components/onboarding/CelebrationManager";
+import WikiCaptureBodyClass from "@/components/WikiCaptureBodyClass";
 import { initializeErrorHandlers } from "@/lib/error-reporting";
 import { projectsApi } from "@/lib/local-api";
 
@@ -369,6 +370,11 @@ export function Providers({ children }: { children: ReactNode }) {
             ResearchFolderSetupNew needs the confirm dialog to render
             before AppShell is in the tree. (feedback polish R1) */}
         <AutoErrorConfirmHost />
+        {/* Wiki-screenshot fixture body-class + edit-session synth.
+            No-op outside `?wikiCapture=…` mode. Mounted inside the
+            FileSystemProvider so it can read `currentUser` for the
+            unlockSession path. */}
+        <WikiCaptureBodyClass />
         <AppContent>{children}</AppContent>
       </FileSystemProvider>
     </ErrorBoundary>

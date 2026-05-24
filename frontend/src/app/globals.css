@@ -434,3 +434,34 @@ body[data-tour-step="notifications-silence"] .tour-secondary-pulse[data-tour-sec
   animation: tour-secondary-pulse 1.5s ease-in-out infinite;
   border-radius: 0.25rem;
 }
+
+/* ── Wiki-screenshot force-hover-controls ─────────────────────────────────────
+ * Activated when `?wikiCapture=1&forceControls=1` is on the URL. The
+ * `<WikiCaptureBodyClass>` effect adds `.force-hover-controls` to <body>
+ * so static screenshot tools (Playwright, Puppeteer) can capture hover-
+ * revealed UI without firing a real cursor.
+ *
+ * Rules below mirror each component's `:hover` reveal rule so the same
+ * elements that fade in on hover are forced visible. Scope rules tightly:
+ * one rule per component so a future cleanup chip can apply this to more
+ * surfaces without a "force everything everywhere" foot-gun.
+ *
+ * Today: LabRoster row controls (the brief scopes Item B to LabRoster).
+ * The LabRoster Archive button is sessionUnlocked-gated, not hover-gated,
+ * so the force-hover-controls path is a future-proofing seam: if the
+ * roster grows hover-only inline controls (e.g. quick-edit display name)
+ * they will just need to add the dual `:hover, .force-hover-controls`
+ * selector pattern to ride the same flag.
+ *
+ * FOLLOW-UP candidates (out of scope for this chip): the broader hover-
+ * only patterns surfaced by grep are in HighLevelGoalSidebar, TaskDetailPopup,
+ * InboxPanel, MethodTabs, VariationNotesPanel, SidebarWidgetRail,
+ * CustomizableSidebar, UserLoginScreen, ProjectCardKebab, ResultsGallery,
+ * ImageStrip, ImageGalleryPopup, InteractiveGradientEditor, LabGanttChart,
+ * GanttChart, ExpandableListCard, TaskModal. Any of those that need to
+ * appear in wiki screenshots can add a dual selector rule here.
+ */
+.force-hover-controls [data-force-hover-controls-target] {
+  opacity: 1 !important;
+}
+

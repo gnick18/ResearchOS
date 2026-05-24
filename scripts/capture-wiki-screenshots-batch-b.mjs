@@ -429,16 +429,22 @@ const ROUTES = [
     file: "lab-inbox-announcements-compose.png",
     path: "/lab-overview",
     asUser: "mira",
+    // unlockSession=1 synthesizes an unlocked lab-head edit session for
+    // mira so the composer renders with the textarea + Post button
+    // enabled, not the "Request edit" placeholder.
+    extraParams: "unlockSession=1",
     waitFor: "text=Lab Overview, text=Lab Activity, text=Announcements",
     settleMs: 1200,
     action: async (page) => {
       if (!(await openTool(page, "Announcements"))) return;
-      // Compose form is gated by edit session; click Request edit and
-      // dismiss (we just want to show the composer UI).
+      // Composer is unlocked via unlockSession=1; fill in a demo body so
+      // the screenshot shows real text in the textarea.
       try {
-        const composer = await page.$('textarea, input[type="text"]');
+        const composer = await page.$('[data-testid="lab-announcement-composer-textarea"]');
         if (composer) {
-          await composer.fill("Lab meeting moved to Thursday at 3pm — bringing pizza.").catch(() => {});
+          await composer.fill(
+            "Lab meeting moved to Thursday at 3pm. Bring strain design notes and an update on the qPCR follow-up from last week.",
+          ).catch(() => {});
         }
       } catch {}
       await page.waitForTimeout(400);
@@ -668,6 +674,13 @@ const ROUTES = [
     file: "user-archiving-roster.png",
     path: "/settings",
     asUser: "mira",
+    // unlockSession=1 + forceControls=1: the Archive button per row is
+    // gated on the lab-head edit session being unlocked (canArchive ->
+    // sessionUnlocked). unlockSession synthesizes an unlocked session
+    // for mira so each row's Archive affordance renders. forceControls
+    // future-proofs the rule in case any LabRoster sub-element grows a
+    // hover-only inline control (display-name edit etc.).
+    extraParams: "unlockSession=1&forceControls=1",
     waitFor: "text=Settings, text=Lab Mode, text=Personal",
     settleMs: 1000,
     action: async (page) => {
@@ -764,7 +777,14 @@ async function captureRoute(page, route) {
   // user in-page via the floating UserLoginScreen modal. The next goto
   // for a different route resets to alex again — that's fine, we
   // re-switch per route.
-  const url = `${BASE_URL}${route.path}${route.path.includes("?") ? "&" : "?"}wikiCapture=${variant}`;
+  //
+  // Routes can opt into extra fixture flags via `extraParams`
+  // (e.g. forceControls=1, unlockSession=1), appended verbatim to the
+  // URL so the screenshot fixture infra picks them up. Both flags
+  // require wikiCapture, so they're meaningless on pickerMode routes
+  // (which use a different fixture variant).
+  const extraParams = route.extraParams ? `&${route.extraParams}` : "";
+  const url = `${BASE_URL}${route.path}${route.path.includes("?") ? "&" : "?"}wikiCapture=${variant}${extraParams}`;
   try {
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
   } catch (err) {
