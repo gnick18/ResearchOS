@@ -17,9 +17,15 @@
  *   - `useLabData().tasks` (tasks + purchases — purchase items live on
  *     purchase-type tasks, but we count by task.task_type to keep the
  *     three buckets cleanly separated)
- *   - `["lab", "notes-shared"]` for note-comments and shared-note
- *     creations (proxied off the latest comment timestamp since Note
- *     itself has no `created_at` field)
+ *   - `["lab", "notes-shared"]` for note-creations: the Notes bucket
+ *     counts shared notes whose own `note.created_at` falls on today,
+ *     not note-comments. The Note created_at field manager (2026-05-24)
+ *     added the field so we can count true creations instead of the
+ *     prior comment-timestamp stopgap (a freshly-created note with no
+ *     comments now registers as activity). Old on-disk notes that
+ *     pre-date the field read as `undefined` and never match today's
+ *     filter, which is fine — they weren't visible under the stopgap
+ *     either.
  *
  * "Today" = the last 24h, but anchored at start-of-today (00:00 local).
  * This matches the canonical LabActivityWidget SnapshotTile's
@@ -163,9 +169,11 @@ interface BucketCounts {
  * Buckets:
  *   - tasks: task_type === "experiment" or "list" with start_date === today
  *     (mirrors canonical "added task / experiment started" rows)
- *   - notes: any note comment with created_at on today's date
- *     (note creations themselves have no timestamp, comments are the
- *     observable signal — same trade-off the canonical widget makes)
+ *   - notes: notes whose `created_at` falls on today's date. The Note
+ *     created_at field manager (2026-05-24) added the field so we count
+ *     true note creations instead of the prior note-comment proxy. Old
+ *     notes (no `created_at`) are skipped gracefully — they never match
+ *     today's filter, which is the intended degradation.
  *   - purchases: task_type === "purchase" with start_date === today
  *     (purchase items don't carry timestamps; the parent task's
  *     start_date is the canonical proxy LabActivityWidget already uses)
@@ -190,10 +198,8 @@ function countByType(
   }
 
   for (const n of notes) {
-    for (const c of n.comments ?? []) {
-      if (c.created_at && c.created_at.slice(0, 10) === today) {
-        notesCount++;
-      }
+    if (n.created_at && n.created_at.startsWith(today)) {
+      notesCount++;
     }
   }
 

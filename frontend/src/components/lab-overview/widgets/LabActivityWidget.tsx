@@ -23,7 +23,9 @@ import type { SnapshotTileProps } from "./types";
  *
  * Aggregation buckets. Same signals as the sidebar widget so the
  * caches stay shared:
- *   - shared-note comments (via `labApi.getNotes({ shared_only: true })`)
+ *   - shared-note creations (via `note.created_at` — added by the Note
+ *     created_at field manager 2026-05-24) and shared-note comments
+ *     (both pulled from `labApi.getNotes({ shared_only: true })`)
  *   - newly scheduled tasks (proxied off `start_date` since LabTask
  *     has no `created_at`)
  *   - flagged records (the `flagged` sidecar on tasks)
@@ -44,7 +46,13 @@ import type { SnapshotTileProps } from "./types";
  * flipped to `memberVisible: false`.
  */
 
-type Kind = "comment" | "task" | "flag" | "announcement";
+// Note created_at field manager (2026-05-24): added the "note" kind for
+// shared-note creation events. Now that Note carries `created_at`, we
+// can surface "Alex created 'PCR optimization' note" as its own row
+// alongside the existing comment-on-note rows. The two signals are
+// independent — a creation event fires once at note birth; comment
+// events fire per comment thereafter.
+type Kind = "comment" | "note" | "task" | "flag" | "announcement";
 type Filter = "all" | Kind;
 /** Phase B Batch B1: time-window selector on the ExpandedView header. */
 type DateRange = "today" | "yesterday" | "week" | "all";
@@ -79,6 +87,26 @@ const KIND_ICON: Record<Kind, React.ReactElement> = {
       aria-hidden="true"
     >
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  ),
+  // document — note-creation event (Note created_at field manager 2026-05-24)
+  note: (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="8" y1="13" x2="16" y2="13" />
+      <line x1="8" y1="17" x2="14" y2="17" />
     </svg>
   ),
   task: (
@@ -138,6 +166,7 @@ const KIND_ICON: Record<Kind, React.ReactElement> = {
 
 const KIND_ICON_COLOR: Record<Kind, string> = {
   comment: "text-blue-500",
+  note: "text-sky-500",
   task: "text-emerald-500",
   flag: "text-amber-500",
   announcement: "text-purple-500",
@@ -146,6 +175,7 @@ const KIND_ICON_COLOR: Record<Kind, string> = {
 const FILTER_LABEL: Record<Filter, string> = {
   all: "All",
   comment: "Comments",
+  note: "Notes",
   task: "Tasks",
   flag: "Flags",
   announcement: "Announcements",
@@ -191,6 +221,20 @@ export default function LabActivityWidget(_props?: {
     const out: FeedItem[] = [];
 
     for (const note of notes) {
+      // Note-creation event (Note created_at field manager 2026-05-24).
+      // Older notes that pre-date the field are skipped — `created_at`
+      // is optional + nullable on the type, and the truthiness check
+      // here is the graceful-degradation path.
+      if (note.created_at) {
+        out.push({
+          kind: "note",
+          username: note.username,
+          summary: `created note “${note.title || "Untitled note"}”`,
+          timestamp: note.created_at,
+          href: "/lab-overview",
+          key: `note:${note.username}:${note.id}`,
+        });
+      }
       for (const c of note.comments ?? []) {
         out.push({
           kind: "comment",
@@ -294,6 +338,7 @@ export default function LabActivityWidget(_props?: {
     const c: Record<Filter, number> = {
       all: rangedItems.length,
       comment: 0,
+      note: 0,
       task: 0,
       flag: 0,
       announcement: 0,
@@ -350,7 +395,7 @@ export default function LabActivityWidget(_props?: {
 
       {/* Kind filter chips with per-kind counts. */}
       <div className="flex items-center gap-1.5 flex-wrap mb-3 flex-shrink-0">
-        {(["all", "comment", "task", "flag", "announcement"] as const).map(
+        {(["all", "comment", "note", "task", "flag", "announcement"] as const).map(
           (f) => {
             const active = filter === f;
             return (
@@ -624,6 +669,18 @@ interface FeedSources {
 function buildFeedItems({ tasks, notes, announcements }: FeedSources): FeedItem[] {
   const out: FeedItem[] = [];
   for (const note of notes) {
+    // Note-creation event (Note created_at field manager 2026-05-24).
+    // See `allItems` above for the parallel branch + rationale.
+    if (note.created_at) {
+      out.push({
+        kind: "note",
+        username: note.username,
+        summary: `created note “${note.title || "Untitled note"}”`,
+        timestamp: note.created_at,
+        href: "/lab-overview",
+        key: `note:${note.username}:${note.id}`,
+      });
+    }
     for (const c of note.comments ?? []) {
       out.push({
         kind: "comment",

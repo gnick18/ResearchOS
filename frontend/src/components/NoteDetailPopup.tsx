@@ -1038,7 +1038,7 @@ export default function NoteDetailPopup({
         {!readOnly && (
           <div className="p-4 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
             <div className="text-xs text-gray-400">
-              Created: {formatDate(note.created_at)} • Updated: {formatDate(note.updated_at)}
+              Created: {note.created_at ? formatDate(note.created_at) : "—"} • Updated: {formatDate(note.updated_at)}
             </div>
             <button
               onClick={handleDeleteNote}

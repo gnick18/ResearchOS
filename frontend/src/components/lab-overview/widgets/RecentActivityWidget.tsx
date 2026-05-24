@@ -34,7 +34,11 @@ import type { Note } from "@/lib/types";
  * Overview's announcements widget, the lab inbox, etc.). Sidebar
  * width is narrow so labels truncate aggressively.
  */
-type Kind = "comment" | "task" | "flag" | "announcement";
+// Note created_at field manager (2026-05-24): added the "note" kind
+// for shared-note creation events. Now that Note carries `created_at`,
+// the sidebar feed surfaces note births as their own row instead of
+// only the downstream comment activity.
+type Kind = "comment" | "note" | "task" | "flag" | "announcement";
 
 interface FeedItem {
   kind: Kind;
@@ -71,6 +75,26 @@ const KIND_ICON: Record<Kind, React.ReactElement> = {
       aria-hidden="true"
     >
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  ),
+  // document — note-creation event (Note created_at field manager 2026-05-24)
+  note: (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="8" y1="13" x2="16" y2="13" />
+      <line x1="8" y1="17" x2="14" y2="17" />
     </svg>
   ),
   // beaker (task / experiment)
@@ -133,6 +157,7 @@ const KIND_ICON: Record<Kind, React.ReactElement> = {
 
 const KIND_ICON_COLOR: Record<Kind, string> = {
   comment: "text-blue-500",
+  note: "text-sky-500",
   task: "text-emerald-500",
   flag: "text-amber-500",
   announcement: "text-purple-500",
@@ -168,8 +193,19 @@ export default function RecentActivityWidget(_props?: {
     // Comments on shared notes. We don't pull task comments here —
     // CommentFeedWidget owns that deeper fetch, and the cost (one
     // `tasksApi.get` per lab task) is not worth paying just for a
-    // 6-row sidebar feed.
+    // 6-row sidebar feed. Note-creation events (Note created_at field
+    // manager 2026-05-24) come from the same query: `note.created_at`
+    // is the canonical signal, older notes without it are skipped.
     for (const note of notes) {
+      if (note.created_at) {
+        out.push({
+          kind: "note",
+          username: note.username,
+          summary: `created note “${note.title || "Untitled note"}”`,
+          timestamp: note.created_at,
+          href: "/lab-overview",
+        });
+      }
       for (const c of note.comments ?? []) {
         out.push({
           kind: "comment",
@@ -379,6 +415,16 @@ function useRecentItems() {
   const items = useMemo(() => {
     const out: FeedItem[] = [];
     for (const note of notes) {
+      // Note-creation event (Note created_at field manager 2026-05-24).
+      // Older notes without `created_at` fall through gracefully.
+      if (note.created_at) {
+        out.push({
+          kind: "note",
+          username: note.username,
+          summary: `created note “${note.title || "Untitled note"}”`,
+          timestamp: note.created_at,
+        });
+      }
       for (const c of note.comments ?? []) {
         out.push({
           kind: "comment",

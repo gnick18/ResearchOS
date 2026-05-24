@@ -1827,7 +1827,16 @@ export interface Note {
   // review. Same shape as on Task / PurchaseItem. Null/undefined = not
   // flagged. Additive — old records normalize fine without it.
   flagged?: PiFlag | null;
-  created_at: string;
+  // Note created_at field (Note created_at field manager, 2026-05-24):
+  // optional + nullable so older on-disk notes (which may pre-date the
+  // create-path writing this field) read as `undefined` without
+  // breaking type checks. New notes always carry an ISO string set in
+  // `notesApi.create`. Activity widgets that count "notes created
+  // today" guard on `note.created_at && note.created_at.startsWith(todayIso)`,
+  // so missing values fall out naturally (graceful degradation, same
+  // pattern as PurchaseItem.declined_at in commit 07a1b7b3). Do NOT
+  // backfill old notes — the undefined case is intentional.
+  created_at?: string | null;
   updated_at: string;
   username: string;
   // Lab Mode retirement R1b (R1b sharing completion manager, 2026-05-23):
