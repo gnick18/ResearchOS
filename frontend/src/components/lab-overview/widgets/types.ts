@@ -23,6 +23,25 @@
  *     directly on the canvas. Now lives behind the popup, opened from
  *     the snapshot tile.
  *
+ * Customizable PI sidebar (#146 customizable PI sidebar manager,
+ * 2026-05-23): a widget definition now ships a THIRD component, the
+ * `SidebarTile`. The customizable sidebar (for lab_head accounts) is a
+ * narrow vertical column (~256px wide) — a different shape than the
+ * square snapshot canvas tile — so each widget gets a dedicated
+ * `SidebarTile` that can show different info than its `SnapshotTile`.
+ *   - `SnapshotTile`: square card on the canvas. Icon, label, headline
+ *     stat stacked vertically (the `<StatTile>` template).
+ *   - `SidebarTile`: narrow horizontal row in the sidebar. Icon, label,
+ *     stat aligned in a single slim band (the `<SidebarStatTile>`
+ *     template). Phase B redesigns each per-widget if a unique layout
+ *     is desired.
+ *   - `ExpandedView`: unchanged — the rich body that opens in the
+ *     popup from either tile.
+ *
+ * The two tile views can share per-widget data because React Query
+ * dedupes by query key — both SnapshotTile and SidebarTile call the
+ * widget's existing data hooks and the cache delivers one fetch.
+ *
  * Visibility model:
  *   - `memberVisible: false` → the widget is hidden from the catalog
  *     and from rendered layouts when the active user is NOT a lab_head.
@@ -48,6 +67,24 @@ export type WidgetSurface = "canvas" | "sidebar" | "both";
  *  richer headline than the narrow sidebar variant. */
 export interface SnapshotTileProps {
   surface: "canvas" | "sidebar";
+}
+
+/** Props passed to a widget's `SidebarTile`. The sidebar tile is the
+ *  customizable-sidebar (lab_head only) variant of a widget. It lives
+ *  in a narrow vertical column and click-opens the same popup the
+ *  snapshot tile does. The prop shape is intentionally distinct from
+ *  `SnapshotTileProps` so the two surfaces can evolve independently
+ *  (Phase B may add sidebar-specific props like a density hint without
+ *  perturbing snapshot tiles). For Phase A, both surfaces share their
+ *  per-widget data hooks via React Query dedupe. */
+export interface SidebarTileProps {
+  /** Stable widget id from the registry. Used for telemetry, drag
+   *  keys, and click targets. */
+  widgetId: string;
+  /** Called when the tile is clicked. The sidebar surface owns the
+   *  popup that mounts the widget's `ExpandedView`; the tile just
+   *  signals user intent to open. */
+  onClick: () => void;
 }
 
 /** Props passed to a widget's `ExpandedView`. The expanded view is the
@@ -108,6 +145,14 @@ export interface WidgetDefinition {
   /** The snapshot-tile component. Renders inside the snapshot canvas
    *  and the sidebar rail. Click opens the popup with `ExpandedView`. */
   SnapshotTile: ComponentType<SnapshotTileProps>;
+  /** The sidebar-tile component. Renders inside the lab_head
+   *  `CustomizableSidebar` (and any other narrow vertical rail). Shape
+   *  is distinct from `SnapshotTile` — slim horizontal row vs square
+   *  card. Click opens the popup with `ExpandedView`, same as the
+   *  snapshot tile. Added 2026-05-23 by #146 customizable PI sidebar
+   *  manager; the registry will eventually require this for every
+   *  entry once Phase B per-widget designs land. */
+  SidebarTile: ComponentType<SidebarTileProps>;
   /** The expanded-view component. Renders inside the popup shell. */
   ExpandedView: ComponentType<ExpandedViewProps>;
   /** Default sizing on the free-grid canvas — retained for the layout

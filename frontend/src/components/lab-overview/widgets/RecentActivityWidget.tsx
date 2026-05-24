@@ -370,3 +370,52 @@ export function SnapshotTile(_props: SnapshotTileProps) {
 }
 
 export const ExpandedView = RecentActivityWidget;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SidebarTile (customizable PI sidebar manager #146, 2026-05-23)
+// ─────────────────────────────────────────────────────────────────────────────
+// Reuses the same notes-shared + lab-announcements caches the body
+// and snapshot already warm. Headline is "events in the last 7 days"
+// — same heuristic the SnapshotTile uses; only the surface shape
+// differs (slim horizontal row).
+import SidebarStatTile from "./snapshot/SidebarStatTile";
+import type { SidebarTileProps } from "./types";
+
+export function SidebarTile({ onClick }: SidebarTileProps) {
+  const { tasks } = useLabData();
+  const { data: notes = [], isLoading } = useQuery<Note[]>({
+    queryKey: ["lab", "notes-shared"],
+    queryFn: () => labApi.getNotes({ shared_only: true }),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+  const { data: announcements = [] } = useQuery({
+    queryKey: ["lab-announcements"],
+    queryFn: listAnnouncements,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+  const cutoff = isoDaysAgo(7);
+  let recent = 0;
+  for (const n of notes) {
+    for (const c of n.comments ?? []) {
+      if (c.created_at && c.created_at >= cutoff) recent++;
+    }
+  }
+  for (const t of tasks) {
+    if (t.start_date && t.start_date >= cutoff) recent++;
+  }
+  for (const a of announcements) {
+    if (a.created_at && a.created_at >= cutoff) recent++;
+  }
+  return (
+    <SidebarStatTile
+      icon={KIND_ICON.comment}
+      iconClassName={KIND_ICON_COLOR.comment}
+      label="Activity"
+      stat={isLoading ? "—" : recent}
+      sub={recent === 0 ? "Quiet this week" : "in the last 7 days"}
+      onClick={onClick}
+    />
+  );
+}

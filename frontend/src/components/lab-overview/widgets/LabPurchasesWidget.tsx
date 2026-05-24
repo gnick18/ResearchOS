@@ -460,3 +460,52 @@ export function SnapshotTile(_props: SnapshotTileProps) {
 }
 
 export const ExpandedView = LabPurchasesWidget;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SidebarTile (customizable PI sidebar manager #146, 2026-05-23)
+// ─────────────────────────────────────────────────────────────────────────────
+import SidebarStatTile from "./snapshot/SidebarStatTile";
+import type { SidebarTileProps } from "./types";
+
+export function SidebarTile({ onClick }: SidebarTileProps) {
+  const { currentUser } = useCurrentUser();
+  const accountType = useAccountType(currentUser);
+  const { data: items = [], isLoading } = useQuery<
+    Array<PurchaseItem & { username: string }>
+  >({
+    queryKey: ["lab", "purchase-items"],
+    queryFn: () => labApi.getAllPurchaseItems(),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    enabled: accountType === "lab_head",
+  });
+  if (accountType !== "lab_head") return null;
+  const pending = items.filter((it) => !it.approved);
+  const pendingValue = pending.reduce((s, it) => s + (it.total_price ?? 0), 0);
+  return (
+    <SidebarStatTile
+      icon={
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <rect x="2" y="5" width="20" height="14" rx="2" />
+          <line x1="2" y1="10" x2="22" y2="10" />
+        </svg>
+      }
+      iconClassName="text-amber-600"
+      label="Purchases"
+      stat={isLoading ? "—" : pending.length}
+      sub={pending.length === 0 ? "All approved" : `${formatCurrency(pendingValue)} pending`}
+      onClick={onClick}
+    />
+  );
+}

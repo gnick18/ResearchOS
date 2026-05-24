@@ -594,3 +594,47 @@ export function SnapshotTile(_props: SnapshotTileProps) {
 
 export const ExpandedView = CommentFeedWidget;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SidebarTile (customizable PI sidebar manager #146, 2026-05-23)
+// ─────────────────────────────────────────────────────────────────────────────
+// Reuses the same notes-shared cache; the count is the simple "any
+// activity?" signal the SnapshotTile also surfaces. `filterMine` and
+// the rest of the body wiring (Mira-Literal P0) are untouched.
+import SidebarStatTile from "./snapshot/SidebarStatTile";
+import type { SidebarTileProps } from "./types";
+
+export function SidebarTile({ onClick }: SidebarTileProps) {
+  const { data: notes = [], isLoading } = useQuery<Note[]>({
+    queryKey: ["lab", "notes-shared"],
+    queryFn: () => labApi.getNotes({ shared_only: true }),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+  let count = 0;
+  for (const n of notes) count += (n.comments ?? []).length;
+  return (
+    <SidebarStatTile
+      icon={
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </svg>
+      }
+      iconClassName="text-blue-500"
+      label="Comments"
+      stat={isLoading ? "—" : count}
+      onClick={onClick}
+    />
+  );
+}
+

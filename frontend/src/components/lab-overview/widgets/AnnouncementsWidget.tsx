@@ -559,3 +559,50 @@ export function SnapshotTile(_props: SnapshotTileProps) {
 // under the Phase A name so the registry can import it as
 // `ExpandedView` without any change to the body itself.
 export const ExpandedView = AnnouncementsWidget;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SidebarTile (customizable PI sidebar manager #146, 2026-05-23)
+// ─────────────────────────────────────────────────────────────────────────────
+// Placeholder built on the shared `<SidebarStatTile>` horizontal-row
+// template. Reuses the same `LAB_ANNOUNCEMENTS_QUERY_KEY` cache the
+// SnapshotTile + body read, so React Query dedupes the fetch.
+// Phase B can replace this with a unique pinned-headline mini-list.
+import SidebarStatTile from "./snapshot/SidebarStatTile";
+import type { SidebarTileProps } from "./types";
+
+export function SidebarTile({ onClick }: SidebarTileProps) {
+  const { data: announcements = [], isLoading } = useQuery({
+    queryKey: LAB_ANNOUNCEMENTS_QUERY_KEY,
+    queryFn: listAnnouncements,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+  const total = announcements.length;
+  const pinned = announcements.filter((a) => a.pinned).length;
+  return (
+    <SidebarStatTile
+      icon={
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M3 11l18-5v12L3 14v-3z" />
+          <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
+        </svg>
+      }
+      iconClassName="text-purple-500"
+      label="Announcements"
+      stat={isLoading ? "—" : total}
+      sub={pinned > 0 ? `${pinned} pinned` : undefined}
+      onClick={onClick}
+    />
+  );
+}

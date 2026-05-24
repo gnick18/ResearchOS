@@ -24,56 +24,75 @@
 import type { WidgetDefinition } from "./types";
 import AnnouncementsWidget, {
   SnapshotTile as AnnouncementsSnapshot,
+  SidebarTile as AnnouncementsSidebar,
   ExpandedView as AnnouncementsExpanded,
 } from "./AnnouncementsWidget";
 import CommentFeedWidget, {
   SnapshotTile as CommentFeedSnapshot,
+  SidebarTile as CommentFeedSidebar,
   ExpandedView as CommentFeedExpanded,
 } from "./CommentFeedWidget";
 import MetricsWidget, {
   SnapshotTile as MetricsSnapshot,
+  SidebarTile as MetricsSidebar,
   ExpandedView as MetricsExpanded,
 } from "./MetricsWidget";
 import RecentActivityWidget, {
   SnapshotTile as RecentActivitySnapshot,
+  SidebarTile as RecentActivitySidebar,
   ExpandedView as RecentActivityExpanded,
 } from "./RecentActivityWidget";
 import PiActionsWidget, {
   SnapshotTile as PiActionsSnapshot,
+  SidebarTile as PiActionsSidebar,
   ExpandedView as PiActionsExpanded,
 } from "./PiActionsWidget";
 import MemberWorkloadWidget, {
   SnapshotTile as MemberWorkloadSnapshot,
+  SidebarTile as MemberWorkloadSidebar,
   ExpandedView as MemberWorkloadExpanded,
 } from "./MemberWorkloadWidget";
 import TodaysAnnouncementsWidget, {
   SnapshotTile as TodaysAnnouncementsSnapshot,
+  SidebarTile as TodaysAnnouncementsSidebar,
   ExpandedView as TodaysAnnouncementsExpanded,
 } from "./TodaysAnnouncementsWidget";
 import LabNotesWidget, {
   SnapshotTile as LabNotesSnapshot,
+  SidebarTile as LabNotesSidebar,
   ExpandedView as LabNotesExpanded,
 } from "./LabNotesWidget";
 import LabExperimentsWidget, {
   SnapshotTile as LabExperimentsSnapshot,
+  SidebarTile as LabExperimentsSidebar,
   ExpandedView as LabExperimentsExpanded,
 } from "./LabExperimentsWidget";
 import LabActivityWidget, {
   SnapshotTile as LabActivitySnapshot,
+  SidebarTile as LabActivitySidebar,
   ExpandedView as LabActivityExpanded,
 } from "./LabActivityWidget";
 import LabPurchasesWidget, {
   SnapshotTile as LabPurchasesSnapshot,
+  SidebarTile as LabPurchasesSidebar,
   ExpandedView as LabPurchasesExpanded,
 } from "./LabPurchasesWidget";
 import {
   OverdueTasksSnapshot,
   TodaysTasksSnapshot,
   UpcomingTasksSnapshot,
+  OverdueTasksSidebarTile,
+  TodaysTasksSidebarTile,
+  UpcomingTasksSidebarTile,
   OverdueTasksExpanded,
   TodaysTasksExpanded,
   UpcomingTasksExpanded,
 } from "./TaskListWidgets";
+import {
+  SnapshotTile as DailyTasksSnapshot,
+  SidebarTile as DailyTasksSidebarTile,
+  ExpandedView as DailyTasksExpanded,
+} from "./DailyTasksWidget";
 
 // Touch the default exports so TypeScript doesn't flag them as unused
 // imports — we intentionally import them for symmetry / side-effect
@@ -99,6 +118,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     title: "Announcements",
     description: "Lab-wide updates. PI composer + pinned posts.",
     SnapshotTile: AnnouncementsSnapshot,
+    SidebarTile: AnnouncementsSidebar,
     ExpandedView: AnnouncementsExpanded,
     defaultLayout: { w: 12, h: 3, minW: 4, minH: 2 },
     surface: "canvas",
@@ -109,6 +129,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     title: "Lab comments",
     description: "Every comment thread across the lab, newest first.",
     SnapshotTile: CommentFeedSnapshot,
+    SidebarTile: CommentFeedSidebar,
     ExpandedView: CommentFeedExpanded,
     defaultLayout: { w: 8, h: 6, minW: 4, minH: 3 },
     surface: "canvas",
@@ -119,6 +140,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     title: "Lab metrics",
     description: "Cross-lab Gantt overlay + funding + roadmap rollup.",
     SnapshotTile: MetricsSnapshot,
+    SidebarTile: MetricsSidebar,
     ExpandedView: MetricsExpanded,
     defaultLayout: { w: 4, h: 6, minW: 4, minH: 4 },
     surface: "canvas",
@@ -133,6 +155,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     description:
       "Cross-lab notes the viewer can read (canRead filter), searchable + filterable.",
     SnapshotTile: LabNotesSnapshot,
+    SidebarTile: LabNotesSidebar,
     ExpandedView: LabNotesExpanded,
     defaultLayout: { w: 6, h: 6, minW: 4, minH: 4 },
     surface: "canvas",
@@ -143,6 +166,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     title: "Lab experiments",
     description: "Outcome gallery of every lab member's experiments.",
     SnapshotTile: LabExperimentsSnapshot,
+    SidebarTile: LabExperimentsSidebar,
     ExpandedView: LabExperimentsExpanded,
     defaultLayout: { w: 6, h: 6, minW: 4, minH: 4 },
     surface: "canvas",
@@ -158,6 +182,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     description:
       "Deep, paginated activity feed across the lab (comments, tasks, flags, announcements).",
     SnapshotTile: LabActivitySnapshot,
+    SidebarTile: LabActivitySidebar,
     ExpandedView: LabActivityExpanded,
     defaultLayout: { w: 6, h: 8, minW: 4, minH: 5 },
     surface: "canvas",
@@ -173,6 +198,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     description:
       "Pending approvals, recent purchases, and funding rollup. Lab head only.",
     SnapshotTile: LabPurchasesSnapshot,
+    SidebarTile: LabPurchasesSidebar,
     ExpandedView: LabPurchasesExpanded,
     defaultLayout: { w: 6, h: 8, minW: 4, minH: 5 },
     surface: "canvas",
@@ -185,6 +211,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     title: "Recent lab activity",
     description: "Newest comments, shares, and task creations across the lab.",
     SnapshotTile: RecentActivitySnapshot,
+    SidebarTile: RecentActivitySidebar,
     ExpandedView: RecentActivityExpanded,
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
@@ -195,6 +222,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     title: "Pending lab head actions",
     description: "Purchase approvals + flag queue counts (R3).",
     SnapshotTile: PiActionsSnapshot,
+    SidebarTile: PiActionsSidebar,
     ExpandedView: PiActionsExpanded,
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
@@ -205,6 +233,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     title: "Member workload",
     description: "Open + overdue counts per lab member.",
     SnapshotTile: MemberWorkloadSnapshot,
+    SidebarTile: MemberWorkloadSidebar,
     ExpandedView: MemberWorkloadExpanded,
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
@@ -215,6 +244,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     title: "Today's announcements",
     description: "Pinned announcements, titles only.",
     SnapshotTile: TodaysAnnouncementsSnapshot,
+    SidebarTile: TodaysAnnouncementsSidebar,
     ExpandedView: TodaysAnnouncementsExpanded,
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
@@ -227,6 +257,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     title: "Overdue tasks",
     description: "Your past-due open tasks.",
     SnapshotTile: OverdueTasksSnapshot,
+    SidebarTile: OverdueTasksSidebarTile,
     ExpandedView: OverdueTasksExpanded,
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
@@ -237,6 +268,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     title: "Today's tasks",
     description: "Tasks scheduled to land today.",
     SnapshotTile: TodaysTasksSnapshot,
+    SidebarTile: TodaysTasksSidebarTile,
     ExpandedView: TodaysTasksExpanded,
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
@@ -247,7 +279,29 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     title: "Upcoming tasks",
     description: "Tasks starting after today.",
     SnapshotTile: UpcomingTasksSnapshot,
+    SidebarTile: UpcomingTasksSidebarTile,
     ExpandedView: UpcomingTasksExpanded,
+    defaultLayout: { w: 1, h: 1 },
+    surface: "sidebar",
+    memberVisible: true,
+  },
+
+  // ── Customizable-sidebar additions ───────────────────────────────────
+  // Customizable PI sidebar (#146 customizable PI sidebar manager,
+  // 2026-05-23): the existing `<DailyTasksSidebar>` packaged as a
+  // pinnable widget so lab heads can keep their daily tasks in the
+  // customizable rail. ExpandedView mounts the full sidebar body
+  // inside the popup. memberVisible: true because the catalog stays
+  // role-orthogonal (members just won't see the customizable rail,
+  // they keep using `<DailyTasksSidebar>` directly via AppShell).
+  {
+    id: "sidebar-daily-tasks",
+    title: "Daily tasks",
+    description:
+      "The standard daily-tasks sidebar (overdue, today, upcoming, per-project grouping). The default member sidebar, also pinnable by lab heads.",
+    SnapshotTile: DailyTasksSnapshot,
+    SidebarTile: DailyTasksSidebarTile,
+    ExpandedView: DailyTasksExpanded,
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
     memberVisible: true,

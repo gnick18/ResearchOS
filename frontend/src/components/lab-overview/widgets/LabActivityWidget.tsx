@@ -538,3 +538,64 @@ export function SnapshotTile(_props: SnapshotTileProps) {
 }
 
 export const ExpandedView = LabActivityWidget;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SidebarTile (customizable PI sidebar manager #146, 2026-05-23)
+// ─────────────────────────────────────────────────────────────────────────────
+import SidebarStatTile from "./snapshot/SidebarStatTile";
+import type { SidebarTileProps } from "./types";
+
+export function SidebarTile({ onClick }: SidebarTileProps) {
+  const { tasks } = useLabData();
+  const { data: notes = [], isLoading } = useQuery<Note[]>({
+    queryKey: ["lab", "notes-shared"],
+    queryFn: () => labApi.getNotes({ shared_only: true }),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+  const { data: announcements = [] } = useQuery({
+    queryKey: ["lab-announcements"],
+    queryFn: listAnnouncements,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+  const today = startOfTodayISO();
+  const cutoff24h = isoDaysAgo(0);
+  let todayCount = 0;
+  for (const n of notes) {
+    for (const c of n.comments ?? []) {
+      if (c.created_at && c.created_at.slice(0, 10) === today) todayCount++;
+    }
+  }
+  for (const t of tasks) {
+    if (t.start_date && t.start_date >= cutoff24h) todayCount++;
+  }
+  for (const a of announcements) {
+    if (a.created_at && a.created_at.slice(0, 10) === today) todayCount++;
+  }
+  return (
+    <SidebarStatTile
+      icon={
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+        </svg>
+      }
+      iconClassName="text-emerald-600"
+      label="Activity today"
+      stat={isLoading ? "—" : todayCount}
+      sub={todayCount === 0 ? "Quiet today" : undefined}
+      onClick={onClick}
+    />
+  );
+}

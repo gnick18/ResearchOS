@@ -204,3 +204,62 @@ export function UpcomingTasksSnapshot(_props: SnapshotTileProps) {
 export const OverdueTasksExpanded = OverdueTasksWidget;
 export const TodaysTasksExpanded = TodaysTasksWidget;
 export const UpcomingTasksExpanded = UpcomingTasksWidget;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SidebarTile (customizable PI sidebar manager #146, 2026-05-23)
+// ─────────────────────────────────────────────────────────────────────────────
+// One slim horizontal row per task bucket. All three share the same
+// `useActiveTasks` hook the bodies + SnapshotTiles use, so React Query
+// dedupes the fetch across the whole rail.
+import SidebarStatTile from "./snapshot/SidebarStatTile";
+import type { SidebarTileProps } from "./types";
+
+export function OverdueTasksSidebarTile({ onClick }: SidebarTileProps) {
+  const tasks = useActiveTasks();
+  const today = todayISO();
+  const count = tasks.filter((t) => t.end_date < today && !t.is_complete).length;
+  return (
+    <SidebarStatTile
+      icon={TASK_ICON}
+      iconClassName="text-red-500"
+      label="Overdue"
+      stat={count}
+      sub={count === 0 ? "Nothing overdue" : undefined}
+      onClick={onClick}
+    />
+  );
+}
+
+export function TodaysTasksSidebarTile({ onClick }: SidebarTileProps) {
+  const tasks = useActiveTasks();
+  const today = todayISO();
+  const count = tasks.filter(
+    (t) => t.start_date <= today && t.end_date >= today && !t.is_complete,
+  ).length;
+  return (
+    <SidebarStatTile
+      icon={TASK_ICON}
+      iconClassName="text-blue-500"
+      label="Today"
+      stat={count}
+      sub={count === 0 ? "Nothing scheduled" : undefined}
+      onClick={onClick}
+    />
+  );
+}
+
+export function UpcomingTasksSidebarTile({ onClick }: SidebarTileProps) {
+  const tasks = useActiveTasks();
+  const today = todayISO();
+  const count = tasks.filter((t) => t.start_date > today && !t.is_complete).length;
+  return (
+    <SidebarStatTile
+      icon={TASK_ICON}
+      iconClassName="text-emerald-500"
+      label="Upcoming"
+      stat={count}
+      sub={count === 0 ? "Nothing queued" : undefined}
+      onClick={onClick}
+    />
+  );
+}

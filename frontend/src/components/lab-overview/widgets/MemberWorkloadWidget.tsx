@@ -175,3 +175,52 @@ export function SnapshotTile(_props: SnapshotTileProps) {
 }
 
 export const ExpandedView = MemberWorkloadWidget;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SidebarTile (customizable PI sidebar manager #146, 2026-05-23)
+// ─────────────────────────────────────────────────────────────────────────────
+import SidebarStatTile from "./snapshot/SidebarStatTile";
+import type { SidebarTileProps } from "./types";
+
+export function SidebarTile({ onClick }: SidebarTileProps) {
+  const { currentUser } = useCurrentUser();
+  const accountType = useAccountType(currentUser);
+  const { tasks } = useLabData();
+  if (accountType !== "lab_head") return null;
+  const today = todayIso();
+  let open = 0;
+  let overdue = 0;
+  for (const t of tasks) {
+    if (t.is_complete) continue;
+    open++;
+    if (t.end_date && t.end_date < today) overdue++;
+  }
+  return (
+    <SidebarStatTile
+      icon={
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      }
+      iconClassName="text-indigo-500"
+      label="Workload"
+      stat={open}
+      sub={overdue > 0 ? `${overdue} overdue` : undefined}
+      onClick={onClick}
+    />
+  );
+}

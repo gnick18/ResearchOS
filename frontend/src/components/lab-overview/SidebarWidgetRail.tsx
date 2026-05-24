@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Widget from "./widgets/Widget";
 import SnapshotTilePopup from "./SnapshotTilePopup";
 import { WIDGET_CATALOG, getWidget } from "./widgets/registry";
 import { visibleCatalog } from "./widgets/types";
@@ -26,6 +25,17 @@ import Tooltip from "@/components/Tooltip";
  * Reorder is native HTML5 drag-and-drop on the widget headers — same
  * pattern the snapshot canvas + the home page project cards use. One
  * persistence write per drop.
+ *
+ * Customizable PI sidebar (#146 customizable PI sidebar manager,
+ * 2026-05-23): on `/lab-overview` this rail keeps rendering INSIDE
+ * the page body (next to the canvas, not as the AppShell sidebar —
+ * AppShell carves /lab-overview out so it never double-stacks). The
+ * tiles now use each widget's `SidebarTile` component (slim
+ * horizontal rows), not the canvas `SnapshotTile`. The AppShell-
+ * level customizable sidebar for lab heads lives in
+ * `<CustomizableSidebar>` — a separate consumer of the same
+ * widgetOrder.sidebar list, so changes here propagate to both
+ * surfaces.
  */
 export interface SidebarWidgetRailProps {
   username: string;
@@ -168,7 +178,13 @@ export default function SidebarWidgetRail({
         {visibleIds.map((id) => {
           const def = getWidget(id);
           if (!def) return null;
-          const Tile = def.SnapshotTile;
+          // Customizable PI sidebar (#146, 2026-05-23): render the
+          // widget's `SidebarTile` (slim horizontal row) instead of
+          // the square `SnapshotTile`. The SidebarTile owns its own
+          // click target via the `onClick` prop, so the wrapper's
+          // role="button" is removed (avoids duplicate semantics —
+          // the inner tile is the real button).
+          const Tile = def.SidebarTile;
           return (
             <div
               key={id}
@@ -176,34 +192,45 @@ export default function SidebarWidgetRail({
               onDragStart={handleDragStart(id)}
               onDragOver={handleDragOver}
               onDrop={handleDrop(id)}
-              className={`${
-                isEditing ? "cursor-move" : "cursor-pointer"
+              className={`relative group rounded-md ${
+                isEditing ? "cursor-move bg-white border border-gray-200" : ""
               } ${dragId === id ? "opacity-50" : ""}`}
-              style={{ minHeight: 120 }}
-              onClick={() => {
-                if (isEditing) return;
-                setOpenWidgetId(id);
-              }}
-              role="button"
-              tabIndex={isEditing ? -1 : 0}
-              aria-label={`Open ${def.title}`}
-              onKeyDown={(e) => {
-                if (isEditing) return;
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  setOpenWidgetId(id);
-                }
-              }}
             >
-              <Widget
-                id={id}
-                title={def.title}
-                isEditing={isEditing}
-                surface="sidebar"
-                onRemove={() => void handleToggle(id)}
-              >
-                <Tile surface="sidebar" />
-              </Widget>
+              {isEditing && (
+                <Tooltip label={`Remove ${def.title}`} placement="left">
+                  <button
+                    type="button"
+                    aria-label={`Remove ${def.title}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void handleToggle(id);
+                    }}
+                    className="absolute top-0.5 right-0.5 z-10 p-0.5 rounded text-gray-400 hover:bg-red-50 hover:text-red-600 bg-white/80 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                  >
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                      <line x1="6" y1="18" x2="18" y2="6" />
+                    </svg>
+                  </button>
+                </Tooltip>
+              )}
+              <Tile
+                widgetId={id}
+                onClick={() => {
+                  if (isEditing) return;
+                  setOpenWidgetId(id);
+                }}
+              />
             </div>
           );
         })}

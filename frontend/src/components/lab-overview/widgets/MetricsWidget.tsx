@@ -781,3 +781,49 @@ export function SnapshotTile(_props: SnapshotTileProps) {
 }
 
 export const ExpandedView = MetricsWidget;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SidebarTile (customizable PI sidebar manager #146, 2026-05-23)
+// ─────────────────────────────────────────────────────────────────────────────
+// Reuses the same purchase-items cache. `isApproved` preservation rule
+// from Phase A is honored (we use the same `approved === false`
+// literal to keep the two surfaces consistent).
+import SidebarStatTile from "./snapshot/SidebarStatTile";
+import type { SidebarTileProps } from "./types";
+
+export function SidebarTile({ onClick }: SidebarTileProps) {
+  const { tasks } = useLabData();
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ["lab", "purchase-items"],
+    queryFn: () => labApi.getAllPurchaseItems(),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+  const pending = items.filter((it: { approved?: boolean }) => it.approved === false).length;
+  return (
+    <SidebarStatTile
+      icon={
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M3 3v18h18" />
+          <path d="M7 14l4-4 4 4 5-6" />
+        </svg>
+      }
+      iconClassName="text-emerald-600"
+      label="Metrics"
+      stat={isLoading ? "—" : tasks.length}
+      sub={pending > 0 ? `${pending} pending approval${pending === 1 ? "" : "s"}` : undefined}
+      onClick={onClick}
+    />
+  );
+}

@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import DailyTasksSidebar from "./DailyTasksSidebar";
 import CalendarSidebar from "./CalendarSidebar";
+import CustomizableSidebar from "./lab-overview/CustomizableSidebar";
 import TelegramStatusBadge from "./TelegramStatusBadge";
 import InboxBadge from "./InboxBadge";
 import InboxToast from "./InboxToast";
@@ -491,6 +492,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
            *  nothing here so we don't double-stack two sidebars on
            *  that route (Grant 2026-05-23 — R2 widget framework). */
           null
+        ) : accountType === "lab_head" ? (
+          /* Customizable PI sidebar (#146 customizable PI sidebar
+           *  manager, 2026-05-23): lab heads get the always-on
+           *  customizable widget rail in place of the default
+           *  DailyTasksSidebar. The two carve-outs above
+           *  (/calendar + /lab-overview) take priority — calendar
+           *  keeps its own sidebar, and /lab-overview renders its
+           *  rail in-page. Members fall through to DailyTasksSidebar
+           *  unchanged. */
+          <CustomizableSidebar />
         ) : (
           <DailyTasksSidebar />
         )}

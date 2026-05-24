@@ -234,3 +234,49 @@ export function SnapshotTile(_props: SnapshotTileProps) {
 }
 
 export const ExpandedView = PiActionsWidget;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SidebarTile (customizable PI sidebar manager #146, 2026-05-23)
+// ─────────────────────────────────────────────────────────────────────────────
+import SidebarStatTile from "./snapshot/SidebarStatTile";
+import type { SidebarTileProps } from "./types";
+
+export function SidebarTile({ onClick }: SidebarTileProps) {
+  const { currentUser } = useCurrentUser();
+  const accountType = useAccountType(currentUser);
+  const { data: items = [], isLoading } = useQuery<Array<PurchaseItem & { username: string }>>({
+    queryKey: ["lab", "purchase-items"],
+    queryFn: () => labApi.getAllPurchaseItems(),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    enabled: accountType === "lab_head",
+  });
+  if (accountType !== "lab_head") return null;
+  const pending = items.filter((it) => !it.approved).length;
+  return (
+    <SidebarStatTile
+      icon={
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M9 11l3 3L22 4" />
+          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+        </svg>
+      }
+      iconClassName="text-amber-600"
+      label="PI actions"
+      stat={isLoading ? "—" : pending}
+      sub={pending === 0 ? "All caught up" : `approval${pending === 1 ? "" : "s"}`}
+      onClick={onClick}
+    />
+  );
+}
