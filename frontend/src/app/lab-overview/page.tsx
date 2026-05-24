@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import SnapshotCanvas from "@/components/lab-overview/SnapshotCanvas";
 import SidebarWidgetRail from "@/components/lab-overview/SidebarWidgetRail";
+import ToolsLauncher from "@/components/lab-overview/ToolsLauncher";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { readUserSettings, type AccountType } from "@/lib/settings/user-settings";
 import { readOnboarding } from "@/lib/onboarding/sidecar";
@@ -119,13 +120,20 @@ function LabOverviewBody() {
       <SidebarWidgetRail username={currentUser} accountType={accountType} />
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-6xl mx-auto px-6 py-6 space-y-4">
-          <header>
-            <h1 className="text-2xl font-bold text-gray-900">Lab Overview</h1>
-            <p className="text-sm text-gray-500 mt-1">
-              {isLabHead
-                ? "Your customizable canvas of lab-wide widgets. Click Edit layout to drag, resize, and add."
-                : "Announcements, recent comments, and lab activity. Customize your sidebar with the gear."}
-            </p>
+          <header className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-2xl font-bold text-gray-900">Lab Overview</h1>
+              <p className="text-sm text-gray-500 mt-1">
+                {isLabHead
+                  ? "Your customizable canvas of lab-wide widgets. Click Edit layout to drag, resize, and add."
+                  : "Announcements, recent comments, and lab activity. Customize your sidebar with the gear."}
+              </p>
+            </div>
+            {/* Tools launcher (Phase C): every tool the viewer can open,
+                independent of which widgets they have pinned. */}
+            <div className="flex-shrink-0 pt-1">
+              <ToolsLauncher accountType={accountType} />
+            </div>
           </header>
 
           <SnapshotCanvas username={currentUser} accountType={accountType} />

@@ -20,6 +20,14 @@
  * (see each widget file's bottom for the alias). The snapshot tile is
  * a small placeholder built on the shared `<StatTile>` template; Phase
  * B chips replace each per-widget design.
+ *
+ * Tools refactor — Phase C (Tools refactor manager, 2026-05-23): every
+ * entry now carries a `toolId` (the canonical popup it opens, looked
+ * up in `lib/lab-overview/tool-registry.ts`) and an optional
+ * `variantId` (the tile-shape slug within that Tool). Multiple widget
+ * entries can share a `toolId` — those become variants of the same
+ * tool (e.g. the three `purchases` variants below). Click any variant
+ * → the same Tool popup opens.
  */
 import type { WidgetDefinition } from "./types";
 import AnnouncementsWidget, {
@@ -78,6 +86,16 @@ import LabPurchasesWidget, {
   ExpandedView as LabPurchasesExpanded,
 } from "./LabPurchasesWidget";
 import {
+  SnapshotTile as LabPurchasesBurnRateSnapshot,
+  SidebarTile as LabPurchasesBurnRateSidebar,
+  ExpandedView as LabPurchasesBurnRateExpanded,
+} from "./LabPurchasesBurnRateWidget";
+import {
+  SnapshotTile as LabPurchasesPendingCountSnapshot,
+  SidebarTile as LabPurchasesPendingCountSidebar,
+  ExpandedView as LabPurchasesPendingCountExpanded,
+} from "./LabPurchasesPendingCountWidget";
+import {
   OverdueTasksSnapshot,
   TodaysTasksSnapshot,
   UpcomingTasksSnapshot,
@@ -115,6 +133,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
   // ── Canvas widgets ───────────────────────────────────────────────────
   {
     id: "announcements",
+    toolId: "announcements",
     title: "Announcements",
     description: "Lab-wide updates. PI composer + pinned posts.",
     SnapshotTile: AnnouncementsSnapshot,
@@ -126,6 +145,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
   },
   {
     id: "comment-feed",
+    toolId: "comments",
     title: "Lab comments",
     description: "Every comment thread across the lab, newest first.",
     SnapshotTile: CommentFeedSnapshot,
@@ -137,6 +157,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
   },
   {
     id: "metrics",
+    toolId: "metrics",
     title: "Lab metrics",
     description: "Cross-lab Gantt overlay + funding + roadmap rollup.",
     SnapshotTile: MetricsSnapshot,
@@ -151,6 +172,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
   // canvas-surface ports of the Lab Mode panels.
   {
     id: "lab-notes",
+    toolId: "notes",
     title: "Lab notes",
     description:
       "Cross-lab notes the viewer can read (canRead filter), searchable + filterable.",
@@ -163,6 +185,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
   },
   {
     id: "lab-experiments",
+    toolId: "experiments",
     title: "Lab experiments",
     description: "Outcome gallery of every lab member's experiments.",
     SnapshotTile: LabExperimentsSnapshot,
@@ -178,6 +201,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
   // widget variants were redundant. Replaced by the two entries below.
   {
     id: "lab-activity",
+    toolId: "lab-activity",
     title: "Lab activity",
     description:
       "Deep, paginated activity feed across the lab (comments, tasks, flags, announcements).",
@@ -192,8 +216,18 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     // this should flip to false.
     memberVisible: true,
   },
+
+  // ── Purchases tool: 3 widget variants (Phase C, Tools refactor) ──────
+  // Three tile shapes, one popup. The user can pin any combination on
+  // the canvas. The Tools launcher always shows ONE Purchases entry
+  // (the launcher iterates Tools, not Widgets).
+
   {
+    // Variant 1: the existing funding-bars tile (kept under the original
+    // `lab-purchases` id so saved layouts continue to render).
     id: "lab-purchases",
+    toolId: "purchases",
+    variantId: "funding-bars",
     title: "Lab purchases",
     description:
       "Pending approvals, recent purchases, and funding rollup. Lab head only.",
@@ -204,10 +238,43 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     surface: "canvas",
     memberVisible: false, // lab_head only; replaces the /purchases nav for PIs
   },
+  {
+    // Variant 2: the burn-rate 4-week chart. New in Phase C. Canvas-only.
+    // Opens the same LabPurchases 4-tab popup as the funding-bars variant.
+    id: "lab-purchases-burn-rate",
+    toolId: "purchases",
+    variantId: "burn-rate",
+    title: "Purchase burn rate",
+    description:
+      "Approved purchase spend over the last 4 weeks. Lab head only.",
+    SnapshotTile: LabPurchasesBurnRateSnapshot,
+    SidebarTile: LabPurchasesBurnRateSidebar,
+    ExpandedView: LabPurchasesBurnRateExpanded,
+    defaultLayout: { w: 4, h: 6, minW: 3, minH: 4 },
+    surface: "canvas",
+    memberVisible: false,
+  },
+  {
+    // Variant 3: the compact pending-count summary. New in Phase C.
+    // Canvas-only. Same popup.
+    id: "lab-purchases-pending-count",
+    toolId: "purchases",
+    variantId: "pending-count",
+    title: "Pending purchase approvals",
+    description:
+      "Count + total dollar value of unapproved purchases. Lab head only.",
+    SnapshotTile: LabPurchasesPendingCountSnapshot,
+    SidebarTile: LabPurchasesPendingCountSidebar,
+    ExpandedView: LabPurchasesPendingCountExpanded,
+    defaultLayout: { w: 3, h: 4, minW: 2, minH: 3 },
+    surface: "canvas",
+    memberVisible: false,
+  },
 
   // ── Sidebar widgets (PI-oriented) ────────────────────────────────────
   {
     id: "sidebar-recent-activity",
+    toolId: "recent-activity",
     title: "Recent lab activity",
     description: "Newest comments, shares, and task creations across the lab.",
     SnapshotTile: RecentActivitySnapshot,
@@ -219,6 +286,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
   },
   {
     id: "sidebar-pi-actions",
+    toolId: "pi-actions",
     title: "Pending lab head actions",
     description: "Purchase approvals + flag queue counts (R3).",
     SnapshotTile: PiActionsSnapshot,
@@ -230,6 +298,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
   },
   {
     id: "sidebar-member-workload",
+    toolId: "member-workload",
     title: "Member workload",
     description: "Open + overdue counts per lab member.",
     SnapshotTile: MemberWorkloadSnapshot,
@@ -241,6 +310,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
   },
   {
     id: "sidebar-todays-announcements",
+    toolId: "todays-announcements",
     title: "Today's announcements",
     description: "Pinned announcements, titles only.",
     SnapshotTile: TodaysAnnouncementsSnapshot,
@@ -259,8 +329,15 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
   // micromanagement, even though the counts are personal. PIs get the
   // same signals via DailyTasksWidget if they want them. Hide from the
   // lab_head catalog + filter out of any lab_head saved layout.
+  //
+  // All three task widgets point at the `daily-tasks` Tool — that Tool's
+  // popup is the DailyTasksWidget body, which already shows
+  // overdue/today/upcoming buckets together. Three sidebar tiles, one
+  // popup.
   {
     id: "sidebar-overdue",
+    toolId: "daily-tasks",
+    variantId: "overdue",
     title: "Overdue tasks",
     description: "Your past-due open tasks.",
     SnapshotTile: OverdueTasksSnapshot,
@@ -273,6 +350,8 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
   },
   {
     id: "sidebar-today",
+    toolId: "daily-tasks",
+    variantId: "today",
     title: "Today's tasks",
     description: "Tasks scheduled to land today.",
     SnapshotTile: TodaysTasksSnapshot,
@@ -285,6 +364,8 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
   },
   {
     id: "sidebar-upcoming",
+    toolId: "daily-tasks",
+    variantId: "upcoming",
     title: "Upcoming tasks",
     description: "Tasks starting after today.",
     SnapshotTile: UpcomingTasksSnapshot,
@@ -306,6 +387,8 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
   // they keep using `<DailyTasksSidebar>` directly via AppShell).
   {
     id: "sidebar-daily-tasks",
+    toolId: "daily-tasks",
+    variantId: "full-stack",
     title: "Daily tasks",
     description:
       "The standard daily-tasks sidebar (overdue, today, upcoming, per-project grouping). The default member sidebar, also pinnable by lab heads.",

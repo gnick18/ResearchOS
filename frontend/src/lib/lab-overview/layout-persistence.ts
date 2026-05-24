@@ -45,6 +45,27 @@ import type { WidgetDefinition } from "@/components/lab-overview/widgets/types";
  *  migrations — adding new widgets to the catalog does NOT bump this. */
 export const LAB_OVERVIEW_LAYOUT_VERSION = 2 as const;
 
+/**
+ * Phase C (Tools refactor manager, 2026-05-23): if a future refactor
+ * renames a widget id, add the mapping here so old saved layouts get
+ * rewritten transparently at read time. The current Phase C refactor
+ * kept every existing widget id (the 3 purchases variants share the
+ * `purchases` Tool by adding NEW ids, not by renaming the existing one)
+ * so the map starts empty.
+ *
+ * Shape: `{ [old id]: new id }`. The migration runs over both canvas
+ * and sidebar saved orders, rewriting any old id it sees.
+ */
+export const WIDGET_ID_RENAMES: Record<string, string> = {
+  // No renames yet. Example for the future:
+  //   "old-widget-id": "new-widget-id",
+};
+
+function applyIdRenames(ids: string[]): string[] {
+  if (Object.keys(WIDGET_ID_RENAMES).length === 0) return ids;
+  return ids.map((id) => WIDGET_ID_RENAMES[id] ?? id);
+}
+
 // ── Default layouts ──────────────────────────────────────────────────────
 
 /**
@@ -180,9 +201,12 @@ export function resolveLayout(
     catalogForAppend: WidgetDefinition[],
     surfaceCheck: (w: WidgetDefinition) => boolean,
   ): string[] {
+    // Phase C: apply id renames BEFORE eligibility check so an old id
+    // that's been renamed survives instead of being dropped as "unknown".
+    const renamed = applyIdRenames(saved);
     const seen = new Set<string>();
     const next: string[] = [];
-    for (const id of saved) {
+    for (const id of renamed) {
       if (!eligible.has(id)) {
         if (process.env.NODE_ENV !== "production") {
           console.warn(

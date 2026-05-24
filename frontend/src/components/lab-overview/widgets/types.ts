@@ -142,6 +142,28 @@ export interface WidgetDefinition {
   title: string;
   /** One-line description shown in the "+ Add widget" catalog drawer. */
   description?: string;
+  /**
+   * Phase C (Tools refactor manager, 2026-05-23): the Tool this widget
+   * is a tile-variant of. The popup body (`ExpandedView`) is looked up
+   * via the Tool registry by this id, NOT from `widget.ExpandedView` —
+   * so multiple widget variants of the same tool open the SAME popup.
+   *
+   * Example: `lab-purchases`, `lab-purchases-burn-rate`, and
+   * `lab-purchases-pending-count` are three widget variants whose
+   * `toolId` is all `"purchases"`. Click any of them → the LabPurchases
+   * 4-tab popup opens.
+   *
+   * Required. Catalog entries without a matching tool id fall back to
+   * the legacy per-widget `ExpandedView` (see consumers).
+   */
+  toolId: string;
+  /**
+   * Phase C: the variant slug within a Tool. Used for telemetry +
+   * launcher tile chrome. Defaults to the widget's `id` if omitted (so
+   * single-variant tools don't need to repeat themselves). Two widget
+   * entries with the same toolId MUST have different variantIds.
+   */
+  variantId?: string;
   /** The snapshot-tile component. Renders inside the snapshot canvas
    *  and the sidebar rail. Click opens the popup with `ExpandedView`. */
   SnapshotTile: ComponentType<SnapshotTileProps>;
@@ -153,7 +175,14 @@ export interface WidgetDefinition {
    *  manager; the registry will eventually require this for every
    *  entry once Phase B per-widget designs land. */
   SidebarTile: ComponentType<SidebarTileProps>;
-  /** The expanded-view component. Renders inside the popup shell. */
+  /**
+   * Phase C: optional per-widget fallback. The Tool registry now owns
+   * the canonical popup body; this field is kept ONLY as a defensive
+   * back-compat path (catalog entries whose `toolId` doesn't resolve
+   * fall through to `widget.ExpandedView`). Every catalog entry today
+   * still wires this — removing it is a follow-up after we verify the
+   * Tool registry is stable across all consumers.
+   */
   ExpandedView: ComponentType<ExpandedViewProps>;
   /** Default sizing on the free-grid canvas — retained for the layout
    *  migration's append-at-bottom logic + Phase B forward-compat. */

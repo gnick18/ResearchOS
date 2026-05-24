@@ -9,6 +9,10 @@ import {
   readResolvedLayout,
   toggleSidebarWidget,
 } from "@/lib/lab-overview/layout-persistence";
+import {
+  resolveExpandedView,
+  resolveToolTitle,
+} from "@/lib/lab-overview/tool-registry";
 import type { AccountType } from "@/lib/settings/user-settings";
 import Tooltip from "@/components/Tooltip";
 
@@ -286,15 +290,21 @@ export default function SidebarWidgetRail({
         )}
       </div>
 
-      {/* Popup: opens the clicked tile's ExpandedView */}
-      {openWidget && (
-        <SnapshotTilePopup
-          title={openWidget.title}
-          onClose={() => setOpenWidgetId(null)}
-        >
-          <openWidget.ExpandedView surface="sidebar" isEditing={false} />
-        </SnapshotTilePopup>
-      )}
+      {/* Popup: opens the clicked tile's ExpandedView. Phase C — body
+          + title both resolve via the Tool registry so variants of the
+          same Tool share a popup chrome label. */}
+      {openWidget &&
+        (() => {
+          const Expanded = resolveExpandedView(openWidget);
+          return (
+            <SnapshotTilePopup
+              title={resolveToolTitle(openWidget)}
+              onClose={() => setOpenWidgetId(null)}
+            >
+              <Expanded surface="sidebar" isEditing={false} />
+            </SnapshotTilePopup>
+          );
+        })()}
     </aside>
   );
 }

@@ -12,6 +12,10 @@ import {
   removeCanvasWidget,
   resetLayout,
 } from "@/lib/lab-overview/layout-persistence";
+import {
+  resolveExpandedView,
+  resolveToolTitle,
+} from "@/lib/lab-overview/tool-registry";
 import type { AccountType } from "@/lib/settings/user-settings";
 import Tooltip from "@/components/Tooltip";
 
@@ -360,15 +364,24 @@ export default function SnapshotCanvas({
         })}
       </div>
 
-      {/* Popup: opens the clicked tile's ExpandedView */}
-      {openWidget && (
-        <SnapshotTilePopup
-          title={openWidget.title}
-          onClose={() => setOpenWidgetId(null)}
-        >
-          <openWidget.ExpandedView surface="canvas" isEditing={false} />
-        </SnapshotTilePopup>
-      )}
+      {/* Popup: opens the clicked tile's ExpandedView. Phase C — the
+          popup body is resolved via `resolveExpandedView` so every
+          widget variant of a Tool opens the SAME popup (e.g. the three
+          purchases variants all open the LabPurchases 4-tab popup). The
+          popup header title comes from the Tool, not the widget, so all
+          variants of one Tool share a popup chrome label. */}
+      {openWidget &&
+        (() => {
+          const Expanded = resolveExpandedView(openWidget);
+          return (
+            <SnapshotTilePopup
+              title={resolveToolTitle(openWidget)}
+              onClose={() => setOpenWidgetId(null)}
+            >
+              <Expanded surface="canvas" isEditing={false} />
+            </SnapshotTilePopup>
+          );
+        })()}
     </div>
   );
 }

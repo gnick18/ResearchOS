@@ -1,0 +1,347 @@
+/**
+ * Lab Overview tools registry (Phase C, Tools refactor manager,
+ * 2026-05-23).
+ *
+ * Conceptual model:
+ *   - A **Tool** is a canonical domain popup. It owns one `ExpandedView`
+ *     component, a title, a description, a small icon, and the
+ *     account-type visibility rules (memberVisible / labHeadVisible).
+ *     Tools are the things a user "opens" — Purchases, Announcements,
+ *     Comments, Notes, Experiments, Daily Tasks, etc.
+ *   - A **Widget** (see `components/lab-overview/widgets/registry.ts`)
+ *     is a tile shape. Each widget references a Tool by `toolId`. A
+ *     Tool can have N widget variants (e.g. `lab-purchases.funding-bars`,
+ *     `lab-purchases.burn-rate`, `lab-purchases.pending-count` are three
+ *     widget variants of the `purchases` Tool). Clicking any variant
+ *     opens the SAME tool popup.
+ *
+ * Why split:
+ *   - the lab-overview canvas previously coupled "thing the user opens"
+ *     to "what the tile looks like". The iPhone-style widget metaphor
+ *     wanted multiple tile shapes per app — a count pill, a chart, a
+ *     progress-bar view, etc., all opening the same app. The Tool/Widget
+ *     split makes that natural.
+ *   - the new Tools launcher button (top of `/lab-overview`) lists every
+ *     tool the active viewer can access, so a tool's popup is reachable
+ *     even if the user has no widget for it pinned. The launcher iterates
+ *     Tools, not Widgets, so a single Purchases tile shows in the launcher
+ *     no matter how many variant tiles the user has on the canvas.
+ *
+ * Wiring:
+ *   - the actual `ExpandedView` components still live in their existing
+ *     widget files (e.g. `AnnouncementsWidget.tsx` exports its body as
+ *     the default + `ExpandedView` alias). The Tool registry just holds
+ *     references to those exports; we don't move the popup bodies. The
+ *     refactor is a re-pointer.
+ *
+ * Visibility model:
+ *   - mirrors the existing `visibleCatalog` rules from widgets/types.ts.
+ *     `memberVisible: false` → hidden from members. `labHeadVisible:
+ *     false` → hidden from lab heads (rare carve-out; today only the
+ *     personal task widgets use it).
+ */
+import type { ComponentType } from "react";
+import type { ExpandedViewProps } from "@/components/lab-overview/widgets/types";
+import type { AccountType } from "@/lib/settings/user-settings";
+
+// ── ExpandedView imports ─────────────────────────────────────────────────
+// Pull the existing popup bodies from each widget file. The bodies are
+// unchanged; only the wiring (where they're looked up) moves.
+import { ExpandedView as AnnouncementsExpanded } from "@/components/lab-overview/widgets/AnnouncementsWidget";
+import { ExpandedView as CommentFeedExpanded } from "@/components/lab-overview/widgets/CommentFeedWidget";
+import { ExpandedView as MetricsExpanded } from "@/components/lab-overview/widgets/MetricsWidget";
+import { ExpandedView as RecentActivityExpanded } from "@/components/lab-overview/widgets/RecentActivityWidget";
+import { ExpandedView as PiActionsExpanded } from "@/components/lab-overview/widgets/PiActionsWidget";
+import { ExpandedView as MemberWorkloadExpanded } from "@/components/lab-overview/widgets/MemberWorkloadWidget";
+import { ExpandedView as TodaysAnnouncementsExpanded } from "@/components/lab-overview/widgets/TodaysAnnouncementsWidget";
+import { ExpandedView as LabNotesExpanded } from "@/components/lab-overview/widgets/LabNotesWidget";
+import { ExpandedView as LabExperimentsExpanded } from "@/components/lab-overview/widgets/LabExperimentsWidget";
+import { ExpandedView as LabActivityExpanded } from "@/components/lab-overview/widgets/LabActivityWidget";
+import { ExpandedView as LabPurchasesExpanded } from "@/components/lab-overview/widgets/LabPurchasesWidget";
+import { ExpandedView as DailyTasksExpanded } from "@/components/lab-overview/widgets/DailyTasksWidget";
+
+// ── Small inline icons (no emojis, no lucide-react) ───────────────────────
+// Each tool gets a 16x16 SVG. Pulled from / mirrors the existing widget
+// icon constants. Kept here so the launcher doesn't have to reach into
+// each widget file. The shape (`<svg>` element) renders inline; the
+// caller styles colour via `currentColor`.
+
+const ICON_PROPS = {
+  xmlns: "http://www.w3.org/2000/svg",
+  width: 16,
+  height: 16,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 2,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+  "aria-hidden": true,
+} as const;
+
+const ANNOUNCEMENTS_ICON = (
+  // Megaphone — mirrors MEGAPHONE_SVG from AnnouncementsWidget.
+  <svg {...ICON_PROPS}>
+    <path d="M3 11l18-5v12L3 14v-3z" />
+    <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
+  </svg>
+);
+
+const COMMENTS_ICON = (
+  // Chat bubble — mirrors CHAT_SVG from CommentFeedWidget.
+  <svg {...ICON_PROPS}>
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+  </svg>
+);
+
+const NOTES_ICON = (
+  // Document — mirrors DOC_SVG from LabNotesWidget.
+  <svg {...ICON_PROPS}>
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <polyline points="14 2 14 8 20 8" />
+  </svg>
+);
+
+const EXPERIMENTS_ICON = (
+  // Flask. Distinct from the generic chart icons.
+  <svg {...ICON_PROPS}>
+    <path d="M9 2v6L4 19a2 2 0 0 0 1.7 3h12.6A2 2 0 0 0 20 19L15 8V2" />
+    <line x1="7" y1="2" x2="17" y2="2" />
+  </svg>
+);
+
+const PURCHASES_ICON = (
+  // Dollar sign — mirrors PURCHASES_TILE_ICON from LabPurchasesWidget.
+  <svg {...ICON_PROPS}>
+    <line x1="12" y1="1" x2="12" y2="23" />
+    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+  </svg>
+);
+
+const METRICS_ICON = (
+  // Line chart — mirrors METRICS_ICON from MetricsWidget.
+  <svg {...ICON_PROPS}>
+    <path d="M3 3v18h18" />
+    <path d="M7 14l4-4 4 4 5-6" />
+  </svg>
+);
+
+const DAILY_TASKS_ICON = (
+  // Checkbox — mirrors CHECKBOX_SVG from DailyTasksWidget.
+  <svg {...ICON_PROPS}>
+    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+    <polyline points="9 12 11 14 16 9" />
+  </svg>
+);
+
+const LAB_ACTIVITY_ICON = (
+  // Activity pulse — mirrors ACTIVITY_ICON from LabActivityWidget.
+  <svg {...ICON_PROPS}>
+    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+  </svg>
+);
+
+const RECENT_ACTIVITY_ICON = (
+  // Clock — captures "recent" temporally.
+  <svg {...ICON_PROPS}>
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12 6 12 12 16 14" />
+  </svg>
+);
+
+const PI_ACTIONS_ICON = (
+  // Shield with check — mirrors SHIELD_ICON from PiActionsWidget.
+  <svg {...ICON_PROPS}>
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    <path d="M9 12l2 2 4-4" />
+  </svg>
+);
+
+const MEMBER_WORKLOAD_ICON = (
+  // People — mirrors PEOPLE_ICON from MemberWorkloadWidget.
+  <svg {...ICON_PROPS}>
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </svg>
+);
+
+const TODAYS_ANNOUNCEMENTS_ICON = (
+  // Pin — mirrors PIN_SVG from TodaysAnnouncementsWidget.
+  <svg {...ICON_PROPS}>
+    <line x1="12" y1="17" x2="12" y2="22" />
+    <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24z" />
+  </svg>
+);
+
+// ── Tool definitions ─────────────────────────────────────────────────────
+
+export interface ToolDefinition {
+  /** Canonical tool id. Stable across catalog churn. Used by widget
+   *  entries' `toolId` field + by the Tools launcher as a click key. */
+  id: string;
+  /** Human label shown in the launcher tile + the popup chrome. */
+  title: string;
+  /** One-line description for the launcher tile hover/aria. */
+  description?: string;
+  /** Small inline SVG. Caller styles colour via `currentColor`. */
+  Icon: React.ReactElement;
+  /** The popup body. Reused by every widget variant referencing this
+   *  tool's id. */
+  ExpandedView: ComponentType<ExpandedViewProps>;
+  /** Visibility: member sees the tool in the launcher + the popup. */
+  memberVisible: boolean;
+  /** Visibility: lab_head sees the tool in the launcher + the popup.
+   *  Defaults true. Set to `false` for tools that are PI-only carve-outs
+   *  (none in the first pass, but mirrored from the widget rules). */
+  labHeadVisible?: boolean;
+}
+
+export const TOOL_REGISTRY: ToolDefinition[] = [
+  {
+    id: "announcements",
+    title: "Announcements",
+    description: "Lab-wide updates. Lab heads post, members read.",
+    Icon: ANNOUNCEMENTS_ICON,
+    ExpandedView: AnnouncementsExpanded,
+    memberVisible: true,
+  },
+  {
+    id: "comments",
+    title: "Lab comments",
+    description: "Every comment thread across the lab, newest first.",
+    Icon: COMMENTS_ICON,
+    ExpandedView: CommentFeedExpanded,
+    memberVisible: true,
+  },
+  {
+    id: "notes",
+    title: "Lab notes",
+    description: "Cross-lab notes the viewer can read, searchable + filterable.",
+    Icon: NOTES_ICON,
+    ExpandedView: LabNotesExpanded,
+    memberVisible: true,
+  },
+  {
+    id: "experiments",
+    title: "Lab experiments",
+    description: "Outcome gallery of every lab member's experiments.",
+    Icon: EXPERIMENTS_ICON,
+    ExpandedView: LabExperimentsExpanded,
+    memberVisible: true,
+  },
+  {
+    id: "purchases",
+    title: "Lab purchases",
+    description: "Pending approvals, recent purchases, funding rollup.",
+    Icon: PURCHASES_ICON,
+    ExpandedView: LabPurchasesExpanded,
+    memberVisible: false,
+  },
+  {
+    id: "metrics",
+    title: "Lab metrics",
+    description: "Cross-lab Gantt overlay + funding + roadmap rollup.",
+    Icon: METRICS_ICON,
+    ExpandedView: MetricsExpanded,
+    memberVisible: false,
+  },
+  {
+    id: "daily-tasks",
+    title: "Today's tasks",
+    description: "Personal overdue / today / upcoming tasks.",
+    Icon: DAILY_TASKS_ICON,
+    ExpandedView: DailyTasksExpanded,
+    memberVisible: true,
+  },
+  {
+    id: "lab-activity",
+    title: "Lab activity",
+    description:
+      "Paginated activity feed across the lab (comments, tasks, flags, announcements).",
+    Icon: LAB_ACTIVITY_ICON,
+    ExpandedView: LabActivityExpanded,
+    memberVisible: true,
+  },
+  {
+    id: "recent-activity",
+    title: "Recent lab activity",
+    description: "Newest comments, shares, and task creations across the lab.",
+    Icon: RECENT_ACTIVITY_ICON,
+    ExpandedView: RecentActivityExpanded,
+    memberVisible: true,
+  },
+  {
+    id: "pi-actions",
+    title: "Pending lab head actions",
+    description: "Purchase approvals + flag queue + audit acks awaiting you.",
+    Icon: PI_ACTIONS_ICON,
+    ExpandedView: PiActionsExpanded,
+    memberVisible: false,
+  },
+  {
+    id: "member-workload",
+    title: "Member workload",
+    description: "Open + overdue counts per lab member.",
+    Icon: MEMBER_WORKLOAD_ICON,
+    ExpandedView: MemberWorkloadExpanded,
+    memberVisible: false,
+  },
+  {
+    id: "todays-announcements",
+    title: "Today's announcements",
+    description: "Pinned announcements, titles only.",
+    Icon: TODAYS_ANNOUNCEMENTS_ICON,
+    ExpandedView: TodaysAnnouncementsExpanded,
+    memberVisible: true,
+  },
+];
+
+/** Look up a Tool by id. Returns undefined for unknown ids. */
+export function getTool(id: string): ToolDefinition | undefined {
+  return TOOL_REGISTRY.find((t) => t.id === id);
+}
+
+/**
+ * Filter the tool registry to the entries a given account type is
+ * allowed to open. Mirrors `visibleCatalog` from widgets/types.ts but
+ * runs over Tools, not Widgets.
+ */
+export function visibleTools(accountType: AccountType): ToolDefinition[] {
+  if (accountType === "lab_head") {
+    return TOOL_REGISTRY.filter((t) => t.labHeadVisible !== false);
+  }
+  return TOOL_REGISTRY.filter((t) => t.memberVisible);
+}
+
+/**
+ * Resolve a widget's popup body via its `toolId`. Falls back to the
+ * widget's own legacy `ExpandedView` field if no matching Tool exists
+ * (defensive — every catalog entry today has both, but the fallback
+ * keeps the door open for partial migrations).
+ *
+ * The fallback is `null` only if the widget itself doesn't carry an
+ * ExpandedView, which would be a registry shape error.
+ */
+export function resolveExpandedView(widget: {
+  toolId: string;
+  ExpandedView: ComponentType<ExpandedViewProps>;
+}): ComponentType<ExpandedViewProps> {
+  const tool = getTool(widget.toolId);
+  return tool?.ExpandedView ?? widget.ExpandedView;
+}
+
+/**
+ * Resolve the popup title for a widget. Tools-registry-first (so the
+ * title stays consistent across variants), with the widget's own
+ * `title` as the fallback. Callers should prefer this over `def.title`
+ * for the popup header so all 3 purchases variants show "Lab purchases"
+ * in the popup chrome (not "Pending purchase approvals" or "Burn rate").
+ */
+export function resolveToolTitle(widget: {
+  toolId: string;
+  title: string;
+}): string {
+  return getTool(widget.toolId)?.title ?? widget.title;
+}

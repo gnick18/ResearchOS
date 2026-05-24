@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   LAB_OVERVIEW_LAYOUT_VERSION,
+  WIDGET_ID_RENAMES,
   migrateLayoutToV2,
   resolveLayout,
 } from "./layout-persistence";
@@ -37,6 +38,7 @@ const NullExpanded = () => null;
 const fakeCatalog: WidgetDefinition[] = [
   {
     id: "announcements",
+    toolId: "announcements",
     title: "Announcements",
     SnapshotTile: NullSnapshot,
     SidebarTile: NullSidebar,
@@ -47,6 +49,7 @@ const fakeCatalog: WidgetDefinition[] = [
   },
   {
     id: "comment-feed",
+    toolId: "comments",
     title: "Lab comments",
     SnapshotTile: NullSnapshot,
     SidebarTile: NullSidebar,
@@ -57,6 +60,7 @@ const fakeCatalog: WidgetDefinition[] = [
   },
   {
     id: "metrics",
+    toolId: "metrics",
     title: "Lab metrics",
     SnapshotTile: NullSnapshot,
     SidebarTile: NullSidebar,
@@ -67,6 +71,7 @@ const fakeCatalog: WidgetDefinition[] = [
   },
   {
     id: "sidebar-recent-activity",
+    toolId: "recent-activity",
     title: "Recent lab activity",
     SnapshotTile: NullSnapshot,
     SidebarTile: NullSidebar,
@@ -77,6 +82,8 @@ const fakeCatalog: WidgetDefinition[] = [
   },
   {
     id: "sidebar-overdue",
+    toolId: "daily-tasks",
+    variantId: "overdue",
     title: "Overdue",
     SnapshotTile: NullSnapshot,
     SidebarTile: NullSidebar,
@@ -266,6 +273,15 @@ describe("migrateLayoutToV2", () => {
     expect(once.widgetOrder).toEqual(v2.widgetOrder);
     expect(twice.widgetOrder).toEqual(v2.widgetOrder);
     expect(twice.version).toBe(LAB_OVERVIEW_LAYOUT_VERSION);
+  });
+
+  it("WIDGET_ID_RENAMES starts empty (Phase C kept every existing id)", () => {
+    // The Phase C tools refactor added NEW widget ids for the purchases
+    // variants (lab-purchases-burn-rate, lab-purchases-pending-count) but
+    // did NOT rename any existing id. So the renames map is empty.
+    // If a future refactor renames a widget id, add the mapping and a
+    // test that exercises it through resolveLayout.
+    expect(Object.keys(WIDGET_ID_RENAMES).length).toBe(0);
   });
 
   it("resolveLayout migrates a v1 payload end-to-end", () => {
