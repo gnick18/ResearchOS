@@ -5,9 +5,18 @@
  * 2026-05-23): the burn-rate variant of the `purchases` Tool.
  *
  * This widget reuses the chart logic from `MetricsWidget`'s SnapshotTile
- * (the 4-week bar chart of approved spend) but is wired to the
- * `purchases` Tool, not `metrics`. Clicking it opens the LabPurchases
- * 4-tab popup (same as the funding-bars and pending-count variants).
+ * (the bar chart of approved spend) but is wired to the `purchases`
+ * Tool, not `metrics`. Clicking it opens the LabPurchases 4-tab popup
+ * (same as the funding-bars and pending-count variants).
+ *
+ * Burn-rate range selector (burn-rate range manager, 2026-05-23): the
+ * tile now exposes a 4-button segmented control (4w / 8w / 12w / 6mo)
+ * inside the tile so a lab head can flex the time window without
+ * leaving the canvas. The selected range is persisted to localStorage
+ * keyed by widget id, so a refresh keeps the user's pick. Chip clicks
+ * call `stopPropagation` to avoid triggering the SnapshotCanvas
+ * click-to-open wrapper (mirrors the AnnouncementsWidget composer
+ * idiom).
  *
  * Why a separate widget file:
  *   - the Tool/Widget split lets a user pin EITHER the funding-bars view
@@ -21,10 +30,10 @@
  *
  * SidebarTile: this variant is canvas-only per the brief. The sidebar
  * keeps the existing `LabPurchasesWidget.SidebarTile` (compact pending
- * count) — the rail is too narrow for a 4-week chart.
+ * count) since the rail is too narrow for a multi-bar chart.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { labApi } from "@/lib/local-api";
 import { useLabData } from "@/hooks/useLabData";
@@ -43,11 +52,148 @@ function isApprovedItem(item: { approved?: boolean }) {
   return item.approved === undefined || item.approved === true;
 }
 
-/** Bucket approved spend into the last 4 calendar weeks (Sun-Sat).
- *  Lifted verbatim from MetricsWidget's `weeklyBurnRate`. Bucket 0 is 3
- *  weeks ago, bucket 3 is the current week — left-to-right reads as
- *  oldest → newest, matching how burn-rate charts are usually drawn. */
-function weeklyBurnRate(
+// ── Range model ──────────────────────────────────────────────────────────
+
+/** Range options exposed in the in-tile segmented control. Adding a new
+ *  option means: extend this union, add a `RANGE_OPTIONS` entry, and
+ *  cover the bucket math in `bucketsForRange`. */
+type BurnRateRange = "4w" | "8w" | "12w" | "6mo";
+
+interface RangeOption {
+  id: BurnRateRange;
+  /** Short chip label. Inline SVG-free so it stays narrow. */
+  label: string;
+  /** Aria label for the chip button. */
+  aria: string;
+  /** Empty-state copy (used when every bucket sums to 0). */
+  emptyLabel: string;
+}
+
+const RANGE_OPTIONS: ReadonlyArray<RangeOption> = [
+  { id: "4w", label: "4w", aria: "Last 4 weeks", emptyLabel: "No spend in the last 4 weeks" },
+  { id: "8w", label: "8w", aria: "Last 8 weeks", emptyLabel: "No spend in the last 8 weeks" },
+  { id: "12w", label: "12w", aria: "Last 12 weeks", emptyLabel: "No spend in the last 12 weeks" },
+  { id: "6mo", label: "6mo", aria: "Last 6 months", emptyLabel: "No spend in the last 6 months" },
+];
+
+const DEFAULT_RANGE: BurnRateRange = "4w";
+
+/** localStorage key for the burn-rate widget's persisted settings.
+ *  Shape: `{ "range": BurnRateRange }`. Other future tile-local prefs
+ *  can ride the same object. The `researchos:widget-settings:<id>`
+ *  prefix is reserved for this kind of per-tile prefs; if a second
+ *  tile adopts the model, factor `widget-settings.ts` out. */
+const STORAGE_KEY = "researchos:widget-settings:lab-purchases-burn-rate";
+
+function isBurnRateRange(value: unknown): value is BurnRateRange {
+  return value === "4w" || value === "8w" || value === "12w" || value === "6mo";
+}
+
+function readStoredRange(): BurnRateRange {
+  if (typeof window === "undefined") return DEFAULT_RANGE;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return DEFAULT_RANGE;
+    const parsed = JSON.parse(raw) as { range?: unknown };
+    return isBurnRateRange(parsed.range) ? parsed.range : DEFAULT_RANGE;
+  } catch {
+    return DEFAULT_RANGE;
+  }
+}
+
+function writeStoredRange(range: BurnRateRange): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ range }));
+  } catch {
+    // best-effort; storage may be disabled (private mode, quota)
+  }
+}
+
+// ── Bucket math ──────────────────────────────────────────────────────────
+
+interface Bucket {
+  /** Short label (`Mar 3` for weekly, `Mar` for monthly). */
+  label: string;
+  /** Full hover label (`Week of Mar 3` / `Mar 2026`). */
+  fullLabel: string;
+  total: number;
+  startMs: number;
+  endMs: number;
+}
+
+/** Build N weekly buckets ending at this week (Sun-Sat). Bucket 0 is
+ *  oldest, bucket N-1 is the current week. */
+function weeklyBuckets(weeks: number): Bucket[] {
+  const startOfThisWeek = new Date();
+  startOfThisWeek.setHours(0, 0, 0, 0);
+  startOfThisWeek.setDate(startOfThisWeek.getDate() - startOfThisWeek.getDay());
+  const buckets: Bucket[] = [];
+  for (let i = weeks - 1; i >= 0; i--) {
+    const start = new Date(startOfThisWeek);
+    start.setDate(start.getDate() - i * 7);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 7);
+    const label = start.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+    });
+    buckets.push({
+      label,
+      fullLabel: `Week of ${label}`,
+      total: 0,
+      startMs: start.getTime(),
+      endMs: end.getTime(),
+    });
+  }
+  return buckets;
+}
+
+/** Build N monthly buckets ending at this month. Bucket 0 is oldest,
+ *  bucket N-1 is the current month. */
+function monthlyBuckets(months: number): Bucket[] {
+  const now = new Date();
+  const buckets: Bucket[] = [];
+  for (let i = months - 1; i >= 0; i--) {
+    const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
+    end.setHours(0, 0, 0, 0);
+    const label = start.toLocaleDateString(undefined, { month: "short" });
+    const fullLabel = start.toLocaleDateString(undefined, {
+      month: "short",
+      year: "numeric",
+    });
+    buckets.push({
+      label,
+      fullLabel,
+      total: 0,
+      startMs: start.getTime(),
+      endMs: end.getTime(),
+    });
+  }
+  return buckets;
+}
+
+function bucketsForRange(range: BurnRateRange): Bucket[] {
+  switch (range) {
+    case "4w":
+      return weeklyBuckets(4);
+    case "8w":
+      return weeklyBuckets(8);
+    case "12w":
+      return weeklyBuckets(12);
+    case "6mo":
+      return monthlyBuckets(6);
+  }
+}
+
+/** Sum approved purchase items into the supplied buckets, keyed off the
+ *  parent purchase task's `start_date` (the timestamp proxy used by
+ *  MetricsWidget + LabPurchasesWidget). Mutates each bucket's `total`
+ *  in place; returns the same array for convenience. */
+function fillBuckets(
+  buckets: Bucket[],
   items: Array<{
     username: string;
     task_id: number;
@@ -55,31 +201,7 @@ function weeklyBurnRate(
     approved?: boolean;
   }>,
   tasksByKey: Map<string, { start_date: string | null }>,
-): Array<{ label: string; total: number }> {
-  const startOfThisWeek = new Date();
-  startOfThisWeek.setHours(0, 0, 0, 0);
-  startOfThisWeek.setDate(startOfThisWeek.getDate() - startOfThisWeek.getDay());
-  const buckets: Array<{
-    label: string;
-    total: number;
-    startMs: number;
-    endMs: number;
-  }> = [];
-  for (let i = 3; i >= 0; i--) {
-    const start = new Date(startOfThisWeek);
-    start.setDate(start.getDate() - i * 7);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 7);
-    buckets.push({
-      label: start.toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-      }),
-      total: 0,
-      startMs: start.getTime(),
-      endMs: end.getTime(),
-    });
-  }
+): Bucket[] {
   for (const it of items) {
     if (!isApprovedItem(it)) continue;
     const parent = tasksByKey.get(`${it.username}:${it.task_id}`);
@@ -93,12 +215,10 @@ function weeklyBurnRate(
       }
     }
   }
-  return buckets.map(({ label, total }) => ({ label, total }));
+  return buckets;
 }
 
-function pendingCount(
-  items: Array<{ approved?: boolean }>,
-): number {
+function pendingCount(items: Array<{ approved?: boolean }>): number {
   let count = 0;
   for (const it of items) {
     if (!isApprovedItem(it)) count++;
@@ -136,9 +256,16 @@ const BURN_RATE_ICON = (
 );
 
 /**
- * SnapshotTile: 4 vertical bars (one per calendar week, oldest →
- * newest, left → right) representing approved lab spend, plus a small
- * "X pending" pill in the top-right when there are unapproved items.
+ * SnapshotTile: vertical bars (one per bucket, oldest -> newest, left ->
+ * right) of approved lab spend, a small "X pending" pill in the
+ * top-right when there are unapproved items, and a 4-button range
+ * selector inline beneath the title.
+ *
+ * Range chip placement: below the title row (not the absolute
+ * top-right) so it doesn't collide with the existing pending pill that
+ * lives there, and so the 4 chips can sit on a single row inside the
+ * 176px tile height without crowding the bars. Chip clicks call
+ * `stopPropagation` to avoid the SnapshotCanvas click-to-open wrapper.
  *
  * Visibility: lab_head only. Members don't have purchase visibility
  * (the registry entry sets `memberVisible: false`); the catalog filter
@@ -168,15 +295,38 @@ export function SnapshotTile(_props: SnapshotTileProps) {
     }
     return m;
   }, [tasks]);
+
+  // Range state: SSR-safe two-step hydration mirroring the
+  // LabExperimentsPanel idiom (initial render uses the default, an
+  // effect reads from localStorage on mount). Avoids hydration
+  // mismatch warnings.
+  const [range, setRange] = useState<BurnRateRange>(DEFAULT_RANGE);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- SSR-safe localStorage hydration: useState seed must match the server-rendered HTML (DEFAULT_RANGE), then we read the persisted value on mount.
+    setRange(readStoredRange());
+  }, []);
+  const setAndPersistRange = (next: BurnRateRange) => {
+    setRange(next);
+    writeStoredRange(next);
+  };
+
   const buckets = useMemo(
-    () => weeklyBurnRate(items, tasksByKey),
-    [items, tasksByKey],
+    () => fillBuckets(bucketsForRange(range), items, tasksByKey),
+    [range, items, tasksByKey],
   );
   const pending = useMemo(() => pendingCount(items), [items]);
   const maxTotal = useMemo(
     () => Math.max(0, ...buckets.map((b) => b.total)),
     [buckets],
   );
+  const activeOption =
+    RANGE_OPTIONS.find((o) => o.id === range) ?? RANGE_OPTIONS[0];
+
+  // Stops the SnapshotCanvas wrapper's click-to-open + keydown-to-open
+  // handlers on the interactive range-selector area. Mirrors the
+  // AnnouncementsWidget composer idiom.
+  const stopClick = (e: React.MouseEvent | React.KeyboardEvent) =>
+    e.stopPropagation();
 
   if (accountType !== "lab_head") return null;
 
@@ -198,27 +348,61 @@ export function SnapshotTile(_props: SnapshotTileProps) {
           {pending} pending
         </span>
       )}
-      <div className="mt-2 flex-1 min-h-0 flex flex-col">
+      {/* Range selector: 4 segmented chips. Wrapper stops click + key
+          propagation so chip interaction doesn't trigger the
+          SnapshotCanvas open-popup handler. */}
+      <div
+        className="mt-1.5 inline-flex self-start rounded-md border border-gray-200 bg-gray-50 p-0.5"
+        role="group"
+        aria-label="Burn rate range"
+        onClick={stopClick}
+        onKeyDown={stopClick}
+      >
+        {RANGE_OPTIONS.map((opt) => {
+          const isActive = opt.id === range;
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              aria-label={opt.aria}
+              aria-pressed={isActive}
+              data-testid={`burn-rate-range-${opt.id}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setAndPersistRange(opt.id);
+              }}
+              className={`px-1.5 py-0.5 text-[10px] font-medium rounded transition-colors tabular-nums ${
+                isActive
+                  ? "bg-white text-emerald-700 shadow-sm border border-gray-200"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-1.5 flex-1 min-h-0 flex flex-col">
         {isLoading ? (
           <p className="text-xs text-gray-400 italic m-auto">Loading…</p>
         ) : maxTotal === 0 ? (
           <p className="text-xs text-gray-400 italic m-auto">
-            No spend in the last 4 weeks
+            {activeOption.emptyLabel}
           </p>
         ) : (
           <>
             <div
-              className="flex-1 min-h-0 flex items-end justify-between gap-1.5"
-              aria-label="Approved purchase spend by week (last 4 weeks)"
+              className="flex-1 min-h-0 flex items-end justify-between gap-1"
+              aria-label={`Approved purchase spend per bucket (${activeOption.aria.toLowerCase()})`}
             >
               {buckets.map((b, idx) => {
                 const pct = maxTotal > 0 ? (b.total / maxTotal) * 100 : 0;
                 const isCurrent = idx === buckets.length - 1;
                 return (
                   <div
-                    key={b.label}
+                    key={`${b.startMs}-${b.label}`}
                     className="flex-1 flex flex-col justify-end h-full min-w-0"
-                    title={`Week of ${b.label}: ${formatCompactCurrency(b.total)}`}
+                    title={`${b.fullLabel}: ${formatCompactCurrency(b.total)}`}
                   >
                     <div
                       className={`w-full rounded-sm ${
@@ -230,12 +414,24 @@ export function SnapshotTile(_props: SnapshotTileProps) {
                 );
               })}
             </div>
+            {/* Axis labels: weekly view labels every bucket; longer
+                ranges (8w / 12w / 6mo) only label first + last to keep
+                the row readable in 176px of tile height. */}
             <div className="mt-1 flex items-center justify-between gap-1 text-[10px] text-gray-400 tabular-nums">
-              {buckets.map((b, idx) => (
-                <span key={b.label} className="flex-1 text-center truncate">
-                  {idx === buckets.length - 1 ? "now" : b.label}
-                </span>
-              ))}
+              {buckets.map((b, idx) => {
+                const isFirst = idx === 0;
+                const isLast = idx === buckets.length - 1;
+                const showLabel =
+                  range === "4w" || isFirst || isLast;
+                return (
+                  <span
+                    key={`label-${b.startMs}-${b.label}`}
+                    className="flex-1 text-center truncate"
+                  >
+                    {isLast ? "now" : showLabel ? b.label : ""}
+                  </span>
+                );
+              })}
             </div>
           </>
         )}

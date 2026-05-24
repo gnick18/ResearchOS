@@ -76,8 +76,14 @@ function applyIdRenames(ids: string[]): string[] {
  * "append on new catalog entry" path in `resolveLayout` covers any
  * widget the saved layout doesn't list.
  *
- * Canvas order: announcements → lab-purchases (the PI's main daily
- * triage) → metrics → lab-activity → lab-experiments → lab-notes →
+ * Burn-rate default (burn-rate range manager, 2026-05-23): the burn-rate
+ * variant tile is included next to lab-purchases so fresh lab heads see
+ * the spend chart day-one. The pending-count variant is NOT in the
+ * default (opt-in for PIs who want a compact status pill).
+ *
+ * Canvas order: announcements, lab-purchases (the PI's main daily
+ * triage), lab-purchases-burn-rate (spend trend, sits next to its
+ * purchases sibling), metrics, lab-activity, lab-experiments, lab-notes,
  * comment-feed. Sidebar default unchanged.
  */
 function defaultLabHeadLayout(): LabOverviewLayout {
@@ -87,6 +93,7 @@ function defaultLabHeadLayout(): LabOverviewLayout {
       canvas: [
         "announcements",
         "lab-purchases",
+        "lab-purchases-burn-rate",
         "metrics",
         "lab-activity",
         "lab-experiments",
