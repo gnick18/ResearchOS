@@ -100,6 +100,7 @@ import {
   setPurchaseApproval,
   setFlagForReview,
   clearFlagAsOwner,
+  declinePurchase,
 } from "../pi-actions";
 import { readAuditEntries } from "../pi-audit";
 import {
@@ -430,6 +431,104 @@ describe("pi-actions", () => {
       });
       expect(result.ok).toBe(false);
       expect(result.ok === false && result.reason).toBe("data-write");
+    });
+  });
+
+  // ── PiActions follow-up Item 3 (2026-05-23): declinePurchase ─────────
+  //
+  // The decline path persists `declined_at` + `declined_by` so the UI
+  // can distinguish "pending" from "PI turned this down." Approve always
+  // clears both back to null so a re-approve via setPurchaseApproval is
+  // the single path back to approved (no separate re-approve writer).
+
+  describe("declinePurchase (PiActions follow-up Item 3)", () => {
+    it("stamps declined_at + declined_by and clears approved fields", async () => {
+      seedPurchase("alex", 1, {});
+      const live = startEditSession("mira");
+
+      const result = await declinePurchase({
+        actor: "mira",
+        sessionId: live.id,
+        targetOwner: "alex",
+        purchaseItemId: 1,
+        itemName: "Test item",
+      });
+
+      expect(result.ok).toBe(true);
+      const item = fakeFiles["users/alex/purchase_items/1.json"] as {
+        approved: boolean;
+        approved_by: string | null;
+        approved_at: string | null;
+        declined_at: string | null;
+        declined_by: string | null;
+      };
+      expect(item.approved).toBe(false);
+      expect(item.approved_by).toBeNull();
+      expect(item.approved_at).toBeNull();
+      expect(item.declined_at).toBeTruthy();
+      expect(item.declined_by).toBe("mira");
+    });
+
+    it("emits an audit entry with field_path='declined'", async () => {
+      seedPurchase("alex", 1, {});
+      const live = startEditSession("mira");
+
+      await declinePurchase({
+        actor: "mira",
+        sessionId: live.id,
+        targetOwner: "alex",
+        purchaseItemId: 1,
+      });
+
+      const entries = await readAuditEntries("alex");
+      const declineEntry = entries.find((e) => e.field_path === "declined");
+      expect(declineEntry).toBeTruthy();
+      expect(declineEntry?.actor).toBe("mira");
+      expect(declineEntry?.record_type).toBe("purchase_item");
+      expect(declineEntry?.old_value).toBeNull();
+      expect(declineEntry?.new_value).toBeTruthy();
+    });
+
+    it("rejects with stale session", async () => {
+      seedPurchase("alex", 1, {});
+      const result = await declinePurchase({
+        actor: "mira",
+        sessionId: "no-session",
+        targetOwner: "alex",
+        purchaseItemId: 1,
+      });
+      expect(result.ok).toBe(false);
+      expect(result.ok === false && result.reason).toBe("data-write");
+    });
+
+    it("setPurchaseApproval(approved:true) clears prior decline state", async () => {
+      // Seed a declined item — mimics state after a prior decline.
+      seedPurchase("alex", 1, {
+        approved: false,
+        declined_at: "2026-05-22T12:00:00Z",
+        declined_by: "mira",
+      });
+      const live = startEditSession("mira");
+
+      const result = await setPurchaseApproval({
+        actor: "mira",
+        sessionId: live.id,
+        targetOwner: "alex",
+        purchaseItemId: 1,
+        approved: true,
+      });
+
+      expect(result.ok).toBe(true);
+      const item = fakeFiles["users/alex/purchase_items/1.json"] as {
+        approved: boolean;
+        approved_by: string | null;
+        declined_at: string | null;
+        declined_by: string | null;
+      };
+      expect(item.approved).toBe(true);
+      expect(item.approved_by).toBe("mira");
+      expect(item.declined_at).toBeNull();
+      expect(item.declined_by).toBeNull();
     });
   });
 });

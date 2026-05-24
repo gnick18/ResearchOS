@@ -13,7 +13,11 @@ import { useAccountType } from "@/hooks/useAccountType";
 import { useEditSession } from "@/hooks/useEditSession";
 import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
 import { readAuditEntries, type PiAuditEntry } from "@/lib/lab/pi-audit";
-import { setPurchaseApproval, setFlagForReview } from "@/lib/lab/pi-actions";
+import {
+  setPurchaseApproval,
+  setFlagForReview,
+  declinePurchase,
+} from "@/lib/lab/pi-actions";
 import { fileService } from "@/lib/file-system/file-service";
 import type { PurchaseItem, Task } from "@/lib/types";
 import type { LabUserProfileMap } from "@/hooks/useLabUserProfiles";
@@ -136,6 +140,23 @@ const OPEN_POPUP_ICON = (
   </svg>
 );
 
+const CHEVRON_RIGHT_ICON = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="10"
+    height="10"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <polyline points="9 18 15 12 9 6" />
+  </svg>
+);
+
 const ALL_CLEAR_ICON = (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -251,13 +272,12 @@ export default function PiActionsWidget(_props?: {
     enabled: accountType === "lab_head",
   });
 
-  // Audit-entries reader. The existing `pi-audit-count` query (consumed
-  // by SnapshotTile / SidebarTile via `usePiActionCounts`) returns just
-  // a number; we keep that query untouched (avoiding a fan-out migration)
-  // and run this companion query that returns the actual entries the
-  // dashboard renders. React Query dedupes by key, so on a popup open
-  // we pay one extra cross-user scan (FOLLOW-UP: collapse to a single
-  // canonical shape once both surfaces settle).
+  // Audit-entries reader. PiActions follow-up Item 1 (2026-05-23):
+  // consolidated to a single canonical query — the tile components now
+  // derive their count via `entries.length` through the same
+  // `usePiActionCounts` hook below, dropping the parallel
+  // `pi-audit-count` key that previously walked every user's
+  // `_pi_audit.json` independently.
   const { data: auditEntries = [] } = useQuery<DecoratedAuditEntry[]>({
     queryKey: ["lab", "pi-audit-entries", currentUser ?? ""],
     queryFn: () => loadAuditEntriesByActor(currentUser ?? ""),
@@ -266,8 +286,24 @@ export default function PiActionsWidget(_props?: {
     refetchOnWindowFocus: false,
   });
 
+  // PiActions follow-up Item 3 (2026-05-23): "pending" means truly
+  // waiting on the PI. Declined items now persist a `declined_at` stamp
+  // and live in the separate "Recently declined" section below; they
+  // disappear from the pending list and from the SnapshotTile's pending
+  // count badge so the PI doesn't get nagged about items they already
+  // turned down.
   const pendingItems = useMemo(
-    () => items.filter((it) => !it.approved),
+    () => items.filter((it) => !it.approved && !it.declined_at),
+    [items],
+  );
+  const declinedItems = useMemo(
+    () =>
+      items
+        .filter((it) => it.declined_at != null && !it.approved)
+        // Newest decline first so the PI sees their most recent action.
+        .sort((a, b) =>
+          (b.declined_at ?? "").localeCompare(a.declined_at ?? ""),
+        ),
     [items],
   );
 
@@ -366,11 +402,11 @@ export default function PiActionsWidget(_props?: {
     void queryClient.invalidateQueries({ queryKey: ["lab", "tasks"] });
   };
   const invalidateAudit = () => {
+    // PiActions follow-up Item 1 (2026-05-23): single canonical key.
+    // The `pi-audit-count` key is gone (tiles now share this query via
+    // `usePiActionCounts` and derive the count from `.length`).
     void queryClient.invalidateQueries({
       queryKey: ["lab", "pi-audit-entries", currentUser ?? ""],
-    });
-    void queryClient.invalidateQueries({
-      queryKey: ["lab", "pi-audit-count", currentUser ?? ""],
     });
   };
 
@@ -390,6 +426,7 @@ export default function PiActionsWidget(_props?: {
         {activeTab === "pending" && (
           <PendingApprovalsTab
             items={pendingItems}
+            declinedItems={declinedItems}
             profileMap={profileMap}
             sessionUnlocked={sessionUnlocked}
             sessionId={sessionId}
@@ -548,6 +585,7 @@ function TabStrip({ activeTab, onChange, counts }: TabStripProps) {
 
 interface PendingApprovalsTabProps {
   items: Array<PurchaseItem & { username: string }>;
+  declinedItems: Array<PurchaseItem & { username: string }>;
   profileMap: LabUserProfileMap;
   sessionUnlocked: boolean;
   sessionId: string | null;
@@ -557,13 +595,27 @@ interface PendingApprovalsTabProps {
 
 function PendingApprovalsTab({
   items,
+  declinedItems,
   profileMap,
   sessionUnlocked,
   sessionId,
   actor,
   onAfterChange,
 }: PendingApprovalsTabProps) {
-  if (items.length === 0) {
+  // PiActions follow-up Item 3 (2026-05-23): "Recently declined" is a
+  // separate collapsible section under the pending list (UX choice over
+  // an inline declined-pill row in the pending list itself). Rationale:
+  // mixing pending + declined in one scroll dilutes the urgency of the
+  // pending list (which is the surface the PI opened the widget for).
+  // Keeping declined items visible (vs hidden) honors Grant's direction
+  // — the PI sees what they turned down and can re-approve in one click,
+  // but the visual hierarchy stays "what needs you" first.
+  const [declinedOpen, setDeclinedOpen] = useState(false);
+
+  // Empty state only when BOTH lists are empty — a declined-only state
+  // is interesting on its own ("you've declined N this week, nothing
+  // new is pending") and shouldn't get the all-clear celebration.
+  if (items.length === 0 && declinedItems.length === 0) {
     return (
       <EmptyState
         icon={ALL_CLEAR_ICON}
@@ -579,24 +631,236 @@ function PendingApprovalsTab({
       {!sessionUnlocked && (
         <LockedBanner actor={actor} targetLabel="purchase approvals" />
       )}
-      <ul
-        className="space-y-1.5 overflow-y-auto pr-1"
-        style={{ maxHeight: "60vh" }}
-      >
-        {items.map((item) => (
-          <li key={`${item.username}:${item.id}`}>
-            <PendingApprovalRow
-              item={item}
-              profileMap={profileMap}
-              sessionUnlocked={sessionUnlocked}
-              sessionId={sessionId}
-              actor={actor}
-              onAfterChange={onAfterChange}
-            />
-          </li>
-        ))}
-      </ul>
+      {items.length === 0 ? (
+        <p className="text-xs text-gray-500 italic px-1">
+          Nothing pending — every recent request was approved or declined.
+        </p>
+      ) : (
+        <ul
+          className="space-y-1.5 overflow-y-auto pr-1"
+          style={{ maxHeight: "60vh" }}
+        >
+          {items.map((item) => (
+            <li key={`${item.username}:${item.id}`}>
+              <PendingApprovalRow
+                item={item}
+                profileMap={profileMap}
+                sessionUnlocked={sessionUnlocked}
+                sessionId={sessionId}
+                actor={actor}
+                onAfterChange={onAfterChange}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {declinedItems.length > 0 && (
+        <DeclinedSection
+          items={declinedItems}
+          open={declinedOpen}
+          onToggle={() => setDeclinedOpen((v) => !v)}
+          profileMap={profileMap}
+          sessionUnlocked={sessionUnlocked}
+          sessionId={sessionId}
+          actor={actor}
+          onAfterChange={onAfterChange}
+        />
+      )}
     </div>
+  );
+}
+
+// ── Recently declined section (PiActions follow-up Item 3) ──────────────
+//
+// Collapsible block below the pending list. Single "Re-approve" button
+// per row routes through setPurchaseApproval (which now wipes the
+// declined_at + declined_by fields), so the item snaps back to approved
+// in one click.
+
+interface DeclinedSectionProps {
+  items: Array<PurchaseItem & { username: string }>;
+  open: boolean;
+  onToggle: () => void;
+  profileMap: LabUserProfileMap;
+  sessionUnlocked: boolean;
+  sessionId: string | null;
+  actor: string;
+  onAfterChange: () => void;
+}
+
+function DeclinedSection({
+  items,
+  open,
+  onToggle,
+  profileMap,
+  sessionUnlocked,
+  sessionId,
+  actor,
+  onAfterChange,
+}: DeclinedSectionProps) {
+  return (
+    <div className="mt-2 pt-2 border-t border-gray-200">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between gap-2 px-1 py-1 rounded text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+        aria-expanded={open}
+      >
+        <span className="flex items-center gap-1.5">
+          <span aria-hidden="true" className="text-gray-400">
+            {X_ICON}
+          </span>
+          Recently declined
+          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold tabular-nums bg-gray-100 text-gray-600">
+            {items.length}
+          </span>
+        </span>
+        <span
+          aria-hidden="true"
+          className={`text-gray-400 transition-transform ${open ? "rotate-90" : ""}`}
+        >
+          {CHEVRON_RIGHT_ICON}
+        </span>
+      </button>
+      {open && (
+        <ul
+          className="mt-1.5 space-y-1.5 overflow-y-auto pr-1"
+          style={{ maxHeight: "40vh" }}
+        >
+          {items.map((item) => (
+            <li key={`declined:${item.username}:${item.id}`}>
+              <DeclinedRow
+                item={item}
+                profileMap={profileMap}
+                sessionUnlocked={sessionUnlocked}
+                sessionId={sessionId}
+                actor={actor}
+                onAfterChange={onAfterChange}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+interface DeclinedRowProps {
+  item: PurchaseItem & { username: string };
+  profileMap: LabUserProfileMap;
+  sessionUnlocked: boolean;
+  sessionId: string | null;
+  actor: string;
+  onAfterChange: () => void;
+}
+
+function DeclinedRow({
+  item,
+  profileMap,
+  sessionUnlocked,
+  sessionId,
+  actor,
+  onAfterChange,
+}: DeclinedRowProps) {
+  const [busy, setBusy] = useState(false);
+  const requesterName =
+    profileMap[item.username]?.displayName?.trim() || item.username;
+  const declinerName = item.declined_by
+    ? profileMap[item.declined_by]?.displayName?.trim() || item.declined_by
+    : "you";
+  const declinedRelative = item.declined_at
+    ? formatRelative(item.declined_at)
+    : "";
+
+  const handleReApprove = async () => {
+    if (!sessionUnlocked || !sessionId || busy) return;
+    setBusy(true);
+    try {
+      const result = await setPurchaseApproval({
+        actor,
+        sessionId,
+        targetOwner: item.username,
+        purchaseItemId: item.id,
+        approved: true,
+        itemName: item.item_name,
+      });
+      if (!result.ok && result.reason === "data-write") {
+        console.error("[pi-actions-dashboard] re-approve failed", result.error);
+        alert("Failed to re-approve. See console for details.");
+        return;
+      }
+      onAfterChange();
+      if (!result.ok && result.reason === "audit") {
+        console.warn("[pi-actions-dashboard] re-approve audit failed", result.error);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const tip = !sessionUnlocked ? "Unlock edit mode to re-approve." : null;
+
+  return (
+    <div className="flex items-center gap-2.5 px-2 py-2 rounded-md border border-gray-200 bg-gray-50 hover:bg-white transition-colors">
+      <UserAvatar username={item.username} size="sm" />
+      <div className="flex-1 min-w-0">
+        <p
+          className="text-xs font-medium text-gray-700 truncate"
+          title={item.item_name}
+        >
+          {item.item_name}
+        </p>
+        <p className="text-[11px] text-gray-500 truncate">
+          {requesterName} <span className="text-gray-400">·</span>{" "}
+          <span className="text-red-700">Declined {declinedRelative}</span>
+          {item.declined_by && item.declined_by !== actor && (
+            <>
+              {" "}
+              <span className="text-gray-400">·</span> by {declinerName}
+            </>
+          )}
+        </p>
+      </div>
+      <div className="flex-shrink-0">
+        {tip ? (
+          <Tooltip label={tip} placement="top">
+            <span>
+              <ReApproveButton onClick={handleReApprove} disabled busy={busy} />
+            </span>
+          </Tooltip>
+        ) : (
+          <ReApproveButton
+            onClick={handleReApprove}
+            disabled={busy}
+            busy={busy}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ReApproveButton({
+  onClick,
+  disabled,
+  busy,
+}: {
+  onClick: () => void;
+  disabled: boolean;
+  busy: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed"
+      data-testid="pi-actions-reapprove"
+    >
+      <span aria-hidden="true">{CHECK_ICON}</span>
+      {busy ? "Saving" : "Re-approve"}
+    </button>
   );
 }
 
@@ -624,20 +888,17 @@ function PendingApprovalRow({
   const totalDollars =
     typeof item.total_price === "number" ? `$${item.total_price.toFixed(2)}` : "—";
 
-  // "Decline" — PurchaseItem has no `declined_at` field today, and the
-  // brief leaves the choice up to the implementer ("else just call the
-  // existing approve flip back"). We use the approve-flip-back path:
-  // setPurchaseApproval(..., approved: false) clears approval back to
-  // pending. Visually it removes the item from "pending" because we
-  // filter on `approved === false` (so the decline does NOT remove it
-  // from the list — see FOLLOW-UP in the report). FOLLOW-UP: extend
-  // PurchaseItem schema with a `declined_at` if Grant wants a true
-  // decline state separable from "still pending".
+  // PiActions follow-up Item 3 (2026-05-23): Approve clears any prior
+  // decline (setPurchaseApproval wipes declined_at + declined_by on
+  // approve). Decline goes through the new `declinePurchase` writer
+  // which persists declined_at + declined_by — so a declined item
+  // disappears from the pending list and shows up in "Recently declined"
+  // below with a Re-approve button.
   const handleApprove = async () => {
     if (!sessionUnlocked || !sessionId || busy) return;
     setBusy(true);
     try {
-      await setPurchaseApproval({
+      const result = await setPurchaseApproval({
         actor,
         sessionId,
         targetOwner: item.username,
@@ -645,10 +906,15 @@ function PendingApprovalRow({
         approved: true,
         itemName: item.item_name,
       });
+      if (!result.ok && result.reason === "data-write") {
+        console.error("[pi-actions-dashboard] approve failed", result.error);
+        alert("Failed to approve. See console for details.");
+        return;
+      }
       onAfterChange();
-    } catch (err) {
-      console.error("[pi-actions-dashboard] approve failed", err);
-      alert("Failed to approve. See console for details.");
+      if (!result.ok && result.reason === "audit") {
+        console.warn("[pi-actions-dashboard] approve audit failed", result.error);
+      }
     } finally {
       setBusy(false);
     }
@@ -658,18 +924,22 @@ function PendingApprovalRow({
     if (!sessionUnlocked || !sessionId || busy) return;
     setBusy(true);
     try {
-      await setPurchaseApproval({
+      const result = await declinePurchase({
         actor,
         sessionId,
         targetOwner: item.username,
         purchaseItemId: item.id,
-        approved: false,
         itemName: item.item_name,
       });
+      if (!result.ok && result.reason === "data-write") {
+        console.error("[pi-actions-dashboard] decline failed", result.error);
+        alert("Failed to decline. See console for details.");
+        return;
+      }
       onAfterChange();
-    } catch (err) {
-      console.error("[pi-actions-dashboard] decline failed", err);
-      alert("Failed to decline. See console for details.");
+      if (!result.ok && result.reason === "audit") {
+        console.warn("[pi-actions-dashboard] decline audit failed", result.error);
+      }
     } finally {
       setBusy(false);
     }
@@ -991,7 +1261,8 @@ function FlaggedRow({
 // Tab 3: Audit log
 // ─────────────────────────────────────────────────────────────────────────────
 
-const AUDIT_DISPLAY_CAP = 100;
+const AUDIT_DISPLAY_INITIAL = 100;
+const AUDIT_DISPLAY_STEP = 100;
 
 interface AuditLogTabProps {
   entries: DecoratedAuditEntry[];
@@ -999,14 +1270,18 @@ interface AuditLogTabProps {
 }
 
 function AuditLogTab({ entries, profileMap }: AuditLogTabProps) {
-  // Cap to AUDIT_DISPLAY_CAP newest entries — the underlying scan does a
-  // full per-user read on popup open (FOLLOW-UP: paginate or read-on-
-  // demand once labs accumulate enough history to need it), but the
-  // display layer caps separately so the DOM stays cheap.
+  // PiActions follow-up Item 2 (2026-05-23): the display cap is now an
+  // escapable user choice instead of a silent DOM-side truncate. The
+  // initial render still slices to 100 (cheap DOM + no jank for very
+  // large labs), but the PI can click "Show more" to bump it by 100, or
+  // "Show all" to lift the cap entirely. The underlying entries array is
+  // already cached, so this is render-side only — no extra reads.
+  const [displayLimit, setDisplayLimit] = useState<number>(AUDIT_DISPLAY_INITIAL);
   const capped = useMemo(
-    () => entries.slice(0, AUDIT_DISPLAY_CAP),
-    [entries],
+    () => entries.slice(0, displayLimit),
+    [entries, displayLimit],
   );
+  const hasMore = entries.length > displayLimit;
 
   if (entries.length === 0) {
     return (
@@ -1029,11 +1304,36 @@ function AuditLogTab({ entries, profileMap }: AuditLogTabProps) {
           <AuditRow entry={entry} profileMap={profileMap} />
         </li>
       ))}
-      {entries.length > AUDIT_DISPLAY_CAP && (
-        <li className="pt-1.5">
-          <p className="text-[10px] text-gray-400 italic px-2">
-            Showing the {AUDIT_DISPLAY_CAP} most recent of {entries.length}.
-          </p>
+      {hasMore && (
+        <li className="pt-2">
+          <div className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md bg-gray-50">
+            <p className="text-[11px] text-gray-500">
+              Showing {capped.length} of {entries.length} entries.
+            </p>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() =>
+                  setDisplayLimit((v) => v + AUDIT_DISPLAY_STEP)
+                }
+                className="text-[11px] font-medium text-emerald-700 hover:text-emerald-800 hover:underline px-1.5 py-0.5 rounded focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                data-testid="pi-actions-audit-show-more"
+              >
+                Show more
+              </button>
+              <span aria-hidden="true" className="text-gray-300">
+                ·
+              </span>
+              <button
+                type="button"
+                onClick={() => setDisplayLimit(entries.length)}
+                className="text-[11px] font-medium text-gray-600 hover:text-gray-900 hover:underline px-1.5 py-0.5 rounded focus:outline-none focus:ring-2 focus:ring-gray-300"
+                data-testid="pi-actions-audit-show-all"
+              >
+                Show all
+              </button>
+            </div>
+          </div>
         </li>
       )}
     </ul>
@@ -1090,6 +1390,12 @@ function describeAuditEntry(entry: PiAuditEntry): string {
   const f = entry.field_path;
   if (entry.record_type === "purchase_item" && f === "approved") {
     return entry.new_value === true ? "approved purchase" : "cleared approval";
+  }
+  // PiActions follow-up Item 3 (2026-05-23): persisted decline path
+  // emits its own field_path so the audit log can distinguish "PI turned
+  // it down" from "PI cleared approval back to pending."
+  if (entry.record_type === "purchase_item" && f === "declined") {
+    return "declined purchase";
   }
   if (f === "flagged") {
     return entry.new_value == null ? "cleared flag" : "flagged for review";
@@ -1276,32 +1582,27 @@ function usePiActionCounts() {
     refetchOnWindowFocus: false,
     enabled: accountType === "lab_head",
   });
-  const { data: auditCount = 0, isLoading: auditLoading } = useQuery<number>({
-    queryKey: ["lab", "pi-audit-count", currentUser ?? ""],
+  // PiActions follow-up Item 1 (2026-05-23): single canonical audit
+  // query — shared with the dashboard above via React Query's keyed
+  // dedupe. The tile components derive their badge count via
+  // `entries.length` here instead of running a parallel `pi-audit-count`
+  // query that walked every user's `_pi_audit.json` independently.
+  const { data: auditEntries = [], isLoading: auditLoading } = useQuery<
+    DecoratedAuditEntry[]
+  >({
+    queryKey: ["lab", "pi-audit-entries", currentUser ?? ""],
     enabled: accountType === "lab_head" && !!currentUser,
-    queryFn: async () => {
-      if (!currentUser) return 0;
-      const usernames = await listLabUsernames();
-      let total = 0;
-      await Promise.all(
-        usernames.map(async (u) => {
-          try {
-            const entries = await readAuditEntries(u);
-            for (const e of entries) {
-              if (e.actor === currentUser) total++;
-            }
-          } catch {
-            // best-effort
-          }
-        }),
-      );
-      return total;
-    },
+    queryFn: () => loadAuditEntriesByActor(currentUser ?? ""),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
+  const auditCount = auditEntries.length;
+  // PiActions follow-up Item 3 (2026-05-23): pending count excludes
+  // declined items so the SnapshotTile badge matches the dashboard's
+  // Tab 1 pending list — the PI shouldn't get nagged into clicking
+  // through for items they already turned down.
   const pending = useMemo(
-    () => items.filter((it) => !it.approved).length,
+    () => items.filter((it) => !it.approved && !it.declined_at).length,
     [items],
   );
   const flagsByMe = useMemo(() => {

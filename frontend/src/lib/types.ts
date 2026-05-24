@@ -1476,6 +1476,17 @@ export interface PurchaseItem {
   approved_at?: string | null;
   // Lab Head Phase 3 — PI flag-for-review; same shape as on Task / Note.
   flagged?: PiFlag | null;
+  // PiActions follow-up (PiActions follow-up manager, 2026-05-23):
+  // persisted decline state. Falsy `declined_at` means "not declined"
+  // (treat as pending unless `approved === true`); a populated
+  // `declined_at` means the PI explicitly turned it down. Approve always
+  // clears both. State machine:
+  //   pending   : !approved && !declined_at
+  //   approved  : approved === true
+  //   declined  : approved === false && declined_at != null
+  // Old records without either field behave as "pending".
+  declined_at?: string | null;
+  declined_by?: string | null;
 }
 
 export interface PurchaseItemCreate {
@@ -1510,6 +1521,10 @@ export interface PurchaseItemUpdate {
   approved_at?: string | null;
   /** Lab Head Phase 3 — PI flag (object sets, `null` clears). */
   flagged?: PiFlag | null;
+  /** PiActions follow-up — persisted decline state. Approve clears both
+   *  to null; decline sets them. See PurchaseItem doc for state machine. */
+  declined_at?: string | null;
+  declined_by?: string | null;
 }
 
 export interface CatalogItem {

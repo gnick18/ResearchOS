@@ -494,7 +494,12 @@ export async function setPurchaseApproval(
 
   let before;
   try {
-    before = await fileService.readJson<{ approved?: boolean; item_name?: string }>(
+    before = await fileService.readJson<{
+      approved?: boolean;
+      item_name?: string;
+      declined_at?: string | null;
+      declined_by?: string | null;
+    }>(
       `users/${args.targetOwner}/purchase_items/${args.purchaseItemId}.json`,
     );
     if (!before) {
@@ -506,6 +511,11 @@ export async function setPurchaseApproval(
     return dataWriteFailure(err);
   }
 
+  // PiActions follow-up (PiActions follow-up manager, 2026-05-23):
+  // approve always CLEARS any prior decline (the PI changed their mind),
+  // restoring the state machine to "approved". This branch through the
+  // same function keeps callers from having to choose between approve
+  // and "re-approve after decline" — they're the same write.
   let updated;
   try {
     updated = await rawPurchasesApi.update(
@@ -514,6 +524,11 @@ export async function setPurchaseApproval(
         approved,
         approved_by: approved ? args.actor : null,
         approved_at: approved ? now : null,
+        // Approve clears decline; un-approve (clear-to-pending) also
+        // clears decline so the explicit "decline" path via
+        // declinePurchase is the only way to land in the declined state.
+        declined_at: null,
+        declined_by: null,
       },
       args.targetOwner,
     );
@@ -557,6 +572,116 @@ export async function setPurchaseApproval(
         field_path: "approved",
         old_value: !!before.approved,
         new_value: approved,
+      },
+    ]);
+  } catch (err) {
+    return { ok: false, reason: "audit", error: err, value };
+  }
+
+  return { ok: true, value };
+}
+
+// ── Purchase decline (PiActions follow-up, 2026-05-23) ─────────────────
+//
+// Separate entry point from setPurchaseApproval because decline carries a
+// distinct, persisted state (declined_at + declined_by). Approve clearing
+// decline lives in setPurchaseApproval; this is the inverse: decline
+// clears `approved` and stamps the decline fields. Re-approving a
+// declined item goes back through setPurchaseApproval (which now wipes
+// the decline fields), so callers don't need a separate "re-approve"
+// entry point.
+
+export interface DeclinePurchaseArgs {
+  actor: string;
+  sessionId: string;
+  targetOwner: string;
+  purchaseItemId: number;
+  /** Denormalized item name for the audit row context. */
+  itemName?: string;
+}
+
+export interface DeclinePurchaseValue {
+  purchaseItemId: number;
+  declinedAt: string;
+  declinedBy: string;
+  previousApproved: boolean;
+  previousDeclinedAt: string | null;
+}
+
+export async function declinePurchase(
+  args: DeclinePurchaseArgs,
+): Promise<PiActionResult<DeclinePurchaseValue>> {
+  // 0. Session gate.
+  try {
+    assertLiveSession(args.actor, args.sessionId);
+  } catch (err) {
+    return dataWriteFailure(err);
+  }
+
+  const now = new Date().toISOString();
+
+  let before;
+  try {
+    before = await fileService.readJson<{
+      approved?: boolean;
+      declined_at?: string | null;
+      declined_by?: string | null;
+    }>(
+      `users/${args.targetOwner}/purchase_items/${args.purchaseItemId}.json`,
+    );
+    if (!before) {
+      throw new Error(
+        `declinePurchase: item ${args.purchaseItemId} not found in ${args.targetOwner}'s folder`,
+      );
+    }
+  } catch (err) {
+    return dataWriteFailure(err);
+  }
+
+  let updated;
+  try {
+    updated = await rawPurchasesApi.update(
+      args.purchaseItemId,
+      {
+        approved: false,
+        approved_by: null,
+        approved_at: null,
+        declined_at: now,
+        declined_by: args.actor,
+      },
+      args.targetOwner,
+    );
+    if (!updated) {
+      throw new Error("declinePurchase: purchasesApi.update returned null");
+    }
+  } catch (err) {
+    return dataWriteFailure(err);
+  }
+
+  const value: DeclinePurchaseValue = {
+    purchaseItemId: args.purchaseItemId,
+    declinedAt: now,
+    declinedBy: args.actor,
+    previousApproved: !!before.approved,
+    previousDeclinedAt: before.declined_at ?? null,
+  };
+
+  // Decline is a silent revert from the owner's perspective (mirrors the
+  // approve-clears-to-pending path which also doesn't notify). No bell
+  // notification on decline — a future enhancement could add one if PIs
+  // want to flag "I turned this down" to the requester.
+
+  try {
+    await appendAuditEntries(args.targetOwner, [
+      {
+        session_id: args.sessionId,
+        actor: args.actor,
+        target_user: args.targetOwner,
+        record_type: "purchase_item",
+        record_id: args.purchaseItemId,
+        field_path: "declined",
+        old_value: before.declined_at ?? null,
+        new_value: now,
       },
     ]);
   } catch (err) {
