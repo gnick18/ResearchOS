@@ -162,6 +162,22 @@ export interface WidgetDefinition {
   surface: WidgetSurface;
   /** Allow this widget into a regular member's catalog? `false` → PI only. */
   memberVisible: boolean;
+  /**
+   * Allow this widget into a lab_head's catalog? Default `true`.
+   *
+   * `false` is the carve-out for widgets that are technically functional
+   * for a PI but actively unwanted in the PI surface (e.g. the
+   * sidebar-overdue / sidebar-today / sidebar-upcoming task list
+   * widgets — they show the PI's personal task counts, but on the PI
+   * sidebar they read as a "what does the lab still have open" prompt
+   * that nudges micromanagement. PIs get personal task signals via
+   * DailyTasksWidget instead). Grant 2026-05-23 feedback.
+   *
+   * The filter is enforced by `visibleCatalog`, so both the add-widget
+   * palette + any persisted layout pointing at the widget gets silently
+   * dropped from the PI surface. Member surface unaffected.
+   */
+  labHeadVisible?: boolean;
 }
 
 /**
@@ -169,11 +185,17 @@ export interface WidgetDefinition {
  * allowed to see. Used by both the catalog drawer (so non-PI users
  * never see lab-head-only entries) and the persistence reader (so a
  * non-PI's stored layout pointing at a PI widget is silently dropped).
+ *
+ * `labHeadVisible: false` is the opposite carve-out: a member-pinned
+ * widget that should NOT auto-bleed into a PI surface when the user
+ * upgrades to lab_head.
  */
 export function visibleCatalog(
   catalog: WidgetDefinition[],
   accountType: AccountType,
 ): WidgetDefinition[] {
-  if (accountType === "lab_head") return catalog;
+  if (accountType === "lab_head") {
+    return catalog.filter((w) => w.labHeadVisible !== false);
+  }
   return catalog.filter((w) => w.memberVisible);
 }

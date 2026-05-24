@@ -252,6 +252,13 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
   },
 
   // ── Sidebar widgets (task-centric, the existing sidebar surface) ─────
+  // PI carve-out (Grant 2026-05-23): these three task-list sidebar widgets
+  // show the viewer's PERSONAL overdue/today/upcoming task counts, which
+  // is fine for members. On a PI's sidebar though they read as a
+  // "what does the lab still have open" prompt that nudges
+  // micromanagement, even though the counts are personal. PIs get the
+  // same signals via DailyTasksWidget if they want them. Hide from the
+  // lab_head catalog + filter out of any lab_head saved layout.
   {
     id: "sidebar-overdue",
     title: "Overdue tasks",
@@ -262,6 +269,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
     memberVisible: true,
+    labHeadVisible: false,
   },
   {
     id: "sidebar-today",
@@ -273,6 +281,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
     memberVisible: true,
+    labHeadVisible: false,
   },
   {
     id: "sidebar-upcoming",
@@ -284,6 +293,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     defaultLayout: { w: 1, h: 1 },
     surface: "sidebar",
     memberVisible: true,
+    labHeadVisible: false,
   },
 
   // ── Customizable-sidebar additions ───────────────────────────────────
