@@ -4,12 +4,19 @@
 
 ResearchOS is a browser-based tool for planning experiments, writing lab notes, managing reusable methods, and tracking the day-to-day of a research project. Your data lives in a folder you pick on your own computer (JSON + markdown, no database). The app talks to that folder directly through the File System Access API. There is no server account to create, and your notes never leave your machine unless you ask them to (via export, or by pointing your own backup tool at the folder).
 
-ResearchOS is for benchwork researchers, computational scientists, lab managers, postdocs, PhD students, undergrads, staff scientists, and solo researchers in academic, industry, and startup settings. The welcome wizard asks a few questions about how you work and tailors the interface accordingly.
+ResearchOS is for benchwork researchers, computational scientists, lab heads, lab managers, postdocs, PhD students, undergrads, staff scientists, and solo researchers in academic, industry, and startup settings. The welcome wizard asks a few questions about how you work, including whether you're a solo researcher or part of a lab, and (if a lab) whether you're the Lab Head running it, then tailors the interface accordingly.
 
+<!-- TODO screenshot agent: home for a member account, showing project cards + the customizable widget canvas underneath.
+     Route: /home
+     Fixture: ?wikiCapture=1
+     Viewport: 1440x900 desktop
+     State: member fixture (not lab_head)
+     Save to: frontend/public/wiki/screenshots/home-projects.png
+-->
 <p align="center">
-  <img src="frontend/public/wiki/screenshots/home-projects.png" alt="ResearchOS home screen showing project overview cards with progress bars, tags, and team avatars." width="720" />
+  <img src="frontend/public/wiki/screenshots/home-projects.png" alt="ResearchOS home screen: project snapshot cards on top, customizable widget canvas (announcements, daily tasks, lab activity) underneath." width="720" />
 </p>
-<p align="center"><em>The home screen: every project at a glance, with progress, tags, and the people working on it.</em></p>
+<p align="center"><em>Home for a lab member: project snapshots on top, with a customizable widget canvas (announcements, daily tasks, lab activity) below.</em></p>
 
 > Try the hosted demo: **[research-os-xi.vercel.app/demo](https://research-os-xi.vercel.app/demo)**. The demo runs entirely in your browser against synthetic fixture data, so you can poke around without picking a folder.
 
@@ -19,30 +26,88 @@ ResearchOS is for benchwork researchers, computational scientists, lab managers,
 
 **Plan and schedule**
 
-- Projects + Gantt with dependency-aware date shifting (drag one task, everything downstream moves with it).
-- Workbench: a single view that surfaces what is ready, blocked, running, awaiting writeup, and recently done.
-- Calendar with external ICS feed overlays (Google Calendar, Outlook, iCloud, university calendars).
+- Projects + Gantt with dependency-aware date shifting (drag one task, everything downstream moves with it), drag-to-link dependency chaining, image drops onto tasks, and right-click PTO with diagonal-stripe overlays.
+- Workbench: a single view that surfaces what is ready, blocked, running, ready to write up (complete experiments with no result attached yet), and recently done.
+- Calendar with filled-color event backgrounds (auto-contrast text), in-sidebar click-to-edit color picker, and external ICS feed overlays (Google Calendar, Outlook, iCloud, university calendars).
 - High-level goals with SMART subgoals running alongside the schedule.
 
+<!-- TODO screenshot agent: Gantt after the redesign, showing the multi-select projects dropdown open with Select all / Unselect all buttons visible, plus a dependency chain across two lanes.
+     Route: /gantt
+     Fixture: ?wikiCapture=1
+     Viewport: 1440x900 desktop
+     State: member fixture with several projects
+     Save to: frontend/public/wiki/screenshots/gantt-overview.png
+-->
 ![Gantt chart view of a research project with dependency-linked tasks across multiple lanes.](frontend/public/wiki/screenshots/gantt-overview.png)
 
 **Document and iterate**
 
 - Lab Notes and Results tabs per experiment, both backed by a hybrid markdown editor with image attachments, file drops, and click-to-edit blocks.
 - Methods library with ten different method types: free-form markdown, PDF, PCR protocol, LC gradient, well-plate layout, cell culture passage schedule, coding workflow, mass spec parameters, qPCR analysis, and compound methods that bundle the others into reusable kits.
+- Unified sharing model for methods (and other shared records): `canRead` / `canWrite` lists with a whole-lab sentinel, replacing the older public-or-private toggle.
 - Per-task method variations: attach a method, then record deviations on the experiment.
 - Experiment comparison view for side-by-side outcomes across runs.
 
+<!-- TODO screenshot agent: experiment editor after the hybrid editor redesign.
+     Route: /workbench (open an experiment with Lab Notes + Results tabs)
+     Fixture: ?wikiCapture=1
+     Viewport: 1440x900 desktop
+     State: member fixture
+     Save to: frontend/public/wiki/screenshots/experiments-editor.png
+-->
 ![Experiment editor with the hybrid markdown editor, lab-notes tab, and attached images on the right.](frontend/public/wiki/screenshots/experiments-editor.png)
 
 **Collaborate**
 
-- Multiple users in one shared folder (OneDrive, Dropbox, iCloud, git, network share). Each user picks the folder, picks their username from the login screen, and gets their own subdirectory.
+- Multiple users in one shared folder (OneDrive, Dropbox, iCloud, git, network share). Each user picks the folder, picks their username from the login screen (Lab Heads sort to the top with a PI badge), and gets their own subdirectory.
 - Project sharing across users with optional edit permission. Writes route back to the owning user's directory so the owner stays in control of their data.
-- Lab Mode: a multi-user overview of combined experiments, purchases, methods, and activity.
+- Lab Inbox: comments on tasks, notes, and purchases, with 1-level reply threading, @-mentions, and in-place source-record popups so you can read context without leaving the inbox.
+- Announcements: Lab Heads compose and pin lab-wide announcements; everyone reads them, with bell notifications on new posts.
 - Receiver-side editing for shared tasks, including drag-to-reschedule through the dependency graph.
 
-![Lab Mode overview showing combined experiments and activity across multiple lab members.](frontend/public/wiki/screenshots/lab-mode.png)
+**Manage as a Lab Head**
+
+- Lab Overview at `/lab-overview`: a customizable widget canvas plus a customizable sidebar, scoped to a separate Lab Head role (`account_type: "lab_head"`).
+- Tools launcher: Tools are canonical popups; Widgets are tile-shaped entry points to those Tools. One Tool can ship multiple widget variants (LabPurchases has funding-bars, burn-rate, and pending-count tiles, like iPhone widget variants for one app).
+- Soft-write actions (approve / decline purchases, assign tasks, flag for review, post announcements) gated by a Lab Head password unlock (5-minute edit sessions) and recorded in an audit log (`_pi_audit.json`).
+- LabPurchases dashboard popup: 4-tab view with inline approve / decline buttons, persisted decline state with a Re-approve flow, a misc-purchases category for one-offs, and a 4-week burn-rate widget with a 4w / 8w / 12w / 6mo range selector.
+- User archiving to remove people from active views while preserving their data.
+
+<!-- TODO screenshot agent: Lab Overview canvas for a lab_head account, showing several widgets (announcements, pending approvals, lab activity, member workload) and the Tools launcher button.
+     Route: /lab-overview
+     Fixture: ?wikiCapture=1
+     Viewport: 1440x900 desktop
+     State: lab_head fixture
+     Save to: frontend/public/wiki/screenshots/lab-overview.png
+-->
+<p align="center">
+  <img src="frontend/public/wiki/screenshots/lab-overview.png" alt="Lab Overview canvas for a Lab Head, with widgets across the canvas and the Tools launcher button in the top-right." width="720" />
+</p>
+<p align="center"><em>Lab Overview: the Lab Head's customizable canvas, with the Tools launcher in the corner and widget tiles arranged across the grid.</em></p>
+
+<!-- TODO screenshot agent: LabPurchases popup, tab A (pending approvals) selected, showing inline Approve / Decline buttons on a row.
+     Route: /lab-overview (open LabPurchases tool from the launcher, switch to the Pending tab)
+     Fixture: ?wikiCapture=1
+     Viewport: 1440x900 desktop
+     State: lab_head fixture with at least 2 pending purchases
+     Save to: frontend/public/wiki/screenshots/lab-purchases-popup.png
+-->
+<p align="center">
+  <img src="frontend/public/wiki/screenshots/lab-purchases-popup.png" alt="LabPurchases popup with the Pending Approvals tab visible and inline Approve / Decline buttons on each row." width="720" />
+</p>
+<p align="center"><em>LabPurchases popup, pending-approvals tab: approve or decline inline, no deep-link to a separate page.</em></p>
+
+<!-- TODO screenshot agent: PiActions tool, audit-log tab (or pending-approvals tab), showing the soft-write history with timestamps + actor names.
+     Route: /lab-overview (open PiActions tool from the launcher)
+     Fixture: ?wikiCapture=1
+     Viewport: 1440x900 desktop
+     State: lab_head fixture with audit entries
+     Save to: frontend/public/wiki/screenshots/pi-actions-audit.png
+-->
+<p align="center">
+  <img src="frontend/public/wiki/screenshots/pi-actions-audit.png" alt="PiActions tool showing the audit log of approve/decline/assign actions with timestamps." width="720" />
+</p>
+<p align="center"><em>PiActions: every soft-write a Lab Head makes (approvals, assignments, flags) lands in an auditable log.</em></p>
 
 **Connect**
 
@@ -108,7 +173,9 @@ The repo is preconfigured for Vercel. No environment variables required for the 
 
 ## First-time setup: the welcome wizard
 
-The first time you open ResearchOS against a fresh folder, a multi-step welcome wizard asks what brings you to the tool. You pick from nine use cases (PhD experiments, lab manager, teaching, computational research, postdoc, solo researcher, staff scientist, undergrad researcher, or just exploring; multi-select), the wizard tailors which tabs you see by default, then offers optional inline setup for Telegram, calendar feeds, and the AI Helper prompt. Everything is reversible: tabs can be toggled in Settings, and Settings has a "Re-run welcome wizard" button if you want to start the flow over.
+The first time you open ResearchOS against a fresh folder, a multi-step welcome wizard asks how you work. Q1 asks whether you're solo or part of a lab (auto-skipped when other users already exist in the folder, since at that point you're joining an established lab). Q1c follows up when you pick Lab: are you the Lab Head running it, or a member? Q2 then asks what brings you to ResearchOS, picking from nine use cases (PhD experiments, lab manager, teaching, computational research, postdoc, solo researcher, staff scientist, undergrad researcher, or just exploring; multi-select). The wizard uses your picks to tailor which tabs you see by default, then offers optional inline setup for Telegram, calendar feeds, and the AI Helper prompt.
+
+Everything is reversible: tabs can be toggled in Settings, and Settings has both a "Re-run welcome wizard" button and a "Re-run feature tour" button if you want to start either flow over. ESC force-exits the tour at any point.
 
 <p align="center">
   <img src="frontend/public/wiki/screenshots/onboarding-wizard-step-1-welcome.png" alt="Step 1 of the welcome wizard: BeakerBot mascot and a two-sentence intro." width="520" />
@@ -120,10 +187,17 @@ The first time you open ResearchOS against a fresh folder, a multi-step welcome 
 </p>
 <p align="center"><em>Step 2: pick the ways you'll use ResearchOS (multi-select). The picks drive which tabs are visible by default.</em></p>
 
+<!-- TODO screenshot agent: wrap-up step after the Q1c lab-head follow-up was added; confirm the wrap-up summary still echoes the right decisions.
+     Route: welcome wizard, final step
+     Fixture: ?wikiCapture=1
+     Viewport: 1440x900 desktop
+     State: lab fixture with Q1c answered
+     Save to: frontend/public/wiki/screenshots/onboarding-wizard-step-7-wrapup.png
+-->
 <p align="center">
-  <img src="frontend/public/wiki/screenshots/onboarding-wizard-step-7-wrapup.png" alt="Step 7 of the welcome wizard: 'You're all set' confirmation with setup decisions and an optional feature tour link." width="600" />
+  <img src="frontend/public/wiki/screenshots/onboarding-wizard-step-7-wrapup.png" alt="Final step of the welcome wizard: 'You're all set' confirmation with setup decisions and an optional feature tour link." width="600" />
 </p>
-<p align="center"><em>Step 7: confirmation. Each setup decision is echoed back, with an optional feature tour link before "Go to home."</em></p>
+<p align="center"><em>Final step: confirmation. Each setup decision is echoed back, with an optional feature tour link before "Go to home."</em></p>
 
 Skip the wizard entirely if you prefer; it never re-fires for the same user, and all features remain reachable from the navbar and Settings.
 
@@ -135,6 +209,8 @@ ResearchOS treats your data folder as the source of truth, but a few small safet
 
 - **Atomic file writes.** Every write goes through a temp-file plus rename so a torn write (tab crash, OS reboot) leaves the old contents intact rather than zero bytes.
 - **Per-user tombstones for deleted accounts.** Tombstones survive cloud-sync round-trips so re-created cloud-stub directories never re-resurrect a user you intended to delete.
+- **Per-user serial write queue for calendar feeds.** Concurrent feed refreshes serialize per user so two tabs racing on the same feed file cannot corrupt the cache.
+- **Lab Head audit log.** Every approve / decline / assign / flag / announcement the Lab Head makes lands in `_pi_audit.json` with timestamp and actor.
 - **Three-layer Telegram bot-token recovery.** Plaintext `_telegram.json` sidecar on disk is the primary; a browser-scoped IndexedDB cache backs it up per-user-per-folder; an opt-in encrypted backup (AES-GCM-256 with a key derived from your login password via PBKDF2-SHA-256) survives across browsers and machines. Settings shows what is enabled and lets you wipe any layer.
 
 See `/wiki/security` for a full security audit, threat model, and findings.
@@ -224,11 +300,20 @@ Feeds are read-only; your tasks do not push back to Google or Outlook. Subscript
 
 ResearchOS does not run any AI models. Instead, the app generates a structured prompt that teaches your existing AI assistant (Claude, ChatGPT, or Gemini) what ResearchOS is, what entities it tracks, and how features connect. You paste the prompt into your usual chat and get a ResearchOS-aware helper for the duration of that conversation.
 
+<!-- TODO screenshot agent: Settings AI Helper section after the Settings redesign (search bar at the top, Personal + Lab Mode tabs for lab head accounts).
+     Route: /settings (scroll to AI Helper, or filter the search bar for "AI")
+     Fixture: ?wikiCapture=1
+     Viewport: 1440x900 desktop
+     State: lab_head fixture (so the Personal / Lab Mode tabs are visible)
+     Save to: frontend/public/wiki/screenshots/settings-ai-helper.png
+-->
 ![Settings AI Helper section: size picker with Lean (recommended) preselected, copy button, and Open-in shortcuts for Claude, ChatGPT, and Gemini.](frontend/public/wiki/screenshots/settings-ai-helper.png)
 
 Settings has an "AI Helper" section with a one-click copy button and three "Open in" shortcuts that paste the prompt into a fresh chat in each provider. Three size variants exist (full for big-context models, lean for the default, minimal for small-context or local models with an explicit "you got the degraded variant" disclaimer).
 
 The prompt build pipeline auto-extracts entity schemas from `types.ts` and canonical examples from fixture data, so it stays in sync with the codebase release-by-release. No API key is required, no usage is metered through ResearchOS, and your chat tier (Claude Max, ChatGPT Plus, Gemini Advanced) works fine without adding API credits.
+
+Settings itself was redesigned with a substring search bar at the top, plus Personal and Lab Mode tabs for Lab Head accounts so Lab Head-specific settings (password, edit-session timeout, audit-log access) sit apart from personal preferences.
 
 ---
 
@@ -239,6 +324,10 @@ Detailed feature documentation lives in the in-app wiki at `/wiki/`, also reacha
 - `/wiki/getting-started` for first-time setup paths
 - `/wiki/security` for the privacy model, threat surface, and findings
 - `/wiki/features/methods` for the ten method types and how they compose
+- `/wiki/features/lab-overview` for the Lab Head canvas, widgets, and Tools launcher
+- `/wiki/features/lab-head` for the Lab Head role, password unlock, audit log, and soft-write actions
+- `/wiki/features/lab-inbox` for comments, threading, @-mentions, and announcements
+- `/wiki/features/sharing-and-permissions` for the `canRead` / `canWrite` / whole-lab sentinel model
 - `/wiki/integrations/telegram`, `/wiki/integrations/calendar-feeds`, `/wiki/integrations/labarchives`, `/wiki/integrations/ai-helper` for setup details
 
 The wiki uses fixture-mode screenshots (`?wikiCapture=1`), so anything pictured is synthetic data; your real folder is never captured.
@@ -264,6 +353,8 @@ netstat -ano | findstr :3000          # Windows, then taskkill /PID <pid> /F
 
 **Hero card on the Workbench shows an image I removed.** ResearchOS migrated to a per-tab attachment layout in May 2026. If you have legacy `results/task-N/Images/` content from before that migration, run `node scripts/sweep-legacy-task-folders.mjs <your-folder> --dry-run` to see what is left, then re-run with `--apply` to migrate or report unrecognized content.
 
+**Lab Head edit session keeps timing out.** Sessions expire after 5 minutes of inactivity by design (the password unlock is per-session, not per-action). Re-enter the password to start a fresh session, or change the timeout in Settings under the Lab Mode tab.
+
 ---
 
 ## Contributing
@@ -273,7 +364,7 @@ Pull requests welcome. The repo is set up for clean CI runs:
 ```bash
 cd frontend
 npm install
-npm test                    # vitest (438+ tests as of 2026-05-20)
+npm test                    # vitest (2005+ tests across ~170 files as of 2026-05-24)
 npm run test:e2e            # Playwright baseline against the dev server
 npx tsc --noEmit
 npm run lint                # 0 errors expected on main
