@@ -91,10 +91,15 @@ describe("resolveLayout (v2 shape)", () => {
   it("falls back to the lab_head default when saved is undefined", () => {
     const layout = resolveLayout(undefined, "lab_head", fakeCatalog);
     expect(layout.version).toBe(LAB_OVERVIEW_LAYOUT_VERSION);
+    // The full lab_head default declares 7 canvas widgets (commit
+    // 18baedb2: lab head canvas default layout surfaces every lab-head
+    // widget on first load). The fakeCatalog here only registers 3 of
+    // them; resolveLayout drops the rest, so the surviving order is the
+    // default order with the missing ids filtered out.
     expect(layout.widgetOrder.canvas).toEqual([
       "announcements",
-      "comment-feed",
       "metrics",
+      "comment-feed",
     ]);
     expect(layout.widgetOrder.sidebar).toContain("sidebar-recent-activity");
   });

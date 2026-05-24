@@ -601,14 +601,40 @@ function mostRecentN(
 }
 
 /**
- * SnapshotTile: stack of 2-3 most-recent announcement mini-cards. Each
- * card shows author avatar + name, the first ~80 chars of the body
- * (two-line clamp), and a relative time. Hairline divider between
- * cards, no per-card chrome. Top-right shows a small "X new" pill when
- * any announcement landed in the last 7 days.
+ * SnapshotTile: quick-compose box for lab heads + read-only mini-cards
+ * for members.
+ *
+ * Grant pushback on the Phase B redesign (2026-05-23): "I think the
+ * announcement tile Square feature should be just like a type box to
+ * send out announcements from there. Right? And then maybe if they
+ * click on it, then they could see the full thing with all recent
+ * announcements." The recent-announcements list still lives in the
+ * popup ExpandedView body, so members + PIs can both reach it by
+ * clicking through to the popup; the PI's CANVAS tile though is now
+ * primarily a compose surface.
+ *
+ * Two branches:
+ *   - PI surface (lab_head): a compact composer (textarea + Post). The
+ *     SnapshotCanvas wraps every tile in a click-to-open handler, so
+ *     interactive elements inside the composer call
+ *     `e.stopPropagation()` to keep typing + the Post click local to
+ *     the tile. A "View all >" link at the bottom intentionally lets
+ *     the click bubble so the popup still opens.
+ *   - Member surface: the original 3-card mini-stack (members can't
+ *     post, so a compose box would be a tease).
+ *
+ * Session gate mirrors the popup composer: if the PI's edit session
+ * is locked, the textarea + Post button render disabled and a
+ * `<RequestEditButton>` swaps in. We keep the same draft-persistence
+ * key so a draft typed on the tile survives navigating to the popup
+ * and back (the popup composer reads the same `draftKey`).
  */
 export function SnapshotTile(_props: SnapshotTileProps) {
   const profileMap = useLabUserProfileMap();
+  const { currentUser } = useCurrentUser();
+  const accountType = useAccountType(currentUser);
+  const isLabHead = accountType === "lab_head";
+
   const { data: announcements = [], isLoading } = useQuery({
     queryKey: LAB_ANNOUNCEMENTS_QUERY_KEY,
     queryFn: listAnnouncements,
@@ -620,6 +646,16 @@ export function SnapshotTile(_props: SnapshotTileProps) {
     () => newThisWeek(announcements).length,
     [announcements],
   );
+
+  // PI surface → quick-compose. Member surface → recent-card stack.
+  if (isLabHead) {
+    return (
+      <SnapshotComposer
+        username={currentUser ?? ""}
+        weekCount={weekCount}
+      />
+    );
+  }
 
   return (
     <div className="relative h-full overflow-hidden flex flex-col">
@@ -677,6 +713,162 @@ export function SnapshotTile(_props: SnapshotTileProps) {
           })
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * PI-only quick-compose body for the SnapshotTile. Lives inside the
+ * canvas tile so the PI can fire off an announcement without opening
+ * the popup. Stops click propagation on the interactive area so the
+ * canvas wrapper's click-to-open handler only fires on the bottom
+ * "View all >" affordance (and on any whitespace below the composer).
+ */
+function SnapshotComposer({
+  username,
+  weekCount,
+}: {
+  username: string;
+  weekCount: number;
+}) {
+  const session = useEditSession();
+  const queryClient = useQueryClient();
+  const sessionUnlocked =
+    session.state === "unlocked" && session.active?.username === username;
+  const sessionId = sessionUnlocked ? (session.active?.id ?? null) : null;
+
+  const [text, setText] = useState("");
+  const [posting, setPosting] = useState(false);
+  const [justSent, setJustSent] = useState(false);
+
+  // Mirror the popup Composer's draft-persistence key so a draft typed
+  // on the canvas tile survives navigating to the popup and back.
+  const draftKey = `researchos:draft:lab-announcement:${username || "_anon"}`;
+  const draftSnapshot = useMemo(() => ({ text, pinned: false }), [text]);
+  const hasDraft = text.trim().length > 0;
+  const { clearDraft } = useDraftPersistence<{ text: string; pinned: boolean }>(
+    draftKey,
+    draftSnapshot,
+    hasDraft,
+    {
+      onRestore: (saved) => {
+        const candidate = saved as Partial<{ text: string }>;
+        if (typeof candidate.text === "string") setText(candidate.text);
+      },
+    },
+  );
+
+  // Browser-level unsaved-changes prompt while the PI has unposted text.
+  useUnsavedChangesGuard(hasDraft && sessionUnlocked && !posting);
+
+  const canPost = sessionUnlocked && hasDraft && !posting;
+
+  const handlePost = async (e?: React.MouseEvent | React.KeyboardEvent) => {
+    e?.stopPropagation();
+    if (!canPost || !sessionId) return;
+    setPosting(true);
+    try {
+      const entry = await postAnnouncement({
+        author: username,
+        text: text.trim(),
+        pinned: false,
+        sessionId,
+      });
+      await dispatchAnnouncementNotifications({
+        author: username,
+        announcementId: entry.id,
+        text: entry.text,
+      });
+      setText("");
+      clearDraft();
+      setJustSent(true);
+      // Brief "Sent" confirmation that fades after a short delay.
+      window.setTimeout(() => setJustSent(false), 1500);
+      void queryClient.invalidateQueries({
+        queryKey: LAB_ANNOUNCEMENTS_QUERY_KEY,
+      });
+    } catch (err) {
+      console.error("[announcement] tile-post failed", err);
+      alert("Failed to post announcement. See console for details.");
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  // Stops the wrapper's click-to-open handler on the interactive area.
+  const stopClick = (e: React.MouseEvent | React.KeyboardEvent) =>
+    e.stopPropagation();
+
+  return (
+    <div className="relative h-full overflow-hidden flex flex-col">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 text-gray-500 min-w-0">
+          <span aria-hidden="true" className="text-purple-500 flex-shrink-0">
+            {MEGAPHONE_SVG}
+          </span>
+          <span className="text-[10px] uppercase tracking-wide font-medium truncate">
+            Post an announcement
+          </span>
+        </div>
+        {weekCount > 0 && (
+          <span
+            className="text-[10px] text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-full font-medium flex-shrink-0"
+            aria-label={`${weekCount} new this week`}
+          >
+            {weekCount} new
+          </span>
+        )}
+      </div>
+
+      {/* Interactive composer area. stopPropagation so typing and the
+          Post click don't trigger the wrapper's click-to-open. */}
+      <div
+        className="mt-2 flex-1 min-h-0 flex flex-col gap-1.5"
+        onClick={stopClick}
+        onKeyDown={stopClick}
+      >
+        <textarea
+          className="flex-1 min-h-0 w-full text-xs rounded-md border border-purple-200 px-2 py-1.5 bg-white focus:ring-1 focus:ring-purple-500 focus:border-purple-500 focus:outline-none resize-none disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
+          placeholder={
+            sessionUnlocked
+              ? "Share a quick update with the lab…"
+              : "Unlock edit mode to post…"
+          }
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          disabled={!sessionUnlocked || posting}
+          data-testid="lab-announcement-snapshot-textarea"
+        />
+        <div className="flex items-center justify-between gap-2">
+          {sessionUnlocked ? (
+            <button
+              type="button"
+              onClick={handlePost}
+              disabled={!canPost}
+              className="px-2.5 py-1 rounded-md bg-purple-600 text-white text-[11px] font-medium hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex-shrink-0"
+              data-testid="lab-announcement-snapshot-post"
+            >
+              {posting ? "Posting…" : justSent ? "Sent" : "Post"}
+            </button>
+          ) : (
+            <RequestEditButton
+              username={username}
+              targetLabel="lab announcements"
+              variant="primary"
+            />
+          )}
+          {/* Click the link to bubble up and open the popup. The link
+              is intentionally OUTSIDE the stopPropagation div so the
+              outer wrapper picks up the click. */}
+        </div>
+      </div>
+
+      {/* "View all" hint area — outside stopPropagation, so click here
+          opens the popup the same way clicking any non-interactive
+          part of the tile does. */}
+      <p className="mt-1 text-[10px] text-purple-700 font-medium text-right">
+        View all →
+      </p>
     </div>
   );
 }
