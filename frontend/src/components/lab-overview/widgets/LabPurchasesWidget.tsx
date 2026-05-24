@@ -340,8 +340,13 @@ export default function LabPurchasesWidget(_props?: {
     return map;
   }, [labTasks]);
 
+  // PurchaseDeclinedBadge polish manager (2026-05-23): align the pending
+  // filter with PiActionsWidget (`!approved && !declined_at`) so declined
+  // items drop out of Tab A's "Pending approvals" list. Without this gate
+  // declined items leak in as pending — the PiActions popup already gets
+  // this right; we mirror it here so the two surfaces agree.
   const pendingItems = useMemo(
-    () => items.filter((it) => !it.approved),
+    () => items.filter((it) => !it.approved && !it.declined_at),
     [items],
   );
 
@@ -1075,7 +1080,35 @@ function AllPurchasesTab({
               );
               const ownerName =
                 profileMap[task.owner]?.displayName?.trim() || task.owner;
-              const anyPending = taskItems.some((it) => !it.approved);
+              // PurchaseDeclinedBadge polish manager (2026-05-23): treat
+              // declined items as a distinct status. Pending = not approved
+              // and not declined; declined items collapse into a red pill
+              // (mirrors PurchaseDeclinedBadge color), and the green
+              // "Approved" pill only appears when every item is approved
+              // (no pending, no declined).
+              const anyPending = taskItems.some(
+                (it) => !it.approved && !it.declined_at,
+              );
+              const anyDeclined = taskItems.some(
+                (it) => !it.approved && !!it.declined_at,
+              );
+              const taskStatus: "pending" | "declined" | "approved" = anyPending
+                ? "pending"
+                : anyDeclined
+                  ? "declined"
+                  : "approved";
+              const taskStatusClass =
+                taskStatus === "pending"
+                  ? "bg-amber-100 text-amber-800"
+                  : taskStatus === "declined"
+                    ? "bg-red-100 text-red-800"
+                    : "bg-emerald-100 text-emerald-700";
+              const taskStatusLabel =
+                taskStatus === "pending"
+                  ? "Pending"
+                  : taskStatus === "declined"
+                    ? "Declined"
+                    : "Approved";
               return (
                 <li key={tkey}>
                   <div className="border border-gray-200 rounded-md bg-white overflow-hidden">
@@ -1119,13 +1152,9 @@ function AllPurchasesTab({
                           ${total.toFixed(2)}
                         </span>
                         <span
-                          className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                            anyPending
-                              ? "bg-amber-100 text-amber-800"
-                              : "bg-emerald-100 text-emerald-700"
-                          }`}
+                          className={`text-[10px] px-1.5 py-0.5 rounded-full ${taskStatusClass}`}
                         >
-                          {anyPending ? "Pending" : "Approved"}
+                          {taskStatusLabel}
                         </span>
                       </div>
                     </button>
@@ -1617,7 +1646,12 @@ export function SnapshotTile(_props: SnapshotTileProps) {
   rows.sort((a, b) => b.spent - a.spent);
   const top3 = rows.slice(0, 3);
 
-  const pendingCount = items.filter((it) => !isApproved(it)).length;
+  // PurchaseDeclinedBadge polish manager (2026-05-23): mirror the popup's
+  // pending filter (`!approved && !declined_at`) so the SnapshotTile count
+  // matches Tab A; declined items are a terminal state, not pending.
+  const pendingCount = items.filter(
+    (it) => !isApproved(it) && !it.declined_at,
+  ).length;
 
   return (
     <div className="relative h-full overflow-hidden flex flex-col">
@@ -1722,7 +1756,10 @@ export function SidebarTile({ onClick }: SidebarTileProps) {
   });
   if (accountType !== "lab_head") return null;
 
-  const pending = items.filter((it) => !it.approved);
+  // PurchaseDeclinedBadge polish manager (2026-05-23): exclude declined
+  // items from the SidebarTile's pending stat — they're a terminal state,
+  // not waiting on the PI. Matches Tab A + SnapshotTile + PiActions.
+  const pending = items.filter((it) => !it.approved && !it.declined_at);
   const pendingValue = pending.reduce((s, it) => s + (it.total_price ?? 0), 0);
   const hasPending = pending.length > 0;
 

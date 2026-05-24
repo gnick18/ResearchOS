@@ -267,7 +267,14 @@ function FundingRollup() {
     item.approved === undefined || item.approved === true;
 
   const approvedItems = useMemo(() => items.filter(isApproved), [items]);
-  const pendingItems = useMemo(() => items.filter((i) => !isApproved(i)), [items]);
+  // PurchaseDeclinedBadge polish manager (2026-05-23): exclude declined
+  // items from the pending bucket. `declined_at` is a terminal state
+  // (PiActions follow-up `07a1b7b3`), not awaiting review; matches the
+  // pending filter used by LabPurchasesWidget + PiActionsWidget.
+  const pendingItems = useMemo(
+    () => items.filter((i) => !isApproved(i) && !i.declined_at),
+    [items],
+  );
 
   // Total spend across the entire lab (approved only).
   const totalSpent = useMemo(

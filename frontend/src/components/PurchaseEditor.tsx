@@ -13,6 +13,7 @@ import AuditTrailNotice from "@/components/AuditTrailNotice";
 import {
   PurchaseApprovalToggle,
   PurchaseApprovalBadge,
+  PurchaseDeclinedBadge,
 } from "@/components/lab-head/PurchaseApprovalControls";
 import FlagForReviewButton from "@/components/lab-head/FlagForReviewButton";
 import Tooltip from "@/components/Tooltip";
@@ -888,6 +889,9 @@ export default function PurchaseEditor({
                       )}
                       {item.approved && (
                         <PurchaseApprovalBadge item={item} />
+                      )}
+                      {!item.approved && item.declined_at && (
+                        <PurchaseDeclinedBadge item={item} />
                       )}
                       {labHeadGate.canRequestEdit && labHeadGate.unlocked && labHeadGate.activeUser && labHeadGate.sessionId && username && (
                         <FlagForReviewButton

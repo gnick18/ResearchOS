@@ -157,3 +157,53 @@ export function PurchaseApprovalBadge({ item }: { item: PurchaseItem }) {
     </Tooltip>
   );
 }
+
+/**
+ * Compact red "Declined" badge for lists and read-only views, parallel to
+ * `PurchaseApprovalBadge`. PurchaseDeclinedBadge polish manager (2026-05-23):
+ * surfaces persisted decline state (`declined_at` + `declined_by`, landed
+ * in commit `07a1b7b3`) anywhere the approval badge is rendered. The two
+ * pills are mutually exclusive: `setPurchaseApproval` clears the decline
+ * stamps on approve, and `declinePurchase` clears `approved` on decline,
+ * so an item is always exactly one of pending / approved / declined.
+ * Shows who declined + when on hover, mirroring the approval badge.
+ */
+export function PurchaseDeclinedBadge({ item }: { item: PurchaseItem }) {
+  const profileMap = useLabUserProfileMap();
+  if (!item.declined_at) return null;
+  const declinerLabel =
+    item.declined_by
+      ? profileMap[item.declined_by]?.displayName?.trim() || item.declined_by
+      : "the lab head";
+  const when = item.declined_at
+    ? new Date(item.declined_at).toLocaleString()
+    : null;
+  return (
+    <Tooltip
+      label={`Declined by ${declinerLabel}${when ? ` on ${when}` : ""}`}
+      placement="top"
+    >
+      <span
+        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-800 border border-red-300"
+        data-testid="lab-head-purchase-declined-badge"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="10"
+          height="10"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+        Declined
+      </span>
+    </Tooltip>
+  );
+}
