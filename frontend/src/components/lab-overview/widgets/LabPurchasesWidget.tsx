@@ -418,21 +418,20 @@ function formatDay(iso: string): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Phase B Batch B1 — unique SnapshotTile + SidebarTile (Phase B Batch
-// B1 manager, 2026-05-23). The PI's most-urgent purchases signal is
-// the pending-approval queue, so both tiles lead with that count. The
-// snapshot tile uses the hero-number primitive (big amber count, value
-// secondary); the sidebar tile is a single ultra-compact row.
+// Phase B redesign (Phase B redesign manager, 2026-05-23): content-rich
+// SnapshotTile that shows the top 3 funding sources as horizontal
+// progress bars with $-remaining highlights (Grant's stated example).
+// Drops the HeroNumberTile shape; the funding picture IS the signal.
+// The SidebarTile stays as the Batch B1 single-row pending pill.
 // ─────────────────────────────────────────────────────────────────────
-import HeroNumberTile from "./snapshot/HeroNumberTile";
 import SidebarStatTile from "./snapshot/SidebarStatTile";
 import type { SidebarTileProps } from "./types";
 
-const PURCHASES_ICON = (
+const PURCHASES_TILE_ICON = (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
+    width="14"
+    height="14"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
@@ -441,8 +440,8 @@ const PURCHASES_ICON = (
     strokeLinejoin="round"
     aria-hidden="true"
   >
-    <path d="M9 11l3 3L22 4" />
-    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+    <line x1="12" y1="1" x2="12" y2="23" />
+    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
   </svg>
 );
 
@@ -472,10 +471,26 @@ function formatCompactCurrencyPurchases(n: number): string {
   return `$${Math.round(n)}`;
 }
 
+/**
+ * SnapshotTile: top 3 funding sources by approved spend, rendered as
+ * horizontal progress bars with $-remaining + $-of-budget annotations.
+ * This is Grant's stated example for the redesign: "we could put,
+ * like, highlights of the amount left on grants with, like, a nice
+ * graphic." The funding picture IS the signal.
+ *
+ * Data: groups approved purchase items by `funding_string`, sums
+ * `total_price`. Joins to `FundingAccount.total_budget` by name to
+ * compute remaining + percent-used. Sources with no matching account
+ * (or zero budget) render the spent total without a bar.
+ *
+ * "Approved only" matches the MetricsWidget Skeptic P0 #3 predicate
+ * (approved === undefined → approved for legacy back-compat) so the
+ * tile + the rollup tab agree.
+ */
 export function SnapshotTile(_props: SnapshotTileProps) {
   const { currentUser } = useCurrentUser();
   const accountType = useAccountType(currentUser);
-  const { data: items = [], isLoading } = useQuery<
+  const { data: items = [], isLoading: itemsLoading } = useQuery<
     Array<PurchaseItem & { username: string }>
   >({
     queryKey: ["lab", "purchase-items"],
@@ -484,32 +499,130 @@ export function SnapshotTile(_props: SnapshotTileProps) {
     refetchOnWindowFocus: false,
     enabled: accountType === "lab_head",
   });
+  const { data: fundingAccounts = [], isLoading: fundingLoading } = useQuery<
+    FundingAccount[]
+  >({
+    queryKey: ["funding-accounts"],
+    queryFn: purchasesApi.listFundingAccounts,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    enabled: accountType === "lab_head",
+  });
   if (accountType !== "lab_head") return null;
 
-  const pending = items.filter((it) => !it.approved);
-  const pendingValue = pending.reduce((s, it) => s + (it.total_price ?? 0), 0);
-  const hasPending = pending.length > 0;
+  const isLoading = itemsLoading || fundingLoading;
+  // Approved predicate mirrors MetricsWidget. Pending stays for the
+  // top-right corner badge.
+  const isApproved = (it: PurchaseItem) =>
+    it.approved === undefined || it.approved === true;
+
+  // Spent per funding-source name (approved only).
+  const spentByName = new Map<string, number>();
+  for (const it of items) {
+    if (!isApproved(it)) continue;
+    const key = it.funding_string || "__uncategorized__";
+    spentByName.set(key, (spentByName.get(key) ?? 0) + (it.total_price ?? 0));
+  }
+  const budgetByName = new Map<string, number>();
+  for (const acct of fundingAccounts) {
+    budgetByName.set(acct.name, acct.total_budget);
+  }
+
+  type FundingRow = { name: string; spent: number; budget: number | null };
+  const rows: FundingRow[] = [];
+  for (const [name, spent] of spentByName.entries()) {
+    if (name === "__uncategorized__") continue;
+    rows.push({ name, spent, budget: budgetByName.get(name) ?? null });
+  }
+  rows.sort((a, b) => b.spent - a.spent);
+  const top3 = rows.slice(0, 3);
+
+  const pendingCount = items.filter((it) => !isApproved(it)).length;
 
   return (
-    <HeroNumberTile
-      icon={PURCHASES_ICON}
-      label="Pending approvals"
-      primary={isLoading ? "—" : pending.length}
-      secondary={
-        isLoading
-          ? ""
-          : hasPending
-            ? (
-              <span className="inline-flex items-center gap-1">
-                <span className="tabular-nums">{formatCompactCurrencyPurchases(pendingValue)}</span>
-                <span className="text-gray-400">awaiting review</span>
-                <span aria-hidden="true" className="text-amber-600">→</span>
-              </span>
-            )
-            : "All approved"
-      }
-      accent={hasPending ? "amber" : "calm"}
-    />
+    <div className="relative h-full overflow-hidden flex flex-col">
+      <div className="flex items-center gap-1.5 text-gray-500">
+        <span aria-hidden="true" className="text-emerald-600 flex-shrink-0">
+          {PURCHASES_TILE_ICON}
+        </span>
+        <span className="text-[10px] uppercase tracking-wide font-medium">
+          Funding
+        </span>
+      </div>
+      {pendingCount > 0 && (
+        <span
+          className="absolute top-0 right-0 text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-full font-medium"
+          aria-label={`${pendingCount} pending`}
+        >
+          {pendingCount} pending
+        </span>
+      )}
+      <div className="mt-2 flex-1 min-h-0 flex flex-col gap-2">
+        {isLoading ? (
+          <p className="text-xs text-gray-400 italic m-auto">Loading…</p>
+        ) : top3.length === 0 ? (
+          <p className="text-xs text-gray-400 italic m-auto">
+            No funding sources set
+          </p>
+        ) : (
+          top3.map((row) => {
+            const pct =
+              row.budget && row.budget > 0
+                ? Math.min(150, (row.spent / row.budget) * 100)
+                : null;
+            const remaining =
+              row.budget !== null ? row.budget - row.spent : null;
+            const barColor =
+              pct === null
+                ? "bg-gray-300"
+                : pct > 100
+                  ? "bg-red-400"
+                  : pct > 80
+                    ? "bg-amber-400"
+                    : "bg-blue-400";
+            return (
+              <div key={row.name} className="min-w-0">
+                <p className="text-xs font-medium text-gray-700 truncate">
+                  {row.name}
+                </p>
+                {pct !== null ? (
+                  <>
+                    <div
+                      className="mt-1 h-2 bg-gray-100 rounded-full overflow-hidden"
+                      role="progressbar"
+                      aria-valuenow={Math.round(pct)}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                    >
+                      <div
+                        className={`h-full rounded-full ${barColor}`}
+                        style={{ width: `${Math.min(100, pct)}%` }}
+                      />
+                    </div>
+                    <div className="mt-0.5 flex items-center justify-between text-[10px] text-gray-500 tabular-nums">
+                      <span>
+                        {remaining !== null && remaining >= 0
+                          ? `${formatCompactCurrencyPurchases(remaining)} remaining`
+                          : `${formatCompactCurrencyPurchases(Math.abs(remaining ?? 0))} over`}
+                      </span>
+                      <span>
+                        {formatCompactCurrencyPurchases(row.spent)} of{" "}
+                        {formatCompactCurrencyPurchases(row.budget ?? 0)}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <p className="mt-0.5 text-[10px] text-gray-500 tabular-nums">
+                    {formatCompactCurrencyPurchases(row.spent)} spent · no
+                    budget set
+                  </p>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
   );
 }
 

@@ -631,18 +631,14 @@ function formatRelative(iso: string): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Phase B Batch B2 (Phase B Batch B2 manager, 2026-05-23): unique tile
-// designs replace the Phase A placeholders.
-// ─────────────────────────────────────────────────────────────────────────────
-// - SnapshotTile: HeroNumberTile — big "unread" count on top, preview
-//   of the most-recent comment (avatar + first ~40 chars + time) below.
-//   Empty state renders "All caught up" with a checkmark.
-// - SidebarTile: chat-bubble icon + label + pill-badge count (sky tone
-//   when > 0, muted gray otherwise).
-// - Reads the same notes-shared cache; the count is "any activity?"
-//   for a glance-only tile. `filterMine` and the rest of the body
-//   wiring (Mira-Literal P0) are untouched.
-import HeroNumberTile from "./snapshot/HeroNumberTile";
+// Phase B redesign (Phase B redesign manager, 2026-05-23): content-rich
+// SnapshotTile that shows the 3 most-recent comments as mini rows
+// (avatar, author + source-record title, comment preview). Drops the
+// HeroNumberTile shape; the conversation IS the signal.
+// - SidebarTile: unchanged from Batch B2 (chat-bubble + count badge).
+// - Reads the same notes-shared cache for parity with the body.
+//   `filterMine` and the rest of the body wiring (Mira-Literal P0) are
+//   untouched.
 import SidebarStatTile from "./snapshot/SidebarStatTile";
 import type { SnapshotTileProps, SidebarTileProps } from "./types";
 
@@ -681,12 +677,20 @@ const CHECK_SVG = (
   </svg>
 );
 
-function truncatePreview(text: string, max = 40): string {
+function truncatePreview(text: string, max = 60): string {
   const oneLine = text.replace(/\s+/g, " ").trim();
   if (oneLine.length <= max) return oneLine;
   return oneLine.slice(0, Math.max(0, max - 1)).trimEnd() + "…";
 }
 
+/**
+ * SnapshotTile: 3 most-recent lab comments rendered as mini rows
+ * (avatar, author + source-record title, comment preview). Note-only
+ * for parity with the body's warm cache. The body's heavier
+ * lab-inbox/task-comments query would force the tile to wait on N
+ * extra reads — keep the glance-only tile bound to the shared-notes
+ * cache.
+ */
 export function SnapshotTile(_props: SnapshotTileProps) {
   const profileMap = useLabUserProfileMap();
   const { data: notes = [], isLoading } = useQuery<Note[]>({
@@ -696,59 +700,82 @@ export function SnapshotTile(_props: SnapshotTileProps) {
     refetchOnWindowFocus: false,
   });
 
-  // Note-only count: matches the always-warm cache the body uses. The
-  // body's secondary `lab-inbox/task-comments` query is heavier and
-  // would force the snapshot tile to wait on N extra reads — keep the
-  // glance-only tile bound to the shared-notes cache.
-  let count = 0;
-  let newest: NoteComment | null = null;
-  let newestT = -Infinity;
+  type Row = {
+    comment: NoteComment;
+    sourceTitle: string;
+  };
+  let total = 0;
+  const rows: Row[] = [];
   for (const n of notes) {
     const cs = n.comments ?? [];
-    count += cs.length;
+    total += cs.length;
     for (const c of cs) {
-      const t = new Date(c.created_at).getTime();
-      if (Number.isFinite(t) && t > newestT) {
-        newestT = t;
-        newest = c;
-      }
+      rows.push({ comment: c, sourceTitle: n.title || "Untitled note" });
     }
   }
-
-  const newestAuthor = newest
-    ? profileMap[newest.author]?.displayName?.trim() || newest.author
-    : null;
+  rows.sort((a, b) =>
+    b.comment.created_at.localeCompare(a.comment.created_at),
+  );
+  const top3 = rows.slice(0, 3);
 
   return (
-    <HeroNumberTile
-      icon={CHAT_SVG}
-      accent={count > 0 ? "blue" : "calm"}
-      label="Comments"
-      primary={isLoading ? "—" : count}
-      secondary={
-        newest ? (
-          <div className="flex items-start gap-1.5 min-w-0">
-            <UserAvatar username={newest.author} size="xs" />
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] text-gray-700 leading-snug truncate">
-                <span className="font-medium text-gray-600">
-                  {newestAuthor}:
-                </span>{" "}
-                {truncatePreview(newest.text)}
-              </p>
-              <p className="text-[10px] text-gray-400">
-                {formatRelative(newest.created_at)}
-              </p>
-            </div>
-          </div>
-        ) : count === 0 ? (
-          <div className="flex items-center gap-1">
+    <div className="relative h-full overflow-hidden flex flex-col">
+      <div className="flex items-center gap-1.5 text-gray-500">
+        <span aria-hidden="true" className="text-blue-500 flex-shrink-0">
+          {CHAT_SVG}
+        </span>
+        <span className="text-[10px] uppercase tracking-wide font-medium">
+          Comments
+        </span>
+      </div>
+      {total > 0 ? (
+        <span className="absolute top-0 right-0 text-[10px] text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded-full font-medium">
+          {total} total
+        </span>
+      ) : (
+        !isLoading && (
+          <span className="absolute bottom-0 left-0 flex items-center gap-1 text-[10px] text-gray-500">
             {CHECK_SVG}
-            <span>All caught up</span>
-          </div>
-        ) : undefined
-      }
-    />
+            <span>all caught up</span>
+          </span>
+        )
+      )}
+      <div className="mt-2 flex-1 min-h-0 flex flex-col gap-2">
+        {isLoading ? (
+          <p className="text-xs text-gray-400 italic m-auto">Loading…</p>
+        ) : top3.length === 0 ? (
+          <p className="text-xs text-gray-400 italic m-auto">
+            No comments yet
+          </p>
+        ) : (
+          top3.map((row) => {
+            const author =
+              profileMap[row.comment.author]?.displayName?.trim() ||
+              row.comment.author;
+            return (
+              <div
+                key={row.comment.id}
+                className="flex items-start gap-2 min-w-0"
+              >
+                <UserAvatar username={row.comment.author} size="xs" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] truncate">
+                    <span className="font-medium text-gray-700">{author}</span>
+                    <span className="text-gray-400"> on </span>
+                    <span className="text-gray-500 truncate">
+                      {row.sourceTitle}
+                    </span>
+                  </p>
+                  <p className="text-xs text-gray-600 truncate">
+                    {truncatePreview(row.comment.text)}
+                  </p>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
   );
 }
 

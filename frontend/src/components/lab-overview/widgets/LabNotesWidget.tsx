@@ -5,7 +5,6 @@ import { useQuery } from "@tanstack/react-query";
 import { labApi } from "@/lib/local-api";
 import NoteCard from "@/components/NoteCard";
 import NoteDetailPopup from "@/components/NoteDetailPopup";
-import UserAvatar from "@/components/UserAvatar";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAccountType } from "@/hooks/useAccountType";
 import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
@@ -275,14 +274,12 @@ function FilterPill({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Phase B Batch B2 (Phase B Batch B2 manager, 2026-05-23): unique tile
-// designs replace the Phase A placeholders.
+// Phase B redesign (Phase B redesign manager, 2026-05-23): content-rich
+// SnapshotTile that lists the most-recently-updated shared notes as
+// clickable-looking rows (Grant's stated example). Drops the
+// HeroNumberTile shape; the actual note titles + authors ARE the
+// signal. The SidebarTile stays as the Batch B2 doc+count row.
 // ─────────────────────────────────────────────────────────────────────────────
-// - SnapshotTile: HeroNumberTile — big total count on top, preview of
-//   the most-recently-updated note (title + author avatar + "updated X
-//   ago") below.
-// - SidebarTile: doc icon + label + count badge in a single row.
-import HeroNumberTile from "./snapshot/HeroNumberTile";
 import SidebarStatTile from "./snapshot/SidebarStatTile";
 import type { SnapshotTileProps, SidebarTileProps } from "./types";
 
@@ -319,6 +316,15 @@ function formatRelative(iso: string | undefined): string {
   return new Date(iso).toLocaleDateString();
 }
 
+/**
+ * SnapshotTile: list of the 4 most-recently-updated shared notes. Each
+ * row shows a doc icon + note title + author/time so the PI sees what
+ * teammates have been working on at a glance. The outer SnapshotTile
+ * click already opens the full notes popup; per-row click handlers
+ * aren't needed, but the rows render with hover treatment so the
+ * affordance is legible. Total shared-notes count lives in a muted
+ * pill at the top-right.
+ */
 export function SnapshotTile(_props: SnapshotTileProps) {
   const profileMap = useLabUserProfileMap();
   const { data: notes = [], isLoading } = useQuery<Note[]>({
@@ -327,48 +333,68 @@ export function SnapshotTile(_props: SnapshotTileProps) {
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
-  // Most-recently-updated note (by updated_at). Falls back to id-sort
-  // if updated_at is missing on legacy notes.
-  const newest = useMemo(() => {
-    let best: Note | null = null;
-    let bestT = -Infinity;
-    for (const n of notes) {
-      const t = new Date(n.updated_at ?? "").getTime();
-      if (Number.isFinite(t) && t > bestT) {
-        bestT = t;
-        best = n;
-      }
-    }
-    return best;
+  const recent = useMemo(() => {
+    return [...notes]
+      .filter((n) => Number.isFinite(new Date(n.updated_at ?? "").getTime()))
+      .sort(
+        (a, b) =>
+          new Date(b.updated_at ?? "").getTime() -
+          new Date(a.updated_at ?? "").getTime(),
+      )
+      .slice(0, 4);
   }, [notes]);
-  const authorName = newest
-    ? profileMap[newest.username]?.displayName?.trim() || newest.username
-    : null;
 
   return (
-    <HeroNumberTile
-      icon={DOC_SVG}
-      accent={notes.length > 0 ? "blue" : "calm"}
-      label="Lab notes"
-      primary={isLoading ? "—" : notes.length}
-      secondary={
-        newest ? (
-          <div className="flex items-start gap-1.5 min-w-0">
-            <UserAvatar username={newest.username} size="xs" />
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-medium text-gray-700 truncate">
-                {newest.title || "Untitled note"}
-              </p>
-              <p className="text-[10px] text-gray-500 truncate">
-                {authorName} · updated {formatRelative(newest.updated_at)}
-              </p>
-            </div>
-          </div>
-        ) : !isLoading ? (
-          <span className="italic">No shared notes yet</span>
-        ) : undefined
-      }
-    />
+    <div className="relative h-full overflow-hidden flex flex-col">
+      <div className="flex items-center gap-1.5 text-gray-500">
+        <span aria-hidden="true" className="text-sky-500 flex-shrink-0">
+          {DOC_SVG}
+        </span>
+        <span className="text-[10px] uppercase tracking-wide font-medium">
+          Lab notes
+        </span>
+      </div>
+      {notes.length > 0 && (
+        <span className="absolute top-0 right-0 text-[10px] text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded-full font-medium">
+          {notes.length} shared
+        </span>
+      )}
+      <div className="mt-2 flex-1 min-h-0 flex flex-col gap-1.5">
+        {isLoading ? (
+          <p className="text-xs text-gray-400 italic m-auto">Loading…</p>
+        ) : recent.length === 0 ? (
+          <p className="text-xs text-gray-400 italic m-auto">
+            No shared notes yet
+          </p>
+        ) : (
+          recent.map((note) => {
+            const author =
+              profileMap[note.username]?.displayName?.trim() || note.username;
+            return (
+              <div
+                key={`${note.username}:${note.id}`}
+                className="flex items-center gap-2 min-w-0 px-1 py-0.5 rounded hover:bg-gray-50 transition-colors"
+              >
+                <span
+                  aria-hidden="true"
+                  className="text-sky-500 flex-shrink-0"
+                >
+                  {DOC_SVG}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-gray-800 truncate">
+                    {note.title || "Untitled note"}
+                  </p>
+                  <p className="text-[10px] text-gray-500 truncate">
+                    {author} · {formatRelative(note.updated_at)}
+                  </p>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
   );
 }
 

@@ -8,7 +8,6 @@ import {
 } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import DailyTasksSidebar from "@/components/DailyTasksSidebar";
-import HeroNumberTile from "./snapshot/HeroNumberTile";
 import SidebarStatTile from "./snapshot/SidebarStatTile";
 import type {
   ExpandedViewProps,
@@ -73,58 +72,45 @@ function useTaskCounts() {
     let overdue = 0;
     let todays = 0;
     let upcoming = 0;
+    let completedToday = 0;
     const todaysList: Task[] = [];
+    const overdueList: Task[] = [];
     for (const t of active) {
-      if (t.is_complete) continue;
-      if (t.end_date < today) overdue++;
-      else if (t.start_date <= today && t.end_date >= today) {
+      if (t.is_complete) {
+        // Approximate "done today" — tasks whose end_date is today and
+        // are marked complete. There's no per-completion timestamp on
+        // Task today, so this is the closest signal.
+        if (t.end_date === today) completedToday++;
+        continue;
+      }
+      if (t.end_date < today) {
+        overdue++;
+        overdueList.push(t);
+      } else if (t.start_date <= today && t.end_date >= today) {
         todays++;
         todaysList.push(t);
       } else if (t.start_date > today) upcoming++;
     }
-    // Phase B Batch B3: pick the "most imminent" task — the one
-    // ending soonest among today's bucket (or, if today's bucket
-    // has none, the oldest overdue task). Used by SnapshotTile to
-    // surface a task name alongside the count.
     todaysList.sort((a, b) => {
       if (a.end_date !== b.end_date) return a.end_date.localeCompare(b.end_date);
       return (a.sort_order ?? 0) - (b.sort_order ?? 0);
     });
-    const imminent = todaysList[0] ?? null;
+    overdueList.sort((a, b) => a.end_date.localeCompare(b.end_date));
     return {
       overdue,
       todays,
       upcoming,
-      imminent,
+      todaysList,
+      overdueList,
+      completedToday,
       isLoading,
     };
   }, [allTasks, projects, isLoading]);
 }
 
-// Calendar icon (Phase B Batch B3): replaces the checkbox icon Phase
-// A used. Calendar reads as "what's on today" more clearly than a
-// generic checkbox — and the checkbox icon overlapped semantically
-// with the OverdueTasks / TodaysTasks list widgets.
-const CALENDAR_ICON_16 = (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-    <line x1="16" y1="2" x2="16" y2="6" />
-    <line x1="8" y1="2" x2="8" y2="6" />
-    <line x1="3" y1="10" x2="21" y2="10" />
-  </svg>
-);
-
+// Calendar icon (Phase B redesign): one shared 14px size — the
+// SnapshotTile redesign no longer uses a hero 16px icon (it's a list
+// view now), and the SidebarTile already used the 14px variant.
 const CALENDAR_ICON_14 = (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -146,11 +132,12 @@ const CALENDAR_ICON_14 = (
 );
 
 /**
- * Format the imminent task's end date for the snapshot subline.
- * "today" → "due today"; future ISO date → "due Tue"; past ISO →
- * "due <Mon Mar 5>". DailyTasksWidget doesn't carry an explicit
- * time-of-day on tasks (the calendar widget does), so this is a
- * date-only formatter.
+ * Format a task end_date as a short due label for the snapshot row
+ * subline. "today" → "due today"; near future ISO date → "due Tue";
+ * further out → "due <Mar 5>". DailyTasksWidget tasks don't carry a
+ * time-of-day (the calendar widget does), so this is a date-only
+ * formatter. Overdue dates are handled by the caller, which paints
+ * an explicit "Overdue Nd" tag instead.
  */
 function formatDue(endDateIso: string | undefined): string {
   if (!endDateIso) return "no due date";
@@ -170,37 +157,135 @@ function formatDue(endDateIso: string | undefined): string {
   return `due ${d.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
 }
 
+const CHECKBOX_SVG = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="12"
+    height="12"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+  </svg>
+);
+
+const TINY_CHECK_SVG = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="10"
+    height="10"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    className="text-emerald-500"
+  >
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+
+/**
+ * SnapshotTile: list of tasks due today (up to 5). Each row has a
+ * checkbox glyph, the task name, and a due / overdue hint. Tasks the
+ * user has already finished today render as a small "X done today"
+ * pill in the top-right. Empty state shows a green checkmark +
+ * "Nothing due today" muted gray.
+ */
 export function SnapshotTile(_props: SnapshotTileProps) {
-  const { overdue, todays, imminent, isLoading } = useTaskCounts();
-  // 2-row hero: big "due today" count + imminent task name + due
-  // hint underneath. Overdue tints the icon red as a glanceable
-  // urgency cue (the sub line spells it out too).
-  const urgent = overdue > 0;
+  const { todaysList, overdue, overdueList, completedToday, isLoading } =
+    useTaskCounts();
+  // Show today's tasks; if today's bucket is empty AND there is
+  // overdue work, show that instead so the tile never reads empty
+  // when there's actionable backlog.
+  const showList = todaysList.length > 0 ? todaysList : overdueList;
+  const isOverdueFallback = todaysList.length === 0 && overdueList.length > 0;
+  const visible = showList.slice(0, 5);
+  const moreCount = Math.max(0, showList.length - visible.length);
+  const today = new Date().toISOString().split("T")[0];
+
   return (
-    <HeroNumberTile
-      icon={CALENDAR_ICON_16}
-      accent={urgent ? "rose" : todays > 0 ? "blue" : "calm"}
-      label="Today"
-      primary={isLoading ? "—" : `${todays} due`}
-      secondary={
-        <div className="flex flex-col gap-0.5 min-w-0">
-          <span className="truncate">
-            {imminent
-              ? imminent.name.length > 24
-                ? `${imminent.name.slice(0, 23)}…`
-                : imminent.name
-              : urgent
-                ? `${overdue} overdue`
-                : "Nothing on deck"}
-          </span>
-          {imminent && (
-            <span className="text-[10px] text-gray-400 truncate">
-              {formatDue(imminent.end_date)}
-            </span>
-          )}
-        </div>
-      }
-    />
+    <div className="relative h-full overflow-hidden flex flex-col">
+      <div className="flex items-center gap-1.5 text-gray-500">
+        <span aria-hidden="true" className="text-blue-500 flex-shrink-0">
+          {CALENDAR_ICON_14}
+        </span>
+        <span className="text-[10px] uppercase tracking-wide font-medium">
+          Today
+        </span>
+      </div>
+      {completedToday > 0 && (
+        <span className="absolute top-0 right-0 text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full font-medium">
+          {completedToday} done today
+        </span>
+      )}
+      <div className="mt-2 flex-1 min-h-0 flex flex-col gap-1.5">
+        {isLoading ? (
+          <p className="text-xs text-gray-400 italic m-auto">Loading…</p>
+        ) : visible.length === 0 ? (
+          <div className="m-auto flex items-center gap-1.5 text-xs text-gray-400">
+            {TINY_CHECK_SVG}
+            <span>Nothing due today</span>
+          </div>
+        ) : (
+          <>
+            {isOverdueFallback && (
+              <p className="text-[10px] text-amber-600 italic">
+                {overdue} overdue (no work due today)
+              </p>
+            )}
+            {visible.map((task) => {
+              const overdueDay =
+                task.end_date < today
+                  ? Math.round(
+                      (Date.parse(today) - Date.parse(task.end_date)) /
+                        (24 * 60 * 60 * 1000),
+                    )
+                  : null;
+              const dueLabel =
+                overdueDay !== null
+                  ? `Overdue ${overdueDay}d`
+                  : formatDue(task.end_date);
+              const dueClass =
+                overdueDay !== null ? "text-amber-600" : "text-gray-500";
+              return (
+                <div
+                  key={`${task.owner}:${task.id}`}
+                  className="flex items-start gap-2 min-w-0"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="text-gray-300 flex-shrink-0 mt-0.5"
+                  >
+                    {CHECKBOX_SVG}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-gray-700 truncate">
+                      {task.name}
+                    </p>
+                    <p className={`text-[10px] truncate ${dueClass}`}>
+                      {dueLabel}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+            {moreCount > 0 && (
+              <p className="text-[10px] text-gray-400 italic">
+                +{moreCount} more
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 

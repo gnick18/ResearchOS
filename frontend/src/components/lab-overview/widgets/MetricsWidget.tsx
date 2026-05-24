@@ -729,15 +729,21 @@ function startOfTodayISO(): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Phase B Batch B1 — unique SnapshotTile + SidebarTile (Phase B Batch B1
-// manager, 2026-05-23). Replaces the Phase A `<StatTile>` placeholders
-// with the iOS-home-screen "one big number" pattern: this-month spend
-// from funding-rollup data (the most-glanced PI signal). Both tiles
-// honor the body's `isApproved` predicate (approved === undefined →
-// approved, matches Mira-Skeptic P0 #3 back-compat) so headline number
-// and the rollup tab agree.
+// Phase B redesign (Phase B redesign manager, 2026-05-23): content-rich
+// SnapshotTile. Drops the HeroNumberTile shape (which surfaced one big
+// "$X spent this month" number) in favor of a mini bar chart of the
+// last 4 weeks of approved lab spend.
+//
+// Design choice (per the brief's "pick whichever reads cleaner"
+// guidance): the LabPurchasesWidget tile now occupies the
+// per-funding-source progress-bars slot; making Metrics ALSO a
+// per-source breakdown would duplicate that signal. The burn-rate
+// 4-week trend reads as a complementary, distinct shape — the user
+// sees acceleration / deceleration over time, then clicks for the
+// full rollup. Both tiles still honor the body's `isApproved`
+// predicate (approved === undefined → approved, Skeptic P0 #3 back-
+// compat) so they agree with the rollup tab.
 // ─────────────────────────────────────────────────────────────────────────────
-import HeroNumberTile from "./snapshot/HeroNumberTile";
 import SidebarStatTile from "./snapshot/SidebarStatTile";
 import type { SnapshotTileProps, SidebarTileProps } from "./types";
 
@@ -747,24 +753,43 @@ function isApprovedItem(item: { approved?: boolean }) {
   return item.approved === undefined || item.approved === true;
 }
 
-/** Sum approved spend for the current calendar month, attributed by the
- *  parent purchase task's `start_date` (same proxy LabPurchasesPanel +
- *  the rollup tab use — purchase items have no own timestamp). */
-function thisMonthSpend(
+/** Bucket approved spend into the last 4 calendar weeks (Sun-Sat). Bucket 0
+ *  is 3 weeks ago, bucket 3 is the current week — left-to-right reads as
+ *  oldest → newest, matching how a burn-rate chart is usually read. */
+function weeklyBurnRate(
   items: Array<{ username: string; task_id: number; total_price: number | null; approved?: boolean }>,
   tasksByKey: Map<string, { start_date: string | null }>,
-): number {
-  const now = new Date();
-  const ymPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  let total = 0;
+): Array<{ label: string; total: number }> {
+  const startOfThisWeek = new Date();
+  startOfThisWeek.setHours(0, 0, 0, 0);
+  startOfThisWeek.setDate(startOfThisWeek.getDate() - startOfThisWeek.getDay());
+  const buckets: Array<{ label: string; total: number; startMs: number; endMs: number }> = [];
+  for (let i = 3; i >= 0; i--) {
+    const start = new Date(startOfThisWeek);
+    start.setDate(start.getDate() - i * 7);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 7);
+    buckets.push({
+      label: start.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+      total: 0,
+      startMs: start.getTime(),
+      endMs: end.getTime(),
+    });
+  }
   for (const it of items) {
     if (!isApprovedItem(it)) continue;
     const parent = tasksByKey.get(`${it.username}:${it.task_id}`);
     if (!parent?.start_date) continue;
-    if (parent.start_date.slice(0, 7) !== ymPrefix) continue;
-    total += it.total_price ?? 0;
+    const t = new Date(`${parent.start_date}T00:00:00`).getTime();
+    if (!Number.isFinite(t)) continue;
+    for (const b of buckets) {
+      if (t >= b.startMs && t < b.endMs) {
+        b.total += it.total_price ?? 0;
+        break;
+      }
+    }
   }
-  return total;
+  return buckets.map(({ label, total }) => ({ label, total }));
 }
 
 /** Sum pending (unapproved) spend across all time. Mirrors the body's
@@ -828,6 +853,19 @@ const METRICS_SIDEBAR_ICON = (
   </svg>
 );
 
+/**
+ * SnapshotTile: 4 vertical bars (one per calendar week, oldest →
+ * newest, left → right) representing approved lab spend. Bar heights
+ * communicate the trend at a glance; the active (right-most) bar tints
+ * blue, prior weeks calm gray. Each bar carries a hover tooltip with
+ * the exact dollar amount. A small "X pending" pill sits in the
+ * top-right when there are unapproved items.
+ *
+ * Design choice: the LabPurchasesWidget tile occupies the
+ * per-funding-source progress-bars shape (Grant's stated example), so
+ * Metrics takes the complementary burn-rate shape — different visual
+ * language, different information, but both content-first.
+ */
 export function SnapshotTile(_props: SnapshotTileProps) {
   const { tasks } = useLabData();
   const archivedSet = useArchivedUsers();
@@ -848,29 +886,77 @@ export function SnapshotTile(_props: SnapshotTileProps) {
     }
     return m;
   }, [tasks]);
-  const monthSpend = useMemo(
-    () => thisMonthSpend(items, tasksByKey),
+  const buckets = useMemo(
+    () => weeklyBurnRate(items, tasksByKey),
     [items, tasksByKey],
   );
   const pending = useMemo(() => pendingSpend(items), [items]);
-
-  // Headline: this-month approved spend. Secondary tells the PI either
-  // how much is still awaiting their decision (urgent, amber) or — when
-  // nothing pends — drops back to a calm "all caught up" line so the
-  // tile reads quiet when the lab is quiet.
-  const accent: "amber" | "emerald" = pending.value > 0 ? "amber" : "emerald";
-  const secondary = pending.value > 0
-    ? `${formatCompactCurrency(pending.value)} pending approval`
-    : "All approved";
+  const maxTotal = useMemo(
+    () => Math.max(0, ...buckets.map((b) => b.total)),
+    [buckets],
+  );
 
   return (
-    <HeroNumberTile
-      icon={METRICS_ICON}
-      label="Spent this month"
-      primary={isLoading ? "—" : formatCompactCurrency(monthSpend)}
-      secondary={isLoading ? "" : secondary}
-      accent={accent}
-    />
+    <div className="relative h-full overflow-hidden flex flex-col">
+      <div className="flex items-center gap-1.5 text-gray-500">
+        <span aria-hidden="true" className="text-blue-500 flex-shrink-0">
+          {METRICS_ICON}
+        </span>
+        <span className="text-[10px] uppercase tracking-wide font-medium">
+          Burn rate
+        </span>
+      </div>
+      {pending.count > 0 && (
+        <span
+          className="absolute top-0 right-0 text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-full font-medium"
+          aria-label={`${pending.count} pending`}
+        >
+          {pending.count} pending
+        </span>
+      )}
+      <div className="mt-2 flex-1 min-h-0 flex flex-col">
+        {isLoading ? (
+          <p className="text-xs text-gray-400 italic m-auto">Loading…</p>
+        ) : maxTotal === 0 ? (
+          <p className="text-xs text-gray-400 italic m-auto">
+            No spend in the last 4 weeks
+          </p>
+        ) : (
+          <>
+            <div
+              className="flex-1 min-h-0 flex items-end justify-between gap-1.5"
+              aria-label="Approved spend by week (last 4 weeks)"
+            >
+              {buckets.map((b, idx) => {
+                const pct = maxTotal > 0 ? (b.total / maxTotal) * 100 : 0;
+                const isCurrent = idx === buckets.length - 1;
+                return (
+                  <div
+                    key={b.label}
+                    className="flex-1 flex flex-col justify-end h-full min-w-0"
+                    title={`Week of ${b.label}: ${formatCompactCurrency(b.total)}`}
+                  >
+                    <div
+                      className={`w-full rounded-sm ${
+                        isCurrent ? "bg-blue-500" : "bg-gray-300"
+                      }`}
+                      style={{ height: `${Math.max(2, pct)}%` }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-1 flex items-center justify-between gap-1 text-[10px] text-gray-400 tabular-nums">
+              {buckets.map((b, idx) => (
+                <span key={b.label} className="flex-1 text-center truncate">
+                  {idx === buckets.length - 1 ? "now" : b.label}
+                </span>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 

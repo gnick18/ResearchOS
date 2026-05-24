@@ -551,15 +551,16 @@ function formatRelative(iso: string): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Phase B Batch B2 (Phase B Batch B2 manager, 2026-05-23): unique
-// per-widget tile designs replace the Phase A placeholders.
+// Phase B redesign (Phase B redesign manager, 2026-05-23): content-rich
+// SnapshotTile that shows the most-recent announcements as stacked
+// mini-cards instead of a hero-number "X new" headline. Grant pushback:
+// the count-on-top shape was wrong; the content IS the signal here.
 // ─────────────────────────────────────────────────────────────────────────────
-// - SnapshotTile: HeroNumberTile — big "X new this week" count on top,
-//   preview of the most-recent announcement (avatar + first line + time)
-//   below. Reads the same LAB_ANNOUNCEMENTS_QUERY_KEY cache.
-// - SidebarTile: compact horizontal — megaphone icon + label + badge.
+// - SnapshotTile: 2-3 mini-cards (author avatar + name, 2-line body
+//   preview, relative time) divided by hairline rows. A small "X new"
+//   pill in the top-right corner when last-7-day count > 0.
+// - SidebarTile: unchanged from Batch B2 (compact horizontal).
 // - ExpandedView: alias of the body so the registry can import it.
-import HeroNumberTile from "./snapshot/HeroNumberTile";
 import SidebarStatTile from "./snapshot/SidebarStatTile";
 import type { SnapshotTileProps, SidebarTileProps } from "./types";
 
@@ -589,19 +590,23 @@ function newThisWeek(entries: AnnouncementEntry[]): AnnouncementEntry[] {
   });
 }
 
-function mostRecent(entries: AnnouncementEntry[]): AnnouncementEntry | null {
-  let best: AnnouncementEntry | null = null;
-  let bestT = -Infinity;
-  for (const e of entries) {
-    const t = new Date(e.created_at).getTime();
-    if (Number.isFinite(t) && t > bestT) {
-      bestT = t;
-      best = e;
-    }
-  }
-  return best;
+function mostRecentN(
+  entries: AnnouncementEntry[],
+  n: number,
+): AnnouncementEntry[] {
+  return [...entries]
+    .filter((e) => Number.isFinite(new Date(e.created_at).getTime()))
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .slice(0, n);
 }
 
+/**
+ * SnapshotTile: stack of 2-3 most-recent announcement mini-cards. Each
+ * card shows author avatar + name, the first ~80 chars of the body
+ * (two-line clamp), and a relative time. Hairline divider between
+ * cards, no per-card chrome. Top-right shows a small "X new" pill when
+ * any announcement landed in the last 7 days.
+ */
 export function SnapshotTile(_props: SnapshotTileProps) {
   const profileMap = useLabUserProfileMap();
   const { data: announcements = [], isLoading } = useQuery({
@@ -610,42 +615,69 @@ export function SnapshotTile(_props: SnapshotTileProps) {
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
-  const recentWeek = useMemo(() => newThisWeek(announcements), [announcements]);
-  const newest = useMemo(() => mostRecent(announcements), [announcements]);
-  const count = recentWeek.length;
-
-  const previewAuthor =
-    newest && (profileMap[newest.author]?.displayName?.trim() || newest.author);
-  const firstLine = newest?.text.split("\n")[0] ?? "";
+  const recent = useMemo(() => mostRecentN(announcements, 3), [announcements]);
+  const weekCount = useMemo(
+    () => newThisWeek(announcements).length,
+    [announcements],
+  );
 
   return (
-    <HeroNumberTile
-      icon={MEGAPHONE_SVG}
-      accent={count > 0 ? "blue" : "calm"}
-      label="Announcements"
-      primary={isLoading ? "—" : `${count} new`}
-      secondary={
-        newest ? (
-          <div className="flex flex-col gap-1 min-w-0">
-            <p className="text-xs text-gray-700 leading-snug line-clamp-2 break-words">
-              {firstLine}
-            </p>
-            <div className="flex items-center gap-1.5 text-[10px] text-gray-500 min-w-0">
-              <UserAvatar username={newest.author} size="xs" />
-              <span className="truncate font-medium text-gray-600">
-                {previewAuthor}
-              </span>
-              <span>·</span>
-              <span className="flex-shrink-0">
-                {formatRelative(newest.created_at)}
-              </span>
-            </div>
-          </div>
-        ) : count === 0 ? (
-          <span className="italic">No new announcements</span>
-        ) : undefined
-      }
-    />
+    <div className="relative h-full overflow-hidden flex flex-col">
+      <div className="flex items-center gap-1.5 text-gray-500">
+        <span aria-hidden="true" className="text-purple-500 flex-shrink-0">
+          {MEGAPHONE_SVG}
+        </span>
+        <span className="text-[10px] uppercase tracking-wide font-medium">
+          Announcements
+        </span>
+      </div>
+      {weekCount > 0 && (
+        <span
+          className="absolute top-0 right-0 text-[10px] text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-full font-medium"
+          aria-label={`${weekCount} new this week`}
+        >
+          {weekCount} new
+        </span>
+      )}
+      <div className="mt-2 flex-1 min-h-0 flex flex-col gap-2">
+        {isLoading ? (
+          <p className="text-xs text-gray-400 italic m-auto">Loading…</p>
+        ) : recent.length === 0 ? (
+          <p className="text-xs text-gray-400 italic m-auto">
+            No announcements yet
+          </p>
+        ) : (
+          recent.map((entry, idx) => {
+            const author =
+              profileMap[entry.author]?.displayName?.trim() || entry.author;
+            const body = entry.text.replace(/\s+/g, " ").trim().slice(0, 80);
+            return (
+              <div
+                key={entry.id}
+                className={`min-w-0 ${
+                  idx < recent.length - 1
+                    ? "pb-2 border-b border-gray-100"
+                    : ""
+                }`}
+              >
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <UserAvatar username={entry.author} size="xs" />
+                  <span className="text-[11px] font-medium text-gray-800 truncate">
+                    {author}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-xs text-gray-600 leading-snug line-clamp-2 break-words">
+                  {body}
+                </p>
+                <p className="mt-0.5 text-[10px] text-gray-400">
+                  {formatRelative(entry.created_at)}
+                </p>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
   );
 }
 

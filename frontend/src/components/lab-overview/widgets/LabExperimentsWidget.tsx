@@ -141,38 +141,14 @@ function labTaskToTask(labTask: LabTask): Task {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Phase B Batch B3 (Phase B Batch B3 manager, 2026-05-23): unique
-// per-widget tile designs.
+// Phase B redesign (Phase B redesign manager, 2026-05-23): content-rich
+// SnapshotTile that lists the 3 most-recently-started running
+// experiments with status pills. Drops the HeroNumberTile shape; the
+// experiment names + their status ARE the signal. SidebarTile keeps
+// the Batch B3 slim "X running" row.
 // ─────────────────────────────────────────────────────────────────────────────
-// SnapshotTile is a 2-row hero: big "running" count up top, a
-// "writeup + completed-this-week" split underneath. Uses the shared
-// `HeroNumberTile` primitive.
-//
-// SidebarTile compresses to a slim row with the same headline
-// number (running).
-import HeroNumberTile from "./snapshot/HeroNumberTile";
 import SidebarStatTile from "./snapshot/SidebarStatTile";
 import type { SnapshotTileProps, SidebarTileProps } from "./types";
-
-const BEAKER_ICON_16 = (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <path d="M10 2v7.31" />
-    <path d="M14 9.3V2" />
-    <path d="M8.5 2h7" />
-    <path d="M14 9.3a6.5 6.5 0 1 1-4 0" />
-  </svg>
-);
 
 const BEAKER_ICON_14 = (
   <svg
@@ -194,67 +170,159 @@ const BEAKER_ICON_14 = (
   </svg>
 );
 
+type ExperimentStatus = "running" | "awaiting_writeup" | "blocked";
+type ExperimentRow = {
+  task: LabTask;
+  status: ExperimentStatus;
+  daysSinceStart: number | null;
+  daysUntilEnd: number | null;
+};
+
 /**
- * Experiment counts split into the three buckets the tile surfaces:
- *   - running: open, not complete, has started, has not ended
- *   - awaitingWriteup: end_date in the past but not complete (the
- *     proxy for "experiment ran but no writeup yet")
- *   - completedThisWeek: complete AND end_date within the last 7 days
- *
- * "Awaiting writeup" is a heuristic — there's no explicit "writeup
- * status" field on Task today. The brief asked for it explicitly so
- * we approximate; a follow-up could replace with a real signal if
- * one lands later.
+ * Experiment buckets used by both SnapshotTile (top-3 list) and
+ * SidebarTile (running-count).
+ *   - running: open, not complete, NOT past its end_date
+ *   - awaiting_writeup: end_date in the past but not complete (proxy
+ *     for "experiment ran but no writeup yet" — no explicit field)
+ *   - blocked: not yet implemented — there's no "blocker dep" signal
+ *     on LabTask today; the slot stays in the union so future data
+ *     can fill it without a re-typing.
  */
-function useExperimentCounts() {
+function useExperimentData() {
   const { tasks } = useLabData();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const todayMs = today.getTime();
   const todayIso = today.toISOString().slice(0, 10);
   const weekAgo = new Date(today);
   weekAgo.setDate(weekAgo.getDate() - 7);
   const weekAgoIso = weekAgo.toISOString().slice(0, 10);
+
   let running = 0;
   let awaitingWriteup = 0;
   let completedThisWeek = 0;
+  const rows: ExperimentRow[] = [];
   for (const t of tasks) {
     if (t.task_type !== "experiment") continue;
     if (t.is_complete) {
       if (t.end_date && t.end_date >= weekAgoIso) completedThisWeek++;
-    } else {
-      if (t.end_date && t.end_date < todayIso) {
-        awaitingWriteup++;
-      } else {
-        running++;
-      }
+      continue;
     }
+    let status: ExperimentStatus;
+    if (t.end_date && t.end_date < todayIso) {
+      status = "awaiting_writeup";
+      awaitingWriteup++;
+    } else {
+      status = "running";
+      running++;
+    }
+    const startMs = t.start_date
+      ? new Date(`${t.start_date}T00:00:00`).getTime()
+      : NaN;
+    const endMs = t.end_date
+      ? new Date(`${t.end_date}T00:00:00`).getTime()
+      : NaN;
+    rows.push({
+      task: t,
+      status,
+      daysSinceStart: Number.isFinite(startMs)
+        ? Math.max(0, Math.round((todayMs - startMs) / (24 * 60 * 60 * 1000)))
+        : null,
+      daysUntilEnd: Number.isFinite(endMs)
+        ? Math.round((endMs - todayMs) / (24 * 60 * 60 * 1000))
+        : null,
+    });
   }
-  return { running, awaitingWriteup, completedThisWeek };
+  // Most-recently-started first.
+  rows.sort((a, b) => (b.task.start_date ?? "").localeCompare(a.task.start_date ?? ""));
+  return { running, awaitingWriteup, completedThisWeek, rows };
 }
 
+/**
+ * SnapshotTile: top 3 running (or awaiting-writeup) experiments. Each
+ * row shows the experiment name with a status pill on the right and a
+ * "started X days ago" / "due in Y days" tag underneath. Empty state
+ * reads "No experiments running" in muted gray.
+ */
 export function SnapshotTile(_props: SnapshotTileProps) {
-  const { running, awaitingWriteup, completedThisWeek } = useExperimentCounts();
+  const { rows } = useExperimentData();
+  const top3 = rows.slice(0, 3);
+
   return (
-    <HeroNumberTile
-      icon={BEAKER_ICON_16}
-      accent={running > 0 ? "blue" : "calm"}
-      label="Experiments"
-      primary={running}
-      secondary={
-        <div className="flex flex-col gap-0.5 min-w-0">
-          <span className="truncate">
-            {awaitingWriteup === 0
-              ? "Nothing awaiting writeup"
-              : `${awaitingWriteup} awaiting writeup`}
-          </span>
-          {completedThisWeek > 0 && (
-            <span className="text-[10px] text-gray-400 truncate">
-              {completedThisWeek} done this week
-            </span>
-          )}
-        </div>
-      }
-    />
+    <div className="relative h-full overflow-hidden flex flex-col">
+      <div className="flex items-center gap-1.5 text-gray-500">
+        <span aria-hidden="true" className="text-purple-500 flex-shrink-0">
+          {BEAKER_ICON_14}
+        </span>
+        <span className="text-[10px] uppercase tracking-wide font-medium">
+          Experiments
+        </span>
+      </div>
+      <div className="mt-2 flex-1 min-h-0 flex flex-col gap-1.5">
+        {top3.length === 0 ? (
+          <p className="text-xs text-gray-400 italic m-auto">
+            No experiments running
+          </p>
+        ) : (
+          top3.map((row) => {
+            const pillClass =
+              row.status === "running"
+                ? "text-blue-700 bg-blue-50"
+                : row.status === "awaiting_writeup"
+                  ? "text-amber-700 bg-amber-50"
+                  : "text-red-700 bg-red-50";
+            const pillLabel =
+              row.status === "running"
+                ? "RUNNING"
+                : row.status === "awaiting_writeup"
+                  ? "AWAITING WRITEUP"
+                  : "BLOCKED";
+            let sub: string;
+            if (row.status === "awaiting_writeup" && row.daysUntilEnd !== null) {
+              const overdue = Math.abs(row.daysUntilEnd);
+              sub =
+                overdue === 0
+                  ? "ended today"
+                  : `ended ${overdue} day${overdue === 1 ? "" : "s"} ago`;
+            } else if (
+              row.daysUntilEnd !== null &&
+              row.daysUntilEnd >= 0 &&
+              row.daysUntilEnd <= 7
+            ) {
+              sub =
+                row.daysUntilEnd === 0
+                  ? "due today"
+                  : `due in ${row.daysUntilEnd} day${row.daysUntilEnd === 1 ? "" : "s"}`;
+            } else if (row.daysSinceStart !== null) {
+              sub =
+                row.daysSinceStart === 0
+                  ? "started today"
+                  : `started ${row.daysSinceStart} day${row.daysSinceStart === 1 ? "" : "s"} ago`;
+            } else {
+              sub = "no schedule";
+            }
+            return (
+              <div
+                key={`${row.task.username}:${row.task.id}`}
+                className="min-w-0"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <p className="flex-1 min-w-0 text-xs font-medium text-gray-800 truncate">
+                    {row.task.name}
+                  </p>
+                  <span
+                    className={`flex-shrink-0 text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full font-medium ${pillClass}`}
+                  >
+                    {pillLabel}
+                  </span>
+                </div>
+                <p className="text-[10px] text-gray-400 truncate">{sub}</p>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -265,7 +333,7 @@ export const ExpandedView = LabExperimentsWidget;
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function SidebarTile({ onClick }: SidebarTileProps) {
-  const { running } = useExperimentCounts();
+  const { running } = useExperimentData();
   return (
     <SidebarStatTile
       icon={BEAKER_ICON_14}
