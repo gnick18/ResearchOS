@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type MouseEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { labApi, notesApi, tasksApi } from "@/lib/local-api";
 import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
@@ -36,6 +36,19 @@ import type { LabUserProfile } from "@/hooks/useLabUserProfiles";
  * to this component. To avoid cherry-pick conflicts the page edit stays
  * minimal — see `app/lab-inbox/page.tsx`.
  */
+/**
+ * Phase B Batch B2 (Phase B Batch B2 manager, 2026-05-23): adds a
+ * three-way filter group (All lab / Only on my records / Mentions me)
+ * to the ExpandedView. "Mentions me" reads the denormalized
+ * `mentions?: string[]` field on each comment — populated by the
+ * compose path — so we don't need to re-tokenize the body on every
+ * render.
+ *
+ * `filterMine` is preserved as a state slot for Mira-Literal P0
+ * compatibility; the new tri-state filter just sets it indirectly.
+ */
+type CommentFilter = "all" | "mine" | "mentions";
+
 export default function CommentFeedWidget(_props?: {
   isEditing?: boolean;
   surface?: "canvas" | "sidebar";
@@ -43,7 +56,11 @@ export default function CommentFeedWidget(_props?: {
   const profileMap = useLabUserProfileMap();
   const { currentUser } = useCurrentUser();
   const queryClient = useQueryClient();
-  const [filterMine, setFilterMine] = useState(false);
+  // Phase B Batch B2: tri-state filter. The historical Mira-Literal P0
+  // "Only on my records" behavior is preserved as the `"mine"` arm of
+  // the new filter; the visibleFeed memo still narrows by `recordOwner`
+  // when the user picks it.
+  const [filter, setFilter] = useState<CommentFilter>("all");
   const [activePopup, setActivePopup] = useState<ActivePopup | null>(null);
 
   const notesQuery = useQuery<Note[]>({
@@ -138,10 +155,25 @@ export default function CommentFeedWidget(_props?: {
   // default since they want the whole-lab signal. When the toggle is
   // on we narrow `visibleFeed` to entries whose source record is owned
   // by the active user (Mira Batch 1 polish, 2026-05-23).
+  //
+  // Phase B Batch B2: "Mentions me" filter — narrow to entries whose
+  // root comment OR any reply mentions the current user (denormalized
+  // `mentions?: string[]` on each comment, populated at compose time).
   const visibleFeed = useMemo(() => {
-    if (!filterMine || !currentUser) return fullFeed;
-    return fullFeed.filter((entry) => entry.recordOwner === currentUser);
-  }, [fullFeed, filterMine, currentUser]);
+    if (!currentUser) return fullFeed;
+    if (filter === "mine") {
+      return fullFeed.filter((entry) => entry.recordOwner === currentUser);
+    }
+    if (filter === "mentions") {
+      return fullFeed.filter((entry) => {
+        const all = [entry.rootComment, ...entry.replies];
+        return all.some((c) =>
+          (c.mentions ?? []).includes(currentUser),
+        );
+      });
+    }
+    return fullFeed;
+  }, [fullFeed, filter, currentUser]);
 
   const isLoading =
     notesQuery.isLoading || taskCommentsQuery.isLoading;
@@ -157,20 +189,30 @@ export default function CommentFeedWidget(_props?: {
 
   // R2 (R2 widget framework manager, 2026-05-23): outer card chrome
   // moved into the canonical `<Widget>` frame. The "Lab comments"
-  // header copy is now the widget title; the "Only on my records"
-  // toggle stays in-body since it's an interactive filter, not chrome.
+  // header copy is now the widget title; the filter chips stay in-body
+  // since they're interactive filters, not chrome.
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-end text-xs text-gray-500">
-        <label className="flex items-center gap-1.5 cursor-pointer">
-          <input
-            type="checkbox"
-            className="rounded text-emerald-600 focus:ring-emerald-500"
-            checked={filterMine}
-            onChange={(e) => setFilterMine(e.target.checked)}
-          />
-          Only on my records
-        </label>
+      <div
+        role="group"
+        aria-label="Filter comments"
+        className="flex items-center gap-1 flex-wrap"
+      >
+        <CommentFilterChip
+          label="All lab"
+          active={filter === "all"}
+          onClick={() => setFilter("all")}
+        />
+        <CommentFilterChip
+          label="Only on my records"
+          active={filter === "mine"}
+          onClick={() => setFilter("mine")}
+        />
+        <CommentFilterChip
+          label="Mentions me"
+          active={filter === "mentions"}
+          onClick={() => setFilter("mentions")}
+        />
       </div>
 
       {visibleFeed.length === 0 ? (
@@ -399,8 +441,29 @@ interface FeedRowProps {
 
 function FeedRow({ entry, profileMap, onOpenRecord }: FeedRowProps) {
   const [expanded, setExpanded] = useState(false);
+  // Phase B Batch B2: make the whole row a click target for the source
+  // record. We keep the existing in-row "On {name}" affordance because
+  // it's the legible click-cue (the row otherwise looks read-only); the
+  // big click area is a usability win for mouse users. Reply toggle
+  // and inline link still stopPropagation so they don't double-fire.
+  const handleRowClick = (e: MouseEvent) => {
+    // Don't hijack clicks on the inner buttons / links inside the row.
+    if ((e.target as HTMLElement).closest("button, a")) return;
+    onOpenRecord();
+  };
   return (
-    <div>
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={handleRowClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          onOpenRecord();
+        }
+      }}
+      className="rounded-md -mx-2 px-2 py-1 cursor-pointer hover:bg-gray-50 focus:bg-gray-50 focus:outline-none transition-colors"
+    >
       <CommentCell comment={entry.rootComment} profileMap={profileMap} />
 
       {/* Source-surface inline link — clicking opens the underlying
@@ -527,6 +590,31 @@ function CommentCell({
   );
 }
 
+function CommentFilterChip({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`px-2.5 py-1 text-xs rounded-full transition-colors ${
+        active
+          ? "bg-emerald-100 text-emerald-700 font-medium"
+          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
 function formatRelative(iso: string): string {
   if (!iso) return "";
   const then = new Date(iso).getTime();
@@ -543,65 +631,128 @@ function formatRelative(iso: string): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Phase A snapshot + expanded contract (Phase A redispatch manager, 2026-05-23)
+// Phase B Batch B2 (Phase B Batch B2 manager, 2026-05-23): unique tile
+// designs replace the Phase A placeholders.
 // ─────────────────────────────────────────────────────────────────────────────
-// The widget body above is unchanged. SnapshotTile reads the same
-// notes-shared cache the body uses, so the count is free of network.
-// `filterMine` and the rest of the body wiring (Mira-Literal P0) is
-// untouched — the snapshot is a separate, read-only entry point.
-import StatTile from "./snapshot/StatTile";
-import type { SnapshotTileProps } from "./types";
+// - SnapshotTile: HeroNumberTile — big "unread" count on top, preview
+//   of the most-recent comment (avatar + first ~40 chars + time) below.
+//   Empty state renders "All caught up" with a checkmark.
+// - SidebarTile: chat-bubble icon + label + pill-badge count (sky tone
+//   when > 0, muted gray otherwise).
+// - Reads the same notes-shared cache; the count is "any activity?"
+//   for a glance-only tile. `filterMine` and the rest of the body
+//   wiring (Mira-Literal P0) are untouched.
+import HeroNumberTile from "./snapshot/HeroNumberTile";
+import SidebarStatTile from "./snapshot/SidebarStatTile";
+import type { SnapshotTileProps, SidebarTileProps } from "./types";
+
+const CHAT_SVG = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+  </svg>
+);
+
+const CHECK_SVG = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="12"
+    height="12"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    className="text-emerald-500"
+  >
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+
+function truncatePreview(text: string, max = 40): string {
+  const oneLine = text.replace(/\s+/g, " ").trim();
+  if (oneLine.length <= max) return oneLine;
+  return oneLine.slice(0, Math.max(0, max - 1)).trimEnd() + "…";
+}
 
 export function SnapshotTile(_props: SnapshotTileProps) {
+  const profileMap = useLabUserProfileMap();
   const { data: notes = [], isLoading } = useQuery<Note[]>({
     queryKey: ["lab", "notes-shared"],
     queryFn: () => labApi.getNotes({ shared_only: true }),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
+
   // Note-only count: matches the always-warm cache the body uses. The
-  // body's secondary `lab-inbox/task-comments` query is heavier (per-
-  // task fetch) and would force the snapshot tile to wait on N extra
-  // reads; the note count is the right "is there activity" signal for
-  // a glance-only tile. Phase B can swap in a richer feed.
+  // body's secondary `lab-inbox/task-comments` query is heavier and
+  // would force the snapshot tile to wait on N extra reads — keep the
+  // glance-only tile bound to the shared-notes cache.
   let count = 0;
-  for (const n of notes) count += (n.comments ?? []).length;
-  return (
-    <StatTile
-      icon={
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        </svg>
+  let newest: NoteComment | null = null;
+  let newestT = -Infinity;
+  for (const n of notes) {
+    const cs = n.comments ?? [];
+    count += cs.length;
+    for (const c of cs) {
+      const t = new Date(c.created_at).getTime();
+      if (Number.isFinite(t) && t > newestT) {
+        newestT = t;
+        newest = c;
       }
-      iconClassName="text-blue-500"
-      label="Lab comments"
-      stat={isLoading ? "—" : count}
-      sub={count === 0 ? "No comments yet" : "on shared notes"}
+    }
+  }
+
+  const newestAuthor = newest
+    ? profileMap[newest.author]?.displayName?.trim() || newest.author
+    : null;
+
+  return (
+    <HeroNumberTile
+      icon={CHAT_SVG}
+      accent={count > 0 ? "blue" : "calm"}
+      label="Comments"
+      primary={isLoading ? "—" : count}
+      secondary={
+        newest ? (
+          <div className="flex items-start gap-1.5 min-w-0">
+            <UserAvatar username={newest.author} size="xs" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] text-gray-700 leading-snug truncate">
+                <span className="font-medium text-gray-600">
+                  {newestAuthor}:
+                </span>{" "}
+                {truncatePreview(newest.text)}
+              </p>
+              <p className="text-[10px] text-gray-400">
+                {formatRelative(newest.created_at)}
+              </p>
+            </div>
+          </div>
+        ) : count === 0 ? (
+          <div className="flex items-center gap-1">
+            {CHECK_SVG}
+            <span>All caught up</span>
+          </div>
+        ) : undefined
+      }
     />
   );
 }
 
 export const ExpandedView = CommentFeedWidget;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SidebarTile (customizable PI sidebar manager #146, 2026-05-23)
-// ─────────────────────────────────────────────────────────────────────────────
-// Reuses the same notes-shared cache; the count is the simple "any
-// activity?" signal the SnapshotTile also surfaces. `filterMine` and
-// the rest of the body wiring (Mira-Literal P0) are untouched.
-import SidebarStatTile from "./snapshot/SidebarStatTile";
-import type { SidebarTileProps } from "./types";
 
 export function SidebarTile({ onClick }: SidebarTileProps) {
   const { data: notes = [], isLoading } = useQuery<Note[]>({
@@ -614,27 +765,23 @@ export function SidebarTile({ onClick }: SidebarTileProps) {
   for (const n of notes) count += (n.comments ?? []).length;
   return (
     <SidebarStatTile
-      icon={
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        </svg>
-      }
+      icon={CHAT_SVG}
       iconClassName="text-blue-500"
       label="Comments"
-      stat={isLoading ? "—" : count}
+      stat={
+        isLoading ? (
+          "—"
+        ) : count > 0 ? (
+          <span className="inline-flex items-center justify-center min-w-[20px] px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 text-[11px] font-semibold tabular-nums">
+            {count}
+          </span>
+        ) : (
+          <span className="inline-flex items-center justify-center min-w-[20px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400 text-[11px] font-semibold tabular-nums">
+            0
+          </span>
+        )
+      }
       onClick={onClick}
     />
   );
 }
-

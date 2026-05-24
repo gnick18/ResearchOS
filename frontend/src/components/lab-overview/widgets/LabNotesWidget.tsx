@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { labApi } from "@/lib/local-api";
 import NoteCard from "@/components/NoteCard";
 import NoteDetailPopup from "@/components/NoteDetailPopup";
+import UserAvatar from "@/components/UserAvatar";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAccountType } from "@/hooks/useAccountType";
+import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
 import { canRead } from "@/lib/sharing/unified";
 import type { Note } from "@/lib/types";
 
@@ -39,6 +41,13 @@ export default function LabNotesWidget(_props?: {
   const [filterType, setFilterType] = useState<"all" | "single" | "running">(
     "all",
   );
+  // Phase B Batch B2 polish: stable ref on the search input so it
+  // doesn't lose focus / caret when the filter-pill click triggers a
+  // re-render of the surrounding grid. React keeps the same DOM node
+  // because the input is a sibling of (not inside) the grid, but
+  // having an explicit ref makes the focus-preservation intent
+  // legible and lets us re-focus defensively after filter changes.
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   // Shared-only across the lab — same key the CommentFeedWidget /
   // RecentActivityWidget use, so the underlying network read is shared.
@@ -139,6 +148,7 @@ export default function LabNotesWidget(_props?: {
             />
           </svg>
           <input
+            ref={searchInputRef}
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -146,9 +156,23 @@ export default function LabNotesWidget(_props?: {
             className="w-full pl-8 pr-2 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:border-emerald-500"
           />
         </div>
-        <div className="flex items-center gap-1">
+        <div
+          className="flex items-center gap-1"
+          // Phase B Batch B2: keep caret in the search input across
+          // filter changes. The pill buttons would steal focus on
+          // pointerdown otherwise; preventing default here means the
+          // active element stays where the user left it.
+          onMouseDown={(e) => {
+            if (
+              searchInputRef.current &&
+              document.activeElement === searchInputRef.current
+            ) {
+              e.preventDefault();
+            }
+          }}
+        >
           <FilterPill
-            label="All"
+            label="All notes"
             active={filterType === "all"}
             onClick={() => setFilterType("all")}
             tone="emerald"
@@ -160,7 +184,7 @@ export default function LabNotesWidget(_props?: {
             tone="blue"
           />
           <FilterPill
-            label="Running"
+            label="In progress"
             active={filterType === "running"}
             onClick={() => setFilterType("running")}
             tone="purple"
@@ -171,11 +195,27 @@ export default function LabNotesWidget(_props?: {
       {/* Grid of NoteCards. Internal scroll so the Widget body owns
           the overflow boundary. */}
       {sorted.length === 0 ? (
-        <p className="text-sm text-gray-400 italic">
-          {searchQuery || filterType !== "all"
-            ? "No notes match your filters."
-            : "No shared notes across the lab yet."}
-        </p>
+        searchQuery || filterType !== "all" ? (
+          <p className="text-sm text-gray-400 italic">
+            No notes match your filters.
+          </p>
+        ) : (
+          // Phase B Batch B2 polish: friendlier empty state that
+          // explains how to share a note instead of a one-liner.
+          // The actual share affordance lives inside NoteDetailPopup
+          // (per-note share dialog), which we can't open from here
+          // without a note in hand — so we explain the path in copy
+          // and keep the panel pleasant to land on.
+          <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/40 px-4 py-6 text-center">
+            <p className="text-sm font-medium text-gray-700">
+              No shared notes across the lab yet
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              Open any of your notes and use the Share dialog to share
+              it with the lab. Shared notes appear here for everyone.
+            </p>
+          </div>
+        )
       ) : (
         <div className="flex-1 min-h-0 overflow-auto">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -235,52 +275,104 @@ function FilterPill({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Phase A snapshot + expanded contract (Phase A redispatch manager, 2026-05-23)
+// Phase B Batch B2 (Phase B Batch B2 manager, 2026-05-23): unique tile
+// designs replace the Phase A placeholders.
 // ─────────────────────────────────────────────────────────────────────────────
-import StatTile from "./snapshot/StatTile";
-import type { SnapshotTileProps } from "./types";
+// - SnapshotTile: HeroNumberTile — big total count on top, preview of
+//   the most-recently-updated note (title + author avatar + "updated X
+//   ago") below.
+// - SidebarTile: doc icon + label + count badge in a single row.
+import HeroNumberTile from "./snapshot/HeroNumberTile";
+import SidebarStatTile from "./snapshot/SidebarStatTile";
+import type { SnapshotTileProps, SidebarTileProps } from "./types";
+
+const DOC_SVG = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <polyline points="14 2 14 8 20 8" />
+  </svg>
+);
+
+function formatRelative(iso: string | undefined): string {
+  if (!iso) return "";
+  const then = new Date(iso).getTime();
+  if (!Number.isFinite(then)) return "";
+  const diffMs = Date.now() - then;
+  const diffMin = Math.floor(diffMs / 60_000);
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 7) return `${diffDay}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
 
 export function SnapshotTile(_props: SnapshotTileProps) {
+  const profileMap = useLabUserProfileMap();
   const { data: notes = [], isLoading } = useQuery<Note[]>({
     queryKey: ["lab", "notes-shared"],
     queryFn: () => labApi.getNotes({ shared_only: true }),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
-  return (
-    <StatTile
-      icon={
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
-        </svg>
+  // Most-recently-updated note (by updated_at). Falls back to id-sort
+  // if updated_at is missing on legacy notes.
+  const newest = useMemo(() => {
+    let best: Note | null = null;
+    let bestT = -Infinity;
+    for (const n of notes) {
+      const t = new Date(n.updated_at ?? "").getTime();
+      if (Number.isFinite(t) && t > bestT) {
+        bestT = t;
+        best = n;
       }
-      iconClassName="text-sky-500"
+    }
+    return best;
+  }, [notes]);
+  const authorName = newest
+    ? profileMap[newest.username]?.displayName?.trim() || newest.username
+    : null;
+
+  return (
+    <HeroNumberTile
+      icon={DOC_SVG}
+      accent={notes.length > 0 ? "blue" : "calm"}
       label="Lab notes"
-      stat={isLoading ? "—" : notes.length}
-      sub={notes.length === 0 ? "No shared notes" : "shared lab-wide"}
+      primary={isLoading ? "—" : notes.length}
+      secondary={
+        newest ? (
+          <div className="flex items-start gap-1.5 min-w-0">
+            <UserAvatar username={newest.username} size="xs" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-medium text-gray-700 truncate">
+                {newest.title || "Untitled note"}
+              </p>
+              <p className="text-[10px] text-gray-500 truncate">
+                {authorName} · updated {formatRelative(newest.updated_at)}
+              </p>
+            </div>
+          </div>
+        ) : !isLoading ? (
+          <span className="italic">No shared notes yet</span>
+        ) : undefined
+      }
     />
   );
 }
 
 export const ExpandedView = LabNotesWidget;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SidebarTile (customizable PI sidebar manager #146, 2026-05-23)
-// ─────────────────────────────────────────────────────────────────────────────
-import SidebarStatTile from "./snapshot/SidebarStatTile";
-import type { SidebarTileProps } from "./types";
 
 export function SidebarTile({ onClick }: SidebarTileProps) {
   const { data: notes = [], isLoading } = useQuery<Note[]>({
@@ -289,28 +381,27 @@ export function SidebarTile({ onClick }: SidebarTileProps) {
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
+  const total = notes.length;
   return (
     <SidebarStatTile
-      icon={
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
-        </svg>
-      }
+      icon={DOC_SVG}
       iconClassName="text-sky-500"
       label="Lab notes"
-      stat={isLoading ? "—" : notes.length}
+      stat={
+        isLoading ? (
+          "—"
+        ) : (
+          <span
+            className={`inline-flex items-center justify-center min-w-[20px] px-1.5 py-0.5 rounded-full text-[11px] font-semibold tabular-nums ${
+              total > 0
+                ? "bg-sky-100 text-sky-700"
+                : "bg-gray-100 text-gray-400"
+            }`}
+          >
+            {total}
+          </span>
+        )
+      }
       onClick={onClick}
     />
   );

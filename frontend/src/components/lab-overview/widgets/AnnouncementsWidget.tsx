@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDraftPersistence } from "@/hooks/useDraftPersistence";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
@@ -22,6 +22,7 @@ import { useEditSession } from "@/hooks/useEditSession";
 import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
 import RequestEditButton from "@/components/RequestEditButton";
 import Tooltip from "@/components/Tooltip";
+import UserAvatar from "@/components/UserAvatar";
 
 /**
  * Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23): announcements
@@ -102,11 +103,19 @@ export default function AnnouncementsWidget(_props?: {
           Loading announcements…
         </div>
       ) : sorted.length === 0 ? (
-        <p className="text-sm text-gray-400 italic">
-          {isLabHead
-            ? "No announcements yet. Post one above — everyone in the lab will see it."
-            : "No announcements from your lab head yet."}
-        </p>
+        // Phase B Batch B2 polish: friendlier empty state, framed as a
+        // call to action for PIs and a calm "nothing here yet" for
+        // members. Replaces the prior italic-gray one-liner.
+        <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/40 px-4 py-6 text-center">
+          <p className="text-sm font-medium text-gray-700">
+            No announcements yet
+          </p>
+          <p className="mt-1 text-xs text-gray-500">
+            {isLabHead
+              ? "Start the conversation. Post the first announcement above and everyone in the lab will see it."
+              : "Nothing from your lab head yet. Check back later."}
+          </p>
+        </div>
       ) : (
         <ul className="space-y-2">
           {sorted.map((entry) => (
@@ -149,6 +158,13 @@ function Composer({ username, sessionUnlocked, sessionId, onPosted }: ComposerPr
   const [text, setText] = useState("");
   const [pinned, setPinned] = useState(false);
   const [posting, setPosting] = useState(false);
+  // Phase B Batch B2 polish: scroll the composer into view when a draft
+  // is restored on mount. If the PI typed text, navigated away (to,
+  // say, the popup's announcements list), and came back, the restored
+  // draft should be visible rather than scrolled off-screen above the
+  // freshly-rendered card list.
+  const composerRef = useRef<HTMLDivElement | null>(null);
+  const [restoredDraftSignal, setRestoredDraftSignal] = useState(0);
 
   const canPost = sessionUnlocked && text.trim().length > 0 && !posting;
 
@@ -172,9 +188,34 @@ function Composer({ username, sessionUnlocked, sessionId, onPosted }: ComposerPr
         const candidate = saved as Partial<{ text: string; pinned: boolean }>;
         if (typeof candidate.text === "string") setText(candidate.text);
         if (typeof candidate.pinned === "boolean") setPinned(candidate.pinned);
+        if (
+          typeof candidate.text === "string" &&
+          candidate.text.trim().length > 0
+        ) {
+          // Phase B Batch B2 polish: flag the restore so the next
+          // render scrolls the composer into view.
+          setRestoredDraftSignal((n) => n + 1);
+        }
       },
     },
   );
+
+  useEffect(() => {
+    if (restoredDraftSignal === 0) return;
+    const node = composerRef.current;
+    if (!node) return;
+    // Use rAF so the scroll happens after the textarea has been
+    // populated with the restored text — otherwise the scroll lands
+    // on a still-empty container.
+    const id = requestAnimationFrame(() => {
+      try {
+        node.scrollIntoView({ behavior: "smooth", block: "start" });
+      } catch {
+        // jsdom in tests doesn't implement scrollIntoView — ignore.
+      }
+    });
+    return () => cancelAnimationFrame(id);
+  }, [restoredDraftSignal]);
   // Browser-level unsaved-changes prompt — fires on tab close / hard
   // navigation only when the composer has typed text the user hasn't
   // posted yet.
@@ -209,7 +250,10 @@ function Composer({ username, sessionUnlocked, sessionId, onPosted }: ComposerPr
   };
 
   return (
-    <div className="border border-emerald-200 bg-emerald-50/40 rounded-lg p-4 space-y-3">
+    <div
+      ref={composerRef}
+      className="border border-emerald-200 bg-emerald-50/40 rounded-lg p-4 space-y-3 scroll-mt-2"
+    >
       <textarea
         className="w-full min-h-[60px] text-sm rounded-md border border-emerald-300 px-3 py-2 bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-50 disabled:text-gray-400"
         placeholder={
@@ -507,68 +551,106 @@ function formatRelative(iso: string): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Phase A snapshot + expanded contract (Phase A redispatch manager, 2026-05-23)
+// Phase B Batch B2 (Phase B Batch B2 manager, 2026-05-23): unique
+// per-widget tile designs replace the Phase A placeholders.
 // ─────────────────────────────────────────────────────────────────────────────
-// The widget body above is unchanged from R3 + Mira polish (draft
-// persistence, unsaved-changes guard, lab_head badge gating). The Phase
-// A contract layers two small exports:
-//   - SnapshotTile: shared `<StatTile>` template, reads the same
-//     `LAB_ANNOUNCEMENTS_QUERY_KEY` so the cache is warm.
-//   - ExpandedView: alias of the existing default export — the body IS
-//     the expanded view, opened from the snapshot popup.
-import StatTile from "./snapshot/StatTile";
-import type { SnapshotTileProps } from "./types";
+// - SnapshotTile: HeroNumberTile — big "X new this week" count on top,
+//   preview of the most-recent announcement (avatar + first line + time)
+//   below. Reads the same LAB_ANNOUNCEMENTS_QUERY_KEY cache.
+// - SidebarTile: compact horizontal — megaphone icon + label + badge.
+// - ExpandedView: alias of the body so the registry can import it.
+import HeroNumberTile from "./snapshot/HeroNumberTile";
+import SidebarStatTile from "./snapshot/SidebarStatTile";
+import type { SnapshotTileProps, SidebarTileProps } from "./types";
+
+const MEGAPHONE_SVG = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M3 11l18-5v12L3 14v-3z" />
+    <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
+  </svg>
+);
+
+function newThisWeek(entries: AnnouncementEntry[]): AnnouncementEntry[] {
+  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  return entries.filter((a) => {
+    const t = new Date(a.created_at).getTime();
+    return Number.isFinite(t) && t >= cutoff;
+  });
+}
+
+function mostRecent(entries: AnnouncementEntry[]): AnnouncementEntry | null {
+  let best: AnnouncementEntry | null = null;
+  let bestT = -Infinity;
+  for (const e of entries) {
+    const t = new Date(e.created_at).getTime();
+    if (Number.isFinite(t) && t > bestT) {
+      bestT = t;
+      best = e;
+    }
+  }
+  return best;
+}
 
 export function SnapshotTile(_props: SnapshotTileProps) {
+  const profileMap = useLabUserProfileMap();
   const { data: announcements = [], isLoading } = useQuery({
     queryKey: LAB_ANNOUNCEMENTS_QUERY_KEY,
     queryFn: listAnnouncements,
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
-  const total = announcements.length;
-  const pinned = announcements.filter((a) => a.pinned).length;
+  const recentWeek = useMemo(() => newThisWeek(announcements), [announcements]);
+  const newest = useMemo(() => mostRecent(announcements), [announcements]);
+  const count = recentWeek.length;
+
+  const previewAuthor =
+    newest && (profileMap[newest.author]?.displayName?.trim() || newest.author);
+  const firstLine = newest?.text.split("\n")[0] ?? "";
+
   return (
-    <StatTile
-      icon={
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M3 11l18-5v12L3 14v-3z" />
-          <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
-        </svg>
-      }
-      iconClassName="text-purple-500"
+    <HeroNumberTile
+      icon={MEGAPHONE_SVG}
+      accent={count > 0 ? "blue" : "calm"}
       label="Announcements"
-      stat={isLoading ? "—" : total}
-      sub={total === 0 ? "Nothing posted yet" : `${pinned} pinned`}
+      primary={isLoading ? "—" : `${count} new`}
+      secondary={
+        newest ? (
+          <div className="flex flex-col gap-1 min-w-0">
+            <p className="text-xs text-gray-700 leading-snug line-clamp-2 break-words">
+              {firstLine}
+            </p>
+            <div className="flex items-center gap-1.5 text-[10px] text-gray-500 min-w-0">
+              <UserAvatar username={newest.author} size="xs" />
+              <span className="truncate font-medium text-gray-600">
+                {previewAuthor}
+              </span>
+              <span>·</span>
+              <span className="flex-shrink-0">
+                {formatRelative(newest.created_at)}
+              </span>
+            </div>
+          </div>
+        ) : count === 0 ? (
+          <span className="italic">No new announcements</span>
+        ) : undefined
+      }
     />
   );
 }
 
-// The default-exported body above IS the expanded view. We expose it
-// under the Phase A name so the registry can import it as
-// `ExpandedView` without any change to the body itself.
+// The default-exported body above IS the expanded view.
 export const ExpandedView = AnnouncementsWidget;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SidebarTile (customizable PI sidebar manager #146, 2026-05-23)
-// ─────────────────────────────────────────────────────────────────────────────
-// Placeholder built on the shared `<SidebarStatTile>` horizontal-row
-// template. Reuses the same `LAB_ANNOUNCEMENTS_QUERY_KEY` cache the
-// SnapshotTile + body read, so React Query dedupes the fetch.
-// Phase B can replace this with a unique pinned-headline mini-list.
-import SidebarStatTile from "./snapshot/SidebarStatTile";
-import type { SidebarTileProps } from "./types";
 
 export function SidebarTile({ onClick }: SidebarTileProps) {
   const { data: announcements = [], isLoading } = useQuery({
@@ -578,30 +660,27 @@ export function SidebarTile({ onClick }: SidebarTileProps) {
     refetchOnWindowFocus: false,
   });
   const total = announcements.length;
-  const pinned = announcements.filter((a) => a.pinned).length;
+  // Phase B Batch B2: badge stat is the unread-style count rendered as
+  // a small pill so the sidebar row reads inbox-like. We treat "new
+  // this week" as a proxy for unread since the announcements model
+  // doesn't track per-user read state today.
+  const count = useMemo(() => newThisWeek(announcements).length, [announcements]);
   return (
     <SidebarStatTile
-      icon={
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M3 11l18-5v12L3 14v-3z" />
-          <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
-        </svg>
-      }
+      icon={MEGAPHONE_SVG}
       iconClassName="text-purple-500"
       label="Announcements"
-      stat={isLoading ? "—" : total}
-      sub={pinned > 0 ? `${pinned} pinned` : undefined}
+      stat={
+        isLoading ? (
+          "—"
+        ) : count > 0 ? (
+          <span className="inline-flex items-center justify-center min-w-[20px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[11px] font-semibold tabular-nums">
+            {count}
+          </span>
+        ) : (
+          <span className="text-gray-400 text-xs">{total}</span>
+        )
+      }
       onClick={onClick}
     />
   );
