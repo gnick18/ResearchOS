@@ -21,7 +21,7 @@ import NewPurchaseModal from "@/components/NewPurchaseModal";
 import PurchaseEditor from "@/components/PurchaseEditor";
 import SpendingDashboard from "@/components/SpendingDashboard";
 import FundingAccountsManager from "@/components/FundingAccountsManager";
-import { setPurchaseApproval } from "@/lib/lab/pi-actions";
+import { declinePurchase, setPurchaseApproval } from "@/lib/lab/pi-actions";
 import {
   MISC_CATEGORY_LABEL,
   isMiscProject,
@@ -688,11 +688,14 @@ function PendingApprovalRow({
       ? `$${item.total_price.toFixed(2)}`
       : "—";
 
-  // Decline path: PurchaseItem has no `declined_at` field yet (parallel
-  // chip a8536c41 may add one; until then, decline flips approved back
-  // to pending via setPurchaseApproval(..., approved: false)). The brief
-  // explicitly allows this: "decline goes through the back-flip-to-
-  // pending path. This is intentional."
+  // Decline path now goes through `declinePurchase` (landed in commit
+  // 07a1b7b3), which persists `declined_at` + `declined_by` and emits a
+  // dedicated audit row. The declined item drops out of this Tab A list
+  // (the pending filter is `!approved && !declined_at`) and surfaces in
+  // the PiActions popup's "Recently declined" section with a Re-approve
+  // affordance. The back-flip-to-pending path the brief permitted as a
+  // stopgap is no longer needed now that the persisted-decline plumbing
+  // is live.
   const handleApprove = async () => {
     if (!sessionUnlocked || !sessionId || busy) return;
     setBusy(true);
@@ -718,12 +721,11 @@ function PendingApprovalRow({
     if (!sessionUnlocked || !sessionId || busy) return;
     setBusy(true);
     try {
-      await setPurchaseApproval({
+      await declinePurchase({
         actor,
         sessionId,
         targetOwner: item.username,
         purchaseItemId: item.id,
-        approved: false,
         itemName: item.item_name,
       });
       onAfterChange();
