@@ -7,6 +7,26 @@ import { useAccountType } from "@/hooks/useAccountType";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import UserAvatar from "@/components/UserAvatar";
 
+const PEOPLE_ICON = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </svg>
+);
+
 /**
  * Lab Mode retirement R3 (R3 widget catalog manager, 2026-05-23):
  * member workload at-a-glance, sidebar surface. Replaces the R2 stub.
@@ -79,8 +99,17 @@ export default function MemberWorkloadWidget(_props?: {
       {rows.map((r) => (
         <li
           key={r.username}
+          // Phase B Batch B3: row tooltip surfaces the full
+          // "Open: N · Overdue: M" detail per the brief.
+          // /workbench has no `?user=` param today (it scopes to
+          // currentUser via the auth context, not a query string),
+          // so we don't make the row clickable — clicking would
+          // navigate to the PI's own workbench, not the member's,
+          // which is more confusing than non-clickable. FOLLOW-UP:
+          // wire a `/workbench?user=<username>` view for PIs once
+          // the workbench surface owner picks it up.
+          title={`${r.displayName}. Open: ${r.open} · Overdue: ${r.overdue}`}
           className="flex items-center gap-1.5 px-1 py-1 rounded"
-          title={`${r.displayName} — ${r.open} open, ${r.overdue} overdue`}
         >
           <UserAvatar username={r.username} size="sm" />
           <span className="text-xs text-gray-700 truncate flex-1 min-w-0">
@@ -119,108 +148,212 @@ function todayIso(): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Phase A snapshot + expanded contract (Phase A redispatch manager, 2026-05-23)
+// Phase B Batch B3 (Phase B Batch B3 manager, 2026-05-23): unique
+// per-widget tile designs.
 // ─────────────────────────────────────────────────────────────────────────────
-// The widget body above is unchanged from R3 + Mira polish (archived
-// users are excluded upstream via `useArchivedUsers` consumers; here
-// the per-member rows preserve that filter). Snapshot summarizes the
-// total open + overdue across the lab.
-import StatTile from "./snapshot/StatTile";
-import type { SnapshotTileProps } from "./types";
+// SnapshotTile shows a vertical bar-chart-like preview of the 3 most
+// loaded members (avatar + name + horizontal bar). Bar width is
+// proportional to the busiest member's open count so the rows
+// compare visually. Overdue counts tint the bar's tail red.
+//
+// SidebarTile compresses to a single row: people icon + "Workload"
+// + "X members · Y overdue".
+import type { SnapshotTileProps, SidebarTileProps } from "./types";
 
-export function SnapshotTile(_props: SnapshotTileProps) {
+interface WorkloadRow {
+  username: string;
+  displayName: string;
+  open: number;
+  overdue: number;
+}
+
+/**
+ * Shared row aggregator. Identical sort logic to the body so the
+ * "top 3" in the snapshot matches the top 3 visible in the popup.
+ */
+function useWorkloadRows(): {
+  accountType: ReturnType<typeof useAccountType>;
+  rows: WorkloadRow[];
+  totalMembers: number;
+  totalOverdue: number;
+} {
   const { currentUser } = useCurrentUser();
   const accountType = useAccountType(currentUser);
-  const { tasks } = useLabData();
-  if (accountType !== "lab_head") return null;
+  const { users, tasks } = useLabData();
+  const profileMap = useLabUserProfileMap();
   const today = todayIso();
-  let open = 0;
-  let overdue = 0;
-  for (const t of tasks) {
-    if (t.is_complete) continue;
-    open++;
-    if (t.end_date && t.end_date < today) overdue++;
-  }
+  const rows = useMemo<WorkloadRow[]>(() => {
+    return users
+      .map<WorkloadRow>((u) => {
+        let open = 0;
+        let overdue = 0;
+        for (const t of tasks) {
+          if (t.username !== u.username) continue;
+          if (t.is_complete) continue;
+          open++;
+          if (t.end_date && t.end_date < today) overdue++;
+        }
+        return {
+          username: u.username,
+          displayName:
+            profileMap[u.username]?.displayName?.trim() || u.username,
+          open,
+          overdue,
+        };
+      })
+      .sort((a, b) => {
+        if (b.overdue !== a.overdue) return b.overdue - a.overdue;
+        return b.open - a.open;
+      });
+  }, [users, tasks, profileMap, today]);
+  const totalOverdue = rows.reduce((s, r) => s + r.overdue, 0);
+  return {
+    accountType,
+    rows,
+    totalMembers: rows.length,
+    totalOverdue,
+  };
+}
+
+export function SnapshotTile(_props: SnapshotTileProps) {
+  const { accountType, rows } = useWorkloadRows();
+  if (accountType !== "lab_head") return null;
+  const top = rows.slice(0, 3);
+  // Bar denominator: largest open count across the top 3 so each
+  // bar's width reads as "share of the busiest". When everyone has 0
+  // open tasks, we render the "no active members" empty state.
+  const maxOpen = Math.max(1, ...top.map((r) => r.open));
+  const empty = top.length === 0 || top.every((r) => r.open === 0);
   return (
-    <StatTile
-      icon={
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+    <div className="flex flex-col h-full min-h-0 gap-1.5">
+      <div className="flex items-center gap-2 min-w-0">
+        <span
           aria-hidden="true"
+          className="text-indigo-500 flex-shrink-0"
         >
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-          <circle cx="9" cy="7" r="4" />
-          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-        </svg>
-      }
-      iconClassName="text-indigo-500"
-      label="Member workload"
-      stat={open}
-      sub={
-        overdue > 0
-          ? `${overdue} overdue lab-wide`
-          : "open tasks lab-wide"
-      }
-    />
+          {PEOPLE_ICON}
+        </span>
+        <span className="text-[10px] uppercase tracking-wide text-gray-500 font-medium truncate">
+          Member workload
+        </span>
+      </div>
+      <div className="flex-1 min-h-0 flex flex-col justify-center">
+        {empty ? (
+          <div className="text-xs text-gray-400 italic">
+            {top.length === 0 ? "No active members" : "Nothing open"}
+          </div>
+        ) : (
+          <ul className="space-y-1.5">
+            {top.map((r) => {
+              // Open bar width as % of the busiest member.
+              const widthPct = Math.max(8, (r.open / maxOpen) * 100);
+              const overdueShare =
+                r.open > 0 ? Math.min(1, r.overdue / r.open) : 0;
+              return (
+                <li
+                  key={r.username}
+                  className="flex items-center gap-1.5 min-w-0"
+                  title={`${r.displayName}. Open: ${r.open} · Overdue: ${r.overdue}`}
+                >
+                  <span className="flex-shrink-0">
+                    <UserAvatar username={r.username} size="sm" />
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div
+                      className="text-[10px] text-gray-700 truncate"
+                      title={r.displayName}
+                    >
+                      {r.displayName}
+                    </div>
+                    {/* Horizontal bar — indigo base with a red
+                        sliver showing the overdue share. Inline
+                        style for the per-row width because Tailwind
+                        can't materialize arbitrary % values
+                        ergonomically. */}
+                    <div
+                      className="h-1.5 bg-gray-100 rounded overflow-hidden mt-0.5"
+                      aria-hidden="true"
+                    >
+                      <div
+                        className="h-full flex"
+                        style={{ width: `${widthPct}%` }}
+                      >
+                        <div
+                          className="h-full bg-indigo-400"
+                          style={{
+                            width: `${(1 - overdueShare) * 100}%`,
+                          }}
+                        />
+                        <div
+                          className="h-full bg-red-400"
+                          style={{ width: `${overdueShare * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-[10px] text-gray-500 tabular-nums flex-shrink-0">
+                    {r.open}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </div>
   );
 }
 
 export const ExpandedView = MemberWorkloadWidget;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SidebarTile (customizable PI sidebar manager #146, 2026-05-23)
+// SidebarTile — single-row workload summary. "X members · Y overdue"
+// is the at-a-glance "is anyone underwater?" cue.
 // ─────────────────────────────────────────────────────────────────────────────
-import SidebarStatTile from "./snapshot/SidebarStatTile";
-import type { SidebarTileProps } from "./types";
 
 export function SidebarTile({ onClick }: SidebarTileProps) {
-  const { currentUser } = useCurrentUser();
-  const accountType = useAccountType(currentUser);
-  const { tasks } = useLabData();
+  const { accountType, totalMembers, totalOverdue } = useWorkloadRows();
   if (accountType !== "lab_head") return null;
-  const today = todayIso();
-  let open = 0;
-  let overdue = 0;
-  for (const t of tasks) {
-    if (t.is_complete) continue;
-    open++;
-    if (t.end_date && t.end_date < today) overdue++;
-  }
+  const interactive = !!onClick;
   return (
-    <SidebarStatTile
-      icon={
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-          <circle cx="9" cy="7" r="4" />
-          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-        </svg>
-      }
-      iconClassName="text-indigo-500"
-      label="Workload"
-      stat={open}
-      sub={overdue > 0 ? `${overdue} overdue` : undefined}
+    <div
+      role={interactive ? "button" : undefined}
+      tabIndex={interactive ? 0 : undefined}
       onClick={onClick}
-    />
+      onKeyDown={
+        interactive
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick?.();
+              }
+            }
+          : undefined
+      }
+      className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-md transition-colors ${
+        interactive
+          ? "cursor-pointer hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+          : ""
+      }`}
+    >
+      <span aria-hidden="true" className="text-indigo-500 flex-shrink-0">
+        {PEOPLE_ICON}
+      </span>
+      <span className="text-xs font-medium text-gray-700 truncate flex-1 min-w-0">
+        Workload
+      </span>
+      <span className="text-[11px] text-gray-500 tabular-nums flex-shrink-0">
+        {totalMembers} member{totalMembers === 1 ? "" : "s"}
+        {totalOverdue > 0 && (
+          <>
+            {" "}
+            ·{" "}
+            <span className="text-red-600 font-semibold">
+              {totalOverdue} overdue
+            </span>
+          </>
+        )}
+      </span>
+    </div>
   );
 }

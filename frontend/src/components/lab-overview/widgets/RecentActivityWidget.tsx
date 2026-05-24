@@ -250,49 +250,75 @@ export default function RecentActivityWidget(_props?: {
   }
 
   return (
-    <ul className="space-y-1.5">
-      {items.map((item, i) => {
-        const row = (
-          <div className="flex items-start gap-1.5 min-w-0">
-            <span
-              aria-hidden="true"
-              className={`flex-shrink-0 mt-0.5 ${KIND_ICON_COLOR[item.kind]}`}
-              title={item.kind}
-            >
-              {KIND_ICON[item.kind]}
-            </span>
-            <div className="flex-shrink-0">
-              <UserAvatar username={item.username} size="sm" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs text-gray-700 truncate" title={item.summary}>
-                <span className="font-medium text-gray-900">
-                  {item.username}
-                </span>{" "}
-                {item.summary}
-              </p>
-              <p className="text-[10px] text-gray-400">
-                {formatRelative(item.timestamp)}
-              </p>
-            </div>
-          </div>
-        );
-        return (
-          <li key={`${item.kind}:${item.username}:${item.timestamp}:${i}`}>
-            {item.href ? (
-              <Link
-                href={item.href}
-                className="block rounded hover:bg-gray-50 -mx-1 px-1 py-1"
+    <div className="flex flex-col gap-2">
+      <ul className="space-y-1.5">
+        {items.map((item, i) => {
+          const row = (
+            <div className="flex items-start gap-1.5 min-w-0">
+              <span
+                aria-hidden="true"
+                className={`flex-shrink-0 mt-0.5 ${KIND_ICON_COLOR[item.kind]}`}
+                title={item.kind}
               >
-                {row}
-              </Link>
-            ) : (
-              row
-            )}
-          </li>
-        );
-      })}
-    </ul>
+                {KIND_ICON[item.kind]}
+              </span>
+              <div className="flex-shrink-0">
+                <UserAvatar username={item.username} size="sm" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p
+                  className="text-xs text-gray-700 truncate"
+                  title={item.summary}
+                >
+                  <span className="font-medium text-gray-900">
+                    {item.username}
+                  </span>{" "}
+                  {item.summary}
+                </p>
+                <p className="text-[10px] text-gray-400">
+                  {formatRelative(item.timestamp)}
+                </p>
+              </div>
+            </div>
+          );
+          return (
+            <li key={`${item.kind}:${item.username}:${item.timestamp}:${i}`}>
+              {item.href ? (
+                <Link
+                  href={item.href}
+                  className="block rounded hover:bg-gray-50 -mx-1 px-1 py-1"
+                >
+                  {row}
+                </Link>
+              ) : (
+                row
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {/* Phase B Batch B3: footer link to the deep canvas feed.
+       *
+       * The compact sidebar widget shows the 6 most-recent rows; the
+       * deeper feed (filters, day-grouped headers, infinite-scroll)
+       * lives in `LabActivityWidget` on the canvas. There's no global
+       * registry → popup event channel today, so we link to the canvas
+       * route and let the user click the lab-activity tile. A future
+       * pass could surface a `?widget=lab-activity` query the canvas
+       * auto-opens, but that's a registry-shape change that's out of
+       * scope for this batch.
+       *
+       * FOLLOW-UP: wire a `?widget=<id>` autoload param on the canvas
+       * so this link opens the lab-activity popup directly. Tracked
+       * with a sub-bot chip when the canvas surface owner picks it up.
+       */}
+      <Link
+        href="/lab-overview"
+        className="text-[11px] text-blue-600 hover:text-blue-700 hover:underline self-start pl-1"
+      >
+        View full activity
+      </Link>
+    </div>
   );
 }
 
@@ -320,16 +346,23 @@ function formatRelative(iso: string): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Phase A snapshot + expanded contract (Phase A redispatch manager, 2026-05-23)
+// Phase B Batch B3 (Phase B Batch B3 manager, 2026-05-23): unique
+// per-widget tile designs.
 // ─────────────────────────────────────────────────────────────────────────────
 // The widget body above is unchanged from R3 + the emoji-SVG sweep
-// (KIND_ICON + KIND_ICON_COLOR maps preserved). The snapshot reuses
-// the same notes-shared cache the body reads; the count is a quick
-// "is there activity" signal, the popup shows the full feed.
-import StatTile from "./snapshot/StatTile";
-import type { SnapshotTileProps } from "./types";
+// (KIND_ICON + KIND_ICON_COLOR maps preserved). Phase A shipped a
+// generic <StatTile> placeholder ("12 events in the last 7 days");
+// Phase B replaces it with a mini-feed: a 3-row preview of the same
+// rows the ExpandedView shows. Reads the exact same React Query keys,
+// so the cache is dedupes one fetch across surfaces.
+import type { SnapshotTileProps, SidebarTileProps } from "./types";
 
-export function SnapshotTile(_props: SnapshotTileProps) {
+/**
+ * Shared aggregator used by both tiles. Mirrors the body's logic but
+ * returns the items list directly so the tiles can render the top-N
+ * preview rows themselves (a count alone doesn't convey "what's new").
+ */
+function useRecentItems() {
   const { tasks } = useLabData();
   const { data: notes = [], isLoading } = useQuery<Note[]>({
     queryKey: ["lab", "notes-shared"],
@@ -343,79 +376,245 @@ export function SnapshotTile(_props: SnapshotTileProps) {
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
-  // Count signals in the last 7 days so the headline reads as
-  // "fresh activity" rather than the lab's historical total.
-  const cutoff = isoDaysAgo(7);
-  let recent = 0;
-  for (const n of notes) {
-    for (const c of n.comments ?? []) {
-      if (c.created_at && c.created_at >= cutoff) recent++;
+  const items = useMemo(() => {
+    const out: FeedItem[] = [];
+    for (const note of notes) {
+      for (const c of note.comments ?? []) {
+        out.push({
+          kind: "comment",
+          username: c.author,
+          summary: `commented on “${note.title || "Untitled note"}”`,
+          timestamp: c.created_at,
+        });
+      }
     }
-  }
-  for (const t of tasks) {
-    if (t.start_date && t.start_date >= cutoff) recent++;
-  }
-  for (const a of announcements) {
-    if (a.created_at && a.created_at >= cutoff) recent++;
-  }
+    const cutoff = isoDaysAgo(30);
+    for (const t of tasks) {
+      if (!t.start_date) continue;
+      if (t.start_date < cutoff) continue;
+      const label =
+        t.task_type === "experiment"
+          ? "started experiment"
+          : t.task_type === "purchase"
+            ? "added purchase"
+            : "added task";
+      out.push({
+        kind: "task",
+        username: t.username,
+        summary: `${label}: ${t.name}`,
+        timestamp: `${t.start_date}T00:00:00`,
+      });
+    }
+    type WithFlag = { flagged?: { by: string; at: string } | null };
+    for (const t of tasks as Array<typeof tasks[number] & WithFlag>) {
+      const flag = t.flagged;
+      if (!flag || !flag.at) continue;
+      out.push({
+        kind: "flag",
+        username: flag.by,
+        summary: `flagged ${
+          t.task_type === "purchase"
+            ? "purchase"
+            : t.task_type === "experiment"
+              ? "experiment"
+              : "task"
+        }: ${t.name}`,
+        timestamp: flag.at,
+      });
+    }
+    for (const a of announcements) {
+      out.push({
+        kind: "announcement",
+        username: a.author,
+        summary:
+          a.text.split("\n")[0].slice(0, 80) +
+          (a.text.length > 80 || a.text.includes("\n") ? "…" : ""),
+        timestamp: a.created_at,
+      });
+    }
+    out.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+    return out;
+  }, [notes, tasks, announcements]);
+  // "today" cutoff = midnight ISO. Used to badge "X today" on the
+  // snapshot tile so the eye latches onto fresh activity even when
+  // the all-time count is large.
+  const todayCutoff = new Date();
+  todayCutoff.setHours(0, 0, 0, 0);
+  const todayIso = todayCutoff.toISOString();
+  const todayCount = items.filter((it) => it.timestamp >= todayIso).length;
+  return { items, todayCount, isLoading };
+}
+
+/**
+ * Truncate a feed row's summary so the snapshot tile reads as a
+ * scannable mini-feed. Brief specs ~30 chars; we leave a little
+ * headroom for the avatar + ellipsis.
+ */
+function trimSummary(s: string, max = 32): string {
+  if (s.length <= max) return s;
+  return s.slice(0, max - 1).trimEnd() + "…";
+}
+
+export function SnapshotTile(_props: SnapshotTileProps) {
+  const { items, todayCount, isLoading } = useRecentItems();
+  // 3-row preview (brief: "3 most-recent items"). The tile itself is
+  // the click target — the canvas wraps each tile in a clickable
+  // <Widget> frame, so we don't wrap rows in Links here.
+  const preview = items.slice(0, 3);
   return (
-    <StatTile
-      icon={KIND_ICON.comment}
-      iconClassName={KIND_ICON_COLOR.comment}
-      label="Recent activity"
-      stat={isLoading ? "—" : recent}
-      sub={recent === 0 ? "Quiet this week" : "in the last 7 days"}
-    />
+    <div className="flex flex-col h-full min-h-0 gap-1.5">
+      <div className="flex items-center gap-2 min-w-0">
+        <span
+          aria-hidden="true"
+          className="flex items-center justify-center flex-shrink-0 text-blue-500"
+        >
+          {/* clock icon — "recent" semantic distinct from the chat
+              icon the rows already carry */}
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+        </span>
+        <span className="text-[10px] uppercase tracking-wide text-gray-500 font-medium truncate flex-1">
+          Recent activity
+        </span>
+        {todayCount > 0 && (
+          <span className="text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 flex-shrink-0">
+            {todayCount} today
+          </span>
+        )}
+      </div>
+      <div className="flex-1 min-h-0 flex flex-col justify-center">
+        {isLoading ? (
+          <div className="text-xs text-gray-400">Loading…</div>
+        ) : preview.length === 0 ? (
+          <div className="text-xs text-gray-400 italic">Quiet right now</div>
+        ) : (
+          <ul className="space-y-1">
+            {preview.map((item, i) => (
+              <li
+                key={`${item.kind}:${item.username}:${item.timestamp}:${i}`}
+                className="flex items-center gap-1.5 min-w-0"
+              >
+                <span
+                  aria-hidden="true"
+                  className={`flex-shrink-0 ${KIND_ICON_COLOR[item.kind]}`}
+                  title={item.kind}
+                >
+                  {KIND_ICON[item.kind]}
+                </span>
+                <span className="flex-shrink-0">
+                  <UserAvatar username={item.username} size="sm" />
+                </span>
+                <span
+                  className="text-[11px] text-gray-700 truncate min-w-0 flex-1"
+                  title={item.summary}
+                >
+                  {trimSummary(item.summary)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
   );
 }
 
 export const ExpandedView = RecentActivityWidget;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SidebarTile (customizable PI sidebar manager #146, 2026-05-23)
+// SidebarTile — narrow vertical 2-row preview.
 // ─────────────────────────────────────────────────────────────────────────────
-// Reuses the same notes-shared + lab-announcements caches the body
-// and snapshot already warm. Headline is "events in the last 7 days"
-// — same heuristic the SnapshotTile uses; only the surface shape
-// differs (slim horizontal row).
-import SidebarStatTile from "./snapshot/SidebarStatTile";
-import type { SidebarTileProps } from "./types";
+// Brief: top row = clock-arrow icon + "Activity" label; bottom row =
+// most-recent item one-liner with avatar + relative time. Shares the
+// useRecentItems hook so React Query dedupes the fetches.
 
 export function SidebarTile({ onClick }: SidebarTileProps) {
-  const { tasks } = useLabData();
-  const { data: notes = [], isLoading } = useQuery<Note[]>({
-    queryKey: ["lab", "notes-shared"],
-    queryFn: () => labApi.getNotes({ shared_only: true }),
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
-  });
-  const { data: announcements = [] } = useQuery({
-    queryKey: ["lab-announcements"],
-    queryFn: listAnnouncements,
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
-  });
-  const cutoff = isoDaysAgo(7);
-  let recent = 0;
-  for (const n of notes) {
-    for (const c of n.comments ?? []) {
-      if (c.created_at && c.created_at >= cutoff) recent++;
-    }
-  }
-  for (const t of tasks) {
-    if (t.start_date && t.start_date >= cutoff) recent++;
-  }
-  for (const a of announcements) {
-    if (a.created_at && a.created_at >= cutoff) recent++;
-  }
+  const { items, isLoading } = useRecentItems();
+  const newest = items[0];
+  const interactive = !!onClick;
   return (
-    <SidebarStatTile
-      icon={KIND_ICON.comment}
-      iconClassName={KIND_ICON_COLOR.comment}
-      label="Activity"
-      stat={isLoading ? "—" : recent}
-      sub={recent === 0 ? "Quiet this week" : "in the last 7 days"}
+    <div
+      role={interactive ? "button" : undefined}
+      tabIndex={interactive ? 0 : undefined}
       onClick={onClick}
-    />
+      onKeyDown={
+        interactive
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick?.();
+              }
+            }
+          : undefined
+      }
+      className={`w-full flex flex-col gap-1 px-2.5 py-2 rounded-md transition-colors ${
+        interactive
+          ? "cursor-pointer hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+          : ""
+      }`}
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        <span
+          aria-hidden="true"
+          className="flex items-center justify-center flex-shrink-0 text-blue-500"
+        >
+          {/* clock-with-arrow icon — "recent + history" affordance */}
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M3 12a9 9 0 1 0 3-6.7" />
+            <polyline points="3 4 3 10 9 10" />
+            <polyline points="12 7 12 12 15 14" />
+          </svg>
+        </span>
+        <span className="text-xs font-medium text-gray-700 truncate flex-1 min-w-0">
+          Activity
+        </span>
+      </div>
+      {isLoading ? (
+        <div className="text-[10px] text-gray-400 pl-6">Loading…</div>
+      ) : !newest ? (
+        <div className="text-[10px] text-gray-400 italic pl-6">
+          Quiet right now
+        </div>
+      ) : (
+        <div className="flex items-center gap-1.5 pl-6 min-w-0">
+          <span className="flex-shrink-0">
+            <UserAvatar username={newest.username} size="sm" />
+          </span>
+          <span
+            className="text-[10px] text-gray-600 truncate min-w-0 flex-1"
+            title={newest.summary}
+          >
+            {trimSummary(newest.summary, 24)}
+          </span>
+          <span className="text-[10px] text-gray-400 flex-shrink-0 tabular-nums">
+            {formatRelative(newest.timestamp)}
+          </span>
+        </div>
+      )}
+    </div>
   );
 }
