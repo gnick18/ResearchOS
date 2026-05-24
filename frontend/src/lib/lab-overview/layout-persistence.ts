@@ -48,16 +48,30 @@ export const LAB_OVERVIEW_LAYOUT_VERSION = 2 as const;
 // ── Default layouts ──────────────────────────────────────────────────────
 
 /**
- * Default order for a fresh lab_head user. Mirrors the previous R2
- * default visually: announcements → comments → metrics on the canvas;
- * recent-activity → pi-actions → member-workload → todays-announcements
- * in the sidebar.
+ * Default order for a fresh lab_head user. Expanded 2026-05-23 to
+ * surface every lab-head canvas widget by default, so a fresh PI sees
+ * the full feature set on first load (purchases, activity, experiments,
+ * notes). Existing users with an explicit saved order keep it; the
+ * "append on new catalog entry" path in `resolveLayout` covers any
+ * widget the saved layout doesn't list.
+ *
+ * Canvas order: announcements → lab-purchases (the PI's main daily
+ * triage) → metrics → lab-activity → lab-experiments → lab-notes →
+ * comment-feed. Sidebar default unchanged.
  */
 function defaultLabHeadLayout(): LabOverviewLayout {
   return {
     version: LAB_OVERVIEW_LAYOUT_VERSION,
     widgetOrder: {
-      canvas: ["announcements", "comment-feed", "metrics"],
+      canvas: [
+        "announcements",
+        "lab-purchases",
+        "metrics",
+        "lab-activity",
+        "lab-experiments",
+        "lab-notes",
+        "comment-feed",
+      ],
       sidebar: [
         "sidebar-recent-activity",
         "sidebar-pi-actions",
