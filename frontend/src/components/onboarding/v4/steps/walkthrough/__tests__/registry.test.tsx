@@ -86,7 +86,7 @@ const P5_STEP_IDS = [
   "settings-tour-folder",
   "settings-tour-calendar",
   "settings-tour-telegram",
-  "settings-tour-lab-mode-toggle",
+  "settings-tour-account-type-toggle",
   "settings-tour-visible-tabs",
   "settings-tour-streak",
   "settings-tour-rerun",
