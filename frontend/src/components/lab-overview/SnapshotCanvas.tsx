@@ -139,9 +139,14 @@ export default function SnapshotCanvas({
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
+  // Widget per-surface visibility manager (2026-05-25): pass the canvas
+  // adapter's surface key so per-surface lab-head carve-outs resolve
+  // for /lab-overview canvas vs /home canvas independently (e.g.
+  // sidebar-upcoming opts into the home canvas for lab heads but is
+  // sidebar-carved-out elsewhere).
   const catalog = useMemo(
-    () => visibleCatalog(WIDGET_CATALOG, accountType),
-    [accountType],
+    () => visibleCatalog(WIDGET_CATALOG, accountType, adapter.surfaceKey),
+    [accountType, adapter.surfaceKey],
   );
   const canvasCatalog = useMemo(
     () => catalog.filter((w) => widgetHasSurface(w, adapter.surfaceKey)),

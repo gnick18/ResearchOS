@@ -55,8 +55,12 @@ export default function SidebarWidgetRail({
   const [dragId, setDragId] = useState<string | null>(null);
   const [openWidgetId, setOpenWidgetId] = useState<string | null>(null);
 
+  // Widget per-surface visibility manager (2026-05-25): pass the
+  // "sidebar" surface so per-surface lab-head carve-outs resolve
+  // correctly for the in-page /lab-overview sidebar rail. Mirrors the
+  // AppShell-level <CustomizableSidebar>.
   const catalog = useMemo(
-    () => visibleCatalog(WIDGET_CATALOG, accountType),
+    () => visibleCatalog(WIDGET_CATALOG, accountType, "sidebar"),
     [accountType],
   );
   const sidebarCatalog = useMemo(

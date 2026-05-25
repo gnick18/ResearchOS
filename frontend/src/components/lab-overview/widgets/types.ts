@@ -292,7 +292,7 @@ export interface WidgetDefinition {
    * `false` is the carve-out for widgets that are technically functional
    * for a PI but actively unwanted in the PI surface (e.g. the
    * sidebar-overdue / sidebar-today / sidebar-upcoming task list
-   * widgets — they show the PI's personal task counts, but on the PI
+   * widgets, they show the PI's personal task counts, but on the PI
    * sidebar they read as a "what does the lab still have open" prompt
    * that nudges micromanagement. PIs get personal task signals via
    * DailyTasksWidget instead). Grant 2026-05-23 feedback.
@@ -300,8 +300,59 @@ export interface WidgetDefinition {
    * The filter is enforced by `visibleCatalog`, so both the add-widget
    * palette + any persisted layout pointing at the widget gets silently
    * dropped from the PI surface. Member surface unaffected.
+   *
+   * Back-compat note: if `labHeadVisibleOn` (per-surface map) is set,
+   * it takes precedence over this field. Existing entries continue to
+   * work unchanged.
    */
   labHeadVisible?: boolean;
+  /**
+   * Per-surface lab-head visibility refinement (widget per-surface
+   * visibility manager, 2026-05-25). Some widgets are home-eligible for
+   * lab heads but sidebar-carved-out (e.g. `sidebar-upcoming`: lab heads
+   * should be able to pin Upcoming Tasks on /home, but the PI
+   * customizable-sidebar palette stays carved out for the
+   * "micromanagement nudge" reason).
+   *
+   * Visibility resolution per surface:
+   *   `labHeadVisibleOn?.<surface> ?? labHeadVisible ?? true`
+   *
+   * If both `labHeadVisibleOn.<surface>` and `labHeadVisible` are set,
+   * the per-surface entry wins. If neither is set, the widget is visible
+   * to lab heads on that surface (back-compat default).
+   *
+   * See `isWidgetVisibleForLabHead(widget, surface)`.
+   */
+  labHeadVisibleOn?: {
+    /** PI customizable-sidebar palette eligibility (lab-overview rail
+     *  and AppShell sidebar). */
+    sidebar?: boolean;
+    /** /home canvas palette eligibility. */
+    home?: boolean;
+    /** /lab-overview snapshot-canvas palette eligibility. Falls through
+     *  to `labHeadVisible` when unset. */
+    canvas?: boolean;
+  };
+}
+
+/**
+ * Pure helper: should this widget appear in a LAB HEAD's catalog for
+ * the given surface? Returns the per-surface entry when set, otherwise
+ * the legacy single `labHeadVisible` field, otherwise the default
+ * `true`. Not meaningful for members (use `memberVisible` instead).
+ *
+ * Lives next to `visibleCatalog` so both filters read the same way.
+ */
+export function isWidgetVisibleForLabHead(
+  widget: {
+    labHeadVisible?: boolean;
+    labHeadVisibleOn?: { sidebar?: boolean; home?: boolean; canvas?: boolean };
+  },
+  surface: "canvas" | "sidebar" | "home",
+): boolean {
+  const perSurface = widget.labHeadVisibleOn?.[surface];
+  if (perSurface !== undefined) return perSurface;
+  return widget.labHeadVisible ?? true;
 }
 
 /**
@@ -313,12 +364,24 @@ export interface WidgetDefinition {
  * `labHeadVisible: false` is the opposite carve-out: a member-pinned
  * widget that should NOT auto-bleed into a PI surface when the user
  * upgrades to lab_head.
+ *
+ * Per-surface refinement (widget per-surface visibility manager,
+ * 2026-05-25): pass `surface` to scope the lab-head carve-out to that
+ * surface only. Reads `labHeadVisibleOn?.<surface>` first, falling back
+ * to the legacy `labHeadVisible` field. Without a `surface` arg the
+ * caller gets the union of every surface: a widget is included iff its
+ * legacy `labHeadVisible` is not explicitly `false`. This preserves the
+ * pre-refinement behavior for callsites that filter further downstream.
  */
 export function visibleCatalog(
   catalog: WidgetDefinition[],
   accountType: AccountType,
+  surface?: "canvas" | "sidebar" | "home",
 ): WidgetDefinition[] {
   if (accountType === "lab_head") {
+    if (surface) {
+      return catalog.filter((w) => isWidgetVisibleForLabHead(w, surface));
+    }
     return catalog.filter((w) => w.labHeadVisible !== false);
   }
   return catalog.filter((w) => w.memberVisible);

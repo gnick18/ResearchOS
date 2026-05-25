@@ -8,6 +8,7 @@ import {
   resolveLayout,
 } from "./layout-persistence";
 import {
+  isWidgetVisibleForLabHead,
   visibleCatalog,
   widgetHasSurface,
   type WidgetDefinition,
@@ -190,6 +191,138 @@ describe("resolveLayout (v2 shape)", () => {
     const piCatalog = visibleCatalog(fakeCatalog, "lab_head");
     expect(piCatalog.map((w) => w.id)).toContain("metrics");
     expect(piCatalog.length).toBe(fakeCatalog.length);
+  });
+
+  // Widget per-surface visibility manager (2026-05-25): per-surface
+  // lab-head visibility lets a single widget be home-eligible for lab
+  // heads but sidebar-carved-out at the same time (e.g.
+  // sidebar-upcoming). Visibility resolution per surface:
+  //   labHeadVisibleOn?.<surface> ?? labHeadVisible ?? true
+  describe("isWidgetVisibleForLabHead (per-surface)", () => {
+    const perSurfaceWidget = {
+      labHeadVisibleOn: { sidebar: false, home: true },
+    };
+    const legacyVisibleTrue = { labHeadVisible: true };
+    const legacyVisibleFalse = { labHeadVisible: false };
+    const noFields = {};
+
+    it("reads the per-surface entry when set (sidebar=false, home=true)", () => {
+      expect(isWidgetVisibleForLabHead(perSurfaceWidget, "sidebar")).toBe(false);
+      expect(isWidgetVisibleForLabHead(perSurfaceWidget, "home")).toBe(true);
+    });
+
+    it("falls back to legacy labHeadVisible:true on all surfaces (back-compat)", () => {
+      expect(isWidgetVisibleForLabHead(legacyVisibleTrue, "sidebar")).toBe(true);
+      expect(isWidgetVisibleForLabHead(legacyVisibleTrue, "home")).toBe(true);
+      expect(isWidgetVisibleForLabHead(legacyVisibleTrue, "canvas")).toBe(true);
+    });
+
+    it("falls back to legacy labHeadVisible:false on all surfaces (back-compat)", () => {
+      expect(isWidgetVisibleForLabHead(legacyVisibleFalse, "sidebar")).toBe(false);
+      expect(isWidgetVisibleForLabHead(legacyVisibleFalse, "home")).toBe(false);
+      expect(isWidgetVisibleForLabHead(legacyVisibleFalse, "canvas")).toBe(false);
+    });
+
+    it("defaults to true when neither field is set", () => {
+      expect(isWidgetVisibleForLabHead(noFields, "sidebar")).toBe(true);
+      expect(isWidgetVisibleForLabHead(noFields, "home")).toBe(true);
+      expect(isWidgetVisibleForLabHead(noFields, "canvas")).toBe(true);
+    });
+
+    it("per-surface entry wins over legacy labHeadVisible when both are set", () => {
+      const conflicting = {
+        labHeadVisible: false,
+        labHeadVisibleOn: { home: true },
+      };
+      // home: per-surface true beats legacy false
+      expect(isWidgetVisibleForLabHead(conflicting, "home")).toBe(true);
+      // sidebar: no per-surface entry, falls back to legacy false
+      expect(isWidgetVisibleForLabHead(conflicting, "sidebar")).toBe(false);
+    });
+  });
+
+  describe("visibleCatalog (surface-scoped, per-surface lab-head visibility)", () => {
+    // Three widgets, one of each shape, all home + sidebar surface
+    // eligible for the purposes of this test:
+    //   - newPerSurface: labHeadVisibleOn: { sidebar: false, home: true }
+    //   - legacyTrue:    labHeadVisible: true
+    //   - legacyFalse:   labHeadVisible: false
+    const perSurfaceCatalog: WidgetDefinition[] = [
+      {
+        id: "new-per-surface",
+        toolId: "daily-tasks",
+        title: "Per-surface widget",
+        SnapshotTile: NullSnapshot,
+        SidebarTile: NullSidebar,
+        defaultLayout: { w: 1, h: 1 },
+        surfaces: { sidebar: true, home: true },
+        memberVisible: true,
+        labHeadVisibleOn: { sidebar: false, home: true },
+      },
+      {
+        id: "legacy-true",
+        toolId: "daily-tasks",
+        title: "Legacy true",
+        SnapshotTile: NullSnapshot,
+        SidebarTile: NullSidebar,
+        defaultLayout: { w: 1, h: 1 },
+        surfaces: { sidebar: true, home: true },
+        memberVisible: true,
+        labHeadVisible: true,
+      },
+      {
+        id: "legacy-false",
+        toolId: "daily-tasks",
+        title: "Legacy false",
+        SnapshotTile: NullSnapshot,
+        SidebarTile: NullSidebar,
+        defaultLayout: { w: 1, h: 1 },
+        surfaces: { sidebar: true, home: true },
+        memberVisible: true,
+        labHeadVisible: false,
+      },
+    ];
+
+    it("home surface for lab head: includes per-surface=home:true and legacy=true; excludes legacy=false", () => {
+      const result = visibleCatalog(perSurfaceCatalog, "lab_head", "home");
+      const ids = result.map((w) => w.id);
+      expect(ids).toContain("new-per-surface");
+      expect(ids).toContain("legacy-true");
+      expect(ids).not.toContain("legacy-false");
+    });
+
+    it("sidebar surface for lab head: excludes per-surface=sidebar:false AND legacy=false; includes legacy=true", () => {
+      const result = visibleCatalog(perSurfaceCatalog, "lab_head", "sidebar");
+      const ids = result.map((w) => w.id);
+      expect(ids).not.toContain("new-per-surface");
+      expect(ids).toContain("legacy-true");
+      expect(ids).not.toContain("legacy-false");
+    });
+
+    it("members are unaffected by the per-surface lab-head fields", () => {
+      // All three widgets carry memberVisible: true so members see them
+      // on any surface call.
+      const home = visibleCatalog(perSurfaceCatalog, "member", "home");
+      const sidebar = visibleCatalog(perSurfaceCatalog, "member", "sidebar");
+      expect(home.map((w) => w.id).sort()).toEqual(
+        ["legacy-false", "legacy-true", "new-per-surface"].sort(),
+      );
+      expect(sidebar.map((w) => w.id).sort()).toEqual(
+        ["legacy-false", "legacy-true", "new-per-surface"].sort(),
+      );
+    });
+
+    it("without a surface arg, lab_head still gets the legacy-shape filter (back-compat)", () => {
+      // No surface arg → legacy behavior: drop only entries that set
+      // labHeadVisible: false explicitly. The per-surface widget is
+      // kept (its labHeadVisible is unset; surface-scoped consumers
+      // filter further downstream).
+      const result = visibleCatalog(perSurfaceCatalog, "lab_head");
+      const ids = result.map((w) => w.id);
+      expect(ids).toContain("new-per-surface");
+      expect(ids).toContain("legacy-true");
+      expect(ids).not.toContain("legacy-false");
+    });
   });
 
   it("dedupes any duplicate sidebar order entries from a hand-edited blob", () => {

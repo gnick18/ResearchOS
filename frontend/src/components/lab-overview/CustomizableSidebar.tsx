@@ -72,8 +72,13 @@ export default function CustomizableSidebar() {
   // null lookup. The AppShell-level gate ensures this component only
   // mounts when accountType === "lab_head", so the fallback is purely
   // defensive.
+  // Widget per-surface visibility manager (2026-05-25): pass the
+  // "sidebar" surface so per-surface lab-head carve-outs (e.g.
+  // sidebar-upcoming, hidden from the PI sidebar palette but visible on
+  // /home) resolve correctly. Lab heads see only sidebar-eligible
+  // widgets that aren't carved out for the sidebar surface.
   const catalog = useMemo(
-    () => visibleCatalog(WIDGET_CATALOG, accountType ?? "member"),
+    () => visibleCatalog(WIDGET_CATALOG, accountType ?? "member", "sidebar"),
     [accountType],
   );
   const sidebarCatalog = useMemo(

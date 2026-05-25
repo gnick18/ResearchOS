@@ -460,21 +460,23 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     SnapshotTile: UpcomingTasksSnapshot,
     SidebarTile: UpcomingTasksSidebarTile,
     defaultLayout: { w: 4, h: 4, minW: 3, minH: 3 },
-    // Home widgets surface-prep manager (2026-05-25): opted into the
-    // /home canvas + flipped `labHeadVisible: true` so lab heads can
-    // pin it on /home too. This widget is one of the two new-account
-    // home defaults (Upcoming tasks + Today's events) introduced by
-    // the §6.2b walkthrough prep. The PI sidebar "what does the lab
-    // still have open" carve-out (Grant 2026-05-23) was originally
-    // sidebar-shape-specific; for /home, a PI viewing their own
-    // upcoming personal tasks is the desired signal. Net effect: this
-    // widget is now visible in BOTH the PI customizable-sidebar palette
-    // AND the home palette. The sibling Overdue / Today widgets keep
-    // their PI-sidebar carve-out (`labHeadVisible: false`) because they
-    // aren't part of the new home default.
+    // Widget per-surface visibility manager (2026-05-25): split the
+    // lab-head carve-out per surface. This widget is one of the two
+    // new-account home defaults (Upcoming tasks + Today's events)
+    // introduced by the §6.2b walkthrough prep, so lab heads MUST see
+    // it on /home (home-eligible + home-palette visible). The PI
+    // customizable-sidebar palette keeps the original 2026-05-23
+    // carve-out ("nudges micromanagement"): a lab head browsing their
+    // sidebar palette should NOT see Upcoming tasks alongside the
+    // dashboard widgets. Net effect for a lab head:
+    //   - /home palette          → visible
+    //   - PI sidebar palette     → hidden (sidebar carve-out)
+    // The sibling Overdue / Today widgets keep their full PI-sidebar
+    // carve-out (`labHeadVisible: false`) because they aren't part of
+    // the new home default.
     surfaces: { sidebar: true, home: true },
     memberVisible: true,
-    labHeadVisible: true,
+    labHeadVisibleOn: { sidebar: false, home: true },
   },
 
   // ── Customizable-sidebar additions ───────────────────────────────────

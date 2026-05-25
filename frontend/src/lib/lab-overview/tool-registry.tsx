@@ -368,7 +368,17 @@ export function visibleTools(
   // eligible for the requested surface AND visible to this account
   // type. Without the account filter on the widget side, the launcher
   // could surface a tool that's PI-only via a hidden PI widget.
-  const widgetCatalogForAccount = visibleCatalog(WIDGET_CATALOG, accountType);
+  // Widget per-surface visibility manager (2026-05-25): pass `surface`
+  // through so per-surface lab-head carve-outs (e.g. sidebar-upcoming
+  // hidden from the PI sidebar palette but home-eligible) propagate to
+  // the launcher: if every widget variant of a Tool is carved out of
+  // this surface for lab heads, the Tool itself drops off the
+  // surface-scoped launcher.
+  const widgetCatalogForAccount = visibleCatalog(
+    WIDGET_CATALOG,
+    accountType,
+    surface,
+  );
   const eligibleToolIds = new Set(
     widgetCatalogForAccount
       .filter((w) => widgetHasSurface(w, surface))
