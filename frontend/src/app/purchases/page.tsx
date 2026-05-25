@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { tasksApi, purchasesApi, fetchAllProjectsIncludingShared, fetchAllTasksIncludingShared } from "@/lib/local-api";
+import { tasksApi, purchasesApi, labApi, fetchAllProjectsIncludingShared, fetchAllTasksIncludingShared } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAccountType } from "@/hooks/useAccountType";
 import { useAppStore } from "@/lib/store";
 import AppShell from "@/components/AppShell";
 import NewPurchaseModal from "@/components/NewPurchaseModal";
@@ -12,6 +13,7 @@ import SpendingDashboard from "@/components/SpendingDashboard";
 import DemoPurchasesViewer from "@/components/DemoPurchasesViewer";
 import FundingAccountsManager from "@/components/FundingAccountsManager";
 import Tooltip from "@/components/Tooltip";
+import { useRouter } from "next/navigation";
 import {
   MISC_CATEGORY_LABEL,
   isMiscProject,
@@ -25,12 +27,15 @@ import { taskKey, type Task, type PurchaseItem } from "@/lib/types";
  *     hidden)
  *   - "misc": purchase tasks attached to the hidden `_misc_purchases`
  *     project (everything else hidden)
+ *   - "awaiting_approval": purchase tasks that contain at least one
+ *     line item with `approved !== true`. Per-role label, see the
+ *     `awaitingApprovalLabel` helper below. (Purchases UX fix, 2026-05-24.)
  *
  * The default landing chip is "all" so newcomers see everything; users
  * can switch to "misc" to triage their conference-travel pile without
  * the rest of the list in the way.
  */
-type PurchaseCategoryFilter = "all" | "project" | "misc";
+type PurchaseCategoryFilter = "all" | "project" | "misc" | "awaiting_approval";
 
 export default function PurchasesPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -64,9 +69,24 @@ export default function PurchasesPage() {
   const [categoryFilter, setCategoryFilter] = useState<PurchaseCategoryFilter>("all");
   const queryClient = useQueryClient();
   const selectedProjectIds = useAppStore((s) => s.selectedProjectIds);
+  const router = useRouter();
 
   const { currentUser: providerCurrentUser } = useCurrentUser();
   const currentUser = providerCurrentUser ?? "";
+  // Lab head vs. member gating (Purchases UX fix, 2026-05-24):
+  //  - Bug 2: the awaiting-approval chip label changes per role.
+  //    Members see "Awaiting approval" (they're waiting on the lab
+  //    head). Lab heads see "Pending approval" (they're the queue
+  //    owner).
+  //  - Bug 3: lab heads see a banner pointing them at the lab-wide
+  //    approval queue when their personal /purchases is empty but the
+  //    lab queue is not. Mira-the-new-lab-head was concluding "nothing
+  //    pending" because /purchases is scoped to her own submissions.
+  const accountType = useAccountType(currentUser || null);
+  const isLabHead = accountType === "lab_head";
+  const awaitingApprovalLabel = isLabHead
+    ? "Pending approval"
+    : "Awaiting approval";
 
   // /purchases is the ONLY surface that needs the hidden
   // `_misc_purchases` project to render — pass `includeHidden: true` so
@@ -113,6 +133,28 @@ export default function PurchasesPage() {
     queryFn: purchasesApi.listFundingAccounts,
   });
 
+  // Purchases UX fix Bug 3 (2026-05-24): lab-wide purchase items, so a
+  // lab head landing on /purchases with 0 personal purchases still
+  // sees the pending-approval count for the whole lab. Shares the
+  // canonical `["lab", "purchase-items"]` key used by
+  // LabPurchasesPanel, MetricsWidget, and LabUserDetailPanel — React
+  // Query dedupes the fetch when those surfaces are already mounted.
+  // Gated to lab-head accounts so members don't pay for the discovery
+  // walk on every /purchases mount.
+  const { data: labPurchaseItems = [] } = useQuery({
+    queryKey: ["lab", "purchase-items"],
+    queryFn: () => labApi.getAllPurchaseItems(),
+    enabled: isLabHead,
+  });
+  const labPendingApprovalCount = useMemo(() => {
+    if (!isLabHead) return 0;
+    let n = 0;
+    for (const item of labPurchaseItems) {
+      if (!item.approved) n += 1;
+    }
+    return n;
+  }, [labPurchaseItems, isLabHead]);
+
   // Filter to purchase tasks only
   const purchaseTasks = useMemo(
     () => allTasks.filter((t) => t.task_type === "purchase"),
@@ -126,8 +168,20 @@ export default function PurchasesPage() {
   // can't be resolved (e.g. orphaned project_id=0) are treated as
   // non-misc — they show under "All" and "Project purchases", never
   // under "Miscellaneous".
+  //
+  // Awaiting-approval filter (Purchases UX fix Bug 2, 2026-05-24): a
+  // task is "awaiting approval" if it owns at least one line item with
+  // `approved !== true`. We resolve items per-task via
+  // `purchasesByTask` (built further down — declared here lazily so we
+  // can reuse the same composite-key map).
   const categorizedTasks = useMemo(() => {
     return purchaseTasks.filter((task) => {
+      if (categoryFilter === "awaiting_approval") {
+        const items = allPurchases.filter(
+          (p) => p.owner === task.owner && p.task_id === task.id,
+        );
+        return items.some((p) => !p.approved);
+      }
       const project = projects.find(
         (p) => p.id === task.project_id && p.owner === task.owner,
       );
@@ -136,23 +190,32 @@ export default function PurchasesPage() {
       if (categoryFilter === "project") return !taskIsMisc;
       return true;
     });
-  }, [purchaseTasks, projects, categoryFilter]);
+  }, [purchaseTasks, projects, categoryFilter, allPurchases]);
 
   // Counts for the segmented control labels. Computed off the full
   // purchase-task list so the chip badges stay stable as the user
   // switches between filters.
-  const { miscTaskCount, projectTaskCount } = useMemo(() => {
+  const { miscTaskCount, projectTaskCount, awaitingApprovalCount } = useMemo(() => {
     let misc = 0;
     let proj = 0;
+    let awaiting = 0;
     for (const task of purchaseTasks) {
       const project = projects.find(
         (p) => p.id === task.project_id && p.owner === task.owner,
       );
       if (project && isMiscProject(project)) misc += 1;
       else proj += 1;
+      const items = allPurchases.filter(
+        (p) => p.owner === task.owner && p.task_id === task.id,
+      );
+      if (items.some((p) => !p.approved)) awaiting += 1;
     }
-    return { miscTaskCount: misc, projectTaskCount: proj };
-  }, [purchaseTasks, projects]);
+    return {
+      miscTaskCount: misc,
+      projectTaskCount: proj,
+      awaitingApprovalCount: awaiting,
+    };
+  }, [purchaseTasks, projects, allPurchases]);
 
   // Unified scroll — pure reverse chronology, no active/earlier split.
   // The active-before-complete partition was Chip-2's temporary mirror of
@@ -249,6 +312,78 @@ export default function PurchasesPage() {
           onClose={() => setShowDemoViewer(false)}
         />
 
+        {/* Purchases UX fix Bug 3 (purchases UX fix manager, 2026-05-24):
+            lab-head approval-queue banner. A fresh lab head landing on
+            /purchases sees their PERSONAL submissions (0 if they haven't
+            ordered anything yet). The lab-wide approval queue lives in
+            the LabPurchases popup widget on /lab-overview, so the lab
+            head can reasonably conclude "nothing pending" and miss the
+            queue. The banner surfaces the count and routes them to
+            /lab-overview where the LabPurchases tile is one click away.
+            Gated to lab_head accounts only (members don't have a queue
+            to approve) and to a non-zero count so it disappears once the
+            queue is drained. */}
+        {isLabHead && labPendingApprovalCount > 0 && (
+          <div
+            className="mb-4 flex items-center justify-between gap-4 px-4 py-3 rounded-lg border border-amber-300 bg-amber-50"
+            role="status"
+            data-testid="purchases-lab-head-pending-banner"
+          >
+            <div className="flex items-start gap-3 min-w-0">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-amber-600 flex-shrink-0 mt-0.5"
+                aria-hidden="true"
+              >
+                <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-amber-900">
+                  {labPendingApprovalCount} item
+                  {labPendingApprovalCount === 1 ? "" : "s"} across the lab
+                  await{labPendingApprovalCount === 1 ? "s" : ""} your approval
+                </p>
+                <p className="text-xs text-amber-800 mt-0.5">
+                  This page shows your personal purchases. The lab-wide
+                  approval queue lives on Lab Overview.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => router.push("/lab-overview")}
+              className="flex-shrink-0 inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
+              data-testid="purchases-lab-head-pending-banner-cta"
+            >
+              Open lab purchases
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <polyline points="12 5 19 12 12 19" />
+              </svg>
+            </button>
+          </div>
+        )}
+
         {/* Category filter chips. Single source of truth for the
             project-vs-miscellaneous segmentation: drives `categorizedTasks`
             above and hides the segmented control's middle pill if there
@@ -271,6 +406,15 @@ export default function PurchasesPage() {
               key: "misc",
               label: MISC_CATEGORY_LABEL,
               count: miscTaskCount,
+            },
+            // Purchases UX fix Bug 2 (2026-05-24): per-role label.
+            // Members see "Awaiting approval" because they're the
+            // submitter waiting on someone else; lab heads see
+            // "Pending approval" because they're the queue owner.
+            {
+              key: "awaiting_approval",
+              label: awaitingApprovalLabel,
+              count: awaitingApprovalCount,
             },
           ] as const).map((chip) => {
             const isActive = categoryFilter === chip.key;
@@ -492,18 +636,24 @@ export default function PurchasesPage() {
             );
           }
 
-          // Filter-specific empty state: when the user is on "misc" or
-          // "project" and that bucket happens to be empty, surface a
-          // softer message so it doesn't look like /purchases lost data.
+          // Filter-specific empty state: when the user is on a filter
+          // chip and that bucket happens to be empty, surface a softer
+          // message so it doesn't look like /purchases lost data.
           if (sortedTasks.length === 0) {
-            const filterLabel =
-              categoryFilter === "misc"
-                ? MISC_CATEGORY_LABEL
-                : "project-attached";
+            let filterLabel: string;
+            if (categoryFilter === "misc") {
+              filterLabel = `${MISC_CATEGORY_LABEL.toLowerCase()} purchases`;
+            } else if (categoryFilter === "awaiting_approval") {
+              filterLabel = isLabHead
+                ? "purchases pending your approval"
+                : "purchases awaiting approval";
+            } else {
+              filterLabel = "project-attached purchases";
+            }
             return (
               <div className="text-center py-12">
                 <p className="text-sm text-gray-400">
-                  No {filterLabel} purchases yet
+                  No {filterLabel} yet
                 </p>
               </div>
             );

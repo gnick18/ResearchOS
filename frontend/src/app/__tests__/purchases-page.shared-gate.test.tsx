@@ -19,6 +19,7 @@ import type { Task } from "@/lib/types";
 const {
   tasksApi,
   purchasesApi,
+  labApi,
   fetchAllProjectsIncludingShared,
   fetchAllTasksIncludingShared,
 } = vi.hoisted(() => ({
@@ -29,6 +30,14 @@ const {
   purchasesApi: {
     listAllIncludingShared: vi.fn(async () => []),
     listFundingAccounts: vi.fn(async () => []),
+  },
+  // Purchases UX fix Bug 3 (2026-05-24): /purchases now reads the
+  // canonical lab-wide queue via `labApi.getAllPurchaseItems` to drive
+  // the lab-head banner. Members never trigger the query (gated on
+  // `accountType === "lab_head"`), but the mock has to exist so the
+  // import resolves.
+  labApi: {
+    getAllPurchaseItems: vi.fn(async () => []),
   },
   fetchAllProjectsIncludingShared: vi.fn(async () => [
     {
@@ -51,12 +60,30 @@ const {
 vi.mock("@/lib/local-api", () => ({
   tasksApi,
   purchasesApi,
+  labApi,
   fetchAllProjectsIncludingShared,
   fetchAllTasksIncludingShared,
 }));
 
 vi.mock("@/hooks/useCurrentUser", () => ({
   useCurrentUser: () => ({ currentUser: "alex" }),
+}));
+
+// Purchases UX fix Bug 2 (2026-05-24): the page reads the active
+// user's account_type to pick the awaiting-approval chip label and to
+// gate the lab-head banner. Defaulting to "member" keeps the
+// shared-gate suite's behavior unchanged (chip label is "Awaiting
+// approval", banner is hidden).
+vi.mock("@/hooks/useAccountType", () => ({
+  useAccountType: () => "member",
+}));
+
+// Purchases UX fix Bug 3 (2026-05-24): the new banner CTA uses
+// `useRouter().push("/lab-overview")`. The shared-gate suite never
+// triggers it (account_type is "member") but the hook still has to
+// resolve at render time.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
 }));
 
 vi.mock("@/lib/store", () => ({

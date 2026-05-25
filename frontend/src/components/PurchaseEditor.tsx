@@ -941,6 +941,21 @@ export default function PurchaseEditor({
                           aria-label="Delete item"
                           onClick={(e) => {
                             e.stopPropagation();
+                            // Purchases UX fix (purchases UX fix manager,
+                            // 2026-05-24): mirror the parent-task delete
+                            // confirm above. A single misclick on the
+                            // tiny ✕ used to drop a reagent line with no
+                            // recourse. Copy mirrors the order-level
+                            // dialog ("Are you sure...") so the two
+                            // destructive paths read the same way.
+                            const itemLabel = item.item_name?.trim() || "this item";
+                            if (
+                              !confirm(
+                                `Remove "${itemLabel}" from this purchase order?`,
+                              )
+                            ) {
+                              return;
+                            }
                             handleDeleteItem(item.id);
                           }}
                           className="text-red-400 hover:text-red-600 text-xs"
