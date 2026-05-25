@@ -44,6 +44,15 @@ const NEXT_WEEK = "2026-05-20";
 const LAST_WEEK = "2026-05-06";
 const TWO_WEEKS = "2026-05-27";
 
+// Mira PI R1 fix manager (Fix 8, 2026-05-25): wall-clock today, used
+// for the Mira "Today's events" tile seed. The demo data is anchored
+// to 2026-05-13 ("the demo lab's snapshot"), but the
+// CalendarEventsTodayWidget reads real new Date(), so the tile would
+// always be empty without a real-today event. Seeding ONE event whose
+// start_date is the real-today string keeps the tile non-empty for
+// the verifier walk.
+const REAL_TODAY = "2026-05-25";
+
 // Strategic-overdue anchors. Tasks set to these dates ALWAYS appear N days
 // overdue regardless of when the demo is opened, because the rebase math
 // (in lib/demo/rebase.ts) shifts every date by the same `(today - BASE_DATE)`
@@ -2380,12 +2389,37 @@ function buildEntries() {
       projects: 0,
       tasks: 0,
       methods: 0,
-      events: 0,
+      // Mira PI R1 fix manager (Fix 8, 2026-05-25): bumped from 0 to
+      // 1 for the seeded Mira "Lab meeting (today)" event below. The
+      // CalendarEventsTodayWidget reads the PI's own events folder, so
+      // without this seed the tile reads empty on every Mira walk.
+      events: 1,
       goals: 0,
       notes: 0,
       purchase_items: 0,
       lab_links: 0,
       dependencies: 0,
+    },
+  ]);
+  // Mira PI R1 fix manager (Fix 8, 2026-05-25): a single "Lab meeting"
+  // event anchored at REAL_TODAY so the Today's events tile on
+  // /lab-overview surfaces at least one row when Mira logs in. Generic
+  // lab-meeting content (no real research, no PI), matches the
+  // believable-but-fake demo rule.
+  out.push([
+    "users/mira/events/1.json",
+    {
+      id: 1,
+      title: "Weekly lab meeting (demo)",
+      event_type: "meeting",
+      start_date: REAL_TODAY,
+      end_date: REAL_TODAY,
+      start_time: "10:00",
+      end_time: "11:00",
+      location: "Bio 4203 (demo)",
+      url: null,
+      notes: "Standing weekly. Member project updates + open issues.",
+      color: "#3b82f6",
     },
   ]);
   out.push([
@@ -3178,9 +3212,22 @@ function buildEntries() {
           created_at: "2026-05-13T14:20:00Z",
           mentions: [],
         },
+        // Mira PI R1 fix manager (Fix 8, 2026-05-25): a reply that
+        // explicitly @-mentions mira so the new @-mentions tile on
+        // /lab-overview has at least one row. Morgan asks the PI for
+        // direction on the next step, matches the "I want a paper
+        // trail" lab-coordination tone of the surrounding seed data.
+        {
+          id: "cmt-morgan-mira-note7-1",
+          author: "morgan",
+          text: "@mira — should I prep the triplicate reps on the same H1 reader Thursday, or split across two readers to save a day? Either way works on my side; deferring to your call so the writeup methods section reads consistent.",
+          created_at: "2026-05-13T17:45:00Z",
+          parent_id: "cmt-mira-morgan-note7-1",
+          mentions: ["mira"],
+        },
       ],
       created_at: "2026-05-13T11:30:00Z",
-      updated_at: "2026-05-13T14:20:00Z",
+      updated_at: "2026-05-13T17:45:00Z",
       username: "morgan",
     },
   ]);

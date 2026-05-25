@@ -431,3 +431,11 @@ export function SidebarTile({ onClick }: SidebarTileProps) {
 // `import { ExpandedView as CalendarEventsTodayExpanded } from
 // "@/components/lab-overview/widgets/CalendarEventsTodayWidget"`.
 export const ExpandedView = CalendarEventsTodayWidget;
+
+/**
+ * Mira PI R1 fix manager (Fix 3, 2026-05-25): help-badge copy for the
+ * today variant of the Calendar tile. Matches Chip B voice
+ * (pedagogical, no em-dashes, no emojis).
+ */
+export const HELP_TEXT =
+  "Calendar events scheduled for today across the lab. Click an event to open it; covers internal events plus any synced external calendars.";

@@ -233,6 +233,14 @@ export function SidebarTile({ onClick }: SidebarTileProps) {
   );
 }
 
+/**
+ * Mira PI R1 fix manager (Fix 3, 2026-05-25): help-badge copy for the
+ * @-mentions variant of the Comments tile. Matches Chip B voice
+ * (pedagogical, no em-dashes, no emojis).
+ */
+export const HELP_TEXT =
+  "Comment threads where someone has tagged you with @. Skip to messages that need your reply.";
+
 /** Default export: the Comments Tool popup body. Kept for back-compat
  *  with any consumer that still resolves the variant via the per-widget
  *  ExpandedView fallback path. The Tool registry is the canonical

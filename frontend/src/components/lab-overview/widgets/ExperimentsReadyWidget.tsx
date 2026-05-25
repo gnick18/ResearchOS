@@ -196,6 +196,14 @@ export function SidebarTile({ onClick }: SidebarTileProps) {
   );
 }
 
+/**
+ * Mira PI R1 fix manager (Fix 3, 2026-05-25): help-badge copy for the
+ * ready-to-writeup variant of the Experiments tile. Matches Chip B
+ * voice (pedagogical, no em-dashes, no emojis).
+ */
+export const HELP_TEXT =
+  "Experiments with a completed result row and no draft yet. Click any tile to start the write-up; PIs see these across every member.";
+
 /** Default export: the Experiments Tool popup body (back-compat
  *  fallback; Tool registry is canonical). */
 export default LabExperimentsWidget;

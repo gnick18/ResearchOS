@@ -973,9 +973,18 @@ export const ExpandedView = MetricsWidget;
 /**
  * Lab overview PI tooltips (Chip B, 2026-05-25): help-badge copy for
  * the Lab metrics tile. Lab-head-only widget.
+ *
+ * Mira PI R1 fix manager (Fix 7, 2026-05-25): tightened so the tooltip
+ * matches what the tile actually shows on first paint (the burn-rate
+ * mini chart) PLUS what clicking it opens (the 3-tab popup with Gantt
+ * + Funding + Roadmap). The Phase B redesign chose a burn-rate
+ * snapshot as the dense at-a-glance shape because the popup body
+ * already covers the full rollup; the help text now spells that out
+ * so the snapshot doesn't read as a "tooltip overpromise" against the
+ * tile body.
  */
 export const HELP_TEXT =
-  "Cross-lab rollup: every member's project timelines on one Gantt, funding totals, and roadmap milestones. PI only.";
+  "At-a-glance lab burn rate by week on the tile. Click to open the full PI rollup: cross-member Gantt, funding totals, and roadmap progress. PI only.";
 
 export function SidebarTile({ onClick }: SidebarTileProps) {
   const archivedSet = useArchivedUsers();

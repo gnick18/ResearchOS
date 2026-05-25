@@ -350,6 +350,14 @@ export function SidebarTile({ onClick }: SidebarTileProps) {
   );
 }
 
+/**
+ * Mira PI R1 fix manager (Fix 3, 2026-05-25): help-badge copy for the
+ * by-area variant of the Lab Activity tile. Matches Chip B voice
+ * (pedagogical, no em-dashes, no emojis).
+ */
+export const HELP_TEXT =
+  "A roll-up of lab activity grouped by what changed: notes, tasks, experiments, comments. Use it to spot which surfaces are moving.";
+
 /** Default export: the Lab Activity Tool popup body (back-compat
  *  fallback; Tool registry is canonical). */
 export default LabActivityWidget;

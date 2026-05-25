@@ -18,14 +18,24 @@ import { labApi } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAccountType } from "@/hooks/useAccountType";
 import { useArchivedUsers } from "@/hooks/useArchivedUsers";
+import { isPurchasePending } from "@/lib/types";
 import type { SnapshotTileProps } from "./types";
 import LabPurchasesWidget, {
   SidebarTile as LabPurchasesSidebarTile,
 } from "./LabPurchasesWidget";
 
-function isApprovedItem(item: { approved?: boolean }) {
-  return item.approved === undefined || item.approved === true;
-}
+// Mira PI R1 fix manager (2026-05-25): aligned to the canonical
+// `isPurchasePending` predicate from lib/types. The previous local
+// `isApprovedItem` predicate treated `approved === undefined` as
+// approved, so legacy demo items (and any newly-seeded fixture items
+// lacking the `approved` field) silently dropped out of the pending
+// count — producing the 40-vs-0 contradiction the fresh-eyes verifier
+// flagged between LabPurchasesWidget (which uses `isPurchasePending`,
+// pending = `!approved && !declined_at`, treating undefined as pending)
+// and this widget (which used the inverse predicate). Aligning to
+// `isPurchasePending` makes the three purchases variants — funding-bars,
+// burn-rate, pending-count — all agree, and matches the PiActions popup
+// + Tab A of the LabPurchases popup.
 
 function formatCompactCurrency(n: number): string {
   if (!Number.isFinite(n) || n === 0) return "$0";
@@ -76,7 +86,7 @@ export function SnapshotTile(_props: SnapshotTileProps) {
     () => rawItems.filter((it) => !archivedSet.has(it.username)),
     [rawItems, archivedSet],
   );
-  const pending = useMemo(() => items.filter((it) => !isApprovedItem(it)), [items]);
+  const pending = useMemo(() => items.filter(isPurchasePending), [items]);
   const pendingValue = useMemo(
     () => pending.reduce((s, it) => s + (it.total_price ?? 0), 0),
     [pending],
@@ -133,5 +143,13 @@ export const SidebarTile = LabPurchasesSidebarTile;
 
 /** ExpandedView fallback (the Tool registry is the canonical lookup). */
 export const ExpandedView = LabPurchasesWidget;
+
+/**
+ * Mira PI R1 fix manager (Fix 3, 2026-05-25): help-badge copy for the
+ * pending-count variant of the Purchases tile. Lab-head-only widget.
+ * Matches Chip B voice (pedagogical, no em-dashes, no emojis).
+ */
+export const HELP_TEXT =
+  "Purchase requests waiting on your sign-off as PI. Click to approve or decline; the requester gets notified either way.";
 
 export default LabPurchasesWidget;

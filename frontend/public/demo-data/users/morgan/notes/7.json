@@ -19,9 +19,19 @@
       "text": "Strong first pass. The 4 above 10k look real to me; flag any of those that also grow faster than WT in the OD curve (the doubles are the prize). Save the reader CSV in the shared folder so I can poke at it before our 1:1.",
       "created_at": "2026-05-13T14:20:00Z",
       "mentions": []
+    },
+    {
+      "id": "cmt-morgan-mira-note7-1",
+      "author": "morgan",
+      "text": "@mira — should I prep the triplicate reps on the same H1 reader Thursday, or split across two readers to save a day? Either way works on my side; deferring to your call so the writeup methods section reads consistent.",
+      "created_at": "2026-05-13T17:45:00Z",
+      "parent_id": "cmt-mira-morgan-note7-1",
+      "mentions": [
+        "mira"
+      ]
     }
   ],
   "created_at": "2026-05-13T11:30:00Z",
-  "updated_at": "2026-05-13T14:20:00Z",
+  "updated_at": "2026-05-13T17:45:00Z",
   "username": "morgan"
 }

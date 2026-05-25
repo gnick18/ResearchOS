@@ -97,6 +97,7 @@ import {
 import {
   SnapshotTile as LabPurchasesPendingCountSnapshot,
   SidebarTile as LabPurchasesPendingCountSidebar,
+  HELP_TEXT as LabPurchasesPendingCountHelp,
 } from "./LabPurchasesPendingCountWidget";
 // Tool variants batch (Tool variants batch manager, 2026-05-24): three
 // new tile-shape variants of existing Tools. Each variant shares its
@@ -104,14 +105,17 @@ import {
 import {
   SnapshotTile as CommentMentionsSnapshot,
   SidebarTile as CommentMentionsSidebar,
+  HELP_TEXT as CommentMentionsHelp,
 } from "./CommentMentionsWidget";
 import {
   SnapshotTile as ExperimentsReadySnapshot,
   SidebarTile as ExperimentsReadySidebar,
+  HELP_TEXT as ExperimentsReadyHelp,
 } from "./ExperimentsReadyWidget";
 import {
   SnapshotTile as LabActivityByTypeSnapshot,
   SidebarTile as LabActivityByTypeSidebar,
+  HELP_TEXT as LabActivityByTypeHelp,
 } from "./LabActivityByTypeWidget";
 import {
   OverdueTasksSnapshot,
@@ -128,6 +132,7 @@ import {
 import CalendarEventsTodayWidget, {
   SnapshotTile as CalendarEventsTodaySnapshot,
   SidebarTile as CalendarEventsTodaySidebar,
+  HELP_TEXT as CalendarEventsTodayHelp,
 } from "./CalendarEventsTodayWidget";
 
 // Touch the default exports so TypeScript doesn't flag them as unused
@@ -190,6 +195,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     variantId: "mentions",
     title: "@-mentions",
     description: "Comments that @-mention you, across the lab.",
+    helpText: CommentMentionsHelp,
     SnapshotTile: CommentMentionsSnapshot,
     SidebarTile: CommentMentionsSidebar,
     defaultLayout: { w: 4, h: 6, minW: 3, minH: 3 },
@@ -256,6 +262,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     title: "Ready to write up",
     description:
       "Completed experiments that don't have a writeup attached yet.",
+    helpText: ExperimentsReadyHelp,
     SnapshotTile: ExperimentsReadySnapshot,
     SidebarTile: ExperimentsReadySidebar,
     defaultLayout: { w: 4, h: 6, minW: 3, minH: 3 },
@@ -296,6 +303,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     variantId: "by-type",
     title: "Activity by area",
     description: "Today's activity split into tasks, notes, and purchases.",
+    helpText: LabActivityByTypeHelp,
     SnapshotTile: LabActivityByTypeSnapshot,
     SidebarTile: LabActivityByTypeSidebar,
     defaultLayout: { w: 4, h: 4, minW: 3, minH: 3 },
@@ -350,6 +358,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     title: "Pending purchase approvals",
     description:
       "Count + total dollar value of unapproved purchases. Lab head only.",
+    helpText: LabPurchasesPendingCountHelp,
     SnapshotTile: LabPurchasesPendingCountSnapshot,
     SidebarTile: LabPurchasesPendingCountSidebar,
     defaultLayout: { w: 3, h: 4, minW: 2, minH: 3 },
@@ -433,6 +442,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     popupTitle: "Today's events",
     description:
       "Calendar events scheduled for today, across all your subscribed feeds.",
+    helpText: CalendarEventsTodayHelp,
     SnapshotTile: CalendarEventsTodaySnapshot,
     SidebarTile: CalendarEventsTodaySidebar,
     defaultLayout: { w: 4, h: 6, minW: 3, minH: 3 },

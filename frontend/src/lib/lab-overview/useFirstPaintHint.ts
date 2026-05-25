@@ -33,6 +33,15 @@ import {
   readOnboarding,
 } from "@/lib/onboarding/sidecar";
 import { defaultLayoutFor } from "@/lib/lab-overview/layout-persistence";
+import { useOptionalTourController } from "@/components/onboarding/v4/TourController";
+
+/**
+ * Mira PI R1 fix manager (Fix 2, 2026-05-25): how long to wait after
+ * the wizard completes before letting the auto-open fire. Matches the
+ * goodbye overlay's cheer + wave + fade + toast budget (~8.4 s) plus a
+ * small safety margin so the tooltip never races the toast.
+ */
+const WIZARD_COMPLETION_BUFFER_MS = 10_000;
 
 /**
  * Module-level "already fired this session" flag. Protects against
@@ -69,6 +78,23 @@ export function useFirstPaintHint(widgetId: string): FirstPaintHint {
   const accountType = useAccountType(currentUser);
   const [shouldAutoOpen, setShouldAutoOpen] = useState(false);
 
+  // Mira PI R1 fix manager (Fix 2, 2026-05-25): defer the auto-open
+  // while the v4 walkthrough is actively running on /lab-overview.
+  // Without this gate, a Mira who lands on /lab-overview mid-tour sees
+  // BOTH the BeakerBot speech overlay AND the auto-opened tooltip
+  // competing for first-paint attention.
+  //
+  // Signal: `useOptionalTourController()` returns null OUTSIDE a
+  // `<TourControllerProvider>` (so members + non-onboarded users skip
+  // this check entirely), and a non-null controller whose `currentStep`
+  // is non-null + `paused` is false indicates the tour is mid-flight.
+  // Once the tour completes / exits, currentStep flips to null on the
+  // NEXT render pass and the gate releases — the hint hook re-runs its
+  // effect and fires the auto-open if all other conditions still hold.
+  const tourCtl = useOptionalTourController();
+  const isTourActive =
+    !!tourCtl && tourCtl.currentStep !== null && !tourCtl.paused;
+
   // The "first widget" id is read from the lab_head default canvas
   // layout — a user's customized order doesn't change which tile gets
   // the auto-open. Per the proposal: the hint should anchor to the
@@ -88,6 +114,19 @@ export function useFirstPaintHint(widgetId: string): FirstPaintHint {
     // In-tab guard: if any tile already auto-opened this session, every
     // subsequent caller stays silent.
     if (sessionAlreadyAutoOpened) return;
+    // Mira PI R1 fix manager (Fix 2): defer while the v4 walkthrough
+    // is mid-flight. The effect re-runs when `isTourActive` flips
+    // false (tour completed / exited), so the auto-open lands cleanly
+    // on the next render pass after the tour overlay tears down.
+    if (isTourActive) return;
+    // Also defer when the wizard_resume_state is non-null. That field
+    // is the canonical "tour is mid-flight or paused" signal in the
+    // sidecar (cleared on natural completion via auto-cleanup, or on
+    // skip via the wizard exit flow). The optional tour controller
+    // check above covers the in-tab walkthrough provider; this
+    // sidecar check covers the cross-tab + post-reload case where the
+    // controller may have just mounted but hasn't read its initial
+    // step yet.
 
     let cancelled = false;
     (async () => {
@@ -100,6 +139,24 @@ export function useFirstPaintHint(widgetId: string): FirstPaintHint {
           // the in-tab guard so other tiles also skip.
           sessionAlreadyAutoOpened = true;
           return;
+        }
+        // Mira PI R1 fix manager (Fix 2): defer if the wizard is
+        // mid-flight or in a resumable paused state. Doesn't pin the
+        // session guard — the next /lab-overview mount AFTER the
+        // wizard finalizes will land the auto-open cleanly.
+        if (sidecar.wizard_resume_state !== null) return;
+        // Defer if the wizard JUST completed within the last ~10
+        // seconds. Gives the goodbye animation + toast time to play
+        // out before the auto-open tooltip pops. Without this buffer
+        // the tooltip can land while the user is reading the goodbye
+        // toast, recreating the "competing for attention" conflict in
+        // a different guise.
+        if (typeof sidecar.wizard_completed_at === "string") {
+          const completedMs = Date.parse(sidecar.wizard_completed_at);
+          if (Number.isFinite(completedMs)) {
+            const ageMs = Date.now() - completedMs;
+            if (ageMs >= 0 && ageMs < WIZARD_COMPLETION_BUFFER_MS) return;
+          }
         }
         if (sessionAlreadyAutoOpened) return;
         // Claim the auto-open before yielding to React; if two widgets
@@ -117,7 +174,7 @@ export function useFirstPaintHint(widgetId: string): FirstPaintHint {
     return () => {
       cancelled = true;
     };
-  }, [accountType, currentUser, widgetId, firstWidgetId]);
+  }, [accountType, currentUser, widgetId, firstWidgetId, isTourActive]);
 
   const markSeen = useMemo(() => {
     return () => {

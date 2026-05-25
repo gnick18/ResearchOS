@@ -12,6 +12,7 @@ import {
   useState,
   type ReactElement,
   type Ref,
+  type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
 
@@ -51,6 +52,24 @@ interface Props {
    * existing caller is unaffected.
    */
   body?: string;
+  /**
+   * Optional visual variant (Mira PI R1 fix manager, Fix 6,
+   * 2026-05-25). When set to `"firstPaintHint"`, the bubble switches to
+   * a light card with a sky-blue BeakerBot header + a "Got it" CTA at
+   * the bottom, so the auto-opened first-paint tooltip reads as a
+   * deliberate guided hint rather than an accidental hover. The CTA
+   * fires `onPrimaryAction` when clicked. Defaults to undefined =
+   * default dark-card hover styling. Hover-opened + click-opened
+   * tooltips on the same trigger continue to use the default variant.
+   */
+  variant?: "firstPaintHint";
+  /**
+   * Optional CTA handler for the `firstPaintHint` variant. The bubble
+   * renders a "Got it" button that calls this; the caller is
+   * responsible for closing the bubble via the `open` prop. Unused for
+   * other variants.
+   */
+  onPrimaryAction?: () => void;
 }
 
 const GAP = 6;
@@ -98,9 +117,16 @@ export default function Tooltip({
   showDelayMs = 80,
   open,
   body,
+  variant,
+  onPrimaryAction,
 }: Props) {
   const triggerElRef = useRef<HTMLElement | null>(null);
-  const tooltipRef = useRef<HTMLSpanElement>(null);
+  // Mira PI R1 Fix 6 (2026-05-25): the tooltipRef points at EITHER the
+  // default <span> bubble OR the firstPaintHint <div> card; both shapes
+  // expose getBoundingClientRect() via the base HTMLElement type, so
+  // typing the ref as HTMLElement covers both variants without forcing
+  // the call sites to branch.
+  const tooltipRef = useRef<HTMLElement | null>(null);
   const showTimerRef = useRef<number | null>(null);
 
   const [hoverVisible, setHoverVisible] = useState(false);
@@ -232,39 +258,115 @@ export default function Tooltip({
       {mounted &&
         visible &&
         createPortal(
-          <span
-            ref={tooltipRef}
-            role="tooltip"
-            style={{
-              position: "fixed",
-              top: pos?.top ?? -9999,
-              left: pos?.left ?? -9999,
-              opacity: pos ? 1 : 0,
-              transition: "opacity 100ms",
-              pointerEvents: "none",
-              zIndex: 1000,
-              // When a multi-line body is supplied, switch from the
-              // single-line nowrap shape to a wider card. The
-              // multi-line variant needs a max-width so long sentences
-              // wrap instead of stretching across the viewport.
-              maxWidth: body ? 280 : undefined,
-              whiteSpace: body ? "normal" : "nowrap",
-            }}
-            className={
-              body
-                ? "rounded-md bg-gray-900 text-white text-[11px] font-medium px-2.5 py-1.5 shadow-lg leading-snug"
-                : "whitespace-nowrap rounded-md bg-gray-900 text-white text-[11px] font-medium px-2 py-1 shadow-lg"
-            }
-          >
-            {body ? (
-              <>
-                <span className="block font-semibold mb-1">{label}</span>
-                <span className="block font-normal text-gray-100">{body}</span>
-              </>
-            ) : (
-              label
-            )}
-          </span>,
+          variant === "firstPaintHint" && body ? (
+            // Mira PI R1 fix manager (Fix 6, 2026-05-25): the
+            // first-paint-hint variant. A light card with a sky-blue
+            // BeakerBot header strip + "Got it" CTA at the bottom, so
+            // the auto-opened tooltip reads as a deliberate guided
+            // moment instead of an accidental hover hint. Larger
+            // typography (text-xs instead of text-[11px]), a stronger
+            // shadow + sky ring, and `pointer-events: auto` so the
+            // CTA is clickable. Uses the same positioning math as the
+            // default variant.
+            <div
+              ref={tooltipRef as RefObject<HTMLDivElement>}
+              role="tooltip"
+              data-firstpaint-hint
+              style={{
+                position: "fixed",
+                top: pos?.top ?? -9999,
+                left: pos?.left ?? -9999,
+                opacity: pos ? 1 : 0,
+                transition: "opacity 100ms",
+                pointerEvents: "auto",
+                zIndex: 1000,
+                maxWidth: 300,
+              }}
+              className="rounded-lg bg-white text-gray-800 text-xs shadow-xl ring-1 ring-sky-300 overflow-hidden"
+            >
+              {/* Header strip — sky tint + inline BeakerBot mark.
+                  Matches the project's BeakerBot color (sky-500) so the
+                  hint reads as the same mascot voice the v4 tour uses. */}
+              <div className="flex items-center gap-1.5 bg-sky-50 px-3 py-1.5 border-b border-sky-100">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                  className="text-sky-500 flex-shrink-0"
+                >
+                  <path d="M10 2v7.31" />
+                  <path d="M14 9.3V2" />
+                  <path d="M8.5 2h7" />
+                  <path d="M14 9.3a6.5 6.5 0 1 1-4 0" />
+                </svg>
+                <span className="text-[10px] uppercase tracking-wide font-semibold text-sky-700">
+                  Quick tip
+                </span>
+              </div>
+              <div className="px-3 pt-2.5 pb-2">
+                <span className="block font-semibold text-gray-900 mb-1 text-xs">
+                  {label}
+                </span>
+                <span className="block font-normal text-gray-600 leading-snug">
+                  {body}
+                </span>
+              </div>
+              {onPrimaryAction ? (
+                <div className="px-3 pb-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onPrimaryAction();
+                    }}
+                    className="text-[11px] font-medium text-sky-700 hover:text-sky-900 bg-sky-50 hover:bg-sky-100 px-2 py-0.5 rounded transition-colors"
+                  >
+                    Got it
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <span
+              ref={tooltipRef as RefObject<HTMLSpanElement>}
+              role="tooltip"
+              style={{
+                position: "fixed",
+                top: pos?.top ?? -9999,
+                left: pos?.left ?? -9999,
+                opacity: pos ? 1 : 0,
+                transition: "opacity 100ms",
+                pointerEvents: "none",
+                zIndex: 1000,
+                // When a multi-line body is supplied, switch from the
+                // single-line nowrap shape to a wider card. The
+                // multi-line variant needs a max-width so long sentences
+                // wrap instead of stretching across the viewport.
+                maxWidth: body ? 280 : undefined,
+                whiteSpace: body ? "normal" : "nowrap",
+              }}
+              className={
+                body
+                  ? "rounded-md bg-gray-900 text-white text-[11px] font-medium px-2.5 py-1.5 shadow-lg leading-snug"
+                  : "whitespace-nowrap rounded-md bg-gray-900 text-white text-[11px] font-medium px-2 py-1 shadow-lg"
+              }
+            >
+              {body ? (
+                <>
+                  <span className="block font-semibold mb-1">{label}</span>
+                  <span className="block font-normal text-gray-100">{body}</span>
+                </>
+              ) : (
+                label
+              )}
+            </span>
+          ),
           document.body,
         )}
     </>
