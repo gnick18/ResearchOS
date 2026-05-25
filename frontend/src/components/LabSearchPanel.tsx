@@ -6,6 +6,7 @@ import { labApi, tasksApi, LabSearchResult, LabProject, LabMethod, LabTask } fro
 import { useLabData } from "@/hooks/useLabData";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import ExportFormatDialog, { type ExportProgressUi } from "@/components/ExportFormatDialog";
+import ProgressEntertainer from "@/components/progress/ProgressEntertainer";
 // TODO(manager): unstub once Sub-bot A lands frontend/src/lib/export/orchestrate.ts.
 import {
   exportExperiments,
@@ -848,8 +849,14 @@ export default function LabSearchPanel({
         </div>
       )}
 
+      {/* Format picker — hidden while the export is actively running.
+          The ProgressEntertainer below takes over the screen for the
+          duration of the export so the user gets a clear "we're
+          working on it" signal + a bit of slapstick to entertain them
+          while big multi-experiment ZIPs pack (Grant brief 2026-05-23
+          on the Centrifuge scene → reuse as a progress entertainer). */}
       <ExportFormatDialog
-        isOpen={exportDialogOpen}
+        isOpen={exportDialogOpen && !exporting}
         taskCount={selectedTaskKeys.size}
         isExporting={exporting}
         sizeEstimate={exportSizeEstimate}
@@ -858,6 +865,52 @@ export default function LabSearchPanel({
         onExport={handleExport}
         onExportToFile={handleExportToFile}
       />
+
+      <ProgressEntertainer
+        open={exporting}
+        title="Preparing your export…"
+        subtitle={progressSubtitle(exportProgress, selectedTaskKeys.size)}
+        progress={progressFraction(exportProgress, selectedTaskKeys.size)}
+      />
     </div>
   );
+}
+
+/** Derive the human-readable subtitle for ProgressEntertainer from
+ *  the multi-stage export progress (per-experiment build, then ZIP
+ *  packaging). Mirrors the inline progress line in ExportFormatDialog
+ *  so callers don't see two different progress vocabularies for the
+ *  same operation. */
+function progressSubtitle(
+  progress: ExportProgressUi | null,
+  totalCount: number,
+): string | undefined {
+  if (!progress) return totalCount > 1
+    ? `Packaging ${totalCount} experiments…`
+    : undefined;
+  if (typeof progress.zipPercent === "number") {
+    return `Packaging archive… ${Math.round(progress.zipPercent)}%`;
+  }
+  if (progress.total > 1) {
+    return `Exporting "${progress.taskName}" — ${progress.current} of ${progress.total}`;
+  }
+  return `Exporting "${progress.taskName}"`;
+}
+
+/** Derive a 0..1 progress fraction. During per-experiment build the
+ *  fraction is completed-experiments / total. During ZIP pack it's
+ *  the streamed zipPercent. Undefined when no progress is available
+ *  yet → ProgressEntertainer falls back to indeterminate mode. */
+function progressFraction(
+  progress: ExportProgressUi | null,
+  _totalCount: number,
+): number | undefined {
+  if (!progress) return undefined;
+  if (typeof progress.zipPercent === "number") {
+    return Math.min(1, Math.max(0, progress.zipPercent / 100));
+  }
+  // current is 1-indexed; subtract 1 because the build for `current`
+  // is in flight, not done.
+  const denom = Math.max(1, progress.total);
+  return Math.min(1, Math.max(0, (progress.current - 1) / denom));
 }

@@ -27,6 +27,7 @@ import { createNewFileContent, normalizeStampFormat, hasLegacyStampFormat } from
 import { exportExperiments, downloadResult } from "@/lib/export/orchestrate";
 import type { ExportFormat } from "@/lib/export/types";
 import ExportFormatDialog from "@/components/ExportFormatDialog";
+import ProgressEntertainer from "@/components/progress/ProgressEntertainer";
 import { useFileRenamePopup } from "@/components/FileRenamePopup";
 import { useDuplicateResolver } from "@/components/DuplicateUploadDialog";
 import { checkForDuplicates } from "@/lib/attachments/duplicate-check";
@@ -4806,13 +4807,25 @@ function TaskExportButton({ task }: { task: Task }) {
         </button>
       </Tooltip>
 
+      {/* Format picker — hidden during the actual export so the
+          ProgressEntertainer takes over the screen (Grant brief on
+          the Centrifuge scene: pair big-save flows with a progress
+          bar + entertaining animation). Single-task exports don't
+          emit per-experiment progress events, so the bar runs in
+          indeterminate mode. */}
       <ExportFormatDialog
-        isOpen={dialogOpen}
+        isOpen={dialogOpen && !exporting}
         taskCount={1}
         taskName={task.name}
         isExporting={exporting}
         onClose={() => setDialogOpen(false)}
         onExport={handleExport}
+      />
+
+      <ProgressEntertainer
+        open={exporting}
+        title="Preparing your export…"
+        subtitle={`Exporting "${task.name}"`}
       />
     </>
   );
