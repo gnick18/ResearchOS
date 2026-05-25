@@ -210,6 +210,24 @@ export interface WidgetDefinition {
   id: string;
   /** Human label shown in the catalog drawer + the widget header. */
   title: string;
+  /**
+   * Per-widget popup-header override (widget popup-title manager,
+   * 2026-05-25). When set, the popup launched from this widget's tile
+   * uses this string as its header instead of the parent Tool's title.
+   * Lets tile-variants of a shared Tool present a focused header that
+   * matches the tile label the user clicked (e.g. clicking the
+   * "Upcoming tasks" tile opens a popup titled "Upcoming tasks", not
+   * the daily-tasks Tool's umbrella "Today's tasks" title).
+   *
+   * Unset = fall back to the Tool's title (the original behavior),
+   * which is correct for single-variant Tools and for variants whose
+   * tile label already matches the Tool title.
+   *
+   * Wired through `resolveToolTitle(widget)` so every popup-mounting
+   * surface (snapshot canvas, lab-overview sidebar rail, customizable
+   * sidebar) picks the override up uniformly.
+   */
+  popupTitle?: string;
   /** One-line description shown in the "+ Add widget" catalog drawer. */
   description?: string;
   /**

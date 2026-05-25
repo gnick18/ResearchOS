@@ -402,6 +402,11 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     toolId: "calendar",
     variantId: "today",
     title: "Today's events",
+    // The Calendar Tool's umbrella title is "Calendar" (it can hold
+    // future variants for week / month views). This tile is the today
+    // variant, so the popup header should match what the user clicked.
+    // widget popup-title manager (2026-05-25).
+    popupTitle: "Today's events",
     description:
       "Calendar events scheduled for today, across all your subscribed feeds.",
     SnapshotTile: CalendarEventsTodaySnapshot,
@@ -430,6 +435,12 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     toolId: "daily-tasks",
     variantId: "overdue",
     title: "Overdue tasks",
+    // daily-tasks Tool covers Overdue / Today / Upcoming as one popup
+    // body, but its umbrella title is "Today's tasks". Without an
+    // override, clicking the Overdue tile opens a popup labelled
+    // "Today's tasks" which breaks the "click the tile to expand it"
+    // mental model. widget popup-title manager (2026-05-25).
+    popupTitle: "Overdue tasks",
     description: "Your past-due open tasks.",
     SnapshotTile: OverdueTasksSnapshot,
     SidebarTile: OverdueTasksSidebarTile,
@@ -456,6 +467,11 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     toolId: "daily-tasks",
     variantId: "upcoming",
     title: "Upcoming tasks",
+    // See `sidebar-overdue`. Discovered by the §6.2b R3 fresh-eyes
+    // verifier (2026-05-25): the Upcoming tile is one of the home
+    // defaults and opens a popup labelled "Today's tasks" without this
+    // override, which reads as a different feature.
+    popupTitle: "Upcoming tasks",
     description: "Tasks starting after today.",
     SnapshotTile: UpcomingTasksSnapshot,
     SidebarTile: UpcomingTasksSidebarTile,
@@ -492,6 +508,11 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     toolId: "daily-tasks",
     variantId: "full-stack",
     title: "Daily tasks",
+    // Tile label is "Daily tasks" (the full-stack overdue + today +
+    // upcoming bundle). Tool's umbrella "Today's tasks" header would
+    // narrow the popup's apparent scope. widget popup-title manager
+    // (2026-05-25).
+    popupTitle: "Daily tasks",
     description:
       "The standard daily-tasks sidebar (overdue, today, upcoming, per-project grouping). The default member sidebar, also pinnable by lab heads.",
     SnapshotTile: DailyTasksSnapshot,

@@ -427,15 +427,27 @@ export function resolveExpandedView(widget: {
 }
 
 /**
- * Resolve the popup title for a widget. Tools-registry-first (so the
- * title stays consistent across variants), with the widget's own
- * `title` as the fallback. Callers should prefer this over `def.title`
- * for the popup header so all 3 purchases variants show "Lab purchases"
- * in the popup chrome (not "Pending purchase approvals" or "Burn rate").
+ * Resolve the popup title for a widget. Resolution order:
+ *
+ *   1. `widget.popupTitle` (per-widget override): set on the catalog
+ *      entry when a tile-variant of a shared Tool needs a focused popup
+ *      header that mirrors its tile label rather than the Tool's
+ *      umbrella title. Example: the `sidebar-upcoming` tile (label
+ *      "Upcoming tasks") sharing the daily-tasks Tool should open a
+ *      popup titled "Upcoming tasks", not the Tool title "Today's
+ *      tasks". (widget popup-title manager, 2026-05-25.)
+ *   2. Tool registry title: keeps multi-variant Tools that DON'T set
+ *      an override consistent (e.g. all 3 purchases variants still show
+ *      "Lab purchases" in the popup chrome).
+ *   3. Widget's own `title`: last-resort fallback if the Tool is
+ *      missing from the registry (defensive; surfaces the diagnostic
+ *      placeholder from `resolveExpandedView` if it ever happens).
  */
 export function resolveToolTitle(widget: {
   toolId: string;
   title: string;
+  popupTitle?: string;
 }): string {
+  if (widget.popupTitle) return widget.popupTitle;
   return getTool(widget.toolId)?.title ?? widget.title;
 }
