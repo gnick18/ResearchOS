@@ -194,6 +194,22 @@ Verification preamble (bake into every Preview-using brief):
 
 Round 2 reports tagged everything that worked as "FALSE_POSITIVE" once the live app was actually serving current main. Don't re-walk this trap.
 
+### True fresh-user verifier setup (2026-05-25)
+
+Fresh-eyes verifiers must walk the tour as a **real first-time user** in their own fresh account, NOT in demo mode. Default behavior the bot will reach for if you don't pin it down: signing into one of the seeded demo fixtures (Mira / Alex / Morgan) and walking from there. Wrong. Those accounts have weeks of pre-seeded research data, dozens of widgets, custom layouts, real comment threads. A first-time user has none of that. The friction findings you actually want emerge from the empty-state experience.
+
+Setup the bot must perform before driving the tour (bake into every fresh-eyes brief):
+
+1. From the picker, **click "Connect a new folder"** (or whichever copy is current) instead of selecting a fixture. Point at a temp scratch directory (e.g. `/tmp/researchos-verifier-<agent-id>/`) where the bot has read+write access. The scratch dir must be empty so the first-run gate fires correctly.
+2. Walk through pre-onboarding (display name, lab name, color, etc.). Use plausible-but-disposable values, not "test" or "asdf" (those bias copy that mentions the user's name to read as broken).
+3. Trigger the v4 walkthrough through the normal first-run path (it should auto-start on the empty account). The dev "force walkthrough" button is acceptable if the auto-start gate doesn't fire on the bot's environment, but note it in the report.
+4. Walk the full sequence. Take the same actions a real user would: read the speech bubbles, click through, don't peek at source.
+5. When the section ends, clean up: kill the dev server, `rm -rf /tmp/researchos-verifier-<agent-id>/`.
+
+The demo-mode-vs-real-mode critique scaffolding fresh-eyes verifiers should explicitly apply: for every section, ask "does this concept teach better with the empty real account, or would it land more clearly if BeakerBot navigated me to the demo lab to show a populated example?" Some concepts (creating a project, naming things) teach best in the user's own account; some (busy Gantt, member workload widget, comment threads) need pre-seeded data to make sense. The verifier reports which side of that line each step falls on, and flags any mismatch where BeakerBot is teaching a data-dense feature against an empty canvas, OR is keeping the user in demo mode for a hands-on flow they should be practicing in their own account.
+
+Mechanics verifiers can stay in demo mode (DOM-level checks are mode-agnostic). Spec-compliance verifiers don't drive the live app at all. Only fresh-eyes needs the real-user setup.
+
 ### Field migrations
 
 When a field on Task / Method / Project / Note / etc. is renamed or restructured, follow the **lazy-normalize + on-demand-repair** pattern the cleanup pass landed (commit `147db270`, 2026-05-13). The whole point is that shared on-disk files from other users with legacy shapes keep working transparently — no flag-day cutovers, no broken receivers.
