@@ -522,6 +522,11 @@ export default function SnapshotCanvas({
                 onRemove={() => handleRemoveWidget(id)}
                 surface="canvas"
                 tourSurface={surface === "home" ? "home" : undefined}
+                // Lab overview PI tooltips (Chip B, 2026-05-25): only
+                // wire the help-badge copy on the /lab-overview canvas
+                // mount. /home tiles intentionally skip the badge (Chip
+                // B is scoped to /lab-overview per the proposal).
+                helpText={surface === "home" ? undefined : def.helpText}
               >
                 <Tile surface="canvas" />
               </Widget>

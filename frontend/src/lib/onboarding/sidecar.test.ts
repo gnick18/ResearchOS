@@ -223,6 +223,11 @@ describe("sidecar v4 round-trip", () => {
       archived: false,
       archived_at: null,
       archived_by: null,
+      // Lab overview PI tooltips (Chip B, lab overview PI tooltips
+      // manager, 2026-05-25): the one-shot auto-open marker defaults
+      // to null on a fresh sidecar. The normalizer always emits the
+      // field, so the round-trip deep-equal must include it.
+      lab_overview_tooltips_seen_at: null,
     };
     await writeOnboarding(USER, initial);
     const sc = await readOnboarding(USER);

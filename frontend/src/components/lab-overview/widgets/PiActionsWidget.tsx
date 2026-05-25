@@ -1703,6 +1703,13 @@ export function SnapshotTile(_props: SnapshotTileProps) {
 
 export const ExpandedView = PiActionsWidget;
 
+/**
+ * Lab overview PI tooltips (Chip B, 2026-05-25): help-badge copy for
+ * the Pending lab head actions sidebar tile. PI-only.
+ */
+export const HELP_TEXT =
+  "Your action queue as PI. Purchase approvals waiting on you, flagged notes / experiments, and announcements you have not acknowledged. PI only.";
+
 export function SidebarTile({ onClick }: SidebarTileProps) {
   const { accountType, pending, isLoading } = usePiActionCounts();
   if (accountType !== "lab_head") return null;

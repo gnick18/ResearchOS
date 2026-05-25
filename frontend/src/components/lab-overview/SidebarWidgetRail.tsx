@@ -15,6 +15,8 @@ import {
 } from "@/lib/lab-overview/tool-registry";
 import type { AccountType } from "@/lib/settings/user-settings";
 import Tooltip from "@/components/Tooltip";
+import WidgetHelpBadge from "./widgets/WidgetHelpBadge";
+import { useFirstPaintHint } from "@/lib/lab-overview/useFirstPaintHint";
 
 /**
  * Widget canvas Phase A (Phase A redispatch manager, 2026-05-23):
@@ -193,55 +195,25 @@ export default function SidebarWidgetRail({
           // click target via the `onClick` prop, so the wrapper's
           // role="button" is removed (avoids duplicate semantics —
           // the inner tile is the real button).
-          const Tile = def.SidebarTile;
           return (
-            <div
+            <SidebarRailRow
               key={id}
+              id={id}
+              title={def.title}
+              helpText={def.helpText}
+              SidebarTile={def.SidebarTile}
+              isEditing={isEditing}
+              isDragging={dragId === id}
               draggable={isEditing}
               onDragStart={handleDragStart(id)}
               onDragOver={handleDragOver}
               onDrop={handleDrop(id)}
-              className={`relative group rounded-md ${
-                isEditing ? "cursor-move bg-white border border-gray-200" : ""
-              } ${dragId === id ? "opacity-50" : ""}`}
-            >
-              {isEditing && (
-                <Tooltip label={`Remove ${def.title}`} placement="left">
-                  <button
-                    type="button"
-                    aria-label={`Remove ${def.title}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void handleToggle(id);
-                    }}
-                    className="absolute top-0.5 right-0.5 z-10 p-0.5 rounded text-gray-400 hover:bg-red-50 hover:text-red-600 bg-white/80 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
-                    data-force-hover-controls-target
-                  >
-                    <svg
-                      width="10"
-                      height="10"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                    >
-                      <line x1="6" y1="6" x2="18" y2="18" />
-                      <line x1="6" y1="18" x2="18" y2="6" />
-                    </svg>
-                  </button>
-                </Tooltip>
-              )}
-              <Tile
-                widgetId={id}
-                onClick={() => {
-                  if (isEditing) return;
-                  setOpenWidgetId(id);
-                }}
-              />
-            </div>
+              onOpen={() => {
+                if (isEditing) return;
+                setOpenWidgetId(id);
+              }}
+              onRemove={() => void handleToggle(id)}
+            />
           );
         })}
 
@@ -312,5 +284,110 @@ export default function SidebarWidgetRail({
           );
         })()}
     </aside>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// SidebarRailRow — one row in the rail. Extracted from the inline render
+// path so the `useFirstPaintHint` hook can run per-widget without
+// violating the rules-of-hooks (a hook inside a `.map()` body would be
+// fine in practice but reads cleanly only as its own component).
+//
+// Lab overview PI tooltips (Chip B, lab overview PI tooltips manager,
+// 2026-05-25): the help-badge overlays the top-right of each sidebar
+// tile. Only the canonical first widget (per
+// `defaultLabHeadLayout().widgetOrder.canvas[0]`) ever auto-opens its
+// tooltip; every other tile is click/hover only. The hook itself gates
+// on `account_type === "lab_head"`, so non-PI viewers never see the
+// auto-open.
+// ─────────────────────────────────────────────────────────────────────────
+
+import type { ComponentType } from "react";
+import type { SidebarTileProps } from "./widgets/types";
+
+interface SidebarRailRowProps {
+  id: string;
+  title: string;
+  helpText?: string;
+  SidebarTile: ComponentType<SidebarTileProps>;
+  isEditing: boolean;
+  isDragging: boolean;
+  draggable: boolean;
+  onDragStart: () => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDrop: () => Promise<void> | void;
+  onOpen: () => void;
+  onRemove: () => void;
+}
+
+function SidebarRailRow({
+  id,
+  title,
+  helpText,
+  SidebarTile,
+  isEditing,
+  isDragging,
+  draggable,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onOpen,
+  onRemove,
+}: SidebarRailRowProps) {
+  const hint = useFirstPaintHint(id);
+  return (
+    <div
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={() => void onDrop()}
+      className={`relative group rounded-md ${
+        isEditing ? "cursor-move bg-white border border-gray-200" : ""
+      } ${isDragging ? "opacity-50" : ""}`}
+    >
+      {isEditing && (
+        <Tooltip label={`Remove ${title}`} placement="left">
+          <button
+            type="button"
+            aria-label={`Remove ${title}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove();
+            }}
+            className="absolute top-0.5 right-0.5 z-10 p-0.5 rounded text-gray-400 hover:bg-red-50 hover:text-red-600 bg-white/80 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+            data-force-hover-controls-target
+          >
+            <svg
+              width="10"
+              height="10"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <line x1="6" y1="6" x2="18" y2="18" />
+              <line x1="6" y1="18" x2="18" y2="6" />
+            </svg>
+          </button>
+        </Tooltip>
+      )}
+      {/* Lab overview PI tooltips (Chip B, 2026-05-25): help-badge
+          overlays the tile. Hidden in edit mode so it doesn't fight
+          with the remove × in the same corner. */}
+      {!isEditing && helpText && (
+        <span className="absolute top-1 right-1 z-10">
+          <WidgetHelpBadge
+            title={title}
+            body={helpText}
+            shouldAutoOpen={hint.shouldAutoOpen}
+            markSeen={hint.markSeen}
+          />
+        </span>
+      )}
+      <SidebarTile widgetId={id} onClick={onOpen} />
+    </div>
   );
 }

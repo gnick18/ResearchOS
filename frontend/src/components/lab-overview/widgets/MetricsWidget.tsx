@@ -970,6 +970,13 @@ export function SnapshotTile(_props: SnapshotTileProps) {
 
 export const ExpandedView = MetricsWidget;
 
+/**
+ * Lab overview PI tooltips (Chip B, 2026-05-25): help-badge copy for
+ * the Lab metrics tile. Lab-head-only widget.
+ */
+export const HELP_TEXT =
+  "Cross-lab rollup: every member's project timelines on one Gantt, funding totals, and roadmap milestones. PI only.";
+
 export function SidebarTile({ onClick }: SidebarTileProps) {
   const archivedSet = useArchivedUsers();
   const { data: rawItems = [], isLoading } = useQuery({

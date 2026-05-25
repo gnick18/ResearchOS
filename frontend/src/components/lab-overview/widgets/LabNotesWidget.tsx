@@ -400,6 +400,13 @@ export function SnapshotTile(_props: SnapshotTileProps) {
 
 export const ExpandedView = LabNotesWidget;
 
+/**
+ * Lab overview PI tooltips (Chip B, 2026-05-25): help-badge copy for
+ * the Lab notes gallery.
+ */
+export const HELP_TEXT =
+  "Every lab note you have permission to read, searchable. Click a note to open it; PIs can read all shared notes across the lab.";
+
 export function SidebarTile({ onClick }: SidebarTileProps) {
   const { data: notes = [], isLoading } = useQuery<Note[]>({
     queryKey: ["lab", "notes-shared"],

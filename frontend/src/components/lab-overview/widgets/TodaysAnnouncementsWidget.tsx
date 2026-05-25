@@ -190,6 +190,13 @@ export function SnapshotTile(_props: SnapshotTileProps) {
 
 export const ExpandedView = TodaysAnnouncementsWidget;
 
+/**
+ * Lab overview PI tooltips (Chip B, 2026-05-25): help-badge copy for
+ * the Today's announcements sidebar tile.
+ */
+export const HELP_TEXT =
+  "Today's pinned announcements, titles only. A glance-able reminder of what the lab is supposed to know about right now; click through for the full text.";
+
 // SidebarTile: pin icon + "X pinned" + truncated single-line preview
 // of the top pinned item. The single-row layout in SidebarStatTile is
 // too narrow for a preview line, so the tile renders its own compact

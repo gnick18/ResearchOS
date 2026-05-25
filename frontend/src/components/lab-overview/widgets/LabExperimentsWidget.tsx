@@ -328,6 +328,13 @@ export function SnapshotTile(_props: SnapshotTileProps) {
 
 export const ExpandedView = LabExperimentsWidget;
 
+/**
+ * Lab overview PI tooltips (Chip B, 2026-05-25): help-badge copy for
+ * the Lab experiments gallery.
+ */
+export const HELP_TEXT =
+  "An outcome gallery across every lab member's experiments. Running, completed, and failed runs together so you can see what worked and what didn't.";
+
 // ─────────────────────────────────────────────────────────────────────────────
 // SidebarTile — slim row showing "X running".
 // ─────────────────────────────────────────────────────────────────────────────

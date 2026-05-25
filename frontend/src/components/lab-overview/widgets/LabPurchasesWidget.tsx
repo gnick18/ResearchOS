@@ -1739,6 +1739,13 @@ export function SnapshotTile(_props: SnapshotTileProps) {
 
 export const ExpandedView = LabPurchasesWidget;
 
+/**
+ * Lab overview PI tooltips (Chip B, 2026-05-25): help-badge copy for
+ * the funding-bars variant of the Purchases tile. Lab-head-only widget.
+ */
+export const HELP_TEXT =
+  "Funding rollup per grant code with dollars remaining and pending approvals. PI only. Click any bar to drill into that grant's purchases.";
+
 export function SidebarTile({ onClick }: SidebarTileProps) {
   const { currentUser } = useCurrentUser();
   const accountType = useAccountType(currentUser);

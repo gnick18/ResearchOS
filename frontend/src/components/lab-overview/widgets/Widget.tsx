@@ -2,6 +2,8 @@
 
 import type { ReactNode } from "react";
 import Tooltip from "@/components/Tooltip";
+import WidgetHelpBadge from "./WidgetHelpBadge";
+import { useFirstPaintHint } from "@/lib/lab-overview/useFirstPaintHint";
 
 /**
  * Lab Mode retirement R2 (R2 widget framework manager, 2026-05-23):
@@ -47,6 +49,14 @@ export interface WidgetFrameProps {
    * Defaults to undefined, in which case no tour anchor is stamped.
    */
   tourSurface?: "home";
+  /**
+   * Lab overview PI tooltips (Chip B, lab overview PI tooltips manager,
+   * 2026-05-25): the 1-2 sentence explanatory copy shown by the tile-
+   * header "?" badge. When unset, no badge renders. The badge wires
+   * through `useFirstPaintHint(id)` so the canonical first widget on
+   * the lab_head canvas auto-opens once per Mira-session.
+   */
+  helpText?: string;
   /** The widget body. */
   children: ReactNode;
 }
@@ -59,8 +69,14 @@ export default function Widget({
   onRemove,
   surface,
   tourSurface,
+  helpText,
   children,
 }: WidgetFrameProps) {
+  // Lab overview PI tooltips (Chip B, 2026-05-25): hint the first-tile
+  // auto-open. The hook itself gates on account_type === "lab_head" +
+  // widget-id-matches-default-first, so a non-first widget or a member
+  // viewer never sees the auto-open even when `helpText` is set.
+  const hint = useFirstPaintHint(id);
   // §6.2b Home widgets walkthrough anchor (home widgets surface-prep
   // manager, 2026-05-25). The drag handle is the entire header bar
   // (the `.lab-widget-drag-handle` class react-grid-layout watches).
@@ -114,13 +130,23 @@ export default function Widget({
             </span>
           </Tooltip>
         )}
-        <h2
-          className={`flex-1 min-w-0 truncate font-semibold text-gray-900 ${
-            surface === "sidebar" ? "text-xs" : "text-sm"
-          }`}
-        >
-          {title}
-        </h2>
+        <div className="flex-1 min-w-0 flex items-center gap-1.5">
+          <h2
+            className={`min-w-0 truncate font-semibold text-gray-900 ${
+              surface === "sidebar" ? "text-xs" : "text-sm"
+            }`}
+          >
+            {title}
+          </h2>
+          {helpText && (
+            <WidgetHelpBadge
+              title={title}
+              body={helpText}
+              shouldAutoOpen={hint.shouldAutoOpen}
+              markSeen={hint.markSeen}
+            />
+          )}
+        </div>
         {subtitle && (
           <span className="text-xs text-gray-500 truncate">{subtitle}</span>
         )}

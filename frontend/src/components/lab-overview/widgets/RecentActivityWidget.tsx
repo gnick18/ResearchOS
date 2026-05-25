@@ -588,6 +588,13 @@ export function SnapshotTile(_props: SnapshotTileProps) {
 
 export const ExpandedView = RecentActivityWidget;
 
+/**
+ * Lab overview PI tooltips (Chip B, 2026-05-25): help-badge copy for
+ * the Recent lab activity sidebar tile.
+ */
+export const HELP_TEXT =
+  "A quick at-a-glance pulse of the lab. Newest comments, shares, and task changes from every member, summarized into one running stream.";
+
 // ─────────────────────────────────────────────────────────────────────────────
 // SidebarTile — narrow vertical 2-row preview.
 // ─────────────────────────────────────────────────────────────────────────────

@@ -781,6 +781,13 @@ export function SnapshotTile(_props: SnapshotTileProps) {
 
 export const ExpandedView = CommentFeedWidget;
 
+/**
+ * Lab overview PI tooltips (Chip B, 2026-05-25): help-badge copy for
+ * the Lab comments feed.
+ */
+export const HELP_TEXT =
+  "Every comment thread across the lab, newest first. Tabs split it into all comments, @-mentions of you, and threads on notes you authored.";
+
 export function SidebarTile({ onClick }: SidebarTileProps) {
   const { data: notes = [], isLoading } = useQuery<Note[]>({
     queryKey: ["lab", "notes-shared"],

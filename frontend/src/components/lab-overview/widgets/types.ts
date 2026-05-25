@@ -231,6 +231,18 @@ export interface WidgetDefinition {
   /** One-line description shown in the "+ Add widget" catalog drawer. */
   description?: string;
   /**
+   * Lab overview PI tooltips (Chip B, lab overview PI tooltips manager,
+   * 2026-05-25): the 1-2 sentence explanatory copy surfaced by the
+   * widget's tile-header "?" badge on /lab-overview. Answers "What is
+   * this widget? Who can see it? What is the main action?"
+   *
+   * Per-widget files export their own `HELP_TEXT` constant so the copy
+   * lives next to the widget body it explains; the registry references
+   * those exports instead of inlining sentences here. When unset, the
+   * widget tile renders without a help badge.
+   */
+  helpText?: string;
+  /**
    * Phase C (Tools refactor manager, 2026-05-23): the Tool this widget
    * is a tile-variant of. The popup body is looked up via the Tool
    * registry by this id, so multiple widget variants of the same tool

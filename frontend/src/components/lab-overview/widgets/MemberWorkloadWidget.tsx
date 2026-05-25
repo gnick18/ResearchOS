@@ -306,6 +306,13 @@ export function SnapshotTile(_props: SnapshotTileProps) {
 
 export const ExpandedView = MemberWorkloadWidget;
 
+/**
+ * Lab overview PI tooltips (Chip B, 2026-05-25): help-badge copy for
+ * the Member workload sidebar tile. PI-only.
+ */
+export const HELP_TEXT =
+  "Open and overdue task counts for every lab member. PI only. Spot who is underwater before standup, click any row to drill into that person's queue.";
+
 // ─────────────────────────────────────────────────────────────────────────────
 // SidebarTile — single-row workload summary. "X members · Y overdue"
 // is the at-a-glance "is anyone underwater?" cue.

@@ -459,4 +459,11 @@ export const SidebarTile = LabPurchasesSidebarTile;
  */
 export const ExpandedView = LabPurchasesWidget;
 
+/**
+ * Lab overview PI tooltips (Chip B, 2026-05-25): help-badge copy for
+ * the burn-rate variant of the Purchases tile. Lab-head-only widget.
+ */
+export const HELP_TEXT =
+  "Approved purchase spend across the last 4 weeks, week by week. PI only. Use it to spot funding burn-rate spikes before they bite.";
+
 export default LabPurchasesWidget;

@@ -876,6 +876,16 @@ function SnapshotComposer({
 // The default-exported body above IS the expanded view.
 export const ExpandedView = AnnouncementsWidget;
 
+/**
+ * Lab overview PI tooltips (Chip B, lab overview PI tooltips manager,
+ * 2026-05-25): tile-header help-badge copy. Lives next to the widget
+ * body it explains; the registry references this export so the copy
+ * surfaces in the "?" badge that auto-opens once on Mira's first
+ * /lab-overview visit.
+ */
+export const HELP_TEXT =
+  "Lab-wide bulletin board. PIs post pinned announcements that every member sees on their home page; members can react but only PIs can compose.";
+
 export function SidebarTile({ onClick }: SidebarTileProps) {
   const { data: announcements = [], isLoading } = useQuery({
     queryKey: LAB_ANNOUNCEMENTS_QUERY_KEY,

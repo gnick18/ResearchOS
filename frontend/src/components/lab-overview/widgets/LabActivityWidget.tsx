@@ -850,6 +850,13 @@ export function SnapshotTile(_props: SnapshotTileProps) {
 
 export const ExpandedView = LabActivityWidget;
 
+/**
+ * Lab overview PI tooltips (Chip B, 2026-05-25): help-badge copy for
+ * the Lab activity feed.
+ */
+export const HELP_TEXT =
+  "A deep, paginated feed of everything happening in the lab. Comments, task changes, flags, and announcements all interleaved by time, filterable by type.";
+
 export function SidebarTile({ onClick }: SidebarTileProps) {
   const { tasks } = useLabData();
   const { data: notes = [], isLoading } = useQuery<Note[]>({

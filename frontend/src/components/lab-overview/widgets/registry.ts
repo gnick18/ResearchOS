@@ -37,50 +37,62 @@ import type { WidgetDefinition } from "./types";
 import AnnouncementsWidget, {
   SnapshotTile as AnnouncementsSnapshot,
   SidebarTile as AnnouncementsSidebar,
+  HELP_TEXT as AnnouncementsHelp,
 } from "./AnnouncementsWidget";
 import CommentFeedWidget, {
   SnapshotTile as CommentFeedSnapshot,
   SidebarTile as CommentFeedSidebar,
+  HELP_TEXT as CommentFeedHelp,
 } from "./CommentFeedWidget";
 import MetricsWidget, {
   SnapshotTile as MetricsSnapshot,
   SidebarTile as MetricsSidebar,
+  HELP_TEXT as MetricsHelp,
 } from "./MetricsWidget";
 import RecentActivityWidget, {
   SnapshotTile as RecentActivitySnapshot,
   SidebarTile as RecentActivitySidebar,
+  HELP_TEXT as RecentActivityHelp,
 } from "./RecentActivityWidget";
 import PiActionsWidget, {
   SnapshotTile as PiActionsSnapshot,
   SidebarTile as PiActionsSidebar,
+  HELP_TEXT as PiActionsHelp,
 } from "./PiActionsWidget";
 import MemberWorkloadWidget, {
   SnapshotTile as MemberWorkloadSnapshot,
   SidebarTile as MemberWorkloadSidebar,
+  HELP_TEXT as MemberWorkloadHelp,
 } from "./MemberWorkloadWidget";
 import TodaysAnnouncementsWidget, {
   SnapshotTile as TodaysAnnouncementsSnapshot,
   SidebarTile as TodaysAnnouncementsSidebar,
+  HELP_TEXT as TodaysAnnouncementsHelp,
 } from "./TodaysAnnouncementsWidget";
 import LabNotesWidget, {
   SnapshotTile as LabNotesSnapshot,
   SidebarTile as LabNotesSidebar,
+  HELP_TEXT as LabNotesHelp,
 } from "./LabNotesWidget";
 import LabExperimentsWidget, {
   SnapshotTile as LabExperimentsSnapshot,
   SidebarTile as LabExperimentsSidebar,
+  HELP_TEXT as LabExperimentsHelp,
 } from "./LabExperimentsWidget";
 import LabActivityWidget, {
   SnapshotTile as LabActivitySnapshot,
   SidebarTile as LabActivitySidebar,
+  HELP_TEXT as LabActivityHelp,
 } from "./LabActivityWidget";
 import LabPurchasesWidget, {
   SnapshotTile as LabPurchasesSnapshot,
   SidebarTile as LabPurchasesSidebar,
+  HELP_TEXT as LabPurchasesHelp,
 } from "./LabPurchasesWidget";
 import {
   SnapshotTile as LabPurchasesBurnRateSnapshot,
   SidebarTile as LabPurchasesBurnRateSidebar,
+  HELP_TEXT as LabPurchasesBurnRateHelp,
 } from "./LabPurchasesBurnRateWidget";
 import {
   SnapshotTile as LabPurchasesPendingCountSnapshot,
@@ -143,6 +155,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     toolId: "announcements",
     title: "Announcements",
     description: "Lab-wide updates. PI composer + pinned posts.",
+    helpText: AnnouncementsHelp,
     SnapshotTile: AnnouncementsSnapshot,
     SidebarTile: AnnouncementsSidebar,
     defaultLayout: { w: 12, h: 3, minW: 4, minH: 2 },
@@ -159,6 +172,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     toolId: "comments",
     title: "Lab comments",
     description: "Every comment thread across the lab, newest first.",
+    helpText: CommentFeedHelp,
     SnapshotTile: CommentFeedSnapshot,
     SidebarTile: CommentFeedSidebar,
     defaultLayout: { w: 8, h: 6, minW: 4, minH: 3 },
@@ -190,6 +204,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     toolId: "metrics",
     title: "Lab metrics",
     description: "Cross-lab Gantt overlay + funding + roadmap rollup.",
+    helpText: MetricsHelp,
     SnapshotTile: MetricsSnapshot,
     SidebarTile: MetricsSidebar,
     defaultLayout: { w: 4, h: 6, minW: 4, minH: 4 },
@@ -209,6 +224,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     title: "Lab notes",
     description:
       "Cross-lab notes the viewer can read (canRead filter), searchable + filterable.",
+    helpText: LabNotesHelp,
     SnapshotTile: LabNotesSnapshot,
     SidebarTile: LabNotesSidebar,
     defaultLayout: { w: 6, h: 6, minW: 4, minH: 4 },
@@ -223,6 +239,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     toolId: "experiments",
     title: "Lab experiments",
     description: "Outcome gallery of every lab member's experiments.",
+    helpText: LabExperimentsHelp,
     SnapshotTile: LabExperimentsSnapshot,
     SidebarTile: LabExperimentsSidebar,
     defaultLayout: { w: 6, h: 6, minW: 4, minH: 4 },
@@ -255,6 +272,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     title: "Lab activity",
     description:
       "Deep, paginated activity feed across the lab (comments, tasks, flags, announcements).",
+    helpText: LabActivityHelp,
     SnapshotTile: LabActivitySnapshot,
     SidebarTile: LabActivitySidebar,
     defaultLayout: { w: 6, h: 8, minW: 4, minH: 5 },
@@ -299,6 +317,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     title: "Lab purchases",
     description:
       "Pending approvals, recent purchases, and funding rollup. Lab head only.",
+    helpText: LabPurchasesHelp,
     SnapshotTile: LabPurchasesSnapshot,
     SidebarTile: LabPurchasesSidebar,
     defaultLayout: { w: 6, h: 8, minW: 4, minH: 5 },
@@ -315,6 +334,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     title: "Purchase burn rate",
     description:
       "Approved purchase spend over the last 4 weeks. Lab head only.",
+    helpText: LabPurchasesBurnRateHelp,
     SnapshotTile: LabPurchasesBurnRateSnapshot,
     SidebarTile: LabPurchasesBurnRateSidebar,
     defaultLayout: { w: 4, h: 6, minW: 3, minH: 4 },
@@ -343,6 +363,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     toolId: "recent-activity",
     title: "Recent lab activity",
     description: "Newest comments, shares, and task creations across the lab.",
+    helpText: RecentActivityHelp,
     SnapshotTile: RecentActivitySnapshot,
     SidebarTile: RecentActivitySidebar,
     defaultLayout: { w: 1, h: 1 },
@@ -354,6 +375,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     toolId: "pi-actions",
     title: "Pending lab head actions",
     description: "Purchase approvals + flag queue counts (R3).",
+    helpText: PiActionsHelp,
     SnapshotTile: PiActionsSnapshot,
     SidebarTile: PiActionsSidebar,
     defaultLayout: { w: 1, h: 1 },
@@ -365,6 +387,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     toolId: "member-workload",
     title: "Member workload",
     description: "Open + overdue counts per lab member.",
+    helpText: MemberWorkloadHelp,
     SnapshotTile: MemberWorkloadSnapshot,
     SidebarTile: MemberWorkloadSidebar,
     defaultLayout: { w: 1, h: 1 },
@@ -376,6 +399,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     toolId: "todays-announcements",
     title: "Today's announcements",
     description: "Pinned announcements, titles only.",
+    helpText: TodaysAnnouncementsHelp,
     SnapshotTile: TodaysAnnouncementsSnapshot,
     SidebarTile: TodaysAnnouncementsSidebar,
     defaultLayout: { w: 1, h: 1 },

@@ -234,6 +234,27 @@ export interface OnboardingSidecar {
    *  (archive OR restore). Preserved on restore for audit. `null` (or
    *  absent) = never archived. */
   archived_by?: string | null;
+
+  // ── Lab overview PI tooltips (Chip B, lab overview PI tooltips
+  // manager, 2026-05-25) ──────────────────────────────────────────────
+  //
+  // Inline first-paint tooltip badges live on each /lab-overview widget
+  // tile header. The FIRST widget's tooltip auto-opens once per Mira-
+  // session; every subsequent visit (and every other widget) is click-
+  // only. This timestamp records the one-shot auto-open so a refresh
+  // doesn't re-trigger.
+  //
+  // Optional + nullable so existing sidecars and test fixtures don't
+  // need to enumerate the field. `null` (or absent) = never auto-opened
+  // = the next /lab-overview visit by a lab_head fires it once. An ISO
+  // timestamp = already fired; the auto-open never re-runs for this
+  // user. Only lab_head viewers ever write or read this field; member
+  // surfaces ignore it entirely.
+
+  /** ISO 8601 timestamp set the first time a lab_head saw the auto-
+   *  opened first-widget tooltip on /lab-overview. `null` (or absent)
+   *  = never auto-fired. */
+  lab_overview_tooltips_seen_at?: string | null;
 }
 
 function sidecarPath(username: string): string {
@@ -260,6 +281,11 @@ function makeDefault(): OnboardingSidecar {
     archived: false,
     archived_at: null,
     archived_by: null,
+    // Lab overview PI tooltips (Chip B, lab overview PI tooltips manager,
+    // 2026-05-25): one-shot auto-open marker. Fresh users start with the
+    // tooltip un-fired; the next /lab-overview visit by a lab_head pops
+    // the first widget's tooltip and stamps this timestamp.
+    lab_overview_tooltips_seen_at: null,
   };
 }
 
@@ -345,6 +371,16 @@ function normalize(raw: Partial<OnboardingSidecar> | null): OnboardingSidecar {
   const archived_by =
     typeof r.archived_by === "string" ? (r.archived_by as string) : null;
 
+  // Lab overview PI tooltips (Chip B, lab overview PI tooltips manager,
+  // 2026-05-25): one-shot auto-open marker. Accept any ISO string;
+  // anything else (missing, null, malformed) normalizes back to null so
+  // a corrupted blob can't accidentally hide the auto-open from a fresh
+  // user.
+  const lab_overview_tooltips_seen_at =
+    typeof r.lab_overview_tooltips_seen_at === "string"
+      ? (r.lab_overview_tooltips_seen_at as string)
+      : null;
+
   return {
     version: SCHEMA_VERSION,
     first_seen_at,
@@ -360,6 +396,7 @@ function normalize(raw: Partial<OnboardingSidecar> | null): OnboardingSidecar {
     archived,
     archived_at,
     archived_by,
+    lab_overview_tooltips_seen_at,
   };
 }
 
