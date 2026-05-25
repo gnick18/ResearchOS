@@ -38,6 +38,15 @@ export interface WidgetFrameProps {
   /** When mounted inside a sidebar rail, the body padding shrinks to
    *  fit the narrower column. */
   surface: "canvas" | "sidebar";
+  /**
+   * Optional tour-surface tag (home widgets surface-prep manager,
+   * 2026-05-25). When mounted inside the /home page's widget canvas
+   * (where `surface` is still `"canvas"` for layout-shape parity), the
+   * caller passes `tourSurface="home"` so the drag-handle header
+   * stamps the §6.2b walkthrough's `home-widget-drag-handle` anchor.
+   * Defaults to undefined, in which case no tour anchor is stamped.
+   */
+  tourSurface?: "home";
   /** The widget body. */
   children: ReactNode;
 }
@@ -49,14 +58,24 @@ export default function Widget({
   isEditing,
   onRemove,
   surface,
+  tourSurface,
   children,
 }: WidgetFrameProps) {
+  // §6.2b Home widgets walkthrough anchor (home widgets surface-prep
+  // manager, 2026-05-25). The drag handle is the entire header bar
+  // (the `.lab-widget-drag-handle` class react-grid-layout watches).
+  // When mounted on /home in edit mode the header stamps
+  // `home-widget-drag-handle` so the §6.2b reorder demo can find and
+  // grab it. Off-home (or out of edit mode) no tour anchor is stamped.
+  const tourDragHandle =
+    tourSurface === "home" && isEditing ? "home-widget-drag-handle" : undefined;
   return (
     <div
       data-widget-id={id}
       className="h-full w-full flex flex-col bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden"
     >
       <header
+        data-tour-target={tourDragHandle}
         className={`flex items-center gap-2 border-b border-gray-100 ${
           surface === "sidebar" ? "px-2.5 py-1.5" : "px-3 py-2"
         } ${

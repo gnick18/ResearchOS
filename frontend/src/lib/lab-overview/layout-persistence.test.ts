@@ -424,6 +424,23 @@ describe("resolveHomeLayout + defaultHomeLayoutFor", () => {
       memberVisible: true,
     },
     {
+      // Home widgets surface-prep manager (2026-05-25): the
+      // Upcoming-tasks widget is the project-aware half of the new
+      // 2-widget home default. Opted into the `home` surface +
+      // `labHeadVisible: true` so both account types get it on first
+      // load.
+      id: "sidebar-upcoming",
+      toolId: "daily-tasks",
+      variantId: "upcoming",
+      title: "Upcoming tasks",
+      SnapshotTile: NullSnapshot,
+      SidebarTile: NullSidebar,
+      defaultLayout: { w: 4, h: 4 },
+      surfaces: { sidebar: true, home: true },
+      memberVisible: true,
+      labHeadVisible: true,
+    },
+    {
       id: "metrics",
       toolId: "metrics",
       title: "Lab metrics",
@@ -440,18 +457,30 @@ describe("resolveHomeLayout + defaultHomeLayoutFor", () => {
   it("falls back to the member default when home_layout is undefined", () => {
     const layout = resolveHomeLayout(undefined, "member", homeCatalog);
     expect(layout.version).toBe(LAB_OVERVIEW_LAYOUT_VERSION);
-    // The four Grant-called-out signals, in order. The today's-events
-    // slot points at the new CalendarEventsTodayWidget (2026-05-24);
-    // sidebar-todays-announcements remains in the catalog but is no
-    // longer the default.
+    // Home widgets surface-prep manager (2026-05-25): shrunk from 4
+    // signals to 2 (one project-aware, one calendar-aware) per the
+    // §6.2b walkthrough proposal. Upcoming tasks first, then today's
+    // events.
     expect(layout.widgetOrder.canvas).toEqual([
-      "announcements",
-      "comment-feed",
-      "lab-activity",
+      "sidebar-upcoming",
       "calendar-events-today",
     ]);
     // Home doesn't use the sidebar axis (today).
     expect(layout.widgetOrder.sidebar).toEqual([]);
+  });
+
+  it("seeds new lab_head accounts with the same 2 home defaults as members", () => {
+    // Home widgets surface-prep manager (2026-05-25): lab heads also
+    // get the home canvas (they can pin personal widgets there
+    // alongside projects). They get the same 2-widget seed so the
+    // §6.2b walkthrough shows a consistent shape regardless of account
+    // type. Both widgets carry `labHeadVisible: true` so they survive
+    // the visibleCatalog filter.
+    const layout = resolveHomeLayout(undefined, "lab_head", homeCatalog);
+    expect(layout.widgetOrder.canvas).toEqual([
+      "sidebar-upcoming",
+      "calendar-events-today",
+    ]);
   });
 
   it("uses the same default for lab heads (they get /lab-overview for the dense dashboard)", () => {
@@ -460,6 +489,48 @@ describe("resolveHomeLayout + defaultHomeLayoutFor", () => {
     expect(headDefault.widgetOrder.canvas).toEqual(
       memberDefault.widgetOrder.canvas,
     );
+  });
+
+  it("default seed is in the documented order: upcoming-tasks first, today's-events second", () => {
+    // Home widgets surface-prep manager (2026-05-25): the order is
+    // load-bearing for the §6.2b walkthrough — Upcoming tasks (top)
+    // explicitly demonstrates a project-aware tile, Today's events
+    // (below) demonstrates a calendar-aware tile. Asserting the
+    // sequence here so a future "alphabetize the defaults" refactor
+    // can't silently break the walkthrough copy.
+    const def = defaultHomeLayoutFor("member");
+    expect(def.widgetOrder.canvas).toHaveLength(2);
+    expect(def.widgetOrder.canvas[0]).toBe("sidebar-upcoming");
+    expect(def.widgetOrder.canvas[1]).toBe("calendar-events-today");
+  });
+
+  it("the new default seed only applies to accounts WITHOUT a saved layout", () => {
+    // Home widgets surface-prep manager (2026-05-25): the brief
+    // requires the new 2-widget seed land in the default-initializer
+    // code path, NOT as a migration. Existing users who already have
+    // a saved home_layout (the old 4-widget default before the seed
+    // shrink, or any custom curation) keep it untouched.
+    const oldFourWidgetSaved: LabOverviewLayout = {
+      version: 2,
+      widgetOrder: {
+        canvas: [
+          "announcements",
+          "comment-feed",
+          "lab-activity",
+          "calendar-events-today",
+        ],
+        sidebar: [],
+      },
+    };
+    const layout = resolveHomeLayout(oldFourWidgetSaved, "member", homeCatalog);
+    // The saved 4 widgets survive unchanged; the new 2-widget seed is
+    // NOT injected on top.
+    expect(layout.widgetOrder.canvas).toEqual([
+      "announcements",
+      "comment-feed",
+      "lab-activity",
+      "calendar-events-today",
+    ]);
   });
 
   it("drops widget ids that aren't home-eligible", () => {

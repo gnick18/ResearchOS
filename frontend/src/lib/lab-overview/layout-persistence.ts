@@ -418,27 +418,37 @@ export async function resetLayout(username: string): Promise<void> {
 // schema migration.
 
 /**
- * Home canvas default for a fresh member: the 4 signals Grant called
- * out ("announcements + comments-on-my-work + lab activity + today's
- * events"). All 4 widget ids exist in the catalog with `surfaces.home:
- * true`. The today's-events slot points at `calendar-events-today`
- * (CalendarEventsTodayWidget manager, 2026-05-24), the dedicated
- * calendar-events tile that reads the calendar feed plus subscribed
- * external feeds. The previous slot held `sidebar-todays-announcements`
- * as a stand-in because no calendar-events-today widget existed yet;
- * users who saved that order keep it (resolveHomeLayout is
- * append-only), but fresh users now land on the true events tile.
+ * Home canvas default for a fresh member.
+ *
+ * Home widgets surface-prep manager (2026-05-25): pre-seed shrunk from
+ * 4 widgets to 2 — one project-aware (Upcoming tasks) and one
+ * calendar-aware (Today's events). This matches the §6.2b walkthrough
+ * proposal §9 question 4: "Pre-seed the canvas with 1-2 default
+ * widgets before the tour starts so the canvas isn't empty when
+ * §6.2b-canvas-intro fires." Grant green-lit 2.
+ *
+ *   - `sidebar-upcoming` → "Upcoming tasks" snapshot tile (project-aware:
+ *     it reads the user's own tasks across their projects). The widget
+ *     is opted into the `home` surface as part of this change.
+ *   - `calendar-events-today` → "Today's events" tile (calendar-aware:
+ *     reads the user's subscribed calendar feeds).
+ *
+ * Existing users who already have a saved `home_layout` keep it
+ * untouched: the change lives entirely in the default-initializer
+ * code path, not in a migration. `resolveHomeLayout` only consults
+ * this default when `saved` is undefined.
+ *
+ * Pre-2026-05-25 the default was 4 widgets (announcements + comments +
+ * lab-activity + calendar-events-today). The lab-overview/index of
+ * lab-activity + announcements + comments still lives in the catalog
+ * and can be pinned via the Add widget palette, but starting blank-
+ * adjacent (2 tiles) matches Grant's user-curated home thesis better.
  */
 function defaultMemberHomeLayout(): LabOverviewLayout {
   return {
     version: LAB_OVERVIEW_LAYOUT_VERSION,
     widgetOrder: {
-      canvas: [
-        "announcements",
-        "comment-feed",
-        "lab-activity",
-        "calendar-events-today",
-      ],
+      canvas: ["sidebar-upcoming", "calendar-events-today"],
       // Home sidebar is unused today (see note above). Leave empty so
       // the home canvas reader has a stable shape to read.
       sidebar: [],
@@ -449,20 +459,19 @@ function defaultMemberHomeLayout(): LabOverviewLayout {
 /**
  * Home canvas default for a fresh lab head. Grant's brief: "Lab heads
  * ALSO get the Home canvas (they can pin personal widgets there
- * alongside their projects)." Lab heads get the same 4 default home
+ * alongside their projects)." Lab heads get the same 2 default home
  * signals as members — they can extend per taste, and they still have
  * /lab-overview for the dense PI dashboard.
+ *
+ * Home widgets surface-prep manager (2026-05-25): mirrored the member
+ * default shrink to 2 widgets so the walkthrough's §6.2b canvas-intro
+ * step shows the same shape regardless of account type.
  */
 function defaultLabHeadHomeLayout(): LabOverviewLayout {
   return {
     version: LAB_OVERVIEW_LAYOUT_VERSION,
     widgetOrder: {
-      canvas: [
-        "announcements",
-        "comment-feed",
-        "lab-activity",
-        "calendar-events-today",
-      ],
+      canvas: ["sidebar-upcoming", "calendar-events-today"],
       sidebar: [],
     },
   };

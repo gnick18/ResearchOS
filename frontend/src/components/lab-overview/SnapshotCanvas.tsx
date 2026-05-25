@@ -299,6 +299,13 @@ export default function SnapshotCanvas({
               if (!isEditing) setIsEditing(true);
               setShowPalette((p) => !p);
             }}
+            // §6.2b Home widgets walkthrough anchor (home widgets
+            // surface-prep manager, 2026-05-25). Stamps only on the
+            // /home mount so the /lab-overview canvas isn't affected.
+            // See targets.ts `homeWidgetAddButton`.
+            data-tour-target={
+              surface === "home" ? "home-widget-add-button" : undefined
+            }
             className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
           >
             + Add widget
@@ -337,6 +344,12 @@ export default function SnapshotCanvas({
 
         {showPalette && (
           <div
+            // §6.2b Home widgets walkthrough anchor (home widgets
+            // surface-prep manager, 2026-05-25). Catalog root stamps
+            // only on the /home mount.
+            data-tour-target={
+              surface === "home" ? "home-widget-catalog" : undefined
+            }
             className="absolute top-full right-0 mt-2 w-72 bg-white border border-gray-200 rounded-lg shadow-lg z-30 p-2 max-h-96 overflow-auto"
             role="dialog"
             aria-label="Add widget palette"
@@ -359,6 +372,16 @@ export default function SnapshotCanvas({
                       isMounted
                         ? handleRemoveWidget(widget.id)
                         : handleAddWidget(widget.id)
+                    }
+                    // §6.2b Home widgets walkthrough anchor (home
+                    // widgets surface-prep manager, 2026-05-25). Each
+                    // catalog item gets a per-widget-id suffix; the
+                    // step body selects via prefix match or the exact
+                    // id. Stamps only on the /home mount.
+                    data-tour-target={
+                      surface === "home"
+                        ? `home-widget-catalog-item-${widget.id}`
+                        : undefined
                     }
                     className="w-full text-left px-2 py-2 rounded hover:bg-gray-50 flex items-start gap-2"
                   >
@@ -432,6 +455,20 @@ export default function SnapshotCanvas({
           const Tile = def.SnapshotTile;
           const isDragOver = dragOverId === id && dragId && dragId !== id;
           const isDragging = dragId === id;
+          // §6.2b Home widgets walkthrough anchor (home widgets
+          // surface-prep manager, 2026-05-25). On /home the tile root
+          // absorbs the click-to-expand (no dedicated expand-button
+          // affordance exists), so the per-tile `home-widget-tile-<id>`
+          // attribute IS the click target for both the tile-anatomy
+          // demo (click to expand) and the reorder demo (drag-handle
+          // grab via its child header). Step bodies select via
+          // `[data-tour-target^='home-widget-tile-']` for the prefix
+          // case, or the exact id when they need a specific widget.
+          // The `homeWidgetExpandButton` constant in targets.ts is
+          // documented as resolving to the SAME node (no separate
+          // attribute, single-source-of-truth selector per node).
+          const tourTileTarget =
+            surface === "home" ? `home-widget-tile-${id}` : undefined;
           return (
             <div
               key={id}
@@ -440,6 +477,7 @@ export default function SnapshotCanvas({
               onDragOver={(e) => handleDragOver(e, id)}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, id)}
+              data-tour-target={tourTileTarget}
               className={`h-44 transition-shadow ${
                 isEditing ? "cursor-move" : "cursor-pointer"
               } ${isDragging ? "opacity-40" : ""} ${
@@ -469,6 +507,7 @@ export default function SnapshotCanvas({
                 isEditing={isEditing}
                 onRemove={() => handleRemoveWidget(id)}
                 surface="canvas"
+                tourSurface={surface === "home" ? "home" : undefined}
               >
                 <Tile surface="canvas" />
               </Widget>
