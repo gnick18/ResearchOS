@@ -27,11 +27,11 @@ export default function LabHeadFeaturePage() {
       <p>
         The role is a single flag on a user&apos;s metadata:{" "}
         <code>account_type</code>, with values <code>&quot;member&quot;</code>{" "}
-        (the default) or <code>&quot;lab_head&quot;</code>. There is one Lab
-        Head slot per lab folder. The user filling that slot is otherwise a
-        normal account: they have their own projects, their own tasks, their
-        own notes. The Lab Head role does not replace any of that, it adds a
-        layer of cross-lab affordances on top.
+        (the default) or <code>&quot;lab_head&quot;</code>. A lab folder can
+        have one or more accounts flagged as Lab Head; co-PI labs simply set
+        the flag on every PI. A Lab Head is otherwise a normal account: they
+        have their own projects, tasks, and notes. The role does not replace
+        any of that, it adds a layer of cross-lab affordances on top.
       </p>
       <p>
         Picking a Lab Head is a deliberate decision the lab makes. Usually
