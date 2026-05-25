@@ -11,11 +11,11 @@
 //     thinking, typing, typing-on-laptop, bow-wink, giggle,
 //     rolling-laughing, volcano-eruption, sleeping, hiccup, yawn,
 //     reading, panicked, amazed, embarrassed)
-//   - 11 multi-stage scene components (Ladder, BugStomp, Skateboard,
-//     ScreenBump, TooManyBeakers, MouseWave, Centrifuge, Eureka,
-//     CoffeeRefill, BlowingBubbles, PipetteAim)
+//   - 9 multi-stage scene components (Ladder, BugStomp, Skateboard,
+//     TooManyBeakers, MouseWave, Centrifuge, Eureka, CoffeeRefill,
+//     BlowingBubbles)
 //   - 3 pose-celebration variants (cheering, bouncing, volcano-eruption)
-//   = 35 entries total
+//   = 33 entries total
 //
 // Loop mechanic:
 //   - Scenes: on onComplete, flip active=false, wait 500ms, bump a
@@ -45,14 +45,12 @@ import BeakerBot, { type BeakerBotPose } from "@/components/BeakerBot";
 import BeakerBotLadderScene from "@/components/BeakerBotLadderScene";
 import BeakerBotBugStompScene from "@/components/BeakerBotBugStompScene";
 import BeakerBotSkateboardScene from "@/components/BeakerBotSkateboardScene";
-import BeakerBotScreenBumpScene from "@/components/BeakerBotScreenBumpScene";
 import BeakerBotTooManyBeakersScene from "@/components/BeakerBotTooManyBeakersScene";
 import BeakerBotMouseWaveScene from "@/components/BeakerBotMouseWaveScene";
 import BeakerBotCentrifugeScene from "@/components/BeakerBotCentrifugeScene";
 import BeakerBotEurekaScene from "@/components/BeakerBotEurekaScene";
 import BeakerBotCoffeeRefillScene from "@/components/BeakerBotCoffeeRefillScene";
 import BeakerBotBlowingBubblesScene from "@/components/BeakerBotBlowingBubblesScene";
-import BeakerBotPipetteAimScene from "@/components/BeakerBotPipetteAimScene";
 import BeakerBotPoseCelebrationScene from "@/components/onboarding/BeakerBotPoseCelebrationScene";
 
 // ── Catalog types ──────────────────────────────────────────────────────────
@@ -322,7 +320,7 @@ const POSES: PoseEntry[] = [
   },
 ];
 
-/** 8 multi-stage scene components. All share the {active, onComplete}
+/** 9 multi-stage scene components. All share the {active, onComplete}
  *  envelope so the gallery can drive them through one code path. */
 const SCENES: SceneEntry[] = [
   {
@@ -350,15 +348,6 @@ const SCENES: SceneEntry[] = [
     Component: BeakerBotSkateboardScene as unknown as SceneComponent,
     description:
       "BeakerBot cruises across the viewport on a skateboard, then exits the opposite side.",
-    timingNote: "Multi-stage one-shot",
-  },
-  {
-    kind: "scene",
-    id: "scene:screen-bump",
-    label: "BeakerBotScreenBumpScene",
-    Component: BeakerBotScreenBumpScene as unknown as SceneComponent,
-    description:
-      "BeakerBot bonks into a viewport edge with a comic-style impact star.",
     timingNote: "Multi-stage one-shot",
   },
   {
@@ -415,15 +404,6 @@ const SCENES: SceneEntry[] = [
       "BeakerBot blows bubbles that drift across the screen. Click any bubble to pop it, or they auto-pop after a few seconds.",
     timingNote: "~8000ms total",
   },
-  {
-    kind: "scene",
-    id: "scene:pipette-aim",
-    label: "BeakerBotPipetteAimScene",
-    Component: BeakerBotPipetteAimScene as unknown as SceneComponent,
-    description:
-      "BeakerBot carries a pipette to a tiny well plate, aims with a hand-shake, drops a single droplet that lands in the target well with a ripple, then sparkles + walks off.",
-    timingNote: "~4000ms total",
-  },
 ];
 
 /** 3 pose-celebration variants. The wrapper component portals a single
@@ -460,7 +440,7 @@ const POSE_CELEBRATIONS: PoseCelebrationEntry[] = [
 ];
 
 /** Single flat catalog. Order: poses, then scenes, then
- *  pose-celebrations. Tests assert counts (17 + 8 + 3 = 28). */
+ *  pose-celebrations. Tests assert counts (21 + 9 + 3 = 33). */
 export const BEAKERBOT_ANIMATION_CATALOG: readonly CatalogEntry[] = [
   ...POSES,
   ...SCENES,

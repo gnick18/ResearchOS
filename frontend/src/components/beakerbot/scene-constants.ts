@@ -7,10 +7,9 @@
 // heights. Scene polish B standardizes the bench/floor line so the
 // composition reads consistently regardless of which scene rolled.
 //
-// Skateboard's `bottomY` prop (default 85 = 85%) and ScreenBump's
-// anchor-variable layout deliberately stay outside this constant —
-// those scenes don't share the "BeakerBot on a bench" framing, so a
-// shared ground-line would actively hurt them.
+// Skateboard's `bottomY` prop (default 85 = 85%) deliberately stays
+// outside this constant: that scene doesn't share the "BeakerBot on a
+// bench" framing, so a shared ground-line would actively hurt it.
 
 /** Vertical distance from the bottom of the viewport to BeakerBot's
  *  feet across the bench-style scenes (Ladder, BugStomp,

@@ -4,32 +4,29 @@
 //
 // Shared particle-burst primitive for the BeakerBot easter-egg scenes.
 //
-// Before Scene polish B, three scenes each rolled their own particle
+// Before Scene polish B, multiple scenes each rolled their own particle
 // system:
 //   - Eureka: 8 rainbow sparkle-stars radiating from the light bulb,
 //     each tweening from origin to (cos(theta)*R, sin(theta)*R).
-//   - ScreenBump: 4 yellow "+" sparkles at fixed offsets around the
-//     bonk point. Visibility flipped externally (not a one-shot fire).
 //   - Centrifuge SplatterField: per-tube droplets at the tubes'
 //     landing points (so the splatter visually matches where each
 //     tube fell), each with its own delay.
 //
-// This primitive supports two placement modes so all three call sites
-// can share one implementation:
+// This primitive supports two placement modes so the call sites can
+// share one implementation:
 //
 //   1. **Radial mode** (`count + radius`): auto-distribute `count`
-//      particles evenly around a circle of `radius` px. Eureka +
-//      ScreenBump fit this mode.
+//      particles evenly around a circle of `radius` px. Eureka fits
+//      this mode.
 //
 //   2. **Explicit positions** (`positions={[{x, y, ...}, ...]}`):
 //      caller supplies per-particle coordinates. Centrifuge
 //      SplatterField uses this so each droplet lands near its tube.
 //
 // Particle shapes:
-//   - `"star"`: 4-point sparkle star SVG (Eureka, ScreenBump).
+//   - `"star"`: 4-point sparkle star SVG (Eureka).
 //   - `"circle"`: solid colored dot (Centrifuge splatter).
-//   - `"cross"`: simple `+` shape via two crossing line segments
-//     (ScreenBump's original "spawn-and-fade" look).
+//   - `"cross"`: simple `+` shape via two crossing line segments.
 //
 // All particle motion is keyframe-driven for compositor-friendliness.
 // The component owns NO trigger logic: render it when you want the
@@ -120,8 +117,7 @@ function StarGlyph({ color, size }: { color: string; size: number }) {
   );
 }
 
-/** Simple `+` cross — two stroked line segments. Used by the
- *  ScreenBump impact sparkles. */
+/** Simple `+` cross — two stroked line segments. */
 function CrossGlyph({ color, size }: { color: string; size: number }) {
   return (
     <svg

@@ -154,6 +154,8 @@ function celebrationSceneCount(): number {
         '[data-testid="beakerbot-ladder-scene"]',
         '[data-testid="beakerbot-eureka-scene"]',
         '[data-testid="beakerbot-mouse-wave-scene"]',
+        '[data-testid="beakerbot-skateboard-scene"]',
+        '[data-testid="beakerbot-too-many-beakers-scene"]',
         '[data-testid="beakerbot-pose-celebration-scene"]',
       ].join(","),
     ).length
@@ -199,9 +201,10 @@ describe("CelebrationManager", () => {
     // BeakerBotPoseCelebrationScene's hold timer when it's picked.
     //
     // Force-seed Math.random so the manager's pickRandomCelebration
-    // lands on the cheering pose (index 4 in the pool).
+    // lands on the cheering pose (index 6 in the pool after the
+    // 2026-05-25 additions of skateboard + tooManyBeakers).
     const realRandom = Math.random;
-    Math.random = () => 4 / CELEBRATION_POOL.length + 0.001;
+    Math.random = () => 6 / CELEBRATION_POOL.length + 0.001;
     try {
       vi.useFakeTimers();
       memFs.set(PATH, freshSidecar({ current_count: 7 }));
@@ -329,18 +332,18 @@ describe("CelebrationManager", () => {
 });
 
 describe("CELEBRATION_POOL composition", () => {
-  it("contains exactly six entries", () => {
-    expect(CELEBRATION_POOL).toHaveLength(6);
+  it("contains exactly eight entries", () => {
+    expect(CELEBRATION_POOL).toHaveLength(8);
   });
 
-  it("contains three multi-stage scenes and three pose entries", () => {
+  it("contains five multi-stage scenes and three pose entries", () => {
     const scenes = CELEBRATION_POOL.filter((c) => c.type === "scene");
     const poses = CELEBRATION_POOL.filter((c) => c.type === "pose");
-    expect(scenes).toHaveLength(3);
+    expect(scenes).toHaveLength(5);
     expect(poses).toHaveLength(3);
   });
 
-  it("includes the resolved pool members per proposal §6.7", () => {
+  it("includes the resolved pool members per proposal §6.7 plus the 2026-05-25 additions", () => {
     const keys = CELEBRATION_POOL.map((c) =>
       c.type === "scene" ? `scene:${c.component}` : `pose:${c.pose}`,
     ).sort();
@@ -352,24 +355,24 @@ describe("CELEBRATION_POOL composition", () => {
         "scene:eureka",
         "scene:ladder",
         "scene:mouseWave",
+        "scene:skateboard",
+        "scene:tooManyBeakers",
       ].sort(),
     );
   });
 
-  it("excludes slapstick scenes per proposal §6.7", () => {
+  it("still excludes bug-stomp + centrifuge (slapstick contexts that fire elsewhere)", () => {
     const keys = CELEBRATION_POOL.map((c) =>
       c.type === "scene" ? c.component : "",
     );
     expect(keys).not.toContain("centrifuge");
     expect(keys).not.toContain("bugStomp");
-    expect(keys).not.toContain("tooManyBeakers");
     expect(keys).not.toContain("screenBump");
-    expect(keys).not.toContain("skateboard");
   });
 });
 
 describe("pickRandomCelebration distribution", () => {
-  it("covers all six pool entries within 1000 picks", () => {
+  it("covers all eight pool entries within 1000 picks", () => {
     const seen = new Set<string>();
     for (let i = 0; i < 1000; i++) {
       const pick = pickRandomCelebration();
@@ -377,9 +380,9 @@ describe("pickRandomCelebration distribution", () => {
         pick.type === "scene" ? `scene:${pick.component}` : `pose:${pick.pose}`;
       seen.add(key);
     }
-    // All six pool entries should have been picked at least once over
+    // All eight pool entries should have been picked at least once over
     // 1000 draws. The chance of missing any one entry is
-    // (5/6)^1000 ≈ 5e-80, effectively zero.
-    expect(seen.size).toBe(6);
+    // (7/8)^1000 ≈ 5e-59, effectively zero.
+    expect(seen.size).toBe(8);
   });
 });

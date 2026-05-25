@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import BeakerBotEurekaScene from "@/components/BeakerBotEurekaScene";
 import BeakerBotLadderScene from "@/components/BeakerBotLadderScene";
 import BeakerBotMouseWaveScene from "@/components/BeakerBotMouseWaveScene";
+import BeakerBotSkateboardScene from "@/components/BeakerBotSkateboardScene";
+import BeakerBotTooManyBeakersScene from "@/components/BeakerBotTooManyBeakersScene";
 import {
   evaluatePendingCelebrations,
   markCelebrationSeen,
@@ -52,25 +54,34 @@ import BeakerBotPoseCelebrationScene from "./BeakerBotPoseCelebrationScene";
  */
 
 // --------------------------------------------------------------------
-// Celebration scene pool (proposal §6.7, RESOLVED 2026-05-21)
+// Celebration scene pool (proposal §6.7, RESOLVED 2026-05-21;
+// skateboard + tooManyBeakers added per Grant 2026-05-25)
 // --------------------------------------------------------------------
 
 /**
- * The six-scene random pool. Slapstick scenes (bug-stomp,
- * too-many-beakers, screen-bump, skateboard, centrifuge) are
- * explicitly EXCLUDED per §6.7. They fire in their own contexts and
- * don't carry a celebratory tone.
+ * The eight-scene random pool. Bug-stomp and centrifuge remain
+ * EXCLUDED: they fire in their own contexts and don't carry a
+ * celebratory tone.
  *
- * Three multi-stage scenes (ladder, eureka, mouseWave) and three
- * pose-only scenes (volcano-eruption, cheering, bouncing). The pose
- * entries are wrapped by BeakerBotPoseCelebrationScene to share the
- * `{ active, onComplete }` interface; the manager doesn't need to
- * special-case scene vs pose at the call site.
+ * Per Grant (2026-05-25), skateboard and too-many-beakers were
+ * promoted into the pool alongside the original six. Too-many-beakers
+ * leans slapstick rather than triumphant; it ships in the celebration
+ * pool per explicit direction and may be revisited later if it reads
+ * tonally off.
+ *
+ * Five multi-stage scenes (ladder, eureka, mouseWave, skateboard,
+ * tooManyBeakers) and three pose-only scenes (volcano-eruption,
+ * cheering, bouncing). The pose entries are wrapped by
+ * BeakerBotPoseCelebrationScene to share the `{ active, onComplete }`
+ * interface; the manager doesn't need to special-case scene vs pose
+ * at the call site.
  */
 export type CelebrationScene =
   | { type: "scene"; component: "ladder" }
   | { type: "scene"; component: "eureka" }
   | { type: "scene"; component: "mouseWave" }
+  | { type: "scene"; component: "skateboard" }
+  | { type: "scene"; component: "tooManyBeakers" }
   | { type: "pose"; pose: "volcano-eruption" }
   | { type: "pose"; pose: "cheering" }
   | { type: "pose"; pose: "bouncing" };
@@ -79,6 +90,8 @@ export const CELEBRATION_POOL: ReadonlyArray<CelebrationScene> = [
   { type: "scene", component: "ladder" },
   { type: "scene", component: "eureka" },
   { type: "scene", component: "mouseWave" },
+  { type: "scene", component: "skateboard" },
+  { type: "scene", component: "tooManyBeakers" },
   { type: "pose", pose: "volcano-eruption" },
   { type: "pose", pose: "cheering" },
   { type: "pose", pose: "bouncing" },
@@ -239,6 +252,16 @@ export default function CelebrationManager({ username }: CelebrationManagerProps
     if (active.scene.component === "mouseWave") {
       return (
         <BeakerBotMouseWaveScene active onComplete={onSceneComplete} />
+      );
+    }
+    if (active.scene.component === "skateboard") {
+      return (
+        <BeakerBotSkateboardScene active onComplete={onSceneComplete} />
+      );
+    }
+    if (active.scene.component === "tooManyBeakers") {
+      return (
+        <BeakerBotTooManyBeakersScene active onComplete={onSceneComplete} />
       );
     }
   }
