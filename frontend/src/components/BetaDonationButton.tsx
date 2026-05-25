@@ -67,7 +67,7 @@ export default function BetaDonationButton({ variant = "floating" }: BetaDonatio
           type="button"
           onClick={() => setShowModal(true)}
           aria-label="Support this project"
-          className="w-12 h-12 rounded-full bg-rose-500 hover:bg-rose-600 active:bg-rose-700 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-2"
+          className="pointer-events-auto w-12 h-12 rounded-full bg-rose-500 hover:bg-rose-600 active:bg-rose-700 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-2"
         >
           <HeartIcon className="w-5 h-5" />
         </button>

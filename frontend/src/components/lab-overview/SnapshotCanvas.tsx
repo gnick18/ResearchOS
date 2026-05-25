@@ -290,7 +290,15 @@ export default function SnapshotCanvas({
         <Tooltip label="Add a widget to the canvas" placement="bottom">
           <button
             type="button"
-            onClick={() => setShowPalette((p) => !p)}
+            onClick={() => {
+              // UI affordance fix (break-bot Bug 3, 2026-05-25): clicking
+              // "+ Add widget" while the canvas is locked auto-enters edit
+              // mode FIRST so the button never silently no-ops. Literal
+              // Reader flagged the prior behavior as a broken-affordance
+              // bug ("button promises action, does nothing").
+              if (!isEditing) setIsEditing(true);
+              setShowPalette((p) => !p);
+            }}
             className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
           >
             + Add widget

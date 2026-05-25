@@ -4,23 +4,24 @@ import type { ReactNode } from "react";
 import Tooltip from "@/components/Tooltip";
 
 /**
- * Lab Mode retirement R2 (R2 widget framework manager, 2026-05-23) +
- * Widget canvas Phase A (Phase A redispatch manager, 2026-05-23):
- * the canonical widget frame. Every Lab Overview widget — canvas
- * snapshot tile or sidebar tile — renders inside this wrapper. The
- * popup chrome (`SnapshotTilePopup`) supplies its own header; this
- * frame is only used at the snapshot layer.
+ * Lab Mode retirement R2 (R2 widget framework manager, 2026-05-23):
+ * the canonical widget frame. Every Lab Overview widget — canvas or
+ * sidebar — renders inside this wrapper.
  *
  * The frame owns:
  *   - the card chrome (rounded white surface, soft shadow, border)
- *   - the header bar (title + drag affordance in edit mode)
+ *   - the header bar (title + drag handle in edit mode)
  *   - the remove ("×") button (visible only in edit mode)
+ *   - the resize visual hint (a tiny corner glyph; the actual resize
+ *     handle is added by react-grid-layout when `isEditing` is true)
  *
- * Phase A: react-grid-layout is gone — the canvas is a CSS-grid of
- * tiles with native HTML5 drag-and-drop wired by the parent. The
- * frame's header still shows a drag-handle glyph in edit mode for
- * visual affordance, but the actual draggable attribute is on the
- * parent tile wrapper, not on the header.
+ * Widget bodies render in the content slot and are completely free of
+ * drag / resize concerns: react-grid-layout sees the parent `<div>` we
+ * mount via WidgetCanvas and attaches handles automatically. The drag
+ * handle inside this frame is wired via the `.lab-widget-drag-handle`
+ * class so react-grid-layout's `draggableHandle` prop picks it up,
+ * which is what keeps clicks inside the widget body (comment rows,
+ * link cards, etc.) from accidentally starting a drag.
  */
 export interface WidgetFrameProps {
   /** Stable widget id — used by the canvas to wire grid positioning. */
@@ -60,19 +61,39 @@ export default function Widget({
           surface === "sidebar" ? "px-2.5 py-1.5" : "px-3 py-2"
         } ${
           isEditing
-            ? "cursor-grab active:cursor-grabbing select-none bg-gray-50"
+            ? "lab-widget-drag-handle cursor-grab active:cursor-grabbing select-none bg-blue-50/40 hover:bg-blue-50 ring-1 ring-blue-200 transition-colors"
             : "bg-white"
         }`}
       >
         {isEditing && (
-          <span
-            aria-hidden="true"
-            className="text-gray-400 text-base leading-none"
-            title="Drag to move"
-          >
-            {/* Six-dot grip glyph — universally legible as "drag handle". */}
-            ⋮⋮
-          </span>
+          // UI affordance fix (break-bot Bug 5, 2026-05-24): the drag
+          // handle was a tiny `⋮⋮` text glyph that's easy to miss. The
+          // six-dot grip SVG below matches the standard "drag handle"
+          // affordance used across Notion / Linear / GitHub. The whole
+          // header bar is the drag surface (via the .lab-widget-drag-handle
+          // class react-grid-layout watches), and now also wears a soft
+          // blue tint + ring in edit mode so the surface itself signals
+          // "draggable" alongside the explicit grip glyph + grab cursor.
+          <Tooltip label="Drag to move" placement="top">
+            <span
+              aria-hidden="true"
+              className="text-blue-500 flex items-center justify-center"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <circle cx="9" cy="5" r="1.7" />
+                <circle cx="9" cy="12" r="1.7" />
+                <circle cx="9" cy="19" r="1.7" />
+                <circle cx="15" cy="5" r="1.7" />
+                <circle cx="15" cy="12" r="1.7" />
+                <circle cx="15" cy="19" r="1.7" />
+              </svg>
+            </span>
+          </Tooltip>
         )}
         <h2
           className={`flex-1 min-w-0 truncate font-semibold text-gray-900 ${

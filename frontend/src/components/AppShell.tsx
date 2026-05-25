@@ -532,8 +532,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           Support (rightmost), Report Bug, User Switch, Data folder. The
           flex container owns the fixed positioning and z-index; each
           button inside just declares size/color/shape, so spacing stays
-          uniform regardless of how many buttons live here. */}
-      <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2">
+          uniform regardless of how many buttons live here.
+
+          UI affordance fix (break-bot Bug 1, 2026-05-24): the container
+          is now `pointer-events-none` so its bounding box (which can
+          extend several pixels above the visible button circles via the
+          flex line-box + tooltip portals + invisible dev FABs) cannot
+          intercept clicks on the content underneath. Each interactive
+          button explicitly re-enables `pointer-events-auto` via the
+          `pointer-events-auto` utility on the button element (the
+          per-button wrappers in `Tooltip` pass that class through to
+          the cloned trigger via `composeRefs` — but we set it directly
+          on each button below for belt-and-suspenders, because Tooltip
+          doesn't propagate utility classes from the container.) */}
+      <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 pointer-events-none">
         <DevBeakerBotGalleryButton />
 
         <DevForceWalkthroughButton inline />
@@ -546,7 +558,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <button
             onClick={() => setShowDataSetup(true)}
             aria-label="Open data folder settings"
-            className="w-12 h-12 rounded-full bg-white border border-gray-200 shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center text-gray-600 hover:text-gray-900"
+            className="pointer-events-auto w-12 h-12 rounded-full bg-white border border-gray-200 shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center text-gray-600 hover:text-gray-900"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
@@ -562,7 +574,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             onClick={() => setShowUserSwitch(true)}
             aria-label="Switch user"
             data-tour-target="user-picker-button"
-            className="w-12 h-12 rounded-full bg-white border border-gray-200 shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center"
+            className="pointer-events-auto w-12 h-12 rounded-full bg-white border border-gray-200 shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center"
           >
             {currentUser ? (
               <UserAvatar username={currentUser} size="sm" />

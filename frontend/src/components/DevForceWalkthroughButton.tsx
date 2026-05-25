@@ -215,7 +215,7 @@ export default function DevForceWalkthroughButton({
         aria-label="Force walkthrough (dev only)"
         aria-haspopup="menu"
         aria-expanded={menuOpen}
-        className="w-12 h-12 rounded-full bg-white border-2 border-sky-300 hover:border-sky-500 hover:bg-sky-50 text-sky-600 hover:text-sky-700 shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center"
+        className="pointer-events-auto w-12 h-12 rounded-full bg-white border-2 border-sky-300 hover:border-sky-500 hover:bg-sky-50 text-sky-600 hover:text-sky-700 shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center"
       >
         <BeakerBot pose="waving" noLiquid className="w-6 h-6" />
       </button>

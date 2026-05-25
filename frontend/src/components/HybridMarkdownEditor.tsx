@@ -1473,9 +1473,19 @@ export default function HybridMarkdownEditor({
         } else {
           // Standard shortcuts
           const cmdMatches = cmdKey === shortcut.ctrlKey;
-          
+
           if (keyMatches && cmdMatches && shiftMatches && altMatches) {
+            // UI affordance fix (break-bot Bug 2, 2026-05-24): the editor
+            // owns Cmd+B / Cmd+I / Cmd+K / Cmd+1..6 etc. when focused.
+            // stopPropagation keeps any future global keydown listener
+            // (command palette, /search jump, etc.) from also acting on
+            // the same keystroke. preventDefault alone only stops the
+            // browser default; bubble-phase listeners still see the event.
+            // Cmd+K is the headliner: it's the universal "insert link"
+            // shortcut in Notion / Obsidian / VS Code, so it must reach
+            // the editor before anything else.
             e.preventDefault();
+            e.stopPropagation();
             const textarea = textareaRef.current;
             if (textarea && !disabled) {
               const start = textarea.selectionStart;
@@ -1486,10 +1496,10 @@ export default function HybridMarkdownEditor({
                 end,
                 shortcut
               );
-              
+
               setEditingBlockContent(newContent);
               updateDocumentContent(newContent);
-              
+
               setTimeout(() => {
                 textarea.focus();
                 textarea.setSelectionRange(newCursorStart, newCursorEnd);

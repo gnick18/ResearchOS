@@ -71,7 +71,7 @@ export default function DevDemoToggleButton() {
         onClick={handleClick}
         disabled={busy}
         aria-label={label}
-        className="w-12 h-12 rounded-full bg-white border-2 border-violet-300 hover:border-violet-500 hover:bg-violet-50 text-violet-600 hover:text-violet-700 shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center disabled:opacity-50"
+        className="pointer-events-auto w-12 h-12 rounded-full bg-white border-2 border-violet-300 hover:border-violet-500 hover:bg-violet-50 text-violet-600 hover:text-violet-700 shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center disabled:opacity-50"
       >
         {inDemo ? (
           // Exit icon — arrow leaving a box.

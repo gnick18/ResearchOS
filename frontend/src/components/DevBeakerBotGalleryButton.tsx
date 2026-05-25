@@ -20,7 +20,7 @@ export default function DevBeakerBotGalleryButton() {
       <Link
         href="/dev/beakerbot-gallery"
         aria-label="Open BeakerBot animation gallery (dev only)"
-        className="w-12 h-12 rounded-full bg-white border border-sky-200 shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center text-sky-500 hover:text-sky-700"
+        className="pointer-events-auto w-12 h-12 rounded-full bg-white border border-sky-200 shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center text-sky-500 hover:text-sky-700"
       >
         {/* Tiny beaker glyph echoing the BeakerBot brand mark. */}
         <svg
