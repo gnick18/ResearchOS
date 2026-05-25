@@ -176,6 +176,24 @@ The master bot can spawn a sub-agent with Chrome MCP access to verify UI fixes a
 
 Fixture coverage gaps to think about when adding new verifications: if a recipe needs `is_shared_with_me` data, extend `scripts/generate-demo-data.mjs` (the fixture is regenerated from there into `wiki-capture-fixture.ts`). If a recipe needs to verify a real-data behavior (the user's actual files on disk, real telegram/calendar tokens, prod OAuth env), it's not bot-doable — punt to the user.
 
+### Claude Preview MCP verification preamble (2026-05-25)
+
+When dispatching a sub-bot that uses `mcp__Claude_Preview__*` tools to drive the live app, run this preamble first or the bot will silently test stale code. The trap: a previous round may have patched `<worktree>/.claude/launch.json` to start `node /tmp/proxy_<port>.js` which forwards to a long-stale `next-server` process. Claude Preview faithfully connects to that proxy and sees code from whatever commit the dev server was first started against, even though source on disk is current.
+
+Symptom: behavioral tests show fixes "regressed" while source-grep confirms they're present. Round 2 personas (2026-05-25) burned hours filing false-positive P0s before one halted on a sanity check.
+
+Verification preamble (bake into every Preview-using brief):
+
+1. Kill every Next.js dev server + proxy on the common port range: `lsof -nP -iTCP -sTCP:LISTEN | grep -E '300[0-9]'` then `kill -9 <PIDs>` individually (the `lsof -ti ... | xargs kill` form has a race that misses some PIDs).
+2. `rm -rf /Users/gnickles/Desktop/ResearchOS/frontend/.next` and `rm -rf .../node_modules/.cache` so any restarted server compiles fresh from current source.
+3. Delete every `/tmp/proxy_*.js` and `/tmp/r7d_proxy*.js` so no stale proxy can be auto-restarted by `launch.json`.
+4. Inspect `<worktree>/.claude/launch.json`. If any entry runs `node /tmp/proxy_*.js`, overwrite it with a direct dev-server launcher: `bash -c "cd /Users/gnickles/Desktop/ResearchOS/frontend && exec npm run dev -- -p <free port>"`. Preview rejects absolute `cwd` values, hence the `bash -c "cd ..."` wrapper.
+5. `preview_start` → fresh `next-server` spins up, compiles in ~5s from current source.
+6. **Immediately call `preview_resize` to 1440x900.** The iframe default is ~726px wide, which silently puts right-edge nav elements off-screen and breaks `elementFromPoint`-based assertions. This single step prevented at least one Round 2 false positive about "demo overlay intercepting nav clicks" — the nav element was just out of frame.
+7. Sanity check: `preview_eval` for a known recent feature (e.g. `document.body.innerHTML.includes("Edit session")`) to confirm the live bundle matches expected commit. If the check fails, the cleanup didn't take — re-run steps 1-5.
+
+Round 2 reports tagged everything that worked as "FALSE_POSITIVE" once the live app was actually serving current main. Don't re-walk this trap.
+
 ### Field migrations
 
 When a field on Task / Method / Project / Note / etc. is renamed or restructured, follow the **lazy-normalize + on-demand-repair** pattern the cleanup pass landed (commit `147db270`, 2026-05-13). The whole point is that shared on-disk files from other users with legacy shapes keep working transparently — no flag-day cutovers, no broken receivers.
