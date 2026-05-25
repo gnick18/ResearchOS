@@ -44,8 +44,9 @@ export default function LabInboxFeaturePage() {
         </li>
         <li>
           <strong>Announcements.</strong> Lab-wide posts from a Lab Head.
-          Pinned by default for a short window, then they slide into the
-          chronological stream. See{" "}
+          They sit in chronological order by default. A Lab Head can pin
+          one to keep it at the top of the feed, and the pin persists
+          until they explicitly unpin it. See{" "}
           <Link href="/wiki/features/lab-inbox/announcements">
             Announcements
           </Link>.

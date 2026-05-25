@@ -359,12 +359,18 @@ export default function PurchasesPage() {
                 </p>
               </div>
             </div>
+            {/* R2 Literal Reader fix (2026-05-25): the CTA used to read
+                "Open lab purchases" but the click handler routes to
+                /lab-overview (not directly to the LabPurchases queue).
+                Honest copy: label matches destination. Users land on Lab
+                Overview where the LabPurchases tile is one click away,
+                as described in the supporting paragraph above. */}
             <button
               onClick={() => router.push("/lab-overview")}
               className="flex-shrink-0 inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
               data-testid="purchases-lab-head-pending-banner-cta"
             >
-              Open lab purchases
+              Open Lab Overview
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="14"

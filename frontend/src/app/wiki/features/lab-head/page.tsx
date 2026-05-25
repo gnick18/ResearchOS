@@ -7,7 +7,7 @@ export default function LabHeadFeaturePage() {
   return (
     <WikiPage
       title="Lab Head"
-      intro="A Lab Head is a per-user role: one account flagged with account_type === 'lab_head' that gains a small superset of affordances over a regular member. Lab Head is not a separate user pool, it is a property on a normal account. One person in the lab fills the slot. The role unlocks the Lab Overview surface, the soft-write approval queue, the audit trail, and the user-archiving controls."
+      intro="A Lab Head is a per-user role: an account flagged with account_type === 'lab_head' that gains a small superset of affordances over a regular member. Lab Head is not a separate user pool, it is a property on a normal account. One or more lab members fill this role (typical labs have a single PI, but co-PI labs and shared-leadership models are supported). The role unlocks the Lab Overview surface, the soft-write approval queue, the audit trail, and the user-archiving controls."
     >
       {/* TODO screenshot agent: capture the login picker with a Lab Head badge + sort-to-top.
           Route: / (login picker)
