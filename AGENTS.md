@@ -210,6 +210,15 @@ The demo-mode-vs-real-mode critique scaffolding fresh-eyes verifiers should expl
 
 Mechanics verifiers can stay in demo mode (DOM-level checks are mode-agnostic). Spec-compliance verifiers don't drive the live app at all. Only fresh-eyes needs the real-user setup.
 
+### Preview MCP FSA-picker limitation (2026-05-25)
+
+A Preview-MCP-driven sub-bot CANNOT execute steps 1-2 of the runbook above. `window.showDirectoryPicker()` opens a native OS dialog Preview cannot drive (no FSA polyfill exists in `frontend/src/lib/file-system/`). Pick a fallback in this order:
+
+1. **`?wikiCapture=picker&wizard-preview=1`** (preferred). Picker variant installs the in-memory fixture but leaves `currentUser` empty, so `UserLoginScreen` renders. Use the dev "Force walkthrough → User setup walkthrough" button to mint a `Test-N` user; the `wizard-preview` flag flips `isV4PreviewMode()` true so `V4MountForUser` mounts and the tour auto-fires on the fresh sidecar. Caveats: alex / morgan / mira appear in the picker (ignore), Test-N lives only in fixture memory, hard nav back to `/` re-seeds the fixture and wipes Test-N. Stay on soft routes only.
+2. **`?wikiCapture=1&wizard-preview=1&wizardSeedStep=<step>`** (last resort). Loads alex's pre-seeded fixture and lands at the requested step. Defeats the empty-canvas premise but lets you exercise step bodies in isolation. Flag any fresh-eyes finding made under this mode as "fixture-data caveat" in the report.
+
+Worth filing as separate fix chip: the Dev "User setup walkthrough" button mints a Test-N user that does NOT auto-fire the v4 tour in plain `?wikiCapture=1` mode (no `wizard-preview` flag). `providers.tsx:192` gates `V4MountForUser` on `isV4PreviewMode()` inside the fixture branch, so the new Test-N sidecar's `wizard_force_show: true` has nothing to mount into. Either drop the gate when a Test-N user is active, or have the dev button stamp the sticky preview flag itself.
+
 ### Field migrations
 
 When a field on Task / Method / Project / Note / etc. is renamed or restructured, follow the **lazy-normalize + on-demand-repair** pattern the cleanup pass landed (commit `147db270`, 2026-05-13). The whole point is that shared on-disk files from other users with legacy shapes keep working transparently — no flag-day cutovers, no broken receivers.
