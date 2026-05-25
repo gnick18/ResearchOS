@@ -148,13 +148,6 @@ export default function NoteDetailPopup({
   const isSavingRef = useRef(false);
   const isClosingRef = useRef(false);
 
-  // Warn before navigating away when there is a pending debounced save.
-  // We read the ref directly inside the handler so we always get the latest
-  // value without needing a separate piece of state that would require
-  // re-renders to stay current. flushRef is wired to the debounced flush
-  // function after it is declared below.
-  const flushRef = useRef<() => void>(() => {});
-
   // Set initial active tab
   useEffect(() => {
     if (note.entries.length > 0 && !activeTab) {
@@ -218,8 +211,6 @@ export default function NoteDetailPopup({
     },
     1500
   );
-  // Keep the beforeunload flush ref pointing at the latest flush function.
-  flushRef.current = flushDebouncedSave;
 
   // Track dirty state across every editable surface, not just the debounced
   // entry body. The inline title + description editors and the new-entry
@@ -243,7 +234,7 @@ export default function NoteDetailPopup({
   // browser tears down. The guard itself only triggers when `hasUnsavedEdits`
   // is true, so it does not prompt for clean closes.
   useUnsavedChangesGuard(hasUnsavedEdits && !saving, {
-    onFlush: () => flushRef.current(),
+    onFlush: flushDebouncedSave,
   });
 
   // SPA-nav-safe persistence for the currently-active entry's body. The
