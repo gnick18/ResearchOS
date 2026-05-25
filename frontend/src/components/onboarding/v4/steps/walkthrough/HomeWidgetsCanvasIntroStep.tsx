@@ -1,5 +1,5 @@
 /**
- * §6.2b Home widgets walkthrough — STEP 1: canvas intro.
+ * §6.2b Home widgets walkthrough, STEP 1: canvas intro.
  *
  * First of five §6.2b sub-steps. Sits between `project-overview-exit`
  * (which has just navigated the browser back to `/`) and the rest of
@@ -24,6 +24,16 @@
  * would just be visual noise. The follow-up `home-widgets-tile-anatomy`
  * step owns the first cursor demo (click a tile to expand it).
  *
+ * Viewport scroll (§6.2b R1 fix, 2026-05-25): at 1440x900 the canvas
+ * sits at y=781 with bottom=1003, so the spotlight rings an element
+ * mostly below the fold. `onEnter` scrolls the canvas into view (center
+ * block, smooth) BEFORE the spotlight measures its rect, so the user
+ * sees the canvas the spotlight is talking about. No `viewportAnchor`
+ * here because that hook only triggers when the step has a
+ * `cursorScript`; narration steps need a sibling mechanism, and onEnter
+ * is the established lifecycle hook for "run when this step becomes
+ * active".
+ *
  * Completion: manual "Got it, next" per the universal pacing rule
  * (Grant 2026-05-22). The user reads, then advances.
  *
@@ -42,6 +52,25 @@ export const homeWidgetsCanvasIntroStep = buildWalkthroughStep({
   // No cursorScript: narration step. The spotlight on the canvas
   // container is the visual cue; the cursor would glide redundantly and
   // there's no click target yet (tile-anatomy owns the first click).
+  //
+  // §6.2b R1 fresh-eyes fix: scroll the canvas into view so the
+  // spotlight rings a visible surface (the canvas sits below the fold
+  // at 1440x900). Best-effort: missing scrollIntoView (jsdom) or a
+  // missing canvas element are both silent no-ops; the spotlight still
+  // mounts wherever the rect ends up.
+  onEnter: async () => {
+    if (typeof document === "undefined") return;
+    const el = document.querySelector(
+      targetSelector(TOUR_TARGETS.homeWidgetCanvas),
+    );
+    if (!(el instanceof HTMLElement)) return;
+    if (typeof el.scrollIntoView !== "function") return;
+    try {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    } catch {
+      // No-op: some test environments throw on options.
+    }
+  },
   completion: manualAdvance("Got it, next"),
   // Cluster lives on `/`. The preceding `project-overview-exit` step
   // already pushed the browser to `/`, but setting this lets refresh-

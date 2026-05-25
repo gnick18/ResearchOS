@@ -9,6 +9,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   cursorScript,
+  deferredClickAction,
   safeClickAction,
   safeTypeAction,
   safeDragAction,
@@ -481,6 +482,219 @@ describe("ensureViewportAnchor() — Bug A viewport anchor (sub-bot 2026-05-21)"
       );
     } finally {
       el.remove();
+    }
+  });
+});
+
+describe("deferredClickAction() — §6.2b R1 flag + viewport-scroll fix", () => {
+  /**
+   * §6.2b R1 fix manager (2026-05-25): before this fix, deferredClickAction
+   * called `el.click()` raw with no `__beakerBotCursorClicking` flag and
+   * no `ensureInViewport`. The InputLockOverlay's capture-phase blocker
+   * then stopPropagation'd the click before React's onClick fired, AND
+   * targets below the fold (catalog item at y=1115 in a 900px viewport)
+   * fired off-screen with no visual cue. Both bugs are fixed here.
+   *
+   * Tests:
+   *   - sets `window.__beakerBotCursorClicking` true around the click
+   *     so the InputLockOverlay short-circuits its blocker.
+   *   - resets the flag to false in the finally block (so the next
+   *     click doesn't free-ride through the lock).
+   *   - calls `scrollIntoView` first when the target is below the fold.
+   *   - no-ops cleanly when the selector misses (logs a warn).
+   */
+  function mountClickTarget(name: string): {
+    el: HTMLButtonElement;
+    cleanup: () => void;
+  } {
+    const el = document.createElement("button");
+    el.setAttribute("data-tour-target", name);
+    document.body.appendChild(el);
+    return {
+      el,
+      cleanup: () => {
+        el.remove();
+      },
+    };
+  }
+
+  it("sets __beakerBotCursorClicking true around the click and resets it", async () => {
+    const { el, cleanup } = mountClickTarget("deferred-click-flag");
+    // Stub scrollIntoView (jsdom doesn't ship it; helper early-returns
+    // if missing, which short-circuits the in-viewport poll).
+    el.scrollIntoView = vi.fn() as unknown as typeof el.scrollIntoView;
+    // Already-in-viewport rect so ensureInViewport is a true no-op.
+    el.getBoundingClientRect = () =>
+      ({
+        top: 10,
+        left: 10,
+        width: 10,
+        height: 10,
+        right: 20,
+        bottom: 20,
+        x: 10,
+        y: 10,
+        toJSON() {
+          return {};
+        },
+      }) as DOMRect;
+
+    // Capture the flag value AT the moment of click. If the flag isn't
+    // set, the InputLockOverlay's capture-phase blocker would have
+    // swallowed the click in real usage.
+    let flagDuringClick: boolean | undefined = undefined;
+    el.addEventListener("click", () => {
+      flagDuringClick = (
+        window as unknown as { __beakerBotCursorClicking?: boolean }
+      ).__beakerBotCursorClicking;
+    });
+
+    try {
+      const action = deferredClickAction(
+        "[data-tour-target='deferred-click-flag']",
+        500,
+      );
+      expect(action.type).toBe("callback");
+      if (action.type !== "callback") return;
+      await action.fn();
+
+      expect(flagDuringClick).toBe(true);
+      // Flag must reset to false after the click (otherwise the next
+      // user click would free-ride through the InputLockOverlay).
+      expect(
+        (window as unknown as { __beakerBotCursorClicking?: boolean })
+          .__beakerBotCursorClicking,
+      ).toBe(false);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("scrolls the target into view before clicking when below the fold", async () => {
+    const { el, cleanup } = mountClickTarget("deferred-click-below-fold");
+    const scrollSpy = vi.fn();
+    el.scrollIntoView = scrollSpy as unknown as typeof el.scrollIntoView;
+    // First call: below the fold. Subsequent two calls: settled in view
+    // (so the rect-poll exits via the "two consecutive identical
+    // samples" branch).
+    let i = 0;
+    el.getBoundingClientRect = () => {
+      const out =
+        i === 0
+          ? ({
+              top: 1115,
+              left: 100,
+              width: 100,
+              height: 50,
+              right: 200,
+              bottom: 1165,
+              x: 100,
+              y: 1115,
+              toJSON() {
+                return {};
+              },
+            } as DOMRect)
+          : ({
+              top: 384,
+              left: 100,
+              width: 100,
+              height: 50,
+              right: 200,
+              bottom: 434,
+              x: 100,
+              y: 384,
+              toJSON() {
+                return {};
+              },
+            } as DOMRect);
+      i += 1;
+      return out;
+    };
+
+    const clickSpy = vi.fn();
+    el.addEventListener("click", clickSpy);
+
+    try {
+      const action = deferredClickAction(
+        "[data-tour-target='deferred-click-below-fold']",
+        500,
+      );
+      if (action.type !== "callback") throw new Error("not a callback");
+      await action.fn();
+
+      expect(scrollSpy).toHaveBeenCalledTimes(1);
+      expect(scrollSpy).toHaveBeenCalledWith({
+        block: "center",
+        inline: "center",
+        behavior: "smooth",
+      });
+      expect(clickSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      cleanup();
+    }
+  }, 5000);
+
+  it("resets the flag even when el.click() throws", async () => {
+    // Defense in depth: if click() throws (detached node, etc.) the
+    // finally block must still reset the flag so the next click isn't
+    // free-riding through the lock.
+    const { el, cleanup } = mountClickTarget("deferred-click-throws");
+    el.scrollIntoView = vi.fn() as unknown as typeof el.scrollIntoView;
+    el.getBoundingClientRect = () =>
+      ({
+        top: 10,
+        left: 10,
+        width: 10,
+        height: 10,
+        right: 20,
+        bottom: 20,
+        x: 10,
+        y: 10,
+        toJSON() {
+          return {};
+        },
+      }) as DOMRect;
+    el.click = () => {
+      throw new Error("simulated detached-node throw");
+    };
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    try {
+      const action = deferredClickAction(
+        "[data-tour-target='deferred-click-throws']",
+        500,
+      );
+      if (action.type !== "callback") throw new Error("not a callback");
+      await action.fn();
+
+      expect(
+        (window as unknown as { __beakerBotCursorClicking?: boolean })
+          .__beakerBotCursorClicking,
+      ).toBe(false);
+      expect(warnSpy).toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+      cleanup();
+    }
+  });
+
+  it("logs a warn and resolves when the selector never mounts", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const action = deferredClickAction(
+        "[data-tour-target='deferred-click-no-mount']",
+        100,
+      );
+      if (action.type !== "callback") throw new Error("not a callback");
+      await action.fn();
+      expect(warnSpy).toHaveBeenCalled();
+      // Flag must remain unset (no click happened).
+      expect(
+        (window as unknown as { __beakerBotCursorClicking?: boolean })
+          .__beakerBotCursorClicking,
+      ).toBeFalsy();
+    } finally {
+      warnSpy.mockRestore();
     }
   });
 });

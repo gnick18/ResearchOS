@@ -1,5 +1,5 @@
 /**
- * §6.2b Home widgets walkthrough — STEP 5: exit beat.
+ * §6.2b Home widgets walkthrough, STEP 5: exit beat.
  *
  * Fifth and final §6.2b sub-step. Wraps up the home canvas teaching
  * and telegraphs the next section (§6.3 notifications) by gliding the
@@ -18,7 +18,7 @@
  *
  * Classification: BEAKERBOT DEMO + transition beat. Speech says "I'll
  * move us over to the bell next", an explicit BeakerBot-led promise;
- * the cursor glides as advertised. No click — the bell click belongs
+ * the cursor glides as advertised. No click: the bell click belongs
  * to §6.3a (the user clicks it themselves after the test notification
  * fires).
  *

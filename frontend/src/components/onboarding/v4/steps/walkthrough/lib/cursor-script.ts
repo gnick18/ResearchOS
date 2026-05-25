@@ -528,7 +528,7 @@ export function compactScript(
  * primitives instead of at script-build time.
  *
  * Lab Mode fix manager R1 (2026-05-22): the lab-mode-* tab demos
- * chain "click row → popup mounts → click close". `safeClickAction`
+ * chain "click row, popup mounts, click close". `safeClickAction`
  * resolves DOM refs at BUILD time, so the popup's close button
  * doesn't yet exist when the build pipeline asks for it (the row
  * click hasn't been played). `deferredClickAction` defers the
@@ -538,10 +538,22 @@ export function compactScript(
  * element never mounts, the callback logs a warn and resolves
  * (the rest of the action list still plays).
  *
- * No visual cursor glide — the click fires programmatically. For
+ * No visual cursor glide: the click fires programmatically. For
  * popup dismisses that should look intentional (cursor moves to the
  * close button before clicking), use `safeClickAction` instead and
  * pre-condition on the popup being open when the step starts.
+ *
+ * §6.2b R1 fix (2026-05-25): wrap the `el.click()` with the
+ * `window.__beakerBotCursorClicking` flag (mirrors `safeClickAction`'s
+ * runtime path in BeakerBotCursor.clickAt) so the InputLockOverlay's
+ * capture-phase `click` blocker short-circuits and React's `onClick`
+ * handlers fire. Also call `ensureInViewport(el)` first so deferred
+ * targets that mounted below the fold (e.g. catalog item at y=1115
+ * in a 900px viewport) get scrolled into view before the click. Both
+ * fixes match the pattern `safeClickAction` already uses; without
+ * them, the §6.2b add step's catalog-item click silently no-oped at
+ * 1440x900 because the overlay's blocker stopPropagation'd the click
+ * AND the item was below the fold.
  */
 export function deferredClickAction(
   selector: string,
@@ -555,6 +567,22 @@ export function deferredClickAction(
       );
       return;
     }
+    // Scroll the target into view before clicking so a below-fold
+    // node (catalog item, deeply-stacked popup button, etc.) gets a
+    // visible click rather than firing off-screen. Matches the
+    // pre-click scroll-into-view step in `safeClickAction`.
+    await ensureInViewport(el);
+    // The InputLockOverlay's capture-phase `click` listener calls
+    // `stopPropagation()` on every click in the window unless the
+    // `__beakerBotCursorClicking` flag is set. Without the flag, the
+    // overlay swallows our deferred click before React's delegated
+    // `onClick` handler runs. The flag is the same one
+    // `BeakerBotCursor.clickAt` uses around its own `el.click()`.
+    const w =
+      typeof window !== "undefined"
+        ? (window as unknown as { __beakerBotCursorClicking?: boolean })
+        : null;
+    if (w) w.__beakerBotCursorClicking = true;
     try {
       el.click();
     } catch (err) {
@@ -562,6 +590,8 @@ export function deferredClickAction(
         `[onboarding-v4] deferredClickAction: click on "${selector}" threw:`,
         err,
       );
+    } finally {
+      if (w) w.__beakerBotCursorClicking = false;
     }
   });
 }

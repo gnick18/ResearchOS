@@ -22,7 +22,7 @@
  * needed. The harder assertions (cursor playback against a real
  * canvas) belong in browser-driven E2E, not vitest.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { homeWidgetsCanvasIntroStep } from "../HomeWidgetsCanvasIntroStep";
 import {
@@ -32,6 +32,7 @@ import {
 } from "../HomeWidgetsTileAnatomyStep";
 import {
   HOME_WIDGETS_ADD_CATALOG_ITEM_SELECTOR,
+  HOME_WIDGETS_ADD_DEMO_DONE_EVENT,
   HOME_WIDGETS_ADD_DEMO_PICK_ID,
   homeWidgetsAddStep,
 } from "../HomeWidgetsAddStep";
@@ -91,6 +92,43 @@ describe("§6.2b home-widgets-canvas-intro (Step 1: canvas intro)", () => {
       .filter(Boolean);
     expect(sentences.length).toBeGreaterThanOrEqual(2);
   });
+
+  it("declares an onEnter that scrolls the canvas into view (R1 fix)", async () => {
+    // §6.2b R1 fresh-eyes fix (2026-05-25): at 1440x900 the canvas
+    // sits below the fold (top=781, bottom=1003), so the spotlight
+    // rings an element the user cannot see. The onEnter hook calls
+    // scrollIntoView({ behavior: 'smooth', block: 'center' }) on the
+    // canvas element so the spotlight measures a visible rect.
+    expect(typeof homeWidgetsCanvasIntroStep.onEnter).toBe("function");
+
+    // Mount a fixture canvas with a scroll spy. The onEnter should
+    // resolve the selector and call scrollIntoView with the brief's
+    // exact options.
+    const el = document.createElement("div");
+    el.setAttribute("data-tour-target", "home-widget-canvas");
+    const scrollSpy = vi.fn();
+    el.scrollIntoView = scrollSpy as unknown as typeof el.scrollIntoView;
+    document.body.appendChild(el);
+    try {
+      await homeWidgetsCanvasIntroStep.onEnter?.({ username: null });
+      expect(scrollSpy).toHaveBeenCalledTimes(1);
+      expect(scrollSpy).toHaveBeenCalledWith({
+        behavior: "smooth",
+        block: "center",
+      });
+    } finally {
+      el.remove();
+    }
+  });
+
+  it("onEnter is a no-op when the canvas selector misses (best-effort)", async () => {
+    // A defensive no-op path: if the canvas isn't mounted yet (the
+    // user re-entered the tour mid-resume), onEnter must not throw.
+    // Should resolve quickly without firing any side effect.
+    await expect(
+      homeWidgetsCanvasIntroStep.onEnter?.({ username: null }),
+    ).resolves.toBeUndefined();
+  });
 });
 
 describe("§6.2b home-widgets-tile-anatomy (Step 2: click to expand)", () => {
@@ -98,12 +136,19 @@ describe("§6.2b home-widgets-tile-anatomy (Step 2: click to expand)", () => {
     expect(homeWidgetsTileAnatomyStep.id).toBe("home-widgets-tile-anatomy");
   });
 
-  it("spotlights via the home-widget-tile- prefix match", () => {
+  it("spotlights the sidebar-upcoming tile (first Chip A pre-seed default)", () => {
+    // §6.2b R1 fix (2026-05-25): pinned to `sidebar-upcoming` rather
+    // than a `home-widget-tile-` prefix. The previous prefix resolved
+    // to `sidebar-today` in practice, which is NOT in the Chip A
+    // pre-seed defaults, so the demo's tile click opened a popup for
+    // a widget the user did not have on their canvas. Pinning to the
+    // first pre-seed default lines up the click target with the
+    // tile the user is looking at.
     expect(homeWidgetsTileAnatomyStep.targetSelector).toBe(
       HOME_WIDGETS_TILE_ANATOMY_TILE_SELECTOR,
     );
     expect(HOME_WIDGETS_TILE_ANATOMY_TILE_SELECTOR).toBe(
-      "[data-tour-target^='home-widget-tile-']",
+      "[data-tour-target='home-widget-tile-sidebar-upcoming']",
     );
   });
 
@@ -157,8 +202,21 @@ describe("§6.2b home-widgets-add (Step 3: add a widget)", () => {
     expect(typeof homeWidgetsAddStep.cursorScript).toBe("function");
   });
 
-  it("uses manual completion (universal pacing rule)", () => {
-    expect(homeWidgetsAddStep.completion.type).toBe("manual");
+  it("uses manual completion gated on the demo-done event (R1 fresh-eyes fix)", () => {
+    // §6.2b R1 fix (2026-05-25): the "Got it, next" button is gated on
+    // a window CustomEvent fired by the trailing callback in the
+    // cursor script. Without the gate, the button is clickable while
+    // BeakerBot is mid-demo and the user cannot tell whether to wait
+    // or advance. Mirrors the gantt-share-profile-switch pattern.
+    expect(homeWidgetsAddStep.completion).toEqual({
+      type: "manual",
+      buttonLabel: "Got it, next",
+      disabledUntilEvent: HOME_WIDGETS_ADD_DEMO_DONE_EVENT,
+      disabledAriaLabel: "BeakerBot is demonstrating, hold on a moment...",
+    });
+    expect(HOME_WIDGETS_ADD_DEMO_DONE_EVENT).toBe(
+      "tour:home-widgets-add-demo-done",
+    );
   });
 
   it("expectedRoute is '/' (the cluster lives on the home surface)", () => {
@@ -167,6 +225,29 @@ describe("§6.2b home-widgets-add (Step 3: add a widget)", () => {
 
   it("speech contains no em-dashes (voice rule)", () => {
     expect(speechOf(homeWidgetsAddStep)).not.toContain("—");
+  });
+
+  it("cursor script ends with a callback that dispatches the demo-done event", async () => {
+    // Without the trailing callback, the gated "Got it, next" button
+    // would never enable. Assert the script ends with a callback
+    // action and that calling its fn dispatches the named event.
+    const script = await homeWidgetsAddStep.cursorScript?.();
+    expect(script).toBeDefined();
+    expect(script?.length).toBeGreaterThan(0);
+    const last = script?.[script.length - 1];
+    expect(last?.type).toBe("callback");
+    if (last?.type !== "callback") return;
+    const seen: string[] = [];
+    const listener = (e: Event) => {
+      seen.push(e.type);
+    };
+    window.addEventListener(HOME_WIDGETS_ADD_DEMO_DONE_EVENT, listener);
+    try {
+      await last.fn();
+      expect(seen).toContain(HOME_WIDGETS_ADD_DEMO_DONE_EVENT);
+    } finally {
+      window.removeEventListener(HOME_WIDGETS_ADD_DEMO_DONE_EVENT, listener);
+    }
   });
 });
 
@@ -204,6 +285,17 @@ describe("§6.2b home-widgets-reorder (Step 4: drag to reorder)", () => {
 
   it("speech contains no em-dashes (voice rule)", () => {
     expect(speechOf(homeWidgetsReorderStep)).not.toContain("—");
+  });
+
+  it("declares a recoveryHint naming the +Add widget re-entry button (R1 fix)", () => {
+    // §6.2b R1 fix (2026-05-25): the previous version had no
+    // `recoveryHint`, so the target-detach watcher's copy fell back to
+    // the generic "the button you clicked before". Naming +Add widget
+    // (the actual re-entry affordance for edit mode) points the user
+    // at the right control if the drag handle unmounts mid-step.
+    expect(homeWidgetsReorderStep.recoveryHint).toEqual({
+      buttonLabel: "+ Add widget in the canvas toolbar",
+    });
   });
 });
 
