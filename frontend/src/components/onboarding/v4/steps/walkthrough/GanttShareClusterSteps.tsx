@@ -251,10 +251,17 @@ function ShareBackSpeech() {
         TOUR_TARGETS.taskPopupShareButton,
         TOUR_TARGETS.taskPopupClose,
       ],
+      // Stage 3 allow-list: the share-dialog affordances the user
+      // needs to click in sequence. The "Add" button is required
+      // because the user MUST move BeakerBot into the share list
+      // before Confirm becomes meaningful (the prior list omitted
+      // it and the permission radio it referenced wasn't stamped on
+      // any product surface, so clicks on Add tripped the wrong-
+      // click handler). Walkthrough audit fix manager (2026-05-25).
       3: [
         TOUR_TARGETS.shareDialog,
         TOUR_TARGETS.shareDialogUserRow,
-        TOUR_TARGETS.shareDialogPermissionEdit,
+        TOUR_TARGETS.shareDialogAdd,
         TOUR_TARGETS.shareDialogConfirm,
         TOUR_TARGETS.taskPopupClose,
       ],

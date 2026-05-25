@@ -213,11 +213,23 @@ export const TOUR_TARGETS = {
   taskPopupNotesTab: "experiment-notes-tab",
   taskPopupNotesTextarea: "hybrid-editor-textarea",
   // Share-dialog affordances. The dialog is the standard ShareDialog
-  // shared across the app; we stamp the user-row + permission radios
-  // for the cursor's allow-list.
+  // shared across the app; we stamp the user-row, the "Add" button
+  // (which moves the picked user into the share list), and the Save /
+  // Confirm button for the cursor's allow-list.
+  //
+  // Walkthrough audit fix manager (2026-05-25): dropped the dead
+  // `shareDialogPermissionEdit` constant. Its value
+  // (`share-dialog-permission-edit`) was never stamped on any product
+  // surface, so allow-listing it had no effect. The default permission
+  // on the add row is already "edit", so most users never touch the
+  // toggle and the share-back path doesn't need the radio in scope.
+  // Added `shareDialogAdd` (matching the existing
+  // `data-tour-target="share-dialog-add"` on the Add button in
+  // ShareDialog.tsx) since the user MUST click Add to move BeakerBot
+  // into the share list before Confirm becomes meaningful.
   shareDialog: "share-dialog",
   shareDialogUserRow: "share-dialog-user-row",
-  shareDialogPermissionEdit: "share-dialog-permission-edit",
+  shareDialogAdd: "share-dialog-add",
   shareDialogConfirm: "share-dialog-confirm",
   // Dependency-type picker (GanttChart). Stamped on the "Start after" /
   // "Start before" buttons of the modal that opens after a bar→bar drag.
@@ -227,21 +239,31 @@ export const TOUR_TARGETS = {
   ganttDepPickerStartAfter: "gantt-dep-picker-start-after",
   ganttDepPickerStartBefore: "gantt-dep-picker-start-before",
   ganttDepPickerStartSame: "gantt-dep-picker-start-same",
-  // User picker (top-right floating cluster) — used by the real
+  // Telegram inbox badge — the small "Inbox" pill in the AppShell
+  // top-right cluster that opens the InboxPanel. The §6.13 Telegram
+  // step uses this as a gentle-redirect anchor once a photo lands.
+  // Replaces the legacy `data-testid='inbox-tab'` selector (Lab Inbox
+  // concept was renamed; the prior testid no longer existed in
+  // source). Walkthrough audit fix manager (2026-05-25).
+  inboxBadge: "inbox-badge",
+
+  // User picker (top-right floating cluster), used by the real
   // profile-switch step. AppShell renders the user-switch button via
   // <Tooltip>; we stamp the inner <button> for the cursor's click.
+  //
+  // Walkthrough audit fix manager (2026-05-25): removed the dead
+  // `userPickerOption` constant. It belonged to an older
+  // profile-switch flow (the user-login-screen modal) that the v4
+  // tour no longer drives. The cursor never targeted it and no
+  // product surface stamped the matching attribute.
   userPickerButton: "user-picker-button",
-  // The user-login-screen modal renders a row per available user; we
-  // stamp the row for the BeakerBot lab user so the cursor can click
-  // it to perform the real switch.
-  userPickerOption: "user-picker-option",
 
   // §6.9 Animation picker.
-  /** @deprecated post-Gantt-declutter (2026-05-23). The animation picker
-   *  no longer lives on the Gantt toolbar; use `settingsAnimationPicker`
-   *  instead. Kept on the constants object so any stragglers still
-   *  resolve to a (non-rendered) selector rather than a build break. */
-  ganttAnimationPicker: "gantt-animation-picker",
+  //
+  // Walkthrough audit fix manager (2026-05-25): removed the dead
+  // `ganttAnimationPicker` constant (the Gantt toolbar picker was
+  // deleted in the 2026-05-23 declutter). The live picker lives in
+  // /settings and is addressed by `settingsAnimationPicker` below.
   /** Animation picker section inside `/settings` (the inline 2-column
    *  grid of theme tiles). Stamped on the SectionShell that wraps the
    *  picker so the v4 tour spotlight wraps the whole card. */

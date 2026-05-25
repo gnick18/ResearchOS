@@ -11,6 +11,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useTourController } from "../../TourController";
 import type { TourStep } from "../../step-types";
 import { appendArtifact } from "./lib/artifacts";
+import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 
 /**
  * §6.13 Telegram (conditional Q5 = yes), with branching.
@@ -467,11 +468,16 @@ export const telegramConditionalStep: TourStep = {
     // subscription; the inner UI doesn't need an external bus.
     eventListener: () => () => {},
   },
-  // Gentle-redirect target: when paired, point at the inbox tab so a
-  // wrong-target click can be re-routed there. The inbox-tab selector
-  // is the same product-surface marker InboxPanel uses; if it isn't
-  // present on the current route, TourSpotlight silently no-ops.
-  targetSelector: "[data-testid='inbox-tab']",
+  // Gentle-redirect target: the InboxBadge button in the AppShell
+  // top-right cluster (the small "Inbox" pill that opens the
+  // InboxPanel). Walkthrough audit fix manager (2026-05-25): the
+  // prior selector `[data-testid='inbox-tab']` was never stamped on
+  // any product surface (the Lab Inbox concept was renamed and the
+  // tab marker went away). Re-targeted to the live InboxBadge button
+  // via the project's standard `data-tour-target` convention.
+  // TourSpotlight silently no-ops when the anchor isn't on the
+  // current route.
+  targetSelector: targetSelector(TOUR_TARGETS.inboxBadge),
   conditionalOn: (picks) => picks?.telegram === "yes",
 };
 

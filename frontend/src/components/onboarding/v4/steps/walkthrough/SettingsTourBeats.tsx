@@ -117,7 +117,17 @@ export const settingsTourTelegramStep = buildWalkthroughStep({
  *  FOLLOW-UP: when a dedicated toggle ships in Settings, stamp
  *  `data-tour-target="settings-lab-mode-toggle"` on it, add
  *  `targetSelector: targetSelector(TOUR_TARGETS.settingsLabModeToggle)`
- *  here, and restore the "this flips you over" framing. */
+ *  here, and restore the "this flips you over" framing.
+ *
+ *  FOLLOW-UP (walkthrough audit fix manager, 2026-05-25, deferred):
+ *  rename the step id from `settings-tour-lab-mode-toggle` to
+ *  `settings-tour-account-type-toggle` to drop the retired "lab-mode"
+ *  terminology. The rename touches step-machine.ts (TOUR_STEP_ORDER +
+ *  the conditional gate switch case), step-registry.ts (id-to-body
+ *  map), and ~5 test files that string-match the old id. Deferred
+ *  from the P3 naming-hygiene pass because the cross-file refactor is
+ *  larger than the rest of the audit fixes; do this as a focused
+ *  rename chip. */
 export const settingsTourLabModeToggleStep = buildWalkthroughStep({
   id: "settings-tour-lab-mode-toggle",
   speech:

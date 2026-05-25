@@ -112,8 +112,12 @@ describe("telegramConditionalStep step shape", () => {
   it("exposes the expected id + pose + conditional gate", () => {
     expect(telegramConditionalStep.id).toBe("telegram");
     expect(telegramConditionalStep.pose).toBe("thinking");
+    // Walkthrough audit fix manager (2026-05-25): re-targeted to the
+    // live InboxBadge `data-tour-target` anchor (the prior
+    // `data-testid='inbox-tab'` was never stamped on any product
+    // surface after the Lab Inbox rename).
     expect(telegramConditionalStep.targetSelector).toBe(
-      "[data-testid='inbox-tab']",
+      "[data-tour-target=\"inbox-badge\"]",
     );
   });
 
