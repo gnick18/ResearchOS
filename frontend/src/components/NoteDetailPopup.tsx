@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import type { Note, NoteEntry } from "@/lib/types";
 import { ownerScopedNotesApi } from "@/lib/notes/owner-scoped-api";
+import { emitNoteDeleted } from "@/lib/notes/delete-toast-bus";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import NoteCommentsThread from "./NoteCommentsThread";
 import Tooltip from "./Tooltip";
@@ -673,12 +674,21 @@ export default function NoteDetailPopup({
     }
   };
 
-  // Delete note
+  // Delete note. Bug 3 (lab head UX polish manager, 2026-05-25):
+  // notesApi.delete is now a soft-delete (the note's JSON moves to
+  // `users/<owner>/notes_trash/<id>.json`). After the call lands we
+  // fire an Undo toast via the delete-toast-bus so the user can
+  // recover from a misclick within 10 seconds.
   const handleDeleteNote = async () => {
     if (!confirm("Are you sure you want to delete this entire note?")) return;
 
     try {
       await notesApi.delete(note.id);
+      emitNoteDeleted({
+        noteId: note.id,
+        noteTitle: note.title ?? "",
+        owner: note.username || undefined,
+      });
       onDelete(note.id);
       onClose();
     } catch (error) {

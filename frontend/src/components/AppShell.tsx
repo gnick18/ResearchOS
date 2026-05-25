@@ -10,6 +10,7 @@ import CustomizableSidebar from "./lab-overview/CustomizableSidebar";
 import TelegramStatusBadge from "./TelegramStatusBadge";
 import InboxBadge from "./InboxBadge";
 import InboxToast from "./InboxToast";
+import NoteDeleteUndoToast from "./NoteDeleteUndoToast";
 import NotificationBadge from "./NotificationBadge";
 import ReminderRunner from "./ReminderRunner";
 import TelegramRecoveryPrompt from "./TelegramRecoveryPrompt";
@@ -41,6 +42,7 @@ import { deriveVisibleTabs } from "@/lib/onboarding/feature-picks-tabs";
 import { headerGradient } from "@/lib/colors";
 import { useOptionalTourController } from "@/components/onboarding/v4/TourController";
 import EditSessionBanner from "@/components/EditSessionBanner";
+import EditSessionTopNavChip from "@/components/EditSessionTopNavChip";
 
 const SETTINGS_HREF = "/settings";
 
@@ -372,6 +374,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="flex-1" />
 
         <div className="flex items-center gap-2">
+          {/* Lab head UX polish manager Bug 2 (2026-05-24): persistent
+              countdown chip for an active lab-head edit session. Renders
+              nothing when no session is active. Placed first in the badge
+              cluster so the amber chip is the most prominent thing once
+              the lab head unlocks — they can't miss it from any page. */}
+          <EditSessionTopNavChip />
           <NotificationBadge pill={tinted} />
           <InboxBadge />
           <TelegramStatusBadge />
@@ -525,6 +533,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <InboxToast />
+      {/* Lab head UX polish manager Bug 3 (2026-05-24): global Undo
+       *  toast for soft-deleted notes. Mounted once at the shell so
+       *  every notesApi.delete call site can pop a "Deleted X — Undo"
+       *  toast via emitNoteDeleted without prop-drilling its own
+       *  handler. */}
+      <NoteDeleteUndoToast />
       <ReminderRunner />
 
       {/* Universal floating utility cluster — a single fixed flex row at

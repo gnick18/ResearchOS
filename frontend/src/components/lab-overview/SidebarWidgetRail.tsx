@@ -136,10 +136,11 @@ export default function SidebarWidgetRail({
 
   return (
     <aside className="w-64 shrink-0 border-r border-gray-200 bg-gray-50 overflow-y-auto flex flex-col">
-      <header className="flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-white">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-          Sidebar
-        </h2>
+      {/* Header is a single right-aligned gear button. The "SIDEBAR"
+       *  label that used to sit on the left was a leftover placeholder —
+       *  the rail is visually self-evident and a label only repeated the
+       *  obvious. (lab head UX polish manager, 2026-05-24, Bug 5.) */}
+      <header className="flex items-center justify-end px-3 py-2 border-b border-gray-200 bg-white">
         <Tooltip
           label={isEditing ? "Done editing sidebar" : "Edit sidebar"}
           placement="bottom"

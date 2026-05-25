@@ -33,6 +33,7 @@ import { usersApi } from "@/lib/local-api";
 import Tooltip from "@/components/Tooltip";
 import type { SharedUser } from "@/lib/types";
 import { useArchivedUsers } from "@/hooks/useArchivedUsers";
+import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
 import {
   WHOLE_LAB_SENTINEL,
   normalizeSharedWith,
@@ -83,6 +84,12 @@ export default function ShareDialog({
 }: ShareDialogProps) {
   const [users, setUsers] = useState<string[]>([]);
   const archivedSet = useArchivedUsers();
+  // Lab head UX polish manager Bug 1 (2026-05-24): when "Whole lab" is
+  // toggled on, expand to show the concrete list of current active
+  // members the grant covers. Underlying behavior is unchanged — `*`
+  // still lives-evaluates at read time via expandSharedWith — but the
+  // user can now see WHO the grant currently includes.
+  const labProfileMap = useLabUserProfileMap();
   const [shared, setShared] = useState<SharedUser[]>(() =>
     normalizeSharedWith(currentSharedWith),
   );
@@ -118,6 +125,18 @@ export default function ShareDialog({
   }, [isOpen, loadUsers]);
 
   const wholeLab = useMemo(() => isWholeLabShared(shared), [shared]);
+
+  // Bug 1: roster of currently active members the "Whole lab" grant
+  // resolves to right now. Excludes the owner (they already have
+  // implicit access) and archived users (filtered out at read time).
+  // Recomputed reactively so adding/removing members elsewhere in the
+  // session reflects the moment the dialog re-opens.
+  const wholeLabRoster = useMemo(() => {
+    const all = Object.keys(labProfileMap);
+    return all
+      .filter((u) => u !== ownerUsername && !archivedSet.has(u))
+      .sort();
+  }, [labProfileMap, archivedSet, ownerUsername]);
 
   const eligibleUsers = useMemo(
     () =>
@@ -246,38 +265,68 @@ export default function ShareDialog({
                 {shared.map((s) => (
                   <div
                     key={s.username}
-                    className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2"
+                    className="bg-gray-50 rounded-lg px-3 py-2"
                   >
-                    <div className="flex items-center gap-2">
-                      <SharedUserAvatar username={s.username} />
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          {s.username === WHOLE_LAB_SENTINEL
-                            ? "Whole lab"
-                            : `@${s.username}`}
-                          {archivedSet.has(s.username) && (
-                            <span className="ml-1 text-xs text-gray-400">
-                              (archived)
-                            </span>
-                          )}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => handleToggleLevel(s.username)}
-                          className="text-xs text-gray-500 hover:text-gray-700 underline-offset-2 hover:underline"
-                        >
-                          {s.level === "edit" ? "Can edit" : "Can read"} (click
-                          to toggle)
-                        </button>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <SharedUserAvatar username={s.username} />
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">
+                            {s.username === WHOLE_LAB_SENTINEL
+                              ? "Whole lab"
+                              : `@${s.username}`}
+                            {archivedSet.has(s.username) && (
+                              <span className="ml-1 text-xs text-gray-400">
+                                (archived)
+                              </span>
+                            )}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleLevel(s.username)}
+                            className="text-xs text-gray-500 hover:text-gray-700 underline-offset-2 hover:underline"
+                          >
+                            {s.level === "edit" ? "Can edit" : "Can read"} (click
+                            to toggle)
+                          </button>
+                        </div>
                       </div>
+                      <button
+                        onClick={() => handleRemove(s.username)}
+                        className="text-red-500 hover:text-red-700 text-sm font-medium"
+                        aria-label={`Remove access for ${s.username}`}
+                      >
+                        Remove
+                      </button>
                     </div>
-                    <button
-                      onClick={() => handleRemove(s.username)}
-                      className="text-red-500 hover:text-red-700 text-sm font-medium"
-                      aria-label={`Remove access for ${s.username}`}
-                    >
-                      Remove
-                    </button>
+                    {/* Bug 1: when the "Whole lab" entry is in this row,
+                     *  enumerate the active members the grant currently
+                     *  covers so the owner can see who actually receives
+                     *  the share today. Live-evaluated at read time, so
+                     *  no extra writes — just visibility. */}
+                    {s.username === WHOLE_LAB_SENTINEL && (
+                      <div
+                        className="mt-2 pt-2 border-t border-gray-200 text-xs text-gray-600"
+                        data-testid="share-dialog-whole-lab-roster"
+                      >
+                        {wholeLabRoster.length === 0 ? (
+                          <span className="italic text-gray-400">
+                            No other active members in this lab yet.
+                          </span>
+                        ) : (
+                          <>
+                            <span className="text-gray-500">
+                              Currently includes ({wholeLabRoster.length}):{" "}
+                            </span>
+                            <span className="text-gray-700">
+                              {wholeLabRoster
+                                .map((u) => `@${u}`)
+                                .join(", ")}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

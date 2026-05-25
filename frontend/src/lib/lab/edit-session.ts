@@ -190,6 +190,34 @@ export function endEditSession(): void {
 }
 
 /**
+ * Extend the currently-unlocked session by another full
+ * `SESSION_DURATION_MS` window (resets the countdown to 5:00). Returns
+ * `true` if the extension was applied, `false` if there was no
+ * unlocked session to extend.
+ *
+ * Lab head UX polish manager (2026-05-24, Bug 2): wired up so the
+ * global top-nav chip can offer a one-click "Extend 5 min" affordance
+ * without requiring the user to re-enter the password. This is a
+ * convenience refresh of an already-authenticated session; it does NOT
+ * mint a new session id (audit entries continue to share the original
+ * id, which is the desired grouping behavior for a continuous PI work
+ * block).
+ */
+export function extendEditSession(): boolean {
+  if (current.state !== "unlocked" || !current.active) return false;
+  const now = Date.now();
+  const newExpiry = now + SESSION_DURATION_MS;
+  current = {
+    state: "unlocked",
+    active: { ...current.active, expiresAt: newExpiry },
+    remainingMs: SESSION_DURATION_MS,
+  };
+  ensureTimer();
+  notify();
+  return true;
+}
+
+/**
  * Reset to idle. Used on logout / user-switch so a stale "locked" state
  * doesn't bleed across users. Distinct from `endEditSession` only in
  * the resulting state token (so UI distinguishes "you just ended your

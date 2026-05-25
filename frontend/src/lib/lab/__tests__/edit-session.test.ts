@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   endEditSession,
+  extendEditSession,
   formatRemaining,
   getEditSession,
   isUnlockedFor,
@@ -185,6 +186,48 @@ describe("edit-session", () => {
       // singleton is in-memory only and not keyed by username, so a
       // round-trip through bob clears alice's unlock too.
       expect(isUnlockedFor("alice")).toBe(false);
+    });
+  });
+
+  // Lab head UX polish manager Bug 2 (2026-05-25): extend resets the
+  // countdown without minting a new session id (audit grouping stays
+  // intact across the refresh).
+  describe("extendEditSession", () => {
+    it("resets remainingMs back to a full window", () => {
+      startEditSession("mira");
+      vi.advanceTimersByTime(60_000);
+      const before = getEditSession().remainingMs;
+      expect(before).toBeLessThan(SESSION_DURATION_MS);
+      const ok = extendEditSession();
+      expect(ok).toBe(true);
+      const after = getEditSession().remainingMs;
+      expect(after).toBe(SESSION_DURATION_MS);
+    });
+
+    it("preserves the session id across the extension", () => {
+      const meta = startEditSession("mira");
+      vi.advanceTimersByTime(30_000);
+      extendEditSession();
+      expect(getEditSession().active?.id).toBe(meta.id);
+    });
+
+    it("returns false and is a no-op when no session is unlocked", () => {
+      expect(getEditSession().state).toBe("idle");
+      expect(extendEditSession()).toBe(false);
+      expect(getEditSession().state).toBe("idle");
+    });
+
+    it("notifies subscribers when the timer is refreshed", () => {
+      startEditSession("mira");
+      const events: number[] = [];
+      const unsub = subscribeEditSession((s) => events.push(s.remainingMs));
+      vi.advanceTimersByTime(30_000);
+      const beforeExtend = events.at(-1) ?? 0;
+      extendEditSession();
+      const afterExtend = events.at(-1) ?? 0;
+      expect(afterExtend).toBeGreaterThan(beforeExtend);
+      expect(afterExtend).toBe(SESSION_DURATION_MS);
+      unsub();
     });
   });
 });

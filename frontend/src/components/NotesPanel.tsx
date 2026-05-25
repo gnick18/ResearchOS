@@ -6,6 +6,7 @@ import { notesApi, labApi } from "@/lib/local-api";
 import type { Note, NoteCreate, LabNote } from "@/lib/types";
 import NoteCard from "./NoteCard";
 import NoteDetailPopup from "./NoteDetailPopup";
+import { emitNoteDeleted } from "@/lib/notes/delete-toast-bus";
 
 interface NotesPanelProps {
   // If true, this is in Lab Mode and should show all users' shared notes
@@ -102,13 +103,38 @@ export default function NotesPanel({
     setSelectedNote(updatedNote);
   }, [updateNoteMutation]);
 
-  // Handle note delete
+  // Handle note delete. Bug 3 (lab head UX polish manager, 2026-05-24):
+  // `notesApi.delete` is now a soft-delete (file moves to
+  // `users/<owner>/notes_trash/`). We pop a 10s "Undo" toast so the
+  // user can restore the note from the trash directory without
+  // touching disk by hand.
   const handleNoteDelete = useCallback((noteId: number) => {
-    deleteNoteMutation.mutate(noteId);
+    const note = notes.find((n) => n.id === noteId);
+    const title = note?.title ?? "";
+    // The user field on the lab-notes wrapper is `username`; fall back
+    // to undefined so notesApi.delete uses the current viewer.
+    const owner =
+      (note && "username" in note ? (note as { username?: string }).username : undefined) ||
+      undefined;
+    deleteNoteMutation.mutate(noteId, {
+      onSuccess: () => {
+        emitNoteDeleted({
+          noteId,
+          noteTitle: title,
+          owner,
+          onRestored: () => {
+            queryClient.invalidateQueries({ queryKey: ["notes"] });
+            queryClient.invalidateQueries({ queryKey: ["lab-notes"] });
+            queryClient.invalidateQueries({ queryKey: ["lab", "notes-shared"] });
+            queryClient.invalidateQueries({ queryKey: ["lab", "notes"] });
+          },
+        });
+      },
+    });
     if (selectedNote?.id === noteId) {
       setSelectedNote(null);
     }
-  }, [deleteNoteMutation, selectedNote]);
+  }, [deleteNoteMutation, selectedNote, notes, queryClient]);
 
   // Filter notes based on search and type
   const filteredNotes = notes.filter((note) => {

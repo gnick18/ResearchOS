@@ -1,5 +1,6 @@
 import { JsonStore, getPublicStore, getLabStore, getCurrentUserCached, clearCurrentUserCache } from "./storage/json-store";
 import { fileService } from "./file-system/file-service";
+import { trashNote, restoreTrashedNote } from "./notes/notes-trash";
 import { recordProjectActivity } from "./project-activity/event-log";
 import { getCurrentUser, getMainUser, storeCurrentUser, storeMainUser, clearCurrentUser, clearMainUser } from "./file-system/indexeddb-store";
 import { shiftTask } from "./engine/shift";
@@ -3081,12 +3082,23 @@ export const notesApi = {
       : notesStore.update(id, patch);
   },
 
+  // Soft-delete: move the note's JSON to `users/<owner>/notes_trash/<id>.json`
+  // instead of hard-removing it. The next `restore(id, owner)` call
+  // brings it back at the same id. See `lib/notes/notes-trash.ts` for
+  // the file layout + recovery semantics. (Lab head UX polish manager
+  // Bug 3, 2026-05-24 — the prior implementation hard-deleted via
+  // `notesStore.delete`, which was unrecoverable.)
   delete: async (id: number, owner?: string): Promise<void> => {
-    if (owner) {
-      await notesStore.deleteForUser(id, owner);
-    } else {
-      await notesStore.delete(id);
-    }
+    const targetOwner = owner ?? (await getCurrentUserCached());
+    await trashNote(targetOwner, id);
+  },
+
+  // Inverse of `delete`. Returns the restored Note on success, `null`
+  // if the trash entry was missing (already purged or never existed).
+  // Callers expose this via an "Undo" toast immediately after delete.
+  restore: async (id: number, owner?: string): Promise<Note | null> => {
+    const targetOwner = owner ?? (await getCurrentUserCached());
+    return await restoreTrashedNote(targetOwner, id);
   },
 
   addEntry: async (

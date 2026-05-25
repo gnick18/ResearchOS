@@ -824,6 +824,40 @@ function AccountTypeSection({ settings, update }: SectionProps) {
     },
   ];
 
+  // Lab head UX polish manager Bug 4 (2026-05-24): role switch is
+  // consequential (changes nav, sidebar, available widgets, audit gates)
+  // but previously fired silently. Two-step: confirm before commit, then
+  // a 10s "Switch back" undo toast after commit.
+  const [pendingSwitch, setPendingSwitch] = useState<
+    UserSettings["account_type"] | null
+  >(null);
+  const [undoToast, setUndoToast] = useState<{
+    previous: UserSettings["account_type"];
+    next: UserSettings["account_type"];
+  } | null>(null);
+
+  useEffect(() => {
+    if (!undoToast) return;
+    const timer = window.setTimeout(() => setUndoToast(null), 10000);
+    return () => window.clearTimeout(timer);
+  }, [undoToast]);
+
+  const commitSwitch = useCallback(
+    async (target: UserSettings["account_type"]) => {
+      const previous = settings.account_type;
+      if (previous === target) return;
+      await update({ account_type: target });
+      setUndoToast({ previous, next: target });
+    },
+    [settings.account_type, update],
+  );
+
+  const undoSwitch = useCallback(async () => {
+    if (!undoToast) return;
+    await update({ account_type: undoToast.previous });
+    setUndoToast(null);
+  }, [undoToast, update]);
+
   return (
     <SectionShell
       id="account-type"
@@ -840,7 +874,7 @@ function AccountTypeSection({ settings, update }: SectionProps) {
               type="button"
               onClick={() => {
                 if (settings.account_type !== opt.value) {
-                  void update({ account_type: opt.value });
+                  setPendingSwitch(opt.value);
                 }
               }}
               aria-pressed={selected}
@@ -862,6 +896,97 @@ function AccountTypeSection({ settings, update }: SectionProps) {
           );
         })}
       </div>
+
+      {/* Confirmation dialog: shown after a click on a non-current
+       *  option, before any write hits disk. Single confirm per Bug 4
+       *  spec; no double-confirm. */}
+      {pendingSwitch && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="account-type-confirm-title"
+          data-testid="account-type-confirm"
+        >
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-5">
+            <h3
+              id="account-type-confirm-title"
+              className="text-base font-semibold text-gray-900"
+            >
+              {pendingSwitch === "lab_head"
+                ? "Switch your account type to Lab Head?"
+                : "Switch your account type to Member?"}
+            </h3>
+            <p className="text-sm text-gray-600 mt-2">
+              {pendingSwitch === "lab_head"
+                ? "This unlocks PI dashboards, audit logging, and the ability to approve purchases."
+                : "This hides the Lab Overview surface and lab-head-only controls. You will keep your existing data."}
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingSwitch(null)}
+                className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = pendingSwitch;
+                  setPendingSwitch(null);
+                  void commitSwitch(target);
+                }}
+                className="px-3 py-1.5 text-sm bg-amber-600 text-white hover:bg-amber-700 rounded-lg transition-colors"
+                data-testid="account-type-confirm-ok"
+              >
+                Switch
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Post-commit undo toast — 10s window. Click "Switch back" to
+       *  revert immediately. After 10s the toast self-dismisses and the
+       *  switch stands. */}
+      {undoToast && (
+        <div
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] bg-gray-900 text-white rounded-lg shadow-lg px-4 py-3 flex items-center gap-3"
+          role="status"
+          aria-live="polite"
+          data-testid="account-type-undo-toast"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            className="flex-shrink-0 text-emerald-400"
+          >
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+          <span className="text-sm">
+            Switched to{" "}
+            <span className="font-semibold">
+              {undoToast.next === "lab_head" ? "Lab Head" : "Member"}
+            </span>
+          </span>
+          <button
+            type="button"
+            onClick={() => void undoSwitch()}
+            className="text-xs font-medium text-amber-300 hover:text-amber-200 underline-offset-2 hover:underline"
+            data-testid="account-type-undo-button"
+          >
+            Switch back
+          </button>
+        </div>
+      )}
     </SectionShell>
   );
 }
