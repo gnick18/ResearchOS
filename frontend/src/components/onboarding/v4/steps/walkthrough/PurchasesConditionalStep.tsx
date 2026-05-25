@@ -17,6 +17,7 @@ import {
   safeClickAction,
   safeGlideToElementAction,
   safeTypeAction,
+  tourClickWithLockBypass,
   waitForElement,
 } from "./lib/cursor-script";
 import {
@@ -561,7 +562,11 @@ export const purchasesAutocompleteDemoStep: TourStep = buildWalkthroughStep({
         continue;
       }
       if (b.textContent?.trim().toLowerCase() === "cancel") {
-        (b as HTMLButtonElement).click();
+        // §6.2b R4 fix (2026-05-25): route through
+        // tourClickWithLockBypass so the InputLockOverlay's capture-
+        // phase blocker doesn't swallow the click if the lock is
+        // armed when this lifecycle hook fires.
+        tourClickWithLockBypass(b as HTMLButtonElement);
         break;
       }
     }

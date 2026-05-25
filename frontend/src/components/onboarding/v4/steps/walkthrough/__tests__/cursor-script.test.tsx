@@ -14,6 +14,7 @@ import {
   safeTypeAction,
   safeDragAction,
   safeGlideToElementAction,
+  tourClickWithLockBypass,
   waitForElement,
   tryQuery,
   compactScript,
@@ -695,6 +696,62 @@ describe("deferredClickAction() — §6.2b R1 flag + viewport-scroll fix", () =>
       ).toBeFalsy();
     } finally {
       warnSpy.mockRestore();
+    }
+  });
+});
+
+describe("tourClickWithLockBypass() — §6.2b R4 helper", () => {
+  /**
+   * §6.2b R4 fix manager (2026-05-25): hoisted from a tangle of inline
+   * try/finally flag-flips so step bodies' `onEnter` / `onExit` raw
+   * `el.click()` calls ride past the InputLockOverlay's capture-phase
+   * blocker. The R3 fresh-eyes verifier caught HomeWidgetsExitStep's
+   * onEnter Done click being swallowed because the controller had
+   * already armed the lock for the next step's cursor script by the
+   * time onEnter fired.
+   */
+  it("sets __beakerBotCursorClicking true around the click and resets it", () => {
+    const el = document.createElement("button");
+    let flagDuringClick: boolean | undefined = undefined;
+    el.addEventListener("click", () => {
+      flagDuringClick = (
+        window as unknown as { __beakerBotCursorClicking?: boolean }
+      ).__beakerBotCursorClicking;
+    });
+    document.body.appendChild(el);
+    try {
+      tourClickWithLockBypass(el);
+      expect(flagDuringClick).toBe(true);
+      // Flag must reset after the click so the next user click
+      // doesn't free-ride through the InputLockOverlay.
+      expect(
+        (window as unknown as { __beakerBotCursorClicking?: boolean })
+          .__beakerBotCursorClicking,
+      ).toBe(false);
+    } finally {
+      el.remove();
+    }
+  });
+
+  it("resets the flag even when el.click() throws (defense in depth)", () => {
+    const el = document.createElement("button");
+    el.click = () => {
+      throw new Error("simulated detached-node throw");
+    };
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    document.body.appendChild(el);
+    try {
+      // Must not throw — errors are swallowed inside the helper so the
+      // caller's lifecycle hook doesn't blow up on a routine no-op.
+      expect(() => tourClickWithLockBypass(el)).not.toThrow();
+      expect(
+        (window as unknown as { __beakerBotCursorClicking?: boolean })
+          .__beakerBotCursorClicking,
+      ).toBe(false);
+      expect(warnSpy).toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+      el.remove();
     }
   });
 });

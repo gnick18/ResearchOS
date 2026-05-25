@@ -119,9 +119,12 @@ export const homeWidgetsTileAnatomyStep = buildWalkthroughStep({
       2000,
     );
     // Beat for the user to see the popup's content before the cursor
-    // dismisses it. 1800ms is a comfortable read of the title + first-
-    // row summary without dragging the step.
-    const beat = pause(1800);
+    // dismisses it. §6.2b R4 fix (2026-05-25): bumped from 1800ms to
+    // 3500ms after the fresh-eyes verifier struggled to read both the
+    // speech bubble and the popup contents inside the prior window.
+    // 3500ms is the comfortable upper bound for a "BeakerBot is demo'ing"
+    // beat without making the user feel stalled.
+    const beat = pause(3500);
     // Re-resolve at playback because the close button doesn't exist
     // at script-build time (the popup hasn't mounted yet).
     // §6.2b R1: deferredClickAction now sets the cursor-clicking flag

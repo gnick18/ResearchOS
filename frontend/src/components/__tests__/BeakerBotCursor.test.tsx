@@ -267,6 +267,145 @@ describe("BeakerBotCursor — drag primitive", () => {
     document.body.removeChild(source);
     document.body.removeChild(dest);
   });
+
+  it("reorders tiles in a fake SnapshotCanvas-shaped receiver (§6.2b R4 fix integration)", async () => {
+    // §6.2b R4 fix manager (2026-05-25): integration check. Mounts a
+    // React component with the same onDragStart / onDragOver / onDrop
+    // shape SnapshotCanvas uses for its widget tiles, runs the
+    // cursor's `dragFromTo` between tile 1 and tile 3, and asserts
+    // the visible order changes. This is the test the fresh-eyes
+    // verifier would have wanted: without the R4 dragFromTo HTML5
+    // events, the drop never fires and the order stays unchanged.
+    const React = await import("react");
+    function FakeCanvas({ onOrder }: { onOrder: (next: string[]) => void }) {
+      const [order, setOrder] = React.useState<string[]>(["A", "B", "C"]);
+      const [dragId, setDragId] = React.useState<string | null>(null);
+      React.useEffect(() => {
+        onOrder(order);
+      }, [order, onOrder]);
+      return (
+        <>
+          {order.map((id) => (
+            <div
+              key={id}
+              data-testid={`tile-${id}`}
+              draggable
+              onDragStart={(e) => {
+                setDragId(id);
+                // In jsdom, e.dataTransfer may be null when DataTransfer
+                // isn't constructible. The cursor's dragFromTo tries to
+                // construct one but falls back to null when unavailable.
+                // Guard so the test doesn't crash on the fallback path.
+                if (e.dataTransfer) {
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", id);
+                }
+              }}
+              onDragOver={(e) => {
+                if (!dragId) return;
+                e.preventDefault();
+                if (e.dataTransfer) {
+                  e.dataTransfer.dropEffect = "move";
+                }
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (!dragId || dragId === id) return;
+                const from = order.indexOf(dragId);
+                const to = order.indexOf(id);
+                if (from < 0 || to < 0) return;
+                const next = [...order];
+                next.splice(from, 1);
+                next.splice(to, 0, dragId);
+                setOrder(next);
+                setDragId(null);
+              }}
+              onDragEnd={() => setDragId(null)}
+            >
+              {id}
+            </div>
+          ))}
+        </>
+      );
+    }
+
+    let lastOrder: string[] = [];
+    const refContainer: { current: BeakerBotCursorRef | null } = { current: null };
+    function Harness() {
+      return (
+        <>
+          <BeakerBotCursor
+            ref={(instance) => {
+              refContainer.current = instance;
+            }}
+            glideMs={10}
+          />
+          <FakeCanvas onOrder={(next) => (lastOrder = next)} />
+        </>
+      );
+    }
+
+    const utils = render(<Harness />);
+    await act(async () => {});
+    expect(lastOrder).toEqual(["A", "B", "C"]);
+
+    const tileA = utils.getByTestId("tile-A");
+    const tileC = utils.getByTestId("tile-C");
+    // Stub layout rects (jsdom returns zeros otherwise).
+    tileA.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: 50, height: 50, right: 50, bottom: 50, x: 0, y: 0, toJSON: () => "" }) as DOMRect;
+    tileC.getBoundingClientRect = () =>
+      ({ left: 0, top: 200, width: 50, height: 50, right: 50, bottom: 250, x: 0, y: 200, toJSON: () => "" }) as DOMRect;
+
+    await act(async () => {
+      await refContainer.current?.dragFromTo(tileA, tileC);
+    });
+    // After dragging A onto C's slot, the order should be ["B", "C", "A"]
+    // (A removed from index 0, inserted at index 2). The exact result
+    // depends on the splice semantics, which match SnapshotCanvas.
+    expect(lastOrder).toEqual(["B", "C", "A"]);
+  });
+
+  it("also dispatches HTML5 dragstart/dragover/drop/dragend events for React onDrag* receivers (§6.2b R4 fix)", async () => {
+    // §6.2b R4 fix manager (2026-05-25): the home widget canvas reorder
+    // demo was visibly no-oping because SnapshotCanvas's drop handlers
+    // are wired to React's HTML5 `onDragStart` / `onDragOver` / `onDrop`
+    // props, not raw mouse events. The R4 fix augments `dragFromTo` to
+    // dispatch HTML5 drag events alongside the existing mouse events so
+    // the existing safeDragAction call site actually triggers the
+    // canvas reorder.
+    const source = document.createElement("div");
+    source.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: 20, height: 20, right: 20, bottom: 20, x: 0, y: 0, toJSON: () => "" }) as DOMRect;
+    const dest = document.createElement("div");
+    dest.getBoundingClientRect = () =>
+      ({ left: 200, top: 200, width: 20, height: 20, right: 220, bottom: 220, x: 200, y: 200, toJSON: () => "" }) as DOMRect;
+    document.body.append(source, dest);
+
+    const onDragStart = vi.fn();
+    const onDragOver = vi.fn();
+    const onDrop = vi.fn();
+    const onDragEnd = vi.fn();
+    source.addEventListener("dragstart", onDragStart);
+    dest.addEventListener("dragover", onDragOver);
+    dest.addEventListener("drop", onDrop);
+    source.addEventListener("dragend", onDragEnd);
+
+    const { ref } = renderWithRef({ glideMs: 10 });
+    await act(async () => {});
+    await act(async () => {
+      await ref.current?.dragFromTo(source, dest);
+    });
+    // dragstart fires once on the source, drop fires once on the dest.
+    // dragover fires at least once on the dest (twice in non-reduced
+    // motion: mid-drag + final). dragend fires once at the end.
+    expect(onDragStart).toHaveBeenCalledTimes(1);
+    expect(onDrop).toHaveBeenCalledTimes(1);
+    expect(onDragOver.mock.calls.length).toBeGreaterThanOrEqual(1);
+    expect(onDragEnd).toHaveBeenCalledTimes(1);
+    document.body.removeChild(source);
+    document.body.removeChild(dest);
+  });
 });
 
 describe("BeakerBotCursor — hide/show + visibility", () => {

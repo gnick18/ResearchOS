@@ -22,6 +22,7 @@ import {
   cursorScript,
   safeClickAction,
   compactScript,
+  tourClickWithLockBypass,
 } from "./lib/cursor-script";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 import { useOptionalTourController } from "../../TourController";
@@ -187,7 +188,11 @@ export const ganttShareUserExploresStep = buildWalkthroughStep({
     const closeBtn = document.querySelector<HTMLElement>(
       '[data-tour-target="task-popup-close"]',
     );
-    closeBtn?.click();
+    // §6.2b R4 fix (2026-05-25): route through tourClickWithLockBypass
+    // so the InputLockOverlay's capture-phase blocker (which may be
+    // armed for the next step's cursor script by the time onExit
+    // fires) doesn't swallow the click.
+    if (closeBtn) tourClickWithLockBypass(closeBtn);
   },
   expectedRoute: "/gantt",
 });

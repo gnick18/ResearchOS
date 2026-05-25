@@ -453,4 +453,43 @@ describe("§6.2b home-widgets-exit (Step 5: exit beat + telegraph notifications)
       homeWidgetsExitStep.onEnter?.({ username: null }),
     ).resolves.toBeUndefined();
   });
+
+  it("onEnter Done click rides past the InputLockOverlay via tourClickWithLockBypass (R4 fix)", async () => {
+    // §6.2b R4 fix (2026-05-25): R3 fresh-eyes verifier caught that
+    // in a real sequential walk, the Done click fires after the
+    // TourController has armed the InputLockOverlay for this step's
+    // cursor script. Without setting `__beakerBotCursorClicking`,
+    // the overlay's capture-phase blocker stopPropagation'd the
+    // click before SnapshotCanvas's onClick handler fired and the
+    // canvas stayed in edit mode through §6.3.
+    //
+    // Test: at the moment the click event fires on the Done button,
+    // `window.__beakerBotCursorClicking` must be true. The helper
+    // (`tourClickWithLockBypass`) sets the flag, clicks, then
+    // resets the flag in a finally block.
+    const doneBtn = document.createElement("button");
+    doneBtn.setAttribute("data-tour-target", "home-widget-edit-toggle");
+    doneBtn.textContent = "Done";
+    let flagDuringClick: boolean | undefined = undefined;
+    doneBtn.addEventListener("click", () => {
+      flagDuringClick = (
+        window as unknown as { __beakerBotCursorClicking?: boolean }
+      ).__beakerBotCursorClicking;
+    });
+    document.body.appendChild(doneBtn);
+    try {
+      await homeWidgetsExitStep.onEnter?.({ username: null });
+      // The flag MUST be true at the moment of the click so the
+      // InputLockOverlay's capture-phase blocker short-circuits.
+      expect(flagDuringClick).toBe(true);
+      // After the click resolves, the flag must reset to false so
+      // the next user click doesn't free-ride through the lock.
+      expect(
+        (window as unknown as { __beakerBotCursorClicking?: boolean })
+          .__beakerBotCursorClicking,
+      ).toBe(false);
+    } finally {
+      doneBtn.remove();
+    }
+  });
 });

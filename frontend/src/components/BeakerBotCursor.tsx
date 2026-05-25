@@ -632,10 +632,66 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
           // No-op
         }
 
+        // §6.2b R4 fix manager (2026-05-25): the home widget canvas
+        // reorder demo (Step 4) was visibly no-oping because
+        // SnapshotCanvas wires its drop receivers to React's HTML5
+        // `onDragStart` / `onDragOver` / `onDrop` props, not raw mouse
+        // events. The original `dragFromTo` only dispatched mouse
+        // events, so the drop handlers never fired and the widget
+        // order never changed. The fix also dispatches HTML5
+        // `dragstart` / `dragover` / `drop` / `dragend` events with a
+        // populated `DataTransfer` so React's `onDrag*` handlers fire
+        // alongside the mouse events. `dragFile` follows the same
+        // shape for typed payloads; this path uses `text/plain` to
+        // satisfy receivers (like SnapshotCanvas) that call
+        // `e.dataTransfer.setData("text/plain", widgetId)` on
+        // dragstart and have no other payload contract.
+        let dt: DataTransfer | null = null;
+        try {
+          dt = new DataTransfer();
+        } catch {
+          dt = null;
+        }
+        const dispatchDrag = (
+          target: EventTarget,
+          eventName: string,
+          x: number,
+          y: number,
+        ): void => {
+          try {
+            let evt: Event;
+            try {
+              evt = new DragEvent(eventName, {
+                bubbles: true,
+                cancelable: true,
+                clientX: x,
+                clientY: y,
+                dataTransfer: dt,
+              });
+            } catch {
+              evt = new Event(eventName, { bubbles: true, cancelable: true });
+              try {
+                Object.defineProperty(evt, "dataTransfer", { value: dt });
+                Object.defineProperty(evt, "clientX", { value: x });
+                Object.defineProperty(evt, "clientY", { value: y });
+              } catch {
+                // No-op.
+              }
+            }
+            target.dispatchEvent(evt);
+          } catch {
+            // No-op.
+          }
+        };
+
+        // Fire dragstart at the source so receivers like SnapshotCanvas
+        // can stash the dragged widget id on the dataTransfer payload.
+        dispatchDrag(source, "dragstart", src.x, src.y);
+
         // 3. Glide to destination with pressed state held. Reduced
         // motion skips the glide animation entirely; we still fire an
-        // interim mousemove on the source for handlers that watch the
-        // drag path.
+        // interim mousemove + dragover on the dest for handlers that
+        // watch the drag path.
         if (!reducedRef.current) {
           // Mid-drag mousemove so drag-aware libraries see motion.
           try {
@@ -651,10 +707,26 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
           } catch {
             // No-op
           }
+          dispatchDrag(
+            dest,
+            "dragenter",
+            (src.x + dst.x) / 2,
+            (src.y + dst.y) / 2,
+          );
+          dispatchDrag(
+            dest,
+            "dragover",
+            (src.x + dst.x) / 2,
+            (src.y + dst.y) / 2,
+          );
         }
         await glideTo(dst.x, dst.y);
 
-        // 4. Final mousemove on dest at arrival, then mouseup → release.
+        // 4. Final mousemove + dragover on dest at arrival, then
+        //    drop + mouseup + dragend → release. SnapshotCanvas's
+        //    onDrop is what actually moves the tile; the mouse events
+        //    are kept for back-compat with any non-HTML5-drag
+        //    receivers that listened on raw mouse events.
         try {
           dest.dispatchEvent(
             new MouseEvent("mousemove", {
@@ -665,6 +737,12 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
               button: 0,
             }),
           );
+        } catch {
+          // No-op
+        }
+        dispatchDrag(dest, "dragover", dst.x, dst.y);
+        dispatchDrag(dest, "drop", dst.x, dst.y);
+        try {
           dest.dispatchEvent(
             new MouseEvent("mouseup", {
               bubbles: true,
@@ -677,6 +755,7 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
         } catch {
           // No-op
         }
+        dispatchDrag(source, "dragend", dst.x, dst.y);
         setState((prev) => ({ ...prev, pressed: false }));
       },
       [glideTo],

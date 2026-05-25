@@ -464,6 +464,60 @@ export async function safeDragFileAction(
  * (no bold/italic/header render lands). This matches the same pattern
  * `BeakerBotCursor.clickAt` uses to ride past the overlay.
  */
+/**
+ * Fire a programmatic `el.click()` while temporarily setting the
+ * `window.__beakerBotCursorClicking` flag so the `InputLockOverlay`'s
+ * capture-phase `click` blocker short-circuits.
+ *
+ * §6.2b R4 fix manager (2026-05-25): hoisted from a tangle of inline
+ * try/finally flag-flips spread across `deferredClickAction`,
+ * `safeNavClickAction`, `BeakerBotCursor.clickAt`, `clickOutsideEditorAction`,
+ * and (the bug this helper was created to fix) the step bodies'
+ * `onEnter` / `onExit` raw `el.click()` calls. The fresh-eyes R3
+ * verifier caught that `HomeWidgetsExitStep`'s `onEnter` click on the
+ * `Done` button was being swallowed by the InputLockOverlay during a
+ * real sequential walk because the click fired AFTER the controller
+ * had already set `inputLockActive = true` for the next step's
+ * cursor script. Without the flag, the overlay's window-level capture
+ * listener stopPropagation'd the click before SnapshotCanvas's onClick
+ * fired, so edit mode stayed on through §6.3.
+ *
+ * Use this helper for ANY programmatic `el.click()` invoked inside a
+ * step body's `onEnter`, `onExit`, or any other lifecycle hook that
+ * might race the InputLockOverlay's mounted window. Direct primitives
+ * inside `BeakerBotCursor` (clickAt, etc.) already handle the flag
+ * inline because they're hot paths and the flag-set is fused with
+ * the click ripple animation, but anywhere a step author would type
+ * `el.click()` they should reach for this helper instead.
+ *
+ * The flag is reset in a `finally` block so a throwing click can't
+ * leave the lock free-riding for the next user click.
+ *
+ * Returns nothing (the helper is fire-and-forget); errors are
+ * swallowed and logged because the flag-reset matters more than the
+ * caller knowing the click threw (a detached node or unmountable
+ * target is a routine no-op in the tour).
+ */
+export function tourClickWithLockBypass(el: HTMLElement): void {
+  if (typeof window === "undefined") {
+    try {
+      el.click();
+    } catch {
+      // No-op (SSR or constrained env).
+    }
+    return;
+  }
+  const w = window as unknown as { __beakerBotCursorClicking?: boolean };
+  w.__beakerBotCursorClicking = true;
+  try {
+    el.click();
+  } catch (err) {
+    console.warn("[onboarding-v4] tourClickWithLockBypass: click threw:", err);
+  } finally {
+    w.__beakerBotCursorClicking = false;
+  }
+}
+
 export function clickOutsideEditorAction(): CursorAction {
   return callbackAction(() => {
     if (typeof window === "undefined" || typeof document === "undefined") return;

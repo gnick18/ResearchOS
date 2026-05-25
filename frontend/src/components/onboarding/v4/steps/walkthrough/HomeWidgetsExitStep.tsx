@@ -46,11 +46,26 @@
  * already reads "Edit layout" (edit mode was somehow exited earlier),
  * the hook also no-ops to avoid the opposite mistake of re-entering
  * edit mode.
+ *
+ * R4 fix (§6.2b R4 fix manager, 2026-05-25): the raw `el.click()`
+ * the R3 fix used was being swallowed by the InputLockOverlay's
+ * capture-phase blocker because by the time `onEnter` fires the
+ * controller has already armed the input lock for this step's
+ * cursor script. Without the `__beakerBotCursorClicking` flag, the
+ * overlay stopPropagation'd the click before SnapshotCanvas's
+ * onClick fired and edit mode stayed on through §6.3 (fresh-eyes
+ * sequential walk caught this; the R3 mechanics verifier missed it
+ * because it seed-jumped directly into Step 5 without the lock
+ * being armed). The R4 fix routes the click through the new
+ * `tourClickWithLockBypass` helper which sets the flag around the
+ * click and resets it in a finally block, mirroring the path
+ * `BeakerBotCursor.clickAt` and `deferredClickAction` use.
  */
 import {
   compactScript,
   cursorScript,
   safeGlideToElementAction,
+  tourClickWithLockBypass,
 } from "./lib/cursor-script";
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
@@ -87,13 +102,13 @@ export const homeWidgetsExitStep = buildWalkthroughStep({
     // future step) already exited it.
     const label = (el.textContent ?? "").trim();
     if (label === "Done") {
-      try {
-        el.click();
-      } catch {
-        // No-op: jsdom or constrained environments may throw on
-        // synthetic click(). The spotlight still mounts wherever the
-        // bell rect ends up.
-      }
+      // §6.2b R4 fix (2026-05-25): use tourClickWithLockBypass so the
+      // click rides past the InputLockOverlay's capture-phase blocker.
+      // The helper sets `__beakerBotCursorClicking` around the click
+      // (mirroring BeakerBotCursor.clickAt and deferredClickAction)
+      // and resets it in a finally block so a throwing click can't
+      // leave the lock free-riding.
+      tourClickWithLockBypass(el);
     }
   },
   cursorScript: cursorScript(async () => {
