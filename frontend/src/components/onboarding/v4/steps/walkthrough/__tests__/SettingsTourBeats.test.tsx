@@ -12,7 +12,7 @@
  *   - The speech bubble contains the key phrases from the spec.
  *   - The speech bubble does NOT contain em-dashes (Grant standing rule).
  *
- * Three beats are conditional (calendar / telegram / lab-mode-toggle);
+ * Three beats are conditional (calendar / telegram / account-type-toggle);
  * the other four (folder / visible-tabs / streak / rerun) fire for
  * everyone (no `conditionalOn`).
  */
@@ -24,7 +24,7 @@ import {
   settingsTourFolderStep,
   settingsTourCalendarStep,
   settingsTourTelegramStep,
-  settingsTourLabModeToggleStep,
+  settingsTourAccountTypeToggleStep,
   settingsTourVisibleTabsStep,
   settingsTourStreakStep,
   settingsTourRerunStep,
@@ -160,41 +160,40 @@ describe("settings-tour-telegram (conditional: telegram === yes)", () => {
   });
 });
 
-describe("settings-tour-lab-mode-toggle (conditional: solo only)", () => {
+describe("settings-tour-account-type-toggle (conditional: solo only)", () => {
   it("has the right id + pose + completion contract", () => {
-    expect(settingsTourLabModeToggleStep.id).toBe(
-      "settings-tour-lab-mode-toggle",
+    expect(settingsTourAccountTypeToggleStep.id).toBe(
+      "settings-tour-account-type-toggle",
     );
-    expect(settingsTourLabModeToggleStep.pose).toBe("pointing");
-    expect(settingsTourLabModeToggleStep.completion.type).toBe("manual");
-    expect(settingsTourLabModeToggleStep.expectedRoute).toBe("/settings");
+    expect(settingsTourAccountTypeToggleStep.pose).toBe("pointing");
+    expect(settingsTourAccountTypeToggleStep.completion.type).toBe("manual");
+    expect(settingsTourAccountTypeToggleStep.expectedRoute).toBe("/settings");
   });
-  it("has no targetSelector (no Lab Mode toggle on /settings yet)", () => {
-    // FOLLOW-UP: once a Lab Mode toggle ships in Settings, this beat
-    // picks up the spotlight. The test pins the current narration-only
-    // behavior so the assertion catches the wire-up when it happens.
-    expect(settingsTourLabModeToggleStep.targetSelector).toBeUndefined();
+  it("has no targetSelector (no account-type toggle on /settings yet)", () => {
+    // FOLLOW-UP: once an account-type toggle ships in Settings, this
+    // beat picks up the spotlight. The test pins the current narration-
+    // only behavior so the assertion catches the wire-up when it happens.
+    expect(settingsTourAccountTypeToggleStep.targetSelector).toBeUndefined();
   });
   it("conditionalOn passes only when picks.account_type === 'solo'", () => {
-    const gate = settingsTourLabModeToggleStep.conditionalOn!;
+    const gate = settingsTourAccountTypeToggleStep.conditionalOn!;
     expect(gate(picks({ account_type: "solo" }))).toBe(true);
     expect(gate(picks({ account_type: "lab" }))).toBe(false);
     expect(gate(null)).toBe(false);
   });
   it("speech mentions pivoting to lab + routes to the user picker honestly", () => {
     // Settings fix manager R1 (2026-05-22): the prior speech promised
-    // an in-Settings "Switch to Lab Mode" toggle that doesn't exist
-    // (the switch lives in the user picker today). The reworked
-    // speech routes users to the user picker and says Settings
-    // doesn't carry the toggle yet.
-    const text = renderSpeech(settingsTourLabModeToggleStep);
+    // an in-Settings account-type toggle that doesn't exist (the switch
+    // lives in the user picker today). The reworked speech routes users
+    // to the user picker and says Settings doesn't carry the toggle yet.
+    const text = renderSpeech(settingsTourAccountTypeToggleStep);
     expect(text).toMatch(/pivot from solo/i);
     expect(text).toMatch(/user picker/i);
     // The honesty signal: speech explicitly disclaims Settings here.
     expect(text).toMatch(/Settings doesn't carry it/i);
   });
   it("speech is em-dash free", () => {
-    expect(renderSpeech(settingsTourLabModeToggleStep)).not.toContain("—");
+    expect(renderSpeech(settingsTourAccountTypeToggleStep)).not.toContain("—");
   });
 });
 

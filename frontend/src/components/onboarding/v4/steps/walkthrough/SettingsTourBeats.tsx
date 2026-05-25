@@ -18,7 +18,7 @@
  *
  *   - `settings-tour-calendar`     gates on `picks.calendar === "yes"`
  *   - `settings-tour-telegram`     gates on `picks.telegram === "yes"`
- *   - `settings-tour-lab-mode-toggle` gates on `picks.account_type === "solo"`
+ *   - `settings-tour-account-type-toggle` gates on `picks.account_type === "solo"`
  *
  * The other four (folder, visible-tabs, streak, rerun) fire for
  * everyone.
@@ -30,7 +30,7 @@
  * reference them individually.
  *
  * Surfaces without a dedicated Settings section (calendar feeds,
- * lab-mode toggle) ship with `targetSelector` undefined for now —
+ * account-type toggle) ship with `targetSelector` undefined for now,
  * the speech bubble still lands; only the spotlight is absent. A
  * FOLLOW-UP comment marks the wire-up site for when those surfaces
  * gain a Settings home.
@@ -105,35 +105,33 @@ export const settingsTourTelegramStep = buildWalkthroughStep({
   expectedRoute: "/settings",
 });
 
-/** §6.10d — Lab Mode toggle narration (gated on Q1=solo).
+/** §6.10d — Account-type toggle narration (gated on Q1=solo).
  *
  *  Speech-honesty fix (Settings fix manager R1, 2026-05-22): no
- *  "Switch to Lab Mode" toggle exists on /settings yet. The lab-mode
- *  switch happens at the user-picker level today, so the prior speech
- *  ("this flips you over...") narrated a button the user couldn't see.
- *  Reworked the speech to point users at the user picker instead of
- *  pretending Settings owns the toggle.
+ *  "Switch to lab account" toggle exists on /settings yet. The
+ *  solo-to-lab switch happens at the user-picker level today, so the
+ *  prior speech ("this flips you over...") narrated a button the user
+ *  couldn't see. Reworked the speech to point users at the user picker
+ *  instead of pretending Settings owns the toggle.
  *
- *  FOLLOW-UP: when a dedicated toggle ships in Settings, stamp
- *  `data-tour-target="settings-lab-mode-toggle"` on it, add
- *  `targetSelector: targetSelector(TOUR_TARGETS.settingsLabModeToggle)`
- *  here, and restore the "this flips you over" framing.
+ *  Step-id rename (walkthrough step-id rename manager, 2026-05-25):
+ *  renamed from `settings-tour-lab-mode-toggle` to
+ *  `settings-tour-account-type-toggle` because Lab Mode was retired
+ *  (R4 Lab Mode retirement 2026-05-23) and the residual "lab-mode"
+ *  terminology no longer matches what the step describes. The step
+ *  itself still serves solo accounts pivoting to a lab account, the
+ *  rename just drops the stale vocabulary.
  *
- *  FOLLOW-UP (walkthrough audit fix manager, 2026-05-25, deferred):
- *  rename the step id from `settings-tour-lab-mode-toggle` to
- *  `settings-tour-account-type-toggle` to drop the retired "lab-mode"
- *  terminology. The rename touches step-machine.ts (TOUR_STEP_ORDER +
- *  the conditional gate switch case), step-registry.ts (id-to-body
- *  map), and ~5 test files that string-match the old id. Deferred
- *  from the P3 naming-hygiene pass because the cross-file refactor is
- *  larger than the rest of the audit fixes; do this as a focused
- *  rename chip. */
-export const settingsTourLabModeToggleStep = buildWalkthroughStep({
-  id: "settings-tour-lab-mode-toggle",
+ *  FOLLOW-UP: when a dedicated account-type toggle ships in Settings,
+ *  stamp `data-tour-target="settings-account-type-toggle"` on it, add
+ *  `targetSelector: targetSelector(TOUR_TARGETS.settingsAccountTypeToggle)`
+ *  here, and restore the "this flips you over" framing. */
+export const settingsTourAccountTypeToggleStep = buildWalkthroughStep({
+  id: "settings-tour-account-type-toggle",
   speech:
     "If you ever pivot from solo to a lab account, the switch lives in the user picker up top, Settings doesn't carry it yet.",
   pose: "pointing",
-  // FOLLOW-UP: no anchor until Settings grows a Lab Mode toggle row.
+  // FOLLOW-UP: no anchor until Settings grows an account-type toggle row.
   completion: manualAdvance("Got it, next"),
   conditionalOn: (picks: FeaturePicks | null) =>
     picks?.account_type === "solo",

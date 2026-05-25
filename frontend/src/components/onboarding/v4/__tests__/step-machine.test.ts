@@ -84,7 +84,7 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER).toContain("settings-tour-folder");
     expect(TOUR_STEP_ORDER).toContain("settings-tour-calendar");
     expect(TOUR_STEP_ORDER).toContain("settings-tour-telegram");
-    expect(TOUR_STEP_ORDER).toContain("settings-tour-lab-mode-toggle");
+    expect(TOUR_STEP_ORDER).toContain("settings-tour-account-type-toggle");
     expect(TOUR_STEP_ORDER).toContain("settings-tour-visible-tabs");
     expect(TOUR_STEP_ORDER).toContain("settings-tour-streak");
     expect(TOUR_STEP_ORDER).toContain("settings-tour-rerun");
@@ -559,23 +559,23 @@ describe("isStepGatedOut — Phase 2 conditional walkthroughs (§6.13-6.15)", ()
     expect(isStepGatedOut("settings-tour-telegram", null)).toBe(true);
   });
 
-  it("gates settings-tour-lab-mode-toggle on solo accounts only", () => {
-    // Lab users are already in lab mode, so they skip this beat. Solo
-    // users see it so they know how to flip over later.
+  it("gates settings-tour-account-type-toggle on solo accounts only", () => {
+    // Lab users are already on a lab account, so they skip this beat.
+    // Solo users see it so they know how to flip over later.
     expect(
       isStepGatedOut(
-        "settings-tour-lab-mode-toggle",
+        "settings-tour-account-type-toggle",
         picks({ account_type: "solo" }),
       ),
     ).toBe(false);
     expect(
       isStepGatedOut(
-        "settings-tour-lab-mode-toggle",
+        "settings-tour-account-type-toggle",
         picks({ account_type: "lab" }),
       ),
     ).toBe(true);
     // null picks → no account_type → gate-out (defensive).
-    expect(isStepGatedOut("settings-tour-lab-mode-toggle", null)).toBe(true);
+    expect(isStepGatedOut("settings-tour-account-type-toggle", null)).toBe(true);
   });
 
   it("fires settings-tour-folder + visible-tabs + streak + rerun for everyone", () => {
@@ -600,7 +600,7 @@ describe("isStepGatedOut — Phase 2 conditional walkthroughs (§6.13-6.15)", ()
       "settings-tour-folder",
       "settings-tour-calendar",
       "settings-tour-telegram",
-      "settings-tour-lab-mode-toggle",
+      "settings-tour-account-type-toggle",
       "settings-tour-visible-tabs",
       "settings-tour-streak",
       "settings-tour-rerun",
@@ -698,8 +698,8 @@ describe("getNextStep — forward traversal", () => {
     expect(visited).not.toContain("ai-helper-use-case-agentic");
     expect(visited).not.toContain("settings-tour-calendar");
     expect(visited).not.toContain("settings-tour-telegram");
-    // solo account_type === "solo", so lab-mode-toggle DOES fire.
-    expect(visited).toContain("settings-tour-lab-mode-toggle");
+    // solo account_type === "solo", so account-type-toggle DOES fire.
+    expect(visited).toContain("settings-tour-account-type-toggle");
     expect(visited).toContain("settings-tour-folder");
     expect(visited).toContain("settings-tour-visible-tabs");
     expect(visited).toContain("settings-tour-streak");
@@ -762,7 +762,7 @@ describe("getNextStep — forward traversal", () => {
     // maximal lab walk includes the 3 ai-helper-* beats + the 6
     // settings-tour-* beats that apply to lab accounts (folder,
     // calendar, telegram, visible-tabs, streak, rerun). Lab users skip
-    // lab-mode-toggle because they're already in lab mode.
+    // account-type-toggle because they're already on a lab account.
     expect(visited).not.toContain("ai-helper-deep-explain");
     expect(visited).toContain("ai-helper-size-diff");
     expect(visited).toContain("ai-helper-use-case-paste");
@@ -770,7 +770,7 @@ describe("getNextStep — forward traversal", () => {
     expect(visited).toContain("settings-tour-folder");
     expect(visited).toContain("settings-tour-calendar");
     expect(visited).toContain("settings-tour-telegram");
-    expect(visited).not.toContain("settings-tour-lab-mode-toggle");
+    expect(visited).not.toContain("settings-tour-account-type-toggle");
     expect(visited).toContain("settings-tour-visible-tabs");
     expect(visited).toContain("settings-tour-streak");
     expect(visited).toContain("settings-tour-rerun");
@@ -928,7 +928,7 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
     // ai-helper-deep-explain split into 3 beats (size-diff, paste,
     // agentic) sharing the prior ai_helper ∈ {full,medium,minimal}
     // gate. 7 settings-tour-* beats added; calendar gates on
-    // calendar=yes, telegram gates on telegram=yes, lab-mode-toggle
+    // calendar=yes, telegram gates on telegram=yes, account-type-toggle
     // gates on account_type=solo.
     //
     // Solo+minimal skips: 4 prior conditionals (telegram, calendar,
@@ -936,11 +936,11 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
     // ai-helper-deep-explain; now 3 split beats sharing the same gate)
     // + 8 purchases cluster + 1 lab-cleanup + 7 Gantt share cluster
     // + 1 HE-3 (branch-gated) + 2 settings-tour-* conditional
-    // (calendar, telegram; lab-mode-toggle FIRES for solo) +
+    // (calendar, telegram; account-type-toggle FIRES for solo) +
     // 1 setup-q1c (lab-only) = 27 gated out for solo.
     expect(soloCount).toBe(TOUR_STEP_ORDER.length - 27);
     // Lab+max only has HE-3 (branch-gated, choice cache empty) +
-    // settings-tour-lab-mode-toggle (gates on solo, so lab skips it)
+    // settings-tour-account-type-toggle (gates on solo, so lab skips it)
     // = 2 gated out.
     expect(labCount).toBe(TOUR_STEP_ORDER.length - 2);
   });

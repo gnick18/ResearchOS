@@ -163,7 +163,7 @@ export const settingsColorStep = buildWalkthroughStep({
  * The "more in settings" pointer is replaced by the seven
  * `settings-tour-*` narration beats in `SettingsTourBeats.tsx`. Each
  * new beat anchors on a specific Settings surface (folder, calendar,
- * telegram, lab-mode toggle, visible tabs, streak counter, re-run
+ * telegram, account-type toggle, visible tabs, streak counter, re-run
  * welcome tour) and explains its purpose in 1-2 sentences.
  *
  * This export survives for git-history reference and so any code that

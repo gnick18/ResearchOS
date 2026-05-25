@@ -207,14 +207,14 @@ import {
 } from "./steps/walkthrough/SettingsColorStep";
 // §6.10 Settings phase redesign 2026-05-22 (Settings manager). Seven
 // new narration beats spotlight each Settings surface (folder /
-// calendar / telegram / lab-mode toggle / visible tabs / streak /
+// calendar / telegram / account-type toggle / visible tabs / streak /
 // re-run welcome tour). Three are conditional; the others are
 // universal. See SettingsTourBeats.tsx for the per-step bodies.
 import {
   settingsTourFolderStep,
   settingsTourCalendarStep,
   settingsTourTelegramStep,
-  settingsTourLabModeToggleStep,
+  settingsTourAccountTypeToggleStep,
   settingsTourVisibleTabsStep,
   settingsTourStreakStep,
   settingsTourRerunStep,
@@ -336,7 +336,7 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [settingsTourFolderStep.id]: settingsTourFolderStep,
   [settingsTourCalendarStep.id]: settingsTourCalendarStep,
   [settingsTourTelegramStep.id]: settingsTourTelegramStep,
-  [settingsTourLabModeToggleStep.id]: settingsTourLabModeToggleStep,
+  [settingsTourAccountTypeToggleStep.id]: settingsTourAccountTypeToggleStep,
   [settingsTourVisibleTabsStep.id]: settingsTourVisibleTabsStep,
   [settingsTourStreakStep.id]: settingsTourStreakStep,
   [settingsTourRerunStep.id]: settingsTourRerunStep,

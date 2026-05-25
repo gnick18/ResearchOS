@@ -239,7 +239,7 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   //   - `personalization-color` REFINED to demo primary + invite
   //     optional secondary user-action pick.
   //   - 7 new `settings-tour-*` narration beats explaining the
-  //     folder / calendar / telegram / lab-mode toggle / visible
+  //     folder / calendar / telegram / account-type toggle / visible
   //     tabs / streak / re-run surfaces.
   //   - 3 new `ai-helper-*` beats splitting the prior wall of
   //     speech into manual-advance size-diff + paste use case +
@@ -248,7 +248,7 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // Three of the new settings-tour-* beats are conditional:
   //   - `settings-tour-calendar`         gates on picks.calendar === "yes"
   //   - `settings-tour-telegram`         gates on picks.telegram === "yes"
-  //   - `settings-tour-lab-mode-toggle`  gates on picks.account_type === "solo"
+  //   - `settings-tour-account-type-toggle` gates on picks.account_type === "solo"
   //
   // The 3 ai-helper-* beats inherit the prior single-id gate
   // (picks.ai_helper ∈ {full, medium, minimal}); see
@@ -260,7 +260,7 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "settings-tour-folder",
   "settings-tour-calendar",
   "settings-tour-telegram",
-  "settings-tour-lab-mode-toggle",
+  "settings-tour-account-type-toggle",
   "settings-tour-visible-tabs",
   "settings-tour-streak",
   "settings-tour-rerun",
@@ -527,10 +527,10 @@ export function isStepGatedOut(
   //
   //   - settings-tour-calendar         → picks.calendar === "yes"
   //   - settings-tour-telegram         → picks.telegram === "yes"
-  //   - settings-tour-lab-mode-toggle  → picks.account_type === "solo"
+  //   - settings-tour-account-type-toggle → picks.account_type === "solo"
   //
-  // Lab users skip the lab-mode-toggle beat because they're already
-  // in lab mode (the toggle's flavor changes for them); solo users
+  // Lab users skip the account-type-toggle beat because they're already
+  // on a lab account (the toggle's flavor changes for them); solo users
   // see it so they know how to flip over later.
   if (step === "settings-tour-calendar") {
     return picks?.calendar !== "yes";
@@ -538,7 +538,7 @@ export function isStepGatedOut(
   if (step === "settings-tour-telegram") {
     return picks?.telegram !== "yes";
   }
-  if (step === "settings-tour-lab-mode-toggle") {
+  if (step === "settings-tour-account-type-toggle") {
     return picks?.account_type !== "solo";
   }
 
