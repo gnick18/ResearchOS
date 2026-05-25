@@ -28,6 +28,24 @@
  * Voice match: §6.2 wrap-up cadence. The "up next, notifications"
  * cap echoes the §6.2-exit handoff style without promising specific
  * mechanics (the user finds out what notifications do in §6.3).
+ *
+ * Edit-mode exit (§6.2b R3 fix manager, 2026-05-25): Step 3 (add
+ * widget) and Step 4 (reorder) leave the canvas in edit mode (the
+ * +Add toggle auto-enters edit mode in SnapshotCanvas's onClick).
+ * Without an explicit exit, Step 5's spotlight on the bell renders
+ * over a canvas that still shows the blue Done button, Reset, and
+ * +Add widget controls, so the user wonders whether they need to
+ * Save before moving on. The R3 fix adds an `onEnter` hook that
+ * finds the home canvas edit toggle (`home-widget-edit-toggle`) and
+ * clicks it ONLY if its text reads "Done" (i.e. the canvas is in
+ * edit mode). Clicking "Done" toggles `isEditing` to false in
+ * SnapshotCanvas, the toolbar returns to its lock state, and the
+ * user reads Step 5 against a calm canvas. If the toggle isn't
+ * mounted yet (the user re-entered the tour mid-resume and the
+ * canvas hasn't rendered) the hook is a silent no-op. If the toggle
+ * already reads "Edit layout" (edit mode was somehow exited earlier),
+ * the hook also no-ops to avoid the opposite mistake of re-entering
+ * edit mode.
  */
 import {
   compactScript,
@@ -45,6 +63,39 @@ export const homeWidgetsExitStep = buildWalkthroughStep({
   // Spotlight + cursor target both anchor on the bell so the user's eye
   // is drawn toward §6.3's surface before the bell click owns it.
   targetSelector: targetSelector(TOUR_TARGETS.notificationsBell),
+  // §6.2b R3 fix (2026-05-25): exit edit mode before the user reads
+  // the wrap-up. The reorder step (Step 4) leaves the canvas with the
+  // +Add widget / Done / Reset controls visible because the +Add click
+  // in Step 3 auto-enabled edit mode and nothing has turned it back
+  // off. Find the home canvas edit toggle by `data-tour-target`, read
+  // its text content, and click only if it currently reads "Done" (the
+  // edit-mode label). Best-effort: a missing button or an unreadable
+  // text node both silent-no-op rather than throwing. Mirrors the
+  // canvas-intro step's onEnter scroll pattern (best-effort lifecycle
+  // hook that never wedges the tour).
+  onEnter: async () => {
+    if (typeof document === "undefined") return;
+    const el = document.querySelector(
+      targetSelector(TOUR_TARGETS.homeWidgetEditToggle),
+    );
+    if (!(el instanceof HTMLElement)) return;
+    // Read text content. The SnapshotCanvas toolbar renders the label
+    // as a literal string ("Done" in edit mode, "Edit layout"
+    // otherwise) with no nested chrome, so a trimmed textContent
+    // compare is enough. Click only when the toggle is showing "Done"
+    // so we never accidentally re-enter edit mode if the user (or a
+    // future step) already exited it.
+    const label = (el.textContent ?? "").trim();
+    if (label === "Done") {
+      try {
+        el.click();
+      } catch {
+        // No-op: jsdom or constrained environments may throw on
+        // synthetic click(). The spotlight still mounts wherever the
+        // bell rect ends up.
+      }
+    }
+  },
   cursorScript: cursorScript(async () => {
     // Glide-only (no click): the bell click belongs to §6.3a after the
     // test notification fires. This beat is purely the visual handoff.

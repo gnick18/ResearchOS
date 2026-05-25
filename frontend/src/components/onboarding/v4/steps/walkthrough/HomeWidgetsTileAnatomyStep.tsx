@@ -4,33 +4,45 @@
  * Second of five §6.2b sub-steps. Builds on the canvas-intro spotlight
  * by teaching what a single tile is FOR: a snapshot of one surface
  * that expands into the same full popup you'd see anywhere else in the
- * app. The demo clicks the Upcoming-tasks widget tile, the popup opens,
+ * app. The demo clicks the Today's-events widget tile, the popup opens,
  * BeakerBot lets the user read for a beat, and the cursor then closes
  * it again.
  *
  * Cursor + spotlight:
- *   - spotlight on the `sidebar-upcoming` widget tile (the first Chip A
- *     pre-seed default). Pinned by widget id, not by "first rendered"
- *     prefix match, so the popup shown matches the tile the user
- *     actually has on their canvas.
- *   - cursor clicks the Upcoming-tasks tile, the SnapshotTilePopup mounts
- *     (Upcoming-tasks popup), the user reads, and then a deferred click
- *     on the popup's Close (X) button dismisses the popup so the canvas
- *     is visible again for the next step.
+ *   - spotlight on the `calendar-events-today` widget tile (the second
+ *     Chip A pre-seed default). Pinned by widget id, not by "first
+ *     rendered" prefix match, so the popup shown matches the tile the
+ *     user actually has on their canvas.
+ *   - cursor clicks the Today's-events tile, the SnapshotTilePopup mounts
+ *     (calendar day view scoped to today), the user reads, and then a
+ *     deferred click on the popup's Close (X) button dismisses the popup
+ *     so the canvas is visible again for the next step.
  *
- * Why pin to `sidebar-upcoming` (§6.2b R1 fix, 2026-05-25):
+ * Why pin to `calendar-events-today` (§6.2b R3 fix, 2026-05-25):
  *
- *   The original implementation used a prefix selector
- *   `[data-tour-target^='home-widget-tile-']:first` plus prefix
- *   resolution. In practice that resolved to `sidebar-today` (the
- *   Today's-tasks tile), which is NOT in the Chip A pre-seed defaults
- *   (`sidebar-upcoming` + `calendar-events-today`). The user saw a
- *   popup for a widget they did not have on their canvas, breaking the
- *   "expand the tile in front of you" promise. Pinning to
- *   `home-widget-tile-sidebar-upcoming` aligns the demo's click target
- *   with the actual seeded default. If a future maintainer changes
- *   the seed defaults, the test asserting `sidebar-upcoming` will
- *   surface the drift.
+ *   R1 pinned this step to `sidebar-upcoming` to fix the prefix-match
+ *   landing on `sidebar-today` (not seeded). R2 fresh-eyes then
+ *   surfaced a deeper issue: the `sidebar-upcoming` tile (label
+ *   "Upcoming tasks") opens the shared daily-tasks popup, which is
+ *   titled "Today's tasks" and renders OVERDUE / TODAY / UPCOMING
+ *   sections. Title mismatch breaks the "click the tile to expand it"
+ *   teaching contract because the popup header doesn't match the tile
+ *   label the user just clicked.
+ *
+ *   Both home defaults have some chrome mismatch (the tool registry
+ *   maps each widget to a tool whose title becomes the popup header),
+ *   but `calendar-events-today` is the closer match on CONTENT: the
+ *   tile says "Today's events", the popup body renders a single-day
+ *   calendar timeline scoped to today (CalendarDayPopupView). The
+ *   header reads "Calendar" (the tool name) rather than "Today's
+ *   events", but the body content matches the tile's promise far
+ *   better than the daily-tasks popup matches "Upcoming tasks".
+ *
+ *   Trade-off documented for a future cleanup: the deeper product fix
+ *   is to let widgets override the popup title (so the tile and popup
+ *   chrome carry the same label). That's out of scope for the R3
+ *   teaching-bubble pass; switching demo target gets us 80% of the
+ *   way without touching the popup-title resolver.
  *
  * Classification: BEAKERBOT DEMO. Speech literally says "click the
  * tile to expand it", an explicit BeakerBot-led promise; the cursor
@@ -69,14 +81,17 @@ import {
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 
 /**
- * Tile selector pinned to the `sidebar-upcoming` widget id. This is the
- * first Chip A pre-seed default (see `home-widgets-default.ts`), so the
- * demo's click target always matches a tile the user actually has on
- * their canvas. Exported so the registry test can assert the demo
- * deterministically picks Upcoming-tasks.
+ * Tile selector pinned to the `calendar-events-today` widget id. This
+ * is the second Chip A pre-seed default (see `home-widgets-default.ts`),
+ * and the only seeded default whose popup body matches the tile content
+ * on CONTENT (the Calendar Tool's day view scoped to today renders the
+ * same today's-events list the SnapshotTile previews). Exported so the
+ * registry test can assert the demo deterministically picks Today's
+ * events. §6.2b R3 fix (2026-05-25): switched from `sidebar-upcoming`
+ * for the popup-title-mismatch reason documented in the file header.
  */
 export const HOME_WIDGETS_TILE_ANATOMY_TILE_SELECTOR =
-  "[data-tour-target='home-widget-tile-sidebar-upcoming']";
+  "[data-tour-target='home-widget-tile-calendar-events-today']";
 
 /**
  * Close-button selector inside the SnapshotTilePopup. The component
@@ -96,7 +111,7 @@ export const homeWidgetsTileAnatomyStep = buildWalkthroughStep({
   pose: "pointing",
   targetSelector: HOME_WIDGETS_TILE_ANATOMY_TILE_SELECTOR,
   cursorScript: cursorScript(async () => {
-    // Click the Upcoming-tasks tile. The popup mounts synchronously on
+    // Click the Today's-events tile. The popup mounts synchronously on
     // the next React commit, so the deferred-close action can resolve
     // the popup's close button on its first re-query.
     const clickTile = await safeClickAction(

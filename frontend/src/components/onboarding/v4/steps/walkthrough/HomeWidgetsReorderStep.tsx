@@ -78,7 +78,7 @@ export const HOME_WIDGETS_REORDER_DEST_SELECTOR =
 export const homeWidgetsReorderStep = buildWalkthroughStep({
   id: "home-widgets-reorder",
   speech:
-    "Drag any tile to reorder it. Put the widgets you check every morning at the top, and the slower-moving ones below. The layout is per-user, so your view doesn't change anyone else's. I'll grab one and drop it lower so you can see how it settles.",
+    "Drag any tile to reorder it. Put the widgets you check every morning at the top, and the slower-moving ones below. If you share this folder with lab members later, your layout stays yours and theirs stays theirs. I'll grab one and drop it lower so you can see how it settles.",
   pose: "pointing",
   // Spotlight is anchored to the drag handle of the first tile. The
   // Widget component only stamps this attribute under edit-mode + home

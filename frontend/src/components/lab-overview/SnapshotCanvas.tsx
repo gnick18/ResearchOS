@@ -327,6 +327,15 @@ export default function SnapshotCanvas({
           <button
             type="button"
             onClick={() => setIsEditing((e) => !e)}
+            // §6.2b Home widgets walkthrough anchor (§6.2b R3 fix
+            // manager, 2026-05-25). Stamps only on the /home mount so
+            // the §6.2b exit step's onEnter can find this button and
+            // click it when the canvas is still in edit mode (Step 4
+            // left it on). Lab-overview canvas keeps the unattributed
+            // shape so its onboarding paths aren't affected.
+            data-tour-target={
+              surface === "home" ? "home-widget-edit-toggle" : undefined
+            }
             className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
               isEditing
                 ? "bg-blue-600 border-blue-600 text-white"

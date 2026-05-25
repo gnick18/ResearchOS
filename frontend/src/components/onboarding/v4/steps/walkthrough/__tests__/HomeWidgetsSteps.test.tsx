@@ -136,19 +136,23 @@ describe("§6.2b home-widgets-tile-anatomy (Step 2: click to expand)", () => {
     expect(homeWidgetsTileAnatomyStep.id).toBe("home-widgets-tile-anatomy");
   });
 
-  it("spotlights the sidebar-upcoming tile (first Chip A pre-seed default)", () => {
-    // §6.2b R1 fix (2026-05-25): pinned to `sidebar-upcoming` rather
-    // than a `home-widget-tile-` prefix. The previous prefix resolved
-    // to `sidebar-today` in practice, which is NOT in the Chip A
-    // pre-seed defaults, so the demo's tile click opened a popup for
-    // a widget the user did not have on their canvas. Pinning to the
-    // first pre-seed default lines up the click target with the
-    // tile the user is looking at.
+  it("spotlights the calendar-events-today tile (second Chip A pre-seed default)", () => {
+    // §6.2b R3 fix (2026-05-25): switched from `sidebar-upcoming` to
+    // `calendar-events-today`. R1 had pinned this step to
+    // `sidebar-upcoming` to fix a prefix-match issue, but R2
+    // fresh-eyes surfaced a deeper title mismatch: the Upcoming-tasks
+    // tile opens the shared daily-tasks popup titled "Today's tasks"
+    // (with overdue / today / upcoming sections), breaking the "click
+    // the tile to expand it" teaching contract. The Today's-events
+    // tile opens the calendar day view scoped to today, which matches
+    // the tile content far more closely (the popup header still reads
+    // "Calendar" rather than "Today's events", but the body content
+    // matches). See the file-header comment for the full trade-off.
     expect(homeWidgetsTileAnatomyStep.targetSelector).toBe(
       HOME_WIDGETS_TILE_ANATOMY_TILE_SELECTOR,
     );
     expect(HOME_WIDGETS_TILE_ANATOMY_TILE_SELECTOR).toBe(
-      "[data-tour-target='home-widget-tile-sidebar-upcoming']",
+      "[data-tour-target='home-widget-tile-calendar-events-today']",
     );
   });
 
@@ -397,5 +401,56 @@ describe("§6.2b home-widgets-exit (Step 5: exit beat + telegraph notifications)
     // step. Assert the literal "notifications" word appears so a
     // future copy edit that drops the handoff surfaces here.
     expect(speechOf(homeWidgetsExitStep).toLowerCase()).toContain("notifications");
+  });
+
+  it("onEnter clicks the canvas Done button only when edit mode is on (R3 fix)", async () => {
+    // §6.2b R3 fix (2026-05-25): the reorder step leaves the canvas
+    // in edit mode (the +Add toggle in Step 3 auto-enabled it). The
+    // exit step's onEnter must turn edit mode off before the user
+    // reads the wrap-up, otherwise the Done / Reset / +Add controls
+    // bleed visually into §6.3's notifications-bell beat.
+    //
+    // Behavior: find `home-widget-edit-toggle`; if its text reads
+    // "Done", click it. If text reads "Edit layout" (somehow already
+    // exited), do nothing. If the button isn't mounted, do nothing.
+    expect(typeof homeWidgetsExitStep.onEnter).toBe("function");
+
+    // Case 1: button reads "Done" → click fires.
+    const doneBtn = document.createElement("button");
+    doneBtn.setAttribute("data-tour-target", "home-widget-edit-toggle");
+    doneBtn.textContent = "Done";
+    let doneClicks = 0;
+    doneBtn.addEventListener("click", () => {
+      doneClicks += 1;
+    });
+    document.body.appendChild(doneBtn);
+    try {
+      await homeWidgetsExitStep.onEnter?.({ username: null });
+      expect(doneClicks).toBe(1);
+    } finally {
+      doneBtn.remove();
+    }
+
+    // Case 2: button reads "Edit layout" → no click (already locked).
+    const lockBtn = document.createElement("button");
+    lockBtn.setAttribute("data-tour-target", "home-widget-edit-toggle");
+    lockBtn.textContent = "Edit layout";
+    let lockClicks = 0;
+    lockBtn.addEventListener("click", () => {
+      lockClicks += 1;
+    });
+    document.body.appendChild(lockBtn);
+    try {
+      await homeWidgetsExitStep.onEnter?.({ username: null });
+      expect(lockClicks).toBe(0);
+    } finally {
+      lockBtn.remove();
+    }
+
+    // Case 3: button not mounted → silent no-op (resolves without
+    // throwing, no side effects).
+    await expect(
+      homeWidgetsExitStep.onEnter?.({ username: null }),
+    ).resolves.toBeUndefined();
   });
 });

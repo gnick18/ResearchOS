@@ -363,6 +363,14 @@ export const TOUR_TARGETS = {
    *  only when the canvas is in Edit mode. The §6.2b reorder step
    *  ensures Edit is on, then drags the handle. */
   homeWidgetDragHandle: "home-widget-drag-handle",
+  /** The Edit-layout / Done toggle button in the home canvas toolbar.
+   *  Stamps only on the /home mount. Renders text "Edit layout" when
+   *  the canvas is locked and "Done" when in edit mode (same button,
+   *  swapped label). The §6.2b exit step's onEnter uses this anchor to
+   *  click the toggle if the canvas is still in edit mode after the
+   *  reorder demo, so the user lands in Step 5 (and onwards into §6.3)
+   *  with the toolbar back to its lock state. */
+  homeWidgetEditToggle: "home-widget-edit-toggle",
   /** The tile-click-to-expand affordance. Documented constant for
    *  Chip B / future step bodies: NO dedicated expand-button exists on
    *  the home canvas — the tile root absorbs the click, so this
