@@ -211,20 +211,12 @@ export default function NewPurchaseModal({
 
   // Reset to empty (or seeded) state when the modal opens. Avoids
   // stale-state when the user closes + reopens after a save.
-  // Skip the form reset when a draft is pending in sessionStorage so
-  // useDraftPersistence's onRestore can hydrate it instead of being
-  // immediately clobbered.
   useEffect(() => {
     if (open) {
-      const hasPendingDraft =
-        typeof window !== "undefined" &&
-        window.sessionStorage.getItem(draftKey) !== null;
-      if (!hasPendingDraft) {
-        setForm({ ...EMPTY_STATE, ...(initial ?? {}) });
-      }
+      setForm({ ...EMPTY_STATE, ...(initial ?? {}) });
       setError(null);
     }
-  }, [open, initial, draftKey]);
+  }, [open, initial]);
 
   // Once projects have loaded, default the category select. Design pick:
   // first non-misc owned project if any exist, otherwise "Miscellaneous".
