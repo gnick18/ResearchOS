@@ -804,7 +804,7 @@ export function SnapshotTile(_props: SnapshotTileProps) {
         secondary={
           mostRecent
             ? `last: ${mostRecent.username} ${truncate(mostRecent.summary, 36)}`
-            : "No events yet"
+            : "No activity yet"
         }
         accent="calm"
       />
@@ -822,7 +822,7 @@ export function SnapshotTile(_props: SnapshotTileProps) {
           {ACTIVITY_ICON}
         </span>
         <span className="text-[10px] uppercase tracking-wide text-gray-500 font-medium truncate">
-          Events today
+          Activity today
         </span>
       </div>
       <div className="flex-1 flex flex-col justify-center min-h-0 gap-1.5">
