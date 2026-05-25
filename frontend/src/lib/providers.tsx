@@ -22,6 +22,7 @@ import SceneTriggerHost from "@/components/SceneTriggerHost";
 import AutoErrorConfirmHost from "@/components/AutoErrorConfirmHost";
 import V4MountForUser from "@/components/onboarding/v4/V4MountForUser";
 import CelebrationManager from "@/components/onboarding/CelebrationManager";
+import IdleAnimationManager from "@/components/onboarding/IdleAnimationManager";
 import WikiCaptureBodyClass from "@/components/WikiCaptureBodyClass";
 import { initializeErrorHandlers } from "@/lib/error-reporting";
 import { projectsApi } from "@/lib/local-api";
@@ -338,6 +339,12 @@ function AppContent({ children }: { children: ReactNode }) {
             active, per proposal §6.7 "don't overlap with the
             bottom-right tour BeakerBot"). */}
         <CelebrationManager username={currentUser} />
+        {/* IdleAnimationManager: peer of CelebrationManager. Fires a
+            random BeakerBot scene from IDLE_POOL after the user has
+            been idle for IDLE_THRESHOLD_MS. One per session, gated by
+            sessionStorage. Independent of the streak/milestone path
+            CelebrationManager owns. */}
+        <IdleAnimationManager />
       </V4MountForUser>
     </QueryClientProvider>
   );
