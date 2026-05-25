@@ -3529,14 +3529,13 @@ function AIHelperSection() {
           </div>
         )}
 
-        {/* Footer links */}
+        {/* Footer links. Note: the "Read setup guide" link to
+            /wiki/integrations/ai-helper was removed (wiki round-trip fix,
+            Bug 3 option A): the page never existed and the section is
+            self-explanatory (prompt + copy button + "Open in Claude /
+            ChatGPT / Gemini" affordances are right above). Re-add if a
+            dedicated /wiki/integrations/ai-helper page is later created. */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-          <Link
-            href="/wiki/integrations/ai-helper"
-            className="text-blue-600 hover:underline"
-          >
-            Read setup guide →
-          </Link>
           <Link
             href={`/ai-helper/${selectedSize}.md`}
             target="_blank"

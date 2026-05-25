@@ -3,14 +3,20 @@ export const HELP_HREF = "/wiki";
 /** Canonical map of in-app feature route → wiki page that documents it.
  *  Consumed by:
  *    - the in-app `?` help icon (via `appRouteToWikiRoute`, falls back
- *      to the wiki landing on unmapped routes)
+ *      to the wiki landing on unmapped routes; uses prefix-match so
+ *      dynamic segments like `/workbench/projects/<id>` resolve too)
  *    - the demo-mode "Read the docs" button (via `getWikiForRoute`,
- *      returns null on unmapped routes so the affordance hides) */
+ *      returns null on unmapped routes so the affordance hides;
+ *      stays exact-match by design, see its doc comment)
+ *
+ *  Note: `/experiments` is intentionally NOT in this map. That route
+ *  is a `router.replace("/workbench")` stub with no AppShell, so the
+ *  `?` icon never renders there; the prior entry was unreachable. */
 export const APP_ROUTE_TO_WIKI: Record<string, string> = {
   "/": "/wiki/features/home",
   "/gantt": "/wiki/features/gantt",
-  "/experiments": "/wiki/features/experiments",
   "/workbench": "/wiki/features/experiments",
+  "/workbench/projects": "/wiki/features/projects",
   "/methods": "/wiki/features/methods",
   "/pcr": "/wiki/features/pcr",
   "/purchases": "/wiki/features/purchases",
@@ -19,23 +25,43 @@ export const APP_ROUTE_TO_WIKI: Record<string, string> = {
   "/search": "/wiki/features/search",
   "/links": "/wiki/features/links",
   "/settings": "/wiki/features/settings",
-  // FOLLOW-UP: Project Surface lives at the dynamic route
-  // `/workbench/projects/<id>`. The lookup below is exact-match only, so a
-  // single literal entry can't cover every id. The `?` help icon will fall
-  // back to the wiki landing via `appRouteToWikiRoute`'s null-coalescing.
-  // Switching this map to prefix-matching is the right next step; until
-  // then, see /wiki/features/projects for the documentation.
 };
 
-/** Lookup with wiki-landing fallback. Use for affordances that should
- *  always land somewhere reasonable (e.g. the `?` help icon). */
-export function appRouteToWikiRoute(pathname: string): string {
-  return APP_ROUTE_TO_WIKI[pathname] ?? HELP_HREF;
+/** Prefix-aware lookup. Tries an exact match first, then walks the
+ *  pathname's path segments back toward `/`, returning the first
+ *  matching wiki entry. So `/workbench/projects/42` resolves to the
+ *  `/workbench/projects` entry; `/workbench/foo` falls back to
+ *  `/workbench`; an unrecognized top-level path returns null.
+ *  Returns null when nothing matches, so callers can choose between
+ *  the landing-page fallback and hiding the affordance. */
+export function getWikiForRouteWithPrefix(pathname: string): string | null {
+  if (APP_ROUTE_TO_WIKI[pathname]) return APP_ROUTE_TO_WIKI[pathname];
+  // Walk back through path prefixes by trimming the last segment.
+  let cursor = pathname;
+  while (cursor.length > 0) {
+    const lastSlash = cursor.lastIndexOf("/");
+    if (lastSlash < 0) break;
+    cursor = cursor.slice(0, lastSlash);
+    if (cursor === "") cursor = "/";
+    if (APP_ROUTE_TO_WIKI[cursor]) return APP_ROUTE_TO_WIKI[cursor];
+    if (cursor === "/") break;
+  }
+  return null;
 }
 
-/** Strict lookup. Returns null for unmapped routes; use for affordances
- *  that should hide rather than dump the user on the landing page (e.g.
- *  the demo-mode "Read the docs" button). */
+/** Lookup with wiki-landing fallback. Use for affordances that should
+ *  always land somewhere reasonable (e.g. the `?` help icon). Prefix-
+ *  matches so dynamic routes like `/workbench/projects/<id>` resolve
+ *  to their documented parent (`/wiki/features/projects`). */
+export function appRouteToWikiRoute(pathname: string): string {
+  return getWikiForRouteWithPrefix(pathname) ?? HELP_HREF;
+}
+
+/** Strict, exact-match lookup. Returns null for unmapped routes;
+ *  use for affordances that should hide rather than dump the user on
+ *  the landing page (e.g. the demo-mode "Read the docs" button).
+ *  Stays exact-match (NOT prefix-aware) because consumers prefer
+ *  the "hide rather than fall back" behavior on dynamic routes. */
 export function getWikiForRoute(pathname: string): string | null {
   return APP_ROUTE_TO_WIKI[pathname] ?? null;
 }
