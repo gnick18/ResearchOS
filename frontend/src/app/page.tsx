@@ -49,6 +49,11 @@ function getMutedColor(color: string): string {
 
 export default function HomePage() {
   const router = useRouter();
+  // Single useSearchParams call shared by both the landing-tab redirect
+  // (line ~95) and the openProject/openTask deep-link handler further
+  // down (line ~145). Hoisted here so the redirect effect can read the
+  // `?from=lab-overview` sentinel that suppresses the one-shot bounce.
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
@@ -84,17 +89,40 @@ export default function HomePage() {
 
   // One-shot redirect to the user's chosen default landing tab on first load.
   // Subsequent manual visits to "/" are respected.
+  //
+  // Sentinel `?from=lab-overview` (routing+deep-link fix manager bug 4):
+  // when a lab member or solo user lands on /lab-overview, that page
+  // bounces them here via `router.replace("/?from=lab-overview")`. We
+  // honor the bounce as the user's final destination instead of
+  // compounding into a second redirect via defaultLandingTab — otherwise
+  // alex (member, defaultLandingTab="/purchases") would follow a
+  // /lab-overview link and end up on /purchases with no breadcrumb back
+  // to where they actually clicked. We still mark the one-shot flag so a
+  // subsequent manual visit to "/" stays put.
   const defaultLandingTab = useAppStore((s) => s.defaultLandingTab);
   useEffect(() => {
     if (didLandingRedirect) return;
     if (!currentUser) return;
+    const fromRedirect = searchParams?.get("from");
+    if (fromRedirect) {
+      // Arrived via a redirect from another in-app surface — that
+      // surface already picked Home as the intended destination, so the
+      // landing-tab bounce would just contradict it. Mark the one-shot
+      // flag and clear the sentinel from the URL so reload + share work.
+      didLandingRedirect = true;
+      const next = new URLSearchParams(searchParams!.toString());
+      next.delete("from");
+      const query = next.toString();
+      router.replace(query ? `/?${query}` : "/");
+      return;
+    }
     if (defaultLandingTab && defaultLandingTab !== "/") {
       didLandingRedirect = true;
       router.replace(defaultLandingTab);
     } else if (defaultLandingTab === "/") {
       didLandingRedirect = true;
     }
-  }, [currentUser, defaultLandingTab, router]);
+  }, [currentUser, defaultLandingTab, router, searchParams]);
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", currentUser],
@@ -138,7 +166,9 @@ export default function HomePage() {
   // ProjectDetailPopup; it now navigates to the project route
   // (/workbench/projects/<id>) which is the canonical place every
   // project surface lives.
-  const searchParams = useSearchParams();
+  //
+  // `searchParams` is the same hook instance declared at the top of the
+  // component for the landing-tab redirect; we read it again here.
   useEffect(() => {
     if (!searchParams) return;
     const wantsProject = searchParams.get("openProject");

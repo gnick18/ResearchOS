@@ -148,6 +148,22 @@ function isSettingsTab(value: string | null | undefined): value is SettingsTab {
   return value === "personal" || value === "lab";
 }
 
+/**
+ * Normalize a `?tab=...` query param into a canonical SettingsTab id.
+ * Accepts the canonical ids ("personal", "lab") AND the visible-label
+ * alias "lab-mode" (the tab strip label is "Lab Mode", and external docs
+ * / wiki links sometimes use that form). Returns null on anything else
+ * so the caller can fall back to the default tab rather than silently
+ * dropping users on Personal when they asked for Lab Mode.
+ */
+function normalizeSettingsTab(
+  value: string | null | undefined,
+): SettingsTab | null {
+  if (value === "lab-mode") return "lab";
+  if (isSettingsTab(value)) return value;
+  return null;
+}
+
 function SettingsBody() {
   const { currentUser, isConnected } = useFileSystem();
   const hydrateFromSettings = useAppStore((s) => s.hydrateFromSettings);
@@ -219,9 +235,10 @@ function SettingsBody() {
   // deep-link or in-session back-nav lands the user on the same tab.
   // Solo users never see the tab strip but we still respect the query
   // so a stray `?tab=lab` URL doesn't loop them through an inert state.
-  const initialTab: SettingsTab = isSettingsTab(searchParams.get("tab"))
-    ? (searchParams.get("tab") as SettingsTab)
-    : "personal";
+  // Accepts "personal" / "lab" plus the "lab-mode" alias so wiki +
+  // README links that use the visible label still resolve correctly.
+  const initialTab: SettingsTab =
+    normalizeSettingsTab(searchParams.get("tab")) ?? "personal";
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
 
   // Keep the URL query in sync as the user clicks between tabs so they can
@@ -246,11 +263,13 @@ function SettingsBody() {
 
   // Sync when the URL changes from outside (e.g. an in-product Link
   // points at /settings?tab=lab). Only mirrors valid values so a stale
-  // `?tab=garbage` stays harmless.
+  // `?tab=garbage` stays harmless. The "lab-mode" alias normalizes to
+  // "lab" so external links with the visible-label form still flip the
+  // tab without bouncing the user back to Personal.
   useEffect(() => {
-    const param = searchParams.get("tab");
-    if (isSettingsTab(param) && param !== activeTab) {
-      setActiveTab(param);
+    const normalized = normalizeSettingsTab(searchParams.get("tab"));
+    if (normalized !== null && normalized !== activeTab) {
+      setActiveTab(normalized);
     }
     // We intentionally don't include `activeTab` here — this is a one-
     // way URL → state sync; the other direction is handled by

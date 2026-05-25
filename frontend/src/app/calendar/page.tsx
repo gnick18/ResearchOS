@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { eventsApi } from "@/lib/local-api";
 import { useAppStore } from "@/lib/store";
@@ -35,6 +36,7 @@ const DEFAULT_COLORS = [
 
 export default function CalendarPage() {
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
   // Active user, needed for the Phase S5 PTO sync from a checked event
   // to the user's pto_dates list (see syncEventPtoChange below).
   const { currentUser } = useCurrentUser();
@@ -104,6 +106,59 @@ export default function CalendarPage() {
     apply(useCalendarNavStore.getState().pendingJump);
     return useCalendarNavStore.subscribe((state) => apply(state.pendingJump));
   }, [setView, setCurrentDate]);
+
+  // Deep-link support: `/calendar?date=YYYY-MM-DD&view=month|week|day`.
+  // Previously these params were silently ignored — a wiki or README link
+  // that pointed at a specific month / week / day would just drop the
+  // visitor on today's view with no clue that the URL had been honored.
+  // We apply each param once per fresh navigation. The `appliedDeepLink`
+  // ref keys off the param string so re-renders don't re-apply, but a
+  // genuine URL change (back/forward, manual edit) does re-trigger. Bad
+  // values fall back silently (current behavior).
+  const appliedDeepLinkRef = useRef<string | null>(null);
+  useEffect(() => {
+    // useSearchParams can return null under test harnesses that mount
+    // the page outside a Next.js router context (e.g. the PTO checkbox
+    // unit test in calendar/__tests__/page.pto-checkbox.test.tsx).
+    // Guard the access so we don't crash the page in those harnesses.
+    if (!searchParams) return;
+    const dateParam = searchParams.get("date");
+    const viewParam = searchParams.get("view");
+    const key = `${dateParam ?? ""}|${viewParam ?? ""}`;
+    if (key === "|") return;
+    if (appliedDeepLinkRef.current === key) return;
+    appliedDeepLinkRef.current = key;
+    if (dateParam) {
+      // Match the YYYY-MM-DD shape strictly so a stray `?date=tomorrow`
+      // string can't slip into the Date constructor and produce garbage.
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateParam);
+      if (m) {
+        const yy = Number(m[1]);
+        const mm = Number(m[2]);
+        const dd = Number(m[3]);
+        const candidate = new Date(yy, mm - 1, dd);
+        // Round-trip check rejects "2026-02-31" style inputs that the
+        // Date constructor silently rolls over (would become Mar 3 here).
+        if (
+          candidate.getFullYear() === yy &&
+          candidate.getMonth() === mm - 1 &&
+          candidate.getDate() === dd
+        ) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- deep-link handler: imperatively sets the calendar anchor when ?date=YYYY-MM-DD is present in the URL. Derived-state alternatives don't fit here because `currentDate` is also mutated by user nav (stepDate / Today button); seeding initial state from the URL once via useState lazy init wouldn't honor mid-session URL changes (back/forward).
+          setCurrentDate(candidate);
+        }
+      }
+    }
+    if (
+      viewParam === "month" ||
+      viewParam === "week" ||
+      viewParam === "day"
+    ) {
+      // setView mutates the Zustand store, not React local state — the
+      // set-state-in-effect rule doesn't apply (no cascading rerender).
+      setView(viewParam);
+    }
+  }, [searchParams, setView]);
 
   const openCreateAt = useCallback((dateStr: string, startTime: string | null) => {
     setPrefilledStartDate(dateStr);

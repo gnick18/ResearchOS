@@ -108,15 +108,21 @@ function LabOverviewBody() {
   useEffect(() => {
     if (allowed === null) {
       // Solo users — no lab folder, nothing to render. Bounce to root.
-      router.replace("/");
+      // Tagged with `?from=lab-overview` so HomePage skips its one-shot
+      // defaultLandingTab redirect; otherwise the visitor would compound
+      // through "/" → defaultLandingTab and lose all signal that they
+      // followed a /lab-overview link in the first place (routing+deep
+      // link fix manager bug 4).
+      router.replace("/?from=lab-overview");
     } else if (allowed === "redirect-to-home") {
       // Lab members — /lab-overview is retired for them; their lab
       // signals now live on the Home page (route "/", not "/home" —
       // HOME_HREF is "/"). `router.replace` (not `push`) so the back
-      // button doesn't trap them in a redirect loop. The closest
-      // client-side equivalent to a true 307 redirect — Next.js 16
-      // client pages don't get server-side response codes.
-      router.replace("/");
+      // button doesn't trap them in a redirect loop. Same `?from=`
+      // sentinel: prevent the home page from compounding into another
+      // tab via defaultLandingTab — alex followed a /lab-overview link
+      // and should land squarely on Home, not bounce again.
+      router.replace("/?from=lab-overview");
     }
   }, [allowed, router]);
 
