@@ -227,6 +227,16 @@ The runbook for every mechanics-verifier brief must include: "Walk sequentially 
 
 Recent example (§6.2b R3, home widgets). The R3 mechanics verifier seed-jumped directly into Step 5 from clean fixture state and reported the onEnter actions as PASS. The R3 fresh-eyes verifier walked sequentially from Step 1 and reported Step 5's onEnter `el.click()` BROKEN: the add-demo action in Step 3 had armed the InputLockOverlay's capture-phase handler, which then swallowed the Step 5 click. Seed-jumping bypassed the Step 3 setup entirely, so the bug was invisible to the mechanics pass.
 
+### Verifiers fix spotlight / highlight-box bugs in-place (2026-05-25)
+
+Standard verifier rule: read-only, file findings, defer fixes to a separate chip. Carve-out: the v4 tour's blue spotlight / highlight box around UI elements. Verifiers with the live Preview MCP session already up should fix those in-place and re-verify in the same session, rather than round-tripping to a separate fix chip.
+
+Why: visual positioning bugs (wrong `data-tour-target` selector, target off-screen, ring sized wrong, dim layer mis-placed, spotlight pointing at parent when it should point at child) require live render to dial in. A separate fix chip has to re-setup the Preview environment, re-walk the tour to the failing step, and iterate without the verifier's existing mental context. In-place fix is strictly less work.
+
+Brief addendum to bake into every walkthrough-verifier brief: "Standard rule: do not modify code. Exception: spotlight / highlight-box positioning bugs (wrong target selector, off-screen target, ring sized wrong, dim layer mis-placed). For those, fix in-place + re-verify in the same preview session; report the diff + commit hash alongside the verification finding. All other bugs file as findings; master will dispatch a separate fix chip."
+
+Verifiers still defer fixes that touch step bodies, copy, sequence logic, or anything requiring a design decision.
+
 ### Field migrations
 
 When a field on Task / Method / Project / Note / etc. is renamed or restructured, follow the **lazy-normalize + on-demand-repair** pattern the cleanup pass landed (commit `147db270`, 2026-05-13). The whole point is that shared on-disk files from other users with legacy shapes keep working transparently — no flag-day cutovers, no broken receivers.
