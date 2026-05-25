@@ -2661,6 +2661,11 @@ function buildEntries() {
   const DEMO_SESSION_C = "demo-sess-2026-05-19-phase3";
   const ANN_NOW = "2026-05-19T09:30:00Z";
   const ANN_EARLIER = "2026-05-12T17:30:00Z";
+  // Lab Overview PI fixture-seed manager (Chip C, 2026-05-25): pinned
+  // welcome announcement is the newest item so it sits at the top of
+  // both the canvas Announcements tile and the sidebar TodaysAnnouncements
+  // tile. Mira-voice (lab coordination, NOT meta copy about the feature).
+  const ANN_WELCOME = "2026-05-20T08:15:00Z";
 
   out.push([
     "_announcements.json",
@@ -2668,13 +2673,32 @@ function buildEntries() {
       version: 1,
       announcements: [
         {
+          // Pinned welcome. Sets the lab-coordination tone in Mira's
+          // voice: a concrete change (reagent ordering channel),
+          // an explicit ack request ("reply yes"), and the lab-head
+          // sign-off rhythm. NOT meta copy ("this is where you talk
+          // to the lab") which would read as a tutorial overlay
+          // rather than a real announcement.
+          id: "ann-mira-welcome",
+          author: "mira",
+          text:
+            "Welcome to the new lab dashboard! A few housekeeping " +
+            "items before the week kicks off: reagent orders go " +
+            "through the lab purchases tab now (not Slack), check " +
+            "the pending column before Friday so I can approve in " +
+            "one pass. Reply with a yes when you've seen this so I " +
+            "know it landed.",
+          created_at: ANN_WELCOME,
+          pinned: true,
+        },
+        {
           id: "ann-mira-lab-meeting",
           author: "mira",
           text:
             "Lab meeting this Friday 2pm in Bio 4203. Bring strain " +
             "design notes and any qPCR data from this week.",
           created_at: ANN_NOW,
-          pinned: true,
+          pinned: false,
         },
         {
           id: "ann-mira-doe-renewal",
@@ -2710,6 +2734,24 @@ function buildEntries() {
     {
       version: 1,
       entries: [
+        {
+          id: "audit-mira-ann-welcome",
+          session_id: DEMO_SESSION_C,
+          actor: "mira",
+          target_user: "_lab",
+          record_type: "announcement",
+          record_id: "ann-mira-welcome",
+          field_path: "text",
+          old_value: null,
+          new_value:
+            "Welcome to the new lab dashboard! A few housekeeping " +
+            "items before the week kicks off: reagent orders go " +
+            "through the lab purchases tab now (not Slack), check " +
+            "the pending column before Friday so I can approve in " +
+            "one pass. Reply with a yes when you've seen this so I " +
+            "know it landed.",
+          timestamp: ANN_WELCOME,
+        },
         {
           id: "audit-mira-ann-1",
           session_id: DEMO_SESSION_C,
@@ -2947,6 +2989,17 @@ function buildEntries() {
       version: 1,
       notifications: [
         {
+          id: "notif-alex-announcement-welcome",
+          type: "lab_announcement",
+          from_user: "mira",
+          announcement_id: "ann-mira-welcome",
+          preview:
+            "Welcome to the new lab dashboard! A few housekeeping " +
+            "items before the week kicks off…",
+          created_at: ANN_WELCOME,
+          read: false,
+        },
+        {
           id: "notif-alex-announcement-1",
           type: "lab_announcement",
           from_user: "mira",
@@ -2975,6 +3028,17 @@ function buildEntries() {
     {
       version: 1,
       notifications: [
+        {
+          id: "notif-morgan-announcement-welcome",
+          type: "lab_announcement",
+          from_user: "mira",
+          announcement_id: "ann-mira-welcome",
+          preview:
+            "Welcome to the new lab dashboard! A few housekeeping " +
+            "items before the week kicks off…",
+          created_at: ANN_WELCOME,
+          read: false,
+        },
         {
           id: "notif-morgan-announcement-1",
           type: "lab_announcement",
@@ -3011,6 +3075,270 @@ function buildEntries() {
             "Let's chat about this in our 1:1 — I want the chapter " +
             "outline scoped tighter before you start the writing pass.",
           created_at: "2026-05-19T09:48:30Z",
+          read: false,
+        },
+      ],
+    },
+  ]);
+
+  // ── Lab Overview PI fixture-seed manager (Chip C, 2026-05-25) ─────────
+  //
+  // Targeted additions so Mira's /lab-overview first paint is dense
+  // with believable content: a second active flag, a fresh shared
+  // note, and a recent pending purchase request. These ride on the
+  // last-wins map behavior of buildEntries (pushing the same key
+  // path overrides any earlier entry), which lets us add `flagged` to
+  // alex/tasks/12.json without re-typing the whole record.
+  //
+  // Date anchors stay within 48h of TODAY (2026-05-13) so the rebase
+  // math keeps each addition reading as "this week" regardless of when
+  // the demo is opened.
+
+  // Flag #2: alex's task 12 (Compile growth-curve results). The flag
+  // lands a few hours after the announcement post so the Lab Activity
+  // feed shows a stack of fresh PI actions, not a single 2026-05-19
+  // burst. Existing alex/tasks/12.json is rewritten here with the same
+  // payload plus a `flagged` block.
+  out.push([
+    "users/alex/tasks/12.json",
+    {
+      id: 12,
+      project_id: 3,
+      name: "Compile growth-curve results",
+      start_date: "2026-05-19",
+      duration_days: 1,
+      end_date: "2026-05-19",
+      is_high_level: false,
+      is_complete: false,
+      task_type: "list",
+      weekend_override: null,
+      method_id: null,
+      method_ids: [],
+      deviation_log: null,
+      tags: null,
+      sort_order: 12,
+      experiment_color: null,
+      sub_tasks: [
+        { id: "st1", text: "Export plate reader CSVs from Tuesday + Thursday runs", is_complete: false },
+        { id: "st2", text: "Subtract YPD blank wells in pandas", is_complete: false },
+        { id: "st3", text: "Fit logistic growth + extract doubling times", is_complete: false },
+        { id: "st4", text: "Send rough OD600 plot to morgan for sanity check", is_complete: false },
+      ],
+      pcr_gradient: null,
+      pcr_ingredients: null,
+      method_attachments: [],
+      owner: "alex",
+      shared_with: [],
+      external_project: null,
+      comments: [],
+      flagged: {
+        by: "mira",
+        at: "2026-05-20T07:50:00Z",
+        reason:
+          "Loop me in before you send the rough plot to morgan. The 4% glucose plateau drift is the headline panel for the DOE renewal and I want eyes on it first.",
+      },
+    },
+  ]);
+
+  // Fresh shared note from morgan, note id 7, created today. Counters
+  // bump (notes: 6 -> 7) below. The note carries one Mira reply so the
+  // Lab Notes tile renders thread metadata, and shows up in the Recent
+  // Lab Activity sidebar as both a note-creation row and a comment row.
+  out.push([
+    "users/morgan/_counters.json",
+    {
+      projects: 3,
+      tasks: 13,
+      methods: 2,
+      events: 0,
+      goals: 2,
+      pcr_protocols: 0,
+      purchase_items: 21,
+      lab_links: 4,
+      notes: 7,
+      dependencies: 2,
+    },
+  ]);
+  out.push([
+    "users/morgan/notes/7.json",
+    {
+      id: 7,
+      title: "Reader run 2026-05-13: candidate FY-Δgal80 library v1",
+      description:
+        "First proper screen of the FY-Δgal80 candidate library off the H1 reader.\n\nPlate setup:\n- 80 candidates (columns 2 to 11)\n- 8 WT negatives (column 1)\n- 8 pDEMO-fluo+ positives (column 12)\n- 12 empty wells with water for evap correction\n\nReader settings: 485/528 nm, 15 min cycle, 6 h total, 30 C.\n\nTop-line numbers:\n- Positive control mean fluorescence: 18,420 a.u. (SD 850, CV 4.6%)\n- WT negative mean: 320 a.u. (SD 95)\n- 14 candidates land above 5,000 a.u. (vs WT + 3SD); 4 above 10,000 a.u.\n\nNext step: re-grow the top 14 from the deep-well plate, repeat the screen Thursday with technical triplicates. Will write up properly once the technical reps land.",
+      is_running_log: false,
+      is_shared: true,
+      shared_with: [{ username: "*", level: "read", permission: "view" }],
+      entries: [],
+      comments: [
+        {
+          id: "cmt-mira-morgan-note7-1",
+          author: "mira",
+          text: "Strong first pass. The 4 above 10k look real to me; flag any of those that also grow faster than WT in the OD curve (the doubles are the prize). Save the reader CSV in the shared folder so I can poke at it before our 1:1.",
+          created_at: "2026-05-13T14:20:00Z",
+          mentions: [],
+        },
+      ],
+      created_at: "2026-05-13T11:30:00Z",
+      updated_at: "2026-05-13T14:20:00Z",
+      username: "morgan",
+    },
+  ]);
+
+  // New pending purchase request from morgan, item 21, dated today.
+  // Mirrors the brief's example item ("Primer order for KRAS construct").
+  // task_id 13 ("Order Chapter 2 figure reagents") is an existing
+  // morgan purchase task so the parent task surface stays consistent.
+  out.push([
+    "users/morgan/purchase_items/21.json",
+    {
+      id: 21,
+      task_id: 13,
+      item_name: "Custom primer set, FY-Δgal80 screen rebuild (10 oligos)",
+      quantity: 10,
+      link: "https://example.org/demo-idt",
+      cas: null,
+      price_per_unit: 14,
+      shipping_fees: 5,
+      total_price: 145,
+      notes: "Need these by Tuesday so the rebuild slots into next week's reader run.",
+      funding_string: "DEMO-NIH-GM999999",
+      vendor: "IDT",
+      category: "Reagents",
+    },
+  ]);
+
+  // Audit appendings for the chip-C additions. Mira's audit entry for
+  // flagging alex task 12 piggybacks onto the existing alex audit file.
+  // We rewrite the whole array (the demo writer is last-wins per-key)
+  // so the new entry stacks on top of the four existing ones from
+  // phases 3/5/6 above. Newest first by timestamp.
+  out.push([
+    "users/alex/_pi_audit.json",
+    {
+      version: 1,
+      entries: [
+        {
+          id: "audit-mira-alex-1",
+          session_id: DEMO_SESSION_A,
+          actor: "mira",
+          target_user: "alex",
+          record_type: "task",
+          record_id: 5,
+          field_path: "name",
+          old_value: "Yeast transformation screen",
+          new_value: "Yeast transformation screen (LiAc)",
+          timestamp: "2026-05-15T14:32:18Z",
+        },
+        {
+          id: "audit-mira-alex-2",
+          session_id: DEMO_SESSION_A,
+          actor: "mira",
+          target_user: "alex",
+          record_type: "task",
+          record_id: 5,
+          field_path: "duration_days",
+          old_value: 3,
+          new_value: 4,
+          timestamp: "2026-05-15T14:32:45Z",
+        },
+        {
+          id: "audit-mira-alex-3",
+          session_id: DEMO_SESSION_C,
+          actor: "mira",
+          target_user: "alex",
+          record_type: "task",
+          record_id: 14,
+          field_path: "assignee",
+          old_value: null,
+          new_value: "morgan",
+          timestamp: "2026-05-19T09:45:01Z",
+        },
+        {
+          id: "audit-mira-alex-4",
+          session_id: DEMO_SESSION_C,
+          actor: "mira",
+          target_user: "alex",
+          record_type: "purchase_item",
+          record_id: 3,
+          field_path: "approved",
+          old_value: false,
+          new_value: true,
+          timestamp: "2026-05-19T09:42:11Z",
+        },
+        {
+          id: "audit-mira-alex-5",
+          session_id: DEMO_SESSION_C,
+          actor: "mira",
+          target_user: "alex",
+          record_type: "task",
+          record_id: 12,
+          field_path: "flagged",
+          old_value: null,
+          new_value: {
+            by: "mira",
+            at: "2026-05-20T07:50:00Z",
+            reason:
+              "Loop me in before you send the rough plot to morgan. The 4% glucose plateau drift is the headline panel for the DOE renewal and I want eyes on it first.",
+          },
+          timestamp: "2026-05-20T07:50:00Z",
+        },
+      ],
+    },
+  ]);
+
+  // Bell notification for alex on the new flag, and one for morgan so
+  // the comment on her note also lands in the bell. Both are
+  // append-style, same shape as the existing flag-on-task-4
+  // notification for morgan.
+  out.push([
+    "users/alex/_notifications.json",
+    {
+      version: 1,
+      notifications: [
+        {
+          id: "notif-alex-announcement-welcome",
+          type: "lab_announcement",
+          from_user: "mira",
+          announcement_id: "ann-mira-welcome",
+          preview:
+            "Welcome to the new lab dashboard! A few housekeeping " +
+            "items before the week kicks off…",
+          created_at: ANN_WELCOME,
+          read: false,
+        },
+        {
+          id: "notif-alex-announcement-1",
+          type: "lab_announcement",
+          from_user: "mira",
+          announcement_id: "ann-mira-lab-meeting",
+          preview:
+            "Lab meeting this Friday 2pm in Bio 4203. Bring strain " +
+            "design notes and any qPCR data from this week.",
+          created_at: ANN_NOW,
+          read: false,
+        },
+        {
+          id: "notif-alex-purchase-approval-1",
+          type: "lab_purchase_approval",
+          from_user: "mira",
+          owner_username: "alex",
+          purchase_item_id: 3,
+          item_name: "Phusion polymerase (demo)",
+          created_at: "2026-05-19T09:42:11Z",
+          read: false,
+        },
+        {
+          id: "notif-alex-flag-1",
+          type: "lab_flag_for_review",
+          from_user: "mira",
+          owner_username: "alex",
+          record_type: "task",
+          record_id: 12,
+          record_name: "Compile growth-curve results",
+          reason:
+            "Loop me in before you send the rough plot to morgan. The 4% glucose plateau drift is the headline panel for the DOE renewal and I want eyes on it first.",
+          created_at: "2026-05-20T07:50:00Z",
           read: false,
         },
       ],

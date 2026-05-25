@@ -2,6 +2,15 @@
   "version": 1,
   "notifications": [
     {
+      "id": "notif-morgan-announcement-welcome",
+      "type": "lab_announcement",
+      "from_user": "mira",
+      "announcement_id": "ann-mira-welcome",
+      "preview": "Welcome to the new lab dashboard! A few housekeeping items before the week kicks off…",
+      "created_at": "2026-05-20T08:15:00Z",
+      "read": false
+    },
+    {
       "id": "notif-morgan-announcement-1",
       "type": "lab_announcement",
       "from_user": "mira",

@@ -2,11 +2,18 @@
   "version": 1,
   "announcements": [
     {
+      "id": "ann-mira-welcome",
+      "author": "mira",
+      "text": "Welcome to the new lab dashboard! A few housekeeping items before the week kicks off: reagent orders go through the lab purchases tab now (not Slack), check the pending column before Friday so I can approve in one pass. Reply with a yes when you've seen this so I know it landed.",
+      "created_at": "2026-05-20T08:15:00Z",
+      "pinned": true
+    },
+    {
       "id": "ann-mira-lab-meeting",
       "author": "mira",
       "text": "Lab meeting this Friday 2pm in Bio 4203. Bring strain design notes and any qPCR data from this week.",
       "created_at": "2026-05-19T09:30:00Z",
-      "pinned": true
+      "pinned": false
     },
     {
       "id": "ann-mira-doe-renewal",

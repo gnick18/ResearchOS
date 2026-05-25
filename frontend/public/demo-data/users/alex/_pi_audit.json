@@ -48,6 +48,22 @@
       "old_value": false,
       "new_value": true,
       "timestamp": "2026-05-19T09:42:11Z"
+    },
+    {
+      "id": "audit-mira-alex-5",
+      "session_id": "demo-sess-2026-05-19-phase3",
+      "actor": "mira",
+      "target_user": "alex",
+      "record_type": "task",
+      "record_id": 12,
+      "field_path": "flagged",
+      "old_value": null,
+      "new_value": {
+        "by": "mira",
+        "at": "2026-05-20T07:50:00Z",
+        "reason": "Loop me in before you send the rough plot to morgan. The 4% glucose plateau drift is the headline panel for the DOE renewal and I want eyes on it first."
+      },
+      "timestamp": "2026-05-20T07:50:00Z"
     }
   ]
 }

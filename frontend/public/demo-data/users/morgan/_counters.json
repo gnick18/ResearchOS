@@ -1,12 +1,12 @@
 {
-  "projects": 2,
+  "projects": 3,
   "tasks": 13,
   "methods": 2,
   "events": 0,
   "goals": 2,
   "pcr_protocols": 0,
-  "purchase_items": 20,
+  "purchase_items": 21,
   "lab_links": 4,
-  "notes": 6,
+  "notes": 7,
   "dependencies": 2
 }

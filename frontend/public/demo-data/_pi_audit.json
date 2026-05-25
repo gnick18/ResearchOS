@@ -2,6 +2,18 @@
   "version": 1,
   "entries": [
     {
+      "id": "audit-mira-ann-welcome",
+      "session_id": "demo-sess-2026-05-19-phase3",
+      "actor": "mira",
+      "target_user": "_lab",
+      "record_type": "announcement",
+      "record_id": "ann-mira-welcome",
+      "field_path": "text",
+      "old_value": null,
+      "new_value": "Welcome to the new lab dashboard! A few housekeeping items before the week kicks off: reagent orders go through the lab purchases tab now (not Slack), check the pending column before Friday so I can approve in one pass. Reply with a yes when you've seen this so I know it landed.",
+      "timestamp": "2026-05-20T08:15:00Z"
+    },
+    {
       "id": "audit-mira-ann-1",
       "session_id": "demo-sess-2026-05-19-phase3",
       "actor": "mira",

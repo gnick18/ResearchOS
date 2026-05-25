@@ -43,5 +43,10 @@
   "owner": "alex",
   "shared_with": [],
   "external_project": null,
-  "comments": []
+  "comments": [],
+  "flagged": {
+    "by": "mira",
+    "at": "2026-05-20T07:50:00Z",
+    "reason": "Loop me in before you send the rough plot to morgan. The 4% glucose plateau drift is the headline panel for the DOE renewal and I want eyes on it first."
+  }
 }

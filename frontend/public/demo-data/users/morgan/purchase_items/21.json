@@ -1,0 +1,15 @@
+{
+  "id": 21,
+  "task_id": 13,
+  "item_name": "Custom primer set, FY-Δgal80 screen rebuild (10 oligos)",
+  "quantity": 10,
+  "link": "https://example.org/demo-idt",
+  "cas": null,
+  "price_per_unit": 14,
+  "shipping_fees": 5,
+  "total_price": 145,
+  "notes": "Need these by Tuesday so the rebuild slots into next week's reader run.",
+  "funding_string": "DEMO-NIH-GM999999",
+  "vendor": "IDT",
+  "category": "Reagents"
+}
