@@ -23,10 +23,20 @@ import { create } from "zustand";
  * burst of errors would be loud, not satisfying).
  */
 
-/** Supported scene IDs. Keep this list tight — the host has a hard
+/** Supported scene IDs. Keep this list tight, the host has a hard
  *  switch for each entry. Adding a new scene means adding both a
- *  literal here and a case in `SceneTriggerHost`. */
-export type SceneTriggerId = "bugstomp";
+ *  literal here and a case in `SceneTriggerHost`.
+ *
+ *  - `bugstomp`: bug-report path (manual click + auto-error).
+ *  - `coffeeLateNight`: late-night work session, fires once per crossed
+ *    hour while local time is in [23, 00, 01, 02]. See
+ *    `useLateNightCoffeeTrigger`.
+ *  - `coffeeMorningCalendar`: first Calendar open before 8am local on a
+ *    given day. See `useMorningCalendarCoffeeTrigger`. */
+export type SceneTriggerId =
+  | "bugstomp"
+  | "coffeeLateNight"
+  | "coffeeMorningCalendar";
 
 interface SceneTriggerState {
   /** Currently-playing scene, or null when idle. */

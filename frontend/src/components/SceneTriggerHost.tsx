@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import BeakerBotBugStompScene from "@/components/BeakerBotBugStompScene";
+import BeakerBotCoffeeRefillScene from "@/components/BeakerBotCoffeeRefillScene";
 import {
   useSceneTriggerStore,
   type SceneTriggerId,
@@ -56,6 +57,12 @@ function renderScene(
   switch (sceneId) {
     case "bugstomp":
       return <BeakerBotBugStompScene active onComplete={onComplete} />;
+    case "coffeeLateNight":
+    case "coffeeMorningCalendar":
+      // Both time-based coffee triggers render the same scene. The scene
+      // copy is identical today; a future "good morning, brewing up"
+      // intro variant for the morning path would slot in via a prop.
+      return <BeakerBotCoffeeRefillScene active onComplete={onComplete} />;
     default: {
       // Exhaustiveness guard: if we add a new SceneTriggerId without a
       // case here, TS will flag this assignment at compile time.
