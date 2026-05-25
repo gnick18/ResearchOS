@@ -219,6 +219,14 @@ A Preview-MCP-driven sub-bot CANNOT execute steps 1-2 of the runbook above. `win
 
 Worth filing as separate fix chip: the Dev "User setup walkthrough" button mints a Test-N user that does NOT auto-fire the v4 tour in plain `?wikiCapture=1` mode (no `wizard-preview` flag). `providers.tsx:192` gates `V4MountForUser` on `isV4PreviewMode()` inside the fixture branch, so the new Test-N sidecar's `wizard_force_show: true` has nothing to mount into. Either drop the gate when a Test-N user is active, or have the dev button stamp the sticky preview flag itself.
 
+### Mechanics verifiers: full sequential walk required (2026-05-25)
+
+Seed-jump probing and sequential walks are complementary, not substitutes. Mechanics verifiers MUST do at least one full sequential walk per redesign verification, in addition to any per-step seed-jump probing. Seed-jumps isolate a single step's behavior from a clean room; sequential walks expose state-dependent bugs where a flag or DOM mutation set in an earlier step changes how a later step behaves.
+
+The runbook for every mechanics-verifier brief must include: "Walk sequentially from `<start step>` to `<end step>` at least once before declaring the section verified," alongside any per-step `wizardSeedStep` probing the brief calls for. Treat the sequential pass as the integration test and seed-jumps as the unit tests.
+
+Recent example (§6.2b R3, home widgets). The R3 mechanics verifier seed-jumped directly into Step 5 from clean fixture state and reported the onEnter actions as PASS. The R3 fresh-eyes verifier walked sequentially from Step 1 and reported Step 5's onEnter `el.click()` BROKEN: the add-demo action in Step 3 had armed the InputLockOverlay's capture-phase handler, which then swallowed the Step 5 click. Seed-jumping bypassed the Step 3 setup entirely, so the bug was invisible to the mechanics pass.
+
 ### Field migrations
 
 When a field on Task / Method / Project / Note / etc. is renamed or restructured, follow the **lazy-normalize + on-demand-repair** pattern the cleanup pass landed (commit `147db270`, 2026-05-13). The whole point is that shared on-disk files from other users with legacy shapes keep working transparently — no flag-day cutovers, no broken receivers.
