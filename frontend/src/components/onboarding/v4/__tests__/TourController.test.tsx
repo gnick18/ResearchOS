@@ -1228,6 +1228,41 @@ describe("TourController — expectedRoute auto-navigation", () => {
     rerender();
     expect(pushMock).toHaveBeenCalledWith("/");
   });
+
+  // §6.1 nav fix (2026-05-25): the §6.2 NAV step's cursor click pushes
+  // the user from `/` (its expectedRoute) into `/workbench/projects/<id>`.
+  // The pathname-dep auto-correct effect must NOT bounce the user back
+  // to `/` when the navigation came from the cursor itself
+  // (`__beakerBotCursorScriptRunning` flag true). Without this guard,
+  // §6.2 PROSE would activate with the user stuck on home and trigger
+  // the target-detach recovery hint inappropriately.
+  it("does NOT auto-correct when the cursor script just navigated", () => {
+    const { result, rerender } = renderHook(() => useTourController(), {
+      wrapper: wrapper(),
+    });
+    act(() => result.current.start("home-create-project"));
+    expect(pushMock).not.toHaveBeenCalled();
+    // Simulate the cursor-script effect flipping the flag true (the
+    // child overlay does this when a cursorScript step is active and
+    // runScript is mid-play).
+    (window as unknown as { __beakerBotCursorScriptRunning?: boolean })
+      .__beakerBotCursorScriptRunning = true;
+    try {
+      // Cursor's click handler ran router.push to a new route — the
+      // pathname-dep change fires the auto-nav effect again.
+      act(() => {
+        window.history.pushState({}, "", "/workbench/projects/42");
+        setMockPathname("/workbench/projects/42");
+      });
+      rerender();
+      // No bounce-back: the cursor IS responsible for this nav, the
+      // controller stays out of the way.
+      expect(pushMock).not.toHaveBeenCalled();
+    } finally {
+      (window as unknown as { __beakerBotCursorScriptRunning?: boolean })
+        .__beakerBotCursorScriptRunning = false;
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------

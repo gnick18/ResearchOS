@@ -1009,10 +1009,24 @@ export function TourControllerProvider({
   // cursor demos clicking through. The match is a prefix `startsWith`
   // check so `expectedRoute: "/methods"` treats both `/methods` and
   // `/methods/structured/pcr-builder` as "already on the right page."
+  // §6.1 nav fix (2026-05-25): track the step the auto-nav effect last
+  // observed so we can tell apart "step changed" (push on entry) from
+  // "pathname changed mid-step" (R2 chip B nav-escape). The
+  // cursor-script-running guard only applies to the latter — on step
+  // entry, the cursor flag may already be true (set synchronously by
+  // the child overlay's cursor-script effect on the same render) but
+  // we still want the auto-nav push to fire so the step lands on the
+  // right route. Mid-step pathname changes are the bounce-back case
+  // (§6.2 NAV's cursor click navigates forward and the guard suppresses
+  // the bounce).
+  const lastAutoNavStepRef = useRef<TourStepId | null>(null);
   useEffect(() => {
     if (!state.currentStep || state.paused) return;
     const body = getStep(state.currentStep);
-    if (!body?.expectedRoute) return;
+    if (!body?.expectedRoute) {
+      lastAutoNavStepRef.current = state.currentStep;
+      return;
+    }
 
     // SSR guard. Tests under jsdom still have `window`; the guard is
     // here for the rare case of the controller mounting during an
@@ -1020,6 +1034,11 @@ export function TourControllerProvider({
     if (typeof window === "undefined") return;
     const current = window.location.pathname;
     const expected = body.expectedRoute;
+
+    // Did the step change since the last auto-nav fire? Capture BEFORE
+    // we mutate the ref so the guard below can branch on it.
+    const stepChanged = lastAutoNavStepRef.current !== state.currentStep;
+    lastAutoNavStepRef.current = state.currentStep;
 
     // Match contract: prefix match (`startsWith`) for everything EXCEPT
     // the home route. `/` would prefix-match every path, which would
@@ -1030,6 +1049,37 @@ export function TourControllerProvider({
     const alreadyOnRoute =
       expected === "/" ? current === "/" : current.startsWith(expected);
     if (alreadyOnRoute) return;
+
+    // §6.1 nav fix (2026-05-25): when BeakerBot's cursor script is
+    // mid-run AND the step hasn't changed since the last auto-nav
+    // observation, the pathname change is the cursor's own navigation —
+    // not the user wandering off — because the InputLockOverlay blocks
+    // user clicks while the cursor drives. The §6.2 NAV step is the
+    // canonical case: it declares `expectedRoute: "/"` for refresh-
+    // resilience, then its cursor click pushes the user into
+    // `/workbench/projects/<id>`. Without this guard, the pathname-dep
+    // re-fire would bounce the user back to "/" the moment the cursor
+    // arrived at the project route, stranding the tour on home while
+    // §6.2 PROSE tried to find the project-overview-textarea anchor
+    // (which only mounts on the project route) and triggering the
+    // target-detach recovery hint inappropriately.
+    //
+    // The `stepChanged` gate matters: on a step transition into a
+    // cursor-script step from another cursor-script step, the cursor
+    // flag may already be true (the child overlay's effect runs first
+    // on the same render). Without the gate, the legitimate step-entry
+    // push would be suppressed. User-driven nav-escapes (the R2 chip B
+    // case) still correct because the cursor isn't running during a
+    // user-action step (the predecessor step's cursor flag was cleared
+    // on its exit).
+    if (
+      !stepChanged &&
+      typeof window !== "undefined" &&
+      (window as unknown as { __beakerBotCursorScriptRunning?: boolean })
+        .__beakerBotCursorScriptRunning
+    ) {
+      return;
+    }
 
     // Preserve query params on the auto-nav push (live-test R2 fix
     // 2026-05-21). Originally we carried ALL existing search params
@@ -1584,6 +1634,14 @@ function InProductWalkthroughOverlay({
       // No cursor demo on this step — the input lock must stay off so
       // user-action steps (e.g. home-create-project) remain interactive.
       setCursorActive(false);
+      // §6.1 nav fix (2026-05-25): mirror the cursorActive flip onto
+      // the window so the auto-nav effect in TourControllerProvider
+      // can short-circuit a pathname-dep bounce while the cursor is
+      // mid-script. See the auto-nav effect for the consumer side.
+      if (typeof window !== "undefined") {
+        (window as unknown as { __beakerBotCursorScriptRunning?: boolean })
+          .__beakerBotCursorScriptRunning = false;
+      }
       return;
     }
     const ref = cursorRef.current;
@@ -1605,6 +1663,18 @@ function InProductWalkthroughOverlay({
     // on step exit, and the lock-during-build window is invisible if
     // no cursor is currently running.
     setCursorActive(true);
+    // §6.1 nav fix (2026-05-25): mirror cursorActive onto a window
+    // flag so the auto-nav effect (in TourControllerProvider) can
+    // suppress its pathname-dep bounce while the cursor is driving.
+    // Without this, a cursor-driven navigation (e.g. §6.2 NAV clicks
+    // a project card → router.push to /workbench/projects/<id>) gets
+    // bounced back to expectedRoute (`/` for §6.2 NAV) because the
+    // auto-nav effect runs on the pathname change. See the consumer
+    // side for the full rationale.
+    if (typeof window !== "undefined") {
+      (window as unknown as { __beakerBotCursorScriptRunning?: boolean })
+        .__beakerBotCursorScriptRunning = true;
+    }
     // §6.2 NAV escape hatch manager 2026-05-23 — cursor-lock watchdog.
     // If a cursor script hangs (waitForElement that never resolves on
     // a stale anchor, a click that doesn't navigate so a follow-on
@@ -1638,9 +1708,17 @@ function InProductWalkthroughOverlay({
         // next boundary. Then flip cursorActive off so the
         // overlay unmounts immediately (the in-flight script's
         // own finally would do this too, but we don't want to
-        // wait on it — the user is stuck NOW).
+        // wait on it — the user is stuck NOW). §6.1 nav fix: also
+        // clear the window flag so a subsequent pathname change is
+        // not suppressed by a stuck-on flag from a hung script.
         abortController.abort();
-        if (!cancelled) setCursorActive(false);
+        if (!cancelled) {
+          setCursorActive(false);
+          if (typeof window !== "undefined") {
+            (window as unknown as { __beakerBotCursorScriptRunning?: boolean })
+              .__beakerBotCursorScriptRunning = false;
+          }
+        }
       }, CURSOR_LOCK_WATCHDOG_MS);
     }
     const clearWatchdog = () => {
@@ -1723,9 +1801,19 @@ function InProductWalkthroughOverlay({
           // Watchdog cleared regardless of outcome — a normally-
           // resolving runScript shouldn't fire the watchdog late.
           clearWatchdog();
-          // If the watchdog already fired we already setCursorActive(false);
-          // don't bounce the state.
-          if (!cancelled && !watchdogFired) setCursorActive(false);
+          // If the watchdog already fired we already setCursorActive(false)
+          // and cleared the window flag; don't bounce the state.
+          if (!cancelled && !watchdogFired) {
+            setCursorActive(false);
+            // §6.1 nav fix (2026-05-25): clear the window flag the
+            // auto-nav effect consults so a post-script pathname
+            // change (e.g. the user clicks Got it, next and the next
+            // step's expectedRoute push) is allowed through normally.
+            if (typeof window !== "undefined") {
+              (window as unknown as { __beakerBotCursorScriptRunning?: boolean })
+                .__beakerBotCursorScriptRunning = false;
+            }
+          }
         }
       } catch (err) {
         clearWatchdog();
@@ -1733,7 +1821,16 @@ function InProductWalkthroughOverlay({
           `[TourController] cursor script for step "${currentStep}" failed:`,
           err,
         );
-        if (!cancelled && !watchdogFired) setCursorActive(false);
+        if (!cancelled && !watchdogFired) {
+          setCursorActive(false);
+          // §6.1 nav fix (2026-05-25): clear the window flag on
+          // error too so a subsequent step's expectedRoute push
+          // is not suppressed.
+          if (typeof window !== "undefined") {
+            (window as unknown as { __beakerBotCursorScriptRunning?: boolean })
+              .__beakerBotCursorScriptRunning = false;
+          }
+        }
       }
     })();
 
@@ -1756,6 +1853,14 @@ function InProductWalkthroughOverlay({
       // bubble (which stays clickable through the overlay) trigger this
       // cleanup as the step changes.
       setCursorActive(false);
+      // §6.1 nav fix (2026-05-25): clear the window flag on cleanup so
+      // a step transition (advance / skip / back) doesn't leave the
+      // flag stuck true and suppress legitimate auto-nav pushes on
+      // the next step's expectedRoute.
+      if (typeof window !== "undefined") {
+        (window as unknown as { __beakerBotCursorScriptRunning?: boolean })
+          .__beakerBotCursorScriptRunning = false;
+      }
     };
   }, [currentStep]);
 
