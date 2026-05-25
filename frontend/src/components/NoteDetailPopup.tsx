@@ -13,6 +13,7 @@ import { attachImageToTask } from "@/lib/attachments/attach-image";
 import { fileEvents } from "@/lib/attachments/file-events";
 import { checkForDuplicates } from "@/lib/attachments/duplicate-check";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useDraftPersistence } from "@/hooks/useDraftPersistence";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { useLabHeadEditGate } from "@/hooks/useLabHeadEditGate";
 import RequestEditButton from "./RequestEditButton";
@@ -188,6 +189,16 @@ export default function NoteDetailPopup({
           setEntries(updated.entries);
         }
         unsavedContentRef.current.delete(entryId);
+        // Drop the SPA-nav draft for this entry — disk now matches what
+        // the user typed, so a later remount should pick up the disk
+        // baseline cleanly rather than re-hydrating a stale slug.
+        try {
+          sessionStorage.removeItem(
+            `researchos:draft:note-entry:${currentUser ?? ""}:${note.username ?? ""}:${note.id}:${entryId}`,
+          );
+        } catch {
+          // sessionStorage unavailable -- silently ignore.
+        }
         if (updated) onUpdate(updated);
       } catch (error) {
         console.error("Failed to save entry content:", error);
@@ -196,7 +207,7 @@ export default function NoteDetailPopup({
         isSavingRef.current = false;
       }
     },
-    [note.id, onUpdate, notesApi]
+    [note.id, onUpdate, notesApi, currentUser, note.username]
   );
 
   // Debounced save (1.5 seconds after user stops typing)
@@ -209,19 +220,79 @@ export default function NoteDetailPopup({
   // Keep the beforeunload flush ref pointing at the latest flush function.
   flushRef.current = flushDebouncedSave;
 
-  // Warn before navigating away when there is a pending debounced save.
-  // Reads the ref directly inside the handler so we always see the latest
-  // state without needing a re-render to propagate the boolean.
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (unsavedContentRef.current.size === 0) return;
-      flushRef.current();
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, []);
+  // Track dirty state across every editable surface, not just the debounced
+  // entry body. The inline title + description editors and the new-entry
+  // form all live in local React state, so a refresh / tab-close mid-edit
+  // would silently drop them without this gate.
+  //
+  // `unsavedEntryContent` is intentionally not part of React state (the ref
+  // is updated synchronously by `updateEntryContent` while the debounced
+  // save is in flight); we mirror it into a re-render boundary by passing
+  // the ref's `.size > 0` value through here, which re-evaluates on every
+  // render that follows a typed character (the editor body change calls
+  // setEntries above, which triggers a render).
+  const hasUnsavedEdits =
+    unsavedContentRef.current.size > 0 ||
+    (editingTitle && title !== note.title) ||
+    (editingDescription && description !== note.description) ||
+    (showNewEntryForm && newEntryTitle.trim().length > 0);
+
+  // beforeunload guard. `onFlush` runs the debounced editor-body write
+  // synchronously, giving the in-flight save a fighting chance before the
+  // browser tears down. The guard itself only triggers when `hasUnsavedEdits`
+  // is true, so it does not prompt for clean closes.
+  useUnsavedChangesGuard(hasUnsavedEdits && !saving, {
+    onFlush: () => flushRef.current(),
+  });
+
+  // SPA-nav-safe persistence for the currently-active entry's body. The
+  // existing debounced API save handles the happy path (user keeps typing,
+  // server eventually catches up), and `handleClose` flushes pending writes
+  // on the user-initiated close path. But a SPA nav-link click unmounts the
+  // popup WITHOUT going through `handleClose`, so the in-flight content
+  // sitting in `unsavedContentRef` is silently dropped.
+  //
+  // Persisting the active entry's body to sessionStorage closes that gap:
+  // on remount (user returns to this note via inbox / search / direct nav)
+  // the onRestore hydrates `unsavedContentRef` + the entry's local content,
+  // and the debounced save fires once the user types again (or `handleClose`
+  // flushes on close).
+  //
+  // Per-user + per-note + per-entry key so an open in another tab does not
+  // collide; entries are independent because each entry has its own id.
+  const activeEntryDraftKey = `researchos:draft:note-entry:${currentUser ?? ""}:${note.username ?? ""}:${note.id}:${activeTab ?? "none"}`;
+  const activeEntryContent = useMemo(() => {
+    if (!activeTab) return "";
+    const e = entries.find((e) => e.id === activeTab);
+    return e?.content ?? "";
+  }, [entries, activeTab]);
+  const activeEntryDirty =
+    !!activeTab && unsavedContentRef.current.has(activeTab);
+  // We deliberately don't capture `clearDraft` here — the per-entry slugs
+  // are cleared inside `saveEntryContent` via a direct `sessionStorage`
+  // call so the cleanup keys off the specific entry that just persisted,
+  // not whatever entry happens to be active when the API resolves.
+  useDraftPersistence(activeEntryDraftKey, activeEntryContent, activeEntryDirty, {
+    onRestore: (saved) => {
+      if (typeof saved !== "string" || !activeTab) return;
+      // Only restore if the entry is still at its disk baseline (no
+      // unsaved typing yet). Mirror the AnnouncementsWidget composer
+      // restore-once-then-yield pattern: the user's in-progress typing
+      // always wins.
+      if (unsavedContentRef.current.has(activeTab)) return;
+      setEntries((prev) =>
+        prev.map((e) =>
+          e.id === activeTab
+            ? { ...e, content: saved, updated_at: new Date().toISOString() }
+            : e,
+        ),
+      );
+      unsavedContentRef.current.set(activeTab, saved);
+      // Kick off the debounced save so the recovered content lands on
+      // disk without requiring the user to type another character.
+      debouncedSave(activeTab, saved);
+    },
+  });
 
   // Handle close with save - saves any pending changes before closing
   const handleClose = useCallback(async () => {
@@ -235,12 +306,25 @@ export default function NoteDetailPopup({
     if (unsavedContentRef.current.size > 0) {
       setSaving(true);
       try {
+        // Snapshot the entry ids whose content is about to be flushed so
+        // we can drop their SPA-nav drafts after the API write resolves.
+        const flushedEntryIds = Array.from(unsavedContentRef.current.keys());
         // Save all unsaved entries in parallel
         const savePromises = Array.from(unsavedContentRef.current.entries()).map(
           ([entryId, content]) => notesApi.updateEntry(note.id, entryId, { content })
         );
         await Promise.all(savePromises);
         unsavedContentRef.current.clear();
+        // Drop persisted drafts now that the content is on disk.
+        for (const entryId of flushedEntryIds) {
+          try {
+            sessionStorage.removeItem(
+              `researchos:draft:note-entry:${currentUser ?? ""}:${note.username ?? ""}:${note.id}:${entryId}`,
+            );
+          } catch {
+            // sessionStorage unavailable -- silently ignore.
+          }
+        }
       } catch (error) {
         console.error("Failed to save pending changes:", error);
       } finally {
@@ -249,7 +333,7 @@ export default function NoteDetailPopup({
     }
 
     onClose();
-  }, [note.id, onClose, cancelDebouncedSave, notesApi]);
+  }, [note.id, note.username, onClose, cancelDebouncedSave, notesApi, currentUser]);
 
   // Handle escape key to close or exit fullscreen
   useEffect(() => {

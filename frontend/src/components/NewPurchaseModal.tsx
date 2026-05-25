@@ -211,9 +211,32 @@ export default function NewPurchaseModal({
 
   // Reset to empty (or seeded) state when the modal opens. Avoids
   // stale-state when the user closes + reopens after a save.
+  //
+  // Draft-protection gate: skip the reset when the form already has
+  // meaningful content. Two cases this covers:
+  //   1. First mount with a sessionStorage draft — `useDraftPersistence`
+  //      runs its onRestore synchronously during mount, hydrating the form
+  //      before this effect fires. Without the gate the reset would clobber
+  //      the restored draft on the very first open.
+  //   2. Reopen after typing + closing without saving — the modal doesn't
+  //      unmount (just renders null while `open` is false), so the form
+  //      state carries the typed values into the next open. Same reset
+  //      would silently nuke them.
+  // When the form IS empty (no draft, no typed content) the reset still
+  // runs to apply the optional `initial` seed and to clear any leftover
+  // category default from a previous successful save.
   useEffect(() => {
     if (open) {
-      setForm({ ...EMPTY_STATE, ...(initial ?? {}) });
+      setForm((prev) => {
+        const isStillEmpty =
+          !prev.name.trim() &&
+          !prev.vendor.trim() &&
+          !prev.fundingString.trim();
+        if (isStillEmpty) {
+          return { ...EMPTY_STATE, ...(initial ?? {}) };
+        }
+        return prev;
+      });
       setError(null);
     }
   }, [open, initial]);

@@ -51,6 +51,8 @@ import { stripAttachmentReferences } from "@/lib/attachments/strip-references";
 import { imageEvents } from "@/lib/attachments/image-events";
 import { recordProjectActivity } from "@/lib/project-activity/event-log";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useDraftPersistence } from "@/hooks/useDraftPersistence";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { useLabHeadEditGate } from "@/hooks/useLabHeadEditGate";
 import RequestEditButton from "./RequestEditButton";
 import EditSessionBanner from "./EditSessionBanner";
@@ -3237,6 +3239,15 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
   const { resolve: resolveDuplicates, DialogComponent: DuplicateDialog } =
     useDuplicateResolver();
   const { currentUser } = useCurrentUser();
+  // Holds the draft captured by `useDraftPersistence`'s onRestore until the
+  // disk load below finishes. Pattern: onRestore fires on mount BEFORE the
+  // async disk read resolves, so we can't set `content` directly (the disk
+  // load would race past us). Instead we stash the draft here; the loader
+  // checks the ref after `originalContent` is set, and if a draft exists,
+  // promotes it to `content`. The originalContent stays as the disk value
+  // so `hasUnsavedChanges = content !== originalContent` correctly flags
+  // the restored draft as dirty (and the Save button enables).
+  const pendingDraftRef = useRef<string | null>(null);
 
   // LabArchives-import rehydration banner state. Populated by an
   // _import_source.json probe; banner is rendered iff `missing.length > 0`
@@ -3276,6 +3287,28 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
 
   // Track if there are unsaved changes
   const hasUnsavedChanges = content !== originalContent && !loading;
+
+  // SPA-nav-safe draft persistence. Notes-tab content is persisted to
+  // sessionStorage on every keystroke (debounced inside the hook). A
+  // refresh / nav-link click / accidental tab close re-mounts this tab and
+  // the draft is auto-restored on top of the freshly-loaded disk content.
+  // Per-user + per-task-owner + per-task-id key so two browsers logged in
+  // as different users never share a draft.
+  const notesDraftKey = `researchos:draft:task-notes:${currentUser ?? ""}:${task.owner}:${task.id}`;
+  const { clearDraft: clearNotesDraft } = useDraftPersistence(
+    notesDraftKey,
+    content,
+    hasUnsavedChanges,
+    {
+      onRestore: (saved) => {
+        if (typeof saved !== "string" || saved.length === 0) return;
+        // Stash the draft until the disk load resolves — applying it
+        // directly here would race against the async loader below and
+        // get overwritten by `setContent(stampNormalizedContent)`.
+        pendingDraftRef.current = saved;
+      },
+    },
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -3326,16 +3359,31 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
           await filesApi.writeFile(resolvedNotes, stampNormalizedContent, `Migrate image references for: ${task.name}`);
         }
         if (!cancelled) {
-          setContent(stampNormalizedContent);
           setOriginalContent(stampNormalizedContent);
+          // Promote a pending SPA-nav draft on top of the disk content if
+          // one was captured by useDraftPersistence's onRestore. The
+          // draft was persisted while the user was actively typing, so
+          // it's strictly newer than the disk content; promoting it
+          // recovers the in-flight work. If no draft exists (or the
+          // draft text equals the disk content already) we fall through
+          // to the normal disk-baseline path.
+          const pending = pendingDraftRef.current;
+          pendingDraftRef.current = null;
+          if (pending && pending !== stampNormalizedContent) {
+            setContent(pending);
+          } else {
+            setContent(stampNormalizedContent);
+          }
           setLoading(false);
         }
       } catch {
         if (cancelled) return;
         const projectName = stampProject?.name ?? "Unknown Project";
         const newContent = createNewFileContent(task.name, projectName, 'notes');
-        setContent(newContent);
         setOriginalContent(newContent);
+        const pending = pendingDraftRef.current;
+        pendingDraftRef.current = null;
+        setContent(pending && pending !== newContent ? pending : newContent);
         setLoading(false);
       }
     })();
@@ -3365,17 +3413,10 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
     };
   }, [attachBase, rehydrateReloadKey]);
 
-  // Warn before navigating away with unsaved changes
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges) {
-        e.preventDefault();
-        e.returnValue = "";
-      }
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [hasUnsavedChanges]);
+  // Warn before navigating away (F5 / tab close) with unsaved changes. SPA
+  // route changes are NOT covered by beforeunload — the draft-persistence
+  // hook above handles that case by surviving the remount.
+  useUnsavedChangesGuard(hasUnsavedChanges);
 
   // When the tab is in legacy attach mode (shared `Files/`+`Images/` at the
   // outer base), perform the split-on-write migration so new drops land in
@@ -3581,12 +3622,15 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
       await filesApi.writeFile(notesPath, toWrite, `Update lab notes for: ${task.name}`);
       setContent(toWrite);
       setOriginalContent(toWrite);
+      // Saved content now lives on disk — drop the SPA-nav draft so the
+      // next mount doesn't re-promote the now-redundant copy.
+      clearNotesDraft();
     } catch {
       alert("Failed to save notes");
     } finally {
       setSaving(false);
     }
-  }, [content, ensureAttachmentsSplit, notesPath, task.name]);
+  }, [content, ensureAttachmentsSplit, notesPath, task.name, clearNotesDraft]);
 
   return (
     <>
@@ -3827,6 +3871,10 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
   const { resolve: resolveDuplicates, DialogComponent: DuplicateDialog } =
     useDuplicateResolver();
   const { currentUser } = useCurrentUser();
+  // See LabNotesTab — same SPA-nav draft-restore staging slot. Holds the
+  // sessionStorage draft (if any) until the disk loader resolves, then the
+  // loader promotes it on top of the disk baseline.
+  const pendingDraftRef = useRef<string | null>(null);
 
   // See LabNotesTab for the per-user / legacy fallback rules. `outerBase`
   // holds the .md files + PDF panels; `attachBase` is the per-tab scoped
@@ -3848,6 +3896,22 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
 
   // Track if there are unsaved changes
   const hasUnsavedChanges = content !== originalContent && !loading;
+
+  // SPA-nav-safe draft persistence — see LabNotesTab for the rationale. Key
+  // is suffixed `:results` so the Notes tab + Results tab on the same task
+  // don't share a sessionStorage slot.
+  const resultsDraftKey = `researchos:draft:task-results:${currentUser ?? ""}:${task.owner}:${task.id}`;
+  const { clearDraft: clearResultsDraft } = useDraftPersistence(
+    resultsDraftKey,
+    content,
+    hasUnsavedChanges,
+    {
+      onRestore: (saved) => {
+        if (typeof saved !== "string" || saved.length === 0) return;
+        pendingDraftRef.current = saved;
+      },
+    },
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -3891,16 +3955,27 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
           await filesApi.writeFile(resolvedResults, stampNormalizedContent, `Migrate image references for: ${task.name}`);
         }
         if (!cancelled) {
-          setContent(stampNormalizedContent);
           setOriginalContent(stampNormalizedContent);
+          // See LabNotesTab — promote a pending SPA-nav draft on top of
+          // the disk baseline so the user's in-flight edits survive a
+          // nav-link click within the app.
+          const pending = pendingDraftRef.current;
+          pendingDraftRef.current = null;
+          if (pending && pending !== stampNormalizedContent) {
+            setContent(pending);
+          } else {
+            setContent(stampNormalizedContent);
+          }
           setLoading(false);
         }
       } catch {
         if (cancelled) return;
         const projectName = stampProject?.name ?? "Unknown Project";
         const newContent = createNewFileContent(task.name, projectName, 'results');
-        setContent(newContent);
         setOriginalContent(newContent);
+        const pending = pendingDraftRef.current;
+        pendingDraftRef.current = null;
+        setContent(pending && pending !== newContent ? pending : newContent);
         setLoading(false);
       }
     })();
@@ -3909,17 +3984,9 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
     };
   }, [task.id, task.name, task.owner, task.project_id, currentUser, legacyOwner, readOnly, stampProject?.name]);
 
-  // Warn before navigating away with unsaved changes
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges) {
-        e.preventDefault();
-        e.returnValue = "";
-      }
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [hasUnsavedChanges]);
+  // Warn before navigating away (F5 / tab close). SPA route changes are
+  // handled by the draft-persistence hook above.
+  useUnsavedChangesGuard(hasUnsavedChanges);
 
   const ensureAttachmentsSplit = useCallback(
     async (
@@ -4111,12 +4178,14 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
       await filesApi.writeFile(resultsPath, toWrite, `Update results: ${task.name}`);
       setContent(toWrite);
       setOriginalContent(toWrite);
+      // Saved to disk — drop the SPA-nav draft.
+      clearResultsDraft();
     } catch {
       alert("Failed to save results");
     } finally {
       setSaving(false);
     }
-  }, [content, ensureAttachmentsSplit, resultsPath, task.name]);
+  }, [content, ensureAttachmentsSplit, resultsPath, task.name, clearResultsDraft]);
 
   return (
     <>

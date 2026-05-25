@@ -6,6 +6,8 @@ import { usersApi } from "@/lib/local-api";
 import UserAvatar from "@/components/UserAvatar";
 import MentionPicker from "@/components/MentionPicker";
 import { useLabUserProfileMap, type LabUserProfile } from "@/hooks/useLabUserProfiles";
+import { useDraftPersistence } from "@/hooks/useDraftPersistence";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import {
   buildCommentTree,
   tokenizeComment,
@@ -225,6 +227,9 @@ export default function CommentsThread({
                     onAdd={onAdd}
                     replyingTo={replyingTo}
                     setReplyingTo={setReplyingTo}
+                    entityKind={entityKind}
+                    entityId={entityId}
+                    entityOwner={entityOwner}
                   />
                 );
               })}
@@ -236,6 +241,13 @@ export default function CommentsThread({
               <CommentComposer
                 placeholder={`Comment as ${author}…`}
                 author={author}
+                draftKey={makeCommentDraftKey({
+                  author,
+                  entityKind,
+                  entityOwner,
+                  entityId,
+                  parentCommentId: null,
+                })}
                 onSubmit={async (text, mentions) => {
                   await onAdd(text, author, { mentions });
                 }}
@@ -250,6 +262,27 @@ export default function CommentsThread({
       )}
     </div>
   );
+}
+
+// Per-user / per-record / per-parent comment draft key. Prevents three
+// independent confusions:
+//   1. Cross-user contamination (alex's draft showing up in mira's session)
+//   2. Cross-record contamination (a draft on task #5 leaking into task #6)
+//   3. Cross-thread contamination (a top-level draft leaking into a reply
+//      under the same record, or two reply drafts under different parents
+//      sharing storage)
+// The `entityOwner ?? "self"` mirrors the collapse-key fallback so notes /
+// tasks the user owns themselves namespace cleanly against shared-in copies.
+function makeCommentDraftKey(opts: {
+  author: string;
+  entityKind: "note" | "task";
+  entityOwner: string | undefined;
+  entityId: number;
+  parentCommentId: string | null;
+}): string {
+  const ownerSlug = opts.entityOwner ?? "self";
+  const parentSlug = opts.parentCommentId ?? "root";
+  return `researchos:draft:comment:${opts.author}:${opts.entityKind}:${ownerSlug}:${opts.entityId}:${parentSlug}`;
 }
 
 // ── Individual comment row + reply thread ────────────────────────────────
@@ -267,6 +300,11 @@ interface CommentRowProps {
   onAdd: CommentsThreadProps["onAdd"];
   replyingTo: string | null;
   setReplyingTo: (id: string | null) => void;
+  // Entity identity is threaded through so each row can build a
+  // per-record-per-parent draft key for its reply composer.
+  entityKind: "note" | "task";
+  entityId: number;
+  entityOwner: string | undefined;
 }
 
 function CommentRow({
@@ -282,6 +320,9 @@ function CommentRow({
   onAdd,
   replyingTo,
   setReplyingTo,
+  entityKind,
+  entityId,
+  entityOwner,
 }: CommentRowProps) {
   const showReplyBox = replyingTo === comment.id;
 
@@ -317,6 +358,13 @@ function CommentRow({
                   placeholder={`Reply as ${currentAuthor}…`}
                   author={currentAuthor}
                   compact
+                  draftKey={makeCommentDraftKey({
+                    author: currentAuthor,
+                    entityKind,
+                    entityOwner,
+                    entityId,
+                    parentCommentId: comment.id,
+                  })}
                   onCancel={() => setReplyingTo(null)}
                   onSubmit={async (text, mentions) => {
                     await onAdd(text, currentAuthor, {
@@ -452,6 +500,12 @@ interface CommentComposerProps {
   author: string;
   // Compact = reply composer (lighter chrome, smaller textarea).
   compact?: boolean;
+  // sessionStorage key for the in-progress draft. Built by
+  // `makeCommentDraftKey` at the parent so it carries the author + the
+  // entity (kind, owner, id) + the parent comment id (or "root"). Without
+  // this, a long comment typed mid-thought + an F5 / nav-link click =
+  // silent data loss.
+  draftKey: string;
   onSubmit: (text: string, mentions: string[]) => Promise<void>;
   onCancel?: () => void;
 }
@@ -459,12 +513,32 @@ interface CommentComposerProps {
 function CommentComposer({
   placeholder,
   compact = false,
+  draftKey,
   onSubmit,
   onCancel,
 }: CommentComposerProps) {
   const [draft, setDraft] = useState("");
   const [posting, setPosting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Draft persistence: write the typed body to sessionStorage on every
+  // keystroke (debounced inside the hook) so a refresh / SPA nav / tab
+  // close doesn't drop the comment. Restores on mount. Mirrors the
+  // NewPurchaseModal pattern: dirty = "user typed something", clearDraft
+  // fires after successful submit. `useUnsavedChangesGuard` raises the
+  // browser's "Leave site?" dialog on F5 / tab-close while posting is
+  // false (no point prompting once the mutation is in flight; the post
+  // will complete and the form clears).
+  const isDirty = draft.trim().length > 0;
+  const { clearDraft } = useDraftPersistence(draftKey, draft, isDirty, {
+    onRestore: (saved) => {
+      if (typeof saved !== "string") return;
+      // Only hydrate when the composer is still untouched so we don't
+      // clobber a partial typed value (the StrictMode double-mount case).
+      setDraft((prev) => (prev.length === 0 ? saved : prev));
+    },
+  });
+  useUnsavedChangesGuard(isDirty && !posting);
 
   // @-mention picker state. We detect an active `@` token by looking at
   // the character left of the cursor: if it's `@` (or the cursor is in
@@ -572,6 +646,10 @@ function CommentComposer({
       const mentions = extractMentions(text);
       await onSubmit(text, mentions);
       setDraft("");
+      // Drop the persisted draft now that the comment lives on disk —
+      // leaving it would re-hydrate the same text the next time this
+      // composer mounts.
+      clearDraft();
     } finally {
       setPosting(false);
     }

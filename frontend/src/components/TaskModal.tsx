@@ -213,16 +213,26 @@ export default function TaskModal({ projects }: TaskModalProps) {
     return () => window.removeEventListener("keydown", onKey);
   }, [isCreatingTask, setIsCreatingTask]);
 
-  // Reset form when modal opens
+  // Reset form when modal opens. Mirrors the NewPurchaseModal draft-race
+  // fix: when the form already carries meaningful content (either restored
+  // from a sessionStorage draft on first mount, or carried over from a
+  // typed-and-closed previous open) we skip the project + date seeds so
+  // they don't trample the restored values. The `newTaskStartDate` and
+  // `restrictedTaskType` paths still apply on top of the existing content,
+  // since those are explicit caller intents (double-click on Gantt at a
+  // specific date, restricted-type entrypoint) and overriding them would
+  // be wrong.
   useEffect(() => {
     if (isCreatingTask) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- seed form fields when modal opens, based on parent-supplied props
-      setProjectId(activeProjects[0]?.id || 0);
+      const draftPresent = hasTaskContent;
+      if (!draftPresent) {
+        setProjectId(activeProjects[0]?.id || 0);
+      }
       // Use the newTaskStartDate if provided (from double-click on Gantt)
       if (newTaskStartDate) {
         setStartDate(newTaskStartDate);
         setSchedulingMode("date"); // Ensure we're in date mode
-      } else {
+      } else if (!draftPresent) {
         setStartDate(new Date().toISOString().split("T")[0]);
       }
       // If task type is restricted, set it
@@ -230,6 +240,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
         setTaskType(restrictedTaskType);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `hasTaskContent` intentionally omitted so the effect doesn't re-fire as the user types
   }, [isCreatingTask, activeProjects, newTaskStartDate, restrictedTaskType]);
 
   const resetForm = useCallback(() => {
