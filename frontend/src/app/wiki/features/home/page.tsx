@@ -212,13 +212,16 @@ export default function HomeFeaturePage() {
       <h2>The customizable widget canvas</h2>
       <p>
         Beyond the project grid, Home is also a customizable widget canvas.
-        Members see a default layout (today&apos;s announcements, recent
-        lab activity, the comments stream, today&apos;s events) and can
-        pin or remove widgets to match their own workflow. The canvas works
-        the same way as the{" "}
+        New accounts start with two default widgets at the top of the
+        page: <strong>Upcoming tasks</strong> on the left and{" "}
+        <strong>Today&apos;s events</strong> on the right. From there, you
+        can add, remove, and reorder widgets from the canvas controls to
+        match how you actually start your day. The canvas works the same
+        way as the{" "}
         <Link href="/wiki/features/lab-overview">Lab Overview</Link>{" "}
         canvas: tiles open into full popups, drag-and-drop reorders them,
-        and edit mode (gear icon, top-right) reveals the layout controls.
+        and edit mode (top-right of the toolbar) reveals the layout
+        controls.
       </p>
       {/* TODO screenshot agent: capture Home with the default widget canvas + project grid below.
           Route: /home
@@ -229,8 +232,8 @@ export default function HomeFeaturePage() {
       */}
       <Screenshot
         src="/wiki/screenshots/home-widget-canvas.png"
-        alt="The Home page showing the default widget canvas at the top (announcements, activity, today's events) with the project grid below."
-        caption="Home, with the default widget canvas on top and the project grid below. Pin and reorder the widgets that match how you start your day."
+        alt="The Home page showing the two default widgets (Upcoming tasks, Today's events) at the top with the project grid below."
+        caption="Home, with the two default widgets on top and the project grid below. Pin and reorder the widgets that match how you start your day."
       />
       <ul>
         <li>
@@ -247,10 +250,12 @@ export default function HomeFeaturePage() {
           popup directly, without pinning. Useful for one-shot looks.
         </li>
         <li>
-          <strong>Default widgets</strong>: announcements, comments, lab
-          activity, today&apos;s events. The defaults are what most members
-          want at the start of the day; you can remove any of them or pin
-          extras.
+          <strong>Default widgets</strong>: new accounts start with
+          Upcoming tasks (top) and Today&apos;s events (next to it). They
+          cover the two most common &ldquo;what do I do this morning&rdquo;{" "}
+          questions without crowding the canvas. Pin extras like
+          announcements, comments, or lab activity from the catalog
+          whenever you want more on the page.
         </li>
       </ul>
     </WikiPage>

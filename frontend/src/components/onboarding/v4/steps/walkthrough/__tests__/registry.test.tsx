@@ -14,6 +14,14 @@ const P5_STEP_IDS = [
   "project-overview-prose",
   "project-overview-context",
   "project-overview-exit",
+  // §6.2b Home widgets walkthrough (home widgets §6.2b step bodies
+  // manager, 2026-05-25). 5 universal sub-steps between
+  // project-overview-exit and notifications-bell.
+  "home-widgets-canvas-intro",
+  "home-widgets-tile-anatomy",
+  "home-widgets-add",
+  "home-widgets-reorder",
+  "home-widgets-exit",
   "notifications-bell",
   "notifications-silence",
   "notifications-delete",

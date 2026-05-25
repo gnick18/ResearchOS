@@ -219,6 +219,38 @@ export default function WelcomeWizardPage() {
         </Step>
       </Steps>
 
+      <h4>Home widgets</h4>
+      <p>
+        New accounts land on Home with two default widgets pre-pinned:
+        Upcoming tasks and Today&apos;s events. This cluster teaches the
+        canvas itself, that each tile is a snapshot that expands into a
+        full popup, and that the layout is per-user.
+      </p>
+      <Steps>
+        <Step>
+          <strong>home-widgets-canvas-intro.</strong> Spotlight on the whole
+          widget canvas while BeakerBot explains that Home is a per-user
+          dashboard.
+        </Step>
+        <Step>
+          <strong>home-widgets-tile-anatomy.</strong> Cursor clicks a tile,
+          its popup opens, you read a beat, the cursor dismisses the popup.
+        </Step>
+        <Step>
+          <strong>home-widgets-add.</strong> Cursor clicks &quot;+ Add
+          widget&quot;, the catalog opens, and BeakerBot adds a new tile to
+          the canvas.
+        </Step>
+        <Step>
+          <strong>home-widgets-reorder.</strong> Cursor drags one tile to a
+          different slot so you can see the layout shift live.
+        </Step>
+        <Step>
+          <strong>home-widgets-exit.</strong> Cursor pulls toward the
+          notifications bell, telegraphing the next section.
+        </Step>
+      </Steps>
+
       <h4>Notifications</h4>
       <Steps>
         <Step>

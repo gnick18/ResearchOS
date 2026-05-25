@@ -117,6 +117,15 @@ import { projectOverviewNavStep } from "./steps/walkthrough/ProjectOverviewNavSt
 import { projectOverviewStep } from "./steps/walkthrough/ProjectOverviewStep";
 import { projectOverviewContextStep } from "./steps/walkthrough/ProjectOverviewContextStep";
 import { projectOverviewExitStep } from "./steps/walkthrough/ProjectOverviewExitStep";
+// §6.2b Home widgets walkthrough (home widgets §6.2b step bodies
+// manager, 2026-05-25). 5 universal sub-steps inserted between
+// project-overview-exit and notifications-bell. Each step body file
+// owns its own contracts; the registry wires them by id.
+import { homeWidgetsCanvasIntroStep } from "./steps/walkthrough/HomeWidgetsCanvasIntroStep";
+import { homeWidgetsTileAnatomyStep } from "./steps/walkthrough/HomeWidgetsTileAnatomyStep";
+import { homeWidgetsAddStep } from "./steps/walkthrough/HomeWidgetsAddStep";
+import { homeWidgetsReorderStep } from "./steps/walkthrough/HomeWidgetsReorderStep";
+import { homeWidgetsExitStep } from "./steps/walkthrough/HomeWidgetsExitStep";
 import { notificationsBellStep } from "./steps/walkthrough/NotificationsBellStep";
 import { notificationsSilenceStep } from "./steps/walkthrough/NotificationsSilenceStep";
 import { notificationsDeleteStep } from "./steps/walkthrough/NotificationsDeleteStep";
@@ -262,6 +271,14 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [projectOverviewStep.id]: projectOverviewStep,
   [projectOverviewContextStep.id]: projectOverviewContextStep,
   [projectOverviewExitStep.id]: projectOverviewExitStep,
+  // §6.2b Home widgets walkthrough (home widgets §6.2b step bodies
+  // manager, 2026-05-25). 5 sub-steps between project-overview-exit
+  // and notifications-bell, ordering driven by TOUR_STEP_ORDER.
+  [homeWidgetsCanvasIntroStep.id]: homeWidgetsCanvasIntroStep,
+  [homeWidgetsTileAnatomyStep.id]: homeWidgetsTileAnatomyStep,
+  [homeWidgetsAddStep.id]: homeWidgetsAddStep,
+  [homeWidgetsReorderStep.id]: homeWidgetsReorderStep,
+  [homeWidgetsExitStep.id]: homeWidgetsExitStep,
   [notificationsBellStep.id]: notificationsBellStep,
   [notificationsSilenceStep.id]: notificationsSilenceStep,
   [notificationsDeleteStep.id]: notificationsDeleteStep,

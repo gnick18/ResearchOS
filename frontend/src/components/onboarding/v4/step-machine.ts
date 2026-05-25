@@ -115,12 +115,37 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // rationale.
   "project-overview-context",
   // Transition beat (Grant 2026-05-21): cursor glides to the Home nav
-  // tab and the controller pushes the browser back to "/" so §6.3
-  // notifications fires from the home surface, not from inside the
+  // tab and the controller pushes the browser back to "/" so §6.2b
+  // home widgets fires from the home surface, not from inside the
   // project page. Avoids the jarring "still in /workbench/projects/123
-  // but suddenly talking about the bell" cut. See
+  // but suddenly talking about the canvas" cut. See
   // ProjectOverviewExitStep.tsx for the rationale.
+  //
+  // Copy refresh (home widgets §6.2b step bodies manager, 2026-05-25):
+  // the exit speech used to promise notifications next; it now
+  // telegraphs the widgets beat ("how the canvas works") because §6.2b
+  // sits between this step and §6.3.
   "project-overview-exit",
+  // §6.2b Home widgets walkthrough (home widgets §6.2b step bodies
+  // manager, 2026-05-25). Five universal sub-steps that introduce the
+  // per-user widget canvas BETWEEN project-overview-exit (which has
+  // just pushed the browser back to "/") and notifications-bell.
+  //
+  // None of these steps gate out under any feature_picks shape —
+  // every user has a widget canvas on /home, so the cluster is fully
+  // universal. See HOME_WIDGETS_WALKTHROUGH_PROPOSAL.md §3-§4 for the
+  // per-step contracts.
+  //
+  //   1. canvas-intro    — narration + spotlight on the whole canvas
+  //   2. tile-anatomy    — cursor click expands a tile into a popup
+  //   3. add             — cursor opens the catalog + adds a tile
+  //   4. reorder         — cursor drags a tile to a new slot
+  //   5. exit            — cursor pulls back toward the bell (§6.3)
+  "home-widgets-canvas-intro",
+  "home-widgets-tile-anatomy",
+  "home-widgets-add",
+  "home-widgets-reorder",
+  "home-widgets-exit",
   // Notifications universal moment (§6.3). Split into three beats so
   // the user actually opens the inbox, silences the row, and dismisses
   // it before moving on — see ONBOARDING_V4_PROPOSAL.md §6.3 (Grant's
