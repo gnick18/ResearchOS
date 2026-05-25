@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { nextTestUserName } from "@/lib/onboarding/dev-sandbox";
 import { clearWizardCompletion } from "@/lib/onboarding/sidecar";
-import { clearAllStickyDemoFlags } from "@/lib/file-system/wiki-capture-mock";
+import { clearAllStickyDemoFlags, V4_PREVIEW_STICKY_KEY } from "@/lib/file-system/wiki-capture-mock";
 import BeakerBot from "./BeakerBot";
 import Tooltip from "./Tooltip";
 
@@ -158,6 +158,21 @@ export default function DevForceWalkthroughButton({
       // a brand-new user, but force_show is the explicit bypass that
       // protects against any future gate change.
       await clearWizardCompletion(testUserName);
+
+      // Flip the V4 preview sticky so providers.tsx's
+      // isDemoOrWikiCapture branch gate (line 192) flips true on the
+      // next render. Without this, the dev button under ?wikiCapture=1
+      // (or ?wikiCapture=picker without ?wizard-preview=1) signs the
+      // Test-N user in but never mounts V4MountForUser, so the tour
+      // can't auto-fire even though wizard_force_show is set. The
+      // unconditional V4 mount branch further down providers.tsx
+      // (real-folder paths, no wikiCapture / demo flag) ignores this
+      // sticky entirely. (v4 mount gate fix manager, 2026-05-25)
+      try {
+        window.sessionStorage.setItem(V4_PREVIEW_STICKY_KEY, "1");
+      } catch {
+        // sessionStorage can throw in private-mode browsers; best-effort.
+      }
 
       // Swap the active user. From UserLoginScreen: the onLogin callback
       // (passed through onLoggedIn) unmounts the picker → AppShell mounts.
