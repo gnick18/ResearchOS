@@ -56,6 +56,23 @@
  *   `__beakerBotCursorClicking` around the native `.click()` plus
  *   scrolls the item into view (the catalog can be tall enough that
  *   `lab-activity-by-type` sits below the viewport fold at 1440x900).
+ *
+ * §6.2b R2 catalog-close fix (2026-05-25): the R2 mechanics verifier
+ * caught that the catalog overlay stayed mounted when this step
+ * advanced to Step 4 (home-widgets-reorder). The overlay sits above
+ * the canvas grid, so Step 4's `safeDragAction` synthetic drag events
+ * landed on the overlay instead of the SnapshotCanvas tiles, and the
+ * reorder demo silently no-oped (the step still "completed" via
+ * manual advance, but the user never saw the visual reorder beat).
+ *
+ * Fix: after the catalog-item pick lands, deferred-click the +Add
+ * widget button a second time. SnapshotCanvas's onClick toggles
+ * `showPalette` via `setShowPalette((p) => !p)`, so a second click
+ * closes the catalog. The same handler ALSO auto-enters edit mode if
+ * needed, but only via `if (!isEditing) setIsEditing(true)`. Step 3's
+ * first +Add click already turned edit mode on, so the second click
+ * leaves `isEditing === true`. Step 4's drag handles (gated on
+ * `tourSurface === "home" && isEditing`) stay mounted and reachable.
  */
 import {
   callbackAction,
@@ -127,19 +144,45 @@ export const homeWidgetsAddStep = buildWalkthroughStep({
       HOME_WIDGETS_ADD_CATALOG_ITEM_SELECTOR,
       3000,
     );
-    // Trailing callback: fire the demo-done event so the gated "Got
-    // it, next" button flips from disabled to enabled. Sits after the
-    // pick so the button only enables once the tile has landed. A
-    // short pause after the pick gives the tile a moment to render
-    // before the button enables, so the user sees the result before
-    // they get an enabled advance affordance.
+    // Short settle beat so the new tile has a frame to render after
+    // the pick click lands. Without this, the next deferred click can
+    // race the React commit that mounts the new tile.
     const settle = pause(500);
+    // §6.2b R2 catalog-close fix (2026-05-25): close the catalog by
+    // re-clicking +Add (which toggles `showPalette` off). Without this,
+    // the catalog overlay stays mounted into Step 4 and intercepts
+    // the synthetic drag events the reorder demo dispatches.
+    // SnapshotCanvas's onClick is `setShowPalette((p) => !p)`, and the
+    // `if (!isEditing) setIsEditing(true)` branch is inert here because
+    // the first +Add click already entered edit mode. So this second
+    // click closes the catalog without affecting edit-mode state,
+    // leaving Step 4's drag handles mounted and the canvas
+    // un-occluded. Deferred-click rather than safeClick because we
+    // want the click to fire at playback (after settle), not at
+    // script-build time.
+    const closeCatalog = deferredClickAction(
+      targetSelector(TOUR_TARGETS.homeWidgetAddButton),
+      2000,
+    );
+    // Trailing callback: fire the demo-done event so the gated "Got
+    // it, next" button flips from disabled to enabled. Sits AFTER the
+    // catalog close so the button only enables once the overlay is
+    // gone. That way the user can't advance into Step 4 with the
+    // catalog still up even if they react to the speech bubble before
+    // the close click finishes.
     const fireDone = callbackAction(() => {
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent(HOME_WIDGETS_ADD_DEMO_DONE_EVENT));
       }
     });
-    return compactScript([clickAdd, beat, clickPick, settle, fireDone]);
+    return compactScript([
+      clickAdd,
+      beat,
+      clickPick,
+      settle,
+      closeCatalog,
+      fireDone,
+    ]);
   }),
   // Manual advance gated on the demo-done event (§6.2b R1 fresh-eyes
   // fix). The button renders disabled with "BeakerBot is

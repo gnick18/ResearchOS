@@ -249,6 +249,69 @@ describe("§6.2b home-widgets-add (Step 3: add a widget)", () => {
       window.removeEventListener(HOME_WIDGETS_ADD_DEMO_DONE_EVENT, listener);
     }
   });
+
+  it("cursor script closes the catalog before firing demo-done (R2 catalog-close fix)", async () => {
+    // §6.2b R2 catalog-close fix (2026-05-25): the R2 mechanics verifier
+    // caught that the catalog overlay stayed mounted into Step 4
+    // (home-widgets-reorder), occluding the canvas so the synthetic
+    // drag events landed on the overlay instead of the tiles. The
+    // fix re-clicks the +Add widget button (which toggles
+    // `showPalette` off in SnapshotCanvas) after the pick lands and
+    // BEFORE the demo-done callback fires. We need to assert the
+    // shape so a future refactor that drops the close step gets
+    // caught by the test rather than by another fresh-eyes pass.
+    //
+    // Expected tail shape: [..., pick (callback), settle (callback),
+    // closeCatalog (callback), fireDone (callback)]. All four are
+    // callbacks at the runScript level (deferredClickAction wraps
+    // its work in a callback, pause is a callback). The penultimate
+    // callback is the close-catalog deferred click; we assert it by
+    // mounting a fixture +Add button and verifying the fn clicks it.
+    // Expected tail shape after compactScript filters nulls:
+    //   - clickAdd (safeClickAction) resolves to a real `click` action
+    //     only if the +Add button is in the DOM at build time. In
+    //     JSDOM with no fixture, it's null and compactScript drops it.
+    //   - beat (pause): callback
+    //   - clickPick (deferredClickAction): callback
+    //   - settle (pause): callback
+    //   - closeCatalog (deferredClickAction): callback   <-- penultimate
+    //   - fireDone (callbackAction): callback            <-- last
+    //
+    // Mount a fixture +Add button BEFORE building so the first click
+    // survives compactScript. That gives us a deterministic 6-item
+    // script regardless of test ordering, and lets us assert the
+    // close-catalog deferred click actually fires a click on the
+    // mounted +Add button.
+    const addBtn = document.createElement("button");
+    addBtn.setAttribute("data-tour-target", "home-widget-add-button");
+    let clicks = 0;
+    addBtn.addEventListener("click", () => {
+      clicks += 1;
+    });
+    document.body.appendChild(addBtn);
+    try {
+      const script = await homeWidgetsAddStep.cursorScript?.();
+      expect(script).toBeDefined();
+      // 6 total actions: clickAdd, beat, clickPick, settle,
+      // closeCatalog, fireDone. If the count drifts, the test forces
+      // an explicit review of the script shape.
+      expect(script?.length).toBe(6);
+      const closeCatalog = script?.[script.length - 2];
+      expect(closeCatalog?.type).toBe("callback");
+      if (closeCatalog?.type !== "callback") return;
+      // Awaiting the close-catalog callback should resolve the
+      // selector (the mounted +Add button), then click it. We track
+      // total clicks via the listener; the close fn is the second
+      // click overall (the first is the script's own `clickAdd`
+      // action, which is a `click` not a callback, so it doesn't run
+      // here, we only invoke the close-catalog callback directly).
+      // We expect exactly 1 click from this callback.
+      await closeCatalog.fn();
+      expect(clicks).toBe(1);
+    } finally {
+      addBtn.remove();
+    }
+  });
 });
 
 describe("§6.2b home-widgets-reorder (Step 4: drag to reorder)", () => {
