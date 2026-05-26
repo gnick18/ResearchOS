@@ -529,10 +529,20 @@ export function parseMarkdownBlocks(content: string): MarkdownBlock[] {
     // PARAGRAPH (default). Consume the current non-blank line plus
     // every following non-blank line that does NOT start a new block
     // signature. A single newline between such lines is a SOFT BREAK
-    // and stays inside this paragraph block. The run ends at:
-    //   - a blank line (separator, consumed by the blank-line branch
-    //     next iteration), or
-    //   - a non-paragraph block signature on the next line.
+    // and stays inside this paragraph block.
+    //
+    // Triple-newline paragraph rule (Grant 2026-05-26): a SINGLE blank
+    // line between text is ALSO absorbed into the paragraph (as a
+    // visible empty line). Only TWO+ consecutive blank lines terminate
+    // the paragraph. This raises the bar for accidentally creating a
+    // new editor block via casual line spacing. The run ends at:
+    //   - two or more consecutive blank lines (true paragraph break,
+    //     consumed by the blank-line branch next iteration), or
+    //   - a blank line immediately followed by a block signature
+    //     (heading, code fence, list, etc.), or
+    //   - a non-paragraph block signature on the next non-blank line,
+    //     or
+    //   - end of document.
     const startLine = i;
     const startOffset = idx.lineStartOffsets[i];
     const paragraphLines = [lines[i]];
@@ -540,7 +550,19 @@ export function parseMarkdownBlocks(content: string): MarkdownBlock[] {
     i++;
     while (i < lines.length) {
       const next = lines[i];
-      if (next.trim() === "") break;
+      if (next.trim() === "") {
+        // Look ahead one line to decide whether this blank is a
+        // paragraph terminator or an in-paragraph spacer.
+        const followed = i + 1 < lines.length ? lines[i + 1] : null;
+        if (followed === null) break; // trailing blank → stop
+        if (followed.trim() === "") break; // 2+ blanks → true break
+        if (detectSignature(lines, i + 1) !== null) break; // blank-before-signature → stop
+        // Single blank between text lines: absorb into paragraph.
+        paragraphLines.push(next);
+        endLine = i;
+        i++;
+        continue;
+      }
       // Detect block signature on the next line. Pass the lines array
       // so the table-header look-ahead (which needs lines[i+1]) works.
       if (detectSignature(lines, i) !== null) break;

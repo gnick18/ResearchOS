@@ -20,9 +20,23 @@ import { parseMarkdownBlocks } from "./markdown-block-parser";
 
 describe("parseMarkdownBlocks (R2 CommonMark paragraph rules)", () => {
   describe("paragraph grouping", () => {
-    it("groups two paragraphs separated by ONE blank line into 2 blocks", () => {
-      // Canonical CommonMark: `\n\n` is the paragraph separator.
+    it("absorbs ONE blank line into the same paragraph (triple-newline rule)", () => {
+      // Triple-newline rule (Grant 2026-05-26): a single blank line is
+      // a visible empty line within the same paragraph block, NOT a
+      // paragraph terminator. This raises the bar for casual line
+      // spacing from accidentally creating a new editor block. Two or
+      // more consecutive blank lines are required to split.
       const blocks = parseMarkdownBlocks("test\n\ntest 2");
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0].type).toBe("paragraph");
+      expect(blocks[0].content).toBe("test\n\ntest 2");
+    });
+
+    it("splits at TWO blank lines into 2 paragraphs (triple-newline rule)", () => {
+      // `test\n\n\ntest 2` = "test" + 2 blank lines + "test 2". Two
+      // blank lines is the minimum to terminate the paragraph and
+      // create a new block under the triple-newline rule.
+      const blocks = parseMarkdownBlocks("test\n\n\ntest 2");
       expect(blocks).toHaveLength(2);
       expect(blocks[0].type).toBe("paragraph");
       expect(blocks[0].content).toBe("test");
@@ -30,10 +44,9 @@ describe("parseMarkdownBlocks (R2 CommonMark paragraph rules)", () => {
       expect(blocks[1].content).toBe("test 2");
     });
 
-    it("collapses MANY blank lines between paragraphs into a single separator (still 2 blocks)", () => {
-      // R2 contract: don't emit empty blocks between paragraphs.
-      // Prior to the rewrite this gave 3+ blocks (one of them an empty
-      // `blankLine` block); now it must be exactly 2.
+    it("collapses MANY blank lines (4+) between paragraphs into a single separator (still 2 blocks)", () => {
+      // 4 blank lines ≥ 2-blank threshold, so split fires. The run is
+      // consumed silently mid-document (no empty blocks emitted).
       const blocks = parseMarkdownBlocks("test\n\n\n\n\ntest 2");
       expect(blocks).toHaveLength(2);
       expect(blocks[0].type).toBe("paragraph");
@@ -180,31 +193,43 @@ describe("parseMarkdownBlocks (R2 CommonMark paragraph rules)", () => {
       expect(blocks[1].type).toBe("heading");
     });
 
-    it("handles consecutive blank-line runs of varying lengths between paragraphs", () => {
-      // Each blank-line run (1 line, 2 lines, 5 lines) collapses to a
-      // single separator. Final block count is 4 paragraphs, zero
-      // blankLine blocks between them.
+    it("handles consecutive blank-line runs of varying lengths under the triple-newline rule", () => {
+      // Triple-newline rule: each separator needs 2+ blank lines.
+      // `a\n\nb`     → 1 blank → absorbed into one paragraph "a\n\nb"
+      // `b\n\n\nc`   → 2 blanks → splits, "c" is its own paragraph
+      // `c\n\n\n\n\n\nd` → 5 blanks → splits, "d" is its own paragraph
+      // Final: 3 paragraphs (the first contains the absorbed single blank).
       const src = "a\n\nb\n\n\nc\n\n\n\n\n\nd";
       const blocks = parseMarkdownBlocks(src);
-      expect(blocks).toHaveLength(4);
+      expect(blocks).toHaveLength(3);
       expect(blocks.every((b) => b.type === "paragraph")).toBe(true);
-      expect(blocks.map((b) => b.content)).toEqual(["a", "b", "c", "d"]);
+      expect(blocks.map((b) => b.content)).toEqual(["a\n\nb", "c", "d"]);
     });
   });
 
   describe("offset math", () => {
-    it("computes correct startOffset/endOffset for paragraphs separated by blank lines", () => {
+    it("computes correct startOffset/endOffset for a single paragraph with an absorbed blank line", () => {
       // Splice safety: HybridMarkdownEditor relies on
       // startOffset/endOffset to update individual blocks within the
-      // full document string. The R2 rewrite must not silently
-      // shift offsets when blank-line runs aren't emitted as blocks.
+      // full document string. Under the triple-newline rule, one
+      // blank line is absorbed so `abc\n\ndef` is ONE block.
       const src = "abc\n\ndef";
+      const blocks = parseMarkdownBlocks(src);
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0].startOffset).toBe(0);
+      expect(blocks[0].endOffset).toBe(8); // "abc\n\ndef"
+      expect(blocks[0].content).toBe("abc\n\ndef");
+    });
+
+    it("computes correct startOffset/endOffset for two paragraphs split by 2 blank lines", () => {
+      // `abc\n\n\ndef` = "abc" + 2 blanks + "def" → 2 paragraphs.
+      const src = "abc\n\n\ndef";
       const blocks = parseMarkdownBlocks(src);
       expect(blocks).toHaveLength(2);
       expect(blocks[0].startOffset).toBe(0);
       expect(blocks[0].endOffset).toBe(3); // "abc"
-      expect(blocks[1].startOffset).toBe(5); // "abc\n\n" is 5 chars
-      expect(blocks[1].endOffset).toBe(8); // "def"
+      expect(blocks[1].startOffset).toBe(6); // "abc\n\n\n" is 6 chars
+      expect(blocks[1].endOffset).toBe(9); // "def"
     });
   });
 });
