@@ -111,6 +111,15 @@ export interface Task {
   // compat — `normalizeTaskRecord` in local-api.ts defaults missing values to
   // [] on read so callers never see `undefined`.
   comments?: TaskComment[];
+  // Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23): optional PI
+  // assignee. When set + !== owner, lists/popups render a small "assigned
+  // to X" chip alongside the owner badge. Defaults to null = unassigned
+  // (display falls back to owner). Additive — old records normalize fine.
+  assignee?: string | null;
+  // Lab Head Phase 3 — PI flag-for-review. Null/undefined = not flagged.
+  // When set, lists show a red flag icon and the popup surfaces a banner
+  // the owner can clear. See `lib/lab/pi-actions.ts` for the writer.
+  flagged?: PiFlag | null;
 }
 
 export interface Method {
@@ -152,6 +161,25 @@ export interface PurchaseItem {
   funding_string: string | null;  // New field for funding account
   vendor: string | null;
   category: string | null;
+  // Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23): PI approval
+  // (informational only, NOT a blocking gate per the brief). All three
+  // additive — old records without them behave as if unapproved.
+  approved?: boolean;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  // Lab Head Phase 3 — PI flag-for-review; same shape as on Task / Note.
+  flagged?: PiFlag | null;
+  // PiActions follow-up (PiActions follow-up manager, 2026-05-23):
+  // persisted decline state. Falsy `declined_at` means "not declined"
+  // (treat as pending unless `approved === true`); a populated
+  // `declined_at` means the PI explicitly turned it down. Approve always
+  // clears both. State machine:
+  //   pending   : !approved && !declined_at
+  //   approved  : approved === true
+  //   declined  : approved === false && declined_at != null
+  // Old records without either field behave as "pending".
+  declined_at?: string | null;
+  declined_by?: string | null;
 }
 ```
 
@@ -221,6 +249,7 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 
 | Page | Path |
 | --- | --- |
+| Start Here | `/wiki/start-here` |
 | Quickstart | `/wiki` |
 | Getting Started | `/wiki/getting-started` |
 | Browser Requirements | `/wiki/getting-started/browser-requirements` |
@@ -228,11 +257,13 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 | Creating a User | `/wiki/getting-started/creating-a-user` |
 | Welcome Tour (BeakerBot) | `/wiki/getting-started/welcome-wizard` |
 | Demo Mode | `/wiki/getting-started/demo-mode` |
+| User Archiving | `/wiki/getting-started/user-archiving` |
 | Exporting from LabArchives | `/wiki/getting-started/labarchives-export` |
 | Shared Lab Accounts | `/wiki/shared-lab-accounts` |
 | OneDrive | `/wiki/shared-lab-accounts/onedrive` |
 | Google Drive | `/wiki/shared-lab-accounts/google-drive` |
 | Dropbox | `/wiki/shared-lab-accounts/dropbox` |
+| Box | `/wiki/shared-lab-accounts/box` |
 | iCloud Drive | `/wiki/shared-lab-accounts/icloud` |
 | Features | `/wiki/features` |
 | Home & Projects | `/wiki/features/home` |
@@ -244,18 +275,25 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 | PCR Protocols | `/wiki/features/pcr` |
 | Purchases & Funding | `/wiki/features/purchases` |
 | Calendar | `/wiki/features/calendar` |
-| Lab Mode | `/wiki/features/lab-mode` |
-| Activity | `/wiki/features/lab-mode/activity` |
-| Combined GANTT | `/wiki/features/lab-mode/gantt` |
-| Lab-wide purchases | `/wiki/features/lab-mode/purchases` |
-| Cross-user lists | `/wiki/features/lab-mode/cross-user-lists` |
-| The user filter | `/wiki/features/lab-mode/user-filter` |
+| Lab Overview | `/wiki/features/lab-overview` |
+| Widgets and Tools | `/wiki/features/lab-overview/widgets-and-tools` |
+| Customizable sidebar | `/wiki/features/lab-overview/customizable-sidebar` |
+| Snapshot tiles and expanded views | `/wiki/features/lab-overview/snapshot-tiles-and-expanded-views` |
+| Lab Inbox | `/wiki/features/lab-inbox` |
+| Comments | `/wiki/features/lab-inbox/comments` |
+| Announcements | `/wiki/features/lab-inbox/announcements` |
+| Lab Head | `/wiki/features/lab-head` |
+| Edit session and password | `/wiki/features/lab-head/edit-session-and-password` |
+| Soft-write actions | `/wiki/features/lab-head/soft-write-actions` |
+| Audit log | `/wiki/features/lab-head/audit-log` |
+| Sharing and permissions | `/wiki/features/sharing-and-permissions` |
 | Search | `/wiki/features/search` |
 | Lab Links | `/wiki/features/links` |
 | Results (moved) | `/wiki/features/results` |
 | Import from LabArchives | `/wiki/features/import-from-eln` |
 | Settings | `/wiki/features/settings` |
 | Notifications & Inbox | `/wiki/features/notifications` |
+| Feedback | `/wiki/features/feedback` |
 | Integrations | `/wiki/integrations` |
 | Telegram Bot | `/wiki/integrations/telegram` |
 | Calendar Feeds | `/wiki/integrations/calendar-feeds` |
@@ -265,9 +303,9 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 ## §11 Build metadata
 
 - **Variant:** `minimal`
-- **Helper version:** `12`
-- **Schema hash:** `483b101af48aad0c273813ed7e431ec21f350bf97d25d0b7e8075924d8cc9386`
-- **Built at:** `2026-05-22T22:09:58.596Z`
-- **Built from commit:** `8d36fc39fdaee70d3130196b58ba40cf0f60303c`
+- **Helper version:** `13`
+- **Schema hash:** `17f35beb0d4eeec5282ae0549cb63c49ff0c2c844cbd75d78cb43ef678aa2f02`
+- **Built at:** `2026-05-26T05:52:47.611Z`
+- **Built from commit:** `e8812cf8fa31c809b0628fe44e189d8ae507c828`
 
 _Generated by `scripts/build-ai-helper.mjs`. Do not edit by hand — run `npm run --prefix frontend ai-helper:refresh` to rebuild and commit._

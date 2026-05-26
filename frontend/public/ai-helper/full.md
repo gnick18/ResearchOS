@@ -61,7 +61,7 @@ The folder layout is fixed by convention:
 │   │   ├── _calendar-feeds.json
 │   │   └── _telegram.json (auto-gitignored)
 │   ├── public/                          ← cross-user shared methods + protocols
-│   ├── lab/                             ← lab-mode shared notes
+│   ├── lab/                             ← legacy Lab Mode notes (auto-migrated on read)
 │   └── _user_metadata.json
 └── _global_counters.json
 ```
@@ -93,7 +93,7 @@ This is the conceptual map you'll need to navigate the schemas in §4. Read it b
 
 The `_*.json` sidecars at the user-folder root carry per-user state that doesn't fit one entity per file: `_counters.json` (auto-increment id source), `_auth.json` (optional PBKDF2 password), `_shared_with_me.json` (entries from other users), `_notifications.json`, `_shifted-alerts.json`, `_calendar-feeds.json` (ICS subscriptions), `_telegram.json` (bot token, auto-gitignored).
 
-`users/public/` is the cross-user pool for shared methods, PCR protocols, LC gradients, and plate layouts. Anything `is_public: true` lives here and is readable by any user of the same folder. `users/lab/` holds shared lab notes for Lab Mode.
+`users/public/` is the cross-user pool for shared methods, PCR protocols, LC gradients, and plate layouts. Anything `is_public: true` lives here and is readable by any user of the same folder. `users/lab/` is a legacy pre-retirement folder: Lab Mode (a special sentinel account) was retired in favor of per-user accounts plus `shared_with`; pre-retirement `users/lab/` notes auto-migrate to per-user folders on first read, no user action required.
 
 **Per-user ID namespaces.** This is the trap that catches every contributor. Each user has their own `_counters.json`, so `task.id = 1` in alex's folder and `task.id = 1` in morgan's folder are two completely different tasks. Project ids, method ids, every entity id is per-user-namespaced.
 
@@ -107,13 +107,15 @@ taskKey(task: { id, owner, is_shared_with_me }): string
 
 When you draft a task and reference its id, **always say which owner it belongs to**. "alex's task 5" or "self:5" or "the task at `users/alex/tasks/5.json`." If the user pastes you "task 5," ask which user's namespace before doing anything that might collide.
 
-**Sharing model.** Tasks, projects, and methods can be shared with a `view` or `edit` permission. The mechanism:
+**Sharing model.** Tasks, projects, methods, and notes can be shared with a `read` or `edit` level. The mechanism:
 
-1. Sender calls `sharingApi.shareTask(taskId, recipientUsername, permission)`. Sender's task gets `shared_with: [{ username, permission }]` appended.
-2. Recipient gets an entry written to **her** `_shared_with_me.json` overlay: `{ id: 5, owner: "alex", permission: "edit", shared_at: "..." }`.
+1. Sender calls `sharingApi.shareTask(taskId, recipientUsername, level)`. Sender's record gets `shared_with: SharedUser[]` appended, where `SharedUser = { username: string, level: "read" | "edit" }`. The `username: "*"` sentinel covers whole-lab / public-equivalent sharing (every member of the folder sees the record). Legacy `{ username, permission: "view" | "edit" }` entries are back-compat normalized in `normalizeSharedEntry` at the read boundary, so you don't need to worry about which shape a stored record uses.
+2. Recipient gets an entry written to **her** `_shared_with_me.json` overlay: `{ id: 5, owner: "alex", permission: "edit", shared_at: "..." }`. (The overlay file still uses the legacy `permission` key; the in-memory record carries the normalized `level`.)
 3. When the recipient's UI loads, it reads her own data PLUS the source files from each `_shared_with_me.json` entry's owner directory. Shared items get decorated at read time with `is_shared_with_me: true` and `shared_permission: "edit"` (NEVER persisted, only set by the read-overlay layer).
 
 Editable shared tasks (`shared_permission === "edit"`) work by routing every `tasksApi.update` / `move` / `delete` / `addMethod` call through `ownerScopedTasksApi(task)` so the write lands in the original owner's folder, not the recipient's. The recipient never copies the source file; she edits the canonical original through the wrapper.
+
+**Transient method access via shared tasks (`canReadMethodViaTask`).** Sharing a task that references a method (via `method_ids` / `method_attachments`) implicitly grants the recipient transient read access to that method, even if the method itself was never explicitly shared. The check lives in `lib/sharing/unified.ts:canReadMethodViaTask`. Every transient read emits a `method-transient-read` audit row on the owner's side (`lib/lab/pi-audit.ts`) so the method owner can see who pulled it in via which task. When the parent task gets unshared, the transient grant disappears.
 
 **Cross-owner project hosting (Option C).** A more advanced variant where alex's task gets "shared into" morgan's project, so it appears on morgan's Gantt timeline alongside her own tasks. Both sides must agree:
 
@@ -142,14 +144,47 @@ Verbatim copy of `frontend/src/lib/types.ts`. Comments in the source file are th
 ```typescript
 // ── Shared Access Types ─────────────────────────────────────────────────────
 
+/**
+ * Lab Mode retirement R1 (R1 unified sharing manager, 2026-05-23): the
+ * canonical share entry. One unified shape across every shareable record
+ * type (Task, Note, Method, Project, Link, Goal, MassSpecProtocol, etc.).
+ *
+ *   - `username` is a real lab member's username OR the "*" sentinel
+ *     meaning "every current lab member" (expanded at read time).
+ *   - `level` replaces the old `permission` field. "read" reads more
+ *     naturally in callsites than "view". The legacy `permission` field
+ *     is kept as optional alongside `level` so on-disk records that
+ *     predate the unified migration still parse — the read path
+ *     normalizes either to `level` via `normalizeSharedWith` in
+ *     `lib/sharing/unified.ts`. Migration rewrites the field on next
+ *     save.
+ *
+ * Default for new records: shared_with: [] (owner-only). Records missing
+ * the field entirely also default to [] on read.
+ */
 export interface SharedUser {
   username: string;
-  permission: "view" | "edit";
+  /** Unified field — preferred. Optional during the R1 migration window
+   *  so older callsites that still hand-build with `permission` continue
+   *  to compile. New code MUST always set `level`. The
+   *  `normalizeSharedWith` helper in `lib/sharing/unified.ts` resolves
+   *  whichever field is present (`level` wins; otherwise `permission`
+   *  is mapped: "view"→"read", "edit"→"edit"). */
+  level?: "read" | "edit";
+  /** @deprecated Legacy field, present only on pre-R1 records and
+   *  un-migrated callsites. Read paths normalize via
+   *  `normalizeSharedWith`. Migration in `lib/sharing/migrate-unified.ts`
+   *  rewrites every on-disk record to use `level` and drops this
+   *  field. New code should NOT write this. */
+  permission?: "view" | "edit";
 }
 
 export interface ShareRequest {
   username: string;
-  permission: "view" | "edit";
+  /** Preferred — matches SharedUser.level. */
+  level?: "read" | "edit";
+  /** @deprecated Use `level`. Kept for callers that still pass `permission`. */
+  permission?: "view" | "edit";
   include_chain?: boolean;  // For tasks: share entire dependency chain
 }
 
@@ -227,10 +262,134 @@ export interface ShiftAlertNotification {
   read: boolean;
 }
 
+/**
+ * Lab Head Phase 2 (lab head Phase 2 manager, 2026-05-23): bell notification
+ * fired when a new comment is left on a record the receiver owns, OR when
+ * the receiver is @-mentioned in a comment anywhere. Lab heads also receive
+ * one of these for EVERY new comment in the lab (cross-lab visibility per
+ * the Phase 2 brief — "so they don't miss anything").
+ *
+ * The notification points back at the source surface (task or note) via
+ * (`record_type`, `record_id`, `owner_username`) so the Lab Inbox feed +
+ * NotificationPopup can render an "Open" link that navigates to the record.
+ *
+ * Storage: written to the receiver's `_notifications.json` by `addComment`
+ * on the commenter's side — same cross-user write pattern as
+ * `addReceiverShare`. The receiver discovers it on the next bell-popup
+ * load via `sharingApi.getNotifications`.
+ */
+export interface LabCommentNotification {
+  id: string;
+  // Discriminated union tag. Two flavors:
+  //   - "comment_mention": the receiver was @-mentioned in `text`
+  //   - "comment_on_owned": the receiver owns the parent record
+  //   - "comment_lab_head_feed": the receiver is a lab head and sees every
+  //     comment lab-wide (no direct ownership / mention)
+  type: "comment_mention" | "comment_on_owned" | "comment_lab_head_feed";
+  // The author of the comment that triggered the notification.
+  from_user: string;
+  // The parent record's owner username (= directory the record file lives
+  // in). Combine with record_type + record_id to deep-link.
+  owner_username: string;
+  // Which surface the comment was posted on.
+  record_type: "task" | "note";
+  record_id: number;
+  // Denormalized record name so the popup row has something to show without
+  // a second fetch (mirrors `SharedItemNotification.item_name`).
+  record_name: string;
+  // The comment's own id, so the Lab Inbox feed row can highlight a single
+  // entry within a long thread.
+  comment_id: string;
+  // Short preview of the comment body (~120 chars, no formatting). For
+  // long comments the renderer adds an ellipsis.
+  preview: string;
+  created_at: string;
+  read: boolean;
+}
+
+/**
+ * Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23): bell
+ * notification fan-out for the PI soft-write action quartet.
+ *
+ * Four discriminated subtypes (one per action surface):
+ *   - "lab_announcement"        — PI posted a lab-wide announcement
+ *   - "lab_task_assignment"     — PI assigned a task to the receiver
+ *   - "lab_purchase_approval"   — PI approved the receiver's purchase
+ *   - "lab_flag_for_review"     — PI flagged a record for the receiver
+ *
+ * All four carry `from_user` (the PI), `created_at`, `read` like the
+ * existing types. Subject-specific fields differ per kind. The receiver
+ * is implicit (file owner of `_notifications.json`). Storage mirrors
+ * `LabCommentNotification` — written cross-user by the PI's session.
+ */
+export interface LabAnnouncementNotification {
+  id: string;
+  type: "lab_announcement";
+  from_user: string;
+  /** Server-generated announcement id (matches AnnouncementEntry.id). */
+  announcement_id: string;
+  /** Denormalized excerpt (~120 chars) for the bell row. */
+  preview: string;
+  created_at: string;
+  read: boolean;
+}
+
+export interface LabTaskAssignmentNotification {
+  id: string;
+  type: "lab_task_assignment";
+  from_user: string;
+  /** Username of the task's owner — combine with task_id to deep-link. */
+  owner_username: string;
+  task_id: number;
+  /** Denormalized task name for the bell row. */
+  task_name: string;
+  /** Optional note the PI attached when assigning. */
+  note: string | null;
+  created_at: string;
+  read: boolean;
+}
+
+export interface LabPurchaseApprovalNotification {
+  id: string;
+  type: "lab_purchase_approval";
+  from_user: string;
+  /** Username of the purchase-item owner (= the receiver). */
+  owner_username: string;
+  /** Numeric purchase_item id in the owner's namespace. */
+  purchase_item_id: number;
+  /** Denormalized item name for the bell row. */
+  item_name: string;
+  created_at: string;
+  read: boolean;
+}
+
+export interface LabFlagForReviewNotification {
+  id: string;
+  type: "lab_flag_for_review";
+  from_user: string;
+  /** Username of the flagged record's owner (= the receiver). */
+  owner_username: string;
+  /** Which surface the flag landed on. */
+  record_type: "task" | "note" | "purchase_item";
+  /** Numeric id in the owner's namespace. */
+  record_id: number;
+  /** Denormalized record name for the bell row. */
+  record_name: string;
+  /** Optional reason text from the PI. */
+  reason: string | null;
+  created_at: string;
+  read: boolean;
+}
+
 export type Notification =
   | SharedItemNotification
   | EventReminderNotification
-  | ShiftAlertNotification;
+  | ShiftAlertNotification
+  | LabCommentNotification
+  | LabAnnouncementNotification
+  | LabTaskAssignmentNotification
+  | LabPurchaseApprovalNotification
+  | LabFlagForReviewNotification;
 
 /**
  * On-disk sidecar at `users/<owner>/_shifted-alerts.json`. Append-only on
@@ -429,15 +588,54 @@ export interface Task {
   // compat — `normalizeTaskRecord` in local-api.ts defaults missing values to
   // [] on read so callers never see `undefined`.
   comments?: TaskComment[];
+  // Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23): optional PI
+  // assignee. When set + !== owner, lists/popups render a small "assigned
+  // to X" chip alongside the owner badge. Defaults to null = unassigned
+  // (display falls back to owner). Additive — old records normalize fine.
+  assignee?: string | null;
+  // Lab Head Phase 3 — PI flag-for-review. Null/undefined = not flagged.
+  // When set, lists show a red flag icon and the popup surfaces a banner
+  // the owner can clear. See `lib/lab/pi-actions.ts` for the writer.
+  flagged?: PiFlag | null;
+}
+
+/**
+ * Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23): a PI flag on
+ * a Task / Note / PurchaseItem. Optional reason text the PI types when
+ * flagging — surfaced to the owner alongside the flag icon.
+ */
+export interface PiFlag {
+  /** Lab-head username that set the flag. */
+  by: string;
+  /** ISO 8601 timestamp when the flag was set. */
+  at: string;
+  /** Optional free-form reason. Null when the PI flagged without typing. */
+  reason?: string | null;
 }
 
 // Mirror of `NoteComment`. Same shape so the shared `CommentsThread`
 // component can render either kind without a discriminated union.
+//
+// Lab Head Phase 2 (lab head Phase 2 manager, 2026-05-23): added optional
+// `parent_id` (threading — 1 level deep) and `mentions` (denormalized
+// @-mention list extracted from `text` at compose time). Both fields are
+// optional / additive — pre-Phase-2 comments on disk just don't carry them
+// and the renderer treats them as top-level / un-mentioning. No migration
+// needed.
 export interface TaskComment {
   id: string;
   author: string;       // username of the commenter (the real user, not "lab")
   text: string;
   created_at: string;
+  // Phase 2: id of the comment this is a reply to. Null / undefined / "" =
+  // top-level. Only 1 level of nesting is supported — replies to replies
+  // collapse onto the same parent at the renderer.
+  parent_id?: string | null;
+  // Phase 2: denormalized @-mention usernames extracted at compose time.
+  // The source of truth is still the inline `@username` tokens in `text`;
+  // this field exists so notification dispatch + the Lab Inbox feed can
+  // surface mentions without re-parsing the text on every render.
+  mentions?: string[];
 }
 
 /**
@@ -537,6 +735,10 @@ export interface TaskUpdate {
   method_attachments?: TaskMethodAttachment[];
   /** Cross-owner host. `null` clears (unshare); an object sets/replaces. */
   external_project?: ExternalProjectRef | null;
+  /** Lab Head Phase 3 — PI assignee (`null` clears, string sets). */
+  assignee?: string | null;
+  /** Lab Head Phase 3 — PI flag (object sets, `null` clears). */
+  flagged?: PiFlag | null;
 }
 
 export interface TaskMoveRequest {
@@ -596,6 +798,14 @@ export interface HighLevelGoal {
   smart_goals: SmartGoal[];
   is_complete: boolean;
   created_at: string;
+  // Lab Mode retirement R1b (R1b sharing completion manager, 2026-05-23):
+  // unified sharing surface. Optional during the migration window —
+  // pre-R1b goals have neither field and render as owner-only (which
+  // is the current behavior since `hide_goals_from_lab` was the only
+  // visibility control). Migration backfills `owner` from the goal's
+  // owning user folder on next save.
+  owner?: string;
+  shared_with?: SharedUser[];
 }
 
 export interface HighLevelGoalCreate {
@@ -652,6 +862,21 @@ export interface MethodCreate {
   folder_path?: string | null;
   parent_method_id?: number | null;
   tags?: string[];
+  /**
+   * R1d unified sharing primitive. Pass
+   * `[{ username: "*", level: "read" }]` to create the method in the
+   * whole-lab (public) namespace; pass `[]` (or omit) for a private
+   * method. The "*" sentinel is expanded at read time by `canRead` /
+   * `isWholeLabShared`. See `frontend/src/lib/sharing/unified.ts`.
+   */
+  shared_with?: SharedUser[];
+  /**
+   * @deprecated Pass `shared_with: [{ username: "*", level: "read" }]`
+   *   instead. Will be removed after one release of back-compat (R1
+   *   schema rip phase, post-R1d). Still honored by `methodsApi.create`
+   *   for transitional callers, with a one-shot runtime warning when it
+   *   is the only sharing signal supplied.
+   */
   is_public?: boolean;
   components?: CompoundComponent[];
 }
@@ -1387,6 +1612,35 @@ export interface PurchaseItem {
   funding_string: string | null;  // New field for funding account
   vendor: string | null;
   category: string | null;
+  // Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23): PI approval
+  // (informational only, NOT a blocking gate per the brief). All three
+  // additive — old records without them behave as if unapproved.
+  approved?: boolean;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  // Lab Head Phase 3 — PI flag-for-review; same shape as on Task / Note.
+  flagged?: PiFlag | null;
+  // PiActions follow-up (PiActions follow-up manager, 2026-05-23):
+  // persisted decline state. Falsy `declined_at` means "not declined"
+  // (treat as pending unless `approved === true`); a populated
+  // `declined_at` means the PI explicitly turned it down. Approve always
+  // clears both. State machine:
+  //   pending   : !approved && !declined_at
+  //   approved  : approved === true
+  //   declined  : approved === false && declined_at != null
+  // Old records without either field behave as "pending".
+  declined_at?: string | null;
+  declined_by?: string | null;
+}
+
+/** Pending = waiting for the lab head's approval. Approved and declined
+ *  are both terminal states (declined can be re-approved via
+ *  declinePurchase / setPurchaseApproval flips, but at any given moment
+ *  an item is exactly one of pending / approved / declined).
+ *  Centralizing this predicate prevents the `!approved` drift that
+ *  leaked declined items into the Pending tab pre-db53d92e. */
+export function isPurchasePending(item: PurchaseItem): boolean {
+  return !item.approved && !item.declined_at;
 }
 
 export interface PurchaseItemCreate {
@@ -1414,6 +1668,17 @@ export interface PurchaseItemUpdate {
   funding_string?: string | null;  // New field for funding account
   vendor?: string | null;
   category?: string | null;
+  /** Lab Head Phase 3 — PI approval. The writer that flips this also
+   *  stamps `approved_by` + `approved_at`. */
+  approved?: boolean;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  /** Lab Head Phase 3 — PI flag (object sets, `null` clears). */
+  flagged?: PiFlag | null;
+  /** PiActions follow-up — persisted decline state. Approve clears both
+   *  to null; decline sets them. See PurchaseItem doc for state machine. */
+  declined_at?: string | null;
+  declined_by?: string | null;
 }
 
 export interface CatalogItem {
@@ -1595,6 +1860,10 @@ export interface LabLink {
   preview_image_url: string | null;
   sort_order: number;
   created_at: string;
+  // Lab Mode retirement R1b (R1b sharing completion manager, 2026-05-23):
+  // unified sharing surface. Optional during the migration window.
+  owner?: string;
+  shared_with?: SharedUser[];
 }
 
 export interface LabLinkCreate {
@@ -1684,6 +1953,10 @@ export interface NoteComment {
   author: string;       // username of the commenter (the real user, not "lab")
   text: string;
   created_at: string;
+  // Lab Head Phase 2 (lab head Phase 2 manager, 2026-05-23) — threading +
+  // @-mentions. See TaskComment for the same field docs.
+  parent_id?: string | null;
+  mentions?: string[];
 }
 
 export interface Note {
@@ -1694,9 +1967,28 @@ export interface Note {
   is_shared: boolean;
   entries: NoteEntry[];
   comments?: NoteComment[];  // Lab-mode comment thread (#13); optional for backward compat
-  created_at: string;
+  // Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23): PI flag-for-
+  // review. Same shape as on Task / PurchaseItem. Null/undefined = not
+  // flagged. Additive — old records normalize fine without it.
+  flagged?: PiFlag | null;
+  // Note created_at field (Note created_at field manager, 2026-05-24):
+  // optional + nullable so older on-disk notes (which may pre-date the
+  // create-path writing this field) read as `undefined` without
+  // breaking type checks. New notes always carry an ISO string set in
+  // `notesApi.create`. Activity widgets that count "notes created
+  // today" guard on `note.created_at && note.created_at.startsWith(todayIso)`,
+  // so missing values fall out naturally (graceful degradation, same
+  // pattern as PurchaseItem.declined_at in commit 07a1b7b3). Do NOT
+  // backfill old notes — the undefined case is intentional.
+  created_at?: string | null;
   updated_at: string;
   username: string;
+  // Lab Mode retirement R1b (R1b sharing completion manager, 2026-05-23):
+  // unified sharing surface. Notes had `is_shared: boolean` pre-R1b
+  // (whole-lab toggle). Migration converts `is_shared: true` → a single
+  // "*" entry in `shared_with`. Both fields are kept readable during
+  // the release window so legacy code keeps working.
+  shared_with?: SharedUser[];
 }
 
 export interface NoteCreate {
@@ -1711,6 +2003,8 @@ export interface NoteUpdate {
   title?: string;
   description?: string;
   is_shared?: boolean;
+  /** Lab Head Phase 3 — PI flag (object sets, `null` clears). */
+  flagged?: PiFlag | null;
 }
 
 export interface NoteEntriesReorderRequest {
@@ -1827,7 +2121,8 @@ Source: `frontend/public/demo-data/users/alex/tasks/2.json`
   ],
   "owner": "alex",
   "shared_with": [],
-  "external_project": null
+  "external_project": null,
+  "comments": []
 }
 ```
 
@@ -1859,7 +2154,8 @@ Source: `frontend/public/demo-data/users/alex/tasks/7.json`
   "method_attachments": [],
   "owner": "alex",
   "shared_with": [],
-  "external_project": null
+  "external_project": null,
+  "comments": []
 }
 ```
 
@@ -1912,7 +2208,8 @@ Source: `frontend/public/demo-data/users/alex/tasks/1.json`
   "method_attachments": [],
   "owner": "alex",
   "shared_with": [],
-  "external_project": null
+  "external_project": null,
+  "comments": []
 }
 ```
 
@@ -2449,11 +2746,25 @@ Source: `frontend/public/demo-data/users/alex/notes/1.json`
 {
   "id": 1,
   "title": "Run 2026-05-08: pYES-GAL1::flbA transformation",
-  "description": "Demo experiment note. Transformed FakeYeast-001 with pYES-GAL1::flbA using the LiAc protocol. Heat shock ran short (38 min, see deviation_log). Plated on SD-Ura. 40 colonies after 48 h, eight patched for downstream work.",
+  "description": "Transformed FakeYeast-001 with pYES-GAL1::flbA using the LiAc protocol. Heat shock ran short (38 min, see deviation_log). Plated on SD-Ura. 40 colonies after 48 h, eight patched for downstream work.",
   "is_running_log": false,
   "is_shared": true,
+  "shared_with": [
+    {
+      "username": "*",
+      "level": "read",
+      "permission": "view"
+    }
+  ],
   "entries": [],
-  "comments": [],
+  "comments": [
+    {
+      "id": "cmt-mira-alex-note1-1",
+      "author": "mira",
+      "text": "Good catch logging the heat-shock interruption. 38 min is well within tolerance for this strain — and documenting the timer drift will save us the next time efficiency unexpectedly dips. Keep that habit.",
+      "created_at": "2026-05-09T10:15:00Z"
+    }
+  ],
   "created_at": "2026-05-08T14:00:00Z",
   "updated_at": "2026-05-11T09:00:00Z",
   "username": "alex"
@@ -2579,7 +2890,7 @@ The Purchases page is the order-pipeline surface: every PurchaseItem across ever
 
 ### `/lab`: Lab Mode
 
-Lab Mode is the multi-user aggregation surface: a parallel app shell that shows every user in the folder at once, color-coded by user, with shared lab notes and a Lab Activity panel. The page foregrounds: a user picker filter at the top (toggle which users show up across all tabs), tabs for Experiments / Methods / Roadmaps / Notes / Gantt / Purchases / Activity, a per-user sidebar showing one user's load when the user clicks into that user's color. The Activity panel surfaces "Running now" (tasks in their middle date range), "Recently completed" (last 7 days), and "Recent shared notes." The Combined Gantt overlays every user's tasks on one timeline. Lab Notes (separate from per-user Notes) live in `users/lab/` and are visible to every member of the folder. Affordances: filter by user, click a user color in the sidebar to focus, comment on a shared lab note, see cross-user purchases rolled up by funding account. Requires a folder connection. Available in demo mode (fixture has 2 users, alex and morgan). The page hides goals from the lab view if the user opted out via `_user_metadata.json:hide_goals_from_lab`. → See `/wiki/features/lab-mode`. Sub-pages cover the activity panel, the combined Gantt, lab purchases, cross-user lists, and the user filter.
+Lab Mode is the multi-user aggregation surface: a parallel app shell that shows every user in the folder at once, color-coded by user, with shared lab notes and a Lab Activity panel. Lab Mode (the special sentinel account) was retired in favor of per-user accounts plus `shared_with`; pre-retirement `users/lab/` folders auto-migrate on first read, no user action required, and the `/lab` route now aggregates across per-user folders. The page foregrounds: a user picker filter at the top (toggle which users show up across all tabs), tabs for Experiments / Methods / Roadmaps / Notes / Gantt / Purchases / Activity, a per-user sidebar showing one user's load when the user clicks into that user's color. The Activity panel surfaces "Running now" (tasks in their middle date range), "Recently completed" (last 7 days), and "Recent shared notes." The Combined Gantt overlays every user's tasks on one timeline. Affordances: filter by user, click a user color in the sidebar to focus, comment on a shared lab note, see cross-user purchases rolled up by funding account. Requires a folder connection. Available in demo mode (fixture seeds four users: `alex` (default member), `morgan` (member sharing examples), `mira` (lab_head PI), `sam` (archived member). The page hides goals from the lab view if the user opted out via `_user_metadata.json:hide_goals_from_lab`. → See `/wiki/features/lab-mode`. Sub-pages cover the activity panel, the combined Gantt, lab purchases, cross-user lists, and the user filter.
 
 ### `/search`: Search
 
@@ -2599,7 +2910,7 @@ The wiki is the public documentation site: every feature, integration, and share
 
 ### `/demo`: Demo
 
-Demo is the no-folder-needed try-it surface: visit `/demo` and the app installs an in-memory file-service mock seeded with the same fixture the wiki uses (alex + morgan, 4 projects, ~25 tasks, attached methods of every structured type, real-shaped purchase items, a couple of shared items). The page foregrounds a banner ("You're in demo mode, your changes don't persist") and routes the user into the normal app shell at `/`. Affordances: every feature works against the in-memory data; "Leave demo" returns to the folder picker; "Open in real ResearchOS" opens the real `/` route. The fixture is regenerated by `npm run demo:data`; demo data lives at `frontend/public/demo-data/`. Demo never reads or writes the user's real disk. → See `/wiki/getting-started/demo-mode`.
+Demo is the no-folder-needed try-it surface: visit `/demo` and the app installs an in-memory file-service mock seeded with the same fixture the wiki uses (four users — `alex` default member, `morgan` member sharing examples, `mira` lab_head PI, `sam` archived member — plus projects, tasks, attached methods of every structured type, real-shaped purchase items, and a couple of shared items). The page routes the user into the normal app shell at `/`. There is no `<DemoLabBanner>`; demo affordances are `<FloatingLeaveDemoButton>` (bottom-right corner of the viewport), `<OpenDocsButton>` next to it, and `<TryInDemo>` callouts embedded in feature wiki pages that deep-link straight into the relevant `/demo/...` route. Affordances: every feature works against the in-memory data; the Leave Demo button returns to the folder picker; "Open in real ResearchOS" opens the real `/` route. The fixture is regenerated by `npm run demo:data`; demo data lives at `frontend/public/demo-data/`. Demo never reads or writes the user's real disk. → See `/wiki/getting-started/demo-mode`.
 
 ### `/results` and `/experiments`: Legacy redirects
 
@@ -2651,11 +2962,11 @@ Bread-and-butter workflows below. Each is "user goal → click path → what got
 
 **Goal:** give another user in the shared folder read or edit access to a task you own.
 
-**Click path:** Open the task detail popup. Click the Share icon in the popup header. The Share popup opens. Type the recipient's username (the dropdown autocompletes from `_user_metadata.json`). Pick the permission (View or Edit). Optionally tick "Include dependency chain" to share every parent / child task too. Click Share.
+**Click path:** Open the task detail popup. Click the Share icon in the popup header. The Share popup opens. Type the recipient's username (the dropdown autocompletes from `_user_metadata.json`) or pick the `*` sentinel to share with every member of the folder. Pick the level (Read or Edit). Optionally tick "Include dependency chain" to share every parent / child task too. Click Share.
 
-**On disk:** The task file at `users/<your-username>/tasks/<id>.json` gets `shared_with` appended with `{ "username": "<recipient>", "permission": "view" | "edit" }`. The recipient's `users/<recipient>/_shared_with_me.json` overlay gets a new entry `{ "id": <task-id>, "owner": "<your-username>", "permission": "...", "shared_at": "..." }`. The recipient's `users/<recipient>/_notifications.json` gets a `SharedItemNotification` entry so a bell badge surfaces it.
+**On disk:** The task file at `users/<your-username>/tasks/<id>.json` gets `shared_with` appended with `SharedUser[]` entries: `{ "username": "<recipient>", "level": "read" | "edit" }`. The `*` sentinel covers whole-lab / public-equivalent sharing. Legacy `{ username, permission: "view" | "edit" }` entries from pre-R1 records are back-compat normalized in `normalizeSharedEntry` at the read boundary, so the schema only writes the new shape. The recipient's `users/<recipient>/_shared_with_me.json` overlay gets a new entry `{ "id": <task-id>, "owner": "<your-username>", "permission": "...", "shared_at": "..." }` (the overlay file keeps the legacy `permission` key). The recipient's `users/<recipient>/_notifications.json` gets a `SharedItemNotification` entry so a bell badge surfaces it. If the task references any methods via `method_ids` / `method_attachments`, the recipient also gets transient read access to those methods (`canReadMethodViaTask`), and the method owner sees a `method-transient-read` audit row on her side.
 
-**Verify:** The recipient (after a folder reload) sees the task in her Workbench / Gantt / Home with `is_shared_with_me: true` decoration (a small "shared from <owner>" badge). If she has edit permission, she can edit fields directly; her writes route back to your `users/<your-username>/tasks/<id>.json` via the owner-scoped wrapper, not to her own folder. The recipient's notification bell shows the new item.
+**Verify:** The recipient (after a folder reload) sees the task in her Workbench / Gantt / Home with `is_shared_with_me: true` decoration (a small "shared from <owner>" badge). If she has edit level, she can edit fields directly; her writes route back to your `users/<your-username>/tasks/<id>.json` via the owner-scoped wrapper, not to her own folder. The recipient's notification bell shows the new item. Attached methods open inline without an extra share step.
 
 → See `/wiki/features/notifications` for the notification flow; sharing is documented across `/wiki/features/experiments` and `/wiki/features/lab-mode`.
 
@@ -3015,6 +3326,7 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 
 | Page | Path |
 | --- | --- |
+| Start Here | `/wiki/start-here` |
 | Quickstart | `/wiki` |
 | Getting Started | `/wiki/getting-started` |
 | Browser Requirements | `/wiki/getting-started/browser-requirements` |
@@ -3022,11 +3334,13 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 | Creating a User | `/wiki/getting-started/creating-a-user` |
 | Welcome Tour (BeakerBot) | `/wiki/getting-started/welcome-wizard` |
 | Demo Mode | `/wiki/getting-started/demo-mode` |
+| User Archiving | `/wiki/getting-started/user-archiving` |
 | Exporting from LabArchives | `/wiki/getting-started/labarchives-export` |
 | Shared Lab Accounts | `/wiki/shared-lab-accounts` |
 | OneDrive | `/wiki/shared-lab-accounts/onedrive` |
 | Google Drive | `/wiki/shared-lab-accounts/google-drive` |
 | Dropbox | `/wiki/shared-lab-accounts/dropbox` |
+| Box | `/wiki/shared-lab-accounts/box` |
 | iCloud Drive | `/wiki/shared-lab-accounts/icloud` |
 | Features | `/wiki/features` |
 | Home & Projects | `/wiki/features/home` |
@@ -3038,18 +3352,25 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 | PCR Protocols | `/wiki/features/pcr` |
 | Purchases & Funding | `/wiki/features/purchases` |
 | Calendar | `/wiki/features/calendar` |
-| Lab Mode | `/wiki/features/lab-mode` |
-| Activity | `/wiki/features/lab-mode/activity` |
-| Combined GANTT | `/wiki/features/lab-mode/gantt` |
-| Lab-wide purchases | `/wiki/features/lab-mode/purchases` |
-| Cross-user lists | `/wiki/features/lab-mode/cross-user-lists` |
-| The user filter | `/wiki/features/lab-mode/user-filter` |
+| Lab Overview | `/wiki/features/lab-overview` |
+| Widgets and Tools | `/wiki/features/lab-overview/widgets-and-tools` |
+| Customizable sidebar | `/wiki/features/lab-overview/customizable-sidebar` |
+| Snapshot tiles and expanded views | `/wiki/features/lab-overview/snapshot-tiles-and-expanded-views` |
+| Lab Inbox | `/wiki/features/lab-inbox` |
+| Comments | `/wiki/features/lab-inbox/comments` |
+| Announcements | `/wiki/features/lab-inbox/announcements` |
+| Lab Head | `/wiki/features/lab-head` |
+| Edit session and password | `/wiki/features/lab-head/edit-session-and-password` |
+| Soft-write actions | `/wiki/features/lab-head/soft-write-actions` |
+| Audit log | `/wiki/features/lab-head/audit-log` |
+| Sharing and permissions | `/wiki/features/sharing-and-permissions` |
 | Search | `/wiki/features/search` |
 | Lab Links | `/wiki/features/links` |
 | Results (moved) | `/wiki/features/results` |
 | Import from LabArchives | `/wiki/features/import-from-eln` |
 | Settings | `/wiki/features/settings` |
 | Notifications & Inbox | `/wiki/features/notifications` |
+| Feedback | `/wiki/features/feedback` |
 | Integrations | `/wiki/integrations` |
 | Telegram Bot | `/wiki/integrations/telegram` |
 | Calendar Feeds | `/wiki/integrations/calendar-feeds` |
@@ -3059,9 +3380,9 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 ## §11 Build metadata
 
 - **Variant:** `full`
-- **Helper version:** `12`
-- **Schema hash:** `483b101af48aad0c273813ed7e431ec21f350bf97d25d0b7e8075924d8cc9386`
-- **Built at:** `2026-05-22T22:09:58.596Z`
-- **Built from commit:** `8d36fc39fdaee70d3130196b58ba40cf0f60303c`
+- **Helper version:** `13`
+- **Schema hash:** `17f35beb0d4eeec5282ae0549cb63c49ff0c2c844cbd75d78cb43ef678aa2f02`
+- **Built at:** `2026-05-26T05:52:47.611Z`
+- **Built from commit:** `e8812cf8fa31c809b0628fe44e189d8ae507c828`
 
 _Generated by `scripts/build-ai-helper.mjs`. Do not edit by hand — run `npm run --prefix frontend ai-helper:refresh` to rebuild and commit._
