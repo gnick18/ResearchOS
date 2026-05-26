@@ -536,6 +536,13 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
             WelcomeBeat copy (author + funding line) into a two-line
             welcome alongside the mascot. */}
         <div className="mb-8 flex flex-col items-center">
+          {/* Page title sits ABOVE BeakerBot as the actual page heading
+              (not inside the speech bubble). Grant 2026-05-25: the
+              bubble should read as BeakerBot speaking, not as a title
+              card. */}
+          <h1 className="mb-4 text-center text-3xl font-bold text-white">
+            Welcome to ResearchOS
+          </h1>
           <div
             className="mb-2 flex h-28 w-28 items-center justify-center"
             data-testid="picker-beakerbot"
@@ -546,11 +553,9 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
               ariaLabel="BeakerBot waving hello"
             />
           </div>
-          {/* Speech bubble pointing up at BeakerBot. Only the heading +
-              the new/returning framing live inside the bubble (so the
-              bubble reads as BeakerBot speaking). The author + funding
-              credit lives BELOW the bubble in muted text (Grant's call
-              2026-05-25: it's a credential, not BeakerBot speech). */}
+          {/* Speech bubble pointing up at BeakerBot. Holds only the
+              new/returning framing now (title moved out, author credit
+              lives in the modal + RISE stamp). */}
           <div className="relative mx-auto w-full max-w-2xl">
             <div
               aria-hidden
@@ -560,11 +565,8 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
               className="relative rounded-2xl bg-white px-6 py-5 text-center shadow-lg"
               data-testid="picker-welcome-bubble"
             >
-              <h1 className="text-2xl font-bold text-slate-900">
-                Welcome to ResearchOS
-              </h1>
               <p
-                className="mx-auto mt-3 text-sm leading-relaxed text-slate-700"
+                className="mx-auto text-sm leading-relaxed text-slate-700"
                 data-testid="picker-welcome-copy"
               >
                 New here? After you link your folder, I&apos;ll walk
