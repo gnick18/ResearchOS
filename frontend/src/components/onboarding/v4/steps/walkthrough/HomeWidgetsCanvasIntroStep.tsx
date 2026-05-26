@@ -46,7 +46,7 @@ import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 export const homeWidgetsCanvasIntroStep = buildWalkthroughStep({
   id: "home-widgets-canvas-intro",
   speech:
-    "This is your Home canvas. Right now you've got two starter widgets: what's due and today's events. The canvas can host plenty more, and you can add or remove them as you go. If you share this folder with lab members later, each person tailors their own view, so what you see here is yours to shape.",
+    "This is your Home canvas. Right now you've got two starter widgets: Upcoming tasks and Today's events. The canvas can host plenty more, and you can add or remove them as you go. If you share this folder with lab members later, each person tailors their own view, so what you see here is yours to shape.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.homeWidgetCanvas),
   // No cursorScript: narration step. The spotlight on the canvas

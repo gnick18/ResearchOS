@@ -51,8 +51,7 @@ function LinksExplainerBody() {
       {isLab && (
         <p data-testid="links-explainer-beat-2">
           If you mark a card public, your teammates see it on their
-          Lab Links page. That&apos;s how labs ship shared resource
-          pages.
+          Links page. That&apos;s how labs ship shared resource pages.
         </p>
       )}
     </div>

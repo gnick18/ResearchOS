@@ -77,7 +77,12 @@ export async function fireNotificationsStepTestNotification(): Promise<void> {
       await sharingApi.dismissNotification(dup.id);
     }
     const now = new Date();
-    const eventStart = new Date(now.getTime() + 15 * 60 * 1000);
+    // Copy-alignment manager 2026-05-26: WelcomeStep promises "about ten
+    // minutes" for the setup walk. The §6.3 demo notification used to
+    // render "Welcome to ResearchOS in 15 min" because offset_minutes
+    // was 15. Both surfaces now read ten, so the user doesn't see two
+    // different time-to-completion numbers on day one.
+    const eventStart = new Date(now.getTime() + 10 * 60 * 1000);
     await sharingApi.createEventReminder({
       event_id: `onboarding-v4-test-${Date.now()}`,
       event_kind: "native",
@@ -85,7 +90,7 @@ export async function fireNotificationsStepTestNotification(): Promise<void> {
       event_start_iso: eventStart.toISOString(),
       event_date: toLocalDateString(eventStart),
       event_location: NOTIFICATIONS_STEP_TEST_BODY,
-      offset_minutes: 15,
+      offset_minutes: 10,
     });
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("ros-notifications-changed"));

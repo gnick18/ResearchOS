@@ -39,6 +39,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import BeakerBot from "@/components/BeakerBot";
 import { readOnboarding } from "@/lib/onboarding/sidecar";
+import { usersApi } from "@/lib/local-api";
 // IMPORTANT: do NOT import from `../../TourController` at module load —
 // step-registry imports this file, and TourController imports step-registry,
 // so a top-level dep would close a circular chain and crash with
@@ -80,15 +81,65 @@ const TOAST_MS = 4000;
 // ---------------------------------------------------------------------------
 
 function TourGoodbyeSpeech() {
+  // Copy-alignment manager 2026-05-26: tour-goodbye copy was promising
+  // "I'll tidy up the demo stuff we built together and leave you with
+  // your first project" unconditionally — including for users who hit
+  // Skip walkthrough at the welcome step before any project / category /
+  // artifact got created. Reading `artifacts_created` off the live
+  // sidecar lets us tell the two paths apart: when nothing was built,
+  // drop the cleanup-and-first-project line; otherwise keep it. The
+  // sibling outro overlay reads the same field to decide whether to run
+  // cleanup, so a stale value here only affects which sentence renders,
+  // never which files get touched.
+  //
+  // We resolve the active user via `usersApi.list()` (not `useFileSystem`)
+  // so the speech bubble survives test environments that render this
+  // step body outside <FileSystemProvider>. `usersApi.list` is the
+  // same accessor several other tour step bodies use for the same
+  // reason. Any failure degrades to the populated-branch copy, matching
+  // the pre-fix behavior.
+  const [builtSomething, setBuiltSomething] = useState<boolean | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const users = await usersApi.list();
+        const active = users.current_user;
+        if (!active) return;
+        const cur = await readOnboarding(active);
+        const count = cur.wizard_resume_state?.artifacts_created?.length ?? 0;
+        if (!cancelled) setBuiltSomething(count > 0);
+      } catch {
+        // Best-effort: leave `builtSomething` null so the populated
+        // branch (the prior unconditional copy) renders.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  // Render the populated-state copy while the read is pending so the
+  // happy path (the user built artifacts during the tour, which is by
+  // far the common case the existing test fixtures exercise) stays
+  // unchanged. The branch only flips to the early-skip copy after the
+  // sidecar resolves AND artifacts_created is empty.
+  const showBuiltLine = builtSomething !== false;
   return (
     <div data-step-id="tour-goodbye" className="space-y-2">
       <p className="leading-relaxed">
         You&apos;re set! Here&apos;s to many great experiments ahead.
       </p>
-      <p className="leading-relaxed">
-        I&apos;ll tidy up the demo stuff we built together and leave you
-        with your first project.
-      </p>
+      {showBuiltLine ? (
+        <p className="leading-relaxed">
+          I&apos;ll tidy up the demo stuff we built together and leave you
+          with your first project.
+        </p>
+      ) : (
+        <p className="leading-relaxed">
+          You skipped ahead, so there&apos;s nothing for me to clean up.
+          Your account is ready to go whenever you are.
+        </p>
+      )}
       <p className="leading-relaxed">
         If you ever need a refresher, every page has its own wiki guide.
         Look for the help icon up top, next to the gear icon.

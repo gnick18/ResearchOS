@@ -42,14 +42,16 @@ export default function LabLinksPage() {
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const queryClient = useQueryClient();
 
-  // Lab Links manager 2026-05-22: page header is account-type-conditional.
-  // Solo accounts see "Links"; lab accounts see "Lab Links". Visibility
-  // gate (picks.links === "yes") is handled upstream by deriveVisibleTabs
-  // — this file only owns the display label.
+  // Copy-alignment manager 2026-05-26: page header now reads "Links"
+  // for every account type (formerly "Lab Links" for lab accounts).
+  // Visibility gate (picks.links === "yes") still lives upstream in
+  // deriveVisibleTabs. featurePicks read is retained in case future
+  // copy needs account-type carve-outs, but the surface label is now
+  // a constant.
   const { currentUser } = useFileSystem();
   const featurePicks = useFeaturePicks(currentUser);
-  const surfaceLabel =
-    featurePicks?.account_type === "lab" ? "Lab Links" : "Links";
+  void featurePicks;
+  const surfaceLabel = "Links";
 
   // Form state
   const [title, setTitle] = useState("");

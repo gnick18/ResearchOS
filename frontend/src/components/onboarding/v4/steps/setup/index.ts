@@ -107,7 +107,7 @@ export const SETUP_STEP_DESCRIPTORS: Partial<
     title: "Want calendar feeds?",
     pose: "thinking",
     speech:
-      "ResearchOS can subscribe to Google, Outlook, iCloud, or ICS feeds. Want that on?",
+      "ResearchOS can overlay any public iCal (ICS) feed on your calendar. Want that on?",
     Component: Q3CalendarStep,
   },
   "setup-q4": {

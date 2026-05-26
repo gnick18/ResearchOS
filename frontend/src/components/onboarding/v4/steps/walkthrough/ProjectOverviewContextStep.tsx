@@ -40,7 +40,7 @@ import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 export const projectOverviewContextStep = buildWalkthroughStep({
   id: "project-overview-context",
   speech:
-    "Tags, dates, and status fields live alongside the overview so you can see your project's shape at a glance. As you fill them in, this strip becomes the quick-glance summary you'll come back to.",
+    "This is your project's topbar. As you tag this project and set dates or status, they'll appear here as a quick-glance summary so you can see the shape of the work without scrolling.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.projectOverviewTopbar),
   // No cursorScript: pure narration. The spotlight on the topbar is

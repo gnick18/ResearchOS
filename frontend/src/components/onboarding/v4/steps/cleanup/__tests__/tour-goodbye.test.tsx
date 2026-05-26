@@ -68,6 +68,25 @@ vi.mock("@/lib/onboarding/sidecar", async () => {
   };
 });
 
+// Copy-alignment manager 2026-05-26: the speech bubble now consults
+// usersApi.list() + readOnboarding() to decide between the "tidy up the
+// demo stuff" line and the early-skip fallback. Stub the local-api
+// users.list call so the speech-render test resolves to the populated
+// branch (matches the readOnboarding mock above, which seeds two
+// artifacts_created).
+vi.mock("@/lib/local-api", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/local-api")>(
+    "@/lib/local-api",
+  );
+  return {
+    ...actual,
+    usersApi: {
+      ...actual.usersApi,
+      list: vi.fn(async () => ({ users: ["demo-user"], current_user: "demo-user" })),
+    },
+  };
+});
+
 // Stub the auto-cleanup import so the overlay's cleanup kick runs the
 // vi.fn instead of touching domain APIs. We also pass `runCleanupFn`
 // as a prop in the more direct tests; this mock covers the default-
@@ -123,11 +142,15 @@ describe("tourGoodbyeStep record", () => {
     }
   });
 
-  it("speech renders the goodbye copy + tidy-up framing + wiki pointer", () => {
+  it("speech renders the goodbye copy + tidy-up framing + wiki pointer", async () => {
     const speechNode =
       typeof tourGoodbyeStep.speech === "function"
         ? tourGoodbyeStep.speech()
         : tourGoodbyeStep.speech;
+    // Use real timers around the render so the speech body's useEffect
+    // (which awaits readOnboarding) settles before we assert against
+    // the artifacts-populated branch.
+    vi.useRealTimers();
     render(<>{speechNode}</>);
     // Check across multiple text nodes; "You're set!" + tidy-up
     // framing + landmark-anchored wiki guidance.
@@ -135,12 +158,16 @@ describe("tourGoodbyeStep record", () => {
     expect(
       screen.getByText(/Here's to many great experiments ahead\./),
     ).toBeTruthy();
-    expect(screen.getByText(/I'll tidy up the demo stuff/)).toBeTruthy();
+    // Wait for the sidecar-driven conditional copy to resolve.
+    await waitFor(() =>
+      expect(screen.getByText(/I'll tidy up the demo stuff/)).toBeTruthy(),
+    );
     expect(screen.getByText(/every page has its own wiki guide/)).toBeTruthy();
     expect(screen.getByText(/next to the gear icon/)).toBeTruthy();
     // The retired ❓ emoji + absolute-position pointer must NOT appear.
     expect(screen.queryByText(/❓/)).toBeNull();
     expect(screen.queryByText(/icon in the top right/)).toBeNull();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
   });
 });
 

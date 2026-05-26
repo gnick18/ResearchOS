@@ -602,7 +602,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
             />
           </div>
           <h1 className="text-3xl font-bold text-white mb-2">ResearchOS</h1>
-          <p className="text-slate-400">Select your profile to continue</p>
+          <p className="text-slate-400">Select your account to continue</p>
         </div>
 
         {/* Main card */}

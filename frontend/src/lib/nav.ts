@@ -16,7 +16,13 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/purchases", label: "Purchases" },
   { href: "/calendar", label: "Calendar" },
   { href: "/search", label: "Search" },
-  { href: "/links", label: "Lab Links" },
+  // Copy-alignment manager 2026-05-26: tab labeled "Links" for all
+  // account types. The earlier "Lab Links" carve-out for lab accounts
+  // (AppShell.tsx, /links/page.tsx, SetupWrapupStep.tsx) drifted across
+  // pre-tour vs post-tour states and confused break-bots; master called
+  // "Links" everywhere. Wiki copy that still uses "Lab Links" stays for
+  // historical context but the rendered nav + page header read "Links".
+  { href: "/links", label: "Links" },
 ];
 
 export const HOME_HREF = "/";

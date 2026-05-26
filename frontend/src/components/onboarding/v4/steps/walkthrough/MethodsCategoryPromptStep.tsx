@@ -132,8 +132,9 @@ function MethodsCategoryPromptInner() {
     >
       <div className="leading-relaxed">
         Methods are the lab techniques and protocols you use to run
-        experiments. Let&apos;s create your first method category to file
-        them under. What&apos;s a common type of technique you do in the lab?
+        experiments. Let&apos;s add a method category for the kinds of
+        techniques you actually run. What&apos;s a common type of
+        technique you do in the lab?
       </div>
       <div className="flex flex-col gap-1.5">
         {METHODS_CATEGORY_PICKER_OPTIONS.map((label) => (

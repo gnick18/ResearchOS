@@ -716,11 +716,16 @@ describe("ProjectOverviewContextStep (§6.2 context narration)", () => {
     expect(projectOverviewContextStep.cursorScript).toBeUndefined();
   });
   it("speech narrates the metadata strip (tags / dates / status)", () => {
+    // Copy-alignment manager 2026-05-26: speech rewritten to
+    // acknowledge fields-empty-on-first-visit (the topbar only renders
+    // these chips when populated). New copy still references tags +
+    // dates + status, just without the "live alongside the overview"
+    // framing that didn't match the actual on-page rendering.
     const text = renderSpeech(projectOverviewContextStep);
-    expect(text).toMatch(/Tags/);
+    expect(text).toMatch(/tag/i);
     expect(text).toMatch(/dates/);
     expect(text).toMatch(/status/);
-    expect(text).toMatch(/alongside the overview/);
+    expect(text).toMatch(/topbar/);
   });
   it("expectedRoute is undefined (user already on the project route)", () => {
     expect(projectOverviewContextStep.expectedRoute).toBeUndefined();

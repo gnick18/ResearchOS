@@ -18,6 +18,7 @@ import BeakerBot from "@/components/BeakerBot";
 import BeakerBotCursor, {
   type BeakerBotCursorRef,
 } from "@/components/BeakerBotCursor";
+import Tooltip from "@/components/Tooltip";
 import TourSpotlight from "@/components/TourSpotlight";
 import type {
   FeaturePicks,
@@ -2036,6 +2037,12 @@ function InProductWalkthroughOverlay({
             setShowEscSkipConfirm(false);
             onExitTour();
           }}
+          // ESC during the in-product walkthrough always sits AFTER
+          // setup completion (the modal-setup phase owns its own skip
+          // link). Real content has been built by this point; the
+          // cleanup-selector copy applies. (Copy-alignment manager
+          // 2026-05-26.)
+          isWelcomeStep={false}
         />
       )}
     </>
@@ -2220,13 +2227,44 @@ function ModalSetupShell({
               />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-3">
                 <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
                   Setup
                 </span>
-                <span className="text-[10px] font-mono text-gray-400">
-                  {stepId}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-mono text-gray-400">
+                    {stepId}
+                  </span>
+                  {/* Copy-alignment manager 2026-05-26: header X mirrors
+                      the bottom "Skip walkthrough" link so the skeptic
+                      who looks for a close affordance up top finds one.
+                      Same confirm modal as the bottom link, so escape
+                      paths converge. Inline SVG (no lucide-react), wrapped
+                      in Tooltip per the icon-only button rule. */}
+                  <Tooltip label="Skip walkthrough" placement="bottom">
+                    <button
+                      type="button"
+                      onClick={() => setShowSkipConfirm(true)}
+                      aria-label="Skip walkthrough"
+                      className="text-gray-400 hover:text-gray-600 transition-colors rounded p-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        aria-hidden
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  </Tooltip>
+                </div>
               </div>
               <h2
                 id={titleId}
@@ -2307,6 +2345,7 @@ function ModalSetupShell({
         <SetupSkipConfirmModal
           onCancel={() => setShowSkipConfirm(false)}
           onConfirm={handleGotItConfirm}
+          isWelcomeStep={isWelcome}
         />
       )}
     </div>,
@@ -2318,28 +2357,40 @@ function ModalSetupShell({
  * Inline confirm modal for the "I've got it from here" link. Mirrors
  * the v3 `SkipConfirmModal` shape so the user's safety net for skipping
  * the whole walkthrough still reads + behaves the same way.
+ *
+ * Copy-alignment manager 2026-05-26: the confirm dialog used to read
+ * "You can review everything we made and keep or discard each item." at
+ * every setup step, including welcome (step 0) where nothing has been
+ * made yet. The `isWelcomeStep` branch swaps in copy that doesn't
+ * promise content the user hasn't built.
  */
 function SetupSkipConfirmModal({
   onCancel,
   onConfirm,
+  isWelcomeStep,
 }: {
   onCancel: () => void;
   onConfirm: () => void;
+  isWelcomeStep: boolean;
 }) {
+  const heading = isWelcomeStep
+    ? "Skip the walkthrough?"
+    : "Skip to the cleanup selector?";
+  const body = isWelcomeStep
+    ? "You can run the walkthrough later from Settings if you change your mind."
+    : "You can review everything we made and keep or discard each item.";
   return createPortal(
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Skip to cleanup selector"
+      aria-label={
+        isWelcomeStep ? "Skip walkthrough" : "Skip to cleanup selector"
+      }
       className="fixed inset-0 z-[400] flex items-center justify-center bg-black/40 backdrop-blur-sm"
     >
       <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-[420px] max-w-[calc(100vw-2rem)] mx-4 p-6">
-        <h3 className="text-lg font-semibold text-gray-900">
-          Skip to the cleanup selector?
-        </h3>
-        <p className="mt-2 text-sm text-gray-600 leading-relaxed">
-          You can review everything we made and keep or discard each item.
-        </p>
+        <h3 className="text-lg font-semibold text-gray-900">{heading}</h3>
+        <p className="mt-2 text-sm text-gray-600 leading-relaxed">{body}</p>
         <div className="mt-5 flex items-center justify-end gap-3">
           <button
             type="button"

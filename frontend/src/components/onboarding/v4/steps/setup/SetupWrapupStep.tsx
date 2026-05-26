@@ -96,6 +96,15 @@ export default function SetupWrapupStep({
     }
   };
 
+  // Copy-alignment manager 2026-05-26: wrap-up now offers a Back link
+  // alongside the two forward CTAs so the user can re-review the prior
+  // setup picks the same way they can from any other Q-step. Body owns
+  // the affordance because the shell footer is hidden via
+  // `hideFooter: true` on this step's descriptor.
+  const handleBack = () => {
+    controller.goBack();
+  };
+
   return (
     <div data-step-id="setup-wrapup" className="space-y-5">
       <p className="text-sm text-gray-700 leading-relaxed">
@@ -155,6 +164,14 @@ export default function SetupWrapupStep({
           className="w-full px-5 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
         >
           Skip for now, take me to home
+        </button>
+        <button
+          type="button"
+          onClick={handleBack}
+          data-tour-back="setup-wrapup"
+          className="self-start mt-1 text-xs font-medium text-gray-500 hover:text-gray-700 underline"
+        >
+          Back
         </button>
       </div>
 
@@ -230,15 +247,20 @@ function applyAccountTypeCarveouts(
 }
 
 /** Render the visible tab list as a comma-joined human-readable string.
- *  Uses the NAV_ITEMS label for each href, with the account-type-aware
- *  overrides for `/links` (Links vs Lab Links) and the synthetic
+ *  Uses the NAV_ITEMS label for each href, plus the synthetic
  *  `/lab-overview` entry (not in NAV_ITEMS but appended by AppShell for
  *  lab heads) so the line matches what AppShell will show in the top
- *  nav. */
+ *  nav.
+ *
+ *  Copy-alignment manager 2026-05-26: the `/links` per-account-type
+ *  override is gone (master called "Links" everywhere). The `picks`
+ *  param stays in the signature so future account-type-aware copy can
+ *  land without re-threading the wrap-up render path. */
 function formatTabList(
   hrefs: readonly string[],
   picks: FeaturePicks | null,
 ): string {
+  void picks;
   const labels = hrefs
     .map((href) => {
       // /lab-overview is not a NAV_ITEMS entry (AppShell appends it
@@ -246,11 +268,6 @@ function formatTabList(
       if (href === "/lab-overview") return "Lab Overview";
       const nav = getNavItem(href);
       if (!nav) return null;
-      // AppShell renames /links to "Links" for solo accounts and keeps
-      // "Lab Links" for labs. Mirror that here so the summary matches.
-      if (href === "/links" && picks?.account_type === "solo") {
-        return "Links";
-      }
       return nav.label;
     })
     .filter((label): label is string => label !== null);

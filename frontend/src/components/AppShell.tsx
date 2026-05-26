@@ -292,17 +292,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                       : item.href === "/lab-overview"
                         ? "lab-overview-nav-tab"
                         : undefined;
-            // Lab Links manager 2026-05-22: the /links surface is
-            // account-type-conditional. Solo accounts see "Links",
-            // lab accounts see "Lab Links". The visibility gate
-            // (picks.links === "yes") lives in deriveVisibleTabs;
-            // here we just override the displayed label.
-            const displayLabel =
-              item.href === "/links"
-                ? featurePicks?.account_type === "lab"
-                  ? "Lab Links"
-                  : "Links"
-                : item.label;
+            // Copy-alignment manager 2026-05-26: tab now reads "Links"
+            // for every account type (formerly "Lab Links" for lab
+            // accounts). The label sits on NAV_ITEMS now, so the
+            // account-type override here is gone. Visibility gate
+            // (`picks.links === "yes"`) still lives in deriveVisibleTabs.
+            const displayLabel = item.label;
             // Onboarding v4 L23: when an in-product walkthrough is
             // running, render each nav-item as a non-Link button that
             // visually grays out + suppresses click. Cursor-driven
