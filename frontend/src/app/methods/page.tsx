@@ -57,6 +57,12 @@ import { ConvertCompoundToSingleAction } from "@/components/methods/ConvertCompo
 import { GlobeIcon, LockIcon, PencilIcon } from "@/lib/utils/icons";
 import { useMethodPermissions } from "@/hooks/useMethodPermissions";
 import { isWholeLabShared } from "@/lib/sharing/unified";
+import {
+  groupOwnMethodsByFolder,
+  groupSharedMethodsByOwner,
+  matchesMethodSearch,
+  partitionMethodsByOwnership,
+} from "@/lib/methods/library-sections";
 
 /**
  * When the current viewer is a receiver of a shared method with edit
@@ -130,6 +136,11 @@ export default function MethodsPage() {
   const [prefilledFolder, setPrefilledFolder] = useState<string>("");
   const [emptyCategories, setEmptyCategories] = useState<string[]>([]);
   const [isHydrated, setIsHydrated] = useState(false);
+  // Live search query, filters across BOTH the "My Methods" and
+  // "Shared with Lab" sections. Empty string disables the filter.
+  // Sticks at the top of the page so the user can scan both sections
+  // at once.
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Deep-link: `/methods?createMethod=public` auto-opens the create
   // modal with the whole-lab sharing pre-selected.
@@ -216,54 +227,93 @@ export default function MethodsPage() {
     }
   }, []);
 
-  // Group methods by folder
-  const grouped = methods.reduce<Record<string, Method[]>>((acc, m) => {
-    const folder = m.folder_path || "Uncategorized";
-    if (!acc[folder]) acc[folder] = [];
-    acc[folder].push(m);
-    return acc;
-  }, {});
+  // Partition methods into "My Methods" (own private records authored by
+  // the current user) and "Shared with Lab" (everything else: public
+  // namespace methods + methods explicitly shared with me). The split
+  // fixes the pre-2026-05-26 bug where public methods inherited their
+  // owner's `folder_path` and bled categories like "Molecular Biology"
+  // into a brand-new user's library.
+  const { own: ownMethods, shared: sharedMethods } = useMemo(
+    () => partitionMethodsByOwnership(methods, currentUser),
+    [methods, currentUser],
+  );
 
-  // Get all existing folder names from methods
-  const methodFolders = Array.from(
-    new Set(methods.map((m) => m.folder_path).filter(Boolean))
+  // Apply the live search across both sections. Empty query is a no-op
+  // (returns the full lists). The filtered lists drive both the grouped
+  // rendering AND the empty-section copy.
+  const filteredOwnMethods = useMemo(
+    () => ownMethods.filter((m) => matchesMethodSearch(m, searchQuery)),
+    [ownMethods, searchQuery],
+  );
+  const filteredSharedMethods = useMemo(
+    () => sharedMethods.filter((m) => matchesMethodSearch(m, searchQuery)),
+    [sharedMethods, searchQuery],
+  );
+
+  // Group "My Methods" by `folder_path`, the existing category-driven
+  // layout, but ONLY for methods the user owns. Public methods no
+  // longer appear here, so their owner's category names never enter
+  // the grouping keys.
+  const ownGrouped = useMemo(
+    () => groupOwnMethodsByFolder(filteredOwnMethods),
+    [filteredOwnMethods],
+  );
+
+  // Group "Shared with Lab" by owner-name instead of folder_path so the
+  // owner's private taxonomy doesn't leak into the receiver's library
+  // (the original bug). v1 sub-grouping; flat would have worked too, but
+  // owner-grouping gives receivers a cue about who shared each method.
+  const sharedGrouped = useMemo(
+    () => groupSharedMethodsByOwner(filteredSharedMethods),
+    [filteredSharedMethods],
+  );
+
+  // Folder list for the "My Methods" section. Empty categories the
+  // user created go alongside the folders inferred from their owned
+  // methods. "Uncategorized" appears only when the user actually has
+  // uncategorized methods of their own (not when a shared method
+  // happens to be uncategorized).
+  const ownMethodFolders = Array.from(
+    new Set(ownMethods.map((m) => m.folder_path).filter(Boolean))
   ) as string[];
-
-  // Combine method folders with empty categories, removing any empty categories that now have methods
-  // Also include "Uncategorized" if there are uncategorized methods
-  const hasUncategorized = grouped["Uncategorized"] && grouped["Uncategorized"].length > 0;
+  const hasOwnUncategorized = (ownGrouped["Uncategorized"]?.length ?? 0) > 0;
   const allFolders = Array.from(
     new Set([
-      ...methodFolders,
+      ...ownMethodFolders,
       ...emptyCategories,
-      ...(hasUncategorized ? ["Uncategorized"] : [])
-    ])
+      ...(hasOwnUncategorized ? ["Uncategorized"] : []),
+    ]),
   ).filter((folder) => {
-    // Keep the folder if it has methods OR if it's in emptyCategories and doesn't have methods yet
-    // Special case: "Uncategorized" should only show when there are uncategorized methods
-    if (folder === "Uncategorized") {
-      return hasUncategorized;
-    }
-    const hasMethods = grouped[folder] && grouped[folder].length > 0;
+    // Keep the folder if it has own methods OR if it's an empty category.
+    // "Uncategorized" only shows when the user has uncategorized own methods.
+    if (folder === "Uncategorized") return hasOwnUncategorized;
+    const hasMethods = (ownGrouped[folder]?.length ?? 0) > 0;
     return hasMethods || emptyCategories.includes(folder);
   });
 
-  // All existing folders for autocomplete (includes empty categories)
+  // All existing folders for autocomplete (includes empty categories).
+  // Drives the CreateMethodModal / CreateCategoryModal "existing folders"
+  // hints, so they only suggest folders the user has personally
+  // organized, not folders from shared methods.
   const existingFolders = allFolders;
 
-  // Clean up empty categories that now have methods (only after hydration)
+  // Clean up empty categories that now have methods (only after
+  // hydration). Counts the user's OWN methods only, so a public
+  // method that happens to share a folder name does NOT auto-clear
+  // a user's empty category. Matches the new two-section layout
+  // where empty categories belong exclusively to "My Methods".
   useEffect(() => {
     if (!isHydrated) return;
     const categoriesWithMethods = new Set(
-      methods.map((m) => m.folder_path).filter(Boolean)
+      ownMethods.map((m) => m.folder_path).filter(Boolean),
     );
     const stillEmpty = emptyCategories.filter(
-      (cat) => !categoriesWithMethods.has(cat)
+      (cat) => !categoriesWithMethods.has(cat),
     );
     if (stillEmpty.length !== emptyCategories.length) {
       setEmptyCategories(stillEmpty);
     }
-  }, [methods, emptyCategories, isHydrated]);
+  }, [ownMethods, emptyCategories, isHydrated]);
 
   // Handle drag and drop
   const handleDragStart = useCallback((method: Method) => {
@@ -283,7 +333,17 @@ export default function MethodsPage() {
   const handleDrop = useCallback(
     async (targetFolder: string) => {
       if (!draggedMethod) return;
-      
+
+      // Defensive guard: shared method cards are non-draggable in the
+      // new two-section layout (see brief: "shared methods should not
+      // be draggable into the user's own categories"). If a drag event
+      // ever reaches here for a non-own method, bail without writing.
+      if (currentUser && draggedMethod.owner !== currentUser) {
+        setDraggedMethod(null);
+        setDropTargetFolder(null);
+        return;
+      }
+
       // Don't do anything if dropping in the same folder
       const currentFolder = draggedMethod.folder_path || "Uncategorized";
       if (currentFolder === targetFolder) {
@@ -314,7 +374,7 @@ export default function MethodsPage() {
         setDropTargetFolder(null);
       }
     },
-    [draggedMethod, queryClient]
+    [draggedMethod, queryClient, currentUser]
   );
 
   // Cascading per-type deletion logic (PCR + LC + plate + cell_culture
@@ -605,6 +665,75 @@ export default function MethodsPage() {
     [queryClient],
   );
 
+  // Renders a single method card. Shared between the My Methods and
+  // Shared with Lab sections so the markup, badges, and click target
+  // stay identical. The only behavioral difference is `isDraggable`,
+  // which we disable for shared methods (per brief: "shared methods
+  // should not be draggable into the user's own categories").
+  const renderMethodCard = (m: Method, isDraggable: boolean) => (
+    <div
+      key={`${m.owner}-${m.id}`}
+      draggable={isDraggable}
+      onDragStart={isDraggable ? () => handleDragStart(m) : undefined}
+      className={`bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow cursor-pointer ${
+        draggedMethod?.id === m.id && draggedMethod?.owner === m.owner ? "opacity-50" : ""
+      }`}
+      onClick={() => setViewingMethod(m)}
+    >
+      <div className="flex items-center gap-2">
+        {isDraggable ? (
+          <span className="text-gray-300 cursor-grab active:cursor-grabbing">
+            ⋮⋮
+          </span>
+        ) : null}
+        <h4 className="text-sm font-medium text-gray-900">{m.name}</h4>
+      </div>
+      <p className="text-xs text-gray-400 mt-1 truncate">{m.source_path}</p>
+      <div className="flex items-center gap-2 mt-2">
+        {(() => {
+          const meta = getMethodTypeMeta(m.method_type);
+          return (
+            <span
+              className={`text-[10px] px-2 py-0.5 rounded-full ${meta.color.bg} ${meta.color.text}`}
+            >
+              {meta.label}
+            </span>
+          );
+        })()}
+        {(m.is_public || isWholeLabShared(m.shared_with)) && (
+          <span className="text-[10px] px-2 py-0.5 bg-green-50 text-green-600 rounded-full">
+            Public
+          </span>
+        )}
+        {m.parent_method_id && (
+          <span className="text-[10px] px-2 py-0.5 bg-amber-50 text-amber-600 rounded-full">
+            Forked
+          </span>
+        )}
+      </div>
+      {m.tags && m.tags.length > 0 && (
+        <div className="flex gap-1 mt-2 flex-wrap">
+          {m.tags.map((tag) => (
+            <span
+              key={tag}
+              className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded"
+            >
+              #{tag}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  // True when the page should show the "no methods yet" empty state,
+  // i.e. the user has nothing of their own AND nothing shared with
+  // them. We keep this distinct from `methods.length === 0` so the
+  // empty-state copy doesn't shout at someone who can already see
+  // a healthy Shared with Lab section.
+  const sharedSectionIsEmpty = filteredSharedMethods.length === 0;
+  const ownSectionIsEmpty = filteredOwnMethods.length === 0 && allFolders.length === 0;
+
   return (
     <AppShell>
       <div className="flex-1 overflow-auto p-6">
@@ -613,6 +742,16 @@ export default function MethodsPage() {
             Method Library
           </h2>
           <div className="flex items-center gap-2">
+            {/* Cross-section search. Filters BOTH My Methods and Shared
+                with Lab. Empty input is a no-op (no filter applied). */}
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search methods..."
+              aria-label="Search methods"
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg w-56 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+            />
             <button
               onClick={() => {
                 setCreatingCategory(true);
@@ -640,123 +779,157 @@ export default function MethodsPage() {
           </div>
         </div>
 
-        {/* Drop zone for Uncategorized at the top */}
-        {draggedMethod && (
-          <div
-            className={`mb-4 p-4 border-2 border-dashed rounded-lg text-center transition-colors ${
-              dropTargetFolder === "Uncategorized"
-                ? "border-blue-400 bg-blue-50"
-                : "border-gray-200"
-            }`}
-            onDragOver={(e) => handleDragOver(e, "Uncategorized")}
-            onDragLeave={handleDragLeave}
-            onDrop={() => handleDrop("Uncategorized")}
-          >
-            <span className="text-sm text-gray-400">
-              Drop here to move to Uncategorized
-            </span>
+        {/* ── Section 1: My Methods ─────────────────────────────────── */}
+        {/* The user's own private methods grouped by their personal
+            categories. + New Method and + New Category live in the
+            page header above and only ever populate THIS section. */}
+        <section
+          data-tour-target="methods-section-my"
+          className="mb-10"
+        >
+          <div className="flex items-baseline justify-between mb-3">
+            <h3 className="text-lg font-semibold text-gray-900">My Methods</h3>
+            <p className="text-xs text-gray-400">
+              Methods you created, organized into your own categories.
+            </p>
           </div>
-        )}
 
-        {/* Methods grouped by folder */}
-        {allFolders
-          .sort((a, b) => a.localeCompare(b))
-          .map((folder) => {
-            const folderMethods = grouped[folder] || [];
-            const isEmpty = folderMethods.length === 0;
-            return (
-              <div
-                key={folder}
-                className={`mb-6 rounded-lg transition-colors ${
-                  dropTargetFolder === folder ? "bg-blue-50 ring-2 ring-blue-300" : ""
-                }`}
-                onDragOver={(e) => handleDragOver(e, folder)}
-                onDragLeave={handleDragLeave}
-                onDrop={() => handleDrop(folder)}
-              >
-                <div className="flex items-center justify-between mb-2 px-1">
-                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-                    {folder}
-                  </h3>
-                  {isEmpty && (
-                    <button
-                      onClick={() => {
-                        setPrefilledFolder(folder);
-                        setCreating(true);
-                      }}
-                      className="text-xs text-blue-600 hover:text-blue-700"
-                    >
-                      + Add Method
-                    </button>
-                  )}
-                </div>
-                {isEmpty ? (
-                  <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center">
-                    <p className="text-sm text-gray-400">No methods in this category</p>
-                    <p className="text-xs text-gray-300 mt-1">Drag a method here or click &quot;Add Method&quot; above</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {folderMethods.map((m) => (
-                      <div
-                        key={m.id}
-                        draggable
-                        onDragStart={() => handleDragStart(m)}
-                        className={`bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow cursor-pointer ${
-                          draggedMethod?.id === m.id ? "opacity-50" : ""
-                        }`}
-                        onClick={() => setViewingMethod(m)}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-300 cursor-grab active:cursor-grabbing">
-                            ⋮⋮
-                          </span>
-                          <h4 className="text-sm font-medium text-gray-900">
-                            {m.name}
-                          </h4>
-                        </div>
-                        <p className="text-xs text-gray-400 mt-1 truncate">
-                          {m.source_path}
+          {/* Drop zone for Uncategorized at the top of My Methods. Only
+              renders when a draggable (i.e. own) method is in flight. */}
+          {draggedMethod && (
+            <div
+              className={`mb-4 p-4 border-2 border-dashed rounded-lg text-center transition-colors ${
+                dropTargetFolder === "Uncategorized"
+                  ? "border-blue-400 bg-blue-50"
+                  : "border-gray-200"
+              }`}
+              onDragOver={(e) => handleDragOver(e, "Uncategorized")}
+              onDragLeave={handleDragLeave}
+              onDrop={() => handleDrop("Uncategorized")}
+            >
+              <span className="text-sm text-gray-400">
+                Drop here to move to Uncategorized
+              </span>
+            </div>
+          )}
+
+          {ownSectionIsEmpty ? (
+            <div className="border-2 border-dashed border-gray-200 rounded-lg p-10 text-center">
+              <p className="text-sm text-gray-500 mb-2">
+                {searchQuery
+                  ? "No methods of yours match this search."
+                  : "You haven't created any methods yet."}
+              </p>
+              {!searchQuery && (
+                <button
+                  onClick={() => setCreating(true)}
+                  className="mt-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  + New Method
+                </button>
+              )}
+            </div>
+          ) : (
+            allFolders
+              .slice()
+              .sort((a, b) => a.localeCompare(b))
+              .map((folder) => {
+                const folderMethods = ownGrouped[folder] || [];
+                const isEmpty = folderMethods.length === 0;
+                return (
+                  <div
+                    key={folder}
+                    className={`mb-6 rounded-lg transition-colors ${
+                      dropTargetFolder === folder
+                        ? "bg-blue-50 ring-2 ring-blue-300"
+                        : ""
+                    }`}
+                    onDragOver={(e) => handleDragOver(e, folder)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={() => handleDrop(folder)}
+                  >
+                    <div className="flex items-center justify-between mb-2 px-1">
+                      <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                        {folder}
+                      </h4>
+                      {isEmpty && (
+                        <button
+                          onClick={() => {
+                            setPrefilledFolder(folder);
+                            setCreating(true);
+                          }}
+                          className="text-xs text-blue-600 hover:text-blue-700"
+                        >
+                          + Add Method
+                        </button>
+                      )}
+                    </div>
+                    {isEmpty ? (
+                      <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center">
+                        <p className="text-sm text-gray-400">
+                          No methods in this category
                         </p>
-                         <div className="flex items-center gap-2 mt-2">
-                           {(() => {
-                             const meta = getMethodTypeMeta(m.method_type);
-                             return (
-                               <span className={`text-[10px] px-2 py-0.5 rounded-full ${meta.color.bg} ${meta.color.text}`}>
-                                 {meta.label}
-                               </span>
-                             );
-                           })()}
-                           {(m.is_public || isWholeLabShared(m.shared_with)) && (
-                             <span className="text-[10px] px-2 py-0.5 bg-green-50 text-green-600 rounded-full">
-                               Public
-                             </span>
-                           )}
-                           {m.parent_method_id && (
-                             <span className="text-[10px] px-2 py-0.5 bg-amber-50 text-amber-600 rounded-full">
-                               Forked
-                             </span>
-                           )}
-                         </div>
-                        {m.tags && m.tags.length > 0 && (
-                          <div className="flex gap-1 mt-2 flex-wrap">
-                            {m.tags.map((tag) => (
-                              <span
-                                key={tag}
-                                className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded"
-                              >
-                                #{tag}
-                              </span>
-                            ))}
-                          </div>
-                        )}
+                        <p className="text-xs text-gray-300 mt-1">
+                          Drag a method here or click &quot;Add Method&quot; above
+                        </p>
                       </div>
-                    ))}
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {folderMethods.map((m) => renderMethodCard(m, true))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            );
-          })}
+                );
+              })
+          )}
+        </section>
+
+        {/* ── Section 2: Shared with Lab ─────────────────────────────── */}
+        {/* Public methods + methods explicitly shared with this user.
+            Grouped by OWNER (lab member username, or "Lab" for the
+            public namespace), NOT by the owner's folder_path. Drag is
+            disabled, the receiver cannot move shared methods into
+            their own categories or rename someone else's folders. */}
+        <section data-tour-target="methods-section-shared" className="mt-8">
+          <div className="flex items-baseline justify-between mb-3">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Shared with Lab
+            </h3>
+            <p className="text-xs text-gray-400">
+              These methods are shared with everyone in your lab. You can
+              use them and copy them, but only the owner can edit.
+            </p>
+          </div>
+
+          {sharedSectionIsEmpty ? (
+            <div className="border-2 border-dashed border-gray-200 rounded-lg p-10 text-center">
+              <p className="text-sm text-gray-500">
+                {searchQuery
+                  ? "No shared methods match this search."
+                  : "No methods shared with you yet."}
+              </p>
+            </div>
+          ) : (
+            Object.keys(sharedGrouped)
+              .slice()
+              .sort((a, b) => a.localeCompare(b))
+              .map((ownerLabel) => {
+                const groupMethods = sharedGrouped[ownerLabel] || [];
+                return (
+                  <div key={`shared-${ownerLabel}`} className="mb-6 rounded-lg">
+                    <div className="flex items-center justify-between mb-2 px-1">
+                      <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                        {ownerLabel}
+                      </h4>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {groupMethods.map((m) => renderMethodCard(m, false))}
+                    </div>
+                  </div>
+                );
+              })
+          )}
+        </section>
 
         {methods.length === 0 && !creating && (
           <div className="text-center py-16">
