@@ -189,7 +189,14 @@ export async function storeCurrentUser(username: string): Promise<void> {
 export async function getCurrentUser(): Promise<string | null> {
   try {
     const user = (await get<string>(CURRENT_USER_KEY)) || null;
-    console.log("[indexeddb-store.getCurrentUser] Retrieved user from IndexedDB:", user);
+    // Panel investigator follow-up (finding #3): demoted from console.log
+    // to console.debug. The previous log fired before the reconciliation
+    // against discoverUsers() in file-system-context.finishConnect, so a
+    // stale IDB pointer to a now-missing user dir surfaced a confusing
+    // "have user → no user" log sequence. The higher-level signal in
+    // file-system-context is still at console.log; this per-hit signal
+    // is just noise.
+    console.debug("[indexeddb-store.getCurrentUser] Retrieved user from IndexedDB:", user);
     return user;
   } catch (err) {
     console.error("[indexeddb-store.getCurrentUser] Error:", err);

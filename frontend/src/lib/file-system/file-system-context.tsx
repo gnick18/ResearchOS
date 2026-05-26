@@ -249,7 +249,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         ) {
           // Stale currentUser pointing at a deleted/tombstoned/never-existed
           // user (e.g. carryover from a demo-lab copy whose user folders were
-          // later wiped — Grant hit `alex` 2026-05-20). Same bug class as the
+          // later wiped, Grant hit `alex` 2026-05-20). Same bug class as the
           // stale-mainUser fix in usersApi.getMainUser at local-api.ts:4278;
           // both read paths needed to be filtered against discoverUsers.
           // "lab" is the Lab Mode sentinel and is intentionally not a
@@ -258,9 +258,54 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
           // `users.length > 0` guard: discoverUsers returns [] both for a
           // genuinely fresh folder AND for transient FS errors. Clearing on
           // [] risks wiping a valid pointer on an FS hiccup; bias toward
-          // keeping the IDB key in that ambiguous case.
+          // keeping the IDB key in that ambiguous case. See the follow-up
+          // branch below for the disambiguated empty-users case.
           await clearCurrentUser();
           currentUser = null;
+        } else if (
+          currentUser &&
+          currentUser.toLowerCase() !== "lab" &&
+          users.length === 0
+        ) {
+          // Panel investigator follow-up (finding #3): when discoverUsers
+          // returns [] AND we have a stale IDB pointer, the old code left
+          // the pointer alone to protect against transient FS errors. That
+          // strands the user in a "have user → no user" surface (the IDB
+          // hit logged, then the picker rendered without the user).
+          //
+          // Disambiguate with a cheap, defensive probe: try to walk
+          // `users/<currentUser>` via the raw FSA `getDirectoryHandle`.
+          // Three outcomes:
+          //   - handle resolves → preserve the IDB pointer (some edge case
+          //     where the user dir exists but discoverUsers couldn't list it).
+          //   - browser throws `NotFoundError` → the dir is genuinely gone,
+          //     clear the IDB key.
+          //   - any other error (permission, IO, abort) → preserve the
+          //     pointer, treat as transient (matches the existing protection).
+          try {
+            const rootHandle = fileService.getDirectoryHandle();
+            if (rootHandle) {
+              const usersHandle = await rootHandle.getDirectoryHandle("users");
+              try {
+                await usersHandle.getDirectoryHandle(currentUser);
+                // Dir exists, leave the IDB pointer alone.
+              } catch (probeErr) {
+                const isNotFound =
+                  probeErr instanceof DOMException &&
+                  probeErr.name === "NotFoundError";
+                if (isNotFound) {
+                  await clearCurrentUser();
+                  currentUser = null;
+                }
+                // Other errors: preserve the pointer (transient).
+              }
+            }
+            // No root handle: bail without clearing (defensive).
+          } catch {
+            // Anything blew up before we could probe (eg. `users` dir
+            // itself missing or permission revoked mid-call). Preserve the
+            // IDB pointer; the next connect will retry.
+          }
         }
 
         // Per-folder Main read (Bug 2 fix 2026-05-23). The previous

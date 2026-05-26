@@ -58,4 +58,45 @@ describe("withFixtureParam (FixtureLink helper)", () => {
       "/x?wikiCapture=1%26evil%3D1",
     );
   });
+
+  // Panel investigator follow-up (finding #2): re-attach all allowlisted
+  // fixture / preview params, not just `wikiCapture`. Prevents reload
+  // mid-tour from preserving `wikiCapture=picker` while dropping
+  // `wizard-preview=1` from the URL (URL-vs-state asymmetry).
+  it("re-attaches wizard-preview when present in the record", () => {
+    expect(withFixtureParam("/workbench", { "wizard-preview": "1" })).toBe(
+      "/workbench?wizard-preview=1",
+    );
+  });
+
+  it("re-attaches wizardSeedStep when present in the record", () => {
+    expect(
+      withFixtureParam("/workbench", { wizardSeedStep: "home-create-project" }),
+    ).toBe("/workbench?wizardSeedStep=home-create-project");
+  });
+
+  it("re-attaches all three params together", () => {
+    expect(
+      withFixtureParam("/workbench", {
+        wikiCapture: "picker",
+        "wizard-preview": "1",
+        wizardSeedStep: "home-create-project",
+      }),
+    ).toBe(
+      "/workbench?wikiCapture=picker&wizard-preview=1&wizardSeedStep=home-create-project",
+    );
+  });
+
+  it("merges allowlisted params with an existing query string using `&`", () => {
+    expect(
+      withFixtureParam("/lab?tab=purchases", {
+        wikiCapture: "1",
+        "wizard-preview": "1",
+      }),
+    ).toBe("/lab?tab=purchases&wikiCapture=1&wizard-preview=1");
+  });
+
+  it("returns the href unchanged when the record is empty", () => {
+    expect(withFixtureParam("/workbench", {})).toBe("/workbench");
+  });
 });
