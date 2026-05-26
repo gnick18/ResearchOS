@@ -3,38 +3,52 @@
 import Image from "next/image";
 
 /**
- * Pre-onboarding credentials footer.
+ * Pre-onboarding credentials stamp.
  *
- * Sits below the speech bubble across all 4 beats. Establishes authority
- * for a first-time researcher: this is a real academic project, not a
- * sketchy app trying to harvest research data. Two signals:
+ * Fixed-position card in the bottom-right corner of the viewport. Visible
+ * across all 4 beats but stays out of BeakerBot's spotlight: the mascot
+ * + speech bubble own the screen, the credentials sit as a small
+ * "powered by" stamp.
  *
+ * Two signals:
  *   1. Funding source (UW-Madison RISE Initiative) with their official logo
  *   2. Free + open source, with a link to the public GitHub repo
  *
  * Author credit (Dr. Grant R. Nickles, PhD) lives in Beat 1's main copy,
- * not the footer, per Grant 2026-05-25. The footer stays focused on the
- * institutional signal (RISE) + the structural-trust signal (open
- * source, here's the code).
+ * not the footer, per Grant 2026-05-25.
  *
- * Voice rules: NO em-dashes, NO emojis. The RISE logo is the official
- * PNG fetched from University Research Park's site, stored at
- * `frontend/public/credentials/uw-rise-logo.png` (940x250).
+ * Repositioned to bottom-right 2026-05-25 (Grant: the original
+ * below-the-bubble white panel was distracting from BeakerBot).
+ *
+ * Voice rules: NO em-dashes, NO emojis. The logo asset is the official
+ * RISE PNG from University Research Park, served from
+ * `/credentials/uw-rise-logo.png`.
  */
 const GITHUB_URL = "https://github.com/gnick18/ResearchOS";
 
 export default function CredentialsFooter() {
   return (
     <div
-      className="mt-6 flex w-full max-w-2xl flex-col items-center gap-2 text-center text-xs text-slate-300"
+      className="pointer-events-none fixed bottom-4 right-4 z-40 flex flex-col items-end gap-1 text-right text-[10px] text-slate-300"
       data-testid="pre-onboarding-credentials"
     >
-      <p className="leading-relaxed">
-        Funded in part by the{" "}
-        <span className="font-semibold text-slate-100">
-          UW-Madison RISE Initiative
-        </span>
-        . Free and open source on{" "}
+      {/* Logo on a tight white panel so the cream shield + red field
+          read correctly against the dark gradient backdrop. */}
+      <div className="pointer-events-auto rounded-md bg-white/95 px-2 py-1 shadow-sm">
+        <Image
+          src="/credentials/uw-rise-logo.png"
+          alt="Wisconsin RISE Initiative (Wisconsin Research, Innovation and Scholarly Excellence)"
+          width={160}
+          height={42}
+          className="h-8 w-auto"
+          unoptimized
+          priority
+        />
+      </div>
+      <p className="pointer-events-auto leading-tight">
+        Funded by the UW-Madison RISE Initiative.
+        <br />
+        Free and open source on{" "}
         <a
           href={GITHUB_URL}
           target="_blank"
@@ -46,19 +60,6 @@ export default function CredentialsFooter() {
         </a>
         .
       </p>
-      {/* Logo on a soft white panel so the cream shield border + red
-          field read correctly against the dark gradient backdrop. */}
-      <div className="flex items-center justify-center rounded-md bg-white/95 px-4 py-2 shadow-sm">
-        <Image
-          src="/credentials/uw-rise-logo.png"
-          alt="Wisconsin RISE Initiative (Wisconsin Research, Innovation and Scholarly Excellence)"
-          width={240}
-          height={64}
-          className="h-auto w-auto"
-          unoptimized
-          priority
-        />
-      </div>
     </div>
   );
 }
