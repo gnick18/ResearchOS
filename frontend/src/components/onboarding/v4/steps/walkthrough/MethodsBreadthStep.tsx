@@ -9,27 +9,45 @@
  * are built into the website... three to five things [per builder].
  * Doesn't need to be anything more than 15-20 seconds per step."
  *
- * This step now does the INTRO + PCR tile click only. The deeper PCR
- * demo (Edit Cycle toggle, Add Cycle modal) lives in two follow-up
- * steps so each cursor script can resolve elements that exist at script
- * build time without the silent-pre-render trick (which doesn't survive
- * non-idempotent state changes like toggling Edit Cycle).
+ * This step now does the INTRO + PCR tile click + Edit Cycle demo beat.
+ * The deeper PCR sub-steps (`methods-pcr-edit`, `methods-pcr-add-cycle`)
+ * exist as separate files but are NOT wired into TOUR_STEP_ORDER; this
+ * single step is the active PCR demo entry.
  *
- * Sub-step flow (5 steps total replacing the prior 1):
+ * Sub-step flow:
  *
- *   1. `methods-type-tour` (this file) ─ speech intro + cursor clicks
- *      the PCR tile. PCR editor (`InteractiveGradientEditor`) mounts
- *      inside the same modal (the picker stays visible at the top, the
- *      per-type editor swaps below). Auto-advance after the click.
- *   2. `methods-pcr-edit` ─ cursor clicks the "Edit Cycle" toggle so
- *      the toolbar expands and the Add Cycle button mounts.
- *   3. `methods-pcr-add-cycle` ─ cursor clicks "+ Add Cycle" then the
- *      confirmation modal's "Add" button. A new empty cycle appears in
- *      the gradient flow.
- *   4. `methods-lc-demo` ─ cursor clicks the LC Gradient tile (editor
- *      swaps), glides over the recharts line chart so users see the
- *      hover indicator, then clicks "+ Add step" to demonstrate the
- *      live graph update.
+ *   1. `methods-type-tour` (this file) ─ speech intro; cursor clicks the
+ *      PCR tile so `InteractiveGradientEditor` mounts inside the modal,
+ *      THEN clicks the "Edit Cycle" toggle. The toolbar expands to show
+ *      Add Cycle / Add Step / Eraser buttons, which is the visual
+ *      evidence that "these are interactive things" the user can poke.
+ *      Free-play follows. Manual advance.
+ *   2. `methods-lc-demo` ─ cursor clicks the LC Gradient tile (editor
+ *      swaps), user explores.
+ *
+ * Cursor demo beat (pcr-demo sub-bot 2026-05-26): Grant's fresh-user run
+ * found that clicking just the PCR tile and handing off to free-play
+ * left users unsure the populated thermal cycle was editable. The Edit
+ * Cycle click is the affordance demonstration: when the toggle flips,
+ * the toolbar expands with NEW buttons (+ Add Cycle / + Add Step /
+ * Gradient Eraser / Cycle Eraser / Clear All) which loudly signals
+ * "this is a builder, not a static recipe view." The Edit Cycle click
+ * uses `deferredClickAction` because the toggle DOM node only mounts
+ * after the prior tile-click commits (script-build-time resolution
+ * would miss it).
+ *
+ * Spotlight target (pcr-demo sub-bot 2026-05-26): targetSelector points
+ * at `methodsCreateForm` (the whole modal panel) rather than the small
+ * PCR tile. The tile sits at the top of the picker section inside the
+ * modal's scrollable content; once the user scrolls down to see the
+ * builder, the tile leaves the viewport and TourSpotlight's
+ * IntersectionObserver would scroll it back, making the modal's
+ * `overflow-y-auto` content feel scroll-locked. The modal panel itself
+ * is `fixed` + `max-h-[90vh]` centered in the viewport, so it never
+ * leaves the viewport, IO never re-scrolls, and the user can scroll
+ * the modal contents freely. Bonus: the spotlight glow around the
+ * whole modal reads as "this is your sandbox" which matches the
+ * "play around" instruction in the speech bubble.
  *
  * Builder pattern investigation (per brief): CreateMethodModal is a
  * modal-in-place pattern, NOT a route nav. The picker (`MethodTypeCategoryPicker`)
@@ -40,12 +58,12 @@
  * all sub-steps, and `methodsCreateStep` (§6.4d) picks up with the same
  * modal still open and just switches the editor back to Markdown.
  *
- * Cursor responsibility: BEAKERBOT DEMO. Speech literally says "I'll
- * click into one" so the cursor performs the click.
+ * Cursor responsibility: BEAKERBOT DEMO. Speech literally says "Watch
+ * me open the PCR builder and flip into edit mode" so the cursor
+ * performs both clicks.
  *
- * Auto-advance after the click. The PCR editor mounts synchronously
- * after the React commit, but we give a small buffer (1500ms) so the
- * user sees the click ripple fade before the next speech bubble lands.
+ * Manual advance ("Got it, next") so the user has time to poke the
+ * builder.
  *
  * No artifact (the modal stays open across sub-steps; the eventual
  * methodsCreateStep saves a Markdown method, this builder pivot
@@ -55,6 +73,8 @@ import {
   cursorScript,
   safeClickAction,
   compactScript,
+  deferredClickAction,
+  pause,
   waitForElement,
 } from "./lib/cursor-script";
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
@@ -75,6 +95,13 @@ export const METHODS_BREADTH_TILE_TARGETS = [
   "method-type-lc-gradient",
 ] as const;
 
+/** ~700ms gap between the PCR tile click and the Edit Cycle click.
+ *  Long enough for the click ripple to fade and for React to commit
+ *  the editor mount so the deferred Edit Cycle resolve finds its
+ *  target on the first poll. Shorter than 1s so the demo still feels
+ *  snappy. */
+const PCR_BUILDER_MOUNT_PAUSE_MS = 700;
+
 export const methodsBreadthStep = buildWalkthroughStep({
   id: "methods-type-tour",
   speech: (
@@ -86,26 +113,46 @@ export const methodsBreadthStep = buildWalkthroughStep({
         attaches in one shot.
       </p>
       <p>
-        I&apos;ll open the PCR builder now. Click around to get a feel
-        for it, then hit Got it, next when you&apos;re ready to see the
-        LC Gradient one. The wiki has the full reference whenever you
-        want details.
+        Watch me open the PCR builder and flip it into edit mode, the
+        toolbar opens up so you can see what&apos;s adjustable. Click
+        around to get a feel for it, then hit Got it, next when
+        you&apos;re ready to see the LC Gradient one. The wiki has the
+        full reference whenever you want details.
       </p>
     </>
   ),
   pose: "pointing",
-  targetSelector: targetSelector(TOUR_TARGETS.methodsTypePcrTile),
+  // pcr-demo sub-bot 2026-05-26: spotlight tracks the whole modal panel
+  // (methodsCreateForm) instead of the small PCR tile. See file header
+  // for the scroll-lock rationale.
+  targetSelector: targetSelector(TOUR_TARGETS.methodsCreateForm),
   cursorScript: cursorScript(async () => {
     // Wait for the picker (already visible from the open-picker beat
     // immediately preceding this step; in dev / replay it may already
-    // be open). Single click into the PCR tile mounts the builder; the
-    // user explores at their own pace after that.
+    // be open).
     await waitForElement(targetSelector(TOUR_TARGETS.methodsTypePicker), 3000);
+    // 1) Click the PCR tile, which mounts InteractiveGradientEditor
+    //    below the picker. Resolves at build time since the tile is
+    //    already in the DOM.
     const clickPcr = await safeClickAction(
       targetSelector(TOUR_TARGETS.methodsTypePcrTile),
       2000,
     );
-    return compactScript([clickPcr]);
+    // 2) Brief pause so the click ripple lands and React commits the
+    //    PCR editor mount before the next click goes after the Edit
+    //    Cycle toggle.
+    const mountPause = pause(PCR_BUILDER_MOUNT_PAUSE_MS);
+    // 3) Click the Edit Cycle toggle. `deferredClickAction` resolves
+    //    the toggle at PLAYBACK time (not build time) because the
+    //    toggle DOM node only exists AFTER the prior tile-click
+    //    committed the editor mount. Flipping into edit mode expands
+    //    the toolbar with Add Cycle / Add Step / Eraser / Clear All
+    //    buttons, the visible "this is editable" affordance.
+    const clickEditToggle = deferredClickAction(
+      targetSelector(TOUR_TARGETS.pcrEditToggle),
+      5000,
+    );
+    return compactScript([clickPcr, mountPause, clickEditToggle]);
   }),
   // Grant 2026-05-21 rework: manual advance so the user has time to
   // poke at the PCR builder + read the speech bubble. The prior
@@ -119,15 +166,20 @@ export const methodsBreadthStep = buildWalkthroughStep({
   // out of the tour. The methodsCreateForm anchor covers the whole
   // modal subtree, including the picker tiles + the just-mounted
   // InteractiveGradientEditor.
+  //
+  // Scroll note (pcr-demo sub-bot 2026-05-26): TourPageLock blocks
+  // clicks only, it does NOT block scroll. Combined with the
+  // targetSelector pointing at the modal panel (which stays in the
+  // viewport, so TourSpotlight's IO doesn't yank scroll back), the
+  // user can scroll the modal's overflow-y-auto content freely during
+  // free-play to see the full builder.
   pageLock: {
     allowList: [TOUR_TARGETS.methodsCreateForm],
     pillLabel: "Play with PCR. Hit Got it, next when you're ready.",
   },
   // §6.4b viewport anchor (input-lock + viewport-anchor sub-bot 2026-05-21):
-  // the cursor only clicks the small PCR tile, but the user should see
-  // the whole CreateMethodModal surface so the tile click context is
-  // visible. Using the modal wrapper (methodsCreateForm) rather than a
-  // narrower per-builder wrapper because this step is the picker entry —
-  // the PCR builder hasn't mounted yet.
+  // the cursor opens the PCR builder, so the user should see the whole
+  // CreateMethodModal surface centered before the demo starts. Same as
+  // the targetSelector now (pcr-demo sub-bot 2026-05-26).
   viewportAnchor: targetSelector(TOUR_TARGETS.methodsCreateForm),
 });

@@ -828,12 +828,14 @@ describe("Methods steps (§6.4)", () => {
       "method-type-lc-gradient",
     ]);
   });
-  it("breadth step clicks the PCR tile only (v4 sec 6.4b upgrade)", async () => {
-    // First beat of the deep-demo arc: click PCR tile so
-    // InteractiveGradientEditor mounts. The follow-up methods-pcr-edit
-    // step then clicks Edit Cycle. Mount the picker + PCR tile fixture
-    // and assert the produced action list is exactly one click action
-    // against the PCR tile.
+  it("breadth step clicks the PCR tile then flips Edit Cycle (pcr-demo sub-bot 2026-05-26)", async () => {
+    // Grant's 2026-05-26 fresh-user run: the prior single-click hand-off
+    // left users unsure the cycle was editable. The cursor now performs
+    // the tile click AND a deferred Edit Cycle click so the toolbar
+    // expands as visible evidence of editability before free-play.
+    //
+    // Expected action list: [click PCR tile, pause (callback), deferred
+    // click on Edit Cycle (callback)]. Three actions, not one.
     const fixtures: Array<{ el: HTMLElement; cleanup: () => void }> = [];
     try {
       const picker = document.createElement("div");
@@ -848,14 +850,40 @@ describe("Methods steps (§6.4)", () => {
 
       expect(methodsBreadthStep.cursorScript).toBeDefined();
       const actions = await methodsBreadthStep.cursorScript!();
-      expect(actions).toHaveLength(1);
+      expect(actions).toHaveLength(3);
+      // 1) Build-time-resolved click on the PCR tile.
       expect(actions[0].type).toBe("click");
       if (actions[0].type === "click") {
         expect(actions[0].target).toBe(pcrTile);
       }
+      // 2) Pause callback so the prior click commits + the editor mounts
+      //    before the deferred Edit Cycle click resolves.
+      expect(actions[1].type).toBe("callback");
+      // 3) Deferred Edit Cycle click. Built via `deferredClickAction`
+      //    which returns a callback action (selector resolves at
+      //    playback time, not build time, because the Edit Cycle
+      //    toggle DOM node only mounts after the prior tile-click).
+      expect(actions[2].type).toBe("callback");
     } finally {
       for (const f of fixtures) f.cleanup();
     }
+  });
+  it("breadth step spotlight tracks the modal panel, not the PCR tile (pcr-demo sub-bot 2026-05-26 scroll-lock fix)", () => {
+    // Grant's 2026-05-26 fresh-user run: page scroll was locked during
+    // free-play. Root cause: TourSpotlight's IntersectionObserver was
+    // tracking the small PCR tile inside the modal's scrollable content
+    // and yanking scroll back whenever the tile left the viewport.
+    //
+    // Fix: target the modal panel (methodsCreateForm) instead. The
+    // modal is `fixed` + `max-h-[90vh]` centered, so it never leaves
+    // the viewport → IO never triggers scroll-back → the user can
+    // scroll the modal's overflow-y-auto content freely.
+    expect(methodsBreadthStep.targetSelector).toBe(
+      "[data-tour-target=\"methods-create-form\"]",
+    );
+    expect(methodsBreadthStep.targetSelector).not.toBe(
+      "[data-tour-target=\"method-type-pcr\"]",
+    );
   });
   it("breadth step uses manual advance so user can explore at their own pace (Grant 2026-05-21 rework)", () => {
     // Reverted from autoAdvanceAfter to manualAdvance: Grant's
