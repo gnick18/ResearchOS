@@ -10,6 +10,7 @@ import Tooltip from "@/components/Tooltip";
 import UserAvatar from "@/components/UserAvatar";
 import BeakerBot from "@/components/BeakerBot";
 import RiseCredentialsStamp from "@/components/RiseCredentialsStamp";
+import { useMouseProximityWave } from "@/lib/picker/useMouseProximityWave";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
 import {
   extractDirectoryHandleFromDrop,
@@ -47,6 +48,12 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
   const [newFolderName, setNewFolderName] = useState("");
   const [elnImportOpen, setElnImportOpen] = useState(false);
   const { showBugReport, currentError, openBugReport, closeBugReport } = useErrorReporting();
+
+  // BeakerBot proximity-wave hook. Returns "waving" when the cursor
+  // gets within ~200px of the mascot's center (with a cooldown so he
+  // doesn't wave continuously); "idle" otherwise.
+  const beakerBotWrapperRef = useRef<HTMLDivElement | null>(null);
+  const beakerBotPose = useMouseProximityWave(beakerBotWrapperRef);
 
   // Drag-and-drop state for the "Link Existing Folder" card. `isDragOver` is
   // a ref-counted boolean (incremented on dragenter, decremented on
@@ -544,11 +551,12 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
             Welcome to ResearchOS
           </h1>
           <div
+            ref={beakerBotWrapperRef}
             className="mb-2 flex h-28 w-28 items-center justify-center"
             data-testid="picker-beakerbot"
           >
             <BeakerBot
-              pose="waving"
+              pose={beakerBotPose}
               className="h-full w-full text-sky-300"
               ariaLabel="BeakerBot waving hello"
             />
