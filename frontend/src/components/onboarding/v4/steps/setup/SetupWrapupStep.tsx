@@ -21,7 +21,7 @@ import type { SetupStepProps } from "./types";
  * Q1-Q7 bodies already persisted everything to `feature_picks`. It only
  * READS the sidecar and renders a summary, plus two CTAs:
  *
- *   - "Show me around" (primary button, calls `controller.advance`).
+ *   - "Give me a tour of my features" (primary button, calls `controller.advance`).
  *     Advances the tour graph to the next applicable step. For a fresh
  *     user that is `home-create-project`, the start of the in-product
  *     walkthrough; gated steps are skipped via the existing step-machine
@@ -138,7 +138,7 @@ export default function SetupWrapupStep({
           data-tour-next="setup-wrapup-tour"
           className="w-full px-5 py-3 text-sm font-semibold bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm"
         >
-          Show me around
+          Give me a tour of my features
         </button>
         <button
           type="button"
@@ -151,8 +151,8 @@ export default function SetupWrapupStep({
       </div>
 
       <p className="text-xs text-gray-500 text-center leading-relaxed">
-        The tour walks you through every page with BeakerBot. You can
-        also re-run it any time from Settings.
+        The tour is tailored to the features you just turned on, with
+        BeakerBot as your guide. You can re-run it any time from Settings.
       </p>
     </div>
   );
