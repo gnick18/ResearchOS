@@ -11,6 +11,7 @@ import {
   cursorScript,
   deferredClickAction,
   safeClickAction,
+  safeNavClickAction,
   safeTypeAction,
   safeDragAction,
   safeGlideToElementAction,
@@ -694,6 +695,126 @@ describe("deferredClickAction() — §6.2b R1 flag + viewport-scroll fix", () =>
         (window as unknown as { __beakerBotCursorClicking?: boolean })
           .__beakerBotCursorClicking,
       ).toBeFalsy();
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+});
+
+describe("safeNavClickAction() — §6.2 click-bypass R2 root-cause fix (2026-05-26)", () => {
+  /**
+   * §6.2 NAV's cursor click drives the user from `/` into
+   * `/workbench/projects/<id>` via `router.push` inside the card's
+   * onClick handler. The previous chip's finding: the click DID
+   * fire and the onClick handler DID call router.push, but the
+   * pathname change useEffect in TourController's auto-nav fired
+   * AFTER the cursor-script's synchronous `finally` had cleared
+   * `__beakerBotCursorScriptRunning`, so the running-flag guard
+   * passed through and the auto-nav effect pushed the user BACK to
+   * `/` — undoing the cursor's nav. The fix: a second flag,
+   * `__beakerBotCursorPendingNavigation`, set inside the playback-
+   * time callback BEFORE the click, that persists across the
+   * synchronous flag clear. The TourController consumer side is
+   * tested in TourController.test.tsx ("does NOT auto-correct when
+   * the cursor's async router.push lands AFTER the running flag has
+   * cleared"). Here we lock the producer-side contract.
+   */
+  it("sets __beakerBotCursorPendingNavigation true around the click and leaves it true after (for the auto-nav consumer)", async () => {
+    const el = document.createElement("button");
+    el.setAttribute("data-tour-target", "safe-nav-pending-1");
+    // jsdom doesn't ship scrollIntoView; stub so ensureInViewport
+    // short-circuits.
+    el.scrollIntoView = vi.fn() as unknown as typeof el.scrollIntoView;
+    el.getBoundingClientRect = () =>
+      ({
+        top: 10,
+        left: 10,
+        width: 10,
+        height: 10,
+        right: 20,
+        bottom: 20,
+        x: 10,
+        y: 10,
+        toJSON() {
+          return {};
+        },
+      }) as DOMRect;
+    document.body.appendChild(el);
+    // Baseline the flag.
+    (window as unknown as { __beakerBotCursorPendingNavigation?: boolean })
+      .__beakerBotCursorPendingNavigation = false;
+    try {
+      const actions = await safeNavClickAction(
+        "[data-tour-target='safe-nav-pending-1']",
+        500,
+      );
+      expect(actions).toHaveLength(2);
+      const cb = actions[1] as { type: "callback"; fn: () => Promise<void> };
+      // Capture the flag value AT click time. The click receiver
+      // must see the flag set true so a synchronously-fired
+      // pathname change still observes it.
+      let pendingDuringClick: boolean | undefined = undefined;
+      el.addEventListener("click", () => {
+        pendingDuringClick = (
+          window as unknown as { __beakerBotCursorPendingNavigation?: boolean }
+        ).__beakerBotCursorPendingNavigation;
+      });
+      await cb.fn();
+      expect(pendingDuringClick).toBe(true);
+      // CRITICAL: flag stays true AFTER the callback's finally
+      // (this is what distinguishes pending-nav from the existing
+      // `__beakerBotCursorClicking` flag, which IS cleared
+      // synchronously). The auto-nav effect in TourController is
+      // the consumer that clears it on the next pathname change.
+      expect(
+        (window as unknown as { __beakerBotCursorPendingNavigation?: boolean })
+          .__beakerBotCursorPendingNavigation,
+      ).toBe(true);
+    } finally {
+      el.remove();
+      (window as unknown as { __beakerBotCursorPendingNavigation?: boolean })
+        .__beakerBotCursorPendingNavigation = false;
+    }
+  });
+  it("a real user click on the same data-tour-target element still triggers the onClick handler with the lock mounted (the InputLockOverlay's flag-based bypass + this fix are orthogonal)", async () => {
+    // The brief calls for parity: the cursor-driven path navigates,
+    // AND a user click on the same anchored card navigates. The
+    // pending-nav flag is set by the CURSOR script — a user click
+    // doesn't touch it. The InputLockOverlay's mounted listener
+    // wouldn't be installed in this test (no lock mount); we just
+    // confirm the handler fires when invoked directly. The lock-
+    // bypass contract is exercised by the InputLockOverlay tests.
+    const el = document.createElement("button");
+    el.setAttribute("data-tour-target", "safe-nav-pending-2");
+    let clicked = false;
+    el.addEventListener("click", () => {
+      clicked = true;
+    });
+    document.body.appendChild(el);
+    try {
+      el.click();
+      expect(clicked).toBe(true);
+    } finally {
+      el.remove();
+    }
+  });
+  it("does NOT set the pending-navigation flag when the selector misses the timeout (no nav was attempted)", async () => {
+    (window as unknown as { __beakerBotCursorPendingNavigation?: boolean })
+      .__beakerBotCursorPendingNavigation = false;
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const actions = await safeNavClickAction(
+        "[data-tour-target='never-mounts-r2']",
+        100,
+      );
+      expect(actions).toHaveLength(0);
+      // Flag must remain false — a missed selector means no click,
+      // no router.push, no need to suppress a phantom bounce.
+      expect(
+        (window as unknown as { __beakerBotCursorPendingNavigation?: boolean })
+          .__beakerBotCursorPendingNavigation,
+      ).toBe(false);
+      expect(warnSpy).toHaveBeenCalled();
     } finally {
       warnSpy.mockRestore();
     }

@@ -1092,6 +1092,44 @@ export function TourControllerProvider({
       return;
     }
 
+    // §6.2 click-bypass R2 root-cause fix (2026-05-26).
+    // The `__beakerBotCursorScriptRunning` guard above ONLY suppresses
+    // the bounce while the cursor's runScript is still in-flight. But
+    // `router.push(...)` from inside a click handler is ASYNC: the
+    // pathname change useEffect observes the new path only AFTER
+    // React commits the navigation, which happens AFTER the
+    // synchronous cursor-script `finally` block clears
+    // `__beakerBotCursorScriptRunning`. Result: by the time this
+    // effect fires on the cursor-driven pathname change, the running
+    // flag is already false, the guard passes through, and the auto-
+    // nav effect pushes the user back to `expectedRoute` — undoing
+    // the navigation the cursor's click just triggered. The §6.2 NAV
+    // step is the canonical case: cursor click pushes to
+    // `/workbench/projects/<id>`, then this effect immediately pushes
+    // back to `/`, the user never leaves home, the InputLockOverlay
+    // stays mounted because the next step's overlay-mount cycle never
+    // completes, and the watchdog finally releases it 30s later.
+    //
+    // The pending-navigation flag is set in `safeNavClickAction` (and
+    // any other cursor-script primitive that initiates a navigation)
+    // and persists across the cursor script's resolution. It's
+    // consumed here on the first pathname change the auto-nav effect
+    // sees so the cursor's nav can land without bounce-back. A
+    // separate timeout (in TourController's cursor-script effect)
+    // safety-drains the flag in case the click never actually
+    // produced a navigation (defensive — shouldn't normally fire).
+    const w = window as unknown as {
+      __beakerBotCursorPendingNavigation?: boolean;
+    };
+    if (!stepChanged && w.__beakerBotCursorPendingNavigation) {
+      // Consume the flag — this pathname change was the cursor's
+      // intended nav. Subsequent pathname changes for the same step
+      // (e.g. the user wandering off after the cursor finished) should
+      // still be corrected by the auto-nav push.
+      w.__beakerBotCursorPendingNavigation = false;
+      return;
+    }
+
     // Preserve query params on the auto-nav push (live-test R2 fix
     // 2026-05-21). Originally we carried ALL existing search params
     // through so fixture-mode (?wikiCapture=1, ?wizard-preview=1,
@@ -1889,6 +1927,33 @@ function InProductWalkthroughOverlay({
       }
     })();
 
+    // §6.2 click-bypass R2 root-cause fix (2026-05-26): safety drain
+    // for the pending-navigation flag. `safeNavClickAction` sets
+    // `__beakerBotCursorPendingNavigation = true` before firing
+    // `el.click()` so the auto-nav effect doesn't bounce the user
+    // back to `expectedRoute` when the async `router.push` lands. The
+    // auto-nav effect consumes the flag on the first pathname change
+    // it observes. If the click never produced a pathname change
+    // (defensive: a future bug where the receiver onClick handler
+    // short-circuits, or the project ID is invalid), the flag would
+    // stay sticky and let a SUBSEQUENT legitimate auto-nav push
+    // (user navigates back to a different step) be incorrectly
+    // suppressed. A 2s timeout drains the flag if it's still set —
+    // long enough for any reasonable React commit + route change to
+    // land, short enough that a stuck flag doesn't outlast the
+    // user's confused click into the next step.
+    const pendingNavDrainTimer =
+      typeof window !== "undefined"
+        ? window.setTimeout(() => {
+            const w = window as unknown as {
+              __beakerBotCursorPendingNavigation?: boolean;
+            };
+            if (w.__beakerBotCursorPendingNavigation) {
+              w.__beakerBotCursorPendingNavigation = false;
+            }
+          }, 2000)
+        : null;
+
     return () => {
       cancelled = true;
       // Wave 2 Fix 3/9: signal the in-flight runScript to abort at the
@@ -1902,6 +1967,12 @@ function InProductWalkthroughOverlay({
       // Got-it / Skip / Back) doesn't fire the watchdog late from a
       // dangling timer.
       clearWatchdog();
+      // §6.2 click-bypass R2 root-cause fix: also clear the pending-
+      // nav drain timer so a step transition doesn't leave a dangling
+      // timer that flips the flag on the next step.
+      if (pendingNavDrainTimer !== null) {
+        clearTimeout(pendingNavDrainTimer);
+      }
       // Release the lock the moment the step exits — even if runScript
       // is still mid-animation, we want the user free to interact with
       // the next step's surface. Skip / Back paths from the speech
@@ -1915,6 +1986,12 @@ function InProductWalkthroughOverlay({
       if (typeof window !== "undefined") {
         (window as unknown as { __beakerBotCursorScriptRunning?: boolean })
           .__beakerBotCursorScriptRunning = false;
+        // Also drain pending-nav on step exit — if the cursor's click
+        // initiated a nav and the user advances/skips before the
+        // pathname has changed, we don't want the flag carrying into
+        // the next step.
+        (window as unknown as { __beakerBotCursorPendingNavigation?: boolean })
+          .__beakerBotCursorPendingNavigation = false;
       }
     };
   }, [currentStep]);

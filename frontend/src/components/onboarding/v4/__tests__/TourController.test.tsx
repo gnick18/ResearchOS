@@ -1411,6 +1411,62 @@ describe("TourController — expectedRoute auto-navigation", () => {
         .__beakerBotCursorScriptRunning = false;
     }
   });
+
+  // §6.2 click-bypass R2 root-cause fix (2026-05-26). The
+  // `__beakerBotCursorScriptRunning` guard above only covers the
+  // case where the cursor's runScript is still in-flight when the
+  // pathname change observes. But `router.push` from inside a click
+  // handler is ASYNC: the React commit lands AFTER the cursor's
+  // synchronous `finally` block has already cleared the running
+  // flag. The pathname-dep useEffect then fires with the flag false
+  // and bounces the user back. The fix: a SECOND flag,
+  // `__beakerBotCursorPendingNavigation`, set by
+  // `safeNavClickAction` before the click and consumed by THIS
+  // effect on the cursor-driven pathname change. The test below
+  // mirrors the in-the-wild §6.1→§6.2 sequence:
+  //   1. cursor script fires el.click() → onClick → router.push
+  //   2. cursor script's finally clears running flag SYNCHRONOUSLY
+  //   3. React commits the navigation; pathname useEffect fires
+  //   4. running flag is FALSE but pending-nav flag is TRUE
+  //   5. auto-nav effect consumes the pending-nav flag and bails
+  it("does NOT auto-correct when the cursor's async router.push lands AFTER the running flag has cleared (pending-navigation flag)", () => {
+    const { result, rerender } = renderHook(() => useTourController(), {
+      wrapper: wrapper(),
+    });
+    act(() => result.current.start("project-overview-nav"));
+    // project-overview-nav has expectedRoute "/" but pathname is "/"
+    // already, so no push.
+    expect(pushMock).not.toHaveBeenCalled();
+    // Simulate the cursor script's `safeNavClickAction` callback:
+    // running flag cleared synchronously (the click + finally
+    // already ran), but pending-nav flag persists.
+    (window as unknown as { __beakerBotCursorScriptRunning?: boolean })
+      .__beakerBotCursorScriptRunning = false;
+    (window as unknown as { __beakerBotCursorPendingNavigation?: boolean })
+      .__beakerBotCursorPendingNavigation = true;
+    try {
+      // Now the async router.push commits — pathname observes the
+      // new route.
+      act(() => {
+        window.history.pushState({}, "", "/workbench/projects/42");
+        setMockPathname("/workbench/projects/42");
+      });
+      rerender();
+      // No bounce-back: the pending-nav flag tells the effect this
+      // was a cursor-driven nav.
+      expect(pushMock).not.toHaveBeenCalled();
+      // Pending-nav flag was consumed (set false) so a SUBSEQUENT
+      // wandering nav (the user clicks something else on the
+      // landed-on page) WILL get bounced.
+      expect(
+        (window as unknown as { __beakerBotCursorPendingNavigation?: boolean })
+          .__beakerBotCursorPendingNavigation,
+      ).toBe(false);
+    } finally {
+      (window as unknown as { __beakerBotCursorPendingNavigation?: boolean })
+        .__beakerBotCursorPendingNavigation = false;
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------

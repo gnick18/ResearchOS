@@ -595,6 +595,45 @@ describe("ProjectOverviewNavStep (§6.2 nav)", () => {
       card.remove();
     }
   });
+  it("cursor click sets __beakerBotCursorPendingNavigation so the auto-nav effect doesn't bounce the async router.push back to expectedRoute (§6.2 click-bypass R2 root-cause fix, 2026-05-26)", async () => {
+    // The bug this guards against: `router.push(...)` inside the
+    // onClick handler queues an async commit. The cursor-script's
+    // synchronous `finally` block clears
+    // `__beakerBotCursorScriptRunning` BEFORE the pathname useEffect
+    // observes the new route. Then the TourController's auto-nav
+    // effect fires on the pathname change, sees the running flag is
+    // false, and pushes the user back to the step's
+    // `expectedRoute = "/"` — undoing the cursor's nav. The fix:
+    // `safeNavClickAction` sets a SECOND flag,
+    // `__beakerBotCursorPendingNavigation`, that survives the
+    // running-flag's synchronous clear. The auto-nav effect consumes
+    // this flag on the cursor-driven pathname change.
+    //
+    // Lock the contract: after the playback-time callback runs (with
+    // a click receiver that simulates `router.push`), the
+    // pending-navigation flag must be set to true so the TourController
+    // auto-nav effect's consumer can see it. The auto-nav effect's
+    // OWN test (in TourController.test.tsx) covers the consumer side.
+    const w = window as unknown as {
+      __beakerBotCursorPendingNavigation?: boolean;
+    };
+    w.__beakerBotCursorPendingNavigation = false; // baseline
+    const card = document.createElement("button");
+    card.setAttribute("data-tour-target", "home-project-card-99");
+    document.body.appendChild(card);
+    try {
+      const actions = await projectOverviewNavStep.cursorScript!();
+      const cbAction = actions[1] as { type: "callback"; fn: () => void | Promise<void> };
+      await cbAction.fn();
+      // Pending-navigation flag must be true after the callback so the
+      // auto-nav effect's pathname-dep re-fire sees it and short-
+      // circuits instead of bouncing back to expectedRoute.
+      expect(w.__beakerBotCursorPendingNavigation).toBe(true);
+    } finally {
+      card.remove();
+      w.__beakerBotCursorPendingNavigation = false;
+    }
+  });
 });
 
 describe("ProjectOverviewStep (§6.2 prose)", () => {

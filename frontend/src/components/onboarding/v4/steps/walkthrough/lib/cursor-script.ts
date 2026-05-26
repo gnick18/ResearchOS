@@ -734,8 +734,29 @@ export async function safeNavClickAction(
         );
         return;
       }
-      const w = window as unknown as { __beakerBotCursorClicking?: boolean };
+      const w = window as unknown as {
+        __beakerBotCursorClicking?: boolean;
+        __beakerBotCursorPendingNavigation?: boolean;
+      };
       w.__beakerBotCursorClicking = true;
+      // §6.2 click-bypass R2 root-cause fix (2026-05-26): mark this
+      // click as a NAVIGATION click so the expectedRoute auto-nav
+      // effect in TourController does NOT bounce the user back to the
+      // step's `expectedRoute` when React Router's async push lands
+      // AFTER the cursor script's `finally` has cleared
+      // `__beakerBotCursorScriptRunning`. The synchronous flag race
+      // is the actual bug: `el.click()` → onClick handler →
+      // `router.push(target)` is queued, the synchronous finally
+      // clears the running flag, runScript resolves, and only then
+      // does the pathname-change useEffect see the new pathname.
+      // At that moment `__beakerBotCursorScriptRunning` is already
+      // false, the guard in the auto-nav effect doesn't trigger, and
+      // the effect pushes the user back to expectedRoute (`/` for
+      // §6.2 NAV) — undoing the navigation the cursor just performed.
+      // This flag stays set until the auto-nav effect consumes it on
+      // the next pathname change (or a short timeout drains it so a
+      // failed navigation doesn't leave a stuck flag).
+      w.__beakerBotCursorPendingNavigation = true;
       try {
         // Native `.click()` invokes the element's full activation
         // behaviour and routes through React's delegated handlers
@@ -750,6 +771,12 @@ export async function safeNavClickAction(
         );
       } finally {
         w.__beakerBotCursorClicking = false;
+        // NOTE: do NOT clear __beakerBotCursorPendingNavigation here.
+        // The auto-nav effect clears it on the first pathname change
+        // it observes (the cursor's own intended navigation). A
+        // safety drain in TourController clears it after a short
+        // timeout in case the click never produced a pathname change
+        // (e.g. the receiver handler short-circuited).
       }
     }),
   ];
