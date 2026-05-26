@@ -131,7 +131,11 @@ export function ownerScopedPurchasesApi(args: OwnerScopedPurchasesArgs) {
     },
     delete: async (id: number) => {
       const beforeRecord = await readPurchaseItem(id, owner);
-      await rawPurchasesApi.delete(id, owner);
+      // VCP R2 trash everywhere (2026-05-26): pass PI attribution through
+      // so the trash entry records `deleted_by = lab head` +
+      // `deleted_during_session = session_id`. Without this the owner-only
+      // gate in `purchasesApi.delete` refuses the cross-owner delete.
+      await rawPurchasesApi.delete(id, owner, { actor: writer, sessionId: session });
       if (beforeRecord) {
         await writeAuditEntries([
           {

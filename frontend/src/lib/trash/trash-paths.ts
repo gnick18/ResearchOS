@@ -77,9 +77,17 @@ export function trashFilePath(
   return `${trashTypeDirPath(username, entityType)}/${trashFilename(id, name)}`;
 }
 
-/** Live-disk paths for each entity type. R1 only wires `note`; the rest
- *  return paths that match the existing on-disk layout in `local-api.ts`
- *  so the rest of R2 just plugs in. */
+/** Live-disk paths for each entity type. The dirname here MUST match
+ *  the JsonStore prefix wired in `local-api.ts` (e.g. goalsStore is
+ *  `new JsonStore<HighLevelGoal>("goals")` so the live path is
+ *  `users/<u>/goals/<id>.json`, not `high_level_goals/`). The trash
+ *  subdir under `_trash/` is independent and kept descriptive
+ *  (`high_level_goals`, `mass_spec_protocols`) via `trashTypeDirName`.
+ *
+ *  R2 wires every entity type's delete through here; the corrections
+ *  for `high_level_goal` (`goals/` on disk) and `mass_spec_protocol`
+ *  (`mass_spec_methods/` on disk) were dormant in R1 because only Notes
+ *  were exercised. */
 export function liveRecordPath(
   username: string,
   entityType: TrashEntityType,
@@ -97,10 +105,14 @@ export function liveRecordPath(
     case "purchase_item":
       return `users/${username}/purchase_items/${id}.json`;
     case "high_level_goal":
-      return `users/${username}/high_level_goals/${id}.json`;
+      // Store prefix is "goals", not "high_level_goals". Keep the
+      // trash subdir name descriptive but match disk layout here.
+      return `users/${username}/goals/${id}.json`;
     case "lab_link":
       return `users/${username}/lab_links/${id}.json`;
     case "mass_spec_protocol":
-      return `users/${username}/mass_spec_protocols/${id}.json`;
+      // Store prefix is "mass_spec_methods" (legacy name from before
+      // the protocol rename). Trash subdir stays "mass_spec_protocols".
+      return `users/${username}/mass_spec_methods/${id}.json`;
   }
 }

@@ -6,7 +6,7 @@ export default function TrashFeaturePage() {
   return (
     <WikiPage
       title="Trash &amp; History"
-      intro="A recovery window for deletes. When you delete a note (and, in R2, every other record type), it does not vanish. It moves into a per-user trash folder where it sits for 30 days. Within that window you can restore it back to its original location with one click. After the window passes, an automatic sweep removes it for good."
+      intro="A recovery window for deletes. When you delete a note, task, project, method, purchase, goal, lab link, or mass spec protocol, it does not vanish. It moves into a per-user trash folder where it sits for 30 days. Within that window you can restore it back to its original location with one click. After the window passes, an automatic sweep removes it for good."
     >
       <h2>Why this exists</h2>
       <p>
@@ -106,10 +106,10 @@ export default function TrashFeaturePage() {
         trash file is removed. The record is now live again at the same id.
       </p>
       <p>
-        In R2, when restoring a record whose parent (e.g. a Project that
-        contains the note) is also in trash, a prompt asks whether to restore
-        both or just the child. R1 ships the prompt machinery but never
-        triggers it; only Notes can sit in trash today.
+        When restoring a record whose parent (e.g. a Project that contains
+        the task) is also in trash, a prompt asks whether to restore both or
+        just the child. See &ldquo;Restoring with a trashed parent&rdquo;
+        below.
       </p>
 
       <h2>Permanent delete</h2>
@@ -120,20 +120,59 @@ export default function TrashFeaturePage() {
         no second-level recycle bin.
       </p>
 
-      <h2>What R1 does not yet do</h2>
+      <h2>Archive vs trash on Projects</h2>
       <p>
-        Phase R1 of the Version Control proposal ships the trash surface for{" "}
-        <strong>notes only</strong>. Tasks, Methods, Projects, Purchases,
-        High-level Goals, Lab Links, and Mass Spec Protocols still
-        hard-delete; R2 extends the trash flow to all of them. Edit history
-        (a per-record audit + revert button on every popup) lands later in
-        R4 / R5 / R6.
+        Projects are the one entity type with TWO recovery states. Both
+        coexist by design:
       </p>
+      <ul>
+        <li>
+          <strong>Archive</strong> (the existing button): the project stays at
+          <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px] mx-1">users/&lt;you&gt;/projects/&lt;id&gt;.json</code>{" "}
+          with <code>is_archived: true</code>. It is hidden from default
+          views but visible in the archived list. Use this for projects
+          you are done with but want to keep on disk for reference.
+        </li>
+        <li>
+          <strong>Delete</strong> (now routes through trash): the project file
+          moves to{" "}
+          <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px] mx-1">_trash/projects/</code>{" "}
+          and the cleanup window starts. The trash entry preserves the
+          <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px] mx-1">is_archived</code>{" "}
+          flag, so a project you archived first and then deleted will come
+          back archived on restore.
+        </li>
+      </ul>
+      <Callout variant="info" title="Archive then trash is fine">
+        You can archive a project today and trash it next month. Restoring
+        from trash strips the trash metadata only; the archive state survives
+        the round trip.
+      </Callout>
+
+      <h2>Restoring with a trashed parent</h2>
       <p>
-        The settings panel also surfaces an &ldquo;Orphaned files&rdquo; row
-        as a placeholder. Image attachments referenced only by deleted notes
-        stay on disk for now; a cleanup tool that finds and removes
-        unreferenced images ships in R2.
+        Records like Tasks (parent: Project), Notes (no parent), Purchase
+        Items (parent: Task), and High-level Goals (parent: Project) record a
+        soft reference to their parent at delete time. When you restore a
+        record whose parent is ALSO in trash, a prompt asks:
+      </p>
+      <ul>
+        <li><strong>Restore both</strong> (default): restores the parent first, then this record.</li>
+        <li><strong>Just this record</strong>: leaves the parent in trash. The record will exist but its parent reference will dangle.</li>
+        <li><strong>Cancel</strong>: nothing happens.</li>
+      </ul>
+      <p>
+        If the parent is not in trash (the common case), no prompt fires and
+        the restore proceeds straight through.
+      </p>
+
+      <h2>What R2 does not yet do</h2>
+      <p>
+        Edit history (a per-record audit log + revert button on every popup)
+        lands later in R4 / R5 / R6. The settings panel also surfaces an
+        &ldquo;Orphaned files&rdquo; row as a placeholder. Image attachments
+        referenced only by deleted notes stay on disk for now; a cleanup tool
+        that finds and removes unreferenced images ships in a later phase.
       </p>
 
       <Callout variant="info" title="The promise">

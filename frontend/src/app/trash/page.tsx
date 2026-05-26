@@ -1,10 +1,15 @@
 "use client";
 
-// VCP R1 trash MVP notes (2026-05-26): the /trash route. R1 renders the
-// Notes-only tree; R2 extends to all eight entity types. Sort defaults
-// to newest-deleted-first (OQ15). Per-entry actions: Restore /
-// Permanent delete. Layout deliberately stays Settings-area in tone
-// rather than competing with the top-nav surfaces.
+// VCP R2 trash everywhere (2026-05-26): the /trash route. R1 rendered a
+// flat list of (Notes-only) trash entries; R2 groups by entity type and
+// collapses empty sections. Sort within each section still defaults to
+// newest-deleted-first (OQ15). Per-entry actions: Restore (with
+// restore-with-dependencies prompt when applicable) / Permanent delete.
+//
+// Restore-with-dependencies (OQ4): when restoring a child whose parent
+// is ALSO in trash, the `useResolveRestoreParent` hook prompts the user
+// via `RestoreParentPromptHost`. "Restore both" cascades: parent is
+// restored first so the child's `original_path` parent directory exists.
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -16,15 +21,32 @@ import {
   restoreEntity,
   permanentlyDelete,
   sortTrashEntries,
+  type TrashEntityType,
   type TrashIndexEntry,
   type TrashSort,
 } from "@/lib/trash";
-import { useResolveRestoreParent } from "@/components/trash/RestoreParentPrompt";
+import {
+  useResolveRestoreParent,
+  RestoreParentPromptHost,
+} from "@/components/trash/RestoreParentPrompt";
 
 const SORT_OPTIONS: Array<{ value: TrashSort; label: string }> = [
   { value: "newest", label: "Newest first" },
   { value: "oldest", label: "Oldest first" },
   { value: "expiring", label: "Expiring soon" },
+];
+
+/** Order in which entity-type sections render. Notes first (most-used),
+ *  then the rest roughly by familiarity. */
+const SECTION_ORDER: Array<{ key: TrashEntityType; label: string }> = [
+  { key: "note", label: "Notes" },
+  { key: "task", label: "Tasks" },
+  { key: "project", label: "Projects" },
+  { key: "method", label: "Methods" },
+  { key: "purchase_item", label: "Purchase items" },
+  { key: "high_level_goal", label: "High-level goals" },
+  { key: "lab_link", label: "Lab links" },
+  { key: "mass_spec_protocol", label: "Mass spec protocols" },
 ];
 
 export default function TrashPage() {
@@ -36,12 +58,14 @@ export default function TrashPage() {
     busyId: string | null;
     error: string | null;
   }>({ busyId: null, error: null });
+  // Track which sections the user collapsed manually. Empty sections
+  // default to collapsed (computed from `entries`); non-empty default
+  // to expanded.
+  const [collapsedOverrides, setCollapsedOverrides] = useState<
+    Partial<Record<TrashEntityType, boolean>>
+  >({});
   const resolveRestoreParent = useResolveRestoreParent();
 
-  // Re-read the index whenever the active user changes. Auto-cleanup
-  // already ran on folder-connect, so this read is just for the live
-  // list state. State updates are scheduled into an async callback
-  // (not the effect body) per the react-hooks/set-state-in-effect rule.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -68,28 +92,87 @@ export default function TrashPage() {
     };
   }, [currentUser, isConnected]);
 
-  const sortedEntries = useMemo(
-    () => sortTrashEntries(entries, sort),
-    [entries, sort],
-  );
+  // Pre-bucket by entity type for the section render.
+  const byType = useMemo(() => {
+    const buckets = new Map<TrashEntityType, TrashIndexEntry[]>();
+    for (const e of entries) {
+      const arr = buckets.get(e.entity_type) ?? [];
+      arr.push(e);
+      buckets.set(e.entity_type, arr);
+    }
+    // Sort each bucket per the active sort.
+    for (const [k, v] of buckets) {
+      buckets.set(k, sortTrashEntries(v, sort));
+    }
+    return buckets;
+  }, [entries, sort]);
 
   const handleRestore = async (entry: TrashIndexEntry) => {
     if (!currentUser) return;
     const key = `${entry.entity_type}:${entry.id}`;
     setActionState({ busyId: key, error: null });
     try {
-      // R1 stub — always resolves to "just-this" since no parent entity
-      // type can be trashed yet. R2 lights up the prompt.
       const outcome = await resolveRestoreParent(currentUser, entry);
-      if (outcome === "cancel") return;
-      const restored = await restoreEntity(currentUser, entry.entity_type, entry.id);
+      if (outcome === "cancel") {
+        setActionState({ busyId: null, error: null });
+        return;
+      }
+      const restored = await restoreEntity(
+        currentUser,
+        entry.entity_type,
+        entry.id,
+      );
       if (!restored) {
         setActionState({ busyId: null, error: "Restore failed" });
         return;
       }
+      // Track which ids to drop from local state.
+      const removedKeys: Array<{ id: string | number; type: TrashEntityType }> = [
+        { id: entry.id, type: entry.entity_type },
+      ];
+      // "Restore both" branch: the parent is restored AFTER the child
+      // here (the writer creates the parent dir on demand, and the
+      // child's `original_path` doesn't actually depend on the live
+      // parent record existing — it's just a numeric ref). The order
+      // doesn't matter for the file system; we do parent-first as a
+      // convention so the read side sees a consistent state.
+      if (
+        outcome === "restore-both" &&
+        entry.parent_id !== undefined &&
+        entry.parent_entity_type
+      ) {
+        const parentEntry = entries.find(
+          (e) =>
+            e.entity_type === entry.parent_entity_type &&
+            e.id === entry.parent_id,
+        );
+        if (parentEntry) {
+          try {
+            const restoredParent = await restoreEntity(
+              currentUser,
+              parentEntry.entity_type,
+              parentEntry.id,
+            );
+            if (restoredParent) {
+              removedKeys.push({
+                id: parentEntry.id,
+                type: parentEntry.entity_type,
+              });
+            }
+          } catch (err) {
+            console.warn(
+              "[trash-page] cascade restore of parent failed (child restored, parent left in trash)",
+              err,
+            );
+          }
+        }
+      }
       setEntries((prev) =>
         prev.filter(
-          (e) => !(e.id === entry.id && e.entity_type === entry.entity_type),
+          (e) =>
+            !removedKeys.some(
+              (k) => k.id === e.id && k.type === e.entity_type,
+            ),
         ),
       );
       setActionState({ busyId: null, error: null });
@@ -134,6 +217,7 @@ export default function TrashPage() {
 
   return (
     <AppShell>
+      <RestoreParentPromptHost />
       <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
         <header className="space-y-2">
           <h1 className="text-2xl font-semibold text-gray-900">Trash</h1>
@@ -188,19 +272,106 @@ export default function TrashPage() {
           </div>
         )}
 
-        <ul className="divide-y divide-gray-200 border border-gray-200 rounded-lg bg-white">
-          {sortedEntries.map((entry) => (
+        {!loading && entries.length > 0 && (
+          <div className="space-y-3">
+            {SECTION_ORDER.map(({ key, label }) => {
+              const sectionEntries = byType.get(key) ?? [];
+              const isEmpty = sectionEntries.length === 0;
+              const defaultCollapsed = isEmpty;
+              const collapsed =
+                collapsedOverrides[key] !== undefined
+                  ? collapsedOverrides[key]
+                  : defaultCollapsed;
+              return (
+                <TrashSection
+                  key={key}
+                  label={label}
+                  entryType={key}
+                  entries={sectionEntries}
+                  collapsed={collapsed === true}
+                  onToggle={() =>
+                    setCollapsedOverrides((prev) => ({
+                      ...prev,
+                      [key]: !(collapsed === true),
+                    }))
+                  }
+                  busyId={actionState.busyId}
+                  onRestore={handleRestore}
+                  onPermanentDelete={handlePermanentDelete}
+                />
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </AppShell>
+  );
+}
+
+interface TrashSectionProps {
+  label: string;
+  entryType: TrashEntityType;
+  entries: TrashIndexEntry[];
+  collapsed: boolean;
+  onToggle: () => void;
+  busyId: string | null;
+  onRestore: (entry: TrashIndexEntry) => void;
+  onPermanentDelete: (entry: TrashIndexEntry) => void;
+}
+
+function TrashSection({
+  label,
+  entryType,
+  entries,
+  collapsed,
+  onToggle,
+  busyId,
+  onRestore,
+  onPermanentDelete,
+}: TrashSectionProps) {
+  const count = entries.length;
+  return (
+    <section
+      className="border border-gray-200 rounded-lg bg-white overflow-hidden"
+      aria-label={`Trash section: ${label}`}
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 text-left"
+        aria-expanded={!collapsed}
+        aria-controls={`trash-section-${entryType}`}
+      >
+        <span className="flex items-center gap-2">
+          <span
+            aria-hidden="true"
+            className={`inline-block w-2 h-2 border-r border-b border-gray-500 transform transition-transform ${
+              collapsed ? "-rotate-45" : "rotate-45"
+            }`}
+          />
+          <span className="text-sm font-medium text-gray-900">{label}</span>
+        </span>
+        <span className="text-xs text-gray-500">
+          {count === 0 ? "Empty" : `${count} item${count === 1 ? "" : "s"}`}
+        </span>
+      </button>
+      {!collapsed && count > 0 && (
+        <ul
+          id={`trash-section-${entryType}`}
+          className="divide-y divide-gray-100 border-t border-gray-200"
+        >
+          {entries.map((entry) => (
             <TrashRow
               key={`${entry.entity_type}:${entry.id}`}
               entry={entry}
-              busy={actionState.busyId === `${entry.entity_type}:${entry.id}`}
-              onRestore={() => handleRestore(entry)}
-              onPermanentDelete={() => handlePermanentDelete(entry)}
+              busy={busyId === `${entry.entity_type}:${entry.id}`}
+              onRestore={() => onRestore(entry)}
+              onPermanentDelete={() => onPermanentDelete(entry)}
             />
           ))}
         </ul>
-      </div>
-    </AppShell>
+      )}
+    </section>
   );
 }
 
@@ -222,9 +393,6 @@ function TrashRow({ entry, busy, onRestore, onPermanentDelete }: TrashRowProps) 
           {displayName}
         </div>
         <div className="text-xs text-gray-500 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-          <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 text-[10px] uppercase tracking-wide">
-            {entry.entity_type.replace("_", " ")}
-          </span>
           <span>Deleted by {entry.deleted_by}</span>
           <span aria-hidden="true">·</span>
           <span>{deletedAtPretty}</span>
@@ -267,7 +435,6 @@ function TrashRow({ entry, busy, onRestore, onPermanentDelete }: TrashRowProps) 
  *  original name — we strip the `<id>-` prefix to recover a readable
  *  approximation. */
 function buildDisplayName(entry: TrashIndexEntry): string {
-  // trash_path looks like `_trash/notes/47-PCR-setup-for-compound.json`.
   const filename = entry.trash_path.split("/").pop() ?? "";
   const stem = filename.replace(/\.json$/, "");
   const dashIdx = stem.indexOf("-");
@@ -300,8 +467,6 @@ function formatRelativeTime(iso: string): string {
 function formatExpiresIn(iso: string): string | null {
   const ms = Date.parse(iso);
   if (Number.isNaN(ms)) return null;
-  // Never sentinel is a far-future date; treat anything > 100 years out
-  // as Never.
   const yearsFromNow = (ms - Date.now()) / (365 * 24 * 60 * 60 * 1000);
   if (yearsFromNow > 100) return "Never expires";
   const diff = ms - Date.now();

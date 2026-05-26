@@ -1,25 +1,31 @@
 // VCP R1 trash MVP notes (2026-05-26): one-time migration from the
-// legacy `notes_trash/` layout to the new `_trash/notes/` layout.
+// legacy `<type>_trash/` layouts to the new `_trash/<type>/` layout.
 //
-// The migration is IDEMPOTENT — it can safely re-run on every folder-
-// connect, on multiple devices, after partial failures. Idempotency
-// mechanism:
-//   1. If `_trash/notes/` already has files AND `notes_trash/` is empty,
-//      skip the whole pass (the migration already completed here).
-//   2. For each file in `notes_trash/<id>.json`:
-//      - Skip when a `_trash/notes/<id>-<slug>.json` for the same id
+// R1 shipped just the Notes migration. R2 extends the same mechanical
+// pass to every other entity type that COULD have grown a legacy
+// `<type>_trash/` directory ahead of R1 (in practice only `notes_trash/`
+// exists in user folders today — the others are defensive coverage so
+// the migration stays correct if a future feature adds a sibling).
+//
+// The migration is IDEMPOTENT — safe on every folder-connect, on multiple
+// devices, after partial failures. Idempotency mechanism:
+//   1. If `_trash/<type>/` already has files AND `<legacy>/` is empty,
+//      skip the whole pass for that type (the migration already
+//      completed here).
+//   2. For each file in `<legacy>/<id>.json`:
+//      - Skip when a `_trash/<type>/<id>-<slug>.json` for the same id
 //        already exists (we matched a prior copy of this entry).
 //      - Otherwise write the new shape (with the `_trash` block back-
 //        filled from the legacy `deleted_at` stamp), update the index,
 //        and remove the legacy file ONLY when the new file landed
 //        cleanly.
-//   3. The legacy `notes_trash/` directory marker is preserved for one
-//      release as a safety net (we do not `rm -rf` it). After every
-//      file moves, the directory sits empty as a tombstone so we can
-//      reverse-migrate if a regression surfaces.
+//   3. The legacy `<type>_trash/` directory marker is preserved for one
+//      release as a tombstone safety net (we do NOT `rm -rf` it). After
+//      every file moves, the directory sits empty so we can reverse-
+//      migrate if a regression surfaces.
 //
-// Migration runs on `finishConnect` — it's wrapped in try/catch and
-// failures don't block the folder open.
+// Migration runs on `finishConnect` — wrapped in try/catch and failures
+// don't block the folder open.
 
 import { fileService } from "@/lib/file-system/file-service";
 import {
@@ -30,34 +36,46 @@ import {
 import { appendIndexEntry, readOrRebuildTrashIndex } from "./trash-index";
 import {
   DEFAULT_CLEANUP_DAYS,
+  type TrashEntityType,
   type TrashFieldBlock,
   type TrashedEntity,
 } from "./trash-types";
 import { computeAutoExpiresAt } from "./trash-writer";
 
-const LEGACY_TRASH_DIRNAME = "notes_trash";
+/** Map of entity type → legacy `<type>_trash/` directory name. Only
+ *  Notes had one in pre-R1 builds; the others are listed defensively
+ *  for forward compat in case anyone hand-creates the directories. */
+const LEGACY_DIRS: Array<{ type: TrashEntityType; dirName: string }> = [
+  { type: "note", dirName: "notes_trash" },
+  { type: "task", dirName: "tasks_trash" },
+  { type: "method", dirName: "methods_trash" },
+  { type: "project", dirName: "projects_trash" },
+  { type: "purchase_item", dirName: "purchase_items_trash" },
+  { type: "high_level_goal", dirName: "goals_trash" },
+  { type: "lab_link", dirName: "lab_links_trash" },
+  { type: "mass_spec_protocol", dirName: "mass_spec_methods_trash" },
+];
 
-interface LegacyTrashedNote {
+interface LegacyTrashedRecord {
   id: number;
   title?: string;
+  name?: string;
   username?: string;
+  owner?: string;
   deleted_at?: string;
-  // ... rest of Note fields kept as-is in `extra`
   [key: string]: unknown;
 }
 
-/** Migrate a single user's `notes_trash/` directory. Best-effort:
- *  per-file failures log + continue, never throw. Returns a summary so
- *  the connect path can log a single line. */
-export async function migrateLegacyNotesTrashForUser(
+/** Migrate a single entity type's legacy trash directory for one user. */
+async function migrateOneLegacyDir(
   username: string,
+  entityType: TrashEntityType,
+  legacyDirName: string,
 ): Promise<{ scanned: number; migrated: number; skipped: number; errors: number }> {
   const summary = { scanned: 0, migrated: 0, skipped: 0, errors: 0 };
-  const legacyDir = `users/${username}/${LEGACY_TRASH_DIRNAME}`;
-  const newDir = trashTypeDirPath(username, "note");
+  const legacyDir = `users/${username}/${legacyDirName}`;
+  const newDir = trashTypeDirPath(username, entityType);
 
-  // Idempotency short-circuit: if the legacy dir is empty AND the new
-  // dir already has trash files, nothing to do.
   const [legacyFiles, newFiles] = await Promise.all([
     fileService.listFiles(legacyDir),
     fileService.listFiles(newDir),
@@ -68,8 +86,6 @@ export async function migrateLegacyNotesTrashForUser(
   summary.scanned = legacyJsons.length;
   await fileService.ensureDir(newDir);
 
-  // Pre-scan the new dir for "<id>-..." prefixes so we can skip files
-  // whose id already migrated.
   const existingIds = new Set<string>();
   for (const fname of newFiles) {
     const dash = fname.indexOf("-");
@@ -80,12 +96,11 @@ export async function migrateLegacyNotesTrashForUser(
   for (const filename of legacyJsons) {
     const idStr = filename.replace(/\.json$/, "");
     if (existingIds.has(idStr)) {
-      // Already migrated under a prior pass. Remove the legacy stub.
       try {
         await fileService.deleteFile(`${legacyDir}/${filename}`);
       } catch (err) {
         console.warn(
-          `[trash-migrate] failed to delete legacy duplicate ${filename}`,
+          `[trash-migrate] failed to delete legacy duplicate ${entityType}/${filename}`,
           err,
         );
       }
@@ -94,13 +109,13 @@ export async function migrateLegacyNotesTrashForUser(
     }
 
     try {
-      const legacy = await fileService.readJson<LegacyTrashedNote>(
+      const legacy = await fileService.readJson<LegacyTrashedRecord>(
         `${legacyDir}/${filename}`,
       );
       if (!legacy || typeof legacy.id !== "number") {
         summary.errors++;
         console.warn(
-          `[trash-migrate] unreadable legacy file: ${filename} (skipping)`,
+          `[trash-migrate] unreadable legacy file: ${entityType}/${filename} (skipping)`,
         );
         continue;
       }
@@ -108,15 +123,10 @@ export async function migrateLegacyNotesTrashForUser(
       const deletedAt = legacy.deleted_at ?? new Date().toISOString();
       const trashBlock: TrashFieldBlock = {
         deleted_at: deletedAt,
-        // Best-effort attribution: the legacy file only carried the
-        // owner username. Backfill `deleted_by` to the note's owner —
-        // they're the only actor we know about in the legacy shape.
-        deleted_by: legacy.username ?? username,
+        deleted_by: legacy.username ?? legacy.owner ?? username,
         auto_expires_at: computeAutoExpiresAt(deletedAt, DEFAULT_CLEANUP_DAYS),
-        original_path: liveRecordPath(username, "note", id),
+        original_path: liveRecordPath(username, entityType, id),
       };
-      // Strip the legacy-only `deleted_at` field — the new shape stores
-      // it inside `_trash`. Everything else carries forward.
       const { deleted_at: _legacyDeletedAt, ...rest } = legacy;
       void _legacyDeletedAt;
       const trashed: TrashedEntity<typeof rest & { id: number }> = {
@@ -124,14 +134,18 @@ export async function migrateLegacyNotesTrashForUser(
         _trash: trashBlock,
       };
       const nameForSlug =
-        typeof legacy.title === "string" ? legacy.title : null;
-      const newPath = trashFilePath(username, "note", id, nameForSlug);
+        typeof legacy.title === "string"
+          ? legacy.title
+          : typeof legacy.name === "string"
+            ? legacy.name
+            : null;
+      const newPath = trashFilePath(username, entityType, id, nameForSlug);
       await fileService.writeJson(newPath, trashed);
 
       try {
         await appendIndexEntry(username, {
           id,
-          entity_type: "note",
+          entity_type: entityType,
           trash_path: newPath.replace(`users/${username}/`, ""),
           original_path: trashBlock.original_path,
           deleted_at: trashBlock.deleted_at,
@@ -140,7 +154,7 @@ export async function migrateLegacyNotesTrashForUser(
         });
       } catch (err) {
         console.warn(
-          `[trash-migrate] index append failed for note ${id} (recoverable)`,
+          `[trash-migrate] index append failed for ${entityType} ${id} (recoverable)`,
           err,
         );
       }
@@ -149,7 +163,7 @@ export async function migrateLegacyNotesTrashForUser(
         await fileService.deleteFile(`${legacyDir}/${filename}`);
       } catch (err) {
         console.warn(
-          `[trash-migrate] failed to remove legacy file ${filename}`,
+          `[trash-migrate] failed to remove legacy file ${entityType}/${filename}`,
           err,
         );
       }
@@ -157,7 +171,31 @@ export async function migrateLegacyNotesTrashForUser(
     } catch (err) {
       summary.errors++;
       console.warn(
-        `[trash-migrate] unexpected failure migrating ${filename}`,
+        `[trash-migrate] unexpected failure migrating ${entityType}/${filename}`,
+        err,
+      );
+    }
+  }
+
+  return summary;
+}
+
+/** Migrate every legacy `<type>_trash/` directory for a single user. */
+export async function migrateLegacyNotesTrashForUser(
+  username: string,
+): Promise<{ scanned: number; migrated: number; skipped: number; errors: number }> {
+  const total = { scanned: 0, migrated: 0, skipped: 0, errors: 0 };
+  for (const { type, dirName } of LEGACY_DIRS) {
+    try {
+      const s = await migrateOneLegacyDir(username, type, dirName);
+      total.scanned += s.scanned;
+      total.migrated += s.migrated;
+      total.skipped += s.skipped;
+      total.errors += s.errors;
+    } catch (err) {
+      total.errors++;
+      console.warn(
+        `[trash-migrate] aborted for ${username}/${dirName}`,
         err,
       );
     }
@@ -170,10 +208,12 @@ export async function migrateLegacyNotesTrashForUser(
     // Best-effort.
   }
 
-  return summary;
+  return total;
 }
 
-/** Migrate every user in the folder. Called from `finishConnect`. */
+/** Migrate every user in the folder. Called from `finishConnect`. The
+ *  function name keeps `Notes` for backward compat with R1 call sites;
+ *  R2 widened the scope to all eight entity types in one pass. */
 export async function migrateLegacyNotesTrashAllUsers(
   usernames: string[],
 ): Promise<void> {

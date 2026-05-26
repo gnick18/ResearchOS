@@ -1,6 +1,7 @@
 import { JsonStore, getPublicStore, getLabStore, getCurrentUserCached, clearCurrentUserCache } from "./storage/json-store";
 import { fileService } from "./file-system/file-service";
 import { trashNote, restoreTrashedNote } from "./notes/notes-trash";
+import { trashEntity, type TrashEntityType } from "./trash";
 import { recordProjectActivity } from "./project-activity/event-log";
 import { getCurrentUser, getMainUser, storeCurrentUser, storeMainUser, clearCurrentUser, clearMainUser } from "./file-system/indexeddb-store";
 import { shiftTask } from "./engine/shift";
@@ -146,6 +147,61 @@ function colorSecondaryFor(
   return metadata[username]?.color_secondary ?? null;
 }
 
+/** VCP R2 trash everywhere (2026-05-26): shared owner-only delete gate.
+ *  OQ9 locks: only the record owner may delete. A PI may cross-delete
+ *  ONLY during an active Phase 5 unlock — the caller passes `sessionId`
+ *  in that case so the trash entry's audit fields group with the rest
+ *  of the unlock's edits. Edit-access shared users are refused.
+ *
+ *  Returns `null` when the delete is gated (caller no-ops); otherwise
+ *  returns the resolved attribution fields to thread into `trashEntity`. */
+function resolveDeleteAttribution(
+  targetOwner: string,
+  actor: string,
+  sessionId: string | null,
+  apiTag: string,
+): { actor: string; sessionId: string | null } | null {
+  if (actor !== targetOwner && !sessionId) {
+    console.warn(
+      `[${apiTag}] refused: non-owner ${actor} cannot delete record owned by ${targetOwner} without an active PI unlock`,
+    );
+    return null;
+  }
+  return { actor, sessionId };
+}
+
+/** VCP R2 trash everywhere (2026-05-26): unified soft-delete dispatcher.
+ *  Used by every non-Note entity's `delete` method. Reads the live
+ *  record's `name`/`title` for the trash filename slug, captures the
+ *  parent_id field when present, and routes through `trashEntity()`.
+ *
+ *  R3 will fold the Notes shim into this same path (the duplication
+ *  exists because notes have a top-level legacy `deleted_at` shape
+ *  preserved by `notesApi.delete` → `trashNote` for one release). */
+async function softDeleteEntity(args: {
+  owner: string;
+  entityType: TrashEntityType;
+  id: number;
+  actor: string;
+  sessionId: string | null;
+  parentId?: number | null;
+  parentEntityType?: TrashEntityType;
+}): Promise<void> {
+  const { owner, entityType, id, actor, sessionId, parentId, parentEntityType } = args;
+  const parent =
+    parentId !== undefined && parentId !== null && parentEntityType
+      ? { parent_id: parentId, parent_entity_type: parentEntityType }
+      : undefined;
+  await trashEntity({
+    owner,
+    entityType,
+    id,
+    deletedBy: actor,
+    sessionId,
+    parent,
+  });
+}
+
 export const projectsApi = {
   list: async (): Promise<Project[]> => {
     return projectsStore.listAll();
@@ -226,17 +282,42 @@ export const projectsApi = {
     return owner ? projectsStore.updateForUser(id, data, owner) : projectsStore.update(id, data);
   },
 
-  // Delete is intentionally NOT owner-routed: only the original owner should
-  // be able to destroy the file. Mirrors the convention in tasksApi.
+  // VCP R2 trash everywhere (2026-05-26): soft-delete via `_trash/projects/`.
+  // Was a hard-delete in R1 (notes-only trash). Now mirrors `notesApi.delete`:
+  // owner-only gate at the API layer (OQ9), routed through the unified
+  // `trashEntity()` writer in `@/lib/trash`. PI cross-owner deletes during
+  // a Phase 5 unlock are recorded with `deleted_during_session = sessionId`.
+  //
+  // Project archive vs trash (proposal §3h): `is_archived: true` and the
+  // `_trash` block are INDEPENDENT states. A project may be archived first,
+  // then trashed — the trashed copy preserves `is_archived: true` and a
+  // future restore strips only the `_trash` block. Archive means "done,
+  // keep for reference"; trash means "gone, with recovery window". The
+  // Projects UI surfaces both buttons separately.
   //
   // Cross-owner cleanup: if any foreign tasks were hosted INTO this project
   // (Option C share), their `external_project` ref is cleared and the
   // `<id>-hosted.json` sidecar is deleted. Without this the sidecar sits
   // orphaned on disk and the hosted tasks render as "shared into a deleted
   // project" until the next reconcile-sweep run. Cleanup is best-effort —
-  // errors are logged but never block the project delete.
-  delete: async (id: number): Promise<void> => {
-    const currentUser = await getCurrentUserCached();
+  // errors are logged but never block the project delete. Cleanup still
+  // runs in the trash path; restore does NOT recreate the hosted-manifest
+  // sidecar (foreign receivers will need to re-host).
+  delete: async (
+    id: number,
+    options?: { actor?: string; sessionId?: string | null },
+  ): Promise<void> => {
+    const currentUser = (await getCurrentUserCached()) ?? "";
+    const actor = options?.actor ?? currentUser;
+    const sessionId = options?.sessionId ?? null;
+    const attribution = resolveDeleteAttribution(
+      currentUser,
+      actor,
+      sessionId,
+      "projectsApi.delete",
+    );
+    if (!attribution) return;
+
     if (currentUser) {
       try {
         const { cleanupHostedManifestOnProjectDelete } = await import(
@@ -261,7 +342,13 @@ export const projectsApi = {
         );
       }
     }
-    await projectsStore.delete(id);
+    await softDeleteEntity({
+      owner: currentUser,
+      entityType: "project",
+      id,
+      actor: attribution.actor,
+      sessionId: attribution.sessionId,
+    });
   },
 
   /**
@@ -709,9 +796,15 @@ export const tasksApi = {
     return result;
   },
 
-  // Note: delete is intentionally not owner-routed — only the task's owner
-  // should remove the file. Receivers with edit permission can modify the
-  // task but not destroy it.
+  // VCP R2 trash everywhere (2026-05-26): soft-delete via `_trash/tasks/`.
+  // Was a hard-delete in R1. Now owner-only gated (OQ9) and routed through
+  // the unified `trashEntity()` writer. Per proposal §3a, experiments ARE
+  // tasks (`task_type: "experiment"`); they land in `_trash/tasks/`, not
+  // `_trash/experiments/` (the latter stays empty by design).
+  //
+  // Parent reference: tasks carry `project_id`, captured on the trash entry
+  // so restore-with-dependencies can surface a "parent project is also in
+  // trash" prompt when the user restores the task.
   //
   // Cascade cleanup (all best-effort; failures are logged but never block
   // the task delete or each other):
@@ -734,10 +827,27 @@ export const tasksApi = {
   //      here is the safety net.
   //
   // Cleanups run BEFORE the file delete so we can still read fields like
-  // `shared_with` and `external_project`.
-  delete: async (id: number): Promise<void> => {
-    const currentUser = await getCurrentUserCached();
+  // `shared_with` and `external_project`. Trash entries do NOT carry the
+  // results subtree — those bytes are hard-removed at delete time (R2
+  // tradeoff; results recovery is out of scope for the trash window).
+  delete: async (
+    id: number,
+    options?: { actor?: string; sessionId?: string | null },
+  ): Promise<void> => {
+    const currentUser = (await getCurrentUserCached()) ?? "";
+    const actor = options?.actor ?? currentUser;
+    const sessionId = options?.sessionId ?? null;
     const task = await tasksStore.get(id);
+    // Owner gate uses the task's owner field when available; falls back to
+    // the active user for malformed records.
+    const targetOwner = task?.owner ?? currentUser;
+    const attribution = resolveDeleteAttribution(
+      targetOwner,
+      actor,
+      sessionId,
+      "tasksApi.delete",
+    );
+    if (!attribution) return;
 
     if (task && currentUser) {
       // 1. Orphan dependencies.
@@ -836,7 +946,18 @@ export const tasksApi = {
       }
     }
 
-    await tasksStore.delete(id);
+    // Route through trash. project_id is the parent reference so the
+    // restore-with-dependencies prompt can fire when both the task and
+    // its parent Project sit in trash.
+    await softDeleteEntity({
+      owner: targetOwner,
+      entityType: "task",
+      id,
+      actor: attribution.actor,
+      sessionId: attribution.sessionId,
+      parentId: task?.project_id ?? null,
+      parentEntityType: "project",
+    });
   },
 
   listByMethod: async (methodId: number): Promise<Task[]> => {
@@ -1763,11 +1884,54 @@ export const methodsApi = {
     return withOwner;
   },
 
-  // Delete is intentionally NOT owner-routed: only the original owner should
-  // be able to destroy the file. Mirrors the convention in tasksApi.
-  delete: async (id: number): Promise<void> => {
-    await methodsStore.delete(id);
-    await publicMethodsStore.delete(id);
+  // VCP R2 trash everywhere (2026-05-26): soft-delete via `_trash/methods/`.
+  // Was a hard-delete in R1. Owner-only gated (OQ9), routed through
+  // `trashEntity()`. Public methods (`is_public: true`) live in
+  // `users/public/methods/` and are NOT subject to per-user trash — they
+  // hard-delete as before since "public" is not an owner who can issue a
+  // restore in their own trash. Private methods land in the owner's
+  // `_trash/methods/`.
+  delete: async (
+    id: number,
+    options?: { actor?: string; sessionId?: string | null },
+  ): Promise<void> => {
+    const currentUser = (await getCurrentUserCached()) ?? "";
+    const actor = options?.actor ?? currentUser;
+    const sessionId = options?.sessionId ?? null;
+
+    // Resolve the method's owner from disk — private and public paths
+    // both need a probe so the trash routing picks the right home.
+    const privateMethod = await methodsStore.get(id);
+    const publicMethod = privateMethod ? null : await publicMethodsStore.get(id);
+    if (publicMethod) {
+      // Public methods bypass the per-user trash flow (no owner who can
+      // own the trash entry). Hard-delete preserved for back-compat.
+      await publicMethodsStore.delete(id);
+      return;
+    }
+    if (!privateMethod) {
+      // Nothing on disk. Tolerate the double-delete to keep callers idempotent.
+      await methodsStore.delete(id);
+      await publicMethodsStore.delete(id);
+      return;
+    }
+    const targetOwner = privateMethod.owner || currentUser;
+    const attribution = resolveDeleteAttribution(
+      targetOwner,
+      actor,
+      sessionId,
+      "methodsApi.delete",
+    );
+    if (!attribution) return;
+    await softDeleteEntity({
+      owner: targetOwner,
+      entityType: "method",
+      id,
+      actor: attribution.actor,
+      sessionId: attribution.sessionId,
+      parentId: privateMethod.parent_method_id ?? null,
+      parentEntityType: "method",
+    });
   },
 
   /**
@@ -1867,9 +2031,37 @@ export const goalsApi = {
   update: async (id: number, data: HighLevelGoalUpdate): Promise<HighLevelGoal | null> => {
     return goalsStore.update(id, data);
   },
-  
-  delete: async (id: number): Promise<void> => {
-    await goalsStore.delete(id);
+
+  // VCP R2 trash everywhere (2026-05-26): soft-delete via
+  // `_trash/high_level_goals/`. Goals are file-scoped (no owner field)
+  // so the active user IS the owner and gating defaults pass through.
+  // The on-disk path is `users/<u>/goals/`, NOT `high_level_goals/`
+  // (the trash subdir name is descriptive; `liveRecordPath` maps to the
+  // actual store prefix).
+  delete: async (
+    id: number,
+    options?: { actor?: string; sessionId?: string | null },
+  ): Promise<void> => {
+    const currentUser = (await getCurrentUserCached()) ?? "";
+    const actor = options?.actor ?? currentUser;
+    const sessionId = options?.sessionId ?? null;
+    const attribution = resolveDeleteAttribution(
+      currentUser,
+      actor,
+      sessionId,
+      "goalsApi.delete",
+    );
+    if (!attribution) return;
+    const goal = await goalsStore.get(id);
+    await softDeleteEntity({
+      owner: currentUser,
+      entityType: "high_level_goal",
+      id,
+      actor: attribution.actor,
+      sessionId: attribution.sessionId,
+      parentId: goal?.project_id ?? null,
+      parentEntityType: "project",
+    });
   },
   
   addSmartGoal: async (id: number, smartGoal: { id: string; text: string; is_complete: boolean }): Promise<HighLevelGoal | null> => {
@@ -2696,9 +2888,48 @@ export const massSpecApi = {
     return null;
   },
 
-  delete: async (id: number): Promise<void> => {
-    await massSpecStore.delete(id);
-    await publicMassSpecStore.delete(id);
+  // VCP R2 trash everywhere (2026-05-26): soft-delete via
+  // `_trash/mass_spec_protocols/`. The store prefix is the legacy
+  // "mass_spec_methods" — the descriptive trash subdir name is
+  // independent (kept as `mass_spec_protocols` for the trash UI). Public
+  // protocols hard-delete same as public methods: no per-user owner who
+  // could surface a restore. Private protocols carry an optional
+  // `owner?` field (see types.ts §MassSpecProtocol) — when absent we
+  // fall back to the active user as owner.
+  delete: async (
+    id: number,
+    options?: { actor?: string; sessionId?: string | null },
+  ): Promise<void> => {
+    const currentUser = (await getCurrentUserCached()) ?? "";
+    const actor = options?.actor ?? currentUser;
+    const sessionId = options?.sessionId ?? null;
+
+    const privateProtocol = await massSpecStore.get(id);
+    const publicProtocol = privateProtocol ? null : await publicMassSpecStore.get(id);
+    if (publicProtocol) {
+      await publicMassSpecStore.delete(id);
+      return;
+    }
+    if (!privateProtocol) {
+      await massSpecStore.delete(id);
+      await publicMassSpecStore.delete(id);
+      return;
+    }
+    const targetOwner = privateProtocol.owner || currentUser;
+    const attribution = resolveDeleteAttribution(
+      targetOwner,
+      actor,
+      sessionId,
+      "massSpecApi.delete",
+    );
+    if (!attribution) return;
+    await softDeleteEntity({
+      owner: targetOwner,
+      entityType: "mass_spec_protocol",
+      id,
+      actor: attribution.actor,
+      sessionId: attribution.sessionId,
+    });
   },
 
   /** Defaults seeded into the new-method dialog for `method_type === "mass_spec"`.
@@ -2922,14 +3153,44 @@ export const purchasesApi = {
       : purchaseItemsStore.update(id, patch);
   },
 
-  delete: async (id: number, owner?: string): Promise<void> => {
-    if (owner) {
-      await purchaseItemsStore.deleteForUser(id, owner);
-    } else {
-      await purchaseItemsStore.delete(id);
-    }
+  // VCP R2 trash everywhere (2026-05-26): soft-delete via
+  // `_trash/purchase_items/`. PurchaseItems inherit ownership from the
+  // task (`task_id` parent ref) — the owner of the trash entry is the
+  // task owner, accessed via the `owner` arg the caller passes for
+  // shared-task purchases (see comment on `delete` above and the
+  // `listByTask` doc-comment). The parent reference uses `task_id` so a
+  // restore-with-dependencies prompt can fire if both the purchase and
+  // its parent task sit in trash.
+  delete: async (
+    id: number,
+    owner?: string,
+    options?: { actor?: string; sessionId?: string | null },
+  ): Promise<void> => {
+    const currentUser = (await getCurrentUserCached()) ?? "";
+    const targetOwner = owner ?? currentUser;
+    const actor = options?.actor ?? currentUser;
+    const sessionId = options?.sessionId ?? null;
+    const attribution = resolveDeleteAttribution(
+      targetOwner,
+      actor,
+      sessionId,
+      "purchasesApi.delete",
+    );
+    if (!attribution) return;
+    const existing = owner
+      ? await purchaseItemsStore.getForUser(id, owner)
+      : await purchaseItemsStore.get(id);
+    await softDeleteEntity({
+      owner: targetOwner,
+      entityType: "purchase_item",
+      id,
+      actor: attribution.actor,
+      sessionId: attribution.sessionId,
+      parentId: existing?.task_id ?? null,
+      parentEntityType: "task",
+    });
   },
-  
+
   searchCatalog: async (q: string): Promise<CatalogItem[]> => {
     const items = await catalogStore.listAll();
     const query = q.toLowerCase();
@@ -3021,11 +3282,36 @@ export const labLinksApi = {
   update: async (id: number, data: LabLinkUpdate): Promise<LabLink | null> => {
     return labLinksStore.update(id, data);
   },
-  
-  delete: async (id: number): Promise<void> => {
-    await labLinksStore.delete(id);
+
+  // VCP R2 trash everywhere (2026-05-26): soft-delete via
+  // `_trash/lab_links/`. LabLinks have an optional `owner?` field added
+  // post-R1b sharing migration. When absent, the active user is treated
+  // as the owner for trash routing (the file lives in their folder).
+  delete: async (
+    id: number,
+    options?: { actor?: string; sessionId?: string | null },
+  ): Promise<void> => {
+    const currentUser = (await getCurrentUserCached()) ?? "";
+    const actor = options?.actor ?? currentUser;
+    const sessionId = options?.sessionId ?? null;
+    const link = await labLinksStore.get(id);
+    const targetOwner = link?.owner || currentUser;
+    const attribution = resolveDeleteAttribution(
+      targetOwner,
+      actor,
+      sessionId,
+      "labLinksApi.delete",
+    );
+    if (!attribution) return;
+    await softDeleteEntity({
+      owner: targetOwner,
+      entityType: "lab_link",
+      id,
+      actor: attribution.actor,
+      sessionId: attribution.sessionId,
+    });
   },
-  
+
   getPreview: async (url: string): Promise<{ title: string; description: string | null; image: string | null; site_name: string | null }> => {
     return {
       title: url,
