@@ -51,11 +51,11 @@ export default function Q1cLabHeadStep({
   return (
     <div data-step-id="setup-q1c" className="space-y-4">
       <p className="text-sm text-gray-700 leading-relaxed">
-        First question: are you the lab head? That means the PI, the
-        group leader, the person whose name is on the door.
+        First question: are you the PI (Principal Investigator)? That
+        means the group leader, the person whose name is on the door.
       </p>
       <p className="text-sm text-gray-700 leading-relaxed">
-        Lab heads can post announcements, approve purchases, and see
+        PIs can post announcements, approve purchases, and see
         audit trails across the lab. Members focus on their own work.
       </p>
       <div className="flex flex-col gap-2">
@@ -65,7 +65,7 @@ export default function Q1cLabHeadStep({
           selected={current === true}
           onChange={() => handleChange(true)}
           label="Yes, I run this lab"
-          description="I'm the PI or group leader. Give me the Lab Head role."
+          description="I'm the PI or group leader. Give me the PI role."
         />
         <RadioCard
           name="q1c-lab-head"

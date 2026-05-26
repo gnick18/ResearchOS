@@ -594,7 +594,7 @@ export default function TaskDetailPopup({
             className="h-1 w-full flex-shrink-0"
             style={{ backgroundColor: project?.color || "#3b82f6" }}
           />
-          {/* Lab Head Phase 5 — simple-task branch banner. */}
+          {/* PI Phase 5 — simple-task branch banner. */}
           {labHeadGate.unlocked && labHeadGate.activeUser && (
             <EditSessionBanner
               contextLabel={`${username ?? task.owner ?? "lab member"}'s list: ${task.name}`}
@@ -604,7 +604,7 @@ export default function TaskDetailPopup({
           {/* Minimal Header */}
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
             <div className="flex items-center gap-2 flex-1 mr-2 min-w-0">
-              {/* Lab Head Phase 5 — Request edit button (simple-task header). */}
+              {/* PI Phase 5 — Request edit button (simple-task header). */}
               {labHeadGate.canRequestEdit && !labHeadGate.unlocked && labHeadGate.activeUser && (
                 <RequestEditButton
                   username={labHeadGate.activeUser}
@@ -762,7 +762,7 @@ export default function TaskDetailPopup({
           className="h-1 w-full flex-shrink-0"
           style={{ backgroundColor: project?.color || "#3b82f6" }}
         />
-        {/* Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23):
+        {/* PI Phase 5 (PI Phase 5 manager, 2026-05-23):
             unlocked-session timer banner. Renders only while the PI's
             session is unlocked AND it's THIS user's session (so a stale
             session on another popup doesn't bleed visual chrome here). */}
@@ -909,7 +909,7 @@ export default function TaskDetailPopup({
                   </>
                 )}
               </div>
-              {/* Lab Head Phase 5 — record-level "Edited by PI" notice.
+              {/* PI Phase 5 — record-level "Edited by PI" notice.
                   Shows any prior PI audit entries for this task; the inline
                   per-field notices below the field inputs are handled
                   separately (this one is the catch-all at the header). */}
@@ -926,7 +926,7 @@ export default function TaskDetailPopup({
               wraps onto a second line at narrow viewports (≤~600px)
               instead of jamming against the title block. */}
           <div className="flex items-center gap-1 flex-wrap justify-end">
-            {/* Lab Head Phase 5: Request edit button. Visible only when
+            {/* PI Phase 5: Request edit button. Visible only when
                 this is a PI viewing another member's record + no session
                 is currently unlocked. Clicking opens the password modal. */}
             {labHeadGate.canRequestEdit && !labHeadGate.unlocked && labHeadGate.activeUser && (
@@ -935,7 +935,7 @@ export default function TaskDetailPopup({
                 targetLabel={`${username ?? task.owner ?? "member"}'s task: ${task.name}`}
               />
             )}
-            {/* Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23):
+            {/* PI Phase 3 (PI Phase 3 manager, 2026-05-23):
                 Assign + Flag-for-review buttons. Only render while the
                 PI's edit session is unlocked AND this is a cross-owner
                 view (the canRequestEdit gate covers the latter). */}
@@ -1141,7 +1141,7 @@ export default function TaskDetailPopup({
           </div>
         </div>
 
-        {/* Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23): flag
+        {/* PI Phase 3 (PI Phase 3 manager, 2026-05-23): flag
             banner + assignee chip. The banner shows for everyone who can
             see the task (PI + owner), with a "Clear flag" affordance
             scoped to the owner. The assignee chip surfaces when an

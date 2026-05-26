@@ -313,7 +313,7 @@ export default function PurchasesPage() {
         />
 
         {/* Purchases UX fix Bug 3 (purchases UX fix manager, 2026-05-24):
-            lab-head approval-queue banner. A fresh lab head landing on
+            lab-head approval-queue banner. A fresh PI landing on
             /purchases sees their PERSONAL submissions (0 if they haven't
             ordered anything yet). The lab-wide approval queue lives in
             the LabPurchases popup widget on /lab-overview, so the lab

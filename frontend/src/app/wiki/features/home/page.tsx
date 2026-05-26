@@ -153,7 +153,7 @@ export default function HomeFeaturePage() {
         Project sharing is the right tool when one labmate wants a
         specific other labmate to follow along on a specific project. For
         a single dashboard that rolls up every labmate&apos;s projects,
-        tasks, purchases, and announcements at once, the Lab Head opens
+        tasks, purchases, and announcements at once, the PI opens
         the <Link href="/wiki/features/lab-overview">Lab Overview</Link>{" "}
         at <code>/lab-overview</code>.
       </Callout>
@@ -264,7 +264,7 @@ export default function HomeFeaturePage() {
           toolbar). Tiles snap to the grid and the layout persists in your
           settings sidecar at <code>_user_settings.json:home_layout</code>.
           Home&apos;s layout is independent of your Lab Overview layout
-          (if you are a Lab Head), so you customize each surface separately.
+          (if you are a PI), so you customize each surface separately.
         </li>
         <li>
           <strong>Reset</strong> in the canvas toolbar wipes your custom

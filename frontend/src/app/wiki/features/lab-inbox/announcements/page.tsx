@@ -7,7 +7,7 @@ export default function LabInboxAnnouncementsPage() {
   return (
     <WikiPage
       title="Announcements"
-      intro="Announcements are the Lab Head's broadcast channel: short posts visible to every member, pinned to the top of the lab activity surface until they age out. Members read; Lab Heads write. Writing is gated by an edit-session unlock so an accidental keystroke does not push something out to the whole lab."
+      intro="Announcements are the PI's broadcast channel: short posts visible to every member, pinned to the top of the lab activity surface until they age out. Members read; PIs write. Writing is gated by an edit-session unlock so an accidental keystroke does not push something out to the whole lab."
     >
       {/* TODO screenshot agent: capture the Announcements composer with a draft in progress.
           Route: /lab-overview (Announcements Tool popup, compose form expanded)
@@ -18,13 +18,13 @@ export default function LabInboxAnnouncementsPage() {
       */}
       <Screenshot
         src="/wiki/screenshots/lab-inbox-announcements-compose.png"
-        alt="The Announcements composer with a title, body, and a Pin checkbox, visible after the Lab Head unlocked an edit session."
+        alt="The Announcements composer with a title, body, and a Pin checkbox, visible after the PI unlocked an edit session."
         caption="The compose form. Title plus body. Pin keeps the announcement at the top of the stream until you unpin it."
       />
 
       <h2>Who can post</h2>
       <p>
-        Posting is Lab Head only. The compose form does not render for member
+        Posting is PI only. The compose form does not render for member
         accounts at all, and the underlying API rejects writes from any
         account without <code>account_type === &quot;lab_head&quot;</code>.
         Reading is universal: every member sees the same announcement
@@ -33,7 +33,7 @@ export default function LabInboxAnnouncementsPage() {
 
       <h2>Edit-session unlock</h2>
       <p>
-        A Lab Head cannot post an announcement directly from a cold session.
+        A PI cannot post an announcement directly from a cold session.
         The flow requires a short edit-session unlock first:
       </p>
       <ol>
@@ -41,7 +41,7 @@ export default function LabInboxAnnouncementsPage() {
           Click <strong>Request Edit</strong>. A small password dialog opens.
         </li>
         <li>
-          Type the Lab Head password (the one you set in Settings, separate
+          Type the PI password (the one you set in Settings, separate
           from the per-user account password).
         </li>
         <li>
@@ -52,7 +52,7 @@ export default function LabInboxAnnouncementsPage() {
         </li>
       </ol>
       <p>
-        The 5-minute window matches the rest of the Lab Head soft-write
+        The 5-minute window matches the rest of the PI soft-write
         pattern. Cross-link to{" "}
         <Link href="/wiki/features/lab-head/edit-session-and-password">
           Edit session and password
@@ -84,8 +84,8 @@ export default function LabInboxAnnouncementsPage() {
         </li>
       </ul>
       <p>
-        Only the author can edit or delete an announcement. A second Lab Head
-        cannot edit another Lab Head&apos;s post (this would muddy the audit
+        Only the author can edit or delete an announcement. A second PI
+        cannot edit another PI&apos;s post (this would muddy the audit
         trail), only post their own follow-up.
       </p>
 
@@ -104,7 +104,7 @@ export default function LabInboxAnnouncementsPage() {
       <p>
         Every announcement write (post, edit, delete, pin, unpin) appends a
         row to <code>_pi_audit.json</code> at the lab folder root. The row
-        records the actor (which Lab Head), the action, the affected
+        records the actor (which PI), the action, the affected
         announcement id, the old and new values for edits, and the
         timestamp. See{" "}
         <Link href="/wiki/features/lab-head/audit-log">Audit log</Link>{" "}

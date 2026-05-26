@@ -410,7 +410,7 @@ export default function SecurityPage() {
                 The second, <code>keyval-store</code>, holds three small
                 session-routing strings: the folder name plus its grant
                 timestamp, the currently signed-in user, and (if you are
-                a Lab Head signed in) the primary account.
+                a PI signed in) the primary account.
               </li>
               <li>
                 The third,{" "}

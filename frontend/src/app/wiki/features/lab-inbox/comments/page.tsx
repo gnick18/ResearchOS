@@ -96,7 +96,7 @@ export default function LabInboxCommentsPage() {
       <p>
         Comments inherit the read permission of their host record. If you
         have read access to a task that a labmate owns, you also see (and can
-        post) comments on it. Lab Heads have implicit read access to
+        post) comments on it. PIs have implicit read access to
         everything, so they see every comment in the lab. Members only see
         comments on the records they would already see, never anyone
         else&apos;s private threads.

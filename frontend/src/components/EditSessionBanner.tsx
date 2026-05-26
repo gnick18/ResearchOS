@@ -73,7 +73,7 @@ export default function EditSessionBanner({
           <path d="M12 2a10 10 0 1 0 10 10" />
           <path d="M12 6v6l4 2" />
         </svg>
-        <span className="font-medium">Editing as Lab Head</span>
+        <span className="font-medium">Editing as PI</span>
         {contextLabel && (
           <>
             <span className="text-amber-700">—</span>

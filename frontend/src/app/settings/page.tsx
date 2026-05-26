@@ -451,7 +451,7 @@ function SettingsBody() {
             personal preferences. Solo accounts never see this strip
             (single-stream layout, identical to the pre-tabs page). Lab
             accounts see Personal (default) and Lab Mode. Account Type +
-            Lab Head admin + Lab Roster live under Lab Mode; everything
+            PI admin + Lab Roster live under Lab Mode; everything
             else stays in Personal. */}
         {isLabMode && (
           <SettingsTabStrip
@@ -818,7 +818,7 @@ function AccountTypeSection({ settings, update }: SectionProps) {
     },
     {
       value: "lab_head",
-      title: "Lab Head",
+      title: "PI",
       description:
         "Principal investigator. Adds a Lab Overview surface with widgets, announcements, metrics, and the lab roster.",
     },
@@ -862,8 +862,8 @@ function AccountTypeSection({ settings, update }: SectionProps) {
     <SectionShell
       id="account-type"
       title="Account type"
-      description="What's your role in this lab? Member is the default. Lab Head adds a Lab Overview surface with customizable widgets, announcements, lab metrics, and the lab roster."
-      searchKeywords="member lab head PI principal investigator role"
+      description="What's your role in this lab? Member is the default. PI adds a Lab Overview surface with customizable widgets, announcements, lab metrics, and the lab roster."
+      searchKeywords="member PI principal investigator lab head role"
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {options.map((opt) => {
@@ -914,7 +914,7 @@ function AccountTypeSection({ settings, update }: SectionProps) {
               className="text-base font-semibold text-gray-900"
             >
               {pendingSwitch === "lab_head"
-                ? "Switch your account type to Lab Head?"
+                ? "Switch your account type to PI?"
                 : "Switch your account type to Member?"}
             </h3>
             <p className="text-sm text-gray-600 mt-2">
@@ -974,7 +974,7 @@ function AccountTypeSection({ settings, update }: SectionProps) {
           <span className="text-sm">
             Switched to{" "}
             <span className="font-semibold">
-              {undoToast.next === "lab_head" ? "Lab Head" : "Member"}
+              {undoToast.next === "lab_head" ? "PI" : "Member"}
             </span>
           </span>
           <button
@@ -1030,8 +1030,8 @@ function LabHeadSection({ username }: { username: string }) {
   return (
     <SectionShell
       id="lab-head"
-      title="Lab Head"
-      description="Manage your edit-mode password and session for the Phase 5 Lab Head workflow. Use Request edit on another member's record to start a session."
+      title="PI"
+      description="Manage your edit-mode password and session for the Phase 5 PI workflow. Use Request edit on another member's record to start a session."
       searchKeywords="edit mode session password PI roster"
     >
       <div className="space-y-3">
@@ -1101,7 +1101,7 @@ function LabRosterSection() {
     <SectionShell
       id="lab-roster"
       title="Lab Roster"
-      description="Active and archived lab members. Lab heads can archive or restore members; everyone else sees the roster read-only."
+      description="Active and archived lab members. PIs can archive or restore members; everyone else sees the roster read-only."
       searchKeywords="members archive restore lab"
     >
       <LabRoster />

@@ -239,11 +239,11 @@ export default function ShareDialog({
           <p className="text-sm text-gray-500 mt-1 truncate">{recordName}</p>
         </div>
 
-        {/* Lab Head hint */}
+        {/* PI hint */}
         {viewerIsLabHead && viewerUsername !== ownerUsername && (
           <div className="px-6 py-2 bg-amber-50 border-b border-amber-200">
             <p className="text-xs text-amber-800">
-              Lab Head: you can see and edit this record regardless of these
+              PI: you can see and edit this record regardless of these
               share entries.
             </p>
           </div>

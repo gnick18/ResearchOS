@@ -119,7 +119,7 @@ export default function WelcomeWizardPage() {
         The first call is whether you are flying solo (one user, your own
         account) or running a multi-person lab (everyone points their
         ResearchOS at the same shared folder). The pick determines whether
-        the Lab Head follow-up question (Q1c, below) fires and whether the
+        the PI follow-up question (Q1c, below) fires and whether the
         Lab Links surface is called &quot;Links&quot; or &quot;Lab Links&quot;.
       </p>
 
@@ -137,17 +137,17 @@ export default function WelcomeWizardPage() {
         fresh folder so a single-person workflow stays a deliberate choice.
       </Callout>
 
-      <h3>Q1c: are you the Lab Head?</h3>
+      <h3>Q1c: are you the PI?</h3>
       <p>
         Conditional on Q1 = Lab. After picking Lab, BeakerBot follows up with
-        a single binary question: are you the Lab Head, or are you a member?
-        Picking <strong>Lab Head</strong> sets{" "}
+        a single binary question: are you the PI, or are you a member?
+        Picking <strong>PI</strong> sets{" "}
         <code>account_type</code> to <code>&quot;lab_head&quot;</code> on this
         account; picking <strong>Member</strong> leaves it at the default. One
-        person in the lab fills the Lab Head slot. The picker badge in the
+        person in the lab fills the PI slot. The picker badge in the
         login screen, the audit log, and the Lab Overview surface are all
         gated on the resulting <code>account_type</code>. See{" "}
-        <Link href="/wiki/features/lab-head">Lab Head</Link>.
+        <Link href="/wiki/features/lab-head">PI</Link>.
       </p>
 
       <h3>Q2 through Q6: feature picks</h3>
@@ -546,9 +546,9 @@ export default function WelcomeWizardPage() {
       <Callout variant="info" title="The retired Lab Mode tour cluster">
         Lab Mode has been retired in favor of the per-user{" "}
         <Link href="/wiki/features/lab-overview">Lab Overview</Link>{" "}
-        (Lab Heads) and{" "}
+        (PIs) and{" "}
         <Link href="/wiki/features/home">Home canvas</Link> (members); the
-        Lab Head cluster that runs in its place introduces the Lab
+        PI cluster that runs in its place introduces the Lab
         Overview dashboard, the announcement surface, and the soft-write
         affordances. A single <code>lab-cleanup</code> step still runs at
         the end to wipe the BeakerBot fake user that was spawned during
@@ -591,7 +591,7 @@ export default function WelcomeWizardPage() {
       <ul>
         <li><strong>Idle</strong>, the always-on baseline bob.</li>
         <li><strong>Waving</strong>, the welcome screen and the resume modal.</li>
-        <li><strong>Thinking</strong>, head-tilt during setup Q1 to Q7 and the Lab Head prompt.</li>
+        <li><strong>Thinking</strong>, head-tilt during setup Q1 to Q7 and the PI prompt.</li>
         <li><strong>Pointing</strong>, universal walkthrough steps where BeakerBot directs your attention to a UI element at eye level.</li>
         <li><strong>Pointing-up</strong>, steps where BeakerBot directs attention to the top bar (the <code>?</code> wiki icon cluster).</li>
         <li><strong>Typing</strong>, steps where BeakerBot live-types into a form or field.</li>
@@ -671,7 +671,7 @@ export default function WelcomeWizardPage() {
       </p>
       <ul>
         <li><strong>Always visible:</strong> Home, Workbench, Methods, Experiments, Gantt, Search.</li>
-        <li><strong>Lab Overview</strong> appears only when <code>account_type === &quot;lab_head&quot;</code> (the Lab Head dashboard at <code>/lab-overview</code>).</li>
+        <li><strong>Lab Overview</strong> appears only when <code>account_type === &quot;lab_head&quot;</code> (the PI dashboard at <code>/lab-overview</code>).</li>
         <li><strong>Purchases</strong> appears only when <code>purchases === &quot;yes&quot;</code>.</li>
         <li><strong>Calendar</strong> appears only when <code>calendar === &quot;yes&quot;</code>.</li>
         <li><strong>Goals</strong> appears only when <code>goals === &quot;yes&quot;</code>.</li>
@@ -762,7 +762,7 @@ export default function WelcomeWizardPage() {
           <Link href="/wiki/features/settings">Settings</Link>.
         </li>
         <li>
-          For the Lab Overview dashboard that the Lab Head cluster
+          For the Lab Overview dashboard that the PI cluster
           introduces, see{" "}
           <Link href="/wiki/features/lab-overview">Lab Overview</Link>.
         </li>

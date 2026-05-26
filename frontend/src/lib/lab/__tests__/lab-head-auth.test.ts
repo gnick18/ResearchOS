@@ -111,7 +111,7 @@ describe("lab-head-auth", () => {
     expect(second.hash).not.toBe(first.hash);
   });
 
-  it("co-PI scenario — two lab heads each have their own gate file", async () => {
+  it("co-PI scenario — two PIs each have their own gate file", async () => {
     await setLabHeadPassword("mira", "miraspw");
     await setLabHeadPassword("alex", "alexspw");
     expect(await verifyLabHeadPassword("mira", "miraspw")).toBe(true);

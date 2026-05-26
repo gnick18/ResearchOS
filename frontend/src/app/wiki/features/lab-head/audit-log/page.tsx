@@ -7,7 +7,7 @@ export default function LabHeadAuditLogPage() {
   return (
     <WikiPage
       title="Audit log"
-      intro="Every Lab Head soft-write writes a row to _pi_audit.json. The log is the forensic trail of the lab: who approved which purchase, who flagged which note, who archived which user. The data is on disk in plain JSON, and the PiActions popup gives you a sortable view on top of it. Use it to settle a 'who said what' question, or just to remember what you did last week."
+      intro="Every PI soft-write writes a row to _pi_audit.json. The log is the forensic trail of the lab: who approved which purchase, who flagged which note, who archived which user. The data is on disk in plain JSON, and the PiActions popup gives you a sortable view on top of it. Use it to settle a 'who said what' question, or just to remember what you did last week."
     >
       {/* TODO screenshot agent: capture the Audit Log tab of the PI Actions popup.
           Route: /lab-overview (PI Actions Tool popup, Audit log tab)
@@ -29,7 +29,7 @@ export default function LabHeadAuditLogPage() {
       </p>
       <ul>
         <li>
-          <strong>actor</strong>: the Lab Head username who performed the
+          <strong>actor</strong>: the PI username who performed the
           action.
         </li>
         <li>
@@ -126,8 +126,8 @@ export default function LabHeadAuditLogPage() {
           original (audit row carries the old body).
         </li>
         <li>
-          A member was archived months ago and you want to know which Lab
-          Head archived them and why (paired with the announcement or
+          A member was archived months ago and you want to know which PI
+          archived them and why (paired with the announcement or
           comment they left at the time).
         </li>
         <li>
@@ -140,15 +140,15 @@ export default function LabHeadAuditLogPage() {
       <Callout variant="info" title="The log is not encrypted">
         Like every other ResearchOS file, the audit log sits in plaintext
         on disk. Anyone with read access to the lab folder can read it
-        directly. The point of the log is accountability across Lab Head
+        directly. The point of the log is accountability across PI
         sessions, not protection against an adversary on the file system.
         See <Link href="/wiki/security">Security</Link> for the data-at-rest
         story.
       </Callout>
 
       <Callout variant="tip" title="Audit append-only">
-        The writer never modifies an existing row, only appends. So a Lab
-        Head cannot quietly &quot;edit&quot; an old audit entry to hide what
+        The writer never modifies an existing row, only appends. So a PI
+        cannot quietly &quot;edit&quot; an old audit entry to hide what
         they did. If a row looks wrong, the right move is to write a new
         action that corrects it (re-approve a wrongly-declined purchase, for
         example) so both rows are visible in the chronological view.

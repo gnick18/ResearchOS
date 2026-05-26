@@ -283,7 +283,7 @@ describe("resolveLayout (v2 shape)", () => {
       },
     ];
 
-    it("home surface for lab head: includes per-surface=home:true and legacy=true; excludes legacy=false", () => {
+    it("home surface for PI: includes per-surface=home:true and legacy=true; excludes legacy=false", () => {
       const result = visibleCatalog(perSurfaceCatalog, "lab_head", "home");
       const ids = result.map((w) => w.id);
       expect(ids).toContain("new-per-surface");
@@ -291,7 +291,7 @@ describe("resolveLayout (v2 shape)", () => {
       expect(ids).not.toContain("legacy-false");
     });
 
-    it("sidebar surface for lab head: excludes per-surface=sidebar:false AND legacy=false; includes legacy=true", () => {
+    it("sidebar surface for PI: excludes per-surface=sidebar:false AND legacy=false; includes legacy=true", () => {
       const result = visibleCatalog(perSurfaceCatalog, "lab_head", "sidebar");
       const ids = result.map((w) => w.id);
       expect(ids).not.toContain("new-per-surface");
@@ -616,7 +616,7 @@ describe("resolveHomeLayout + defaultHomeLayoutFor", () => {
     ]);
   });
 
-  it("uses the same default for lab heads (they get /lab-overview for the dense dashboard)", () => {
+  it("uses the same default for PIs (they get /lab-overview for the dense dashboard)", () => {
     const memberDefault = defaultHomeLayoutFor("member");
     const headDefault = defaultHomeLayoutFor("lab_head");
     expect(headDefault.widgetOrder.canvas).toEqual(

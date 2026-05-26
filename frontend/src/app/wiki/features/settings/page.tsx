@@ -37,14 +37,14 @@ export default function SettingsFeaturePage() {
 
       <h2>Personal vs Lab Mode tabs</h2>
       <p>
-        Lab Head accounts (<code>account_type === &quot;lab_head&quot;</code>)
+        PI accounts (<code>account_type === &quot;lab_head&quot;</code>)
         see a two-tab strip at the top of the page: <strong>Personal</strong>{" "}
         (the default, every panel documented below) and <strong>Lab Mode</strong>{" "}
-        (the lab-wide configuration that only a Lab Head can change). The
+        (the lab-wide configuration that only a PI can change). The
         Personal tab is identical to what every account sees. The Lab Mode tab
         holds the LabRoster (see{" "}
         <Link href="/wiki/getting-started/user-archiving">User archiving</Link>),
-        the announcement defaults, and the Lab Head password reset. Members do
+        the announcement defaults, and the PI password reset. Members do
         not see the tab strip at all because they never have access to the Lab
         Mode controls.
       </p>
@@ -279,8 +279,8 @@ export default function SettingsFeaturePage() {
           power-user use.
         </li>
         <li>
-          <strong>Hide my goals from lab view</strong>, when on, the Lab
-          Head will not see your goals on their{" "}
+          <strong>Hide my goals from lab view</strong>, when on, the PI
+          will not see your goals on their{" "}
           <Link href="/wiki/features/lab-overview">Lab Overview</Link>{" "}
           dashboard. The flag is also mirrored to the shared{" "}
           <code>_user_metadata.json</code> file so the dashboard reader picks
@@ -354,7 +354,7 @@ export default function SettingsFeaturePage() {
         </li>
         <li>
           <code>keyval-store / keyval / research-os-main-user</code>:
-          the primary account when a Lab Head is signed in.
+          the primary account when a PI is signed in.
         </li>
         <li>
           <code>research-os-telegram-token-cache / tokens / &#123;folderName, username&#125;</code>:

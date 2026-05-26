@@ -113,7 +113,7 @@ export default function AnnouncementsWidget(_props?: {
           <p className="mt-1 text-xs text-gray-500">
             {isLabHead
               ? "Start the conversation. Post the first announcement above and everyone in the lab will see it."
-              : "Nothing from your lab head yet. Check back later."}
+              : "Nothing from your PI yet. Check back later."}
           </p>
         </div>
       ) : (
@@ -432,9 +432,9 @@ function AnnouncementCard({
           {authorIsLabHead && (
             <span
               className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-100 text-amber-800"
-              title="Lab Head"
+              title="PI"
             >
-              Lab Head
+              PI
             </span>
           )}
           {entry.pinned && (

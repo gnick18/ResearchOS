@@ -730,7 +730,7 @@ export default function NoteDetailPopup({
         data-drag-ring-target=""
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23):
+        {/* PI Phase 5 (PI Phase 5 manager, 2026-05-23):
             unlocked-session timer banner. Renders only while the PI's
             session is unlocked AND it's THIS user's session. */}
         {labHeadGate.unlocked && labHeadGate.activeUser && (
@@ -789,7 +789,7 @@ export default function NoteDetailPopup({
                   {description || (!readOnly ? "Add a description..." : "")}
                 </p>
               )}
-              {/* Lab Head Phase 5 — record-level "Edited by PI" notice. */}
+              {/* PI Phase 5 — record-level "Edited by PI" notice. */}
               {propReadOnly && note.username && (
                 <AuditTrailNotice
                   targetUser={note.username}
@@ -801,7 +801,7 @@ export default function NoteDetailPopup({
 
             {/* Fullscreen and Close buttons */}
             <div className="flex items-center gap-1">
-              {/* Lab Head Phase 5 — Request edit button. Visible only when
+              {/* PI Phase 5 — Request edit button. Visible only when
                   PI is viewing another member's note + no session active. */}
               {labHeadGate.canRequestEdit && !labHeadGate.unlocked && labHeadGate.activeUser && (
                 <RequestEditButton
@@ -809,7 +809,7 @@ export default function NoteDetailPopup({
                   targetLabel={`${note.username ?? "member"}'s note: ${title}`}
                 />
               )}
-              {/* Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23):
+              {/* PI Phase 3 (PI Phase 3 manager, 2026-05-23):
                   Flag-for-review button. Shows while the PI session is
                   unlocked for this note. Notes have no "assign" surface
                   in v1 — that's a Task-only concept. */}
@@ -854,7 +854,7 @@ export default function NoteDetailPopup({
             </div>
           </div>
 
-          {/* Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23):
+          {/* PI Phase 3 (PI Phase 3 manager, 2026-05-23):
               flag banner. Shown to everyone who can view this note;
               owner sees a Clear-flag affordance. */}
           {note.flagged && note.username && (

@@ -163,7 +163,7 @@ export default function MethodsFeaturePage() {
         permission system expands to &quot;every user in this lab folder,
         present and future.&quot; Read access is gated by the{" "}
         <code>canRead</code> primitive: owner, anyone explicitly in{" "}
-        <code>shared_with</code>, the sentinel, or a Lab Head. See{" "}
+        <code>shared_with</code>, the sentinel, or a PI. See{" "}
         <Link href="/wiki/features/sharing-and-permissions">
           Sharing and permissions
         </Link>{" "}

@@ -90,7 +90,7 @@ export const SETUP_STEP_DESCRIPTORS: Partial<
     Component: Q1AccountTypeStep,
   },
   "setup-q1c": {
-    title: "Are you the lab head?",
+    title: "Are you the PI?",
     pose: "thinking",
     speech:
       "One follow-up before we move on: are you the PI, or a lab member?",

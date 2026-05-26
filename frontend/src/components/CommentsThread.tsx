@@ -427,9 +427,9 @@ function CommentBody({
           {isPI && !departed && (
             <span
               className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-100 text-amber-800"
-              title="Lab Head"
+              title="PI"
             >
-              Lab Head
+              PI
             </span>
           )}
           <span>·</span>

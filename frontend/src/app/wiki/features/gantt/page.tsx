@@ -218,17 +218,17 @@ export default function GanttFeaturePage() {
         </li>
       </ul>
 
-      <h2>Gantt for lab heads</h2>
+      <h2>Gantt for PIs</h2>
       <p>
-        Lab heads land on the same Gantt UI as every member, but the
+        PIs land on the same Gantt UI as every member, but the
         timeline pulls from a wider pool. The project dropdown on the
         left of the toolbar now spans every member&apos;s projects
-        across the lab, not just the lab head&apos;s own. One scroll of
+        across the lab, not just the PI&apos;s own. One scroll of
         the chart shows the whole lab&apos;s work side by side.
       </p>
       <p>
         This shifts the role of the page. For a member, the Gantt is a
-        personal schedule. For a lab head, it becomes a coordination
+        personal schedule. For a PI, it becomes a coordination
         surface: dependency chains can stretch across users, the
         project dropdown doubles as a per-member filter (untick a
         student&apos;s projects to focus on a co-PI&apos;s timeline),
@@ -238,7 +238,7 @@ export default function GanttFeaturePage() {
       </p>
       <Screenshot
         src="/wiki/screenshots/gantt-overview-lab-head.png"
-        alt="The Gantt as a lab head, with the project dropdown open showing projects from every member in the lab."
+        alt="The Gantt as a PI, with the project dropdown open showing projects from every member in the lab."
         caption="Lab head view: the project dropdown spans every member's projects, so one timeline shows the whole lab."
       />
 
@@ -266,7 +266,7 @@ export default function GanttFeaturePage() {
       <p>
         PTO marks are per-user (your time off is private), so a labmate
         looking at the same chart will not see your stripes unless they are
-        viewing through a Lab Head dashboard that aggregates across members.
+        viewing through a PI dashboard that aggregates across members.
       </p>
 
       <h2>Goals on the timeline</h2>

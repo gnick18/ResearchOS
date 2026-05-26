@@ -7,7 +7,7 @@ export default function PurchasesFeaturePage() {
   return (
     <WikiPage
       title="Purchases & Funding"
-      intro="The Purchases page answers a single question for grant management: where is the money going right now? It pairs a flat reverse-chronological list of every purchase order with a live spending dashboard, so a Lab Head can scan recent activity and check budget burn without leaving the page."
+      intro="The Purchases page answers a single question for grant management: where is the money going right now? It pairs a flat reverse-chronological list of every purchase order with a live spending dashboard, so a PI can scan recent activity and check budget burn without leaving the page."
     >
       <Screenshot
         src="/wiki/screenshots/purchases-unified-scroll.png"
@@ -360,7 +360,7 @@ export default function PurchasesFeaturePage() {
       />
 
       <p>
-        Next to the export button, Lab Heads see a{" "}
+        Next to the export button, PIs see a{" "}
         <strong>Open in Lab Overview</strong> shortcut that opens the same
         purchase data inside the LabPurchases Tool popup on{" "}
         <Link href="/wiki/features/lab-overview">/lab-overview</Link>,
@@ -368,9 +368,9 @@ export default function PurchasesFeaturePage() {
         live in one place.
       </p>
 
-      <h2>The Lab Head experience</h2>
+      <h2>The PI experience</h2>
       <p>
-        Lab Heads do not have <code>/purchases</code> in their nav. The
+        PIs do not have <code>/purchases</code> in their nav. The
         canonical surface for them is the LabPurchases Tool inside the Lab
         Overview, opened either from a pinned widget tile or from the Tools
         launcher in the header. The popup is a four-tab dashboard:
@@ -378,7 +378,7 @@ export default function PurchasesFeaturePage() {
       <ul>
         <li>
           <strong>Pending approvals</strong>. The work queue. Each row is a
-          purchase waiting on the Lab Head with inline{" "}
+          purchase waiting on the PI with inline{" "}
           <strong>Approve</strong> and <strong>Decline</strong> buttons. The
           first action of a fresh session unlocks the 5-minute edit window;
           subsequent rows process without re-prompting. See{" "}
@@ -393,8 +393,8 @@ export default function PurchasesFeaturePage() {
         </li>
         <li>
           <strong>Funding</strong>. The funding-account cards (spent vs.
-          budget) rolled up across the whole lab, not just the Lab
-          Head&apos;s own purchases.
+          budget) rolled up across the whole lab, not just the PI&apos;s
+          own purchases.
         </li>
         <li>
           <strong>Spending</strong>. The full spend-over-time chart and the
@@ -410,8 +410,8 @@ export default function PurchasesFeaturePage() {
         renders with a red <code>PurchaseDeclinedBadge</code> wherever it
         appears: in the member&apos;s own list, in the All Purchases tab, in
         the Lab Activity stream. The Pending Approvals tab also shows a{" "}
-        <strong>Recently declined</strong> section at the bottom so a Lab
-        Head can <strong>Re-approve</strong> a previously-declined purchase
+        <strong>Recently declined</strong> section at the bottom so a PI
+        can <strong>Re-approve</strong> a previously-declined purchase
         without making the member resubmit. Each decline and each re-approve
         writes a row to the audit log (see{" "}
         <Link href="/wiki/features/lab-head/audit-log">Audit log</Link>).

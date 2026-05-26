@@ -272,7 +272,7 @@ function PurchasesFormFillBody() {
         <p>
           Heads up on the last field: &ldquo;Funding String&rdquo; is just a
           label for where the money came from. Grant number, gift fund,
-          your Lab Head&apos;s discretionary line, anything. Group your purchases
+          your PI&apos;s discretionary line, anything. Group your purchases
           however your lab thinks about money.
         </p>
         <p className="text-xs text-gray-500">

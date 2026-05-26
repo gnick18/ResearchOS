@@ -7,7 +7,7 @@ export default function LabOverviewCustomizableSidebarPage() {
   return (
     <WikiPage
       title="Customizable sidebar"
-      intro="The Lab Overview has a second canvas: a vertical rail down the right edge that holds slim, always-visible tiles. It is the place to put things you want a constant ambient read on (today's tasks, today's announcements, pending approvals) without surrendering canvas real estate. The rail is Lab Heads only because the Lab Overview itself is Lab Heads only."
+      intro="The Lab Overview has a second canvas: a vertical rail down the right edge that holds slim, always-visible tiles. It is the place to put things you want a constant ambient read on (today's tasks, today's announcements, pending approvals) without surrendering canvas real estate. The rail is PIs only because the Lab Overview itself is PIs only."
     >
       {/* TODO screenshot agent: capture the sidebar rail in edit mode with a tile mid-drag.
           Route: /lab-overview (edit mode on)
@@ -34,7 +34,7 @@ export default function LabOverviewCustomizableSidebarPage() {
         always visible while you work elsewhere on the canvas.
       </p>
 
-      <Callout variant="info" title="Lab Heads only">
+      <Callout variant="info" title="PIs only">
         The Lab Overview surface itself is gated on{" "}
         <code>account_type === &quot;lab_head&quot;</code>. Members never have
         a <code>/lab-overview</code> page, so the sidebar rail never appears
@@ -66,14 +66,14 @@ export default function LabOverviewCustomizableSidebarPage() {
       <h2>Reordering</h2>
       <p>
         Inside the rail, drag any pinned tile up or down to change the
-        stacking order. The order persists per Lab Head (it lives in your
-        settings sidecar), so each Lab Head&apos;s rail is their own.
+        stacking order. The order persists per PI (it lives in your
+        settings sidecar), so each PI&apos;s rail is their own.
       </p>
 
       <h2>Widgets that ship with a sidebar variant</h2>
       <p>
         Not every Tool has a slim variant. The ones that do are the
-        ones a Lab Head usually wants at a glance:
+        ones a PI usually wants at a glance:
       </p>
       <ul>
         <li>

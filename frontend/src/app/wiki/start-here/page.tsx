@@ -115,15 +115,15 @@ export default function StartHerePage() {
 
       <Callout
         variant="tip"
-        title="6. Lab Heads (PIs) get a Lab Overview surface"
+        title="6. PIs (Principal Investigators) get a Lab Overview surface"
       >
-        If your account is flagged as a <strong>Lab Head</strong>, you
+        If your account is flagged as a <strong>PI</strong>, you
         unlock <Link href="/wiki/features/lab-overview">Lab Overview</Link>,
         a customizable dashboard with cross-member widgets (member workload,
         recent activity, purchase queue, audit log). It is not visible to
         regular members. If you are a PI running a lab, set this on your
         account and you get the bird&apos;s-eye view. See{" "}
-        <Link href="/wiki/features/lab-head">Lab Head</Link>.
+        <Link href="/wiki/features/lab-head">PI</Link>.
       </Callout>
 
       <Callout

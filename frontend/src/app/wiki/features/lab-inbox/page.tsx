@@ -24,7 +24,7 @@ export default function LabInboxFeaturePage() {
 
       <h2>Who sees what</h2>
       <p>
-        Lab Inbox is universal. Every lab member (and every Lab Head) sees the
+        Lab Inbox is universal. Every lab member (and every PI) sees the
         same inbox surface, scoped by what they have read access to. Comments
         on a private task only show up for the people who can see that task;
         announcements posted to the whole lab show up for everyone. The
@@ -43,8 +43,8 @@ export default function LabInboxFeaturePage() {
           for the data shape and @-mention behavior.
         </li>
         <li>
-          <strong>Announcements.</strong> Lab-wide posts from a Lab Head.
-          They sit in chronological order by default. A Lab Head can pin
+          <strong>Announcements.</strong> Lab-wide posts from a PI.
+          They sit in chronological order by default. A PI can pin
           one to keep it at the top of the feed, and the pin persists
           until they explicitly unpin it. See{" "}
           <Link href="/wiki/features/lab-inbox/announcements">
@@ -77,7 +77,7 @@ export default function LabInboxFeaturePage() {
 
       <Callout variant="info" title="Cross-owner read access">
         Comments are visible to everyone with read access to the host record,
-        not just the record&apos;s owner. So if a Lab Head reads a member&apos;s
+        not just the record&apos;s owner. So if a PI reads a member&apos;s
         task and leaves a comment, the next time another member with read
         access (via sharing) opens that task, they see the comment in
         context. The inbox is the cross-record version of that same surface.

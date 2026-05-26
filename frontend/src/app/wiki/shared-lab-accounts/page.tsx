@@ -9,7 +9,7 @@ export default function SharedLabAccountsPage() {
   const providers = node?.children ?? [];
   return (
     <WikiPage
-      intro="One folder, shared across your whole lab. Everyone keeps their own data, and the Lab Head's dashboard rolls it all up."
+      intro="One folder, shared across your whole lab. Everyone keeps their own data, and the PI's dashboard rolls it all up."
     >
       <Callout variant="info" title="Want to feel out the shared model first?">
         Open{" "}
@@ -108,8 +108,8 @@ export default function SharedLabAccountsPage() {
         </li>
       </ul>
 
-      <Callout variant="tip" title="The Lab Head sees the lab roll-up">
-        Once everyone is set up, the Lab Head sees a customizable dashboard
+      <Callout variant="tip" title="The PI sees the lab roll-up">
+        Once everyone is set up, the PI sees a customizable dashboard
         at <code>/lab-overview</code> with widgets for cross-lab activity,
         purchases, member workload, announcements, and more. See{" "}
         <Link href="/wiki/features/lab-overview">Lab Overview</Link>. If you

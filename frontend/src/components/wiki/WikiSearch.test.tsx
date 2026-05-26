@@ -31,11 +31,11 @@ const fixture: WikiSearchIndex = {
   entries: [
     {
       href: "/wiki/features/lab-head",
-      title: "Lab Head",
-      breadcrumbs: ["Features", "Lab Head"],
+      title: "PI",
+      breadcrumbs: ["Features", "PI"],
       categoryId: "features",
-      headings: ["What a Lab Head actually is"],
-      bodySnippets: ["The Lab Head is a per-user role."],
+      headings: ["What a PI actually is"],
+      bodySnippets: ["The PI is a per-user role."],
     },
     {
       href: "/wiki/features/purchases",
@@ -43,7 +43,7 @@ const fixture: WikiSearchIndex = {
       breadcrumbs: ["Features", "Purchases & Funding"],
       categoryId: "features",
       headings: ["Approval queue"],
-      bodySnippets: ["The Lab Head can approve purchases through the soft-write queue."],
+      bodySnippets: ["The PI can approve purchases through the soft-write queue."],
     },
     {
       href: "/wiki/getting-started/connecting-your-folder",
@@ -83,7 +83,7 @@ describe("WikiSearch component", () => {
     await user.click(input);
 
     // Type a 2-char query.
-    await user.type(input, "lab head");
+    await user.type(input, "PI");
 
     // Wait for the debounce + fetch + render to settle.
     // Lab Head should render as an option (combobox role exposes the listbox).
@@ -91,7 +91,7 @@ describe("WikiSearch component", () => {
       () => {
         const options = screen.getAllByRole("option");
         expect(options.length).toBeGreaterThan(0);
-        expect(options[0].textContent).toContain("Lab Head");
+        expect(options[0].textContent).toContain("PI");
       },
       { timeout: 1000 },
     );
@@ -110,7 +110,7 @@ describe("WikiSearch component", () => {
     render(<WikiSearch />);
     const input = screen.getByPlaceholderText("Search the wiki");
     await user.click(input);
-    await user.type(input, "lab head");
+    await user.type(input, "PI");
 
     await waitFor(() => expect(screen.getAllByRole("option").length).toBeGreaterThan(0), {
       timeout: 1000,
@@ -126,7 +126,7 @@ describe("WikiSearch component", () => {
     render(<WikiSearch />);
     const input = screen.getByPlaceholderText("Search the wiki");
     await user.click(input);
-    await user.type(input, "lab head");
+    await user.type(input, "PI");
 
     await waitFor(() => expect(screen.getAllByRole("option").length).toBeGreaterThan(1), {
       timeout: 1000,
@@ -142,7 +142,7 @@ describe("WikiSearch component", () => {
     render(<WikiSearch />);
     const input = screen.getByPlaceholderText("Search the wiki") as HTMLInputElement;
     await user.click(input);
-    await user.type(input, "lab head");
+    await user.type(input, "PI");
 
     await waitFor(() => expect(screen.getAllByRole("option").length).toBeGreaterThan(0), {
       timeout: 1000,

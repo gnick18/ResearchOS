@@ -7,7 +7,7 @@ export default function LabHeadEditSessionPage() {
   return (
     <WikiPage
       title="Edit session and password"
-      intro="A Lab Head's soft-write actions (approve a purchase, post an announcement, archive a user) are gated by a short edit session. You unlock the session once with the Lab Head password, get a 5-minute window during which the affordances become active, and the session auto-expires after. This page covers the unlock flow and why the gate exists."
+      intro="A PI's soft-write actions (approve a purchase, post an announcement, archive a user) are gated by a short edit session. You unlock the session once with the PI password, get a 5-minute window during which the affordances become active, and the session auto-expires after. This page covers the unlock flow and why the gate exists."
     >
       {/* TODO screenshot agent: capture the Request Edit password dialog open.
           Route: /lab-overview (any soft-write affordance clicked while session is locked)
@@ -19,7 +19,7 @@ export default function LabHeadEditSessionPage() {
       <Screenshot
         src="/wiki/screenshots/lab-head-edit-session-prompt.png"
         alt="The Request Edit password dialog with a single password input, an Unlock button, and a remaining-time hint at the bottom."
-        caption="The Request Edit dialog. Type the Lab Head password, get a 5-minute session, the soft-write affordances unlock."
+        caption="The Request Edit dialog. Type the PI password, get a 5-minute session, the soft-write affordances unlock."
       />
 
       <h2>Why the gate exists</h2>
@@ -41,16 +41,16 @@ export default function LabHeadEditSessionPage() {
         catching a misclick, not about defending against an adversary.
       </p>
 
-      <h2>Setting the Lab Head password</h2>
+      <h2>Setting the PI password</h2>
       <p>
-        The Lab Head password is set the first time you click any soft-write
-        affordance on a fresh Lab Head account. The dialog flips to a
+        The PI password is set the first time you click any soft-write
+        affordance on a fresh PI account. The dialog flips to a
         &quot;set a new password&quot; mode that asks you to type and
         confirm. After the first unlock, the dialog reverts to a single
         password field for ongoing sessions.
       </p>
       <p>
-        The Lab Head password is stored separately from the per-user account
+        The PI password is stored separately from the per-user account
         password (the one you use to sign in to ResearchOS, documented on{" "}
         <Link href="/wiki/getting-started/creating-a-user">Creating a user</Link>).
         Using two distinct passwords keeps the gates orthogonal: someone
@@ -67,7 +67,7 @@ export default function LabHeadEditSessionPage() {
       <ol>
         <li>Click <strong>Request Edit</strong>.</li>
         <li>
-          Type the Lab Head password in the dialog. On success, the dialog
+          Type the PI password in the dialog. On success, the dialog
           closes and a 5-minute countdown starts.
         </li>
         <li>
@@ -97,8 +97,8 @@ export default function LabHeadEditSessionPage() {
         does not have your edit window open.
       </p>
 
-      <Callout variant="info" title="Forgot the Lab Head password?">
-        The Lab Head password sidecar lives at the lab folder root. Delete
+      <Callout variant="info" title="Forgot the PI password?">
+        The PI password sidecar lives at the lab folder root. Delete
         it from Finder or Explorer and the next soft-write affordance will
         prompt for a fresh password instead. Your data is untouched. As
         with the account password, this is a deterrent on a shared machine,
@@ -107,7 +107,7 @@ export default function LabHeadEditSessionPage() {
 
       <h2>Other soft-write affordances that use the same session</h2>
       <p>
-        The same 5-minute session covers every Lab Head soft-write:
+        The same 5-minute session covers every PI soft-write:
       </p>
       <ul>
         <li>

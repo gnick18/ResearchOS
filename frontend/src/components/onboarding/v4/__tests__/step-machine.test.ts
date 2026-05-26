@@ -459,7 +459,7 @@ describe("isSetupPhaseStep / isLabPhaseStep", () => {
 
 // setup-q1c lab head manager 2026-05-23: setup-q1c (lab head follow-up)
 // gates on account_type === "lab". Solo accounts skip the question.
-describe("isStepGatedOut — setup-q1c (lab head follow-up)", () => {
+describe("isStepGatedOut — setup-q1c (PI follow-up)", () => {
   it("fires for lab accounts regardless of lab_head value", () => {
     expect(
       isStepGatedOut("setup-q1c", picks({ account_type: "lab" })),
@@ -786,7 +786,7 @@ describe("getNextStep — forward traversal", () => {
     expect(visited[visited.length - 1]).toBe("tour-goodbye");
   });
 
-  it("lab head + all conditionals walks the maximal path", () => {
+  it("PI + all conditionals walks the maximal path", () => {
     const p = picks({
       account_type: "lab",
       // setup-q1c lab head manager 2026-05-23: lab_head: true unlocks
@@ -886,7 +886,7 @@ describe("getNextStep — forward traversal", () => {
     expect(getNextStep("setup-q1", p)).toBe("setup-q2");
   });
 
-  it("lab-from-q1 lands on setup-q1c (lab head follow-up, setup-q1c lab head manager 2026-05-23)", () => {
+  it("lab-from-q1 lands on setup-q1c (PI follow-up, setup-q1c PI manager 2026-05-23)", () => {
     // setup-q1a (lab storage picker) + setup-q1b (lab connect info)
     // were dropped 2026-05-22. setup-q1c (lab head follow-up) was added
     // 2026-05-23 — it asks the lab user if they're the PI so the
@@ -909,7 +909,7 @@ describe("getPreviousStep — backward traversal", () => {
     expect(getPreviousStep("setup-q2", p)).toBe("setup-q1");
   });
 
-  it("lab backstep from setup-q2 lands on setup-q1c (setup-q1c lab head manager 2026-05-23)", () => {
+  it("lab backstep from setup-q2 lands on setup-q1c (setup-q1c PI manager 2026-05-23)", () => {
     // setup-q1c (lab head follow-up) sits between setup-q1 and setup-q2
     // for lab accounts only. Backstep from setup-q2 for a lab user
     // lands on setup-q1c; backstep from setup-q1c lands on setup-q1.

@@ -502,7 +502,7 @@ export default function PurchaseEditor({
         </div>
       )}
 
-      {/* Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23):
+      {/* PI Phase 5 (PI Phase 5 manager, 2026-05-23):
           unlocked-session timer banner for the purchase editor. */}
       {labHeadGate.unlocked && labHeadGate.activeUser && (
         <div className="-mx-4 -mt-4 mb-3">
@@ -513,7 +513,7 @@ export default function PurchaseEditor({
         </div>
       )}
 
-      {/* Lab Head Phase 5 — Request edit prompt for the purchase editor.
+      {/* PI Phase 5 — Request edit prompt for the purchase editor.
           Renders as a row above the table when PI is viewing another
           member's purchase items but hasn't unlocked yet. */}
       {labHeadGate.canRequestEdit && !labHeadGate.unlocked && labHeadGate.activeUser && (
@@ -529,7 +529,7 @@ export default function PurchaseEditor({
         </div>
       )}
 
-      {/* Lab Head Phase 5 — record-level audit trail for the parent task
+      {/* PI Phase 5 — record-level audit trail for the parent task
           (purchase items are scoped to a task; the task's audit entries
           cover the editor surface). */}
       {propReadOnly && username && (
@@ -643,11 +643,11 @@ export default function PurchaseEditor({
               <th className="text-left py-2 px-2 text-xs font-semibold text-gray-500 w-32">
                 Notes
               </th>
-              {/* Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23):
+              {/* PI Phase 3 (PI Phase 3 manager, 2026-05-23):
                   approval + flag column. Always rendered so list rows
                   line up consistently regardless of view. */}
               <th className="text-left py-2 px-2 text-xs font-semibold text-gray-500 w-28">
-                Lab Head status
+                PI status
               </th>
               <th className="w-8"></th>
             </tr>
@@ -867,7 +867,7 @@ export default function PurchaseEditor({
                   <td className="py-2 px-2 text-gray-400 text-xs">
                     {item.notes || "—"}
                   </td>
-                  {/* Lab Head Phase 3 (lab head Phase 3 manager,
+                  {/* PI Phase 3 (PI Phase 3 manager,
                       2026-05-23): approval toggle (PI in unlocked
                       session) + flag button on hover for PIs, plus the
                       "PI Approved" / flag chip badges. Owners see the
@@ -1122,7 +1122,7 @@ export default function PurchaseEditor({
                     className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
                   />
                 </td>
-                {/* Lab Head Phase 3 — empty PI-status cell for new-row
+                {/* PI Phase 3 — empty PI-status cell for new-row
                     alignment; approval lives on the persisted record. */}
                 <td className="py-2 px-2" />
                 <td className="py-2 px-1">

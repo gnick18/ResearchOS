@@ -382,7 +382,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
   {
     id: "sidebar-pi-actions",
     toolId: "pi-actions",
-    title: "Pending lab head actions",
+    title: "Pending PI actions",
     description: "Purchase approvals + flag queue counts (R3).",
     helpText: PiActionsHelp,
     SnapshotTile: PiActionsSnapshot,
@@ -548,7 +548,7 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     // (2026-05-25).
     popupTitle: "Daily tasks",
     description:
-      "The standard daily-tasks sidebar (overdue, today, upcoming, per-project grouping). The default member sidebar, also pinnable by lab heads.",
+      "The standard daily-tasks sidebar (overdue, today, upcoming, per-project grouping). The default member sidebar, also pinnable by PIs.",
     SnapshotTile: DailyTasksSnapshot,
     SidebarTile: DailyTasksSidebarTile,
     defaultLayout: { w: 1, h: 1 },

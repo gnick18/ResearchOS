@@ -223,7 +223,7 @@ export const TOOL_REGISTRY: ToolDefinition[] = [
   {
     id: "announcements",
     title: "Announcements",
-    description: "Lab-wide updates. Lab heads post, members read.",
+    description: "Lab-wide updates. PIs post, members read.",
     Icon: ANNOUNCEMENTS_ICON,
     ExpandedView: AnnouncementsExpanded,
     memberVisible: true,
@@ -295,7 +295,7 @@ export const TOOL_REGISTRY: ToolDefinition[] = [
   },
   {
     id: "pi-actions",
-    title: "Pending lab head actions",
+    title: "Pending PI actions",
     description: "Purchase approvals + flag queue + audit acks awaiting you.",
     Icon: PI_ACTIONS_ICON,
     ExpandedView: PiActionsExpanded,

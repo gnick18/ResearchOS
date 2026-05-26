@@ -125,7 +125,7 @@ export function PurchaseApprovalBadge({ item }: { item: PurchaseItem }) {
   const approverLabel =
     item.approved_by
       ? profileMap[item.approved_by]?.displayName?.trim() || item.approved_by
-      : "the lab head";
+      : "the PI";
   const when = item.approved_at
     ? new Date(item.approved_at).toLocaleString()
     : null;
@@ -152,7 +152,7 @@ export function PurchaseApprovalBadge({ item }: { item: PurchaseItem }) {
         >
           <polyline points="20 6 9 17 4 12" />
         </svg>
-        Lab Head Approved
+        PI Approved
       </span>
     </Tooltip>
   );
@@ -174,7 +174,7 @@ export function PurchaseDeclinedBadge({ item }: { item: PurchaseItem }) {
   const declinerLabel =
     item.declined_by
       ? profileMap[item.declined_by]?.displayName?.trim() || item.declined_by
-      : "the lab head";
+      : "the PI";
   const when = item.declined_at
     ? new Date(item.declined_at).toLocaleString()
     : null;

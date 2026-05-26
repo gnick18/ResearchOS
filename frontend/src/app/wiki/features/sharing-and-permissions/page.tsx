@@ -7,7 +7,7 @@ export default function SharingAndPermissionsPage() {
   return (
     <WikiPage
       title="Sharing and permissions"
-      intro="Every shareable record in ResearchOS (a method, a note, a task, a project, a high-level goal) carries one sharing field: shared_with, an array of small objects pairing a username with a permission level. That field plus a single sentinel value for 'the whole lab' is the entire permission story. Two primitives, canRead and canWrite, build on top of it. Lab Heads get an implicit view-all on the read side. This page is the canonical reference for how the model works."
+      intro="Every shareable record in ResearchOS (a method, a note, a task, a project, a high-level goal) carries one sharing field: shared_with, an array of small objects pairing a username with a permission level. That field plus a single sentinel value for 'the whole lab' is the entire permission story. Two primitives, canRead and canWrite, build on top of it. PIs get an implicit view-all on the read side. This page is the canonical reference for how the model works."
     >
       {/* TODO screenshot agent: capture a Method share dialog showing the shared_with list.
           Route: open a method popup, click the share affordance
@@ -106,11 +106,11 @@ shared_with: SharedUser[];`}</code>
         </li>
         <li>
           <strong>canWrite(record, viewer, session)</strong>: true if the
-          viewer is the owner, OR the viewer is a Lab Head AND the
+          viewer is the owner, OR the viewer is a PI AND the
           edit-session is currently unlocked for the record&apos;s owner
           (the Phase 5 passcode flow, see{" "}
           <Link href="/wiki/features/lab-head/edit-session-and-password">
-            Lab Head edit session
+            PI edit session
           </Link>
           ), OR <code>record.shared_with</code> has an entry whose{" "}
           <code>username</code> matches (or is <code>&quot;*&quot;</code>){" "}
@@ -124,7 +124,7 @@ shared_with: SharedUser[];`}</code>
         async ceremony.
       </p>
 
-      <h2>The Lab Head implicit view-all</h2>
+      <h2>The PI implicit view-all</h2>
       <p>
         A user whose <code>account_type === &quot;lab_head&quot;</code> gets
         an extra rule on the read side only: <code>canRead</code> returns
@@ -135,11 +135,11 @@ shared_with: SharedUser[];`}</code>
         private to the member.
       </p>
       <p>
-        The implicit view-all does not extend to writes. A Lab Head reading
+        The implicit view-all does not extend to writes. A PI reading
         a member&apos;s private note can leave a comment (comments respect
         read access) but cannot edit the note body unless the lab-head
         edit-session is unlocked for that member&apos;s data. See{" "}
-        <Link href="/wiki/features/lab-head">Lab Head</Link> for the broader
+        <Link href="/wiki/features/lab-head">PI</Link> for the broader
         role and{" "}
         <Link href="/wiki/features/lab-head/edit-session-and-password">
           edit session and password
@@ -226,7 +226,7 @@ shared_with: SharedUser[];`}</code>
           covers task-level sharing.
         </li>
         <li>
-          <Link href="/wiki/features/lab-head">Lab Head</Link> covers the
+          <Link href="/wiki/features/lab-head">PI</Link> covers the
           implicit view-all rule.
         </li>
         <li>

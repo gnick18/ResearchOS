@@ -6,10 +6,10 @@ import Screenshot from "@/components/wiki/Screenshot";
 export default function LabHeadFeaturePage() {
   return (
     <WikiPage
-      title="Lab Head"
-      intro="A Lab Head is a per-user role: an account flagged with account_type === 'lab_head' that gains a small superset of affordances over a regular member. Lab Head is not a separate user pool, it is a property on a normal account. One or more lab members fill this role (typical labs have a single PI, but co-PI labs and shared-leadership models are supported). The role unlocks the Lab Overview surface, the soft-write approval queue, the audit trail, and the user-archiving controls."
+      title="PI (Principal Investigator)"
+      intro="A PI is a per-user role: an account flagged with account_type === 'lab_head' that gains a small superset of affordances over a regular member. PI is not a separate user pool, it is a property on a normal account. One or more lab members fill this role (typical labs have a single PI, but co-PI labs and shared-leadership models are supported). The role unlocks the Lab Overview surface, the soft-write approval queue, the audit trail, and the user-archiving controls."
     >
-      {/* TODO screenshot agent: capture the login picker with a Lab Head badge + sort-to-top.
+      {/* TODO screenshot agent: capture the login picker with a PI badge + sort-to-top.
           Route: / (login picker)
           Fixture: ?wikiCapture=1
           Viewport: desktop 1440x900
@@ -19,38 +19,38 @@ export default function LabHeadFeaturePage() {
       */}
       <Screenshot
         src="/wiki/screenshots/lab-head-login-picker.png"
-        alt="The user-picker showing two accounts, the Lab Head pinned at the top with a small badge next to their avatar."
-        caption="The Lab Head is pinned to the top of the user picker and carries a small role badge."
+        alt="The user-picker showing two accounts, the PI pinned at the top with a small badge next to their avatar."
+        caption="The PI is pinned to the top of the user picker and carries a small role badge."
       />
 
-      <h2>What a Lab Head actually is</h2>
+      <h2>What a PI actually is</h2>
       <p>
         The role is a single flag on a user&apos;s metadata:{" "}
         <code>account_type</code>, with values <code>&quot;member&quot;</code>{" "}
         (the default) or <code>&quot;lab_head&quot;</code>. A lab folder can
-        have one or more accounts flagged as Lab Head; co-PI labs simply set
-        the flag on every PI. A Lab Head is otherwise a normal account: they
+        have one or more accounts flagged as PI; co-PI labs simply set
+        the flag on every PI. A PI is otherwise a normal account: they
         have their own projects, tasks, and notes. The role does not replace
         any of that, it adds a layer of cross-lab affordances on top.
       </p>
       <p>
-        Picking a Lab Head is a deliberate decision the lab makes. Usually
-        the PI (the principal investigator who actually runs the lab) is the
-        Lab Head, but the role can be anyone: a senior postdoc, a lab
+        Picking a PI is a deliberate decision the lab makes. Usually
+        the principal investigator who actually runs the lab fills the
+        role, but it can be anyone: a senior postdoc, a lab
         manager, a designated person who triages purchases. The role does
         not assume any particular real-world title.
       </p>
 
-      <h2>The six phases of the Lab Head feature</h2>
+      <h2>The six phases of the PI feature</h2>
       <p>
-        The Lab Head role shipped in six tracked phases. Each one added a
+        The PI role shipped in six tracked phases. Each one added a
         capability:
       </p>
       <ol>
         <li>
           <strong>Account type + comment attribution.</strong> Introduced{" "}
           <code>account_type</code>, the picker badge, and the &quot;posted
-          by Lab Head&quot; styling on comment rows.
+          by PI&quot; styling on comment rows.
         </li>
         <li>
           <strong>Comment threading + @-mentions.</strong> Built out the
@@ -88,22 +88,22 @@ export default function LabHeadFeaturePage() {
 
       <h2>Picker badge and sort-to-top</h2>
       <p>
-        On the user picker, the Lab Head shows up with a small badge and is
+        On the user picker, the PI shows up with a small badge and is
         pinned to the top of the list, regardless of which account is set as
-        the &quot;main user.&quot; This makes it easy to find the Lab Head
+        the &quot;main user.&quot; This makes it easy to find the PI
         account on a shared lab laptop without scrolling.
       </p>
       <p>
-        The badge is also visible on comment rows wherever the Lab Head
+        The badge is also visible on comment rows wherever the PI
         posted: a small chip next to their name so members can tell when
-        feedback is coming from the Lab Head versus from another member.
+        feedback is coming from the PI versus from another member.
       </p>
 
-      <Callout variant="info" title="Lab Head implicit view-all">
-        A Lab Head has implicit read access to every record in the lab,
+      <Callout variant="info" title="PI implicit view-all">
+        A PI has implicit read access to every record in the lab,
         regardless of <code>shared_with</code>. The permission system still
         respects the explicit sharing arrays for writes, but for reads, the
-        Lab Head sees everything. This is what makes the Lab Overview
+        PI sees everything. This is what makes the Lab Overview
         dashboards possible (the lab-wide member workload widget, for
         example, has to read every member&apos;s active tasks). See{" "}
         <Link href="/wiki/features/sharing-and-permissions">
@@ -114,7 +114,7 @@ export default function LabHeadFeaturePage() {
 
       <h2>When to use it</h2>
       <p>
-        Set one account as the Lab Head when:
+        Set one account as the PI when:
       </p>
       <ul>
         <li>
@@ -124,7 +124,7 @@ export default function LabHeadFeaturePage() {
         </li>
         <li>
           You need a forensic trail of who approved what (the audit log is
-          gated on the Lab Head role).
+          gated on the PI role).
         </li>
         <li>
           You want a customizable Lab Overview dashboard instead of every
@@ -132,7 +132,7 @@ export default function LabHeadFeaturePage() {
         </li>
       </ul>
       <p>
-        Set no Lab Head (every account stays <code>&quot;member&quot;</code>)
+        Set no PI (every account stays <code>&quot;member&quot;</code>)
         when:
       </p>
       <ul>
@@ -165,7 +165,7 @@ export default function LabHeadFeaturePage() {
         </li>
         <li>
           The <Link href="/wiki/features/lab-overview">Lab Overview</Link>{" "}
-          dashboard surface is gated on the Lab Head role.
+          dashboard surface is gated on the PI role.
         </li>
       </ul>
     </WikiPage>

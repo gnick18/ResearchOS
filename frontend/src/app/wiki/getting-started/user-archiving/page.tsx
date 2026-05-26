@@ -53,11 +53,11 @@ export default function UserArchivingPage() {
 
       <h2>Where the affordance lives</h2>
       <p>
-        Archiving is a Lab Head soft-write. Open{" "}
+        Archiving is a PI soft-write. Open{" "}
         <strong>Settings</strong> &rarr; <strong>Lab Mode tab</strong> and the{" "}
         <strong>LabRoster</strong> section lists every member. Hover any
         row to reveal an <strong>Archive</strong> button on the right. The
-        first archive in a fresh session prompts for the Lab Head password
+        first archive in a fresh session prompts for the PI password
         (see{" "}
         <Link href="/wiki/features/lab-head/edit-session-and-password">
           Edit session and password
@@ -114,11 +114,11 @@ export default function UserArchivingPage() {
 
       <Callout variant="info" title="The 'who archived me' question">
         Members never see an &quot;archived&quot; banner on their own account.
-        If a Lab Head archives someone who later signs back in, that person
+        If a PI archives someone who later signs back in, that person
         signs in normally and sees their data as they left it; only the
         cross-lab surfaces stop including them. The audit log is the source
         of truth for &quot;why am I not showing up in the workload widget,&quot;
-        readable by the Lab Head from PI Actions.
+        readable by the PI from PI Actions.
       </Callout>
 
       <h2>When to archive</h2>

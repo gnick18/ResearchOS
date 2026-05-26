@@ -215,7 +215,7 @@ export const WIKI_NAV: WikiNode[] = [
       {
         href: "/wiki/features/lab-overview",
         label: "Lab Overview",
-        blurb: "The Lab Head's customizable dashboard at /lab-overview.",
+        blurb: "The PI's customizable dashboard at /lab-overview.",
         children: [
           {
             href: "/wiki/features/lab-overview/widgets-and-tools",
@@ -225,7 +225,7 @@ export const WIKI_NAV: WikiNode[] = [
           {
             href: "/wiki/features/lab-overview/customizable-sidebar",
             label: "Customizable sidebar",
-            blurb: "The always-visible right-edge tile rail for Lab Heads.",
+            blurb: "The always-visible right-edge tile rail for PIs.",
           },
           {
             href: "/wiki/features/lab-overview/snapshot-tiles-and-expanded-views",
@@ -247,13 +247,13 @@ export const WIKI_NAV: WikiNode[] = [
           {
             href: "/wiki/features/lab-inbox/announcements",
             label: "Announcements",
-            blurb: "Lab Head broadcasts: pin, edit, audit trail, draft persistence.",
+            blurb: "PI broadcasts: pin, edit, audit trail, draft persistence.",
           },
         ],
       },
       {
         href: "/wiki/features/lab-head",
-        label: "Lab Head",
+        label: "PI",
         blurb: "The per-user role that unlocks the Lab Overview and soft-write surfaces.",
         children: [
           {
@@ -276,7 +276,7 @@ export const WIKI_NAV: WikiNode[] = [
       {
         href: "/wiki/features/sharing-and-permissions",
         label: "Sharing and permissions",
-        blurb: "shared_with, the WHOLE_LAB_SENTINEL, canRead vs canWrite, Lab Head view-all.",
+        blurb: "shared_with, the WHOLE_LAB_SENTINEL, canRead vs canWrite, PI view-all.",
       },
       {
         href: "/wiki/features/search",

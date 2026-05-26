@@ -380,7 +380,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               countdown chip for an active lab-head edit session. Renders
               nothing when no session is active. Placed first in the badge
               cluster so the amber chip is the most prominent thing once
-              the lab head unlocks — they can't miss it from any page. */}
+              the PI unlocks — they can't miss it from any page. */}
           <EditSessionTopNavChip />
           <NotificationBadge pill={tinted} />
           <InboxBadge />
@@ -497,7 +497,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      {/* Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23): global
+      {/* PI Phase 5 (PI Phase 5 manager, 2026-05-23): global
           edit-session banner. Visible across every route while a session
           is unlocked so the PI sees the countdown after navigating away
           from the record popup they unlocked on (decision #4 — session

@@ -7,7 +7,7 @@ export default function LabOverviewFeaturePage() {
   return (
     <WikiPage
       title="Lab Overview"
-      intro="The Lab Overview at /lab-overview is the Lab Head's customizable dashboard for the whole lab. It is not a separate view of the same app; it is a canvas of small, draggable summary tiles that each click out into a full popup. Members do not see this surface at all (their starting point is /home). The mental model is closer to a phone home screen than a tab: you pin the things you want to glance at, you click a tile when you need the full story."
+      intro="The Lab Overview at /lab-overview is the PI's customizable dashboard for the whole lab. It is not a separate view of the same app; it is a canvas of small, draggable summary tiles that each click out into a full popup. Members do not see this surface at all (their starting point is /home). The mental model is closer to a phone home screen than a tab: you pin the things you want to glance at, you click a tile when you need the full story."
     >
       {/* TODO screenshot agent: capture the Lab Overview canvas at default layout.
           Route: /lab-overview
@@ -27,14 +27,14 @@ export default function LabOverviewFeaturePage() {
       <p>
         Lab Overview is gated on <code>account_type === &quot;lab_head&quot;</code>.
         Lab members never see it. After the Home canvas migration, members land
-        on <code>/home</code> for their own work, while Lab Heads get this
+        on <code>/home</code> for their own work, while PIs get this
         dedicated cross-lab surface at <code>/lab-overview</code>. The two surfaces
         share the widget vocabulary but answer different questions: Home asks
         &quot;what is on my plate today,&quot; Lab Overview asks &quot;what is
         the lab doing right now and what needs my attention.&quot;
       </p>
       <p>
-        Lab Heads also get a Home canvas of their own (with its own default
+        PIs also get a Home canvas of their own (with its own default
         layout under <code>defaultLabHeadHomeLayout</code>). Lab Overview is
         not their only widget surface; it is the cross-lab dashboard that
         sits next to a personal Home, and the two layouts persist separately.
@@ -122,7 +122,7 @@ export default function LabOverviewFeaturePage() {
           <Link href="/wiki/features/lab-overview/customizable-sidebar">
             Customizable sidebar
           </Link>{" "}
-          walks the right-edge rail (lab heads only).
+          walks the right-edge rail (PIs only).
         </li>
         <li>
           <Link href="/wiki/features/lab-overview/snapshot-tiles-and-expanded-views">
@@ -131,8 +131,8 @@ export default function LabOverviewFeaturePage() {
           explains the tile-to-popup model, drag-to-reorder, and edit mode.
         </li>
         <li>
-          For the Lab Head role itself (the account type that gates this whole
-          page), see <Link href="/wiki/features/lab-head">Lab Head</Link>.
+          For the PI role itself (the account type that gates this whole
+          page), see <Link href="/wiki/features/lab-head">PI</Link>.
         </li>
       </ul>
     </WikiPage>

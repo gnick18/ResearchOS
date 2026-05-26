@@ -7,7 +7,7 @@ export default function LabHeadSoftWritePage() {
   return (
     <WikiPage
       title="Soft-write actions"
-      intro="A soft-write is a Lab Head action that touches a record owned by someone else: approving a member's purchase, assigning a member to a task, flagging a note for review, posting an announcement. Every soft-write goes through the edit-session unlock and writes to the audit log. The pattern keeps cross-member writes accountable without making them painful."
+      intro="A soft-write is a PI action that touches a record owned by someone else: approving a member's purchase, assigning a member to a task, flagging a note for review, posting an announcement. Every soft-write goes through the edit-session unlock and writes to the audit log. The pattern keeps cross-member writes accountable without making them painful."
     >
       {/* TODO screenshot agent: capture the PI Actions popup with the Pending Approvals tab open.
           Route: /lab-overview (PI Actions Tool popup, Pending tab)
@@ -57,11 +57,11 @@ export default function LabHeadSoftWritePage() {
 
       <h3>Task assignment</h3>
       <p>
-        On any task popup the Lab Head sees an{" "}
+        On any task popup the PI sees an{" "}
         <strong>Assign to member</strong> control above the description.
         Pick a member from the dropdown and the task&apos;s{" "}
         <code>assigned_to</code> field updates. The audit row captures the
-        actor (Lab Head), the target (task id), and the old / new assignee.
+        actor (PI), the target (task id), and the old / new assignee.
       </p>
       <p>
         Assigning a task does not move ownership. The original creator still
@@ -72,7 +72,7 @@ export default function LabHeadSoftWritePage() {
 
       <h3>Flag for review</h3>
       <p>
-        A Lab Head can flag any task, note, or purchase as needing review.
+        A PI can flag any task, note, or purchase as needing review.
         The affordance is a small <strong>Flag</strong> button on the host
         record popup. Flagged items show up:
       </p>
@@ -101,7 +101,7 @@ export default function LabHeadSoftWritePage() {
       <h2>The shared edit-session gate</h2>
       <p>
         Every soft-write goes through the same 5-minute edit-session unlock.
-        The first soft-write in a cold session prompts for the Lab Head
+        The first soft-write in a cold session prompts for the PI
         password, the next four-and-a-half minutes worth of actions run
         without re-prompting. See{" "}
         <Link href="/wiki/features/lab-head/edit-session-and-password">
@@ -113,7 +113,7 @@ export default function LabHeadSoftWritePage() {
       <Callout variant="info" title="Soft, not hard">
         Soft-writes never overwrite a member&apos;s own work without their
         knowledge. The member always sees the result (the approved purchase,
-        the assigned task, the flag) on their own page. The Lab Head can
+        the assigned task, the flag) on their own page. The PI can
         signal, not silently take over. If a member needs a record taken
         away from them entirely, the path is to archive the user (see{" "}
         <Link href="/wiki/getting-started/user-archiving">User archiving</Link>),

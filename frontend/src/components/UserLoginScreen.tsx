@@ -588,7 +588,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       {/* max-w bumped from md (28rem / 448px) to 30rem (480px) — gives
           the user cards just enough extra room to seat the full action
           icon row (star / pencil / padlock / trash) inside the card
-          alongside a Lab Head badge and a moderately long username.
+          alongside a PI badge and a moderately long username.
           Paired with min-w-0 + truncate on the username so very long
           names still fall back to ellipsis rather than overflowing.
           (picker card alignment fix, 2026-05-26) */}
@@ -770,7 +770,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                           {/* min-w-0 lets the flex-1 column shrink below
                               its intrinsic content width so a long
                               username (e.g. Emile_GluckThaler) combined
-                              with the Lab Head badge can't push the
+                              with the PI badge can't push the
                               action icons past the card's right edge.
                               The username span is the only shrinkable
                               child (truncates with ellipsis); badges and
@@ -788,9 +788,9 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                               // alongside when both apply.
                               <span
                                 className="shrink-0 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-100 text-amber-800"
-                                title="Lab Head"
+                                title="PI"
                               >
-                                Lab Head
+                                PI
                               </span>
                             )}
                             {archivedUsers.has(user) && (
@@ -916,7 +916,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                 )}
               </div>
 
-              {/* Lab Head Phase 6: Show archived toggle. Only renders when
+              {/* PI Phase 6: Show archived toggle. Only renders when
                   there are archived users to surface — keeps the picker
                   uncluttered for labs with zero archives. The toggle
                   itself is a plain text-link style so it doesn't compete

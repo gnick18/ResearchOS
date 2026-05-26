@@ -148,7 +148,7 @@ export default function LabHeadPasswordModal({
             <p className="mt-1">
               For convenience, your edit-mode password starts out the same as
               your account password. You can change it later in Settings →
-              Lab Head.
+              PI.
             </p>
           </div>
         )}

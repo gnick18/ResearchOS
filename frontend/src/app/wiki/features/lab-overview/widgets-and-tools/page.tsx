@@ -32,7 +32,7 @@ export default function LabOverviewWidgetsAndToolsPage() {
       <ul>
         <li>
           <strong>Announcements.</strong> Pinned and recent announcements for
-          the whole lab. Read for everyone, write for Lab Heads (with an
+          the whole lab. Read for everyone, write for PIs (with an
           edit-session unlock). See{" "}
           <Link href="/wiki/features/lab-inbox/announcements">
             Announcements
@@ -74,7 +74,7 @@ export default function LabOverviewWidgetsAndToolsPage() {
           lab activity for the snapshot canvas.
         </li>
         <li>
-          <strong>PI actions.</strong> The Lab Head&apos;s soft-write console:
+          <strong>PI actions.</strong> The PI&apos;s soft-write console:
           pending approvals, flagged items, and the audit log. See{" "}
           <Link href="/wiki/features/lab-head/soft-write-actions">
             Soft-write actions
@@ -192,7 +192,7 @@ export default function LabOverviewWidgetsAndToolsPage() {
           ships <code>sidebar-overdue</code>, <code>sidebar-today</code>,{" "}
           <code>sidebar-upcoming</code>, and a full-stack{" "}
           <code>sidebar-daily-tasks</code> variant for the customizable
-          sidebar rail (Lab Heads only). All four are visually slim
+          sidebar rail (PIs only). All four are visually slim
           versions of the canvas tile.
         </li>
       </ul>
