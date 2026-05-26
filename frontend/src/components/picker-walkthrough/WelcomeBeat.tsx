@@ -10,8 +10,8 @@
  *
  * The component owns the headline + body + primary CTA, and emits
  * `onNext` when the user advances. The parent state machine handles
- * the actual transition to the security beat. No skip link here — the
- * orchestrator overlays a SkipLink on every beat.
+ * the actual transition to the security beat. No skip link here (the
+ * orchestrator overlays a SkipLink on every beat).
  *
  * Salvaged from the retired pre-onboarding flow (75c6107b) and rehomed
  * under picker-walkthrough/.

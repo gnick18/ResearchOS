@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Skip link — small, quiet, top-right corner. Present on every beat
+ * Skip link (small, quiet, top-right corner). Present on every beat
  * of the opt-in walkthrough modal. The user already opted in by
  * clicking the picker's walkthrough CTA, so the skip link is purely
  * an escape hatch; it does NOT write any seen-flag (the modal is

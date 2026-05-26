@@ -11,7 +11,7 @@ import { useState } from "react";
  * cards).
  *
  * Recommendation copy nudges solo users toward local without making
- * cloud feel second-class — both options are visually equal, and the
+ * cloud feel second-class: both options are visually equal, and the
  * supporting text is informational rather than directive. The cards
  * use a sky-blue ring + filled radio circle to signal selection
  * (consistent with the v4 wizard radio pattern).

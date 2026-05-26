@@ -733,9 +733,25 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                         </div>
                       ) : (
                         // Normal view - using div to avoid nested button hydration error
+                        // role="button" + tabIndex + onKeyDown so keyboard users
+                        // can land on the card and activate it with Enter or
+                        // Space. Without this only the kebab action buttons were
+                        // focusable so keyboard-only login was impossible.
+                        // (panel mechanical fixes, 2026-05-26)
                         <div
+                          role="button"
+                          tabIndex={loggingIn === null ? 0 : -1}
+                          aria-label={`Sign in as ${user}`}
+                          aria-disabled={loggingIn !== null}
                           onClick={() => loggingIn === null && handleLogin(user)}
-                          className={`w-full flex items-center gap-3 p-4 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-xl transition-all group cursor-pointer ${
+                          onKeyDown={(e) => {
+                            if (loggingIn !== null) return;
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              handleLogin(user);
+                            }
+                          }}
+                          className={`w-full flex items-center gap-3 p-4 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-xl transition-all group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 ${
                             loggingIn !== null ? 'opacity-50 cursor-not-allowed' : ''
                           }`}
                         >

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { FeaturePicks } from "@/lib/onboarding/sidecar";
 import { tabsForFeaturePicks } from "@/lib/onboarding/feature-picks-tabs";
-import { getNavItem } from "@/lib/nav";
+import { getNavItem, HOME_HREF } from "@/lib/nav";
 import { useTourController } from "../../TourController";
 import type { SetupStepProps } from "./types";
 
@@ -69,9 +69,17 @@ export default function SetupWrapupStep({
 
   // Pre-compute the visible-tab summary from the picks. The same
   // helper drives AppShell's nav so the wrap-up echoes back exactly
-  // what the user will see in the top nav.
+  // what the user will see in the top nav. We then apply the same
+  // account-type carve-outs AppShell layers on top of NAV_ITEMS so a
+  // lab-head user sees "Lab Overview" inserted right after Home and
+  // "Purchases" removed (covered by the LabPurchasesWidget on Lab
+  // Overview). Without these carve-outs the wrap-up listed Purchases
+  // that isn't actually in a lab-head's top nav and dropped Lab Overview
+  // that is. Source of truth: AppShell's `navItemsWithOverview` memo
+  // (account_type === "lab_head" branch). (panel mechanical fixes,
+  // 2026-05-26)
   const visibleTabHrefs = useMemo(
-    () => tabsForFeaturePicks(picks) ?? [],
+    () => applyAccountTypeCarveouts(tabsForFeaturePicks(picks) ?? [], picks),
     [picks],
   );
 
@@ -196,16 +204,46 @@ function formatAccountType(picks: FeaturePicks | null): string {
   return "Not set";
 }
 
+/** Apply AppShell's account-type carve-outs on top of the
+ *  feature_picks-derived href list. Lab-head users get "/lab-overview"
+ *  spliced in right after Home and "/purchases" filtered out (the
+ *  LabPurchasesWidget on Lab Overview covers their workflow). Solo + lab
+ *  member users get the picks-derived list unchanged. Mirrors the
+ *  navItemsWithOverview useMemo in AppShell.tsx so the wrap-up summary
+ *  matches what the user is about to see in the top nav.
+ *  (panel mechanical fixes, 2026-05-26) */
+function applyAccountTypeCarveouts(
+  hrefs: readonly string[],
+  picks: FeaturePicks | null,
+): string[] {
+  const isLabHead = picks?.account_type === "lab" && picks.lab_head === true;
+  let next = [...hrefs];
+  if (isLabHead) {
+    next = next.filter((href) => href !== "/purchases");
+    // Slot /lab-overview right after Home. tabsForFeaturePicks always
+    // includes Home at index 0, so a splice at index 1 is safe.
+    const homeIdx = next.indexOf(HOME_HREF);
+    const insertAt = homeIdx >= 0 ? homeIdx + 1 : 0;
+    next.splice(insertAt, 0, "/lab-overview");
+  }
+  return next;
+}
+
 /** Render the visible tab list as a comma-joined human-readable string.
  *  Uses the NAV_ITEMS label for each href, with the account-type-aware
- *  override for `/links` (Links vs Lab Links) so the line matches what
- *  AppShell will show in the top nav. */
+ *  overrides for `/links` (Links vs Lab Links) and the synthetic
+ *  `/lab-overview` entry (not in NAV_ITEMS but appended by AppShell for
+ *  lab heads) so the line matches what AppShell will show in the top
+ *  nav. */
 function formatTabList(
   hrefs: readonly string[],
   picks: FeaturePicks | null,
 ): string {
   const labels = hrefs
     .map((href) => {
+      // /lab-overview is not a NAV_ITEMS entry (AppShell appends it
+      // dynamically for lab heads), so resolve the label here.
+      if (href === "/lab-overview") return "Lab Overview";
       const nav = getNavItem(href);
       if (!nav) return null;
       // AppShell renames /links to "Links" for solo accounts and keeps

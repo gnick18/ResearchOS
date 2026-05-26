@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import BeakerBot, { type BeakerBotPose } from "@/components/BeakerBot";
 import CloudProviderBeat from "@/components/picker-walkthrough/CloudProviderBeat";
 import FolderChoiceBeat, {
@@ -12,7 +12,7 @@ import SpeechBubble from "@/components/picker-walkthrough/SpeechBubble";
 import WelcomeBeat from "@/components/picker-walkthrough/WelcomeBeat";
 
 /**
- * Picker walkthrough modal — opt-in.
+ * Picker walkthrough modal (opt-in).
  *
  * Hosts the 4-beat intro (welcome → security → folder-choice →
  * cloud-provider) that used to fire automatically as a pre-onboarding
@@ -66,6 +66,26 @@ export default function PickerWalkthroughModal({
   // the final CTA or the skip link between the click event and the
   // onClose cycle.
   const [dismissing, setDismissing] = useState(false);
+
+  // Escape closes the modal. role="dialog" + aria-modal="true" promise
+  // dialog semantics so the keyboard shortcut is expected; without this
+  // hook the only way out was the skip link. Window-level keydown matches
+  // the lightweight popover pattern elsewhere in the codebase (e.g.
+  // DevForceWalkthroughButton). The listener is gated on `open` so it
+  // does not steal Escape on screens where the modal is hidden.
+  // (panel mechanical fixes, 2026-05-26)
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (dismissing) return;
+      setDismissing(true);
+      setStep("welcome");
+      onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, dismissing, onClose]);
 
   if (!open) return null;
 

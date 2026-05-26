@@ -146,14 +146,13 @@ export default function DevForceWalkthroughButton({
       const created = await createUser(testUserName);
       if (!created) {
         setError(`Failed to create ${testUserName}. Check folder permissions.`);
-        setBusy(false);
         return;
       }
 
       // wizard_force_show: true on the new sidecar so the v4 TourBootstrap
       // mounts the tour on first render. clearWizardCompletion does this
-      // along with clearing wizard_completed_at / wizard_skipped_at — the
-      // shape the v3 dev sandbox used. The v4 bootstrap's fresh-user gate
+      // along with clearing wizard_completed_at / wizard_skipped_at (the
+      // shape the v3 dev sandbox used). The v4 bootstrap's fresh-user gate
       // (no completion + no skip + no resume) already fires the tour for
       // a brand-new user, but force_show is the explicit bypass that
       // protects against any future gate change.
@@ -175,9 +174,9 @@ export default function DevForceWalkthroughButton({
       }
 
       // Swap the active user. From UserLoginScreen: the onLogin callback
-      // (passed through onLoggedIn) unmounts the picker → AppShell mounts.
-      // From AppShell: no callback needed — setCurrentUser updates the
-      // FileSystem context, which re-renders AppShell with the new user.
+      // (passed through onLoggedIn) unmounts the picker, AppShell mounts.
+      // From AppShell: no callback needed (setCurrentUser updates the
+      // FileSystem context, which re-renders AppShell with the new user).
       // Either way, V4MountForUser reads the fresh sidecar + TourBootstrap fires.
       await setCurrentUser(testUserName);
       setMode(null);
@@ -189,6 +188,12 @@ export default function DevForceWalkthroughButton({
           ? err.message
           : "Failed to create test user. Check the console.",
       );
+    } finally {
+      // Always clear busy on exit so a thrown error from setCurrentUser
+      // (or any later step) doesn't wedge the Cancel button. The early
+      // closeDialog guard (`if (busy) return;`) made an error mid-flow
+      // leave the dialog stuck open with no way to dismiss it. (panel
+      // mechanical fixes, 2026-05-26)
       setBusy(false);
     }
   };

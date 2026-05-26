@@ -815,7 +815,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
           2026-05-25. */}
       <RiseCredentialsStamp />
 
-      {/* Opt-in walkthrough modal — controlled. Renders nothing while
+      {/* Opt-in walkthrough modal (controlled). Renders nothing while
           closed, so the picker stays as the persistent landing. The
           modal does not link a folder; on close the user returns to
           this picker. */}
