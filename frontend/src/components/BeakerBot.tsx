@@ -808,12 +808,22 @@ export default function BeakerBot({
        *  rather than a static smile during the laugh poses. */}
       {effectivePose === "giggle" ||
       effectivePose === "rolling-laughing" ? (
-        <path
-          d="M17 22 Q 20 26.5, 23 22 Q 20 23.5, 17 22 Z"
-          fill="currentColor"
-          stroke="currentColor"
-          strokeWidth={1}
-        />
+        /* Open laugh mouth. Smile-curved upper edge (corners pulled
+         * down, middle pulled UP above the corner line so the lip reads
+         * as a grin not a frown) + rounded lower curve. Wider than the
+         * old leaf-shaped path so it reads as "ha ha" at small render
+         * sizes. Small tongue dot at the bottom adds the playful
+         * "hehe" beat Grant flagged 2026-05-25 as missing. */
+        <>
+          <path
+            d="M16 22 Q 20 20.6, 24 22 Q 20 26, 16 22 Z"
+            fill="currentColor"
+            stroke="currentColor"
+            strokeWidth={0.6}
+            strokeLinejoin="round"
+          />
+          <circle cx="20" cy="24.5" r="0.7" fill="#ff8aa8" />
+        </>
       ) : effectivePose === "yawn" ? (
         <g
           className={
