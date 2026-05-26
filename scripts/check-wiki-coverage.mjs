@@ -40,6 +40,8 @@ const EXCLUDED_PREFIXES = [
   "/api", // server-only proxy routes
   "/demo", // alternate entry, documented under /wiki/getting-started/demo-mode
   "/results", // redirect-only transitional route → /workbench (page killed per RESULTS_PAGE_PROPOSAL.md)
+  "/experiments", // redirect-only stub → /workbench (no AppShell, so the ? icon never renders here)
+  "/lab-inbox", // redirect-only stub → /lab-overview (legacy bookmark target after the 2026-05-23 rename)
 ];
 
 /** Next.js conventions to ignore when walking app/. */

@@ -7,7 +7,7 @@ export default function LabOverviewWidgetsAndToolsPage() {
   return (
     <WikiPage
       title="Widgets and Tools"
-      intro="A Tool is the full popup. A Widget is the tile that opens it. The Lab Overview ships 12 Tools, each tile has one or more visual variants, and the Tools launcher in the header opens any Tool without you needing a pinned tile for it. This page walks the full catalog and the variant system."
+      intro="A Tool is the full popup. A Widget is the tile that opens it. The Lab Overview ships 13 Tools, each tile has one or more visual variants, and the Tools launcher in the header opens any Tool without you needing a pinned tile for it. This page walks the full catalog and the variant system."
     >
       {/* TODO screenshot agent: capture the + Add widget palette open over the canvas.
           Route: /lab-overview (edit mode on, palette open)
@@ -22,7 +22,7 @@ export default function LabOverviewWidgetsAndToolsPage() {
         caption="The + Add widget palette. Each card shows one Tool plus the available tile variants (small, medium, large) you can pin to the canvas."
       />
 
-      <h2>The 12 Tools</h2>
+      <h2>The 13 Tools</h2>
       <p>
         Each Tool is the canonical popup for one subject. Clicking any of its
         tiles, or picking it from the Tools launcher in the header, opens the
@@ -90,6 +90,14 @@ export default function LabOverviewWidgetsAndToolsPage() {
           Announcements that only surfaces what is pinned or posted today,
           good as a sidebar tile.
         </li>
+        <li>
+          <strong>Calendar.</strong> A popup view of today&apos;s and
+          upcoming lab calendar events. Backs the{" "}
+          <code>calendar-events-today</code> tile variant that shows the
+          next chunk of events in a compact list. Pinning that variant is
+          how the Home canvas&apos; default &quot;Today&apos;s events&quot;
+          tile gets its data.
+        </li>
       </ul>
 
       <h2>Widget variants (the iPhone-widgets model)</h2>
@@ -128,6 +136,41 @@ export default function LabOverviewWidgetsAndToolsPage() {
         not have a time dimension.
       </Callout>
 
+      <p>
+        A handful of other Tools also ship in multiple variants beyond the
+        canonical tile:
+      </p>
+      <ul>
+        <li>
+          <strong>Comments → comment-mentions.</strong> The same Comments
+          stream, filtered to just @-mentions of you. Good for &quot;what
+          requires my response.&quot;
+        </li>
+        <li>
+          <strong>Experiments → experiments-ready-writeup.</strong> The
+          Experiments list filtered to entries that are ready for a
+          write-up (data captured, results section empty). Good for a
+          PI&apos;s &quot;what needs my eye for publication.&quot;
+        </li>
+        <li>
+          <strong>Lab activity → lab-activity-by-type.</strong> Splits the
+          activity feed into today&apos;s tasks, notes, and purchases as
+          three side-by-side columns instead of one rolling stream.
+        </li>
+        <li>
+          <strong>Calendar → calendar-events-today.</strong> A compact
+          today-only events list, the default Home widget variant.
+        </li>
+        <li>
+          <strong>Daily tasks → sidebar variants.</strong> Daily tasks
+          ships <code>sidebar-overdue</code>, <code>sidebar-today</code>,{" "}
+          <code>sidebar-upcoming</code>, and a full-stack{" "}
+          <code>sidebar-daily-tasks</code> variant for the customizable
+          sidebar rail (Lab Heads only). All four are visually slim
+          versions of the canvas tile.
+        </li>
+      </ul>
+
       <h2>The Tools launcher (header button)</h2>
       <p>
         The <strong>Tools</strong> button in the page header opens a flat menu
@@ -140,12 +183,15 @@ export default function LabOverviewWidgetsAndToolsPage() {
 
       <h2>The + Add widget palette</h2>
       <p>
-        Edit mode (gear icon) reveals a <strong>+ Add widget</strong> action
-        at the bottom of the canvas. Clicking it slides in a panel showing
-        every available widget, grouped by Tool, with the tile variants and
-        sizes listed beside each one. Drag a tile from the palette onto the
-        canvas (or onto the sidebar rail) to pin it. The same palette is also
-        the path to recover a widget you removed.
+        The <strong>+ Add widget</strong> button lives in the canvas
+        toolbar at the TOP of the canvas (NOT a gear icon, NOT at the
+        bottom). Clicking it slides in a panel showing every available
+        widget, grouped by Tool, with the tile variants listed beside each
+        one. Drag a tile from the palette onto the canvas (or onto the
+        sidebar rail) to pin it. The same palette is also the path to
+        recover a widget you removed. Clicking +Add widget auto-flips the
+        canvas into edit mode if it was off, so you can pin without
+        manually toggling Edit layout first.
       </p>
       <p>
         Already-pinned widgets are marked in the palette so you can still pin

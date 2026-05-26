@@ -210,18 +210,33 @@ export default function HomeFeaturePage() {
       </Callout>
 
       <h2>The customizable widget canvas</h2>
+      <Callout variant="info" title="The canvas sits BELOW the project grid">
+        Most dashboards put widgets at the top of the page; Home does the
+        opposite. The widget canvas mounts after your active projects,
+        archived projects, and the empty-state hint, so on a fresh account
+        with a few projects you have to scroll down to see it. Once you
+        know it lives at the bottom, the pattern is easy: projects up top
+        (the things you primarily work on), widgets at the bottom (the
+        glanceable summaries).
+      </Callout>
       <p>
         Beyond the project grid, Home is also a customizable widget canvas.
         New accounts start with two default widgets at the top of the
-        page: <strong>Upcoming tasks</strong> on the left and{" "}
+        canvas: <strong>Upcoming tasks</strong> on the left and{" "}
         <strong>Today&apos;s events</strong> on the right. From there, you
         can add, remove, and reorder widgets from the canvas controls to
         match how you actually start your day. The canvas works the same
         way as the{" "}
         <Link href="/wiki/features/lab-overview">Lab Overview</Link>{" "}
         canvas: tiles open into full popups, drag-and-drop reorders them,
-        and edit mode (top-right of the toolbar) reveals the layout
-        controls.
+        and the canvas toolbar (the row of text buttons running along the
+        top edge of the canvas itself, with <strong>+ Add widget</strong>,{" "}
+        <strong>Edit layout</strong>, and <strong>Reset</strong>) reveals
+        the layout controls. The deeper widget catalog reference lives at{" "}
+        <Link href="/wiki/features/lab-overview/widgets-and-tools">
+          Widgets and Tools
+        </Link>
+        .
       </p>
       {/* TODO screenshot agent: capture Home with the default widget canvas + project grid below.
           Route: /home
@@ -232,18 +247,29 @@ export default function HomeFeaturePage() {
       */}
       <Screenshot
         src="/wiki/screenshots/home-widget-canvas.png"
-        alt="The Home page showing the two default widgets (Upcoming tasks, Today's events) at the top with the project grid below."
-        caption="Home, with the two default widgets on top and the project grid below. Pin and reorder the widgets that match how you start your day."
+        alt="The Home page showing the project grid at the top with the two default widgets (Upcoming tasks, Today's events) on the widget canvas at the bottom."
+        caption="Home. Project grid at the top, widget canvas at the bottom with the two defaults (Upcoming tasks and Today's events) pinned by default. Pin and reorder the widgets that match how you start your day."
       />
       <ul>
         <li>
-          <strong>+ Add widget</strong> opens the palette of every available
-          widget (the same catalog the Lab Overview uses). Drag a tile onto
-          the canvas to pin it.
+          <strong>+ Add widget</strong> in the canvas toolbar opens the
+          palette of every available widget (the same catalog the Lab
+          Overview uses). Clicking +Add auto-flips the canvas into edit
+          mode if it was off, then opens the palette. Drag a tile onto the
+          canvas to pin it.
         </li>
         <li>
-          <strong>Drag tiles to reorder</strong> with edit mode on. Tiles
-          snap to the grid and the layout persists in your settings sidecar.
+          <strong>Drag tiles to reorder</strong> with edit mode on (toggled
+          via the <strong>Edit layout</strong> button in the canvas
+          toolbar). Tiles snap to the grid and the layout persists in your
+          settings sidecar at <code>_user_settings.json:home_layout</code>.
+          Home&apos;s layout is independent of your Lab Overview layout
+          (if you are a Lab Head), so you customize each surface separately.
+        </li>
+        <li>
+          <strong>Reset</strong> in the canvas toolbar wipes your custom
+          layout and restores the two-widget default. It is a sibling
+          button to Edit layout and +Add widget, not a menu item.
         </li>
         <li>
           <strong>Tools launcher</strong> in the header opens any Tool
@@ -256,6 +282,14 @@ export default function HomeFeaturePage() {
           questions without crowding the canvas. Pin extras like
           announcements, comments, or lab activity from the catalog
           whenever you want more on the page.
+        </li>
+        <li>
+          <strong>New widgets in the catalog do NOT auto-pin to Home.</strong>{" "}
+          Home is user-curated: if a new widget variant ships, you have to
+          add it via the palette to see it on your canvas. (Lab Overview
+          behaves differently and auto-appends new lab-overview-eligible
+          widgets to a saved layout.) If you wonder why a newly-shipped
+          widget did not appear, that is why.
         </li>
       </ul>
     </WikiPage>

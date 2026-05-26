@@ -220,7 +220,7 @@ export const WIKI_NAV: WikiNode[] = [
           {
             href: "/wiki/features/lab-overview/widgets-and-tools",
             label: "Widgets and Tools",
-            blurb: "The 12 Tools, widget variants, and the + Add widget palette.",
+            blurb: "The 13 Tools, widget variants, and the + Add widget palette.",
           },
           {
             href: "/wiki/features/lab-overview/customizable-sidebar",

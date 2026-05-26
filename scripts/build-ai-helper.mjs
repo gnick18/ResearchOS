@@ -48,8 +48,13 @@ const TYPES_PATH = "frontend/src/lib/types.ts";
 const NAV_PATH = "frontend/src/lib/wiki/nav.ts";
 const FIXTURE_ROOT = "frontend/public/demo-data";
 
-const ALLOWED_FIXTURE_OWNERS = new Set(["alex", "morgan", "public", "lab"]);
+const ALLOWED_FIXTURE_OWNERS = new Set(["alex", "morgan", "mira", "sam", "public", "lab"]);
 const ALLOWED_FIXTURE_PATH_PREFIX = "frontend/public/demo-data/";
+// Whole-lab sharing sentinel from frontend/src/lib/sharing/unified.ts — appears
+// as `shared_with[].username` and is not a real username, so the content scan
+// must skip it. (Keeping this in sync with the source constant is fine: a rename
+// would land in the same PR as the fixture migration.)
+const WHOLE_LAB_SENTINEL = "*";
 
 // ─── Privacy guard ──────────────────────────────────────────────────────────
 /**
@@ -146,6 +151,7 @@ function scanForOwnerFields(node, filePath) {
   }
   for (const [key, value] of Object.entries(node)) {
     if ((key === "owner" || key === "username") && typeof value === "string") {
+      if (value === WHOLE_LAB_SENTINEL) continue;
       if (!ALLOWED_FIXTURE_OWNERS.has(value)) {
         throw new Error(
           `[privacy guard] fixture file ${filePath} has ${key}="${value}" — ` +

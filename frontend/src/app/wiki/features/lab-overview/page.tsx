@@ -33,6 +33,12 @@ export default function LabOverviewFeaturePage() {
         &quot;what is on my plate today,&quot; Lab Overview asks &quot;what is
         the lab doing right now and what needs my attention.&quot;
       </p>
+      <p>
+        Lab Heads also get a Home canvas of their own (with its own default
+        layout under <code>defaultLabHeadHomeLayout</code>). Lab Overview is
+        not their only widget surface; it is the cross-lab dashboard that
+        sits next to a personal Home, and the two layouts persist separately.
+      </p>
 
       <h2>Anatomy</h2>
       <p>
@@ -41,9 +47,11 @@ export default function LabOverviewFeaturePage() {
       <ul>
         <li>
           <strong>The snapshot canvas</strong> is the main grid in the center.
-          Each cell is a widget tile, sized small / medium / large, that pulls
-          live data from the lab and renders a compact summary. Tiles are
-          draggable when edit mode is on (gear icon, top-right).
+          Each cell is a widget tile that pulls live data from the lab and
+          renders a compact summary. Tiles are draggable when edit mode is
+          on, toggled via the <strong>Edit layout</strong> text button in
+          the canvas toolbar (right side of the same row as <strong>+ Add
+          widget</strong> and <strong>Reset</strong>).
         </li>
         <li>
           <strong>The customizable sidebar</strong> runs down the right edge

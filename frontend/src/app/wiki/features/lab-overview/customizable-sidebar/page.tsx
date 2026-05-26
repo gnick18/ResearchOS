@@ -40,16 +40,21 @@ export default function LabOverviewCustomizableSidebarPage() {
         a <code>/lab-overview</code> page, so the sidebar rail never appears
         for them either. The closest analog on the member side is the home
         canvas at <code>/home</code>, which has its own widget layout but no
-        permanent right-edge rail.
+        permanent right-edge rail. (The <code>/home</code> page uses the
+        existing AppShell sidebar; its layout shape explicitly does NOT
+        include a customizable rail today.)
       </Callout>
 
       <h2>Pinning a widget to the rail</h2>
       <p>
-        With edit mode on (gear icon, top-right), drag a tile out of the
-        snapshot canvas and drop it on the sidebar rail. The rail accepts
-        the drop and the tile re-renders in its slim sidebar variant. The
-        opposite direction works too: drag a tile from the rail back onto
-        the canvas and it re-renders in the larger canvas variant.
+        The Lab Overview&apos;s customizable rail has its own edit toggle
+        that is separate from the snapshot canvas&apos;s <strong>Edit
+        layout</strong> button. With the rail&apos;s edit mode on, drag a
+        tile out of the snapshot canvas and drop it on the sidebar rail.
+        The rail accepts the drop and the tile re-renders in its slim
+        sidebar variant. The opposite direction works too: drag a tile
+        from the rail back onto the canvas and it re-renders in the
+        larger canvas variant.
       </p>
       <p>
         You can also pin straight from the palette. Open{" "}
@@ -99,8 +104,18 @@ export default function LabOverviewCustomizableSidebarPage() {
           with their active and overdue counts.
         </li>
         <li>
-          <strong>Lab activity.</strong> The activity feed rendered as
-          one-liners.
+          <strong>Recent activity (sidebar).</strong> A condensed slice of
+          the rolling lab activity feed, rendered as one-liners. (Not the
+          same as the full Lab activity Tool; that one is canvas / home
+          only and does not pin to the rail.)
+        </li>
+        <li>
+          <strong>Daily tasks variants.</strong> Daily tasks ships{" "}
+          <code>sidebar-overdue</code>, <code>sidebar-today</code>, and{" "}
+          <code>sidebar-upcoming</code> as three time-window-specific slim
+          rail tiles, plus a full-stack <code>sidebar-daily-tasks</code>{" "}
+          variant that combines all three. Pin whichever window you
+          actually want to glance at.
         </li>
       </ul>
 

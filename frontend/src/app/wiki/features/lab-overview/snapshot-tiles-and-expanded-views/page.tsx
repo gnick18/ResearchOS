@@ -49,36 +49,42 @@ export default function LabOverviewSnapshotAndExpandedPage() {
 
       <h2>Drag tiles to reorder</h2>
       <p>
-        With <strong>edit mode</strong> on (gear icon, top-right), tiles
-        sprout drag handles and the canvas turns into a grid you can
-        rearrange. Drag a tile to a new cell, drop it, and the layout
-        persists in your settings sidecar. Tiles snap to the grid; you
-        cannot place them at arbitrary pixel offsets.
+        With <strong>edit mode</strong> on (toggled via the{" "}
+        <strong>Edit layout</strong> text button in the canvas toolbar at
+        the top-right of the canvas itself, NOT a gear icon), tiles sprout
+        drag handles and the canvas turns into a grid you can rearrange.
+        Drag a tile to a new cell, drop it, and the layout persists in
+        your settings sidecar. Tiles snap to the grid; you cannot place
+        them at arbitrary pixel offsets.
       </p>
       <p>
-        Edit mode is sticky until you toggle it off, so you can stage a
-        whole new layout in one pass. The page is interactive the rest
-        of the time; tile clicks still open the expanded view while edit
-        mode is off.
+        Edit mode is sticky until you toggle it off (the button switches
+        to <strong>Done</strong> while active), so you can stage a whole
+        new layout in one pass. The page is interactive the rest of the
+        time; tile clicks still open the expanded view while edit mode is
+        off. One detail worth knowing: clicking <strong>+ Add widget</strong>{" "}
+        auto-flips edit mode on if it was off, then opens the palette. You
+        do not have to enter edit mode manually first.
       </p>
 
-      <h2>Resizing</h2>
+      <h2>Tile layout</h2>
       <p>
-        Each widget declares which sizes it supports. Some widgets are
-        small-only (a single big number does not get better at larger
-        sizes), others ship in two or three sizes (the burn-rate chart
-        gains x-axis density at the larger sizes). Drop the size you want
-        from the palette, or swap sizes by removing and re-pinning.
+        The canvas renders tiles in a fixed responsive grid (one column
+        on narrow viewports, two columns on desktop). Tiles are uniform
+        in their grid cell; there is no per-tile size selector or resize
+        handle. The layout shape stored in your settings sidecar is an
+        ordered list of widget IDs per surface, so reorder is the only
+        layout knob.
       </p>
 
       <h2>Reset to default</h2>
       <p>
-        The gear menu carries a <strong>Reset to default</strong> action
-        that restores the shipping layout: the default widget set, in the
-        default positions, with the default variants. Your customizations
-        wipe in one click. Useful when you have experimented your way into
-        a layout you do not like and want to start over without manually
-        unpinning everything.
+        The <strong>Reset</strong> button in the canvas toolbar (sibling to
+        Edit layout and +Add widget, NOT a menu item) restores the shipping
+        layout: the default widget set, in the default positions, with the
+        default variants. Your customizations wipe in one click. Useful
+        when you have experimented your way into a layout you do not like
+        and want to start over without manually unpinning everything.
       </p>
 
       <Callout variant="tip" title="Sidebar tiles and canvas tiles are the same widget">
