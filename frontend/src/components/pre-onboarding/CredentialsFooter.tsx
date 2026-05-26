@@ -33,8 +33,12 @@ export default function CredentialsFooter() {
       data-testid="pre-onboarding-credentials"
     >
       {/* Logo on a tight white panel so the cream shield + red field
-          read correctly against the dark gradient backdrop. */}
-      <div className="pointer-events-auto rounded-md bg-white/95 px-2 py-1 shadow-sm">
+          read correctly against the dark gradient backdrop. Padding kept
+          minimal (Grant 2026-05-25): the PNG already carries its own
+          internal whitespace, so the panel just needs enough hairline
+          breathing room to keep the shield border from kissing the
+          rounded corners. */}
+      <div className="pointer-events-auto rounded bg-white/95 p-0.5 shadow-sm">
         <Image
           src="/credentials/uw-rise-logo.png"
           alt="Wisconsin RISE Initiative (Wisconsin Research, Innovation and Scholarly Excellence)"
