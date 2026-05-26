@@ -152,9 +152,19 @@ export default function NoteDetailPopup({
   // builder disambiguates with an A/B picker in that case.
   const setActiveNote = useAppStore((s) => s.setActiveNote);
   useEffect(() => {
-    setActiveNote({ id: note.id, owner: note.username, title: note.title });
+    // Owner for the attachment write path. Mirror `basePath` above:
+    // `currentUser ?? note.username`. Legacy notes (and demo seeds) can carry
+    // an empty `username` string; using that directly produced
+    // `users//notes/<id>/Images/...` writes that `atomicWrite` silently
+    // collapsed to `users/notes/<id>/Images/...` (top-level garbage folder),
+    // leaving the popup's image-strip pointing at a non-existent file. The
+    // currentUser fallback keeps the write inside the signed-in user's
+    // folder, which is what the popup's reader resolves against. See
+    // attach-image-to-note.test.ts for the explicit empty-owner guard.
+    const owner = note.username || currentUser || "";
+    setActiveNote({ id: note.id, owner, title: note.title });
     return () => setActiveNote(null);
-  }, [setActiveNote, note.id, note.username, note.title]);
+  }, [setActiveNote, note.id, note.username, note.title, currentUser]);
 
   // Track unsaved content for auto-save
   const unsavedContentRef = useRef<Map<string, string>>(new Map());

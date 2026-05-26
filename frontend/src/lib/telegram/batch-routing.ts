@@ -178,12 +178,34 @@ type BatchState =
       task: { id: number; owner: string; name: string };
     }
   | {
+      /** Multi-entry note destination committed; ask the user WHICH entry
+       *  the photo should attach to before falling through to style. Single-
+       *  entry and empty notes skip this state and graduate directly to
+       *  `awaiting-style` from the note callback handler. */
+      kind: "awaiting-entry-pick";
+      chatId: number;
+      mediaGroupId: string;
+      ctx: BatchRouteContext;
+      photos: BatchPhoto[];
+      destination: BatchDestination & { kind: "note" };
+      /** Sorted entry summaries the keyboard built buttons for. Indexed in
+       *  PICKER_LETTERS order (A → entries[0], B → entries[1], ...). The
+       *  callback handler decodes by index, not raw id, so the payload stays
+       *  short (entry ids are UUIDs and a Telegram callback_data is capped
+       *  at 64 bytes). */
+      entries: { id: string; title: string; date: string }[];
+    }
+  | {
       kind: "awaiting-style";
       chatId: number;
       mediaGroupId: string;
       ctx: BatchRouteContext;
       photos: BatchPhoto[];
       destination: BatchDestination;
+      /** Entry id resolved by `awaiting-entry-pick` for multi-entry note
+       *  destinations. Threaded through to the commit functions so they
+       *  pass it to `attachImageToNote` as the `entryId` override. */
+      noteEntryId?: string;
     }
   | {
       kind: "awaiting-batch-name";
@@ -192,6 +214,9 @@ type BatchState =
       ctx: BatchRouteContext;
       photos: BatchPhoto[];
       destination: BatchDestination;
+      /** Carried through from `awaiting-entry-pick` for multi-entry notes;
+       *  passed to `attachImageToNote` as the `entryId` override. */
+      noteEntryId?: string;
     }
   | {
       kind: "awaiting-per-photo-captions";
@@ -687,6 +712,60 @@ function buildActiveNoteConfirmationPrompt(
   return { body, keyboard };
 }
 
+/** Build the entry-pick prompt for multi-entry note destinations. Letter
+ *  buttons for each entry plus a trailing "Latest entry" default so a user
+ *  who doesn't care can one-tap past the question. Bounded at 10 entries
+ *  in the body / keyboard (PICKER_LETTERS reaches Z but we cap the prompt
+ *  to keep the message readable on Telegram); the "Latest" sentinel always
+ *  resolves to the most-recent-by-updated_at entry inside
+ *  `attachImageToNote`, so it covers the no-pick case for longer notes too. */
+function buildEntryPickPrompt(
+  noteTitle: string,
+  entries: { id: string; title: string; date: string }[],
+): {
+  body: string;
+  keyboard: InlineKeyboardMarkup;
+  shownEntries: { id: string; title: string; date: string }[];
+} {
+  // Bound to the first 10 so the keyboard stays one column of reasonable
+  // height. The "Latest entry" button below covers anything past the cap.
+  const shown = entries.slice(0, 10);
+  const lines: string[] = [
+    `"${noteTitle}" has ${entries.length} entries. Which one should this image go to?`,
+    "",
+  ];
+  shown.forEach((e, i) => {
+    const date = formatDateShort(e.date);
+    lines.push(`${PICKER_LETTERS[i]}) ${date} — ${e.title}`);
+  });
+  // The trailing letter for the "Latest" button is one past the last
+  // shown entry. We label it as a word for clarity ("Latest entry") rather
+  // than a letter — it's a semantic shortcut, not a list position.
+  lines.push(`Latest) Latest entry (default)`);
+  const buttons: { text: string; callback_data: string }[][] = [];
+  // One button per row; Telegram on iOS clips multi-button rows hard when
+  // labels include dates + titles. Single column keeps tap targets large.
+  shown.forEach((_, i) => {
+    buttons.push([
+      {
+        text: PICKER_LETTERS[i],
+        callback_data: encodeEntryPickCallback(i),
+      },
+    ]);
+  });
+  buttons.push([
+    {
+      text: "Latest entry",
+      callback_data: encodeEntryLatestCallback(),
+    },
+  ]);
+  return {
+    body: lines.join("\n"),
+    keyboard: { inline_keyboard: buttons },
+    shownEntries: shown,
+  };
+}
+
 /** Build the sub-tab picker keyboard. Shown after the user picks a task
  *  from the full picker. Plain two-row "Lab Notes" / "Results"; we drop
  *  the rich context here since the user just selected the task. */
@@ -752,6 +831,20 @@ function encodeSubTabCallback(
   subTab: "notes" | "results"
 ): string {
   return `subtab:${taskId}:${owner}:${subTab}`;
+}
+
+/** Entry-pick payload for multi-entry note destinations. Format:
+ *  `entry:<index>` where `<index>` is the position of the entry in the
+ *  state's `entries[]` array. We encode by index, not raw UUID, because
+ *  Telegram callback_data is capped at 64 bytes and a single UUID nearly
+ *  fills that. The state holds the id→index mapping, so the resolution
+ *  is local. A sentinel `entry:latest` covers the "Latest entry" default
+ *  button. */
+function encodeEntryPickCallback(index: number): string {
+  return `entry:${index}`;
+}
+function encodeEntryLatestCallback(): string {
+  return `entry:latest`;
 }
 
 /** Decode a callback from the task-picker row. Returns the bare task ref
@@ -1365,6 +1458,40 @@ export async function routeBatchCallbackQuery(
       owner: decoded.owner,
       title,
     };
+    // Multi-entry running-log notes ask the user WHICH entry to append to
+    // before falling through to style. Single-entry notes (and notes with
+    // zero entries — `attachImageToNote` auto-creates a "Photos" entry in
+    // that branch) skip the picker entirely so the common case stays
+    // one-shot. Sort entries newest-first so the "Latest" default and the
+    // top of the lettered list are coherent.
+    const note = notes.find((n) => n.id === decoded.id && n.username === decoded.owner);
+    const sortedEntries = note
+      ? [...note.entries].sort(
+          (a, b) =>
+            new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+        )
+      : [];
+    if (sortedEntries.length > 1) {
+      batches.set(ctx.chatId, {
+        kind: "awaiting-entry-pick",
+        chatId: ctx.chatId,
+        mediaGroupId: state.mediaGroupId,
+        ctx: state.ctx,
+        photos: state.photos,
+        destination,
+        entries: sortedEntries.map((e) => ({
+          id: e.id,
+          title: e.title,
+          date: e.date,
+        })),
+      });
+      const { body, keyboard } = buildEntryPickPrompt(
+        title,
+        sortedEntries.map((e) => ({ id: e.id, title: e.title, date: e.date })),
+      );
+      await sendMessage(ctx.botToken, ctx.chatId, body, { reply_markup: keyboard });
+      return;
+    }
     batches.set(ctx.chatId, {
       kind: "awaiting-style",
       chatId: ctx.chatId,
@@ -1374,6 +1501,50 @@ export async function routeBatchCallbackQuery(
       destination,
     });
     await sendStylePrompt(state.ctx, state.photos.length, destination);
+    return;
+  }
+
+  // Entry-pick click (`entry:<index>` or `entry:latest`) — graduates to
+  // style. Valid only from `awaiting-entry-pick`. The state holds the
+  // entries[] array we built the keyboard against; decoding is a local
+  // index lookup, not a re-fetch of the note (the note may have been
+  // edited between the prompt and the click; we honor the prompt-time
+  // choice rather than racing against live edits).
+  if (cq.data.startsWith("entry:")) {
+    if (!state || state.kind !== "awaiting-entry-pick") {
+      await answerCallbackQuery(ctx.botToken, cq.id, {
+        text: "Album expired.",
+      });
+      return;
+    }
+    await answerCallbackQuery(ctx.botToken, cq.id);
+    const payload = cq.data.slice("entry:".length);
+    let chosenEntryId: string | undefined;
+    if (payload === "latest") {
+      // Sentinel: leave `noteEntryId` undefined so `attachImageToNote`
+      // falls through to its own "latest entry by updated_at" pick. This
+      // way the resolution happens at commit time, not prompt time —
+      // matters when the user added a new entry mid-flow.
+      chosenEntryId = undefined;
+    } else {
+      const idx = Number.parseInt(payload, 10);
+      if (!Number.isFinite(idx) || idx < 0 || idx >= state.entries.length) {
+        await sendMessage(ctx.botToken, ctx.chatId, "Bad entry pick. Picking the latest entry.");
+        chosenEntryId = undefined;
+      } else {
+        chosenEntryId = state.entries[idx].id;
+      }
+    }
+    batches.set(ctx.chatId, {
+      kind: "awaiting-style",
+      chatId: ctx.chatId,
+      mediaGroupId: state.mediaGroupId,
+      ctx: state.ctx,
+      photos: state.photos,
+      destination: state.destination,
+      noteEntryId: chosenEntryId,
+    });
+    await sendStylePrompt(state.ctx, state.photos.length, state.destination);
     return;
   }
 
@@ -1478,6 +1649,7 @@ export async function routeBatchCallbackQuery(
         ctx: state.ctx,
         photos: state.photos,
         destination: state.destination,
+        noteEntryId: state.noteEntryId,
       });
       const namePrompt =
         state.photos.length === 1
@@ -1510,6 +1682,7 @@ async function commitIndividualStyle(state: BatchState & { kind: "awaiting-style
       desired,
       photo.caption ?? "",
       state.ctx,
+      state.noteEntryId,
     );
     await writeSidecar(basePath, finalFilename, {
       caption: photo.caption ?? undefined,
@@ -1579,6 +1752,10 @@ async function attachOnePhoto(
   desired: string,
   altText: string,
   ctx: BatchRouteContext,
+  /** Optional pinned entry id for multi-entry note destinations. Threaded
+   *  through from `awaiting-entry-pick`. Ignored when destination !== note,
+   *  and a missing/stale id falls back to "latest entry" inside the helper. */
+  noteEntryId?: string,
 ): Promise<{ basePath: string; finalFilename: string }> {
   if (destination.kind === "note") {
     const result = await attachImageToNote({
@@ -1587,6 +1764,7 @@ async function attachOnePhoto(
       blob: photo.blob,
       suggestedFilename: desired,
       altText,
+      entryId: noteEntryId,
     });
     return {
       basePath: `users/${destination.owner}/notes/${destination.noteId}`,
@@ -1698,6 +1876,7 @@ async function commitAutoNameBatch(
       desired,
       name,
       state.ctx,
+      state.noteEntryId,
     );
     // Caption = the batch name (the thing the user TYPED). Telegram only
     // attaches per-photo caption to the first photo of an album, so
@@ -1735,6 +1914,7 @@ async function commitAutoNameSkipped(
       desired,
       photo.caption ?? "",
       state.ctx,
+      state.noteEntryId,
     );
     await writeSidecar(basePath, finalFilename, {
       caption: photo.caption ?? undefined,

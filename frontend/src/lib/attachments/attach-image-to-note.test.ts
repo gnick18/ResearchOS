@@ -162,6 +162,81 @@ describe("attachImageToNote: file landing", () => {
   });
 });
 
+// note-attach R2 regression: NoteDetailPopup used to push `note.username`
+// (sometimes ""), and the empty segment was silently dropped by
+// `path.split("/").filter(Boolean)` in `atomicWrite`. Result: the file
+// landed at `users/notes/<id>/Images/...` (a top-level garbage folder),
+// while the popup's image-strip kept reading from
+// `users/<currentUser>/notes/<id>/Images/...`. The helper now throws on
+// an empty owner so the same regression is loud, not silent.
+describe("attachImageToNote: empty-owner guard", () => {
+  it("throws when ownerUsername is empty", async () => {
+    hoisted.notesById.set(20, {
+      id: 20,
+      username: "",
+      entries: [],
+      updated_at: "2026-05-15T10:00:00Z",
+    });
+    await expect(
+      attachImageToNote({
+        ownerUsername: "",
+        noteId: 20,
+        blob: new Blob([new Uint8Array([1])]),
+        suggestedFilename: "plate.jpg",
+      }),
+    ).rejects.toThrow(/ownerUsername/);
+    // File MUST NOT have landed anywhere.
+    expect(hoisted.memBlobs.size).toBe(0);
+    // And the entry MUST NOT have been touched (the contract is
+    // write-first, append-second).
+    const note = hoisted.notesById.get(20)!;
+    expect(note.entries).toHaveLength(0);
+  });
+});
+
+// note-attach R2 path-canonicalization lock. Asserts the bytes land at the
+// EXACT path NoteDetailPopup's image-strip reads from (basePath =
+// `users/<currentUser ?? note.username>/notes/<id>`, image-strip looks
+// inside `${basePath}/Images/`). Prior chip's test stubbed
+// writeFileFromBlob and asserted the call argument, which couldn't catch
+// the empty-owner collapse bug — this version checks the keyed-by-path
+// memBlobs map directly.
+describe("attachImageToNote: canonical path landing", () => {
+  it("the written file's path matches NoteDetailPopup's image-strip read path", async () => {
+    hoisted.notesById.set(30, {
+      id: 30,
+      username: "grant",
+      entries: [
+        {
+          id: "e1",
+          title: "Day 1",
+          date: "2026-05-15",
+          content: "",
+          created_at: "2026-05-15T10:00:00Z",
+          updated_at: "2026-05-15T10:00:00Z",
+        },
+      ],
+      updated_at: "2026-05-15T10:00:00Z",
+    });
+    const result = await attachImageToNote({
+      ownerUsername: "grant",
+      noteId: 30,
+      blob: new Blob([new Uint8Array([42])]),
+      suggestedFilename: "plate.jpg",
+    });
+    // NoteDetailPopup builds basePath as `users/<currentUser ?? note.username>/notes/<id>`
+    // and renders image src `Images/<file>` relative to that. Resolved
+    // read path = `users/<owner>/notes/<id>/Images/<file>`.
+    const popupReadPath = `users/grant/notes/30/Images/plate.jpg`;
+    expect(result.absolutePath).toBe(popupReadPath);
+    // The file MUST be at that exact key in the mock FS.
+    expect(hoisted.memBlobs.has(popupReadPath)).toBe(true);
+    // And the markdown link uses the same `Images/<file>` relative form
+    // the popup's `imageBasePath` prop resolves against.
+    expect(result.relativePath).toBe("Images/plate.jpg");
+  });
+});
+
 describe("attachImageToNote: markdown link append", () => {
   it("appends the markdown link to the latest entry's content (by updated_at)", async () => {
     hoisted.notesById.set(8, {
@@ -221,6 +296,75 @@ describe("attachImageToNote: markdown link append", () => {
     const note = hoisted.notesById.get(9)!;
     expect(note.entries).toHaveLength(1);
     expect(note.entries[0].content).toContain("![plate.jpg](Images/plate.jpg)");
+  });
+
+  it("respects an entryId override (multi-entry picker path)", async () => {
+    hoisted.notesById.set(11, {
+      id: 11,
+      username: "grant",
+      entries: [
+        {
+          id: "older",
+          title: "Older",
+          date: "2026-05-01",
+          content: "older body",
+          created_at: "2026-05-01T10:00:00Z",
+          updated_at: "2026-05-01T10:00:00Z",
+        },
+        {
+          id: "newer",
+          title: "Newer",
+          date: "2026-05-15",
+          content: "newer body",
+          created_at: "2026-05-15T10:00:00Z",
+          updated_at: "2026-05-15T10:00:00Z",
+        },
+      ],
+      updated_at: "2026-05-15T10:00:00Z",
+    });
+    // Pick the OLDER entry (default would be "newer").
+    const result = await attachImageToNote({
+      ownerUsername: "grant",
+      noteId: 11,
+      blob: new Blob([new Uint8Array([1])]),
+      suggestedFilename: "plate.jpg",
+      entryId: "older",
+    });
+    expect(result.appendedToEntryId).toBe("older");
+    const note = hoisted.notesById.get(11)!;
+    const older = note.entries.find((e) => e.id === "older")!;
+    expect(older.content).toContain("![plate.jpg](Images/plate.jpg)");
+    // Newer entry left untouched.
+    const newer = note.entries.find((e) => e.id === "newer")!;
+    expect(newer.content).toBe("newer body");
+  });
+
+  it("falls back to latest entry when entryId is stale / unknown", async () => {
+    hoisted.notesById.set(12, {
+      id: 12,
+      username: "grant",
+      entries: [
+        {
+          id: "only",
+          title: "Only",
+          date: "2026-05-15",
+          content: "body",
+          created_at: "2026-05-15T10:00:00Z",
+          updated_at: "2026-05-15T10:00:00Z",
+        },
+      ],
+      updated_at: "2026-05-15T10:00:00Z",
+    });
+    // entryId points at an entry that doesn't exist (e.g. user deleted it
+    // between the picker prompt and the commit click).
+    const result = await attachImageToNote({
+      ownerUsername: "grant",
+      noteId: 12,
+      blob: new Blob([new Uint8Array([1])]),
+      suggestedFilename: "plate.jpg",
+      entryId: "ghost-id",
+    });
+    expect(result.appendedToEntryId).toBe("only");
   });
 
   it("bumps note.updated_at via the updateEntry call", async () => {

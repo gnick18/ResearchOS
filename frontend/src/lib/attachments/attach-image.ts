@@ -87,6 +87,13 @@ export interface AttachImageToNoteOptions {
   /** Used as alt-text in the appended markdown image link. Defaults to the
    *  filename when omitted. */
   altText?: string;
+  /** Override which entry the markdown link is appended to. When the note
+   *  has more than one entry, the Telegram bot's entry-picker prompt
+   *  resolves to a specific `entryId` before calling this helper. When
+   *  omitted (or when the id doesn't match any entry), the helper falls
+   *  back to the prior "latest entry by updated_at" behavior — keeping
+   *  single-entry notes and direct in-app calls one-shot. */
+  entryId?: string;
 }
 
 export interface AttachImageToNoteResult {
@@ -130,6 +137,17 @@ export interface AttachImageToNoteResult {
 export async function attachImageToNote(
   opts: AttachImageToNoteOptions
 ): Promise<AttachImageToNoteResult> {
+  // Defensive: a falsy / empty owner produced `users//notes/<id>/...` which
+  // `atomicWrite` silently collapsed via `path.split("/").filter(Boolean)`
+  // to `users/notes/<id>/...` — a top-level folder the note popup never
+  // reads from. Caller bug (NoteDetailPopup passing an empty `note.username`
+  // through `setActiveNote`) is fixed upstream; this throw makes the same
+  // class of regression loud instead of silent if it recurs.
+  if (!opts.ownerUsername) {
+    throw new Error(
+      `attachImageToNote: ownerUsername is required (got "${opts.ownerUsername}")`,
+    );
+  }
   const base = `users/${opts.ownerUsername}/notes/${opts.noteId}`;
   const imagesDir = `${base}/Images`;
   const finalFilename = await pickUniqueFilename(imagesDir, opts.suggestedFilename);
@@ -150,16 +168,25 @@ export async function attachImageToNote(
   const note = await notesApi.get(opts.noteId, opts.ownerUsername);
   let appendedToEntryId: string | null = null;
   if (note && note.entries.length > 0) {
-    const latest = pickLatestEntry(note.entries);
-    if (latest) {
-      const newContent = `${latest.content}${markdownLink}`;
+    // Caller-picked entry wins when present and resolvable. Multi-entry
+    // notes route through the Telegram bot's entry picker, which passes
+    // the user-chosen `entryId` back here. Fall back to the latest entry
+    // when the override is omitted OR points at an entry that no longer
+    // exists (the note got edited between the prompt and the commit).
+    const overridden =
+      opts.entryId != null
+        ? note.entries.find((e) => e.id === opts.entryId) ?? null
+        : null;
+    const target = overridden ?? pickLatestEntry(note.entries);
+    if (target) {
+      const newContent = `${target.content}${markdownLink}`;
       await notesApi.updateEntry(
         opts.noteId,
-        latest.id,
+        target.id,
         { content: newContent },
         opts.ownerUsername,
       );
-      appendedToEntryId = latest.id;
+      appendedToEntryId = target.id;
     }
   } else if (note) {
     const today = todayLocalDate();

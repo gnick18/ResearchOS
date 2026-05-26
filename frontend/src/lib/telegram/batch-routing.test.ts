@@ -74,11 +74,12 @@ const hoisted = vi.hoisted(() => {
         ownerUsername: string;
         noteId: number;
         suggestedFilename: string;
+        entryId?: string;
       }) => ({
         finalFilename: opts.suggestedFilename,
         absolutePath: `users/${opts.ownerUsername}/notes/${opts.noteId}/Images/${opts.suggestedFilename}`,
         relativePath: `Images/${opts.suggestedFilename}`,
-        appendedToEntryId: null,
+        appendedToEntryId: opts.entryId ?? null,
       }),
     ),
   };
@@ -1534,5 +1535,220 @@ describe("batch-routing: end-to-end note attach", () => {
     expect(sidecar).toBeDefined();
     expect(sidecar?.caption).toBe("Plate1");
     expect(sidecar?.source).toBe("telegram");
+  });
+});
+
+// --- Entry picker for multi-entry notes -----------------------------------
+//
+// Bug-fix coverage for note-attach R2 (2026-05-26). The prior chip routed
+// every note-attach to the latest entry by `updated_at` with no
+// disambiguation; running-log notes (e.g. weekly bench logs, recurring
+// 1:1 meetings) can have many entries, and the user often wants the photo
+// on an OLDER entry that matches the conversation it came from.
+//
+// The injected state is `awaiting-entry-pick`, sitting between the note
+// callback and the style prompt. Single-entry notes skip the new state
+// entirely (one-shot remains one-shot). The entry id is threaded through
+// `awaiting-style` → `awaiting-batch-name` → `attachImageToNote.entryId`.
+describe("batch-routing: entry picker for multi-entry notes", () => {
+  it("single-entry note: skip the picker and go straight to style", async () => {
+    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
+    _setNotesLoaderForTests(async () => [
+      makeNote({
+        id: 50,
+        title: "Single Entry Note",
+        entries: [
+          {
+            id: "e1",
+            title: "Day 1",
+            date: "2026-05-15",
+            content: "",
+            created_at: "2026-05-15T10:00:00Z",
+            updated_at: "2026-05-15T10:00:00Z",
+          },
+        ],
+      }),
+    ]);
+    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null, {
+      id: 50,
+      owner: USER,
+      title: "Single Entry Note",
+    });
+    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
+    await routeBatchCallbackQuery(makeCallback(`note:50:${USER}`), baseCtx);
+    // Single-entry note must NOT enter the entry-pick state.
+    const next = _peekBatchForTests(CHAT_ID);
+    expect(next?.kind).toBe("awaiting-style");
+  });
+
+  it("multi-entry note: routes through awaiting-entry-pick, then style", async () => {
+    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
+    _setNotesLoaderForTests(async () => [
+      makeNote({
+        id: 60,
+        title: "Multi Entry Note",
+        entries: [
+          {
+            id: "older",
+            title: "Older",
+            date: "2026-05-01",
+            content: "",
+            created_at: "2026-05-01T10:00:00Z",
+            updated_at: "2026-05-01T10:00:00Z",
+          },
+          {
+            id: "newer",
+            title: "Newer",
+            date: "2026-05-15",
+            content: "",
+            created_at: "2026-05-15T10:00:00Z",
+            updated_at: "2026-05-15T10:00:00Z",
+          },
+        ],
+      }),
+    ]);
+    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null, {
+      id: 60,
+      owner: USER,
+      title: "Multi Entry Note",
+    });
+    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
+    await routeBatchCallbackQuery(makeCallback(`note:60:${USER}`), baseCtx);
+
+    // After the note pick, the bot is now asking which entry to attach to.
+    const inPick = _peekBatchForTests(CHAT_ID);
+    expect(inPick?.kind).toBe("awaiting-entry-pick");
+    // The prompt body lists the entries (newest first) plus the "Latest"
+    // shortcut. We sanity-check the latest message body.
+    const lastCall = hoisted.sendMessageMock.mock.calls.at(-1);
+    expect(lastCall?.[2]).toContain("Multi Entry Note");
+    expect(lastCall?.[2]).toContain("Latest entry (default)");
+  });
+
+  it("multi-entry note + Latest sentinel: noteEntryId is undefined", async () => {
+    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
+    _setNotesLoaderForTests(async () => [
+      makeNote({
+        id: 61,
+        title: "Multi Latest",
+        entries: [
+          {
+            id: "older",
+            title: "Older",
+            date: "2026-05-01",
+            content: "",
+            created_at: "2026-05-01T10:00:00Z",
+            updated_at: "2026-05-01T10:00:00Z",
+          },
+          {
+            id: "newer",
+            title: "Newer",
+            date: "2026-05-15",
+            content: "",
+            created_at: "2026-05-15T10:00:00Z",
+            updated_at: "2026-05-15T10:00:00Z",
+          },
+        ],
+      }),
+    ]);
+    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null, {
+      id: 61,
+      owner: USER,
+      title: "Multi Latest",
+    });
+    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
+    await routeBatchCallbackQuery(makeCallback(`note:61:${USER}`), baseCtx);
+    await routeBatchCallbackQuery(makeCallback("entry:latest"), baseCtx);
+    await routeBatchCallbackQuery(makeCallback("style:auto"), baseCtx);
+    await consumeBatchTextReply("Plate2", baseCtx);
+
+    expect(hoisted.attachImageToNoteMock).toHaveBeenCalledTimes(1);
+    const call = hoisted.attachImageToNoteMock.mock.calls[0][0];
+    expect((call as { entryId?: string }).entryId).toBeUndefined();
+  });
+
+  it("multi-entry note + pick A (newest): entryId === sorted[0].id", async () => {
+    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
+    _setNotesLoaderForTests(async () => [
+      makeNote({
+        id: 62,
+        title: "Multi A",
+        entries: [
+          {
+            id: "older",
+            title: "Older",
+            date: "2026-05-01",
+            content: "",
+            created_at: "2026-05-01T10:00:00Z",
+            updated_at: "2026-05-01T10:00:00Z",
+          },
+          {
+            id: "newer",
+            title: "Newer",
+            date: "2026-05-15",
+            content: "",
+            created_at: "2026-05-15T10:00:00Z",
+            updated_at: "2026-05-15T10:00:00Z",
+          },
+        ],
+      }),
+    ]);
+    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null, {
+      id: 62,
+      owner: USER,
+      title: "Multi A",
+    });
+    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
+    await routeBatchCallbackQuery(makeCallback(`note:62:${USER}`), baseCtx);
+    // Entries are sorted newest-first by updated_at, so A → "newer".
+    await routeBatchCallbackQuery(makeCallback("entry:0"), baseCtx);
+    await routeBatchCallbackQuery(makeCallback("style:auto"), baseCtx);
+    await consumeBatchTextReply("Plate3", baseCtx);
+
+    expect(hoisted.attachImageToNoteMock).toHaveBeenCalledTimes(1);
+    const call = hoisted.attachImageToNoteMock.mock.calls[0][0];
+    expect((call as { entryId?: string }).entryId).toBe("newer");
+  });
+
+  it("multi-entry note + pick B (older): entryId === sorted[1].id", async () => {
+    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
+    _setNotesLoaderForTests(async () => [
+      makeNote({
+        id: 63,
+        title: "Multi B",
+        entries: [
+          {
+            id: "older",
+            title: "Older",
+            date: "2026-05-01",
+            content: "",
+            created_at: "2026-05-01T10:00:00Z",
+            updated_at: "2026-05-01T10:00:00Z",
+          },
+          {
+            id: "newer",
+            title: "Newer",
+            date: "2026-05-15",
+            content: "",
+            created_at: "2026-05-15T10:00:00Z",
+            updated_at: "2026-05-15T10:00:00Z",
+          },
+        ],
+      }),
+    ]);
+    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null, {
+      id: 63,
+      owner: USER,
+      title: "Multi B",
+    });
+    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
+    await routeBatchCallbackQuery(makeCallback(`note:63:${USER}`), baseCtx);
+    await routeBatchCallbackQuery(makeCallback("entry:1"), baseCtx);
+    await routeBatchCallbackQuery(makeCallback("style:auto"), baseCtx);
+    await consumeBatchTextReply("Plate4", baseCtx);
+
+    expect(hoisted.attachImageToNoteMock).toHaveBeenCalledTimes(1);
+    const call = hoisted.attachImageToNoteMock.mock.calls[0][0];
+    expect((call as { entryId?: string }).entryId).toBe("older");
   });
 });
