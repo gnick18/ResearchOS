@@ -22,13 +22,22 @@
 //   stuff I created or someone explicitly shared with me, grouped how
 //   *I* organize it".
 //
-// Ownership predicate:
-//   A method is "mine" iff `method.owner === currentUser` AND it isn't
-//   tagged `is_shared_with_me`. Methods in `users/public/methods/*` carry
-//   `owner: "public"` (not the creator's username, since `created_by`
-//   is nulled at create time by methodsApi.create). They go into
-//   "Shared with Lab" by definition, even if the same user originally
-//   published them (the schema doesn't preserve that authorship).
+// Ownership predicate (Grant follow-up 2026-05-26, "Course-correct:
+// own-but-public stays in My Methods"):
+//   A method is "mine" iff (created_by === currentUser) OR
+//   (owner === currentUser), AND it isn't tagged `is_shared_with_me`.
+//
+//   Authorship beats storage location. Methods in `users/public/methods/*`
+//   carry `owner: "public"`, but when the schema preserves `created_by`
+//   (the common case for any method this user authored, per the Qubit /
+//   Trichoderma evidence on Grant's real disk), authorship wins. The
+//   Public badge still tells the user the method is shared with the lab.
+//   New users / lab members who didn't author a public method still see
+//   it only in "Shared with Lab".
+//
+//   The `owner === currentUser` fallback covers private methods stored
+//   at users/<me>/methods/* (where owner IS the username) and any older
+//   method records that don't carry created_by.
 //
 // Sub-grouping inside "Shared with Lab":
 //   v1 groups by `owner` (lab member username, or "Lab" for the public
@@ -42,16 +51,22 @@ import type { Method } from "@/lib/types";
 
 /**
  * True when `method` belongs in the current user's "My Methods" section.
- * Owner-of-record AND not received via shared-with-me overlay.
+ * Authorship (created_by) beats storage location (owner). Methods I
+ * authored stay in My Methods even after I publish them to the lab; the
+ * Public badge on the card still signals "this is shared with everyone".
  *
- * Public methods (owner === "public") always return false even if the
- * current user originally authored them, because the schema doesn't
- * preserve that authorship (created_by is nulled by methodsApi.create).
- * They surface in "Shared with Lab" with the existing Public badge.
+ * Lab members who didn't author the same public method see it only in
+ * "Shared with Lab" (their `created_by !== currentUser` and the public
+ * namespace's `owner !== currentUser`).
+ *
+ * Methods tagged `is_shared_with_me` (received via the unified-sharing
+ * overlay) always read as shared, never as mine, because the overlay
+ * mounts another user's record into my view without copying it.
  */
 export function isOwnMethod(method: Method, currentUser: string): boolean {
   if (!currentUser) return false;
   if (method.is_shared_with_me) return false;
+  if (method.created_by === currentUser) return true;
   return method.owner === currentUser;
 }
 

@@ -60,6 +60,7 @@ import { isWholeLabShared } from "@/lib/sharing/unified";
 import {
   groupOwnMethodsByFolder,
   groupSharedMethodsByOwner,
+  isSharedMethod,
   matchesMethodSearch,
   partitionMethodsByOwnership,
 } from "@/lib/methods/library-sections";
@@ -335,10 +336,11 @@ export default function MethodsPage() {
       if (!draggedMethod) return;
 
       // Defensive guard: shared method cards are non-draggable in the
-      // new two-section layout (see brief: "shared methods should not
-      // be draggable into the user's own categories"). If a drag event
-      // ever reaches here for a non-own method, bail without writing.
-      if (currentUser && draggedMethod.owner !== currentUser) {
+      // new two-section layout. If a drag event ever reaches here for a
+      // shared method, bail without writing. Uses `isSharedMethod` so
+      // the user's own published-public methods (created_by === me,
+      // owner === "public") stay draggable within My Methods.
+      if (currentUser && isSharedMethod(draggedMethod, currentUser)) {
         setDraggedMethod(null);
         setDropTargetFolder(null);
         return;

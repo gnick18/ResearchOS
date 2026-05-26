@@ -40,13 +40,30 @@ describe("isOwnMethod / isSharedMethod", () => {
     expect(isSharedMethod(m, "alex")).toBe(false);
   });
 
-  it("counts a public-namespace method as shared even if I might have created it", () => {
-    // schema gap: created_by is nulled at create time, so a public
-    // method authored by alex still has owner === "public" and shows up
-    // in Shared with Lab for everyone.
+  it("counts a public-namespace method I did NOT author as shared", () => {
+    // Public methods authored by another lab member: owner === "public",
+    // created_by is null or someone else's username. They show in
+    // "Shared with Lab" for me.
     const m = method({ id: 1, owner: "public" });
     expect(isOwnMethod(m, "alex")).toBe(false);
     expect(isSharedMethod(m, "alex")).toBe(true);
+  });
+
+  it("counts a public-namespace method I authored as MINE (Grant 2026-05-26 course-correct)", () => {
+    // Authorship beats storage location: if I created a method and then
+    // published it, it stays in My Methods with the Public badge. New
+    // users / other lab members still see it only in Shared (their
+    // created_by !== alex). Evidence: Qubit / Trichoderma on Grant's
+    // real disk both carry created_by: "GrantNickles" alongside
+    // is_public: true. The sub-bot's R2 assumption ("created_by is
+    // nulled at create time") was wrong for the methods Grant actually
+    // has.
+    const m = method({ id: 1, owner: "public", created_by: "alex" });
+    expect(isOwnMethod(m, "alex")).toBe(true);
+    expect(isSharedMethod(m, "alex")).toBe(false);
+    // Other lab members still see it as shared.
+    expect(isOwnMethod(m, "morgan")).toBe(false);
+    expect(isSharedMethod(m, "morgan")).toBe(true);
   });
 
   it("counts a method shared-with-me as shared, never as mine", () => {
