@@ -55,6 +55,22 @@ export default function WelcomeWizardPage() {
         through your own account instead of front-loading taxonomy questions.
       </Callout>
 
+      <Callout variant="info" title="This is not the 3-minute walkthrough on the picker">
+        Quick disambiguation: the folder-picker screen (before you link a
+        folder) shows a small <strong>Take the 3-minute walkthrough</strong>{" "}
+        button next to BeakerBot in the upper-right. That is a separate, opt-
+        in 4-beat modal that introduces ResearchOS at a high level (welcome,
+        data security, folder choice, cloud provider). It runs <em>before</em>{" "}
+        you commit to picking a folder, never writes to disk, and closes back
+        to the picker. The longer tour described on this page is the in-product
+        BeakerBot tour that auto-fires <em>after</em> you sign in to a fresh
+        user account. See{" "}
+        <Link href="/wiki/getting-started/connecting-your-folder">
+          Connecting Your Folder
+        </Link>{" "}
+        for the picker-side walkthrough.
+      </Callout>
+
       <h2>Who sees the tour</h2>
       <p>
         The tour auto-fires only when three conditions all hold:

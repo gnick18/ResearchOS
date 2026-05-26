@@ -1,7 +1,11 @@
 {
-  "generatedAt": "2026-05-26T04:50:19.765Z",
-  "pageCount": 49,
+  "generatedAt": "2026-05-26T05:27:37.625Z",
+  "pageCount": 50,
   "categories": [
+    {
+      "id": "start-here",
+      "label": "Start Here"
+    },
     {
       "id": "quickstart",
       "label": "Quickstart"
@@ -39,20 +43,22 @@
         "60-second tour",
         "Browse by section",
         "Where to find things",
+        "First time here? Read this first.",
         "Sharing a folder with your lab?"
       ],
       "bodySnippets": [
         "Everything you need to set up ResearchOS, share a folder with your lab, and use each feature. Most users only need the first two sections, Getting Started and Shared Lab Accounts , to be productive.",
         "ResearchOS is a single-page research-management app that reads and writes directly to a folder on your computer. There's no server, no account, no sign-up. Your data lives in plain JSON files you fully own.",
         "Open ResearchOS in Chrome, Edge, or Brave . Other browsers can't read local folders yet.",
-        "Click Link Folder to pick an existing folder on your disk, or Create New Folder to start fresh. This is your ResearchOS folder.",
+        "Click Link Folder to pick an existing folder on your disk, or Create New Folder to start fresh. This is your ResearchOS folder. If you want a quick intro to the app first, BeakerBot waves at you from the upper-right of this screen with an optional 3-minute walkthrough button. ...",
         "Pick a username. Your data lives under inside that folder. You can set an optional password to gate access on a shared machine.",
-        "BeakerBot's guided welcome tour auto-starts on first login. Click through to learn the major surfaces. See Welcome Wizard for a breakdown of each step.",
+        "Once you sign in, BeakerBot's in-product welcome tour auto-starts on the empty account. (This is the longer hands-on tour, separate from the optional 3-minute walkthrough on the folder picker.) Click through to learn the major surfaces. See Welcome Wizard for a breakdown of ea...",
         "Start adding projects, methods, experiments, and Gantt tasks. Everything syncs to disk immediately.",
         "The ? icon in the top-right of the app header always opens this wiki.",
         "On the folder-connect screen, look for the New here? Read the setup guide link, which goes to the Connecting Your Folder page.",
         "Use Ctrl + F / Cmd + F to search within a wiki page.",
         "Looking for security and privacy details? The Security page covers data storage, encryption, and what never leaves your machine. It does not appear in the section grid above because it has no sub-pages.",
+        "The wiki is big because the app is big. If you only have time for one page, Start Here covers the 7 things worth knowing up front and how to navigate the rest of the wiki when you actually need it.",
         "Read Shared Lab Accounts first. Putting the ResearchOS folder inside OneDrive, Google Drive, Dropbox, or iCloud lets multiple lab members use the same folder, but you have to configure it to stay downloaded locally . If you don't, ResearchOS won't be able to read and write rel..."
       ]
     },
@@ -1591,30 +1597,44 @@
       ],
       "categoryId": "getting-started",
       "headings": [
+        "The page layout, at a glance",
         "What you'll do",
+        "The optional walkthrough modal",
         "What gets created inside the folder",
         "Reconnecting later",
         "Setting up a shared lab folder",
         "Chromium browsers only",
+        "The walkthrough is optional and doesn't link a folder",
         "Already have data? Pick the same folder.",
         "Just kicking the tires?",
         "Clearing site data disconnects you"
       ],
       "bodySnippets": [
-        "Pick a folder on your disk. ResearchOS will read and write JSON files inside it (no cloud, no upload).",
+        "Pick a folder on your disk. ResearchOS will read and write JSON files inside it (no cloud, no upload). On a brand-new visit, BeakerBot waves at you from the upper-right with an optional 3-minute walkthrough you can take before linking anything.",
+        "Three things are on this screen on a first visit:",
+        "The Take the 3-minute walkthrough button on the picker opens a small 4-beat modal that introduces the app before you commit to picking a folder. It is opt-in, not auto-fire: brand-new users see the speech bubble's gentle nudge (\"New here? It is strongly recommended to take a s...",
+        "A small Skip link sits in the corner of every beat so you can bail back to the picker at any time. The modal does NOT write anything to disk and does NOT persist a \"seen\" flag; reopening it is a one-click decision you make each visit.",
         "ResearchOS creates a simple tree the first time you connect:",
         "Everything is plain JSON and plain image files. You can back up the folder by copying it, version-control it with git, or open it in Finder / Explorer at any time.",
         "After your first connect, ResearchOS remembers the folder name via browser storage. On your next visit, instead of the two-card picker you see a dedicated reconnect screen : it shows the folder name in a bold heading ( Reconnect to [your-folder] ) and a prominent Continue butt...",
         "If multiple people in your lab should share one folder, put the folder inside OneDrive, Google Drive, Dropbox, or iCloud, and follow Shared Lab Accounts . The critical step is making sure the folder is always available offline on every member's laptop.",
+        "The two folder cards in the middle : Link Existing Folder on the left, Create New Folder on the right. Either one starts the actual folder-link flow.",
+        "BeakerBot in the upper-right : a small sky-blue beaker mascot waving at you. Below the mascot is a white speech bubble that explains the optional walkthrough, plus a button labeled Take the 3-minute walkthrough . Skip past it entirely if you already know what you want to do.",
+        "The RISE credentials stamp in the bottom-right : a small badge that names the academic project this app was built under (a UW-Madison RISE grant). Pure authority signal; nothing to click.",
+        "Welcome. BeakerBot waves and gives you a two-sentence pitch for ResearchOS. There is also a small heart easter egg if you click the mascot.",
+        "Data security. The core promise: your data NEVER leaves your computer. No upload, no central server, no telemetry on your research. See Security for the full story.",
+        "Folder choice. Local (recommended for solo) or cloud-synced (for cross-device or multi-person lab). Local skips the next beat and closes the modal; cloud advances to beat 4.",
+        "Cloud provider. Picks the cloud you want to host the folder in (OneDrive, Google Drive, Dropbox, Box, iCloud) and links you to the per-provider setup guide. Closing the modal returns you to the picker; the folder link itself still happens through the picker cards above.",
         "Click Link Folder if you already have a ResearchOS folder. The button opens your operating system's folder picker. Alternatively, you can drag a folder directly onto the \"Link Existing Folder\" card instead of clicking the button. The card highlights with a dashed blue border a...",
         "To create a new folder, type a name in the Folder Name input on the Create New Folder card first. The Choose Location button is disabled until the name field is non-empty. Once you type a name, click Choose Location to open the OS folder picker and select where to save it.",
         "The browser asks for permission to read and write that folder. Click Allow on every visit so you don't get reprompted.",
-        "ResearchOS initializes the folder structure (e.g., , ) and shows the user-picker screen.",
+        "ResearchOS initializes the folder structure (e.g., , ) and shows the user-picker screen. After you pick or create a username, the in-product BeakerBot tour auto-fires on the empty account. That tour is a different thing from the walkthrough modal on this picker page; see Welco...",
         "ResearchOS uses the File System Access API, which is only available in Chromium-based browsers (Chrome, Edge, Brave). Safari and Firefox are not supported. See Browser Requirements for details.",
+        "Clicking Take the 3-minute walkthrough opens a 4-beat modal (welcome, data security, folder choice, cloud provider). It runs the BeakerBot intro in slide form, then closes and returns you to this same picker. The modal never picks a folder for you. Returning users skip it enti...",
         "If you've used ResearchOS before, point it at the same folder you used last time. Your projects, tasks, methods, and notes will load exactly as you left them.",
         "Skip the folder picker and visit Demo Mode instead. It opens the app at with a seeded fake yeast lab you can click around in. No folder, no install, edits disappear on reload.",
         "If you clear the site's data (e.g., browser settings → clear data), the folder handle is wiped. Your data on disk is untouched. You just have to pick the folder again next time you open ResearchOS.",
-        "The first screen you see on a fresh install. (Screenshot predates the drag-drop addition — see below.)",
+        "The first screen you see on a fresh install. (Screenshot pending recapture: the current layout floats BeakerBot in the upper-right corner with a Take the 3-minute walkthrough CTA, and the RISE credentials stamp sits in the bottom-right. The two cards in the middle still drive ...",
         "The folder-connect screen with two cards: Link Existing Folder on the left and Create New Folder on the right, plus a demo button and setup-guide link below."
       ]
     },
@@ -2412,6 +2432,55 @@
         "The folder picker can take up to a minute to open on Windows for OneDrive folders. This is normal; OneDrive needs time to enumerate the folder tree. Wait for it rather than clicking again.",
         "Shared folders sometimes show up as SharePoint libraries or in a separate \"Shared with me\" section. Microsoft's Add shortcut to My files button is the cleanest way to get the shared folder into your normal OneDrive tree, where Always keep on this device works reliably.",
         "If you'd rather have your whole OneDrive on disk (not just the lab folder), click the OneDrive icon in the menu-bar / tray → Settings -> Sync and backup -> Advanced settings -> Files On-Demand and switch to Download all OneDrive files now . Pick this if you have other OneDrive..."
+      ]
+    },
+    {
+      "href": "/wiki/start-here",
+      "title": "Oh god, another massive docs site",
+      "breadcrumbs": [
+        "Start Here"
+      ],
+      "categoryId": "start-here",
+      "headings": [
+        "What ResearchOS is, in one paragraph",
+        "The 7 things worth knowing up front",
+        "How to use this wiki",
+        "If you are brand new, start here",
+        "If you are setting up a shared lab folder",
+        "One last thing",
+        "1. Your data is yours, on your machine",
+        "2. The “?” button is your shortcut into this wiki",
+        "3. BeakerBot will walk you through the app on first login",
+        "4. Home is for status. The Workbench is for doing experiments.",
+        "5. Tasks live in projects, projects live in your account",
+        "6. Lab Heads (PIs) get a Lab Overview surface",
+        "7. Integrations (Telegram, calendar, AI Helper) are all opt-in"
+      ],
+      "bodySnippets": [
+        "Yeah, fair. There are a lot of pages in here. Good news: this is an encyclopedia, not a textbook. You are not supposed to read it cover to cover. You are supposed to land back here whenever you want to know how some specific thing works, find the page for it, skim, and leave.",
+        "If you only read one wiki page, read this one. It covers the small handful of things that make the difference between \"I tried it once and bounced\" and \"I am fluent in this app.\" Then it tells you how to find the rest of the wiki when you actually need it.",
+        "A research project management app that runs entirely in your browser and reads / writes a folder on your own computer. No accounts, no sign-up, no upload. You point it at a folder, pick a username, and it stores everything (projects, tasks, lab notes, methods, PCR protocols, p...",
+        "These are the highest-leverage facts about ResearchOS. If you absorb these and nothing else, you will be in good shape.",
+        "The wiki has dozens of pages because the app has dozens of features. Three ways to navigate it, in order of speed:",
+        "Each page is built concept-first. The top of the page explains what the feature actually is and why it exists. Below that are screenshots and procedural steps. You can usually skim to the screenshot of the thing you need and stop there.",
+        "Walk these in order (each is short):",
+        "Read Shared Lab Accounts first. Putting the ResearchOS folder inside OneDrive, Google Drive, Dropbox, Box, or iCloud lets your whole lab work out of one folder. The catch: you have to configure the sync client to keep the folder downloaded locally rather than on-demand. If you...",
+        "This app is local-first, single-developer, and the wiki tries to be honest about what works and what does not yet. If something is broken or confusing, the Feedback page in the app files a GitHub issue with the context pre-filled. Use it. It is the fastest way to get things fi...",
+        "Type a phrase in the search bar at the top of the sidebar. Fastest. If you know the word for the thing you want (\"gradient,\" \"telegram,\" \"edit session\"), search beats browsing every time.",
+        "Browse by category in the sidebar on the left. Pages are grouped under Getting Started, Shared Lab Accounts, Features, Integrations, and Security. If you know roughly what area you are in, this works well.",
+        "Hit the \"?\" button inside the app. Bounces you straight to the wiki page for whatever surface you were just looking at. This is the right move when you are mid-task and want context, not when you are exploring.",
+        "Browser requirements . Chrome, Edge, or Brave. The folder API does not work in Safari or Firefox.",
+        "Connecting your folder . Picking the folder ResearchOS reads and writes.",
+        "Creating a user . Username, optional password.",
+        "Welcome tour (BeakerBot) . What the guided walkthrough covers.",
+        "If you want a sandbox first, try the demo (in-browser, fake yeast lab, edits vanish on reload).",
+        "Everything you do writes to the folder you connected. Nothing uploads. There is no ResearchOS server holding your research. If you want to back it up, copy the folder. If you want to walk away, delete it. The only network calls the app makes are to fetch your own Telegram phot...",
+        "Top-right of every page in the app. Click it and it opens the wiki page for whatever surface you were just looking at. Looking at the Gantt and confused about a colored bar? Hit \"?\" and you land on the Gantt wiki page. Use it liberally. That is what it is there for.",
+        "A guided tour auto-starts the first time you sign in. It is roughly 20 minutes, hands-on, in your actual account. You can skip it any time and re-run it later from Settings → Walkthrough . Most users who skip end up running it eventually because the app has enough surface area...",
+        "Two surfaces, two purposes. Home is the dashboard you glance at each morning: today's tasks, upcoming deadlines, recent activity. The Workbench is where you actually run experiments: three tabs (Experiments, Notes, Lists), a project filter that sticks across tabs, and a popup ...",
+        "Hierarchy: account → projects → tasks. Sharing happens at the task level (or implicitly through shared methods). When you share a task with a labmate, they see it in their own Workbench under the project, with editing rights if you grant them. The unit of collaboration is the ...",
+        "If your account is flagged as a Lab Head , you unlock Lab Overview , a customizable dashboard with cross-member widgets (member workload, recent activity, purchase queue, audit log). It is not visible to regular members. If you are a PI running a lab, set this on your account ...",
+        "ResearchOS works completely standalone. The Telegram bot (snap a photo on your phone, it lands in your inbox), the calendar feeds (subscribe to a Google / Outlook / iCloud calendar), and the AI Helper are all in Settings, all off by default, and all separately switchable. Conn..."
       ]
     }
   ]

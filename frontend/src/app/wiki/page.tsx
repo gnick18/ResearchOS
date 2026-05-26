@@ -50,7 +50,15 @@ export default function WikiLandingPage() {
         <li>
           Click <strong>Link Folder</strong> to pick an existing folder on
           your disk, or <strong>Create New Folder</strong> to start fresh.
-          This is your ResearchOS folder.
+          This is your ResearchOS folder. If you want a quick intro to the
+          app first, BeakerBot waves at you from the upper-right of this
+          screen with an optional <strong>3-minute walkthrough</strong>{" "}
+          button. The walkthrough is a 4-beat modal that explains data
+          security and folder choice; it does not link a folder for you. See{" "}
+          <Link href="/wiki/getting-started/connecting-your-folder">
+            Connecting Your Folder
+          </Link>{" "}
+          for the full breakdown.
         </li>
         <li>
           Pick a username. Your data lives under{" "}
@@ -58,7 +66,9 @@ export default function WikiLandingPage() {
           optional password to gate access on a shared machine.
         </li>
         <li>
-          BeakerBot&apos;s guided welcome tour auto-starts on first login. Click
+          Once you sign in, BeakerBot&apos;s in-product welcome tour auto-starts
+          on the empty account. (This is the longer hands-on tour, separate
+          from the optional 3-minute walkthrough on the folder picker.) Click
           through to learn the major surfaces. See{" "}
           <Link href="/wiki/getting-started/welcome-wizard">Welcome Wizard</Link>{" "}
           for a breakdown of each step.

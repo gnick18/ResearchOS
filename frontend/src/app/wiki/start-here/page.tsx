@@ -75,7 +75,12 @@ export default function StartHerePage() {
         20 minutes, hands-on, in your actual account. You can skip it any
         time and re-run it later from <strong>Settings → Walkthrough</strong>.
         Most users who skip end up running it eventually because the app has
-        enough surface area that the tour pays for itself.
+        enough surface area that the tour pays for itself. (Separate thing:
+        the folder-picker screen also has a small <strong>Take the 3-minute
+        walkthrough</strong> button next to BeakerBot in the upper-right.
+        That one is a 4-beat intro modal that runs <em>before</em> you link a
+        folder; the in-product tour is what fires <em>after</em> you sign
+        in.)
       </Callout>
 
       <Callout
