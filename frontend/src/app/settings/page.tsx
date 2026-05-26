@@ -3084,7 +3084,7 @@ function ReconcileRow() {
 // demo / wiki-capture mode so the fixture stays deterministic and we
 // don't make outbound network calls during screenshot captures.
 //
-// Per AI_HELPER_PROPOSAL.md "Automation contract" items 5 + 6 + the
+// Per docs/proposals/done/AI_HELPER_PROPOSAL.md "Automation contract" items 5 + 6 + the
 // chip 3 brief.
 
 type AIHelperSize = "lean" | "full" | "minimal";

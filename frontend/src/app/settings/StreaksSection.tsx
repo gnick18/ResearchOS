@@ -3,7 +3,7 @@
 /**
  * Settings page Streaks section (Phase S3 of the Streak-and-Milestones arc).
  *
- * See STREAK_AND_MILESTONES_PROPOSAL.md §3 L6 (disable path), §6.2 (the
+ * See docs/proposals/done/STREAK_AND_MILESTONES_PROPOSAL.md §3 L6 (disable path), §6.2 (the
  * spec this implements), §7.2 (celebrations_seen contract: account
  * anniversaries are date-anchored, so they can NEVER be cleared from this
  * UI; only streak_milestones may be reset).
