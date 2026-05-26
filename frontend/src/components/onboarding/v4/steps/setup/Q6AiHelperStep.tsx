@@ -23,9 +23,15 @@ export default function Q6AiHelperStep({
   patchSidecar,
 }: SetupStepProps) {
   const picks = sidecar?.feature_picks ?? null;
-  // ai_helper defaults to "full" in initialFeaturePicks(); the radio
-  // visually pre-selects whatever the sidecar currently holds, falling
-  // back to "full" if for some reason the value is missing.
+  // The radio visually pre-selects "full" (the recommended default) when
+  // ai_helper is missing. q6 default-radio persistence fix bot 2026-05-26:
+  // `initialFeaturePicks` leaves ai_helper undefined (per the 2026-05-21
+  // "no option pre-selected" rule for Q2-Q5), but Q6 is the exception
+  // because the spec calls for "full" as the recommended default. The
+  // visual pre-selection was previously not seeded into the sidecar, so
+  // a user who clicked Next without re-clicking landed on the wrapup
+  // with ai_helper still undefined -> "Skipped for now". The mount-time
+  // patch below commits the visual default to state so Next captures it.
   const current: FeaturePicks["ai_helper"] = picks?.ai_helper ?? "full";
 
   useEffect(() => {
@@ -33,6 +39,24 @@ export default function Q6AiHelperStep({
     // even without a fresh click (matches v3 L6).
     setNextDisabled(false);
   }, [setNextDisabled]);
+
+  // Seed the default "full" pick into the sidecar on mount if the user
+  // arrived here with no prior answer. Idempotent: if ai_helper is
+  // already set (Resume, Back-step, or a real prior pick), this is a
+  // no-op. Uses a ref-guarded effect-style check via `picks?.ai_helper`
+  // so re-renders during the async write don't re-fire the patch.
+  useEffect(() => {
+    if (picks && picks.ai_helper === undefined) {
+      void patchSidecar((cur) => {
+        if (!cur.feature_picks) return cur;
+        if (cur.feature_picks.ai_helper !== undefined) return cur;
+        return {
+          ...cur,
+          feature_picks: { ...cur.feature_picks, ai_helper: "full" },
+        };
+      });
+    }
+  }, [picks, patchSidecar]);
 
   const handleChange = async (next: FeaturePicks["ai_helper"]) => {
     await patchSidecar((cur) => {
