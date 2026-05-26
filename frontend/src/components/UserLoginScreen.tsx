@@ -585,7 +585,14 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         }} />
       </div>
 
-      <div className="relative z-10 w-full max-w-md mx-4">
+      {/* max-w bumped from md (28rem / 448px) to 30rem (480px) — gives
+          the user cards just enough extra room to seat the full action
+          icon row (star / pencil / padlock / trash) inside the card
+          alongside a Lab Head badge and a moderately long username.
+          Paired with min-w-0 + truncate on the username so very long
+          names still fall back to ellipsis rather than overflowing.
+          (picker card alignment fix, 2026-05-26) */}
+      <div className="relative z-10 w-full max-w-[30rem] mx-4">
         {/* Logo and title */}
         <div className="text-center mb-8">
           {/* Brand mark: BeakerBot in the gradient pill. Static (no
@@ -760,8 +767,17 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                             size="md"
                             showOwnerBadge={mainUser === user}
                           />
-                          <div className="flex-1 text-left flex items-center gap-2">
-                            <span className="text-white font-medium">{user}</span>
+                          {/* min-w-0 lets the flex-1 column shrink below
+                              its intrinsic content width so a long
+                              username (e.g. Emile_GluckThaler) combined
+                              with the Lab Head badge can't push the
+                              action icons past the card's right edge.
+                              The username span is the only shrinkable
+                              child (truncates with ellipsis); badges and
+                              the (Main) tag stay full-width via shrink-0.
+                              (picker card alignment fix, 2026-05-26) */}
+                          <div className="flex-1 min-w-0 text-left flex items-center gap-2">
+                            <span className="text-white font-medium truncate">{user}</span>
                             {labHeadUsers.has(user) && (
                               // Lab Head badge — matches the CommentsThread
                               // author attribution badge (amber-100/amber-800).
@@ -771,7 +787,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                               // badge is orthogonal (laptop owner) and shows
                               // alongside when both apply.
                               <span
-                                className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-100 text-amber-800"
+                                className="shrink-0 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-100 text-amber-800"
                                 title="Lab Head"
                               >
                                 Lab Head
@@ -786,14 +802,14 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                               // returning postdoc can re-login without PI
                               // help — design decision #2, Grant 2026-05-23).
                               <span
-                                className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-slate-200 text-slate-600"
+                                className="shrink-0 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-slate-200 text-slate-600"
                                 title="Archived account — hidden by default"
                               >
                                 Archived
                               </span>
                             )}
                             {mainUser === user && (
-                              <span className="text-xs text-amber-400 font-normal">(Main)</span>
+                              <span className="shrink-0 text-xs text-amber-400 font-normal">(Main)</span>
                             )}
                           </div>
                           
