@@ -9,6 +9,7 @@ import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
 import Tooltip from "@/components/Tooltip";
 import UserAvatar from "@/components/UserAvatar";
 import BeakerBot from "@/components/BeakerBot";
+import PickerWalkthroughModal from "@/components/picker-walkthrough/PickerWalkthroughModal";
 import RiseCredentialsStamp from "@/components/RiseCredentialsStamp";
 import { useMouseProximityWave } from "@/lib/picker/useMouseProximityWave";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
@@ -64,6 +65,11 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
   const [isDragOver, setIsDragOver] = useState(false);
   const [dropError, setDropError] = useState<string | null>(null);
   const dragCounterRef = useRef(0);
+
+  // Opt-in walkthrough modal (the resurrected 4-beat tour that used
+  // to fire automatically pre-75c6107b). Now triggered only by the
+  // explicit CTA below the welcome bubble. Returning users skip past.
+  const [walkthroughOpen, setWalkthroughOpen] = useState(false);
 
   console.log("ResearchFolderSetupNew render:", { 
     isConnected, 
@@ -577,17 +583,34 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                 className="mx-auto text-sm leading-relaxed text-slate-700"
                 data-testid="picker-welcome-copy"
               >
-                New here? After you link your folder, I&apos;ll walk
-                you through every page. Returning? Just take it from
-                here.
+                New here? It is strongly recommended to take a short
+                onboarding walkthrough (2-3 minutes). Returning? Just
+                take it from here.
               </p>
             </div>
           </div>
-          {/* No author + funding credit here. It surfaces in two other
-              places already: the first slide of the opt-in walkthrough
-              modal (welcome beat carries the byline), and the RISE
-              logo stamp in the bottom-right corner. Three would be one
-              too many. (Grant 2026-05-25) */}
+          {/* Opt-in walkthrough CTA. Sits just under the speech bubble,
+              centered, visually inviting but clearly secondary to the
+              two folder-link cards below. The play triangle is an
+              inline SVG (no emojis in UI). Author + funding credit
+              lives in the modal's first slide + the RISE stamp, NOT
+              here (Grant 2026-05-25). */}
+          <button
+            type="button"
+            onClick={() => setWalkthroughOpen(true)}
+            data-testid="picker-walkthrough-open"
+            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-sky-500/15 px-4 py-2 text-sm font-semibold text-sky-100 border border-sky-300/40 transition-colors hover:bg-sky-500/25 hover:text-white hover:border-sky-300/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+          >
+            <svg
+              aria-hidden="true"
+              className="h-3.5 w-3.5"
+              viewBox="0 0 12 12"
+              fill="currentColor"
+            >
+              <path d="M3 1.5v9l8-4.5-8-4.5z" />
+            </svg>
+            Take the 3-minute walkthrough
+          </button>
         </div>
 
         <div className="grid md:grid-cols-2 gap-4">
@@ -802,6 +825,15 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
           scheme." Rehomed from the retired pre-onboarding modal
           2026-05-25. */}
       <RiseCredentialsStamp />
+
+      {/* Opt-in walkthrough modal — controlled. Renders nothing while
+          closed, so the picker stays as the persistent landing. The
+          modal does not link a folder; on close the user returns to
+          this picker. */}
+      <PickerWalkthroughModal
+        open={walkthroughOpen}
+        onClose={() => setWalkthroughOpen(false)}
+      />
     </div>
   );
 }

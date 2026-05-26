@@ -207,3 +207,45 @@ describe("ResearchFolderSetupNew drop zone", () => {
     expect(mocks.connectWithHandle).not.toHaveBeenCalled();
   });
 });
+
+describe("ResearchFolderSetupNew welcome bubble + opt-in walkthrough", () => {
+  it("renders the new 'strongly recommended' copy with the 2-3 minute hint", () => {
+    render(<ResearchFolderSetup onComplete={vi.fn()} />);
+    const copy = screen.getByTestId("picker-welcome-copy");
+    // First paragraph (author + funding) is preserved.
+    expect(copy.textContent).toContain("Dr. Grant R. Nickles");
+    // The sibling paragraph carries the new framing. We assert on the
+    // bubble container so the test covers both paragraphs together.
+    const bubble = screen.getByTestId("picker-welcome-bubble");
+    expect(bubble.textContent).toContain("strongly recommended");
+    expect(bubble.textContent).toContain("2-3 minutes");
+  });
+
+  it("does not render the walkthrough modal on initial mount (walkthroughOpen=false)", () => {
+    render(<ResearchFolderSetup onComplete={vi.fn()} />);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByTestId("picker-walkthrough-mascot")).toBeNull();
+  });
+
+  it("opens the walkthrough modal when the CTA is clicked", () => {
+    render(<ResearchFolderSetup onComplete={vi.fn()} />);
+    const cta = screen.getByTestId("picker-walkthrough-open");
+    expect(cta.textContent).toContain("Take the 3-minute walkthrough");
+
+    fireEvent.click(cta);
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("picker-walkthrough-beat-welcome")
+    ).toBeInTheDocument();
+  });
+
+  it("closes the modal when the user clicks Skip from inside the walkthrough", () => {
+    render(<ResearchFolderSetup onComplete={vi.fn()} />);
+    fireEvent.click(screen.getByTestId("picker-walkthrough-open"));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("picker-walkthrough-skip"));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
