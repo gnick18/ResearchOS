@@ -1638,6 +1638,19 @@ function InProductWalkthroughOverlay({
   // anything or scrolling anything on the screen when BeakerBot is
   // actively typing using the cursor" mandate (2026-05-21).
   const [cursorActive, setCursorActive] = useState(false);
+  // ESC listener regression fix (2026-05-26 explorer break-bot). When
+  // the user hits Escape during a spotlight step, the prior ESC
+  // handler called `onExitTour()` directly, which jumped silently
+  // to `tour-goodbye` and skipped every remaining beat. That looked
+  // identical to a buggy fast-forward (no confirm, no toast, no
+  // visible action). We now open the same confirm modal the
+  // modal-setup phase uses for its "Skip walkthrough" link, so an
+  // accidental Escape is recoverable and an intentional Escape still
+  // routes to the original exit path via the confirm's primary
+  // button. The wedge-recovery use case the original ESC listener
+  // added for (commit 02f072d3) is still served, the user just
+  // confirms one click before exiting.
+  const [showEscSkipConfirm, setShowEscSkipConfirm] = useState(false);
 
   // Run the step's cursorScript on entry. Re-running when `currentStep`
   // changes is the desired contract: every step gets one fresh play.
@@ -1880,16 +1893,20 @@ function InProductWalkthroughOverlay({
   }, [currentStep]);
 
   // §6.2 NAV escape hatch manager 2026-05-23 — ESC force-exit.
-  // While the walkthrough overlay is mounted, pressing Escape fires
-  // the same `onExitTour` handler the speech bubble's "Skip
-  // walkthrough" link triggers. This is the hard escape hatch for
-  // any case where the cursor lock wedges (the watchdog above is
-  // the soft fix; ESC is the user-controlled backstop). We attach
-  // the listener at the window with capture phase so a focused
-  // popup, modal, or input on the page doesn't swallow the key
-  // before we see it. The InputLockOverlay's keydown blocker
-  // (Wave 2 Fix 7/9) blocks scroll keys but NOT Escape, so
-  // there's no interaction to disable there.
+  // ESC listener regression fix (2026-05-26 explorer break-bot):
+  // pressing Escape now opens a confirm dialog instead of
+  // immediately routing to `onExitTour`. The prior behavior silently
+  // fast-forwarded the user past every remaining beat straight to
+  // `tour-goodbye` — indistinguishable from a buggy skip — because
+  // both ESC and the in-bubble "Skip walkthrough" link map to the
+  // same `exitTour()` call (which jumps to the terminal goodbye
+  // step). The confirm mirrors the modal-setup phase's
+  // `SetupSkipConfirmModal` pattern so the user has a one-click
+  // safety net for an accidental Escape (mid-edit, while clearing a
+  // popup, etc.) and a one-click confirm when they really do want
+  // out. A second ESC press while the confirm is open dismisses
+  // the confirm (handled by the early-return branch below) so the
+  // keyboard path stays recoverable end-to-end.
   //
   // Scope: only fires while the walkthrough overlay component is
   // mounted (this component IS only mounted in walkthrough mode
@@ -1901,7 +1918,7 @@ function InProductWalkthroughOverlay({
   // editor ESC affordances (commit a code-mirror multi-cursor,
   // exit a hybrid editor block) intact during user-action steps.
   // When the cursor lock IS active, the user is wedged and ESC
-  // should always escape regardless of focus.
+  // should still surface the confirm regardless of focus.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const onKey = (e: KeyboardEvent) => {
@@ -1909,6 +1926,16 @@ function InProductWalkthroughOverlay({
       // Modifier-combo ESC is power-user / app-shortcut territory;
       // pass through.
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      // Already showing the confirm — second ESC dismisses the
+      // confirm dialog (recoverable keyboard path) instead of
+      // bubbling to the browser. preventDefault + stopPropagation
+      // below cover the rest of the cancel semantics.
+      if (showEscSkipConfirm) {
+        e.preventDefault();
+        e.stopPropagation();
+        setShowEscSkipConfirm(false);
+        return;
+      }
       const target = e.target;
       const isEditableTarget =
         target instanceof HTMLElement &&
@@ -1919,22 +1946,22 @@ function InProductWalkthroughOverlay({
       // If the cursor lock is NOT active and the user is typing in
       // an editor, let ESC do its native thing (blur / commit /
       // close-popover). Once the lock IS up the user is wedged
-      // and we always escape.
+      // and we always surface the confirm.
       if (!cursorActive && isEditableTarget) return;
       console.info(
-        "[TourController] ESC pressed during walkthrough — invoking onExitTour",
+        "[TourController] ESC pressed during walkthrough — opening Skip walkthrough confirm",
       );
       e.preventDefault();
       e.stopPropagation();
-      onExitTour();
+      setShowEscSkipConfirm(true);
     };
     // Capture phase so a focused button / modal can't swallow the
-    // key before we route it to onExitTour.
+    // key before we route it to the confirm.
     window.addEventListener("keydown", onKey, { capture: true });
     return () => {
       window.removeEventListener("keydown", onKey, { capture: true });
     };
-  }, [cursorActive, onExitTour]);
+  }, [cursorActive, showEscSkipConfirm]);
 
   const showSpotlight = !!body?.targetSelector;
 
@@ -1994,6 +2021,23 @@ function InProductWalkthroughOverlay({
           ) : null)
         }
       />
+      {/* ESC listener regression fix (2026-05-26 explorer break-bot).
+          Confirm modal surfaced when the user hits Escape mid-tour.
+          Cancel returns to the tour at the current step (no state
+          change); Confirm routes through `onExitTour` exactly the way
+          the in-bubble "Skip walkthrough" link does, so we don't fork
+          the exit path. Reuses `SetupSkipConfirmModal` so the copy
+          (Skip to cleanup selector / Yes, skip ahead) matches the
+          modal-setup phase's wizard pattern. */}
+      {showEscSkipConfirm && (
+        <SetupSkipConfirmModal
+          onCancel={() => setShowEscSkipConfirm(false)}
+          onConfirm={() => {
+            setShowEscSkipConfirm(false);
+            onExitTour();
+          }}
+        />
+      )}
     </>
   );
 }

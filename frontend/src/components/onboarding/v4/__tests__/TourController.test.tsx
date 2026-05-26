@@ -879,6 +879,154 @@ describe("TourController — '← Back' link in speech bubble", () => {
 });
 
 // ---------------------------------------------------------------------------
+// ESC listener regression fix (2026-05-26 explorer break-bot)
+// ---------------------------------------------------------------------------
+// Pressing Escape during a walkthrough spotlight used to silently call
+// `exitTour()`, which jumps to `tour-goodbye`. That looked identical to
+// a fast-forward (no confirm, no toast). The fix surfaces a confirm
+// modal (the same one used by the modal-setup phase's "Skip
+// walkthrough" link) so an accidental Escape is recoverable while an
+// intentional Escape still routes through the same exit path.
+// ---------------------------------------------------------------------------
+
+describe("TourController — ESC opens Skip-walkthrough confirm (regression fix 2026-05-26)", () => {
+  it("does NOT silently fast-forward to tour-goodbye on Escape", () => {
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: wrapper(picks()),
+    });
+    act(() => result.current.start("home-create-project"));
+    expect(result.current.currentStep).toBe("home-create-project");
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    });
+
+    // Step did NOT change — the confirm modal mediates the exit.
+    expect(result.current.currentStep).toBe("home-create-project");
+  });
+
+  it("opens the Skip walkthrough confirm modal on Escape", () => {
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: wrapper(picks()),
+    });
+    act(() => result.current.start("home-create-project"));
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    });
+
+    // The SetupSkipConfirmModal aria-label is "Skip to cleanup selector"
+    // — same modal as the modal-setup phase's "Skip walkthrough" link.
+    expect(
+      document.body.querySelector(
+        "[role='dialog'][aria-label='Skip to cleanup selector']",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("Cancel on confirm modal returns to the active step (no state change)", () => {
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: wrapper(picks()),
+    });
+    act(() => result.current.start("home-create-project"));
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    });
+    const cancelBtn = Array.from(
+      document.body.querySelectorAll("button"),
+    ).find((b) => b.textContent === "Cancel") as HTMLButtonElement | undefined;
+    expect(cancelBtn).toBeTruthy();
+    act(() => {
+      cancelBtn!.click();
+    });
+
+    expect(result.current.currentStep).toBe("home-create-project");
+    expect(
+      document.body.querySelector(
+        "[role='dialog'][aria-label='Skip to cleanup selector']",
+      ),
+    ).toBeFalsy();
+  });
+
+  it("second Escape dismisses the confirm modal", () => {
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: wrapper(picks()),
+    });
+    act(() => result.current.start("home-create-project"));
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    });
+    expect(
+      document.body.querySelector(
+        "[role='dialog'][aria-label='Skip to cleanup selector']",
+      ),
+    ).toBeTruthy();
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    });
+    expect(
+      document.body.querySelector(
+        "[role='dialog'][aria-label='Skip to cleanup selector']",
+      ),
+    ).toBeFalsy();
+    // And the step is still the original.
+    expect(result.current.currentStep).toBe("home-create-project");
+  });
+
+  it("Yes, skip ahead routes to tour-goodbye (mirrors the in-bubble link)", () => {
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: wrapper(picks()),
+    });
+    act(() => result.current.start("home-create-project"));
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    });
+    const confirmBtn = Array.from(
+      document.body.querySelectorAll("button"),
+    ).find((b) => b.textContent === "Yes, skip ahead") as
+      | HTMLButtonElement
+      | undefined;
+    expect(confirmBtn).toBeTruthy();
+    act(() => {
+      confirmBtn!.click();
+    });
+
+    expect(result.current.currentStep).toBe("tour-goodbye");
+  });
+
+  it("ignores Escape when focus is inside an editable target (no cursor lock)", () => {
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: wrapper(picks()),
+    });
+    act(() => result.current.start("home-create-project"));
+
+    // Simulate ESC fired from a textarea (e.g. the user was typing in
+    // a project description and hit ESC to dismiss a popover). The
+    // pre-fix branch already gated on editable target + no cursor
+    // lock; we're regression-locking it.
+    const ta = document.createElement("textarea");
+    document.body.appendChild(ta);
+    ta.focus();
+    act(() => {
+      ta.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+      );
+    });
+    expect(
+      document.body.querySelector(
+        "[role='dialog'][aria-label='Skip to cleanup selector']",
+      ),
+    ).toBeFalsy();
+    expect(result.current.currentStep).toBe("home-create-project");
+    ta.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Cursor script wiring — covers the fix for the v4 §6.2 bug where step
 // bodies declared a `cursorScript` but the controller never invoked it.
 // ---------------------------------------------------------------------------
