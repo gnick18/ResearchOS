@@ -7,21 +7,23 @@ import Image from "next/image";
  *
  * Sits below the speech bubble across all 4 beats. Establishes authority
  * for a first-time researcher: this is a real academic project, not a
- * sketchy app trying to harvest research data. Three signals:
+ * sketchy app trying to harvest research data. Two signals:
  *
- *   1. Author with degree (Dr. Grant R. Nickles, PhD)
- *   2. Funding source (UW-Madison RISE Initiative) with their logo
- *   3. Free + open source claim
+ *   1. Funding source (UW-Madison RISE Initiative) with their logo
+ *   2. Free + open source, with a link to the public GitHub repo
  *
- * Per Grant 2026-05-25: "people might think this is a ruse to steal
- * their research" — the structural trust signal here is necessary even
- * before the security beat lands its data-stays-local claims.
+ * Author credit (Dr. Grant R. Nickles, PhD) lives in Beat 1's main copy,
+ * not the footer, per Grant 2026-05-25. The footer stays focused on the
+ * institutional signal (RISE) + the structural-trust signal (open
+ * source, here's the code).
  *
  * Voice rules: NO em-dashes, NO emojis. The RISE logo PNG should live at
  * `frontend/public/credentials/uw-rise-logo.png` (Grant has the asset
  * from the original RISE Initiative branding). If the file is missing the
- * Image component will fall back gracefully to the text-only line above.
+ * Image component falls back gracefully to the alt text.
  */
+const GITHUB_URL = "https://github.com/gnick18/ResearchOS";
+
 export default function CredentialsFooter() {
   return (
     <div
@@ -29,14 +31,20 @@ export default function CredentialsFooter() {
       data-testid="pre-onboarding-credentials"
     >
       <p className="leading-relaxed">
-        Free and open source. Built by{" "}
-        <span className="font-semibold text-slate-100">
-          Dr. Grant R. Nickles (PhD)
-        </span>
-        , funded in part by the{" "}
+        Funded in part by the{" "}
         <span className="font-semibold text-slate-100">
           UW-Madison RISE Initiative
         </span>
+        . Free and open source on{" "}
+        <a
+          href={GITHUB_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-semibold text-sky-300 underline-offset-2 hover:text-sky-200 hover:underline"
+          data-testid="pre-onboarding-github-link"
+        >
+          GitHub
+        </a>
         .
       </p>
       <div className="flex items-center justify-center">
@@ -46,7 +54,6 @@ export default function CredentialsFooter() {
           width={240}
           height={56}
           className="opacity-90"
-          // Local public asset, no remote loader needed.
           unoptimized
         />
       </div>
