@@ -34,6 +34,36 @@ vi.mock("@/lib/file-system/file-service", () => ({
   },
 }));
 
+// Chip E (2026-05-26): mock the end-of-tour auto-cleanup so the
+// Discard wiring tests can assert call args without exercising every
+// domain delete API. The real sweep is covered by
+// `steps/cleanup/__tests__/auto-cleanup.test.ts` — here we only care
+// that handleDiscard calls it with the right options shape.
+const { runEndOfTourAutoCleanupMock } = vi.hoisted(() => ({
+  runEndOfTourAutoCleanupMock: vi.fn(
+    async (_opts: { username: string; firstProjectId: string | null }) => ({
+      attempted: 0,
+      succeeded: 0,
+      preserved: 0,
+      failed: [],
+    }),
+  ),
+}));
+
+vi.mock(
+  "../steps/cleanup/auto-cleanup",
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import("../steps/cleanup/auto-cleanup")
+      >();
+    return {
+      ...actual,
+      runEndOfTourAutoCleanup: runEndOfTourAutoCleanupMock,
+    };
+  },
+);
+
 // Stub next/navigation's useSearchParams so the bootstrap's
 // previewMode probe reads as null (the default in tests). Tests that
 // need a specific URL combo (eg. the wizardSeedStep + wizard-preview
@@ -106,6 +136,9 @@ beforeEach(() => {
   // Reset the parameterizable searchParams stub so tests that opt into
   // ?wizard-preview=1 / ?wizardSeedStep=... don't leak into the next test.
   mockSearchParamsValue = new URLSearchParams();
+  // Reset the auto-cleanup mock between tests so call counts don't
+  // leak across the Discard suite.
+  runEndOfTourAutoCleanupMock.mockClear();
 });
 
 describe("TourBootstrap:fresh user", () => {
@@ -546,6 +579,126 @@ describe("TourBootstrap:v4 mid-tour resume", () => {
     expect(
       document.body.querySelector("[data-testid='tour-beakerbot-overlay']"),
     ).toBeNull();
+  });
+
+  it("Discard runs auto-cleanup on artifacts (handleDiscard cleans artifacts)", async () => {
+    // Chip E (2026-05-26): users who Discard from the V4ResumePrompt
+    // must have their tour-created artifacts swept off disk. The
+    // previous behavior cleared `wizard_resume_state` and wrote
+    // `wizard_skipped_at` but left the step-1 project (and any other
+    // partial-walk artifacts) as orphans. Assert the auto-cleanup
+    // function is invoked with `firstProjectId: null` — Discard does
+    // NOT preserve the first project the way tour-goodbye does, since
+    // the user explicitly chose to abandon, not keep, the tour residue.
+    memFs.set(
+      PATH,
+      fullSidecar({
+        feature_picks: VALID_PICKS,
+        wizard_resume_state: {
+          current_step: "home-create-project",
+          skipped_steps: [],
+          artifacts_created: [
+            {
+              type: "project",
+              id: "101",
+              cleanup_default: "discard",
+            },
+            {
+              type: "method_category",
+              id: "PCR",
+              cleanup_default: "discard",
+            },
+          ],
+        },
+      }),
+    );
+    renderWithProvider(<TourBootstrap username={USER} />);
+    const discard = await screen.findByTestId("v4-resume-discard");
+    await userEvent.click(discard);
+    await waitFor(() => {
+      expect(runEndOfTourAutoCleanupMock).toHaveBeenCalledTimes(1);
+    });
+    expect(runEndOfTourAutoCleanupMock).toHaveBeenCalledWith({
+      username: USER,
+      // Critical: null, NOT the first project's id. Discard is a wipe;
+      // tour-goodbye is a keep. The same auto-cleanup function serves
+      // both paths but the `firstProjectId` parameter switches the
+      // preserve-first-project rule on or off.
+      firstProjectId: null,
+    });
+    // Sidecar still ends up in the skipped shape (skipped_at set,
+    // completed_at null, resume_state null, feature_picks wiped).
+    const persisted = memFs.get(PATH) as OnboardingSidecar;
+    expect(persisted.wizard_skipped_at).toBeTruthy();
+    expect(persisted.wizard_completed_at).toBeNull();
+    expect(persisted.wizard_resume_state).toBeNull();
+    expect(persisted.feature_picks).toBeNull();
+  });
+
+  it("Discard with no artifacts created still calls cleanup (no-op is safe)", async () => {
+    // Chip E (2026-05-26): the cleanup contract is idempotent +
+    // best-effort, so calling it with an empty artifacts list is a
+    // safe no-op. We still invoke it (rather than gate on artifacts
+    // length) because the real sweep also dismisses the §6.3 welcome
+    // notification + tears down the BeakerBot lab teammate, neither
+    // of which is artifact-tracked.
+    memFs.set(
+      PATH,
+      fullSidecar({
+        feature_picks: VALID_PICKS,
+        wizard_resume_state: {
+          // User reloaded after step 0 (welcome → setup) before
+          // creating any artifacts. resume_state points at a real
+          // mid-tour step but the artifact list is empty.
+          current_step: "home-create-project",
+          skipped_steps: [],
+          artifacts_created: [],
+        },
+      }),
+    );
+    renderWithProvider(<TourBootstrap username={USER} />);
+    const discard = await screen.findByTestId("v4-resume-discard");
+    await userEvent.click(discard);
+    await waitFor(() => {
+      expect(runEndOfTourAutoCleanupMock).toHaveBeenCalledTimes(1);
+    });
+    // The flow does not crash and the sidecar still ends in the
+    // skipped shape.
+    const persisted = memFs.get(PATH) as OnboardingSidecar;
+    expect(persisted.wizard_skipped_at).toBeTruthy();
+    expect(persisted.wizard_resume_state).toBeNull();
+  });
+
+  it("Continue (Resume) does NOT trigger auto-cleanup", async () => {
+    // Chip E (2026-05-26): the Resume path is intentionally
+    // cleanup-free. Resume just hands control back to the controller
+    // at the saved step; running cleanup would delete the artifacts
+    // the user wants to keep working with. Regression guard.
+    memFs.set(
+      PATH,
+      fullSidecar({
+        feature_picks: VALID_PICKS,
+        wizard_resume_state: {
+          current_step: "home-create-project",
+          skipped_steps: [],
+          artifacts_created: [
+            {
+              type: "project",
+              id: "101",
+              cleanup_default: "discard",
+            },
+          ],
+        },
+      }),
+    );
+    renderWithAppShellAndProvider(<TourBootstrap username={USER} />);
+    const resume = await screen.findByTestId("v4-resume-resume");
+    await userEvent.click(resume);
+    // Wait a tick for any deferred work; auto-cleanup must NOT fire.
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(runEndOfTourAutoCleanupMock).not.toHaveBeenCalled();
   });
 });
 

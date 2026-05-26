@@ -11,6 +11,7 @@ import {
 } from "@/lib/onboarding/sidecar";
 import { TOUR_STEP_ORDER } from "./step-machine";
 import { getStep } from "./step-registry";
+import { runEndOfTourAutoCleanup } from "./steps/cleanup/auto-cleanup";
 import { useTourController } from "./TourController";
 
 /** sessionStorage key carrying a step id across a hard reload triggered
@@ -439,6 +440,44 @@ export default function TourBootstrap({ username }: TourBootstrapProps) {
   }, [username, setFeaturePicks, start]);
 
   const handleDiscard = useCallback(async () => {
+    // Chip E (2026-05-26): Discard now runs the SAME auto-cleanup
+    // sweep as tour-goodbye so tour-created artifacts (most notably
+    // the step-1 project) do not survive as orphans on disk. The
+    // previous behavior wrote `wizard_skipped_at` and cleared
+    // `wizard_resume_state` but left every `artifacts_created` row
+    // alive — a user who came back days after starting the tour and
+    // picked "Discard" was left with an unwanted project, plus any
+    // method categories / experiments / etc. spawned by partial walks.
+    //
+    // Critical difference from tour-goodbye: pass `firstProjectId:
+    // null`. The "preserve the first project" rule exists for the
+    // happy-path user who completes the tour and wants a real working
+    // project to keep. A user who explicitly chose Discard does not
+    // want any of the tour's residue, including the first project, so
+    // it must NOT qualify for that exemption. The other two
+    // preservation rules (settings_change, ai_helper_prompt_copied)
+    // are hardcoded inside `runEndOfTourAutoCleanup` and remain
+    // active — color / animation tweaks and clipboard-write artifacts
+    // are non-deletable by design.
+    //
+    // `runEndOfTourAutoCleanup` itself ends with a sidecar patch that
+    // sets `wizard_completed_at`. We follow it with a second patch
+    // that flips the sidecar to the skipped state (`wizard_skipped_at`
+    // set, `wizard_completed_at` cleared, feature_picks wiped per the
+    // R2 chip A Fix 2/3 contract). The two patches are sequential so
+    // the final on-disk shape is correct regardless of intermediate
+    // values.
+    try {
+      await runEndOfTourAutoCleanup({ username, firstProjectId: null });
+    } catch (err) {
+      // The auto-cleanup function is best-effort and never throws
+      // internally, but guard anyway so a future regression in that
+      // contract cannot wedge the Discard flow.
+      console.warn(
+        "[onboarding-v4] resume-modal discard auto-cleanup failed",
+        err,
+      );
+    }
     try {
       // R2 chip A Fix 2/3: Discard must clear feature_picks too.
       // Without this, stale partial Q1-Q6 answers from the in-flight
@@ -447,9 +486,15 @@ export default function TourBootstrap({ username }: TourBootstrapProps) {
       // chose to discard the tour, so leaving their half-answered
       // feature_picks in place would silently keep tabs hidden that
       // their actual settings.json wants visible.
+      //
+      // Chip E follow-up: this patch ALSO nulls `wizard_completed_at`
+      // because the upstream auto-cleanup call sets it; Discard is a
+      // skip, not a completion, and the two timestamps are mutually
+      // exclusive per the sidecar schema.
       await patchOnboarding(username, (cur) => ({
         ...cur,
         wizard_skipped_at: new Date().toISOString(),
+        wizard_completed_at: null,
         wizard_force_show: false,
         wizard_resume_state: null,
         feature_picks: null,
