@@ -16,6 +16,7 @@ import MethodTabs from "./MethodTabs";
 import TaskPicker from "./TaskPicker";
 import ShareDialogAdapter from "@/components/sharing/ShareDialogAdapter";
 import SharingChips from "@/components/sharing/SharingChips";
+import { StampsRow } from "@/components/AttributionChip";
 import CommentsThread from "./CommentsThread";
 import Tooltip from "./Tooltip";
 import { useAppStore } from "@/lib/store";
@@ -1194,6 +1195,20 @@ export default function TaskDetailPopup({
             />
           </div>
         )}
+
+        {/* VCP R3 attribution stamps (VCP R3 attribution stamps,
+            2026-05-26): popup stamps row. Tasks store no `created_at`
+            today (per §3g — task is one of the FLAG'd entities missing
+            it pre-R3); pass null so the row only shows "Last edited
+            by X on D" until §3g lands the createdAt fan-out in R4. */}
+        <div className="px-6 pt-2">
+          <StampsRow
+            createdBy={null}
+            createdAt={null}
+            lastEditedBy={task.last_edited_by}
+            lastEditedAt={task.last_edited_at}
+          />
+        </div>
 
         {/* Tabs — clean underline pattern with a quiet hover state. The old
             tabs sat on a gray strip with the active tab back on white,

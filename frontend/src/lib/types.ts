@@ -313,6 +313,12 @@ export interface Project {
   // the receiver of a shared project loads it. Never persisted to disk.
   is_shared_with_me?: boolean;
   shared_permission?: "view" | "edit";
+  // VCP R3 attribution stamps (VCP R3 attribution stamps, 2026-05-26):
+  // most-recent editor + when. Stamped on every `projectsApi.update`
+  // path. Optional on read for pre-R3 records; back-fills on next
+  // write.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 export interface ProjectCreate {
@@ -335,6 +341,10 @@ export interface ProjectUpdate {
   is_archived?: boolean;
   archived_at?: string | null;
   is_hidden?: boolean;
+  // VCP R3 — optional; auto-stamped by `projectsApi.update`. Callers
+  // usually omit; the write path overwrites whatever is supplied.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 // ── Sub-Tasks ─────────────────────────────────────────────────────────────────
@@ -453,6 +463,12 @@ export interface Task {
   // When set, lists show a red flag icon and the popup surfaces a banner
   // the owner can clear. See `lib/lab/pi-actions.ts` for the writer.
   flagged?: PiFlag | null;
+  // VCP R3 attribution stamps (VCP R3 attribution stamps, 2026-05-26):
+  // most-recent editor + when. Stamped on every `tasksApi.update` path
+  // including PI cross-owner edits. Optional on read for pre-R3 records;
+  // back-fills on next write.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 /**
@@ -595,6 +611,10 @@ export interface TaskUpdate {
   assignee?: string | null;
   /** Lab Head Phase 3 — PI flag (object sets, `null` clears). */
   flagged?: PiFlag | null;
+  // VCP R3 — optional; auto-stamped by `tasksApi.update`. Callers
+  // usually omit; the write path overwrites whatever is supplied.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 export interface TaskMoveRequest {
@@ -662,6 +682,11 @@ export interface HighLevelGoal {
   // owning user folder on next save.
   owner?: string;
   shared_with?: SharedUser[];
+  // VCP R3 attribution stamps (VCP R3 attribution stamps, 2026-05-26):
+  // most-recent editor + when. Stamped on every `goalsApi.update` path.
+  // Optional on read for pre-R3 records; back-fills on next write.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 export interface HighLevelGoalCreate {
@@ -680,6 +705,9 @@ export interface HighLevelGoalUpdate {
   color?: string | null;
   smart_goals?: SmartGoal[];
   is_complete?: boolean;
+  // VCP R3 — optional; auto-stamped by `goalsApi.update`.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 // ── UI Types ─────────────────────────────────────────────────────────────────
@@ -709,6 +737,12 @@ export interface Method {
   // `frontend/src/lib/methods/compound-graph.ts` for cycle / depth /
   // orphan validation.
   components?: CompoundComponent[];
+  // VCP R3 attribution stamps (VCP R3 attribution stamps, 2026-05-26):
+  // most-recent editor + when. `created_by` stays the original author
+  // stamp; `last_edited_by` is purely the latest editor. Optional on
+  // read for pre-R3 records; back-fills on next write.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 export interface MethodCreate {
@@ -746,6 +780,9 @@ export interface MethodUpdate {
   tags?: string[];
   is_public?: boolean;
   components?: CompoundComponent[];
+  // VCP R3 — optional; auto-stamped by `methodsApi.update`.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 // ── PCR Methods ──────────────────────────────────────────────────────────────
@@ -1348,6 +1385,14 @@ export interface MassSpecProtocol {
   source: MassSpecSourceParams;
   scan: MassSpecScanParams;
   calibration: MassSpecCalibration;
+  // VCP R3 attribution stamps (VCP R3 attribution stamps, 2026-05-26):
+  // most-recent editor + when. Distinct from `created_by` (original
+  // author) and `updated_at` (kept as the canonical write-time field
+  // for sorts; `last_edited_at` mirrors it on writes through
+  // `massSpecApi.update`). Optional on read for pre-R3 records;
+  // back-fills on next write.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 export interface MassSpecProtocolCreate {
@@ -1373,6 +1418,9 @@ export type MassSpecProtocolUpdate = Partial<{
   source: MassSpecSourceParams;
   scan: MassSpecScanParams;
   calibration: MassSpecCalibration;
+  // VCP R3 — optional; auto-stamped by `massSpecApi.update`.
+  last_edited_by: string;
+  last_edited_at: string;
 }>;
 
 // ── Compound Methods ─────────────────────────────────────────────────────────
@@ -1487,6 +1535,13 @@ export interface PurchaseItem {
   // Old records without either field behave as "pending".
   declined_at?: string | null;
   declined_by?: string | null;
+  // VCP R3 attribution stamps (VCP R3 attribution stamps, 2026-05-26):
+  // most-recent editor + when. Distinct from `approved_by` /
+  // `declined_by` (PI approval-state stamps) and from `flagged.by` (PI
+  // flag stamp); `last_edited_by` captures any editor of any field.
+  // Optional on read for pre-R3 records; back-fills on next write.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 /** Pending = waiting for the lab head's approval. Approved and declined
@@ -1535,6 +1590,9 @@ export interface PurchaseItemUpdate {
    *  to null; decline sets them. See PurchaseItem doc for state machine. */
   declined_at?: string | null;
   declined_by?: string | null;
+  // VCP R3 — optional; auto-stamped by `purchasesApi.update`.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 export interface CatalogItem {
@@ -1720,6 +1778,11 @@ export interface LabLink {
   // unified sharing surface. Optional during the migration window.
   owner?: string;
   shared_with?: SharedUser[];
+  // VCP R3 attribution stamps (VCP R3 attribution stamps, 2026-05-26):
+  // most-recent editor + when. Stamped on every `labLinksApi.update`
+  // path. Optional on read for pre-R3 records; back-fills on next write.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 export interface LabLinkCreate {
@@ -1739,6 +1802,9 @@ export interface LabLinkUpdate {
   color?: string | null;
   preview_image_url?: string | null;
   sort_order?: number;
+  // VCP R3 — optional; auto-stamped by `labLinksApi.update`.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 export interface LinkPreview {
@@ -1845,6 +1911,16 @@ export interface Note {
   // "*" entry in `shared_with`. Both fields are kept readable during
   // the release window so legacy code keeps working.
   shared_with?: SharedUser[];
+  // VCP R3 attribution stamps (VCP R3 attribution stamps, 2026-05-26):
+  // most-recent editor + when. Distinct from `username` (the original
+  // author / creator stamp) and `updated_at` (the canonical write-time
+  // field used by sorts and the activity sidecar; we keep BOTH because
+  // existing call sites rely on `updated_at`). `last_edited_by` is
+  // stamped on every update path including PI cross-owner edits — the
+  // "(PI)" badge is a UI render concern, not a stored field. Optional
+  // on read for pre-R3 records; back-fills on next write.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 export interface NoteCreate {
@@ -1861,6 +1937,10 @@ export interface NoteUpdate {
   is_shared?: boolean;
   /** Lab Head Phase 3 — PI flag (object sets, `null` clears). */
   flagged?: PiFlag | null;
+  // VCP R3 — optional; auto-stamped by `notesApi.update`. The note
+  // path also stamps `updated_at`; both fields land together.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 export interface NoteEntriesReorderRequest {

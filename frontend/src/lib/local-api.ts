@@ -130,6 +130,39 @@ async function loadLabUsers(): Promise<{
   return { usernames, metadata };
 }
 
+/**
+ * VCP R3 attribution stamps (VCP R3 attribution stamps, 2026-05-26):
+ * resolves the actor for the `last_edited_by` field on every update path.
+ * Falls back to `"unknown"` when the IndexedDB user lookup misses (e.g.
+ * pre-onboarding flows or test harnesses without a fake user); the field
+ * is optional in the type so a write with `"unknown"` is recoverable on
+ * any subsequent edit by a real signed-in user.
+ *
+ * For PI cross-owner edits the caller passes `actor` explicitly (the PI's
+ * username, sourced from the unlock-session state). The "(PI)" badge is a
+ * UI render concern resolved in `AttributionChip`, not a stored field.
+ */
+async function resolveAttributionActor(actor?: string | null): Promise<string> {
+  if (actor && actor.length > 0) return actor;
+  const u = await getCurrentUserCached();
+  return u && u !== "_no_user_" ? u : "unknown";
+}
+
+/**
+ * VCP R3 — build the `{ last_edited_by, last_edited_at }` stamp pair to
+ * merge into any `update*` patch. Centralized so the eight entity
+ * surfaces don't drift on field naming.
+ */
+async function buildAttributionStamp(actor?: string | null): Promise<{
+  last_edited_by: string;
+  last_edited_at: string;
+}> {
+  return {
+    last_edited_by: await resolveAttributionActor(actor),
+    last_edited_at: new Date().toISOString(),
+  };
+}
+
 function colorFor(
   metadata: Record<string, UserMetadataEntry>,
   username: string,
@@ -278,8 +311,12 @@ export const projectsApi = {
 
   // When `owner` is set (receiver of a shared project with permission "edit"),
   // the write lands in the owner's directory instead of the current user's.
+  // VCP R3 attribution stamps: stamp last_edited_by + last_edited_at on
+  // every patch. For PI cross-owner edits `last_edited_by` is the PI's
+  // username; the "(PI)" badge is a UI render concern.
   update: async (id: number, data: ProjectUpdate, owner?: string): Promise<Project | null> => {
-    return owner ? projectsStore.updateForUser(id, data, owner) : projectsStore.update(id, data);
+    const patch = { ...data, ...(await buildAttributionStamp(data.last_edited_by)) };
+    return owner ? projectsStore.updateForUser(id, patch, owner) : projectsStore.update(id, patch);
   },
 
   // VCP R2 trash everywhere (2026-05-26): soft-delete via `_trash/projects/`.
@@ -728,6 +765,10 @@ export const tasksApi = {
       ...restData,
       ...(normalizedProjectId !== undefined ? { project_id: normalizedProjectId } : {}),
       end_date: endDate,
+      // VCP R3 attribution stamps: actor + timestamp. The data.last_edited_by
+      // override path is for PI cross-owner edits — callers pass the PI's
+      // username explicitly; the "(PI)" badge is a UI render concern.
+      ...(await buildAttributionStamp(data.last_edited_by)),
     };
     if (data.method_ids !== undefined || data.method_attachments !== undefined) {
       const nextMethodIds = data.method_ids ?? existing.method_ids ?? [];
@@ -1779,18 +1820,20 @@ export const methodsApi = {
   // When `owner` is set (receiver of a shared method with permission "edit"),
   // the write lands in the owner's private methods dir. Public methods are
   // shared globally and are never owner-routed.
+  // VCP R3 attribution stamps: every update path lands the actor + when.
   update: async (id: number, data: MethodUpdate, owner?: string): Promise<Method | null> => {
+    const patch = { ...data, ...(await buildAttributionStamp(data.last_edited_by)) };
     if (owner) {
-      return methodsStore.updateForUser(id, data, owner);
+      return methodsStore.updateForUser(id, patch, owner);
     }
     let method = await methodsStore.get(id);
     if (method) {
-      return methodsStore.update(id, data);
+      return methodsStore.update(id, patch);
     }
 
     method = await publicMethodsStore.get(id);
     if (method) {
-      return publicMethodsStore.update(id, data);
+      return publicMethodsStore.update(id, patch);
     }
 
     return null;
@@ -2028,8 +2071,10 @@ export const goalsApi = {
     });
   },
   
+  // VCP R3 attribution stamps.
   update: async (id: number, data: HighLevelGoalUpdate): Promise<HighLevelGoal | null> => {
-    return goalsStore.update(id, data);
+    const patch = { ...data, ...(await buildAttributionStamp(data.last_edited_by)) };
+    return goalsStore.update(id, patch);
   },
 
   // VCP R2 trash everywhere (2026-05-26): soft-delete via
@@ -2865,7 +2910,16 @@ export const massSpecApi = {
     data: MassSpecProtocolUpdate,
     owner?: string,
   ): Promise<MassSpecProtocol | null> => {
-    const patch = { ...data, updated_at: new Date().toISOString() };
+    // VCP R3 attribution stamps: keep the existing `updated_at` (used by
+    // sorts and the protocol library's "recently edited" rail) AND land
+    // the new `last_edited_at` mirror so the AttributionChip can render
+    // a consistent value across types. `updated_at` stays canonical here
+    // (FLAG: this entity already had it pre-R3).
+    const patch = {
+      ...data,
+      updated_at: new Date().toISOString(),
+      ...(await buildAttributionStamp(data.last_edited_by)),
+    };
     if (owner) {
       if (owner === "public") {
         const publicProtocol = await publicMassSpecStore.get(id);
@@ -3147,7 +3201,12 @@ export const purchasesApi = {
     const shippingFees = data.shipping_fees ?? existing.shipping_fees;
     const total = pricePerUnit * quantity + shippingFees;
 
-    const patch = { ...data, total_price: total };
+    // VCP R3 attribution stamps.
+    const patch = {
+      ...data,
+      total_price: total,
+      ...(await buildAttributionStamp(data.last_edited_by)),
+    };
     return owner
       ? purchaseItemsStore.updateForUser(id, patch, owner)
       : purchaseItemsStore.update(id, patch);
@@ -3279,8 +3338,10 @@ export const labLinksApi = {
     });
   },
   
+  // VCP R3 attribution stamps.
   update: async (id: number, data: LabLinkUpdate): Promise<LabLink | null> => {
-    return labLinksStore.update(id, data);
+    const patch = { ...data, ...(await buildAttributionStamp(data.last_edited_by)) };
+    return labLinksStore.update(id, patch);
   },
 
   // VCP R2 trash everywhere (2026-05-26): soft-delete via
@@ -3358,10 +3419,17 @@ export const notesApi = {
   // `owner` routes the write into a specific user's notes directory instead
   // of the current viewer's. Used by Lab Head Phase 5 R1 PI edit sessions so
   // cross-owner edits land in the target user's folder.
+  // VCP R3 attribution stamps: keep the existing `updated_at` write (note
+  // sort orders rely on it) AND land `last_edited_at` / `last_edited_by`
+  // so the AttributionChip has consistent fields with the other 7
+  // entity types. FLAG: notes already had `username` (creator) +
+  // `updated_at` (write-time) before R3; we keep both, the new fields
+  // are additive.
   update: async (id: number, data: NoteUpdate, owner?: string): Promise<Note | null> => {
     const patch = {
       ...data,
       updated_at: new Date().toISOString(),
+      ...(await buildAttributionStamp(data.last_edited_by)),
     };
     return owner
       ? notesStore.updateForUser(id, patch, owner)

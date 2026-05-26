@@ -70,9 +70,21 @@ function enqueueOnboardingWrite<T>(
  *    / assignee pickers; existing references stay intact (the comment
  *    renderer's missing-user-lookup fallback handles departed authors).
  *    See LAB_HEAD_PROPOSAL.md §6.
+ *  - v6 (2026-05-26): Version-Control Proposal R3 — attribution stamps.
+ *    Adds `last_edited_by: string` + `last_edited_at: string` fields to
+ *    every shareable entity (notes, tasks, methods, projects,
+ *    purchase_items, high_level_goals, lab_links, mass_spec_protocols).
+ *    The fields are stamped at every `update*` call site in
+ *    `lib/local-api.ts`. Migration is lazy and additive: pre-v6 records
+ *    on disk simply lack the two keys, AttributionChip falls back to
+ *    "Unknown" / `created_at`-based display until the next save
+ *    backfills both. No destructive rewrite; no app-wide migration
+ *    sweep. The sidecar itself gains no new fields in v6 — the bump
+ *    signals the entity-level shape change for downstream readers.
+ *    See VERSION_CONTROL_PROPOSAL.md §3f + §4 R3.
  */
 
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 /** Phase 1 setup-question outcomes. Populated by the v3 wizard's Phase
  *  1 (Welcome + Q1 solo/lab + Q1a/Q1b storage + Q2-Q6 feature picks).

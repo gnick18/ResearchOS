@@ -24,6 +24,7 @@ import AuditTrailNotice from "./AuditTrailNotice";
 import FlagForReviewButton from "./lab-head/FlagForReviewButton";
 import FlagBanner from "./lab-head/FlagBanner";
 import SharingChips from "@/components/sharing/SharingChips";
+import { StampsRow } from "@/components/AttributionChip";
 
 interface NoteDetailPopupProps {
   note: Note;
@@ -897,6 +898,21 @@ export default function NoteDetailPopup({
               />
             </div>
           )}
+
+          {/* VCP R3 attribution stamps (VCP R3 attribution stamps,
+              2026-05-26): popup stamps row. Renders "Created by X on D"
+              + "Last edited by Y on D" with PI badge resolution. Self-
+              hides on pre-R3 notes that lack `last_edited_by` /
+              `last_edited_at`. The note's creator stamp is `username`
+              (per OQ5), not `created_by`. */}
+          <div className="mt-3">
+            <StampsRow
+              createdBy={note.username}
+              createdAt={note.created_at}
+              lastEditedBy={note.last_edited_by}
+              lastEditedAt={note.last_edited_at}
+            />
+          </div>
 
           {/* Sharing toggle */}
           {!readOnly && (

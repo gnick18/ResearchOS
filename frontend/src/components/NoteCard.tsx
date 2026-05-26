@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Note, LabNote } from "@/lib/types";
 import { notesApi } from "@/lib/local-api";
 import UserAvatar from "@/components/UserAvatar";
+import AttributionChip from "@/components/AttributionChip";
 
 interface NoteCardProps {
   note: Note | LabNote;
@@ -175,6 +176,18 @@ export default function NoteCard({ note, onClick, isLabMode = false, tourTarget 
             <span className="text-xs text-gray-500">{note.username}</span>
           </div>
         )}
+      </div>
+
+      {/* VCP R3 attribution stamps (VCP R3 attribution stamps, 2026-05-26):
+          inline last-edited chip in the card footer. Self-hides on pre-R3
+          records that lack the fields, so existing notes don't render a
+          ghost row. */}
+      <div className="mt-1.5">
+        <AttributionChip
+          username={note.last_edited_by}
+          editedAt={note.last_edited_at}
+          small
+        />
       </div>
     </div>
   );

@@ -10,6 +10,7 @@ import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useFeaturePicks } from "@/hooks/useFeaturePicks";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { useDraftPersistence } from "@/hooks/useDraftPersistence";
+import AttributionChip from "@/components/AttributionChip";
 
 // Predefined colors for link cards
 const CARD_COLORS = [
@@ -489,6 +490,17 @@ export default function LabLinksPage() {
                         <p className="text-xs text-gray-400 mt-2 truncate">
                           {new URL(link.url).hostname}
                         </p>
+                        {/* VCP R3 attribution stamps (VCP R3 attribution
+                            stamps, 2026-05-26): inline last-edited chip in
+                            the lab link card footer. Self-hides on pre-R3
+                            links that lack the fields. */}
+                        <div className="mt-1">
+                          <AttributionChip
+                            username={link.last_edited_by}
+                            editedAt={link.last_edited_at}
+                            small
+                          />
+                        </div>
                       </div>
                     </a>
                   ))}

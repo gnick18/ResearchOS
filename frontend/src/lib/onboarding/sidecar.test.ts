@@ -91,7 +91,8 @@ describe("sidecar v3 → v4 migration", () => {
     });
     const sc = await readOnboarding(USER);
 
-    expect(sc.version).toBe(5);
+    // VCP R3 attribution stamps (2026-05-26): bumped 5 → 6.
+    expect(sc.version).toBe(6);
     expect(sc.first_seen_at).toBe("2026-05-14T10:00:00.000Z");
     expect(sc.active_seconds).toBe(1200);
     // Retained v3 timestamps preserved.
@@ -140,7 +141,8 @@ describe("sidecar v2 → v4 migration", () => {
     });
     const sc = await readOnboarding(USER);
 
-    expect(sc.version).toBe(5);
+    // VCP R3 attribution stamps (2026-05-26): bumped 5 → 6.
+    expect(sc.version).toBe(6);
     expect(sc.first_seen_at).toBe("2026-05-14T10:00:00.000Z");
     expect(sc.active_seconds).toBe(800);
     expect(sc.feature_picks).toBeNull();
@@ -166,7 +168,8 @@ describe("sidecar v1 → v4 migration", () => {
     });
     const sc = await readOnboarding(USER);
 
-    expect(sc.version).toBe(5);
+    // VCP R3 attribution stamps (2026-05-26): bumped 5 → 6.
+    expect(sc.version).toBe(6);
     expect(sc.first_seen_at).toBe("2026-05-14T10:00:00.000Z");
     expect(sc.active_seconds).toBe(42);
     expect(sc.feature_picks).toBeNull();
@@ -200,7 +203,7 @@ describe("sidecar v4 round-trip", () => {
 
   it("write + read preserves feature_picks, wizard_resume_state, and the lab-tour fields", async () => {
     const initial: OnboardingSidecar = {
-      version: 5,
+      version: 6,
       first_seen_at: "2026-05-20T08:00:00.000Z",
       active_seconds: 4242,
       feature_picks: samplePicks,
@@ -326,7 +329,7 @@ describe("sidecar v4 round-trip", () => {
     // the round trip; non-boolean garbage must drop silently (the field
     // is optional so dropping is the safe default).
     const labHead: OnboardingSidecar = {
-      version: 5,
+      version: 6,
       first_seen_at: "2026-05-20T08:00:00.000Z",
       active_seconds: 0,
       feature_picks: { account_type: "lab", lab_head: true },
@@ -355,7 +358,7 @@ describe("sidecar v4 round-trip", () => {
 
     // Garbage value drops to undefined (field is optional).
     memFs.set(PATH, {
-      version: 5,
+      version: 6,
       first_seen_at: "2026-05-20T08:00:00.000Z",
       active_seconds: 0,
       feature_picks: { account_type: "lab", lab_head: "yes" },
@@ -436,7 +439,8 @@ describe("existing-user invisibility invariant (L1/L22)", () => {
 
   it("missing sidecar reads as a fresh v4 default (new user, no auto-fire)", async () => {
     const sc = await readOnboarding(USER);
-    expect(sc.version).toBe(5);
+    // VCP R3 attribution stamps (2026-05-26): bumped 5 → 6.
+    expect(sc.version).toBe(6);
     expect(sc.feature_picks).toBeNull();
     expect(sc.wizard_completed_at).toBeNull();
     expect(sc.wizard_skipped_at).toBeNull();
@@ -543,7 +547,7 @@ describe("clearWizardCompletion (v4 Re-run-tour bypass)", () => {
 describe("readArtifactsCreated", () => {
   function baseSidecar(): OnboardingSidecar {
     return {
-      version: 5,
+      version: 6,
       first_seen_at: "2026-05-22T09:00:00.000Z",
       active_seconds: 0,
       feature_picks: null,

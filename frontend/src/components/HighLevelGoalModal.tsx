@@ -9,6 +9,7 @@ import DynamicAnimation from "./DynamicAnimation";
 import Tooltip from "./Tooltip";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { useDraftPersistence } from "@/hooks/useDraftPersistence";
+import { StampsRow } from "./AttributionChip";
 
 interface HighLevelGoalModalProps {
   projects: Project[];
@@ -426,6 +427,19 @@ export default function HighLevelGoalModal({
                 />
               </div>
             </div>
+          )}
+
+          {/* VCP R3 attribution stamps (VCP R3 attribution stamps,
+              2026-05-26): goal stamps row. Goals carry `created_at`
+              already and now `last_edited_by` / `last_edited_at`. The
+              creator field is `owner` (added in R1b unified sharing). */}
+          {isEditing && editingGoal && (
+            <StampsRow
+              createdBy={editingGoal.owner}
+              createdAt={editingGoal.created_at}
+              lastEditedBy={editingGoal.last_edited_by}
+              lastEditedAt={editingGoal.last_edited_at}
+            />
           )}
         </div>
 

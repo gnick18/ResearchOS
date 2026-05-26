@@ -10,6 +10,7 @@ import UserAvatar from "@/components/UserAvatar";
 import MethodChip from "./MethodChip";
 import FreshnessTag, { type FreshnessKind } from "./FreshnessTag";
 import { fileService } from "@/lib/file-system/file-service";
+import AttributionChip from "@/components/AttributionChip";
 
 export interface ExperimentCardMethod {
   id: number;
@@ -24,6 +25,11 @@ export interface ExperimentCardTask {
   username: string;
   experiment_color: string | null;
   project_name?: string;
+  // VCP R3 attribution stamps — optional last-editor + when. WorkbenchExperimentsPanel
+  // populates these from the underlying Task; cards rendered before R3
+  // simply omit them and the chip self-hides.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 interface ExperimentResultCardProps {
@@ -177,6 +183,19 @@ export default function ExperimentResultCard({
         <div className="mt-auto pt-1">
           <FreshnessTag kind={freshnessKind} label={freshnessLabel} />
         </div>
+
+        {/* VCP R3 attribution stamps (VCP R3 attribution stamps,
+            2026-05-26): inline last-edited chip in the experiment card
+            footer. Self-hides on pre-R3 tasks that lack the fields. */}
+        {(task.last_edited_by || task.last_edited_at) && (
+          <div className="pt-1">
+            <AttributionChip
+              username={task.last_edited_by}
+              editedAt={task.last_edited_at}
+              small
+            />
+          </div>
+        )}
       </div>
     </button>
   );

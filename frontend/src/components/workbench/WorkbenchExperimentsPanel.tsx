@@ -402,6 +402,10 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
             username: t.owner,
             experiment_color: t.experiment_color,
             project_name: projectName,
+            // VCP R3 attribution stamps — surface last-editor + when in
+            // the experiment card footer. Self-hides on pre-R3 tasks.
+            last_edited_by: t.last_edited_by,
+            last_edited_at: t.last_edited_at,
           }}
           heroImagePath={entry.probe.heroImagePath}
           resultsPreview={entry.probe.resultsPreview}
