@@ -175,20 +175,22 @@ export interface BeakerBotProps {
    *  prop when the user's OS has `prefers-reduced-motion: reduce`. */
   animated?: boolean;
   /** Per-instance click easter-egg selector.
-   *  - `"tickle"` (default): click + cursor-jiggle escalate to the
-   *    giggle then rolling-laughing poses. Used everywhere BeakerBot
-   *    is rendered at a readable size (modal mascot, gallery, scene
-   *    cards) so the laughter motion + speech bubble are legible.
-   *  - `"heart"`: click triggers a brief 200ms body wobble plus a
-   *    pink heart that pops, drifts upward, and fades. Designed for
-   *    SMALL render sizes (~24px) where the laughing animation is
-   *    impossible to parse — specifically the AppShell brand-mark
-   *    logo. Multiple rapid clicks stack hearts (capped at 6
-   *    simultaneous, staggered fan-out via per-spawn translateX) for
-   *    a "hearts everywhere" feel without one click eating another.
+   *  - `"heart"` (default): click triggers a brief 200ms body wobble
+   *    plus a pink heart that pops, drifts upward, and fades. Multiple
+   *    rapid clicks stack hearts (capped at 6 simultaneous, staggered
+   *    fan-out via per-spawn translateX) for a "hearts everywhere"
+   *    feel without one click eating another. Used everywhere
+   *    BeakerBot is interactive.
    *  - `"none"`: click is inert visually. The SVG is still focusable
-   *    and accepts the click handler shape, just no animation runs. */
-  easterEgg?: "tickle" | "heart" | "none";
+   *    and accepts the click handler shape, just no animation runs.
+   *
+   *  Note: the prior `"tickle"` mode (click + mouse-jiggle escalating
+   *  into the giggle / rolling-laughing poses) was retired 2026-05-25
+   *  per Grant. The giggle and rolling-laughing POSES are still in the
+   *  union and still render correctly when invoked directly via the
+   *  `pose` prop — they're available for scenes / future features —
+   *  but the auto-escalation interaction is gone. */
+  easterEgg?: "heart" | "none";
 }
 
 const DIRECTIONAL_POSES: ReadonlySet<BeakerBotPose> = new Set([
@@ -319,24 +321,6 @@ const HICCUP_POP_PARTICLES: ReadonlyArray<{
   { endX: -4.2, endY: 4.2, fill: "#B7EBB1" },
 ];
 
-// Easter egg interaction config: tickle BeakerBot (click or rapid
-// back-and-forth mouse-jiggle over him) and he giggles; sustain it
-// and he falls on his side laughing. Thresholds + decay tuned for
-// "feels playful without firing accidentally on a single swipe."
-const TICKLE_THRESHOLD_GIGGLE = 1;
-const TICKLE_THRESHOLD_ROLL = 4;
-const TICKLE_DECAY_MS = 1800;
-const GIGGLE_DURATION_MS = 1400;
-const ROLL_LAUGH_DURATION_MS = 3400;
-// Minimum distance (in pixels) for a mousemove segment to count toward
-// jiggle detection. Filters out micro-motion / jitter.
-const MOUSEMOVE_MIN_PX = 5;
-// How much each detected direction reversal contributes to the tickle
-// counter. Requires ~3 reversals (= ~2-3 quick back-and-forth swipes)
-// to reach the giggle threshold, so a single one-direction swipe over
-// BeakerBot doesn't trigger anything.
-const REVERSAL_TICKLE_WEIGHT = 0.35;
-
 // Heart easter-egg config: cap concurrent hearts so a spam-click doesn't
 // queue an unbounded number of timeout closures. Six reads as "hearts
 // everywhere" without thrashing the React reconciler. Lifetime matches
@@ -385,7 +369,7 @@ export default function BeakerBot({
   ariaLabel = "ResearchOS assistant",
   noLiquid = false,
   animated = true,
-  easterEgg = "tickle",
+  easterEgg = "heart",
 }: BeakerBotProps) {
   // Fixed gradient id. Was `useId()` historically (one per mount, to avoid
   // url(#...) collisions across multiple BeakerBots), but that triggered a
@@ -396,28 +380,6 @@ export default function BeakerBot({
   // resolves to the same colors no matter which `<linearGradient>` the
   // browser picks. Same logic for the hiccup-bubble radial gradient.
   const gradId = "beaker-liquid";
-
-  // Easter egg state: tickle override. When the user clicks or rapidly
-  // jiggles the cursor over BeakerBot, we temporarily override the
-  // pose prop with `giggle` or `rolling-laughing` for the duration of
-  // the animation, then fall back to the parent's pose. Works on every
-  // mount of BeakerBot anywhere in the app.
-  const [tickleOverride, setTickleOverride] = useState<
-    "giggle" | "rolling-laughing" | null
-  >(null);
-  const tickleCountRef = useRef(0);
-  const decayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const overrideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Tracks the most recent mousemove vector over BeakerBot. We tickle
-  // on DIRECTION REVERSALS (dot product < 0) rather than raw moves, so
-  // a single one-way swipe across him produces zero tickle while a
-  // genuine back-and-forth jiggle ratchets up quickly.
-  const lastMoveRef = useRef<{
-    x: number;
-    y: number;
-    dx: number;
-    dy: number;
-  } | null>(null);
 
   // Heart easter-egg state. Only active when easterEgg === "heart".
   // - hearts: live list of heart instances currently animating. Each entry
@@ -441,8 +403,6 @@ export default function BeakerBot({
   useEffect(() => {
     const cleanupTimeouts = heartCleanupTimeoutsRef.current;
     return () => {
-      if (decayTimeoutRef.current) clearTimeout(decayTimeoutRef.current);
-      if (overrideTimeoutRef.current) clearTimeout(overrideTimeoutRef.current);
       if (heartWobbleTimeoutRef.current)
         clearTimeout(heartWobbleTimeoutRef.current);
       // Drain any in-flight heart cleanup timers so we don't try to
@@ -451,41 +411,6 @@ export default function BeakerBot({
       cleanupTimeouts.clear();
     };
   }, []);
-
-  const scheduleDecay = () => {
-    if (decayTimeoutRef.current) clearTimeout(decayTimeoutRef.current);
-    decayTimeoutRef.current = setTimeout(() => {
-      tickleCountRef.current = 0;
-    }, TICKLE_DECAY_MS);
-  };
-
-  const scheduleOverrideReset = (durationMs: number) => {
-    if (overrideTimeoutRef.current) clearTimeout(overrideTimeoutRef.current);
-    overrideTimeoutRef.current = setTimeout(() => {
-      setTickleOverride(null);
-      // Hard reset so a brief calm period doesn't carry over residual
-      // tickle into the next interaction.
-      tickleCountRef.current = 0;
-    }, durationMs);
-  };
-
-  const bumpTickle = (amount: number) => {
-    tickleCountRef.current += amount;
-    scheduleDecay();
-    if (tickleCountRef.current >= TICKLE_THRESHOLD_ROLL) {
-      // Sustained tickling: rolling on the ground laughing.
-      setTickleOverride("rolling-laughing");
-      scheduleOverrideReset(ROLL_LAUGH_DURATION_MS);
-      return;
-    }
-    if (
-      tickleCountRef.current >= TICKLE_THRESHOLD_GIGGLE &&
-      tickleOverride !== "rolling-laughing"
-    ) {
-      setTickleOverride("giggle");
-      scheduleOverrideReset(GIGGLE_DURATION_MS);
-    }
-  };
 
   const spawnHeart = () => {
     const id = heartSpawnCounterRef.current++;
@@ -528,50 +453,12 @@ export default function BeakerBot({
 
   const handleClick = () => {
     if (easterEgg === "none") return;
-    if (easterEgg === "heart") {
-      spawnHeart();
-      return;
-    }
-    // Default: tickle (giggle -> rolling-laughing).
-    bumpTickle(1);
+    // Only "heart" remains (tickle retired 2026-05-25). Future easter
+    // eggs would branch here.
+    spawnHeart();
   };
 
-  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
-    // Mouse-jiggle escalation is exclusive to the tickle easter egg. The
-    // heart variant intentionally only responds to discrete clicks so
-    // hovering the small AppShell logo doesn't accidentally spam hearts.
-    if (easterEgg !== "tickle") return;
-    const prev = lastMoveRef.current;
-    if (!prev) {
-      lastMoveRef.current = { x: e.clientX, y: e.clientY, dx: 0, dy: 0 };
-      return;
-    }
-    const dx = e.clientX - prev.x;
-    const dy = e.clientY - prev.y;
-    if (Math.hypot(dx, dy) < MOUSEMOVE_MIN_PX) {
-      // Below the noise floor; don't update lastMoveRef so a slow
-      // diagonal drift doesn't accidentally accumulate "reversals."
-      return;
-    }
-    // Direction reversal check via dot product against the previous
-    // segment vector. dot < 0 means the cursor changed direction by
-    // more than 90 degrees, which is what a back-and-forth jiggle
-    // produces. A single straight swipe across BeakerBot has no
-    // prior vector or a positive dot product, so it contributes 0.
-    if (prev.dx !== 0 || prev.dy !== 0) {
-      const dot = dx * prev.dx + dy * prev.dy;
-      if (dot < 0) {
-        bumpTickle(REVERSAL_TICKLE_WEIGHT);
-      }
-    }
-    lastMoveRef.current = { x: e.clientX, y: e.clientY, dx, dy };
-  };
-
-  const handleMouseLeave = () => {
-    lastMoveRef.current = null;
-  };
-
-  const effectivePose = tickleOverride ?? pose;
+  const effectivePose = pose;
 
   // Mirror via CSS transform so the path data stays canonical
   // (cheaper than maintaining two mirrored sets).
@@ -621,8 +508,6 @@ export default function BeakerBot({
         overflow: "visible",
       }}
       onClick={handleClick}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
     >
       <defs>
         {/* Pastel rainbow gradient for the liquid. Vertical (top to

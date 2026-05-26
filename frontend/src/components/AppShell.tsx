@@ -250,10 +250,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-1.5 leading-none">
             {/* Small static BeakerBot brand-mark accent. No animation;
                 the idle bob is reserved for the onboarding wizard.
-                easterEgg="heart" swaps the default click-to-tickle behavior
-                for a pink-heart pop because the laughing animation is
-                unreadable at this 24px size — see BeakerBot.tsx easterEgg
-                prop docs. */}
+                Click triggers the heart easter egg (the default since
+                2026-05-25). */}
             <BeakerBot
               pose="idle"
               ariaLabel="ResearchOS BeakerBot logo"

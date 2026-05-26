@@ -294,8 +294,8 @@ export default function Tooltip({
                   geometry a 14px decorative badge needs. We inline the
                   paths instead of mounting the full `<BeakerBot>`
                   component because that component is ~1600 lines of
-                  animation + easter-egg state (tickle, hearts, mouse
-                  jiggle, cursor:pointer), none of which is appropriate
+                  animation + easter-egg state (hearts, click pop,
+                  cursor:pointer), none of which is appropriate
                   for a passive header badge inside a tooltip card. The
                   inline copy keeps the badge purely decorative and
                   matches the BeakerBot brand mark (sky-500, beaker
