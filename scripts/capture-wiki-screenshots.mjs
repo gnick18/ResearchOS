@@ -1646,44 +1646,24 @@ const FIXTURE_ROUTES = [
     highlight: { selector: "input[placeholder*='ICS' i], input[placeholder*='url' i], input[placeholder*='https' i]" },
   },
   // ─────────────────────────────────────────────────────────────────────
-  // Demo-mode banner + LeaveDemoModal.
+  // Demo-mode LeaveDemoModal.
   //
-  // ?wikiCapture=1 alone seeds the fixture but doesn't set the sticky
-  // sessionStorage demo flag, so DemoLabBanner stays hidden. Route through
-  // `/demo` (the public in-browser demo entry) which flips
-  // `getDemoMode() === true` via URL match, rendering the amber banner +
-  // floating Leave Demo button.
-  {
-    path: "/demo",
-    file: "demo-mode-banner.png",
-    waitFor: "text=Demo Lab, text=Research Project Overview",
-    settleMs: 1000,
-    // The banner sits at the very top of the layout — a 0..200 crop keeps
-    // the focus on it instead of the project grid below.
-    crop: { x: 0, y: 0, width: 1440, height: 200 },
-  },
+  // The legacy `<DemoLabBanner>` was removed; the demo's only chrome is
+  // the always-visible `<FloatingLeaveDemoButton>` (amber pill in the
+  // bottom-right) plus `<OpenDocsButton>`. ?wikiCapture=1 alone seeds
+  // the fixture but doesn't set the sticky sessionStorage demo flag, so
+  // route through `/demo` (the public in-browser demo entry) which
+  // flips `getDemoMode() === true` via URL match, rendering the floating
+  // Leave Demo button. Click it to open `LeaveDemoModal`.
   {
     path: "/demo",
     file: "demo-mode-leave.png",
     waitFor: "text=Demo Lab, text=Research Project Overview",
     settleMs: 1000,
     action: async (page) => {
-      // Click the in-banner "Leave Demo" button (preferred) or fall back
-      // to the always-visible floating button at the bottom-right.
-      try {
-        const banner = page
-          .locator("button")
-          .filter({ hasText: /^Leave Demo$/ })
-          .first();
-        if (await banner.count()) {
-          await banner.click({ timeout: 3000 });
-          await page.waitForTimeout(800);
-          return;
-        }
-      } catch {}
       try {
         const floating = page
-          .locator('[aria-label*="Leave the demo" i], [aria-label*="Leave Demo" i]')
+          .locator('[aria-label*="Leave the demo" i], [aria-label*="Leave Demo" i], [aria-label*="Leave demo" i]')
           .first();
         if (await floating.count()) {
           await floating.click({ timeout: 3000 });
@@ -2634,13 +2614,12 @@ async function _capturePageAt(page, route, url) {
   const out = path.join(OUT_DIR, route.file);
   // Clear the sticky demo-mode sessionStorage flag before every route
   // EXCEPT the demo-mode-* shots which need it. Without this, captures
-  // that run after demo-mode-banner.png / demo-mode-leave.png inherit
-  // the flag (Playwright preserves sessionStorage across page.goto in a
-  // single context) and getDemoMode() returns true on non-/demo URLs.
-  // The chip 9de214fe fix gates FloatingLeaveDemoButton + OpenDocsButton
-  // on `!isWikiCaptureMode()`, but DemoLabBanner's inline "Leave Demo"
-  // pill renders on `getDemoMode()` alone, so the sticky flag leaks the
-  // pill into later shots. Clearing it here is the surgical fix.
+  // that run after demo-mode-leave.png inherit the flag (Playwright
+  // preserves sessionStorage across page.goto in a single context) and
+  // getDemoMode() returns true on non-/demo URLs. FloatingLeaveDemoButton
+  // and OpenDocsButton are already gated on `!isWikiCaptureMode()` so
+  // they don't leak into screenshots, but clearing the sticky flag here
+  // keeps any future demo-only chrome out of unrelated shots too.
   if (!route.path.startsWith("/demo")) {
     try {
       await page.evaluate(() => {

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-26T05:34:30.751Z",
+  "generatedAt": "2026-05-26T05:40:29.658Z",
   "pageCount": 50,
   "categories": [
     {
@@ -1697,6 +1697,7 @@
       "categoryId": "getting-started",
       "headings": [
         "What you'll see",
+        "Who's in the demo lab",
         "Edits are temporary",
         "Dates always feel current",
         "Reading the docs from inside the demo",
@@ -1706,24 +1707,27 @@
       ],
       "bodySnippets": [
         "An in-browser preview of ResearchOS, seeded with a fake yeast lab. No folder picker, nothing to install, edits disappear on reload.",
-        "Open (e.g., research-os-xi.vercel.app/demo — the canonical public URL as of this writing; check the project site for the current link if it has moved) and you land straight inside ResearchOS as a researcher named alex , with a populated lab to click around in. Nothing touches ...",
-        "The Home page opens with four projects, all prefixed DEMO: so it's obvious nothing here is real research. Each project has experiments on the Gantt, methods in the library, a couple of PCR protocols, a funded purchase list, and a few results pages with lab notes. A second rese...",
-        "Bare stays at in the URL bar and renders the Home page. Click any nav link (Gantt, Methods, Calendar, Lab) and the URL switches to the regular app path ( , , etc.). Demo state follows you through those navigations via a sticky session flag, so the demo banner, the watermarked ...",
-        "Everything you do in (e.g., dragging a Gantt bar, editing a lab note, adding a task, dropping in an image) stays in this browser tab. There's no disk write, no upload, no account. Refresh the tab and the demo resets to its seed state. Good for kicking the tires, not for real r...",
-        "The amber You're viewing the Demo Lab banner sits across the top while you are on a URL. Navigate deeper (Gantt, Methods, Calendar, etc.) and the banner steps aside because those routes are outside . The persistent affordance across every route is the floating Leave Demo butto...",
+        "Open (e.g., research-os-xi.vercel.app/demo , the canonical public URL as of this writing; check the project site for the current link if it has moved) and you land straight inside ResearchOS as a researcher named alex , with a populated lab to click around in. Nothing touches ...",
+        "The Home page opens with four projects, all prefixed DEMO: so it's obvious nothing here is real research. Each project has experiments on the Gantt, methods in the library, a couple of PCR protocols, a funded purchase list, and a few results pages with lab notes. Other seeded ...",
+        "Bare stays at in the URL bar and renders the Home page. Click any nav link (Gantt, Methods, Calendar) and the URL switches to the regular app path ( , ). Demo state follows you through those navigations via a sticky session flag, so the watermarked data and the demo affordance...",
+        "Four seeded users are available from the user-picker. Knowing who is who matters because the lab-head and shared-records walkthroughs depend on signing in as the right researcher.",
+        "Everything you do in (dragging a Gantt bar, editing a lab note, adding a task, dropping in an image) stays in this browser tab. There's no disk write, no upload, no account. Refresh the tab and the demo resets to its seed state. Good for kicking the tires, not for real research.",
         "Every demo experiment, goal, and event gets its start and end date rebased on the fly so the demo's \"today\" matches your real today. Visit the demo this week and upcoming experiments stay upcoming, the Gantt scrolls to the current week, and the calendar shows events around now...",
         "Method history, PCR protocol creation dates, and lab note timestamps stay put, because they read as history rather than schedule. The rebase is also idempotent, so visiting twice in the same day doesn't accumulate drift.",
-        "Alongside the exit button in the bottom-right, a darker 📖 Read the docs ↗ button shows up whenever the view you're on has a wiki page. Click it on and you land on the Methods wiki entry, ready to read about what you just clicked. Browser-back puts you straight back inside the...",
-        "The mirror move works from the wiki side: feature pages that have a demo-able view show an amber inline call-out ( 🧪 Try this in the demo → ) that drops you into for that view. Reading about the PCR editor on the wiki, click the call-out, and the next click is on the live edi...",
-        "A floating amber Leave Demo button lives in the bottom-right and follows you across every route. While you are on a URL, the amber banner at the top also shows a Leave Demo button as a secondary shortcut. Either one opens a dialog called Leave the demo? with two buttons:",
-        "The amber Leave demo button at the top resets all demo state in this tab and drops you on the connect-folder screen, ready to pick a real folder (or start a new one). Demo edits are not saved to disk anywhere, so they go away with the reload.",
+        "Two floating affordances stay with you across every route inside the demo, regardless of whether the URL is a path or the equivalent live app path ( , , and so on).",
+        "In the bottom-right corner, a darker pill-shaped Read the docs button (with a small upward-right arrow glyph) shows up whenever the current view has a matching wiki page. Click it on and you land on the Methods wiki entry, ready to read about what you just clicked. The button ...",
+        "The mirror move works from the wiki side. Feature pages with a demo-able view embed an amber inline call-out (the component) that drops you into for that view. Each call-site picks its own label, so you'll see variants like Try the Gantt view , Try methods in the demo , Try th...",
+        "A floating amber Leave Demo button lives in the bottom-right and follows you across every route while the demo flag is set. It's undismissable, so you never lose the exit. Clicking it opens a dialog titled Leave the demo? with two choices:",
+        "alex (member). The default sign-in. Owns all four DEMO: projects and is the user you start as on .",
+        "morgan (member). Shares one project with alex and drops comments into alex's threads, so any view that filters by shared records shows real cross-user activity.",
+        "Dr. Mira Castellanos (account_type ). The PI of the demo lab. Mira is the user to pick when exploring the lab-head walkthrough, the lab inbox, the PI audit log, the announcements, and the flag-for-review notifications. She owns the orange (#f97316) user color in the comment th...",
+        "Dr. Sam Whitley (member, archived). Sam was archived by mira on 2026-03-15 and exists to demo the user-archiving feature. His historical comments and methods are still visible across the lab, but he no longer shows up in assignment pickers.",
+        "The amber Leave demo button at the top resets all demo state in this tab and drops you on the connect-folder screen, ready to pick a real folder (or start a new one). Demo edits are not saved to disk anywhere, so they go away with the reload. If you opened from a tab that was ...",
         "The smaller Keep exploring the demo link at the bottom just closes the dialog if you clicked Leave Demo by mistake.",
         "(this page). Fastest. Open the URL, click around, no setup. Edits are temporary and vanish on reload. Best for a first look or for sharing a link with a labmate.",
         "The \"Or download as a starter folder\" link. On the connect-folder screen there's a small text link under the big Explore demo in browser button. It downloads with the same seeded yeast lab. Unzip it, point ResearchOS at the unzipped folder, and your edits persist on disk for a...",
         "Connect a real folder. For actual research work. See Connecting Your Folder for the picker flow, and Shared Lab Accounts for putting that folder in OneDrive / Drive / Dropbox / iCloud so your whole lab shares it.",
         "The demo lab is full of fake-on-purpose labels: , , , and so on. If you decide to export the demo as a starter folder, rename the projects before you start filing real data in there so nothing reads as a tutorial leftover later.",
-        "The amber demo banner sits across the top while you are on a /demo URL.",
-        "The Demo Lab banner sitting across the top of the page, with the Leave Demo button on the right.",
         "The Leave Demo dialog. Confirm to reset and return to the folder picker, or keep exploring.",
         "The Leave the demo dialog with a primary Leave demo button and a smaller Keep exploring link below."
       ]

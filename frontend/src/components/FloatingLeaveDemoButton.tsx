@@ -30,8 +30,10 @@ import LeaveDemoModal from "./LeaveDemoModal";
  * suppression is unconditional in capture mode; CTAs only need to
  * appear on the public `/demo` route.
  *
- * Why not the banner: the existing `<DemoLabBanner>` is dismissible and
- * easy to overlook. This is the backup.
+ * No top-of-page banner: an earlier design used a dismissible
+ * `<DemoLabBanner>` paired with this floating button as a backup. The
+ * banner was removed; this floating button is now the sole always-on
+ * "you are in the demo" affordance, alongside `<OpenDocsButton>`.
  */
 export default function FloatingLeaveDemoButton() {
   const pathname = usePathname();
