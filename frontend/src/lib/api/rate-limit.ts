@@ -210,11 +210,12 @@ async function buildUpstashLimiter(
     // these specifiers. The packages are optional peer deps that deployers
     // install themselves; without the comments the build fails with
     // `Module not found` even though the require is wrapped in try/catch.
-    // @ts-expect-error -- optional peer dep, not in package.json
+    // The `as { ... }` casts on each await give TypeScript a typed result
+    // without needing the (now-unused) @ts-expect-error directives that
+    // previously sat above each line.
     const redisMod = (await import(
       /* webpackIgnore: true */ /* turbopackIgnore: true */ "@upstash/redis"
     )) as { Redis: typeof RedisCtor };
-    // @ts-expect-error -- optional peer dep, not in package.json
     const ratelimitMod = (await import(
       /* webpackIgnore: true */ /* turbopackIgnore: true */ "@upstash/ratelimit"
     )) as {
