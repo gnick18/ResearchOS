@@ -38,9 +38,9 @@ export default function CredentialsFooter() {
         <Image
           src="/credentials/uw-rise-logo.png"
           alt="Wisconsin RISE Initiative (Wisconsin Research, Innovation and Scholarly Excellence)"
-          width={160}
-          height={42}
-          className="h-8 w-auto"
+          width={200}
+          height={53}
+          className="h-11 w-auto"
           unoptimized
           priority
         />
