@@ -18,6 +18,7 @@ import { ValueHistory, type PushKind } from "@/lib/undo/value-history";
 import ImageResizePopover from "./ImageResizePopover";
 import FileViewerModal, { classifyFileLink, type FileViewerKind } from "./FileViewerModal";
 import Tooltip from "./Tooltip";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 
 // Transparent 1×1 GIF used as the `src` placeholder while the real blob URL
 // is being resolved asynchronously, so the browser never tries to fetch the
@@ -450,12 +451,147 @@ function applyMarkdownFormatInBlock(
 }
 
 /**
+ * Save button chrome. Pinned to the upper-right of the editor
+ * surface. Primary-blue when there are uncommitted edits; disabled
+ * (and faded) when there's nothing to save. The button label is
+ * static "Save" — the keyboard hint surfaces on hover via the
+ * Tooltip component (no native `title=`; that attribute is
+ * functionally invisible in this codebase).
+ *
+ * Rendered in both the empty-state and main-content branches.
+ * Hidden when the editor is in read-only/disabled mode since the
+ * Save semantic only applies to interactive editing.
+ */
+function SaveChrome({
+  dirty,
+  disabled,
+  onSave,
+}: {
+  dirty: boolean;
+  disabled: boolean;
+  onSave: () => void;
+}) {
+  if (disabled) return null;
+  const isMac =
+    typeof navigator !== "undefined" &&
+    navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+  const shortcutHint = isMac ? "Cmd+S" : "Ctrl+S";
+  return (
+    <div className="absolute top-2 right-3 z-20">
+      <Tooltip
+        label={
+          dirty
+            ? `Save changes (${shortcutHint})`
+            : `Save changes (${shortcutHint}) — no unsaved edits`
+        }
+        placement="bottom"
+      >
+        <button
+          type="button"
+          data-testid="hybrid-editor-save"
+          onClick={(e) => {
+            // Stop propagation so the click doesn't bubble into the
+            // editor container's click-to-start-editing handler.
+            e.stopPropagation();
+            onSave();
+          }}
+          // onMouseDown also stops propagation so the global keydown
+          // listener doesn't pre-empt focus mid-click.
+          onMouseDown={(e) => {
+            e.stopPropagation();
+          }}
+          disabled={!dirty}
+          aria-label="Save"
+          className={
+            dirty
+              ? "px-3 py-1.5 text-xs font-medium rounded-md shadow-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+              : "px-3 py-1.5 text-xs font-medium rounded-md shadow-sm bg-gray-100 text-gray-400 cursor-not-allowed transition-colors"
+          }
+        >
+          Save
+        </button>
+      </Tooltip>
+    </div>
+  );
+}
+
+/**
+ * Unsaved-changes confirm modal. Renders when the parent attempts
+ * an external swap of the `value` prop while the editor holds
+ * uncommitted local edits. Three resolutions:
+ *   - Save: commits the pending document via the provided
+ *     onSave (which fires onChange) then proceeds with the swap.
+ *   - Discard: drops the pending document, accepts the new value.
+ *   - Cancel: stays on the current pending document; the parent's
+ *     external swap is held back until the user resolves it later
+ *     (e.g. saves manually, then the swap can re-fire).
+ *
+ * Visual: full-screen overlay with a centered card. No emojis,
+ * no em-dashes. Buttons are color-coded — Save (primary blue),
+ * Discard (red), Cancel (neutral).
+ */
+function UnsavedChangesModal({
+  onSave,
+  onDiscard,
+  onCancel,
+}: {
+  onSave: () => void;
+  onDiscard: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="hybrid-editor-unsaved-title"
+    >
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-5">
+        <h2
+          id="hybrid-editor-unsaved-title"
+          className="text-base font-semibold text-gray-900 mb-2"
+        >
+          Unsaved changes
+        </h2>
+        <p className="text-sm text-gray-600 mb-5">
+          Save before leaving? Your edits have not been committed yet.
+        </p>
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-3 py-1.5 text-xs font-medium rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onDiscard}
+            className="px-3 py-1.5 text-xs font-medium rounded-md bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
+          >
+            Discard
+          </button>
+          <button
+            type="button"
+            data-testid="hybrid-editor-unsaved-save"
+            onClick={onSave}
+            className="px-3 py-1.5 text-xs font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Hybrid Markdown Editor
- * 
+ *
  * Renders the entire document as preview by default.
  * When a user clicks on a block, that block switches to edit mode
  * while everything else remains in preview mode.
- * 
+ *
  * Multi-line blocks (code blocks, blockquotes, lists) are edited as a whole.
  */
 export default function HybridMarkdownEditor({
@@ -497,6 +633,12 @@ export default function HybridMarkdownEditor({
   // This allows us to replace the correct portion of the document even when
   // the block structure changes (e.g., adding/removing newlines splits/merges blocks)
   const editingBlockOriginalLengthRef = useRef<number>(0);
+  // Original block content captured at session start. Read by the
+  // live dirty-flag check in handleEditChange so we can mark dirty
+  // only when the buffer actually diverges from what the user
+  // started with (not just on length parity). Kept in lockstep with
+  // editingBlockOriginalLengthRef.
+  const editingBlockOriginalContentRef = useRef<string>("");
 
   // Buffered-edit snapshot. Captured when a block enters edit mode; held
   // until blur (or explicit exit) at which point the buffer is composed
@@ -587,21 +729,114 @@ export default function HybridMarkdownEditor({
   }
   const valueRef = useRef<string>(value);
 
-  useEffect(() => {
-    if (valueRef.current !== value) {
-      historyRef.current?.flushBoundary();
-      valueRef.current = value;
+  // Manual-save model (2026-05-26):
+  //
+  // Under the manual-save model the editor no longer flushes typed
+  // edits to the parent's `onChange` automatically. Typing populates
+  // an active block's local buffer (existing buffered-edit layer);
+  // committing the buffer (block-switch, Esc, explicit Save, or any
+  // bespoke structural transformation like Shift+Enter, language
+  // insert, image resize, paste, drop, delete-block) writes to a
+  // LOCAL pending-document layer instead of firing `onChange`. The
+  // pending document is only flushed to the parent on explicit Save
+  // (button click or Cmd+S).
+  //
+  // `pendingDocument` is non-null when the editor holds uncommitted
+  // edits. `editBufferDirty` mirrors that for ergonomic checks +
+  // for the nav-away guard.
+  //
+  // External `value` prop changes from the parent (e.g., the parent
+  // resets the document) clear the pending document so the editor
+  // re-syncs with the source of truth. Combined with the in-editor
+  // unsaved-changes modal (which fires when the parent attempts an
+  // external swap while dirty), this gives the user a fighting
+  // chance to keep their work.
+  const [pendingDocument, setPendingDocument] = useState<string | null>(null);
+  const pendingDocumentRef = useRef<string | null>(null);
+  const [editBufferDirty, setEditBufferDirty] = useState<boolean>(false);
+  const editBufferDirtyRef = useRef<boolean>(false);
+
+  const markDirty = useCallback(() => {
+    if (!editBufferDirtyRef.current) {
+      editBufferDirtyRef.current = true;
+      setEditBufferDirty(true);
     }
+  }, []);
+
+  const clearDirty = useCallback(() => {
+    if (editBufferDirtyRef.current) {
+      editBufferDirtyRef.current = false;
+      setEditBufferDirty(false);
+    }
+    if (pendingDocumentRef.current !== null) {
+      pendingDocumentRef.current = null;
+      setPendingDocument(null);
+    }
+  }, []);
+
+  // Track the latest value the parent last accepted (i.e. the most
+  // recent value passed in through props OR the most recent value
+  // we ourselves emitted via `onChange`). Used to detect EXTERNAL
+  // parent-driven changes vs. our own commit. An external change
+  // while dirty triggers the unsaved-changes modal.
+  const lastAcceptedValueRef = useRef<string>(value);
+
+  // Modal state for the soft-route / parent-swap unsaved-changes
+  // confirm. `pendingExternalValue` holds the value the parent is
+  // trying to swap to; we hold it back until the user resolves the
+  // modal (Save commits the pending document FIRST, then switches;
+  // Discard drops the pending document and accepts the parent's new
+  // value; Cancel stays on the current pending document).
+  const [pendingExternalValue, setPendingExternalValue] = useState<
+    string | null
+  >(null);
+
+  useEffect(() => {
+    if (valueRef.current === value) return;
+    // External value change semantics:
+    //   - If value matches the last value the parent accepted from us,
+    //     this is a no-op re-render of an already-known prop and we
+    //     must NOT overwrite our local pending edits. Skip.
+    //   - If we have uncommitted local edits AND the parent is trying
+    //     to swap to something different, hold the new value back and
+    //     open the unsaved-changes modal.
+    //   - Otherwise, silently accept the parent's new value as the
+    //     fresh working document.
+    if (value === lastAcceptedValueRef.current) return;
+    if (editBufferDirtyRef.current) {
+      setPendingExternalValue(value);
+      return;
+    }
+    historyRef.current?.flushBoundary();
+    valueRef.current = value;
+    lastAcceptedValueRef.current = value;
   }, [value]);
 
+  // Push a new value into the local working document + history. Does
+  // NOT call `onChange`. The parent does not see this value until the
+  // user explicitly Saves. Same name + signature as the pre-manual-
+  // save helper so existing call sites (Shift+Enter, paste, drop,
+  // language insert, image resize, paragraph merge, delete-block, the
+  // outer Add-paragraph button) keep working unchanged.
   const pushAndCommit = useCallback(
     (newValue: string, kind: PushKind = "type") => {
       historyRef.current?.push(valueRef.current, newValue, kind);
       valueRef.current = newValue;
-      onChange(newValue);
+      pendingDocumentRef.current = newValue;
+      setPendingDocument(newValue);
+      markDirty();
     },
-    [onChange]
+    [markDirty]
   );
+
+  // Flush the current pending document (and any in-flight edit
+  // buffer) to the parent via a single `onChange` call. Called by
+  // the Save button, Cmd+S, and the modal's "Save" choice.
+  const manualSaveRef = useRef<() => void>(() => {});
+  // Forward-declared here so that `commitBufferedEdit` (defined
+  // below) and `manualSave` (defined further below) can both refer
+  // to a stable callable. The real implementation is wired further
+  // down once `commitBufferedEdit` is available.
 
   /**
    * Begin a buffered edit session. Captures the current document value
@@ -690,21 +925,163 @@ export default function HybridMarkdownEditor({
     return newFullContent;
   }, [pushAndCommit]);
 
+  // Undo / redo operate against the LOCAL working document only.
+  // Under the manual-save model they do NOT call onChange — the
+  // user can undo as far as they like and the parent only sees the
+  // final result on explicit Save. The reverted value is staged
+  // into the pending-document layer like any other local commit.
   const performUndo = useCallback((): boolean => {
     const prev = historyRef.current?.undo(valueRef.current) ?? null;
     if (prev === null) return false;
     valueRef.current = prev;
-    onChange(prev);
+    pendingDocumentRef.current = prev;
+    setPendingDocument(prev);
+    // If undo returns the editor to the last-saved value, dirty
+    // would technically be false again — but we keep dirty=true
+    // because subsequent redo restores the dirty state and the
+    // user may still want a save event. Cheap and safe.
+    markDirty();
     return true;
-  }, [onChange]);
+  }, [markDirty]);
 
   const performRedo = useCallback((): boolean => {
     const next = historyRef.current?.redo(valueRef.current) ?? null;
     if (next === null) return false;
     valueRef.current = next;
-    onChange(next);
+    pendingDocumentRef.current = next;
+    setPendingDocument(next);
+    markDirty();
     return true;
-  }, [onChange]);
+  }, [markDirty]);
+
+  /**
+   * Explicit Save handler. Composes any in-flight edit-session buffer
+   * back into the pending document (via commitBufferedEdit), then
+   * flushes the pending document to the parent via a single
+   * onChange call. After Save the editor is clean (no pending, dirty
+   * cleared); the active edit session is also terminated so the user
+   * has a clear "done editing" signal. Wired to the Save button +
+   * Cmd/Ctrl+S.
+   *
+   * No-op when there's nothing to save (no buffered session AND no
+   * pending document). Returns true if a save happened, false
+   * otherwise — used by the unsaved-changes modal's "Save" path to
+   * decide whether to swallow the synthetic resolve.
+   */
+  const manualSave = useCallback((): boolean => {
+    // Flush in-flight buffered edit into pending first. This keeps the
+    // ordering invariant: commitBufferedEdit writes to pendingDocumentRef
+    // via pushAndCommit, so by the time we read pendingDocumentRef we
+    // have the freshest typed value baked in.
+    if (editSessionSnapshotRef.current !== null) {
+      commitBufferedEdit();
+    }
+    const toSave = pendingDocumentRef.current;
+    if (toSave === null) {
+      // Nothing pending. Just exit edit mode cleanly if a session was open.
+      if (editingBlockOffsetRef.current !== null) {
+        editingBlockOffsetRef.current = null;
+        editingBlockContentRef.current = "";
+        isEditingRef.current = false;
+        setEditingBlockOffset(null);
+        setEditingBlockContent("");
+        setEditCursorPosition(null);
+        setShowLanguageSelector(false);
+        historyRef.current?.flushBoundary();
+      }
+      return false;
+    }
+    lastAcceptedValueRef.current = toSave;
+    clearDirty();
+    onChange(toSave);
+    // Exit edit mode after Save so the user has a visible "saved"
+    // signal (textarea collapses to preview, blocks re-render against
+    // the committed value).
+    editingBlockOffsetRef.current = null;
+    editingBlockContentRef.current = "";
+    isEditingRef.current = false;
+    setEditingBlockOffset(null);
+    setEditingBlockContent("");
+    setEditCursorPosition(null);
+    setShowLanguageSelector(false);
+    historyRef.current?.flushBoundary();
+    return true;
+  }, [commitBufferedEdit, clearDirty, onChange]);
+
+  // Keep the forward-declared ref pointer in sync so callbacks
+  // captured before manualSave existed (Cmd+S binding in
+  // handleEditKeyDown) read the latest definition.
+  useEffect(() => {
+    manualSaveRef.current = manualSave;
+  }, [manualSave]);
+
+  // Wire the existing useUnsavedChangesGuard hook so the browser's
+  // native "Leave site?" dialog fires on full-tab unload (close,
+  // refresh, hard-nav) when the editor holds uncommitted edits.
+  // Soft-route changes (parent swaps the `value` prop) are covered
+  // by the in-editor modal below.
+  useUnsavedChangesGuard(editBufferDirty);
+
+  /**
+   * Modal handlers for the unsaved-changes confirm. Three paths:
+   *
+   *   Save: commit the pending document via the normal manualSave
+   *   (fires onChange to the parent), THEN accept the parent's
+   *   incoming external value. There's a race here in the
+   *   controlled-component shape — the parent will see our
+   *   onChange and likely re-render with that committed value
+   *   before the user's intended target swap propagates. In
+   *   practice that's fine because the parent's external swap
+   *   intention is already known (pendingExternalValue holds it).
+   *   We accept that value as the new baseline after the save.
+   *
+   *   Discard: drop the pending document entirely, accept the
+   *   parent's new value as the new baseline. valueRef + history
+   *   reset to the new baseline.
+   *
+   *   Cancel: leave the pending document alone, clear the modal.
+   *   The parent's external swap stays held back; future Save
+   *   actions will produce the user's edits as onChange and the
+   *   parent will re-render normally.
+   */
+  const handleUnsavedSave = useCallback(() => {
+    manualSave();
+    const target = pendingExternalValue;
+    if (target !== null) {
+      historyRef.current?.flushBoundary();
+      valueRef.current = target;
+      lastAcceptedValueRef.current = target;
+      setPendingExternalValue(null);
+    }
+  }, [manualSave, pendingExternalValue]);
+
+  const handleUnsavedDiscard = useCallback(() => {
+    const target = pendingExternalValue;
+    pendingDocumentRef.current = null;
+    setPendingDocument(null);
+    editSessionSnapshotRef.current = null;
+    setEditSessionSnapshot(null);
+    editSessionStartedBlankRef.current = false;
+    editingBlockOffsetRef.current = null;
+    editingBlockContentRef.current = "";
+    isEditingRef.current = false;
+    setEditingBlockOffset(null);
+    setEditingBlockContent("");
+    setEditCursorPosition(null);
+    setShowLanguageSelector(false);
+    editBufferDirtyRef.current = false;
+    setEditBufferDirty(false);
+    historyRef.current?.flushBoundary();
+    if (target !== null) {
+      valueRef.current = target;
+      lastAcceptedValueRef.current = target;
+      setPendingExternalValue(null);
+    }
+  }, [pendingExternalValue]);
+
+  const handleUnsavedCancel = useCallback(() => {
+    setPendingExternalValue(null);
+  }, []);
 
   // Switching which block is being edited (or leaving edit mode entirely) is
   // a logical boundary even when the buffer text hasn't changed yet.
@@ -745,7 +1122,18 @@ export default function HybridMarkdownEditor({
   // live `value` doesn't change mid-edit anyway. Keeping `blocks` keyed
   // off the snapshot during the edit session prevents any stray external
   // value change from re-keying preview blocks underneath the textarea.
-  const effectiveValue = editSessionSnapshot !== null ? editSessionSnapshot : value;
+  // The frozen snapshot wins during an active edit session (so
+  // surrounding blocks don't re-render mid-typing). Otherwise we
+  // prefer the LOCAL pending document over the parent's `value`
+  // prop — under the manual-save model the pending document is
+  // the editor's source of truth for everything that has not yet
+  // been Saved.
+  const effectiveValue =
+    editSessionSnapshot !== null
+      ? editSessionSnapshot
+      : pendingDocument !== null
+        ? pendingDocument
+        : value;
   const blocks = useMemo(
     () => parseMarkdownBlocks(effectiveValue),
     [effectiveValue],
@@ -818,11 +1206,15 @@ export default function HybridMarkdownEditor({
         if (!block) return;
         let start = block.startOffset;
         let end = block.startOffset + block.content.length;
-        while (end < value.length && value[end] === "\n") end++;
-        if (end >= value.length) {
-          while (start > 0 && value[start - 1] === "\n") start--;
+        // Read from valueRef so we splice against the LIVE working
+        // document (which may include unsaved pending edits), not
+        // the parent's prop snapshot.
+        const base = valueRef.current;
+        while (end < base.length && base[end] === "\n") end++;
+        if (end >= base.length) {
+          while (start > 0 && base[start - 1] === "\n") start--;
         }
-        onChange(value.slice(0, start) + value.slice(end));
+        pushAndCommit(base.slice(0, start) + base.slice(end), "paste");
         setSelectedBlockOffset(null);
       } else if (e.key === "Escape") {
         setSelectedBlockOffset(null);
@@ -839,6 +1231,7 @@ export default function HybridMarkdownEditor({
           setEditingBlockContent(block.content);
           editingBlockContentRef.current = block.content;
           editingBlockOriginalLengthRef.current = block.content.length;
+          editingBlockOriginalContentRef.current = block.content;
           setEditCursorPosition(0);
         }
       }
@@ -1054,6 +1447,7 @@ export default function HybridMarkdownEditor({
       setEditingBlockContent(block.content);
       editingBlockContentRef.current = block.content;
       editingBlockOriginalLengthRef.current = block.content.length;
+      editingBlockOriginalContentRef.current = block.content;
 
       if (event) {
         // Place the textarea caret at the line the user clicked on.
@@ -1084,14 +1478,17 @@ export default function HybridMarkdownEditor({
       // Eat the paragraph-separating newlines so we don't leave a phantom
       // blank line behind. If the block is at the end, eat leading newlines
       // instead so the previous block doesn't gain a trailing blank line.
-      while (end < value.length && value[end] === "\n") end++;
-      if (end >= value.length) {
-        while (start > 0 && value[start - 1] === "\n") start--;
+      // Splice against the LIVE working document (valueRef) so pending
+      // unsaved edits are preserved across delete-block.
+      const base = valueRef.current;
+      while (end < base.length && base[end] === "\n") end++;
+      if (end >= base.length) {
+        while (start > 0 && base[start - 1] === "\n") start--;
       }
-      onChange(value.slice(0, start) + value.slice(end));
+      pushAndCommit(base.slice(0, start) + base.slice(end), "paste");
       setSelectedBlockOffset(null);
     },
-    [blocks, value, onChange]
+    [blocks, pushAndCommit]
   );
 
   /**
@@ -1154,18 +1551,45 @@ export default function HybridMarkdownEditor({
       // the latest typed character.
       editingBlockContentRef.current = newContent;
       setEditingBlockContent(newContent);
+      // Live dirty-flag update. Mark dirty if the buffer now
+      // differs from the active block's ORIGINAL content (the
+      // value the block had when this edit session began). This
+      // lights up the Save button + nav-away guard the moment the
+      // user actually changes something, not just on click-into-
+      // edit. The comparison length is the original-length ref
+      // (set in handleBlockEdit). pendingDocumentRef already
+      // independently marks dirty for committed-to-pending edits.
+      if (
+        newContent !== editingBlockOriginalContentRef.current ||
+        pendingDocumentRef.current !== null
+      ) {
+        markDirty();
+      }
     },
-    [editingBlockOffset]
+    [editingBlockOffset, markDirty]
   );
 
   /**
-   * Handle leaving edit mode (blur, Escape, click-outside).
+   * Exit the active edit-mode session.
    *
-   * Buffered-edit commit point. The local buffer is composed back
-   * into the snapshot at the active block's offset and pushed as a
-   * single undo step via commitBufferedEdit. If no buffered changes
-   * are pending (snapshot already cleared, or buffer matches the
-   * original block), no onChange fires.
+   * MANUAL-SAVE MODEL: native textarea blur (click outside, OS focus
+   * loss, browser extension probe) no longer triggers this — the
+   * buffer stays alive, edit mode persists, and the user can click
+   * back to keep typing. This function is now reserved for explicit
+   * "leave edit mode" signals:
+   *   - Escape key (graceful exit; buffer composes to pending)
+   *   - Block switch via handleBlockSelect (commits to pending,
+   *     opens a new buffer on the clicked block)
+   *   - Bespoke structural transformations that exit edit mode
+   *     after splicing the document themselves (Shift+Enter hard
+   *     split, Backspace paragraph merge, Split-here button)
+   *
+   * Internally still calls commitBufferedEdit so any typed content
+   * is preserved into the pending document. Under the manual-save
+   * model commitBufferedEdit routes through pushAndCommit, which
+   * writes to the local pending layer (it does NOT call onChange).
+   * onChange is reached only via manualSave (explicit Save button
+   * or Cmd+S).
    */
   const handleEditBlur = useCallback(() => {
     commitBufferedEdit();
@@ -1673,24 +2097,60 @@ export default function HybridMarkdownEditor({
   }, [editingBlockContent, autoGrowTextarea, editingBlockOffset]);
 
   /**
-   * Handle clicking outside to exit edit mode
+   * Cmd+S (Mac) / Ctrl+S (Win/Linux) keyboard shortcut for manual
+   * Save. Bound at the document level so it works whether the
+   * focus is in the active textarea, on the container, or anywhere
+   * else inside the editor's containing modal. Always preventDefault
+   * so the browser's "Save page" dialog doesn't fire — even when
+   * there's nothing to save (this matches Notion / Docs behavior).
    */
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handler = (e: KeyboardEvent) => {
+      const isMac =
+        typeof navigator !== "undefined" &&
+        navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+      const cmd = isMac ? e.metaKey : e.ctrlKey;
+      if (!cmd || e.shiftKey || e.altKey) return;
+      if (e.key.toLowerCase() !== "s") return;
+      // Only consume the shortcut if the active element is inside
+      // our container — multiple editors mounted in the same DOM
+      // (e.g. Notes + Methods open side-by-side) should each only
+      // respond to Cmd+S when they "own" focus.
+      const active = document.activeElement as HTMLElement | null;
       if (
-        editingBlockOffset !== null &&
         containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
+        active &&
+        containerRef.current.contains(active)
       ) {
-        handleEditBlur();
+        e.preventDefault();
+        e.stopPropagation();
+        manualSaveRef.current();
       }
     };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [editingBlockOffset, handleEditBlur]);
+  /**
+   * Click-outside-the-editor handling under the manual-save model.
+   *
+   * Pre-2026-05-26 this exited edit mode + commit-on-blur whenever
+   * the user mousedown'd anywhere outside the editor container. The
+   * manual-save model removes that behavior: the buffer survives a
+   * blur, edit mode stays active, and the textarea remains mounted
+   * so the user can click back in and continue typing. The user
+   * exits explicitly via the Save button, Cmd+S, Escape, or by
+   * clicking a different block within the editor.
+   *
+   * We still keep a NO-OP listener slot here as a documentation
+   * anchor for the previous behavior — future contributors looking
+   * for "where does click-outside live" will land here and see the
+   * deliberate decision.
+   */
+  useEffect(() => {
+    // No click-outside handler under manual-save. See block comment.
+    return undefined;
+  }, [editingBlockOffset]);
 
   /**
    * Handle image error for broken images
@@ -1725,13 +2185,17 @@ export default function HybridMarkdownEditor({
       setImageResize(null);
       if (newBlockContent === block.content) return;
 
+      // Splice against the live working document — pending edits
+      // are preserved through image-resize. Stays local via
+      // pushAndCommit; the user still has to Save explicitly.
+      const base = valueRef.current;
       const newValue =
-        value.substring(0, block.startOffset) +
+        base.substring(0, block.startOffset) +
         newBlockContent +
-        value.substring(block.startOffset + block.content.length);
-      onChange(newValue);
+        base.substring(block.startOffset + block.content.length);
+      pushAndCommit(newValue, "paste");
     },
-    [imageResize, blocks, value, onChange],
+    [imageResize, blocks, pushAndCommit],
   );
 
   /**
@@ -1757,8 +2221,13 @@ export default function HybridMarkdownEditor({
           const newContent = syntax + blocks[0].content;
           setEditingBlockContent(newContent);
           editingBlockContentRef.current = newContent;
-          // Store the original block length
+          // Store the original block length + content. handleInsertSyntax
+          // is an explicit "insert + start editing" action, so the dirty
+          // flag must light up immediately — the buffer already differs
+          // from the block's original content (`syntax + ...` vs original).
           editingBlockOriginalLengthRef.current = blocks[0].content.length;
+          editingBlockOriginalContentRef.current = blocks[0].content;
+          markDirty();
           setEditCursorPosition(syntax.length);
 
           // Move textarea cursor after the inserted syntax once it
@@ -1935,13 +2404,20 @@ export default function HybridMarkdownEditor({
             }
             if (!parsed?.filename) return;
             const snippet = `![${parsed.caption ?? ""}](Images/${parsed.filename})`;
+            // Insert against the LIVE working document so unsaved
+            // pending edits aren't clobbered by the splice. Stays
+            // local via pushAndCommit until the user Saves.
+            const base = valueRef.current;
             const insertAt = block.startOffset + block.content.length;
-            const before = value.slice(0, insertAt);
-            const after = value.slice(insertAt);
+            const before = base.slice(0, insertAt);
+            const after = base.slice(insertAt);
             // \n\n on each side gives markdown a clean paragraph break; double
             // newlines collapse visually, so this is safe even if the user
             // already had blank lines here.
-            onChange(`${before}\n\n${snippet}\n\n${after}`);
+            pushAndCommit(
+              `${before}\n\n${snippet}\n\n${after}`,
+              "paste"
+            );
           }}
           style={{ minHeight: block.type === "blankLine" ? "1.5em" : undefined }}
         >
@@ -2122,7 +2598,7 @@ export default function HybridMarkdownEditor({
       useBlobUrls,
       resolvedBlobUrls,
       value,
-      onChange,
+      pushAndCommit,
       onImageDrop,
       onFileDrop,
       allowAnyFileType,
@@ -2256,10 +2732,20 @@ export default function HybridMarkdownEditor({
           </div>
         )}
         
+        <div className="relative flex-1 flex flex-col min-h-0 h-full">
+        {/* Save header chrome — same component used in the main
+            branch. Floating top-right; disabled when not dirty,
+            primary-blue when dirty. Hidden when there's no Save
+            target (no edit session active AND no pending). */}
+        <SaveChrome
+          dirty={editBufferDirty}
+          disabled={disabled}
+          onSave={manualSave}
+        />
         <div
           ref={containerRef}
           data-tour-target="hybrid-editor-textarea"
-          className="hybrid-editor p-4 min-h-0 h-full overflow-y-auto cursor-text flex-1"
+          className="hybrid-editor p-4 min-h-0 flex-1 overflow-y-auto cursor-text"
           onClick={() => {
             if (!disabled && editingBlockOffset === null) {
               // Create a new empty paragraph block to edit
@@ -2277,6 +2763,7 @@ export default function HybridMarkdownEditor({
               setEditingBlockContent("");
               editingBlockContentRef.current = "";
               editingBlockOriginalLengthRef.current = 0;
+              editingBlockOriginalContentRef.current = "";
               setEditCursorPosition(0);
             }
           }}
@@ -2297,6 +2784,7 @@ export default function HybridMarkdownEditor({
               {placeholder || "Click to start writing..."}
             </p>
           )}
+        </div>
         </div>
 
         {/* Language Selector Popup */}
@@ -2341,6 +2829,16 @@ export default function HybridMarkdownEditor({
               )}
             </div>
           </div>
+        )}
+
+        {/* Unsaved-changes modal — fires when the parent attempts an
+            external value swap while we hold uncommitted edits. */}
+        {pendingExternalValue !== null && (
+          <UnsavedChangesModal
+            onSave={handleUnsavedSave}
+            onDiscard={handleUnsavedDiscard}
+            onCancel={handleUnsavedCancel}
+          />
         )}
       </div>
     );
@@ -2466,7 +2964,24 @@ export default function HybridMarkdownEditor({
         </div>
       )}
       
-      <div ref={containerRef} data-tour-target="hybrid-editor-textarea" className="hybrid-editor p-4 min-h-0 h-full overflow-y-auto flex-1">
+      <div className="relative flex-1 flex flex-col min-h-0 h-full">
+        {/* Save header chrome — pinned to the upper-right of the
+            editor surface. Visible whenever there's content to render,
+            disabled when the buffer matches the snapshot, primary-blue
+            when dirty. The button is the ONLY user-driven path to
+            commit edits to the parent under the manual-save model;
+            Cmd+S is a document-level alias bound in the keydown
+            effect higher up. */}
+        <SaveChrome
+          dirty={editBufferDirty}
+          disabled={disabled}
+          onSave={manualSave}
+        />
+        <div
+          ref={containerRef}
+          data-tour-target="hybrid-editor-textarea"
+          className="hybrid-editor p-4 min-h-0 flex-1 overflow-y-auto"
+        >
         {blocks.map((block) => renderBlock(block))}
         
         {/* Add new block button at the end */}
@@ -2474,12 +2989,16 @@ export default function HybridMarkdownEditor({
           <button
             type="button"
             onClick={() => {
-              // Append a new paragraph at the end. This mutates the
-              // document directly (a structural change, not a buffered
-              // typing edit) and then opens a buffered edit session on
-              // the new blank-line block so the user can type into it.
-              const newContent = value + (value && !value.endsWith("\n") ? "\n\n" : "\n");
-              onChange(newContent);
+              // Append a new paragraph at the end. Under manual-save
+              // this is a LOCAL pending edit: pushAndCommit routes
+              // through the pending-document layer, not onChange.
+              // The parent only sees this addition when the user
+              // hits Save.
+              const baseValue = valueRef.current;
+              const newContent =
+                baseValue +
+                (baseValue && !baseValue.endsWith("\n") ? "\n\n" : "\n");
+              pushAndCommit(newContent, "paste");
               // The new block will be created on next render
               // Find it and set it as editing by its offset
               setTimeout(() => {
@@ -2503,6 +3022,7 @@ export default function HybridMarkdownEditor({
                   // the previous edit session, which produces a wrong document
                   // slice on commit.
                   editingBlockOriginalLengthRef.current = lastBlock.content.length;
+                  editingBlockOriginalContentRef.current = lastBlock.content;
                   setEditCursorPosition(0);
                 }
               }, 0);
@@ -2512,8 +3032,9 @@ export default function HybridMarkdownEditor({
             + Add paragraph
           </button>
         )}
+        </div>
       </div>
-      
+
       {/* Language Selector Popup */}
       {showLanguageSelector && (
         <div
@@ -2577,6 +3098,16 @@ export default function HybridMarkdownEditor({
           resolvedPath={fileViewerRequest.resolvedPath}
           kind={fileViewerRequest.kind}
           onClose={() => setFileViewerRequest(null)}
+        />
+      )}
+
+      {/* Unsaved-changes modal — fires when the parent attempts an
+          external value swap while we hold uncommitted edits. */}
+      {pendingExternalValue !== null && (
+        <UnsavedChangesModal
+          onSave={handleUnsavedSave}
+          onDiscard={handleUnsavedDiscard}
+          onCancel={handleUnsavedCancel}
         />
       )}
     </div>
