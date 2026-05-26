@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { WIKI_NAV, type WikiNode } from "@/lib/wiki/nav";
+import WikiSearch from "./WikiSearch";
 
 /** Sticky left-rail navigation for the wiki. Highlights the current page
  *  and the section containing it. Collapses to a hamburger toggle on
@@ -40,7 +41,7 @@ export default function WikiSidebar() {
           bg-white border-r border-gray-200 overflow-y-auto
         `}
       >
-        <div className="px-5 py-6">
+        <div className="px-5 pt-6 pb-3">
           <Link
             href="/wiki"
             className="block text-base font-bold text-gray-900 tracking-tight hover:text-gray-700"
@@ -50,6 +51,7 @@ export default function WikiSidebar() {
           </Link>
           <p className="mt-1 text-xs text-gray-500">Help & Documentation</p>
         </div>
+        <WikiSearch />
         <nav className="px-3 pb-10 text-sm">
           {WIKI_NAV.map((node) => (
             <SidebarNode

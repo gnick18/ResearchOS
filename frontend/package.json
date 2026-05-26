@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node ../scripts/check-wiki-coverage.mjs --ci && node ../scripts/build-demo-zip.mjs && node ../scripts/build-ai-helper.mjs && node ../scripts/check-ai-helper.mjs",
+    "prebuild": "node ../scripts/check-wiki-coverage.mjs --ci && node ../scripts/build-wiki-search-index.mjs --quiet && node ../scripts/build-demo-zip.mjs && node ../scripts/build-ai-helper.mjs && node ../scripts/check-ai-helper.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -15,6 +15,7 @@
     "test:e2e:ui": "playwright test --ui",
     "wiki:screenshots": "node ../scripts/capture-wiki-screenshots.mjs",
     "wiki:coverage": "node ../scripts/check-wiki-coverage.mjs",
+    "wiki:search-index": "node ../scripts/build-wiki-search-index.mjs",
     "demo:data": "node ../scripts/generate-demo-data.mjs",
     "demo:images": "node ../scripts/generate-demo-images.mjs",
     "demo:zip": "node ../scripts/build-demo-zip.mjs",
