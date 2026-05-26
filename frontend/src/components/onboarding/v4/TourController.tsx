@@ -1186,15 +1186,30 @@ export function TourControllerProvider({
   // step-change effect below tears down the observer + resets the
   // state on every transition so a stale detach from the prior step
   // never bleeds into the next.
-  const [targetDetachRecoveryLabel, setTargetDetachRecoveryLabel] =
-    useState<string | null>(null);
+  //
+  // Bug-squad fix bot 2026-05-26 (Bug 5: stale bubble + caption render
+  // bleed). The label was previously a bare `string | null`. On a step
+  // transition the effect's `setTargetDetachRecoveryLabel(null)` is
+  // queued by an effect that runs AFTER the first render with the new
+  // `state.currentStep`, so for one frame the bubble's flashSpeech
+  // showed the PRIOR step's recovery copy ("Looks like that closed...")
+  // while the caption already read the NEW step's prose. Pairing the
+  // label with the step id it was set against lets the consumer ignore
+  // a stale value at render time; the second commit (when the new
+  // effect clears state) then unifies the two without the visible
+  // bleed.
+  const [targetDetachRecovery, setTargetDetachRecovery] = useState<{
+    label: string;
+    stepId: TourStepId;
+  } | null>(null);
   useEffect(() => {
-    setTargetDetachRecoveryLabel(null);
+    setTargetDetachRecovery(null);
     if (typeof document === "undefined") return;
     if (!state.currentStep || state.paused) return;
     const body = getStep(state.currentStep);
     if (!body) return;
     const selector = body.targetSelector;
+    const owningStepId = state.currentStep;
     // panel copy polish 2026-05-26: the prior fallback "the button you
     // clicked before" had no referent — the last button most users
     // clicked was the tour's own Next. Steps should declare their own
@@ -1218,10 +1233,10 @@ export function TourControllerProvider({
       const present = !!document.querySelector(selector);
       if (!present && !detached) {
         detached = true;
-        setTargetDetachRecoveryLabel(hint);
+        setTargetDetachRecovery({ label: hint, stepId: owningStepId });
       } else if (present && detached) {
         detached = false;
-        setTargetDetachRecoveryLabel(null);
+        setTargetDetachRecovery(null);
       }
     };
 
@@ -1248,6 +1263,17 @@ export function TourControllerProvider({
     // need it for the `/lab` deletion sweep).
     void isLabStep;
   }, [state.currentStep, state.paused]);
+
+  // Render-time stale-step guard (Bug 5 fix). The flashSpeech consumer
+  // reads `targetDetachRecoveryLabel`; we expose null when the captured
+  // state belongs to a previous step so the one-frame bleed window
+  // between SET_STEP commit and the cleanup effect's setState(null)
+  // doesn't show the prior step's recovery copy on the new step's
+  // bubble.
+  const targetDetachRecoveryLabel =
+    targetDetachRecovery && targetDetachRecovery.stepId === state.currentStep
+      ? targetDetachRecovery.label
+      : null;
 
   // Popstate toast visibility — flipped on by the popstate listener,
   // auto-dismisses 4s later, also cleared on tour end / step change.

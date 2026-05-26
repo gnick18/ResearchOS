@@ -95,13 +95,19 @@ function PageLockSetter({
   wrongClickSpeech: React.ReactNode;
 }) {
   const controller = useOptionalTourController();
+  // Bug-squad fix bot 2026-05-26 (Bug 3 family): pin only the stable
+  // useCallback handles so the effect doesn't re-fire each render when
+  // the TourController's memoized context value rebuilds. See
+  // MethodsCategoryOpenStep for the full rationale.
+  const setPageLock = controller?.setPageLock;
+  const clearPageLock = controller?.clearPageLock;
   useEffect(() => {
-    if (!controller) return;
-    controller.setPageLock(allowList, wrongClickSpeech);
+    if (!setPageLock || !clearPageLock) return;
+    setPageLock(allowList, wrongClickSpeech);
     return () => {
-      controller.clearPageLock();
+      clearPageLock();
     };
-  }, [controller, allowList, wrongClickSpeech]);
+  }, [setPageLock, clearPageLock, allowList, wrongClickSpeech]);
   return null;
 }
 
@@ -491,26 +497,29 @@ function PurchasesAutocompleteDemoBody() {
   }, []);
 
   // Drive the page-lock allow-list off the stage so the user can only
-  // interact with the right affordance at each beat.
+  // interact with the right affordance at each beat. Bug-squad fix bot
+  // 2026-05-26 (Bug 3 family): pin only the stable useCallback handles.
+  const setPageLock = controller?.setPageLock;
+  const clearPageLock = controller?.clearPageLock;
   useEffect(() => {
-    if (!controller) return;
+    if (!setPageLock || !clearPageLock) return;
     if (stage === "closed") {
-      controller.setPageLock(
+      setPageLock(
         AUTOCOMPLETE_STEP_NEW_BUTTON_ALLOW_LIST,
         AUTOCOMPLETE_WRONG_CLICK_NEW_BUTTON,
       );
     } else if (stage === "open") {
-      controller.setPageLock(
+      setPageLock(
         AUTOCOMPLETE_STEP_FORM_NAME_ALLOW_LIST,
         AUTOCOMPLETE_WRONG_CLICK_NAME_INPUT,
       );
     } else {
-      controller.clearPageLock();
+      clearPageLock();
     }
     return () => {
-      controller.clearPageLock();
+      clearPageLock();
     };
-  }, [controller, stage]);
+  }, [setPageLock, clearPageLock, stage]);
 
   if (stage === "autofilled") {
     return (
@@ -779,6 +788,10 @@ export const purchasesDemoChartsStep: TourStep = buildWalkthroughStep({
  */
 function PurchasesBackToRealBody() {
   const controller = useOptionalTourController();
+  // Bug-squad fix bot 2026-05-26 (Bug 3 family): pin only the stable
+  // useCallback handles.
+  const setPageLock = controller?.setPageLock;
+  const clearPageLock = controller?.clearPageLock;
 
   // Allow-list the bubble's advance button area. The viewer overlay
   // is already z-indexed above the underlying page, but the overlay's
@@ -788,8 +801,8 @@ function PurchasesBackToRealBody() {
   // bubble's own buttons (rendered above the lock via a higher z-index
   // by TourController's bubble container) remain clickable.
   useEffect(() => {
-    if (!controller) return;
-    controller.setPageLock(
+    if (!setPageLock || !clearPageLock) return;
+    setPageLock(
       [TOUR_TARGETS.demoPurchasesBackButton],
       (
         <>
@@ -800,9 +813,9 @@ function PurchasesBackToRealBody() {
       ),
     );
     return () => {
-      controller.clearPageLock();
+      clearPageLock();
     };
-  }, [controller]);
+  }, [setPageLock, clearPageLock]);
 
   return (
     <div className="space-y-3" data-testid="purchases-back-to-real">

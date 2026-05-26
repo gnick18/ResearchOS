@@ -43,12 +43,30 @@ import { useOptionalTourController } from "../../TourController";
  */
 function MethodsCategoryOpenSpeech() {
   const controller = useOptionalTourController();
+  // Bug-squad fix bot 2026-05-26 (Bug 3: Maximum update depth exceeded).
+  // The prior effect listed the entire `controller` object as its
+  // dependency. The TourController's context value is rebuilt (via
+  // useMemo) on every state change, so `controller` is a new reference
+  // every time `setPageLock` lands a new pageLockTargets / Speech /
+  // WrongClickFlash state. That meant:
+  //   1. Effect runs → setPageLock([target], <JSX>) → 3 setStates fire.
+  //   2. Controller context value rebuilds → new reference.
+  //   3. Effect re-runs because `[controller]` dep changed.
+  //   4. setPageLock fires again — with a FRESH [target] array literal
+  //      and FRESH JSX element, so setState sees a new ref each pass.
+  //   5. State update → re-render → goto 2. Infinite loop, React halts.
+  // The fix pins only the stable useCallback handles as deps, and
+  // memoizes the literal allow-list + speech node so they don't churn
+  // each render. setPageLock + clearPageLock both have `[]` deps in
+  // TourController, so they never re-trigger this effect.
+  const setPageLock = controller?.setPageLock;
+  const clearPageLock = controller?.clearPageLock;
   useEffect(() => {
     // Optional controller — when this body renders outside a
     // TourControllerProvider (in step-bodies.test rendering speech in
     // isolation), skip the page-lock wiring entirely.
-    if (!controller) return;
-    controller.setPageLock(
+    if (!setPageLock || !clearPageLock) return;
+    setPageLock(
       [TOUR_TARGETS.methodsNewCategoryButton],
       (
         <>
@@ -61,9 +79,9 @@ function MethodsCategoryOpenSpeech() {
       ),
     );
     return () => {
-      controller.clearPageLock();
+      clearPageLock();
     };
-  }, [controller]);
+  }, [setPageLock, clearPageLock]);
   return (
     <p className="mb-2">
       First, click <strong>+ New Category</strong> up here to open the

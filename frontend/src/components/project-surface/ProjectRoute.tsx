@@ -612,18 +612,32 @@ function OverviewSection({ project, ownerHint, editOwner, readOnly }: OverviewSe
           </span>
         )}
       </div>
-      {isLoading ? (
-        <p className="text-sm text-gray-400 italic">Loading overview…</p>
-      ) : isError ? (
+      {isError ? (
         <p className="text-sm text-red-500">Couldn&apos;t load this project&apos;s overview.</p>
       ) : (
+        // Bug-squad fix bot 2026-05-26 (Bugs 1 + 4): always render the
+        // textarea so the §6.2 spotlight selector + cursor type action
+        // can resolve immediately on project-route entry. Previously the
+        // isLoading branch swapped in a "Loading overview…" paragraph
+        // and the textarea didn't exist until the local file read
+        // resolved. The React commit ordering meant the spotlight could
+        // fire BEFORE the textarea mounted, log "selector did not
+        // resolve to an element", and the cursor-script's promised
+        // placeholder hypothesis would never get typed (the type action
+        // also depends on the same selector). Now the textarea is
+        // always mounted; during the brief loading window the value is
+        // empty and the placeholder reads as a loading hint. The
+        // existing render-time setDraft(serverValue) sync (around line
+        // 532) backfills the value when the read resolves.
         <textarea
           value={draft}
           onChange={(e) => handleChange(e.target.value)}
           placeholder={
-            readOnly
-              ? "No overview yet."
-              : "Capture the hypothesis, motivation, and big-picture context for this project…"
+            isLoading
+              ? "Loading overview…"
+              : readOnly
+                ? "No overview yet."
+                : "Capture the hypothesis, motivation, and big-picture context for this project…"
           }
           disabled={readOnly}
           // Onboarding v4 §6.2 spotlight + typewriter anchor. The

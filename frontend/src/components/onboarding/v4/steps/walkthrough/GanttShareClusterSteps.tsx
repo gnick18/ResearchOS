@@ -137,14 +137,19 @@ export const ganttShareBeakerBotSharesStep = buildWalkthroughStep({
 
 function ShareExploreSpeech() {
   const controller = useOptionalTourController();
+  // Bug-squad fix bot 2026-05-26 (Bug 3 family): pin only the stable
+  // useCallback handles to avoid the controller-context-rebuild
+  // infinite loop. See MethodsCategoryOpenStep for the full rationale.
+  const setPageLock = controller?.setPageLock;
+  const clearPageLock = controller?.clearPageLock;
   useEffect(() => {
-    if (!controller) return;
+    if (!setPageLock || !clearPageLock) return;
     // Allow-list scope: anything inside the task popup. Both Notes +
     // Results tabs are read-only-safe to poke. Gantt fix manager R2:
     // the prior list omitted the Results tab even though the speech
     // bubble invited the user to click it, which tripped the Oops
     // flash on a legitimate path.
-    controller.setPageLock(
+    setPageLock(
       [
         TOUR_TARGETS.taskPopupNotesTab,
         TOUR_TARGETS.taskPopupNotesTextarea,
@@ -156,8 +161,8 @@ function ShareExploreSpeech() {
       ],
       "Oops, please poke around inside the popup. The rest of the page is locked for now.",
     );
-    return () => controller.clearPageLock();
-  }, [controller]);
+    return () => clearPageLock();
+  }, [setPageLock, clearPageLock]);
   return (
     <>
       <p className="mb-2">
@@ -247,8 +252,11 @@ function ShareBackSpeech() {
   // mis-clicks on inactive stages fell through silently. The shifting
   // allow-list also keeps the speech bubble synchronized with the
   // actual current affordance.
+  // Bug-squad fix bot 2026-05-26 (Bug 3 family): same pattern.
+  const setPageLock = controller?.setPageLock;
+  const clearPageLock = controller?.clearPageLock;
   useEffect(() => {
-    if (!controller) return;
+    if (!setPageLock || !clearPageLock) return;
     const allowByStage: Record<1 | 2 | 3, string[]> = {
       1: [TOUR_TARGETS.ganttBarFakeA],
       2: [
@@ -276,9 +284,9 @@ function ShareBackSpeech() {
       2: "Click the share button on the popup.",
       3: "Pick me (beakerbot) and give me edit permission.",
     };
-    controller.setPageLock(allowByStage[stage], flashByStage[stage]);
-    return () => controller.clearPageLock();
-  }, [controller, stage]);
+    setPageLock(allowByStage[stage], flashByStage[stage]);
+    return () => clearPageLock();
+  }, [setPageLock, clearPageLock, stage]);
 
   return (
     <>
@@ -369,15 +377,18 @@ export { ganttShareProfileSwitchStep } from "./GanttShareProfileSwitchStep";
 
 function ShareSeesEditSpeech() {
   const controller = useOptionalTourController();
+  // Bug-squad fix bot 2026-05-26 (Bug 3 family): same pattern.
+  const setPageLock = controller?.setPageLock;
+  const clearPageLock = controller?.clearPageLock;
   useEffect(() => {
-    if (!controller) return;
+    if (!setPageLock || !clearPageLock) return;
     // Gantt fix manager R2 (P0): the note BeakerBot writes during the
     // profile-switch step lands on FAKE A in the user's chain (see
     // appendBeakerBotNote in gantt-share-helpers.ts → resolves
     // fakeAId → appendNoteToTaskNotes(fakeAId, ...)). The previous
     // allow-list pointed at the shared-coffee experiment, so the user
     // couldn't even open the right bar to see the note.
-    controller.setPageLock(
+    setPageLock(
       [
         TOUR_TARGETS.taskPopupNotesTab,
         TOUR_TARGETS.taskPopupNotesTextarea,
@@ -386,8 +397,8 @@ function ShareSeesEditSpeech() {
       ],
       "Oops, open the popup and check the notes tab. The rest of the page is locked for now.",
     );
-    return () => controller.clearPageLock();
-  }, [controller]);
+    return () => clearPageLock();
+  }, [setPageLock, clearPageLock]);
   return (
     <>
       <p className="mb-2">

@@ -45,11 +45,17 @@ import { useOptionalTourController } from "../../TourController";
  */
 function GanttDepsUserSpeech() {
   const controller = useOptionalTourController();
+  // Bug-squad fix bot 2026-05-26 (Bug 3 family): same controller-dep
+  // infinite loop pattern as MethodsCategoryOpenSpeech. Pin only the
+  // stable useCallback handles so the effect doesn't re-fire every
+  // time the TourController's context value rebuilds.
+  const setPageLock = controller?.setPageLock;
+  const clearPageLock = controller?.clearPageLock;
   useEffect(() => {
     // Optional controller — when this body renders outside a
     // TourControllerProvider (in step-bodies.test rendering the speech
     // in isolation), skip the page-lock wiring entirely.
-    if (!controller) return;
+    if (!setPageLock || !clearPageLock) return;
     // Gantt fix manager R1 (P0 #3): the dep-type picker's "start after"
     // button MUST be on the allow-list so the user can complete the
     // chain after the drag lands. The picker now carries
@@ -61,7 +67,7 @@ function GanttDepsUserSpeech() {
     // "start before" / "start same" used to close the picker silently
     // and strand the user. With the tightened allow-list, those wrong
     // clicks now surface the standard TourPageLock oops flash instead.
-    controller.setPageLock(
+    setPageLock(
       [
         TOUR_TARGETS.ganttBarFakeB,
         TOUR_TARGETS.ganttBarUserExperiment,
@@ -78,9 +84,9 @@ function GanttDepsUserSpeech() {
       ),
     );
     return () => {
-      controller.clearPageLock();
+      clearPageLock();
     };
-  }, [controller]);
+  }, [setPageLock, clearPageLock]);
   return (
     <>
       <p className="mb-2">
