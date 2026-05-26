@@ -323,10 +323,12 @@ describe("§6.2b home-widgets-reorder (Step 4: drag to reorder)", () => {
     expect(homeWidgetsReorderStep.id).toBe("home-widgets-reorder");
   });
 
-  it("spotlights a drag handle (only stamped under edit-mode + home surface)", () => {
-    expect(homeWidgetsReorderStep.targetSelector).toBe(
-      "[data-tour-target='home-widget-drag-handle']",
-    );
+  it("renders speech-only with no spotlight (Grant feedback 2026-05-26)", () => {
+    // Pre-fix this step spotlighted the first tile's drag handle. The
+    // copy is conceptual ("Drag any tile") so the halo implied "this
+    // specific tile" which conflicted with the message. Speech-only
+    // keeps the lesson; the cursor demo still drives the visible drag.
+    expect(homeWidgetsReorderStep.targetSelector).toBeUndefined();
   });
 
   it("drag endpoints target nth-of-type tiles inside the canvas", () => {
@@ -354,15 +356,13 @@ describe("§6.2b home-widgets-reorder (Step 4: drag to reorder)", () => {
     expect(speechOf(homeWidgetsReorderStep)).not.toContain("—");
   });
 
-  it("declares a recoveryHint naming the +Add widget re-entry button (R1 fix)", () => {
-    // §6.2b R1 fix (2026-05-25): the previous version had no
-    // `recoveryHint`, so the target-detach watcher's copy fell back to
-    // the generic "the button you clicked before". Naming +Add widget
-    // (the actual re-entry affordance for edit mode) points the user
-    // at the right control if the drag handle unmounts mid-step.
-    expect(homeWidgetsReorderStep.recoveryHint).toEqual({
-      buttonLabel: "+ Add widget in the canvas toolbar",
-    });
+  it("has no recoveryHint (speech-only step has no target to detach from)", () => {
+    // The R1 recoveryHint named the +Add widget re-entry button for the
+    // target-detach watcher. With no spotlight target (Grant feedback
+    // 2026-05-26 halo-drop), there is nothing for the watcher to fire
+    // on. Manual "Got it, next" is the remaining escape if the cursor
+    // drag silently no-ops because edit mode collapsed.
+    expect(homeWidgetsReorderStep.recoveryHint).toBeUndefined();
   });
 });
 

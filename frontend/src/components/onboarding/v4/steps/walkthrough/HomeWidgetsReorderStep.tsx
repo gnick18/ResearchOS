@@ -80,19 +80,20 @@ export const homeWidgetsReorderStep = buildWalkthroughStep({
   speech:
     "Drag any tile to reorder it. Put the widgets you check every morning at the top, and the slower-moving ones below. If you share this folder with lab members later, your layout stays yours and theirs stays theirs. I'll grab one and drop it lower so you can see how it settles.",
   pose: "pointing",
-  // Spotlight is anchored to the drag handle of the first tile. The
-  // Widget component only stamps this attribute under edit-mode + home
-  // surface, both of which were established by Step 3.
-  targetSelector: "[data-tour-target='home-widget-drag-handle']",
-  // Recovery hint for the target-detach watcher. If edit mode collapses
-  // between step entry and the demo run (or the user exits it
-  // accidentally), the drag handle unmounts and the watcher prompts
-  // the user to re-enter. Naming "+ Add widget in the canvas toolbar"
-  // points at the actual re-entry affordance instead of the generic
-  // "the button you clicked before" fallback.
-  recoveryHint: {
-    buttonLabel: "+ Add widget in the canvas toolbar",
-  },
+  // No spotlight on this step (Grant feedback 2026-05-26). The copy is
+  // conceptual ("any tile") and the previous version's blue halo on
+  // the drag handle implied "this specific tile", which conflicted
+  // with the message. The cursor demo below still drives the drag
+  // visibly so the user sees the mechanic without the static
+  // spotlight overlay.
+  //
+  // Trade-off: removing the target also removes the target-detach
+  // recovery hint (the watcher fired when the drag handle unmounted
+  // on accidental edit-mode exit). The "Got it, next" manual advance
+  // is the remaining escape; the speech still teaches the concept
+  // even if the cursor drag silently no-ops because edit mode
+  // collapsed. Acceptable given the step's purpose is conceptual.
+  // targetSelector: undefined (speech-only step per step-types.ts:142)
   cursorScript: cursorScript(async () => {
     // Single drag from tile 1 to tile 3 position. SnapshotCanvas's
     // HTML5 drag handlers (handleDragStart / handleDragOver / handleDrop)
