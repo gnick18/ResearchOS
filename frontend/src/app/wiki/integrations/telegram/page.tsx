@@ -132,50 +132,81 @@ export default function TelegramIntegrationPage() {
       <p>
         The bot&apos;s first message reads{" "}
         <strong>&quot;Got a photo. Where should it go?&quot;</strong> and
-        presents one of two keyboard layouts depending on whether an experiment
-        popup was open in ResearchOS when the photo arrived:
+        presents a keyboard layout that depends on which surface, if any,
+        is open in ResearchOS when the photo arrives:
       </p>
       <ul>
         <li>
-          <strong>An experiment is open in ResearchOS.</strong> The keyboard
-          shows two quick-pick options for that experiment:
-          <strong> Lab Notes</strong> (saves into{" "}
+          <strong>An experiment is open in ResearchOS.</strong> The
+          keyboard shows two quick-pick options for that experiment:{" "}
+          <strong>Lab Notes</strong> (saves into{" "}
           <code>notes.md</code>&apos;s image folder) or{" "}
           <strong>Results</strong> (saves into the{" "}
           <code>results.md</code> image folder), plus a{" "}
-          <strong>Pick another</strong> escape hatch to switch to a different
-          task.
+          <strong>Pick another</strong> escape hatch.
         </li>
         <li>
-          <strong>Nothing is open.</strong> The bot shows the full task picker
-          instead: a lettered list of your active and in-progress experiments,
-          partitioned into &quot;Active&quot; and &quot;No results yet&quot;
-          sections, with a{" "}
-          <strong>📥</strong> Inbox option at the bottom.
+          <strong>A note popup is open.</strong> The keyboard offers a
+          one-tap shortcut to attach to that note plus an escape to the
+          full picker.
+        </li>
+        <li>
+          <strong>Both an experiment and a note are open.</strong> The
+          bot disambiguates with an A/B/C prompt asking which surface you
+          mean before proceeding.
+        </li>
+        <li>
+          <strong>Nothing is open.</strong> The bot shows the full picker:
+          your active and in-progress experiments (each with Lab Notes /
+          Results rows), a Notes section listing your most recent notes,
+          and a <strong>📥</strong> Inbox option at the bottom.
         </li>
       </ul>
 
       <h3>Lab Notes vs Results</h3>
       <p>
-        When you pick an experiment from the task picker (or tap{" "}
-        <strong>Pick another</strong> from the active-experiment prompt), the
-        bot follows up with a second keyboard asking{" "}
-        <strong>&quot;Lab Notes or Results?&quot;</strong>:
+        Each experiment in the picker shows up as two lettered rows, one
+        for Lab Notes and one for Results, so the destination is committed
+        in a single tap. When you use the quick-pick from an open
+        experiment, the Lab Notes / Results choice is right there as
+        buttons A and B.
       </p>
       <ul>
         <li>
-          <strong>📝 Lab Notes</strong> routes the photo into the{" "}
+          <strong>Lab Notes</strong> routes the photo into the{" "}
           <code>Images/</code> folder under <code>notes.md</code>.
         </li>
         <li>
-          <strong>📊 Results</strong> routes it into the{" "}
+          <strong>Results</strong> routes it into the{" "}
           <code>Images/</code> folder under <code>results.md</code>.
         </li>
       </ul>
+
+      <h3>Attaching to a Note</h3>
       <p>
-        When you use the quick-pick from an open experiment, the Lab Notes /
-        Results choice is collapsed into the first keyboard (buttons A and B),
-        so the whole flow is just one tap.
+        Notes are first-class destinations alongside experiments. When a
+        note popup is open in ResearchOS, the bot offers a one-tap{" "}
+        <strong>&quot;Attach to <em>this note</em>&quot;</strong> shortcut.
+        When nothing is open, the full picker has a separate{" "}
+        <strong>Notes</strong> section listing your most recent notes; tap
+        a lettered row to drop the photo there. Notes do not have a Lab
+        Notes vs Results split, so picking a note commits the
+        destination directly. The photo lands in{" "}
+        <code>users/&lt;owner&gt;/notes/&lt;id&gt;/Images/</code> and a
+        markdown image link is appended to the note&apos;s most recent
+        entry. If the note has no entries yet, the bot creates a fresh
+        entry dated today and drops the link there.
+      </p>
+
+      <h3>When both an experiment and a note are open</h3>
+      <p>
+        If you have an experiment popup AND a note popup open at the same
+        time, the bot asks first which surface to use:{" "}
+        <strong>A) the experiment</strong>,{" "}
+        <strong>B) the note</strong>, or{" "}
+        <strong>C) pick another experiment or note</strong>. Picking the
+        experiment then runs the usual Lab Notes / Results follow-up
+        prompt; picking the note commits straight to the style step.
       </p>
 
       <Screenshot

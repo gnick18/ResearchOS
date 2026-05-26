@@ -218,6 +218,9 @@ export async function routeTelegramMessage(
   if (!suggestedExt) suggestedExt = extFromPath(fileInfo.file_path);
 
   const active = useAppStore.getState().activeTask;
+  // Note popups expose themselves the same way TaskDetailPopup does; the
+  // batch router's first prompt disambiguates when both are set.
+  const activeNote = useAppStore.getState().activeNote;
   // Read tutorial state once per route; cheap (in-memory cache) and lets
   // both the reply-copy branch and the broadcast branch agree on the
   // same snapshot.
@@ -238,7 +241,7 @@ export async function routeTelegramMessage(
       suggestedExt,
       fileId,
     };
-    await routeBatchablePhoto(message.media_group_id, batchPhoto, ctx, active);
+    await routeBatchablePhoto(message.media_group_id, batchPhoto, ctx, active, activeNote);
     return;
   }
 
@@ -256,7 +259,7 @@ export async function routeTelegramMessage(
       suggestedExt,
       fileId,
     };
-    await routeSinglePhotoThroughBatch(batchPhoto, ctx, active);
+    await routeSinglePhotoThroughBatch(batchPhoto, ctx, active, activeNote);
     return;
   }
 

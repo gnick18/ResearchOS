@@ -1,6 +1,8 @@
 import { fileService } from "@/lib/file-system/file-service";
 import { taskResultsBase } from "@/lib/tasks/results-paths";
 import { imageEvents } from "@/lib/attachments/image-events";
+import { notesApi } from "@/lib/local-api";
+import type { NoteEntry } from "@/lib/types";
 
 function splitFilenameExt(name: string): { stem: string; ext: string } {
   const dot = name.lastIndexOf(".");
@@ -73,4 +75,128 @@ export async function attachImageToTask(opts: AttachImageOptions): Promise<Attac
     finalFilename,
     markdownSnippet,
   };
+}
+
+export interface AttachImageToNoteOptions {
+  /** The owner of the note (the user whose `users/<owner>/notes/<id>/` folder
+   *  the image lands in). The active-note snapshot carries this. */
+  ownerUsername: string;
+  noteId: number;
+  blob: Blob;
+  suggestedFilename: string;
+  /** Used as alt-text in the appended markdown image link. Defaults to the
+   *  filename when omitted. */
+  altText?: string;
+}
+
+export interface AttachImageToNoteResult {
+  /** Path relative to the note's `basePath`, e.g. `Images/foo.png`. Notes
+   *  render markdown image links against this same Images/ prefix the way
+   *  experiments do. */
+  relativePath: string;
+  /** Full path from the FS root, e.g.
+   *  `users/Grant/notes/42/Images/foo.png`. */
+  absolutePath: string;
+  finalFilename: string;
+  /** The note entry the markdown link was appended to. `null` when the
+   *  note had no entries on disk — in that case the caller wrote a fresh
+   *  entry containing only the image link. */
+  appendedToEntryId: string | null;
+}
+
+/**
+ * Write an image blob into a note's `Images/` folder and append a markdown
+ * image link to the note's latest entry.
+ *
+ * Mirrors `attachImageToTask` for the on-disk write (same dedupe / blob
+ * write / sidecar layout), then layers the note-specific behavior on top:
+ *
+ *   1. Files land under `users/<owner>/notes/<id>/Images/...`. This matches
+ *      the `basePath` NoteDetailPopup uses for inline-drag attachments, so
+ *      the bottom ImageStrip on the note popup sees Telegram-sent images
+ *      the same way it sees drag-uploaded ones.
+ *   2. The markdown image link (`![alt](Images/name.ext)`) is appended to
+ *      the LATEST note entry's `content`. "Latest" = the entry with the
+ *      most-recent `updated_at`; for running-log notes the user typically
+ *      has the most-recent entry tabbed open, and for single-entry notes
+ *      there's only one entry to pick.
+ *   3. When the note has zero entries, a fresh entry dated today (titled
+ *      "Photos") is created and the link goes into its content. This keeps
+ *      the photo discoverable in the note body — without an entry the link
+ *      has nowhere to live.
+ *   4. `note.updated_at` is bumped via the `updateEntry`/`addEntry` calls
+ *      so the note's sort order on the dashboard reflects the new arrival.
+ */
+export async function attachImageToNote(
+  opts: AttachImageToNoteOptions
+): Promise<AttachImageToNoteResult> {
+  const base = `users/${opts.ownerUsername}/notes/${opts.noteId}`;
+  const imagesDir = `${base}/Images`;
+  const finalFilename = await pickUniqueFilename(imagesDir, opts.suggestedFilename);
+  const absolutePath = `${imagesDir}/${finalFilename}`;
+  await fileService.writeFileFromBlob(absolutePath, opts.blob);
+
+  const relativePath = `Images/${finalFilename}`;
+  const alt = opts.altText ?? opts.suggestedFilename;
+  const markdownLink = `\n![${alt}](${relativePath})\n`;
+
+  imageEvents.emitAttached({ basePath: base, relativePath });
+
+  // Append to the latest entry — or create a fresh one if the note has no
+  // entries yet. Use the owner-scoped variants so the write lands in the
+  // note owner's folder (the Telegram bot may be running on the owner's
+  // session, so this is usually a no-op for ownership, but the explicit
+  // owner arg keeps the path consistent with TaskDetailPopup's pattern).
+  const note = await notesApi.get(opts.noteId, opts.ownerUsername);
+  let appendedToEntryId: string | null = null;
+  if (note && note.entries.length > 0) {
+    const latest = pickLatestEntry(note.entries);
+    if (latest) {
+      const newContent = `${latest.content}${markdownLink}`;
+      await notesApi.updateEntry(
+        opts.noteId,
+        latest.id,
+        { content: newContent },
+        opts.ownerUsername,
+      );
+      appendedToEntryId = latest.id;
+    }
+  } else if (note) {
+    const today = todayLocalDate();
+    const created = await notesApi.addEntry(
+      opts.noteId,
+      {
+        title: "Photos",
+        date: today,
+        content: markdownLink,
+      },
+      opts.ownerUsername,
+    );
+    const newest = created?.entries[created.entries.length - 1];
+    appendedToEntryId = newest?.id ?? null;
+  }
+
+  return {
+    relativePath,
+    absolutePath,
+    finalFilename,
+    appendedToEntryId,
+  };
+}
+
+function pickLatestEntry(entries: NoteEntry[]): NoteEntry | null {
+  if (entries.length === 0) return null;
+  let best = entries[0];
+  for (const e of entries) {
+    if (new Date(e.updated_at).getTime() > new Date(best.updated_at).getTime()) {
+      best = e;
+    }
+  }
+  return best;
+}
+
+function todayLocalDate(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }

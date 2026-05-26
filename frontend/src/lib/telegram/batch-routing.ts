@@ -35,7 +35,10 @@
  */
 
 import { fileService } from "@/lib/file-system/file-service";
-import { attachImageToTask } from "@/lib/attachments/attach-image";
+import {
+  attachImageToNote,
+  attachImageToTask,
+} from "@/lib/attachments/attach-image";
 import {
   resolveTaskResultsBase,
   taskNotesBase,
@@ -45,8 +48,8 @@ import {
 import { sidecarPath, type ImageSidecar } from "@/lib/attachments/image-folder";
 import { hasUserContent } from "@/lib/stamp-utils";
 import { JsonStore } from "@/lib/storage/json-store";
-import type { Project, Task } from "@/lib/types";
-import type { ActiveTask } from "@/lib/store";
+import type { Note, Project, Task } from "@/lib/types";
+import type { ActiveNote, ActiveTask } from "@/lib/store";
 import {
   answerCallbackQuery,
   sendMessage,
@@ -64,10 +67,14 @@ export const BATCH_WINDOW_MS = 1200;
  *  commit early instead of waiting another full window. */
 export const BATCH_MAX_PHOTOS = 10;
 
-/** Resolved target for a committed batch. Either an experiment with a
- *  per-tab sub-bucket (Lab Notes vs Results — both write into the
- *  matching `Images/` subdir under that tab's folder) or the user's
- *  inbox. Inbox has no sub-tabs; its `Images/` lives at the inbox root. */
+/** Resolved target for a committed batch. Three shapes:
+ *  - `task`: an experiment with a per-tab sub-bucket (Lab Notes vs Results,
+ *    both write into the matching `Images/` subdir under that tab's folder).
+ *  - `note`: a meeting-style Note. No sub-tabs — a note is a single attach
+ *    point. Images land at `users/<owner>/notes/<id>/Images/...` and a
+ *    markdown link is appended to the note's latest entry.
+ *  - `inbox`: the user's inbox. No sub-tabs; `Images/` lives at the inbox
+ *    root. */
 export type BatchDestination =
   | {
       kind: "task";
@@ -75,6 +82,12 @@ export type BatchDestination =
       owner: string;
       name: string;
       subTab: "notes" | "results";
+    }
+  | {
+      kind: "note";
+      noteId: number;
+      owner: string;
+      title: string;
     }
   | { kind: "inbox" };
 
@@ -113,6 +126,7 @@ type BatchState =
       ctx: BatchRouteContext;
       photos: BatchPhoto[];
       activeTaskSnapshot: ActiveTask | null;
+      activeNoteSnapshot: ActiveNote | null;
       timerId: ReturnType<typeof setTimeout>;
     }
   | {
@@ -122,6 +136,28 @@ type BatchState =
       ctx: BatchRouteContext;
       photos: BatchPhoto[];
       activeTask: ActiveTask;
+    }
+  | {
+      /** Both an experiment popup AND a note popup were open at first-photo
+       *  time. Prompt lets the user pick which surface (or escape to the
+       *  full picker). */
+      kind: "awaiting-active-disambiguation";
+      chatId: number;
+      mediaGroupId: string;
+      ctx: BatchRouteContext;
+      photos: BatchPhoto[];
+      activeTask: ActiveTask;
+      activeNote: ActiveNote;
+    }
+  | {
+      /** Only a note popup was open at first-photo time. Single-question
+       *  prompt: attach to this note, or escape to the full picker. */
+      kind: "awaiting-note-confirmation";
+      chatId: number;
+      mediaGroupId: string;
+      ctx: BatchRouteContext;
+      photos: BatchPhoto[];
+      activeNote: ActiveNote;
     }
   | {
       kind: "awaiting-destination";
@@ -269,6 +305,29 @@ export function _resetProjectsLoaderForTests(): void {
   };
 }
 
+/** Lazy notes fetch surface. The full picker shows the user's notes
+ *  alongside the experiments section so a "attach to a note" path exists
+ *  even when no note popup is open. Swappable for tests via
+ *  `_setNotesLoaderForTests`. */
+let notesLoader: (username: string) => Promise<Note[]> = async (
+  username: string
+) => {
+  const store = new JsonStore<Note>("notes");
+  return store.listAllForUser(username);
+};
+
+export function _setNotesLoaderForTests(
+  loader: (username: string) => Promise<Note[]> | null
+): void {
+  notesLoader = async (u: string) => (await loader(u)) ?? [];
+}
+export function _resetNotesLoaderForTests(): void {
+  notesLoader = async (username: string) => {
+    const store = new JsonStore<Note>("notes");
+    return store.listAllForUser(username);
+  };
+}
+
 /** True when the task's `results.md` exists AND has user content beyond
  *  the stamp / header scaffolding. Used by the picker to hide
  *  experiments that already have results written so the user is nudged
@@ -393,6 +452,12 @@ async function loadProjectNameLookup(
  *  rows. */
 export const PICKER_MAX_PER_SECTION = 5;
 
+/** Cap on the picker's Notes section. Notes are flatter than experiments
+ *  (no doing-now / no-results split), so a single "most-recent N" slice is
+ *  enough; the most-recent-by-updated-at ordering matches the way notes
+ *  surface elsewhere in the app. */
+export const PICKER_NOTES_CAP = 4;
+
 export async function partitionPickerExperiments(
   experiments: Task[]
 ): Promise<{ doing: Task[]; withoutResults: Task[] }> {
@@ -425,6 +490,18 @@ export async function partitionPickerExperiments(
     .slice(0, PICKER_MAX_PER_SECTION);
 
   return { doing, withoutResults };
+}
+
+/** Slice the user's note list to the most-recent N for the picker's Notes
+ *  section. Sort by `updated_at` descending; ties broken by id descending
+ *  (newest id first) so the result is deterministic for tests. */
+export function partitionPickerNotes(notes: Note[]): Note[] {
+  const sorted = [...notes].sort((a, b) => {
+    const cmp = (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
+    if (cmp !== 0) return cmp;
+    return b.id - a.id;
+  });
+  return sorted.slice(0, PICKER_NOTES_CAP);
 }
 
 /** Build the active-task confirmation prompt — lettered body-list plus
@@ -474,55 +551,78 @@ function buildActiveConfirmationPrompt(
   return { body, keyboard };
 }
 
-/** Build the full task-picker prompt — lettered body-list plus
- *  short-letter button keyboard. Two sections (Active,
- *  No results yet) plus Inbox. See `partitionPickerExperiments` for
- *  the filter rules.
+/** Build the full picker prompt — lettered body-list plus short-letter
+ *  button keyboard. Three sections (Experiments-Active, Experiments-No-
+ *  results-yet, Notes) plus Inbox. Each experiment gets TWO letters
+ *  (Lab Notes + Results) so the user lands on the final destination in
+ *  one tap; the previous flow had a separate sub-tab keyboard. Notes get
+ *  ONE letter each (no sub-tab — a note is a single attach point).
  *
- *  Empty sections are omitted entirely (no header, no rows). The
- *  Inbox selector is always rendered with the `📥` emoji-only button
- *  to keep it visually distinct from the lettered options.
+ *  Empty sections are omitted entirely (no header, no rows). The Inbox
+ *  selector is always rendered with the `📥` emoji-only button to keep it
+ *  visually distinct from the lettered options.
  *
- *  Layout: each section's header sits directly above its options
- *  (no blank line between header and first option); options within
- *  a section pack tight; sections are separated by a single blank
- *  line; the Inbox row gets a final blank line gap. The
- *  `——— <label> ———` headers act as a visible horizontal rule plus
- *  section name in one glyph — no separate divider needed. */
+ *  Layout: each section's header sits directly above its options (no
+ *  blank line between header and first option); options within a section
+ *  pack tight; sections are separated by a single blank line; the Inbox
+ *  row gets a final blank line gap. The `——— <label> ———` headers act as
+ *  a visible horizontal rule plus section name in one glyph — no separate
+ *  divider needed. */
 function buildDestinationPrompt(
   doing: Task[],
   withoutResults: Task[],
+  notes: Note[],
   projectNames: Map<number, string>,
 ): { body: string; keyboard: InlineKeyboardMarkup } {
   const sections: string[] = [];
   const selectors: { text: string; callback_data: string }[] = [];
   let letterIdx = 0;
 
+  // Helper: per-experiment 2-line block + 2 letter buttons (Lab Notes,
+  // Results). The body line carries the human-readable task name and
+  // dates; the keyboard carries only the single-letter selectors. iOS
+  // Telegram clips button text past ~12 chars, so we keep the buttons
+  // letter-only and let the body wrap naturally.
+  const pushExperiment = (lines: string[], t: Task) => {
+    const project = projectNames.get(t.project_id) ?? "";
+    const notesLetter = PICKER_LETTERS[letterIdx++];
+    lines.push(
+      buildBodyOptionLine(notesLetter, `${t.name} — Lab Notes`, t, project),
+    );
+    selectors.push({
+      text: notesLetter,
+      callback_data: encodeTabCallback(t.id, t.owner, "notes"),
+    });
+    const resultsLetter = PICKER_LETTERS[letterIdx++];
+    lines.push(
+      buildBodyOptionLine(resultsLetter, `${t.name} — Results`, t, project),
+    );
+    selectors.push({
+      text: resultsLetter,
+      callback_data: encodeTabCallback(t.id, t.owner, "results"),
+    });
+  };
+
   if (doing.length > 0) {
     const lines: string[] = ["——— Active ———"];
-    for (const t of doing) {
-      const letter = PICKER_LETTERS[letterIdx++];
-      lines.push(
-        buildBodyOptionLine(letter, t.name, t, projectNames.get(t.project_id) ?? ""),
-      );
-      selectors.push({
-        text: letter,
-        callback_data: encodeTaskCallback(t.id, t.owner),
-      });
-    }
+    for (const t of doing) pushExperiment(lines, t);
     sections.push(lines.join("\n"));
   }
 
   if (withoutResults.length > 0) {
     const lines: string[] = ["——— No results yet ———"];
-    for (const t of withoutResults) {
+    for (const t of withoutResults) pushExperiment(lines, t);
+    sections.push(lines.join("\n"));
+  }
+
+  if (notes.length > 0) {
+    const lines: string[] = ["——— Notes ———"];
+    for (const n of notes) {
       const letter = PICKER_LETTERS[letterIdx++];
-      lines.push(
-        buildBodyOptionLine(letter, t.name, t, projectNames.get(t.project_id) ?? ""),
-      );
+      lines.push(`${letter}) ${n.title}`);
       selectors.push({
         text: letter,
-        callback_data: encodeTaskCallback(t.id, t.owner),
+        callback_data: encodeNoteCallback(n.id, n.username),
       });
     }
     sections.push(lines.join("\n"));
@@ -536,6 +636,55 @@ function buildDestinationPrompt(
     body: sections.join("\n\n"),
     keyboard: { inline_keyboard: inlineKeyboard },
   };
+}
+
+/** Both-active disambiguation prompt: experiment popup AND note popup
+ *  were open at first-photo time. Three rows: A picks the experiment
+ *  (follow-up sub-tab pick), B picks the note (commits directly to
+ *  style), C escapes to the full picker. */
+function buildActiveDisambiguationPrompt(
+  activeTask: ActiveTask,
+  activeNote: ActiveNote,
+): { body: string; keyboard: InlineKeyboardMarkup } {
+  const body =
+    "You have both open in ResearchOS. Attach to which one?\n\n" +
+    `A) ${activeTask.name} (experiment)\n` +
+    `B) ${activeNote.title} (note)\n` +
+    `C) Pick another experiment or note`;
+  const keyboard: InlineKeyboardMarkup = {
+    inline_keyboard: [
+      [
+        { text: "A", callback_data: encodeTaskCallback(activeTask.id, activeTask.owner) },
+        { text: "B", callback_data: encodeNoteCallback(activeNote.id, activeNote.owner) },
+        { text: "C", callback_data: "pick-other" },
+      ],
+    ],
+  };
+  return { body, keyboard };
+}
+
+/** Active-note-only confirmation prompt: only a note popup was open at
+ *  first-photo time. Two rows: A attaches to the open note, B escapes to
+ *  the full picker. */
+function buildActiveNoteConfirmationPrompt(
+  activeNote: ActiveNote,
+): { body: string; keyboard: InlineKeyboardMarkup } {
+  const body =
+    `You have "${activeNote.title}" open in ResearchOS. Attach there?\n\n` +
+    `A) Attach to ${activeNote.title}\n` +
+    `B) Pick a different note or experiment`;
+  const keyboard: InlineKeyboardMarkup = {
+    inline_keyboard: [
+      [
+        {
+          text: "A",
+          callback_data: encodeNoteCallback(activeNote.id, activeNote.owner),
+        },
+        { text: "B", callback_data: "pick-other" },
+      ],
+    ],
+  };
+  return { body, keyboard };
 }
 
 /** Build the sub-tab picker keyboard. Shown after the user picks a task
@@ -578,6 +727,12 @@ function encodeTaskCallback(taskId: number, owner: string): string {
   return `task:${taskId}:${owner}`;
 }
 
+/** Encode a chosen note. Same shape as `task:` but with a distinct prefix so
+ *  the callback dispatcher can route it to the note-attach commit path. */
+function encodeNoteCallback(noteId: number, owner: string): string {
+  return `note:${noteId}:${owner}`;
+}
+
 /** Active-task confirmation row encoder. Format: `tab:<id>:<owner>:<subTab>`.
  *  Distinct prefix from `task:` so the callback router can dispatch with a
  *  simple prefix check. */
@@ -618,6 +773,30 @@ function decodeTaskCallback(
     id: taskId,
     owner,
     name: match?.name ?? `Experiment ${taskId}`,
+  };
+}
+
+/** Decode a `note:<id>:<owner>` payload from the picker / confirmation
+ *  prompts. The notes list is passed in so we can recover the title for
+ *  the bot's "Saved to <note>" reply; missing matches fall back to a
+ *  generic name. */
+function decodeNoteCallback(
+  data: string,
+  notes: Note[],
+): { id: number; owner: string; title: string } | null {
+  if (!data.startsWith("note:")) return null;
+  const rest = data.slice("note:".length);
+  const sep = rest.indexOf(":");
+  if (sep < 0) return null;
+  const idStr = rest.slice(0, sep);
+  const owner = rest.slice(sep + 1);
+  const noteId = Number.parseInt(idStr, 10);
+  if (!Number.isFinite(noteId) || !owner) return null;
+  const match = notes.find((n) => n.id === noteId && n.username === owner);
+  return {
+    id: noteId,
+    owner,
+    title: match?.title ?? `Note ${noteId}`,
   };
 }
 
@@ -693,12 +872,17 @@ async function noticeReplaced(ctx: BatchRouteContext): Promise<void> {
 /** Entry point: a photo with media_group_id has arrived and image-router
  *  has already downloaded the blob + read the source metadata. We either
  *  start a new batch buffer or append to an existing one for the same
- *  album. */
+ *  album.
+ *
+ *  Both `activeTask` and `activeNote` are snapshotted at the FIRST photo of
+ *  a batch. Either / both / neither can be set; the commit phase
+ *  disambiguates with the appropriate prompt shape. */
 export async function routeBatchablePhoto(
   mediaGroupId: string,
   photo: BatchPhoto,
   ctx: BatchRouteContext,
-  activeTask: ActiveTask | null
+  activeTask: ActiveTask | null,
+  activeNote: ActiveNote | null = null,
 ): Promise<void> {
   const existing = batches.get(ctx.chatId);
 
@@ -737,6 +921,7 @@ export async function routeBatchablePhoto(
     ctx,
     photos: [photo],
     activeTaskSnapshot: activeTask,
+    activeNoteSnapshot: activeNote,
     timerId,
   });
 }
@@ -753,7 +938,8 @@ export async function routeBatchablePhoto(
 export async function routeSinglePhotoThroughBatch(
   photo: BatchPhoto,
   ctx: BatchRouteContext,
-  activeTask: ActiveTask | null
+  activeTask: ActiveTask | null,
+  activeNote: ActiveNote | null = null,
 ): Promise<void> {
   // Mirror routeBatchablePhoto's "new batch cancels old" behavior so a
   // fresh single photo arriving mid-flow doesn't leave stale state.
@@ -776,22 +962,47 @@ export async function routeSinglePhotoThroughBatch(
     ctx,
     photos: [photo],
     activeTaskSnapshot: activeTask,
+    activeNoteSnapshot: activeNote,
     timerId,
   });
   await commitBuffer(ctx.chatId);
 }
 
-/** Buffer-window expired or photo cap hit. Either prompt the user to
- *  confirm the open active task (when one was open at first-photo time)
- *  or jump straight to the full task picker. Either way, ASK first —
- *  no more silent auto-attach. */
+/** Buffer-window expired or photo cap hit. Branch on which surface(s) were
+ *  open at first-photo time:
+ *
+ *    - both task AND note  → awaiting-active-disambiguation (A/B/C)
+ *    - only task           → awaiting-active-confirmation (existing flow)
+ *    - only note           → awaiting-note-confirmation (new short prompt)
+ *    - neither             → awaiting-destination (full picker)
+ *
+ *  Either way, ASK first — no more silent auto-attach. */
 async function commitBuffer(chatId: number): Promise<void> {
   const state = batches.get(chatId);
   if (!state || state.kind !== "buffering") return;
   clearTimeout(state.timerId);
 
-  // activeTask snapshot was taken at the FIRST photo. Any change since
-  // doesn't affect this batch.
+  // activeTask + activeNote snapshots were taken at the FIRST photo. Any
+  // change since doesn't affect this batch.
+  if (state.activeTaskSnapshot && state.activeNoteSnapshot) {
+    batches.set(chatId, {
+      kind: "awaiting-active-disambiguation",
+      chatId,
+      mediaGroupId: state.mediaGroupId,
+      ctx: state.ctx,
+      photos: state.photos,
+      activeTask: state.activeTaskSnapshot,
+      activeNote: state.activeNoteSnapshot,
+    });
+    await sendActiveDisambiguationPrompt(
+      state.ctx,
+      state.photos.length,
+      state.activeTaskSnapshot,
+      state.activeNoteSnapshot,
+    );
+    return;
+  }
+
   if (state.activeTaskSnapshot) {
     batches.set(chatId, {
       kind: "awaiting-active-confirmation",
@@ -809,7 +1020,24 @@ async function commitBuffer(chatId: number): Promise<void> {
     return;
   }
 
-  // No activeTask: send the full task picker.
+  if (state.activeNoteSnapshot) {
+    batches.set(chatId, {
+      kind: "awaiting-note-confirmation",
+      chatId,
+      mediaGroupId: state.mediaGroupId,
+      ctx: state.ctx,
+      photos: state.photos,
+      activeNote: state.activeNoteSnapshot,
+    });
+    await sendActiveNoteConfirmationPrompt(
+      state.ctx,
+      state.photos.length,
+      state.activeNoteSnapshot,
+    );
+    return;
+  }
+
+  // Nothing active: send the full picker.
   batches.set(chatId, {
     kind: "awaiting-destination",
     chatId,
@@ -857,9 +1085,9 @@ async function sendActiveConfirmationPrompt(
   );
 }
 
-/** Send the full task-picker keyboard. Used both when no active task is
- *  open at first-photo time AND when the user clicked "Pick another"
- *  from the active-confirmation step. */
+/** Send the full picker keyboard. Used both when no active surface is open
+ *  at first-photo time AND when the user clicked "Pick another" from the
+ *  active-confirmation / disambiguation / note-confirmation steps. */
 async function sendDestinationPrompt(
   ctx: BatchRouteContext,
   count: number
@@ -870,11 +1098,19 @@ async function sendDestinationPrompt(
   } catch {
     experiments = [];
   }
+  let notes: Note[];
+  try {
+    notes = await notesLoader(ctx.username);
+  } catch {
+    notes = [];
+  }
   const projectNames = await loadProjectNameLookup(ctx.username);
   const { doing, withoutResults } = await partitionPickerExperiments(experiments);
+  const pickedNotes = partitionPickerNotes(notes);
   const { body, keyboard } = buildDestinationPrompt(
     doing,
     withoutResults,
+    pickedNotes,
     projectNames,
   );
   const noun = count === 1 ? "photo" : `album of ${count} photos`;
@@ -883,6 +1119,41 @@ async function sendDestinationPrompt(
     ctx.chatId,
     `Got a ${noun}. Where should it go?\n\n${body}`,
     { reply_markup: keyboard }
+  );
+}
+
+/** Send the both-active disambiguation prompt: experiment popup AND note
+ *  popup were both open at first-photo time. */
+async function sendActiveDisambiguationPrompt(
+  ctx: BatchRouteContext,
+  count: number,
+  activeTask: ActiveTask,
+  activeNote: ActiveNote,
+): Promise<void> {
+  const { body, keyboard } = buildActiveDisambiguationPrompt(activeTask, activeNote);
+  const noun = count === 1 ? "photo" : `album of ${count} photos`;
+  await sendMessage(
+    ctx.botToken,
+    ctx.chatId,
+    `Got a ${noun}. ${body}`,
+    { reply_markup: keyboard },
+  );
+}
+
+/** Send the active-note-only confirmation prompt: only a note popup was
+ *  open at first-photo time. */
+async function sendActiveNoteConfirmationPrompt(
+  ctx: BatchRouteContext,
+  count: number,
+  activeNote: ActiveNote,
+): Promise<void> {
+  const { body, keyboard } = buildActiveNoteConfirmationPrompt(activeNote);
+  const noun = count === 1 ? "photo" : `album of ${count} photos`;
+  await sendMessage(
+    ctx.botToken,
+    ctx.chatId,
+    `Got a ${noun}. ${body}`,
+    { reply_markup: keyboard },
   );
 }
 
@@ -909,6 +1180,8 @@ async function sendStylePrompt(
   if (destination.kind === "task") {
     const tab = destination.subTab === "notes" ? "Lab Notes" : "Results";
     target = `"${destination.name}" (${tab})`;
+  } else if (destination.kind === "note") {
+    target = `note "${destination.title}"`;
   } else {
     target = "your Inbox";
   }
@@ -941,10 +1214,17 @@ export async function routeBatchCallbackQuery(
   }
   const state = batches.get(ctx.chatId);
 
-  // Active-task quick-pick (`tab:<id>:<owner>:<subTab>`) — only valid
-  // from the awaiting-active-confirmation state.
+  // Tab-picker click (`tab:<id>:<owner>:<subTab>`) — commits subTab inline.
+  // Valid from:
+  //   - awaiting-active-confirmation: existing Case B quick-pick
+  //   - awaiting-destination: new picker shape with per-experiment
+  //     Lab Notes / Results buttons (collapses the old sub-tab step)
   if (cq.data.startsWith("tab:")) {
-    if (!state || state.kind !== "awaiting-active-confirmation") {
+    if (
+      !state ||
+      (state.kind !== "awaiting-active-confirmation" &&
+        state.kind !== "awaiting-destination")
+    ) {
       await answerCallbackQuery(ctx.botToken, cq.id, {
         text: "Album expired.",
       });
@@ -956,11 +1236,29 @@ export async function routeBatchCallbackQuery(
       return;
     }
     await answerCallbackQuery(ctx.botToken, cq.id);
+    // Resolve the task name. For the active-confirmation case, the
+    // snapshot is authoritative. For the picker case, look it up in the
+    // experiments list so the bot's reply names the right experiment.
+    let taskName: string;
+    if (state.kind === "awaiting-active-confirmation") {
+      taskName = state.activeTask.name;
+    } else {
+      let experiments: Task[];
+      try {
+        experiments = await experimentsLoader(ctx.username);
+      } catch {
+        experiments = [];
+      }
+      const match = experiments.find(
+        (t) => t.id === decoded.taskId && t.owner === decoded.owner,
+      );
+      taskName = match?.name ?? `Experiment ${decoded.taskId}`;
+    }
     const destination: BatchDestination = {
       kind: "task",
       taskId: decoded.taskId,
       owner: decoded.owner,
-      name: state.activeTask.name,
+      name: taskName,
       subTab: decoded.subTab,
     };
     batches.set(ctx.chatId, {
@@ -975,9 +1273,17 @@ export async function routeBatchCallbackQuery(
     return;
   }
 
-  // "Pick another experiment" escape hatch from active-confirmation.
+  // "Pick another" escape hatch from the active-* confirmation states.
+  // Valid from active-confirmation (task-only), active-disambiguation
+  // (both), and note-confirmation (note-only). All three escape to the
+  // full picker.
   if (cq.data === "pick-other") {
-    if (!state || state.kind !== "awaiting-active-confirmation") {
+    if (
+      !state ||
+      (state.kind !== "awaiting-active-confirmation" &&
+        state.kind !== "awaiting-active-disambiguation" &&
+        state.kind !== "awaiting-note-confirmation")
+    ) {
       await answerCallbackQuery(ctx.botToken, cq.id, {
         text: "Album expired.",
       });
@@ -1017,30 +1323,97 @@ export async function routeBatchCallbackQuery(
     return;
   }
 
-  // Task-picker click (`task:<id>:<owner>`) — graduates to the sub-tab
-  // picker.
-  if (cq.data.startsWith("task:")) {
-    if (!state || state.kind !== "awaiting-destination") {
+  // Note-pick click (`note:<id>:<owner>`) — commits directly to style.
+  // Valid from active-disambiguation (B button), active-note-confirmation
+  // (A button), and awaiting-destination (Notes section of the picker).
+  if (cq.data.startsWith("note:")) {
+    if (
+      !state ||
+      (state.kind !== "awaiting-active-disambiguation" &&
+        state.kind !== "awaiting-note-confirmation" &&
+        state.kind !== "awaiting-destination")
+    ) {
       await answerCallbackQuery(ctx.botToken, cq.id, {
         text: "Album expired.",
       });
       return;
     }
-    // Re-load experiments so the bot reply can use the task name even
-    // if the keyboard built it from a stale list (the data is on the
-    // button regardless).
+    let notes: Note[];
+    try {
+      notes = await notesLoader(ctx.username);
+    } catch {
+      notes = [];
+    }
+    const decoded = decodeNoteCallback(cq.data, notes);
+    if (!decoded) {
+      await answerCallbackQuery(ctx.botToken, cq.id, { text: "Bad payload." });
+      return;
+    }
+    await answerCallbackQuery(ctx.botToken, cq.id);
+    // Prefer the active-note snapshot's title (authoritative for the
+    // open popup) over a stale list lookup; for the picker case the list
+    // is the only source of truth.
+    let title = decoded.title;
+    if (state.kind === "awaiting-active-disambiguation") {
+      title = state.activeNote.title;
+    } else if (state.kind === "awaiting-note-confirmation") {
+      title = state.activeNote.title;
+    }
+    const destination: BatchDestination = {
+      kind: "note",
+      noteId: decoded.id,
+      owner: decoded.owner,
+      title,
+    };
+    batches.set(ctx.chatId, {
+      kind: "awaiting-style",
+      chatId: ctx.chatId,
+      mediaGroupId: state.mediaGroupId,
+      ctx: state.ctx,
+      photos: state.photos,
+      destination,
+    });
+    await sendStylePrompt(state.ctx, state.photos.length, destination);
+    return;
+  }
+
+  // Legacy `task:<id>:<owner>` click — graduates to the sub-tab picker.
+  // The new picker no longer emits these (it emits `tab:` with the
+  // subTab inline), but the disambiguation prompt's A button still does
+  // for the both-active case (the user picked "this experiment" — the
+  // sub-tab is the natural follow-up). Also retained for in-flight
+  // states from a hot-reload prior to the redesign.
+  if (cq.data.startsWith("task:")) {
+    if (
+      !state ||
+      (state.kind !== "awaiting-destination" &&
+        state.kind !== "awaiting-active-disambiguation")
+    ) {
+      await answerCallbackQuery(ctx.botToken, cq.id, {
+        text: "Album expired.",
+      });
+      return;
+    }
     let experiments: Task[];
     try {
       experiments = await experimentsLoader(ctx.username);
     } catch {
       experiments = [];
     }
-    const task = decodeTaskCallback(cq.data, experiments);
+    let task = decodeTaskCallback(cq.data, experiments);
     if (!task) {
       await answerCallbackQuery(ctx.botToken, cq.id, {
         text: "Bad destination.",
       });
       return;
+    }
+    // Disambig case: the active-task snapshot is the authoritative name.
+    if (state.kind === "awaiting-active-disambiguation") {
+      task = {
+        id: state.activeTask.id,
+        owner: state.activeTask.owner,
+        name: state.activeTask.name,
+      };
     }
     await answerCallbackQuery(ctx.botToken, cq.id);
     batches.set(ctx.chatId, {
@@ -1130,21 +1503,15 @@ export async function routeBatchCallbackQuery(
 async function commitIndividualStyle(state: BatchState & { kind: "awaiting-style" }): Promise<void> {
   const written: { basePath: string; filename: string; fileId: string }[] = [];
   for (const photo of state.photos) {
-    const target = await resolveDestinationBase(state.destination, state.ctx.username);
-    const stemPrefix =
-      state.destination.kind === "task"
-        ? `task${state.destination.taskId}-${photo.suggestedStem}`
-        : `inbox-${photo.suggestedStem}`;
-    const desired = `${timestampStem(stemPrefix)}.${photo.suggestedExt}`;
-    const result = await attachImageToTask({
-      ownerUsername: state.destination.kind === "task" ? state.destination.owner : state.ctx.username,
-      taskId: state.destination.kind === "task" ? state.destination.taskId : 0,
-      basePath: target,
-      blob: photo.blob,
-      suggestedFilename: desired,
-      altText: photo.caption ?? "",
-    });
-    await writeSidecar(target, result.finalFilename, {
+    const desired = `${timestampStem(stemPrefixFor(state.destination, photo.suggestedStem))}.${photo.suggestedExt}`;
+    const { basePath, finalFilename } = await attachOnePhoto(
+      state.destination,
+      photo,
+      desired,
+      photo.caption ?? "",
+      state.ctx,
+    );
+    await writeSidecar(basePath, finalFilename, {
       caption: photo.caption ?? undefined,
       source: "telegram",
       receivedAt: new Date(photo.date * 1000).toISOString(),
@@ -1152,8 +1519,8 @@ async function commitIndividualStyle(state: BatchState & { kind: "awaiting-style
       telegramChatId: state.ctx.chatId,
     });
     written.push({
-      basePath: target,
-      filename: result.finalFilename,
+      basePath,
+      filename: finalFilename,
       fileId: photo.fileId,
     });
   }
@@ -1179,6 +1546,9 @@ async function resolveDestinationBase(
   username: string
 ): Promise<string> {
   if (destination.kind === "inbox") return inboxBase(username);
+  if (destination.kind === "note") {
+    return `users/${destination.owner}/notes/${destination.noteId}`;
+  }
   // Touch resolveTaskResultsBase to ensure any legacy → per-user migration
   // happens before we write to the per-tab subdir. We don't use the
   // returned path directly — the per-tab helpers always anchor at
@@ -1194,6 +1564,59 @@ async function resolveDestinationBase(
   return destination.subTab === "notes"
     ? taskNotesBase(taskRef)
     : taskResultsTabBase(taskRef);
+}
+
+/** Single-photo commit helper used by every style flow (auto-name, skip,
+ *  per-photo-caption). Dispatches on `destination.kind`:
+ *   - "task" / "inbox" → `attachImageToTask` with a basePath override
+ *   - "note" → `attachImageToNote`, which also appends the markdown link
+ *
+ *  Returns the resolved on-disk basePath + final filename so the caller
+ *  can write the sidecar. */
+async function attachOnePhoto(
+  destination: BatchDestination,
+  photo: BatchPhoto,
+  desired: string,
+  altText: string,
+  ctx: BatchRouteContext,
+): Promise<{ basePath: string; finalFilename: string }> {
+  if (destination.kind === "note") {
+    const result = await attachImageToNote({
+      ownerUsername: destination.owner,
+      noteId: destination.noteId,
+      blob: photo.blob,
+      suggestedFilename: desired,
+      altText,
+    });
+    return {
+      basePath: `users/${destination.owner}/notes/${destination.noteId}`,
+      finalFilename: result.finalFilename,
+    };
+  }
+  const target = await resolveDestinationBase(destination, ctx.username);
+  const result = await attachImageToTask({
+    ownerUsername:
+      destination.kind === "task" ? destination.owner : ctx.username,
+    taskId: destination.kind === "task" ? destination.taskId : 0,
+    basePath: target,
+    blob: photo.blob,
+    suggestedFilename: desired,
+    altText,
+  });
+  return { basePath: target, finalFilename: result.finalFilename };
+}
+
+function stemPrefixFor(
+  destination: BatchDestination,
+  photoStem: string,
+): string {
+  if (destination.kind === "task") {
+    return `task${destination.taskId}-${photoStem}`;
+  }
+  if (destination.kind === "note") {
+    return `note${destination.noteId}-${photoStem}`;
+  }
+  return `inbox-${photoStem}`;
 }
 
 /** Public entry point: text from the chat. Returns `true` if this
@@ -1266,28 +1689,23 @@ async function commitAutoNameBatch(
   state: BatchState & { kind: "awaiting-batch-name" },
   name: string
 ): Promise<void> {
-  const target = await resolveDestinationBase(state.destination, state.ctx.username);
   for (let i = 0; i < state.photos.length; i++) {
     const photo = state.photos[i];
     const desired = `${name}-${i + 1}.${photo.suggestedExt}`;
-    const result = await attachImageToTask({
-      ownerUsername:
-        state.destination.kind === "task"
-          ? state.destination.owner
-          : state.ctx.username,
-      taskId: state.destination.kind === "task" ? state.destination.taskId : 0,
-      basePath: target,
-      blob: photo.blob,
-      suggestedFilename: desired,
-      altText: name,
-    });
+    const { basePath, finalFilename } = await attachOnePhoto(
+      state.destination,
+      photo,
+      desired,
+      name,
+      state.ctx,
+    );
     // Caption = the batch name (the thing the user TYPED). Telegram only
     // attaches per-photo caption to the first photo of an album, so
     // `photo.caption ?? name` would leave a single anomalous caption on
     // photo 0 and the batch name on the rest — confusing. Batch name on
     // every photo keeps the album coherent; the per-photo index is
     // already preserved in the filename.
-    await writeSidecar(target, result.finalFilename, {
+    await writeSidecar(basePath, finalFilename, {
       caption: name,
       source: "telegram",
       receivedAt: new Date(photo.date * 1000).toISOString(),
@@ -1309,25 +1727,16 @@ async function commitAutoNameBatch(
 async function commitAutoNameSkipped(
   state: BatchState & { kind: "awaiting-batch-name" }
 ): Promise<void> {
-  const target = await resolveDestinationBase(state.destination, state.ctx.username);
   for (const photo of state.photos) {
-    const stemPrefix =
-      state.destination.kind === "task"
-        ? `task${state.destination.taskId}-${photo.suggestedStem}`
-        : `inbox-${photo.suggestedStem}`;
-    const desired = `${timestampStem(stemPrefix)}.${photo.suggestedExt}`;
-    const result = await attachImageToTask({
-      ownerUsername:
-        state.destination.kind === "task"
-          ? state.destination.owner
-          : state.ctx.username,
-      taskId: state.destination.kind === "task" ? state.destination.taskId : 0,
-      basePath: target,
-      blob: photo.blob,
-      suggestedFilename: desired,
-      altText: photo.caption ?? "",
-    });
-    await writeSidecar(target, result.finalFilename, {
+    const desired = `${timestampStem(stemPrefixFor(state.destination, photo.suggestedStem))}.${photo.suggestedExt}`;
+    const { basePath, finalFilename } = await attachOnePhoto(
+      state.destination,
+      photo,
+      desired,
+      photo.caption ?? "",
+      state.ctx,
+    );
+    await writeSidecar(basePath, finalFilename, {
       caption: photo.caption ?? undefined,
       source: "telegram",
       receivedAt: new Date(photo.date * 1000).toISOString(),

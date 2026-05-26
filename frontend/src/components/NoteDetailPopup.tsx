@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import type { Note, NoteEntry } from "@/lib/types";
 import { ownerScopedNotesApi } from "@/lib/notes/owner-scoped-api";
 import { emitNoteDeleted } from "@/lib/notes/delete-toast-bus";
+import { useAppStore } from "@/lib/store";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import NoteCommentsThread from "./NoteCommentsThread";
 import Tooltip from "./Tooltip";
@@ -142,6 +143,18 @@ export default function NoteDetailPopup({
   // `username` when there's no signed-in user (read-only / lab-mode views),
   // so the path is still defined even if no upload can happen.
   const basePath = `users/${currentUser ?? note.username}/notes/${note.id}`;
+
+  // Expose this note as the "active note" while the popup is open, so the
+  // Telegram batch-routing flow can offer "attach to this open note" as a
+  // first-class option alongside the active experiment. Mirrors the
+  // `setActiveTask` wiring in TaskDetailPopup. Both can be set at once when
+  // a note popup is layered over an experiment popup; the bot's prompt
+  // builder disambiguates with an A/B picker in that case.
+  const setActiveNote = useAppStore((s) => s.setActiveNote);
+  useEffect(() => {
+    setActiveNote({ id: note.id, owner: note.username, title: note.title });
+    return () => setActiveNote(null);
+  }, [setActiveNote, note.id, note.username, note.title]);
 
   // Track unsaved content for auto-save
   const unsavedContentRef = useRef<Map<string, string>>(new Map());
