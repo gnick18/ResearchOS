@@ -137,7 +137,7 @@ describe("tourGoodbyeStep record", () => {
     ).toBeTruthy();
     expect(screen.getByText(/I'll tidy up the demo stuff/)).toBeTruthy();
     expect(screen.getByText(/every page has its own wiki guide/)).toBeTruthy();
-    expect(screen.getByText(/next to your avatar up top/)).toBeTruthy();
+    expect(screen.getByText(/next to the gear icon/)).toBeTruthy();
     // The retired ❓ emoji + absolute-position pointer must NOT appear.
     expect(screen.queryByText(/❓/)).toBeNull();
     expect(screen.queryByText(/icon in the top right/)).toBeNull();

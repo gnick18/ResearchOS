@@ -55,6 +55,9 @@ export const homeCreateProjectFillStep = buildWalkthroughStep({
         Give your project a name and pick a color. Don&apos;t worry,
         these choices can always be changed later on.
       </p>
+      <p className="mb-2">
+        Tags are optional and let you group projects later.
+      </p>
       <p>
         The seven-day work week toggle controls whether weekends count
         for scheduling. Most labs leave it off so the Gantt skips Sat
@@ -65,6 +68,14 @@ export const homeCreateProjectFillStep = buildWalkthroughStep({
   ),
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.homeProjectCreateForm),
+  // panel copy polish 2026-05-26: literal-reader bot reported that if
+  // the form was dismissed mid-step, the recovery banner fell back to
+  // the generic "the button you clicked before" — which has no
+  // referent (the last button was the tour's own Next). Anchor the
+  // recovery copy to the real re-entry button on Home.
+  recoveryHint: {
+    buttonLabel: "the + New Project button at the top of Home",
+  },
   // Intentionally no cursorScript — BeakerBot speaks; the user fills.
   // A typed-name cursor demo would be wrong here because the user is
   // picking their own real project name. Spotlight + speech is enough.

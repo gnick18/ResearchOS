@@ -155,7 +155,7 @@ export const settingsTourVisibleTabsStep = buildWalkthroughStep({
 export const settingsTourStreakStep = buildWalkthroughStep({
   id: "settings-tour-streak",
   speech:
-    "Streak counter is on by default. It's private to you, nobody else sees it. If you'd rather not be reminded, toggle it off here.",
+    "Streak counter is on by default. It's private to you in the app, nobody else sees it. If you'd rather not be reminded, toggle it off here.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.settingsStreakSection),
   completion: manualAdvance("Got it, next"),

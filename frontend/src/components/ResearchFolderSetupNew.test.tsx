@@ -218,7 +218,7 @@ describe("ResearchFolderSetupNew welcome bubble + opt-in walkthrough", () => {
     // bubble container so the test covers both paragraphs together.
     const bubble = screen.getByTestId("picker-welcome-bubble");
     expect(bubble.textContent).toContain("strongly recommended");
-    expect(bubble.textContent).toContain("2-3 minutes");
+    expect(bubble.textContent).toContain("3 minutes");
   });
 
   it("does not render the walkthrough modal on initial mount (walkthroughOpen=false)", () => {

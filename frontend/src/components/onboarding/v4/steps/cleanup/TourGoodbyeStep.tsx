@@ -91,7 +91,7 @@ function TourGoodbyeSpeech() {
       </p>
       <p className="leading-relaxed">
         If you ever need a refresher, every page has its own wiki guide.
-        Look for the help icon next to your avatar up top.
+        Look for the help icon up top, next to the gear icon.
       </p>
       <p className="leading-relaxed">Good luck.</p>
     </div>

@@ -572,7 +572,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                 data-testid="picker-welcome-copy"
               >
                 New here? It is strongly recommended to take a short
-                onboarding walkthrough (2-3 minutes). Returning? Just
+                onboarding walkthrough (3 minutes). Returning? Just
                 take it from here.
               </p>
             </div>

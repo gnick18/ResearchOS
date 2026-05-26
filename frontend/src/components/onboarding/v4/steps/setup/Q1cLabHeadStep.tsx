@@ -51,7 +51,7 @@ export default function Q1cLabHeadStep({
   return (
     <div data-step-id="setup-q1c" className="space-y-4">
       <p className="text-sm text-gray-700 leading-relaxed">
-        Quick follow-up: are you the lab head? That means the PI, the
+        First question: are you the lab head? That means the PI, the
         group leader, the person whose name is on the door.
       </p>
       <p className="text-sm text-gray-700 leading-relaxed">

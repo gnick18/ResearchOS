@@ -935,7 +935,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
 
         {/* Footer */}
         <p className="text-center text-slate-500 text-sm mt-6">
-          Your data is stored locally and synced to your private repository
+          Your data is stored locally in the folder you picked
         </p>
       </div>
 

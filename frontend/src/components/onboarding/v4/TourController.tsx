@@ -1194,7 +1194,12 @@ export function TourControllerProvider({
     const body = getStep(state.currentStep);
     if (!body) return;
     const selector = body.targetSelector;
-    const hint = body.recoveryHint?.buttonLabel ?? "the button you clicked before";
+    // panel copy polish 2026-05-26: the prior fallback "the button you
+    // clicked before" had no referent — the last button most users
+    // clicked was the tour's own Next. Steps should declare their own
+    // recoveryHint; this generic fallback now reads as a hint to retry
+    // whatever opened the previous surface.
+    const hint = body.recoveryHint?.buttonLabel ?? "the button that opened that surface";
     const isLabStep = isLabPhaseStep(state.currentStep);
     // R4 Lab Mode retirement 2026-05-23: the prior `lab-mode-tour:close`
     // event subscription (which paired with the DemoLabModeViewer

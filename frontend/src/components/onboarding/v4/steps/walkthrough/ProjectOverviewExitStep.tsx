@@ -42,9 +42,21 @@ import {
 } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 
+// panel copy polish 2026-05-26: literal-reader bot flagged the prior
+// "Let me take us back home" copy as confusing when the step fires
+// while the user is already on Home (race + back-button cases). Gate
+// the "back home" phrasing on the actual pathname so the speech only
+// promises a navigation when one is actually about to happen.
+function exitSpeech(): string {
+  if (typeof window !== "undefined" && window.location?.pathname === "/") {
+    return "Nice. Let me show you how the canvas works.";
+  }
+  return "Nice. Let me take us back home so I can show you how the canvas works.";
+}
+
 export const projectOverviewExitStep = buildWalkthroughStep({
   id: "project-overview-exit",
-  speech: "Nice. Let me take us back home so I can show you how the canvas works.",
+  speech: () => exitSpeech(),
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.homeNavTab),
   cursorScript: cursorScript(async () => {

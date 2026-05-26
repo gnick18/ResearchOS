@@ -247,7 +247,7 @@ export interface TourStep {
    *  with popup-dependent demos (NewPurchaseModal, CalendarFeedsModal,
    *  TaskDetailPopup, NoteDetailPopup, HighLevelGoalModal,
    *  CompoundMethodBuilder) should populate this. Steps that don't set
-   *  it fall back to "the button you clicked before".
+   *  it fall back to "the button that opened that surface".
    */
   recoveryHint?: {
     buttonLabel: string;
