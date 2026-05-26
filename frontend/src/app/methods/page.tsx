@@ -145,15 +145,6 @@ export default function MethodsPage() {
     router.replace(query ? `/methods?${query}` : "/methods");
   }, [searchParams, router]);
 
-  // Load empty categories from localStorage after hydration
-  useEffect(() => {
-    const saved = localStorage.getItem("emptyMethodCategories");
-    if (saved) {
-      setEmptyCategories(JSON.parse(saved));
-    }
-    setIsHydrated(true);
-  }, []);
-
   const { data: methods = [] } = useQuery({
     queryKey: ["methods"],
     queryFn: fetchAllMethodsIncludingShared,
@@ -165,6 +156,20 @@ export default function MethodsPage() {
     queryFn: usersApi.list,
   });
   const currentUser = userData?.current_user || "";
+
+  // Load empty categories from localStorage AFTER currentUser is known so
+  // the value is scoped per-user. The legacy unscoped key
+  // (`emptyMethodCategories`) leaked across user-profile switches in the
+  // same browser: e.g. typing "Toodaloo" while logged in as user A would
+  // resurrect "TOODALOO" as a pre-filled empty category for a brand-new
+  // user B in the same browser. Per-user scoping closes that leak.
+  // Folder-switches reset the load via the currentUser dep.
+  useEffect(() => {
+    if (!currentUser) return;
+    const saved = localStorage.getItem(`emptyMethodCategories:${currentUser}`);
+    setEmptyCategories(saved ? JSON.parse(saved) : []);
+    setIsHydrated(true);
+  }, [currentUser]);
 
   // Deep-link: `/methods?openMethod=<id>` opens the method detail panel
   // (`viewingMethod`) for the matching method once the methods list has
@@ -190,12 +195,26 @@ export default function MethodsPage() {
     router.replace(query ? `/methods?${query}` : "/methods");
   }, [searchParams, methods, currentUser, router]);
 
-  // Save empty categories to localStorage when they change (only after hydration)
+  // Save empty categories to localStorage when they change (only after
+  // hydration). Keyed by currentUser so the value is scoped per-user; see
+  // the load effect above for the leak this prevents.
   useEffect(() => {
-    if (isHydrated) {
-      localStorage.setItem("emptyMethodCategories", JSON.stringify(emptyCategories));
+    if (!isHydrated || !currentUser) return;
+    localStorage.setItem(
+      `emptyMethodCategories:${currentUser}`,
+      JSON.stringify(emptyCategories),
+    );
+  }, [emptyCategories, isHydrated, currentUser]);
+
+  // One-shot cleanup: nuke the legacy unscoped key after the per-user key
+  // has been read. Prevents an old bookmark or external script from
+  // resurrecting cross-user category leaks. Safe to run on every mount;
+  // localStorage.removeItem on a missing key is a no-op.
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("emptyMethodCategories");
     }
-  }, [emptyCategories, isHydrated]);
+  }, []);
 
   // Group methods by folder
   const grouped = methods.reduce<Record<string, Method[]>>((acc, m) => {
