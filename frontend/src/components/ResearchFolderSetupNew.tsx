@@ -537,82 +537,82 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
         />
       </div>
 
-      <div className="relative z-10 w-full max-w-3xl mx-4">
-        {/* BeakerBot-led welcome. The mascot lives inline on the picker
-            page (no modal takeover) and uses the `waving` pose, which
-            has a CSS keyframe animation built in, so he waves
-            continuously as a friendly entry signal. Click him and a
-            pink heart pops (the default easter egg since 2026-05-25 when
-            tickle was retired). The sky-blue color matches the canonical
-            BeakerBot palette used elsewhere in the app. Rehomed from the
-            retired pre-onboarding modal 2026-05-25; salvages the
-            WelcomeBeat copy (author + funding line) into a two-line
-            welcome alongside the mascot. */}
-        <div className="mb-8 flex flex-col items-center">
-          {/* Page title sits ABOVE BeakerBot as the actual page heading
-              (not inside the speech bubble). Grant 2026-05-25: the
-              bubble should read as BeakerBot speaking, not as a title
-              card. */}
-          <h1 className="mb-4 text-center text-3xl font-bold text-white">
-            Welcome to ResearchOS
-          </h1>
-          <div
-            ref={beakerBotWrapperRef}
-            className="mb-2 flex h-28 w-28 items-center justify-center"
-            data-testid="picker-beakerbot"
-          >
-            <BeakerBot
-              pose={beakerBotPose}
-              className="h-full w-full text-sky-300"
-              ariaLabel="BeakerBot waving hello"
-            />
-          </div>
-          {/* Speech bubble pointing up at BeakerBot. Holds only the
-              new/returning framing now (title moved out, author credit
-              lives in the modal + RISE stamp). */}
-          <div className="relative mx-auto w-full max-w-2xl">
-            <div
-              aria-hidden
-              className="absolute -top-2 left-1/2 h-4 w-4 -translate-x-1/2 rotate-45 bg-white"
-            />
-            <div
-              className="relative rounded-2xl bg-white px-6 py-5 text-center shadow-lg"
-              data-testid="picker-welcome-bubble"
-            >
-              <p
-                className="mx-auto text-sm leading-relaxed text-slate-700"
-                data-testid="picker-welcome-copy"
-              >
-                New here? It is strongly recommended to take a short
-                onboarding walkthrough (2-3 minutes). Returning? Just
-                take it from here.
-              </p>
-            </div>
-          </div>
-          {/* Opt-in walkthrough CTA. Sits just under the speech bubble,
-              centered, visually inviting but clearly secondary to the
-              two folder-link cards below. The play triangle is an
-              inline SVG (no emojis in UI). Author + funding credit
-              lives in the modal's first slide + the RISE stamp, NOT
-              here (Grant 2026-05-25). */}
-          <button
-            type="button"
-            onClick={() => setWalkthroughOpen(true)}
-            data-testid="picker-walkthrough-open"
-            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-sky-500/15 px-4 py-2 text-sm font-semibold text-sky-100 border border-sky-300/40 transition-colors hover:bg-sky-500/25 hover:text-white hover:border-sky-300/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
-          >
-            <svg
-              aria-hidden="true"
-              className="h-3.5 w-3.5"
-              viewBox="0 0 12 12"
-              fill="currentColor"
-            >
-              <path d="M3 1.5v9l8-4.5-8-4.5z" />
-            </svg>
-            Take the 3-minute walkthrough
-          </button>
-        </div>
+      <div className="relative z-10 w-full max-w-5xl mx-4">
+        {/* Page title spans both columns, centered above. */}
+        <h1 className="mb-8 text-center text-3xl font-bold text-white">
+          Welcome to ResearchOS
+        </h1>
 
+        {/* Two-column layout: BeakerBot side column on the left
+            (mascot + square speech bubble + opt-in walkthrough CTA),
+            folder picker cards in the main column on the right.
+            Stacks on small viewports. Grant 2026-05-25: the old
+            stacked-everything-centered layout wasted horizontal space
+            and made the bubble read as a wide thin band. The side
+            column keeps BeakerBot's footprint small + lets the cards
+            occupy the center. The proximity-wave hook draws the
+            cursor toward BeakerBot, which surfaces the walkthrough
+            CTA without forcing it on returning users. */}
+        <div className="flex flex-col lg:flex-row items-start gap-8 lg:gap-10">
+          {/* Left column: BeakerBot + speech bubble + walkthrough CTA */}
+          <div className="w-full lg:w-72 shrink-0 flex flex-col items-center">
+            <div
+              ref={beakerBotWrapperRef}
+              className="mb-2 flex h-28 w-28 items-center justify-center"
+              data-testid="picker-beakerbot"
+            >
+              <BeakerBot
+                pose={beakerBotPose}
+                className="h-full w-full text-sky-300"
+                ariaLabel="BeakerBot waving hello"
+              />
+            </div>
+            {/* Square-ish speech bubble pointing up at BeakerBot. The
+                bubble's natural width sits around 260-280px so it reads
+                as a chat bubble, not a banner. */}
+            <div className="relative w-full max-w-xs">
+              <div
+                aria-hidden
+                className="absolute -top-2 left-1/2 h-4 w-4 -translate-x-1/2 rotate-45 bg-white"
+              />
+              <div
+                className="relative rounded-2xl bg-white px-5 py-4 text-center shadow-lg"
+                data-testid="picker-welcome-bubble"
+              >
+                <p
+                  className="text-sm leading-relaxed text-slate-700"
+                  data-testid="picker-welcome-copy"
+                >
+                  New here? It is strongly recommended to take a short
+                  onboarding walkthrough (2-3 minutes). Returning? Just
+                  take it from here.
+                </p>
+              </div>
+            </div>
+            {/* Opt-in walkthrough CTA. Author + funding credit lives
+                in the modal's first slide + the RISE stamp, not here. */}
+            <button
+              type="button"
+              onClick={() => setWalkthroughOpen(true)}
+              data-testid="picker-walkthrough-open"
+              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-sky-500/15 px-4 py-2 text-sm font-semibold text-sky-100 border border-sky-300/40 transition-colors hover:bg-sky-500/25 hover:text-white hover:border-sky-300/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+            >
+              <svg
+                aria-hidden="true"
+                className="h-3.5 w-3.5"
+                viewBox="0 0 12 12"
+                fill="currentColor"
+              >
+                <path d="M3 1.5v9l8-4.5-8-4.5z" />
+              </svg>
+              Take the 3-minute walkthrough
+            </button>
+          </div>
+
+          {/* Right column: folder picker cards. flex-1 takes the
+              remaining horizontal space; the inner grid keeps the two
+              cards side-by-side at md+ and stacks them at sm. */}
+          <div className="flex-1 w-full">
         <div className="grid md:grid-cols-2 gap-4">
           <div
             data-testid="link-folder-drop-zone"
@@ -739,6 +739,8 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                 )}
               </button>
             </div>
+          </div>
+        </div>
           </div>
         </div>
 
