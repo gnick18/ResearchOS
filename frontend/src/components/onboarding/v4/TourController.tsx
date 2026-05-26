@@ -425,6 +425,7 @@ function reducer(state: ReducerState, action: Action): ReducerState {
   switch (action.type) {
     case "START": {
       const next = action.initialStep ?? firstApplicableStep(state.featurePicks);
+      console.log("[RR-DEBUG] reducer START", { next, featurePicks: state.featurePicks, prevStep: state.currentStep, prevPaused: state.paused });
       return {
         ...state,
         currentStep: next,
@@ -610,6 +611,7 @@ export function TourControllerProvider({
   // -------------------------------------------------------------------
 
   const start = useCallback((initial?: TourStepId) => {
+    console.log("[RR-DEBUG] TourController.start CALLED", { initial });
     setLastTourTransition("start");
     // Reset the informational skipList alongside the START dispatch so an
     // in-session re-run (no reload) does not persist stale skips from the
@@ -1450,6 +1452,7 @@ function TourOverlay({
 }: TourOverlayProps) {
   const controller = useTourController();
 
+  console.log("[RR-DEBUG] TourOverlay render", { currentStep: controller.currentStep, paused: controller.paused, tourMode: controller.tourMode });
   if (!controller.currentStep || controller.paused) return null;
 
   // Wave 2 Fix 1/9: popstate toast — rendered alongside whichever phase
@@ -2673,9 +2676,18 @@ function TourBeakerBotOverlay({
           Pointer events are re-enabled here so the user can click
           Skip / Exit / Got it — the wrapper above is non-interactive so
           it doesn't block clicks anywhere else on the page-body. */}
+      {/* Surface tuning (Grant feedback 2026-05-26): the bubble previously
+          used `bg-white` + `border-gray-200` and read as "transparent"
+          against the widget canvas — the low-contrast edge let the
+          background show conceptually even though the fill was opaque.
+          Grant likes a *subtle* transparency effect, so we keep one
+          explicit + controlled (95% white + backdrop blur) and define
+          the edge more firmly (gray-300 border + shadow-2xl) so the
+          bubble sits clearly above the canvas. The blur also helps
+          readability when the bubble overlaps widget chrome. */}
       <div
         data-testid="tour-beakerbot-bubble"
-        className="pointer-events-auto bg-white border border-gray-200 rounded-2xl shadow-xl p-4 text-sm text-gray-800"
+        className="pointer-events-auto bg-white/95 backdrop-blur-md border border-gray-300 rounded-2xl shadow-2xl p-4 text-sm text-gray-800"
         style={{ maxWidth: 340 }}
       >
         <div data-testid="tour-beakerbot-speech" className="leading-relaxed">
