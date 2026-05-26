@@ -22,8 +22,12 @@
  * needed. The harder assertions (cursor playback against a real
  * canvas) belong in browser-driven E2E, not vitest.
  */
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import {
+  __resetTourWidgetDemoPreviewForTests,
+  isTourWidgetDemoPreviewActive,
+} from "../../../TourWidgetDemoPreview";
 import { homeWidgetsCanvasIntroStep } from "../HomeWidgetsCanvasIntroStep";
 import {
   HOME_WIDGETS_TILE_ANATOMY_CLOSE_SELECTOR,
@@ -49,6 +53,15 @@ import { homeWidgetsExitStep } from "../HomeWidgetsExitStep";
 function speechOf(step: { speech: unknown }): string {
   return typeof step.speech === "string" ? step.speech : "";
 }
+
+// Reset the §6.2b demo-preview refcount between cases so each test
+// starts from a known baseline. The step bodies push/release leases
+// from their onEnter/onExit hooks (tour-fixtures sub-bot R2,
+// 2026-05-26) and a test that invokes onEnter without invoking onExit
+// would otherwise leak into the next case.
+afterEach(() => {
+  __resetTourWidgetDemoPreviewForTests();
+});
 
 describe("§6.2b home-widgets-canvas-intro (Step 1: canvas intro)", () => {
   it("declares the canonical id", () => {
@@ -129,6 +142,25 @@ describe("§6.2b home-widgets-canvas-intro (Step 1: canvas intro)", () => {
       homeWidgetsCanvasIntroStep.onEnter?.({ username: null }),
     ).resolves.toBeUndefined();
   });
+
+  it("onEnter pushes a demo-preview lease, onExit releases it (tour-fixtures R2)", async () => {
+    // §6.2b walkthrough fix (tour-fixtures sub-bot R2, 2026-05-26):
+    // the 3 narration steps (canvas-intro, tile-anatomy, exit) each
+    // push a demo-preview lease on entry so the home snapshot tiles
+    // show realistic fixture data while BeakerBot is pitching "the
+    // numbers give you the gist". Without this, a brand-new user
+    // sees "Nothing queued" / "Nothing on the calendar today" and
+    // the lesson is dead on arrival.
+    expect(isTourWidgetDemoPreviewActive()).toBe(false);
+    await homeWidgetsCanvasIntroStep.onEnter?.({ username: null });
+    expect(isTourWidgetDemoPreviewActive()).toBe(true);
+    await homeWidgetsCanvasIntroStep.onExit?.();
+    // Release is microtask-deferred (see TourWidgetDemoPreview.ts
+    // header — protects against cross-step flicker). Flush the queue
+    // so the assertion sees the post-decrement state.
+    await Promise.resolve();
+    expect(isTourWidgetDemoPreviewActive()).toBe(false);
+  });
 });
 
 describe("§6.2b home-widgets-tile-anatomy (Step 2: click to expand)", () => {
@@ -176,6 +208,52 @@ describe("§6.2b home-widgets-tile-anatomy (Step 2: click to expand)", () => {
 
   it("speech contains no em-dashes (voice rule)", () => {
     expect(speechOf(homeWidgetsTileAnatomyStep)).not.toContain("—");
+  });
+
+  it("onEnter pushes a demo-preview lease, onExit releases it (tour-fixtures R2)", async () => {
+    // §6.2b walkthrough fix (tour-fixtures sub-bot R2, 2026-05-26):
+    // see canvas-intro's matching test for the design rationale. The
+    // tile-anatomy step also holds a demo-preview lease so the
+    // SnapshotTilePopup the cursor demo opens shows realistic fixture
+    // data ("Today's events" today list with 4 fictional rows)
+    // instead of "Nothing on the calendar today".
+    expect(isTourWidgetDemoPreviewActive()).toBe(false);
+    await homeWidgetsTileAnatomyStep.onEnter?.({ username: null });
+    expect(isTourWidgetDemoPreviewActive()).toBe(true);
+    await homeWidgetsTileAnatomyStep.onExit?.();
+    await Promise.resolve();
+    expect(isTourWidgetDemoPreviewActive()).toBe(false);
+  });
+
+  it("two adjacent step pushes hand off without dropping the refcount to zero (cross-step flicker fix)", async () => {
+    // §6.2b cross-step transition (tour-fixtures sub-bot R2,
+    // 2026-05-26). When the user advances from canvas-intro to
+    // tile-anatomy, the TourController schedules the old step's
+    // onExit as a microtask BEFORE the new step's onEnter runs. The
+    // release path is deferred (queueMicrotask) so the next push
+    // lands BEFORE the decrement, keeping the refcount at >=1 across
+    // the handoff. Without this, the tiles would flicker back to
+    // "Nothing queued" for one frame between steps.
+    await homeWidgetsCanvasIntroStep.onEnter?.({ username: null });
+    expect(isTourWidgetDemoPreviewActive()).toBe(true);
+
+    // Simulate the TourController's handoff order: schedule the old
+    // step's onExit (which calls the deferred release), then
+    // synchronously push the new step's lease BEFORE the microtask
+    // fires.
+    await homeWidgetsCanvasIntroStep.onExit?.();
+    // Don't flush yet — the release is sitting in the microtask
+    // queue. Push the next step's lease right now (synchronously).
+    await homeWidgetsTileAnatomyStep.onEnter?.({ username: null });
+    // NOW flush the queued release.
+    await Promise.resolve();
+    // Net: one lease still held by tile-anatomy, refcount > 0.
+    expect(isTourWidgetDemoPreviewActive()).toBe(true);
+
+    // Clean up: release the tile-anatomy lease.
+    await homeWidgetsTileAnatomyStep.onExit?.();
+    await Promise.resolve();
+    expect(isTourWidgetDemoPreviewActive()).toBe(false);
   });
 });
 
@@ -491,5 +569,21 @@ describe("§6.2b home-widgets-exit (Step 5: exit beat + telegraph notifications)
     } finally {
       doneBtn.remove();
     }
+  });
+
+  it("onEnter pushes a demo-preview lease, onExit releases it (tour-fixtures R2)", async () => {
+    // §6.2b walkthrough fix (tour-fixtures sub-bot R2, 2026-05-26):
+    // the exit step holds the demo-preview lease across the wrap-up
+    // beat so the snapshot tiles stay populated while the user reads
+    // "That's the canvas... up next, notifications". The lease
+    // releases on the controller's advance to §6.3a notifications-
+    // bell, returning the tiles to their real (empty) data path for
+    // the rest of the tour.
+    expect(isTourWidgetDemoPreviewActive()).toBe(false);
+    await homeWidgetsExitStep.onEnter?.({ username: null });
+    expect(isTourWidgetDemoPreviewActive()).toBe(true);
+    await homeWidgetsExitStep.onExit?.();
+    await Promise.resolve();
+    expect(isTourWidgetDemoPreviewActive()).toBe(false);
   });
 });

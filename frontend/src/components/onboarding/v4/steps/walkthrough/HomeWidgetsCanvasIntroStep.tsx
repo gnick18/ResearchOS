@@ -42,6 +42,28 @@
  */
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
+import { pushTourWidgetDemoPreview } from "../../TourWidgetDemoPreview";
+
+// §6.2b Home widgets demo-preview lease (tour-fixtures sub-bot R2,
+// 2026-05-26). The §6.2b cluster's 3 narration steps (canvas-intro,
+// tile-anatomy, exit) each push a refcount lease on `onEnter` and
+// release it on `onExit`. While at least one lease is held, the two
+// pre-seeded home snapshot tiles (Upcoming tasks + Today's events)
+// short-circuit their real data path and render inline fixtures so a
+// brand-new account doesn't see "Nothing queued" / "Nothing on the
+// calendar today" while BeakerBot is pitching "the numbers give you
+// the gist". The refcount approach (rather than a boolean) means two
+// adjacent steps both holding the flag transition 1 → 2 → 1 instead of
+// 1 → 0 → 1, avoiding a one-frame "Nothing queued" flicker between
+// steps.
+//
+// `releaseRef` is a module-level handle scoped to this step body. We
+// can't put it on the step object itself (TourStep is a plain
+// definition, no per-instance state), and we don't want to over-fire
+// the release if a single React effect cycles its cleanup multiple
+// times. Storing on the module captures the most recent push and
+// guarantees one release per push.
+let releaseDemoPreview: (() => void) | null = null;
 
 export const homeWidgetsCanvasIntroStep = buildWalkthroughStep({
   id: "home-widgets-canvas-intro",
@@ -59,6 +81,16 @@ export const homeWidgetsCanvasIntroStep = buildWalkthroughStep({
   // missing canvas element are both silent no-ops; the spotlight still
   // mounts wherever the rect ends up.
   onEnter: async () => {
+    // Push the demo-preview lease FIRST so the SnapshotTiles re-render
+    // with fixture data before the user reads BeakerBot's pitch. The
+    // release is stashed on the module-level handle below and fires
+    // from onExit. The TourController contract guarantees onExit
+    // always fires before a re-entry, so we don't need to defensively
+    // release a stale handle here. (Tests reset the module-level
+    // state via __resetTourWidgetDemoPreviewForTests and a setter we
+    // expose below.)
+    releaseDemoPreview = pushTourWidgetDemoPreview();
+
     if (typeof document === "undefined") return;
     const el = document.querySelector(
       targetSelector(TOUR_TARGETS.homeWidgetCanvas),
@@ -69,6 +101,25 @@ export const homeWidgetsCanvasIntroStep = buildWalkthroughStep({
       el.scrollIntoView({ behavior: "smooth", block: "center" });
     } catch {
       // No-op: some test environments throw on options.
+    }
+  },
+  onExit: async () => {
+    // Release the demo-preview lease so the tile-anatomy step's own
+    // push lands on a stable refcount baseline (its onEnter immediately
+    // re-pushes, so the user never sees a "real data" flicker — the
+    // tile-anatomy push happens synchronously with the React commit
+    // that mounts the next step).
+    if (releaseDemoPreview) {
+      const release = releaseDemoPreview;
+      releaseDemoPreview = null;
+      try {
+        release();
+      } catch (err) {
+        console.error(
+          "[home-widgets-canvas-intro] demo-preview release threw:",
+          err,
+        );
+      }
     }
   },
   completion: manualAdvance("Got it, next"),

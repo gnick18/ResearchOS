@@ -9,6 +9,13 @@ import {
 } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import type { Task, Project } from "@/lib/types";
+// §6.2b Home widgets walkthrough demo-preview hook (tour-fixtures
+// sub-bot R2, 2026-05-26): when the §6.2b cluster's step bodies push a
+// demo-preview lease via `pushTourWidgetDemoPreview()`, the Upcoming
+// Tasks snapshot below short-circuits its real data and shows a small
+// realistic fixture so BeakerBot's "the numbers give you the gist"
+// pitch lands on something other than "Nothing queued".
+import { useTourWidgetDemoPreview } from "@/components/onboarding/v4/TourWidgetDemoPreview";
 
 /**
  * Lab Mode retirement R2 (R2 widget framework manager, 2026-05-23):
@@ -184,9 +191,20 @@ export function TodaysTasksSnapshot(_props: SnapshotTileProps) {
 }
 
 export function UpcomingTasksSnapshot(_props: SnapshotTileProps) {
+  // §6.2b Home widgets walkthrough demo-preview (tour-fixtures sub-bot
+  // R2, 2026-05-26): show a small realistic fixture when the §6.2b
+  // cluster has pushed a demo-preview lease. The fixture count of 4 is
+  // small enough to read as plausible for a working lab and large
+  // enough that BeakerBot's "the numbers give you the gist" pitch
+  // actually lands. No emojis, no em-dashes, plausible lab-research
+  // copy in the sub line.
+  const isDemoPreview = useTourWidgetDemoPreview();
   const tasks = useActiveTasks();
   const today = todayISO();
-  const count = tasks.filter((t) => t.start_date > today && !t.is_complete).length;
+  const realCount = tasks.filter(
+    (t) => t.start_date > today && !t.is_complete,
+  ).length;
+  const count = isDemoPreview ? 4 : realCount;
   return (
     <StatTile
       icon={TASK_ICON}

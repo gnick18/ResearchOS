@@ -79,6 +79,15 @@ import {
   safeClickAction,
 } from "./lib/cursor-script";
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
+import { pushTourWidgetDemoPreview } from "../../TourWidgetDemoPreview";
+
+// §6.2b Home widgets demo-preview lease (tour-fixtures sub-bot R2,
+// 2026-05-26). See HomeWidgetsCanvasIntroStep for the design rationale
+// (refcount avoids transition flicker between adjacent §6.2b steps).
+// This step's lease keeps the snapshot tiles populated while the user
+// reads "Each tile shows you a snapshot... click to expand" and
+// watches the cursor demo open + close the Today's-events popup.
+let releaseDemoPreview: (() => void) | null = null;
 
 /**
  * Tile selector pinned to the `calendar-events-today` widget id. This
@@ -110,6 +119,28 @@ export const homeWidgetsTileAnatomyStep = buildWalkthroughStep({
     "Each tile shows you a snapshot. The numbers and the top few rows give you the gist at a glance. Click the tile to expand it into a full popup, where you get filters, search, and the same actions you'd find on the dedicated page.",
   pose: "pointing",
   targetSelector: HOME_WIDGETS_TILE_ANATOMY_TILE_SELECTOR,
+  onEnter: async () => {
+    // §6.2b demo-preview push (tour-fixtures sub-bot R2, 2026-05-26).
+    // Keeps the snapshot tiles populated while the cursor demos
+    // tile-click-to-expand. The TourController contract guarantees
+    // onExit fires before a re-entry, so we don't defensively release
+    // here (release is microtask-deferred and would race the push).
+    releaseDemoPreview = pushTourWidgetDemoPreview();
+  },
+  onExit: async () => {
+    if (releaseDemoPreview) {
+      const release = releaseDemoPreview;
+      releaseDemoPreview = null;
+      try {
+        release();
+      } catch (err) {
+        console.error(
+          "[home-widgets-tile-anatomy] demo-preview release threw:",
+          err,
+        );
+      }
+    }
+  },
   cursorScript: cursorScript(async () => {
     // Click the Today's-events tile. The popup mounts synchronously on
     // the next React commit, so the deferred-close action can resolve

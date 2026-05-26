@@ -69,6 +69,17 @@ import {
 } from "./lib/cursor-script";
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
+import { pushTourWidgetDemoPreview } from "../../TourWidgetDemoPreview";
+
+// §6.2b Home widgets demo-preview lease (tour-fixtures sub-bot R2,
+// 2026-05-26). See HomeWidgetsCanvasIntroStep for the design
+// rationale. The exit step holds the lease through the "That's the
+// canvas... up next, notifications" wrap-up so the tiles stay
+// populated while the user reads the cap; once they click "Got it,
+// next" and the controller advances to §6.3a notifications-bell, the
+// onExit release fires and the tiles return to their real (empty)
+// state for the rest of the tour.
+let releaseDemoPreview: (() => void) | null = null;
 
 export const homeWidgetsExitStep = buildWalkthroughStep({
   id: "home-widgets-exit",
@@ -89,6 +100,18 @@ export const homeWidgetsExitStep = buildWalkthroughStep({
   // canvas-intro step's onEnter scroll pattern (best-effort lifecycle
   // hook that never wedges the tour).
   onEnter: async () => {
+    // §6.2b demo-preview push (tour-fixtures sub-bot R2, 2026-05-26).
+    // The exit step holds the lease through the wrap-up so the tiles
+    // stay populated while the user reads "That's the canvas... up
+    // next, notifications". onExit (below) releases the lease so the
+    // tiles return to their real (empty) state for the rest of the
+    // tour. Push BEFORE the existing Done-button check so even if that
+    // path throws (it doesn't, but defensively) the lease is in place.
+    // The TourController contract guarantees onExit fires before a
+    // re-entry, so we don't defensively release here (release is
+    // microtask-deferred and would race the push).
+    releaseDemoPreview = pushTourWidgetDemoPreview();
+
     if (typeof document === "undefined") return;
     const el = document.querySelector(
       targetSelector(TOUR_TARGETS.homeWidgetEditToggle),
@@ -109,6 +132,25 @@ export const homeWidgetsExitStep = buildWalkthroughStep({
       // and resets it in a finally block so a throwing click can't
       // leave the lock free-riding.
       tourClickWithLockBypass(el);
+    }
+  },
+  onExit: async () => {
+    // Drop the demo-preview lease. This is the LAST §6.2b lease in the
+    // cluster (canvas-intro → tile-anatomy → exit); once it releases,
+    // the refcount returns to zero and the snapshot tiles re-render
+    // with the user's real (empty) data for the §6.3+ notifications
+    // beats and the rest of the tour.
+    if (releaseDemoPreview) {
+      const release = releaseDemoPreview;
+      releaseDemoPreview = null;
+      try {
+        release();
+      } catch (err) {
+        console.error(
+          "[home-widgets-exit] demo-preview release threw:",
+          err,
+        );
+      }
     }
   },
   cursorScript: cursorScript(async () => {
