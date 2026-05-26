@@ -14,7 +14,7 @@ import {
   clearCurrentUser,
   restorePreDemoStateOrClear,
 } from "./indexeddb-store";
-import { readMainUser, writeMainUser } from "./user-metadata";
+import { readMainUser, writeMainUser, pruneOrphanUserMetadataEntries } from "./user-metadata";
 import { clearCurrentUserCache } from "../storage/json-store";
 import { clearCachedPassword } from "../auth/cached-password";
 import { discoverUsers, validateResearchFolder, ensureFolderStructure } from "./user-discovery";
@@ -236,6 +236,22 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
 
         setState((prev) => ({ ...prev, loadingStage: "discovering-users" }));
         const users = await discoverUsers();
+
+        // Self-heal sweep over `_user_metadata.json` (lab-roster ghost
+        // cleanup, 2026-05-26). Removes entries that are invalid
+        // usernames (`undefined`, empty, `"undefined"`, `"null"`) or
+        // truly orphaned (no on-disk dir AND no tombstone). Tombstones
+        // are preserved — they're the collision blocker that prevents
+        // a deleted user's name from being silently reclaimed. Best-
+        // effort: a failure here doesn't block connect.
+        try {
+          await pruneOrphanUserMetadataEntries(users);
+        } catch (err) {
+          console.warn(
+            "[FileSystemProvider] pruneOrphanUserMetadataEntries failed:",
+            err,
+          );
+        }
 
         let currentUser = await getCurrentUser();
         if (users.length === 1) {

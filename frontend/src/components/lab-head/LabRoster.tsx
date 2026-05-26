@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { readAllUserMetadata } from "@/lib/file-system/user-metadata";
+import { discoverUsers } from "@/lib/file-system/user-discovery";
 import { readUserSettings, type AccountType } from "@/lib/settings/user-settings";
 import { readOnboarding } from "@/lib/onboarding/sidecar";
 import { archiveUser, restoreUser } from "@/lib/lab/user-archive";
@@ -72,8 +72,15 @@ export default function LabRoster() {
   const { data: rows = [], isLoading } = useQuery({
     queryKey: LAB_ROSTER_QUERY_KEY,
     queryFn: async (): Promise<RosterRow[]> => {
-      const meta = await readAllUserMetadata();
-      const usernames = Object.keys(meta);
+      // Use `discoverUsers()` (rather than `Object.keys(readAllUserMetadata())`)
+      // so the roster auto-inherits tombstone filtering, sentinel filtering
+      // (`lab`, `public`, `_no_user_`, etc.), and any future filters added
+      // to that helper. The previous direct-read path leaked every historical
+      // username (including soft-deleted users whose `users/<u>/` directory
+      // had been hard-deleted years ago and a literal `"undefined"` key
+      // polluted by an upstream bad caller). See lab-roster ghost cleanup
+      // 2026-05-26.
+      const usernames = await discoverUsers();
       const out = await Promise.all(
         usernames.map(async (username): Promise<RosterRow> => {
           let displayName: string | null = null;

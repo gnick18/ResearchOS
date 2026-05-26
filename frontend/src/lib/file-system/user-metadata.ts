@@ -2,6 +2,42 @@ import { fileService } from "./file-service";
 
 const METADATA_PATH = "users/_user_metadata.json";
 
+/**
+ * Username sanity check for the metadata-write paths.
+ *
+ * Without this guard, a falsy / placeholder username flowing in from
+ * an upstream bad-caller would pollute `_user_metadata.json` with
+ * entries keyed by `undefined`, `null`, empty string, or the literal
+ * strings `"undefined"` / `"null"`. Grant hit exactly this bug:
+ * an entry literally named `"undefined"` started appearing in the
+ * Lab Roster surface (lab-roster ghost cleanup, 2026-05-26).
+ *
+ * We log a warn with a short stack trace so the offending call site
+ * surfaces in dev console, but we do NOT throw — a defective caller
+ * shouldn't break unrelated flows. The caller's promise resolves to
+ * `null` (or the metadata snapshot when called via
+ * `ensureLabUserMetadata`) so downstream code keeps running.
+ */
+function isInvalidUsername(username: unknown): boolean {
+  if (typeof username !== "string") return true;
+  if (username.length === 0) return true;
+  // Literal stringification of bad values from upstream callers that
+  // template `${maybeNullish}` into a username slot.
+  if (username === "undefined" || username === "null") return true;
+  return false;
+}
+
+function warnInvalidUsername(
+  context: string,
+  username: unknown,
+): void {
+  const trace = new Error("invalid username trace").stack;
+  console.warn(
+    `[user-metadata] ${context} called with invalid username ${JSON.stringify(username)} (typeof=${typeof username}); skipping write to avoid polluting _user_metadata.json`,
+    trace,
+  );
+}
+
 // Module-level write queue serializes all read-modify-write operations on
 // _user_metadata.json so concurrent callers don't race the underlying
 // atomic-write pattern (.tmp create + write + move). The race surfaced as
@@ -142,6 +178,13 @@ export async function ensureLabUserMetadata(
 
     const now = new Date().toISOString();
     for (const username of usernames) {
+      // Guard: drop falsy / placeholder usernames so a defective upstream
+      // call site can't pollute the metadata file. See `isInvalidUsername`
+      // doc for the bug class this protects against.
+      if (isInvalidUsername(username)) {
+        warnInvalidUsername("ensureLabUserMetadata", username);
+        continue;
+      }
       if (file.users[username]) continue;
       const color = pickColor(takenColors, username);
       takenColors.add(color);
@@ -220,6 +263,10 @@ export async function createUserMetadataEntry(
   colorSecondary?: string | null,
 ): Promise<UserMetadataEntry | null> {
   if (!fileService.isConnected()) return null;
+  if (isInvalidUsername(username)) {
+    warnInvalidUsername("createUserMetadataEntry", username);
+    return null;
+  }
   return enqueueMetadataWrite(async () => {
     const file = await readMetadataFile();
     const existing = file.users[username];
@@ -262,6 +309,14 @@ export async function setUserMetadataField<K extends keyof UserMetadataEntry>(
   value: UserMetadataEntry[K],
 ): Promise<UserMetadataEntry | null> {
   if (!fileService.isConnected()) return null;
+  // Guard: drop falsy / placeholder usernames so a defective upstream
+  // call site can't pollute the metadata file with entries keyed by
+  // `undefined`, `null`, or the literal strings `"undefined"` /
+  // `"null"`. See `isInvalidUsername` doc for the bug class.
+  if (isInvalidUsername(username)) {
+    warnInvalidUsername("setUserMetadataField", username);
+    return null;
+  }
   return enqueueMetadataWrite(async () => {
     const file = await readMetadataFile();
     const existing = file.users[username];
@@ -406,6 +461,10 @@ export async function setUserMetadataColors(
   secondary: string | null,
 ): Promise<UserMetadataEntry | null> {
   if (!fileService.isConnected()) return null;
+  if (isInvalidUsername(username)) {
+    warnInvalidUsername("setUserMetadataColors", username);
+    return null;
+  }
   // Route through the same serial queue as `setUserMetadataField` and
   // `ensureLabUserMetadata`. Without this, a `setUserMetadataColors` call
   // from `writeUserSettings` (Settings → color picker) could race a
@@ -459,6 +518,74 @@ export async function setUserMetadataColors(
  * is responsible for refusing the rename in the collision-check path; we
  * defensively keep the new key's existing entry intact here as well).
  */
+/**
+ * One-shot self-heal sweep over `_user_metadata.json` (lab-roster ghost
+ * cleanup, 2026-05-26). Drops entries that are:
+ *   1. Invalid usernames (falsy / "undefined" / "null") — these are the
+ *      pollution left behind by a defective historical caller that the
+ *      new write-guards (`isInvalidUsername`) now block at the source.
+ *   2. Orphans — username has no `deleted_at` tombstone AND no on-disk
+ *      directory entry in `validUsernames`. The user folder was hard-
+ *      deleted years ago (pre-tombstone era) and the metadata row is
+ *      now dead weight.
+ *
+ * Tombstoned entries (real `deleted_at` set) STAY. They block name
+ * reuse and serve as the soft-delete record per the collision logic in
+ * `usersApi.rename` (local-api.ts:5005-5008).
+ *
+ * Idempotent — safe to call on every folder-connect. No-op when the
+ * file holds nothing to prune. Logs a single info line when pruning
+ * actually happened so the activity is visible in dev console without
+ * spamming on the cold path.
+ *
+ * Caller passes the live `discoverUsers()` result so the sweep doesn't
+ * have to import the discovery module (avoids the cycle the metadata
+ * module would otherwise have on user-discovery, which already imports
+ * from here).
+ */
+export async function pruneOrphanUserMetadataEntries(
+  validUsernames: string[],
+): Promise<{ pruned: string[] }> {
+  if (!fileService.isConnected()) return { pruned: [] };
+  return enqueueMetadataWrite(async () => {
+    const file = await readMetadataFile();
+    const valid = new Set(validUsernames);
+    const pruned: string[] = [];
+    for (const username of Object.keys(file.users)) {
+      const entry = file.users[username];
+      if (isInvalidUsername(username)) {
+        delete file.users[username];
+        pruned.push(username);
+        continue;
+      }
+      // Keep tombstones — they're load-bearing for the rename-collision
+      // check that prevents un-tombstoning a deleted user by name reuse.
+      if (entry?.deleted_at) continue;
+      if (!valid.has(username)) {
+        delete file.users[username];
+        pruned.push(username);
+      }
+    }
+    if (pruned.length > 0) {
+      try {
+        await fileService.writeJson(METADATA_PATH, file);
+        console.info(
+          `[user-metadata] pruneOrphanUserMetadataEntries: removed ${pruned.length} stale entr${
+            pruned.length === 1 ? "y" : "ies"
+          } (${pruned.map((u) => JSON.stringify(u)).join(", ")})`,
+        );
+      } catch (err) {
+        console.error(
+          "pruneOrphanUserMetadataEntries: failed to persist",
+          err,
+        );
+        return { pruned: [] };
+      }
+    }
+    return { pruned };
+  });
+}
+
 export async function renameUserMetadataEntry(
   oldUsername: string,
   newUsername: string,
