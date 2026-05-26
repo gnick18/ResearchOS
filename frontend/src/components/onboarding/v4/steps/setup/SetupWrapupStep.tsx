@@ -21,15 +21,20 @@ import type { SetupStepProps } from "./types";
  * Q1-Q7 bodies already persisted everything to `feature_picks`. It only
  * READS the sidecar and renders a summary, plus two CTAs:
  *
- *   - "Take the feature tour" (secondary link, calls `controller.advance`).
+ *   - "Show me around" (primary button, calls `controller.advance`).
  *     Advances the tour graph to the next applicable step. For a fresh
  *     user that is `home-create-project`, the start of the in-product
  *     walkthrough; gated steps are skipped via the existing step-machine
- *     filtering.
- *   - "Go to home" (primary button). Calls `controller.exitTour` to end
- *     the tour, then pushes the router to `/`. End-state same as if the
- *     user had clicked "Skip walkthrough" on any setup question, just
- *     framed as accomplishment instead of escape.
+ *     filtering. Default CTA because the whole point of v4 onboarding is
+ *     the walkthrough of the features the user just configured; making
+ *     "Go to home" the visually-dominant button (the prior default) just
+ *     encouraged people to skip the tour. v4 setup wrap-up default-CTA
+ *     manager 2026-05-25.
+ *   - "Skip for now" (secondary link). Calls `controller.exitTour` to
+ *     end the tour, then pushes the router to `/`. End-state same as if
+ *     the user had clicked "Skip walkthrough" on any setup question.
+ *     Quieter styling because exiting before the tour is the off-path
+ *     option, not the recommended one.
  *
  * The shell's Back / Next / Skip / Skip-walkthrough footer is HIDDEN
  * here via the descriptor's `hideFooter` flag because the body owns its
@@ -129,19 +134,19 @@ export default function SetupWrapupStep({
       <div className="flex flex-col gap-3 pt-2">
         <button
           type="button"
-          onClick={handleHome}
-          data-tour-next="setup-wrapup-home"
+          onClick={handleTour}
+          data-tour-next="setup-wrapup-tour"
           className="w-full px-5 py-3 text-sm font-semibold bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm"
         >
-          Go to home
+          Show me around
         </button>
         <button
           type="button"
-          onClick={handleTour}
-          data-tour-next="setup-wrapup-tour"
-          className="w-full px-5 py-2.5 text-sm font-medium text-sky-700 hover:text-sky-900 hover:bg-sky-50 rounded-lg transition-colors"
+          onClick={handleHome}
+          data-tour-next="setup-wrapup-home"
+          className="w-full px-5 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
         >
-          Take the feature tour first
+          Skip for now, take me to home
         </button>
       </div>
 
