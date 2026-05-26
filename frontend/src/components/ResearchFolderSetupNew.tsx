@@ -9,7 +9,6 @@ import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
 import Tooltip from "@/components/Tooltip";
 import UserAvatar from "@/components/UserAvatar";
 import BeakerBot from "@/components/BeakerBot";
-import PickerTrustSections from "@/components/PickerTrustSections";
 import RiseCredentialsStamp from "@/components/RiseCredentialsStamp";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
 import {
@@ -698,12 +697,6 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
             <p className="text-sm text-red-300">{error}</p>
           </div>
         )}
-
-        {/* Quiet reference strips. Default-collapsed; users who already
-            trust the app skip past them, users who want reassurance can
-            expand. Rehomes the retired pre-onboarding modal's Security,
-            FolderChoice, and CloudProvider beats as optional reads. */}
-        <PickerTrustSections />
 
         <div className="mt-4 flex flex-col items-center gap-2">
           <Link
