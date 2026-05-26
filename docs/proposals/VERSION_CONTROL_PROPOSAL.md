@@ -505,6 +505,63 @@ PI edits Mira's note:
 
 OQ6 covers whether the redundancy is OK long-term or whether one should subsume the other.
 
+### 3l. Revert mechanics
+
+Under the delta-storage choice (OQ10), each history row carries a jsdiff unified-diff delta, not a full snapshot. Reverting record R from current version N to past version K means computing the document state at K and saving it as a new commit (which becomes row N+1).
+
+**Algorithm:**
+
+1. Start from the live record on disk (HEAD, = state at version N).
+2. Read history rows N, N-1, ..., K+1 in reverse order.
+3. Apply each row's delta IN REVERSE using `jsdiff.reversePatch` (or equivalent). The result after applying row K+1's reverse is the state at K.
+4. Diff the resulting state against HEAD to produce the revert's own delta.
+5. Append a new row N+1 with that delta, `kind: "revert"`, `revert_target_version: K`, and the actor + session info.
+6. Write the resulting state to the live record on disk.
+
+The reverse-walk has cost O(N − K) deltas to apply. For typical use (revert by a few rows) this is cheap; for cross-week reverts on heavily edited records, the walk could touch hundreds of deltas, still fast in practice because jsdiff patches are small.
+
+**Why backward, not forward-from-genesis:** the data model has no genesis snapshot, so forward-walk would require us to reconstruct the empty starting state and apply every delta from row 1. Backward-from-HEAD is anchored on the live record (which we already have in memory) and only touches the rows being undone.
+
+**Compaction interaction:** compacted segments (per OQ3, rows older than the recent 100) lose intermediate states. A revert into a compacted region returns the COMPACTED VALUE at that point in time, not the exact intermediate. The compaction pass writes a synthetic row at the compaction boundary that the revert walker can read; intermediate rows behind the boundary are unreachable. Wiki copy should make this clear.
+
+**Failures:** if jsdiff reverse-patch fails on a row (corruption, schema mismatch from OQ11), the revert aborts cleanly with a "history corrupted at row X, cannot revert through this point" error. The live record is untouched. The user can revert to a row BEFORE the corruption, or revert one row at a time to surface the problem.
+
+### 3m. 24-hour undo-revert window
+
+After a revert lands, the record grows a sidecar field on the live record:
+
+```ts
+revert_undo_window?: {
+  from_version: number;       // the row index BEFORE the revert (state we just left)
+  to_version: number;         // the row index we reverted TO
+  reverted_at: string;        // ISO 8601 timestamp of the revert
+  expires_at: string;         // reverted_at + 24 hours
+  reverted_by: string;        // actor (matches the row's deleted_by shape)
+};
+```
+
+The popup checks this field and renders an "Undo revert" button next to the History tab if:
+- `now() < expires_at`
+- `viewer canWrite` (per canWrite primitive)
+
+Clicking "Undo revert":
+1. Performs another revert, from current (= the state we reverted TO + any edits since) back to `from_version`.
+2. This writes a new history row with `kind: "undo-revert"` and `revert_target_version: from_version`.
+3. CLEARS `revert_undo_window` on the live record.
+
+If the window expires:
+1. A daily cleanup pass (folder-connect plus optional background timer) walks all live records.
+2. For any record with `revert_undo_window.expires_at <= now()`, the pass strips the field from the record.
+3. The history row IS NOT touched. The pre-revert state remains reachable via the History tab; only the one-click affordance disappears.
+
+**Why 24h and not configurable:** a long undo window doubles the cognitive load (users wondering "is this still recoverable?"); too short means typing in the wrong revert vanishes within minutes. 24h matches the "I came back the next morning and realized" workflow without growing the sidecar bloat. If labs need different windows in practice, OQ16 (deferred) can revisit.
+
+**Why the field is on the LIVE record, not the history log:** the affordance is a property of the record's current state ("you recently reverted me"). Storing it on history would require scanning every record's history on every popup mount; field on live = cheap O(1) check.
+
+**Interaction with subsequent edits:** if the user edits the record AFTER the revert but BEFORE clicking "Undo revert", the undo path still computes from current → from_version, capturing both the revert AND any subsequent edits. The user sees a confirm modal: "Undo the revert AND lose your N edits since? [Keep current / Undo revert]." Defaults to Keep current.
+
+**Audit:** revert and undo-revert both write to the PI audit log under `kind: "revert"` / `kind: "undo-revert"`. The chain of three audit rows (original edit → revert → undo-revert) is the forensic story of an accidental data loss + recovery.
+
 ---
 
 ## 4. Phased implementation
@@ -607,6 +664,9 @@ Deliverables:
   3. If `post_hash` of the row's predecessor matches the current live record's hash on the target field, fast-path: write `old` back, append a `kind: "revert"` row referencing the original row's id.
   4. If the hash mismatches (another edit landed after the one we're reverting), prompt: "This field has been edited since. Reverting will overwrite the most recent value [show the value]. Proceed?"
 - Revert across deletes: if you trash a record and want to revert the delete, the trash UI's "Restore" button is the answer (already there from R1). If you trash a record AND a downstream edit changed a sibling field, the History tab on the restored record shows both events and lets you revert each one independently.
+- Revert algorithm per §3l: backward-walk reverse deltas from HEAD to target version, write the resulting state as a new history row.
+- 24h undo-revert window per §3m: revert_undo_window field on live record, "Undo revert" button on popup when within window, daily cleanup clears expired fields.
+- Audit chain: original edit → revert → optional undo-revert, all rows in the PI audit log.
 - Tests: simple field revert; concurrent-edit-since-then prompt; revert-of-revert (the new revert row gets its own revert button); revert chain depth.
 
 Dependencies: R5 (history-everywhere).
@@ -705,6 +765,9 @@ A user with read-only sharing access to a Note. They can see the note. Can they 
 **OQ15, Default ordering on the trash page.**
 Newest-deleted first, or oldest-deleted-first (urgent-cleanup-first)? Newest-deleted-first matches user expectations ("the thing I just deleted should be at top to restore"). Oldest-deleted-first surfaces what's about to auto-expire. **Locked: newest-deleted first as default**, with a sort toggle.
 
+**OQ16, Configurable undo-revert window. DEFERRED.**
+24-hour default is the locked R6 ship value. If labs report they need 1-hour (faster cleanup) or 1-week (longer safety net) windows, OQ16 is the lock-in for that. Defaults to deferred; no lock needed for R6.
+
 ### Highest-stakes (Grant locks in before R1)
 
 - **OQ1** (cleanup window default), sets the baseline expectation for every user.
@@ -715,9 +778,10 @@ The rest are valuable lock-ins but can ship with conservative defaults and be tu
 
 ### OQ answers (locked 2026-05-26)
 
-All 15 OQs answered. Status:
+16 OQs total: 15 locked + 1 deferred (OQ16, configurable undo-revert window). Status:
 - 13 locked to recommendation
 - 2 deviations: OQ8 (no opt-out, always track), OQ10 (text-diff deltas only)
+- 1 deferred: OQ16 (configurable undo-revert window, 24h ships as R6 default)
 - 1 cross-reference: OQ2 history hook moves from blur to explicit Save event (see hybrid-editor manual-save chip)
 
 R1 (Trash MVP for Notes) unblocked. Open follow-ups for implementation chips:
