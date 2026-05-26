@@ -573,13 +573,11 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
               </p>
             </div>
           </div>
-          {/* Author + funding credit. Muted slate text below the
-              bubble, NOT inside it (per Grant 2026-05-25). */}
-          <p className="mx-auto mt-4 max-w-2xl text-center text-xs leading-relaxed text-slate-400">
-            A free and open source digital lab notebook built by
-            Dr. Grant R. Nickles (PhD) and funded in part by the
-            UW-Madison RISE Initiative.
-          </p>
+          {/* No author + funding credit here. It surfaces in two other
+              places already: the first slide of the opt-in walkthrough
+              modal (welcome beat carries the byline), and the RISE
+              logo stamp in the bottom-right corner. Three would be one
+              too many. (Grant 2026-05-25) */}
         </div>
 
         <div className="grid md:grid-cols-2 gap-4">
