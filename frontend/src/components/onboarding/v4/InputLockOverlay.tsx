@@ -18,10 +18,14 @@ import { createPortal } from "react-dom";
  *  - Mounted only while `active` is true (the TourController flips this
  *    to true at `runScript` start, back to false when the script
  *    resolves or the step exits).
- *  - Portal'd into document.body at z-[420] — above the TourSpotlight
- *    glow (z-[400] on the cursor itself; spotlights stack lower) and
- *    BELOW the speech bubble (`tour-beakerbot-overlay` at z-[450]) so
- *    Skip / Back / "Got it" remain clickable when a cursor demo wedges.
+ *  - Portal'd into document.body at z-[420]. The v4 tour z-index band
+ *    is: TourPageLock z-[419] (dim layer), InputLockOverlay z-[420],
+ *    TourSpotlight z-[440] (glow ring sits ABOVE the input lock so the
+ *    target stays visually highlighted while clicks are blocked), and
+ *    the speech bubble at z-[450] (always above the spotlight so the
+ *    glow never bleeds through the bubble). Skip / Back / "Got it"
+ *    remain clickable because the bubble is the topmost element in the
+ *    tour stack.
  *  - A very subtle dim layer (`bg-black/5`) is the user's hint that the
  *    page isn't interactive — visible enough to read as "wait" but not
  *    so loud it competes with the cursor animation.

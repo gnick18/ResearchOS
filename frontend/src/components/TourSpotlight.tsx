@@ -18,8 +18,13 @@ import { createPortal } from "react-dom";
  * every walkthrough step. The four-rect dim layer has been removed entirely
  * (not made configurable via prop) so the v4 visual language stays uniform.
  *
- * The overlay is mounted via React portal at `document.body` so it sits above
- * app chrome (z-index 9000) but below modals (which typically live at 10000+).
+ * The overlay is mounted via React portal at `document.body` and slotted into
+ * the v4 tour z-index band: above the InputLockOverlay (z-[420]) and the
+ * TourPageLock dim layer (z-[419]) so the glow sits on top of the dim, but
+ * BELOW the BeakerBot speech bubble overlay (`tour-beakerbot-overlay` at
+ * z-[450]). Otherwise the glow bleeds through the bubble (Grant 2026-05-26
+ * live-test screenshot, methods-cluster sub-bot fix). App-level modals live
+ * at z-[500]+ and stay above the spotlight regardless.
  *
  * Position tracking happens via ResizeObserver on the target plus a passive
  * scroll listener on the document (capture-phase, so nested scroll containers
@@ -60,9 +65,13 @@ interface Rect {
   height: number;
 }
 
-/** Z-index for the overlay. Above the app shell (typical max ~50) but below
- *  modal stacks (which live at 10000+ in this codebase). */
-const Z_INDEX = 9000;
+/** Z-index for the overlay. Slotted into the v4 tour band: above the
+ *  InputLockOverlay (z-[420]) and the TourPageLock dim layer (z-[419]) so
+ *  the glow sits on top of the dim, but below the BeakerBot speech bubble
+ *  (z-[450]) so the spotlight ring never bleeds through the bubble. App
+ *  modals (Phase4Cleanup z-[500], TourGoodbye z-[600], etc.) stay above
+ *  the spotlight automatically. */
+const Z_INDEX = 440;
 
 /** Padding (px) added around the target's bounding rect so the ring has a
  *  little breathing room and doesn't kiss the element's own border. */
