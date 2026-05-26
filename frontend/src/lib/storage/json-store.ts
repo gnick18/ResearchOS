@@ -139,6 +139,29 @@ export class JsonStore<T extends { id: number }> {
     return `${basePath}/${this.entityName}/${id}.json`;
   }
 
+  /**
+   * Skip per-entity sidecar files that share the entity directory but
+   * aren't records of the entity type. Currently only projects have a
+   * sidecar (`<id>-hosted.json`, the cross-owner hosted-task manifest),
+   * but this guard is centralized so future sidecars (e.g. notes-image
+   * migration manifests) land in one place.
+   *
+   * Root cause (tour orphan project R1, 2026-05-26): without this skip,
+   * `listAll()` reads `<id>-hosted.json` as a `Project` record. The
+   * hosted-manifest shape is `{ version, hostedTasks }` — no `id`, no
+   * `name`. The result is a project record with both fields `undefined`,
+   * which renders on Home as a red-bannered "(unnamed project)" orphan
+   * card. `purgeMalformed()` already skipped these via the same pattern;
+   * the read path didn't, so the orphan kept resurfacing on every
+   * re-mount even after the sweep ran.
+   */
+  private shouldSkipSidecarFile(fileName: string): boolean {
+    if (this.entityName === "projects" && fileName.endsWith("-hosted.json")) {
+      return true;
+    }
+    return false;
+  }
+
   async listAll(): Promise<T[]> {
     const basePath = await this.getBasePath();
     const dirPath = `${basePath}/${this.entityName}`;
@@ -147,11 +170,12 @@ export class JsonStore<T extends { id: number }> {
 
     const fileNames = await fileService.listFiles(dirPath);
     console.log(`[JsonStore.listAll] Entity: ${this.entityName}, Found ${fileNames.length} files:`, fileNames);
-    
+
     const records: T[] = [];
 
     for (const fileName of fileNames) {
       if (!fileName.endsWith(".json")) continue;
+      if (this.shouldSkipSidecarFile(fileName)) continue;
       const filePath = `${dirPath}/${fileName}`;
       console.log(`[JsonStore.listAll] Reading file: ${filePath}`);
       const record = await fileService.readJson<T>(filePath);
@@ -174,11 +198,12 @@ export class JsonStore<T extends { id: number }> {
 
     const fileNames = await fileService.listFiles(dirPath);
     console.log(`[JsonStore.listAllForUser] Entity: ${this.entityName}, Found ${fileNames.length} files for user ${username}`);
-    
+
     const records: T[] = [];
 
     for (const fileName of fileNames) {
       if (!fileName.endsWith(".json")) continue;
+      if (this.shouldSkipSidecarFile(fileName)) continue;
       const filePath = `${dirPath}/${fileName}`;
       const record = await fileService.readJson<T>(filePath);
       if (record) {

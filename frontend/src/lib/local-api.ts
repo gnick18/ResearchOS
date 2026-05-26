@@ -6157,6 +6157,21 @@ export const fetchAllProjectsIncludingShared = async (
   }
 
   const combined = [...ownProjectsWithOwner, ...sharedProjects];
+  // Defense-in-depth filter (tour orphan project R1, 2026-05-26): drop
+  // any record without a usable `id`. The upstream `JsonStore.listAll`
+  // now skips `<id>-hosted.json` sidecars (the root cause for the
+  // "(unnamed project)" orphan card), but this read-time guard catches
+  // ANY shape where the on-disk file lacks a numeric id — including
+  // partial-write races on hot reload, schema-drift records from prior
+  // app versions, and any future sidecar that lands in `projects/`.
+  // Records without an id can't be deleted via the kebab menu (the
+  // delete API takes an integer id), so surfacing them as orphan cards
+  // is a dead-end UX. Better to drop silently and rely on the
+  // `OrphanProjectSweep` cleanup to handle name-empty-but-id-valid
+  // records via the kebab path.
+  const idValid = combined.filter(
+    (p) => Number.isInteger(p.id) && (p.id as number) > 0,
+  );
   // Default: filter out hidden projects (e.g. the per-user `_misc_purchases`
   // bootstrap that backs the Miscellaneous purchases category). Every surface
   // EXCEPT /purchases relies on this default; /purchases passes
@@ -6165,9 +6180,9 @@ export const fetchAllProjectsIncludingShared = async (
   // disk, so a recipient of a misshared hidden project would otherwise see a
   // ghost card on Home.
   if (!includeHidden) {
-    return combined.filter((p) => !p.is_hidden);
+    return idValid.filter((p) => !p.is_hidden);
   }
-  return combined;
+  return idValid;
 };
 
 export type {
