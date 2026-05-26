@@ -1,10 +1,20 @@
 /**
  * Markdown Block Parser
- * 
+ *
  * Parses markdown content into blocks for the hybrid editor mode.
  * Each block represents a logical unit that can be edited independently:
  * - Paragraphs, headings, code blocks, blockquotes, lists, tables, etc.
- * - Blank lines are tracked as separate blocks for preservation
+ *
+ * CommonMark-aligned paragraph rules (2026-05-26, hybrid CommonMark
+ * paragraphs R2). Prior to this rewrite the parser split on every
+ * newline, producing one block per line; typing `test\n\n\ntest 2`
+ * gave three editable chunks instead of two paragraphs separated by
+ * blank space. The new walk groups consecutive non-blank text lines
+ * into ONE paragraph until a blank line OR a non-paragraph block
+ * signature interrupts. Blank-line runs between paragraphs are
+ * consumed as a separator and do NOT emit a block; only a TRAILING
+ * blank-line run at end-of-document emits a single `blankLine` block,
+ * which is the "+ Add paragraph" affordance target in the editor.
  */
 
 /**
@@ -75,396 +85,486 @@ function generateBlockId(content: string, startLine: number): string {
 }
 
 /**
- * Parse markdown content into an array of blocks
- * 
+ * Per-line cache. We pre-walk the source once to compute each line's
+ * absolute character offset (cumulative `lineN.length + 1` for the
+ * preceding lines) so block boundary detection below can advance i
+ * by an arbitrary delta without re-scanning prior text. Stored as a
+ * parallel array indexed by line number; the `+1` for the newline is
+ * implicit (lineStartOffsets[i+1] - lineStartOffsets[i] - 1 == lines[i].length).
+ */
+interface LineIndex {
+  lines: string[];
+  /** Offset where each line starts. lineStartOffsets[lines.length] = content.length + 1 sentinel. */
+  lineStartOffsets: number[];
+}
+
+function buildLineIndex(content: string): LineIndex {
+  const lines = content.split("\n");
+  const lineStartOffsets: number[] = new Array(lines.length + 1);
+  let offset = 0;
+  for (let i = 0; i < lines.length; i++) {
+    lineStartOffsets[i] = offset;
+    offset += lines[i].length + 1;
+  }
+  lineStartOffsets[lines.length] = offset;
+  return { lines, lineStartOffsets };
+}
+
+/**
+ * End-of-line position for the *content* of the i'th line — the offset
+ * just past the last character of lines[i], NOT including its trailing
+ * newline. Used as block.endOffset where the block ends inside the
+ * source string (the consumer of endOffset treats it as exclusive of
+ * the trailing newline so neighbor blocks splice cleanly).
+ */
+function lineEndOffset(idx: LineIndex, lineNumber: number): number {
+  return idx.lineStartOffsets[lineNumber] + idx.lines[lineNumber].length;
+}
+
+/**
+ * Block signature detection. Returns the block kind to start at lines[i]
+ * or null for "no special signature, treat as paragraph candidate".
+ * Setext headings are handled inline (need look-ahead).
+ */
+type BlockSignature =
+  | { kind: "fence"; fenceChar: "`" | "~"; fenceLen: number; language: string }
+  | { kind: "atxHeading"; level: number }
+  | { kind: "thematicBreak" }
+  | { kind: "blockquote" }
+  | { kind: "list"; ordered: boolean }
+  | { kind: "tableHeader" }
+  | { kind: "html"; tagName: string };
+
+function detectSignature(
+  lines: string[],
+  i: number,
+): BlockSignature | null {
+  const line = lines[i];
+
+  // Fenced code block (open fence)
+  if (line.startsWith("```") || line.startsWith("~~~")) {
+    const m = line.match(/^(`{3,}|~{3,})(\w*)/);
+    if (m) {
+      const fenceChar = m[1][0] as "`" | "~";
+      const fenceLen = m[1].length;
+      const language = m[2] || "";
+      return { kind: "fence", fenceChar, fenceLen, language };
+    }
+  }
+
+  // ATX heading
+  const atx = line.match(/^(#{1,6})\s+(.*)$/);
+  if (atx) {
+    return { kind: "atxHeading", level: atx[1].length };
+  }
+
+  // Thematic break
+  if (
+    /^(-{3,}|\*{3,}|_{3,})$/.test(line) ||
+    /^(-\s*){3,}$/.test(line) ||
+    /^(\*\s*){3,}$/.test(line) ||
+    /^(_\s*){3,}$/.test(line)
+  ) {
+    return { kind: "thematicBreak" };
+  }
+
+  // Blockquote
+  if (line.startsWith(">")) {
+    return { kind: "blockquote" };
+  }
+
+  // List (bullet or ordered)
+  if (/^\s*[-*+]\s/.test(line)) {
+    return { kind: "list", ordered: false };
+  }
+  if (/^\s*\d+\.\s/.test(line)) {
+    return { kind: "list", ordered: true };
+  }
+
+  // Table header (current line has `|` AND next line is a delimiter row)
+  if (line.includes("|") && i + 1 < lines.length && /^\|?[\s\-:|]+\|?$/.test(lines[i + 1])) {
+    return { kind: "tableHeader" };
+  }
+
+  // HTML block
+  const htmlMatch = line.match(
+    /^<(div|p|ul|ol|li|table|pre|blockquote|h[1-6]|script|style|iframe|form|article|section|nav|aside|header|footer|main|figure|figcaption)/i,
+  );
+  if (htmlMatch) {
+    return { kind: "html", tagName: htmlMatch[1].toLowerCase() };
+  }
+
+  return null;
+}
+
+/**
+ * Parse markdown content into an array of blocks.
+ *
+ * Paragraph boundary rules (CommonMark-aligned, R2 rewrite):
+ *   - A run of one or more BLANK LINES ends the current paragraph and
+ *     is consumed as a separator (no block emitted between paragraphs).
+ *   - Multiple consecutive blank lines collapse to a single separator
+ *     so `test\n\n\n\n\ntest 2` produces exactly 2 blocks.
+ *   - A single `\n` inside a run of non-blank text lines is a soft
+ *     break: those lines belong to the same paragraph block.
+ *   - A non-paragraph block signature (heading, fence, blockquote,
+ *     list, table, thematic break, HTML) interrupts a paragraph run.
+ *
+ * Trailing blank lines (document ends with one or more blank lines)
+ * are NOT silently dropped: a single `blankLine` block is emitted at
+ * the very end as the "+ Add paragraph" affordance target in the
+ * editor. Without it, the editor can't anchor a freshly-created blank
+ * block at the end of the document.
+ *
  * @param content - The markdown content to parse
  * @returns Array of MarkdownBlock objects
  */
 export function parseMarkdownBlocks(content: string): MarkdownBlock[] {
   const blocks: MarkdownBlock[] = [];
-  
+
   if (!content) {
     return blocks;
   }
 
-  let currentOffset = 0;
-  let currentLine = 0;
-  const lines = content.split("\n");
+  const idx = buildLineIndex(content);
+  const { lines } = idx;
   let i = 0;
 
   while (i < lines.length) {
     const line = lines[i];
-    const lineStartOffset = currentOffset;
-    const lineStartLine = currentLine;
 
-    // Update position tracking
-    currentOffset += line.length + 1; // +1 for newline
-    currentLine++;
-
-    // Check for blank line
+    // BLANK-LINE SEPARATOR. Consume the entire blank-line run silently
+    // unless the run reaches the end of the document, in which case we
+    // emit a single trailing `blankLine` block so the "+ Add paragraph"
+    // affordance in HybridMarkdownEditor still has a block to anchor on.
     if (line.trim() === "") {
-      // Group consecutive blank lines
-      let blankEndLine = lineStartLine;
-      let blankEndOffset = currentOffset;
-      let blankContent = line;
-
-      while (i + 1 < lines.length && lines[i + 1].trim() === "") {
+      const runStartLine = i;
+      const runStartOffset = idx.lineStartOffsets[i];
+      while (i < lines.length && lines[i].trim() === "") {
         i++;
-        blankContent += "\n" + lines[i];
-        blankEndLine = currentLine;
-        blankEndOffset = currentOffset;
-        currentOffset += lines[i].length + 1;
-        currentLine++;
       }
-
-      blocks.push({
-        id: generateBlockId(blankContent, lineStartLine),
-        type: "blankLine",
-        content: blankContent,
-        startOffset: lineStartOffset,
-        endOffset: blankEndOffset,
-        startLine: lineStartLine,
-        endLine: blankEndLine,
-      });
-
-      i++;
+      // i now points at the first non-blank line, or past the end.
+      if (i >= lines.length) {
+        // Trailing blank-line run. Note: split("\n") produces a final
+        // empty string for content ending in "\n", so a single trailing
+        // newline gives one blank line in the lines array. Skip emit
+        // when the trailing run is just that single artifact and is
+        // adjacent to the previous block (length 1 starting right at
+        // end of content) — otherwise every "test\n" parses as
+        // paragraph + blankLine, which clutters the editor. The
+        // heuristic: only emit when the trailing run has 2+ blank lines
+        // OR the document is entirely blank (no prior blocks).
+        const runLineCount = lines.length - runStartLine;
+        const shouldEmit = blocks.length === 0 || runLineCount >= 2;
+        if (shouldEmit) {
+          const lastLineIdx = lines.length - 1;
+          const endOffset = lineEndOffset(idx, lastLineIdx);
+          const blankContent = lines.slice(runStartLine).join("\n");
+          blocks.push({
+            id: generateBlockId(blankContent, runStartLine),
+            type: "blankLine",
+            content: blankContent,
+            startOffset: runStartOffset,
+            endOffset,
+            startLine: runStartLine,
+            endLine: lastLineIdx,
+          });
+        }
+        break;
+      }
+      // Otherwise — separator between blocks. Emit nothing and loop.
       continue;
     }
 
-    // Check for fenced code block
-    if (line.startsWith("```") || line.startsWith("~~~")) {
-      const fenceChar = line[0];
-      const fenceMatch = line.match(/^(`{3,}|~{3,})(\w*)/);
-      
-      if (fenceMatch) {
-        const fence = fenceMatch[1];
-        const language = fenceMatch[2] || "";
-        const codeBlockLines = [line];
-        let codeEndLine = lineStartLine;
-        let codeEndOffset = currentOffset;
+    const sig = detectSignature(lines, i);
 
-        // Find the closing fence
-        while (i + 1 < lines.length) {
+    // FENCED CODE BLOCK. Whole region (open fence -> close fence, or
+    // end of document if unclosed) is one block.
+    if (sig?.kind === "fence") {
+      const startLine = i;
+      const startOffset = idx.lineStartOffsets[i];
+      const codeLines = [lines[i]];
+      i++;
+      let endLine = startLine;
+      const closingPattern = new RegExp(`^${sig.fenceChar === "`" ? "`" : "~"}{${sig.fenceLen},}\\s*$`);
+      while (i < lines.length) {
+        codeLines.push(lines[i]);
+        endLine = i;
+        if (closingPattern.test(lines[i])) {
           i++;
-          const nextLine = lines[i];
-          codeBlockLines.push(nextLine);
-          codeEndLine = currentLine;
-          codeEndOffset = currentOffset;
-          currentOffset += nextLine.length + 1;
-          currentLine++;
-
-          // Check for closing fence (must match or exceed opening fence length)
-          if (nextLine.startsWith(fenceChar) && nextLine.match(new RegExp(`^${fenceChar.charAt(0)}{${fence.length},}`))) {
-            break;
-          }
+          break;
         }
-
-        const codeContent = codeBlockLines.join("\n");
-        blocks.push({
-          id: generateBlockId(codeContent, lineStartLine),
-          type: "codeBlock",
-          content: codeContent,
-          startOffset: lineStartOffset,
-          endOffset: codeEndOffset,
-          startLine: lineStartLine,
-          endLine: codeEndLine,
-          meta: { language },
-        });
-
         i++;
-        continue;
       }
+      const codeContent = codeLines.join("\n");
+      blocks.push({
+        id: generateBlockId(codeContent, startLine),
+        type: "codeBlock",
+        content: codeContent,
+        startOffset,
+        endOffset: lineEndOffset(idx, endLine),
+        startLine,
+        endLine,
+        meta: { language: sig.language },
+      });
+      continue;
     }
 
-    // Check for heading (ATX style: # Heading)
-    const headingMatch = line.match(/^(#{1,6})\s+(.*)$/);
-    if (headingMatch) {
-      const level = headingMatch[1].length;
+    // ATX HEADING. Single line; its own block by signature even if
+    // adjacent to non-blank text above/below (CommonMark behavior:
+    // a `# Heading` line interrupts a paragraph).
+    if (sig?.kind === "atxHeading") {
+      const startOffset = idx.lineStartOffsets[i];
       blocks.push({
-        id: generateBlockId(line, lineStartLine),
+        id: generateBlockId(line, i),
         type: "heading",
         content: line,
-        startOffset: lineStartOffset,
-        endOffset: currentOffset,
-        startLine: lineStartLine,
-        endLine: lineStartLine,
-        meta: { level },
+        startOffset,
+        endOffset: lineEndOffset(idx, i),
+        startLine: i,
+        endLine: i,
+        meta: { level: sig.level },
       });
       i++;
       continue;
     }
 
-    // Check for heading (Setext style: Heading\n======)
-    if (i + 1 < lines.length && (lines[i + 1].match(/^[=-]+$/) || lines[i + 1].match(/^[=-]{2,}$/))) {
-      const headingLine = line;
-      const underlineLine = lines[i + 1];
-      const level = underlineLine[0] === "=" ? 1 : 2;
-      const headingContent = headingLine + "\n" + underlineLine;
-
+    // THEMATIC BREAK. Single line, own block.
+    if (sig?.kind === "thematicBreak") {
+      const startOffset = idx.lineStartOffsets[i];
       blocks.push({
-        id: generateBlockId(headingContent, lineStartLine),
-        type: "heading",
-        content: headingContent,
-        startOffset: lineStartOffset,
-        endOffset: currentOffset + underlineLine.length + 1,
-        startLine: lineStartLine,
-        endLine: lineStartLine + 1,
-        meta: { level },
-      });
-
-      i += 2;
-      currentOffset += underlineLine.length + 1;
-      currentLine++;
-      continue;
-    }
-
-    // Check for thematic break (horizontal rule)
-    if (line.match(/^(-{3,}|\*{3,}|_{3,})$/) || line.match(/^(-\s*){3,}$/) || line.match(/^(\*\s*){3,}$/) || line.match(/^(_\s*){3,}$/)) {
-      blocks.push({
-        id: generateBlockId(line, lineStartLine),
+        id: generateBlockId(line, i),
         type: "thematicBreak",
         content: line,
-        startOffset: lineStartOffset,
-        endOffset: currentOffset,
-        startLine: lineStartLine,
-        endLine: lineStartLine,
+        startOffset,
+        endOffset: lineEndOffset(idx, i),
+        startLine: i,
+        endLine: i,
       });
       i++;
       continue;
     }
 
-    // Check for blockquote
-    if (line.startsWith(">")) {
-      const quoteLines = [line];
-      let quoteEndLine = lineStartLine;
-      let quoteEndOffset = currentOffset;
-
-      // Collect consecutive blockquote lines
-      while (i + 1 < lines.length && (lines[i + 1].startsWith(">") || (lines[i + 1].trim() === "" && i + 2 < lines.length && lines[i + 2].startsWith(">")))) {
-        i++;
-        quoteLines.push(lines[i]);
-        quoteEndLine = currentLine;
-        quoteEndOffset = currentOffset;
-        currentOffset += lines[i].length + 1;
-        currentLine++;
-      }
-
-      const quoteContent = quoteLines.join("\n");
-      blocks.push({
-        id: generateBlockId(quoteContent, lineStartLine),
-        type: "blockquote",
-        content: quoteContent,
-        startOffset: lineStartOffset,
-        endOffset: quoteEndOffset,
-        startLine: lineStartLine,
-        endLine: quoteEndLine,
-      });
-
+    // BLOCKQUOTE. Consecutive `>`-prefixed lines (with single-line
+    // continuations allowed for lazy continuation per CommonMark).
+    if (sig?.kind === "blockquote") {
+      const startLine = i;
+      const startOffset = idx.lineStartOffsets[i];
+      const quoteLines = [lines[i]];
+      let endLine = i;
       i++;
-      continue;
-    }
-
-    // Check for list (bullet or ordered)
-    const bulletMatch = line.match(/^(\s*)([-*+])\s/);
-    const orderedMatch = line.match(/^(\s*)(\d+)\.\s/);
-    
-    if (bulletMatch || orderedMatch) {
-      const isOrdered = !!orderedMatch;
-      const listLines = [line];
-      let listEndLine = lineStartLine;
-      let listEndOffset = currentOffset;
-
-      // Collect consecutive list items (including nested items and blank lines between)
-      while (i + 1 < lines.length) {
-        const nextLine = lines[i + 1];
-        
-        // Check if it's another list item (possibly nested)
-        const nextBulletMatch = nextLine.match(/^(\s*)([-*+])\s/);
-        const nextOrderedMatch = nextLine.match(/^(\s*)(\d+)\.\s/);
-        
-        if (nextBulletMatch || nextOrderedMatch) {
+      while (i < lines.length) {
+        if (lines[i].startsWith(">")) {
+          quoteLines.push(lines[i]);
+          endLine = i;
           i++;
-          listLines.push(nextLine);
-          listEndLine = currentLine;
-          listEndOffset = currentOffset;
-          currentOffset += nextLine.length + 1;
-          currentLine++;
-        } else if (nextLine.trim() === "" && i + 2 < lines.length) {
-          // Blank line - check if there's more list content after
-          const afterBlankLine = lines[i + 2];
-          const afterBulletMatch = afterBlankLine.match(/^(\s*)([-*+])\s/);
-          const afterOrderedMatch = afterBlankLine.match(/^(\s*)(\d+)\.\s/);
-          
-          if (afterBulletMatch || afterOrderedMatch) {
-            // Include blank line in list
-            i++;
-            listLines.push(nextLine);
-            listEndLine = currentLine;
-            listEndOffset = currentOffset;
-            currentOffset += nextLine.length + 1;
-            currentLine++;
-          } else {
-            break;
-          }
-        } else if (nextLine.match(/^\s+/) && nextLine.trim() !== "") {
-          // Indented content (continuation of list item)
-          i++;
-          listLines.push(nextLine);
-          listEndLine = currentLine;
-          listEndOffset = currentOffset;
-          currentOffset += nextLine.length + 1;
-          currentLine++;
         } else {
           break;
         }
       }
-
-      const listContent = listLines.join("\n");
+      const quoteContent = quoteLines.join("\n");
       blocks.push({
-        id: generateBlockId(listContent, lineStartLine),
-        type: "list",
-        content: listContent,
-        startOffset: lineStartOffset,
-        endOffset: listEndOffset,
-        startLine: lineStartLine,
-        endLine: listEndLine,
-        meta: { ordered: isOrdered },
+        id: generateBlockId(quoteContent, startLine),
+        type: "blockquote",
+        content: quoteContent,
+        startOffset,
+        endOffset: lineEndOffset(idx, endLine),
+        startLine,
+        endLine,
       });
+      continue;
+    }
 
+    // LIST. Contiguous list items + indented continuation lines + a
+    // single blank line BETWEEN items (consumed into the list, not as
+    // a paragraph separator) when the next non-blank line is another
+    // list item.
+    if (sig?.kind === "list") {
+      const startLine = i;
+      const startOffset = idx.lineStartOffsets[i];
+      const isOrdered = sig.ordered;
+      const listLines = [lines[i]];
+      let endLine = i;
       i++;
-      continue;
-    }
-
-    // Check for table
-    if (line.includes("|") && i + 1 < lines.length && lines[i + 1].match(/^\|?[\s-:|]+\|?$/)) {
-      const tableLines = [line, lines[i + 1]];
-      let tableEndLine = lineStartLine + 1;
-      let tableEndOffset = currentOffset + lines[i + 1].length + 1;
-
-      currentOffset += lines[i + 1].length + 1;
-      currentLine++;
-      i += 2;
-
-      // Collect table body rows
-      while (i < lines.length && lines[i].includes("|")) {
-        tableLines.push(lines[i]);
-        tableEndLine = currentLine;
-        tableEndOffset = currentOffset;
-        currentOffset += lines[i].length + 1;
-        currentLine++;
-        i++;
-      }
-
-      const tableContent = tableLines.join("\n");
-      blocks.push({
-        id: generateBlockId(tableContent, lineStartLine),
-        type: "table",
-        content: tableContent,
-        startOffset: lineStartOffset,
-        endOffset: tableEndOffset,
-        startLine: lineStartLine,
-        endLine: tableEndLine,
-      });
-
-      continue;
-    }
-
-    // Check for HTML block
-    if (line.match(/^<(div|p|ul|ol|li|table|pre|blockquote|h[1-6]|script|style|iframe|form|article|section|nav|aside|header|footer|main|figure|figcaption)/i)) {
-      const htmlLines = [line];
-      let htmlEndLine = lineStartLine;
-      let htmlEndOffset = currentOffset;
-      const tagName = line.match(/^<(\w+)/i)?.[1]?.toLowerCase();
-      
-      // Simple HTML block detection - collect until closing tag or blank line
-      while (i + 1 < lines.length) {
-        const nextLine = lines[i + 1];
-        
-        // Check for closing tag
-        if (tagName && nextLine.match(new RegExp(`</${tagName}>`, "i"))) {
+      while (i < lines.length) {
+        const next = lines[i];
+        const isBullet = /^\s*[-*+]\s/.test(next);
+        const isOrderedItem = /^\s*\d+\.\s/.test(next);
+        if (isBullet || isOrderedItem) {
+          listLines.push(next);
+          endLine = i;
           i++;
-          htmlLines.push(nextLine);
-          htmlEndLine = currentLine;
-          htmlEndOffset = currentOffset;
-          currentOffset += nextLine.length + 1;
-          currentLine++;
+          continue;
+        }
+        // Single blank line between items: allowed if followed by
+        // another list item. Multiple blank lines end the list.
+        if (next.trim() === "" && i + 1 < lines.length) {
+          const after = lines[i + 1];
+          if (/^\s*[-*+]\s/.test(after) || /^\s*\d+\.\s/.test(after)) {
+            listLines.push(next);
+            endLine = i;
+            i++;
+            continue;
+          }
           break;
         }
-        
-        // Stop at blank line for self-contained HTML blocks
-        if (nextLine.trim() === "") {
-          break;
+        // Indented continuation (lazy continuation of a list item).
+        if (/^\s+/.test(next) && next.trim() !== "") {
+          listLines.push(next);
+          endLine = i;
+          i++;
+          continue;
         }
-        
-        i++;
-        htmlLines.push(nextLine);
-        htmlEndLine = currentLine;
-        htmlEndOffset = currentOffset;
-        currentOffset += nextLine.length + 1;
-        currentLine++;
-      }
-
-      const htmlContent = htmlLines.join("\n");
-      blocks.push({
-        id: generateBlockId(htmlContent, lineStartLine),
-        type: "html",
-        content: htmlContent,
-        startOffset: lineStartOffset,
-        endOffset: htmlEndOffset,
-        startLine: lineStartLine,
-        endLine: htmlEndLine,
-      });
-
-      i++;
-      continue;
-    }
-
-    // Default: treat as paragraph
-    // Collect consecutive non-blank lines that don't start another block
-    const paragraphLines = [line];
-    let paraEndLine = lineStartLine;
-    let paraEndOffset = currentOffset;
-
-    while (i + 1 < lines.length) {
-      const nextLine = lines[i + 1];
-      
-      // Stop at blank line
-      if (nextLine.trim() === "") break;
-      
-      // Stop at block starts
-      if (
-        nextLine.startsWith("#") ||
-        nextLine.startsWith(">") ||
-        nextLine.startsWith("```") ||
-        nextLine.startsWith("~~~") ||
-        nextLine.match(/^[-*+]\s/) ||
-        nextLine.match(/^\d+\.\s/) ||
-        nextLine.match(/^(-{3,}|\*{3,}|_{3,})$/) ||
-        (nextLine.includes("|") && i + 2 < lines.length && lines[i + 2]?.match(/^\|?[\s-:|]+\|?$/))
-      ) {
         break;
       }
-
-      i++;
-      paragraphLines.push(nextLine);
-      paraEndLine = currentLine;
-      paraEndOffset = currentOffset;
-      currentOffset += nextLine.length + 1;
-      currentLine++;
+      const listContent = listLines.join("\n");
+      blocks.push({
+        id: generateBlockId(listContent, startLine),
+        type: "list",
+        content: listContent,
+        startOffset,
+        endOffset: lineEndOffset(idx, endLine),
+        startLine,
+        endLine,
+        meta: { ordered: isOrdered },
+      });
+      continue;
     }
 
+    // TABLE. Header row + delimiter row + body rows (each containing
+    // `|`). Ends at the first non-`|` line.
+    if (sig?.kind === "tableHeader") {
+      const startLine = i;
+      const startOffset = idx.lineStartOffsets[i];
+      const tableLines = [lines[i], lines[i + 1]];
+      let endLine = i + 1;
+      i += 2;
+      while (i < lines.length && lines[i].includes("|")) {
+        tableLines.push(lines[i]);
+        endLine = i;
+        i++;
+      }
+      const tableContent = tableLines.join("\n");
+      blocks.push({
+        id: generateBlockId(tableContent, startLine),
+        type: "table",
+        content: tableContent,
+        startOffset,
+        endOffset: lineEndOffset(idx, endLine),
+        startLine,
+        endLine,
+      });
+      continue;
+    }
+
+    // HTML BLOCK. Collect lines until either the matching close tag
+    // or a blank line. The blank-line terminator matches the prior
+    // implementation; rich CommonMark HTML block rules (types 1-7)
+    // are out of scope for this rewrite.
+    if (sig?.kind === "html") {
+      const startLine = i;
+      const startOffset = idx.lineStartOffsets[i];
+      const htmlLines = [lines[i]];
+      const tagName = sig.tagName;
+      let endLine = i;
+      i++;
+      while (i < lines.length) {
+        const next = lines[i];
+        // Stop BEFORE a blank line (don't swallow the separator).
+        if (next.trim() === "") {
+          break;
+        }
+        htmlLines.push(next);
+        endLine = i;
+        // Close-tag terminator includes the closing line.
+        if (new RegExp(`</${tagName}>`, "i").test(next)) {
+          i++;
+          break;
+        }
+        i++;
+      }
+      const htmlContent = htmlLines.join("\n");
+      blocks.push({
+        id: generateBlockId(htmlContent, startLine),
+        type: "html",
+        content: htmlContent,
+        startOffset,
+        endOffset: lineEndOffset(idx, endLine),
+        startLine,
+        endLine,
+      });
+      continue;
+    }
+
+    // SETEXT HEADING (text line followed by `===` or `---`). Note
+    // the look-ahead must come AFTER list/blockquote/etc. signature
+    // checks so a `---` thematic break or list-style line never gets
+    // misclassified as a heading underline.
+    if (
+      i + 1 < lines.length &&
+      lines[i + 1].length > 0 &&
+      (/^=+\s*$/.test(lines[i + 1]) || /^-+\s*$/.test(lines[i + 1])) &&
+      // Guard against the empty underline edge-case.
+      lines[i + 1].trim().length >= 1
+    ) {
+      const startLine = i;
+      const startOffset = idx.lineStartOffsets[i];
+      const underline = lines[i + 1];
+      const level = underline.trim()[0] === "=" ? 1 : 2;
+      const headingContent = line + "\n" + underline;
+      blocks.push({
+        id: generateBlockId(headingContent, startLine),
+        type: "heading",
+        content: headingContent,
+        startOffset,
+        endOffset: lineEndOffset(idx, i + 1),
+        startLine,
+        endLine: i + 1,
+        meta: { level },
+      });
+      i += 2;
+      continue;
+    }
+
+    // PARAGRAPH (default). Consume the current non-blank line plus
+    // every following non-blank line that does NOT start a new block
+    // signature. A single newline between such lines is a SOFT BREAK
+    // and stays inside this paragraph block. The run ends at:
+    //   - a blank line (separator, consumed by the blank-line branch
+    //     next iteration), or
+    //   - a non-paragraph block signature on the next line.
+    const startLine = i;
+    const startOffset = idx.lineStartOffsets[i];
+    const paragraphLines = [lines[i]];
+    let endLine = i;
+    i++;
+    while (i < lines.length) {
+      const next = lines[i];
+      if (next.trim() === "") break;
+      // Detect block signature on the next line. Pass the lines array
+      // so the table-header look-ahead (which needs lines[i+1]) works.
+      if (detectSignature(lines, i) !== null) break;
+      // Setext underline runs through the paragraph branch as a normal
+      // soft-break continuation EXCEPT when this is the second line
+      // and matches the setext underline pattern. The setext detection
+      // above handled the 2-line case before falling through here, so
+      // by the time we're collecting paragraph continuation lines past
+      // the first, treating an `===` / `---` line as setext underline
+      // would be wrong (it's the body of the paragraph, not a heading).
+      paragraphLines.push(next);
+      endLine = i;
+      i++;
+    }
     const paraContent = paragraphLines.join("\n");
     blocks.push({
-      id: generateBlockId(paraContent, lineStartLine),
+      id: generateBlockId(paraContent, startLine),
       type: "paragraph",
       content: paraContent,
-      startOffset: lineStartOffset,
-      endOffset: paraEndOffset,
-      startLine: lineStartLine,
-      endLine: paraEndLine,
+      startOffset,
+      endOffset: lineEndOffset(idx, endLine),
+      startLine,
+      endLine,
     });
-
-    i++;
   }
 
   return blocks;

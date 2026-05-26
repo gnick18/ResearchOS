@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import HybridMarkdownEditor from "../HybridMarkdownEditor";
+import { parseMarkdownBlocks } from "@/lib/markdown-block-parser";
 
 /**
  * RTL test precedent for the markdown editor surface.
@@ -210,6 +211,75 @@ describe("HybridMarkdownEditor", () => {
     fireEvent.keyDown(textarea2!, { key: "z", ctrlKey: true });
     expect(onChange).toHaveBeenCalled();
     expect(onChange.mock.calls[0][0]).toBe("original");
+  });
+
+  it("Enter then text stays in ONE paragraph block after blur/re-enter (CommonMark R2)", () => {
+    // Under R2 the parser keeps single \n's (and soft-break "  \n"
+    // sequences) inside the same paragraph block. Typing `test` +
+    // Enter + `line 2` must commit one paragraph, not two. We
+    // observe via the committed value's parse — onChange feeds the
+    // raw markdown back, and the parse of that is what determines
+    // block count when the user re-enters the editor.
+    const onChange = vi.fn();
+    render(
+      <HybridMarkdownEditor value="" autoStartEditing onChange={onChange} />,
+    );
+    const textarea = document.querySelector("textarea") as HTMLTextAreaElement | null;
+    expect(textarea).not.toBeNull();
+
+    // Simulate the buffer state the Enter handler would produce:
+    // "test" + soft-break ("  \n") + "line 2".
+    fireEvent.change(textarea!, { target: { value: "test  \nline 2" } });
+    act(() => {
+      fireEvent.mouseDown(document.body);
+    });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    const committed = onChange.mock.calls[0][0];
+    const blocks = parseMarkdownBlocks(committed);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].type).toBe("paragraph");
+  });
+
+  it("Enter + Enter + text yields TWO blocks after blur/re-enter (paragraph split)", () => {
+    // Two consecutive plain Enters produce a blank line between the
+    // text runs ("  \n  \n" — both lines are whitespace-only and
+    // trim to "") and the parser splits into two paragraphs.
+    const onChange = vi.fn();
+    render(
+      <HybridMarkdownEditor value="" autoStartEditing onChange={onChange} />,
+    );
+    const textarea = document.querySelector("textarea") as HTMLTextAreaElement | null;
+    fireEvent.change(textarea!, { target: { value: "test  \n  \ntest 2" } });
+    act(() => {
+      fireEvent.mouseDown(document.body);
+    });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    const blocks = parseMarkdownBlocks(onChange.mock.calls[0][0]);
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0].type).toBe("paragraph");
+    expect(blocks[1].type).toBe("paragraph");
+  });
+
+  it("Enter ×5 between two words yields TWO blocks (multi-Enter collapses to one separator)", () => {
+    // R2 contract: many consecutive Enters don't produce extra empty
+    // blocks. The blank-line run collapses to a single separator and
+    // the result is just two paragraphs.
+    const onChange = vi.fn();
+    render(
+      <HybridMarkdownEditor value="" autoStartEditing onChange={onChange} />,
+    );
+    const textarea = document.querySelector("textarea") as HTMLTextAreaElement | null;
+    fireEvent.change(textarea!, {
+      target: { value: "test  \n  \n  \n  \n  \n  \ntest 2" },
+    });
+    act(() => {
+      fireEvent.mouseDown(document.body);
+    });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    const blocks = parseMarkdownBlocks(onChange.mock.calls[0][0]);
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0].type).toBe("paragraph");
+    expect(blocks[1].type).toBe("paragraph");
   });
 
   it("preserves rendered content across a non-data-changing re-render (tab-switch proxy)", () => {
