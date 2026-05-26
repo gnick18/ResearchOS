@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   onSidecarWriteError,
+  onSidecarWritten,
   patchOnboarding,
   readOnboarding,
   type OnboardingSidecar,
@@ -100,6 +101,37 @@ export default function V4MountForUser({
     const unsubscribe = onSidecarWriteError((event) => {
       if (event.username !== username) return;
       setPersistError(event);
+    });
+    return unsubscribe;
+  }, [username]);
+
+  // Subscribe to the sidecar's persist-SUCCESS bus (tour-rerun root-cause
+  // R3, 2026-05-26). The one-shot `useEffect([username])` above reads the
+  // sidecar exactly once on mount. Any patchOnboarding / writeOnboarding
+  // fired from OUTSIDE this component — Settings's `handleRerunWizard`,
+  // DevForceWalkthroughButton's `clearWizardCompletion`, the
+  // SettingsHeadcountReset path, future imperative reset paths — would
+  // leave our local `sidecar` state stale. The stale state propagates as
+  // the `sidecar` prop into TourControllerProvider → ModalSetupShell →
+  // setup step bodies → `initialFeaturePicks` re-dispatch path, and any
+  // reader that checks (e.g.) `sidecar.wizard_completed_at` sees the
+  // pre-reset value.
+  //
+  // This subscriber refreshes the local snapshot whenever the bus fires
+  // for the active user. Scope to `username` so a multi-user tab swap
+  // doesn't cross-contaminate. The event payload carries the full next
+  // sidecar so we don't have to re-read disk (which could read past the
+  // event's snapshot if a follow-up write is already queued).
+  //
+  // The local patchSidecar callback below ALSO sets sidecar after its
+  // own await; the bus subscriber is idempotent (setSidecar of a value
+  // equal to the in-flight value is a React no-op via Object.is) so the
+  // double-update is safe. The bus is the only mechanism that catches
+  // EXTERNAL writes; patchSidecar covers the in-tour write path.
+  useEffect(() => {
+    const unsubscribe = onSidecarWritten((event) => {
+      if (event.username !== username) return;
+      setSidecar(event.next);
     });
     return unsubscribe;
   }, [username]);

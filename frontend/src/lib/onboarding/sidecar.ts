@@ -599,6 +599,105 @@ function dispatchSidecarWriteError(event: SidecarWriteErrorEvent): void {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Persist-success event bus (tour-rerun root-cause R3, 2026-05-26)
+//
+// The Settings "Re-run welcome tour" button + the dev "Force walkthrough"
+// menu both call `patchOnboarding(currentUser, ...)` DIRECTLY from outside
+// V4MountForUser to wipe `wizard_completed_at` + reset `feature_picks` on
+// disk. Then they call `tourController.start()` to fire the tour modal in
+// place (no page reload).
+//
+// Failure mode the bus below fixes: V4MountForUser holds an in-memory
+// `sidecar` state initialized via a one-shot `useEffect([username])` that
+// calls `readOnboarding(username)` once on mount. A patchOnboarding write
+// fired from anywhere else (Settings, DevForceWalkthroughButton,
+// clearWizardCompletion, future call sites) writes the new shape to disk
+// but does NOT propagate to V4MountForUser's local state. The stale
+// sidecar then keeps flowing as the `sidecar` prop through
+// TourControllerProvider → ModalSetupShell → setup step bodies, all of
+// which read the prop directly. The dev button works because it ALSO
+// changes `currentUser`, which re-fires the [username]-dep readOnboarding
+// effect on the next render. Settings stays on the same user, so the
+// stale state never refreshes — root cause for "Re-run does nothing" /
+// the silent half-state bugs prior R1 + R2 chips tried to symptomatically
+// patch.
+//
+// `onSidecarWritten` mirrors `onSidecarWriteError`'s shape (per-user
+// payload, module-level singleton, snapshot iteration for self-unsub
+// safety). Fires AFTER every successful writeOnboarding / patchOnboarding
+// disk commit, so V4MountForUser can subscribe and call setSidecar(next)
+// to keep its prop in sync with disk on every external write.
+//
+// Why a bus rather than threading patchSidecar through every call site:
+// the callers are scattered across the codebase (Settings, dev buttons,
+// any future imperative reset path, `clearWizardCompletion`, etc.) and
+// V4MountForUser sits at a high level — there's no one place to wire a
+// callback through without either prop-drilling or pulling
+// V4MountForUser's setSidecar into a React Context that every patch site
+// would have to plumb. A module-level event bus that the patch helpers
+// fire matches the existing `onSidecarWriteError` pattern exactly and
+// adds zero coupling for patch callers (they just call patchOnboarding;
+// the bus fires for free). The event payload carries the FULL next
+// sidecar so subscribers don't have to re-read disk — important because
+// the per-user write queue may already have the next patch in flight,
+// and a fresh `readOnboarding` could read past the event's snapshot.
+// ---------------------------------------------------------------------------
+
+/** Payload dispatched on a successful sidecar write. Carries the username
+ *  for multi-user-tab scoping (only the active V4MountForUser cares about
+ *  writes for its own user), the operation that produced the write
+ *  (informational; mirrors the error bus shape), and the FULL next
+ *  sidecar snapshot. Subscribers can call setSidecar(next) directly
+ *  without a follow-up readOnboarding round-trip. */
+export interface SidecarWrittenEvent {
+  username: string;
+  operation: "writeOnboarding" | "patchOnboarding";
+  next: OnboardingSidecar;
+}
+
+type SidecarWrittenCallback = (event: SidecarWrittenEvent) => void;
+
+const sidecarWrittenSubscribers = new Set<SidecarWrittenCallback>();
+
+/** Subscribe to successful sidecar writes. Returns an unsubscribe fn.
+ *  Subscribers should be lightweight — the dispatch happens INSIDE the
+ *  per-user write queue so a slow callback would stall the next queued
+ *  write. The bus is intentionally separate from `onSidecarWriteError`
+ *  so subscribers can opt in to one channel without the other (the
+ *  in-tour persist effect only cares about errors; V4MountForUser cares
+ *  about successes). */
+export function onSidecarWritten(
+  callback: SidecarWrittenCallback,
+): () => void {
+  sidecarWrittenSubscribers.add(callback);
+  return () => {
+    sidecarWrittenSubscribers.delete(callback);
+  };
+}
+
+/** Test-seam: clear every registered subscriber on the success bus.
+ *  Mirrors `_clearSidecarWriteErrorSubscribersForTest` so test setUp
+ *  hooks can wipe both channels in one beforeEach. */
+export function _clearSidecarWrittenSubscribersForTest(): void {
+  sidecarWrittenSubscribers.clear();
+}
+
+function dispatchSidecarWritten(event: SidecarWrittenEvent): void {
+  // Iterate a snapshot so a subscriber that unsubscribes itself inside
+  // its own callback doesn't trip the underlying Set iteration. Mirrors
+  // the error-bus dispatch shape verbatim.
+  for (const sub of [...sidecarWrittenSubscribers]) {
+    try {
+      sub(event);
+    } catch (err) {
+      // A subscriber that throws should NOT block the next subscriber;
+      // log + continue so the bus stays resilient.
+      console.error("[onboarding sidecar] written-bus subscriber threw", err);
+    }
+  }
+}
+
 /** Persist the full sidecar. Callers should pass the complete object;
  *  partial updates happen via `patchOnboarding()`. Routed through the
  *  per-user write queue so a writeOnboarding cannot overlap a pending
@@ -619,6 +718,19 @@ export async function writeOnboarding(
         ...data,
         version: SCHEMA_VERSION,
       });
+    });
+    // tour-rerun root-cause R3 (2026-05-26): fire the success bus so
+    // V4MountForUser (and any future subscriber) can refresh its local
+    // sidecar snapshot. The dispatch fires AFTER the write resolves so
+    // no subscriber observes a half-written state; the queue chain
+    // serializes vs. concurrent patchOnboarding calls on the same user.
+    // We hand the full `next` value through so subscribers don't have
+    // to re-read disk (which could read past this event's snapshot if
+    // a follow-up write is already queued behind us).
+    dispatchSidecarWritten({
+      username,
+      operation: "writeOnboarding",
+      next: { ...data, version: SCHEMA_VERSION },
     });
   } catch (err) {
     dispatchSidecarWriteError({
@@ -647,15 +759,33 @@ export async function patchOnboarding(
   patch: (current: OnboardingSidecar) => OnboardingSidecar,
 ): Promise<OnboardingSidecar> {
   try {
-    return await enqueueOnboardingWrite(username, async () => {
+    const next = await enqueueOnboardingWrite(username, async () => {
       const current = await readOnboarding(username);
-      const next = patch(current);
+      const result = patch(current);
       await fileService.writeJson(sidecarPath(username), {
-        ...next,
+        ...result,
         version: SCHEMA_VERSION,
       });
-      return next;
+      return result;
     });
+    // tour-rerun root-cause R3 (2026-05-26): fire the success bus so
+    // V4MountForUser (and any future subscriber) can refresh its local
+    // sidecar snapshot. The dispatch fires AFTER the queued write
+    // resolves so no subscriber observes a half-written state. See
+    // dispatchSidecarWritten docstring for the full root-cause writeup;
+    // tl;dr — Settings's Re-run + DevForceWalkthroughButton's reset both
+    // patch the sidecar OUTSIDE V4MountForUser. Without the bus
+    // V4MountForUser's local `sidecar` state stays stale and the
+    // TourControllerProvider keeps receiving the OLD prop, which leaks
+    // into ModalSetupShell + setup step bodies and (depending on the
+    // specific stale field) causes the silent half-state bugs the prior
+    // tour-rerun chips tried to symptomatically patch.
+    dispatchSidecarWritten({
+      username,
+      operation: "patchOnboarding",
+      next: { ...next, version: SCHEMA_VERSION },
+    });
+    return next;
   } catch (err) {
     dispatchSidecarWriteError({
       username,

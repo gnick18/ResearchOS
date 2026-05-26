@@ -40,9 +40,11 @@ vi.mock("@/lib/file-system/file-service", () => ({
 
 import {
   _clearSidecarWriteErrorSubscribersForTest,
+  _clearSidecarWrittenSubscribersForTest,
   clearWizardCompletion,
   countOrphanedArtifacts,
   onSidecarWriteError,
+  onSidecarWritten,
   patchOnboarding,
   readArtifactsCreated,
   readOnboarding,
@@ -50,6 +52,7 @@ import {
   type FeaturePicks,
   type OnboardingSidecar,
   type SidecarWriteErrorEvent,
+  type SidecarWrittenEvent,
   type WizardArtifact,
   type WizardResumeState,
 } from "./sidecar";
@@ -843,5 +846,187 @@ describe("sidecar persist-error bus", () => {
     expect(captured).toHaveLength(0);
 
     (fileService as { writeJson: typeof original }).writeJson = original;
+  });
+});
+
+// ---------------------------------------------------------------------------
+// tour-rerun root-cause R3 (2026-05-26): persist-success event bus
+//
+// The success-bus is the counterpart to the persist-error bus above; it
+// fires on every successful writeOnboarding / patchOnboarding so external
+// patch sites (Settings's `handleRerunWizard`, DevForceWalkthroughButton's
+// `clearWizardCompletion`, future imperative reset paths) can propagate
+// their disk write back into V4MountForUser's in-memory `sidecar` state.
+// Without the bus, V4MountForUser holds a one-shot snapshot from its
+// initial readOnboarding effect; any external patch leaves the local
+// state stale and the stale sidecar prop leaks through
+// TourControllerProvider → ModalSetupShell, causing the silent half-state
+// bugs prior tour-rerun chips tried to symptomatically patch. See
+// sidecar.ts comment block on dispatchSidecarWritten for the full
+// writeup.
+// ---------------------------------------------------------------------------
+
+describe("sidecar persist-success bus (tour-rerun root-cause R3)", () => {
+  const U = "success-bus-user";
+  const P = `users/${U}/_onboarding.json`;
+
+  beforeEach(() => {
+    _clearSidecarWrittenSubscribersForTest();
+    memFs.delete(P);
+  });
+
+  it("dispatches a writeOnboarding success with the full next sidecar", async () => {
+    const captured: SidecarWrittenEvent[] = [];
+    const unsub = onSidecarWritten((event) => {
+      captured.push(event);
+    });
+
+    const sidecar: OnboardingSidecar = {
+      version: 6,
+      first_seen_at: "2026-05-26T10:00:00.000Z",
+      active_seconds: 0,
+      feature_picks: null,
+      wizard_completed_at: null,
+      wizard_skipped_at: null,
+      wizard_force_show: false,
+      wizard_resume_state: null,
+      lab_tour_pending: false,
+      lab_tour_dismissed_at: null,
+      lab_mode_tour_choice: null,
+    };
+
+    await writeOnboarding(U, sidecar);
+
+    expect(captured).toHaveLength(1);
+    expect(captured[0].username).toBe(U);
+    expect(captured[0].operation).toBe("writeOnboarding");
+    expect(captured[0].next.first_seen_at).toBe("2026-05-26T10:00:00.000Z");
+    // Schema version is always normalized on the dispatched payload.
+    expect(captured[0].next.version).toBe(6);
+    unsub();
+  });
+
+  it("dispatches a patchOnboarding success with the patched sidecar", async () => {
+    const captured: SidecarWrittenEvent[] = [];
+    onSidecarWritten((event) => {
+      captured.push(event);
+    });
+
+    await patchOnboarding(U, (cur) => ({
+      ...cur,
+      wizard_completed_at: "2026-05-26T11:00:00.000Z",
+    }));
+
+    expect(captured).toHaveLength(1);
+    expect(captured[0].username).toBe(U);
+    expect(captured[0].operation).toBe("patchOnboarding");
+    expect(captured[0].next.wizard_completed_at).toBe(
+      "2026-05-26T11:00:00.000Z",
+    );
+    expect(captured[0].next.version).toBe(6);
+  });
+
+  it("propagates patch-cleared fields through the dispatched payload", async () => {
+    // Seed a completed sidecar on disk, then run the Settings re-run
+    // patch shape and confirm the dispatched payload has the cleared
+    // fields — this is the exact shape V4MountForUser needs to refresh
+    // its local snapshot off of.
+    memFs.set(P, {
+      version: 6,
+      first_seen_at: "2026-05-26T10:00:00.000Z",
+      active_seconds: 100,
+      feature_picks: {
+        account_type: "lab",
+        purchases: "yes",
+      },
+      wizard_completed_at: "2026-05-26T10:30:00.000Z",
+      wizard_skipped_at: null,
+      wizard_force_show: false,
+      wizard_resume_state: null,
+      lab_tour_pending: false,
+      lab_tour_dismissed_at: null,
+    });
+
+    const captured: SidecarWrittenEvent[] = [];
+    onSidecarWritten((event) => {
+      captured.push(event);
+    });
+
+    await patchOnboarding(U, (cur) => ({
+      ...cur,
+      wizard_completed_at: null,
+      wizard_skipped_at: null,
+      wizard_resume_state: null,
+      feature_picks: null,
+      wizard_force_show: false,
+    }));
+
+    expect(captured).toHaveLength(1);
+    const next = captured[0].next;
+    expect(next.wizard_completed_at).toBeNull();
+    expect(next.wizard_skipped_at).toBeNull();
+    expect(next.wizard_resume_state).toBeNull();
+    expect(next.feature_picks).toBeNull();
+    expect(next.wizard_force_show).toBe(false);
+  });
+
+  it("does NOT dispatch on the failure path", async () => {
+    const { fileService } = await import("@/lib/file-system/file-service");
+    const original = fileService.writeJson;
+    const boom = new Error("disk full");
+    (fileService as { writeJson: typeof original }).writeJson = vi.fn(
+      async () => {
+        throw boom;
+      },
+    ) as unknown as typeof original;
+
+    const captured: SidecarWrittenEvent[] = [];
+    onSidecarWritten((event) => {
+      captured.push(event);
+    });
+
+    await expect(
+      patchOnboarding(U, (cur) => ({ ...cur })),
+    ).rejects.toBe(boom);
+
+    expect(captured).toHaveLength(0);
+
+    (fileService as { writeJson: typeof original }).writeJson = original;
+  });
+
+  it("respects the unsubscribe contract", async () => {
+    const captured: SidecarWrittenEvent[] = [];
+    const unsubscribe = onSidecarWritten((event) => {
+      captured.push(event);
+    });
+    unsubscribe();
+
+    await patchOnboarding(U, (cur) => ({
+      ...cur,
+      wizard_completed_at: "2026-05-26T12:00:00.000Z",
+    }));
+
+    expect(captured).toHaveLength(0);
+  });
+
+  it("scopes events to the username; multi-user subscribers can filter", async () => {
+    const captured: SidecarWrittenEvent[] = [];
+    onSidecarWritten((event) => {
+      // Mimics V4MountForUser's filter: only react to the active user.
+      if (event.username !== "alex") return;
+      captured.push(event);
+    });
+
+    await patchOnboarding("alex", (cur) => ({
+      ...cur,
+      wizard_completed_at: "2026-05-26T13:00:00.000Z",
+    }));
+    await patchOnboarding("morgan", (cur) => ({
+      ...cur,
+      wizard_completed_at: "2026-05-26T13:01:00.000Z",
+    }));
+
+    expect(captured).toHaveLength(1);
+    expect(captured[0].username).toBe("alex");
   });
 });
