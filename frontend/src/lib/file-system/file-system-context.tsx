@@ -20,9 +20,10 @@ import { clearCachedPassword } from "../auth/cached-password";
 import { discoverUsers, validateResearchFolder, ensureFolderStructure } from "./user-discovery";
 import { readUserSettings, patchUserSettings, userSettingsFileExists, DEFAULT_SETTINGS } from "../settings/user-settings";
 import { useAppStore, readLegacyLocalStorageSettings } from "../store";
-import { getWikiCaptureVariant, getDemoMode, markDemoMode, installWikiCaptureFixture } from "./wiki-capture-mock";
+import { getWikiCaptureVariant, getDemoMode, markDemoMode, installWikiCaptureFixture, resolveFixtureUser } from "./wiki-capture-mock";
 import { rebaseDemoDates, isDemoLab } from "../demo/rebase";
 import { resetEditSession } from "../lab/edit-session";
+import { appQueryClient } from "../query-client";
 
 /** Coarse-grained phase of the startup connect flow. Used by the loading
  *  screen so the user sees something change while OneDrive is being slow.
@@ -403,7 +404,16 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
       ): Promise<void> {
         try {
           const signIn = demo || variant === "signed-in";
-          await installWikiCaptureFixture({ signIn });
+          // `?fixtureUser=<name>` override (events-widget user-switch
+          // fix 2026-05-25). Lets verifiers / capture scripts boot the
+          // fixture pinned to a different seeded user (e.g. mira) so
+          // PI-archetype widgets render against her events / tasks.
+          // Defaults to "alex" when the param is absent or invalid.
+          // Demo route ignores the override and stays on alex — the
+          // public /demo experience is documented as alex's lab and
+          // shouldn't shift under a URL flag.
+          const fixtureUser = !demo && signIn ? resolveFixtureUser() : "alex";
+          await installWikiCaptureFixture({ signIn, fixtureUser });
           if (demo) {
             // Set the sticky flag now that the fixture is ready, so the
             // banner + floating exit button + future consumers see
@@ -411,7 +421,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
             markDemoMode();
           }
           if (signIn) {
-            await hydrateSettingsForUser("alex");
+            await hydrateSettingsForUser(fixtureUser);
           }
           setState((prev) => ({
             ...prev,
@@ -420,8 +430,8 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
             loadingStage: null,
             error: null,
             directoryName: "wiki-capture-fixture",
-            currentUser: signIn ? "alex" : null,
-            mainUser: signIn ? "alex" : null,
+            currentUser: signIn ? fixtureUser : null,
+            mainUser: signIn ? fixtureUser : null,
             // mira (Dr. Mira Castellanos) is the demo PI archetype — owns
             // no tasks/notes of her own, but authors LabComments across
             // alex + morgan's shared content. Listed so user-picker UI
@@ -872,7 +882,8 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     // no-op switch keeps the session timer ticking on routes that
     // re-call setCurrentUser to refresh other state.
     const prevUser = currentUserRef.current;
-    if (prevUser && prevUser !== username) {
+    const isUserChange = prevUser !== null && prevUser !== username;
+    if (isUserChange) {
       resetEditSession();
     }
     clearCurrentUserCache();
@@ -885,6 +896,23 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     console.log("[FileSystemProvider.setCurrentUser] Stored to IndexedDB");
     setState((prev) => ({ ...prev, currentUser: username }));
     await hydrateSettingsForUser(username);
+    // React Query cache invalidation on user-switch (events-widget
+    // user-switch fix 2026-05-25). A live in-tab user swap leaves
+    // every cached query keyed against the previous user, so widgets
+    // like Today's events on /lab-overview keep rendering the old
+    // user's data until a full page reload. Many user-scoped query
+    // keys (`["events"]`, `["tasks"]`, `["notes"]`, `["projects"]`,
+    // etc.) don't even include the username as a key segment, so
+    // selective invalidation would miss them. A blanket
+    // `invalidateQueries()` is the right hammer here: switching users
+    // implies showing a different user's data, so the entire cache is
+    // logically stale. Skipped on the initial null → user transition
+    // (mount / silent reconnect) because there are no stale queries
+    // from a prior session and skipping avoids triggering redundant
+    // refetches the moment widgets first mount.
+    if (isUserChange) {
+      appQueryClient.invalidateQueries();
+    }
     console.log("[FileSystemProvider.setCurrentUser] State updated + settings hydrated");
   }, [hydrateSettingsForUser]);
 

@@ -135,6 +135,47 @@ const DEMO_RESULTS_USERS = ["alex", "morgan"];
  *  `user-login.png`. */
 export type WikiCaptureVariant = "signed-in" | "picker";
 
+/** Usernames seeded into the wiki-capture fixture (see
+ *  `wiki-capture-fixture.ts`). Used to validate the `?fixtureUser=` URL
+ *  override so callers can't pin currentUser to a username with no
+ *  seeded data. `lab` and `public` are namespace folders (lab-shared
+ *  content, public counters) and are intentionally excluded — they're
+ *  not selectable as a current user in any other UI either. */
+export const WIKI_CAPTURE_FIXTURE_USERS = [
+  "alex",
+  "morgan",
+  "mira",
+  "sam",
+] as const;
+
+/** Resolves the `?fixtureUser=<name>` URL override against the seeded
+ *  fixture user list. Returns `"alex"` (the default demo PI) when the
+ *  query string is absent, the requested name isn't seeded, or when
+ *  called outside the browser. Emits a `console.warn` on an invalid
+ *  request so a verifier driving `?wikiCapture=1&fixtureUser=…` notices
+ *  the typo instead of silently getting alex. */
+export function resolveFixtureUser(): (typeof WIKI_CAPTURE_FIXTURE_USERS)[number] {
+  if (typeof window === "undefined") return "alex";
+  let requested: string | null = null;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    requested = params.get("fixtureUser");
+  } catch {
+    return "alex";
+  }
+  if (requested === null) return "alex";
+  const match = WIKI_CAPTURE_FIXTURE_USERS.find((u) => u === requested);
+  if (!match) {
+    console.warn(
+      `[wiki-capture-mock] ?fixtureUser=${requested} not in fixture (` +
+        WIKI_CAPTURE_FIXTURE_USERS.join(", ") +
+        "); falling back to alex.",
+    );
+    return "alex";
+  }
+  return match;
+}
+
 /** Returns the capture variant for the current URL, or null if the page
  *  hasn't opted in. Allowed in dev and on localhost in prod; hard-blocked
  *  on non-local hostnames in production. SSR-safe: returns null on the
@@ -461,6 +502,13 @@ interface InstallOptions {
    *  app sees the folder as connected but no user signed in. Used to
    *  capture `user-login.png` (the user-picker screen). Default: false. */
   signIn?: boolean;
+  /** Username to pin as the active fixture user when `signIn` is true.
+   *  Must be one of `WIKI_CAPTURE_FIXTURE_USERS`. Defaults to `"alex"`
+   *  (the demo lab's PI archetype). Supplied by `?fixtureUser=…` URL
+   *  override so verifiers / capture scripts can drive the fixture as
+   *  a different seeded user (e.g. mira to inspect PI-archetype
+   *  widgets seeded against her events / tasks). */
+  fixtureUser?: (typeof WIKI_CAPTURE_FIXTURE_USERS)[number];
 }
 
 /** Idempotent. Swaps fileService methods for an in-memory store seeded with
@@ -470,7 +518,7 @@ interface InstallOptions {
 export async function installWikiCaptureFixture(
   options: InstallOptions = {},
 ): Promise<void> {
-  const { signIn = true } = options;
+  const { signIn = true, fixtureUser = "alex" } = options;
   if (installed) return;
   installed = true;
 
@@ -585,8 +633,9 @@ export async function installWikiCaptureFixture(
   svc.createWritable = async () => null;
 
   // Seed IndexedDB so getCurrentUser / getMainUser / reconnectWithStoredHandle
-  // see "alex" without needing the OS folder picker. Skipped in picker
-  // mode so the app stays on the user-selection screen.
+  // see the chosen fixture user (default "alex") without needing the OS
+  // folder picker. Skipped in picker mode so the app stays on the
+  // user-selection screen.
   //
   // BUT first, if a real folder is currently connected (the user navigated
   // to /demo from inside their connected app, or opened /demo in another
@@ -598,8 +647,8 @@ export async function installWikiCaptureFixture(
   try {
     await backupRealHandleForDemo();
     if (signIn) {
-      await storeCurrentUser("alex");
-      await storeMainUser("alex");
+      await storeCurrentUser(fixtureUser);
+      await storeMainUser(fixtureUser);
     }
     // A directory handle that survives in IndexedDB so reconnect attempts
     // resolve, even though our overrides never actually touch it.

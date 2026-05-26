@@ -93,6 +93,12 @@ vi.mock("@/lib/file-system/wiki-capture-mock", () => ({
   getDemoMode: vi.fn(() => false),
   markDemoMode: vi.fn(),
   installWikiCaptureFixture: vi.fn(async () => undefined),
+  // resolveFixtureUser is read on the fixture-install branch only. Not
+  // reached in this test (variant is null), but the mock must expose
+  // every named export the production module uses so static-imports
+  // resolve cleanly.
+  resolveFixtureUser: vi.fn(() => "alex"),
+  WIKI_CAPTURE_FIXTURE_USERS: ["alex", "morgan", "mira", "sam"],
 }));
 
 vi.mock("@/lib/demo/rebase", () => ({
