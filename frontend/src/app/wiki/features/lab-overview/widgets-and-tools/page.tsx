@@ -126,7 +126,9 @@ export default function LabOverviewWidgetsAndToolsPage() {
         You pick a variant from the palette when you drag a widget onto the
         canvas. Multiple variants of the same Tool can co-exist on the page,
         each showing the same underlying data through a different lens. Click
-        any of them and the same expanded popup opens.
+        any of them and the expanded popup opens; some variants label their
+        header with the variant name instead of the Tool&apos;s umbrella
+        title, so the popup title matches the tile you clicked.
       </p>
 
       <Callout variant="tip" title="One Tool, many tiles">
@@ -135,6 +137,30 @@ export default function LabOverviewWidgetsAndToolsPage() {
         only. The pending-count variant ignores it because pending-count does
         not have a time dimension.
       </Callout>
+
+      <h3>When the popup title follows the tile</h3>
+      <p>
+        Most Tools host more than one sibling widget. The Daily Tasks Tool,
+        for example, has four tiles that share the same body: an Overdue
+        slice, a Today slice, an Upcoming slice, and a full-stack version
+        that bundles all three. The popup body is identical no matter which
+        tile you click, but each tile can label its popup header
+        differently. That way the title in the popup chrome matches the
+        tile you just clicked, so opening Upcoming tasks reads as Upcoming
+        tasks rather than the Tool&apos;s broader umbrella name.
+      </p>
+      <p>
+        Today four variants carry a per-tile header label:{" "}
+        <code>calendar-events-today</code> shows &quot;Today&apos;s
+        events&quot;, <code>sidebar-overdue</code> shows &quot;Overdue
+        tasks&quot;, <code>sidebar-upcoming</code> shows &quot;Upcoming
+        tasks&quot;, and <code>sidebar-daily-tasks</code> shows &quot;Daily
+        tasks&quot;. The override is set per variant, so a Tool whose
+        sibling tiles don&apos;t need their own header fall back to the
+        Tool&apos;s umbrella title (the iPhone-widgets framing from
+        above); every Lab Purchases variant, for instance, still opens a
+        popup labelled &quot;Lab purchases&quot;.
+      </p>
 
       <p>
         A handful of other Tools also ship in multiple variants beyond the
