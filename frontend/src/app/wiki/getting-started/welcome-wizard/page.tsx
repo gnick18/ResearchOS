@@ -544,17 +544,19 @@ export default function WelcomeWizardPage() {
       </ul>
 
       <Callout variant="info" title="The retired Lab Mode tour cluster">
-        Earlier builds ended Phase 2 with a multi-step walkthrough of the
-        old Lab Mode aggregated surface. Lab Mode itself has been retired in
-        favor of the per-user{" "}
+        Lab Mode has been retired in favor of the per-user{" "}
         <Link href="/wiki/features/lab-overview">Lab Overview</Link>{" "}
         (Lab Heads) and{" "}
-        <Link href="/wiki/features/home">Home canvas</Link> (members), so
-        the cluster no longer fires. The Lab Head cluster that runs in its
-        place introduces the Lab Overview dashboard, the announcement
-        surface, and the soft-write affordances. A single{" "}
-        <code>lab-cleanup</code> step still runs at the end to wipe the
-        BeakerBot fake user that was spawned during the Gantt share cluster.
+        <Link href="/wiki/features/home">Home canvas</Link> (members); the
+        Lab Head cluster that runs in its place introduces the Lab
+        Overview dashboard, the announcement surface, and the soft-write
+        affordances. A single <code>lab-cleanup</code> step still runs at
+        the end to wipe the BeakerBot fake user that was spawned during
+        the Gantt share cluster. See{" "}
+        <Link href="/wiki/features/sharing-and-permissions">
+          Sharing and permissions
+        </Link>{" "}
+        for the data-side retirement story.
       </Callout>
 
       <h2>Terminal step: tour-goodbye</h2>

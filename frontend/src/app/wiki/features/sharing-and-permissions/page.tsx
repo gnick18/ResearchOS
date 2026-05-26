@@ -98,17 +98,14 @@ export default function SharingAndPermissionsPage() {
         role.
       </p>
 
-      <Callout variant="info" title="The is_public migration">
-        Pre-R1b, methods carried a separate <code>is_public</code> boolean
-        alongside <code>shared_with</code>. The two fields drifted in
-        practice (one said public, the other said empty array) and the
-        readers had to fall back to one or the other depending on age. R1b
-        unified the model: <code>is_public</code> was retired, and any old
-        record with <code>is_public: true</code> migrates to{" "}
-        <code>shared_with: [&quot;*&quot;]</code> on first read. The
-        canonical sharing path is now the array everywhere. If you find
-        leftover <code>is_public</code> in your data, the data-maintenance
-        repair button in Settings handles the rewrite.
+      <Callout variant="info" title="Migrating from Lab Mode">
+        ResearchOS used to ship with a special &ldquo;Lab Mode&rdquo;
+        account that held shared records on behalf of the whole lab. That
+        mode has been retired in favor of per-user accounts plus the{" "}
+        <code>shared_with</code> sharing primitive described above;
+        pre-retirement folders auto-migrate on first login. No user action
+        is required, and no Settings button needs to be clicked: the
+        rewrite runs in the background and is idempotent on repeat logins.
       </Callout>
 
       <h2>Granularity: what is shareable</h2>

@@ -167,8 +167,8 @@ export default function MethodsFeaturePage() {
         <Link href="/wiki/features/sharing-and-permissions">
           Sharing and permissions
         </Link>{" "}
-        for the full model and the migration from the older{" "}
-        <code>is_public</code> boolean (now retired).
+        for the full model (including the one-time auto-migration from the
+        retired Lab Mode account).
       </p>
       <p>
         Once a <strong>Markdown</strong> method is shared with the lab, the
