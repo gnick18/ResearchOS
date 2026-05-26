@@ -23,10 +23,14 @@ export default function WelcomeBeat({ onNext }: WelcomeBeatProps) {
       <h2 className="mb-3 text-2xl font-bold text-slate-900">
         Hi, I&apos;m BeakerBot.
       </h2>
+      <p className="mb-3 text-base leading-relaxed text-slate-700">
+        Welcome to ResearchOS, a free and open source digital lab notebook
+        built by Dr. Grant R. Nickles (PhD) and funded in part by the
+        UW-Madison RISE Initiative.
+      </p>
       <p className="mb-6 text-base leading-relaxed text-slate-700">
-        Welcome to ResearchOS. I&apos;ll help you set up a digital lab notebook
-        that keeps every experiment, note, and result on your computer and
-        under your control.
+        I&apos;ll help you set things up. Every experiment, note, and result
+        stays on your computer and under your control.
       </p>
       <div className="flex justify-end">
         <button

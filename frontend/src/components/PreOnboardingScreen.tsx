@@ -8,6 +8,7 @@ import {
   resetPreOnboardingSeen,
 } from "@/lib/pre-onboarding/pre-onboarding-storage";
 import CloudProviderBeat from "@/components/pre-onboarding/CloudProviderBeat";
+import CredentialsFooter from "@/components/pre-onboarding/CredentialsFooter";
 import FolderChoiceBeat, {
   type FolderChoice,
 } from "@/components/pre-onboarding/FolderChoiceBeat";
@@ -158,6 +159,11 @@ export default function PreOnboardingScreen({
             <CloudProviderBeat onContinue={finish} />
           )}
         </SpeechBubble>
+        {/* Persistent credentials strip across all beats. Authority
+            signal added 2026-05-25 per Grant: a first-time researcher
+            needs to see "real academic project, not a data-harvesting
+            scheme" structurally, before the security beat lands. */}
+        <CredentialsFooter />
       </div>
     </div>
   );
