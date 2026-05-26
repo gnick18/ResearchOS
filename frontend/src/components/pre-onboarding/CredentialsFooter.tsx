@@ -1,6 +1,6 @@
 "use client";
 
-import WisconsinRiseLogo from "@/components/pre-onboarding/WisconsinRiseLogo";
+import Image from "next/image";
 
 /**
  * Pre-onboarding credentials footer.
@@ -9,7 +9,7 @@ import WisconsinRiseLogo from "@/components/pre-onboarding/WisconsinRiseLogo";
  * for a first-time researcher: this is a real academic project, not a
  * sketchy app trying to harvest research data. Two signals:
  *
- *   1. Funding source (UW-Madison RISE Initiative) with their logo
+ *   1. Funding source (UW-Madison RISE Initiative) with their official logo
  *   2. Free + open source, with a link to the public GitHub repo
  *
  * Author credit (Dr. Grant R. Nickles, PhD) lives in Beat 1's main copy,
@@ -17,9 +17,9 @@ import WisconsinRiseLogo from "@/components/pre-onboarding/WisconsinRiseLogo";
  * institutional signal (RISE) + the structural-trust signal (open
  * source, here's the code).
  *
- * Voice rules: NO em-dashes, NO emojis. The RISE logo is an inline SVG
- * (see WisconsinRiseLogo.tsx) so it ships with the bundle and stays
- * resolution-independent at any viewport.
+ * Voice rules: NO em-dashes, NO emojis. The RISE logo is the official
+ * PNG fetched from University Research Park's site, stored at
+ * `frontend/public/credentials/uw-rise-logo.png` (940x250).
  */
 const GITHUB_URL = "https://github.com/gnick18/ResearchOS";
 
@@ -49,7 +49,15 @@ export default function CredentialsFooter() {
       {/* Logo on a soft white panel so the cream shield border + red
           field read correctly against the dark gradient backdrop. */}
       <div className="flex items-center justify-center rounded-md bg-white/95 px-4 py-2 shadow-sm">
-        <WisconsinRiseLogo className="h-12 w-auto" />
+        <Image
+          src="/credentials/uw-rise-logo.png"
+          alt="Wisconsin RISE Initiative (Wisconsin Research, Innovation and Scholarly Excellence)"
+          width={240}
+          height={64}
+          className="h-auto w-auto"
+          unoptimized
+          priority
+        />
       </div>
     </div>
   );
