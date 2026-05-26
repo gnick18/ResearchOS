@@ -497,6 +497,40 @@ export default function HybridMarkdownEditor({
   // This allows us to replace the correct portion of the document even when
   // the block structure changes (e.g., adding/removing newlines splits/merges blocks)
   const editingBlockOriginalLengthRef = useRef<number>(0);
+
+  // Buffered-edit snapshot. Captured when a block enters edit mode; held
+  // until blur (or explicit exit) at which point the buffer is composed
+  // back into the document via a single pushAndCommit call.
+  //
+  // While this state is non-null, the editor renders surrounding blocks
+  // against this snapshot rather than the live `value` prop, so typing
+  // into the active textarea does NOT re-parse / re-render the rest of
+  // the document on every keystroke. That fixes two bugs:
+  //   1. Typing `#` in a paragraph flips the parser's idea of the block
+  //      type heading, which used to shift offsets and remount the active
+  //      textarea, dropping focus mid-keystroke.
+  //   2. Preview blocks under the active textarea would re-render their
+  //      ReactMarkdown subtree once per keystroke.
+  // See commitBufferedEdit / handleEditBlur for the commit path.
+  //
+  // Pattern: useState backs the render-time read (`effectiveValue` /
+  // `blocks` memo). The parallel `editSessionSnapshotRef` mirrors it
+  // for synchronous reads in callbacks that run before React flushes
+  // a state update (e.g. handleBlockSelect commits the buffer mid-
+  // click). Both must be written together via beginEditSession /
+  // commitBufferedEdit so the render path and the imperative path
+  // never disagree.
+  //
+  // Seed: when autoStartEditing seeds editingBlockOffset=0 on the
+  // initial mount, also seed the snapshot to the initial value so
+  // commit composes against an actual document. Otherwise the snapshot
+  // is null and remains so until the first beginEditSession call.
+  const initialSnapshot =
+    autoStartEditing && !value.trim() && !disabled ? value : null;
+  const [editSessionSnapshot, setEditSessionSnapshot] = useState<string | null>(
+    initialSnapshot,
+  );
+  const editSessionSnapshotRef = useRef<string | null>(initialSnapshot);
   
   // Helper panel state
   const [helperCollapsed, setHelperCollapsed] = useState(false);
@@ -569,6 +603,93 @@ export default function HybridMarkdownEditor({
     [onChange]
   );
 
+  /**
+   * Begin a buffered edit session. Captures the current document value
+   * into the snapshot (both state and ref — see the
+   * editSessionSnapshotRef declaration for why) and flushes the undo-
+   * history boundary so the pre-edit value is a clean checkpoint. Safe
+   * to call when already in a session; later calls leave the existing
+   * snapshot in place (so switching block-to-block mid-session doesn't
+   * reset the freeze).
+   */
+  const beginEditSession = useCallback(() => {
+    if (editSessionSnapshotRef.current === null) {
+      editSessionSnapshotRef.current = valueRef.current;
+      setEditSessionSnapshot(valueRef.current);
+    }
+    historyRef.current?.flushBoundary();
+  }, []);
+
+  /**
+   * Buffer-mode keystroke target — read directly by handleEditChange and
+   * by intra-edit helpers (Tab, soft-break Enter, formatting shortcuts,
+   * language selector, heading-adjust). Holds the live buffer content
+   * (which is also what's in setEditingBlockContent state — we keep a
+   * ref so synchronous helpers see the latest write before the next
+   * render).
+   *
+   * Seeded to match the autoStartEditing initial state so the very
+   * first keystroke commits cleanly even before any explicit
+   * beginEditSession / handleBlockEdit call.
+   */
+  const editingBlockContentRef = useRef<string>("");
+  const editingBlockOffsetRef = useRef<number | null>(
+    autoStartEditing && !value.trim() && !disabled ? 0 : null,
+  );
+
+  // Track whether the edit session began on a blank-line block. If so,
+  // a non-blank commit needs surrounding newlines so the parser keeps
+  // proper paragraph boundaries (otherwise adjacent paragraphs swallow
+  // the new text into a single block). See the original
+  // BLANK-LINE FIRST-TYPING GUARD comment in handleEditChange (pre
+  // buffered-edit) for the original rationale.
+  const editSessionStartedBlankRef = useRef<boolean>(false);
+
+  /**
+   * Compose the current edit-session buffer back into the snapshot at
+   * the active block's offset and push the result as a single undo
+   * step. Clears the snapshot afterwards. Returns the committed value
+   * (or null if no session was active or the buffer matched the
+   * original block content).
+   *
+   * The single point of integration with pushAndCommit during a
+   * buffered edit: callers that have already mutated the document
+   * themselves (Shift+Enter hard split, Backspace paragraph merge)
+   * should clear the snapshot manually and skip this helper.
+   */
+  const commitBufferedEdit = useCallback((): string | null => {
+    const snapshot = editSessionSnapshotRef.current;
+    const offset = editingBlockOffsetRef.current;
+    let buffer = editingBlockContentRef.current;
+    if (snapshot === null || offset === null) {
+      editSessionStartedBlankRef.current = false;
+      return null;
+    }
+    const originalLength = editingBlockOriginalLengthRef.current;
+
+    // Blank-line block emergence guard. Wrap with \n so the parser
+    // doesn't merge the new content into the adjacent paragraphs.
+    if (editSessionStartedBlankRef.current && buffer.trim().length > 0) {
+      buffer = "\n" + buffer + "\n";
+    }
+
+    const newFullContent =
+      snapshot.substring(0, offset) +
+      buffer +
+      snapshot.substring(offset + originalLength);
+    editSessionSnapshotRef.current = null;
+    setEditSessionSnapshot(null);
+    editSessionStartedBlankRef.current = false;
+    if (newFullContent === valueRef.current) {
+      return null;
+    }
+    // Commit as a single "paste"-kind step so the whole edit session
+    // collapses into one undo entry regardless of how many characters
+    // were typed.
+    pushAndCommit(newFullContent, "paste");
+    return newFullContent;
+  }, [pushAndCommit]);
+
   const performUndo = useCallback((): boolean => {
     const prev = historyRef.current?.undo(valueRef.current) ?? null;
     if (prev === null) return false;
@@ -589,7 +710,15 @@ export default function HybridMarkdownEditor({
   // a logical boundary even when the buffer text hasn't changed yet.
   useEffect(() => {
     historyRef.current?.flushBoundary();
+    editingBlockOffsetRef.current = editingBlockOffset;
   }, [editingBlockOffset]);
+
+  // Mirror editingBlockContent state into a ref so the synchronous
+  // commitBufferedEdit / onBlur path can read the latest typed text
+  // without waiting for an effect to flush. Same pattern as valueRef.
+  useEffect(() => {
+    editingBlockContentRef.current = editingBlockContent;
+  }, [editingBlockContent]);
 
   // Resolved blob URLs for images (path -> blob URL)
   const [resolvedBlobUrls, setResolvedBlobUrls] = useState<Map<string, string>>(new Map());
@@ -607,8 +736,20 @@ export default function HybridMarkdownEditor({
     }
   }, []);
 
-  // Parse the markdown content into blocks
-  const blocks = useMemo(() => parseMarkdownBlocks(value), [value]);
+  // Parse the markdown content into blocks.
+  //
+  // While a block is being edited (snapshot is captured), the surrounding
+  // blocks are parsed against the FROZEN snapshot, not the live `value`
+  // prop. This is the read side of the buffered-edit model: keystrokes
+  // into the active textarea write only to local buffer state, so the
+  // live `value` doesn't change mid-edit anyway. Keeping `blocks` keyed
+  // off the snapshot during the edit session prevents any stray external
+  // value change from re-keying preview blocks underneath the textarea.
+  const effectiveValue = editSessionSnapshot !== null ? editSessionSnapshot : value;
+  const blocks = useMemo(
+    () => parseMarkdownBlocks(effectiveValue),
+    [effectiveValue],
+  );
 
   // Find the block that's currently being edited by its start offset
   const editingBlock = useMemo(() => {
@@ -690,9 +831,13 @@ export default function HybridMarkdownEditor({
         const block = blocks.find((b) => b.startOffset === selectedBlockOffset);
         if (block) {
           setSelectedBlockOffset(null);
+          beginEditSession();
+          editSessionStartedBlankRef.current = block.type === "blankLine";
           isEditingRef.current = true;
           setEditingBlockOffset(block.startOffset);
+          editingBlockOffsetRef.current = block.startOffset;
           setEditingBlockContent(block.content);
+          editingBlockContentRef.current = block.content;
           editingBlockOriginalLengthRef.current = block.content.length;
           setEditCursorPosition(0);
         }
@@ -700,7 +845,7 @@ export default function HybridMarkdownEditor({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [selectedBlockOffset, blocks, value, onChange]);
+  }, [selectedBlockOffset, blocks, value, onChange, beginEditSession]);
 
   // Clear selection if the underlying block was removed by an outside edit
   // (e.g. content rewrite). Synchronizing to external state is exactly what
@@ -833,26 +978,18 @@ export default function HybridMarkdownEditor({
   const handleLanguageSelect = useCallback(
     (languageCode: string) => {
       if (codeBlockInsertPosition === null) return;
-      
-      // Insert the language code after ```
-      const newContent = 
-        editingBlockContent.substring(0, codeBlockInsertPosition) + 
-        languageCode + 
-        editingBlockContent.substring(codeBlockInsertPosition);
-      
-      setEditingBlockContent(newContent);
-      
-      // Update the full document using stored original block extent
-      if (editingBlockOffset !== null) {
-        const originalLength = editingBlockOriginalLengthRef.current;
-        const newFullContent =
-          value.substring(0, editingBlockOffset) +
-          newContent +
-          value.substring(editingBlockOffset + originalLength);
 
-        editingBlockOriginalLengthRef.current = newContent.length;
-        pushAndCommit(newFullContent, "paste");
-      }
+      // Insert the language code after ```. Under buffered-edit this
+      // writes only to local buffer — no per-keystroke commit. The
+      // change ships to the parent at the next blur along with whatever
+      // else the user types in this session.
+      const newContent =
+        editingBlockContent.substring(0, codeBlockInsertPosition) +
+        languageCode +
+        editingBlockContent.substring(codeBlockInsertPosition);
+
+      editingBlockContentRef.current = newContent;
+      setEditingBlockContent(newContent);
 
       // Move cursor to after the language code
       const newCursorPos = codeBlockInsertPosition + languageCode.length;
@@ -867,7 +1004,7 @@ export default function HybridMarkdownEditor({
       setLanguageSearch("");
       setCodeBlockInsertPosition(null);
     },
-    [codeBlockInsertPosition, editingBlockContent, editingBlockOffset, value, pushAndCommit]
+    [codeBlockInsertPosition, editingBlockContent]
   );
 
   /**
@@ -881,6 +1018,10 @@ export default function HybridMarkdownEditor({
       // implicitly, but we removed it to keep paste-induced transient blurs
       // from tearing down edit mode mid-paste.
       if (editingBlockOffset !== null && editingBlockOffset !== block.startOffset) {
+        // Flush buffered edit FIRST so the document reflects what the
+        // user just typed, then drop the editing state. The commit
+        // clears editSessionSnapshotRef internally.
+        commitBufferedEdit();
         isEditingRef.current = false;
         setEditingBlockOffset(null);
         setEditingBlockContent("");
@@ -889,7 +1030,7 @@ export default function HybridMarkdownEditor({
       }
       setSelectedBlockOffset(block.startOffset);
     },
-    [disabled, editingBlockOffset]
+    [disabled, editingBlockOffset, commitBufferedEdit]
   );
 
   const handleBlockEdit = useCallback(
@@ -900,9 +1041,18 @@ export default function HybridMarkdownEditor({
       // both a selection halo and an editing textarea.
       setSelectedBlockOffset(null);
 
+      // Freeze the document into a snapshot for the duration of this
+      // edit session. handleEditChange will then write only to local
+      // buffer state and surrounding preview blocks parse against the
+      // snapshot, not the live value. Buffered commit happens at blur.
+      beginEditSession();
+      editSessionStartedBlankRef.current = block.type === "blankLine";
+
       isEditingRef.current = true;
       setEditingBlockOffset(block.startOffset);
+      editingBlockOffsetRef.current = block.startOffset;
       setEditingBlockContent(block.content);
+      editingBlockContentRef.current = block.content;
       editingBlockOriginalLengthRef.current = block.content.length;
 
       if (event) {
@@ -921,7 +1071,7 @@ export default function HybridMarkdownEditor({
         setEditCursorPosition(0);
       }
     },
-    [disabled]
+    [disabled, beginEditSession]
   );
 
   /** Remove a block and its trailing paragraph separator from the document. */
@@ -945,29 +1095,40 @@ export default function HybridMarkdownEditor({
   );
 
   /**
-   * Handle changes to the editing block content
+   * Handle changes to the editing block content.
+   *
+   * BUFFERED-EDIT MODEL: keystrokes update LOCAL buffer state only.
+   * The parent's onChange is NOT called per keystroke. Surrounding
+   * preview blocks parse against the frozen edit-session snapshot
+   * (see effectiveValue / blocks above) so they don't re-render
+   * underneath the active textarea, and the textarea node itself
+   * doesn't get re-keyed when the buffer's first character flips it
+   * from paragraph to heading (typing `#`). The buffer is composed
+   * into a new document value and committed via a single
+   * pushAndCommit call on blur — see commitBufferedEdit and
+   * handleEditBlur.
+   *
+   * Side effects that ARE still synchronous here:
+   *   - Detect ``` at start-of-line to open the language selector
+   *     popup. The popup writes into the buffer, not the document.
+   *   - editingBlockContentRef stays in sync with buffer state so
+   *     the synchronous commit path reads the freshest text.
    */
   const handleEditChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newContent = e.target.value;
       const textarea = textareaRef.current;
       const cursorPos = textarea?.selectionStart || 0;
-      const inputType =
-        (e.nativeEvent as InputEvent | undefined)?.inputType ?? "";
-      const editKind: PushKind =
-        inputType === "insertFromPaste" || inputType === "insertFromDrop"
-          ? "paste"
-          : "type";
-      
+
       // Check if user just typed ``` at the start of a line
       const textBeforeCursor = newContent.substring(0, cursorPos);
       const lines = textBeforeCursor.split('\n');
       const currentLine = lines[lines.length - 1];
-      
+
       // Check if current line is exactly ``` (code block start)
       if (currentLine === '```' && editingBlockOffset !== null) {
         const insertPos = cursorPos; // Position right after ```
-        
+
         // Get textarea position for popup
         if (textarea) {
           const textareaRect = textarea.getBoundingClientRect();
@@ -976,7 +1137,7 @@ export default function HybridMarkdownEditor({
           const charWidth = 8; // Approximate monospace char width
           const topOffset = lineIndex * lineHeight;
           const leftOffset = currentLine.length * charWidth;
-          
+
           setLanguageSelectorPosition({
             top: textareaRect.top + topOffset - textarea.scrollTop + lineHeight,
             left: textareaRect.left + leftOffset,
@@ -986,96 +1147,30 @@ export default function HybridMarkdownEditor({
           setLanguageSearch("");
         }
       }
-      
+
+      // Buffer-only write. Mirror to the ref synchronously so any
+      // commit triggered before React flushes the state update
+      // (e.g. the user clicks straight to a different block) sees
+      // the latest typed character.
+      editingBlockContentRef.current = newContent;
       setEditingBlockContent(newContent);
-
-      // Update the full document content
-      // Use the stored original block extent to replace the correct portion
-      // This is more stable than finding the block from re-parsed blocks
-      // because block boundaries can change during editing (e.g., adding newlines)
-      if (editingBlockOffset !== null) {
-        const originalLength = editingBlockOriginalLengthRef.current;
-
-        // BLANK-LINE FIRST-TYPING GUARD
-        // When the user enters edit mode on a blank-line block (either via
-        // the "+ Add paragraph" button at the bottom or by double-clicking
-        // an existing blank line between paragraphs), the original block
-        // has empty/whitespace-only content. A naive splice of typed
-        // non-blank text into that position eliminates the blank-line
-        // separator, so the parser merges the surrounding paragraphs and
-        // the new content into ONE paragraph block at a different offset.
-        // The block at editingBlockOffset disappears from the next parse,
-        // no block in renderBlock matches, no textarea renders, focus dies.
-        //
-        // Fix: detect the first non-blank keystroke into a blank-line block
-        // and wrap the typed content with "\n" on both sides so the parser
-        // keeps proper block boundaries. Shift editingBlockOffset by 1 so
-        // the next render targets the newly-emerged paragraph block.
-        // Subsequent keystrokes flow through the normal splice path because
-        // the block at editingBlockOffset is now a paragraph, not a blankLine.
-        //
-        // Closes the "new paragraph chunks added in hybrid mode lose focus
-        // after one character" bug Grant repro'd 2026-05-19.
-        const currentBlock = blocks.find(
-          (b) => b.startOffset === editingBlockOffset
-        );
-        const justTypedFirstNonBlank =
-          currentBlock?.type === "blankLine" && newContent.trim().length > 0;
-
-        if (justTypedFirstNonBlank) {
-          const wrapped = "\n" + newContent + "\n";
-          const newFullContent =
-            value.substring(0, editingBlockOffset) +
-            wrapped +
-            value.substring(editingBlockOffset + originalLength);
-          // The new paragraph block starts one character past the original
-          // blank-line offset (the leading "\n" we inserted lives in the
-          // preserved blank-line block, the paragraph starts after it).
-          setEditingBlockOffset(editingBlockOffset + 1);
-          // Sync cursor position to end of typed content. The editingBlockOffset
-          // change above re-keys the textarea container (editing-${offset}),
-          // forcing React to unmount the old textarea and mount a fresh one.
-          // The focus effect that fires post-mount reads editCursorPosition to
-          // place the cursor — without this update it would stay at the stale
-          // value of 0 set when the user first entered the blank-line block,
-          // landing the cursor BEFORE the typed character. Subsequent keystrokes
-          // would then prepend to the start of the buffer (typing "Test" yielded
-          // "estT" per the 2026-05-19 repro after the f894f7c7 wrap-with-newlines
-          // landing).
-          setEditCursorPosition(newContent.length);
-          editingBlockOriginalLengthRef.current = newContent.length;
-          // The wrap inserts two synthetic `\n`s the user didn't actually
-          // type. Treat the whole block-emergence as one paste-kind step so
-          // a single Cmd+Z reverts to the blank-line state.
-          pushAndCommit(newFullContent, "paste");
-          return;
-        }
-
-        // Replace the portion of the document from editingBlockOffset to editingBlockOffset + originalLength
-        // with the new content
-        const newFullContent =
-          value.substring(0, editingBlockOffset) +
-          newContent +
-          value.substring(editingBlockOffset + originalLength);
-
-        // Update the original length for the next edit
-        editingBlockOriginalLengthRef.current = newContent.length;
-
-        pushAndCommit(newFullContent, editKind);
-      } else {
-        // Edge case: editing a non-existent block (empty document or new block)
-        // Just use the content directly - this handles new notes/empty documents
-        pushAndCommit(newContent, editKind);
-      }
     },
-    [value, pushAndCommit, editingBlockOffset, blocks]
+    [editingBlockOffset]
   );
 
   /**
-   * Handle leaving edit mode (blur or Escape)
+   * Handle leaving edit mode (blur, Escape, click-outside).
+   *
+   * Buffered-edit commit point. The local buffer is composed back
+   * into the snapshot at the active block's offset and pushed as a
+   * single undo step via commitBufferedEdit. If no buffered changes
+   * are pending (snapshot already cleared, or buffer matches the
+   * original block), no onChange fires.
    */
   const handleEditBlur = useCallback(() => {
-    // Save any pending changes (already saved in onChange)
+    commitBufferedEdit();
+    editingBlockOffsetRef.current = null;
+    editingBlockContentRef.current = "";
     isEditingRef.current = false;
     setEditingBlockOffset(null);
     setEditingBlockContent("");
@@ -1083,22 +1178,34 @@ export default function HybridMarkdownEditor({
     setShowLanguageSelector(false);
     // Leaving edit mode is a logical boundary for the undo stack.
     historyRef.current?.flushBoundary();
-  }, []);
+  }, [commitBufferedEdit]);
 
   /**
-   * Helper function to update the full document using stored original block extent.
-   * Routes through pushAndCommit as a paste-kind step so atomic edits (Tab
-   * indent, Cmd+B, Cmd+Ctrl+heading, etc.) each become one undo step rather
-   * than merging into a typing run.
+   * Helper that intra-edit shortcuts (Tab indent, Cmd+B, Cmd+Ctrl+heading,
+   * heading-level adjust, etc.) call to write a new block-buffer value
+   * after their own cursor math.
+   *
+   * Under the buffered-edit model this writes ONLY to the local buffer
+   * (and its mirror ref), NOT to the parent document. The whole edit
+   * session collapses into a single pushAndCommit at blur time. If the
+   * caller is not in an edit session (snapshot is null), we fall back
+   * to a direct pushAndCommit — that path is for emergency edits from
+   * the helper panel into a not-yet-active block.
    */
   const updateDocumentContent = useCallback(
     (newContent: string) => {
+      if (editSessionSnapshotRef.current !== null && editingBlockOffsetRef.current !== null) {
+        editingBlockContentRef.current = newContent;
+        setEditingBlockContent(newContent);
+        return;
+      }
+      // Fallback: no buffered session active. Commit immediately.
       if (editingBlockOffset !== null) {
         const originalLength = editingBlockOriginalLengthRef.current;
         const newFullContent =
-          value.substring(0, editingBlockOffset) +
+          valueRef.current.substring(0, editingBlockOffset) +
           newContent +
-          value.substring(editingBlockOffset + originalLength);
+          valueRef.current.substring(editingBlockOffset + originalLength);
 
         editingBlockOriginalLengthRef.current = newContent.length;
         pushAndCommit(newFullContent, "paste");
@@ -1106,7 +1213,7 @@ export default function HybridMarkdownEditor({
         pushAndCommit(newContent, "paste");
       }
     },
-    [editingBlockOffset, value, pushAndCommit]
+    [editingBlockOffset, pushAndCommit]
   );
 
   /**
@@ -1197,11 +1304,12 @@ export default function HybridMarkdownEditor({
       }
 
       // Plain Enter inserts a CommonMark soft break (two trailing spaces +
-      // newline). The parser keeps this inside the current paragraph block, so
-      // editingBlockOffset stays put and the textarea does not remount. We
-      // still update editingBlockOriginalLengthRef so subsequent splices into
-      // this block use the new length. Guards skip non-shift modifier combos
-      // (so Cmd+Enter / Ctrl+Enter remain available to parents) and IME
+      // newline). Buffer-only under buffered-edit; the document only sees
+      // the soft break at blur. The parser keeps soft breaks inside the
+      // current paragraph block, so editingBlockOffset stays put and the
+      // textarea does not remount even when we DO re-render against the
+      // post-commit value. Guards skip non-shift modifier combos (so
+      // Cmd+Enter / Ctrl+Enter remain available to parents) and IME
       // composition (so the textarea's native Enter commits the composition).
       if (
         e.key === "Enter" &&
@@ -1221,14 +1329,8 @@ export default function HybridMarkdownEditor({
           editingBlockContent.substring(0, start) +
           softBreak +
           editingBlockContent.substring(end);
+        editingBlockContentRef.current = newContent;
         setEditingBlockContent(newContent);
-        const originalLength = editingBlockOriginalLengthRef.current;
-        const newFullContent =
-          value.substring(0, editingBlockOffset) +
-          newContent +
-          value.substring(editingBlockOffset + originalLength);
-        editingBlockOriginalLengthRef.current = newContent.length;
-        pushAndCommit(newFullContent, "type");
         const newCursor = start + softBreak.length;
         setTimeout(() => {
           textarea.focus();
@@ -1285,12 +1387,24 @@ export default function HybridMarkdownEditor({
         );
         if (!ok) return;
         const softBreak = "  \n";
+        // currentBlock.content reflects the snapshot (since blocks are
+        // parsed against effectiveValue). The user may have typed into
+        // the buffer; use the live buffer for the merged tail so their
+        // edits aren't lost when we collapse out of buffered mode.
+        const liveCurrentContent = editingBlockContentRef.current;
         const merged =
-          prevBlock.content + softBreak + currentBlock.content;
+          prevBlock.content + softBreak + liveCurrentContent;
+        // Use snapshot for the splice base (it's what blocks are keyed off
+        // of); if no snapshot somehow, fall back to live value.
+        const base = editSessionSnapshotRef.current ?? valueRef.current;
         const newFullContent =
-          value.substring(0, prevBlock.startOffset) +
+          base.substring(0, prevBlock.startOffset) +
           merged +
-          value.substring(currentBlock.startOffset + currentBlock.content.length);
+          base.substring(currentBlock.startOffset + currentBlock.content.length);
+        // Bypass commitBufferedEdit: we have a bespoke transformation.
+        editSessionSnapshotRef.current = null;
+        setEditSessionSnapshot(null);
+        editSessionStartedBlankRef.current = false;
         pushAndCommit(newFullContent, "paste");
         handleEditBlur();
         return;
@@ -1321,10 +1435,19 @@ export default function HybridMarkdownEditor({
           hardSplit +
           editingBlockContent.substring(end);
         const originalLength = editingBlockOriginalLengthRef.current;
+        // Splice against the snapshot (not the live value). The snapshot
+        // is what blocks are derived from in buffered mode; using live
+        // value would race against any external prop change during the
+        // session.
+        const base = editSessionSnapshotRef.current ?? valueRef.current;
         const newFullContent =
-          value.substring(0, editingBlockOffset) +
+          base.substring(0, editingBlockOffset) +
           newContent +
-          value.substring(editingBlockOffset + originalLength);
+          base.substring(editingBlockOffset + originalLength);
+        // Bespoke transformation — bypass commitBufferedEdit.
+        editSessionSnapshotRef.current = null;
+        setEditSessionSnapshot(null);
+        editSessionStartedBlankRef.current = false;
         pushAndCommit(newFullContent, "paste");
         handleEditBlur();
         return;
@@ -1510,7 +1633,7 @@ export default function HybridMarkdownEditor({
         }
       }
     },
-    [editingBlockContent, editingBlockOffset, updateDocumentContent, handleEditBlur, disabled, performUndo, performRedo, value, pushAndCommit, blocks]
+    [editingBlockContent, editingBlockOffset, updateDocumentContent, handleEditBlur, disabled, performUndo, performRedo, pushAndCommit, blocks]
   );
 
   // When autoStartEditing seeds editingBlockOffset on the initial mount we
@@ -1612,32 +1735,35 @@ export default function HybridMarkdownEditor({
   );
 
   /**
-   * Handle inserting style guide syntax
+   * Handle inserting style guide syntax. Two paths:
+   *   - Already in an edit session: write into the local buffer at the
+   *     cursor, mirror to the ref, move the textarea cursor. No commit
+   *     happens until blur.
+   *   - Not yet in an edit session: enter one on the first block,
+   *     insert the syntax at its start, and stay in the session for
+   *     further typing. Same buffered-edit contract — commit at blur.
    */
   const handleInsertSyntax = useCallback(
     (syntax: string) => {
       if (editingBlockOffset === null) {
         // No block is being edited, find the first block or create one
         if (blocks.length > 0) {
-          // Click on the first block to start editing
+          // Enter a buffered edit session anchored on the first block.
+          beginEditSession();
+          editSessionStartedBlankRef.current = blocks[0].type === "blankLine";
           isEditingRef.current = true;
           setEditingBlockOffset(blocks[0].startOffset);
-          setEditingBlockContent(blocks[0].content);
+          editingBlockOffsetRef.current = blocks[0].startOffset;
+          const newContent = syntax + blocks[0].content;
+          setEditingBlockContent(newContent);
+          editingBlockContentRef.current = newContent;
           // Store the original block length
           editingBlockOriginalLengthRef.current = blocks[0].content.length;
-          setEditCursorPosition(0);
-          
-          // Insert syntax after a short delay
+          setEditCursorPosition(syntax.length);
+
+          // Move textarea cursor after the inserted syntax once it
+          // mounts (focus effect handles the initial focus).
           setTimeout(() => {
-            const newContent = syntax + blocks[0].content;
-            setEditingBlockContent(newContent);
-            // Update using stored extent
-            const newFullContent = 
-              value.substring(0, blocks[0].startOffset) + 
-              newContent + 
-              value.substring(blocks[0].startOffset + blocks[0].content.length);
-            editingBlockOriginalLengthRef.current = newContent.length;
-            onChange(newFullContent);
             if (textareaRef.current) {
               textareaRef.current.setSelectionRange(syntax.length, syntax.length);
             }
@@ -1645,24 +1771,24 @@ export default function HybridMarkdownEditor({
         }
         return;
       }
-      
+
       // We're editing a block, insert at cursor position
       const textarea = textareaRef.current;
       if (!textarea) return;
-      
+
       const start = textarea.selectionStart;
       const end = textarea.selectionEnd;
       const newContent = editingBlockContent.substring(0, start) + syntax + editingBlockContent.substring(end);
-      
+
+      editingBlockContentRef.current = newContent;
       setEditingBlockContent(newContent);
-      updateDocumentContent(newContent);
-      
+
       setTimeout(() => {
         textarea.focus();
         textarea.setSelectionRange(start + syntax.length, start + syntax.length);
       }, 0);
     },
-    [editingBlockOffset, blocks, editingBlockContent, value, onChange, updateDocumentContent]
+    [editingBlockOffset, blocks, editingBlockContent, beginEditSession]
   );
 
   /**
@@ -1686,13 +1812,20 @@ export default function HybridMarkdownEditor({
       hardSplit +
       editingBlockContent.substring(end);
     const originalLength = editingBlockOriginalLengthRef.current;
+    // Splice against snapshot under buffered-edit; fall back to live
+    // value if no session is active.
+    const base = editSessionSnapshotRef.current ?? valueRef.current;
     const newFullContent =
-      value.substring(0, editingBlockOffset) +
+      base.substring(0, editingBlockOffset) +
       newContent +
-      value.substring(editingBlockOffset + originalLength);
+      base.substring(editingBlockOffset + originalLength);
+    // Bespoke transformation — bypass commitBufferedEdit.
+    editSessionSnapshotRef.current = null;
+    setEditSessionSnapshot(null);
+    editSessionStartedBlankRef.current = false;
     pushAndCommit(newFullContent, "paste");
     handleEditBlur();
-  }, [editingBlockOffset, editingBlockContent, value, pushAndCommit, handleEditBlur]);
+  }, [editingBlockOffset, editingBlockContent, pushAndCommit, handleEditBlur]);
 
   /**
    * Render a single block
@@ -2131,9 +2264,19 @@ export default function HybridMarkdownEditor({
             if (!disabled && editingBlockOffset === null) {
               // Create a new empty paragraph block to edit
               // Use offset 0 for new content
+              beginEditSession();
+              // Empty-document path: original block length is 0 and the
+              // initial buffer is "", so commitBufferedEdit will replace
+              // [0..0] of the snapshot with the typed buffer. No blank-
+              // line guard needed because there are no surrounding
+              // paragraphs to merge into.
+              editSessionStartedBlankRef.current = false;
               isEditingRef.current = true;
               setEditingBlockOffset(0);
+              editingBlockOffsetRef.current = 0;
               setEditingBlockContent("");
+              editingBlockContentRef.current = "";
+              editingBlockOriginalLengthRef.current = 0;
               setEditCursorPosition(0);
             }
           }}
@@ -2331,7 +2474,10 @@ export default function HybridMarkdownEditor({
           <button
             type="button"
             onClick={() => {
-              // Append a new paragraph at the end
+              // Append a new paragraph at the end. This mutates the
+              // document directly (a structural change, not a buffered
+              // typing edit) and then opens a buffered edit session on
+              // the new blank-line block so the user can type into it.
               const newContent = value + (value && !value.endsWith("\n") ? "\n\n" : "\n");
               onChange(newContent);
               // The new block will be created on next render
@@ -2340,19 +2486,22 @@ export default function HybridMarkdownEditor({
                 const newBlocks = parseMarkdownBlocks(newContent);
                 const lastBlock = newBlocks[newBlocks.length - 1];
                 if (lastBlock && lastBlock.content.trim() === "") {
+                  // Open the buffered session anchored on the new
+                  // blank-line block. The snapshot we take here is
+                  // `newContent` (which the parent has just accepted),
+                  // so commitBufferedEdit composes against it correctly.
+                  beginEditSession();
+                  editSessionStartedBlankRef.current = lastBlock.type === "blankLine";
                   isEditingRef.current = true;
                   setEditingBlockOffset(lastBlock.startOffset);
+                  editingBlockOffsetRef.current = lastBlock.startOffset;
                   setEditingBlockContent("");
+                  editingBlockContentRef.current = "";
                   // CRITICAL: sync the original-length ref to the new block's
-                  // content. Without this, handleEditChange computes
+                  // content. Without this, commitBufferedEdit computes
                   // newFullContent against whatever stale length was left by
                   // the previous edit session, which produces a wrong document
-                  // slice on the first keystroke and the block at
-                  // editingBlockOffset disappears from the next parse, leaving
-                  // no block matching the editing offset, so renderBlock skips
-                  // the textarea entirely and focus is lost. Closes the
-                  // "new paragraph chunks added in hybrid mode lose focus
-                  // after one character" bug Grant repro'd 2026-05-19.
+                  // slice on commit.
                   editingBlockOriginalLengthRef.current = lastBlock.content.length;
                   setEditCursorPosition(0);
                 }
