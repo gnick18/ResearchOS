@@ -76,10 +76,13 @@ export default function SnapshotTilePopup({
 
   return (
     <div
-      // z=500: above InputLockOverlay (420). Above the standard detail
-      // popups (50/60) too — the snapshot popup is a dashboard-level
-      // surface, not a row-popup.
-      className="fixed inset-0 z-[500] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      // z=440: above InputLockOverlay (420) so the popup stays interactive
+      // inside the v4 tour, and above standard detail popups (50/60), but
+      // BELOW the tour speech bubble (450) so tour spotlights anchored on
+      // the tile do not get occluded. Outside tour mode, InputLockOverlay
+      // is not mounted, so this remains the topmost surface for the
+      // dashboard.
+      className="fixed inset-0 z-[440] flex items-center justify-center bg-black/40 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-label={title}
