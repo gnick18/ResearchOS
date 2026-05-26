@@ -120,15 +120,18 @@ export default function NotificationsFeaturePage() {
       </p>
       <ul>
         <li>
-          <strong>Move to active.</strong> Sends the photo into the experiment
-          whose popup is currently open. The button is disabled until you open
-          an experiment popup, with a tooltip explaining why.
+          <strong>Move to active.</strong> Sends the photo into whichever
+          surface is currently open in ResearchOS: an experiment, a note,
+          or (if both popups are open) a small dropdown lets you pick
+          between them. The button is disabled when nothing is open, with
+          a tooltip explaining why.
         </li>
         <li>
           <strong>⋯ (more actions).</strong> A small ellipsis button that only
           fades in when you hover the row. Clicking it opens the same menu as
           right-click, anchored under the button: <em>Send to task&hellip;</em>,{" "}
-          <em>Move to active</em>, and <em>Delete</em>.
+          <em>Send to note&hellip;</em>, <em>Move to active</em>, and{" "}
+          <em>Delete</em>.
         </li>
         <li>
           <strong>Delete.</strong> Removes the photo from the inbox folder
@@ -166,12 +169,16 @@ export default function NotificationsFeaturePage() {
       <p>
         With one or more rows selected, <strong>right-click any selected
         row</strong> (or click the <strong>⋯</strong> button) to open a
-        context menu. The top item reads <strong>Send to task&hellip;</strong>{" "}
-        for a single row and <strong>Send N items to task&hellip;</strong>{" "}
-        when multiple are selected. Picking it opens the{" "}
-        <strong>Send to task picker</strong>, a searchable list of your
-        experiments. Choose one and the whole batch moves into that task at
-        once.
+        context menu. The top two items read <strong>Send to task&hellip;</strong>{" "}
+        and <strong>Send to note&hellip;</strong> for a single row, or{" "}
+        <strong>Send N items to task&hellip;</strong> /{" "}
+        <strong>Send N items to note&hellip;</strong> when multiple are
+        selected. Picking either opens a searchable picker (experiments
+        sorted by most-recent start date, or notes sorted by
+        most-recently-updated). Choose a destination and the whole batch
+        moves there at once. Note destinations append a markdown image
+        link to the note&apos;s latest entry as each photo lands, so the
+        photos surface inline next time you open the note.
       </p>
       <Screenshot
         src="/wiki/screenshots/telegram-inbox-multiselect.png"

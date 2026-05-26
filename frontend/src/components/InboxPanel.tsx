@@ -13,10 +13,12 @@ import { fileService } from "@/lib/file-system/file-service";
 import { sidecarPath, type ImageSidecar } from "@/lib/attachments/image-folder";
 import { imageEvents } from "@/lib/attachments/image-events";
 import { resolveTaskResultsBase } from "@/lib/tasks/results-paths";
-import { useAppStore, type ActiveTask } from "@/lib/store";
+import { useAppStore, type ActiveTask, type ActiveNote } from "@/lib/store";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { attachImageToNote } from "@/lib/attachments/attach-image";
 import ImageMetadataPopup from "./ImageMetadataPopup";
 import SendToTaskPicker from "./SendToTaskPicker";
+import SendToNotePicker from "./SendToNotePicker";
 import { useDuplicateResolver } from "./DuplicateUploadDialog";
 
 interface InboxPanelProps {
@@ -42,6 +44,11 @@ function taskNotesBase(taskResultsBase: string): string {
 export default function InboxPanel({ onClose }: InboxPanelProps) {
   const { currentUser } = useCurrentUser();
   const activeTask = useAppStore((s) => s.activeTask);
+  // Inbox note-routing R2 (2026-05-26): Inbox now files to NOTES alongside
+  // experiments. `activeNote` mirrors `activeTask` — set by NoteDetailPopup
+  // when a note is open, cleared on close. The "Move to active" button and
+  // the right-click menu both branch on which of the two (or both) is set.
+  const activeNote = useAppStore((s) => s.activeNote);
   const { resolve: resolveDuplicates, DialogComponent: DuplicateDialog } =
     useDuplicateResolver();
   const [entries, setEntries] = useState<InboxEntry[]>([]);
@@ -69,6 +76,16 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
     anchorEntry: InboxEntry;
   } | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // Inbox note-routing R2: second picker, opened by the "Send N items to
+  // note" context-menu entry. Mutually exclusive with `pickerOpen` (one
+  // modal at a time), but kept as separate flags so each picker owns its
+  // own search state without cross-talk.
+  const [notePickerOpen, setNotePickerOpen] = useState(false);
+  // Inbox note-routing R2: the per-row "Move to active" affordance becomes
+  // a dropdown when BOTH activeTask AND activeNote are set. `dropdownOpen`
+  // tracks which row's dropdown is currently expanded (by entry name) so
+  // outside-click can close it.
+  const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
 
   // Brief confirmation toast (drop-in, no library — same shape as the
   // emerald drop-toast in TaskDetailPopup).
@@ -128,6 +145,24 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
     };
   }, [contextMenu]);
 
+  // Inbox note-routing R2: same dismissal contract for the per-row "Move
+  // to active…" dropdown when both an experiment AND a note are open.
+  // Reuses the contextMenu's outside-click + Esc plumbing but as its own
+  // effect so the two pieces of UI can be open independently.
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const onAny = () => setDropdownOpen(null);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDropdownOpen(null);
+    };
+    window.addEventListener("click", onAny);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("click", onAny);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [dropdownOpen]);
+
   const moveToActive = useCallback(
     async (entry: InboxEntry, task: ActiveTask) => {
       if (!currentUser) return;
@@ -142,6 +177,48 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
       } catch (err) {
         console.error("[inbox] move failed", err);
         alert("Failed to move image to experiment.");
+      } finally {
+        setBusy(null);
+      }
+    },
+    [currentUser, refresh]
+  );
+
+  // Inbox note-routing R2: single-row attach to the active NOTE. Reads the
+  // inbox image as a Blob, calls attachImageToNote (which handles its own
+  // dedupe + appends a markdown link to the note's latest entry), and then
+  // deletes the source row from the inbox folder so the row disappears from
+  // the panel after refresh. We intentionally do not reuse
+  // moveImageBetweenBases here: note attachments need the markdown-append
+  // side effect, which only attachImageToNote knows about.
+  const moveToActiveNote = useCallback(
+    async (entry: InboxEntry, note: ActiveNote) => {
+      if (!currentUser) return;
+      setBusy(entry.name);
+      try {
+        const srcImage = `${inboxBase(currentUser)}/Images/${entry.name}`;
+        const srcSidecar = sidecarPath(inboxBase(currentUser), entry.name);
+        const blob = await fileService.readFileAsBlob(srcImage);
+        if (!blob) throw new Error(`Source image not found: ${srcImage}`);
+        const caption = entry.sidecar?.caption;
+        await attachImageToNote({
+          ownerUsername: note.owner,
+          noteId: note.id,
+          blob,
+          suggestedFilename: entry.name,
+          altText: caption ?? entry.name,
+        });
+        await fileService.deleteFile(srcImage);
+        await fileService.deleteFile(srcSidecar);
+        blobUrlResolver.revokePath(srcImage);
+        imageEvents.emitDeleted({
+          basePath: inboxBase(currentUser),
+          filename: entry.name,
+        });
+        await refresh();
+      } catch (err) {
+        console.error("[inbox] move-to-note failed", err);
+        alert("Failed to attach image to note.");
       } finally {
         setBusy(null);
       }
@@ -383,11 +460,96 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
     [currentUser, selectedIds, refresh, resolveDuplicates]
   );
 
+  // ---- Batch action: Send selected items to a note ------------------------
+  // Inbox note-routing R2: parallels sendSelectedToTask, but notes don't
+  // share the destination-collision dialog flow because attachImageToNote
+  // dedupes filenames internally (its own pickUniqueFilename pass). So
+  // this is a plain sequential loop with success / failure tallies.
+  // Sequential rather than Promise.all because (a) it's clearer to debug
+  // and (b) the per-call markdown-append happens on the note's latest
+  // entry — concurrent appends on the same entry would race even though
+  // the file write is dedupe-safe.
+  const sendSelectedToNote = useCallback(
+    async (note: { id: number; owner: string; title: string }) => {
+      if (!currentUser) return;
+      const ids = Array.from(selectedIds);
+      if (ids.length === 0) return;
+
+      setBatchBusy(true);
+      try {
+        const fromBase = inboxBase(currentUser);
+        let succeeded = 0;
+        const failures: string[] = [];
+
+        for (const id of ids) {
+          try {
+            const srcImage = `${fromBase}/Images/${id}`;
+            const srcSidecar = sidecarPath(fromBase, id);
+            const blob = await fileService.readFileAsBlob(srcImage);
+            if (!blob) {
+              console.warn("[inbox] source image missing:", id);
+              failures.push(id);
+              continue;
+            }
+            // The picker hands us the note ref; the per-row caption from
+            // the sidecar becomes the alt text on the appended markdown
+            // link. Falls back to the filename when no caption was set.
+            const caption = entries.find((e) => e.name === id)?.sidecar?.caption;
+            await attachImageToNote({
+              ownerUsername: note.owner,
+              noteId: note.id,
+              blob,
+              suggestedFilename: id,
+              altText: caption ?? id,
+            });
+            // Now delete the inbox copy (image + sidecar) so the row
+            // disappears from the panel. attachImageToNote already wrote
+            // its own copy under the note's Images/.
+            await fileService.deleteFile(srcImage);
+            await fileService.deleteFile(srcSidecar);
+            blobUrlResolver.revokePath(srcImage);
+            imageEvents.emitDeleted({ basePath: fromBase, filename: id });
+            succeeded += 1;
+          } catch (err) {
+            console.error("[inbox] send-to-note failed for", id, err);
+            failures.push(id);
+          }
+        }
+
+        await refresh();
+        setSelectedIds(new Set());
+        setAnchorId(null);
+        setNotePickerOpen(false);
+
+        if (succeeded > 0) {
+          const noun = succeeded === 1 ? "item" : "items";
+          setToast(
+            `Sent ${succeeded} ${noun} to ${note.title || "note"}.`
+          );
+        }
+        if (failures.length > 0) {
+          alert(
+            `Some items failed to send (${failures.length}). Check the console for details.`
+          );
+        }
+      } finally {
+        setBatchBusy(false);
+      }
+    },
+    [currentUser, selectedIds, refresh, entries]
+  );
+
   // The context-menu / button label includes the count when >1 selected.
   const selectedCount = selectedIds.size;
   const sendMenuLabel = useMemo(() => {
     if (selectedCount <= 1) return "Send to task…";
     return `Send ${selectedCount} items to task…`;
+  }, [selectedCount]);
+  // Inbox note-routing R2: companion label for the new "Send … to note"
+  // entry. Same shape so the two menu rows read as sibling actions.
+  const sendNoteMenuLabel = useMemo(() => {
+    if (selectedCount <= 1) return "Send to note…";
+    return `Send ${selectedCount} items to note…`;
   }, [selectedCount]);
 
   return (
@@ -472,19 +634,23 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
                       className="flex items-center gap-1"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <button
-                        type="button"
-                        disabled={!activeTask || busy === entry.name || batchBusy}
-                        onClick={() => activeTask && moveToActive(entry, activeTask)}
-                        title={
-                          activeTask
-                            ? `Move to Experiment ${activeTask.id} (${activeTask.name})`
-                            : "Open an experiment first"
-                        }
-                        className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        Move to active
-                      </button>
+                      <MoveToActiveControl
+                        entry={entry}
+                        activeTask={activeTask}
+                        activeNote={activeNote}
+                        busy={busy === entry.name || batchBusy}
+                        dropdownOpen={dropdownOpen === entry.name}
+                        onOpenDropdown={() => setDropdownOpen(entry.name)}
+                        onCloseDropdown={() => setDropdownOpen(null)}
+                        onMoveToTask={(task) => {
+                          setDropdownOpen(null);
+                          void moveToActive(entry, task);
+                        }}
+                        onMoveToNote={(note) => {
+                          setDropdownOpen(null);
+                          void moveToActiveNote(entry, note);
+                        }}
+                      />
                       <button
                         type="button"
                         aria-label="More actions"
@@ -558,6 +724,19 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
           >
             {sendMenuLabel}
           </button>
+          {/* Inbox note-routing R2: parallel "Send … to note" entry, opens
+              the SendToNotePicker. Sits directly under "Send … to task"
+              so the two read as sibling actions. */}
+          <button
+            type="button"
+            onClick={() => {
+              setContextMenu(null);
+              setNotePickerOpen(true);
+            }}
+            className="w-full text-left px-3 py-1.5 text-sm text-gray-800 hover:bg-blue-50"
+          >
+            {sendNoteMenuLabel}
+          </button>
           <button
             type="button"
             disabled={!activeTask}
@@ -570,6 +749,22 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
           >
             {activeTask ? `Move to active (${activeTask.name})` : "Move to active"}
           </button>
+          {/* Inbox note-routing R2: when a note popup is open, surface a
+              dedicated "Move to active note" entry here too, mirroring
+              the per-row dropdown shape. Hidden entirely when no note is
+              open so the menu doesn't grow a disabled row. */}
+          {activeNote && (
+            <button
+              type="button"
+              onClick={() => {
+                setContextMenu(null);
+                void moveToActiveNote(contextMenu.anchorEntry, activeNote);
+              }}
+              className="w-full text-left px-3 py-1.5 text-sm text-gray-800 hover:bg-blue-50"
+            >
+              {`Move to active note (${activeNote.title})`}
+            </button>
+          )}
           <div className="h-px bg-gray-100 my-1" />
           <button
             type="button"
@@ -591,6 +786,21 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
           onClose={() => setPickerOpen(false)}
           onPick={(task) => {
             void sendSelectedToTask(task);
+          }}
+        />
+      )}
+
+      {/* Inbox note-routing R2: companion note picker. Mounted alongside
+          SendToTaskPicker so the right-click menu's "Send … to note"
+          entry has a target. Only one picker is open at a time (menu
+          rows set just one of the two open-flags). */}
+      {notePickerOpen && (
+        <SendToNotePicker
+          isOpen={notePickerOpen}
+          selectedCount={Math.max(1, selectedIds.size)}
+          onClose={() => setNotePickerOpen(false)}
+          onPick={(note) => {
+            void sendSelectedToNote(note);
           }}
         />
       )}
@@ -630,5 +840,148 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
       )}
     </div>
     </>
+  );
+}
+
+// ─── MoveToActiveControl ────────────────────────────────────────────────────
+//
+// Inbox note-routing R2 (2026-05-26): the per-row primary CTA branches on
+// which active surface (task / note / both / neither) the user has open in
+// ResearchOS. Pulling the four-way logic out of the main list keeps the
+// row JSX flat and lets the dropdown anchor at the button without needing
+// extra refs on the parent.
+//
+// Cases:
+//   - activeTask only           → "Move to active" button → moveToActive(task)
+//   - activeNote only           → "Move to active note" → moveToActiveNote(note)
+//   - BOTH active               → "Move to active…" + caret → dropdown with
+//                                 two labeled rows (experiment + note)
+//   - NEITHER active            → disabled button with the legacy tooltip
+//                                 ("Open an experiment first")
+//
+// The dropdown's outside-click + Esc-to-close lifecycle is owned by the
+// parent (see `dropdownOpen` state + effect). This component just renders
+// the trigger and the floating menu when its `dropdownOpen` prop is true.
+
+interface MoveToActiveControlProps {
+  entry: InboxEntry;
+  activeTask: ActiveTask | null;
+  activeNote: ActiveNote | null;
+  busy: boolean;
+  dropdownOpen: boolean;
+  onOpenDropdown: () => void;
+  onCloseDropdown: () => void;
+  onMoveToTask: (task: ActiveTask) => void;
+  onMoveToNote: (note: ActiveNote) => void;
+}
+
+function MoveToActiveControl({
+  entry: _entry,
+  activeTask,
+  activeNote,
+  busy,
+  dropdownOpen,
+  onOpenDropdown,
+  onCloseDropdown,
+  onMoveToTask,
+  onMoveToNote,
+}: MoveToActiveControlProps) {
+  // Case 1: neither active. Disabled with the legacy tooltip copy.
+  if (!activeTask && !activeNote) {
+    return (
+      <button
+        type="button"
+        disabled
+        title="Open an experiment or a note first"
+        className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        Move to active
+      </button>
+    );
+  }
+
+  // Case 2: task only.
+  if (activeTask && !activeNote) {
+    return (
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => onMoveToTask(activeTask)}
+        title={`Move to Experiment ${activeTask.id} (${activeTask.name})`}
+        className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        Move to active
+      </button>
+    );
+  }
+
+  // Case 3: note only.
+  if (!activeTask && activeNote) {
+    return (
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => onMoveToNote(activeNote)}
+        title={`Move to note "${activeNote.title}"`}
+        className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        Move to active note
+      </button>
+    );
+  }
+
+  // Case 4: both active → dropdown with two labeled options. The caret
+  // button toggles the dropdown; the dropdown itself sits absolutely
+  // positioned just below the trigger. Outside-click dismissal is
+  // handled by the parent (see effect on `dropdownOpen` in InboxPanel).
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        disabled={busy}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (dropdownOpen) onCloseDropdown();
+          else onOpenDropdown();
+        }}
+        aria-haspopup="menu"
+        aria-expanded={dropdownOpen}
+        title="Move to active…"
+        className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+      >
+        <span>Move to active</span>
+        <span aria-hidden className="text-[10px] leading-none">▾</span>
+      </button>
+      {dropdownOpen && activeTask && activeNote && (
+        <div
+          role="menu"
+          className="absolute right-0 top-full mt-1 z-[116] min-w-[220px] rounded-md border border-gray-200 bg-white shadow-lg py-1"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => onMoveToTask(activeTask)}
+            className="w-full text-left px-3 py-1.5 text-xs text-gray-800 hover:bg-blue-50"
+          >
+            <span className="block text-[10px] uppercase tracking-wide text-gray-400">
+              Experiment
+            </span>
+            <span className="block truncate">{activeTask.name}</span>
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => onMoveToNote(activeNote)}
+            className="w-full text-left px-3 py-1.5 text-xs text-gray-800 hover:bg-blue-50"
+          >
+            <span className="block text-[10px] uppercase tracking-wide text-gray-400">
+              Note
+            </span>
+            <span className="block truncate">{activeNote.title}</span>
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

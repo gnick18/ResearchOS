@@ -221,11 +221,13 @@ export default function TelegramIntegrationPage() {
         photo lands at <code>users/&lt;you&gt;/inbox/Images/</code> and the{" "}
         <strong>Inbox</strong> badge in the top bar increments. Click the badge
         to open the inbox modal. Each row shows a thumbnail, the caption you
-        sent, and when it arrived. From here you can move a photo into the open
-        experiment with one click (<strong>Move to active</strong>), click the
-        row to rename or edit the caption, or delete it. A small{" "}
-        <strong>⋯</strong> button fades in on hover and opens the same menu
-        as right-click.
+        sent, and when it arrived. From here you can move a photo into the
+        currently-open surface with one click (<strong>Move to active</strong>{" "}
+        routes to either the open experiment or the open note; when both are
+        open at once a small dropdown next to the button lets you pick which
+        one). You can also click the row to rename or edit the caption, or
+        delete it. A small <strong>⋯</strong> button fades in on hover and
+        opens the same menu as right-click.
       </p>
 
       <h3>Filing a batch of photos</h3>
@@ -253,15 +255,20 @@ export default function TelegramIntegrationPage() {
       <p>
         With one or more rows selected, <strong>right-click any selected
         row</strong> (or click the <strong>⋯</strong> button) to open a
-        context menu. The top item reads <strong>Send to task&hellip;</strong>{" "}
-        for a single row and <strong>Send N items to task&hellip;</strong>{" "}
-        when multiple are selected. Picking it opens the searchable task
-        picker, and choosing an experiment moves the whole batch into that
-        task at once. If any filename collides with an image already in the
-        destination, the duplicate-resolution dialog walks you through{" "}
+        context menu. The top two items read <strong>Send to task&hellip;</strong>{" "}
+        and <strong>Send to note&hellip;</strong> for a single row, or{" "}
+        <strong>Send N items to task&hellip;</strong> /{" "}
+        <strong>Send N items to note&hellip;</strong> when multiple are
+        selected. The task picker is sorted by most-recent start date and
+        lands the batch in the task&apos;s Lab Notes folder; the note picker
+        is sorted by most-recently-updated and appends a markdown image link
+        to each note&apos;s latest entry as the photo lands. If any filename
+        collides with an image already in the destination, the
+        duplicate-resolution dialog walks you through{" "}
         <strong>Rename</strong>, <strong>Replace</strong>, or{" "}
-        <strong>Cancel</strong> per collision. A green toast in the
-        bottom-right of the modal confirms how many photos landed.
+        <strong>Cancel</strong> per collision (task destinations only; the
+        note destination dedupes filenames internally). A green toast in
+        the bottom-right of the modal confirms how many photos landed.
       </p>
       <Callout
         variant="tip"
