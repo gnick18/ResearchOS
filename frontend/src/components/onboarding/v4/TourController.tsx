@@ -975,6 +975,16 @@ export function TourControllerProvider({
         // fire on currentStep change before the new route commits.
         await waitForPathnameSettle(body.expectedRoute);
         if (cancelled) return;
+        // Defensive note (cursor-nav race audit, 2026-05-25): the
+        // __beakerBotCursorScriptRunning window flag set inside the
+        // cursor-script effect below protects cursorScript-driven SPA
+        // navigations from the auto-nav effect's bounce-back path.
+        // onEnter hooks run OUTSIDE that effect, so the flag is NOT set
+        // while onEnter executes. Today's onEnter bodies (notifications,
+        // dependency tasks, home-widgets Done toggle) do not navigate;
+        // if a future hook needs router.push, set the flag true before
+        // the push and clear it after (or move the nav into the
+        // cursor-script effect). See commit 62f94d59 for the §6.1 shape.
         await body.onEnter?.({ username: username ?? null });
       } catch (err) {
         if (!cancelled) {
