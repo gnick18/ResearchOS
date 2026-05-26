@@ -1,55 +1,73 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import BeakerBot, { type BeakerBotPose } from "@/components/BeakerBot";
 import {
   hasSeenPreOnboarding,
   markPreOnboardingSeen,
   resetPreOnboardingSeen,
 } from "@/lib/pre-onboarding/pre-onboarding-storage";
+import CloudProviderBeat from "@/components/pre-onboarding/CloudProviderBeat";
+import FolderChoiceBeat, {
+  type FolderChoice,
+} from "@/components/pre-onboarding/FolderChoiceBeat";
+import SecurityBeat from "@/components/pre-onboarding/SecurityBeat";
+import SkipLink from "@/components/pre-onboarding/SkipLink";
+import SpeechBubble from "@/components/pre-onboarding/SpeechBubble";
+import WelcomeBeat from "@/components/pre-onboarding/WelcomeBeat";
 
 /**
- * Pre-onboarding screen — P0 STUB.
+ * Pre-onboarding screen — P1.
  *
- * This component is the minimum viable surface that the providers.tsx
- * gate can mount and dismiss. It is INTENTIONALLY content-free: the
- * welcome / data-security / folder-choice / cloud-provider / ready
- * screens land in P1+ along with the screen-state machine, BeakerBot
- * mascot, and speech bubble (see PRE_ONBOARDING_PROPOSAL.md §4.2 /
- * §6).
+ * Hosts the 4-beat intro (welcome → security → folder-choice →
+ * cloud-provider) and dismisses into the existing DataSetupScreen
+ * once the user finishes or skips. See PRE_ONBOARDING_PROPOSAL.md for
+ * the locked design (8 design locks, §3) and per-beat copy spec (§6).
  *
- * Lifecycle:
+ * State machine (linear, with one conditional branch):
  *
- *   1. providers.tsx renders <PreOnboardingScreen onComplete=…>
- *      because the gate predicate fired (first-touch, no folder, not
- *      in demo/wikiCapture/preview mode).
- *   2. On mount we honor `?reset-pre-onboarding=1` for manual QA so
- *      developers can replay the flow without digging into devtools
- *      storage. The flag clears localStorage and removes itself from
- *      the URL so a refresh doesn't keep wiping state.
- *   3. The Skip button calls `markPreOnboardingSeen()` and then
- *      `onComplete()` — providers.tsx flips its gate state and the
- *      existing ResearchFolderSetupNew takes over.
+ *   welcome           → security
+ *   security          → folder-choice
+ *   folder-choice + local  → done
+ *   folder-choice + cloud  → cloud-provider
+ *   cloud-provider    → done
+ *   ANY               → done (via the skip link in the corner)
  *
- * The component does NOT consult fileSystem context or any other
- * provider, by design — the gate predicate in providers.tsx is the
- * single decision point for whether to mount. Keeping this screen
- * provider-agnostic also makes it trivially renderable in tests
- * (a single Skip click is the entire P0 contract).
+ * `done` synchronously calls `markPreOnboardingSeen()` + `onComplete()`.
+ * providers.tsx flips its gate flag and ResearchFolderSetupNew takes
+ * over (existing P0 wiring — nothing changes downstream).
+ *
+ * Chrome (per L6 in the proposal): full-screen takeover with the same
+ * dim gradient backdrop as the v4 setup modal. BeakerBot is rendered
+ * large above a white speech bubble that hosts the beat-specific
+ * content. A small skip link sits in the top-right corner.
  */
 export interface PreOnboardingScreenProps {
   onComplete: () => void;
 }
 
+type Step = "welcome" | "security" | "folder-choice" | "cloud-provider";
+
+// BeakerBot pose per beat. Pulled from proposal §6 — the proposal calls
+// for "waving / pointing / thinking / pointing-down / cheering" across
+// the 5 beats. For the 4-beat P1 surface we use waving / pointing /
+// thinking / pointing-down. The folder-picker handoff happens at the
+// END of beat 4, not as a 5th beat, so cheering does not appear in P1.
+const BEAT_POSE: Record<Step, BeakerBotPose> = {
+  welcome: "waving",
+  security: "pointing",
+  "folder-choice": "thinking",
+  "cloud-provider": "pointing-down",
+};
+
 export default function PreOnboardingScreen({
   onComplete,
 }: PreOnboardingScreenProps) {
-  // Manual-QA reset hook. We run this exactly once on mount: clear the
-  // flag if the URL opts in, then strip the flag from the URL so the
-  // user doesn't keep wiping state on every soft navigation. Note that
-  // the gate predicate has already fired at this point — the user is
-  // staring at the screen — so clearing the flag here doesn't re-mount
-  // anything, it just resets the persistence so the NEXT cold load
-  // sees the intro again.
+  // Manual-QA reset hook (preserved from P0). On mount: if the URL has
+  // `?reset-pre-onboarding=1`, clear the seen flag and strip the param
+  // so a refresh does not keep wiping state. The gate predicate has
+  // already fired by the time we run here, so this only affects the
+  // NEXT cold load.
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -64,46 +82,76 @@ export default function PreOnboardingScreen({
         window.history.replaceState(null, "", next);
       }
     } catch {
-      // URL parsing or history mutation can fail in exotic embeds;
+      // URL parsing / history mutation can fail in exotic embeds;
       // never crash the screen over a dev hook.
     }
   }, []);
 
-  // We don't actually need component-level state for P0 — the entire
-  // dismiss flow is a single onComplete() call — but keeping a tiny
-  // useState here means the P1 state machine can swap in without
-  // changing the export shape.
+  const [step, setStep] = useState<Step>("welcome");
+  // `dismissing` guards against double-fire if a user double-clicks
+  // the final CTA or the skip link between the click event and the
+  // onComplete cycle.
   const [dismissing, setDismissing] = useState(false);
 
-  const handleSkip = () => {
+  const finish = () => {
     if (dismissing) return;
     setDismissing(true);
     markPreOnboardingSeen();
     onComplete();
   };
 
+  const handleFolderChoice = (choice: FolderChoice) => {
+    if (choice === "local") {
+      // Local users skip the cloud-provider beat entirely and go
+      // straight to the folder picker.
+      finish();
+      return;
+    }
+    setStep("cloud-provider");
+  };
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-4"
-      data-pre-onboarding-screen="stub"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-4 py-6"
+      data-pre-onboarding-screen="active"
+      data-pre-onboarding-step={step}
       role="dialog"
       aria-modal="true"
       aria-label="ResearchOS pre-onboarding"
     >
-      <div className="w-full max-w-md rounded-2xl border border-white/20 bg-white/10 p-6 text-white backdrop-blur-xl">
-        <h2 className="mb-3 text-xl font-bold">Welcome to ResearchOS</h2>
-        <p className="mb-6 text-sm text-slate-200">
-          Pre-onboarding screen — implementation in progress.
-        </p>
-        <button
-          type="button"
-          onClick={handleSkip}
-          disabled={dismissing}
-          className="inline-flex items-center rounded-lg bg-sky-500 px-4 py-2 text-sm font-medium text-white hover:bg-sky-400 disabled:opacity-50"
-          data-testid="pre-onboarding-skip"
+      <div className="relative flex w-full max-w-2xl flex-col items-center">
+        <SkipLink onSkip={finish} disabled={dismissing} />
+
+        {/* BeakerBot mascot. ~144px reads larger than the v4 tour's 120px
+            (the user's first impression of the character, per the
+            proposal §4.3) without crowding the speech bubble on smaller
+            viewports. */}
+        <div
+          className="mb-1 flex h-36 w-36 items-center justify-center text-sky-500"
+          data-testid="pre-onboarding-mascot"
         >
-          Skip and pick a folder
-        </button>
+          <BeakerBot
+            pose={BEAT_POSE[step]}
+            className="h-full w-full text-sky-300"
+            ariaLabel="BeakerBot"
+            easterEgg="tickle"
+          />
+        </div>
+
+        <SpeechBubble testId={`pre-onboarding-bubble-${step}`}>
+          {step === "welcome" && (
+            <WelcomeBeat onNext={() => setStep("security")} />
+          )}
+          {step === "security" && (
+            <SecurityBeat onNext={() => setStep("folder-choice")} />
+          )}
+          {step === "folder-choice" && (
+            <FolderChoiceBeat onContinue={handleFolderChoice} />
+          )}
+          {step === "cloud-provider" && (
+            <CloudProviderBeat onContinue={finish} />
+          )}
+        </SpeechBubble>
       </div>
     </div>
   );
@@ -111,5 +159,5 @@ export default function PreOnboardingScreen({
 
 // Re-export the persistence read so callers (providers.tsx gate, dev
 // tooling) can hit a single import path rather than reaching into the
-// lib folder directly. Keeps the screen's public API self-contained.
+// lib folder directly. Preserved from the P0 surface.
 export { hasSeenPreOnboarding };
