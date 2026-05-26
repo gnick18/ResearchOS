@@ -217,7 +217,15 @@ A Preview-MCP-driven sub-bot CANNOT execute steps 1-2 of the runbook above. `win
 1. **`?wikiCapture=picker&wizard-preview=1`** (preferred). Picker variant installs the in-memory fixture but leaves `currentUser` empty, so `UserLoginScreen` renders. Use the dev "Force walkthrough → User setup walkthrough" button to mint a `Test-N` user; the `wizard-preview` flag flips `isV4PreviewMode()` true so `V4MountForUser` mounts and the tour auto-fires on the fresh sidecar. Caveats: alex / morgan / mira appear in the picker (ignore), Test-N lives only in fixture memory, hard nav back to `/` re-seeds the fixture and wipes Test-N. Stay on soft routes only.
 2. **`?wikiCapture=1&wizard-preview=1&wizardSeedStep=<step>`** (last resort). Loads alex's pre-seeded fixture and lands at the requested step. Defeats the empty-canvas premise but lets you exercise step bodies in isolation. Flag any fresh-eyes finding made under this mode as "fixture-data caveat" in the report.
 
-Worth filing as separate fix chip: the Dev "User setup walkthrough" button mints a Test-N user that does NOT auto-fire the v4 tour in plain `?wikiCapture=1` mode (no `wizard-preview` flag). `providers.tsx:192` gates `V4MountForUser` on `isV4PreviewMode()` inside the fixture branch, so the new Test-N sidecar's `wizard_force_show: true` has nothing to mount into. Either drop the gate when a Test-N user is active, or have the dev button stamp the sticky preview flag itself.
+Worth filing as separate fix chip: the Dev "User setup walkthrough" button mints a Test-N user that does NOT auto-fire the v4 tour in plain `?wikiCapture=1` mode (no `wizard-preview` flag). `providers.tsx:192` gates `V4MountForUser` on `isV4PreviewMode()` inside the fixture branch, so the new Test-N sidecar's `wizard_force_show: true` has nothing to mount into. Either drop the gate when a Test-N user is active, or have the dev button stamp the sticky preview flag itself. **Fixed 2026-05-25** at `0984fe02`: dev button now stamps `V4_PREVIEW_STICKY_KEY` before user swap. Real-folder paths unchanged.
+
+### Don't preview a worktree-only fix from master cwd (2026-05-25)
+
+When verifying a fix that lives on a sub-bot worktree branch (not yet cherry-picked to main), DO NOT start a Preview MCP server from the master worktree's `cwd`. The master's dev server compiles from `frontend/` on the master branch, which does NOT contain the worktree branch's changes. You will see "ghost" pre-fix behavior even though source-grep on the worktree branch shows the fix is present, leading to false negatives and dispatch of unnecessary debugging chips.
+
+Symptom observed 2026-05-25 during the §6.1 nav-fix chain: a click-swallow "regression" was traced to a stale preview the verifier launched from master's checkout. The fix existed on the worktree branch but the preview was serving main's pre-fix code.
+
+Rule: when verifying a worktree-branch fix, either (a) cherry-pick first then preview from master, or (b) start the preview from the worktree directory directly (with the bash-cd-into-frontend launch.json pattern using absolute worktree paths). Never split the worktree branch from the preview's source root.
 
 ### Mechanics verifiers: full sequential walk required (2026-05-25)
 
