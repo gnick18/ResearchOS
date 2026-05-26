@@ -206,10 +206,18 @@ async function buildUpstashLimiter(
   }) => UpstashLimiter;
   let slidingWindow: (limit: number, window: string) => unknown;
   try {
+    // Magic comments tell Webpack + Turbopack to skip static resolution of
+    // these specifiers. The packages are optional peer deps that deployers
+    // install themselves; without the comments the build fails with
+    // `Module not found` even though the require is wrapped in try/catch.
     // @ts-expect-error -- optional peer dep, not in package.json
-    const redisMod = (await import("@upstash/redis")) as { Redis: typeof RedisCtor };
+    const redisMod = (await import(
+      /* webpackIgnore: true */ /* turbopackIgnore: true */ "@upstash/redis"
+    )) as { Redis: typeof RedisCtor };
     // @ts-expect-error -- optional peer dep, not in package.json
-    const ratelimitMod = (await import("@upstash/ratelimit")) as {
+    const ratelimitMod = (await import(
+      /* webpackIgnore: true */ /* turbopackIgnore: true */ "@upstash/ratelimit"
+    )) as {
       Ratelimit: typeof RatelimitCtor & { slidingWindow: typeof slidingWindow };
     };
     RedisCtor = redisMod.Redis;
