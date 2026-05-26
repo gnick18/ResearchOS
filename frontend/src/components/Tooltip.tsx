@@ -286,24 +286,48 @@ export default function Tooltip({
             >
               {/* Header strip — sky tint + inline BeakerBot mark.
                   Matches the project's BeakerBot color (sky-500) so the
-                  hint reads as the same mascot voice the v4 tour uses. */}
+                  hint reads as the same mascot voice the v4 tour uses.
+                  firstPaintHint mascot-icon fix manager (2026-05-25): the
+                  inline SVG below is the canonical BeakerBot silhouette
+                  copied directly from `components/BeakerBot.tsx` (idle
+                  pose, no liquid, no animation), trimmed to the static
+                  geometry a 14px decorative badge needs. We inline the
+                  paths instead of mounting the full `<BeakerBot>`
+                  component because that component is ~1600 lines of
+                  animation + easter-egg state (tickle, hearts, mouse
+                  jiggle, cursor:pointer), none of which is appropriate
+                  for a passive header badge inside a tooltip card. The
+                  inline copy keeps the badge purely decorative and
+                  matches the BeakerBot brand mark (sky-500, beaker
+                  silhouette + face) per the project's mascot-is-BeakerBot
+                  rule. */}
               <div className="flex items-center gap-1.5 bg-sky-50 px-3 py-1.5 border-b border-sky-100">
                 <svg
                   width="14"
                   height="14"
-                  viewBox="0 0 24 24"
+                  viewBox="0 0 40 40"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="2"
+                  strokeWidth={2}
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   aria-hidden="true"
                   className="text-sky-500 flex-shrink-0"
                 >
-                  <path d="M10 2v7.31" />
-                  <path d="M14 9.3V2" />
-                  <path d="M8.5 2h7" />
-                  <path d="M14 9.3a6.5 6.5 0 1 1-4 0" />
+                  {/* Hair flick: small curl at the top, anime-ish */}
+                  <path d="M22 8 C 22 6, 24 4, 26 6" />
+                  {/* Body: rounded-bottom beaker silhouette */}
+                  <path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" />
+                  {/* Beaker lip */}
+                  <path d="M11 12 L29 12" />
+                  {/* Eyes */}
+                  <circle cx="17" cy="18" r="1.2" fill="currentColor" stroke="none" />
+                  <circle cx="23" cy="18" r="1.2" fill="currentColor" stroke="none" />
+                  {/* Smile */}
+                  <path d="M18 22 Q 20 24, 22 22" />
+                  {/* Measurement-mark cheek dashes */}
+                  <path d="M14 26 L15.5 26" />
+                  <path d="M24.5 26 L26 26" />
                 </svg>
                 <span className="text-[10px] uppercase tracking-wide font-semibold text-sky-700">
                   Quick tip
