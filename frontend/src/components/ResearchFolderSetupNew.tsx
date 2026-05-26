@@ -545,7 +545,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
             normal flow. The proximity-wave hook means the cursor
             moving toward the cards passes near BeakerBot, triggering
             the wave + surfacing the walkthrough CTA. */}
-        <div className="mb-6 flex flex-col items-center lg:absolute lg:top-20 lg:left-full lg:ml-8 lg:mb-0 lg:w-64">
+        <div className="mb-6 flex flex-col items-center lg:absolute lg:top-0 lg:left-full lg:ml-8 lg:mb-0 lg:w-64">
           <div
             className="mb-2 flex h-28 w-28 items-center justify-center"
             data-testid="picker-beakerbot"
