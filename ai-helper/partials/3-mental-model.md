@@ -10,7 +10,7 @@ This is the conceptual map you'll need to navigate the schemas in §4. Read it b
 
 The `_*.json` sidecars at the user-folder root carry per-user state that doesn't fit one entity per file: `_counters.json` (auto-increment id source), `_auth.json` (optional PBKDF2 password), `_shared_with_me.json` (entries from other users), `_notifications.json`, `_shifted-alerts.json`, `_calendar-feeds.json` (ICS subscriptions), `_telegram.json` (bot token, auto-gitignored).
 
-`users/public/` is the cross-user pool for shared methods, PCR protocols, LC gradients, and plate layouts. Anything `is_public: true` lives here and is readable by any user of the same folder. `users/lab/` holds shared lab notes for Lab Mode.
+`users/public/` is the cross-user pool for shared methods, PCR protocols, LC gradients, and plate layouts. Anything `is_public: true` lives here and is readable by any user of the same folder. `users/lab/` is a legacy pre-retirement folder: Lab Mode (a special sentinel account) was retired in favor of per-user accounts plus `shared_with`; pre-retirement `users/lab/` notes auto-migrate to per-user folders on first read, no user action required.
 
 **Per-user ID namespaces.** This is the trap that catches every contributor. Each user has their own `_counters.json`, so `task.id = 1` in alex's folder and `task.id = 1` in morgan's folder are two completely different tasks. Project ids, method ids, every entity id is per-user-namespaced.
 
@@ -24,13 +24,15 @@ taskKey(task: { id, owner, is_shared_with_me }): string
 
 When you draft a task and reference its id, **always say which owner it belongs to**. "alex's task 5" or "self:5" or "the task at `users/alex/tasks/5.json`." If the user pastes you "task 5," ask which user's namespace before doing anything that might collide.
 
-**Sharing model.** Tasks, projects, and methods can be shared with a `view` or `edit` permission. The mechanism:
+**Sharing model.** Tasks, projects, methods, and notes can be shared with a `read` or `edit` level. The mechanism:
 
-1. Sender calls `sharingApi.shareTask(taskId, recipientUsername, permission)`. Sender's task gets `shared_with: [{ username, permission }]` appended.
-2. Recipient gets an entry written to **her** `_shared_with_me.json` overlay: `{ id: 5, owner: "alex", permission: "edit", shared_at: "..." }`.
+1. Sender calls `sharingApi.shareTask(taskId, recipientUsername, level)`. Sender's record gets `shared_with: SharedUser[]` appended, where `SharedUser = { username: string, level: "read" | "edit" }`. The `username: "*"` sentinel covers whole-lab / public-equivalent sharing (every member of the folder sees the record). Legacy `{ username, permission: "view" | "edit" }` entries are back-compat normalized in `normalizeSharedEntry` at the read boundary, so you don't need to worry about which shape a stored record uses.
+2. Recipient gets an entry written to **her** `_shared_with_me.json` overlay: `{ id: 5, owner: "alex", permission: "edit", shared_at: "..." }`. (The overlay file still uses the legacy `permission` key; the in-memory record carries the normalized `level`.)
 3. When the recipient's UI loads, it reads her own data PLUS the source files from each `_shared_with_me.json` entry's owner directory. Shared items get decorated at read time with `is_shared_with_me: true` and `shared_permission: "edit"` (NEVER persisted, only set by the read-overlay layer).
 
 Editable shared tasks (`shared_permission === "edit"`) work by routing every `tasksApi.update` / `move` / `delete` / `addMethod` call through `ownerScopedTasksApi(task)` so the write lands in the original owner's folder, not the recipient's. The recipient never copies the source file; she edits the canonical original through the wrapper.
+
+**Transient method access via shared tasks (`canReadMethodViaTask`).** Sharing a task that references a method (via `method_ids` / `method_attachments`) implicitly grants the recipient transient read access to that method, even if the method itself was never explicitly shared. The check lives in `lib/sharing/unified.ts:canReadMethodViaTask`. Every transient read emits a `method-transient-read` audit row on the owner's side (`lib/lab/pi-audit.ts`) so the method owner can see who pulled it in via which task. When the parent task gets unshared, the transient grant disappears.
 
 **Cross-owner project hosting (Option C).** A more advanced variant where alex's task gets "shared into" morgan's project, so it appears on morgan's Gantt timeline alongside her own tasks. Both sides must agree:
 

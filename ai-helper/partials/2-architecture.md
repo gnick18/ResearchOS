@@ -34,7 +34,7 @@ The folder layout is fixed by convention:
 │   │   ├── _calendar-feeds.json
 │   │   └── _telegram.json (auto-gitignored)
 │   ├── public/                          ← cross-user shared methods + protocols
-│   ├── lab/                             ← lab-mode shared notes
+│   ├── lab/                             ← legacy Lab Mode notes (auto-migrated on read)
 │   └── _user_metadata.json
 └── _global_counters.json
 ```
