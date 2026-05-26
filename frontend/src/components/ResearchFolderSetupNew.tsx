@@ -6,7 +6,9 @@ import { useFileSystem, isFileSystemAccessSupported } from "@/lib/file-system/fi
 import BetaDonationButton from "@/components/BetaDonationButton";
 import FeedbackModal from "@/components/FeedbackModal";
 import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
-import Tooltip from "@/components/Tooltip";
+import PickUserBeforeImportModal, {
+  ELN_IMPORT_PENDING_KEY,
+} from "@/components/import-eln/PickUserBeforeImportModal";
 import UserAvatar from "@/components/UserAvatar";
 import BeakerBot from "@/components/BeakerBot";
 import PickerWalkthroughModal from "@/components/picker-walkthrough/PickerWalkthroughModal";
@@ -47,6 +49,13 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
   const [isCreating, setIsCreating] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [elnImportOpen, setElnImportOpen] = useState(false);
+  // Inline user-picker modal for the "Import from LabArchives" CTA. When
+  // no `currentUser` is set, clicking the CTA opens this picker rather
+  // than the ImportELNDialog directly: the user picks an existing
+  // account or creates one, the picker sets a sticky-intent flag in
+  // sessionStorage, fires the sign-in, and the post-sign-in surface
+  // (lib/providers.tsx) re-mounts ImportELNDialog automatically.
+  const [pickUserForImportOpen, setPickUserForImportOpen] = useState(false);
   const { showBugReport, currentError, openBugReport, closeBugReport } = useErrorReporting();
 
 
@@ -285,8 +294,19 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                   Other ELNs (Benchling, Notion, paper notebooks) coming later.
                 </p>
                 <ImportFromELNButton
-                  hasUser={Boolean(currentUser)}
-                  onOpen={() => setElnImportOpen(true)}
+                  onOpen={() => {
+                    // Branch on `currentUser`: with a user we already
+                    // have a sign-in to attach the import to, so jump
+                    // straight to the dialog. Without one we open the
+                    // inline user-picker; it'll set the sticky-intent
+                    // flag before sign-in so the dialog re-mounts on
+                    // the post-sign-in surface.
+                    if (currentUser) {
+                      setElnImportOpen(true);
+                    } else {
+                      setPickUserForImportOpen(true);
+                    }
+                  }}
                 />
                 <a
                   href="/wiki/getting-started/labarchives-export"
@@ -323,6 +343,53 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
             onClose={() => setElnImportOpen(false)}
           />
         )}
+        <PickUserBeforeImportModal
+          isOpen={pickUserForImportOpen}
+          availableUsers={availableUsers}
+          onPickUser={async (username) => {
+            // Set the sticky-intent flag BEFORE sign-in: setCurrentUser
+            // triggers the AppContent re-render that unmounts this
+            // screen, so any post-state work has to be queued up to
+            // run on the next surface. providers.tsx reads + clears
+            // this flag on the signed-in branch.
+            try {
+              sessionStorage.setItem(ELN_IMPORT_PENDING_KEY, "1");
+            } catch {
+              // sessionStorage can throw in private-mode Safari. The
+              // picker still closes; the import just won't re-open
+              // automatically.
+            }
+            setPickUserForImportOpen(false);
+            await setCurrentUser(username);
+            onComplete();
+          }}
+          onCreateUser={async (username) => {
+            // Same sticky-intent flow as onPickUser. We set the flag
+            // before the createUser->setCurrentUser pair so it's in
+            // place when AppContent re-renders us out.
+            try {
+              sessionStorage.setItem(ELN_IMPORT_PENDING_KEY, "1");
+            } catch {
+              // See onPickUser.
+            }
+            const ok = await createUser(username);
+            if (!ok) {
+              // Sign-in didn't happen — clear the flag so a stray
+              // re-render doesn't open the dialog on a stale state.
+              try {
+                sessionStorage.removeItem(ELN_IMPORT_PENDING_KEY);
+              } catch {
+                // intentionally swallowed
+              }
+              return false;
+            }
+            setPickUserForImportOpen(false);
+            await setCurrentUser(username);
+            onComplete();
+            return true;
+          }}
+          onClose={() => setPickUserForImportOpen(false)}
+        />
       </div>
     );
   }
@@ -827,27 +894,21 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
   );
 }
 
-function ImportFromELNButton({
-  hasUser,
-  onOpen,
-}: {
-  hasUser: boolean;
-  onOpen: () => void;
-}) {
-  const button = (
+function ImportFromELNButton({ onOpen }: { onOpen: () => void }) {
+  // No-user gating used to wrap this in a `Sign in to a user first.`
+  // Tooltip + disabled state. That dead-ended the user: signing in
+  // navigated away from this screen so the button was never reachable
+  // in its enabled form. The click handler now branches on currentUser
+  // upstream — without a user it opens the inline picker modal, with
+  // one it opens the import dialog directly.
+  return (
     <button
       type="button"
-      onClick={hasUser ? onOpen : undefined}
-      disabled={!hasUser}
-      className="w-full px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-blue-500/50 rounded-lg text-white text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white/5 disabled:hover:border-white/10"
+      onClick={onOpen}
+      data-testid="import-eln-cta"
+      className="w-full px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-blue-500/50 rounded-lg text-white text-sm font-medium transition-all"
     >
       Import from LabArchives
     </button>
-  );
-  if (hasUser) return button;
-  return (
-    <Tooltip label="Sign in to a user first." placement="top">
-      <span className="block">{button}</span>
-    </Tooltip>
   );
 }

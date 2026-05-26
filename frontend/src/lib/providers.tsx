@@ -10,6 +10,8 @@ import {
   isV4PreviewMode,
 } from "@/lib/file-system/wiki-capture-mock";
 import ResearchFolderSetupNew from "@/components/ResearchFolderSetupNew";
+import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
+import { ELN_IMPORT_PENDING_KEY } from "@/components/import-eln/PickUserBeforeImportModal";
 import UserLoginScreen from "@/components/UserLoginScreen";
 import StagedLoadingScreen from "@/components/StagedLoadingScreen";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -76,6 +78,45 @@ function OrphanProjectSweep({ currentUser }: { currentUser: string }) {
     })();
   }, [currentUser]);
   return null;
+}
+
+/**
+ * Sticky-intent consumer for the LabArchives import CTA on the
+ * folder-setup screen.
+ *
+ * Why: the picker screen's "Import from LabArchives" button used to be
+ * disabled until a user was signed in, which was unreachable in
+ * practice — signing in unmounted the picker. The new flow opens a
+ * user-picker modal, signs the user in, and sets
+ * `sessionStorage[ELN_IMPORT_PENDING_KEY] = "1"` to carry the intent
+ * across the unmount.
+ *
+ * This component reads that flag on first render of the post-sign-in
+ * surface, opens ImportELNDialog, and clears the flag (single-shot).
+ * It must mount at this level rather than inside ImportELNDialog
+ * because the dialog only exists when something opens it; and at
+ * `lib/providers.tsx` (vs AppShell) the consumer covers every
+ * post-sign-in route, not just the AppShell-wrapped ones.
+ */
+function PendingELNImportMount() {
+  const [open, setOpen] = useState(false);
+  // Read once on mount: any later writes are inside the same surface
+  // and would re-trigger themselves. Effect runs after first paint so
+  // SSR / hydration mismatches don't fire (sessionStorage isn't
+  // server-readable anyway).
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem(ELN_IMPORT_PENDING_KEY) === "1") {
+        sessionStorage.removeItem(ELN_IMPORT_PENDING_KEY);
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot read of an external (sessionStorage) handoff flag set by the picker screen pre-unmount
+        setOpen(true);
+      }
+    } catch {
+      // private-mode Safari etc. — silently no-op.
+    }
+  }, []);
+  if (!open) return null;
+  return <ImportELNDialog isOpen={open} onClose={() => setOpen(false)} />;
 }
 
 function AppContent({ children }: { children: ReactNode }) {
@@ -287,6 +328,12 @@ function AppContent({ children }: { children: ReactNode }) {
           V4MountForUser so it runs whether the user lands on /home,
           /workbench, or any other route on their first paint. */}
       <OrphanProjectSweep currentUser={currentUser} />
+      {/* LabArchives import sticky-intent consumer. If the user clicked
+          "Import from LabArchives" on the picker screen and signed in
+          (which unmounts that screen), this auto-mounts ImportELNDialog
+          on the first paint of the signed-in surface. Single-shot,
+          clears its own sessionStorage flag on read. */}
+      <PendingELNImportMount />
       <V4MountForUser username={currentUser}>
         {children}
         {/* CelebrationManager is a peer of TourBootstrap inside

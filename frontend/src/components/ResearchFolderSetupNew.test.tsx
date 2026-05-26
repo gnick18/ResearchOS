@@ -33,8 +33,22 @@ const mocks = vi.hoisted(() => {
     refreshUsers: vi.fn(),
     disconnect: vi.fn(),
     reverifyPermission: vi.fn(),
+    // Toggled per-test via `fsState` below. Keeping these on the same
+    // hoisted object lets the picker-flow tests flip `isConnected` /
+    // `availableUsers` / `currentUser` without rewriting the
+    // useFileSystem mock between describe blocks.
   };
 });
+
+// Mutable fs state for picker-flow tests. The mock reads from this on
+// every render, so individual `it`s can flip into the "connected, no
+// user picked, user-selection screen" state where the LabArchives CTA
+// actually renders.
+const fsState = vi.hoisted(() => ({
+  isConnected: false as boolean,
+  availableUsers: [] as string[],
+  currentUser: null as string | null,
+}));
 
 vi.mock("@/lib/file-system/file-system-context", () => ({
   isFileSystemAccessSupported: () => true,
@@ -42,15 +56,25 @@ vi.mock("@/lib/file-system/file-system-context", () => ({
     ...mocks,
     isLoading: false,
     error: null,
-    isConnected: false,
-    availableUsers: [],
-    currentUser: null,
+    isConnected: fsState.isConnected,
+    availableUsers: fsState.availableUsers,
+    currentUser: fsState.currentUser,
     mainUser: null,
-    directoryName: null,
+    directoryName: fsState.isConnected ? "test-folder" : null,
     needsInitialization: false,
     lastConnectedFolder: null,
     loadingStage: null,
   }),
+}));
+
+// UserAvatar pulls in useUserColor → useQuery, which needs a
+// QueryClientProvider. The picker tests don't care about the avatar
+// chrome, so stub it down to a span. This keeps the test surface
+// focused on the picker-flow wiring.
+vi.mock("@/components/UserAvatar", () => ({
+  default: ({ username }: { username: string }) => (
+    <span data-testid={`user-avatar-${username}`}>{username[0]}</span>
+  ),
 }));
 
 // Sidestep the BetaDonationButton's network/analytics imports — they
@@ -64,7 +88,8 @@ vi.mock("@/components/FeedbackModal", () => ({
 }));
 
 vi.mock("@/components/import-eln/ImportELNDialog", () => ({
-  default: () => null,
+  default: ({ isOpen }: { isOpen: boolean }) =>
+    isOpen ? <div data-testid="import-eln-dialog-mock">ELN Dialog</div> : null,
 }));
 
 vi.mock("@/hooks/useErrorReporting", () => ({
@@ -81,6 +106,21 @@ import ResearchFolderSetup from "./ResearchFolderSetupNew";
 beforeEach(() => {
   mocks.connect.mockClear();
   mocks.connectWithHandle.mockClear();
+  mocks.setCurrentUser.mockClear();
+  mocks.createUser.mockClear();
+  // Default the fs state back to "fresh visitor, no folder linked" so
+  // the existing drop-zone + welcome-bubble tests keep their original
+  // setup. The picker-flow describe block overrides this per-test.
+  fsState.isConnected = false;
+  fsState.availableUsers = [];
+  fsState.currentUser = null;
+  // Clear sticky-intent flag between tests so a sessionStorage write
+  // from one test can't leak into the next.
+  try {
+    sessionStorage.removeItem("researchos:eln-import-pending");
+  } catch {
+    // intentionally swallowed
+  }
 });
 
 // Build a fake DataTransfer for fireEvent.drop / dragOver. RTL's fireEvent
@@ -249,3 +289,109 @@ describe("ResearchFolderSetupNew welcome bubble + opt-in walkthrough", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
+
+// labarchives picker-flow: the Import-from-LabArchives CTA on the
+// user-selection sub-screen used to be disabled + tooltip-gated until
+// a user signed in, but signing in unmounts this screen so the button
+// was unreachable in its enabled form. The new flow drops the gating
+// and branches the click handler on `currentUser`:
+//   - no user → open inline PickUserBeforeImportModal, set a
+//     sessionStorage sticky-intent flag, then sign in
+//   - user → open ImportELNDialog directly
+// providers.tsx (PendingELNImportMount) reads + clears the flag on the
+// post-sign-in surface and re-opens the dialog.
+describe("ResearchFolderSetupNew Import-from-LabArchives picker flow", () => {
+  // The user-selection sub-screen renders when `isConnected && (no user
+  // OR users available)`. We set isConnected=true, availableUsers=["mira"],
+  // currentUser=null to reach the screen where the LabArchives CTA lives.
+  const enterUserSelectionScreen = () => {
+    fsState.isConnected = true;
+    fsState.availableUsers = ["mira"];
+    fsState.currentUser = null;
+  };
+
+  it("renders the LabArchives CTA in an always-enabled state (no Tooltip / no disabled)", () => {
+    enterUserSelectionScreen();
+    render(<ResearchFolderSetup onComplete={vi.fn()} />);
+    const cta = screen.getByTestId("import-eln-cta") as HTMLButtonElement;
+    expect(cta.disabled).toBe(false);
+    expect(cta.className).not.toContain("cursor-not-allowed");
+  });
+
+  it("clicking the CTA with no user opens the inline user-picker, not the import dialog", () => {
+    enterUserSelectionScreen();
+    render(<ResearchFolderSetup onComplete={vi.fn()} />);
+    fireEvent.click(screen.getByTestId("import-eln-cta"));
+    expect(screen.getByTestId("eln-pick-user-modal")).toBeInTheDocument();
+    expect(screen.queryByTestId("import-eln-dialog-mock")).toBeNull();
+  });
+
+  it("picking an existing user from the modal sets the sticky-intent flag and signs them in", async () => {
+    enterUserSelectionScreen();
+    const onComplete = vi.fn();
+    render(<ResearchFolderSetup onComplete={onComplete} />);
+
+    fireEvent.click(screen.getByTestId("import-eln-cta"));
+    fireEvent.click(screen.getByTestId("eln-pick-user-tile-mira"));
+
+    // The async chain: setCurrentUser → onComplete. Wait for both.
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(sessionStorage.getItem("researchos:eln-import-pending")).toBe("1");
+    expect(mocks.setCurrentUser).toHaveBeenCalledWith("mira");
+    expect(onComplete).toHaveBeenCalled();
+  });
+
+  it("creating a new user from the modal sets the sticky-intent flag and signs them in", async () => {
+    enterUserSelectionScreen();
+    const onComplete = vi.fn();
+    render(<ResearchFolderSetup onComplete={onComplete} />);
+
+    fireEvent.click(screen.getByTestId("import-eln-cta"));
+    const input = screen.getByTestId("eln-pick-user-new-input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "alex" } });
+    fireEvent.click(screen.getByTestId("eln-pick-user-create-btn"));
+
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(sessionStorage.getItem("researchos:eln-import-pending")).toBe("1");
+    expect(mocks.createUser).toHaveBeenCalledWith("alex");
+    expect(mocks.setCurrentUser).toHaveBeenCalledWith("alex");
+    expect(onComplete).toHaveBeenCalled();
+  });
+
+  it("a failed createUser clears the sticky-intent flag so a stale state can't auto-open the dialog", async () => {
+    enterUserSelectionScreen();
+    mocks.createUser.mockResolvedValueOnce(false);
+    render(<ResearchFolderSetup onComplete={vi.fn()} />);
+
+    fireEvent.click(screen.getByTestId("import-eln-cta"));
+    const input = screen.getByTestId("eln-pick-user-new-input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "alex" } });
+    fireEvent.click(screen.getByTestId("eln-pick-user-create-btn"));
+
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(sessionStorage.getItem("researchos:eln-import-pending")).toBeNull();
+    expect(mocks.setCurrentUser).not.toHaveBeenCalled();
+  });
+
+  it("the picker modal Close button closes without firing a sign-in", () => {
+    enterUserSelectionScreen();
+    render(<ResearchFolderSetup onComplete={vi.fn()} />);
+    fireEvent.click(screen.getByTestId("import-eln-cta"));
+    expect(screen.getByTestId("eln-pick-user-modal")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("eln-pick-user-close"));
+    expect(screen.queryByTestId("eln-pick-user-modal")).toBeNull();
+    expect(sessionStorage.getItem("researchos:eln-import-pending")).toBeNull();
+    expect(mocks.setCurrentUser).not.toHaveBeenCalled();
+  });
+});
+
