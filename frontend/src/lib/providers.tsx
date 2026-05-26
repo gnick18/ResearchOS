@@ -11,8 +11,6 @@ import {
 } from "@/lib/file-system/wiki-capture-mock";
 import ResearchFolderSetupNew from "@/components/ResearchFolderSetupNew";
 import UserLoginScreen from "@/components/UserLoginScreen";
-import PreOnboardingScreen from "@/components/PreOnboardingScreen";
-import { hasSeenPreOnboarding } from "@/lib/pre-onboarding/pre-onboarding-storage";
 import StagedLoadingScreen from "@/components/StagedLoadingScreen";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import GlobalDropGuard from "@/components/GlobalDropGuard";
@@ -100,18 +98,6 @@ function AppContent({ children }: { children: ReactNode }) {
 
   const { isConnected, isLoading, currentUser, loadingStage } = useFileSystem();
   const [showSetup, setShowSetup] = useState(false);
-
-  // Pre-onboarding gate state. Initialized lazily from localStorage so
-  // SSR + first client paint match: `hasSeenPreOnboarding()` is SSR-safe
-  // (returns false when window is absent) and reads the same key the
-  // screen writes on dismiss. The setter is wired into
-  // PreOnboardingScreen's `onComplete` so the gate flips synchronously
-  // when the user finishes (or skips) the intro and ResearchFolderSetupNew
-  // takes over without a remount round-trip through localStorage.
-  // (pre-onboarding P0 sub-bot R2 2026-05-22)
-  const [preOnboardingSeen, setPreOnboardingSeen] = useState<boolean>(() =>
-    hasSeenPreOnboarding(),
-  );
 
   console.log("AppContent render:", { isConnected, isLoading, currentUser, showSetup });
 
@@ -227,42 +213,13 @@ function AppContent({ children }: { children: ReactNode }) {
     );
   }
 
-  // Pre-onboarding gate (P0). Fires BEFORE ResearchFolderSetupNew so a
-  // fresh visitor sees the BeakerBot-led intro + data-security panel
-  // before being asked to pick a folder. Predicate:
-  //
-  //   not connected AND not seen AND not in any fixture / preview mode.
-  //
-  // The fixture / preview modes are already short-circuited above (the
-  // `isDemoOrWikiCapture() && currentUser` branch handles signed-in
-  // demo + wiki-capture; isWikiRoute handles /wiki/*). The remaining
-  // case to guard here is the bare ?wikiCapture=1 picker variant
-  // (currentUser empty) and ?wizard-preview=1 / ?wizardSeedStep=… —
-  // those routes must reach ResearchFolderSetupNew / UserLoginScreen
-  // without the pre-onboarding interstitial so the wiki-capture and
-  // v4-preview pipelines keep working unchanged.
-  //
-  // Existing-user heuristic (proposal §9): if isConnected is true, we
-  // never reach this branch because the `showSetup || !isConnected`
-  // gate below either renders the app shell or routes to the user
-  // picker. Returning users with a linked folder therefore skip
-  // pre-onboarding by virtue of the gate ordering, not an explicit
-  // check — matches L8 "folder-already-connected = no pre-onboarding".
-  // (pre-onboarding P0 sub-bot R2 2026-05-22)
-  if (
-    !isConnected &&
-    !preOnboardingSeen &&
-    !isDemoOrWikiCapture() &&
-    !isV4PreviewMode()
-  ) {
-    console.log("AppContent: rendering PreOnboardingScreen (first touch)");
-    return (
-      <PreOnboardingScreen
-        onComplete={() => setPreOnboardingSeen(true)}
-      />
-    );
-  }
-
+  // Folder-picker IS the entry surface (rehome 2026-05-25). The retired
+  // 4-beat pre-onboarding modal that used to gate this branch is gone:
+  // BeakerBot, the welcome copy, the trust / security explainer, the
+  // local-vs-cloud guidance, the cloud-provider setup links, and the
+  // RISE credentials stamp all live inline on `ResearchFolderSetupNew`
+  // now. No more one-shot localStorage gate; the picker is always what
+  // a fresh visitor sees on first paint.
   if (showSetup || !isConnected) {
     console.log("AppContent: rendering ResearchFolderSetupNew because:", { showSetup, isConnected, currentUser });
     // Wrapped in QueryClientProvider because the user-picker renders

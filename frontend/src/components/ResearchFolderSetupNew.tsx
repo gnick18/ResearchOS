@@ -9,6 +9,8 @@ import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
 import Tooltip from "@/components/Tooltip";
 import UserAvatar from "@/components/UserAvatar";
 import BeakerBot from "@/components/BeakerBot";
+import PickerTrustSections from "@/components/PickerTrustSections";
+import RiseCredentialsStamp from "@/components/RiseCredentialsStamp";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
 import {
   extractDirectoryHandleFromDrop,
@@ -524,24 +526,42 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
       </div>
 
       <div className="relative z-10 w-full max-w-3xl mx-4">
+        {/* BeakerBot-led welcome. The mascot lives inline on the picker
+            page (no modal takeover) and uses the `waving` pose, which
+            has a CSS keyframe animation built in, so he waves
+            continuously as a friendly entry signal. Click him and a
+            pink heart pops (the default easter egg since 2026-05-25 when
+            tickle was retired). The sky-blue color matches the canonical
+            BeakerBot palette used elsewhere in the app. Rehomed from the
+            retired pre-onboarding modal 2026-05-25; salvages the
+            WelcomeBeat copy (author + funding line) into a two-line
+            welcome alongside the mascot. */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg mb-4">
-            <svg
-              className="w-8 h-8 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
-              />
-            </svg>
+          <div
+            className="mx-auto mb-3 flex h-28 w-28 items-center justify-center"
+            data-testid="picker-beakerbot"
+          >
+            <BeakerBot
+              pose="waving"
+              className="h-full w-full text-sky-300"
+              ariaLabel="BeakerBot waving hello"
+            />
           </div>
-          <h1 className="text-3xl font-bold text-white">ResearchOS</h1>
-          <p className="text-slate-400 mt-2">Local-first research data management</p>
+          <h1 className="text-3xl font-bold text-white">
+            Welcome to ResearchOS
+          </h1>
+          <p
+            className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-slate-300"
+            data-testid="picker-welcome-copy"
+          >
+            A free and open source digital lab notebook built by Dr. Grant
+            R. Nickles (PhD) and funded in part by the UW-Madison RISE
+            Initiative.
+          </p>
+          <p className="mx-auto mt-2 max-w-2xl text-sm leading-relaxed text-slate-300">
+            New here? After you link your folder, I&apos;ll walk you
+            through every page. Returning? Just take it from here.
+          </p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-4">
@@ -679,6 +699,12 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
           </div>
         )}
 
+        {/* Quiet reference strips. Default-collapsed; users who already
+            trust the app skip past them, users who want reassurance can
+            expand. Rehomes the retired pre-onboarding modal's Security,
+            FolderChoice, and CloudProvider beats as optional reads. */}
+        <PickerTrustSections />
+
         <div className="mt-4 flex flex-col items-center gap-2">
           <Link
             href="/demo"
@@ -750,6 +776,12 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
         onClose={closeBugReport}
         prefilledError={currentError}
       />
+
+      {/* Persistent RISE credentials stamp in the bottom-right corner.
+          Authority signal: "real academic project, not a data-harvesting
+          scheme." Rehomed from the retired pre-onboarding modal
+          2026-05-25. */}
+      <RiseCredentialsStamp />
     </div>
   );
 }
