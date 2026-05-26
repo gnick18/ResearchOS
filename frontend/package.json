@@ -2,6 +2,12 @@
   "name": "frontend",
   "version": "0.1.0",
   "private": true,
+  "author": "Grant R. Nickles <gnickles@wisc.edu>",
+  "license": "MIT",
+  "funding": {
+    "type": "grant",
+    "url": "https://rise.wisc.edu/"
+  },
   "scripts": {
     "dev": "next dev",
     "prebuild": "node ../scripts/check-wiki-coverage.mjs --ci && node ../scripts/build-wiki-search-index.mjs --quiet && node ../scripts/build-demo-zip.mjs && node ../scripts/build-ai-helper.mjs && node ../scripts/check-ai-helper.mjs",

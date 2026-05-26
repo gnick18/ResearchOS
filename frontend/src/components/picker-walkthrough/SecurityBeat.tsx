@@ -42,10 +42,10 @@ export default function SecurityBeat({ onNext }: SecurityBeatProps) {
           />
           <span>
             <strong className="font-semibold text-slate-900">
-              Nothing uploads.
+              Your folder never uploads.
             </strong>{" "}
-            Your research never leaves your computer. There is no
-            ResearchOS server reading your folder.
+            Notes, measurements, and files stay on your machine. There is
+            no ResearchOS server reading your folder.
           </span>
         </li>
         <li className="flex items-start gap-2">
@@ -68,10 +68,13 @@ export default function SecurityBeat({ onNext }: SecurityBeatProps) {
           />
           <span>
             <strong className="font-semibold text-slate-900">
-              No analytics on your research.
+              One anonymous pageview ping.
             </strong>{" "}
-            We do not log the contents of your notes, measurements, or
-            files anywhere.
+            ResearchOS sends Vercel a single anonymous beacon per route so
+            we can see which pages get used. No IDs, no folder contents,
+            no typed text. Flip <strong>Offline mode</strong> on in
+            Settings to turn it off; the analytics script is never
+            injected while that toggle is on.
           </span>
         </li>
       </ul>

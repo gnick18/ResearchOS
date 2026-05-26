@@ -20,6 +20,8 @@ ResearchOS is for benchwork researchers, computational scientists, lab heads, la
 
 > Try the hosted demo: **[research-os-xi.vercel.app/demo](https://research-os-xi.vercel.app/demo)**. The demo runs entirely in your browser against synthetic fixture data, so you can poke around without picking a folder.
 
+Built by Dr. Grant R. Nickles (PhD). Free and open source, funded in part by the [UW-Madison RISE Initiative](https://rise.wisc.edu/).
+
 ---
 
 ## What ResearchOS does
