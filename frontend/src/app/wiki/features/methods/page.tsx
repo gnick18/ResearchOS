@@ -190,6 +190,27 @@ export default function MethodsFeaturePage() {
         and record per-run variations without touching the shared library copy.
       </p>
 
+      <h3>Transient read access when a task is shared with you</h3>
+      <p>
+        There is one more way a method becomes readable: when a user shares
+        a task with you and that task references a method, you get a
+        transient read on the underlying protocol even if the method
+        itself is not in your <code>shared_with</code>. The check lives in{" "}
+        <code>canReadMethodViaTask</code> (in{" "}
+        <code>lib/sharing/unified.ts</code>) and the method owner sees a{" "}
+        <code>method-transient-read</code> entry land in their audit log
+        the first time it fires for a given viewer. So sharing a task does
+        not silently leak the protocol without a paper trail, and a method
+        owner can see who has been reading their protocols through
+        someone else&apos;s task. The grant is depth-1 only: compound
+        method children are not transitively included, and only the
+        directly referenced method is unlocked. See{" "}
+        <Link href="/wiki/features/sharing-and-permissions">
+          Sharing and permissions
+        </Link>{" "}
+        for the full rule.
+      </p>
+
       <h2>Attach a method to an experiment</h2>
       <p>
         Inside an experiment popup, methods appear as a row of browser-style

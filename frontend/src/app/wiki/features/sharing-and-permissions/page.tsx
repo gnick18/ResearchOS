@@ -7,9 +7,9 @@ export default function SharingAndPermissionsPage() {
   return (
     <WikiPage
       title="Sharing and permissions"
-      intro="Every record in ResearchOS (a method, a note, a task, a project) carries a single sharing field: shared_with, a string array of usernames. That one field plus a sentinel value for 'the whole lab' is the entire permission story. Two primitives, canRead and canWrite, build on top of it. Lab Heads have implicit view-all on top of that. This page is the canonical reference for how the model works."
+      intro="Every shareable record in ResearchOS (a method, a note, a task, a project, a high-level goal) carries one sharing field: shared_with, an array of small objects pairing a username with a permission level. That field plus a single sentinel value for 'the whole lab' is the entire permission story. Two primitives, canRead and canWrite, build on top of it. Lab Heads get an implicit view-all on the read side. This page is the canonical reference for how the model works."
     >
-      {/* TODO screenshot agent: capture a Method share dialog showing the share_with list.
+      {/* TODO screenshot agent: capture a Method share dialog showing the shared_with list.
           Route: open a method popup, click the share affordance
           Fixture: ?wikiCapture=1
           Viewport: desktop 1440x900
@@ -20,82 +20,151 @@ export default function SharingAndPermissionsPage() {
       <Screenshot
         src="/wiki/screenshots/sharing-method-share-dialog.png"
         alt="A share dialog over a method popup, showing a list of usernames already in shared_with plus the All Lab Users sentinel option."
-        caption="The share dialog. Add explicit usernames, or pick All Lab Users to set the whole-lab sentinel."
+        caption="The share dialog. Add explicit usernames at a read or edit level, or pick All Lab Users to set the whole-lab sentinel."
       />
 
       <h2>The shared_with array</h2>
       <p>
-        Every shareable record carries a field:
+        Every shareable record carries a field whose TypeScript signature
+        is:
       </p>
       <pre className="text-sm bg-gray-100 rounded p-3 overflow-x-auto">
-        <code>{`shared_with: string[]   // array of usernames`}</code>
+        <code>{`type SharedUser = {
+  username: string;
+  level: "read" | "edit";
+};
+
+shared_with: SharedUser[];`}</code>
       </pre>
       <p>
-        The array is the union of every user who can read this record beyond
-        its owner. An empty array means &quot;private to me&quot;, the owner
-        is implicit and never appears in their own list. Adding a username
-        grants that user read access. Removing them revokes it.
+        Each entry pairs a recipient with the level of access they get on
+        this record. An empty array means &quot;private to me&quot;: the
+        owner is implicit and never appears in their own list. Adding an
+        entry grants that user the chosen level. Removing the entry revokes
+        access entirely. The shape lives in
+        {" "}<code>frontend/src/lib/sharing/unified.ts</code>, which is also
+        where the read and write helpers documented below are defined.
       </p>
+      <p>
+        Inspecting your JSON folder, you will see the objects on disk. A
+        method shared with two members at different levels looks like:
+      </p>
+      <pre className="text-sm bg-gray-100 rounded p-3 overflow-x-auto">
+        <code>{`"shared_with": [
+  { "username": "alex",   "level": "read" },
+  { "username": "morgan", "level": "edit" }
+]`}</code>
+      </pre>
+
+      <Callout variant="info" title="Older records with permission: view | edit">
+        Pre-R1 records (and older share-API callers) used a{" "}
+        <code>permission</code> field with values <code>&quot;view&quot;</code>
+        {" "}or <code>&quot;edit&quot;</code> instead of <code>level</code>.
+        The reader (<code>normalizeSharedWith</code> in{" "}
+        <code>lib/sharing/unified.ts</code>) accepts both shapes so the rest
+        of the app only ever sees the unified <code>level</code> field
+        (<code>&quot;view&quot;</code> maps to <code>&quot;read&quot;</code>;
+        unknown values fall back to <code>&quot;read&quot;</code>, the
+        conservative default). Records still on the legacy shape get
+        rewritten to <code>level</code> on next save. New code always writes
+        <code>level</code>.
+      </Callout>
 
       <h2>The WHOLE_LAB_SENTINEL</h2>
       <p>
-        A special string, the constant <code>WHOLE_LAB_SENTINEL</code> with
-        the value <code>&quot;*&quot;</code>, can appear in the array
-        anywhere a username can. It means &quot;every user in the lab folder,
+        A reserved username, the constant{" "}
+        <code>WHOLE_LAB_SENTINEL</code> with the value{" "}
+        <code>&quot;*&quot;</code>, can appear in any entry where a real
+        username would. It means &quot;every user in this lab folder,
         present and future.&quot; When you click <strong>Share with All
-        Lab Users</strong> in any share dialog, the affordance pushes{" "}
-        <code>&quot;*&quot;</code> onto <code>shared_with</code> rather than
-        enumerating every current username (which would silently exclude
-        anyone who joins the lab later).
+        Lab Users</strong> in any share dialog, the affordance writes one
+        entry, <code>{`{ username: "*", level: "read" }`}</code> (or{" "}
+        <code>level: &quot;edit&quot;</code> for whole-lab edit), rather
+        than enumerating every current member (which would silently exclude
+        anyone who joins later).
       </p>
       <p>
         The sentinel is comparable to a Unix <code>everyone</code> group:
-        one entry that expands to the current member set at read time. It is
-        not stored as a list of names, so adding or archiving a member does
-        not require a sweep across every record to keep the lists in sync.
+        one entry that expands to the current member set at read time. The
+        backing list is not stored, so adding or archiving a lab member
+        never requires a sweep across every record to keep things in sync.
       </p>
 
       <h2>The two primitives: canRead and canWrite</h2>
       <p>
-        Every permission decision in the app comes down to one of two
-        functions:
+        Every permission decision in the app routes through one of two
+        pure, synchronous functions:
       </p>
       <ul>
         <li>
-          <strong>canRead(record, user)</strong>: returns true if{" "}
-          <em>user</em> is the owner, or appears in{" "}
-          <code>record.shared_with</code>, or the array contains{" "}
-          <code>WHOLE_LAB_SENTINEL</code>, or <em>user</em> is a Lab Head.
+          <strong>canRead(record, viewer)</strong>: true if the viewer is
+          the owner, OR the viewer&apos;s account_type is{" "}
+          <code>lab_head</code> (implicit view-all), OR{" "}
+          <code>record.shared_with</code> has an entry whose{" "}
+          <code>username</code> matches the viewer OR is{" "}
+          <code>WHOLE_LAB_SENTINEL</code>.
         </li>
         <li>
-          <strong>canWrite(record, user)</strong>: returns true if{" "}
-          <em>user</em> is the owner, or appears in{" "}
-          <code>record.shared_with</code> with edit permission, or (for
-          structured-method types) was the original creator. Lab Heads do
-          not get implicit write, only implicit read.
+          <strong>canWrite(record, viewer, session)</strong>: true if the
+          viewer is the owner, OR the viewer is a Lab Head AND the
+          edit-session is currently unlocked for the record&apos;s owner
+          (the Phase 5 passcode flow, see{" "}
+          <Link href="/wiki/features/lab-head/edit-session-and-password">
+            Lab Head edit session
+          </Link>
+          ), OR <code>record.shared_with</code> has an entry whose{" "}
+          <code>username</code> matches (or is <code>&quot;*&quot;</code>){" "}
+          AND the entry&apos;s <code>level</code> is{" "}
+          <code>&quot;edit&quot;</code>.
         </li>
       </ul>
       <p>
-        Both functions are pure: same input, same output, no side effects.
-        They are also synchronous, so every render and every save can call
-        them without async ceremony.
+        Both functions are pure: same input, same output, no I/O. They are
+        synchronous, so every render and every save can call them without
+        async ceremony.
       </p>
 
       <h2>The Lab Head implicit view-all</h2>
       <p>
         A user whose <code>account_type === &quot;lab_head&quot;</code> gets
-        an extra rule on the read side only: they can <code>canRead</code>{" "}
-        every record in the lab regardless of <code>shared_with</code>. The
-        Lab Overview cross-lab dashboards depend on this rule: the member
-        workload widget has to be able to read every member&apos;s active
-        tasks even when those tasks are private to the member.
+        an extra rule on the read side only: <code>canRead</code> returns
+        true for every record in the lab regardless of{" "}
+        <code>shared_with</code>. The Lab Overview cross-lab dashboards
+        depend on this rule: the member workload widget has to be able to
+        read every member&apos;s active tasks even when those tasks are
+        private to the member.
       </p>
       <p>
         The implicit view-all does not extend to writes. A Lab Head reading
-        a member&apos;s private note can leave a comment (since comments
-        respect read access) but cannot edit the note body. See{" "}
+        a member&apos;s private note can leave a comment (comments respect
+        read access) but cannot edit the note body unless the lab-head
+        edit-session is unlocked for that member&apos;s data. See{" "}
         <Link href="/wiki/features/lab-head">Lab Head</Link> for the broader
-        role.
+        role and{" "}
+        <Link href="/wiki/features/lab-head/edit-session-and-password">
+          edit session and password
+        </Link>
+        {" "}for the passcode-gated write path.
+      </p>
+
+      <h2>Methods auto-grant via task-share</h2>
+      <p>
+        One non-obvious rule sits next to <code>canRead</code>: when a user
+        shares a task with you, you also get transient read access on any
+        method that task references. The pure helper{" "}
+        <code>canReadMethodViaTask</code> in{" "}
+        <code>lib/sharing/unified.ts</code> performs the depth-1 check, and
+        the read path emits a{" "}
+        <code>method-transient-read</code> entry into the method
+        owner&apos;s audit log so they can see who has been reading their
+        protocols via task-share. So sharing a task that uses one of your
+        own private methods does not silently leak the method without a
+        paper trail, and a method owner can spot a viewer who only ever
+        reaches the protocol through someone else&apos;s task. The grant is
+        scoped to direct task-to-method references; compound-method
+        children do not transitively unlock. See{" "}
+        <Link href="/wiki/features/methods">Methods Library</Link> for where
+        this surfaces in the protocol-reading UX.
       </p>
 
       <Callout variant="info" title="Migrating from Lab Mode">
@@ -103,9 +172,12 @@ export default function SharingAndPermissionsPage() {
         account that held shared records on behalf of the whole lab. That
         mode has been retired in favor of per-user accounts plus the{" "}
         <code>shared_with</code> sharing primitive described above;
-        pre-retirement folders auto-migrate on first login. No user action
-        is required, and no Settings button needs to be clicked: the
-        rewrite runs in the background and is idempotent on repeat logins.
+        pre-retirement folders auto-migrate on first login. Any old record
+        that carried <code>is_public: true</code> rewrites to{" "}
+        <code>{`shared_with: [{ username: "*", level: "read" }]`}</code>{" "}
+        on first read. No user action is required, and no Settings button
+        needs to be clicked: the rewrite runs in the background and is
+        idempotent on repeat logins.
       </Callout>
 
       <h2>Granularity: what is shareable</h2>
