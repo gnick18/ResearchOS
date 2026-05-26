@@ -119,8 +119,14 @@ export default function PreOnboardingScreen({
       aria-modal="true"
       aria-label="ResearchOS pre-onboarding"
     >
+      {/* Skip link anchors to the full-screen dialog (true top-right
+          corner of the viewport) rather than the centered card. Inside
+          a max-w-2xl container it sat next to the mascot at wide
+          viewports, which read as crowded: a first-time visitor scans
+          screen corners for escape hatches, not card edges. Moved up
+          on 2026-05-25 by the pre-onboarding fresh-eyes verifier. */}
+      <SkipLink onSkip={finish} disabled={dismissing} />
       <div className="relative flex w-full max-w-2xl flex-col items-center">
-        <SkipLink onSkip={finish} disabled={dismissing} />
 
         {/* BeakerBot mascot. ~144px reads larger than the v4 tour's 120px
             (the user's first impression of the character, per the
