@@ -141,7 +141,7 @@ export default function PreOnboardingScreen({
             pose={BEAT_POSE[step]}
             className="h-full w-full text-sky-300"
             ariaLabel="BeakerBot"
-            easterEgg="tickle"
+            easterEgg="heart"
           />
         </div>
 
