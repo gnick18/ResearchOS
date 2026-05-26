@@ -20,7 +20,9 @@ import path from "node:path";
 import {
   APP_ROUTE_TO_WIKI,
   HELP_HREF,
+  WIKI_NAV,
   appRouteToWikiRoute,
+  findWikiNode,
   getWikiForRoute,
   getWikiForRouteWithPrefix,
 } from "../nav";
@@ -99,6 +101,36 @@ describe("appRouteToWikiRoute", () => {
 
   it("returns exact matches unchanged", () => {
     expect(appRouteToWikiRoute("/settings")).toBe("/wiki/features/settings");
+  });
+});
+
+describe("WIKI_NAV start-here entry", () => {
+  // The Start Here page is the meta-onboarding for the wiki itself: it
+  // reframes the wiki as an encyclopedia (skim what you need, leave) and
+  // surfaces the high-leverage tips. It must sit at the very top of the
+  // sidebar so first-time visitors see it before the sea of categories,
+  // and the route slug must resolve to a real page.tsx on disk.
+  it("is the first entry in WIKI_NAV", () => {
+    expect(WIKI_NAV[0]?.href).toBe("/wiki/start-here");
+    expect(WIKI_NAV[0]?.label).toBe("Start Here");
+  });
+
+  it("resolves to an existing page.tsx on disk", () => {
+    const file = path.join(
+      process.cwd(),
+      "src",
+      "app",
+      "wiki",
+      "start-here",
+      "page.tsx",
+    );
+    expect(existsSync(file)).toBe(true);
+  });
+
+  it("is reachable via findWikiNode", () => {
+    const node = findWikiNode("/wiki/start-here");
+    expect(node).not.toBeNull();
+    expect(node?.label).toBe("Start Here");
   });
 });
 

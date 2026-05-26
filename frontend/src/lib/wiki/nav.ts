@@ -79,6 +79,11 @@ export interface WikiNode {
 
 export const WIKI_NAV: WikiNode[] = [
   {
+    href: "/wiki/start-here",
+    label: "Start Here",
+    blurb: "If you only read one wiki page, read this one. The 7 things worth knowing up front.",
+  },
+  {
     href: "/wiki",
     label: "Quickstart",
     blurb: "60-second tour of ResearchOS.",

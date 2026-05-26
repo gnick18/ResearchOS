@@ -26,6 +26,16 @@ export default function WikiLandingPage() {
     >
       <TryInDemo href="/">Explore the demo</TryInDemo>
 
+      <Callout variant="tip" title="First time here? Read this first.">
+        The wiki is big because the app is big. If you only have time for one
+        page,{" "}
+        <Link href="/wiki/start-here">
+          <strong>Start Here</strong>
+        </Link>{" "}
+        covers the 7 things worth knowing up front and how to navigate the
+        rest of the wiki when you actually need it.
+      </Callout>
+
       <h2>60-second tour</h2>
       <p>
         ResearchOS is a single-page research-management app that reads and writes
