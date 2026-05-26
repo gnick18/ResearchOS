@@ -1267,9 +1267,37 @@ export function TourControllerProvider({
 
     let mo: MutationObserver | null = null;
     let detached = false;
+    // Grant feedback 2026-05-26 (methods-category demo false recovery):
+    // when BeakerBot's own cursor script's terminal action closes the
+    // surface containing the spotlight target (e.g. clicking "Create
+    // Empty" on the New Category modal unmounts the name input), the
+    // MutationObserver below sees the target vanish and fires the
+    // "Looks like that closed. Click X to re-open" recovery copy — even
+    // though BeakerBot's the one who closed it. Track whether the
+    // cursor script ran during THIS step's lifetime; if it did, any
+    // subsequent detach is the demo's expected terminal effect, not a
+    // user mis-click. The user can still advance manually via
+    // "Got it, next" (universal pacing rule); the recovery copy was
+    // only ever for unsolicited surface closes.
+    let cursorScriptRanThisStep = false;
 
     const evaluate = () => {
       if (!selector) return;
+      // Suppress while BeakerBot is actively driving — the modal-close
+      // click is the script's own action, the resulting detach is
+      // expected. Remember it ran so subsequent post-completion
+      // detaches stay suppressed too.
+      const w =
+        typeof window !== "undefined"
+          ? (window as unknown as {
+              __beakerBotCursorScriptRunning?: boolean;
+            })
+          : null;
+      if (w?.__beakerBotCursorScriptRunning) {
+        cursorScriptRanThisStep = true;
+        return;
+      }
+      if (cursorScriptRanThisStep) return;
       const present = !!document.querySelector(selector);
       if (!present && !detached) {
         detached = true;
