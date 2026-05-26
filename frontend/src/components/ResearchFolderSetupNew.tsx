@@ -535,9 +535,9 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
             retired pre-onboarding modal 2026-05-25; salvages the
             WelcomeBeat copy (author + funding line) into a two-line
             welcome alongside the mascot. */}
-        <div className="text-center mb-8">
+        <div className="mb-8 flex flex-col items-center">
           <div
-            className="mx-auto mb-3 flex h-28 w-28 items-center justify-center"
+            className="mb-2 flex h-28 w-28 items-center justify-center"
             data-testid="picker-beakerbot"
           >
             <BeakerBot
@@ -546,21 +546,40 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
               ariaLabel="BeakerBot waving hello"
             />
           </div>
-          <h1 className="text-3xl font-bold text-white">
-            Welcome to ResearchOS
-          </h1>
-          <p
-            className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-slate-300"
-            data-testid="picker-welcome-copy"
-          >
-            A free and open source digital lab notebook built by Dr. Grant
-            R. Nickles (PhD) and funded in part by the UW-Madison RISE
-            Initiative.
-          </p>
-          <p className="mx-auto mt-2 max-w-2xl text-sm leading-relaxed text-slate-300">
-            New here? After you link your folder, I&apos;ll walk you
-            through every page. Returning? Just take it from here.
-          </p>
+          {/* Speech bubble pointing up at BeakerBot. White card on the
+              dark backdrop, dark text inside. The triangle is a rotated
+              square clipped by the bubble's overflow so the seam where
+              tail meets body reads as a single shape. Matches the
+              retired pre-onboarding modal's speech-bubble pattern Grant
+              liked, salvaged inline (no shared SpeechBubble component
+              since this is the only consumer now). */}
+          <div className="relative mx-auto w-full max-w-2xl">
+            <div
+              aria-hidden
+              className="absolute -top-2 left-1/2 h-4 w-4 -translate-x-1/2 rotate-45 bg-white"
+            />
+            <div
+              className="relative rounded-2xl bg-white px-6 py-5 text-center shadow-lg"
+              data-testid="picker-welcome-bubble"
+            >
+              <h1 className="text-2xl font-bold text-slate-900">
+                Welcome to ResearchOS
+              </h1>
+              <p
+                className="mx-auto mt-3 text-sm leading-relaxed text-slate-700"
+                data-testid="picker-welcome-copy"
+              >
+                A free and open source digital lab notebook built by
+                Dr. Grant R. Nickles (PhD) and funded in part by the
+                UW-Madison RISE Initiative.
+              </p>
+              <p className="mx-auto mt-2 text-sm leading-relaxed text-slate-700">
+                New here? After you link your folder, I&apos;ll walk
+                you through every page. Returning? Just take it from
+                here.
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="grid md:grid-cols-2 gap-4">
