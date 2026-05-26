@@ -196,6 +196,8 @@ Actually no, that's over-engineering. Per Grant's L4 answer, fully skippable. Th
 
 **Provider tiles:** OneDrive, Google Drive, Box, iCloud. Each tile is a card with the provider's logo, a short caption ("OneDrive's local sync folder"), and a "Setup guide →" link to the wiki page.
 
+> Post-spec note (2026-05-26): the live implementation also ships Dropbox as a fifth tile. Order is alphabetical (Box, Dropbox, Google Drive, iCloud Drive, OneDrive).
+
 > "Set things up on your machine, then come back here and click Continue."
 
 **CTAs:** Back / Continue (proceeds to §6.5)

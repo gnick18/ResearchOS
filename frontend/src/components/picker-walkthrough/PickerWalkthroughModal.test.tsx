@@ -98,7 +98,7 @@ describe("PickerWalkthroughModal", () => {
       screen.getByTestId("picker-walkthrough-beat-cloud-provider")
     ).toBeInTheDocument();
 
-    // Beat 4: I'm ready, pick the folder → onClose fires
+    // Beat 4: I'm ready, back to the picker → onClose fires
     fireEvent.click(
       screen.getByTestId("picker-walkthrough-cloud-provider-continue")
     );
