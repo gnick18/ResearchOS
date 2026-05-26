@@ -546,13 +546,11 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
               ariaLabel="BeakerBot waving hello"
             />
           </div>
-          {/* Speech bubble pointing up at BeakerBot. White card on the
-              dark backdrop, dark text inside. The triangle is a rotated
-              square clipped by the bubble's overflow so the seam where
-              tail meets body reads as a single shape. Matches the
-              retired pre-onboarding modal's speech-bubble pattern Grant
-              liked, salvaged inline (no shared SpeechBubble component
-              since this is the only consumer now). */}
+          {/* Speech bubble pointing up at BeakerBot. Only the heading +
+              the new/returning framing live inside the bubble (so the
+              bubble reads as BeakerBot speaking). The author + funding
+              credit lives BELOW the bubble in muted text (Grant's call
+              2026-05-25: it's a credential, not BeakerBot speech). */}
           <div className="relative mx-auto w-full max-w-2xl">
             <div
               aria-hidden
@@ -569,17 +567,19 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                 className="mx-auto mt-3 text-sm leading-relaxed text-slate-700"
                 data-testid="picker-welcome-copy"
               >
-                A free and open source digital lab notebook built by
-                Dr. Grant R. Nickles (PhD) and funded in part by the
-                UW-Madison RISE Initiative.
-              </p>
-              <p className="mx-auto mt-2 text-sm leading-relaxed text-slate-700">
                 New here? After you link your folder, I&apos;ll walk
                 you through every page. Returning? Just take it from
                 here.
               </p>
             </div>
           </div>
+          {/* Author + funding credit. Muted slate text below the
+              bubble, NOT inside it (per Grant 2026-05-25). */}
+          <p className="mx-auto mt-4 max-w-2xl text-center text-xs leading-relaxed text-slate-400">
+            A free and open source digital lab notebook built by
+            Dr. Grant R. Nickles (PhD) and funded in part by the
+            UW-Madison RISE Initiative.
+          </p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-4">
