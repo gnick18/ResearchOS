@@ -11,7 +11,6 @@ import UserAvatar from "@/components/UserAvatar";
 import BeakerBot from "@/components/BeakerBot";
 import PickerWalkthroughModal from "@/components/picker-walkthrough/PickerWalkthroughModal";
 import RiseCredentialsStamp from "@/components/RiseCredentialsStamp";
-import { useMouseProximityWave } from "@/lib/picker/useMouseProximityWave";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
 import {
   extractDirectoryHandleFromDrop,
@@ -50,11 +49,6 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
   const [elnImportOpen, setElnImportOpen] = useState(false);
   const { showBugReport, currentError, openBugReport, closeBugReport } = useErrorReporting();
 
-  // BeakerBot proximity-wave hook. Returns "waving" when the cursor
-  // gets within ~200px of the mascot's center (with a cooldown so he
-  // doesn't wave continuously); "idle" otherwise.
-  const beakerBotWrapperRef = useRef<HTMLDivElement | null>(null);
-  const beakerBotPose = useMouseProximityWave(beakerBotWrapperRef);
 
   // Drag-and-drop state for the "Link Existing Folder" card. `isDragOver` is
   // a ref-counted boolean (incremented on dragenter, decremented on
@@ -553,12 +547,11 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
             the wave + surfacing the walkthrough CTA. */}
         <div className="mb-6 flex flex-col items-center lg:absolute lg:top-20 lg:right-full lg:mr-8 lg:mb-0 lg:w-64">
           <div
-            ref={beakerBotWrapperRef}
             className="mb-2 flex h-28 w-28 items-center justify-center"
             data-testid="picker-beakerbot"
           >
             <BeakerBot
-              pose={beakerBotPose}
+              pose="waving"
               className="h-full w-full text-sky-300"
               ariaLabel="BeakerBot waving hello"
             />
