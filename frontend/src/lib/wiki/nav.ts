@@ -145,6 +145,11 @@ export const WIKI_NAV: WikiNode[] = [
         blurb: "Smart Sync set to Local.",
       },
       {
+        href: "/wiki/shared-lab-accounts/box",
+        label: "Box",
+        blurb: "Box Drive with Make Available Offline.",
+      },
+      {
         href: "/wiki/shared-lab-accounts/icloud",
         label: "iCloud Drive",
         blurb: "Keep Downloaded on macOS.",
