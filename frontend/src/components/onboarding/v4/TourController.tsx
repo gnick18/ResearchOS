@@ -2962,6 +2962,49 @@ function TourBeakerBotOverlay({
     };
   }, [stepId, manualDisabledUntilEvent]);
 
+  // Fix 4: gate Got-it-next while BeakerBot's cursor script is still
+  // running (Grant feedback 2026-05-26: tour wedged on §6.5
+  // workbench-create-experiment → §6.6 attachment-open because the
+  // user clicked Got-it-next while the cursor was mid-submit. The
+  // create-experiment click hadn't fired yet, so the modal stayed
+  // open, then §6.6's cursor tried to click a workbench row that was
+  // still covered by the modal). Disable the button while the cursor
+  // is active, PLUS a small settle buffer after it deactivates so
+  // modal-close / route-change transitions can finish before the
+  // next step's cursor fires.
+  //
+  // Buffer rationale: the cursor flips `cursorActive` false the
+  // moment its script returns, but the script's terminal click
+  // (submit, navigate, close) usually triggers async state — modal
+  // exit animations, router transitions — that take ~300-500ms to
+  // settle. 600ms is generous enough to cover the common cases
+  // without feeling laggy to the user.
+  const CURSOR_SETTLE_BUFFER_MS = 600;
+  const [cursorSettling, setCursorSettling] = useState(false);
+  useEffect(() => {
+    if (cursorActive) {
+      // While the script is running, no settling needed (the cursor
+      // gate alone disables the button).
+      setCursorSettling(false);
+      return;
+    }
+    if (!step?.cursorScript) {
+      // Step has no cursor demo — never gate.
+      setCursorSettling(false);
+      return;
+    }
+    // Cursor just deactivated for a step that HAD a script. Hold the
+    // disabled state through the settle buffer so any modal-close /
+    // route change kicked off by the script's terminal action lands
+    // before the user can advance.
+    setCursorSettling(true);
+    const t = setTimeout(() => setCursorSettling(false), CURSOR_SETTLE_BUFFER_MS);
+    return () => clearTimeout(t);
+    // Re-run when the step changes or cursorActive flips. step?.cursorScript
+    // is a stable function ref per step body, safe to depend on.
+  }, [cursorActive, stepId, step?.cursorScript]);
+  const cursorDemoBusy = cursorActive || cursorSettling;
+
   // Bubble-flip (2026-05-26 bubble-flip sub-bot): compute the anchor
   // side BEFORE the early-return so the hook call order stays stable
   // when `step` flips between undefined and a real step. The hook
@@ -2986,16 +3029,21 @@ function TourBeakerBotOverlay({
     step.completion.type === "manual"
       ? step.completion.buttonLabel ?? "Got it, next"
       : null;
-  // Button is disabled if either:
+  // Button is disabled if any of:
   //  (a) the step declares `disabledUntilEvent` and the event hasn't
   //      fired yet for this step entry (Fix 1), OR
   //  (b) the user has already clicked once this step entry (Fix 3
-  //      double-click debounce).
+  //      double-click debounce), OR
+  //  (c) BeakerBot's cursor script is still running OR within the
+  //      post-script settle buffer (Fix 4, 2026-05-26 wedge fix).
   const manualGateActive = !!manualDisabledUntilEvent && !eventFired;
-  const manualButtonDisabled = manualGateActive || advanceClicked;
+  const manualButtonDisabled =
+    manualGateActive || advanceClicked || cursorDemoBusy;
   const manualButtonAriaLabel =
     manualGateActive && manualDisabledAriaLabel
       ? manualDisabledAriaLabel
+      : cursorDemoBusy
+      ? "BeakerBot is still demonstrating, hold on"
       : manualButtonLabel ?? "";
 
   // §6.7 HE-2: branch buttons render in place of the "Got it, next"

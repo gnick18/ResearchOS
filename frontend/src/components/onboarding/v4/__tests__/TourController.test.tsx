@@ -412,10 +412,9 @@ describe("TourController — noteInteraction / noteEventFired / noteManualAdvanc
     });
     // §6.4 methods-category ships a `manual` completion ("Got it, next")
     // per P5; using it here keeps the test honest about which steps
-    // accept manual advance. The earlier P1 version started on
-    // home-create-project when every step was a manual placeholder; the
-    // §6.3 notifications step was used here before the 2026-05-21 split
-    // turned it into three event-driven sub-steps.
+    // accept manual advance. This test calls noteManualAdvance directly
+    // (bypassing the button's cursor-demo gate added in Fix 4), so
+    // methods-category's cursor script doesn't block the assertion.
     act(() => result.current.start("methods-category"));
     const start = result.current.currentStep;
     act(() => result.current.noteManualAdvance());
@@ -695,11 +694,15 @@ describe("TourController — manual-advance button debounces double-click (R2 re
     const { result } = renderHook(() => useTourController(), {
       wrapper: wrapper(picks()),
     });
-    // methods-category ships a `manual` completion ("Got it, next")
-    // and is the canonical manual-step pick for these tests.
-    act(() => result.current.start("methods-category"));
+    // hybrid-markdown-intro is a manual-completion step with NO
+    // cursor script, which keeps these debounce assertions isolated
+    // from the cursor-script gating added 2026-05-26 (Fix 4). A step
+    // with a cursor demo would have manualButtonDisabled = true on
+    // mount, so the first click would be a no-op and the assertion
+    // would never observe the debounce.
+    act(() => result.current.start("hybrid-markdown-intro"));
     const firstStep = result.current.currentStep;
-    expect(firstStep).toBe("methods-category");
+    expect(firstStep).toBe("hybrid-markdown-intro");
 
     const btn = document.body.querySelector<HTMLButtonElement>(
       "[data-testid='tour-manual-advance-button']",
@@ -729,7 +732,7 @@ describe("TourController — manual-advance button debounces double-click (R2 re
     // For coverage of the re-enable path, jump to another manual step
     // and confirm it isn't carrying a stale `advanceClicked` flag.
     void btnAfter;
-    act(() => result.current.start("methods-category"));
+    act(() => result.current.start("hybrid-markdown-intro"));
     const btnReset = document.body.querySelector<HTMLButtonElement>(
       "[data-testid='tour-manual-advance-button']",
     );
@@ -746,7 +749,7 @@ describe("TourController — manual-advance button debounces double-click (R2 re
     const { result } = renderHook(() => useTourController(), {
       wrapper: wrapper(picks()),
     });
-    act(() => result.current.start("methods-category"));
+    act(() => result.current.start("hybrid-markdown-intro"));
     const btn = document.body.querySelector<HTMLButtonElement>(
       "[data-testid='tour-manual-advance-button']",
     );
