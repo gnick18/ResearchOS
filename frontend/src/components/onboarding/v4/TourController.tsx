@@ -2119,6 +2119,7 @@ function InProductWalkthroughOverlay({
         onBack={onBack}
         onBranchTo={onBranchTo}
         canGoBack={canGoBack}
+        cursorActive={cursorActive}
         flashSpeech={
           pageLockFlash ??
           (controller.targetDetachRecoveryLabel ? (
@@ -2519,6 +2520,311 @@ function SetupSkipConfirmModal({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Bubble-flip helpers (overnight bubble-flip sub-bot, 2026-05-26)
+//
+// Problem: the BeakerBot overlay (mascot + speech bubble) lives anchored
+// bottom-right. When a step's interaction target ALSO lands in the
+// bottom-right viewport quadrant (e.g. the Add-widget catalog popup, or
+// a cursor demo poking a button down there), the bubble visually covers
+// what BeakerBot is supposed to be demonstrating. Grant's directive:
+// "what beaker is doing is being hidden! He and the text needs to move
+// to the other side of the screen if where he is interacting with is
+// covered".
+//
+// Fix: compute the bubble's would-be rect (or a coarse bottom-right /
+// bottom-left "danger zone" rect) and intersect it against the active
+// interaction target. If they overlap, anchor the overlay to bottom-LEFT
+// instead so the right side is unobstructed. The bubble's internal layout
+// (back link left / CTA center / skips right) is unchanged — only the
+// overlay's outer anchor flips. CSS `transition: left 200ms / right 200ms`
+// keeps the flip smooth so it doesn't snap mid-step.
+//
+// Two-sided occlusion (target spans width): the helper picks whichever
+// side has more empty horizontal clearance from the target. Tie goes to
+// the default (right).
+// ---------------------------------------------------------------------------
+
+/** Bubble overlay anchor side. "right" is the default; "left" is the
+ *  flipped state used when the right-anchored bubble would occlude the
+ *  active interaction target. */
+export type BubbleAnchorSide = "left" | "right";
+
+/** Minimal rect shape used by the flip helper. Mirrors DOMRect for
+ *  testability (the helper is pure; tests pass plain objects in). */
+interface FlipRect {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+/** Width (px) of the bubble's "danger zone" used when computing whether
+ *  the right-anchored bubble overlaps the interaction target. The real
+ *  rendered bubble caps at maxWidth 380 and the mascot at 120; we use
+ *  the bubble's max so the danger zone covers the wider of the two
+ *  vertically-stacked elements. */
+const BUBBLE_DANGER_WIDTH = 380;
+
+/** Height (px) of the danger zone — bubble (~180px max) + 8px gap +
+ *  mascot (120px). Slightly generous so a tall multi-line speech bubble
+ *  doesn't escape the predicate. */
+const BUBBLE_DANGER_HEIGHT = 320;
+
+/** Right inset (px) from the viewport edge to the bubble's right edge
+ *  when anchored right. Matches `right-6` (Tailwind 1.5rem = 24px). */
+const BUBBLE_EDGE_INSET = 24;
+
+/** Bottom inset (px) from the viewport edge to the bubble's bottom edge.
+ *  Matches the explicit `bottom: 96` style on the overlay (24 + 48 FAB +
+ *  24 gap, see the comment block on the overlay's render). */
+const BUBBLE_BOTTOM_INSET = 96;
+
+/** Compute the bubble's danger-zone rect for a given anchor side and
+ *  viewport size. Pure — no DOM access — so the helper is callable from
+ *  tests without jsdom rect mocks. */
+export function getBubbleDangerRect(
+  side: BubbleAnchorSide,
+  viewportWidth: number,
+  viewportHeight: number,
+): FlipRect {
+  // The danger zone is BUBBLE_DANGER_HEIGHT tall, growing UP from
+  // (viewportHeight - BUBBLE_BOTTOM_INSET).
+  const bottomEdge = viewportHeight - BUBBLE_BOTTOM_INSET;
+  const topEdge = bottomEdge - BUBBLE_DANGER_HEIGHT;
+  if (side === "right") {
+    const rightEdge = viewportWidth - BUBBLE_EDGE_INSET;
+    const leftEdge = rightEdge - BUBBLE_DANGER_WIDTH;
+    return { left: leftEdge, top: topEdge, right: rightEdge, bottom: bottomEdge };
+  }
+  // side === "left"
+  const leftEdge = BUBBLE_EDGE_INSET;
+  const rightEdge = leftEdge + BUBBLE_DANGER_WIDTH;
+  return { left: leftEdge, top: topEdge, right: rightEdge, bottom: bottomEdge };
+}
+
+/** Returns true when two rects overlap. Pure. */
+export function rectsOverlap(a: FlipRect, b: FlipRect): boolean {
+  if (!a || !b) return false;
+  return !(
+    a.right <= b.left ||
+    a.left >= b.right ||
+    a.bottom <= b.top ||
+    a.top >= b.bottom
+  );
+}
+
+/** Pure helper: given the active interaction target rect(s) plus
+ *  viewport size, return the anchor side that minimizes occlusion.
+ *
+ *  - No targets: default to "right" (the resting state).
+ *  - Right-anchored bubble doesn't overlap any target: stay "right".
+ *  - Right-anchored bubble overlaps but left-anchored doesn't: flip to "left".
+ *  - Both sides overlap: pick whichever has more horizontal clearance
+ *    from the closest target (i.e. the side with the larger gap between
+ *    the bubble's inner edge and the target's nearest edge). Tie → "right".
+ */
+export function computeBubbleAnchorSide(
+  targets: ReadonlyArray<FlipRect | null | undefined>,
+  viewportWidth: number,
+  viewportHeight: number,
+): BubbleAnchorSide {
+  const valid = targets.filter(
+    (r): r is FlipRect =>
+      !!r &&
+      Number.isFinite(r.left) &&
+      Number.isFinite(r.right) &&
+      Number.isFinite(r.top) &&
+      Number.isFinite(r.bottom) &&
+      r.right > r.left &&
+      r.bottom > r.top,
+  );
+  if (valid.length === 0) return "right";
+
+  const rightZone = getBubbleDangerRect("right", viewportWidth, viewportHeight);
+  const leftZone = getBubbleDangerRect("left", viewportWidth, viewportHeight);
+
+  const rightOverlap = valid.some((t) => rectsOverlap(rightZone, t));
+  const leftOverlap = valid.some((t) => rectsOverlap(leftZone, t));
+
+  if (!rightOverlap) return "right";
+  if (!leftOverlap) return "left";
+
+  // Two-sided occlusion: pick the side with more clearance. Clearance
+  // is the gap between the bubble's INNER edge (left edge of the right
+  // zone, right edge of the left zone) and the nearest target edge on
+  // that side. Larger gap = more breathing room.
+  let rightClearance = -Infinity;
+  let leftClearance = -Infinity;
+  for (const t of valid) {
+    // Right-anchored clearance: how far left of the right zone the
+    // target's right edge sits.
+    rightClearance = Math.max(rightClearance, rightZone.left - t.right);
+    // Left-anchored clearance: how far right of the left zone the
+    // target's left edge sits.
+    leftClearance = Math.max(leftClearance, t.left - leftZone.right);
+  }
+  return leftClearance > rightClearance ? "left" : "right";
+}
+
+/** Find the nearest popup-like ancestor of `el`. A "popup" is something
+ *  the user perceives as a transient surface: role="dialog" / "menu" /
+ *  "listbox" / "tooltip", an element with `data-tour-popup="true"`, OR
+ *  (heuristic) an element whose `data-tour-target` value contains one
+ *  of the words "catalog", "modal", "popup", "menu", "dropdown",
+ *  "popover". Returns null if no popup ancestor exists. */
+function findPopupAncestor(el: HTMLElement | null): HTMLElement | null {
+  let cursor: HTMLElement | null = el;
+  while (cursor && cursor !== document.body) {
+    const role = cursor.getAttribute("role");
+    if (
+      role === "dialog" ||
+      role === "menu" ||
+      role === "listbox" ||
+      role === "tooltip"
+    ) {
+      return cursor;
+    }
+    if (cursor.dataset.tourPopup === "true") return cursor;
+    const tt = cursor.getAttribute("data-tour-target");
+    if (
+      tt &&
+      /catalog|modal|popup|menu|dropdown|popover/i.test(tt)
+    ) {
+      return cursor;
+    }
+    cursor = cursor.parentElement;
+  }
+  return null;
+}
+
+/** Read the rect of a DOM element, or null if the element is missing,
+ *  detached, or has a zero-area bounding box. */
+function safeRect(el: Element | null): FlipRect | null {
+  if (!el) return null;
+  if (el instanceof HTMLElement && !el.isConnected) return null;
+  const r = el.getBoundingClientRect();
+  if (!r || r.width <= 0 || r.height <= 0) return null;
+  return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+}
+
+/** Hook: compute the current bubble anchor side based on the active
+ *  step's spotlight target, the BeakerBot cursor element (when the
+ *  cursor is mid-script), and the nearest popup ancestor of the
+ *  spotlight target. Updates on step change, on cursor active/inactive,
+ *  and on viewport resize / scroll (rAF-batched).
+ *
+ *  Per the design brief: we DON'T re-evaluate on every render — only on
+ *  step entry, viewport resize, scroll, or cursor-active flip. That way
+ *  a transient mid-step rect bounce (e.g. a popup opening then closing
+ *  again 50ms later as part of the same demo) doesn't pingpong the
+ *  bubble side mid-step. */
+function useBubbleAnchorSide(
+  targetSelector: string | undefined,
+  cursorActive: boolean,
+  stepId: TourStepId | null,
+): BubbleAnchorSide {
+  const [side, setSide] = useState<BubbleAnchorSide>("right");
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+
+    let cancelled = false;
+    let rafId: number | null = null;
+
+    const compute = () => {
+      rafId = null;
+      if (cancelled) return;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+
+      const targets: Array<FlipRect | null> = [];
+
+      // Spotlight target rect.
+      let spotlightEl: HTMLElement | null = null;
+      if (targetSelector) {
+        try {
+          const found = document.querySelector(targetSelector);
+          if (found instanceof HTMLElement) spotlightEl = found;
+        } catch {
+          // Invalid selector — ignore.
+        }
+      }
+      targets.push(safeRect(spotlightEl));
+
+      // Cursor wrapper rect (only when the cursor is actively driving a
+      // script). The cursor wrapper carries `data-beakerbot-cursor`.
+      if (cursorActive) {
+        const cursorEl = document.querySelector("[data-beakerbot-cursor]");
+        targets.push(safeRect(cursorEl));
+      }
+
+      // Popup-ancestor rect: if the spotlight target lives inside a
+      // popup/dialog/menu, include the popup's bounding rect so a
+      // popup that extends well beyond the target still triggers the
+      // flip. The home-widget-catalog case is exactly this — the
+      // spotlight points at the +Add button (bottom-right of canvas),
+      // but the catalog popup that opens covers a much larger area.
+      if (spotlightEl) {
+        const popup = findPopupAncestor(spotlightEl);
+        if (popup) targets.push(safeRect(popup));
+      }
+      // Also include any free-standing popup surfaces present in the
+      // DOM (role="dialog" elements that are visible but unrelated to
+      // the spotlight target). Keeps the predicate honest if a step's
+      // demo opens a modal but the spotlight points at the trigger
+      // button outside it.
+      const dialogs = document.querySelectorAll(
+        '[role="dialog"], [role="menu"], [data-tour-popup="true"]',
+      );
+      dialogs.forEach((d) => targets.push(safeRect(d)));
+
+      const next = computeBubbleAnchorSide(targets, vw, vh);
+      setSide((prev) => (prev === next ? prev : next));
+    };
+
+    const schedule = () => {
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(compute);
+    };
+
+    // Initial compute (rAF-scheduled so any mid-step DOM transition has
+    // a frame to settle before we read rects).
+    schedule();
+
+    // Re-evaluate on viewport resize + on scroll (capture so nested
+    // scroll containers bubble through). Passive — we never
+    // preventDefault.
+    const onResize = () => schedule();
+    const onScroll = () => schedule();
+    window.addEventListener("resize", onResize, { passive: true });
+    window.addEventListener("scroll", onScroll, { capture: true, passive: true });
+
+    // Re-evaluate on DOM mutations under document.body so a popup
+    // mounting / unmounting mid-step gets picked up without polling.
+    // This is the path that fires the catalog flip — at step entry the
+    // catalog isn't mounted yet, so the initial compute sees only the
+    // +Add button (small, doesn't trigger flip), then the cursor
+    // demo opens the catalog and the MutationObserver schedules a
+    // re-compute that detects the popup and flips.
+    const mo = new MutationObserver(schedule);
+    mo.observe(document.body, { childList: true, subtree: true });
+
+    return () => {
+      cancelled = true;
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", onScroll, { capture: true });
+      mo.disconnect();
+    };
+    // Re-run on step change (stepId), targetSelector change, or
+    // cursor-active flip. Each is a legitimate "interaction surface
+    // changed" boundary that warrants a fresh measurement.
+  }, [targetSelector, cursorActive, stepId]);
+
+  return side;
+}
+
 /**
  * BeakerBot mascot floating bottom-right (above AppShell's FAB
  * cluster) + speech bubble above-left per L4. The bubble shows the
@@ -2534,6 +2840,12 @@ function SetupSkipConfirmModal({
  * its old "I've got it from here" copy) so users see the two
  * skip paths together. Mascot size bumped from 80px to 120px and the
  * whole overlay anchor lifted above the FAB cluster.
+ *
+ * Bubble-flip (2026-05-26): when the active interaction target (the
+ * spotlight target, the cursor mid-demo, or an open popup ancestor)
+ * intersects the bubble's bottom-right danger zone, the overlay
+ * anchors to bottom-LEFT instead. CSS transitions keep the flip
+ * smooth.
  */
 interface TourBeakerBotOverlayProps {
   step: TourStep | undefined;
@@ -2554,6 +2866,12 @@ interface TourBeakerBotOverlayProps {
    *  When non-null, replaces the step's normal speech for the 2-second
    *  flash window. Cleared by the controller after the timeout. */
   flashSpeech?: ReactNode | null;
+  /** Bubble-flip (2026-05-26): mirror of the parent overlay's
+   *  cursorActive state. When true, the BeakerBotCursor wrapper rect
+   *  is included as an interaction target for the flip predicate so
+   *  the bubble dodges the cursor's current zone too, not just the
+   *  spotlight / popup. */
+  cursorActive?: boolean;
 }
 
 function TourBeakerBotOverlay({
@@ -2565,6 +2883,7 @@ function TourBeakerBotOverlay({
   onBranchTo,
   canGoBack,
   flashSpeech,
+  cursorActive = false,
 }: TourBeakerBotOverlayProps) {
   // R2 regression followup Fix 1/3 + Fix 3/3 (2026-05-23):
   //  - Fix 1: `disabledUntilEvent` gating: if the active step's
@@ -2615,6 +2934,18 @@ function TourBeakerBotOverlay({
     };
   }, [stepId, manualDisabledUntilEvent]);
 
+  // Bubble-flip (2026-05-26 bubble-flip sub-bot): compute the anchor
+  // side BEFORE the early-return so the hook call order stays stable
+  // when `step` flips between undefined and a real step. The hook
+  // tolerates undefined targetSelector / null stepId (treats them as
+  // "no interaction target" → defaults to right anchor). See
+  // `useBubbleAnchorSide` for the full predicate.
+  const anchorSide = useBubbleAnchorSide(
+    step?.targetSelector,
+    cursorActive,
+    stepId,
+  );
+
   if (!step) return null;
 
   const speechNode = flashSpeech
@@ -2657,20 +2988,43 @@ function TourBeakerBotOverlay({
       ? step.completion.onChoose
       : undefined;
 
-  // Anchor position: bottom-right, but clear of AppShell's FAB cluster.
-  // AppShell mounts a horizontal row of ~7 round 48px buttons at
-  // `fixed bottom-6 right-6` (see AppShell.tsx ~line 306). With the
-  // 24px bottom inset + 48px button height, that cluster occupies the
-  // bottom 72px of the right edge. We anchor BeakerBot 24px above the
-  // cluster's top (bottom: 96px) so the mascot + speech bubble sit
-  // clearly above the row instead of overlapping the donation /
-  // bug-report buttons. The right-6 (24px) inset matches the cluster
-  // so the two elements visually align on the right edge.
+  // Anchor position: bottom-right by default, but clear of AppShell's
+  // FAB cluster. AppShell mounts a horizontal row of ~7 round 48px
+  // buttons at `fixed bottom-6 right-6` (see AppShell.tsx ~line 306).
+  // With the 24px bottom inset + 48px button height, that cluster
+  // occupies the bottom 72px of the right edge. We anchor BeakerBot
+  // 24px above the cluster's top (bottom: 96px) so the mascot + speech
+  // bubble sit clearly above the row instead of overlapping the
+  // donation / bug-report buttons. The right-6 (24px) inset matches
+  // the cluster so the two elements visually align on the right edge.
+  //
+  // Bubble-flip (2026-05-26): when the active interaction target
+  // overlaps the right-anchored bubble, anchor bottom-LEFT instead.
+  // `useBubbleAnchorSide` (called above the early-return) does the
+  // computation; here we just consume its `anchorSide` to switch
+  // layout class + inline left/right with a transition for smooth
+  // animation.
   return (
     <div
       data-testid="tour-beakerbot-overlay"
-      className="fixed right-6 z-[450] pointer-events-none flex flex-col items-end gap-2"
-      style={{ maxWidth: 380, bottom: 96 }}
+      data-bubble-anchor-side={anchorSide}
+      className={
+        anchorSide === "left"
+          ? "fixed z-[450] pointer-events-none flex flex-col items-start gap-2"
+          : "fixed z-[450] pointer-events-none flex flex-col items-end gap-2"
+      }
+      style={{
+        maxWidth: 380,
+        bottom: 96,
+        // Drive horizontal position via inline left/right + a
+        // transition so the flip animates. The "off" side sits at
+        // `auto` so the layout system uses the other axis exclusively
+        // (left+right both set would force-stretch via flex, which we
+        // don't want for a fixed-size pop).
+        left: anchorSide === "left" ? 24 : undefined,
+        right: anchorSide === "right" ? 24 : undefined,
+        transition: "left 200ms ease-out, right 200ms ease-out",
+      }}
     >
       {/* Speech bubble. Above-and-to-the-left of the BeakerBot per L4.
           Pointer events are re-enabled here so the user can click
