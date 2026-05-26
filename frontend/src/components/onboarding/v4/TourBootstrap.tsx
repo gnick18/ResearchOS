@@ -326,6 +326,7 @@ export default function TourBootstrap({ username }: TourBootstrapProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [username, previewMode]);
 
+  const { start, setFeaturePicks } = controller;
   const handleRestart = useCallback(async () => {
     try {
       await patchOnboarding(username, (cur) => ({
@@ -335,9 +336,9 @@ export default function TourBootstrap({ username }: TourBootstrapProps) {
     } catch (err) {
       console.error("[onboarding-v4] v3-inflight restart patch failed", err);
     }
-    controller.start();
+    start();
     setState({ kind: "resolved" });
-  }, [username, controller]);
+  }, [username, start]);
 
   const handleSkip = useCallback(async () => {
     try {
@@ -403,8 +404,8 @@ export default function TourBootstrap({ username }: TourBootstrapProps) {
     // TourStepId is a free-form string alias; isV4StepId guarded the
     // value before we transitioned into "v4-resume", so it is safe to
     // hand straight to start() without re-validating.
-    controller.start(target);
-  }, [state, controller]);
+    start(target);
+  }, [state, start]);
 
   const handleRestartV4 = useCallback(async () => {
     try {
@@ -433,9 +434,9 @@ export default function TourBootstrap({ username }: TourBootstrapProps) {
       console.error("[onboarding-v4] resume-modal restart patch failed", err);
     }
     setState({ kind: "resolved" });
-    controller.setFeaturePicks(null);
-    controller.start();
-  }, [username, controller]);
+    setFeaturePicks(null);
+    start();
+  }, [username, setFeaturePicks, start]);
 
   const handleDiscard = useCallback(async () => {
     try {
