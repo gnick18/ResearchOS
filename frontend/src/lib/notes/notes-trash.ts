@@ -1,121 +1,93 @@
-// Lab head UX polish manager Bug 3 (2026-05-24): soft-delete + restore
-// helpers for notes.
+// VCP R1 trash MVP notes (2026-05-26): deprecation shim.
 //
-// File layout: a deleted note's JSON is moved from
-//   users/<owner>/notes/<id>.json
-// to
-//   users/<owner>/notes_trash/<id>.json
-// before being removed from the live notes directory. A `deleted_at`
-// ISO timestamp is stamped onto the trashed copy so a future auto-purge
-// can drop entries older than N days without re-reading the original
-// file's mtime.
+// This module was the original Note-only soft-delete primitive (Lab head
+// UX polish manager Bug 3, 2026-05-24). R1 of the Version Control proposal
+// generalized the trash layout to `users/<u>/_trash/<entity_type>/` with
+// an `_index.json` sidecar. The new authoritative layer lives at
+// `@/lib/trash`.
 //
-// We use a sibling directory (notes_trash) rather than a `_deleted/`
-// subfolder inside `notes/` so the live `notesStore.listAll()` — which
-// reads every `*.json` in `users/<owner>/notes/` — naturally excludes
-// trashed entries without any "is this a trash file?" filter.
+// This file keeps the same public surface (`trashNote`, `restoreTrashedNote`,
+// `TrashedNote`) so existing call sites in `local-api.ts` and the tests
+// continue to compile. Each function delegates straight into the new
+// layer. The TrashedNote interface keeps the legacy `deleted_at` field
+// hoisted to the top level for backward-compat with old readers that
+// haven't been updated yet (the new layer stores it inside `_trash`).
 //
-// The restore path is the inverse: read from `notes_trash/<id>.json`,
-// strip the trash-only metadata, write back to `notes/<id>.json`, then
-// delete the trash file. This keeps the note's id stable across the
-// soft-delete round-trip — the same id the user saw before deletion is
-// what comes back.
+// REMOVE THIS SHIM in R2 once every note delete call site has been
+// migrated to `trashEntity({ entityType: "note", ... })` directly.
 
-import { fileService } from "@/lib/file-system/file-service";
+import {
+  trashEntity,
+  restoreEntity,
+  readTrashedEntity,
+} from "@/lib/trash";
 import type { Note } from "@/lib/types";
 
-/** Folder name relative to a user's base path. */
-const TRASH_DIRNAME = "notes_trash";
-
-/** The trash record on disk = the original note plus a soft-delete timestamp. */
+/** Legacy shape: original Note + a top-level `deleted_at`. The new
+ *  layer stores the same timestamp inside `_trash.deleted_at`; we
+ *  surface BOTH so legacy readers keep working through R1. */
 export interface TrashedNote extends Note {
   deleted_at: string;
 }
 
-function notesPath(username: string, id: number): string {
-  return `users/${username}/notes/${id}.json`;
-}
-
-function trashPath(username: string, id: number): string {
-  return `users/${username}/${TRASH_DIRNAME}/${id}.json`;
-}
-
-/**
- * Move a note's JSON into the trash directory. Returns `true` if the
- * note existed and was moved, `false` otherwise (missing source, write
- * failure, etc. — caller can treat both as "nothing to undo").
+/** Soft-delete a note. Backwards-compatible signature; new call sites
+ *  should pass `actor` + `sessionId` so the new layer can record
+ *  attribution. When omitted, attribution falls back to `owner` (owner
+ *  self-delete) with no session id.
  *
- * Order of ops:
- *   1. Read the live note. If missing, return false.
- *   2. Write the trashed copy WITH `deleted_at`. If this fails (no
- *      permission, disk full), bail without touching the live file.
- *   3. Delete the live file.
- *
- * In the rare case where (3) fails after (2) succeeds, the next list
- * call will show the note as still present (live copy survives) AND
- * the trash will contain a stale entry — a benign duplicate that the
- * next legitimate delete will overwrite.
- */
+ *  Returns the trashed-record shape (with `deleted_at` hoisted to the
+ *  top level) for backward compat, or null when the live note was
+ *  missing. */
 export async function trashNote(
   username: string,
   noteId: number,
+  options?: {
+    actor?: string;
+    sessionId?: string | null;
+  },
 ): Promise<TrashedNote | null> {
-  const live = await fileService.readJson<Note>(notesPath(username, noteId));
-  if (!live) return null;
-
-  const trashed: TrashedNote = {
-    ...live,
-    deleted_at: new Date().toISOString(),
-  };
-  await fileService.ensureDir(`users/${username}/${TRASH_DIRNAME}`);
-  try {
-    await fileService.writeJson(trashPath(username, noteId), trashed);
-  } catch (err) {
-    console.warn("[notes-trash] failed to write trash copy", err);
-    return null;
-  }
-
-  const removed = await fileService.deleteFile(notesPath(username, noteId));
-  if (!removed) {
-    console.warn(
-      "[notes-trash] trashed copy written but live file delete failed; live copy still visible",
-    );
-  }
-  return trashed;
+  const actor = options?.actor ?? username;
+  const sessionId = options?.sessionId ?? null;
+  // We need the title to slug the filename. Read it before the move.
+  const writtenAt = new Date().toISOString();
+  void writtenAt;
+  const trashed = await trashEntity<Note>({
+    owner: username,
+    entityType: "note",
+    id: noteId,
+    deletedBy: actor,
+    sessionId,
+    nameForSlug: undefined, // Resolved inside trashEntity after live read.
+    // R2 wires the project_id parent reference; R1 leaves it absent.
+  });
+  if (!trashed) return null;
+  // Hoist `deleted_at` for backward compat.
+  return {
+    ...(trashed as Note),
+    deleted_at: trashed._trash.deleted_at,
+  } as TrashedNote;
 }
 
-/**
- * Restore a previously-trashed note. Returns the live Note on success,
- * or `null` if the trash entry was missing (e.g. already purged or
- * never existed). The trash file is removed on success; on failure to
- * write the live copy we keep the trash file in place so the user can
- * retry.
- */
+/** Restore a previously-trashed note. Returns the live Note shape (no
+ *  `deleted_at`, no `_trash`) on success, or null when no trash entry
+ *  exists. */
 export async function restoreTrashedNote(
   username: string,
   noteId: number,
 ): Promise<Note | null> {
-  const trashed = await fileService.readJson<TrashedNote>(
-    trashPath(username, noteId),
-  );
+  return await restoreEntity<Note>(username, "note", noteId);
+}
+
+/** Direct read of a trashed note. Used by the trash UI when it needs
+ *  to render the full record (not just the index summary). */
+export async function readTrashedNote(
+  username: string,
+  noteId: number,
+): Promise<TrashedNote | null> {
+  const trashed = await readTrashedEntity<Note>(username, "note", noteId);
   if (!trashed) return null;
-
-  // Strip the trash-only field before writing back to the live store.
-  const { deleted_at: _deleted_at, ...liveCopy } = trashed;
-
-  await fileService.ensureDir(`users/${username}/notes`);
-  try {
-    await fileService.writeJson(notesPath(username, noteId), liveCopy as Note);
-  } catch (err) {
-    console.warn("[notes-trash] failed to restore live copy", err);
-    return null;
-  }
-
-  const removed = await fileService.deleteFile(trashPath(username, noteId));
-  if (!removed) {
-    console.warn(
-      "[notes-trash] live copy restored but trash file removal failed",
-    );
-  }
-  return liveCopy as Note;
+  return {
+    ...(trashed as Note),
+    deleted_at: trashed._trash.deleted_at,
+  } as TrashedNote;
 }

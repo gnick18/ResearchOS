@@ -85,6 +85,11 @@ import { useFeaturePicks } from "@/hooks/useFeaturePicks";
 import { forgetAllTelegramTokenCache } from "@/lib/telegram/telegram-token-cache";
 import StreaksSection from "./StreaksSection";
 import {
+  TRASH_CLEANUP_OPTIONS,
+  getUserTrashCleanupDays,
+  type UserSettingsWithTrash,
+} from "@/lib/trash";
+import {
   HighlightedText,
   SearchableRow,
   SectionMatchProvider,
@@ -478,6 +483,7 @@ function SettingsBody() {
             <AnimationSection settings={settings} update={update} />
             <BehaviorSection settings={settings} update={update} />
             <StreaksSection />
+            <TrashAndHistorySection settings={settings} update={update} />
             <DataInventorySection />
             <MaintenanceSection />
             <TipsSection />
@@ -2494,6 +2500,99 @@ interface RepairSummary {
   repaired: number;
   alreadyCorrect: number;
   failed: number;
+}
+
+// VCP R1 trash MVP notes (2026-05-26): the "History & Trash" section
+// surfaces the cleanup-window radio (OQ1 default: 30 days) and a link
+// to /trash. OQ7 reserves a slot for the orphaned-files cleanup tool;
+// we render placeholder copy noting it ships in R2.
+function TrashAndHistorySection({ settings, update }: SectionProps) {
+  const cleanupDays = getUserTrashCleanupDays(
+    settings as UserSettings & UserSettingsWithTrash,
+  );
+  const handleChange = async (value: number | null) => {
+    // Cast: the field isn't in the base UserSettings interface yet
+    // (R1 keeps it on the parallel UserSettingsWithTrash shape so the
+    // trash module stays decoupled). `patchUserSettings.normalize`
+    // preserves unknown keys, so the cast lands cleanly on disk.
+    await update({
+      trash_cleanup_days: value,
+    } as unknown as Partial<UserSettings>);
+  };
+  return (
+    <SectionShell
+      id="history-and-trash"
+      title="History & Trash"
+      description="Deleted records sit in the trash for a configurable window before being permanently removed. Restore from /trash."
+      searchKeywords="trash delete soft-delete restore cleanup window history version control"
+    >
+      <SearchableRow
+        id="trash-cleanup-window"
+        label="Cleanup window"
+        desc="How long deleted records stay recoverable before they are permanently removed."
+      >
+        <div className="space-y-2">
+          <p className="text-xs text-gray-600">
+            How long deleted records stay recoverable before they are
+            permanently removed.
+          </p>
+          <fieldset className="space-y-1">
+            <legend className="sr-only">Cleanup window</legend>
+            {TRASH_CLEANUP_OPTIONS.map((opt) => {
+              const id = `trash-cleanup-${opt.value === null ? "never" : opt.value}`;
+              const checked = cleanupDays === opt.value;
+              return (
+                <label
+                  key={id}
+                  htmlFor={id}
+                  className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
+                >
+                  <input
+                    id={id}
+                    type="radio"
+                    name="trash-cleanup-window"
+                    checked={checked}
+                    onChange={() => void handleChange(opt.value)}
+                    className="text-blue-600 focus:ring-blue-500"
+                  />
+                  <span>{opt.label}</span>
+                </label>
+              );
+            })}
+          </fieldset>
+        </div>
+      </SearchableRow>
+      <SearchableRow
+        id="trash-manage"
+        label="Manage trash"
+        desc="Open the /trash page to restore or permanently delete records."
+      >
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-gray-600 flex-1">
+            Open the trash page to restore records back to their original
+            location, or permanently delete them ahead of the cleanup window.
+          </p>
+          <Link
+            href="/trash"
+            className="px-3 py-1.5 text-sm rounded-md border border-gray-300 bg-white hover:bg-gray-50"
+          >
+            Open trash
+          </Link>
+        </div>
+      </SearchableRow>
+      <SearchableRow
+        id="trash-orphaned-files"
+        label="Orphaned files"
+        desc="Find image attachments that no live record references. Coming in R2."
+      >
+        <p className="text-xs text-gray-600">
+          Image attachments referenced only by deleted records currently stay
+          on disk. A &ldquo;View orphaned files&rdquo; tool that scans for
+          unreferenced attachments and offers cleanup ships in R2.
+        </p>
+      </SearchableRow>
+    </SectionShell>
+  );
 }
 
 function MaintenanceSection() {

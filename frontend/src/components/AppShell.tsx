@@ -417,6 +417,45 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </svg>
           </Link>
           </Tooltip>
+          {/* VCP R1 trash MVP notes (2026-05-26): small Settings-area
+              trash-can link. Lives between Help and Settings so it's
+              easy to reach but not part of the main NAV_ITEMS strip
+              (per the proposal — trash is admin-area, not first-class
+              navigation). The icon stays neutral grey; restore /
+              permanent-delete affordances live on the route itself. */}
+          <Tooltip label="Trash" placement="bottom">
+            <Link
+              href="/trash"
+              aria-label="Open trash"
+              className={`p-1.5 rounded-full transition-colors ${
+                tinted
+                  ? pathname === "/trash"
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "bg-white/75 text-gray-700 hover:bg-white shadow-sm"
+                  : pathname === "/trash"
+                  ? "bg-blue-50 text-blue-700"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+              }`}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                <path d="M10 11v6" />
+                <path d="M14 11v6" />
+                <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+              </svg>
+            </Link>
+          </Tooltip>
           <Tooltip label="Account & app settings" placement="bottom">
           {/* Onboarding v4 L23 (break-bot B P1-2): the Settings gear icon
               must follow the same gate as the top-nav tabs. Without this,

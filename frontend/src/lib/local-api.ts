@@ -3082,15 +3082,38 @@ export const notesApi = {
       : notesStore.update(id, patch);
   },
 
-  // Soft-delete: move the note's JSON to `users/<owner>/notes_trash/<id>.json`
+  // Soft-delete: move the note's JSON to `users/<owner>/_trash/notes/<id>-<slug>.json`
   // instead of hard-removing it. The next `restore(id, owner)` call
-  // brings it back at the same id. See `lib/notes/notes-trash.ts` for
-  // the file layout + recovery semantics. (Lab head UX polish manager
-  // Bug 3, 2026-05-24 — the prior implementation hard-deleted via
-  // `notesStore.delete`, which was unrecoverable.)
-  delete: async (id: number, owner?: string): Promise<void> => {
+  // brings it back at the same id. See `lib/trash/` (VCP R1) for the
+  // file layout + recovery semantics; `lib/notes/notes-trash.ts` is a
+  // deprecation shim that delegates into the new layer.
+  //
+  // Owner-only delete gating (VCP R1 OQ9, 2026-05-26): only the note's
+  // owner may delete it. A PI deleting cross-owner during a Phase 5
+  // unlock is the documented carve-out — the caller must pass `actor`
+  // + `sessionId` so the trash entry records the PI as the deleter +
+  // groups with the audit log. Edit-access shared users are rejected
+  // here at the API layer (defensive — the UI also hides the Delete
+  // button via the read-only gate).
+  delete: async (
+    id: number,
+    owner?: string,
+    options?: { actor?: string; sessionId?: string | null },
+  ): Promise<void> => {
     const targetOwner = owner ?? (await getCurrentUserCached());
-    await trashNote(targetOwner, id);
+    const actor = options?.actor ?? (await getCurrentUserCached());
+    const sessionId = options?.sessionId ?? null;
+    // Gate: owner self-delete (actor === owner) is always allowed.
+    // PI cross-owner delete requires an active Phase 5 session id.
+    // Edit-access shared users (different actor, no session) are
+    // refused.
+    if (actor !== targetOwner && !sessionId) {
+      console.warn(
+        `[notesApi.delete] refused: non-owner ${actor} cannot delete note owned by ${targetOwner} without an active PI unlock`,
+      );
+      return;
+    }
+    await trashNote(targetOwner, id, { actor, sessionId });
   },
 
   // Inverse of `delete`. Returns the restored Note on success, `null`

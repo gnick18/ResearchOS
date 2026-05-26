@@ -1,12 +1,15 @@
-// Lab head UX polish manager Bug 3 (2026-05-25): soft-delete + restore
-// contract for notes.
+// VCP R1 trash MVP notes (2026-05-26): legacy notes-trash test surface.
+//
+// `notes-trash.ts` is now a deprecation shim that delegates into the
+// new `@/lib/trash` layer. The on-disk layout moved from
+// `users/<u>/notes_trash/<id>.json` to
+// `users/<u>/_trash/notes/<id>-<slug>.json`. This test file pins the
+// shim's public contract (same function names, same return shapes) so
+// existing call sites in local-api.ts + NoteDetailPopup keep working.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Inline in-memory FS so the trash helper exercises real read/write
-// semantics without touching disk. Layout mirrors the production paths
-// the helper uses: `users/<owner>/notes/<id>.json` for live notes and
-// `users/<owner>/notes_trash/<id>.json` for soft-deleted ones.
+// Inline in-memory FS shared across the trash modules under test.
 const memFs = new Map<string, unknown>();
 
 vi.mock("@/lib/file-system/file-service", () => ({
@@ -25,10 +28,29 @@ vi.mock("@/lib/file-system/file-service", () => ({
       return had;
     }),
     isConnected: vi.fn(() => true),
+    listFiles: vi.fn(async (dirPath: string) => {
+      const prefix = `${dirPath}/`;
+      const out: string[] = [];
+      for (const key of memFs.keys()) {
+        if (key.startsWith(prefix)) {
+          const rest = key.slice(prefix.length);
+          if (!rest.includes("/")) out.push(rest);
+        }
+      }
+      return out.sort();
+    }),
+    fileExists: vi.fn(async (path: string) => memFs.has(path)),
   },
 }));
 
-// Import after the mock so the helper picks up the mocked module.
+// Settings reader gets mocked to return DEFAULT_SETTINGS so the writer
+// doesn't try to walk a real user-settings.json file.
+vi.mock("@/lib/settings/user-settings", () => ({
+  readUserSettings: vi.fn(async () => ({})),
+  DEFAULT_SETTINGS: {},
+}));
+
+// Import after the mocks so the helper picks up the mocked modules.
 import { trashNote, restoreTrashedNote } from "../notes-trash";
 
 const OWNER = "mira";
@@ -48,31 +70,41 @@ function makeNote(id: number) {
   };
 }
 
-describe("notes-trash", () => {
+/** Find the trash file path for a given id by scanning the mock FS.
+ *  Needed because the filename now includes a slug suffix. */
+function trashFilePathForId(owner: string, id: number): string | undefined {
+  const prefix = `users/${owner}/_trash/notes/${id}-`;
+  for (const key of memFs.keys()) {
+    if (key.startsWith(prefix) && key.endsWith(".json")) return key;
+  }
+  return undefined;
+}
+
+describe("notes-trash shim", () => {
   beforeEach(() => {
     memFs.clear();
   });
 
-  it("moves a live note into notes_trash and stamps deleted_at", async () => {
+  it("moves a live note into _trash/notes and surfaces the deleted_at field for legacy readers", async () => {
     memFs.set(`users/${OWNER}/notes/7.json`, makeNote(7));
 
     const trashed = await trashNote(OWNER, 7);
 
     expect(trashed).not.toBeNull();
     expect(trashed?.deleted_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-    // Live copy is gone, trash copy is present.
+    // Live copy is gone, trash copy is present at the new path.
     expect(memFs.has(`users/${OWNER}/notes/7.json`)).toBe(false);
-    expect(memFs.has(`users/${OWNER}/notes_trash/7.json`)).toBe(true);
+    expect(trashFilePathForId(OWNER, 7)).toBeDefined();
   });
 
   it("returns null when the live note is missing (no trash entry written)", async () => {
     const trashed = await trashNote(OWNER, 999);
 
     expect(trashed).toBeNull();
-    expect(memFs.has(`users/${OWNER}/notes_trash/999.json`)).toBe(false);
+    expect(trashFilePathForId(OWNER, 999)).toBeUndefined();
   });
 
-  it("restoreTrashedNote brings the note back at the same id and strips deleted_at", async () => {
+  it("restoreTrashedNote brings the note back at the same id and strips deleted_at + _trash", async () => {
     memFs.set(`users/${OWNER}/notes/7.json`, makeNote(7));
     await trashNote(OWNER, 7);
 
@@ -82,9 +114,9 @@ describe("notes-trash", () => {
     expect(restored?.id).toBe(7);
     expect(restored?.title).toBe("Note 7");
     expect("deleted_at" in (restored ?? {})).toBe(false);
-    // Live copy is back; trash copy is gone.
+    expect("_trash" in (restored ?? {})).toBe(false);
     expect(memFs.has(`users/${OWNER}/notes/7.json`)).toBe(true);
-    expect(memFs.has(`users/${OWNER}/notes_trash/7.json`)).toBe(false);
+    expect(trashFilePathForId(OWNER, 7)).toBeUndefined();
   });
 
   it("restore is a no-op when the trash entry is missing", async () => {

@@ -690,14 +690,21 @@ export default function NoteDetailPopup({
 
   // Delete note. Bug 3 (lab head UX polish manager, 2026-05-25):
   // notesApi.delete is now a soft-delete (the note's JSON moves to
-  // `users/<owner>/notes_trash/<id>.json`). After the call lands we
-  // fire an Undo toast via the delete-toast-bus so the user can
+  // `users/<owner>/_trash/notes/<id>-<slug>.json`). After the call lands
+  // we fire an Undo toast via the delete-toast-bus so the user can
   // recover from a misclick within 10 seconds.
+  //
+  // Owner-only delete (VCP R1 OQ9, 2026-05-26): edit-access shared users
+  // never see this button (see the footer below); a PI in an active
+  // Phase 5 unlock can delete cross-owner via `labHeadGate.sessionId`.
   const handleDeleteNote = async () => {
     if (!confirm("Are you sure you want to delete this entire note?")) return;
 
     try {
-      await notesApi.delete(note.id);
+      await notesApi.delete(note.id, note.username || undefined, {
+        actor: labHeadGate.activeUser ?? undefined,
+        sessionId: labHeadGate.sessionId ?? null,
+      });
       emitNoteDeleted({
         noteId: note.id,
         noteTitle: note.title ?? "",
@@ -1148,12 +1155,19 @@ export default function NoteDetailPopup({
             <div className="text-xs text-gray-400">
               Created: {note.created_at ? formatDate(note.created_at) : "—"} • Updated: {formatDate(note.updated_at)}
             </div>
-            <button
-              onClick={handleDeleteNote}
-              className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-            >
-              Delete Note
-            </button>
+            {/* VCP R1 OQ9 (2026-05-26): owner-only Delete. Shared-edit
+                users see no Delete button; their writes still go through
+                the unwrapped notesApi.update. A PI in an active Phase 5
+                unlock (`labHeadGate.unlocked`) gets the button so they
+                can delete cross-owner under audit. */}
+            {(currentUser === note.username || labHeadGate.unlocked) && (
+              <button
+                onClick={handleDeleteNote}
+                className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                Delete Note
+              </button>
+            )}
           </div>
         )}
       </div>

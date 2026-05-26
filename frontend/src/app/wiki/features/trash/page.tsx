@@ -1,0 +1,148 @@
+import Link from "next/link";
+import WikiPage from "@/components/wiki/WikiPage";
+import Callout from "@/components/wiki/Callout";
+
+export default function TrashFeaturePage() {
+  return (
+    <WikiPage
+      title="Trash &amp; History"
+      intro="A recovery window for deletes. When you delete a note (and, in R2, every other record type), it does not vanish. It moves into a per-user trash folder where it sits for 30 days. Within that window you can restore it back to its original location with one click. After the window passes, an automatic sweep removes it for good."
+    >
+      <h2>Why this exists</h2>
+      <p>
+        Research data has a different relationship to time than consumer data.
+        A note about a PCR run from eight months ago is not &ldquo;old, who
+        cares,&rdquo; it is the experimental record. A misclick on the delete
+        button used to be irrecoverable; the new trash flow gives you a safety
+        net without changing how you delete.
+      </p>
+
+      <h2>How it works</h2>
+      <p>
+        When you delete a note, the file moves from
+        <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px] ml-1">users/&lt;you&gt;/notes/&lt;id&gt;.json</code>
+        into
+        <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px] ml-1">users/&lt;you&gt;/_trash/notes/&lt;id&gt;-&lt;slug&gt;.json</code>.
+        A small metadata block is added to the trashed record that records
+        when the delete happened, who issued it, and when the auto-cleanup
+        sweep will permanently remove it.
+      </p>
+      <p>
+        A sidecar index at
+        <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px] ml-1">users/&lt;you&gt;/_trash/_index.json</code>{" "}
+        keeps a flat summary of every trashed record. The index is rebuilt
+        automatically from the directory listing if it ever goes out of sync
+        (manual file deletion, OneDrive merge conflict, partial crash). The
+        on-disk files are the ground truth; the index is just a read-time
+        optimization.
+      </p>
+
+      <h2>The /trash page</h2>
+      <p>
+        Open the trash from the small trash-can icon in the top-right corner
+        of the header (next to the Settings gear) or from the{" "}
+        <Link href="/settings#history-and-trash">Settings &rarr; History &amp; Trash</Link>{" "}
+        section. Each row shows:
+      </p>
+      <ul>
+        <li>The record&rsquo;s name (recovered from the original title).</li>
+        <li>A small badge for the entity type.</li>
+        <li>Who deleted it and when.</li>
+        <li>A countdown until auto-cleanup (&ldquo;Expires in 27 days&rdquo;).</li>
+        <li>
+          A <strong>Restore</strong> button (returns the record to its original
+          location) and a <strong>Permanent delete</strong> button (removes the
+          trash file immediately, with a confirmation step).
+        </li>
+      </ul>
+      <p>
+        A sort dropdown in the header switches between Newest first (default),
+        Oldest first, and Expiring soon (urgent-cleanup-first).
+      </p>
+
+      <h2>The cleanup window</h2>
+      <p>
+        Defaults to <strong>30 days</strong>. Change it under{" "}
+        <Link href="/settings#history-and-trash">Settings &rarr; History &amp; Trash</Link>.
+        Four options: 7 days, 30 days, 90 days, or Never. The Never option
+        means automatic cleanup never fires; you can still delete from the
+        trash page manually.
+      </p>
+      <p>
+        The cleanup pass runs once on every folder-connect. If you keep
+        ResearchOS open for weeks at a time, the sweep waits until your next
+        cold start to clear expired entries. Multi-device users get the same
+        behavior on each device when they connect their folder.
+      </p>
+
+      <Callout variant="info" title="The window is per-user">
+        Each user&rsquo;s cleanup window applies to their own trash. If a PI
+        deletes one of your records during an unlock session, the trash entry
+        lands in your folder and inherits your cleanup setting.
+      </Callout>
+
+      <h2>Who can delete a record</h2>
+      <p>
+        Only the record owner sees the Delete button. If a labmate has shared
+        edit access to one of your notes, they can edit it, but they cannot
+        delete it; that&rsquo;s your call as the owner.
+      </p>
+      <p>
+        The one carve-out is the PI lab-head edit session. When a PI is in an
+        active{" "}
+        <Link href="/wiki/features/lab-head/edit-session-and-password">
+          Phase 5 unlock
+        </Link>
+        , they can delete records owned by other lab members. The trash entry
+        records the PI as the deleter and ties the entry to the unlock
+        session so the audit log groups consistently with the rest of the
+        edits made during that session.
+      </p>
+
+      <h2>Restoring a record</h2>
+      <p>
+        Click <strong>Restore</strong> on the row. The record is written back
+        to its original path with the metadata block stripped off, and the
+        trash file is removed. The record is now live again at the same id.
+      </p>
+      <p>
+        In R2, when restoring a record whose parent (e.g. a Project that
+        contains the note) is also in trash, a prompt asks whether to restore
+        both or just the child. R1 ships the prompt machinery but never
+        triggers it; only Notes can sit in trash today.
+      </p>
+
+      <h2>Permanent delete</h2>
+      <p>
+        Use <strong>Permanent delete</strong> on the row to remove a trash
+        entry ahead of the cleanup window. The button asks for confirmation
+        and is final. After permanent delete, the record is gone; there is
+        no second-level recycle bin.
+      </p>
+
+      <h2>What R1 does not yet do</h2>
+      <p>
+        Phase R1 of the Version Control proposal ships the trash surface for{" "}
+        <strong>notes only</strong>. Tasks, Methods, Projects, Purchases,
+        High-level Goals, Lab Links, and Mass Spec Protocols still
+        hard-delete; R2 extends the trash flow to all of them. Edit history
+        (a per-record audit + revert button on every popup) lands later in
+        R4 / R5 / R6.
+      </p>
+      <p>
+        The settings panel also surfaces an &ldquo;Orphaned files&rdquo; row
+        as a placeholder. Image attachments referenced only by deleted notes
+        stay on disk for now; a cleanup tool that finds and removes
+        unreferenced images ships in R2.
+      </p>
+
+      <Callout variant="info" title="The promise">
+        Every delete you make through the app is recoverable for at least
+        seven days (the most aggressive cleanup setting). Within the default
+        30-day window, a misclick is a one-button fix. We do not promise the
+        trash is tamper-proof; the files sit in your folder and you can edit
+        them by hand on disk if you really want to.
+      </Callout>
+    </WikiPage>
+  );
+}

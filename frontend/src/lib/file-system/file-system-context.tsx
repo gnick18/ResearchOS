@@ -24,6 +24,10 @@ import { getWikiCaptureVariant, getDemoMode, markDemoMode, installWikiCaptureFix
 import { rebaseDemoDates, isDemoLab } from "../demo/rebase";
 import { resetEditSession } from "../lab/edit-session";
 import { appQueryClient } from "../query-client";
+import {
+  migrateLegacyNotesTrashAllUsers,
+  runAutoCleanupPass,
+} from "../trash";
 
 /** Coarse-grained phase of the startup connect flow. Used by the loading
  *  screen so the user sees something change while OneDrive is being slow.
@@ -249,6 +253,43 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         } catch (err) {
           console.warn(
             "[FileSystemProvider] pruneOrphanUserMetadataEntries failed:",
+            err,
+          );
+        }
+
+        // VCP R1 trash MVP notes (2026-05-26): one-time migration of
+        // legacy `notes_trash/<id>.json` files into the new
+        // `_trash/notes/<id>-<slug>.json` layout, then a sweep of every
+        // user's `_trash/_index.json` to hard-delete expired entries.
+        // Both passes are best-effort and idempotent — failures are
+        // logged but don't block the folder connect.
+        try {
+          await migrateLegacyNotesTrashAllUsers(users);
+        } catch (err) {
+          console.warn(
+            "[FileSystemProvider] migrateLegacyNotesTrashAllUsers failed:",
+            err,
+          );
+        }
+        try {
+          for (const username of users) {
+            try {
+              const summary = await runAutoCleanupPass(username);
+              if (summary.scanned > 0 || summary.expired > 0) {
+                console.info(
+                  `[trash-cleanup] ${username}: scanned=${summary.scanned} expired=${summary.expired} hardDeleted=${summary.hardDeleted} errors=${summary.errors}`,
+                );
+              }
+            } catch (err) {
+              console.warn(
+                `[FileSystemProvider] runAutoCleanupPass failed for ${username}:`,
+                err,
+              );
+            }
+          }
+        } catch (err) {
+          console.warn(
+            "[FileSystemProvider] trash auto-cleanup loop failed:",
             err,
           );
         }

@@ -25,6 +25,7 @@ export const APP_ROUTE_TO_WIKI: Record<string, string> = {
   "/search": "/wiki/features/search",
   "/links": "/wiki/features/links",
   "/settings": "/wiki/features/settings",
+  "/trash": "/wiki/features/trash",
 };
 
 /** Prefix-aware lookup. Tries an exact match first, then walks the
@@ -302,6 +303,11 @@ export const WIKI_NAV: WikiNode[] = [
         href: "/wiki/features/settings",
         label: "Settings",
         blurb: "Profile, password, preferences, tab visibility.",
+      },
+      {
+        href: "/wiki/features/trash",
+        label: "Trash & History",
+        blurb: "Soft-delete with a 30-day recovery window. Restore or permanently delete from the /trash page.",
       },
       {
         href: "/wiki/features/notifications",
