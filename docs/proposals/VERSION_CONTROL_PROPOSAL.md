@@ -649,28 +649,32 @@ Eighteen, ordered by likelihood of biting us:
 Fifteen items. Numbered `OQ#` per the existing proposal convention. Each is one question plus a brief trade-off note.
 
 **OQ1, Trash cleanup window default.**
-Should new users default to 7 / 30 / 90 days, or never-with-manual-only? 30 days mirrors most consumer apps (Google Drive, Apple Mail). 7 is aggressive (forces faster cleanup, freeing disk). Never is safest but risks the trash growing forever in noisy labs. Recommend 30. Per-user override always available in Settings.
+Should new users default to 7 / 30 / 90 days, or never-with-manual-only? 30 days mirrors most consumer apps (Google Drive, Apple Mail). 7 is aggressive (forces faster cleanup, freeing disk). Never is safest but risks the trash growing forever in noisy labs. **Locked: 30 days default cleanup window.** Per-user override always available in Settings.
 
 **OQ2, History granularity: per-save / per-blur / per-explicit-version-commit.**
 The hybrid editor fires saves on blur. Per-save means every blur is a history row; in a busy session that's noisy but accurate. Per-blur is the same as per-save right now. Per-explicit-version-commit would require a "commit" UI affordance (like git) that most users will never use. Recommend per-save with compaction handling the noise. Alternative: debounce so consecutive saves on the same field within 30 seconds collapse into one row at write time (cheaper than compaction).
 
+**Locked: per-save granularity, hooked to the new MANUAL-SAVE editor model.** Grant simultaneously decided to flip the hybrid editor from auto-save-on-blur back to MANUAL save (explicit Save button + Cmd+S + unsaved-changes navigate-away warning). History rows now hook the explicit Save event rather than blur, making each row user-intentional. This change ships ahead of (or alongside) R4 via a separate chip. The buffered-edit + CommonMark-paragraph work from earlier today stays as the buffer-while-typing layer; the change is only when the buffer flushes to the document.
+
 **OQ3, History storage cap.**
-Truncate (compact) at 500 rows, 2000 rows, or never? Truncation at 500 hits real records that are heavily edited but lossy on intermediate states. Never means unbounded files. Recommend 500 with the recent 100 verbatim. Per-user setting can override.
+Truncate (compact) at 500 rows, 2000 rows, or never? Truncation at 500 hits real records that are heavily edited but lossy on intermediate states. Never means unbounded files. **Locked: 500 rows total, 100 most recent verbatim, older 400 compacted.** Per-user setting can override.
 
 **OQ4, Restore-with-dependencies semantics.**
-When restoring a Note whose Project is in trash, the default UI shows "Restore both" / "Just the note." Should we make restore-both the default, or restore-just-this-record the default? Trade-off: restoring the parent without consent surprises the user; not restoring it orphans the child. Recommend restore-both as the default with a "Just this record" override.
+When restoring a Note whose Project is in trash, the default UI shows "Restore both" / "Just the note." Should we make restore-both the default, or restore-just-this-record the default? Trade-off: restoring the parent without consent surprises the user; not restoring it orphans the child. **Locked: restore-both as the default**, with a "Just this record" override.
 
 **OQ5, Lab-mode session vs target-user attribution.**
-When PI Morgan edits Mira's note, the actor on the history row is "Morgan" (the human). Should it also carry a "session_id" tying it to the Phase 5 unlock window? Yes (we have the session_id from the PI audit log). Should the chip in the UI distinguish "Morgan typed this directly" from "Morgan typed this during a lab-head session"? The label "Morgan (lab head)" covers it. No further granularity needed unless Grant disagrees.
+When PI Morgan edits Mira's note, the actor on the history row is "Morgan" (the human). Should it also carry a "session_id" tying it to the Phase 5 unlock window? Yes (we have the session_id from the PI audit log). Should the chip in the UI distinguish "Morgan typed this directly" from "Morgan typed this during a lab-head session"? The label "Morgan (lab head)" covers it. **Locked: single "Morgan (PI)" label** for PI-authored history rows; no further granularity needed.
 
 **OQ6, Recursion: history of the audit log itself.**
-The PI audit log is append-only. Should it also have a history log? In theory yes (someone could tamper with `_pi_audit.json`). In practice no (the file is local; tampering is detectable by the missing entries, not by an immutable history). Recommend skipping history on `_pi_audit.json` and on `_history/*.jsonl` themselves (don't track edits to the edit log).
+The PI audit log is append-only. Should it also have a history log? In theory yes (someone could tamper with `_pi_audit.json`). In practice no (the file is local; tampering is detectable by the missing entries, not by an immutable history). **Locked: no history on the audit log itself.** Skip history on `_pi_audit.json` and on `_history/*.jsonl` themselves (don't track edits to the edit log).
 
 **OQ7, Image / attachment lifecycle in trashed records.**
-When a note in trash references an image, the image file stays put. On permanent delete of the note, do we hard-delete the image? Only if no other live record references it. Reference counting requires a scan; expensive but rare. Alternative: orphan the image (leave it on disk indefinitely) and surface an "orphaned files" cleanup in Settings. Recommend orphan + cleanup-tool to start; revisit if disk usage becomes a problem.
+When a note in trash references an image, the image file stays put. On permanent delete of the note, do we hard-delete the image? Only if no other live record references it. Reference counting requires a scan; expensive but rare. Alternative: orphan the image (leave it on disk indefinitely) and surface an "orphaned files" cleanup in Settings. **Locked: orphan + Settings cleanup tool** to start; revisit if disk usage becomes a problem.
 
 **OQ8, Settings opt-out for history tracking.**
 Some labs (privacy-conscious, anti-surveillance) may not want full per-edit logging. We let users toggle history off. But PI cross-owner edits MUST always write to both the PI audit log AND the history log (regulatory). Is that the right line? Trade-off: users who toggle off lose self-revert ability but keep their own-edit privacy. Recommend the proposed split (opt-out applies to own edits only) but flag for Grant's IRB-grounded perspective.
+
+**Locked: NO opt-out, always track everything.** This is a DEVIATION from the recommendation. Grant chose oversight over a privacy lever. This simplifies the data model (no Settings toggle, no conditional write path) and aligns with the IRB / regulatory framing that justified the feature. Users have NO ability to disable history tracking on their own records. The wiki copy needs to be explicit about this. The "History tracking" toggle in §2f is dropped; the "History storage cap" radio stays.
 
 **OQ9, Trash visibility across shared records.**
 If Alex shares a Note with Morgan (edit access) and Morgan deletes it, the trash file lands in Alex's `_trash/notes/`. Does Morgan see it in their own trash page too? Three options:
@@ -679,23 +683,27 @@ If Alex shares a Note with Morgan (edit access) and Morgan deletes it, the trash
 - (iii) Morgan can't delete records they don't own: edit-access means "edit fields," not "delete the record." Owner-only delete.
 Recommend (iii), only the owner can delete a record. PIs can delete via Phase 5 unlock (with audit). Edit-access users see no delete button. This avoids the asymmetric trash entirely.
 
+**Locked: only the owner can delete a record** (option iii). PIs delete via Phase 5 unlock. Edit-access users see no delete button.
+
 **OQ10, Long-field diff storage.**
 For markdown bodies and other long string fields, do we store full old/new pairs or compute a text-diff (delta)? Full old/new is simpler to write and read; deltas save disk but require a diff library at write AND read time. Recommend full old/new for v1; revisit at OQ3's compaction boundary.
 
+**Locked: text-diff deltas only (jsdiff or similar).** This is a DEVIATION from the recommendation. Grant chose disk savings over implementation simplicity. R4 needs to pick a diff library (`jsdiff` is standard for unified text diffs in JS). Both write AND read paths apply deltas; revert applies deltas IN REVERSE. Compaction folds multiple deltas into one. Increases test surface significantly. Worth the disk savings on heavily-edited markdown bodies (a 5000-word doc edited 500 times stays ~5MB instead of ~50MB).
+
 **OQ11, Revert behavior for fields that don't exist anymore.**
-You revert a field that was removed from the schema in a later release. The old value's type doesn't match the current schema. Recommend: log a warning, refuse the revert with a "schema mismatch, manual fix needed" message. Edge case but real if we add / remove fields on entities.
+You revert a field that was removed from the schema in a later release. The old value's type doesn't match the current schema. **Locked: refuse the revert with a "schema mismatch, manual fix needed" warning.** Log a warning, surface the schema-mismatch message in the revert confirm modal, don't apply the value. Edge case but real if we add / remove fields on entities.
 
 **OQ12, Lab head password gate for revert.**
-If a PI uses revert across owners (Morgan reverts an edit Mira made), should that require the Phase 5 unlock? Today, Morgan can edit Mira's record under the unlock. Should revert count as an edit and require the same gate? Recommend yes, revert IS an edit and goes through the same `canWrite` check + audit.
+If a PI uses revert across owners (Morgan reverts an edit Mira made), should that require the Phase 5 unlock? Today, Morgan can edit Mira's record under the unlock. Should revert count as an edit and require the same gate? **Locked: yes, revert IS an edit; PI revert requires the Phase 5 unlock.** Revert goes through the same `canWrite` check + audit as any other PI cross-owner write.
 
 **OQ13, Cross-folder version sync.**
-If a user disconnects their folder and reconnects it on another device, the history files come along (they're in `users/<u>/_history/`). No special handling needed. Out of scope: a cloud-backed merged history across devices.
+If a user disconnects their folder and reconnects it on another device, the history files come along (they're in `users/<u>/_history/`). No special handling needed. Out of scope: a cloud-backed merged history across devices. **Locked: history travels with the folder.** No cross-folder sync layer; the folder is the unit of truth.
 
 **OQ14, History tab on records the viewer can't edit.**
-A user with read-only sharing access to a Note. They can see the note. Can they see the History tab? Yes, read access includes history read. Revert buttons are hidden for them (only edit-access users see revert).
+A user with read-only sharing access to a Note. They can see the note. Can they see the History tab? Yes, read access includes history read. Revert buttons are hidden for them (only edit-access users see revert). **Locked: history is part of read access; revert buttons hidden for read-only viewers.**
 
 **OQ15, Default ordering on the trash page.**
-Newest-deleted first, or oldest-deleted-first (urgent-cleanup-first)? Newest-deleted-first matches user expectations ("the thing I just deleted should be at top to restore"). Oldest-deleted-first surfaces what's about to auto-expire. Recommend newest-first as default with a sort toggle.
+Newest-deleted first, or oldest-deleted-first (urgent-cleanup-first)? Newest-deleted-first matches user expectations ("the thing I just deleted should be at top to restore"). Oldest-deleted-first surfaces what's about to auto-expire. **Locked: newest-deleted first as default**, with a sort toggle.
 
 ### Highest-stakes (Grant locks in before R1)
 
@@ -704,6 +712,18 @@ Newest-deleted first, or oldest-deleted-first (urgent-cleanup-first)? Newest-del
 - **OQ9** (delete permissions for shared records), wiring this wrong means rethinking the trash data model.
 
 The rest are valuable lock-ins but can ship with conservative defaults and be tuned during R6.
+
+### OQ answers (locked 2026-05-26)
+
+All 15 OQs answered. Status:
+- 13 locked to recommendation
+- 2 deviations: OQ8 (no opt-out, always track), OQ10 (text-diff deltas only)
+- 1 cross-reference: OQ2 history hook moves from blur to explicit Save event (see hybrid-editor manual-save chip)
+
+R1 (Trash MVP for Notes) unblocked. Open follow-ups for implementation chips:
+- Diff library pick (R4): jsdiff vs alternatives
+- Manual-save editor chip ships ahead of R4 so history-row hook lands on a stable Save event
+- Compaction-with-deltas algorithm needs its own design pass at R4 kickoff
 
 ---
 
