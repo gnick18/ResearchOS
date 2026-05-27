@@ -525,8 +525,12 @@ For general lab work, you'll usually use the Standard Markdown builder. I'll typ
 
 ### experiment-attach-method-attach
 
+Hand-walk pivot 2026-05-27 (Grant): converted from BeakerBot-demo-attach to user-action. BeakerBot now reopens the experiment + switches to the Methods tab (popup defaults to Lab Notes), then prompts the user to click + and pick the method themselves.
+
 ```
-Back to your experiment. Now that you've got a method, let's pin it. I'll attach the markdown method you just built so this experiment has an exact record of the protocol followed.
+Back to your experiment, on the Methods tab. Now that you have a method, let's pin it.
+
+Click the **+** button above to open the method picker, then pick the markdown method you just built. This experiment will then have an exact record of the protocol you followed.
 ```
 
 ### experiment-attach-method-notes
