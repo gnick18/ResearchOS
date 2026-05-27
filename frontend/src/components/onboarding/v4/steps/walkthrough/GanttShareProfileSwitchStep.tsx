@@ -308,10 +308,10 @@ function ProfileSwitchSpeech() {
       <ProfileSwitchModal phase={phase} />
       {beat === 1 ? (
         <p>
-          In your lab you can switch between accounts from the user
-          picker up top. I'll jump to BeakerBot's account, add a note
-          from over there, then come back so you can see it appear on
-          your side.
+          When you have your own labmates set up, you can switch
+          between accounts from the user picker. I'll jump over to my
+          account, add a note to the chain you just shared, and come
+          right back so you can see it.
         </p>
       ) : null}
       {beat === 2 ? (

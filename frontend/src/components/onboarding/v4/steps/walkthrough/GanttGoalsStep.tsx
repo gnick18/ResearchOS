@@ -37,16 +37,11 @@ export const ganttGoalsStep = buildWalkthroughStep({
   id: "gantt-goals-overview",
   speech: (
     <>
-      <p className="mb-2">
-        One more thing about this page before we move on: goals.
-      </p>
-      <p className="mb-2">
-        Goals visualize over the Gantt. You can keep them personal
-        (just you) or share with the lab (everyone sees them).
-      </p>
+      <p className="mb-2">One last thing on the timeline: goals.</p>
       <p>
-        Personal goals are private to your account; lab-wide goals
-        appear for every lab member.
+        Goals visualize directly over the Gantt chart. You can keep
+        them private to your account or share them so the whole lab
+        can see what you're working towards.
       </p>
     </>
   ),

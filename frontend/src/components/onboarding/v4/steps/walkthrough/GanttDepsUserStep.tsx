@@ -78,7 +78,7 @@ function GanttDepsUserSpeech() {
           <p className="mb-1">Oops, that's not the right thing.</p>
           <p>
             Drag Fake experiment B onto your experiment, then pick "start
-            after", so B starts after your experiment finishes.
+            after" so B starts after your experiment finishes.
           </p>
         </>
       ),
@@ -90,9 +90,9 @@ function GanttDepsUserSpeech() {
   return (
     <>
       <p className="mb-2">
-        Now you wire the other side: drop Fake B onto your experiment,
-        then pick "start after", so B starts after your experiment
-        finishes.
+        Now you wire the other side. Drop Fake B onto your experiment,
+        then pick "start after" so B is forced to wait until your
+        experiment finishes.
       </p>
       <p className="text-xs text-gray-500">
         (I'll keep you on rails. Clicks outside the right affordance

@@ -62,12 +62,14 @@ export const ganttExistingExperimentStep = buildWalkthroughStep({
   speech: (
     <>
       <p className="mb-2">
-        Here's the experiment you made earlier on the Workbench. It
-        shows up here automatically because it's on the timeline now.
+        Anything with a date attached lands on the timeline
+        automatically, including the experiment you just made.
       </p>
       <p>
-        I'll click it to open the experiment popup. You can add notes
-        from here too, not just from the Workbench.
+        The timeline isn't just a view, though. You can open, edit,
+        reschedule, and manage anything right from here without having
+        to bounce back to the Workbench. I'll click your experiment to
+        show you.
       </p>
     </>
   ),

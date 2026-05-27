@@ -17,14 +17,20 @@ export const ganttIntroStep = buildWalkthroughStep({
   speech: (
     <>
       <p className="mb-2">
-        This is a Gantt chart. If you've never used one before: it's a
-        timeline view of everything you're working on, laid out by date.
+        Once you have more than a few experiments running, a list view
+        stops being enough. You need to see what overlaps, what's
+        blocking what, and what your week actually looks like.
+      </p>
+      <p className="mb-2">
+        That's what the Gantt chart is for. Every experiment, task, and
+        purchase order with a date lives here on one timeline, so you
+        can spot when you're overbooked or plan backward from a
+        deadline.
       </p>
       <p>
-        On this page you'll see your experiments, tasks, and purchase
-        orders side-by-side in time. It's where you check whether you're
-        overbooked, work backward from a deadline, or just see what's
-        happening this week.
+        We'll cover three things on this page: rescheduling work by
+        dragging bars around, wiring up dependencies between tasks, and
+        sharing experiments with your lab.
       </p>
     </>
   ),

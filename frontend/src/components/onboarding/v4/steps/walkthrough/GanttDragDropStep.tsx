@@ -39,7 +39,7 @@ import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 export const ganttDragDropStep = buildWalkthroughStep({
   id: "gantt-drag-drop",
   speech:
-    "Watch me drag this bar to reschedule it. You can drop a bar anywhere on the timeline to change its date.",
+    "Need to push something to next week, or pull a deadline forward? Grab the bar and drop it where you want it. The dates update instantly, no popup, no form.",
   pose: "pointing",
   // Gantt redesign 2026-05-22 (Gantt manager): target the user-experiment
   // attribute specifically. The legacy `ganttFirstTaskBar` is preserved

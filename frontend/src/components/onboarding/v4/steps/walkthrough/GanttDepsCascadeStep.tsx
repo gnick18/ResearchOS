@@ -38,18 +38,8 @@ const FORWARD_DAYS = 2;
 
 export const ganttDepsCascadeStep = buildWalkthroughStep({
   id: "gantt-deps-cascade",
-  speech: (
-    <>
-      <p className="mb-2">
-        Watch the whole chain follow: your experiment AND Fake B both
-        slide right because A is upstream of them.
-      </p>
-      <p>
-        Move any task later in a chain, everything downstream
-        reschedules with it.
-      </p>
-    </>
-  ),
+  speech:
+    "Once tasks are linked, moving one upstream task drags everything downstream with it. If Fake A slips by three days, your experiment and Fake B slip too. No manual rescheduling, no broken chains.",
   pose: "thinking",
   targetSelector: targetSelector(TOUR_TARGETS.ganttBarFakeA),
   cursorScript: cursorScript(async () => {

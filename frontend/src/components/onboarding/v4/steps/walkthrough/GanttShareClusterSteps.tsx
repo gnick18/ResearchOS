@@ -45,16 +45,15 @@ export const ganttShareIntroStep = buildWalkthroughStep({
   speech: (
     <>
       <p className="mb-2">
-        On any experiment you make, you can share it with anyone else in
-        your lab.
-      </p>
-      <p className="mb-2">
-        Both people get access to add notes and results. Both see the
-        experiment on their Gantt and task lists.
+        When two people are running an experiment together, both of you
+        need to see it on your own timeline and both of you need to be
+        able to add notes as the work happens. That's what sharing is
+        for.
       </p>
       <p>
-        Only the creator can delete it. The other person can have
-        either edit permission (change dates, add notes) or read-only.
+        Share an experiment with anyone in your lab and it shows up on
+        their Gantt chart alongside yours. You decide whether they can
+        just read it or actually edit notes and dates.
       </p>
     </>
   ),
@@ -72,9 +71,8 @@ export const ganttShareBeakerBotSpawnStep = buildWalkthroughStep({
   speech: (
     <>
       <p className="mb-2">
-        For this demo I added a second account to your lab (me,
-        BeakerBot), so I have someone to share with. I'll clean up at
-        the end.
+        For this demo, I added a second account to your lab so I have
+        someone to share with.
       </p>
       <p>
         Watch the timeline. My "Make some coffee together" experiment
@@ -100,18 +98,8 @@ export const ganttShareBeakerBotSpawnStep = buildWalkthroughStep({
 
 export const ganttShareBeakerBotSharesStep = buildWalkthroughStep({
   id: "gantt-share-beakerbot-shares",
-  speech: (
-    <>
-      <p className="mb-2">
-        I just shared "Make some coffee together" with you. See it on
-        the timeline?
-      </p>
-      <p>
-        I gave you edit permission, so you can change dates and add
-        notes.
-      </p>
-    </>
-  ),
+  speech:
+    "I just shared \"Make some coffee together\" with you. I gave you edit permission, so you can change dates and add notes.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.ganttBarSharedExperiment),
   onEnter: async (ctx) => {
@@ -166,12 +154,11 @@ function ShareExploreSpeech() {
   return (
     <>
       <p className="mb-2">
-        This is YOUR view of BeakerBot's experiment. You have edit
-        permission, so try adding a note or opening the results tab.
+        This is your view of my shared experiment. Try adding a note or
+        opening the results tab to see how the access works.
       </p>
       <p className="text-xs text-gray-500">
-        It's the same popup as your own experiments. When you're ready,
-        click "Got it, next" and I'll take over.
+        When you're ready, click "Got it, next" and I'll take over.
       </p>
     </>
   );
@@ -292,7 +279,7 @@ function ShareBackSpeech() {
     <>
       {stage === 1 ? (
         <p className="mb-2">
-          Now share YOUR chain back with me. Click the first task in
+          Now share your chain back with me. Click the first task in
           your chain on the timeline.
         </p>
       ) : null}
@@ -402,8 +389,8 @@ function ShareSeesEditSpeech() {
   return (
     <>
       <p className="mb-2">
-        Open Fake A on the timeline, then click the notes tab. You
-        should see BeakerBot's edit.
+        Open Fake A on the timeline and check the notes tab. You should
+        see the edit I just made.
       </p>
       <p className="text-xs text-gray-500">
         Take a look around when you're ready, then click "Got it, next".
