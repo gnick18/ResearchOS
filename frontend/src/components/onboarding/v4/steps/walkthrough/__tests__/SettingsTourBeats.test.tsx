@@ -22,7 +22,7 @@ import type { FeaturePicks } from "@/lib/onboarding/sidecar";
 import type { TourStep } from "../../../step-types";
 import {
   settingsTourFolderStep,
-  settingsTourCalendarStep,
+  // settingsTourCalendarStep retired 2026-05-27.
   settingsTourTelegramStep,
   settingsTourAccountTypeToggleStep,
   settingsTourVisibleTabsStep,
@@ -86,46 +86,12 @@ describe("settings-tour-folder (universal)", () => {
   });
 });
 
-describe("settings-tour-calendar (conditional: calendar === yes)", () => {
-  it("has the right id + pose + completion contract", () => {
-    expect(settingsTourCalendarStep.id).toBe("settings-tour-calendar");
-    expect(settingsTourCalendarStep.pose).toBe("pointing");
-    expect(settingsTourCalendarStep.completion.type).toBe("manual");
-    expect(settingsTourCalendarStep.expectedRoute).toBe("/settings");
-  });
-  it("has no targetSelector (calendar feeds have no Settings home yet)", () => {
-    // FOLLOW-UP: once a calendar-feeds section ships on /settings, this
-    // beat picks up the spotlight; the test asserts the current
-    // narration-only behavior so the assertion catches the wire-up
-    // when it happens.
-    expect(settingsTourCalendarStep.targetSelector).toBeUndefined();
-  });
-  it("conditionalOn passes only when picks.calendar === 'yes'", () => {
-    const gate = settingsTourCalendarStep.conditionalOn!;
-    expect(gate(picks({ calendar: "yes" }))).toBe(true);
-    expect(gate(picks({ calendar: "no" }))).toBe(false);
-    expect(gate(picks({ calendar: "maybe" }))).toBe(false);
-    expect(gate(null)).toBe(false);
-  });
-  it("speech mentions the Calendar tab honestly (Wave 2E copy)", () => {
-    // Settings fix manager R1 (2026-05-22): the prior speech narrated
-    // calendar-feeds UI on /settings that doesn't exist (feeds live on
-    // /calendar). The reworked speech routes users to the Calendar tab
-    // instead of pretending Settings owns it. Wave 2E (2026-05-27)
-    // tightened the copy further: the explicit ".ics URL" detail moved
-    // to the user's framing ("paste in your link"), so the test no
-    // longer asserts ".ics" verbatim.
-    const text = renderSpeech(settingsTourCalendarStep);
-    expect(text).toMatch(/calendar/i);
-    // The honesty signal: speech now mentions the Calendar tab as the
-    // real surface AND says Settings doesn't own this yet.
-    expect(text).toMatch(/Calendar tab/i);
-    expect(text).toMatch(/aren't managed (?:here in|from) Settings/i);
-  });
-  it("speech is em-dash free", () => {
-    expect(renderSpeech(settingsTourCalendarStep)).not.toContain("—");
-  });
-});
+// settings-tour-calendar retired 2026-05-27 (Grant hand-walk): the
+// step told the user to "head over to the Calendar tab" while the
+// tour page-lock kept them on /settings. Confusing, no actionable
+// content on the surface. The step body stays @deprecated in
+// SettingsTourBeats.tsx for git history; no describe block here
+// because the step is no longer in TOUR_STEP_ORDER.
 
 describe("settings-tour-telegram (conditional: telegram === yes)", () => {
   it("has the right id + pose + completion contract", () => {

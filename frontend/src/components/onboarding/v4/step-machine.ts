@@ -372,7 +372,12 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // TOUR_STEP_ORDER, so the machine never lands on them.
   "personalization-color",
   "settings-tour-folder",
-  "settings-tour-calendar",
+  // settings-tour-calendar retired 2026-05-27 (Grant hand-walk): step
+  // told the user to "head over to the Calendar tab" but the tour
+  // page-lock kept them on /settings, making the instruction
+  // confusing. Speech body had no actionable content for the user on
+  // this surface. Step body kept @deprecated in SettingsTourBeats.tsx
+  // for git history reference.
   "settings-tour-telegram",
   "settings-tour-account-type-toggle",
   "settings-tour-visible-tabs",
@@ -649,19 +654,20 @@ export function isStepGatedOut(
   }
 
   // §6.10 Settings tour narration beats (Settings manager 2026-05-22).
-  // Three of the seven new beats are conditional; the other four
-  // (folder, visible-tabs, streak, rerun) fire for everyone.
+  // Two of the remaining beats are conditional; the others (folder,
+  // visible-tabs, streak, rerun) fire for everyone.
   //
-  //   - settings-tour-calendar         → picks.calendar === "yes"
   //   - settings-tour-telegram         → picks.telegram === "yes"
   //   - settings-tour-account-type-toggle → picks.account_type === "solo"
   //
   // Lab users skip the account-type-toggle beat because they're already
   // on a lab account (the toggle's flavor changes for them); solo users
   // see it so they know how to flip over later.
-  if (step === "settings-tour-calendar") {
-    return picks?.calendar !== "yes";
-  }
+  //
+  // settings-tour-calendar retired 2026-05-27 — the step is no longer in
+  // TOUR_STEP_ORDER, so this predicate is unreachable. Kept removed
+  // rather than gating-false so the registry skip path matches the
+  // ordering source of truth.
   if (step === "settings-tour-telegram") {
     return picks?.telegram !== "yes";
   }

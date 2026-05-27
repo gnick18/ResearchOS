@@ -269,7 +269,10 @@ import {
 // universal. See SettingsTourBeats.tsx for the per-step bodies.
 import {
   settingsTourFolderStep,
-  settingsTourCalendarStep,
+  // settingsTourCalendarStep retired 2026-05-27 (Grant hand-walk):
+  // confusing "head over to Calendar tab" instruction while tour
+  // page-lock kept user on /settings. Body kept @deprecated in
+  // SettingsTourBeats.tsx for git history.
   settingsTourTelegramStep,
   settingsTourAccountTypeToggleStep,
   settingsTourVisibleTabsStep,
@@ -440,7 +443,7 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   // are NOT mapped here.
   [settingsColorStep.id]: settingsColorStep,
   [settingsTourFolderStep.id]: settingsTourFolderStep,
-  [settingsTourCalendarStep.id]: settingsTourCalendarStep,
+  // settingsTourCalendarStep retired 2026-05-27 (Grant hand-walk).
   [settingsTourTelegramStep.id]: settingsTourTelegramStep,
   [settingsTourAccountTypeToggleStep.id]: settingsTourAccountTypeToggleStep,
   [settingsTourVisibleTabsStep.id]: settingsTourVisibleTabsStep,

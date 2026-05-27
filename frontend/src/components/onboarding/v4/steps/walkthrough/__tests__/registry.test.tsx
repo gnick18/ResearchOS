@@ -102,7 +102,7 @@ const P5_STEP_IDS = [
   "personalization-animations",
   "personalization-color",
   "settings-tour-folder",
-  "settings-tour-calendar",
+  // settings-tour-calendar retired 2026-05-27.
   "settings-tour-telegram",
   "settings-tour-account-type-toggle",
   "settings-tour-visible-tabs",

@@ -3268,12 +3268,12 @@ const AI_HELPER_SIZE_OPTIONS: ReadonlyArray<{
 }> = [
   {
     value: "lean",
-    label: "Lean (recommended)",
+    label: "Lean",
     blurb: "~10k tokens, fits everywhere",
   },
   {
     value: "full",
-    label: "Full",
+    label: "Full (recommended)",
     blurb:
       "~22k tokens, best for drafting on big-context models like Claude Sonnet, GPT-5, Gemini 2.5 Pro",
   },
@@ -3344,10 +3344,10 @@ function AIHelperSection() {
   const [manifest, setManifest] = useState<AIHelperManifest | null>(null);
   const [manifestError, setManifestError] = useState<string | null>(null);
 
-  const [selectedSize, setSelectedSize] = useState<AIHelperSize>("lean");
+  const [selectedSize, setSelectedSize] = useState<AIHelperSize>("full");
   // Cache fetched markdown per size so size-flip + re-copy doesn't re-fetch.
   const [promptBySize, setPromptBySize] = useState<Partial<Record<AIHelperSize, string>>>({});
-  const [loadingSize, setLoadingSize] = useState<AIHelperSize | null>("lean");
+  const [loadingSize, setLoadingSize] = useState<AIHelperSize | null>("full");
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   // Inline 4s toast, mirrors the TipsSection / RepairRow pattern.
