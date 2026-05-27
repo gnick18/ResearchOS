@@ -702,6 +702,125 @@ describe("TourBootstrap:v4 mid-tour resume", () => {
   });
 });
 
+// Wiki-pointer cluster nav suppression (2026-05-27, wiki-pointer nav
+// fix manager). The §6.12 cluster's wikiPointerClickDemoStep clicks the
+// `?` icon which navigates to /wiki/<page>; that wiki route runs under a
+// different providers.tsx early-return branch and remounts
+// V4MountForUser inside the wiki shell. The remount re-fires TourBoot
+// strap's probe, which (pre-fix) read the persisted wizard_resume_state
+// off disk -- now a wiki-pointer-* step -- and surfaced the V4Resume
+// Prompt mid-walk. The fix: a "tour:wiki-pointer-nav-active" session
+// Storage flag set by wikiPointerClickDemoStep.onEnter and cleared by
+// wikiPointerBackDemoStep.onExit. When the probe sees the flag AND a
+// wiki-pointer-* resume step, it silently resumes the saved step.
+describe("TourBootstrap:wiki-pointer nav suppression", () => {
+  const WIKI_NAV_FLAG = "tour:wiki-pointer-nav-active";
+
+  it("suppresses V4ResumePrompt when flag is set and saved step is wiki-pointer-click-demo", async () => {
+    memFs.set(
+      PATH,
+      fullSidecar({
+        feature_picks: VALID_PICKS,
+        wizard_resume_state: {
+          current_step: "wiki-pointer-click-demo",
+          skipped_steps: [],
+          artifacts_created: [],
+        },
+      }),
+    );
+    sessionStorage.setItem(WIKI_NAV_FLAG, "1");
+
+    renderWithAppShellAndProvider(<TourBootstrap username={USER} />);
+
+    // Overlay activates at the saved step; modal must NOT appear.
+    await waitFor(() => {
+      expect(
+        document.body.querySelector("[data-testid='tour-beakerbot-overlay']"),
+      ).toBeTruthy();
+    });
+    expect(
+      document.body.querySelector("[data-testid='v4-resume-prompt']"),
+    ).toBeNull();
+  });
+
+  it("suppresses V4ResumePrompt when flag is set and saved step is wiki-pointer-back-demo", async () => {
+    memFs.set(
+      PATH,
+      fullSidecar({
+        feature_picks: VALID_PICKS,
+        wizard_resume_state: {
+          current_step: "wiki-pointer-back-demo",
+          skipped_steps: [],
+          artifacts_created: [],
+        },
+      }),
+    );
+    sessionStorage.setItem(WIKI_NAV_FLAG, "1");
+
+    renderWithAppShellAndProvider(<TourBootstrap username={USER} />);
+    await waitFor(() => {
+      expect(
+        document.body.querySelector("[data-testid='tour-beakerbot-overlay']"),
+      ).toBeTruthy();
+    });
+    expect(
+      document.body.querySelector("[data-testid='v4-resume-prompt']"),
+    ).toBeNull();
+  });
+
+  it("still surfaces V4ResumePrompt when flag is set but saved step is NOT a wiki-pointer step", async () => {
+    // Defensive: the flag only suppresses for actual wiki-pointer-*
+    // saved steps. A stale flag combined with an unrelated mid-tour
+    // step must not silently skip the modal -- the user deserves the
+    // resume / restart / discard choice for non-cluster progress.
+    memFs.set(
+      PATH,
+      fullSidecar({
+        feature_picks: VALID_PICKS,
+        wizard_resume_state: {
+          current_step: "home-create-project",
+          skipped_steps: [],
+          artifacts_created: [],
+        },
+      }),
+    );
+    sessionStorage.setItem(WIKI_NAV_FLAG, "1");
+
+    renderWithProvider(<TourBootstrap username={USER} />);
+    await waitFor(() => {
+      expect(
+        document.body.querySelector("[data-testid='v4-resume-prompt']"),
+      ).toBeTruthy();
+    });
+  });
+
+  it("surfaces V4ResumePrompt for wiki-pointer step when flag is NOT set (real user-driven nav)", async () => {
+    // If a real user navigates themselves to a /wiki/* route mid-tour
+    // (no BeakerBot in flight, so the flag was never set), the resume
+    // prompt should surface normally. This is the original "user came
+    // back later" behavior.
+    memFs.set(
+      PATH,
+      fullSidecar({
+        feature_picks: VALID_PICKS,
+        wizard_resume_state: {
+          current_step: "wiki-pointer-click-demo",
+          skipped_steps: [],
+          artifacts_created: [],
+        },
+      }),
+    );
+    // No flag set.
+
+    renderWithProvider(<TourBootstrap username={USER} />);
+    await waitFor(() => {
+      expect(
+        document.body.querySelector("[data-testid='v4-resume-prompt']"),
+      ).toBeTruthy();
+    });
+  });
+});
+
 describe("TourBootstrap:v3 in-flight", () => {
   it("renders the v3-in-flight prompt when current_step is NOT a v4 step id", async () => {
     memFs.set(

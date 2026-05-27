@@ -19,6 +19,72 @@ import { useTourController } from "./TourController";
  *  handoff narrative. */
 const AUTO_RESUME_FLAG = "v4_auto_resume_on_next_mount";
 
+/** sessionStorage key flipped to "1" while the §6.12 wiki-pointer
+ *  cluster is mid-walk and the BeakerBot-driven cursor click on the
+ *  `?` icon is about to (or has just) navigated the user to a
+ *  `/wiki/*` route. The wiki route runs under a different early-return
+ *  branch in `providers.tsx`, which unmounts the previous tree's
+ *  `V4MountForUser` and mounts a fresh one inside the wiki shell. That
+ *  remount restarts TourBootstrap from scratch, which reads the
+ *  persisted `wizard_resume_state.current_step` off disk -- now a
+ *  wiki-pointer-* step -- and would otherwise surface the
+ *  Restart / Resume / Discard modal mid-tour. The flag tells the probe
+ *  "I'm mid-cluster, do NOT pop the modal; silently resume the saved
+ *  step instead." Set in `wikiPointerClickDemoStep.onEnter`, cleared in
+ *  `wikiPointerBackDemoStep.onExit` so the suppression is scoped to
+ *  the in-cluster window only. See WikiPointerStep.tsx for the matching
+ *  set/clear hooks. (wiki-pointer nav fix manager, 2026-05-27) */
+const WIKI_NAV_FLAG = "tour:wiki-pointer-nav-active";
+
+/** True when the wiki-pointer nav suppression flag is set. SSR-safe:
+ *  returns false when `sessionStorage` is undefined. */
+function isWikiNavInProgress(): boolean {
+  if (typeof sessionStorage === "undefined") return false;
+  try {
+    return sessionStorage.getItem(WIKI_NAV_FLAG) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** Set the wiki-pointer nav suppression flag. Called from
+ *  `wikiPointerClickDemoStep.onEnter` the moment the cluster's
+ *  cursor-driven navigation beat starts. Swallows storage errors
+ *  (private-mode / disabled storage) so the step never throws on entry. */
+export function markWikiPointerNavActive(): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.setItem(WIKI_NAV_FLAG, "1");
+  } catch {
+    // Swallow.
+  }
+}
+
+/** Clear the wiki-pointer nav suppression flag. Called from
+ *  `wikiPointerBackDemoStep.onExit` once the cluster's final beat
+ *  truly advances past the cluster. Also called defensively from the
+ *  Discard / Restart paths so a flag left over from a previous run
+ *  cannot bleed into the next session. */
+export function clearWikiPointerNavActive(): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.removeItem(WIKI_NAV_FLAG);
+  } catch {
+    // Swallow.
+  }
+}
+
+/** v4 step ids in the §6.12 wiki-pointer cluster. Used by the bootstrap
+ *  probe to recognize a saved resume step as "mid-cluster" so the
+ *  suppression flag is honored. The set is closed-over the four beat
+ *  ids so a future cluster rename has to touch this list explicitly. */
+const WIKI_POINTER_STEP_IDS: ReadonlySet<string> = new Set([
+  "wiki-pointer-intro",
+  "wiki-pointer-icon-spotlight",
+  "wiki-pointer-click-demo",
+  "wiki-pointer-back-demo",
+]);
+
 /** Selector for the AppShell's static mount marker. Stays in sync with
  *  the `data-app-shell-mounted` attribute set on AppShell's outer wrapper
  *  div. When the selector doesn't resolve, the page rendered something
@@ -277,6 +343,29 @@ export default function TourBootstrap({ username }: TourBootstrapProps) {
               setState({ kind: "resolved" });
               return;
             }
+            // Wiki-pointer cluster nav suppression (2026-05-27, wiki-
+            // pointer nav fix manager). When BeakerBot's cursor click
+            // on the `?` icon navigates the user to a `/wiki/*` route
+            // mid-cluster, `providers.tsx`'s `isWikiRoute` early-return
+            // unmounts the previous tree's V4MountForUser and mounts a
+            // fresh one inside the wiki shell. That remount re-runs the
+            // bootstrap probe, which reads `wizard_resume_state.current_
+            // step` off disk (now a wiki-pointer-* id) and would surface
+            // the V4ResumePrompt mid-walk -- the bug Grant flagged. The
+            // suppression flag is set by `wikiPointerClickDemoStep.on
+            // Enter` and cleared by `wikiPointerBackDemoStep.onExit`,
+            // so it is true exactly while a BeakerBot-driven wiki nav
+            // is in flight. When true AND the saved step is one of the
+            // cluster's four beats, silently start the controller at
+            // the saved step instead of popping the modal.
+            if (
+              WIKI_POINTER_STEP_IDS.has(resumeId) &&
+              isWikiNavInProgress()
+            ) {
+              controller.start(resumeId);
+              setState({ kind: "resolved" });
+              return;
+            }
             // R2 chip A Fix 3/3 (approach b): defensive guard against
             // inconsistent sidecar state where current_step is a real
             // mid-tour step but feature_picks is null. This can happen
@@ -409,6 +498,11 @@ export default function TourBootstrap({ username }: TourBootstrapProps) {
   }, [state, start]);
 
   const handleRestartV4 = useCallback(async () => {
+    // Clear the wiki-pointer nav suppression flag (defensive). If the
+    // user wound up at the resume modal while a stale flag was hanging
+    // around (rare, but possible if the previous run was force-killed
+    // mid-cluster), restarting must not leave it set for the next mount.
+    clearWikiPointerNavActive();
     try {
       // R2 chip A Fix 3/3 (approach a): explicitly seed
       // wizard_resume_state to { current_step: "welcome", ... } rather
@@ -440,6 +534,11 @@ export default function TourBootstrap({ username }: TourBootstrapProps) {
   }, [username, setFeaturePicks, start]);
 
   const handleDiscard = useCallback(async () => {
+    // Clear the wiki-pointer nav suppression flag (defensive). Discard
+    // ends the tour entirely; any leftover suppression flag must not
+    // bleed into the next session where it could falsely suppress a
+    // legitimate resume modal.
+    clearWikiPointerNavActive();
     // Chip E (2026-05-26): Discard now runs the SAME auto-cleanup
     // sweep as tour-goodbye so tour-created artifacts (most notably
     // the step-1 project) do not survive as orphans on disk. The

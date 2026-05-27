@@ -49,6 +49,10 @@ import {
 import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 import { appRouteToWikiRoute } from "@/lib/wiki/nav";
+import {
+  markWikiPointerNavActive,
+  clearWikiPointerNavActive,
+} from "../../TourBootstrap";
 
 /**
  * §6.12 beat 1 - speech-only intro.
@@ -122,6 +126,20 @@ export const wikiPointerClickDemoStep = buildWalkthroughStep({
     return compactScript([click]);
   }),
   completion: manualAdvance("Got it, next"),
+  // Wiki-pointer nav suppression (2026-05-27, wiki-pointer nav fix
+  // manager). The cursor script below clicks the `?` icon which fires
+  // a real navigation to `/wiki/<page>`. The wiki route uses a different
+  // early-return branch in providers.tsx -> V4MountForUser unmounts in
+  // the previous tree and remounts inside the wiki shell, which re-runs
+  // the TourBootstrap probe. Without this flag, the probe reads
+  // `wizard_resume_state.current_step` (now this very step) off disk and
+  // surfaces the V4ResumePrompt mid-walk. Set the flag on entry so the
+  // probe knows the navigation is BeakerBot-driven, not user-driven.
+  // Cleared by `wikiPointerBackDemoStep.onExit` after the cluster's
+  // final beat advances.
+  onEnter: () => {
+    markWikiPointerNavActive();
+  },
 });
 
 /**
@@ -166,6 +184,18 @@ export const wikiPointerBackDemoStep = buildWalkthroughStep({
   // expectedRoute would need access to the pathname captured at the
   // start of the click-demo beat, which the static step body can't see.
   expectedRoute: "/wiki",
+  // Wiki-pointer nav suppression (2026-05-27, wiki-pointer nav fix
+  // manager). Counterpart to `wikiPointerClickDemoStep.onEnter`. The
+  // cluster is past the wiki-route boundary by the time this fires:
+  // onExit runs when the controller advances past this beat OR when
+  // the controller unmounts (e.g. nav back to the app shell triggered
+  // by the cursor click above). Clearing the flag here re-arms the
+  // V4ResumePrompt so a real user-initiated nav AFTER the cluster ends
+  // (e.g. closing the tab and reopening days later) surfaces the modal
+  // normally.
+  onExit: () => {
+    clearWikiPointerNavActive();
+  },
 });
 
 /**
