@@ -688,7 +688,7 @@ test("R6 full walk: parseFeaturePicks + TourSpotlight late-mount fix verificatio
       labReached = true;
       break;
     }
-    if (s === "phase4-cleanup") break;
+    if (s === "tour-goodbye") break;
     await page.waitForTimeout(300);
     if (i % 5 === 4) await skipThisStep(page);
   }
@@ -916,183 +916,21 @@ test("R6 full walk: parseFeaturePicks + TourSpotlight late-mount fix verificatio
     }
   }
 
-  // ---------- PHASE 4: Cleanup grid ----------
-  const reachedCleanup = await waitForStep(page, "phase4-cleanup", 15_000);
-  await snapshot(page, "30-phase4-cleanup");
-  let phase4RowCount = 0;
-  let phase4RowsMissingType = 0;
-  let phase4RowsMissingId = 0;
-  let labArtifactsInGrid: Array<{ type: string | null; text: string }> = [];
-  let l21ExclusionPassed = false;
-  let dataArtifactTypeCovered = false;
-  let startFreshUnchecks = false;
-  let finishSetupClosesAndDoesNotResummon = false;
-
-  if (!reachedCleanup) {
+  // ---------- Terminal: tour-goodbye outro (replaces retired phase4-cleanup
+  // grid, 2026-05-22) ----------
+  const reachedGoodbye = await waitForStep(page, "tour-goodbye", 15_000);
+  await snapshot(page, "30-tour-goodbye");
+  if (!reachedGoodbye) {
     pushBug({
-      step: "phase4-cleanup",
+      step: "tour-goodbye",
       severity: "wedge",
-      what_happened: `Did not reach phase4-cleanup; current = ${await currentStep(page)}.`,
-      what_should_happen: "Tour terminates on cleanup grid.",
-      screenshot: "30-phase4-cleanup.png",
+      what_happened: `Did not reach tour-goodbye; current = ${await currentStep(page)}.`,
+      what_should_happen: "Tour terminates on the tour-goodbye outro step.",
+      screenshot: "30-tour-goodbye.png",
     });
-    stepsWedged.push("phase4-cleanup");
+    stepsWedged.push("tour-goodbye");
   } else {
-    stepsWalked.push("phase4-cleanup");
-    // Expand collapsibles
-    const sectionHeaders = page.locator("button[aria-expanded]");
-    const headerCount = await sectionHeaders.count();
-    for (let i = 0; i < headerCount; i++) {
-      const h = sectionHeaders.nth(i);
-      const expanded = await h.getAttribute("aria-expanded");
-      if (expanded === "false") {
-        try {
-          await h.click({ timeout: 1000 });
-          await page.waitForTimeout(150);
-        } catch {
-          // skip
-        }
-      }
-    }
-    await page.waitForTimeout(400);
-    await snapshot(page, "30b-phase4-cleanup-expanded");
-
-    const rowHandles = await page.locator("[data-artifact-id]").all();
-    phase4RowCount = rowHandles.length;
-    const rowDetails: Array<{
-      id: string | null;
-      type: string | null;
-      text: string;
-    }> = [];
-    for (const r of rowHandles) {
-      const id = await r.getAttribute("data-artifact-id");
-      const type = await r.getAttribute("data-artifact-type");
-      const text = ((await r.textContent()) ?? "").trim().slice(0, 200);
-      rowDetails.push({ id, type, text });
-      if (!type) phase4RowsMissingType++;
-      if (!id) phase4RowsMissingId++;
-      if (
-        type === "lab_user" ||
-        type === "lab_task" ||
-        (type && type.startsWith("lab_")) ||
-        /BeakerBot/i.test(text)
-      ) {
-        labArtifactsInGrid.push({ type, text });
-      }
-    }
-
-    writeFileSync(
-      `${SHOT_DIR}/phase4-rows.json`,
-      JSON.stringify(
-        {
-          totalRows: phase4RowCount,
-          rowsMissingType: phase4RowsMissingType,
-          rowsMissingId: phase4RowsMissingId,
-          labArtifactsInGrid,
-          rows: rowDetails,
-        },
-        null,
-        2,
-      ),
-    );
-
-    l21ExclusionPassed = labArtifactsInGrid.length === 0;
-    if (!l21ExclusionPassed) {
-      pushBug({
-        step: "phase4-cleanup",
-        severity: "wrong",
-        what_happened: `L21 exclusion violation: ${labArtifactsInGrid.length} lab artifact rows in cleanup grid. Examples: ${JSON.stringify(labArtifactsInGrid.slice(0, 3))}`,
-        what_should_happen:
-          "Lab tour artifacts (lab_user, lab_task, BeakerBot) must NOT appear in the cleanup grid (L21).",
-        screenshot: "30b-phase4-cleanup-expanded.png",
-      });
-    }
-
-    dataArtifactTypeCovered =
-      phase4RowsMissingType === 0 && phase4RowCount > 0;
-
-    // Start fresh button
-    const startFreshBtn = page
-      .locator('[data-cleanup-action="start-fresh"]')
-      .first();
-    if (await startFreshBtn.count()) {
-      const beforeStates = await page
-        .locator("[data-cleanup-state]")
-        .evaluateAll((els) =>
-          els.map((el) => (el as HTMLElement).getAttribute("data-cleanup-state")),
-        );
-      const beforeKeepCount = beforeStates.filter((s) => s === "keep").length;
-      try {
-        await startFreshBtn.click({ timeout: 2000 });
-        await page.waitForTimeout(500);
-        await snapshot(page, "31-after-start-fresh");
-        const afterStates = await page
-          .locator("[data-cleanup-state]")
-          .evaluateAll((els) =>
-            els.map((el) =>
-              (el as HTMLElement).getAttribute("data-cleanup-state"),
-            ),
-          );
-        const afterKeepCount = afterStates.filter((s) => s === "keep").length;
-        startFreshUnchecks = afterKeepCount === 0 && beforeStates.length > 0;
-        if (!startFreshUnchecks) {
-          pushBug({
-            step: "phase4-cleanup/start-fresh",
-            severity: "wrong",
-            what_happened: `Start fresh did not uncheck all rows. before=${beforeKeepCount} keep / ${beforeStates.length} total, after=${afterKeepCount} keep / ${afterStates.length} total.`,
-            what_should_happen:
-              "Clicking Start fresh sets every row's cleanup-state to discard.",
-            screenshot: "31-after-start-fresh.png",
-          });
-        }
-      } catch (e) {
-        pushBug({
-          step: "phase4-cleanup/start-fresh",
-          severity: "wrong",
-          what_happened: `Start fresh click threw: ${(e as Error).message}`,
-          what_should_happen: "Start fresh should be clickable.",
-        });
-      }
-    }
-
-    // Finish setup
-    const finishBtn = page
-      .locator('[data-cleanup-action="finish"]')
-      .first();
-    if (await finishBtn.count()) {
-      try {
-        await finishBtn.click({ timeout: 2000 });
-        await page.waitForTimeout(4000);
-        await snapshot(page, "32-after-finish");
-        const modalGone =
-          (await page.locator('[data-tour-cleanup-grid]').count()) === 0;
-        const stepAfter = await currentStep(page);
-        await page.waitForTimeout(2000);
-        const modalStillGone =
-          (await page.locator('[data-tour-cleanup-grid]').count()) === 0;
-        await snapshot(page, "33-after-finish-stable");
-
-        finishSetupClosesAndDoesNotResummon =
-          modalGone && modalStillGone && stepAfter !== "phase4-cleanup";
-        if (!finishSetupClosesAndDoesNotResummon) {
-          pushBug({
-            step: "phase4-cleanup/finish",
-            severity: "wrong",
-            what_happened: `Finish setup did not properly close/end tour. modalGone=${modalGone} modalStillGone=${modalStillGone} stepAfter=${stepAfter}.`,
-            what_should_happen:
-              "After Finish setup: modal unmounts, currentStep flips off phase4-cleanup, modal does NOT re-summon.",
-            screenshot: "33-after-finish-stable.png",
-          });
-        }
-      } catch (e) {
-        pushBug({
-          step: "phase4-cleanup/finish",
-          severity: "wrong",
-          what_happened: `Finish setup click threw: ${(e as Error).message}`,
-          what_should_happen: "Finish setup should be clickable.",
-        });
-      }
-    }
+    stepsWalked.push("tour-goodbye");
   }
 
   clearInterval(resumeInterval);
@@ -1162,15 +1000,7 @@ test("R6 full walk: parseFeaturePicks + TourSpotlight late-mount fix verificatio
         lab_spawn_url: labSpawnUrl,
         lab_permission_url: labPermissionUrl,
         lab_perm_spotlight_resolved: labPermSpotlightResolved,
-        reached_cleanup: reachedCleanup,
-        phase4_row_count: phase4RowCount,
-        phase4_rows_missing_type: phase4RowsMissingType,
-        phase4_rows_missing_id: phase4RowsMissingId,
-        lab_artifacts_in_grid: labArtifactsInGrid,
-        l21_exclusion_passed: l21ExclusionPassed,
-        data_artifact_type_covered: dataArtifactTypeCovered,
-        start_fresh_unchecks: startFreshUnchecks,
-        finish_setup_closes_no_resummon: finishSetupClosesAndDoesNotResummon,
+        reached_tour_goodbye: reachedGoodbye,
         sticky_flag_armed_on_entry: initialSticky.v4Preview === "1",
         wiki_capture_armed_on_entry:
           initialSticky.wikiMode === "signed-in" ||

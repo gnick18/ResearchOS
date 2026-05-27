@@ -331,29 +331,15 @@ test("v4 lab tour direct seed (wizardSeedStep=lab-prompt)", async ({ page }) => 
     });
   }
 
-  // phase4-cleanup
-  if (await waitForStep(page, "phase4-cleanup", 12_000)) {
-    await snapshot(page, "L6-phase4-cleanup");
-    const bodyText = (await page.locator("body").textContent()) ?? "";
-    const hasLabUser = /BeakerBot/i.test(bodyText);
-    writeFileSync(`${SHOT_DIR}/phase4-direct-body.txt`, bodyText.slice(0, 8000));
-    if (hasLabUser) {
-      pushBug({
-        step: "phase4-cleanup",
-        severity: "wrong",
-        what_happened:
-          "Cleanup grid contains BeakerBot lab artifact (L21 exclusion violation).",
-        what_should_happen:
-          "Lab tour artifacts must not appear in cleanup grid.",
-        screenshot: "L6-phase4-cleanup.png",
-      });
-    }
+  // tour-goodbye (replaces retired phase4-cleanup grid, 2026-05-22)
+  if (await waitForStep(page, "tour-goodbye", 12_000)) {
+    await snapshot(page, "L6-tour-goodbye");
   } else {
     pushBug({
-      step: "phase4-cleanup",
+      step: "tour-goodbye",
       severity: "wedge",
-      what_happened: `Did not reach phase4-cleanup from lab-cleanup; current = ${await currentStep(page)}.`,
-      what_should_happen: "Terminal step should be cleanup grid.",
+      what_happened: `Did not reach tour-goodbye from lab-cleanup; current = ${await currentStep(page)}.`,
+      what_should_happen: "Tour terminates on the tour-goodbye outro step.",
     });
   }
 
@@ -757,7 +743,7 @@ test("v4 setup → walkthrough-skip → lab-tour focus", async ({ page }) => {
       labReached = true;
       break;
     }
-    if (s === "phase4-cleanup") break;
+    if (s === "tour-goodbye") break;
     await page.waitForTimeout(300);
     // try Skip-step if still hung
     if (i % 5 === 4) await skipThisStep(page);
@@ -924,41 +910,18 @@ test("v4 setup → walkthrough-skip → lab-tour focus", async ({ page }) => {
     }
   }
 
-  // -------- Phase 4: cleanup grid --------
-  const reachedCleanup = await waitForStep(page, "phase4-cleanup", 15_000);
-  await snapshot(page, "30-phase4-cleanup");
-  if (!reachedCleanup) {
+  // -------- Terminal: tour-goodbye outro (replaces retired phase4-cleanup
+  // grid, 2026-05-22) --------
+  const reachedGoodbye = await waitForStep(page, "tour-goodbye", 15_000);
+  await snapshot(page, "30-tour-goodbye");
+  if (!reachedGoodbye) {
     pushBug({
-      step: "phase4-cleanup",
+      step: "tour-goodbye",
       severity: "wedge",
-      what_happened: `Did not reach phase4-cleanup; current = ${await currentStep(page)}.`,
-      what_should_happen: "Tour terminates on cleanup grid.",
-      screenshot: "30-phase4-cleanup.png",
+      what_happened: `Did not reach tour-goodbye; current = ${await currentStep(page)}.`,
+      what_should_happen: "Tour terminates on the tour-goodbye outro step.",
+      screenshot: "30-tour-goodbye.png",
     });
-  } else {
-    // Capture the artifact rows
-    const rowTexts = await page
-      .locator('[data-testid="phase4-cleanup-row"], [data-artifact-type]')
-      .allTextContents();
-    // Also try a generic capture
-    const bodyText = await page.locator("body").textContent();
-    writeFileSync(
-      `${SHOT_DIR}/phase4-rows.txt`,
-      `rowTexts=\n${rowTexts.join("\n---\n")}\n\nBODY_HEAD:\n${bodyText?.slice(0, 4000) ?? ""}`,
-    );
-    // Look for lab artifacts (should be excluded per L21)
-    const hasLabUser = /BeakerBot|lab_user/i.test(bodyText ?? "");
-    if (hasLabUser) {
-      pushBug({
-        step: "phase4-cleanup",
-        severity: "wrong",
-        what_happened:
-          "Cleanup grid appears to include lab-tour BeakerBot user / lab_task artifacts (L21 exclusion violation).",
-        what_should_happen:
-          "Lab tour artifacts must not appear in the cleanup grid (auto-cleaned in lab-cleanup step).",
-        screenshot: "30-phase4-cleanup.png",
-      });
-    }
   }
 
   // -------- Console + bug log --------

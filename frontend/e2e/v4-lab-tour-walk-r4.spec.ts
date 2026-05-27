@@ -605,7 +605,7 @@ test("R4 full walk: setup -> walkthrough -> lab tour -> cleanup (sticky-flag ver
       labReached = true;
       break;
     }
-    if (s === "phase4-cleanup") break;
+    if (s === "tour-goodbye") break;
     await page.waitForTimeout(300);
     if (i % 5 === 4) await skipThisStep(page);
   }
@@ -766,60 +766,18 @@ test("R4 full walk: setup -> walkthrough -> lab tour -> cleanup (sticky-flag ver
     }
   }
 
-  // -------- Phase 4: cleanup grid --------
-  const reachedCleanup = await waitForStep(page, "phase4-cleanup", 15_000);
-  await snapshot(page, "30-phase4-cleanup");
-  if (!reachedCleanup) {
+  // -------- Terminal: tour-goodbye outro (replaces retired phase4-cleanup
+  // grid, 2026-05-22) --------
+  const reachedGoodbye = await waitForStep(page, "tour-goodbye", 15_000);
+  await snapshot(page, "30-tour-goodbye");
+  if (!reachedGoodbye) {
     pushBug({
-      step: "phase4-cleanup",
+      step: "tour-goodbye",
       severity: "wedge",
-      what_happened: `Did not reach phase4-cleanup; current = ${await currentStep(page)}.`,
-      what_should_happen: "Tour terminates on cleanup grid.",
-      screenshot: "30-phase4-cleanup.png",
+      what_happened: `Did not reach tour-goodbye; current = ${await currentStep(page)}.`,
+      what_should_happen: "Tour terminates on the tour-goodbye outro step.",
+      screenshot: "30-tour-goodbye.png",
     });
-  } else {
-    const rowTexts = await page
-      .locator('[data-testid="phase4-cleanup-row"], [data-artifact-type]')
-      .allTextContents();
-    const bodyText = await page.locator("body").textContent();
-    writeFileSync(
-      `${SHOT_DIR}/phase4-rows.txt`,
-      `rowTexts=\n${rowTexts.join("\n---\n")}\n\nBODY_HEAD:\n${bodyText?.slice(0, 8000) ?? ""}`,
-    );
-    const hasLabUser = /BeakerBot|lab_user/i.test(bodyText ?? "");
-    if (hasLabUser) {
-      pushBug({
-        step: "phase4-cleanup",
-        severity: "wrong",
-        what_happened:
-          "Cleanup grid appears to include lab-tour BeakerBot user / lab_task artifacts (L21 exclusion violation).",
-        what_should_happen:
-          "Lab tour artifacts must not appear in the cleanup grid.",
-        screenshot: "30-phase4-cleanup.png",
-      });
-    }
-
-    // Try the Delete-all button to verify R3 carry-over (usersApi.delete TypeError)
-    const deleteAllBtn = page
-      .getByRole("button", { name: /Delete all|Clean up|Remove all/i })
-      .first();
-    if (await deleteAllBtn.count()) {
-      try {
-        // Catch any pageerror around the click — it commonly throws
-        // `usersDir.removeEntry is not a function` per R3.
-        await deleteAllBtn.click({ timeout: 2000 });
-        await page.waitForTimeout(1500);
-        await snapshot(page, "31-phase4-after-delete-all");
-      } catch (e) {
-        pushBug({
-          step: "phase4-cleanup/delete-all",
-          severity: "wrong",
-          what_happened: `Delete-all click threw: ${(e as Error).message}`,
-          what_should_happen:
-            "Delete-all should remove cleanup-grid items without error.",
-        });
-      }
-    }
   }
 
   clearInterval(resumeInterval);
