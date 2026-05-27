@@ -15,10 +15,11 @@
  * Multi-paragraph speech bubble (mental model):
  *   "You can resize images inline, useful when a gel image is huge.
  *
- *    One more thing: notes-tab images and results-tab images are
- *    stored separately even though they're both linked to the same
- *    experiment. Notes are your working scratch; results are the
- *    published output."
+ *    One more thing: Lab Notes images and Results images are stored
+ *    separately even though they're both linked to the same
+ *    experiment. Lab Notes is for your in-progress notes as you run
+ *    the experiment; Results is for final conclusions, data plots,
+ *    and the takeaways you'll reference later."
  *
  * Per §6.7 completion is manual "Got it, next" — the resize is a
  * one-shot demo with no clean API event to wait for.
@@ -57,10 +58,11 @@ export const hybridEditorResizeStep = buildWalkthroughStep({
         pick 50% from the popover.
       </p>
       <p>
-        One more thing: notes-tab images and results-tab images are
-        stored separately even though they&apos;re both linked to the same
-        experiment. Notes are your working scratch; results are the
-        published output.
+        One more thing: Lab Notes images and Results images are stored
+        separately even though they&apos;re both linked to the same
+        experiment. Lab Notes is for your in-progress notes as you run
+        the experiment; Results is for final conclusions and data plots
+        you&apos;ll reference later.
       </p>
     </>
   ),

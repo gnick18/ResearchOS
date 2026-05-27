@@ -35,17 +35,18 @@ export const hybridNotesVsResultsStep = buildWalkthroughStep({
         write.
       </p>
       <p className="mb-2">
-        <strong>Notes</strong> is your working scratch. Half-formed
-        thoughts, daily logs, what you tried, what failed.
+        <strong>Lab Notes</strong> is where you should add your notes as
+        you run an experiment.
       </p>
       <p className="mb-2">
-        <strong>Results</strong> is the published output. Final figures,
-        conclusions you&apos;d defend in a meeting.
+        <strong>Results</strong> is where you can place any final
+        conclusions that came from the experiment. Things like data
+        plots and written conclusions are great for Results, so you can
+        quickly reference what the takeaway of an experiment was.
       </p>
       <p>
-        Same editor, two separate stores. Notes content never leaks
-        into Results. Workflow most people use: write daily in Notes,
-        then copy the keepers into Results when the experiment is done.
+        Same editor, two separate stores. Lab Notes content never leaks
+        into Results.
       </p>
     </>
   ),
