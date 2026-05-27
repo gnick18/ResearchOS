@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import SnapshotCanvas from "@/components/lab-overview/SnapshotCanvas";
 import ToolsLauncher from "@/components/lab-overview/ToolsLauncher";
-import { readUserSettings, type AccountType } from "@/lib/settings/user-settings";
+import { useAccountType } from "@/hooks/useAccountType";
 
 /**
  * Home canvas migration (Home canvas migration manager, 2026-05-23):
@@ -36,33 +35,18 @@ export default function HomeCanvas({ username }: HomeCanvasProps) {
   // Tools launcher visibility match what the user is allowed to see.
   // `undefined` = still loading; we render a tiny skeleton so the
   // empty area doesn't snap-in once the read resolves.
-  const [accountType, setAccountType] = useState<AccountType | null | undefined>(
-    undefined,
-  );
-
-  useEffect(() => {
-    if (!username) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sign-out transition: clear cached account_type immediately so a stale value can't leak between users on the home page. Same shape used by useAccountType for the same reason.
-      setAccountType(null);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const settings = await readUserSettings(username);
-        if (!cancelled) setAccountType(settings.account_type);
-      } catch (err) {
-        // Defensive: never crash the home page on a settings read failure.
-        // Falling back to `member` errs on the side of fewer widgets being
-        // visible (members can't see PI-only catalog entries).
-        console.warn("[HomeCanvas] readUserSettings failed", err);
-        if (!cancelled) setAccountType("member");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [username]);
+  //
+  // setup-q feature-gating audit manager (2026-05-27): switched from a
+  // local `readUserSettings + useState` snapshot to the shared
+  // `useAccountType` hook so Q1c's `_user_settings.account_type` bridge
+  // (which writes via patchUserSettings + dispatches the
+  // `onUserSettingsWritten` bus) propagates to HomeCanvas the moment the
+  // wizard answer commits. Without the hook, the prior local read fired
+  // once on mount and never re-subscribed; a fresh PI who finished Q1c
+  // saw the member-only widget catalog on the home page until they
+  // navigated away and back. The hook also handles the signed-out
+  // transition (returns null), matching the local read's prior shape.
+  const accountType = useAccountType(username);
 
   if (accountType === undefined) {
     return (
