@@ -10,18 +10,47 @@
  * (gantt-deps-cascade).
  *
  * onEnter:
- *   1. Spawn Fake experiment A + Fake experiment B in the user's most
- *      recent project (idempotent on name).
- *   2. Create the A → user_experiment dep edge in-data so the cursor's
- *      visual drag has a real edge to narrate.
+ *   - Spawn Fake experiment A + Fake experiment B (idempotent on name).
+ *     NOTHING ELSE: the dep edge is created at the END of the cursor
+ *     script via the picker-dialog click below, NOT pre-stamped in
+ *     data. (Tour deps fix manager 2026-05-27 — see bug below.)
  *
  * Cursor:
  *   1. Glide to Fake A's bar.
- *   2. Drag Fake A onto the user's experiment bar.
- *   3. Click "Finish before" in the dep-rule dialog so the dialog closes
- *      and the next step has a clear page.
- *   4. (Real implementation: the dep edge was already created by
- *      onEnter; the cursor's drag + click is the visual narration.)
+ *   2. Visually drag Fake A onto the user's experiment bar.
+ *   3. Pause so the drop animation lands cleanly.
+ *   4. Dispatch `tour:open-dep-popup` with Fake A as child and
+ *      user_experiment as parent. GanttChart's listener seeds the
+ *      picker dialog state. (The cursor's mouse events alone don't
+ *      drive the Gantt's HTML5 DragEvent drop handler, so the dialog
+ *      will not open from the drag itself; same mismatch documented
+ *      in the legacy GanttDependenciesStep docstring.)
+ *   5. Pause so the dialog mount + reposition settles.
+ *   6. Click the picker's "Finish before" button (purple, SF type)
+ *      via a deferred click that resolves the button at PLAYBACK time
+ *      (the button only mounts AFTER step 4 plays). The click goes
+ *      through `tourClickWithLockBypass` so the InputLockOverlay's
+ *      capture-phase blocker lets it through and React's onClick
+ *      handler creates the dep edge.
+ *
+ * onExit:
+ *   - Record the freshly-committed dep edge as a discard artifact for
+ *     Phase 4 cleanup. Mirror of `gantt-deps-user`'s onExit.
+ *
+ * Tour deps fix manager 2026-05-27 (bug Grant reported with
+ * screenshot): the previous build pre-created the dep edge in onEnter
+ * and the cursor's drag was purely narrative; the picker dialog never
+ * actually opened and never got a "Finish before" click. From the
+ * user's POV: "beaker never clicked finish before, it got stuck on
+ * this screen, the experiment was spawned immediately as a dependency
+ * chain". This step now spawns Fake A standalone, the cursor opens
+ * the dialog programmatically, and the cursor clicks the dialog's
+ * "Finish before" option. The resulting dep edge is SF (parent =
+ * user_experiment, child = Fake A) instead of the legacy FS (parent
+ * = Fake A, child = user_experiment); both layouts cascade correctly
+ * via the shift engine's upstream-and-downstream traversal, so the
+ * downstream `gantt-deps-cascade` step's `moveFakeAForward` still
+ * propagates through the chain.
  *
  * Manual advance — same pattern as the legacy chained-deps step.
  *
@@ -31,18 +60,33 @@
  * spotlight on the next step.
  */
 import {
+  callbackAction,
   cursorScript,
   safeClickAction,
   safeDragAction,
   compactScript,
+  tourClickWithLockBypass,
+  waitForElement,
+  pause,
 } from "./lib/cursor-script";
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 import {
-  createFakeAToUserDep,
+  recordFakeAToUserDepArtifact,
+  resolveFakeTaskIds,
+  resolveUserExperiment,
   spawnGanttRedesignFakeTasks,
 } from "./lib/gantt-redesign-helpers";
-import { ensureFirstExperimentExists } from "./lib/ensure-helpers";
+import { getCurrentUserCached } from "@/lib/storage/json-store";
+
+/** Pause (ms) between the visual drag landing and the popup-open event.
+ *  Lets the drop animation settle so the dialog doesn't pop up mid-glide. */
+const POST_DRAG_PAUSE_MS = 800;
+
+/** Pause (ms) between the popup-open event and the cursor's click on
+ *  "Finish before". Lets the dialog mount + the BeakerBot cursor
+ *  reposition over the purple option. */
+const PRE_CLICK_PAUSE_MS = 800;
 
 export const ganttDepsBeakerBotStep = buildWalkthroughStep({
   id: "gantt-deps-beakerbot",
@@ -59,42 +103,79 @@ export const ganttDepsBeakerBotStep = buildWalkthroughStep({
   pose: "thinking",
   targetSelector: targetSelector(TOUR_TARGETS.ganttBarFakeA),
   onEnter: async (ctx) => {
-    // Tour robustification 2026-05-27 (tour robustification manager):
-    // ensure the user's experiment exists BEFORE spawning the fake
-    // chain — `createFakeAToUserDep` reads `resolveUserExperiment` and
-    // silently no-ops when no user experiment exists (seed-jump past
-    // §6.5). The ensure helper closes that gap so the dep edge wires
-    // up even on a skipped flow. Canonical flow no-ops the helper.
-    await ensureFirstExperimentExists();
+    // Spawn A + B only. The A→user_experiment edge is created by the
+    // picker-dialog click in the cursor script below, NOT in onEnter.
     await spawnGanttRedesignFakeTasks(ctx);
-    // Edge wiring is sequenced AFTER the spawn so the dep references
-    // the freshly-created Fake A id.
-    await createFakeAToUserDep(ctx);
   },
   cursorScript: cursorScript(async () => {
-    // Visual narration of the dep we just wired in data. The drag's
-    // mouse events don't trigger the Gantt's HTML5-DragEvent drop
-    // handler (mismatch documented in the legacy GanttDependenciesStep
-    // docstring); the cursor is the user-facing "watch me do it" beat
-    // while the actual edge already exists.
+    // Visual narration: drag Fake A onto the user's experiment bar.
+    // The cursor's mouse events don't trigger the Gantt's HTML5
+    // DragEvent drop handler (mismatch documented in the legacy
+    // GanttDependenciesStep docstring), so the drag is a "watch me
+    // do it" beat; the actual dialog gets opened programmatically by
+    // the callback below.
     const dragOntoUserExp = await safeDragAction(
       targetSelector(TOUR_TARGETS.ganttBarFakeA),
       targetSelector(TOUR_TARGETS.ganttBarUserExperiment),
     );
-    // gantt cluster consolidation manager (2026-05-27, Bug #29):
-    // close out the Create Dependency dialog that the GanttChart
-    // opens whenever a bar-on-bar drag lands. The cursor clicks the
-    // "Finish before" button (data-tour-target="gantt-dep-picker-start-before",
-    // dep_type "SF") so the dialog dispatches handleCreateDependency
-    // and unmounts. The dep edge itself was already wired in onEnter,
-    // so this click is purely a UI cleanup beat (a duplicate dep
-    // attempt is caught by the existing duplicate-detection branch in
-    // GanttChart's handleCreateDependency).
-    const clickFinishBefore = await safeClickAction(
-      targetSelector(TOUR_TARGETS.ganttDepPickerStartBefore),
-    );
-    return compactScript([dragOntoUserExp, clickFinishBefore]);
+
+    // Open the dep-picker dialog at PLAYBACK time, after the visual
+    // drag lands. GanttChart listens for `tour:open-dep-popup` and
+    // seeds its dep-popup state from the detail's parent / child ids.
+    const openDialog = callbackAction(async () => {
+      if (typeof window === "undefined") return;
+      const { fakeAId } = await resolveFakeTaskIds();
+      const userExp = await resolveUserExperiment();
+      if (!fakeAId || !userExp) return;
+      // Match `handleDropOnTask`'s convention: the task dropped ON is
+      // the parent, the dragged task is the child. The drag goes Fake
+      // A onto user_experiment, so parent=user_exp, child=Fake A.
+      window.dispatchEvent(
+        new CustomEvent("tour:open-dep-popup", {
+          detail: { parentId: userExp.id, childId: fakeAId },
+        }),
+      );
+    });
+
+    // Click the "Finish before" option (purple, SF type) at playback
+    // time. We can't use safeClickAction here because the picker's
+    // buttons don't mount until the openDialog callback above plays;
+    // safeClickAction resolves at BUILD time and would time out.
+    // tourClickWithLockBypass sets the __beakerBotCursorClicking flag
+    // so the InputLockOverlay's capture-phase blocker lets the click
+    // through to React's onClick handler.
+    const clickFinishBefore = callbackAction(async () => {
+      if (typeof document === "undefined") return;
+      const selector = targetSelector(
+        TOUR_TARGETS.ganttDepPickerStartBefore,
+      );
+      const btn = await waitForElement(selector, 3000);
+      if (!(btn instanceof HTMLElement)) return;
+      tourClickWithLockBypass(btn);
+    });
+
+    return compactScript([
+      dragOntoUserExp,
+      pause(POST_DRAG_PAUSE_MS),
+      openDialog,
+      pause(PRE_CLICK_PAUSE_MS),
+      clickFinishBefore,
+    ]);
   }),
+  // Record the freshly-committed dep edge for Phase 4 cleanup. Mirrors
+  // gantt-deps-user's onExit (which records the user→Fake B edge).
+  onExit: async () => {
+    try {
+      const username = await getCurrentUserCached();
+      const resolved = username && username !== "_no_user_" ? username : null;
+      await recordFakeAToUserDepArtifact({ username: resolved });
+    } catch (err) {
+      console.warn(
+        "[gantt-deps-beakerbot] onExit artifact persist failed",
+        err,
+      );
+    }
+  },
   completion: manualAdvance("Got it, next"),
   expectedRoute: "/gantt",
 });

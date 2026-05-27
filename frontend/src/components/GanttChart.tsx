@@ -956,6 +956,36 @@ export default function GanttChart({
     return () => window.removeEventListener('resize', updateRect);
   }, []);
 
+  // Tour hook (onboarding v4 §6.8): the BeakerBot deps demo can't trigger
+  // the real HTML5-DragEvent drop handler from a simulated cursor (the
+  // cursor only dispatches mousedown / mouseup, no DragEvent). To let
+  // the cursor actually click "Finish before" on the picker, the step
+  // body dispatches `tour:open-dep-popup` with explicit parent / child
+  // task ids. We resolve them in the live `tasks` list and seed the
+  // popup state exactly as `handleDropOnTask` would on a real drag.
+  // Best-effort: if either task isn't in the current Gantt's task list,
+  // the event is a no-op.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onOpen = (ev: Event) => {
+      const detail = (ev as CustomEvent<{
+        parentId?: number;
+        childId?: number;
+      }>).detail;
+      if (!detail) return;
+      const { parentId, childId } = detail;
+      if (typeof parentId !== "number" || typeof childId !== "number") return;
+      const parent = tasks.find((t) => t.id === parentId) ?? null;
+      const child = tasks.find((t) => t.id === childId) ?? null;
+      if (!parent || !child) return;
+      setDepParentTask(parent);
+      setDepChildTask(child);
+      setShowDepPopup(true);
+    };
+    window.addEventListener("tour:open-dep-popup", onOpen);
+    return () => window.removeEventListener("tour:open-dep-popup", onOpen);
+  }, [tasks]);
+
   // Calculate task positions after render using useLayoutEffect
   useLayoutEffect(() => {
     if (!containerRef.current) return;
