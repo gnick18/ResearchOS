@@ -20,16 +20,25 @@
  *                                    BeakerBot-caused beat (R1 fix).
  *   3. workbench-lists-intro       — cursor clicks Lists tab, narrate
  *   4. workbench-list-create-shell — combined beat: cursor ensures the
- *                                    Lists tab is active (R1 defensive
- *                                    re-click), clicks +New List Task,
- *                                    spawns the shell via tasksApi,
- *                                    clicks the just-created card to
- *                                    expand it, then types 3 items into
- *                                    the inline Add-item input. The
+ *                                    Lists tab is active, clicks +New
+ *                                    List Task (opens TaskModal), picks
+ *                                    the user's first project, types
+ *                                    the list name + each of the three
+ *                                    items into the modal's list-mode
+ *                                    body, then clicks Create List. The
  *                                    prior `workbench-list-add-items`
  *                                    beat was folded into this one (R1
  *                                    pacing fix) to drop a no-teaching
- *                                    "Got it, next" click.
+ *                                    "Got it, next" click. Rewritten
+ *                                    2026-05-27 (workbench-list create-
+ *                                    shell fix manager) to drive the
+ *                                    TaskModal end-to-end: the prior
+ *                                    shape spawned the list via
+ *                                    tasksApi.create after clicking
+ *                                    +New, but +New now opens TaskModal
+ *                                    and the modal hides the workbench
+ *                                    panel, so the in-card cursor steps
+ *                                    timed out and the demo stalled.
  *   5. workbench-list-mark-done    — cursor checks one sub-task, then
  *                                    clicks the parent task's mark-
  *                                    complete button
@@ -57,15 +66,16 @@
  *     the same chip. The Notes panel + Lists panel were already
  *     mounted before this chip; we just stamp their create buttons.
  */
-import { notesApi, tasksApi } from "@/lib/local-api";
+import { notesApi, projectsApi, tasksApi } from "@/lib/local-api";
 import {
   cursorScript,
   callbackAction,
   compactScript,
   safeClickAction,
+  safeChangeSelectAction,
+  safeTypeAction,
   safeGlideToElementAction,
   deferredClickAction,
-  waitForElement,
 } from "./lib/cursor-script";
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { targetSelector, TOUR_TARGETS } from "./lib/targets";
@@ -307,112 +317,102 @@ export const workbenchListsIntroStep = buildWalkthroughStep({
 });
 
 // ---------------------------------------------------------------------------
-// 4. workbench-list-create-shell — combined BeakerBot demo: create the
-//    list shell AND populate its three items in one continuous cursor
-//    script (folded from the prior workbench-list-add-items beat;
-//    Workbench fix manager R1 2026-05-22 pacing fix).
+// 4. workbench-list-create-shell — combined BeakerBot demo: open the
+//    TaskModal via +New List Task, fill the name + three items in the
+//    modal's list-mode body, then Create List to close the modal and
+//    drop the new card into the Lists panel.
+//
+//    History: the prior shape clicked +New List, then spawned the list
+//    via tasksApi.create and typed items into the in-card inline
+//    ExpandableListCard add-input. That broke when +New List was
+//    re-wired through TaskModal (Workbench fix manager 2026-05-26?):
+//    the modal opens in front of the workbench panel and hides the
+//    list card, so the cursor's glide-to-card step timed out and the
+//    demo stalled mid-speech (workbench-list create-shell fix manager
+//    hand-walk, 2026-05-27). The fix below drives the modal end-to-end
+//    via cursor, matching the §6.5 experiment-create pattern.
 // ---------------------------------------------------------------------------
 
 /**
- * Idempotent spawn of the demo list task. Returns the new (or pre-
- * existing) task id. Tasks are scoped to project_id 0 (Miscellaneous /
- * standalone bucket) per WorkbenchListsPanel's `handleCreateListTask`
- * default. The auto-cleanup sub-bot wipes everything that isn't the
- * user's first project, so the bucket choice doesn't affect cleanup.
+ * Resolve the project id the demo list should land in. Picks the
+ * most-recently-created own (non-shared) non-Miscellaneous project.
+ * Returns `null` if no qualifying project exists so the cursor leaves
+ * the dropdown on its TaskModal default.
  *
- * Why programmatic and not cursor-into-TaskModal: TaskModal is a
- * heavy form with task-type toggles, scheduling mode toggles, project
- * dropdown, and a Cancel/Submit row. Driving it via cursor would
- * triple the steps and the user's attention. The cursor's role here
- * is "glide to the + New List Task button" — the actual create then
- * happens programmatically, and the list card appears in the Lists
- * panel below.
+ * Mirrors `WorkbenchCreateExperimentOpenStep.resolveFirstProjectId`
+ * (kept as a sibling helper rather than imported to keep the §6.7b
+ * step file self-contained — the two flows happen on the same page
+ * and use the same logic, but cross-imports between step bodies make
+ * the dependency graph harder to read).
  */
-async function spawnDemoListShell(): Promise<number | null> {
-  const today = todayIso();
+async function resolveFirstProjectId(): Promise<number | null> {
   try {
-    const tasks = await tasksApi.listByProject(0);
-    const existing = tasks.find(
-      (t) => t.task_type === "list" && t.name === LIST_NAME,
+    const projects = await projectsApi.list();
+    const eligible = projects.filter(
+      (p) =>
+        !p.is_archived &&
+        !p.is_shared_with_me &&
+        p.name !== "Miscellaneous",
     );
-    if (existing) return existing.id;
-    const created = await tasksApi.create({
-      project_id: 0,
-      name: LIST_NAME,
-      start_date: today,
-      duration_days: 1,
-      task_type: "list",
-      sub_tasks: [],
-    });
-    return created.id;
-  } catch (err) {
-    console.warn(
-      "[onboarding-v4] workbench-list-create-shell spawn failed",
-      err,
-    );
-    return null;
-  }
-}
-
-/** Look up the demo list task (by name) so we can append items via
- *  API. The cursor types the item names into the inline Add-item input
- *  for the visual beat; the actual sub-task append happens via
- *  tasksApi.update inside a callbackAction so the items persist
- *  regardless of whether the keydown synthesis lands. */
-async function findDemoListTaskId(): Promise<number | null> {
-  try {
-    const tasks = await tasksApi.listByProject(0);
-    const hit = tasks.find(
-      (t) => t.task_type === "list" && t.name === LIST_NAME,
-    );
-    return hit?.id ?? null;
+    if (eligible.length === 0) return null;
+    eligible.sort((a, b) => b.id - a.id);
+    return eligible[0].id;
   } catch {
     return null;
   }
 }
 
-/** Append a sub-task to the demo list. Idempotent on item text — if the
- *  list already has a sub-task with the same text, skip the append. */
-async function appendDemoListItem(text: string): Promise<void> {
-  const id = await findDemoListTaskId();
-  if (id === null) return;
+/** Look up the demo list task (by name) once the modal has closed +
+ *  the tasksApi.create has resolved. Used to register the cleanup
+ *  artifact without listening for a tour event (TaskModal only
+ *  dispatches `tour:experiment-created` for the experiment branch). */
+async function findDemoListTaskId(): Promise<number | null> {
   try {
-    const task = await tasksApi.get(id);
-    if (!task) return;
-    const existing = task.sub_tasks ?? [];
-    if (existing.some((st) => st.text === text)) return;
-    const next = [
-      ...existing,
-      {
-        id: `st-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        text,
-        is_complete: false,
-      },
-    ];
-    await tasksApi.update(id, { sub_tasks: next });
-  } catch (err) {
-    console.warn(
-      "[onboarding-v4] workbench-list-create-shell append failed",
-      err,
+    const projects = await projectsApi.list();
+    for (const p of projects) {
+      const tasks = await tasksApi.listByProject(p.id);
+      const hit = tasks.find(
+        (t) => t.task_type === "list" && t.name === LIST_NAME,
+      );
+      if (hit) return hit.id;
+    }
+    // Standalone (project_id null) tasks land under id 0 in the local
+    // index. Probe that bucket too.
+    const standalone = await tasksApi.listByProject(0);
+    const standaloneHit = standalone.find(
+      (t) => t.task_type === "list" && t.name === LIST_NAME,
     );
+    return standaloneHit?.id ?? null;
+  } catch {
+    return null;
   }
 }
 
-/** Type a string into the (just-mounted) Add-item input via the
- *  React-safe setter so the controlled state lands the keystroke. */
-function typeIntoAddItemInput(text: string): void {
-  const input = document.querySelector(
-    targetSelector(TOUR_TARGETS.workbenchListAddItemInput),
-  );
-  if (!(input instanceof HTMLInputElement)) return;
-  input.focus();
-  const setter = Object.getOwnPropertyDescriptor(
-    HTMLInputElement.prototype,
-    "value",
-  )?.set;
-  if (setter) setter.call(input, text);
-  else input.value = text;
-  input.dispatchEvent(new Event("input", { bubbles: true }));
+/** Wait up to `timeoutMs` for the new list task to appear, polling
+ *  every 200ms. Returns the task id or null on timeout. */
+async function waitForDemoListTaskId(timeoutMs = 4000): Promise<number | null> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const id = await findDemoListTaskId();
+    if (id !== null) return id;
+    await new Promise<void>((resolve) => {
+      if (typeof window !== "undefined") window.setTimeout(resolve, 200);
+      else setTimeout(resolve, 200);
+    });
+  }
+  return null;
+}
+
+/** Read-then-watch pause between modal beats. Matches §6.5
+ *  WORKBENCH_CREATE_PAUSE_MS so the user has the same cadence on the
+ *  experiment-create and list-create demos. */
+const WORKBENCH_LIST_PAUSE_MS = 600;
+
+async function pause(ms: number): Promise<void> {
+  await new Promise<void>((resolve) => {
+    if (typeof window !== "undefined") window.setTimeout(resolve, ms);
+    else setTimeout(resolve, ms);
+  });
 }
 
 export const workbenchListCreateShellStep = buildWalkthroughStep({
@@ -429,32 +429,83 @@ export const workbenchListCreateShellStep = buildWalkthroughStep({
   pose: "typing-on-laptop",
   targetSelector: targetSelector(TOUR_TARGETS.workbenchNewListButton),
   cursorScript: cursorScript(async () => {
-    // Workbench fix manager R1 2026-05-22 (Verify-A P1-3): defensively
-    // activate the Lists tab before gliding to the + New List button.
-    // Clicking an already-active tab is a no-op, so this is safe in the
-    // happy path AND covers back-step / resume scenarios where the
-    // Lists tab somehow isn't active.
+    // Defensive: activate the Lists tab in case the user back-stepped
+    // off another tab. Clicking an already-active tab is a no-op.
     const ensureListsTab = await safeClickAction(
       targetSelector(TOUR_TARGETS.workbenchListsTab),
       2000,
     );
 
-    // Glide to the +New List button + visible click (matches the
-    // "BeakerBot caused this" beat we apply on the Notes side).
-    const glideNew = await safeGlideToElementAction(
+    // 1. Open the modal by clicking +New List Task. This sets
+    //    isCreatingTask = true + restrictedTaskType = "list", so
+    //    TaskModal mounts in list-mode (task-type pill locked).
+    const openClick = await safeClickAction(
       targetSelector(TOUR_TARGETS.workbenchNewListButton),
       3000,
     );
-    const clickNew = await safeClickAction(
-      targetSelector(TOUR_TARGETS.workbenchNewListButton),
-      1500,
+
+    // 2. Pick the user's first own project so the Submit button enables
+    //    (TaskModal disables submit when projectId === 0, which is the
+    //    Miscellaneous placeholder id). Mirrors §6.5
+    //    workbench-create-experiment-open. When no eligible project
+    //    exists (skipped §6.1), leave the dropdown on its default — the
+    //    user can finish the demo manually if it lands.
+    const projectId = await resolveFirstProjectId();
+    const pickProject =
+      projectId !== null
+        ? await safeChangeSelectAction(
+            targetSelector(TOUR_TARGETS.workbenchExperimentProjectSelect),
+            String(projectId),
+            5000,
+          )
+        : null;
+
+    // 3. Type the list name into the Task Name input (shared with the
+    //    experiment-create flow — same data-tour-target, same input).
+    const typeName = await safeTypeAction(
+      targetSelector(TOUR_TARGETS.workbenchExperimentNameInput),
+      LIST_NAME,
+      25,
     );
 
-    // Spawn the shell programmatically (TaskModal is too heavy to drive
-    // via cursor for the teaching value it adds). The list card appears
-    // in the Lists panel under the +New List Task button.
-    const spawn = callbackAction(async () => {
-      const id = await spawnDemoListShell();
+    // 4. For each item: type into the modal's "Add a list item..."
+    //    input, then click Add. handleAddSubTask clears the input on
+    //    each add, so successive types stack cleanly. The Add button
+    //    is disabled until the trimmed input is non-empty — the type
+    //    action lands the value before we glide to Add.
+    const buildAddItem = async (text: string) => {
+      const typeItem = await safeTypeAction(
+        targetSelector(TOUR_TARGETS.workbenchListModalItemInput),
+        text,
+        20,
+        5000,
+      );
+      const clickAdd = await safeClickAction(
+        targetSelector(TOUR_TARGETS.workbenchListModalItemAdd),
+        3000,
+      );
+      return [typeItem, clickAdd];
+    };
+    const beansActions = await buildAddItem(LIST_ITEM_BEANS);
+    const filtersActions = await buildAddItem(LIST_ITEM_FILTERS);
+    const grinderActions = await buildAddItem(LIST_ITEM_GRINDER);
+
+    // 5. Submit. Reuses the experiment-create Submit target — the
+    //    button label switches to "Create List" automatically based on
+    //    taskType. After submit, TaskModal calls resetForm + closes;
+    //    the new list card lands in WorkbenchListsPanel.
+    const submit = await safeClickAction(
+      targetSelector(TOUR_TARGETS.workbenchExperimentSubmit),
+      5000,
+    );
+
+    // 6. After submit resolves, query the newly-created task by name
+    //    and register the artifact. We can't listen for
+    //    `tour:experiment-created` here (TaskModal only fires it for
+    //    experiment-type tasks); polling tasksApi is the cheaper
+    //    alternative for the universal-cleanup grid handoff.
+    const registerArtifact = callbackAction(async () => {
+      const id = await waitForDemoListTaskId();
       if (id !== null) {
         pendingArtifactStore.add(LIST_CREATE_SHELL_STEP_ID, {
           type: "task",
@@ -464,61 +515,29 @@ export const workbenchListCreateShellStep = buildWalkthroughStep({
       }
     });
 
-    // Wait for the new list card to mount + glide-click it to expand
-    // the inline ExpandableListCard panel (where the Add-item input
-    // lives). `deferredClickAction` resolves the selector at playback
-    // time, which is what we want here because the card is created by
-    // the prior callback.
-    const glideCard = await safeGlideToElementAction(
-      targetSelector(TOUR_TARGETS.workbenchListCardFirst),
-      4000,
-    );
-    const clickCard = deferredClickAction(
-      targetSelector(TOUR_TARGETS.workbenchListCardFirst),
-      4000,
-    );
-
-    // For each of the 3 items: wait for the Add-item input to mount
-    // (only present once the card is expanded), type the visible value
-    // into it, then dispatch the matching tasksApi.update so the
-    // sub-task persists regardless of keydown synthesis.
-    const typeBeans = callbackAction(async () => {
-      await waitForElement(
-        targetSelector(TOUR_TARGETS.workbenchListAddItemInput),
-        4000,
-      );
-      typeIntoAddItemInput(LIST_ITEM_BEANS);
-      await appendDemoListItem(LIST_ITEM_BEANS);
-    });
-    const typeFilters = callbackAction(async () => {
-      await waitForElement(
-        targetSelector(TOUR_TARGETS.workbenchListAddItemInput),
-        2000,
-      );
-      typeIntoAddItemInput(LIST_ITEM_FILTERS);
-      await appendDemoListItem(LIST_ITEM_FILTERS);
-    });
-    const typeGrinder = callbackAction(async () => {
-      await waitForElement(
-        targetSelector(TOUR_TARGETS.workbenchListAddItemInput),
-        2000,
-      );
-      typeIntoAddItemInput(LIST_ITEM_GRINDER);
-      await appendDemoListItem(LIST_ITEM_GRINDER);
-    });
-
     return compactScript([
       ensureListsTab,
-      glideNew,
-      clickNew,
-      spawn,
-      glideCard,
-      clickCard,
-      typeBeans,
-      typeFilters,
-      typeGrinder,
+      openClick,
+      callbackAction(() => pause(WORKBENCH_LIST_PAUSE_MS)),
+      pickProject,
+      callbackAction(() => pause(WORKBENCH_LIST_PAUSE_MS)),
+      typeName,
+      callbackAction(() => pause(WORKBENCH_LIST_PAUSE_MS)),
+      ...beansActions,
+      ...filtersActions,
+      ...grinderActions,
+      callbackAction(() => pause(WORKBENCH_LIST_PAUSE_MS)),
+      submit,
+      registerArtifact,
     ]);
   }),
+  // Total page-lock during the modal demo so a stray user click outside
+  // the modal doesn't soft-walk them out of the tour. Mirrors §6.5
+  // workbench-create-experiment-open.
+  pageLock: {
+    allowList: [],
+    pillLabel: "BeakerBot is creating the list. Hold on a moment.",
+  },
   completion: manualAdvance("Got it, next"),
   onExit: async () => {
     await flushPendingArtifacts(LIST_CREATE_SHELL_STEP_ID);

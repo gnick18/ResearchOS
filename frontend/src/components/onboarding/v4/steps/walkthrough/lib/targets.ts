@@ -169,6 +169,19 @@ export const TOUR_TARGETS = {
    *  the existing "Add item..." input so the workbench-list-add-items
    *  cursor can type into it. */
   workbenchListAddItemInput: "workbench-list-add-item-input",
+  /** "Add a list item..." input inside the TaskModal's list-mode body
+   *  (the inline sub-task editor that renders when task_type === "list").
+   *  The workbench-list-create-shell cursor types each of the three
+   *  demo items into this input one by one (workbench-list create-shell
+   *  fix manager 2026-05-27 — modal now mediates list creation, the
+   *  prior in-card inline-spawn shortcut no longer works because the
+   *  TaskModal sits on top of the workbench panel). */
+  workbenchListModalItemInput: "workbench-list-modal-item-input",
+  /** "Add" button next to the list-items input inside the TaskModal's
+   *  list-mode body. Cursor clicks this between item entries so the
+   *  modal commits each sub-task into local state before the Create
+   *  List submit fires. */
+  workbenchListModalItemAdd: "workbench-list-modal-item-add",
   /** First sub-task checkbox inside TaskDetailPopup's Sub-tasks list.
    *  Render-scoped latch (first item only) so the workbench-list-mark-
    *  done cursor checks the right box. */
