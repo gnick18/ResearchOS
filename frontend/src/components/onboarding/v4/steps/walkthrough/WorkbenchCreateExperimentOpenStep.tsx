@@ -44,6 +44,7 @@ import {
   callbackAction,
   waitForElement,
   setNativeFieldValue,
+  tourClickWithLockBypass,
 } from "./lib/cursor-script";
 import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
@@ -197,7 +198,12 @@ export const workbenchCreateExperimentOpenStep = buildWalkthroughStep({
         3000,
       );
       if (!(btn instanceof HTMLElement)) return;
-      btn.click();
+      // Route through tourClickWithLockBypass so the TourPageLock's
+      // __beakerBotCursorClicking flag is set during the click. Raw
+      // btn.click() doesn't set the flag, so the page-lock (with
+      // allowList: []) blocks the click and the experiment never gets
+      // created.
+      tourClickWithLockBypass(btn);
     });
 
     // Interleave 800ms read-then-watch pauses between each visible
