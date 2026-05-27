@@ -6,6 +6,11 @@
  * drag and drop the image into the markdown file as opposed to having
  * feature bot do it for them. I think this would teach them better."
  *
+ * Wave 2C speech rewrite (v4 tour speech manager — C, 2026-05-27):
+ * applies Grant's BEAKERBOT_TOUR_SCRIPT_REWRITE_2026-05-27.md copy —
+ * one tight sentence about dragging the just-attached image into the
+ * notes so it renders exactly where the user wants it.
+ *
  * New shape: pure narration step that tells the user what to try, with
  * the spotlight on the image strip so they know where to drag FROM.
  * Manual advance on "Got it, next" — the user does the drop, then
@@ -21,21 +26,10 @@ import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 export const hybridImageDragInStep = buildWalkthroughStep({
   id: "hybrid-image-drag-in",
   speech: (
-    <>
-      <p className="mb-2">
-        An attached image can also be dropped inline into the notes, so
-        it renders right where you want it in the writeup.
-      </p>
-      <p className="mb-2">
-        Try it: drag the image from the attachments panel below up into
-        the editor, wherever you want it to land.
-      </p>
-      <p>
-        Same image, two places it can show: in the attachments panel,
-        and inline. Click Got it, next when it&apos;s where you want
-        it.
-      </p>
-    </>
+    <p>
+      Once an image is attached, you can drag it directly into your
+      notes so it renders exactly where you want it in your writeup.
+    </p>
   ),
   pose: "pointing",
   // Spotlight the image strip so the user knows where to drag FROM.

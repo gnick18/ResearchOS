@@ -151,16 +151,20 @@ async function attachProtocolFile(): Promise<boolean> {
 export const hybridFileAttachStep = buildWalkthroughStep({
   id: STEP_ID,
   speech: (
+    // Wave 2C speech rewrite (v4 tour speech manager — C, 2026-05-27):
+    // applies Grant's BEAKERBOT_TOUR_SCRIPT_REWRITE_2026-05-27.md copy.
+    // Two paragraphs: the same-as-images framing + download chip, then
+    // the PDF / text browser-open caveat.
     <>
       <p className="mb-2">
-        Files (CSVs, PDFs, protocol docs) attach the same way as
-        images. The editor renders images inline, but everything else
-        becomes a download chip, so the next person can grab the file
-        without losing the writeup around it.
+        Non-image files (like PDFs or CSVs) attach the exact same way.
+        Instead of rendering inline, they appear as a download chip,
+        keeping the file safe alongside your notes.
       </p>
       <p>
         ResearchOS can open <strong>PDFs and text files</strong>{" "}
-        directly. Other formats just download to your computer.
+        directly in the browser. Other formats will simply download to
+        your computer.
       </p>
     </>
   ),

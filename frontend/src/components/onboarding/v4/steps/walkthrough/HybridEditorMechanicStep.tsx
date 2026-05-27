@@ -18,20 +18,18 @@ import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 export const hybridEditorMechanicStep = buildWalkthroughStep({
   id: "hybrid-editor-mechanic",
   speech: (
+    // Wave 2C speech rewrite (v4 tour speech manager — C, 2026-05-27):
+    // tightens to the two-paragraph "raw while editing, renders on
+    // click-out" framing from Grant's new script.
     <>
-      <p className="mb-2">Two things to know about this editor.</p>
       <p className="mb-2">
-        <strong>While you&apos;re editing a paragraph</strong>, you&apos;ll
-        see the raw markdown, the symbols and all.
-      </p>
-      <p className="mb-2">
-        <strong>The moment you click out</strong> of a paragraph, it
-        renders. Bold becomes bold, headers become headers.
+        The key thing to know about this editor is how it handles
+        formatting.
       </p>
       <p>
-        Each paragraph is its own block, separated by a blank line,
-        edited independently. That&apos;s why you always know what&apos;s
-        saved. No hidden formatting.
+        While you&apos;re actively typing inside a block of text,
+        you&apos;ll see the raw symbols. The moment you click outside
+        of that block, it renders cleanly into formatted text.
       </p>
     </>
   ),

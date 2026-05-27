@@ -40,15 +40,14 @@ export const HE2_BRANCH_TARGETS = {
 export const hybridMarkdownFamiliarityStep = buildWalkthroughStep({
   id: "hybrid-markdown-familiarity",
   speech: (
-    <>
-      <p className="mb-2">
-        Quick check, have you used markdown before?
-      </p>
-      <p>
-        If yes, we&apos;ll skip the overview. If not, want a 30-second
-        crash course?
-      </p>
-    </>
+    // Wave 2C speech rewrite (v4 tour speech manager — C, 2026-05-27):
+    // collapse to the single-line question per Grant's new script.
+    // Branch labels + routes unchanged; the buttons already map to the
+    // "yes I know it / show me the overview / skip" intent.
+    <p>
+      Have you used markdown before? If not, do you want a 30-second
+      crash course?
+    </p>
   ),
   pose: "thinking",
   // R1 fix-pass: declarative branchOn completion. The controller

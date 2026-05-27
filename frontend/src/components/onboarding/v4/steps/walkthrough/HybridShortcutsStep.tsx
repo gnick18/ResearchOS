@@ -22,23 +22,24 @@ import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 export const hybridShortcutsStep = buildWalkthroughStep({
   id: "hybrid-shortcuts",
   speech: (
+    // Wave 2C speech rewrite (v4 tour speech manager — C, 2026-05-27):
+    // applies Grant's two-paragraph copy. Cmd+B / Ctrl+B render as
+    // <code> per the existing precedent.
     <>
-      <p className="mb-2">Your turn. Most Word shortcuts work here.</p>
+      <p className="mb-2">
+        Your turn. Standard keyboard shortcuts work here too.
+      </p>
       <p>
-        Try{" "}
+        Try pressing{" "}
         <code className="font-mono mx-0.5 px-1 bg-gray-100 rounded">
           Cmd+B
         </code>{" "}
-        (Ctrl+B on Windows) to type some bold text.{" "}
+        (or{" "}
         <code className="font-mono mx-0.5 px-1 bg-gray-100 rounded">
-          Cmd+I
+          Ctrl+B
         </code>{" "}
-        gives italic,{" "}
-        <code className="font-mono mx-0.5 px-1 bg-gray-100 rounded">
-          Cmd+U
-        </code>{" "}
-        gives underline. Try one, or skip if shortcuts aren&apos;t your
-        thing, both fine.
+        on Windows) to type some bold text. You can also skip this
+        step if shortcuts aren&apos;t your thing.
       </p>
     </>
   ),

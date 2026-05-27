@@ -10,9 +10,9 @@ export const hybridItalicStep = buildHybridTypingStep({
   id: "hybrid-italic",
   speech: (
     <>
-      <p className="mb-2">Now an italic sentence, single stars.</p>
+      <p className="mb-2">Now an italic sentence, using single stars.</p>
       <p className="text-xs text-gray-500">
-        Same pattern as bold, the stars disappear when the render lands.
+        Same pattern, the stars disappear when the render lands.
       </p>
     </>
   ),

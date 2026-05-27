@@ -3,7 +3,8 @@
 /**
  * §6.7b Workbench Notes + Lists expansion (Workbench expansion manager
  * 2026-05-22; collapsed to 5 beats by Workbench fix manager R1
- * 2026-05-22).
+ * 2026-05-22; speech rewritten Wave 2C 2026-05-27 by v4 tour speech
+ * manager — C per Grant's BEAKERBOT_TOUR_SCRIPT_REWRITE_2026-05-27.md).
  *
  * Five new tour steps that sit between §6.7 hybrid editor (last step
  * `hybrid-file-attach`) and §6.8 Gantt (first step `gantt-intro`).
@@ -123,27 +124,24 @@ export const LIST_MARK_DONE_STEP_ID = "workbench-list-mark-done";
 export const workbenchNotesIntroStep = buildWalkthroughStep({
   id: NOTES_INTRO_STEP_ID,
   speech: (
+    // Wave 2C speech rewrite (v4 tour speech manager — C, 2026-05-27):
+    // applies Grant's new script copy. Frames the Notes tab via the
+    // "not everything you write belongs to a specific experiment" lead,
+    // then introduces Single Notes vs Running Logs with conference
+    // examples. Replaces the prior PI 1-on-1 framing.
     <>
-      {/* Workbench fix manager R1 2026-05-22 (Verify-C G1 + G2 + T1):
-          Beat 1 now bridges from §6.7 ("Those notes lived inside one
-          experiment...") and lifts the running-log "one thing to find,
-          not 15" payoff to the front. */}
       <p className="mb-2">
-        Those notes lived inside one experiment. There&apos;s also a
-        place for notes that DON&apos;T belong to any one experiment.
-      </p>
-      <p className="mb-2">
-        The Workbench has three tabs across the top. We just spent time
-        on the Experiments tab. This middle one is{" "}
-        <strong>Notes</strong>, for general scratch that isn&apos;t tied
-        to one experiment.
+        Not everything you write down belongs to a specific experiment.
+        Conference takeaways, meeting notes, a paper you want to
+        remember. The middle <strong>Notes</strong> tab in your
+        Workbench is for that. Click it now.
       </p>
       <p>
-        Two flavors. Single notes are one-off, like a quick takeaway
-        from a conference talk. Running logs grow over time, one entry
-        per session. A weekly PI 1-on-1 is a perfect fit: one note
-        titled &quot;Student / PI 1-on-1, Fall 2026&quot;, a new entry
-        each week. One file to find later, not fifteen.
+        Two flavors live here. <strong>Single Notes</strong> are
+        one-offs: a meeting, a paper summary, a stray idea.{" "}
+        <strong>Running Logs</strong> are for things that grow over
+        time. One log per conference, one entry per talk, everything in
+        one file instead of scattered across ten notes.
       </p>
     </>
   ),
@@ -226,19 +224,12 @@ async function spawnDemoNote(): Promise<number | null> {
 export const workbenchNotesCreateStep = buildWalkthroughStep({
   id: NOTES_CREATE_STEP_ID,
   speech: (
-    // Workbench fix manager R1 2026-05-22 (Verify-C G3): tighten to a
-    // single sentence + call out the markdown rendering as a single
-    // note materializes. Drops the prior two-sentence framing that
-    // restated information from Beat 1.
-    //
-    // R2 chip C 2026-05-22 copy fix: dropped the "watch as the note
-    // saves" framing. The note is created via a direct API call
-    // (`notesApi.create`), there's no visible "render as it saves"
-    // moment for the user to watch. The new copy keeps the editor-
-    // continuity callback without making a false rendering promise.
+    // Wave 2C speech rewrite (v4 tour speech manager — C, 2026-05-27):
+    // applies Grant's tight one-sentence framing for the materialised
+    // conference note + same-editor callback.
     <p>
-      Single note example, conference takeaways. Same editor you just
-      used, with headings, bold, and bullets ready to go.
+      Here is an example of a single note for conference takeaways. It
+      uses the exact same text editor you just learned.
     </p>
   ),
   pose: "typing-on-laptop",
@@ -285,19 +276,21 @@ export const workbenchNotesCreateStep = buildWalkthroughStep({
 export const workbenchListsIntroStep = buildWalkthroughStep({
   id: LISTS_INTRO_STEP_ID,
   speech: (
+    // Wave 2C speech rewrite (v4 tour speech manager — C, 2026-05-27):
+    // applies Grant's new script lead. Frames a list as a "lightweight
+    // task with a checklist inside", with reagent-restock /
+    // errands-before-deadline / conference-prep examples.
     <>
       <p className="mb-2">
-        Last tab on the Workbench: <strong>Lists</strong>.
+        Last tab on the Workbench is <strong>Lists</strong>.
       </p>
-      {/* Workbench fix manager R1 2026-05-22 (Verify-C G4): tighten the
-          lists-vs-experiments comparison. "Lighter cousin of an
-          experiment" replaces the prior bulkier "Lists are like
-          experiments, but for everyday stuff..." framing. */}
       <p className="mb-2">
-        A list is a checklist task. No method, no results section, just
-        items to tick off. The lighter cousin of an experiment.
+        A list is a lightweight task with a checklist inside. Reach for
+        one when the work is just &quot;do these things and check them
+        off&quot;: a reagent restock, errands before a deadline, items
+        to bring to a conference.
       </p>
-      <p>Think: grocery runs, reagent restocks, daily to-dos.</p>
+      <p>No protocol, no results section. Just a name and a set of boxes to tick.</p>
     </>
   ),
   pose: "pointing",
@@ -425,16 +418,13 @@ function typeIntoAddItemInput(text: string): void {
 export const workbenchListCreateShellStep = buildWalkthroughStep({
   id: LIST_CREATE_SHELL_STEP_ID,
   speech: (
-    <>
-      <p className="mb-2">
-        Sticking with our coffee theme. I&apos;ll make a grocery list
-        for the lab&apos;s coffee restock, then drop the items in.
-      </p>
-      <p>
-        Same shape as an experiment: a name, a date. Items live inside,
-        check them off as you grab each one.
-      </p>
-    </>
+    // Wave 2C speech rewrite (v4 tour speech manager — C, 2026-05-27):
+    // applies Grant's "quick example: coffee restock" copy.
+    <p>
+      Quick example: a coffee restock list for the lab. A list just
+      needs a name and the items you want to track. I&apos;ll add a few
+      now.
+    </p>
   ),
   pose: "typing-on-laptop",
   targetSelector: targetSelector(TOUR_TARGETS.workbenchNewListButton),
@@ -543,20 +533,18 @@ export const workbenchListCreateShellStep = buildWalkthroughStep({
 export const workbenchListMarkDoneStep = buildWalkthroughStep({
   id: LIST_MARK_DONE_STEP_ID,
   speech: (
+    // Wave 2C speech rewrite (v4 tour speech manager — C, 2026-05-27):
+    // applies Grant's new script copy. Two paragraphs: check items
+    // mid-run, then mark the whole list done so it drops out of the
+    // active view.
     <>
       <p className="mb-2">
-        Two moves worth knowing. You can check off individual items as
-        you do them, useful mid-run.
+        You can check off individual items as you work.
       </p>
-      {/* Workbench fix manager R1 2026-05-22 (Verify-C G5): explain the
-          WHY of marking the whole list done — it drops out of the
-          active Overdue/Doing/Upcoming buckets so it stops competing
-          for attention. Replaces the prior "keeps your view clean"
-          framing which under-sold the value. */}
       <p>
-        And when every item is wrapped, mark the LIST itself complete.
-        That drops it out of your active Overdue/Doing/Upcoming buckets
-        so it stops competing for your attention with real work.
+        Once everything is done, mark the list itself complete. That
+        drops it out of your active view so it stops competing for
+        your attention.
       </p>
     </>
   ),

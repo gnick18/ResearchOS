@@ -6,9 +6,10 @@
  * (R7-D teaching audit). It's now the FIRST step in the §6.7 cluster
  * so the user reads it before any editor demo.
  *
- * Speech: explain that this experiment has two places to write — Notes
- * for working scratch, Results for the published output — and that the
- * two stores are independent.
+ * Wave 2C speech rewrite (v4 tour speech manager — C, 2026-05-27):
+ * applies Grant's BEAKERBOT_TOUR_SCRIPT_REWRITE_2026-05-27.md copy.
+ * Same structure (intro + Notes paragraph + Results paragraph + same-
+ * editor coda), tightened wording for the messy-vs-clean framing.
  *
  * Cursor: glides between the Notes and Results tabs to visually
  * distinguish them, then settles on Notes for the rest of the phase.
@@ -31,22 +32,22 @@ export const hybridNotesVsResultsStep = buildWalkthroughStep({
   speech: (
     <>
       <p className="mb-2">
-        Before we touch the editor: this experiment has two places to
-        write.
+        Every experiment splits your writing into two separate places,
+        on purpose.
       </p>
       <p className="mb-2">
-        <strong>Lab Notes</strong> is where you should add your notes as
-        you run an experiment.
+        <strong>Notes</strong> is the messy side. Daily logs, half-
+        formed ideas, things that broke. Nobody else needs to read it.
       </p>
       <p className="mb-2">
-        <strong>Results</strong> is where you can place any final
-        conclusions that came from the experiment. Things like data
-        plots and written conclusions are great for Results, so you can
-        quickly reference what the takeaway of an experiment was.
+        <strong>Results</strong> is the clean side. Final figures, the
+        conclusion you would actually defend in a lab meeting. This is
+        what you point people to.
       </p>
       <p>
-        Same editor, two separate stores. Lab Notes content never leaks
-        into Results.
+        Same editor, but the two never bleed into each other. You can
+        be sloppy in Notes without worrying about it showing up in
+        Results.
       </p>
     </>
   ),

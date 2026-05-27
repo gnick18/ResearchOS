@@ -10,8 +10,7 @@ export const hybridH1Step = buildHybridTypingStep({
   id: "hybrid-h1",
   speech: (
     <p>
-      Headers use one hash for H1, two for H2, three for H3. Bigger to
-      smaller. Watch the H1 first.
+      Headers use hash symbols. One hash is the largest header.
     </p>
   ),
   markdownText: "# This experiment",

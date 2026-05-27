@@ -1,6 +1,7 @@
 /**
  * §6.7 HE-8 — image attach (USER ACTION, voice-changed 2026-05-27 by
- * v4 tour structural manager Wave 1).
+ * v4 tour structural manager Wave 1; speech filled 2026-05-27 by v4
+ * tour speech manager — C in Wave 2C).
  *
  * Pre-2026-05-27 this was BEAKERBOT_DEMO: BeakerBot's cursor materialised
  * off-screen holding a thumbnail of the funny selfie, glided over the
@@ -9,9 +10,9 @@
  *
  * Grant's 2026-05-27 tour script rewrite reclassifies this beat as a
  * USER ACTION: the user drags any image file from their computer into
- * the editor themselves. Wave 1 removes the cursor script, the
- * off-screen cursor entry, and the held image so the user owns the
- * drag without any cursor in the way. Spotlight stays on
+ * the editor themselves. Wave 1 removed the cursor script, the off-
+ * screen cursor entry, and the held image so the user owns the drag
+ * without any cursor in the way. Spotlight stays on
  * `hybridEditorImageStrip` so the user knows where to drop. Completion
  * stays manual ("Got it, next") per the new script's metadata block.
  *
@@ -20,24 +21,30 @@
  * own image, so the helper might be retired) but it is harmless to
  * leave in place for now; the seeded blob just doesn't get used.
  *
- * Wave 2 will fill in the real speech.
- *
- * v4 tour structural manager
+ * v4 tour speech manager — C
  */
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 
 export const hybridImageAttachStep = buildWalkthroughStep({
   id: "hybrid-image-attach",
-  // TODO(wave2): hybrid-image-attach
-  // (User-action prompt: "Try it now: drag any image file from your
-  // computer into the editor.")
-  speech: "TODO(wave2): hybrid-image-attach",
+  speech: (
+    <>
+      <p className="mb-2">
+        You can attach images directly to any experiment so figures,
+        gel photos, and bench shots live alongside the writeup.
+      </p>
+      <p>
+        Try it now: drag any image file from your computer into the
+        editor.
+      </p>
+    </>
+  ),
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.hybridEditorImageStrip),
   // No cursorScript, no cursorEntry, no cursorHeldImage: user-action
-  // step. Wave 2 may add a page-lock if the new script's "drag any
-  // image file from your computer" intent needs to enforce that the
-  // drop lands on the editor strip and not elsewhere.
+  // step. The user performs the drag themselves; the editor's
+  // production drop handler writes the image through the normal code
+  // path.
   completion: manualAdvance("Got it, next"),
 });

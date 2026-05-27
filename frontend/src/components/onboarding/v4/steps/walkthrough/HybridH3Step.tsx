@@ -7,6 +7,6 @@ import { buildHybridTypingStep } from "./lib/hybrid-editor-helpers";
 
 export const hybridH3Step = buildHybridTypingStep({
   id: "hybrid-h3",
-  speech: <p>Three hashes for H3, the smallest header step.</p>,
+  speech: <p>Three hashes create an even smaller header.</p>,
   markdownText: "### Notes",
 });

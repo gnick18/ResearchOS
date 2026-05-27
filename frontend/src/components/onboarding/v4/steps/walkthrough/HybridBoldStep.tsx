@@ -18,8 +18,8 @@ export const hybridBoldStep = buildHybridTypingStep({
         stars on each side.
       </p>
       <p className="text-xs text-gray-500">
-        See how the stars disappear when I click out? That&apos;s the
-        render landing.
+        Notice how the stars disappear when I click out? That&apos;s
+        the render landing.
       </p>
     </>
   ),

@@ -12,7 +12,7 @@ export const hybridUnderlineStep = buildHybridTypingStep({
     <>
       <p className="mb-2">Underline uses single underscores.</p>
       <p className="text-xs text-gray-500">
-        The underscores disappear on render, just like the stars did.
+        The underscores disappear on render.
       </p>
     </>
   ),

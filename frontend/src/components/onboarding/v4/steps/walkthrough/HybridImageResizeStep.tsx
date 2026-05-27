@@ -6,11 +6,15 @@
  * can tell them to try to resize the image to fifty percent. And to
  * click on it next when they're ready to move on."
  *
- * New shape: spotlight the embedded image (the one the user just
- * dropped in during HE-9, which is also now user-driven), the speech
- * tells them to try clicking it and picking 50%. Manual advance on
- * "Got it, next" — the user performs the action, then advances when
- * satisfied. No cursorScript.
+ * Wave 2C speech rewrite (v4 tour speech manager — C, 2026-05-27):
+ * applies Grant's BEAKERBOT_TOUR_SCRIPT_REWRITE_2026-05-27.md copy —
+ * one tight sentence describing the click-to-resize affordance.
+ *
+ * Shape: spotlight the embedded image (the one the user just dropped in
+ * during HE-9, which is also now user-driven), the speech tells them
+ * the resize lives in the pop-up menu when they click the image. Manual
+ * advance on "Got it, next" — the user performs the action, then
+ * advances when satisfied. No cursorScript.
  *
  * Artifact tracking preserved: a `notes_content` row is captured on
  * step entry so the Phase 4 cleanup grid sees the experiment whose
@@ -32,9 +36,8 @@ export const hybridImageResizeStep = buildWalkthroughStep({
   id: STEP_ID,
   speech: (
     <p>
-      Try it: click the image you just dropped in, then pick 50% from
-      the menu that pops up. Click Got it, next when you&apos;re ready
-      to move on.
+      You can click any image to resize it directly from the pop-up
+      menu.
     </p>
   ),
   pose: "pointing",

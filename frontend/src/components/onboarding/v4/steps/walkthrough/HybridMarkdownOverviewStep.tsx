@@ -28,27 +28,27 @@ import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 export const hybridMarkdownOverviewStep = buildWalkthroughStep({
   id: "hybrid-markdown-overview",
   speech: (
+    // Wave 2C speech rewrite (v4 tour speech manager — C, 2026-05-27):
+    // applies Grant's BEAKERBOT_TOUR_SCRIPT_REWRITE_2026-05-27.md
+    // crash-course copy. Inline `**bold**` + `# Heading` render as
+    // <code> per the existing sibling-step precedent.
     <>
       <p className="mb-2">
-        Here&apos;s the deal: markdown looks like plain text with little
-        symbols around it. Editors that understand markdown turn those
-        symbols into formatting.
-      </p>
-      <p className="mb-2">
-        The basics:
-        <code className="font-mono mx-0.5 px-1 bg-gray-100 rounded">**bold**</code>,
-        <code className="font-mono mx-0.5 px-1 bg-gray-100 rounded">*italic*</code>,
-        <code className="font-mono mx-0.5 px-1 bg-gray-100 rounded">_underline_</code>,
-        and
-        <code className="font-mono mx-0.5 px-1 bg-gray-100 rounded"># Heading</code>
-        (more hashes = smaller). Lists work too, a hyphen at the start
-        of a line makes a bullet. You&apos;ll see all of these in
-        action in a moment.
+        Markdown lets you format text without clicking through menus.
+        You just type simple symbols around your words.
       </p>
       <p>
-        You don&apos;t have to memorize anything. Every editor here has
-        a shortcut bar on the left. Or you can type the symbols
-        directly, they work too.
+        For example, typing{" "}
+        <code className="font-mono mx-0.5 px-1 bg-gray-100 rounded">
+          **bold**
+        </code>{" "}
+        makes text bold, and{" "}
+        <code className="font-mono mx-0.5 px-1 bg-gray-100 rounded">
+          # Heading
+        </code>{" "}
+        creates a large header. You don&apos;t have to memorize anything
+        right now. There&apos;s always a shortcut bar on the left you
+        can click if you forget.
       </p>
     </>
   ),

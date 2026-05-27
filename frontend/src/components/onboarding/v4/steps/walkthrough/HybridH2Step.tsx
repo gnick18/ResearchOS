@@ -7,6 +7,6 @@ import { buildHybridTypingStep } from "./lib/hybrid-editor-helpers";
 
 export const hybridH2Step = buildHybridTypingStep({
   id: "hybrid-h2",
-  speech: <p>Two hashes for H2, slightly smaller.</p>,
+  speech: <p>Two hashes create a slightly smaller header.</p>,
   markdownText: "## Hypothesis",
 });
