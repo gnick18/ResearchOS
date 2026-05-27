@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  onUserSettingsWritten,
   readUserSettings,
   type AccountType,
 } from "@/lib/settings/user-settings";
@@ -23,13 +24,13 @@ import {
  * Lab Overview page itself re-reads the settings authoritatively so a
  * URL-jump from a stale cache can't bypass the gate.
  *
- * Reactivity gap (matches `useFeaturePicks`): re-reads only on mount +
- * username change. The Settings page's own update path doesn't bump a
- * subscription channel for this hook today; the user's account-type
- * change takes effect after the next navigation/refresh. A future
- * polish chip could wire `patchUserSettings` through a tiny zustand
- * mini-store the way feature_picks should be (already flagged in
- * `useFeaturePicks.ts`).
+ * Live reactivity (top-nav visibility fix manager, 2026-05-27): the
+ * hook subscribes to `onUserSettingsWritten` so the Settings page's
+ * `update({ account_type })` AND the onboarding Q1c bridge (which
+ * writes `settings.account_type` alongside `feature_picks.lab_head`)
+ * both propagate to AppShell without waiting for a route change. Writes
+ * for OTHER users are ignored so a multi-tab session doesn't cross
+ * pollute.
  */
 export function useAccountType(
   username: string | null,
@@ -57,8 +58,20 @@ export function useAccountType(
         if (!cancelled) setAccountType("member");
       }
     })();
+
+    // Live-update on successful user-settings writes for THIS user.
+    // Mirrors the `onSidecarWritten` subscription in `useFeaturePicks`
+    // so AppShell's nav reacts the moment Q1c or the Settings → Account
+    // type section commits a role change.
+    const unsubscribe = onUserSettingsWritten((event) => {
+      if (cancelled) return;
+      if (event.username !== username) return;
+      setAccountType(event.next.account_type);
+    });
+
     return () => {
       cancelled = true;
+      unsubscribe();
     };
   }, [username]);
 

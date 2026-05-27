@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import RadioCard from "./RadioCard";
 import type { SetupStepProps } from "./types";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { patchUserSettings } from "@/lib/settings/user-settings";
 
 /**
  * Q1c: lab head follow-up. Only fires when the user picked "Lab" on
@@ -25,6 +27,23 @@ import type { SetupStepProps } from "./types";
  * persistence write because Q1 (which runs first) always seeds the
  * object; defensive check still falls back to a no-op if the sidecar
  * is missing feature_picks for any reason.
+ *
+ * Bridge to `_user_settings.account_type` (top-nav visibility fix
+ * manager, 2026-05-27): Q1c's answer also drives the per-user PI
+ * capability gates downstream (Lab Overview top-nav entry, comment
+ * fan-out, sharing reads). Those readers live behind
+ * `_user_settings.account_type` ("member" / "lab_head"), which is a
+ * different enum from `FeaturePicks.account_type` ("solo" / "lab") and
+ * was previously never written by the onboarding flow. Without the
+ * bridge a fresh PI completed Q1c, picked "yes I run the lab", landed
+ * on the home page, and saw no Lab Overview entry in the top nav
+ * because `useAccountType` still resolved to the DEFAULT_SETTINGS
+ * `"member"` value. The bridge keeps Q1c's two semantic halves in
+ * sync: `feature_picks.lab_head` records the wizard answer (echoed in
+ * the wrap-up + still the source of truth for setup re-runs); the
+ * mirrored `_user_settings.account_type` powers the per-user role
+ * gates the rest of the app already reads. Settings → Account type
+ * remains the canonical post-onboarding mutator; Q1c just seeds it.
  */
 export default function Q1cLabHeadStep({
   sidecar,
@@ -33,6 +52,7 @@ export default function Q1cLabHeadStep({
 }: SetupStepProps) {
   const picks = sidecar?.feature_picks ?? null;
   const current = picks?.lab_head;
+  const { currentUser } = useCurrentUser();
 
   useEffect(() => {
     setNextDisabled(current === undefined);
@@ -46,6 +66,18 @@ export default function Q1cLabHeadStep({
         feature_picks: { ...cur.feature_picks, lab_head: next },
       };
     });
+    // Mirror the answer onto `_user_settings.account_type` so the
+    // downstream PI capability gates (`useAccountType`, Lab Overview
+    // entry, comment fan-out) react without waiting for a Settings
+    // round-trip. Fire-and-forget; a failure here doesn't block the
+    // sidecar write (which is the source of truth for setup re-runs).
+    if (currentUser) {
+      void patchUserSettings(currentUser, {
+        account_type: next ? "lab_head" : "member",
+      }).catch((err) => {
+        console.warn("[Q1cLabHeadStep] patchUserSettings failed", err);
+      });
+    }
   };
 
   return (

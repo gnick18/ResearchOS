@@ -320,6 +320,12 @@ export async function writeUserSettings(username: string, settings: UserSettings
   } catch (err) {
     console.warn("[user-settings] Failed to mirror to _user_metadata.json", err);
   }
+
+  // Fire the success bus so live readers (e.g. `useAccountType`) can
+  // refresh without waiting for a route change. See `onUserSettingsWritten`
+  // docblock below for the full root-cause writeup. (top-nav visibility
+  // fix manager, 2026-05-27)
+  dispatchUserSettingsWritten({ username, next: normalized });
 }
 
 export async function patchUserSettings(
@@ -330,4 +336,53 @@ export async function patchUserSettings(
   const next = normalize({ ...current, ...patch });
   await writeUserSettings(username, next);
   return next;
+}
+
+// ---------------------------------------------------------------------------
+// User-settings success bus (top-nav visibility fix manager, 2026-05-27)
+//
+// Mirrors `onSidecarWritten` in `lib/onboarding/sidecar.ts`. Hooks like
+// `useAccountType` previously read on mount + username change only; the
+// Settings page's `update({ account_type })` and onboarding Q1c's new
+// bridge to `_user_settings.account_type` both write without bumping the
+// hook's local state. Subscribers receive the full normalized next
+// settings object so they don't have to re-read disk (a follow-up write
+// could otherwise read past this snapshot).
+//
+// The dispatch is fire-and-forget; subscriber errors are logged but
+// never bubble so a misbehaving subscriber doesn't break the write
+// path. Use `_clearUserSettingsWrittenSubscribersForTest` in vitest
+// `beforeEach` hooks to keep tests isolated.
+// ---------------------------------------------------------------------------
+
+export interface UserSettingsWrittenEvent {
+  username: string;
+  next: UserSettings;
+}
+
+type UserSettingsWrittenCallback = (event: UserSettingsWrittenEvent) => void;
+
+const userSettingsWrittenSubscribers = new Set<UserSettingsWrittenCallback>();
+
+export function onUserSettingsWritten(
+  callback: UserSettingsWrittenCallback,
+): () => void {
+  userSettingsWrittenSubscribers.add(callback);
+  return () => {
+    userSettingsWrittenSubscribers.delete(callback);
+  };
+}
+
+export function _clearUserSettingsWrittenSubscribersForTest(): void {
+  userSettingsWrittenSubscribers.clear();
+}
+
+function dispatchUserSettingsWritten(event: UserSettingsWrittenEvent): void {
+  for (const sub of [...userSettingsWrittenSubscribers]) {
+    try {
+      sub(event);
+    } catch (err) {
+      console.error("[user-settings] written-bus subscriber threw", err);
+    }
+  }
 }

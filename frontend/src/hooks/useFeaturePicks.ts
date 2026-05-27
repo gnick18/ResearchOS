@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  onSidecarWritten,
   readOnboarding,
   type FeaturePicks,
 } from "@/lib/onboarding/sidecar";
@@ -23,17 +24,19 @@ import {
  *     behavior as above; this is the canonical existing-user state.
  *   - `FeaturePicks` object when Phase 1 has populated it.
  *
- * Reactivity gap (deliberate, flagged for a polish chip):
- *   This hook re-reads on mount and on `username` change. It does NOT
- *   currently react to mid-wizard `patchOnboarding` writes — the
- *   wizard's Next-button writes land on disk via WizardMount's
- *   `handlePatch`, but there's no broadcast channel that this hook
- *   can subscribe to without touching WizardMount.tsx (out of safe
- *   surface for this chip; flagged in the report). Net effect: tabs
- *   the user just picked appear after the next page reload, not the
- *   instant the wizard advances. A follow-up polish chip can add a
- *   zustand mini-store + a `bump()` call after each `patchOnboarding`
- *   write to close this gap without changing the read contract here.
+ * Live reactivity (top-nav visibility fix manager, 2026-05-27): the
+ * hook subscribes to `onSidecarWritten` so any successful
+ * `patchOnboarding` / `writeOnboarding` for the active user pushes the
+ * fresh `feature_picks` into local state without a page reload. This
+ * closes the previously-documented "tabs appear after refresh" gap a
+ * fresh user hit on first completion of the setup wizard: AppShell
+ * mounts before Q1-Q7 run, so the initial `readOnboarding` returns
+ * `feature_picks: null`; without the bus the value stayed null forever
+ * even after the user picked calendar=no, leaving the default tab set
+ * (which includes /calendar) on screen until refresh. Writes for OTHER
+ * users are ignored so a multi-tab session doesn't cross-pollute. The
+ * bus payload carries the full next sidecar so we skip a redundant
+ * `readOnboarding` round-trip.
  *
  * The hook itself signs in as the AppShell visible-tabs read; callers
  * outside AppShell may end up reading the same sidecar twice
@@ -68,8 +71,19 @@ export function useFeaturePicks(
         if (!cancelled) setPicks(null);
       }
     })();
+
+    // Live-update on successful sidecar writes for THIS user. Writes
+    // for other usernames (multi-tab / user-switch race) are ignored;
+    // the username-dep effect re-fires its own initial read on switch.
+    const unsubscribe = onSidecarWritten((event) => {
+      if (cancelled) return;
+      if (event.username !== username) return;
+      setPicks(event.next.feature_picks);
+    });
+
     return () => {
       cancelled = true;
+      unsubscribe();
     };
   }, [username]);
 
