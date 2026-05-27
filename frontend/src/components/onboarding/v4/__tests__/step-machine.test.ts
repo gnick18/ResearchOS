@@ -1072,6 +1072,62 @@ describe("getPreviousStep — backward traversal", () => {
   it("returns null for unknown current id", () => {
     expect(getPreviousStep("not-a-real-step", picks())).toBeNull();
   });
+
+  it("backstep from hybrid-notes-vs-results lands on experiment-attach-method-tab, not anywhere in the methods cluster (back-nav jump fix manager 2026-05-27)", () => {
+    // Grant's repro: after the duplicate-id dedup landed (commit d42461c4),
+    // clicking Back on hybrid-notes-vs-results (HE-0) was still observed
+    // jumping to somewhere in the §6.7c methods cluster (methods-create or
+    // similar). Per TOUR_STEP_ORDER the immediate predecessor of HE-0 is
+    // experiment-attach-method-tab; no gating predicate hides it, so
+    // backstep MUST land there under every picks shape.
+    //
+    // Belt-and-suspenders coverage: assert NOT inside the methods cluster
+    // (which would be the symptom of the bug) AND assert that the back-
+    // step lands precisely on experiment-attach-method-tab.
+    const methodsClusterIds = new Set([
+      "methods-category-prompt",
+      "methods-category-open",
+      "methods-category",
+      "methods-open-picker",
+      "methods-type-tour",
+      "methods-lc-demo",
+      "methods-create",
+    ]);
+
+    const shapes: Array<[string, FeaturePicks | null]> = [
+      ["null picks", null],
+      ["default picks", picks()],
+      ["solo + all conditional", picks({
+        account_type: "solo",
+        purchases: "yes",
+        calendar: "yes",
+        goals: "yes",
+        telegram: "yes",
+        ai_helper: "full",
+        links: "yes",
+      })],
+      ["lab + all conditional", picks({
+        account_type: "lab",
+        purchases: "yes",
+        calendar: "yes",
+        goals: "yes",
+        telegram: "yes",
+        ai_helper: "full",
+        links: "yes",
+      })],
+    ];
+
+    for (const [label, p] of shapes) {
+      const prev = getPreviousStep("hybrid-notes-vs-results", p);
+      expect(prev, `back from hybrid-notes-vs-results under ${label}`).toBe(
+        "experiment-attach-method-tab",
+      );
+      expect(
+        methodsClusterIds.has(prev as string),
+        `back from hybrid-notes-vs-results landed inside methods cluster (${prev}) under ${label}`,
+      ).toBe(false);
+    }
+  });
 });
 
 describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () => {
