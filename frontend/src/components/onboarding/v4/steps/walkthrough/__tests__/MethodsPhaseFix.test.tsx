@@ -160,15 +160,29 @@ describe("Methods phase — pacing (P1, Grant 2026-05-22)", () => {
       // 7 visible actions: click-tile → type-name → type-category →
       // click-body-wrapper → type-body → click-save → click-submit.
       // Pacing rule: a callback pause sits between each pair, so a
-      // fully resolved script has 7 visible + 6 callbacks = 13 entries.
-      const pauses = actions.filter((a) => a.type === "callback");
-      const visibleActions = actions.filter((a) => a.type !== "callback");
-      expect(visibleActions.length).toBeGreaterThanOrEqual(6);
-      expect(pauses.length).toBeGreaterThanOrEqual(visibleActions.length - 1);
-      // First action is the markdown-tile click, second is the first
-      // read-then-watch pause.
+      // fully resolved script has 7 visible + 6 pauses = 13 entries.
+      //
+      // Hand-walk fix 2026-05-27 (third pass): every action AFTER
+      // pickMarkdown is now a callbackAction (deferred to playback,
+      // matches the workbench-create-experiment-open +
+      // workbench-list-create-shell + post-pickMarkdown body actions
+      // pattern). So intent-actions and pause-actions BOTH have
+      // type === "callback"; only pickMarkdown stays as a "click".
+      // We can't distinguish them by `type` anymore, so the shape
+      // assertion checks the total entry count instead.
+      expect(actions.length).toBeGreaterThanOrEqual(13);
+      // First action is the markdown-tile click (still a safeClickAction
+      // — the picker tile is reliably present at build time since the
+      // modal stays open from the previous step). Second is the first
+      // read-then-watch pause (a callbackAction).
       expect(actions[0]?.type).toBe("click");
       expect(actions[1]?.type).toBe("callback");
+      // The remaining 11 entries are all callbackActions (6 intent +
+      // 5 more pauses interleaved). No "type" actions remain because
+      // typeName / typeCategory / typeBody all use setNativeFieldValue
+      // inside the callback rather than the cursor's type action.
+      const callbacks = actions.filter((a) => a.type === "callback");
+      expect(callbacks.length).toBeGreaterThanOrEqual(12);
     } finally {
       for (const el of stubs) el.remove();
     }

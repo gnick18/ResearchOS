@@ -42,6 +42,11 @@ export interface StepBuilderInput {
    *  the popup-Esc recovery copy could not, and the watcher always
    *  fell back to the generic "the button you clicked before". */
   recoveryHint?: TourStep["recoveryHint"];
+  /** Hand-walk fix 2026-05-27: optional bubble-side pin. See
+   *  `TourStep.forceBubbleSide`. Used by `buildHybridTypingStep` so
+   *  every hybrid markdown demo lands the speech bubble on the right
+   *  side (away from the editor's fixed-position left sidebar). */
+  forceBubbleSide?: TourStep["forceBubbleSide"];
 }
 
 /**
@@ -69,6 +74,7 @@ export function buildWalkthroughStep(input: StepBuilderInput): TourStep {
     cursorEntry: input.cursorEntry,
     cursorHeldImage: input.cursorHeldImage,
     recoveryHint: input.recoveryHint,
+    forceBubbleSide: input.forceBubbleSide,
   };
 }
 

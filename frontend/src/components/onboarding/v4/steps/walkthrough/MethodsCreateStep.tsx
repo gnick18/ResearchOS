@@ -50,7 +50,6 @@
 import {
   cursorScript,
   safeClickAction,
-  safeTypeAction,
   compactScript,
   callbackAction,
   waitForElement,
@@ -136,25 +135,52 @@ export const methodsCreateStep = buildWalkthroughStep({
       targetSelector(TOUR_TARGETS.methodsTypeMarkdown),
     );
 
-    // 2. Click + type the funny name into the Method Name input.
-    //    25ms cadence keeps the typing visible without dragging the
-    //    sequence out (~3 seconds for the 50-character name).
-    const typeName = await safeTypeAction(
-      targetSelector(TOUR_TARGETS.methodsCreateNameInput),
-      FUNNY_METHOD_NAME,
-      25,
-    );
+    // Hand-walk fix 2026-05-27 (third pass): typeName + typeCategory
+    // also deferred to playback. Two reasons mirroring the post-pickMarkdown
+    // defer:
+    //   1. The Methods modal's Name + Folder inputs are technically
+    //      always-rendered (CreateMethodModal lines 743-792), BUT
+    //      setUploadType re-renders the form. In practice Grant's
+    //      hand-walk left the Folder field empty (placeholder text
+    //      visible) — strongly suggests safeTypeAction's BUILD-time
+    //      waitForElement resolved a stale or about-to-unmount node,
+    //      so the type-action target was detached when playback ran.
+    //   2. readMethodsCategoryPick() needs to fire at PLAYBACK so it
+    //      sees the freshest localStorage value (the methods-category-
+    //      prompt step writes it on the user's pick; methods-create's
+    //      onExit clears it). Reading at BUILD time risks a stale read
+    //      if the picker beat raced with this step's build.
+    //
+    // 2. Type the funny name into the Method Name input at playback.
+    //    setNativeFieldValue dispatches the React-tracked input event so
+    //    the controlled `setName` state-setter fires. Cadence is
+    //    cosmetic (instant fill since we're not animating typing here).
+    const typeName = callbackAction(async () => {
+      if (typeof document === "undefined") return;
+      const input = await waitForElement(
+        targetSelector(TOUR_TARGETS.methodsCreateNameInput),
+        3000,
+      );
+      if (!(input instanceof HTMLInputElement)) return;
+      setNativeFieldValue(input, FUNNY_METHOD_NAME);
+    });
 
-    // 3. Click + type the user's earlier-picked category into the
-    //    Folder input. The Folder field doubles as the category in
-    //    the methods grouping (folders ARE categories in the data
-    //    model — see `app/methods/page.tsx`'s grouped-by-folder render).
-    const categoryLabel = readMethodsCategoryPick() ?? FALLBACK_CATEGORY;
-    const typeCategory = await safeTypeAction(
-      targetSelector(TOUR_TARGETS.methodsCreateCategoryInput),
-      categoryLabel,
-      30,
-    );
+    // 3. Type the user's earlier-picked category into the Folder input
+    //    at playback. The Folder field doubles as the category in the
+    //    methods grouping (folders ARE categories in the data model —
+    //    see `app/methods/page.tsx`'s grouped-by-folder render).
+    //    readMethodsCategoryPick fires INSIDE the callback so it picks up
+    //    the freshest localStorage value at playback, not build-time.
+    const typeCategory = callbackAction(async () => {
+      if (typeof document === "undefined") return;
+      const categoryLabel = readMethodsCategoryPick() ?? FALLBACK_CATEGORY;
+      const input = await waitForElement(
+        targetSelector(TOUR_TARGETS.methodsCreateCategoryInput),
+        3000,
+      );
+      if (!(input instanceof HTMLInputElement)) return;
+      setNativeFieldValue(input, categoryLabel);
+    });
 
     // Hand-walk fix 2026-05-27 (second pass): the prior `await
     // safe*Action` calls for the body wrapper, body textarea, save
