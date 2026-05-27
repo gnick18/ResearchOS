@@ -100,33 +100,18 @@ describe("R1 fix-pass P0-2: declarative pageLock translates to controller state"
   });
 });
 
-describe("R1 fix-pass P0-3: HE-9 uses dragFile with DragEvent payload", () => {
-  it("HE-9 hybrid-image-drag-in cursorScript queues a dragFile action + fallback callback when anchors exist", async () => {
-    // Mount the source + destination anchors so `safeDragFileAction`
-    // resolves them immediately (avoids the 5s waitForElement timeout
-    // under jsdom). Without these, the helper returns null and the
-    // script's compactScript would drop the dragFile entry — making
-    // the regression guard ambiguous.
-    const strip = document.createElement("div");
-    strip.setAttribute("data-tour-target", "hybrid-editor-image-strip");
-    const thumb = document.createElement("div");
-    strip.appendChild(thumb);
-    const wrapper = document.createElement("div");
-    wrapper.setAttribute("data-tour-target", "hybrid-editor-textarea");
-    document.body.appendChild(strip);
-    document.body.appendChild(wrapper);
-
-    const script = await hybridImageDragInStep.cursorScript?.();
-    expect(Array.isArray(script)).toBe(true);
-    const types = (script ?? []).map((a) => a.type);
-    // dragFile must be queued (the new HTML5-drag primitive) AND the
-    // fallback callback (for runtimes without DragEvent support).
-    expect(types).toContain("dragFile");
-    expect(types).toContain("callback");
-
-    document.body.removeChild(strip);
-    document.body.removeChild(wrapper);
-  }, 8000);
+describe("HE-9 hybrid-image-drag-in is USER-ACTION (Grant 2026-05-26 conversion)", () => {
+  it("does not declare a cursorScript (user performs the drag themselves)", () => {
+    // Originally a BeakerBot cursor demo that queued a dragFile action
+    // plus a fallback callback. Grant 2026-05-26: "let's change it to
+    // get the user to drag and drop the image into the markdown file
+    // as opposed to having feature bot do it for them. I think this
+    // would teach them better." The step is now narration + spotlight
+    // only; the user's own drag triggers the editor's production drop
+    // handler.
+    expect(hybridImageDragInStep.cursorScript).toBeUndefined();
+    expect(hybridImageDragInStep.completion.type).toBe("manual");
+  });
 });
 
 describe("R1 fix-pass P0-4: HE-11 file-attach mutates the editor markdown", () => {

@@ -402,8 +402,10 @@ describe("P5 step bodies — universal contract", () => {
       hybridH2Step,
       hybridH3Step,
       hybridImageAttachStep,
-      hybridImageDragInStep,
-      hybridImageResizeStep,
+      // HE-9 hybridImageDragInStep + HE-10 hybridImageResizeStep:
+      // converted to USER-ACTION per Grant 2026-05-26 — the user does
+      // the drag-in and the resize themselves now. Intentionally
+      // excluded from this BeakerBot-demo list.
       hybridFileAttachStep,
       // §6.8 Gantt redesign 2026-05-22. `ganttShareProfileSwitchStep` is
       // intentionally EXCLUDED: per Gantt fix manager R1 (P1 #6) it now
@@ -1271,15 +1273,29 @@ describe("Hybrid editor steps (§6.7 redesign, Hybrid editor manager 2026-05-22)
     expect(hybridImageAttachStep.cursorEntry).toBe("offscreen-right");
     expect(hybridImageAttachStep.cursorHeldImage?.src).toMatch(/beakerbot-selfie/);
   });
-  it("HE-9 hybrid-image-drag-in retains a cursor script (BeakerBot demo)", () => {
-    expect(hybridImageDragInStep.cursorScript).toBeDefined();
+  it("HE-9 hybrid-image-drag-in is USER-ACTION (no cursor) per Grant 2026-05-26", () => {
+    // Converted from BeakerBot demo: the user now performs the
+    // drag-in themselves. Grant: "let's change it to get the user to
+    // drag and drop the image into the markdown file as opposed to
+    // having feature bot do it for them. I think this would teach
+    // them better."
+    expect(hybridImageDragInStep.cursorScript).toBeUndefined();
     expect(hybridImageDragInStep.completion.type).toBe("manual");
   });
-  it("HE-10 hybrid-image-resize speech NO LONGER carries the notes/results coda (moved to HE-0)", () => {
+  it("HE-10 hybrid-image-resize is USER-ACTION (no cursor) per Grant 2026-05-26", () => {
+    // Converted from BeakerBot demo: the user clicks the image and
+    // picks 50% themselves. Grant: "we can have them try to do it.
+    // We can tell them to try to resize the image to fifty percent.
+    // And to click on it next when they're ready to move on."
+    expect(hybridImageResizeStep.cursorScript).toBeUndefined();
+    expect(hybridImageResizeStep.completion.type).toBe("manual");
     const text = renderSpeech(hybridImageResizeStep);
-    // The coda used to live on the resize step; HE-0 owns it now.
+    // The notes/results coda lives on HE-0 (`hybrid-notes-vs-results`)
+    // since the 2026-05-22 redesign; the resize step should not
+    // duplicate it.
     expect(text).not.toMatch(/notes-tab images and results-tab images/);
-    expect(text).toMatch(/resize/i);
+    // Speech still mentions the 50% pick the user should perform.
+    expect(text).toMatch(/50%/i);
   });
   it("HE-11 hybrid-file-attach narrates the file-vs-image difference", () => {
     const text = renderSpeech(hybridFileAttachStep);
