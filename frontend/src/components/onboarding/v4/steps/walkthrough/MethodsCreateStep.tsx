@@ -21,7 +21,10 @@
  *      resumed past §6.4a).
  *   4. Click into the markdown body wrapper so the empty-state textarea
  *      inside `HybridMarkdownEditor` focuses, then type the funny
- *      coffee body into that textarea.
+ *      coffee body into that textarea, then click the editor's Save
+ *      button so the buffered typed content flushes through to the
+ *      modal's `mdContent` state (manual-save model, commit ff96016e).
+ *      Without that flush the Create Method button stays disabled.
  *   5. Click the Create Method button to save.
  *
  * Completion event: `tour:method-created`, dispatched by
@@ -150,23 +153,58 @@ export const methodsCreateStep = buildWalkthroughStep({
       30,
     );
 
-    // 4. Type the funny body into the markdown editor's empty-state
-    //    textarea. `HybridMarkdownEditor`'s `autoStartEditing` prop
-    //    (set by `CreateMethodModal` for the markdown branch) mounts a
-    //    real `<textarea>` at offset 0 the moment the form renders, so
-    //    we can drive React's onChange via the existing
-    //    `safeTypeAction` primitive (which dispatches into the
-    //    native-input setter path inside BeakerBotCursor.typeInto).
-    //    The CSS combinator selector reaches into the wrapper's
-    //    nested textarea without needing a second tour-target name.
+    // 4a. Click the markdown body wrapper to focus the editor and
+    //     guarantee a textarea is mounted before we try to type into
+    //     it. `HybridMarkdownEditor`'s `autoStartEditing` prop (set by
+    //     `CreateMethodModal` for the markdown branch) seeds
+    //     `editingBlockOffset=0` on initial mount when the value is
+    //     empty, so the empty-state textarea SHOULD already be there.
+    //     But the wrapper's onClick is a safe no-op when the textarea
+    //     is already mounted (the `editingBlockOffset === null` guard
+    //     short-circuits) and it actively mounts one when it isn't.
+    //     This makes the body-typing beat resilient to any future flip
+    //     in HybridMarkdownEditor's autoStartEditing seed timing.
+    const clickBodyWrapper = await safeClickAction(
+      targetSelector(TOUR_TARGETS.methodsCreateBodyInput),
+    );
+
+    // 4b. Type the funny body into the markdown editor's empty-state
+    //     textarea. The CSS combinator selector reaches into the
+    //     wrapper's nested textarea without needing a second
+    //     tour-target name. `safeTypeAction` passes the selector
+    //     through so BeakerBotCursor.typeInto can re-resolve if the
+    //     node remounts mid-loop.
     //
-    //    25ms cadence on the ~700-character body keeps total typing
-    //    around 18 seconds. Faster than that reads as paste; slower
-    //    drags the demo.
+    //     25ms cadence on the ~700-character body keeps total typing
+    //     around 18 seconds. Faster than that reads as paste; slower
+    //     drags the demo.
     const typeBody = await safeTypeAction(
       '[data-tour-target="methods-create-body-input"] textarea',
       FUNNY_METHOD_BODY,
       25,
+    );
+
+    // 4c. methods-create body-typing fix manager 2026-05-27: flush the
+    //     buffered edit into the parent's `mdContent` BEFORE clicking
+    //     Create Method. Under HybridMarkdownEditor's manual-save
+    //     model (commit ff96016e, 2026-05-26) typing into the textarea
+    //     writes only to a local buffer; the parent's `onChange` fires
+    //     only on explicit Save (button click or Cmd+S). Without this
+    //     beat, `CreateMethodModal`'s `mdContent.trim()` stays empty,
+    //     the Create Method button stays disabled, and BeakerBot's
+    //     submit click silently no-ops, dead-ending Grant's 2026-05-27
+    //     hand-walk.
+    //
+    //     The Save button is rendered by `SaveChrome` inside the
+    //     editor; it carries `data-testid="hybrid-editor-save"` and is
+    //     enabled (non-disabled) whenever the editor is dirty, which
+    //     it becomes on the first typed keystroke via
+    //     `handleEditChange → markDirty`. We click via the data-testid
+    //     selector rather than adding a new tour-target so this stays
+    //     local to MethodsCreateStep without touching the editor's
+    //     render layer.
+    const saveBody = await safeClickAction(
+      '[data-tour-target="methods-create-body-input"] [data-testid="hybrid-editor-save"]',
     );
 
     // 5. Click Create Method to save. The modal dispatches
@@ -180,11 +218,12 @@ export const methodsCreateStep = buildWalkthroughStep({
     // Methods fix manager 2026-05-22: interleave 800ms read-then-watch
     // pauses between each visible action so the user can register one
     // beat (markdown tile picked → name typed → category typed → body
-    // typed → submit) before the next one fires. Pattern matches
-    // §6.10 SettingsAiHelperSizeDiffStep's Full → pause → Medium →
-    // pause → Minimal cycle. The pauses run at PLAYBACK time via
-    // callbackAction (not build time) so each pause resolves AFTER the
-    // preceding click / type has visibly landed.
+    // clicked → body typed → body saved → submit) before the next one
+    // fires. Pattern matches §6.10 SettingsAiHelperSizeDiffStep's
+    // Full → pause → Medium → pause → Minimal cycle. The pauses run
+    // at PLAYBACK time via callbackAction (not build time) so each
+    // pause resolves AFTER the preceding click / type has visibly
+    // landed.
     return compactScript([
       pickMarkdown,
       callbackAction(() => pause(METHODS_CREATE_PAUSE_MS)),
@@ -192,7 +231,11 @@ export const methodsCreateStep = buildWalkthroughStep({
       callbackAction(() => pause(METHODS_CREATE_PAUSE_MS)),
       typeCategory,
       callbackAction(() => pause(METHODS_CREATE_PAUSE_MS)),
+      clickBodyWrapper,
+      callbackAction(() => pause(METHODS_CREATE_PAUSE_MS)),
       typeBody,
+      callbackAction(() => pause(METHODS_CREATE_PAUSE_MS)),
+      saveBody,
       callbackAction(() => pause(METHODS_CREATE_PAUSE_MS)),
       submit,
     ]);

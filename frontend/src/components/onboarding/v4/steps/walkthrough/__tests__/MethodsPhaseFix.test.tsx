@@ -107,12 +107,20 @@ describe("Methods phase — pacing (P1, Grant 2026-05-22)", () => {
     expect(METHODS_CATEGORY_PAUSE_MS).toBe(800);
   });
 
-  it("methods-create demo cursor script interleaves callback pauses between 4+ visible actions", async () => {
+  it("methods-create demo cursor script interleaves callback pauses between 6+ visible actions", async () => {
     // Stub the 4 stamped tour targets + a real <textarea> descendant
     // inside the body-input wrapper (the body's safeTypeAction targets
     // a CSS combinator `[data-tour-target="methods-create-body-input"]
     // textarea`, not the wrapper itself). Without the textarea, the
     // body typing action drops via compactScript and we lose 1 pause.
+    //
+    // methods-create body-typing fix manager 2026-05-27: also stub
+    // the editor's Save button (`data-testid="hybrid-editor-save"`)
+    // inside the body wrapper. The new save beat between body-typing
+    // and Create-Method-submit clicks this button to flush the
+    // buffered typed content into the parent's `mdContent` under the
+    // editor's manual-save model. Without the stub, `saveBody` drops
+    // from compactScript and we lose the new visible action.
     const stubIds = [
       TOUR_TARGETS.methodsTypeMarkdown,
       TOUR_TARGETS.methodsCreateNameInput,
@@ -126,12 +134,16 @@ describe("Methods phase — pacing (P1, Grant 2026-05-22)", () => {
       document.body.appendChild(el);
       stubs.push(el);
     }
-    // Body wrapper + textarea descendant — matches the combinator
-    // selector the production script uses.
+    // Body wrapper + textarea descendant + Save button descendant —
+    // matches the combinator selectors the production script uses
+    // for both the body-typing target and the new save-flush target.
     const bodyWrapper = document.createElement("div");
     bodyWrapper.setAttribute("data-tour-target", "methods-create-body-input");
     const bodyTextarea = document.createElement("textarea");
     bodyWrapper.appendChild(bodyTextarea);
+    const saveButton = document.createElement("button");
+    saveButton.setAttribute("data-testid", "hybrid-editor-save");
+    bodyWrapper.appendChild(saveButton);
     document.body.appendChild(bodyWrapper);
     stubs.push(bodyWrapper);
 
@@ -145,13 +157,13 @@ describe("Methods phase — pacing (P1, Grant 2026-05-22)", () => {
       const actions = (await methodsCreateStep.cursorScript()) as ReadonlyArray<{
         type: string;
       }>;
-      // 5 visible actions: click-tile → type-name → type-category →
-      // type-body → click-submit. Pacing rule: a callback pause sits
-      // between each pair, so a fully resolved script has 5 visible +
-      // 4 callbacks = 9 entries.
+      // 7 visible actions: click-tile → type-name → type-category →
+      // click-body-wrapper → type-body → click-save → click-submit.
+      // Pacing rule: a callback pause sits between each pair, so a
+      // fully resolved script has 7 visible + 6 callbacks = 13 entries.
       const pauses = actions.filter((a) => a.type === "callback");
       const visibleActions = actions.filter((a) => a.type !== "callback");
-      expect(visibleActions.length).toBeGreaterThanOrEqual(4);
+      expect(visibleActions.length).toBeGreaterThanOrEqual(6);
       expect(pauses.length).toBeGreaterThanOrEqual(visibleActions.length - 1);
       // First action is the markdown-tile click, second is the first
       // read-then-watch pause.
