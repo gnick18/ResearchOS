@@ -44,10 +44,10 @@ export default function Q5TelegramStep({
   return (
     <div data-step-id="setup-q5" className="space-y-4">
       <p className="text-sm text-gray-700 leading-relaxed">
-        Lab benches are messy. Snap a gel photo on your phone, send it to
-        the ResearchOS Telegram bot, and the image lands in your inbox
-        ready to attach to an experiment note. Want me to set that up
-        during the tour?
+        You can link a Telegram bot to send photos directly from your
+        phone to your ResearchOS inbox. This makes it easy to quickly
+        upload gel images or bench notes. Do you want to enable this
+        integration?
       </p>
       <div className="flex flex-col gap-2">
         <RadioCard

@@ -51,8 +51,9 @@ export default function Q1cLabHeadStep({
   return (
     <div data-step-id="setup-q1c" className="space-y-4">
       <p className="text-sm text-gray-700 leading-relaxed">
-        First question: are you the PI (Principal Investigator)? That
-        means the group leader, the person whose name is on the door.
+        One follow-up before we move on: are you the PI, or a lab
+        member? The PI is the group leader, the person whose name is on
+        the door.
       </p>
       <p className="text-sm text-gray-700 leading-relaxed">
         PIs can post announcements, approve purchases, and see

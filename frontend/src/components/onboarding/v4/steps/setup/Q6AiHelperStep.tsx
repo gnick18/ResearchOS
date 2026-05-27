@@ -77,10 +77,9 @@ export default function Q6AiHelperStep({
   return (
     <div data-step-id="setup-q6" className="space-y-4">
       <p className="text-sm text-gray-700 leading-relaxed">
-        I can copy you a prompt that turns Claude, ChatGPT, or Gemini into a
-        schema-aware ResearchOS assistant. Bigger prompts give the chatbot
-        more context, smaller prompts cost fewer tokens. Pick a size, or
-        skip entirely.
+        We can generate a custom system prompt for external AI tools
+        like Claude, ChatGPT, or Gemini so they understand how your lab
+        notebook is organized. Pick how much detail you want included.
       </p>
       <div className="flex flex-col gap-2">
         <RadioCard

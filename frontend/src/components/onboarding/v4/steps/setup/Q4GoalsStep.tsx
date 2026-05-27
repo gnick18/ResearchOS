@@ -40,10 +40,10 @@ export default function Q4GoalsStep({
   return (
     <div data-step-id="setup-q4" className="space-y-4">
       <p className="text-sm text-gray-700 leading-relaxed">
-        Goal-tracking shows weekly / monthly / quarterly bars next to your
-        Gantt chart so you can see if your real life lines up with your
-        plans. (Spoiler: it usually doesn&apos;t. That&apos;s fine.) Want
-        it on?
+        You can set up high-level goals for projects, or even private
+        goals for things outside the lab. They show up right on your
+        Gantt chart to help you keep track of what you want to achieve
+        and how much time is left. Want to turn this on?
       </p>
       <div className="flex flex-col gap-2">
         <RadioCard

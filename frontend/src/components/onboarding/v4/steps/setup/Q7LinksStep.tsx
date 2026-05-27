@@ -48,10 +48,9 @@ export default function Q7LinksStep({
   return (
     <div data-step-id="setup-q7" className="space-y-4">
       <p className="text-sm text-gray-700 leading-relaxed">
-        Want a page to store important links to other sites? Stuff like
-        your university VPN, the lab calendar, the freezer inventory
-        spreadsheet, your manuscript drafts. Each card holds a URL plus
-        a label so you can jump straight to the resource.
+        The Links tab is a dedicated space to save important bookmarks,
+        like your lab calendar, freezer inventory, or manuscript drafts.
+        Do you want this tab enabled?
       </p>
       <div className="flex flex-col gap-2">
         <RadioCard

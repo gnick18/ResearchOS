@@ -67,10 +67,11 @@ describe("Q7LinksStep", () => {
       />,
     );
     // The brief explicitly called this out — the question copy must
-    // read naturally for both solo and lab accounts, so the lead
-    // sentence avoids the word "lab".
+    // read naturally for both solo and lab accounts. The 2026-05-27
+    // tour script rewrite updated the body intro to match the
+    // descriptor; the test asserts on the new "Links tab" wording.
     const lead = screen.getByText(
-      /Want a page to store important links to other sites\?/i,
+      /The Links tab is a dedicated space to save important bookmarks/i,
     );
     expect(lead).toBeInTheDocument();
   });

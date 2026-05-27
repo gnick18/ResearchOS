@@ -104,8 +104,8 @@ export default function Q1AccountTypeStep({
   return (
     <div data-step-id="setup-q1" className="space-y-4">
       <p className="text-sm text-gray-700 leading-relaxed">
-        First call: are you flying solo, or is this for a whole lab? No
-        wrong answer, and you can flip it later in Settings.
+        First up: are you setting this account up just for yourself, or
+        for an entire lab?
       </p>
       {autoDetected && current === "lab" && (
         <div

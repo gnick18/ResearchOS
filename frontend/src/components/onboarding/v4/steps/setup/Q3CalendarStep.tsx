@@ -40,10 +40,9 @@ export default function Q3CalendarStep({
   return (
     <div data-step-id="setup-q3" className="space-y-4">
       <p className="text-sm text-gray-700 leading-relaxed">
-        ResearchOS can overlay events from any public iCal (ICS) URL on
-        your calendar. Paste a feed link from Google, Outlook, iCloud,
-        your university, or anywhere else that publishes one. Want me to
-        show you that flow and turn on the Calendar tab?
+        ResearchOS can overlay any public calendar such as personal ones
+        from Outlook, Apple, Google, etc. Would you like a walkthrough
+        on how to get that link working?
       </p>
       <div className="flex flex-col gap-2">
         <RadioCard

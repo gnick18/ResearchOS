@@ -57,9 +57,8 @@ export default function Q2PurchasesStep({
   return (
     <div data-step-id="setup-q2" className="space-y-4">
       <p className="text-sm text-gray-700 leading-relaxed">
-        Some folks like tracking every reagent, antibody, and overpriced
-        pipette tip. Some folks would rather forget the receipts exist. Do
-        you want a Purchases tab?
+        Do you want to track lab purchases and reagent orders? You can
+        enable the tracker now or leave it off to keep things simple.
       </p>
       <div className="flex flex-col gap-2">
         <RadioCard
