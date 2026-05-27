@@ -213,14 +213,38 @@ export default function WelcomeWizardPage() {
       </Steps>
 
       <h4>Project overview</h4>
+      <p>
+        The project page is where every experiment, method, and task you
+        attach to a project comes back together in one view. The Overview
+        box at the top is yours to fill in (hypothesis, motivation, why
+        this project exists); the Results, Methods, and Activity sections
+        below fill themselves in automatically as you work. This cluster
+        introduces both halves before handing the canvas back to you.
+      </p>
       <Steps>
         <Step>
           <strong>project-overview-nav.</strong> Cursor clicks the new project
           card on Home and the controller navigates to the project route.
         </Step>
         <Step>
-          <strong>project-overview-prose.</strong> Cursor types a placeholder
-          hypothesis into the Overview textarea.
+          <strong>project-overview-prose.</strong> BeakerBot introduces the
+          four sections of the project page and explains the Overview box as
+          the anchor you come back to when you are deep in the weeds.
+          Narration only, manual advance.
+        </Step>
+        <Step>
+          <strong>project-overview-rollup.</strong> Spotlight shifts to the
+          Results, Methods, and Activity sections below the Overview
+          textarea. BeakerBot explains that this page is a live roll-up of
+          everything happening across the project: drop an image in any
+          experiment&apos;s Results tab and it shows up here, attach a method
+          to an experiment and it lands here too. You never curate this page
+          by hand.
+        </Step>
+        <Step>
+          <strong>project-overview-typing-demo.</strong> Cursor types a
+          placeholder hypothesis into the Overview textarea so you can see
+          how the live render lands.
         </Step>
         <Step>
           <strong>project-overview-context.</strong> BeakerBot points at the
@@ -231,7 +255,10 @@ export default function WelcomeWizardPage() {
         <Step>
           <strong>project-overview-exit.</strong> Cursor glides to the Home nav
           tab and the controller navigates back to <code>/</code> so the next
-          cluster fires from Home, not from inside the project page.
+          cluster fires from Home, not from inside the project page. The
+          speech is dynamic: off-home users get a "let me take us back home"
+          beat, already-home users get a straight "let me show you your
+          dashboard" beat.
         </Step>
       </Steps>
 
@@ -268,21 +295,44 @@ export default function WelcomeWizardPage() {
       </Steps>
 
       <h4>Notifications</h4>
+      <p>
+        Two surfaces live in the top bar: the bell (anything that needs
+        your attention: reminders for upcoming work, updates from
+        labmates, mentions on your writeups) and the inbox next to it
+        (files sent in from outside the app, like Telegram photos or
+        shared attachments). The notifications cluster frames both before
+        walking through the bell mechanics.
+      </p>
       <Steps>
         <Step>
-          <strong>notifications-bell.</strong> BeakerBot opens the inbox panel.
+          <strong>notifications-intro.</strong> Pure narration. BeakerBot
+          frames the bell-and-inbox pair in the top bar so you know what
+          each one collects before you click on either. Manual advance.
         </Step>
         <Step>
-          <strong>notifications-silence.</strong> Mark-as-read to mute the bell
-          badge.
+          <strong>notifications-bell.</strong> BeakerBot fires a test
+          notification, then asks you to click the bell to open the inbox
+          popup.
         </Step>
         <Step>
-          <strong>notifications-delete.</strong> Dismiss the row. The inbox is
-          now empty.
+          <strong>notifications-silence.</strong> Click the row or the Mark
+          read button to clear the badge without deleting the message.
+        </Step>
+        <Step>
+          <strong>notifications-delete.</strong> Click the X to dismiss the
+          row entirely. The inbox is now empty.
         </Step>
       </Steps>
 
       <h4>Methods deep-dive</h4>
+      <p>
+        Methods are your reusable protocol library: write a technique
+        once here, then attach it to every experiment that uses it
+        instead of rewriting steps each time. BeakerBot walks through
+        category creation, then opens two purpose-built builders (PCR
+        and LC Gradient) before showing the standard markdown method
+        you will reach for most of the time.
+      </p>
       <Steps>
         <Step>
           <strong>methods-category-prompt.</strong> BeakerBot asks what kind of
@@ -291,7 +341,8 @@ export default function WelcomeWizardPage() {
         </Step>
         <Step>
           <strong>methods-category-open.</strong> You click &quot;+ New
-          Category&quot; to open the modal.
+          Category&quot; to open the modal. Wrong clicks elsewhere on the
+          page get a flash and a nudge back to the right button.
         </Step>
         <Step>
           <strong>methods-category.</strong> Cursor types the picked label and
@@ -302,33 +353,42 @@ export default function WelcomeWizardPage() {
           Method&quot; so the method builder modal mounts before the next beat.
         </Step>
         <Step>
-          <strong>methods-file-vs-markdown.</strong> BeakerBot explains the two
-          common-case methods (attach a PDF or Word doc, or paste your protocol
-          into the markdown editor) before showing off the interactive builders.
-          Narration only, manual advance.
+          <strong>methods-type-tour.</strong> Cursor opens the PCR thermal-cycle
+          builder, makes two live edits (denaturation temp, annealing time),
+          then invites you to poke around. Manual advance routes to the LC
+          Gradient demo next.
         </Step>
         <Step>
-          <strong>methods-type-tour.</strong> Cursor opens the PCR builder tile
-          and makes two live edits to the thermal cycle (tweaks the denaturation
-          temp and the annealing time), then invites you to play around. Manual
-          advance.
+          <strong>methods-lc-demo.</strong> Cursor opens the LC Gradient
+          editor. The chart updates live as values change in the table,
+          which is the whole point: a purpose-built UI beats a wall of
+          markdown for any technique where the geometry of the recipe is
+          itself the recipe.
         </Step>
         <Step>
           <strong>methods-create.</strong> BeakerBot creates a funny placeholder
-          markdown method of its own as a demo artifact.
+          markdown method of its own as a demo artifact. Markdown is the
+          fallback any time the technique does not have a purpose-built
+          builder.
         </Step>
       </Steps>
 
       <h4>Workbench experiment creation</h4>
+      <p>
+        Methods are the recipe; the Workbench is where you actually run
+        them. Every experiment gets its own entry with space for notes,
+        results, attached protocols, and files. This is the page you
+        spend most of your time on, so BeakerBot folds the page intro
+        directly into the single create-experiment beat.
+      </p>
       <Steps>
         <Step>
-          <strong>workbench-create-experiment-open.</strong> You click &quot;+
-          New Experiment&quot; to open the form.
-        </Step>
-        <Step>
-          <strong>workbench-create-experiment.</strong> Cursor types the
-          placeholder experiment name and clicks Save. The experiment lands in
-          your Workbench.
+          <strong>workbench-create-experiment-open.</strong> Combined beat:
+          BeakerBot frames the Workbench-as-bench-record, then asks you to
+          click &quot;+ New Experiment.&quot; The form opens, you fill it in,
+          and the experiment lands on the page. (The prior split
+          BEAKERBOT_DEMO follow-up that auto-typed the experiment name is
+          retired.)
         </Step>
       </Steps>
 
@@ -353,13 +413,23 @@ export default function WelcomeWizardPage() {
         </Step>
       </Steps>
 
-      <h4>Hybrid editor (12-step cluster)</h4>
+      <h4>Hybrid editor (13-step cluster)</h4>
       <p>
-        The hybrid editor cluster walks you through the experiment note editor
-        in twelve beats (HE-0 through HE-11):
+        The hybrid editor cluster walks you through the experiment note
+        editor in thirteen beats. The arc starts with a framing pair
+        (notes-vs-results split, then a one-beat scope note that the
+        editor is the same one used everywhere in the app), then drops
+        into the markdown deep-dive (HE-1 through HE-7) and the image
+        and file attachment beats (HE-8 through HE-11):
       </p>
       <Steps>
         <Step><strong>HE-0 (hybrid-notes-vs-results).</strong> BeakerBot explains the notes/results split in the editor.</Step>
+        <Step>
+          <strong>hybrid-editor-scope.</strong> Pure narration that calls out
+          that the editor you are about to learn is the same one used in
+          project overviews, standalone notes, and method writeups. Establishes
+          scope before the markdown deep-dive starts. Manual advance.
+        </Step>
         <Step><strong>HE-1 (hybrid-markdown-intro).</strong> Introduces markdown support.</Step>
         <Step>
           <strong>HE-2 (hybrid-markdown-familiarity).</strong> Branch gate: BeakerBot asks
@@ -376,7 +446,7 @@ export default function WelcomeWizardPage() {
         <Step><strong>HE-6b (hybrid-h2).</strong> Cursor demos Heading 2.</Step>
         <Step><strong>HE-6c (hybrid-h3).</strong> Cursor demos Heading 3.</Step>
         <Step><strong>HE-7 (hybrid-shortcuts).</strong> User-action: you try a shortcut yourself. Page lock active while the input is waiting.</Step>
-        <Step><strong>HE-8 (hybrid-image-attach).</strong> Cursor enters from off-screen to demo image attachment.</Step>
+        <Step><strong>HE-8 (hybrid-image-attach).</strong> User-action: you drag an image file from your computer into the editor. Page lock active while the input is waiting.</Step>
         <Step><strong>HE-9 (hybrid-image-drag-in).</strong> Cursor drags an image into the editor.</Step>
         <Step><strong>HE-10 (hybrid-image-resize).</strong> Cursor demos resizing the inserted image.</Step>
         <Step><strong>HE-11 (hybrid-file-attach).</strong> Terminal hybrid editor beat: file attachment demo.</Step>
@@ -460,22 +530,33 @@ export default function WelcomeWizardPage() {
         explains the Goals overlay on the Gantt toolbar.
       </p>
 
-      <h4>Settings deep-dive (11 steps)</h4>
+      <h4>Settings deep-dive (13 steps)</h4>
       <p>
-        BeakerBot navigates to <code>/settings</code> and walks seven narration
-        beats across the major Settings sections, then three AI Helper beats:
+        Settings is the last stop on the universal arc. BeakerBot opens
+        with a narration beat that establishes scope (everything about
+        the account: appearance, visible tabs, integrations, the AI
+        Helper prompt, and the re-run button), then walks two
+        personalization beats on the Gantt toolbar, seven Settings-page
+        narration beats, and a four-beat AI Helper cluster:
       </p>
       <Steps>
-        <Step><strong>personalization-animations.</strong> Animated on the Gantt toolbar: BeakerBot demos the animations toggle.</Step>
+        <Step>
+          <strong>settings-intro.</strong> Pure narration. BeakerBot frames
+          the whole Settings phase: this is where everything about your
+          account lives, and the tour will hit the sections worth knowing
+          about so you can find the rest on your own. Manual advance.
+        </Step>
+        <Step><strong>personalization-animations.</strong> Animated on the Gantt toolbar: BeakerBot demos the animations toggle that fires when you finish an experiment.</Step>
         <Step><strong>personalization-color.</strong> BeakerBot demos the primary accent color picker and invites you to pick a secondary color at your own pace.</Step>
         <Step><strong>settings-tour-folder.</strong> Universal: explains that the connected lab folder is set; switching folders means signing out and picking a new one from the entry screen.</Step>
         <Step><strong>settings-tour-calendar.</strong> Conditional on Q3 = yes: calendar feeds are managed from the Calendar tab, not Settings (yet).</Step>
         <Step><strong>settings-tour-telegram.</strong> Conditional on Q5 = yes: Telegram wiring lives in this Settings section if you didn&apos;t link it during setup.</Step>
-        <Step><strong>settings-tour-pivot-to-lab.</strong> Conditional on Q1 = solo: explains how to pivot from solo to a lab account via the user picker (no dedicated Settings toggle yet).</Step>
+        <Step><strong>settings-tour-account-type-toggle.</strong> Conditional on Q1 = solo: explains how to pivot from solo to a lab account via the user picker (no dedicated Settings toggle yet).</Step>
         <Step><strong>settings-tour-visible-tabs.</strong> Universal: tabs you said no to are hidden; check the box here to turn one back on, or hide tabs you don&apos;t need.</Step>
         <Step><strong>settings-tour-streak.</strong> Universal: the streak counter is private and on by default; toggle it off here if you prefer not to be reminded.</Step>
         <Step><strong>settings-tour-rerun.</strong> Universal: BeakerBot points at the Re-run tour button and tells you the whole walkthrough can be replayed from here.</Step>
-        <Step><strong>ai-helper-size-diff (conditional on Q6).</strong> First of three AI Helper beats: explains the Full vs. Medium vs. Minimal size tradeoff.</Step>
+        <Step><strong>ai-helper-size-diff (conditional on Q6).</strong> First AI Helper beat. Explains the economic motivation behind size tradeoffs: external models charge by tokens, so the AI Helper sizes its system prompt to match how much you are willing to spend per chat.</Step>
+        <Step><strong>ai-helper-size-options (conditional on Q6).</strong> Cursor cycles through the Full, Medium, and Minimal tabs in the AI Helper section so you see each one render in place. Full gives the model everything it could want; Minimal strips down to essentials; Medium sits in between.</Step>
         <Step><strong>ai-helper-use-case-paste (conditional on Q6).</strong> Paste-and-go use case walkthrough.</Step>
         <Step><strong>ai-helper-use-case-agentic (conditional on Q6).</strong> Agentic use-case walkthrough.</Step>
       </Steps>
