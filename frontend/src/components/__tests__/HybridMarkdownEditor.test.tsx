@@ -382,4 +382,58 @@ describe("HybridMarkdownEditor", () => {
     );
     expect(screen.getByText("initial content")).toBeInTheDocument();
   });
+
+  it("Escape on the active textarea exits edit mode AND stops propagation (esc-context fix manager 2026-05-27)", () => {
+    // esc-context fix manager (2026-05-27, Grant hand-walk fix):
+    // hybrid-editor-helpers.commitOpenEditAction dispatches a synthetic
+    // Escape on the active textarea between typing beats. Before this
+    // fix, the Escape bubbled up to TaskDetailPopup's window-level
+    // keydown handler and closed the popup mid-cluster. The editor's
+    // Esc handler now calls stopPropagation on the synthetic event and
+    // blurs the textarea so the buffered edit commits cleanly.
+    const onChange = vi.fn();
+    render(
+      <HybridMarkdownEditor value="some paragraph." onChange={onChange} />,
+    );
+    const para = screen.getByText("some paragraph.");
+    fireEvent.doubleClick(para);
+    const textarea = document.querySelector(
+      "textarea",
+    ) as HTMLTextAreaElement | null;
+    expect(textarea).not.toBeNull();
+
+    // Sentinel: parent listener attached to window. Should NOT fire
+    // because handleEditKeyDown calls stopPropagation on Escape.
+    const windowSpy = vi.fn();
+    window.addEventListener("keydown", windowSpy);
+
+    try {
+      // Fire a real native KeyboardEvent (mirrors what the tour helper
+      // does) so React's synthetic-event delegation runs the editor's
+      // onKeyDown handler. Bubbles up through the React root listener;
+      // stopPropagation on the synthetic event stops the underlying
+      // native event from continuing to bubble.
+      textarea!.focus();
+      act(() => {
+        textarea!.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Escape",
+            code: "Escape",
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      });
+
+      // The window-level listener must NOT fire because the editor
+      // called stopPropagation on the synthetic event.
+      expect(windowSpy).not.toHaveBeenCalled();
+
+      // The textarea should have unmounted as part of handleEditBlur
+      // collapsing the buffered edit back into the preview render.
+      expect(document.querySelector("textarea")).toBeNull();
+    } finally {
+      window.removeEventListener("keydown", windowSpy);
+    }
+  });
 });

@@ -1677,7 +1677,30 @@ export default function HybridMarkdownEditor({
       }
 
       if (e.key === "Escape") {
+        // esc-context fix manager (2026-05-27, Grant hand-walk fix):
+        // stopPropagation so the wrapping TaskDetailPopup's window-level
+        // keydown listener never sees this Escape and never closes the
+        // popup mid-cluster. The popup's own handler treats a focused
+        // textarea as "let the field own Esc" so the two are consistent
+        // even when this handler is bypassed (e.g. a non-popup host),
+        // but stopping here is the strictly safer guarantee.
+        //
+        // Also blur the active textarea explicitly: the synthetic
+        // KeyboardEvent dispatched by the tour's commitOpenEditAction
+        // does NOT trigger preventDefault on the host input, so the
+        // browser will not move focus out of the textarea by itself.
+        // The textarea has no onBlur (see comment above the JSX node),
+        // so we drive the commit via handleEditBlur directly.
         e.preventDefault();
+        e.stopPropagation();
+        const active = textareaRef.current;
+        if (active && typeof active.blur === "function") {
+          try {
+            active.blur();
+          } catch {
+            // No-op; some test environments throw on blur.
+          }
+        }
         handleEditBlur();
         return;
       }

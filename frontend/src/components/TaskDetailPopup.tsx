@@ -524,16 +524,68 @@ export default function TaskDetailPopup({
     });
   }, [freshTask, initialTask.owner, initialTask.is_shared_with_me, initialTask.shared_permission]);
 
-  // Handle escape key to close or exit fullscreen
+  // Handle escape key — context-sensitive.
+  //
+  // esc-context fix manager (2026-05-27, Grant hand-walk fix):
+  //   1. If focus is on an editor surface inside the popup (textarea,
+  //      contenteditable, or text input), let Esc fall through to that
+  //      element's own onKeyDown handler. HybridMarkdownEditor's
+  //      handleEditKeyDown listens for Escape, blurs + commits the
+  //      buffered edit, and stops propagation so we never see the key
+  //      here. Without this branch the popup's old behavior swallowed
+  //      Esc and closed the modal mid-cluster, breaking the tour's
+  //      typing demos that dispatch a synthetic Escape via
+  //      hybrid-editor-helpers.commitOpenEditAction between beats.
+  //   2. Otherwise if the popup is fullscreen, shrink it instead of
+  //      closing. The hybrid-editor-scope demo expanded the popup at
+  //      the start of the cluster; Esc previously closed the popup
+  //      entirely so fullscreen state didn't persist across steps.
+  //   3. Otherwise close (the original behavior).
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (isExpanded) {
-          setIsExpanded(false);
-        } else {
-          onClose();
-        }
+    const isTextInputEl = (el: Element | null): boolean => {
+      if (!(el instanceof HTMLElement)) return false;
+      if (el.isContentEditable) return true;
+      const tag = el.tagName;
+      if (tag === "TEXTAREA") return true;
+      if (tag === "INPUT") {
+        const type = (el as HTMLInputElement).type;
+        // Treat any text-shaped input as "Esc cancels the field, not
+        // the popup". Number / date / etc. also accept text editing.
+        return (
+          type === "text" ||
+          type === "search" ||
+          type === "email" ||
+          type === "url" ||
+          type === "tel" ||
+          type === "password" ||
+          type === "number" ||
+          type === "date" ||
+          type === "datetime-local"
+        );
       }
+      return false;
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      const active = typeof document !== "undefined"
+        ? document.activeElement
+        : null;
+      if (isTextInputEl(active)) {
+        // Branch 1: text input has focus, let it own the Escape.
+        // The field's onKeyDown handler is responsible for blurring
+        // and calling stopPropagation. If the field doesn't stop the
+        // event we still don't close: dropping out of edit mode is
+        // enough, and Grant's tour scripts rely on the popup surviving.
+        return;
+      }
+      if (isExpanded) {
+        // Branch 2: shrink before closing so the fullscreen state can
+        // persist across multi-step demos. A second Esc closes.
+        setIsExpanded(false);
+        return;
+      }
+      // Branch 3: normal close.
+      onClose();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
