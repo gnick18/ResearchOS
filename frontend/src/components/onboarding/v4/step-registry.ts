@@ -210,6 +210,10 @@ import { hybridImageAttachStep } from "./steps/walkthrough/HybridImageAttachStep
 import { hybridImageDragInStep } from "./steps/walkthrough/HybridImageDragInStep";
 import { hybridImageResizeStep } from "./steps/walkthrough/HybridImageResizeStep";
 import { hybridFileAttachStep } from "./steps/walkthrough/HybridFileAttachStep";
+// §6.7 hybrid-save-concept (hybrid-save-concept manager 2026-05-27): NEW
+// pure-narration beat between hybrid-file-attach and workbench-notes-intro.
+// Covers manual save, version control, and the unsaved-changes warning.
+import { hybridSaveConceptStep } from "./steps/walkthrough/HybridSaveConceptStep";
 // §6.7b Workbench Notes + Lists expansion (Workbench expansion manager
 // 2026-05-22, collapsed to 5 beats by Workbench fix manager R1
 // 2026-05-22). Five universal steps that sit between §6.7 hybrid
@@ -388,6 +392,11 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [hybridImageDragInStep.id]: hybridImageDragInStep,
   [hybridImageResizeStep.id]: hybridImageResizeStep,
   [hybridFileAttachStep.id]: hybridFileAttachStep,
+  // §6.7 hybrid-save-concept (hybrid-save-concept manager 2026-05-27):
+  // NEW pure-narration beat closing the §6.7 editor cluster before the
+  // §6.7b Notes/Lists cluster opens. Wires after hybrid-file-attach in
+  // TOUR_STEP_ORDER.
+  [hybridSaveConceptStep.id]: hybridSaveConceptStep,
   // §6.7b Workbench Notes + Lists expansion (Workbench expansion
   // manager 2026-05-22, collapsed to 5 beats by Workbench fix manager
   // R1 2026-05-22). Universal steps wired in TOUR_STEP_ORDER between

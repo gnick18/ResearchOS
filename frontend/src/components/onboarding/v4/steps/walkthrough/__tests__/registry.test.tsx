@@ -70,6 +70,10 @@ const P5_STEP_IDS = [
   "hybrid-image-drag-in",
   "hybrid-image-resize",
   "hybrid-file-attach",
+  // §6.7 hybrid-save-concept (hybrid-save-concept manager 2026-05-27):
+  // NEW pure-narration beat between hybrid-file-attach and
+  // workbench-notes-intro.
+  "hybrid-save-concept",
   // §6.7b Workbench Notes + Lists expansion (Workbench expansion
   // manager 2026-05-22, collapsed to 5 beats by Workbench fix manager
   // R1 2026-05-22). Universal steps between hybrid-file-attach and

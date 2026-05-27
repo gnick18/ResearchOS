@@ -225,6 +225,9 @@ describe("TOUR_STEP_ORDER", () => {
     // gantt-intro adjacency.
     const order = [
       "hybrid-file-attach",
+      // hybrid-save-concept manager 2026-05-27: NEW beat between
+      // hybrid-file-attach and workbench-notes-intro.
+      "hybrid-save-concept",
       "workbench-notes-intro",
       "workbench-notes-create",
       "workbench-lists-intro",
@@ -501,6 +504,10 @@ describe("TOUR_STEP_ORDER", () => {
       "hybrid-image-drag-in",
       "hybrid-image-resize",
       "hybrid-file-attach",
+      // hybrid-save-concept manager 2026-05-27: NEW terminal beat of the
+      // §6.7 editor cluster (manual save / version control / unsaved-
+      // changes warning) before §6.7b workbench-notes-intro opens.
+      "hybrid-save-concept",
     ];
     const indices = order.map((id) => TOUR_STEP_ORDER.indexOf(id));
     indices.forEach((idx, i) => {

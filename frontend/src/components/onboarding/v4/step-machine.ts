@@ -246,7 +246,13 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "hybrid-image-attach",           // HE-8 (off-screen cursor entry)
   "hybrid-image-drag-in",          // HE-9
   "hybrid-image-resize",           // HE-10
-  "hybrid-file-attach",            // HE-11 (terminal)
+  "hybrid-file-attach",            // HE-11
+  // §6.7 NEW terminal beat: save concept (hybrid-save-concept manager
+  // 2026-05-27). Pure narration: ResearchOS doesn't auto-save, every
+  // save is version-controlled, navigating away with unsaved changes
+  // shows a warning prompt. Closes the §6.7 editor cluster before the
+  // §6.7b Notes/Lists cluster opens.
+  "hybrid-save-concept",
   // §6.7b Workbench Notes + Lists expansion (Workbench expansion
   // manager 2026-05-22, collapsed to 5 beats by Workbench fix manager
   // R1 2026-05-22). Universal steps inserted between §6.7 (hybrid

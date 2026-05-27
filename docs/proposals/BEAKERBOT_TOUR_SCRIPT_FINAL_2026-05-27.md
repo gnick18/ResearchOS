@@ -419,6 +419,16 @@ Non-image files (like PDFs or CSVs) attach the exact same way. Instead of render
 ResearchOS can open PDFs and text files directly in the browser. Other formats will simply download to your computer.
 ```
 
+### hybrid-save-concept
+
+```
+One last thing about the editor: ResearchOS doesn't auto-save. Hit **Save** up here when you're done adding notes, results, or anything else.
+
+Every save is version-controlled, so you can always look back at past versions or restore earlier ones.
+
+If you try to navigate away with unsaved changes, you'll get a warning prompt asking to save first. You won't lose work by accident.
+```
+
 ## §6.7b Workbench Notes and Lists
 
 ### workbench-notes-intro

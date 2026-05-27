@@ -103,6 +103,7 @@ import { hybridImageAttachStep } from "../HybridImageAttachStep";
 import { hybridImageDragInStep } from "../HybridImageDragInStep";
 import { hybridImageResizeStep } from "../HybridImageResizeStep";
 import { hybridFileAttachStep } from "../HybridFileAttachStep";
+import { hybridSaveConceptStep } from "../HybridSaveConceptStep";
 import { ganttIntroStep } from "../GanttIntroStep";
 import { ganttExistingExperimentStep } from "../GanttExistingExperimentStep";
 import { ganttDragDropStep } from "../GanttDragDropStep";
@@ -229,6 +230,9 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   hybridImageDragInStep,
   hybridImageResizeStep,
   hybridFileAttachStep,
+  // hybrid-save-concept manager 2026-05-27: NEW pure-narration beat
+  // closing the §6.7 editor cluster before §6.7b opens.
+  hybridSaveConceptStep,
   ganttIntroStep,
   ganttExistingExperimentStep,
   ganttDragDropStep,
@@ -324,6 +328,9 @@ describe("P5 step bodies — universal contract", () => {
       "hybrid-image-drag-in",
       "hybrid-image-resize",
       "hybrid-file-attach",
+      // hybrid-save-concept manager 2026-05-27: NEW pure-narration
+      // beat closing the §6.7 editor cluster before §6.7b opens.
+      "hybrid-save-concept",
       // §6.8 Gantt redesign 2026-05-22 (Gantt manager).
       "gantt-intro",
       "gantt-existing-experiment",
