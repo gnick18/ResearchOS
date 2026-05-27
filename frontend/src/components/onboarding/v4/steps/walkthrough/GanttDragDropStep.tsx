@@ -10,12 +10,23 @@
  * on the most recently created experiment's bar element by the Gantt
  * surface (real product UI patch lands as part of this P5 chip).
  *
- * Destination: best-effort — drag 100-150px right on the timeline.
- * The `safeDragAction` primitive takes element-to-element, not
- * element-to-offset. We pick the rightmost visible day cell of the
- * timeline as the drop target; the actual offset depends on viewport
- * width but the visual is "task moved right." A P13 polish chip can
- * add an offset variant to the cursor primitive.
+ * Destination (gantt drag-and-spotlight fix manager, 2026-05-27):
+ * resolves the user's experiment start_date at PLAYBACK time, computes
+ * `start + 1 day` skipping weekends (advance to the next Monday when
+ * the +1 lands on Sat/Sun, since the Gantt's default is
+ * `enable_seven_day_week=false`), then drags onto the matching day
+ * header cell (`data-testid="day-header-YYYY-MM-DD"`). Previously the
+ * drag aimed at the whole `gantt-timeline` element. `dragFromTo`
+ * resolves the drop coords via `elementCenter`, so that aimed the
+ * drop at the geometric middle of the entire chart container,
+ * frequently off-screen on the user's viewport (Grant hand-walk
+ * 2026-05-27: bar dragged off-screen, no visible move). Anchoring on
+ * a specific day cell gives a predictable, visible single-day shift.
+ *
+ * Falls back to the timeline if the user-experiment record can't be
+ * resolved (test harness short-circuit, no §6.5 experiment) — the
+ * fallback's "drag to timeline center" failure mode is the same as
+ * before in that edge case, but the cursor at least animates.
  *
  * Classification: BEAKERBOT DEMO (per Grant's design correction
  * 2026-05-21). Although the speech reads imperatively ("Drag a task
@@ -35,6 +46,56 @@ import {
 } from "./lib/cursor-script";
 import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
+import { resolveUserExperiment } from "./lib/gantt-redesign-helpers";
+
+/**
+ * Add `days` calendar days to a YYYY-MM-DD string and return the new
+ * YYYY-MM-DD. Local-time math so the result matches the Gantt's
+ * `formatDate` (which uses `getFullYear/getMonth/getDate`, not UTC).
+ * Exported for tests.
+ */
+export function addDaysLocal(ymd: string, days: number): string {
+  const [y, m, d] = ymd.split("-").map((n) => parseInt(n, 10));
+  if (!y || !m || !d) return ymd;
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + days);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+}
+
+/** 0 = Sunday, 6 = Saturday — matches GanttChart's `isWeekend`. */
+function isWeekendYmd(ymd: string): boolean {
+  const [y, m, d] = ymd.split("-").map((n) => parseInt(n, 10));
+  if (!y || !m || !d) return false;
+  const dt = new Date(y, m - 1, d);
+  const dow = dt.getDay();
+  return dow === 0 || dow === 6;
+}
+
+/**
+ * Compute a "one weekday forward" drop date from a start_date string.
+ * Weekend-aware: if start + 1 lands on Saturday, advance to Monday
+ * (+3 from start); if Sunday, advance to Monday (+2 from start).
+ * Exported for tests.
+ *
+ * Why: the Gantt's default is `enable_seven_day_week=false`, so the
+ * weekend cells render muted and feel non-actionable. Landing on the
+ * next working day produces a drop target the user can see on the
+ * grid (the Monday cell still renders since weeks are 7 days wide
+ * regardless of the option; the weekend cells just look muted).
+ */
+export function computeDragTargetDate(startDate: string): string {
+  const plusOne = addDaysLocal(startDate, 1);
+  if (!isWeekendYmd(plusOne)) return plusOne;
+  // +1 is weekend. Advance one calendar day at a time until we hit
+  // a weekday. In practice the loop runs at most twice (Saturday
+  // → Sunday → Monday).
+  let target = plusOne;
+  while (isWeekendYmd(target)) {
+    target = addDaysLocal(target, 1);
+  }
+  return target;
+}
 
 export const ganttDragDropStep = buildWalkthroughStep({
   id: "gantt-drag-drop",
@@ -52,13 +113,34 @@ export const ganttDragDropStep = buildWalkthroughStep({
       targetSelector(TOUR_TARGETS.ganttBarUserExperiment),
     );
     if (!bar) return [];
-    // Target the timeline element as the drop site. Real Gantt
-    // implementations parse the drop X-coordinate against day-cell
-    // widths; dropping anywhere on the timeline will trigger a date
-    // update.
+
+    // gantt drag-and-spotlight fix manager (2026-05-27): compute the
+    // drop target dynamically. Previous version dragged to the whole
+    // `gantt-timeline` element — `dragFromTo` resolves the drop coords
+    // via `elementCenter`, which is the geometric middle of the
+    // entire chart container (frequently off-screen on the user's
+    // viewport). Now we read the user experiment's start_date from
+    // the data layer, compute start + 1 weekday, and aim the drop at
+    // the matching day-header cell (which has a stable
+    // `data-testid="day-header-YYYY-MM-DD"`).
+    const userExp = await resolveUserExperiment();
+    let destSelector = targetSelector(TOUR_TARGETS.ganttTimeline);
+    if (userExp?.start_date) {
+      const targetDate = computeDragTargetDate(userExp.start_date);
+      const cellSelector = `[data-testid="day-header-${targetDate}"]`;
+      const cell = await waitForElement(cellSelector, 1500);
+      if (cell) {
+        destSelector = cellSelector;
+      }
+      // If the cell isn't mounted (target date past the visible
+      // window, etc.), fall back to the timeline. The user sees the
+      // same off-target behaviour as before in that edge case, but
+      // the common path now lands on a real day cell.
+    }
+
     const drag = await safeDragAction(
       targetSelector(TOUR_TARGETS.ganttBarUserExperiment),
-      targetSelector(TOUR_TARGETS.ganttTimeline),
+      destSelector,
     );
     return compactScript([drag]);
   }),

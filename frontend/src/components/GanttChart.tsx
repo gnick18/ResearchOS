@@ -1311,7 +1311,17 @@ export default function GanttChart({
 
       {/* Dependency Creation Popup */}
       {showDepPopup && depParentTask && depChildTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+          // gantt drag-and-spotlight fix manager (2026-05-27): TourSpotlight
+          // listens for any element carrying `data-tour-popup-occluding`
+          // and hides the ring while it's mounted. Without this, the blue
+          // spotlight from `gantt-deps-beakerbot` stays anchored on the
+          // dragged Fake A bar and pulses behind the dialog (Grant hand-
+          // walk: ring visible through the dialog backdrop). Same pattern
+          // SnapshotTilePopup uses for the widget-tile popup hand-off.
+          data-tour-popup-occluding="gantt-dependency-dialog"
+        >
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
             <h4 className="text-lg font-semibold text-gray-900 mb-2">
               Create Dependency?
