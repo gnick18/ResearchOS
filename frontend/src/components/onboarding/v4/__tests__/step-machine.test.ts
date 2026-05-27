@@ -152,6 +152,35 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER).not.toContain("phase4-cleanup");
   });
 
+  it("contains no duplicate step ids (saved-step jump-ahead fix manager 2026-05-27)", () => {
+    // Regression guard: STEP_INDEX is built via
+    // `new Map(TOUR_STEP_ORDER.map((id, i) => [id, i]))`. When the same
+    // id appears twice in TOUR_STEP_ORDER, the Map keeps only the LAST
+    // index. Every subsequent STEP_INDEX lookup (used by `getNextStep`,
+    // `getPreviousStep`, `applicableStepIndex`) resolves to that late
+    // index, so the controller advances forward by +1 in the array on
+    // first hit but the NEXT advance / back-step jumps to / from the
+    // late position. The FINAL reorder of 2026-05-27 introduced this
+    // bug by relocating `experiment-attach-method-attach` +
+    // `experiment-attach-method-notes` to §6.7d but leaving their old
+    // §6.6c / §6.6d entries in place. The user walking forward from
+    // `experiment-attach-method-tab` (§6.6b) would land on the early
+    // duplicate of `-attach`, then the controller's next advance
+    // (consulting STEP_INDEX, which pointed at the §6.7d position)
+    // jumped them ~30 steps forward, skipping the entire hybrid editor +
+    // workbench notes/lists + methods clusters. Going BACK from there
+    // landed on `methods-create`, going forward again re-triggered the
+    // jump, creating an inescapable loop. This test fails fast if a
+    // future reorder reintroduces a duplicate.
+    const seen = new Set<string>();
+    const duplicates: string[] = [];
+    for (const id of TOUR_STEP_ORDER) {
+      if (seen.has(id)) duplicates.push(id);
+      seen.add(id);
+    }
+    expect(duplicates, `TOUR_STEP_ORDER contains duplicate ids: ${duplicates.join(", ")}`).toEqual([]);
+  });
+
   it("inserts the §6.2b Home widgets cluster between project-overview-exit and notifications-intro (home widgets §6.2b step bodies manager 2026-05-25; notifications-intro inserted by Wave 1 2026-05-27)", () => {
     // 5 universal sub-steps between the §6.2 exit beat (which has just
     // pushed the browser back to "/") and the §6.3 notifications cluster.

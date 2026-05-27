@@ -216,10 +216,23 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // stays here to introduce the concept early; the attach beat carries
   // a navigation hook to re-open the experiment popup + Methods tab
   // after the methods detour.
+  //
+  // Saved-step jump-ahead fix (2026-05-27, tour saved-step jump-ahead
+  // fix manager): the FINAL reorder relocated `experiment-attach-method-
+  // attach` + `experiment-attach-method-notes` to §6.7d (after the
+  // methods cluster, around line 316 below) but left their original
+  // §6.6c / §6.6d entries here too. Because `STEP_INDEX` is built from
+  // `TOUR_STEP_ORDER.map((id, i) => [id, i])` and a Map keeps the LAST
+  // value per duplicate key, every lookup of these two ids resolved to
+  // their LATE indices. The controller would advance from `-tab` to
+  // `-attach` (the first occurrence at +1 in the array), but the next
+  // advance / back-step consulted STEP_INDEX and jumped to / from the
+  // LATE position, skipping ~30 steps (hybrid editor + workbench notes/
+  // lists + methods cluster). Removing the duplicates here keeps `-open`
+  // / `-tab` as the §6.6a/b framing beats and lets the canonical §6.7d
+  // entries below own the actual attach / notes interactions.
   "experiment-attach-method-open",    // §6.6a click workbench row → open popup
   "experiment-attach-method-tab",     // §6.6b click Methods tab inside popup
-  "experiment-attach-method-attach",  // §6.6c click Attach + pick funny method
-  "experiment-attach-method-notes",   // §6.6d spotlight Variation Notes + mental model
   // Hybrid editor — §6.7 redesign (Hybrid editor manager 2026-05-22).
   // 12 sub-steps replacing the prior 4. Order matches HE-0 → HE-11 in
   // ONBOARDING_V4_HYBRID_EDITOR_REDESIGN.md §6.7. The HE-2 branching
