@@ -103,7 +103,7 @@ export async function fireNotificationsStepTestNotification(): Promise<void> {
 export const notificationsBellStep = buildWalkthroughStep({
   id: "notifications-bell",
   speech:
-    "Quick universal: notifications. I just fired a test one, see the bell badge? Click the bell to open your inbox.",
+    "I just fired a test notification so you can see how the bell works. Click it to open the popup.",
   pose: "pointing-up",
   targetSelector: targetSelector(TOUR_TARGETS.notificationsBell),
   // No cursorScript: user-action step. The user clicks the spotlighted

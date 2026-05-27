@@ -31,9 +31,16 @@ describe("v4 WelcomeStep", () => {
 
     // The retired cleanup-grid phrasing must NOT appear.
     expect(screen.queryByText(/cleanup grid/i)).toBeNull();
-    // The wrap-up + auto-cleanup framing must appear.
-    expect(screen.getByText(/auto-cleans up/i)).toBeInTheDocument();
-    expect(screen.getByText(/first project stays/i)).toBeInTheDocument();
+    // Wave 2A speech rewrite (v4 tour speech manager — A, 2026-05-27):
+    // Grant's new copy promises "Anything we build together during the
+    // tour gets cleaned up at the end. Only your first project stays."
+    // Assert the cleanup + first-project framing on the rendered body.
+    expect(
+      screen.getByText(/gets cleaned up at the end/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Only your first project stays/i),
+    ).toBeInTheDocument();
   });
 
   it("leaves Next enabled (no required pick on welcome)", () => {

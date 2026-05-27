@@ -49,9 +49,9 @@ import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 // promises a navigation when one is actually about to happen.
 function exitSpeech(): string {
   if (typeof window !== "undefined" && window.location?.pathname === "/") {
-    return "Nice. Let me show you how the canvas works.";
+    return "Great. Let me show you how your Home dashboard works.";
   }
-  return "Nice. Let me take us back home so I can show you how the canvas works.";
+  return "Great. Let me take us back home so we can look at your dashboard.";
 }
 
 export const projectOverviewExitStep = buildWalkthroughStep({

@@ -53,16 +53,13 @@ export const homeCreateProjectFillStep = buildWalkthroughStep({
     <>
       <p className="mb-2">
         Give your project a name and pick a color. Don&apos;t worry,
-        these choices can always be changed later on.
-      </p>
-      <p className="mb-2">
-        Tags are optional and let you group projects later.
+        these choices can always be changed later.
       </p>
       <p>
         The seven-day work week toggle controls whether weekends count
-        for scheduling. Most labs leave it off so the Gantt skips Sat
-        and Sun. Turn it on if your work spans weekends. Click Create
-        Project when you&apos;re ready.
+        for your schedule. Most labs leave it off so the Gantt chart
+        skips Saturday and Sunday. Click Create Project when you&apos;re
+        ready.
       </p>
     </>
   ),

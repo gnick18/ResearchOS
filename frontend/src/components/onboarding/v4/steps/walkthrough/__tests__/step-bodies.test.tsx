@@ -41,7 +41,7 @@ vi.mock("../../../TourController", () => ({
 import { homeCreateProjectStep } from "../HomeCreateProjectStep";
 import { homeCreateProjectFillStep } from "../HomeCreateProjectFillStep";
 import { projectOverviewNavStep } from "../ProjectOverviewNavStep";
-import { projectOverviewStep, PLACEHOLDER_HYPOTHESIS } from "../ProjectOverviewStep";
+import { projectOverviewStep } from "../ProjectOverviewStep";
 import { projectOverviewContextStep } from "../ProjectOverviewContextStep";
 import { notificationsBellStep } from "../NotificationsBellStep";
 import { notificationsSilenceStep } from "../NotificationsSilenceStep";
@@ -77,7 +77,10 @@ import { methodAttachmentStep } from "../MethodAttachmentStep";
 // retired; the ExperimentTabsOverviewStep.tsx file has been deleted.
 // New skeleton imports for Wave 1.
 import { projectOverviewRollupStep } from "../ProjectOverviewRollupStep";
-import { projectOverviewTypingDemoStep } from "../ProjectOverviewTypingDemoStep";
+import {
+  projectOverviewTypingDemoStep,
+  PLACEHOLDER_HYPOTHESIS,
+} from "../ProjectOverviewTypingDemoStep";
 import { notificationsIntroStep } from "../NotificationsIntroStep";
 import { hybridEditorScopeStep } from "../HybridEditorScopeStep";
 import { settingsIntroStep } from "../SettingsIntroStep";
@@ -409,7 +412,11 @@ describe("P5 step bodies — universal contract", () => {
     // user-action steps that explicitly drop cursorScript.
     const DEMO_STEPS_WITH_CURSOR_SCRIPT = [
       projectOverviewNavStep,
-      projectOverviewStep,
+      // Wave 2A speech rewrite (v4 tour speech manager — A, 2026-05-27):
+      // the BEAKERBOT_DEMO typing portion split off project-overview-prose
+      // into its own step (project-overview-typing-demo). The prose step
+      // is now pure narration and intentionally absent from this list.
+      projectOverviewTypingDemoStep,
       // §6.3 notifications sub-steps are all USER-ACTION per Grant's
       // 2026-05-21 split (the user clicks bell, silence, and delete
       // themselves); they're absent from this list deliberately.
@@ -544,10 +551,13 @@ describe("HomeCreateProjectFillStep (§6.1 fill)", () => {
     );
   });
   it("speech explains the seven-day work week toggle", () => {
+    // Wave 2A speech rewrite (v4 tour speech manager — A, 2026-05-27):
+    // copy switched to Grant's new phrasing ("weekends count for your
+    // schedule" / "Saturday and Sunday"). Test updated to match.
     const text = renderSpeech(homeCreateProjectFillStep);
     expect(text).toMatch(/seven-day work week/);
-    expect(text).toMatch(/weekends count for scheduling/);
-    expect(text).toMatch(/Sat and Sun/);
+    expect(text).toMatch(/weekends count for your schedule/);
+    expect(text).toMatch(/Saturday and Sunday/);
   });
   it("speech mentions the name + color + Create Project affordances", () => {
     const text = renderSpeech(homeCreateProjectFillStep);
@@ -591,10 +601,16 @@ describe("ProjectOverviewNavStep (§6.2 nav)", () => {
   it("uses pose: pointing (click-affordance pose)", () => {
     expect(projectOverviewNavStep.pose).toBe("pointing");
   });
-  it("speech promises BeakerBot will navigate into the project", () => {
-    expect(renderSpeech(projectOverviewNavStep)).toMatch(
-      /I'm taking us into your project/,
-    );
+  it("speech sets up the project page concept and signals the navigation", () => {
+    // Wave 2A speech rewrite (v4 tour speech manager — A, 2026-05-27):
+    // new copy frames why projects matter ("Every experiment, method,
+    // and task you create gets attached to a project") and announces
+    // the navigation ("Let's open the one you just made") instead of
+    // the prior one-liner promise.
+    const text = renderSpeech(projectOverviewNavStep);
+    expect(text).toMatch(/experiment/);
+    expect(text).toMatch(/project page/);
+    expect(text).toMatch(/Let's open the one you just made/);
   });
   it("expectedRoute is `/` so refresh lands the user back on home", () => {
     expect(projectOverviewNavStep.expectedRoute).toBe("/");
@@ -643,11 +659,12 @@ describe("ProjectOverviewNavStep (§6.2 nav)", () => {
 });
 
 describe("ProjectOverviewStep (§6.2 prose)", () => {
-  it("declares manual-advance completion (universal pacing, Grant 2026-05-22)", () => {
-    // Updated 2026-05-22 (v4 §6.2 overview teach sub-bot): the prose
-    // step used to auto-advance after the cursor finished typing the
-    // affirmation. New shape is manual ("Got it, next") so the user
-    // reads the typed hypothesis at their own pace.
+  // Wave 2A speech rewrite (v4 tour speech manager — A, 2026-05-27):
+  // the BEAKERBOT_DEMO typing portion split out to a new step
+  // (project-overview-typing-demo). The prose step is now pure
+  // narration: explains the four-section project page and the Overview
+  // box's purpose, no cursor demo, no typing pose.
+  it("declares manual-advance completion", () => {
     expect(projectOverviewStep.completion.type).toBe("manual");
   });
   it("targets the project overview textarea", () => {
@@ -655,51 +672,65 @@ describe("ProjectOverviewStep (§6.2 prose)", () => {
       "[data-tour-target=\"project-overview-textarea\"]",
     );
   });
-  it("uses pose: typing-on-laptop", () => {
-    // Updated 2026-05-21: the §6.2 ProjectOverviewStep was migrated to
-    // the clearer typing-on-laptop pose (commit 89bb9ec8) so the user
-    // sees two hands hammering a side-profile keyboard slab rather than
-    // the vague single-hand pulse of the bare `typing` pose.
-    expect(projectOverviewStep.pose).toBe("typing-on-laptop");
+  it("uses pose: pointing (narration, no cursor demo)", () => {
+    expect(projectOverviewStep.pose).toBe("pointing");
   });
-  it("speech teaches the overview's purpose (north-star framing, Grant 2026-05-22)", () => {
-    // Updated 2026-05-22 (v4 §6.2 overview teach sub-bot): the speech
-    // used to be a one-liner "Watch, I'll type a hypothesis sentence
-    // into the Overview". New speech actually teaches WHY the page
-    // exists (north star, re-anchor on the goal) before announcing the
-    // typing demo.
+  it("speech describes the four-section page and the Overview box's purpose", () => {
+    // Wave 2A: new copy per Grant's 2026-05-27 script. Asserts the
+    // distinctive phrases so a future copy edit surfaces via test
+    // failure rather than silent drift.
     const text = renderSpeech(projectOverviewStep);
-    expect(text).toMatch(/overview page/);
-    expect(text).toMatch(/north star/);
-    expect(text).toMatch(/come back here/);
-    expect(text).toMatch(/I'll type a placeholder hypothesis/);
+    expect(text).toMatch(/four sections/);
+    expect(text).toMatch(/Overview/);
+    expect(text).toMatch(/hypothesis/);
+    expect(text).toMatch(/anchor/);
   });
-  it("expectedRoute is undefined (live-test R2: bare /workbench/projects 404'd; nav handled by previous step)", () => {
+  it("expectedRoute is undefined (NAV sub-step already navigated us here)", () => {
     expect(projectOverviewStep.expectedRoute).toBeUndefined();
   });
-  it("placeholder hypothesis is a concrete research-shaped goal + hypothesis (Grant 2026-05-22)", () => {
-    // Updated 2026-05-22 (v4 §6.2 overview teach sub-bot): the prior
-    // affirmation easter-egg ("You are smart, confident...") was cute
-    // but didn't teach what the Overview is FOR. New placeholder shows
-    // a real-shaped research goal + hypothesis so the user pattern-
-    // matches. Locking the exact string here so a future copy edit
-    // surfaces via test failure rather than silent drift.
+  it("has no cursor script (typing demo moved to project-overview-typing-demo)", () => {
+    // Wave 2A: cursor script + PLACEHOLDER_HYPOTHESIS moved to the new
+    // project-overview-typing-demo step. The prose step is pure
+    // narration now.
+    expect(projectOverviewStep.cursorScript).toBeUndefined();
+  });
+});
+
+describe("ProjectOverviewTypingDemoStep (§6.2 typing demo)", () => {
+  // Wave 2A speech rewrite (v4 tour speech manager — A, 2026-05-27):
+  // new step that owns the BEAKERBOT_DEMO typing portion split off
+  // project-overview-prose. Cursor focuses the Overview textarea and
+  // types the placeholder hypothesis.
+  it("declares manual-advance completion", () => {
+    expect(projectOverviewTypingDemoStep.completion.type).toBe("manual");
+  });
+  it("targets the project overview textarea", () => {
+    expect(projectOverviewTypingDemoStep.targetSelector).toBe(
+      "[data-tour-target=\"project-overview-textarea\"]",
+    );
+  });
+  it("uses pose: typing-on-laptop", () => {
+    expect(projectOverviewTypingDemoStep.pose).toBe("typing-on-laptop");
+  });
+  it("speech announces the placeholder typing demo", () => {
+    const text = renderSpeech(projectOverviewTypingDemoStep);
+    expect(text).toMatch(/placeholder hypothesis/);
+    expect(text).toMatch(/Overview box/);
+  });
+  it("placeholder hypothesis is a concrete research-shaped goal + hypothesis", () => {
+    // Locked exact string so a future copy edit surfaces via test
+    // failure rather than silent drift.
     expect(PLACEHOLDER_HYPOTHESIS).toBe(
       "Goal: figure out the optimal annealing temperature for our PCR primer set. Hypothesis: 58°C will outperform the 56°C default.",
     );
   });
   it("cursor script issues a click + a type action against the textarea", async () => {
-    // Mount a fixture textarea matching the cursor script's selector.
-    // The prose step's cursor runs ONLY when on the project route (after
-    // the NAV sub-step landed us here), so the type action against the
-    // textarea always resolves in the integration path. Here we mount
-    // the anchor manually to exercise the script in isolation.
     const textarea = document.createElement("textarea");
     textarea.setAttribute("data-tour-target", "project-overview-textarea");
     document.body.appendChild(textarea);
     try {
-      expect(projectOverviewStep.cursorScript).toBeDefined();
-      const actions = await projectOverviewStep.cursorScript!();
+      expect(projectOverviewTypingDemoStep.cursorScript).toBeDefined();
+      const actions = await projectOverviewTypingDemoStep.cursorScript!();
       expect(actions).toHaveLength(2);
       expect(actions[0]).toMatchObject({ type: "click", target: textarea });
       expect(actions[1]).toMatchObject({
@@ -708,30 +739,6 @@ describe("ProjectOverviewStep (§6.2 prose)", () => {
         text: PLACEHOLDER_HYPOTHESIS,
       });
     } finally {
-      textarea.remove();
-    }
-  });
-  it("cursor script no longer clicks a home-project-card (nav lives in the NAV sub-step)", async () => {
-    // Regression guard: the original §6.2 step tried to click the
-    // project card AND type into the textarea in a single script. The
-    // route change cancelled the in-flight runScript so nothing ever
-    // typed. The NAV sub-step now owns the card click; the PROSE step
-    // must NOT also click it.
-    const card = document.createElement("button");
-    card.setAttribute("data-tour-target", "home-project-card-99");
-    const textarea = document.createElement("textarea");
-    textarea.setAttribute("data-tour-target", "project-overview-textarea");
-    document.body.appendChild(card);
-    document.body.appendChild(textarea);
-    try {
-      const actions = await projectOverviewStep.cursorScript!();
-      for (const action of actions) {
-        if (action.type === "click") {
-          expect(action.target).not.toBe(card);
-        }
-      }
-    } finally {
-      card.remove();
       textarea.remove();
     }
   });
@@ -760,15 +767,13 @@ describe("ProjectOverviewContextStep (§6.2 context narration)", () => {
     // spotlight on the topbar is the visual cue; no cursor glide.
     expect(projectOverviewContextStep.cursorScript).toBeUndefined();
   });
-  it("speech narrates the metadata strip (tags / dates / status)", () => {
-    // Copy-alignment manager 2026-05-26: speech rewritten to
-    // acknowledge fields-empty-on-first-visit (the topbar only renders
-    // these chips when populated). New copy still references tags +
-    // dates + status, just without the "live alongside the overview"
-    // framing that didn't match the actual on-page rendering.
+  it("speech narrates the metadata strip (tags / status / topbar)", () => {
+    // Wave 2A speech rewrite (v4 tour speech manager — A, 2026-05-27):
+    // Grant's new copy keeps tags + status + topbar but drops "dates"
+    // (the topbar no longer makes a separate dates promise). Test
+    // updated to match the shipped phrasing.
     const text = renderSpeech(projectOverviewContextStep);
     expect(text).toMatch(/tag/i);
-    expect(text).toMatch(/dates/);
     expect(text).toMatch(/status/);
     expect(text).toMatch(/topbar/);
   });

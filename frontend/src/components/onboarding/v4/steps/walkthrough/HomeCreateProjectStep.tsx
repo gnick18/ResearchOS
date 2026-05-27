@@ -38,7 +38,7 @@ import { watchHomeCreateModalOpened } from "./lib/tour-events";
 export const homeCreateProjectStep = buildWalkthroughStep({
   id: "home-create-project",
   speech:
-    "Let's make your first project. Click the blue plus button up there to get started.",
+    "Projects are the top-level folders for all your work. Let's make your first one. Click the blue plus button up there to get started.",
   pose: "pointing-up",
   targetSelector: targetSelector(TOUR_TARGETS.homeNewProject),
   // Intentionally no cursorScript: BeakerBot tells the user to click;

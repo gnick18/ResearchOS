@@ -78,7 +78,7 @@ export const HOME_WIDGETS_REORDER_DEST_SELECTOR =
 export const homeWidgetsReorderStep = buildWalkthroughStep({
   id: "home-widgets-reorder",
   speech:
-    "Drag any tile to reorder it. Put the widgets you check every morning at the top, and the slower-moving ones below. If you share this folder with lab members later, your layout stays yours and theirs stays theirs. I'll grab one and drop it lower so you can see how it settles.",
+    "You can also drag any tile to reorder it. Keep your most important widgets at the top. If you eventually share this workspace with lab members, your layout stays yours and theirs stays theirs.",
   pose: "pointing",
   // No spotlight on this step (Grant feedback 2026-05-26). The copy is
   // conceptual ("any tile") and the previous version's blue halo on

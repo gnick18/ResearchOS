@@ -28,7 +28,7 @@ import { watchNotificationSilenced } from "./lib/tour-events";
 export const notificationsSilenceStep = buildWalkthroughStep({
   id: "notifications-silence",
   speech:
-    "Nice. To silence the bell badge, click either the row or the Mark read button. This will make the bell stop bugging you.",
+    'To clear the notification badge without deleting the message, click either the row itself or the "Mark read" button. Try it now.',
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.notificationSilence),
   // No cursorScript: user-action step. The user clicks either the

@@ -84,7 +84,7 @@ let releaseDemoPreview: (() => void) | null = null;
 export const homeWidgetsExitStep = buildWalkthroughStep({
   id: "home-widgets-exit",
   speech:
-    "That's the canvas. You can come back any time, swap widgets in and out, and rearrange the order. Up next, notifications.",
+    "That covers the canvas. You can come back anytime to swap widgets in and out. If you want to try out different widgets with real data, the demo account is a great place to do that. Next, let's look at how ResearchOS keeps you updated.",
   pose: "pointing",
   // Spotlight + cursor target both anchor on the bell so the user's eye
   // is drawn toward §6.3's surface before the bell click owns it.

@@ -79,14 +79,14 @@ export const SETUP_STEP_DESCRIPTORS: Partial<
     title: "Welcome to ResearchOS",
     pose: "waving",
     speech:
-      "Welcome! Two-sentence pitch coming right up, then we'll get you set up.",
+      "Welcome to ResearchOS! Here is a quick overview before we set up your account.",
     Component: WelcomeStep,
   },
   "setup-q1": {
     title: "Solo or lab?",
     pose: "thinking",
     speech:
-      "Quick first call: are you flying solo, or is this for a whole lab?",
+      "First up: are you setting this account up just for yourself, or for an entire lab?",
     Component: Q1AccountTypeStep,
   },
   "setup-q1c": {
@@ -100,42 +100,42 @@ export const SETUP_STEP_DESCRIPTORS: Partial<
     title: "Track lab purchases?",
     pose: "thinking",
     speech:
-      "Some folks track every reagent. Some folks would rather forget. Your call.",
+      "Do you want to track lab purchases and reagent orders? You can enable the tracker now or leave it off to keep things simple.",
     Component: Q2PurchasesStep,
   },
   "setup-q3": {
     title: "Want calendar feeds?",
     pose: "thinking",
     speech:
-      "ResearchOS can overlay any public iCal (ICS) feed on your calendar. Want that on?",
+      "ResearchOS can overlay any public calendar such as personal ones from Outlook, Apple, Google, etc. Would you like a walkthrough on how to get that link working?",
     Component: Q3CalendarStep,
   },
   "setup-q4": {
     title: "Want a goal-tracking page?",
     pose: "thinking",
     speech:
-      "Goal bars next to your Gantt so you can see plan-vs-reality. Want it on?",
+      "You can set up high-level goals for projects, or even private goals for things outside the lab. They show up right on your Gantt chart to help you keep track of what you want to achieve and how much time is left. Want to turn this on?",
     Component: Q4GoalsStep,
   },
   "setup-q5": {
     title: "Telegram for image inbox?",
     pose: "thinking",
     speech:
-      "Snap a gel photo on your phone, send it to the bot, the image lands in your inbox. Want it?",
+      "You can link a Telegram bot to send photos directly from your phone to your ResearchOS inbox. This makes it easy to quickly upload gel images or bench notes. Do you want to enable this integration?",
     Component: Q5TelegramStep,
   },
   "setup-q6": {
     title: "AI Helper prompt?",
     pose: "thinking",
     speech:
-      "I can copy you a prompt that turns Claude, ChatGPT, or Gemini into a schema-aware assistant. Pick a size.",
+      "We can generate a custom system prompt for external AI tools like Claude, ChatGPT, or Gemini so they understand how your lab notebook is organized. Pick how much detail you want included.",
     Component: Q6AiHelperStep,
   },
   "setup-q7": {
     title: "Save important links?",
     pose: "thinking",
     speech:
-      "Want a page for VPN, calendar, freezer inventory, manuscript drafts? Toggle it on or off.",
+      "The Links tab is a dedicated space to save important bookmarks, like your lab calendar, freezer inventory, or manuscript drafts. Do you want this tab enabled?",
     Component: Q7LinksStep,
   },
   // v4 setup wrap-up step manager 2026-05-24. Confirmation beat. The

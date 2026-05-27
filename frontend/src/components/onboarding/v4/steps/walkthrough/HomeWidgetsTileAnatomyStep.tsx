@@ -116,7 +116,7 @@ export const HOME_WIDGETS_TILE_ANATOMY_CLOSE_SELECTOR =
 export const homeWidgetsTileAnatomyStep = buildWalkthroughStep({
   id: "home-widgets-tile-anatomy",
   speech:
-    "Each tile shows you a snapshot. The numbers and the top few rows give you the gist at a glance. Click the tile to expand it into a full popup, where you get filters, search, and the same actions you'd find on the dedicated page.",
+    "Each tile gives you a high-level snapshot. If you click a tile, it expands into a full popup where you can search, filter, and take action without having to navigate to a new page.",
   pose: "pointing",
   targetSelector: HOME_WIDGETS_TILE_ANATOMY_TILE_SELECTOR,
   onEnter: async () => {

@@ -23,6 +23,8 @@
  * canvas) belong in browser-driven E2E, not vitest.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ReactNode } from "react";
+import { render } from "@testing-library/react";
 
 import {
   __resetTourWidgetDemoPreviewForTests,
@@ -47,11 +49,24 @@ import {
 } from "../HomeWidgetsReorderStep";
 import { homeWidgetsExitStep } from "../HomeWidgetsExitStep";
 
-/** Helper: pull the literal speech string off a step body. The §6.2b
- *  bodies all author `speech` as a plain string (no ReactNode JSX);
- *  this keeps the no-em-dash assertion straightforward. */
+/** Helper: pull the rendered speech text off a step body. Most §6.2b
+ *  bodies author `speech` as a plain string, but Wave 2A (2026-05-27)
+ *  promoted some to multi-paragraph JSX. Render the node to the DOM
+ *  and read textContent so assertions work against either shape. */
 function speechOf(step: { speech: unknown }): string {
-  return typeof step.speech === "string" ? step.speech : "";
+  if (typeof step.speech === "string") return step.speech;
+  if (typeof step.speech === "function") {
+    const node = (step.speech as () => unknown)();
+    const { container, unmount } = render(<>{node as ReactNode}</>);
+    const text = container.textContent ?? "";
+    unmount();
+    return text;
+  }
+  // ReactNode (JSX). render() accepts a ReactNode directly.
+  const { container, unmount } = render(<>{step.speech as ReactNode}</>);
+  const text = container.textContent ?? "";
+  unmount();
+  return text;
 }
 
 // Reset the §6.2b demo-preview refcount between cases so each test
@@ -471,14 +486,17 @@ describe("§6.2b home-widgets-exit (Step 5: exit beat + telegraph notifications)
     expect(speechOf(homeWidgetsExitStep)).not.toContain("—");
   });
 
-  it("speech telegraphs the next section (notifications) without firing it", () => {
-    // The exit beat hands off to §6.3a (notifications-bell), which
-    // owns the actual test-notification spawn via its onEnter. This
-    // step's speech should mention notifications as the next surface
-    // so the user isn't surprised when the bell pulses on the next
-    // step. Assert the literal "notifications" word appears so a
-    // future copy edit that drops the handoff surfaces here.
-    expect(speechOf(homeWidgetsExitStep).toLowerCase()).toContain("notifications");
+  it("speech telegraphs the next section without firing it", () => {
+    // Wave 2A speech rewrite (v4 tour speech manager — A, 2026-05-27):
+    // the exit beat hands off to §6.3 notifications. Grant's new copy
+    // softens the literal "notifications" word into "how ResearchOS
+    // keeps you updated", which still telegraphs the next surface
+    // without spoiling the bell mechanic. Assert the "keeps you
+    // updated" handoff phrase appears so a future copy edit that drops
+    // the transition surfaces here.
+    expect(speechOf(homeWidgetsExitStep).toLowerCase()).toContain(
+      "keeps you updated",
+    );
   });
 
   it("onEnter clicks the canvas Done button only when edit mode is on (R3 fix)", async () => {

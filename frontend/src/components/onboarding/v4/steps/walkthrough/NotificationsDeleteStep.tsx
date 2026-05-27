@@ -16,7 +16,7 @@ import { watchNotificationDeleted } from "./lib/tour-events";
 export const notificationsDeleteStep = buildWalkthroughStep({
   id: "notifications-delete",
   speech:
-    "And to clear it from your inbox entirely, click the X. Try it on this one.",
+    "If you want to clear it from your inbox entirely, just click the X.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.notificationDelete),
   // No cursorScript: user-action step. The user clicks the spotlighted

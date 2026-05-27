@@ -121,7 +121,7 @@ export const HOME_WIDGETS_ADD_DEMO_DONE_EVENT =
 export const homeWidgetsAddStep = buildWalkthroughStep({
   id: "home-widgets-add",
   speech:
-    "Add as many or as few widgets as you want. Some labs run lean with a couple tiles, others pack in everything they track. I'll open the catalog and add one so you can see how it lands on the canvas.",
+    "You can add as many widgets as you need from the catalog. I'll open it up and add one now so you can see how it drops onto your canvas.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.homeWidgetAddButton),
   cursorScript: cursorScript(async () => {

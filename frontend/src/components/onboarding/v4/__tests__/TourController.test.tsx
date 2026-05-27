@@ -1064,7 +1064,11 @@ describe("TourController — cursor-script invocation", () => {
     const { result } = renderHook(() => useTourController(), {
       wrapper: wrapper(),
     });
-    act(() => result.current.start("project-overview-prose"));
+    // Wave 2A speech rewrite (v4 tour speech manager — A, 2026-05-27):
+    // the BEAKERBOT_DEMO cursorScript moved off project-overview-prose
+    // (now pure narration) onto the new project-overview-typing-demo
+    // step. Start there so the cursor-script effect fires.
+    act(() => result.current.start("project-overview-typing-demo"));
     await waitFor(() => {
       expect(cursorRunScriptMock).toHaveBeenCalledTimes(1);
     });
@@ -1077,7 +1081,11 @@ describe("TourController — cursor-script invocation", () => {
     const { result } = renderHook(() => useTourController(), {
       wrapper: wrapper(),
     });
-    act(() => result.current.start("project-overview-prose"));
+    // Wave 2A speech rewrite (v4 tour speech manager — A, 2026-05-27):
+    // the BEAKERBOT_DEMO cursorScript moved off project-overview-prose
+    // (now pure narration) onto the new project-overview-typing-demo
+    // step. Start there so the cursor-script effect fires.
+    act(() => result.current.start("project-overview-typing-demo"));
     await waitFor(() => {
       expect(cursorRunScriptMock).toHaveBeenCalledTimes(1);
     });
@@ -1111,7 +1119,11 @@ describe("TourController — cursor-script invocation", () => {
     const { result } = renderHook(() => useTourController(), {
       wrapper: wrapper(),
     });
-    act(() => result.current.start("project-overview-prose"));
+    // Wave 2A speech rewrite (v4 tour speech manager — A, 2026-05-27):
+    // the BEAKERBOT_DEMO cursorScript moved off project-overview-prose
+    // (now pure narration) onto the new project-overview-typing-demo
+    // step. Start there so the cursor-script effect fires.
+    act(() => result.current.start("project-overview-typing-demo"));
     // The lock should appear in the document before / while the
     // cursor script runs. Even if runScript resolves quickly under
     // the mock, the build-phase + script-execute window is when the
@@ -1133,7 +1145,11 @@ describe("TourController — cursor-script invocation", () => {
     const { result } = renderHook(() => useTourController(), {
       wrapper: wrapper(),
     });
-    act(() => result.current.start("project-overview-prose"));
+    // Wave 2A speech rewrite (v4 tour speech manager — A, 2026-05-27):
+    // the BEAKERBOT_DEMO cursorScript moved off project-overview-prose
+    // (now pure narration) onto the new project-overview-typing-demo
+    // step. Start there so the cursor-script effect fires.
+    act(() => result.current.start("project-overview-typing-demo"));
     await waitFor(() => {
       expect(cursorRunScriptMock).toHaveBeenCalledTimes(1);
     });
@@ -1227,7 +1243,9 @@ describe("TourController — cursor-lock watchdog (§6.2 escape hatch)", () => {
         const ctrl = useTourController();
         return (
           <div>
-            <button onClick={() => ctrl.start("project-overview-prose")}>
+            <button
+              onClick={() => ctrl.start("project-overview-typing-demo")}
+            >
               start
             </button>
           </div>

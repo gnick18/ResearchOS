@@ -33,7 +33,8 @@ import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 
 export const projectOverviewNavStep = buildWalkthroughStep({
   id: "project-overview-nav",
-  speech: "I'm taking us into your project.",
+  speech:
+    "Every experiment, method, and task you create gets attached to a project. The project page is where all of that comes back together in one view. Let's open the one you just made.",
   pose: "pointing",
   // No targetSelector: the cursor click on the project card is the
   // visual cue. A spotlight on the card would dim the rest of the home

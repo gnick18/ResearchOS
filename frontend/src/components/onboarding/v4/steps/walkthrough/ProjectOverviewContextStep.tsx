@@ -40,7 +40,7 @@ import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 export const projectOverviewContextStep = buildWalkthroughStep({
   id: "project-overview-context",
   speech:
-    "This is your project's topbar. As you tag this project and set dates or status, they'll appear here as a quick-glance summary so you can see the shape of the work without scrolling.",
+    "This topbar stays with you across the project. As you add tags or update the status, they appear here so you can always see a quick summary without scrolling.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.projectOverviewTopbar),
   // No cursorScript: pure narration. The spotlight on the topbar is
