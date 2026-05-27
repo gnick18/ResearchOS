@@ -1741,14 +1741,80 @@ Tour complete. Find BeakerBot again in Settings -> Onboarding.
 
 ## How to edit this file
 
-- Edit the fenced speech code blocks freely. Everything outside the code blocks is reference material for orchestration; you can change it too, but the inverse-apply diff will only re-introduce edits that map to a `speech:` field in the source step.
-- If you want to drop a step, mark its H3 heading as `### <step-id> [DROP]`. The orchestrator manager will surface the proposed removal for review before deleting the body.
-- If you want to add a NEW step at a position, insert a header `### NEW: <description>` between two existing step headers and write the speech in a code block underneath. You will need to spec a step id, classification, spotlight target, and completion shape in the body of a follow-up brief - this doc just captures the copy intent.
-- Do NOT change the H2 phase headers or the existing step IDs in their H3 headers. Phase order and step IDs are load-bearing in TOUR_STEP_ORDER.
-- [DYNAMIC] speech variants need extra care during inverse-apply. The notes inside those blocks tell you which conditional branches exist; edit each variant separately and keep the leading `[DYNAMIC] <label>:` tag so the inverse-apply can route each variant to the right branch in the source.
-- For Telegram, the branch picker speech and each per-branch speech body live in separate JSX returns. Edit each labeled block individually.
-- For the gantt-share-user-shares-back and gantt-share-profile-switch beats, the stage / beat numbers map directly to React state values in source - keep the labels intact.
-- When you are done, save and hand the file back. The orchestrator manager will diff your speech blocks against the source step files and produce a single patch.
+Six edit operations are supported. Each one is interpreted by the orchestrator manager when you hand the file back.
+
+### 1. Refine copy (the common case)
+
+Just rewrite the speech in the fenced code block under any step. Markdown bold (`**bold**`) and italic (`_italic_`) inside the speech are preserved. Paragraph breaks render as blank lines in the bubble.
+
+### 2. Drop a step
+
+Append `[DROP]` to the step's H3 heading:
+
+```
+### methods-old-step [DROP]
+```
+
+On apply: removed from TOUR_STEP_ORDER, removed from step-registry, body file deleted, tests updated.
+
+### 3. Add a new step
+
+Insert a new H3 block between two existing steps, anywhere in the doc. The position in the file IS the position in TOUR_STEP_ORDER on apply. Required metadata up front:
+
+```
+### NEW: <short-id-suggestion>
+*context blurb describing where this lands and what just happened*
+
+- Voice: NARRATION | BEAKERBOT_DEMO | USER_ACTION
+- Spotlight: <data-tour-target-key> or none
+- Completion: manual | event | auto | branch
+- ExpectedRoute: / | /workbench | /methods | etc. (or omit)
+
+` ` ` (fenced speech block)
+Speech text goes here. Multiple paragraphs OK.
+` ` `
+```
+
+On apply: I create the step body file, register it, slot it into the array at that position, add a minimal test. If you marked `BEAKERBOT_DEMO`, I'll come back to you with a short clickable question about what the cursor should DO (the cursor sequence can't be inferred from copy alone).
+
+### 4. Reorder steps
+
+Just move H3 blocks around in the file (cut and paste in your editor). The doc order becomes the new TOUR_STEP_ORDER on apply. You can move steps within a phase or across phases. If you move a step across a phase header, also put it under the right `## §...` H2 so the doc stays readable.
+
+### 5. Change interaction class
+
+Edit the `Voice:` line at the top of any existing step block.
+
+| From → To | What I do on apply |
+|---|---|
+| `BEAKERBOT_DEMO` → `USER_ACTION` | Strip cursorScript, change pose to "pointing", spotlight the user's target, flip tests |
+| `BEAKERBOT_DEMO` → `NARRATION` | Strip cursorScript, keep speech as-is, flip tests |
+| `NARRATION` → `USER_ACTION` | Add expectedRoute / spotlight if needed, leave speech as the instruction copy |
+| `USER_ACTION` → `BEAKERBOT_DEMO` | I'll surface a clickable question asking what the cursor should DO (selector + action sequence). Cursor scripts can't be inferred from copy. |
+| `NARRATION` → `BEAKERBOT_DEMO` | Same as above |
+
+### 6. Change spotlight / completion / route
+
+Edit the `Spotlight:`, `Completion:`, or `ExpectedRoute:` metadata lines. Use the canonical TOUR_TARGETS key (grep `frontend/src/components/onboarding/v4/steps/walkthrough/lib/targets.ts` for the full list) or `none`. Completion takes `manual`, `event`, `auto`, `branch`.
+
+### Things you should NOT change
+
+- H2 phase headers (`## §6.1 Home + first project` etc.) — these are doc-level only, the inverse-apply doesn't use them
+- H3 step IDs themselves (`### home-create-project`) — these are load-bearing identifiers
+- The leading `[DYNAMIC] <label>:` tags inside dynamic-speech blocks — they're how I route each variant back to the right conditional branch in source
+
+### [DYNAMIC] speech variants
+
+Some step bodies pick speech at runtime based on state. The flagged steps in this doc are listed at top of the report. For each:
+
+- Edit each labeled variant separately
+- Keep the `[DYNAMIC] <label>:` prefix intact
+- For Telegram, each branch (`yes-now`, `yes-later`, `no-telegram`) plus sub-states gets its own labeled block
+- For `gantt-share-user-shares-back` and `gantt-share-profile-switch`, the stage/beat numbers map to React state values — keep labels intact
+
+### Handing back
+
+Save the file, drop me a line. I'll diff against the source step bodies and produce a single patch with all your changes applied. If you flipped any class to DEMO or marked NEW steps as DEMO, I'll come back with the cursor-sequence question first; everything else is mechanical.
 
 ---
 
