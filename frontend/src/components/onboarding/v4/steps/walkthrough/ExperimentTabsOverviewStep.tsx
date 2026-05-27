@@ -68,8 +68,8 @@ export const experimentTabsOverviewStep = buildWalkthroughStep({
         the top of this popup.
       </p>
       <p className="mb-2">
-        <strong>Details</strong> holds the experiment's metadata: the
-        project it belongs to, dates, status, linked method, and
+        <strong>Details</strong> holds the experiment&apos;s metadata:
+        the project it belongs to, dates, status, linked method, and
         scheduling.
       </p>
       <p className="mb-2">
@@ -78,14 +78,14 @@ export const experimentTabsOverviewStep = buildWalkthroughStep({
       </p>
       <p className="mb-2">
         <strong>Method</strong> is the protocol attached to this
-        experiment (the recipe you're running).
+        experiment (the recipe you&apos;re running).
       </p>
       <p className="mb-2">
         <strong>Results</strong> is for the data side: tables, outputs,
         and measurements.
       </p>
       <p>
-        Now I'll show you how to attach a method.
+        Now I&apos;ll show you how to attach a method.
       </p>
     </>
   ),
