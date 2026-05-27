@@ -585,6 +585,7 @@ export default function SearchPage() {
           <div className="flex gap-3 mt-6">
             <button
               onClick={handleSearch}
+              data-tour-target="search-submit"
               className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               Search

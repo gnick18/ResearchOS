@@ -1,32 +1,21 @@
 /**
  * §6.11 Search — universal walkthrough.
  *
- * Cursor navigates to /search, types a query matching the experiment
- * created in §6.5. The §6.5 demo experiment's canonical placeholder
- * name was "Demo Experiment One" (from the retired
- * `WorkbenchCreateExperimentStep`); v4 tour structural manager (Wave
- * 1, 2026-05-27) inlines the constant here since that step body is
- * gone. Wave 2 may revisit when the new `workbench-create-experiment-open`
- * body re-establishes its own placeholder name; for now the search
- * still matches whatever name the user (or that step's auto-fill)
- * lands on the experiment.
+ * Hand-walk simplification 2026-05-27 (Grant): the prior cursor demo
+ * typed a partial-match query ("Demo Experiment") into the Keywords
+ * input. That dragged out the demo and didn't add much narrative value
+ * for a fresh user with only one experiment on file. New cursor:
+ * BeakerBot just clicks the Search button with no filters set, which
+ * returns every experiment in the account (one for a fresh user).
+ * Speech still explains what Search is for; the cursor just shows the
+ * mechanic.
  *
- * Speech acknowledges the empty-results case gracefully:
- *   "Your account's pretty empty so the demo's small, try this again
- *    after you've got real experiments."
- *
- * Auto-advance after the typing completes + a beat to read the
- * results. No artifact (search is transient).
- *
- * Classification: BEAKERBOT DEMO (per Grant's design correction
- * 2026-05-21). Speech is descriptive ("Search across everything...");
- * the cursor types a query so the user sees the search behavior with
- * a known input. Brief explicitly classifies search as demo. Cursor
- * keeps the type action.
+ * Classification: BEAKERBOT DEMO. Cursor performs a single click;
+ * user clicks Got it, next when they've seen enough.
  */
 import {
   cursorScript,
-  safeTypeAction,
+  safeClickAction,
   compactScript,
 } from "./lib/cursor-script";
 import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
@@ -35,31 +24,27 @@ import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 /**
  * Placeholder experiment name shared with §6.5. Re-export so the
  * `cursor-script.test.tsx` regression suite can keep asserting on a
- * single source of truth. v4 tour structural manager (Wave 1,
- * 2026-05-27): the prior owner step was retired, so the constant now
- * lives here.
+ * single source of truth. Kept here even after the search-demo cursor
+ * stopped typing it because callers downstream still import the
+ * constant.
  */
 export const PLACEHOLDER_EXPERIMENT_NAME = "Demo Experiment One";
-
-// We type just the first two words so the search input shows partial
-// matching behavior. "Demo Experiment" matches "Demo Experiment One"
-// from §6.5.
-const SEARCH_QUERY = PLACEHOLDER_EXPERIMENT_NAME.split(" ").slice(0, 2).join(
-  " ",
-);
 
 export const searchStep = buildWalkthroughStep({
   id: "search-demo",
   speech:
     "Search runs across everything in your account at once: experiments, methods, tasks, notes, results. So a year from now, when you vaguely remember running something with a particular reagent, you can find it without remembering which project it lived in.",
-  pose: "typing-on-laptop",
-  targetSelector: targetSelector(TOUR_TARGETS.searchInput),
+  pose: "pointing",
+  targetSelector: targetSelector(TOUR_TARGETS.searchSubmit),
   cursorScript: cursorScript(async () => {
-    const type = await safeTypeAction(
-      targetSelector(TOUR_TARGETS.searchInput),
-      SEARCH_QUERY,
+    // Click Search with no filters set. The empty query returns every
+    // experiment in the account, which for a fresh user is just the
+    // First experiment created in step 6.5. Drops the keyword-typing
+    // demo per Grant's hand-walk request to simplify.
+    const click = await safeClickAction(
+      targetSelector(TOUR_TARGETS.searchSubmit),
     );
-    return compactScript([type]);
+    return compactScript([click]);
   }),
   // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
   completion: manualAdvance("Got it, next"),

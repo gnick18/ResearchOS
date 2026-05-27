@@ -377,6 +377,7 @@ export const TOUR_TARGETS = {
 
   // §6.11 Search
   searchInput: "search-input",
+  searchSubmit: "search-submit",
 
   // §6.12 Wiki
   wikiNavTab: "wiki-nav-tab",
