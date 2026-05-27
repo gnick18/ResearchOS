@@ -43,15 +43,19 @@ import {
 
 /**
  * Shared shape for one bold/italic/underline/heading typing beat.
- * `markdownText` is what the cursor types; the helper prepends `\n\n`
- * so the typed content lands in a NEW paragraph block under whatever
- * the editor already contains.
+ * `markdownText` is what the cursor types; the helper prepends three
+ * newlines (2 blank lines) so the content lands in its own NEW
+ * paragraph block per the triple-newline rule (markdown-block-parser).
+ * Without this, every beat in §6.7 piled into the same block and the
+ * rendered preview was a wall of unparsed markdown.
  */
 export interface HybridTypingStepOpts {
   id: string;
   speech: ReactNode;
   /** Raw markdown the cursor types into the editor. The helper prepends
-   *  two newlines so the content lands in a fresh paragraph block. */
+   *  three newlines (2 blank lines, per the triple-newline rule) so the
+   *  content lands in a fresh paragraph block separated from whatever
+   *  the editor already contains. */
   markdownText: string;
 }
 
@@ -80,14 +84,26 @@ export function buildHybridTypingStep(opts: HybridTypingStepOpts): TourStep {
     pose: "typing-on-laptop",
     targetSelector: targetSelector(TOUR_TARGETS.hybridEditorTextarea),
     cursorScript: cursorScript(async () => {
+      // Grant feedback 2026-05-26: prior code assumed each sub-beat's
+      // wrapper-click would re-enter edit mode on a NEW empty paragraph
+      // (so no leading newlines needed). In practice, every beat
+      // appended into the SAME block. Result: the rendered preview was
+      // one wall of unparsed markdown — `**bold**` showing as literal
+      // stars, `# heading` showing as literal hashes, because in the
+      // middle of a paragraph that syntax doesn't parse as block-level.
+      //
+      // Fix: prepend `\n\n\n` (2 blank lines) to every typed chunk.
+      // Per the markdown-block-parser triple-newline rule that landed
+      // earlier today (b1802d8a chain), 2+ blank lines force a new
+      // paragraph block. Each demo beat now lands in its own rendered
+      // paragraph so users see bold/italic/heading lock in distinctly
+      // after each cursor sequence. First beat picks up some leading
+      // whitespace under the auto-generated experiment header — that's
+      // cheap cosmetic cost for the clarity gain.
+      const PARAGRAPH_BREAK = "\n\n\n";
       const typeAction = await safeTypeAction(
         targetSelector(TOUR_TARGETS.hybridEditorTextarea),
-        // The first sub-beat lands into a fresh edit block — no leading
-        // newlines needed. For subsequent sub-beats the editor commits
-        // the prior block (via the click-out below) before this one's
-        // wrapper-click re-enters edit mode on a NEW empty paragraph,
-        // so we don't need the prior helper's `\n\n` prefix here.
-        opts.markdownText,
+        PARAGRAPH_BREAK + opts.markdownText,
         25,
       );
       // Click out so the editor's mousedown click-outside listener
