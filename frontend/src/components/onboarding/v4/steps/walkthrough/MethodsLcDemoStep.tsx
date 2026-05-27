@@ -49,12 +49,11 @@ export const methodsLcDemoStep = buildWalkthroughStep({
   speech:
     "And here is the LC Gradient editor. Scroll down inside the modal to see the live chart that updates as you change values in the table. Click \"Got it, next\" when you're ready to move on.",
   pose: "pointing",
-  // Spotlight ring lands on the LC tile the cursor is about to click.
-  // Scroll-and-demo fix manager 2026-05-27: re-pointed from
-  // `lcEditorWrapper` (which doesn't exist at step entry — the LC
-  // editor only mounts after the tile click) to the picker tile so
-  // the spotlight is meaningful from the first frame.
-  targetSelector: targetSelector(TOUR_TARGETS.methodsTypeLcGradientTile),
+  // No targetSelector. Hand-walk fix 2026-05-27 (third pass): same
+  // root cause as methods-type-tour. The spotlight on the LC tile at
+  // the top of the modal made TourSpotlight's keep-in-view logic
+  // auto-scroll the modal back up whenever the user tried to scroll
+  // down to see the chart. Dropping the spotlight unblocks scroll.
   cursorScript: cursorScript(async () => {
     // 1) Click the LC Gradient tile. The picker is already mounted
     // from the prior methods-type-tour beat (the CreateMethodModal
@@ -94,8 +93,7 @@ export const methodsLcDemoStep = buildWalkthroughStep({
     allowList: [TOUR_TARGETS.methodsCreateForm],
     pillLabel: "Play with the LC Gradient. Hit Got it, next when you're ready.",
   },
-  // Bring the whole modal into view at step entry. The post-click
-  // scroll callback handles the inner scroll once the LC editor
-  // mounts.
-  viewportAnchor: targetSelector(TOUR_TARGETS.methodsCreateForm),
+  // No viewportAnchor: the modal is already in view (it's a portal
+  // covering most of the screen); anchoring re-snaps the scroll up
+  // and fights the user's wheel.
 });

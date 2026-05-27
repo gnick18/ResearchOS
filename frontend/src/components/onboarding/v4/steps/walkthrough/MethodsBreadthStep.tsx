@@ -75,7 +75,13 @@ export const methodsBreadthStep = buildWalkthroughStep({
     </>
   ),
   pose: "pointing",
-  targetSelector: targetSelector(TOUR_TARGETS.methodsTypePcrTile),
+  // No targetSelector. Hand-walk fix 2026-05-27 (third pass): the
+  // spotlight was anchored on the PCR tile at the top of the modal,
+  // which made TourSpotlight's keep-in-view logic auto-scroll the
+  // modal back up whenever the user tried to scroll down to see the
+  // builder. Dropping the spotlight unblocks user scroll. The PCR
+  // tile is highlighted in purple post-click anyway, so the visual
+  // cue is preserved.
   cursorScript: cursorScript(async () => {
     // 1) Wait for the picker (already visible from the open-picker beat
     // immediately preceding this step). Click PCR -> the
@@ -114,7 +120,7 @@ export const methodsBreadthStep = buildWalkthroughStep({
     allowList: [TOUR_TARGETS.methodsCreateForm],
     pillLabel: "Play with PCR. Hit Got it, next when you're ready.",
   },
-  // Viewport anchor for step entry. The post-click scroll callback
-  // handles bringing the builder into view once PCR is selected.
-  viewportAnchor: targetSelector(TOUR_TARGETS.methodsCreateForm),
+  // No viewportAnchor: the modal is already in view (it's a portal
+  // covering most of the screen); anchoring re-snaps the scroll up
+  // and fights the user's wheel.
 });
