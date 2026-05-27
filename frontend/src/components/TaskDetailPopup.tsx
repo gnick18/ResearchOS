@@ -1074,6 +1074,7 @@ export default function TaskDetailPopup({
               <Tooltip label={isExpanded ? "Exit fullscreen" : "Fullscreen"} placement="bottom">
                 <button
                   onClick={() => setIsExpanded(!isExpanded)}
+                  data-tour-target="task-popup-fullscreen"
                   className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"
                 >
                   {isExpanded ? (

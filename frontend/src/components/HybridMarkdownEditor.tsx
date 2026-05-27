@@ -2988,6 +2988,7 @@ export default function HybridMarkdownEditor({
         {!disabled && blocks.length > 0 && (
           <button
             type="button"
+            data-tour-target="hybrid-editor-add-paragraph"
             onClick={() => {
               // Append a new paragraph at the end. Under manual-save
               // this is a LOCAL pending edit: pushAndCommit routes

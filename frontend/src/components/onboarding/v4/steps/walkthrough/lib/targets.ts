@@ -201,6 +201,23 @@ export const TOUR_TARGETS = {
   // image to open the popover, then clicks the 50% radio.
   hybridEditorEmbeddedImage: "hybrid-editor-embedded-image",
   hybridEditorResizePercent50: "hybrid-editor-resize-percent-50",
+  // §6.7 hybrid editor demo fix (hybrid editor demo fix manager,
+  // 2026-05-27): the "+ Add paragraph" affordance at the bottom of
+  // HybridMarkdownEditor's blocks list. Each markdown demo step
+  // (bold / italic / underline / h1 / h2 / h3) clicks this between
+  // beats so the next demo lands in its OWN fresh paragraph block,
+  // instead of appending into whichever block the previous beat
+  // left open. Without this break, every demo concatenated into a
+  // single unparsed paragraph (Grant hand-walk screenshot 2026-05-27).
+  hybridEditorAddParagraph: "hybrid-editor-add-paragraph",
+  // §6.7 hybrid editor scope (hybrid editor demo fix manager,
+  // 2026-05-27): the experiment-popup fullscreen toggle button.
+  // Used by the `hybrid-editor-scope` step to demo the expand/shrink
+  // affordance and to actually expand the popup for the upcoming
+  // markdown demos (more screen real estate). Anchor lives in
+  // TaskDetailPopup.tsx on the existing Fullscreen / Exit fullscreen
+  // Tooltip button.
+  taskPopupFullscreen: "task-popup-fullscreen",
 
   // §6.8 Gantt
   ganttTimeline: "gantt-timeline",

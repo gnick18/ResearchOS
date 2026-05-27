@@ -188,9 +188,12 @@ import { methodAttachmentNotesStep } from "./steps/walkthrough/MethodAttachmentN
 // HE-0 through HE-11, plus an in-tour branch gate at HE-2.
 import { hybridNotesVsResultsStep } from "./steps/walkthrough/HybridNotesVsResultsStep";
 // v4 tour structural manager (Wave 1, 2026-05-27): new
-// `hybrid-editor-scope` narration beat sits between HE-0 (notes-vs-
-// results) and HE-1 (markdown-intro) so BeakerBot can frame the editor
-// as the same one used everywhere before the markdown deep-dive starts.
+// `hybrid-editor-scope` beat sits between HE-0 (notes-vs-results) and
+// HE-1 (markdown-intro) so BeakerBot can frame the editor as the same
+// one used everywhere before the markdown deep-dive starts. Promoted
+// from NARRATION to BEAKERBOT_DEMO on 2026-05-27 (hybrid editor demo
+// fix manager, Grant hand-walk) so BeakerBot also demos the popup's
+// fullscreen toggle and expands the popup for more screen real estate.
 import { hybridEditorScopeStep } from "./steps/walkthrough/HybridEditorScopeStep";
 import { hybridMarkdownIntroStep } from "./steps/walkthrough/HybridMarkdownIntroStep";
 import { hybridMarkdownFamiliarityStep } from "./steps/walkthrough/HybridMarkdownFamiliarityStep";

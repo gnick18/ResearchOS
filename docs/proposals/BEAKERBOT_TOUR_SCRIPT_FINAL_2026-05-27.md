@@ -281,15 +281,18 @@ Same editor, but the two never bleed into each other. You can be sloppy in Notes
 ```
 
 ### NEW: hybrid-editor-scope
-*Route: /workbench. Slots in immediately after hybrid-notes-vs-results, before hybrid-markdown-intro. Pure narration setting up the rest of the editor phase.*
+*Route: /workbench. Slots in immediately after hybrid-notes-vs-results, before hybrid-markdown-intro. Promoted from NARRATION to BEAKERBOT_DEMO on 2026-05-27 (hybrid editor demo fix manager, Grant hand-walk) so BeakerBot can demo the popup fullscreen affordance and actually expand it for the upcoming markdown demos.*
 
-- Voice: NARRATION
-- Spotlight: none
+- Voice: BEAKERBOT_DEMO
+- Spotlight: TaskDetailPopup fullscreen toggle button (`data-tour-target="task-popup-fullscreen"`)
+- Cursor: glide to fullscreen toggle, click it, brief settle pause. Popup stays expanded for the rest of §6.7.
 - Completion: manual
 - ExpectedRoute: /workbench
 
 ```
 About the editor itself: we're about to spend a few minutes on it. It's the same one used everywhere in ResearchOS, so once you know it here, you know it for project overviews, standalone notes, and method writeups too.
+
+Want more room? Click the fullscreen icon here. Esc or the shrink button up top brings you back. I'll expand it now so we have more space to work with.
 
 I'll cover markdown basics first, then how to drop in images and other files.
 ```

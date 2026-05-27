@@ -3,28 +3,32 @@
  * underline / H1 / H2 / H3 sub-steps (HE-5 + HE-6).
  *
  * Hybrid editor manager 2026-05-22. Each typing beat shares the same
- * shape (R2 chip E Fix 3 docstring repair, 2026-05-22):
+ * shape:
  *   - On step ENTRY (mount), the TourController's cursorScript effect
- *     immediately begins the script: the cursor types a sample
- *     sentence into a NEW paragraph block at the end of the editor
- *     body, then clicks outside the block so it renders.
+ *     immediately begins the script: the cursor first commits any open
+ *     edit block (Escape), clicks the editor's "+ Add paragraph"
+ *     affordance to spawn a NEW empty edit block, then types a sample
+ *     sentence into that block, then clicks outside so the manual-save
+ *     buffer settles before the next beat.
  *   - The user reads BeakerBot's "Watch me type..." speech bubble
  *     while the cursor performs the action.
- *   - The step then advances on manualAdvance ("Got it, next"). The
- *     "Got it, next" click does NOT start the typing — typing already
- *     happened on entry; the button only confirms the user is ready
- *     to move on.
+ *   - The step then advances on manualAdvance ("Got it, next").
  *
  * The whole sequence sits behind a `pageLock` (no allow-list) so the
  * user can't accidentally click into the editor between beats.
  *
- * R1 fix-pass (Hybrid fix manager R1, 2026-05-22): the script now
- * appends an explicit "click out" callback after the type action so
- * the editor's `mousedown`-based click-outside listener commits the
- * block and the rendered markdown lands. Without this, BeakerBot's
- * typed text stayed inside the open textarea (technically committed
- * to React state but not yet rendered as the bold/italic/heading
- * block the user expects to see).
+ * 2026-05-27 paragraph-break fix (hybrid editor demo fix manager) —
+ * Grant hand-walk. Prior to this fix every typing beat appended into
+ * whichever textarea the previous beat left open (under the manual-
+ * save model `clickOutsideEditor` no longer commits + exits edit
+ * mode). Result: bold + italic + underline + h1 + h2 + h3 piled into
+ * ONE paragraph block as a wall of unparsed markdown. Fix: explicitly
+ * dispatch Escape on the active textarea to commit + exit, then click
+ * the "+ Add paragraph" button (now stamped with
+ * `data-tour-target="hybrid-editor-add-paragraph"`) to spawn a fresh
+ * empty block. The `\n\n\n` source-level prepend that was added in
+ * R2 chip E Fix is no longer needed because each beat now starts in
+ * its own block; we drop it so the typed markdown is clean.
  */
 import type { ReactNode } from "react";
 import {
@@ -35,6 +39,7 @@ import type { TourStep } from "../../../step-types";
 import { TOUR_TARGETS, targetSelector } from "./targets";
 import {
   cursorScript,
+  safeClickAction,
   safeTypeAction,
   clickOutsideEditorAction,
   callbackAction,
@@ -43,39 +48,80 @@ import {
 
 /**
  * Shared shape for one bold/italic/underline/heading typing beat.
- * `markdownText` is what the cursor types; the helper prepends three
- * newlines (2 blank lines) so the content lands in its own NEW
- * paragraph block per the triple-newline rule (markdown-block-parser).
- * Without this, every beat in §6.7 piled into the same block and the
- * rendered preview was a wall of unparsed markdown.
  */
 export interface HybridTypingStepOpts {
   id: string;
   speech: ReactNode;
-  /** Raw markdown the cursor types into the editor. The helper prepends
-   *  three newlines (2 blank lines, per the triple-newline rule) so the
-   *  content lands in a fresh paragraph block separated from whatever
-   *  the editor already contains. */
+  /** Raw markdown the cursor types into the fresh empty paragraph block
+   *  spawned by the pre-step "+ Add paragraph" click. No paragraph-
+   *  break prefix needed; the per-beat block isolation is now
+   *  structural (each beat = one new block via the editor's
+   *  "+ Add paragraph" affordance) rather than syntactic. */
   markdownText: string;
+}
+
+/**
+ * Dispatch a synthetic Escape keydown on whichever textarea inside the
+ * hybrid editor currently holds the open edit-block buffer (if any).
+ *
+ * The editor's `handleEditKeyDown` listens for `e.key === "Escape"` and
+ * calls `handleEditBlur`, which commits the buffered edit and unmounts
+ * the textarea. Without this commit step, the next beat's
+ * `safeTypeAction` would resolve the SAME (still-open) textarea and
+ * append its sample sentence into the previous beat's content — every
+ * beat piles into a single paragraph block.
+ *
+ * Implementation notes:
+ *  - We dispatch on the *active* textarea inside the editor wrapper, not
+ *    on document-level. The editor's keydown handler is attached via
+ *    React `onKeyDown` (synthetic event), so we dispatch a real
+ *    KeyboardEvent with `bubbles: true` that React's synthetic-event
+ *    system picks up.
+ *  - If no textarea is open (first beat, fresh document), the helper is
+ *    a no-op. The subsequent "+ Add paragraph" click handles the
+ *    fresh-block path.
+ */
+function commitOpenEditAction() {
+  return callbackAction(async () => {
+    if (typeof document === "undefined") return;
+    const wrapper = document.querySelector(
+      "[data-tour-target=\"hybrid-editor-textarea\"]",
+    );
+    if (!(wrapper instanceof HTMLElement)) return;
+    const active = wrapper.querySelector("textarea");
+    if (!(active instanceof HTMLTextAreaElement)) return;
+    try {
+      active.focus();
+    } catch {
+      // No-op.
+    }
+    active.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Escape",
+        code: "Escape",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    // Give React a tick to commit + unmount the textarea so the next
+    // action's "+ Add paragraph" click can re-mount a fresh one.
+    await new Promise<void>((r) => setTimeout(r, 60));
+  });
 }
 
 /**
  * Build one read-then-watch typing step. Universal pacing rule + page
  * lock applied. Manual advance with "Got it, next".
  *
- * R1 fix-pass details:
- *   1. The hybrid editor's outer wrapper carries the
- *      `[data-tour-target="hybrid-editor-textarea"]` attribute but the
- *      ACTUAL <textarea> only mounts once a block is being edited.
- *      `BeakerBotCursor.typeInto` now handles the wrapper case by
- *      clicking the wrapper to mount the textarea, then typing into
- *      the descendant <textarea> with `setNativeInputValue` so
- *      React's onChange fires and the markdown actually commits.
- *   2. After typing, a `clickOutsideEditorAction` is queued so the
- *      editor's document-level mousedown click-outside listener
- *      commits the block and renders the markdown. Without this, the
- *      stars/underscores/hashes stayed visible inside the textarea
- *      forever and the user never saw the bold/italic/heading land.
+ * Cursor sequence per beat:
+ *   1. Escape any open edit (commitOpenEditAction) — no-op on first beat
+ *   2. Click "+ Add paragraph" — spawns a fresh empty block + enters
+ *      edit mode on it
+ *   3. Type the sample markdown into the freshly mounted textarea
+ *   4. Brief settle pause so the user reads the source
+ *   5. Click outside to fire any non-edit listeners (selection tracking
+ *      etc.). Manual-save model means this no longer commits — the next
+ *      beat's Escape (step 1) handles that.
  */
 export function buildHybridTypingStep(opts: HybridTypingStepOpts): TourStep {
   return buildWalkthroughStep({
@@ -84,48 +130,54 @@ export function buildHybridTypingStep(opts: HybridTypingStepOpts): TourStep {
     pose: "typing-on-laptop",
     targetSelector: targetSelector(TOUR_TARGETS.hybridEditorTextarea),
     cursorScript: cursorScript(async () => {
-      // Grant feedback 2026-05-26: prior code assumed each sub-beat's
-      // wrapper-click would re-enter edit mode on a NEW empty paragraph
-      // (so no leading newlines needed). In practice, every beat
-      // appended into the SAME block. Result: the rendered preview was
-      // one wall of unparsed markdown — `**bold**` showing as literal
-      // stars, `# heading` showing as literal hashes, because in the
-      // middle of a paragraph that syntax doesn't parse as block-level.
-      //
-      // Fix: prepend `\n\n\n` (2 blank lines) to every typed chunk.
-      // Per the markdown-block-parser triple-newline rule that landed
-      // earlier today (b1802d8a chain), 2+ blank lines force a new
-      // paragraph block. Each demo beat now lands in its own rendered
-      // paragraph so users see bold/italic/heading lock in distinctly
-      // after each cursor sequence. First beat picks up some leading
-      // whitespace under the auto-generated experiment header — that's
-      // cheap cosmetic cost for the clarity gain.
-      const PARAGRAPH_BREAK = "\n\n\n";
+      // Step 1: commit any currently-open edit block so the next beat
+      // starts cleanly. No-op on the first beat (no textarea open).
+      const commitOpen = commitOpenEditAction();
+
+      // Step 2: click the editor's "+ Add paragraph" button to spawn a
+      // fresh empty paragraph block + enter edit mode on it. The
+      // editor's onClick handler on this button (HybridMarkdownEditor.tsx)
+      // pushes a new "\n\n" onto the document and begins an edit
+      // session on the resulting blank-line block.
+      const addParagraph = await safeClickAction(
+        targetSelector(TOUR_TARGETS.hybridEditorAddParagraph),
+        3000,
+      );
+
+      // Step 3: type the demo markdown into the freshly mounted
+      // textarea. BeakerBotCursor.typeInto's wrapper-with-input
+      // fallback finds the descendant textarea inside the editor
+      // wrapper; the "+ Add paragraph" click above has already
+      // mounted it via beginEditSession.
       const typeAction = await safeTypeAction(
         targetSelector(TOUR_TARGETS.hybridEditorTextarea),
-        PARAGRAPH_BREAK + opts.markdownText,
+        opts.markdownText,
         25,
       );
-      // Click out so the editor's mousedown click-outside listener
-      // commits the block and the bold/italic/heading renders. Small
-      // delay between type-completion and click-out so the user sees
-      // the typed source briefly before it flips to its rendered form.
+
+      // Step 4: brief settle so the user reads the source markdown
+      // before BeakerBot's bubble pivots to "Got it, next".
       const settle = callbackAction(async () => {
         await new Promise<void>((r) => setTimeout(r, 250));
       });
+
+      // Step 5: click outside the editor. Under the manual-save model
+      // this no longer commits the block (that happens via Escape on
+      // the NEXT beat's commitOpenEdit). The click-out still fires
+      // synthetic listeners (selection tracking, page-lock pill, etc.)
+      // and matches the prior cursor-script shape so other steps that
+      // observed "type + clickOut" don't regress.
       const clickOut = clickOutsideEditorAction();
-      return compactScript([typeAction, settle, clickOut]);
+
+      return compactScript([
+        commitOpen,
+        addParagraph,
+        typeAction,
+        settle,
+        clickOut,
+      ]);
     }),
-    // Universal pacing: on step entry, the cursor immediately types
-    // while the user reads BeakerBot's "Watch me type..." speech.
-    // After the cursor finishes (and clicks out so the block renders),
-    // the user clicks "Got it, next" to advance to the next sub-beat.
-    // The pageLock keeps them from interacting with the editor while
-    // the cursor is mid-script. (R2 chip E Fix 3 docstring repair.)
     completion: manualAdvance("Got it, next"),
-    // Page lock: total (no allow-list). The bubble is implicitly allowed
-    // so Skip/Back/Got-it stay reachable. Copy updated R1 fix-pass per
-    // verifier C P2-11: less imperative-sounding pill.
     pageLock: { pillLabel: "BeakerBot is typing, back in a sec." },
   });
 }

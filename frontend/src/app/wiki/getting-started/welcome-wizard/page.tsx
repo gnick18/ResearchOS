@@ -425,10 +425,11 @@ export default function WelcomeWizardPage() {
       <Steps>
         <Step><strong>HE-0 (hybrid-notes-vs-results).</strong> BeakerBot explains the notes/results split in the editor.</Step>
         <Step>
-          <strong>hybrid-editor-scope.</strong> Pure narration that calls out
-          that the editor you are about to learn is the same one used in
-          project overviews, standalone notes, and method writeups. Establishes
-          scope before the markdown deep-dive starts. Manual advance.
+          <strong>hybrid-editor-scope.</strong> BeakerBot calls out that the
+          editor you are about to learn is the same one used in project
+          overviews, standalone notes, and method writeups, then demos the
+          experiment popup&apos;s fullscreen toggle and expands it so the
+          upcoming markdown demos have more room. Manual advance.
         </Step>
         <Step><strong>HE-1 (hybrid-markdown-intro).</strong> Introduces markdown support.</Step>
         <Step>
