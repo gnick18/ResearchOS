@@ -175,35 +175,6 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "notifications-bell",      // §6.3a: open the inbox
   "notifications-silence",   // §6.3b: mark-as-read (mute the bell badge)
   "notifications-delete",    // §6.3c: dismiss the row
-  // Methods page deep-dive (§6.4)
-  // sec 6.4 redesign (Grant 2026-05-21): split the original
-  // category step into a prompt (BeakerBot asks the user what kind of
-  // technique they do) + a demo (cursor types the user's pick and
-  // saves). The picker lives in MethodsCategoryPromptStep.tsx; the
-  // demo retains the `methods-category` id.
-  // Then the open-picker beat (Grant 2026-05-21) bridges to the type-
-  // breadth wall of speech by having BeakerBot click "+ New Method" so
-  // the modal mounts before the next step fires.
-  "methods-category-prompt", // §6.4a-prompt (interactive picker)
-  // Grant 2026-05-21 rethink: separate the user-action open-click from
-  // BeakerBot's type+submit demo. The user clicks "+ New Category"
-  // themselves; the cursor then takes over to type the picked label and
-  // click Create Empty.
-  "methods-category-open",   // §6.4a-open (user opens the modal)
-  "methods-category",        // §6.4a-demo (cursor types + clicks Create Empty)
-  "methods-open-picker",     // §6.4 bridge (click New Method, modal mounts)
-  // 2026-05-27 (v4 tour structural manager, Wave 1): the prior
-  // `methods-file-vs-markdown` explainer beat is retired. Grant's new
-  // script reshapes §6.4b around two interactive builders (PCR + LC
-  // Gradient); file-attach is mentioned in passing in the new
-  // `methods-type-tour` copy and doesn't need its own beat anymore.
-  "methods-type-tour",        // §6.4b-1: PCR builder demo (two edits + free-play)
-  // 2026-05-27 (v4 tour structural manager, Wave 1): re-introduce
-  // `methods-lc-demo` as a split-off BEAKERBOT_DEMO that exercises the
-  // LC Gradient editor. Lives between PCR (`methods-type-tour`) and the
-  // standard markdown demo (`methods-create`).
-  "methods-lc-demo",          // §6.4b-2: LC Gradient editor demo
-  "methods-create",           // §6.4d (BeakerBot's funny markdown method)
   // Workbench experiment creation (§6.5)
   // 2026-05-27 (v4 tour structural manager, Wave 1): the prior
   // `workbench-page-intro` page-transition beat is retired. Grant's
@@ -223,22 +194,30 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // body owns the auto-fill artifact creation but is no longer a tour
   // step.
   "workbench-create-experiment-open",  // §6.5a (user opens the modal + names it)
-  // Method attachment + variation notes + snapshot teach (§6.6).
-  // Split into 4 popup-mount-safe sub-steps (2026-05-21, HR-dispatched):
-  // the original single `experiment-attach-method` step's cursor script
-  // spanned the popup-mount boundary and the second click either timed
-  // out or fired on a stale DOM. Same class of bug as §6.2's
-  // route-spanning script. See MethodAttachmentStep.tsx for the split.
+  // §6.6 Experiment detail intro + Methods tab framing.
   //
-  // 2026-05-27 (v4 tour structural manager, Wave 1): the prior
-  // `experiment-tabs-overview` narration beat is retired. Grant's new
-  // script reshapes §6.6 so the tab framing is folded into
-  // `experiment-attach-method-open`; the standalone tabs-overview beat
-  // would now duplicate that copy.
+  // FINAL restructure (FINAL reorder manager 2026-05-27): the
+  // experiment-detail / Methods-tab framing now lives BEFORE the methods
+  // cluster (§6.7c) and the actual method-attachment beats (§6.7d).
+  // The order is:
+  //
+  //   experiment-attach-method-open  (open the experiment popup, frame it)
+  //   experiment-attach-method-tab   (point at the Methods tab, defer the
+  //                                  attach to after the methods cluster)
+  //   ... hybrid editor + workbench notes/lists clusters ...
+  //   ... methods cluster (§6.7c) ...
+  //   experiment-attach-method-attach (return to the experiment, attach
+  //                                   the method just built)
+  //   experiment-attach-method-notes  (variation notes + mental model)
+  //
+  // The attach + notes beats moved to AFTER methods-create per the FINAL
+  // tour script so the user has built a method (in the methods cluster)
+  // BEFORE we ask them to attach one to the experiment. The tab beat
+  // stays here to introduce the concept early; the attach beat carries
+  // a navigation hook to re-open the experiment popup + Methods tab
+  // after the methods detour.
   "experiment-attach-method-open",    // §6.6a click workbench row → open popup
-  "experiment-attach-method-tab",     // §6.6b click Methods tab inside popup
-  "experiment-attach-method-attach",  // §6.6c click Attach + pick funny method
-  "experiment-attach-method-notes",   // §6.6d type variation note + mental model
+  "experiment-attach-method-tab",     // §6.6b explain Methods tab (deferred attach)
   // Hybrid editor — §6.7 redesign (Hybrid editor manager 2026-05-22).
   // 12 sub-steps replacing the prior 4. Order matches HE-0 → HE-11 in
   // ONBOARDING_V4_HYBRID_EDITOR_REDESIGN.md §6.7. The HE-2 branching
@@ -280,6 +259,54 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "workbench-lists-intro",
   "workbench-list-create-shell",
   "workbench-list-mark-done",
+  // Methods page deep-dive (§6.7c, FINAL restructure 2026-05-27).
+  //
+  // FINAL reorder manager 2026-05-27: the methods cluster moved here
+  // from its old position (right after notifications-delete) so the
+  // tour reads as a natural narrative: log work in an experiment first
+  // (workbench notes / lists), THEN learn where reusable protocols
+  // live (methods), THEN return to the experiment to attach the
+  // method (§6.7d below). The §6.7c rename in the FINAL script
+  // reflects this new ordering inside the §6.7 family.
+  //
+  // sec 6.4 redesign (Grant 2026-05-21): split the original
+  // category step into a prompt (BeakerBot asks the user what kind of
+  // technique they do) + a demo (cursor types the user's pick and
+  // saves). The picker lives in MethodsCategoryPromptStep.tsx; the
+  // demo retains the `methods-category` id.
+  // Then the open-picker beat (Grant 2026-05-21) bridges to the type-
+  // breadth wall of speech by having BeakerBot click "+ New Method" so
+  // the modal mounts before the next step fires.
+  "methods-category-prompt", // §6.7c-prompt (interactive picker)
+  // Grant 2026-05-21 rethink: separate the user-action open-click from
+  // BeakerBot's type+submit demo. The user clicks "+ New Category"
+  // themselves; the cursor then takes over to type the picked label and
+  // click Create Empty.
+  "methods-category-open",   // §6.7c-open (user opens the modal)
+  "methods-category",        // §6.7c-demo (cursor types + clicks Create Empty)
+  "methods-open-picker",     // §6.7c bridge (click New Method, modal mounts)
+  // 2026-05-27 (v4 tour structural manager, Wave 1): the prior
+  // `methods-file-vs-markdown` explainer beat is retired. Grant's new
+  // script reshapes §6.7c around two interactive builders (PCR + LC
+  // Gradient); file-attach is mentioned in passing in the new
+  // `methods-type-tour` copy and doesn't need its own beat anymore.
+  "methods-type-tour",        // §6.7c-1: PCR builder demo (two edits + free-play)
+  // 2026-05-27 (v4 tour structural manager, Wave 1): re-introduce
+  // `methods-lc-demo` as a split-off BEAKERBOT_DEMO that exercises the
+  // LC Gradient editor. Lives between PCR (`methods-type-tour`) and the
+  // standard markdown demo (`methods-create`).
+  "methods-lc-demo",          // §6.7c-2: LC Gradient editor demo
+  "methods-create",           // §6.7c-3 (BeakerBot's funny markdown method)
+  // Method attachment + variation notes (§6.7d, FINAL restructure
+  // 2026-05-27). Originally §6.6c + §6.6d; relocated to after the
+  // methods cluster because the user now needs to have BUILT a method
+  // before we ask them to attach one. The attach step carries a
+  // navigation hook (`onEnter`) that returns the browser to the
+  // experiment popup + Methods tab so the cursor script can attach
+  // the method to the same experiment created in §6.5. See
+  // MethodAttachmentAttachStep.tsx for the onEnter contract.
+  "experiment-attach-method-attach",  // §6.7d click Attach + pick funny method
+  "experiment-attach-method-notes",   // §6.7d type variation note + mental model
   // Gantt page deep-dive (§6.8) — redesigned 2026-05-22 (Gantt manager).
   // Old order replaced with 14 sub-steps: a 6-step universal dependency-
   // teaching arc, a 7-step lab-only share-feature cluster, and the

@@ -130,14 +130,27 @@ function MethodsCategoryPromptInner() {
       data-testid="methods-category-prompt"
       className="space-y-3"
     >
+      {/*
+        FINAL reorder manager 2026-05-27: new pedagogical opener per
+        the FINAL tour script's §6.7c. The Methods cluster now runs
+        AFTER the workbench notes/lists cluster, so the opener calls
+        back to "where lab work gets logged" (the experiment + notes +
+        lists arc) before introducing methods as the protocol library.
+      */}
       <p className="leading-relaxed mb-2">
-        Next stop: Methods. This is your library of reusable protocols.
-        Write a technique once here, then attach it to every experiment
-        that uses it instead of rewriting the steps each time.
+        You&apos;ve seen where lab work gets logged. Now for where your
+        protocols live.
+      </p>
+      <p className="leading-relaxed mb-2">
+        <strong>Methods</strong> is your library of reusable techniques.
+        Write a protocol once here, then attach it to every experiment
+        that uses it instead of rewriting the steps each time. Most labs
+        run the same handful of techniques over and over, so this ends
+        up being one of the most-used pages in ResearchOS.
       </p>
       <p className="leading-relaxed">
         To keep the library navigable, methods get sorted into categories.
-        Let&apos;s start one based on work you actually do. What is a
+        Let&apos;s start one based on work you actually do. What&apos;s a
         common technique in your lab?
       </p>
       <div className="flex flex-col gap-1.5">

@@ -209,7 +209,7 @@ describe("TOUR_STEP_ORDER", () => {
     }
   });
 
-  it("inserts the §6.7b Workbench Notes + Lists cluster between hybrid-file-attach and gantt-intro", () => {
+  it("inserts the §6.7b Workbench Notes + Lists cluster between hybrid-file-attach and the methods cluster (FINAL reorder manager 2026-05-27)", () => {
     // Workbench expansion manager 2026-05-22, collapsed to 5 beats by
     // Workbench fix manager R1 2026-05-22: universal steps sit BETWEEN
     // the §6.7 terminal beat (hybrid-file-attach) and the §6.8 first
@@ -217,6 +217,12 @@ describe("TOUR_STEP_ORDER", () => {
     // the prior one's DOM state. R1 folded `workbench-list-add-items`
     // into `workbench-list-create-shell` so add-items is no longer a
     // separate beat.
+    //
+    // FINAL reorder manager 2026-05-27: the methods cluster moved here
+    // between workbench-list-mark-done and gantt-intro, so this test
+    // now asserts the workbench-list-mark-done → methods-category-prompt
+    // adjacency instead of the prior workbench-list-mark-done →
+    // gantt-intro adjacency.
     const order = [
       "hybrid-file-attach",
       "workbench-notes-intro",
@@ -224,6 +230,36 @@ describe("TOUR_STEP_ORDER", () => {
       "workbench-lists-intro",
       "workbench-list-create-shell",
       "workbench-list-mark-done",
+      "methods-category-prompt",
+    ];
+    const indices = order.map((id) => TOUR_STEP_ORDER.indexOf(id));
+    indices.forEach((idx, i) => {
+      expect(idx, `${order[i]} missing from TOUR_STEP_ORDER`).toBeGreaterThanOrEqual(0);
+      if (i > 0) {
+        expect(
+          idx,
+          `${order[i]} must follow ${order[i - 1]}`,
+        ).toBe(indices[i - 1] + 1);
+      }
+    });
+  });
+
+  it("places the methods cluster (§6.7c) between workbench-list-mark-done and experiment-attach-method-attach (FINAL reorder manager 2026-05-27)", () => {
+    // FINAL restructure: the 7-step methods cluster moved here from
+    // its old position right after notifications-delete. The cluster
+    // now runs after the workbench notes/lists cluster and before the
+    // experiment-attach-method-attach + -notes beats (§6.7d).
+    const order = [
+      "workbench-list-mark-done",
+      "methods-category-prompt",
+      "methods-category-open",
+      "methods-category",
+      "methods-open-picker",
+      "methods-type-tour",
+      "methods-lc-demo",
+      "methods-create",
+      "experiment-attach-method-attach",
+      "experiment-attach-method-notes",
       "gantt-intro",
     ];
     const indices = order.map((id) => TOUR_STEP_ORDER.indexOf(id));
@@ -236,6 +272,40 @@ describe("TOUR_STEP_ORDER", () => {
         ).toBe(indices[i - 1] + 1);
       }
     });
+  });
+
+  it("places experiment-attach-method-open / -tab immediately before the hybrid editor cluster (FINAL reorder manager 2026-05-27)", () => {
+    // FINAL restructure: the §6.6 experiment-detail framing beats
+    // (open + tab) stay right after workbench-create-experiment-open
+    // so BeakerBot can frame the experiment popup + Methods tab
+    // before the §6.7 hybrid editor deep-dive. The attach + notes
+    // beats moved to §6.7d (after methods cluster).
+    const order = [
+      "workbench-create-experiment-open",
+      "experiment-attach-method-open",
+      "experiment-attach-method-tab",
+      "hybrid-notes-vs-results",
+    ];
+    const indices = order.map((id) => TOUR_STEP_ORDER.indexOf(id));
+    indices.forEach((idx, i) => {
+      expect(idx, `${order[i]} missing from TOUR_STEP_ORDER`).toBeGreaterThanOrEqual(0);
+      if (i > 0) {
+        expect(
+          idx,
+          `${order[i]} must follow ${order[i - 1]}`,
+        ).toBe(indices[i - 1] + 1);
+      }
+    });
+  });
+
+  it("does NOT place the methods cluster right after notifications-delete (FINAL reorder manager 2026-05-27)", () => {
+    // Regression guard: the methods cluster's prior position was
+    // right after notifications-delete. The FINAL restructure moved
+    // it to after workbench-list-mark-done. If a future refactor
+    // moves it back, this test catches it.
+    const notifDeleteIdx = TOUR_STEP_ORDER.indexOf("notifications-delete");
+    expect(notifDeleteIdx).toBeGreaterThanOrEqual(0);
+    expect(TOUR_STEP_ORDER[notifDeleteIdx + 1]).not.toBe("methods-category-prompt");
   });
 
   it("the §6.7b Workbench cluster is universal (no feature_picks gating)", () => {

@@ -799,6 +799,36 @@ describe("Notifications sub-steps (§6.3 bell / silence / delete)", () => {
   });
 });
 
+describe("MethodsCategoryPromptStep (§6.7c FINAL pedagogical opener)", () => {
+  it("speech opens with the workbench-callback line (FINAL reorder manager 2026-05-27)", () => {
+    // FINAL restructure: the methods cluster now runs AFTER workbench
+    // notes/lists, so the opener calls back to "where lab work gets
+    // logged" before introducing methods as the protocol library.
+    const text = renderSpeech(methodsCategoryPromptStep);
+    expect(text).toMatch(/You've seen where lab work gets logged/);
+    expect(text).toMatch(/Now for where your protocols live/);
+  });
+  it("speech frames Methods as a reusable library of techniques (FINAL reorder manager 2026-05-27)", () => {
+    const text = renderSpeech(methodsCategoryPromptStep);
+    expect(text).toMatch(/Methods/);
+    expect(text).toMatch(/library of reusable techniques/);
+    expect(text).toMatch(/Write a protocol once here/);
+    expect(text).toMatch(/most-used pages in ResearchOS/);
+  });
+  it("speech invites the user to pick a common technique (FINAL reorder manager 2026-05-27)", () => {
+    const text = renderSpeech(methodsCategoryPromptStep);
+    expect(text).toMatch(/methods get sorted into categories/);
+    expect(text).toMatch(/What's a common technique in your lab\?/);
+  });
+  it("speech drops the prior 'Next stop: Methods' opener (FINAL reorder manager 2026-05-27)", () => {
+    // The previous opener framed methods as a page transition. The
+    // new ordering places methods AFTER workbench, so the "next stop"
+    // framing no longer fits.
+    const text = renderSpeech(methodsCategoryPromptStep);
+    expect(text).not.toMatch(/Next stop: Methods/);
+  });
+});
+
 describe("Methods steps (§6.4)", () => {
   it("category demo step uses manual completion (universal pacing rule, Grant 2026-05-22)", () => {
     // The category-created event still fires (the onEnter listener
@@ -1093,6 +1123,17 @@ describe("MethodAttachment split sub-steps (§6.6 popup-mount split, 2026-05-21)
     }
     expect(methodAttachmentTabStep.completion.buttonLabel).toBe("Got it, next");
   });
+  it("tab sub-step speech defers the actual attach until after the methods cluster (FINAL reorder manager 2026-05-27)", () => {
+    // FINAL restructure: the Methods tab beat now closes with a
+    // promise to come back later (after the methods cluster) to
+    // actually attach a method. Future tense ("where you'll pin")
+    // matches the FINAL doc verbatim.
+    const text = renderSpeech(methodAttachmentTabStep);
+    expect(text).toMatch(/where you'll pin/);
+    expect(text).toMatch(/Six months from now/);
+    expect(text).toMatch(/come back here to actually attach a method later/);
+    expect(text).toMatch(/after you've built one/);
+  });
 
   it("attach sub-step has id `experiment-attach-method-attach`", () => {
     expect(methodAttachmentAttachStep.id).toBe(
@@ -1106,6 +1147,22 @@ describe("MethodAttachment split sub-steps (§6.6 popup-mount split, 2026-05-21)
     expect(methodAttachmentAttachStep.targetSelector).toBe(
       "[data-tour-target=\"experiment-attach-method\"]",
     );
+  });
+  it("attach sub-step expectedRoute is /workbench so the navigation hook can return after the methods detour (FINAL reorder manager 2026-05-27)", () => {
+    // FINAL restructure: this step now runs after the methods cluster
+    // (§6.7c), so the user has been on /methods. The expectedRoute push
+    // sends them back to /workbench so the cursor script's row-click
+    // re-opens the experiment popup.
+    expect(methodAttachmentAttachStep.expectedRoute).toBe("/workbench");
+  });
+  it("attach sub-step speech opens with 'Back to your experiment' (FINAL reorder manager 2026-05-27)", () => {
+    // FINAL restructure: the speech narrates the return navigation +
+    // promises to pin the method the user just built in the methods
+    // cluster. Matches the FINAL doc verbatim.
+    const text = renderSpeech(methodAttachmentAttachStep);
+    expect(text).toMatch(/Back to your experiment/);
+    expect(text).toMatch(/let's pin it/);
+    expect(text).toMatch(/markdown method you just built/);
   });
 
   it("notes sub-step has id `experiment-attach-method-notes`", () => {

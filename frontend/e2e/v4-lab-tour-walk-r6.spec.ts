@@ -461,6 +461,21 @@ test("R6 full walk: parseFeaturePicks + TourSpotlight late-mount fix verificatio
     "notifications-bell",
     "notifications-silence",
     "notifications-delete",
+    // FINAL reorder manager 2026-05-27: methods cluster moved to after
+    // workbench-list-mark-done; attach + notes moved to after
+    // methods-create. Tab beat stays inside §6.6 framing before the
+    // hybrid editor cluster.
+    "workbench-create-experiment-open",
+    "experiment-attach-method-open",
+    "experiment-attach-method-tab",
+    "hybrid-editor-scope",
+    "hybrid-editor",
+    "hybrid-editor-paragraphs",
+    "hybrid-editor-image-drop",
+    "hybrid-editor-resize",
+    // FINAL reorder manager 2026-05-27: methods cluster + attach/notes
+    // re-inserted here (after workbench-list-mark-done, before
+    // gantt-intro). Per TOUR_STEP_ORDER.
     "methods-category-prompt",
     "methods-category-open",
     "methods-category",
@@ -468,16 +483,8 @@ test("R6 full walk: parseFeaturePicks + TourSpotlight late-mount fix verificatio
     "methods-type-tour",
     "methods-lc-demo",
     "methods-create",
-    "workbench-create-experiment-open",
-    "experiment-attach-method-open",
-    "experiment-attach-method-tab",
     "experiment-attach-method-attach",
     "experiment-attach-method-notes",
-    "hybrid-editor-scope",
-    "hybrid-editor",
-    "hybrid-editor-paragraphs",
-    "hybrid-editor-image-drop",
-    "hybrid-editor-resize",
     "gantt-task-types",
     "gantt-drag-drop",
     "gantt-chained-deps",
