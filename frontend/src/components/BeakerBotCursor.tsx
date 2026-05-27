@@ -683,6 +683,32 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
           } catch {
             // No-op.
           }
+          // 2026-05-27 hybrid cursor occlusion fix manager — re-glide the
+          // avatar to the INNER input's left edge before typing begins.
+          // Without this, the initial `glideTo(elementCenter(el))` above
+          // parked the cursor at the WRAPPER's center, which for the
+          // hybrid editor's `[data-tour-target="hybrid-editor-textarea"]`
+          // container (a tall scrollable wrapper holding every block)
+          // sits visually over existing content like the "First Experiment"
+          // header. The newly-mounted paragraph textarea, however, is
+          // appended at the BOTTOM of the wrapper, so the cursor parked
+          // far above the actual text being typed. Re-gliding to the
+          // inner input's left edge (vertically centered on it) puts
+          // BeakerBot at the start of the line, with typed characters
+          // appearing to its right — natural typing visual, no occlusion.
+          // We use the LEFT edge (not the center) because mid-line cursor
+          // placement would still obscure the typed text at the cursor's
+          // current position; left-edge mirrors how a real text cursor
+          // sits at the start of an empty line.
+          const innerRect = innerInput.getBoundingClientRect();
+          if (innerRect.width > 0 && innerRect.height > 0) {
+            // 4px inset on the left so the cursor tip clears the
+            // textarea border but is still visually anchored to the
+            // line's start.
+            const targetX = innerRect.left + 4;
+            const targetY = innerRect.top + innerRect.height / 2;
+            await glideTo(targetX, targetY);
+          }
           // Wave 2 Fix 4/9: same compound-with-user-keystrokes
           // contract as the native-input branch above.
           let activeInner = innerInput;
