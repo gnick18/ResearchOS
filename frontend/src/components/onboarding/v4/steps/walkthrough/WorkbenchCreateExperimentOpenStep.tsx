@@ -168,6 +168,15 @@ export const workbenchCreateExperimentOpenStep = buildWalkthroughStep({
         3000,
       );
       if (!(select instanceof HTMLSelectElement)) return;
+      // Wait for the specific option to mount. The TaskModal loads the
+      // user's project list async post-mount, so the first paint only
+      // includes the Miscellaneous (id=0) option. Setting
+      // `select.value` to a value not yet in the options silently
+      // no-ops, leaving the select on Miscellaneous. Poll until the
+      // option for our projectId exists.
+      const optionSelector = `${targetSelector(TOUR_TARGETS.workbenchExperimentProjectSelect)} option[value="${projectId}"]`;
+      const option = await waitForElement(optionSelector, 3000);
+      if (!option) return;
       setNativeFieldValue(select, String(projectId));
     });
 
