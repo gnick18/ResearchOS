@@ -49,6 +49,32 @@ vi.mock("@/components/TaskModal", () => ({
   default: () => null,
 }));
 
+// Stub DynamicAnimation so the inline-expand test asserts "an animation
+// fired" without spinning up the real particle simulation (setInterval +
+// requestAnimationFrame, plus a canvas that jsdom can't paint). The stub
+// renders a marker div carrying the type + nonce-driven coordinates so
+// the test can read both off the DOM.
+vi.mock("@/components/DynamicAnimation", () => ({
+  __esModule: true,
+  default: ({
+    type,
+    x,
+    y,
+  }: {
+    type: string;
+    x: number;
+    y: number;
+    onComplete: () => void;
+  }) => (
+    <div
+      data-testid="celebration-animation"
+      data-anim-type={type}
+      data-anim-x={x}
+      data-anim-y={y}
+    />
+  ),
+}));
+
 // SharedFromPill pulls user-color hooks; not relevant for this test.
 vi.mock("@/components/workbench/SharedFromPill", () => ({
   __esModule: true,
@@ -264,6 +290,209 @@ describe("WorkbenchListsPanel — inline-expand replaces popup on Lists tab", ()
       });
       expect(found).toBeDefined();
     });
+  });
+});
+
+describe("Celebration animation parity on inline lists", () => {
+  // Pins list animation parity manager 2026-05-27: checking off a subtask,
+  // checking the parent-list checkbox in the header, and clicking the
+  // inline "Mark list complete" button each fire the same celebration
+  // animation that experiment-complete + goal-achieve already do. Uncheck
+  // never fires. Rapid double-check replaces the in-flight animation via
+  // the nonce-as-key interrupt pattern (commit 0d778d95).
+
+  const projects: Project[] = [
+    project({ id: 1, name: "Alex Lab", owner: "alex" }),
+  ];
+
+  function makeList(overrides: Partial<Task> = {}): Task {
+    return listTask({
+      id: 42,
+      name: "Buy reagents",
+      owner: "alex",
+      project_id: 1,
+      sub_tasks: [
+        { id: "st-a", text: "Order primers", is_complete: false },
+        { id: "st-b", text: "Order Taq", is_complete: false },
+      ],
+      ...overrides,
+    });
+  }
+
+  it("checking a subtask fires the celebration animation", async () => {
+    useAppStore.setState({ selectedProjectIds: ["alex:1"] });
+    mocks.fetchAllTasksIncludingShared.mockResolvedValue([makeList()]);
+
+    renderPanel(projects);
+
+    const cardRoot = await screen.findByTestId("expandable-list-card");
+    const header = within(cardRoot)
+      .getAllByRole("button")
+      .find((el) => el.getAttribute("aria-expanded") !== null)!;
+    fireEvent.click(header);
+
+    const panel = within(cardRoot).getByTestId(
+      "expandable-list-card-panel",
+    );
+    const toggles = within(panel).getAllByRole("button", {
+      name: /mark item complete/i,
+    });
+    fireEvent.click(toggles[0]!);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("celebration-animation")).toBeInTheDocument();
+    });
+  });
+
+  it("unchecking a subtask does NOT fire the animation", async () => {
+    useAppStore.setState({ selectedProjectIds: ["alex:1"] });
+    mocks.fetchAllTasksIncludingShared.mockResolvedValue([
+      makeList({
+        sub_tasks: [
+          { id: "st-a", text: "Order primers", is_complete: true },
+          { id: "st-b", text: "Order Taq", is_complete: false },
+        ],
+      }),
+    ]);
+
+    renderPanel(projects);
+
+    const cardRoot = await screen.findByTestId("expandable-list-card");
+    const header = within(cardRoot)
+      .getAllByRole("button")
+      .find((el) => el.getAttribute("aria-expanded") !== null)!;
+    fireEvent.click(header);
+
+    const panel = within(cardRoot).getByTestId(
+      "expandable-list-card-panel",
+    );
+    // The already-complete item exposes "mark item incomplete" aria label.
+    const uncheck = within(panel).getByRole("button", {
+      name: /mark item incomplete/i,
+    });
+    fireEvent.click(uncheck);
+
+    // Persist the mutation but assert no animation appeared. Wait one
+    // tick so any stray animation would have had a chance to render.
+    await waitFor(() => {
+      expect(mocks.tasksUpdate).toHaveBeenCalled();
+    });
+    expect(
+      screen.queryByTestId("celebration-animation"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("clicking 'Mark list complete' fires exactly one animation", async () => {
+    useAppStore.setState({ selectedProjectIds: ["alex:1"] });
+    mocks.fetchAllTasksIncludingShared.mockResolvedValue([makeList()]);
+
+    renderPanel(projects);
+
+    const cardRoot = await screen.findByTestId("expandable-list-card");
+    const header = within(cardRoot)
+      .getAllByRole("button")
+      .find((el) => el.getAttribute("aria-expanded") !== null)!;
+    fireEvent.click(header);
+
+    const panel = within(cardRoot).getByTestId(
+      "expandable-list-card-panel",
+    );
+    const markComplete = within(panel).getByRole("button", {
+      name: /mark list complete/i,
+    });
+    fireEvent.click(markComplete);
+
+    await waitFor(() => {
+      const all = screen.getAllByTestId("celebration-animation");
+      // Even though the cascade flips two subtasks to is_complete=true in
+      // the same update, the subtask handler isn't invoked — so only the
+      // parent button's animation fires.
+      expect(all).toHaveLength(1);
+    });
+  });
+
+  it("rapid double-check on subtasks replaces the in-flight animation (nonce key)", async () => {
+    useAppStore.setState({ selectedProjectIds: ["alex:1"] });
+    mocks.fetchAllTasksIncludingShared.mockResolvedValue([makeList()]);
+
+    renderPanel(projects);
+
+    const cardRoot = await screen.findByTestId("expandable-list-card");
+    const header = within(cardRoot)
+      .getAllByRole("button")
+      .find((el) => el.getAttribute("aria-expanded") !== null)!;
+    fireEvent.click(header);
+
+    const panel = within(cardRoot).getByTestId(
+      "expandable-list-card-panel",
+    );
+    const toggles = within(panel).getAllByRole("button", {
+      name: /mark item complete/i,
+    });
+
+    fireEvent.click(toggles[0]!);
+    await waitFor(() => {
+      expect(screen.getByTestId("celebration-animation")).toBeInTheDocument();
+    });
+
+    // Second check: only one DynamicAnimation is mounted at a time (the
+    // overlay is rendered conditionally), and the previous instance is
+    // replaced via the nonce-as-key swap. We can't observe the unmount
+    // directly through the stub, but we can assert at most one node is
+    // ever present in the DOM and the click doesn't double-mount.
+    fireEvent.click(toggles[1]!);
+    await waitFor(() => {
+      expect(
+        screen.getAllByTestId("celebration-animation"),
+      ).toHaveLength(1);
+    });
+  });
+
+  it("parent-checkbox check fires the animation", async () => {
+    useAppStore.setState({ selectedProjectIds: ["alex:1"] });
+    mocks.fetchAllTasksIncludingShared.mockResolvedValue([makeList()]);
+
+    renderPanel(projects);
+
+    const cardRoot = await screen.findByTestId("expandable-list-card");
+    const parentCheckbox = within(cardRoot).getByRole("button", {
+      name: /mark as complete/i,
+    });
+    fireEvent.click(parentCheckbox);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("celebration-animation")).toBeInTheDocument();
+    });
+  });
+
+  it("parent-checkbox uncheck on an already-complete list does NOT fire animation", async () => {
+    // Seed with an already-complete list. Clicking the parent checkbox
+    // here means uncheck, so no celebration.
+    useAppStore.setState({ selectedProjectIds: ["alex:1"] });
+    mocks.fetchAllTasksIncludingShared.mockResolvedValue([
+      makeList({
+        is_complete: true,
+        sub_tasks: [
+          { id: "st-a", text: "Order primers", is_complete: true },
+          { id: "st-b", text: "Order Taq", is_complete: true },
+        ],
+      }),
+    ]);
+
+    renderPanel(projects);
+
+    const cardRoot = await screen.findByTestId("expandable-list-card");
+    const uncheckBtn = within(cardRoot).getByRole("button", {
+      name: /mark as incomplete/i,
+    });
+    fireEvent.click(uncheckBtn);
+
+    await waitFor(() => {
+      expect(mocks.tasksUpdate).toHaveBeenCalled();
+    });
+    expect(
+      screen.queryByTestId("celebration-animation"),
+    ).not.toBeInTheDocument();
   });
 });
 

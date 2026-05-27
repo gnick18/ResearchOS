@@ -28,6 +28,21 @@ import { ownerScopedTasksApi } from "@/lib/tasks/owner-scoped-api";
 import Tooltip from "@/components/Tooltip";
 import SubTaskProgressDots from "@/components/workbench/SubTaskProgressDots";
 import type { DateSignalKind } from "@/components/workbench/ListTaskRow";
+import DynamicAnimation from "@/components/DynamicAnimation";
+import { useAppStore } from "@/lib/store";
+
+// Celebration-animation overlay state. The `nonce` is bumped on every
+// fire and used as the DynamicAnimation `key`, so a second check
+// before the previous animation finishes unmounts the in-flight
+// overlay (clearing its timers via the animation component's
+// useEffect cleanup) and mounts the new one fresh. Halt-and-restart,
+// no queueing. Mirrors the settings animation picker pattern from
+// commit 0d778d95.
+interface CelebrationState {
+  x: number;
+  y: number;
+  nonce: number;
+}
 
 const DATE_CHIP_CLASSES: Record<DateSignalKind, string> = {
   overdue: "text-red-700 bg-red-50 border border-red-200",
@@ -70,6 +85,26 @@ export default function ExpandableListCard({
   const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
 
   const readOnly = task.is_shared_with_me && task.shared_permission !== "edit";
+
+  // Celebration animation (parity with TaskDetailPopup / TaskQuickPopup /
+  // HighLevelGoalSidebar). Fires on the false -> true transition for:
+  //   - subtask checkbox check (one animation per check)
+  //   - parent "Mark list complete" button click
+  //   - parent header checkbox click
+  // Never fires on uncheck. The mark-list-complete handler also cascades
+  // subtasks to is_complete=true in a single tasksApi.update, but only one
+  // animation fires for that action because the subtask handler is a
+  // separate code path (the cascade goes straight through the update call,
+  // not through handleToggleSubTask).
+  const animationType = useAppStore((s) => s.animationType);
+  const [celebration, setCelebration] = useState<CelebrationState | null>(null);
+  const fireCelebration = useCallback((rect: DOMRect) => {
+    setCelebration({
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+      nonce: Date.now(),
+    });
+  }, []);
 
   // ── Items state ─────────────────────────────────────────────────────────
   const [subTasks, setSubTasks] = useState<SubTask[]>(task.sub_tasks ?? []);
@@ -165,10 +200,18 @@ export default function ExpandableListCard({
   }, [nameDraft, task, tasksApi, refetch]);
 
   const handleToggleSubTask = useCallback(
-    async (subTaskId: string) => {
+    async (subTaskId: string, event: React.MouseEvent<HTMLButtonElement>) => {
+      const prior = subTasks.find((st) => st.id === subTaskId);
       const next = subTasks.map((st) =>
         st.id === subTaskId ? { ...st, is_complete: !st.is_complete } : st,
       );
+      // Celebrate on false -> true only. Position at the checkbox center so
+      // the animation overlay anchors to the user's click, same pattern as
+      // TaskDetailPopup's SimpleTaskChecklist.
+      if (prior && !prior.is_complete) {
+        const rect = event.currentTarget.getBoundingClientRect();
+        fireCelebration(rect);
+      }
       setSubTasks(next);
       setSaving(true);
       try {
@@ -182,7 +225,7 @@ export default function ExpandableListCard({
         setSaving(false);
       }
     },
-    [subTasks, task, tasksApi, refetch],
+    [subTasks, task, tasksApi, refetch, fireCelebration],
   );
 
   const handleAddItem = useCallback(async () => {
@@ -249,29 +292,40 @@ export default function ExpandableListCard({
     [itemDraft, subTasks, task, tasksApi, refetch],
   );
 
-  const handleMarkListComplete = useCallback(async () => {
-    const nextComplete = !task.is_complete;
-    // Forward-cascade matches WorkbenchListsPanel's existing parent
-    // checkbox behavior.
-    const cascadeSubTasks =
-      nextComplete && subTasks.length > 0
-        ? subTasks.map((st) =>
-            st.is_complete ? st : { ...st, is_complete: true },
-          )
-        : undefined;
-    setSaving(true);
-    try {
-      await tasksApi.update(task.id, {
-        is_complete: nextComplete,
-        ...(cascadeSubTasks ? { sub_tasks: cascadeSubTasks } : {}),
-      });
-      await refetch();
-    } catch {
-      alert("Failed to update list");
-    } finally {
-      setSaving(false);
-    }
-  }, [task, subTasks, tasksApi, refetch]);
+  const handleMarkListComplete = useCallback(
+    async (event: React.MouseEvent<HTMLButtonElement>) => {
+      const nextComplete = !task.is_complete;
+      // Celebrate on false -> true only. One animation fires from the
+      // parent click regardless of how many subtasks the cascade flips,
+      // because the cascade goes through this single tasksApi.update
+      // call (not through handleToggleSubTask).
+      if (nextComplete) {
+        const rect = event.currentTarget.getBoundingClientRect();
+        fireCelebration(rect);
+      }
+      // Forward-cascade matches WorkbenchListsPanel's existing parent
+      // checkbox behavior.
+      const cascadeSubTasks =
+        nextComplete && subTasks.length > 0
+          ? subTasks.map((st) =>
+              st.is_complete ? st : { ...st, is_complete: true },
+            )
+          : undefined;
+      setSaving(true);
+      try {
+        await tasksApi.update(task.id, {
+          is_complete: nextComplete,
+          ...(cascadeSubTasks ? { sub_tasks: cascadeSubTasks } : {}),
+        });
+        await refetch();
+      } catch {
+        alert("Failed to update list");
+      } finally {
+        setSaving(false);
+      }
+    },
+    [task, subTasks, tasksApi, refetch, fireCelebration],
+  );
 
   const totalSubTasks = subTasks.length;
   const completedSubTasks = subTasks.filter((s) => s.is_complete).length;
@@ -315,7 +369,15 @@ export default function ExpandableListCard({
             disabled={!canToggleComplete}
             onClick={(e) => {
               e.stopPropagation();
-              if (canToggleComplete) onToggleComplete();
+              if (!canToggleComplete) return;
+              // Celebrate on false -> true only. Fire from the header
+              // checkbox so the animation works even when the card is
+              // collapsed (the mark-list-complete button only exists
+              // inside the expanded panel).
+              if (!task.is_complete) {
+                fireCelebration(e.currentTarget.getBoundingClientRect());
+              }
+              onToggleComplete();
             }}
             className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors ${
               task.is_complete
@@ -510,7 +572,7 @@ export default function ExpandableListCard({
                       onClick={
                         readOnly
                           ? undefined
-                          : () => handleToggleSubTask(st.id)
+                          : (e) => handleToggleSubTask(st.id, e)
                       }
                       disabled={saving || readOnly}
                       // Workbench fix manager R1 2026-05-22 (Verify-A P0-1):
@@ -661,6 +723,11 @@ export default function ExpandableListCard({
                 type="button"
                 onClick={handleMarkListComplete}
                 disabled={saving}
+                // Note: handleMarkListComplete reads
+                // event.currentTarget.getBoundingClientRect() for the
+                // animation anchor. Don't wrap this in (e) => fn(e) at
+                // a higher level — currentTarget would point at the
+                // wrapper and the animation would mis-position.
                 // Workbench fix manager R1 2026-05-22 (Verify-A P0-1):
                 // ExpandableListCard's Mark-list-complete button is the
                 // active target on /workbench (replaces TaskDetailPopup
@@ -698,6 +765,26 @@ export default function ExpandableListCard({
           </div>
         </div>
       </div>
+
+      {/* Celebration overlay. Rendered at viewport coordinates (the
+       *  animation components use position: fixed internally), so this
+       *  works whether or not the card is expanded. `key={celebration.nonce}`
+       *  forces React to unmount the previous DynamicAnimation when a
+       *  second check fires before the first finishes, clearing the
+       *  underlying timers + particle state via the animation's useEffect
+       *  cleanup. The old onComplete fires during cleanup but the
+       *  setCelebration(null) it queues is harmless because the new
+       *  state has already replaced null. Same pattern as the settings
+       *  animation preview (commit 0d778d95). */}
+      {celebration && (
+        <DynamicAnimation
+          key={celebration.nonce}
+          type={animationType}
+          x={celebration.x}
+          y={celebration.y}
+          onComplete={() => setCelebration(null)}
+        />
+      )}
     </div>
   );
 }

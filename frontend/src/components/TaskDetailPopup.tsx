@@ -675,13 +675,27 @@ export default function TaskDetailPopup({
               {!readOnly && (
                 <Tooltip label={task.is_complete ? "Mark as incomplete" : "Mark as complete"} placement="bottom">
                   <button
-                    onClick={async () => {
+                    onClick={async (event) => {
+                      // Celebrate on false -> true only. Parity with the
+                      // workbench inline card and the subtask checkbox: the
+                      // parent mark-complete button is the "list is done"
+                      // moment and should fire the same animation.
+                      const willComplete = !task.is_complete;
+                      const rect = willComplete
+                        ? event.currentTarget.getBoundingClientRect()
+                        : null;
                       try {
                         await tasksApi.update(task.id, { is_complete: !task.is_complete });
                         await Promise.all([
                           await queryClient.refetchQueries({ queryKey: ["tasks"] }),
                           await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] }),
                         ]);
+                        if (rect) {
+                          setAnimationPosition({
+                            x: rect.left + rect.width / 2,
+                            y: rect.top + rect.height / 2,
+                          });
+                        }
                       } catch {
                         alert("Failed to update task");
                       }
