@@ -64,10 +64,9 @@ export const ganttExistingExperimentStep = buildWalkthroughStep({
         automatically, including the experiment you just made.
       </p>
       <p>
-        The timeline isn't just a view, though. You can open, edit,
-        reschedule, and manage anything right from here without having
-        to bounce back to the Workbench. I'll click your experiment to
-        show you.
+        You can open, edit, reschedule, and manage anything right from
+        here without having to bounce back to the Workbench. I&apos;ll
+        click your experiment to show you.
       </p>
     </>
   ),

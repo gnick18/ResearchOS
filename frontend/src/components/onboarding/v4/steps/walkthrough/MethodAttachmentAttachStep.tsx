@@ -34,7 +34,10 @@
 import {
   cursorScript,
   safeClickAction,
+  callbackAction,
   compactScript,
+  waitForElement,
+  tourClickWithLockBypass,
 } from "./lib/cursor-script";
 import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
@@ -88,14 +91,30 @@ export const methodAttachmentAttachStep = buildWalkthroughStep({
       3000,
     );
     // 2. Click the Methods tab inside the freshly-opened popup. The
-    //    popup opens to the Lab Notes tab by default, so we always
-    //    click the Methods tab to land the user on the correct
-    //    surface for the attach action they're about to do. Idempotent
-    //    if the tab is already active.
-    const methodsTabClick = await safeClickAction(
-      targetSelector(TOUR_TARGETS.experimentMethodsTab),
-      3000,
-    );
+    //    popup opens to Details by default (hand-walk fix 2026-05-27),
+    //    so we always click the Methods tab to land the user on the
+    //    correct surface for the attach action they're about to do.
+    //
+    //    Defer-to-playback (third pattern application, same root-cause
+    //    class as workbench-create-experiment-open / list-create-shell
+    //    / methods-create): the Methods tab is INSIDE the popup, and
+    //    the popup hasn't been re-opened yet at BUILD time. Calling
+    //    safeClickAction at build resolves nothing (popup unmounted),
+    //    waitForElement times out, action becomes null → tab click
+    //    silently drops. Wrap in callbackAction so the selector
+    //    resolves AFTER reopenRowClick plays.
+    //
+    //    tourClickWithLockBypass is needed in case any tour pageLock
+    //    is active (downstream variants of this step may add one).
+    const methodsTabClick = callbackAction(async () => {
+      if (typeof document === "undefined") return;
+      const tab = await waitForElement(
+        targetSelector(TOUR_TARGETS.experimentMethodsTab),
+        3000,
+      );
+      if (!(tab instanceof HTMLElement)) return;
+      tourClickWithLockBypass(tab);
+    });
     return compactScript([reopenRowClick, methodsTabClick]);
   }),
   // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.

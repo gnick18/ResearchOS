@@ -107,14 +107,20 @@ export default function TaskDetailPopup({
   const isExperiment = initialTask.task_type === "experiment";
   const isPurchase = initialTask.task_type === "purchase";
   const isSimpleTask = initialTask.task_type === "list";
-  // R1 fix-pass (experiments fix-pass R1 manager, 2026-05-23):
-  // Default to "notes" for experiments — users open an experiment to
-  // write lab notes, not to admin metadata. Purchases still default to
-  // the items tab (their primary action), list tasks still default to
-  // details (sub-tasks live in the Details tab). `initialTab` callers
-  // (tours, deep-links) still win.
+  // Hand-walk fix 2026-05-27 (Grant): experiment popups now default to
+  // Details, not Lab Notes. Reasoning: the popup is the experiment's
+  // landing surface — schedule, project, tags, methods. Opening on
+  // Lab Notes hides all that orientation context behind a tab the user
+  // didn't actively pick. Purchases still default to the items tab
+  // (their primary action), list tasks still default to details
+  // (sub-tasks live in the Details tab). `initialTab` callers (tours,
+  // deep-links) still win.
+  //
+  // (Prior comment retained for archaeology: R1 fix-pass 2026-05-23
+  //  reasoned that "users open an experiment to write lab notes" so
+  //  defaulted to notes. Hand-walk pushback flipped that.)
   const [activeTab, setActiveTab] = useState<Tab>(
-    initialTab ?? (isPurchase ? "purchases" : isExperiment ? "notes" : "details")
+    initialTab ?? (isPurchase ? "purchases" : "details")
   );
   // Tracks which markdown-editor tab the user last viewed. Drops on
   // non-editor surfaces (Details, Methods, the header, anywhere outside the
