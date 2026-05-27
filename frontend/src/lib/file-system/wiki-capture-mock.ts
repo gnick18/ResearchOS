@@ -834,15 +834,20 @@ export async function installWikiCaptureFixture(
   // path. `?wizardSeedStep=<step>` (combined with `?wikiCapture=1` and
   // `?wizard-preview=1`) plants an `_onboarding.json` on the alex user
   // with `wizard_force_show: true` plus a `wizard_resume_state` pointing
-  // at the requested step. The capture script clicks Resume on the
-  // WizardResumeModal to land on the requested step body. Lab-account
-  // feature_picks are seeded so the L-series steps mount. Dev-only by
-  // construction (the wikiCapture flag itself is hard-gated to dev /
-  // localhost).
+  // at the requested step. Under v4, TourBootstrap reads `wizardSeedStep`
+  // from the URL and calls `controller.start(seedStep)` directly, so the
+  // V4ResumePrompt is bypassed. To capture the resume modal itself, the
+  // capture script uses the alias `wizardSeedResumeStep=<step>` instead:
+  // the mock still plants the sidecar (so a valid v4 resume_state
+  // exists), but TourBootstrap does NOT read this param, so it falls
+  // through to the resume_state branch and surfaces V4ResumePrompt.
+  // Lab-account feature_picks are seeded so the L-series steps mount.
+  // Dev-only by construction (the wikiCapture flag itself is hard-gated
+  // to dev / localhost).
   try {
-    const seedStep = new URLSearchParams(window.location.search).get(
-      "wizardSeedStep",
-    );
+    const params = new URLSearchParams(window.location.search);
+    const seedStep =
+      params.get("wizardSeedStep") ?? params.get("wizardSeedResumeStep");
     if (seedStep && signIn) {
       // The Phase 4 cleanup grid (retired 2026-05-22) used to render
       // rows only when `artifacts_created` was non-empty. The same

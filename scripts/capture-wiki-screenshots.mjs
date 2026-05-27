@@ -1966,43 +1966,61 @@ const FIXTURE_ROUTES = [
       }
     },
   },
-  // ── Onboarding welcome-tour (v3) captures ─────────────────────────
+  // ── Onboarding welcome-tour (v4) captures ─────────────────────────
   //
   // Wiki target: /wiki/getting-started/welcome-wizard
   //
-  // Refreshed 2026-05-20 (wiki manager onboarding v3 sub-agent): the
-  // v2 7-step wizard is fully deprecated. The current shipped wizard is
-  // OnboardingWizardV3.tsx, a multi-phase BeakerBot tour (intro → Q1
-  // solo/lab → Q1a/Q1b lab branch → Q2-Q6 feature picks → W1-W9
-  // universal walkthrough → W10-W14 conditional walkthrough → optional
-  // lab-prompt + L1-L11 lab tour → phase4-cleanup grid).
+  // Ported 2026-05-27 (screenshot script v4 port manager) from the v3
+  // selectors. v3 is fully retired. The v4 tour is a multi-phase
+  // BeakerBot experience driven by TourController.tsx with the step
+  // graph defined in v4/step-machine.ts (TOUR_STEP_ORDER).
   //
-  // Gate precedence (orchestrator.tsx line 149 !wizardPreviewMode
-  // short-circuit): ?wikiCapture=1 ALONE hides the wizard; the
-  // combined ?wikiCapture=1&wizard-preview=1 case mounts the v3 wizard
-  // against the fixture. capturePage's URL builder always appends
-  // wikiCapture=1, so a route with path: "/?wizard-preview=1" resolves
-  // to /?wizard-preview=1&wikiCapture=1 (the combined case) and the
-  // wizard mounts at the intro step.
+  // Two surfaces are captured here:
+  //
+  //   1. Phase 1 setup modal (welcome, setup-q1, ..., setup-wrapup).
+  //      Renders as a centered card on a dim backdrop via
+  //      ModalSetupShell. Carries `data-tour-modal="v4-setup"` on the
+  //      outer fixed inset-0 container and `data-tour-step="<id>"` on
+  //      the same node so the per-step body is identifiable.
+  //
+  //   2. V4ResumePrompt — the Restart / Resume / Discard modal that
+  //      surfaces when a non-welcome `wizard_resume_state` is present
+  //      on first mount. Carries `data-testid="v4-resume-prompt"`.
+  //
+  // Gate precedence: V4MountForUser only renders when isV4PreviewMode()
+  // returns true (URL has `?wizard-preview=1` or `?wizardSeedStep=…`,
+  // or the sticky sessionStorage flag is set). capturePage's URL
+  // builder always appends `wikiCapture=1`, so a route with
+  // `path: "/?wizard-preview=1"` resolves to
+  // `/?wizard-preview=1&wikiCapture=1` (combined case) and v4 mounts
+  // at the welcome step.
   //
   // The shipped entries below cover:
-  //   - onboarding-welcome-step       (default mount at intro)
-  //   - onboarding-q1-account-type    (one Next click past intro)
-  //   - onboarding-w1-create-project       (W1, seeded resume_state)
-  //   - onboarding-w5-hybrid-editor-typing (W5, seeded resume_state)
-  //   - onboarding-l4-permission-practice  (L4, seeded resume_state +
-  //                                          lab feature_picks)
-  //   - onboarding-phase4-cleanup-grid     (Phase 4, seeded resume_state)
-  //   - onboarding-resume-modal            (WizardResumeModal, modal
-  //                                          shown by seeded resume_state)
+  //   - onboarding-welcome-step       (default mount at welcome)
+  //   - onboarding-q1-account-type    (one Let's go click past welcome)
+  //   - onboarding-hybrid-bold        (HE-5a, seeded resume_state)
+  //   - onboarding-resume-modal       (V4ResumePrompt, surfaced by a
+  //                                     seeded resume_state without an
+  //                                     in-URL `wizardSeedStep` so
+  //                                     TourBootstrap's auto-bypass
+  //                                     doesn't fire)
   //
-  // The seeded entries use the `?wizardSeedStep=<id>` URL flag handled
-  // by installWikiCaptureFixture in wiki-capture-mock.ts, which plants
-  // a `_onboarding.json` with `wizard_force_show: true` plus a
-  // `wizard_resume_state` pointing at the chosen step. The fixture
-  // mock backs every fileService method with an in-memory map, so the
-  // W/L step body local-api calls (projectsApi.create, etc.) write
-  // through to the mock rather than touching real disk.
+  // The seeded entries use one of:
+  //   - `?wizardSeedStep=<v4-id>`        TourBootstrap reads this and
+  //                                       auto-starts at the step;
+  //                                       V4ResumePrompt is bypassed.
+  //   - `?wizardSeedResumeStep=<v4-id>`  Mock-only alias; plants the
+  //                                       same `wizard_resume_state`
+  //                                       but TourBootstrap does NOT
+  //                                       read it, so the resume-state
+  //                                       branch fires and surfaces
+  //                                       V4ResumePrompt.
+  //
+  // Both aliases are handled by installWikiCaptureFixture in
+  // wiki-capture-mock.ts, which plants `_onboarding.json` on alex with
+  // `wizard_force_show: true` plus a `wizard_resume_state` pointing at
+  // the requested step. Lab-account feature_picks are seeded so any
+  // lab-conditional step body mounts.
   //
   // The settings-rerun entry below IS reachable via the fixture (the
   // settings page is already captured in non-wizard mode at
@@ -2010,21 +2028,18 @@ const FIXTURE_ROUTES = [
   {
     path: "/?wizard-preview=1",
     file: "onboarding-welcome-step.png",
-    // The shell renders data-wizard-root="v3" on the portal root, and
-    // the intro step body renders data-step-id="intro" once mounted.
-    // Both selectors are stable across step transitions; we wait for
-    // both so the BeakerBot pose has had time to settle on "waving".
-    waitFor: '[data-wizard-root="v3"], [data-step-id="intro"]',
+    // The setup modal renders data-tour-modal="v4-setup" on the portal
+    // root, and the welcome step body sets data-tour-step="welcome" on
+    // the same node. Both selectors are stable across step transitions.
+    waitFor: '[data-tour-modal="v4-setup"][data-tour-step="welcome"]',
     settleMs: 900,
     action: async (page) => {
       // Clip the modal card so the dimmed page behind it stays out of
-      // the shot. The card is the first child of the wizard root with
-      // the rounded-2xl + shadow-2xl classes.
+      // the shot. The card is the first descendant of the modal root
+      // with the bg-white + rounded-2xl classes.
       try {
         const clip = await page.evaluate(() => {
-          const root = document.querySelector(
-            '[data-wizard-root="v3"]',
-          );
+          const root = document.querySelector('[data-tour-modal="v4-setup"]');
           if (!root) return null;
           const card = root.querySelector('div[class*="rounded-2xl"]');
           if (!card) return null;
@@ -2056,19 +2071,22 @@ const FIXTURE_ROUTES = [
   {
     path: "/?wizard-preview=1",
     file: "onboarding-q1-account-type.png",
-    waitFor: '[data-step-id="intro"]',
+    waitFor: '[data-tour-modal="v4-setup"][data-tour-step="welcome"]',
     settleMs: 700,
     action: async (page) => {
-      // Click Let's go to advance from intro to setup-q1. The shell's
-      // Next button label switches to "Let's go" on the intro step
-      // (see nextButtonLabel in OnboardingWizardV3.tsx). After the
-      // click we wait for the Q1 step body to mount.
+      // Click Let's go to advance from welcome to setup-q1. The shell's
+      // Next button label is "Let's go" on the welcome step (see
+      // nextLabel in TourController.tsx ModalSetupShell). After the
+      // click we wait for the setup-q1 step body to mount.
       try {
         const letsGo = page.getByRole("button", { name: /Let's go/i }).first();
         if (await letsGo.count()) {
           await letsGo.click({ timeout: 3000 });
           await page
-            .waitForSelector('[data-step-id="setup-q1"]', { timeout: 4000 })
+            .waitForSelector(
+              '[data-tour-modal="v4-setup"][data-tour-step="setup-q1"]',
+              { timeout: 4000 },
+            )
             .catch(() => {});
           await page.waitForTimeout(500);
         }
@@ -2080,9 +2098,7 @@ const FIXTURE_ROUTES = [
       // Clip the modal card.
       try {
         const clip = await page.evaluate(() => {
-          const root = document.querySelector(
-            '[data-wizard-root="v3"]',
-          );
+          const root = document.querySelector('[data-tour-modal="v4-setup"]');
           if (!root) return null;
           const card = root.querySelector('div[class*="rounded-2xl"]');
           if (!card) return null;
@@ -2185,247 +2201,77 @@ const FIXTURE_ROUTES = [
     },
     highlight: { text: "Re-run welcome tour" },
   },
-  // Wizard-step-seeded captures (P6 wiki manager dispatch).
+  // Wizard-step-seeded captures (v4 port 2026-05-27).
   //
   // `?wizardSeedStep=<id>` is read by installWikiCaptureFixture in
-  // wiki-capture-mock.ts. When present, it plants an alex/_onboarding.json
-  // with `wizard_force_show: true` plus a `wizard_resume_state` pointing
-  // at the requested step. The mount probe in WizardMount.tsx surfaces
-  // the WizardResumeModal first (because resume_state is non-null), so
-  // each route's action() clicks the modal's "Resume" button to advance
-  // to the actual step body. The resume-modal capture itself stops at
-  // the modal and screenshots it directly.
+  // wiki-capture-mock.ts AND by TourBootstrap. The mock plants an
+  // `alex/_onboarding.json` with `wizard_force_show: true` plus a
+  // `wizard_resume_state` pointing at the requested step. Under v4,
+  // TourBootstrap also reads the URL param and calls
+  // `controller.start(seedStep)` directly, so the V4ResumePrompt is
+  // BYPASSED and the controller lands on the requested step body
+  // immediately. (The v3 flow surfaced WizardResumeModal first and
+  // required a Resume click; v4 does not.)
   //
   // The seed bakes lab-account feature_picks (account_type=lab + every
-  // optional Q=yes) so L-series steps can mount on the demo fixture.
+  // optional Q=yes) so any lab-conditional step body mounts.
+  //
+  // For the in-product walkthrough (post-setup phases), the surface is
+  // a free-floating speech bubble + spotlight (NOT a modal), so the
+  // clip calc anchors on `[data-testid="tour-beakerbot-overlay"]` and
+  // expands to include the spotlight target rather than just the
+  // bubble.
   {
-    path: "/?wizard-preview=1&wizardSeedStep=W1",
-    file: "onboarding-w1-create-project.png",
-    waitFor: '[data-resume-modal-state="idle"], [data-step-id="W1"]',
-    settleMs: 900,
-    action: async (page) => {
-      try {
-        const resume = page
-          .locator('[data-resume-modal-action="resume"]')
-          .first();
-        if (await resume.count()) {
-          await resume.click({ timeout: 3000 });
-          await page
-            .waitForSelector('[data-step-id="W1"]', { timeout: 5000 })
-            .catch(() => {});
-          await page.waitForTimeout(700);
-        }
-      } catch (err) {
-        console.warn(
-          `  ⚠ onboarding-w1-create-project resume click: ${err.message}`,
-        );
-      }
-      try {
-        const clip = await page.evaluate(() => {
-          const root = document.querySelector('[data-wizard-root="v3"]');
-          if (!root) return null;
-          const card = root.querySelector('div[class*="rounded-2xl"]');
-          if (!card) return null;
-          const r = card.getBoundingClientRect();
-          const pad = 24;
-          return {
-            x: Math.max(0, Math.floor(r.left - pad)),
-            y: Math.max(0, Math.floor(r.top - pad)),
-            width: Math.min(
-              Math.max(0, window.innerWidth - Math.floor(r.left - pad)),
-              Math.ceil(r.width + pad * 2),
-            ),
-            height: Math.min(
-              Math.max(0, window.innerHeight - Math.floor(r.top - pad)),
-              Math.ceil(r.height + pad * 2),
-            ),
-          };
-        });
-        if (clip && clip.width > 100 && clip.height > 100) {
-          return { clip };
-        }
-      } catch (err) {
-        console.warn(
-          `  ⚠ onboarding-w1-create-project clip calc: ${err.message}`,
-        );
-      }
+    // HE-5a hybrid editor BOLD demo. Cursor types "Bold!" with markdown
+    // `**` syntax in the hybrid editor, demonstrating the inline-render
+    // mechanic. Captures the live-typing moment with the speech bubble
+    // narrating from the fixed bottom-right anchor.
+    //
+    // File rename: v3 used `W5` step nomenclature and the file was
+    // `onboarding-w5-hybrid-editor-typing.png`. Renamed to
+    // `onboarding-hybrid-bold.png` to match the v4 step id.
+    path: "/?wizard-preview=1&wizardSeedStep=hybrid-bold",
+    file: "onboarding-hybrid-bold.png",
+    // Wait for the in-product speech bubble to mount (the in-product
+    // walkthrough overlay has no per-step data-tour-step attribute on
+    // the body; the bubble's testid is the most stable anchor).
+    waitFor: '[data-testid="tour-beakerbot-bubble"]',
+    settleMs: 1500,
+    action: async () => {
+      // No clip — capture the full viewport so the spotlight target
+      // (hybrid editor body), the cursor mid-demo, and the speech
+      // bubble in the bottom-right all sit together in the frame. The
+      // speech bubble is a fixed-position overlay anchored at
+      // bottom: 96px, so a tight clip on the bubble alone would lose
+      // the editor context this screenshot is meant to teach.
     },
   },
   {
-    path: "/?wizard-preview=1&wizardSeedStep=W5",
-    file: "onboarding-w5-hybrid-editor-typing.png",
-    waitFor: '[data-resume-modal-state="idle"], [data-step-id="W5"]',
-    settleMs: 900,
-    action: async (page) => {
-      try {
-        const resume = page
-          .locator('[data-resume-modal-action="resume"]')
-          .first();
-        if (await resume.count()) {
-          await resume.click({ timeout: 3000 });
-          await page
-            .waitForSelector('[data-step-id="W5"]', { timeout: 5000 })
-            .catch(() => {});
-          await page.waitForTimeout(900);
-        }
-      } catch (err) {
-        console.warn(
-          `  ⚠ onboarding-w5-hybrid-editor-typing resume click: ${err.message}`,
-        );
-      }
-      try {
-        const clip = await page.evaluate(() => {
-          const root = document.querySelector('[data-wizard-root="v3"]');
-          if (!root) return null;
-          const card = root.querySelector('div[class*="rounded-2xl"]');
-          if (!card) return null;
-          const r = card.getBoundingClientRect();
-          const pad = 24;
-          return {
-            x: Math.max(0, Math.floor(r.left - pad)),
-            y: Math.max(0, Math.floor(r.top - pad)),
-            width: Math.min(
-              Math.max(0, window.innerWidth - Math.floor(r.left - pad)),
-              Math.ceil(r.width + pad * 2),
-            ),
-            height: Math.min(
-              Math.max(0, window.innerHeight - Math.floor(r.top - pad)),
-              Math.ceil(r.height + pad * 2),
-            ),
-          };
-        });
-        if (clip && clip.width > 100 && clip.height > 100) {
-          return { clip };
-        }
-      } catch (err) {
-        console.warn(
-          `  ⚠ onboarding-w5-hybrid-editor-typing clip calc: ${err.message}`,
-        );
-      }
-    },
-  },
-  {
-    path: "/?wizard-preview=1&wizardSeedStep=L4",
-    file: "onboarding-l4-permission-practice.png",
-    waitFor: '[data-resume-modal-state="idle"], [data-step-id="L4"]',
-    settleMs: 900,
-    action: async (page) => {
-      try {
-        const resume = page
-          .locator('[data-resume-modal-action="resume"]')
-          .first();
-        if (await resume.count()) {
-          await resume.click({ timeout: 3000 });
-          await page
-            .waitForSelector('[data-step-id="L4"]', { timeout: 5000 })
-            .catch(() => {});
-          await page.waitForTimeout(700);
-        }
-      } catch (err) {
-        console.warn(
-          `  ⚠ onboarding-l4-permission-practice resume click: ${err.message}`,
-        );
-      }
-      try {
-        const clip = await page.evaluate(() => {
-          const root = document.querySelector('[data-wizard-root="v3"]');
-          if (!root) return null;
-          const card = root.querySelector('div[class*="rounded-2xl"]');
-          if (!card) return null;
-          const r = card.getBoundingClientRect();
-          const pad = 24;
-          return {
-            x: Math.max(0, Math.floor(r.left - pad)),
-            y: Math.max(0, Math.floor(r.top - pad)),
-            width: Math.min(
-              Math.max(0, window.innerWidth - Math.floor(r.left - pad)),
-              Math.ceil(r.width + pad * 2),
-            ),
-            height: Math.min(
-              Math.max(0, window.innerHeight - Math.floor(r.top - pad)),
-              Math.ceil(r.height + pad * 2),
-            ),
-          };
-        });
-        if (clip && clip.width > 100 && clip.height > 100) {
-          return { clip };
-        }
-      } catch (err) {
-        console.warn(
-          `  ⚠ onboarding-l4-permission-practice clip calc: ${err.message}`,
-        );
-      }
-    },
-  },
-  {
-    path: "/?wizard-preview=1&wizardSeedStep=phase4-cleanup",
-    file: "onboarding-phase4-cleanup-grid.png",
-    waitFor:
-      '[data-resume-modal-state="idle"], [data-step-id="phase4-cleanup"]',
-    settleMs: 900,
-    action: async (page) => {
-      try {
-        const resume = page
-          .locator('[data-resume-modal-action="resume"]')
-          .first();
-        if (await resume.count()) {
-          await resume.click({ timeout: 3000 });
-          await page
-            .waitForSelector('[data-step-id="phase4-cleanup"]', {
-              timeout: 5000,
-            })
-            .catch(() => {});
-          await page.waitForTimeout(800);
-        }
-      } catch (err) {
-        console.warn(
-          `  ⚠ onboarding-phase4-cleanup-grid resume click: ${err.message}`,
-        );
-      }
-      try {
-        const clip = await page.evaluate(() => {
-          const root = document.querySelector('[data-wizard-root="v3"]');
-          if (!root) return null;
-          const card = root.querySelector('div[class*="rounded-2xl"]');
-          if (!card) return null;
-          const r = card.getBoundingClientRect();
-          const pad = 24;
-          return {
-            x: Math.max(0, Math.floor(r.left - pad)),
-            y: Math.max(0, Math.floor(r.top - pad)),
-            width: Math.min(
-              Math.max(0, window.innerWidth - Math.floor(r.left - pad)),
-              Math.ceil(r.width + pad * 2),
-            ),
-            height: Math.min(
-              Math.max(0, window.innerHeight - Math.floor(r.top - pad)),
-              Math.ceil(r.height + pad * 2),
-            ),
-          };
-        });
-        if (clip && clip.width > 100 && clip.height > 100) {
-          return { clip };
-        }
-      } catch (err) {
-        console.warn(
-          `  ⚠ onboarding-phase4-cleanup-grid clip calc: ${err.message}`,
-        );
-      }
-    },
-  },
-  {
-    // The resume modal capture stops AT the modal (no Resume click).
-    // Seed any step (W3 is a midway point so the "you were on W3"
-    // summary copy reads naturally), then screenshot the modal portal.
-    path: "/?wizard-preview=1&wizardSeedStep=W3",
+    // V4ResumePrompt — the Restart / Resume / Discard modal that
+    // surfaces when v4 boots with a non-welcome `wizard_resume_state`.
+    //
+    // Critical v4 detail: TourBootstrap reads `wizardSeedStep` from the
+    // URL and auto-starts at that step (bypassing V4ResumePrompt). To
+    // capture the prompt itself, we use the mock-only alias
+    // `wizardSeedResumeStep=<id>`. The mock plants the same sidecar
+    // (resume_state.current_step = the requested step) but
+    // TourBootstrap does NOT read this param, so its preview-mode
+    // branch falls through to the resume_state path and the prompt
+    // renders. See wiki-capture-mock.ts for the alias handling.
+    //
+    // Seed step: hybrid-bold (a mid-walkthrough beat so the "continue
+    // your welcome tour" copy reads naturally; the prompt body does
+    // not actually echo the step id but a mid-tour step is the only
+    // gate to surface the prompt).
+    path: "/?wizard-preview=1&wizardSeedResumeStep=hybrid-bold",
     file: "onboarding-resume-modal.png",
-    waitFor: '[data-resume-modal-state="idle"]',
+    waitFor: '[data-testid="v4-resume-prompt"]',
     settleMs: 700,
     action: async (page) => {
       try {
         const clip = await page.evaluate(() => {
           const modal = document.querySelector(
-            '[data-resume-modal-state="idle"]',
+            '[data-testid="v4-resume-prompt"]',
           );
           if (!modal) return null;
           const card = modal.querySelector('div[class*="rounded-2xl"]');
@@ -2630,7 +2476,14 @@ async function _capturePageAt(page, route, url) {
     } catch {}
   }
   try {
-    await page.goto(url, { waitUntil: "networkidle", timeout: 30000 });
+    // `networkidle` is unreliable against Next.js 16 dev mode (Turbopack +
+    // RSC streaming keeps the network active indefinitely, so the wait
+    // never resolves and every capture times out at 30s). `domcontentloaded`
+    // returns as soon as the initial HTML is parsed; the per-route
+    // `waitForSelector` + `settleMs` below handle "page is ready for
+    // capture" in a way the wait-until contract cannot. v4 port,
+    // 2026-05-27.
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
   } catch (err) {
     console.error(`  ✗ ${route.file} — goto failed: ${err.message}`);
     return false;

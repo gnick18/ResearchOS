@@ -453,9 +453,9 @@ export default function WelcomeWizardPage() {
       </Steps>
 
       <Screenshot
-        src="/wiki/screenshots/onboarding-w5-hybrid-editor-typing.png"
-        alt="A step in the hybrid editor cluster showing the live-typing demo. A preview pane displays markdown source with rendered output. BeakerBot's speech bubble narrates from the upper-left."
-        caption="The hybrid editor cluster walks all twelve formatting beats. Click Got it, next when each demo finishes."
+        src="/wiki/screenshots/onboarding-hybrid-bold.png"
+        alt="BeakerBot's speech bubble narrates the bold-typing demo from the bottom-right anchor, with a page-lock pill at the bottom telling the user BeakerBot is demonstrating."
+        caption="A typing beat in the hybrid editor cluster (HE-5a). The bubble explains the inline-render mechanic: markdown stars disappear when the cursor clicks out and the block renders."
       />
 
       <h4>Workbench notes and lists (5 steps)</h4>
