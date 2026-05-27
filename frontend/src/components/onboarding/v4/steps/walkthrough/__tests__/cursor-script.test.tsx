@@ -277,6 +277,30 @@ describe("safeTypeAction()", () => {
       cleanup();
     }
   });
+
+  it(
+    "stamps the resolving selector onto the action for §6.4d re-resolve",
+    async () => {
+      // Regression pin (method-picker sub-bot, 2026-05-26): without
+      // the selector on the action, typeInto cannot recover when a
+      // mid-typing re-render unmounts the captured target (the
+      // §6.4d HybridMarkdownEditor empty-state textarea swap). Every
+      // safeTypeAction caller passes the selector that resolved the
+      // target, so stamping it onto the action gives that resilience
+      // to all existing call sites without per-step opt-in.
+      const selector = "[data-tour-target='type-target']";
+      const { cleanup } = mountFixture("type-target", "input");
+      try {
+        const action = await safeTypeAction(selector, "hello", 50, 500);
+        expect(action).not.toBeNull();
+        if (action?.type === "type") {
+          expect(action.selector).toBe(selector);
+        }
+      } finally {
+        cleanup();
+      }
+    },
+  );
 });
 
 describe("safeChangeSelectAction() — experiment-create sub-bot 2026-05-26", () => {
