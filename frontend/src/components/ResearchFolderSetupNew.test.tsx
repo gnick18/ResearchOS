@@ -248,6 +248,82 @@ describe("ResearchFolderSetupNew drop zone", () => {
   });
 });
 
+// Chrome's File System Access API throws AbortError on BOTH user cancel
+// AND its native "Can't open this folder ... contains system files"
+// dialog (Desktop / Documents root / Downloads / home). The picker UI
+// pre-warns up front and surfaces a recovery hint after any aborted
+// picker call, so a blocked user gets a concrete next step.
+describe("ResearchFolderSetupNew system-folder block UX", () => {
+  it("renders the pre-warn copy above the picker cards on initial mount", () => {
+    render(<ResearchFolderSetup onComplete={vi.fn()} />);
+    const prewarn = screen.getByTestId("picker-system-folder-prewarn");
+    expect(prewarn.textContent).toContain("Chrome blocks Desktop, Documents, and Downloads");
+    expect(prewarn.textContent).toContain("Documents/ResearchOS");
+  });
+
+  it("does not show the recovery hint on initial mount", () => {
+    render(<ResearchFolderSetup onComplete={vi.fn()} />);
+    expect(screen.queryByTestId("picker-system-folder-recovery")).toBeNull();
+  });
+
+  it("shows the recovery hint after Link Folder resolves false (user cancel or Chrome block)", async () => {
+    mocks.connect.mockResolvedValueOnce(false);
+    render(<ResearchFolderSetup onComplete={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Link Folder/i }));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const hint = await screen.findByTestId("picker-system-folder-recovery");
+    expect(hint.textContent).toContain("system files");
+    expect(hint.textContent).toContain("subfolder");
+  });
+
+  it("shows the recovery hint after Create New Folder resolves false", async () => {
+    mocks.createNewFolder.mockResolvedValueOnce(false);
+    render(<ResearchFolderSetup onComplete={vi.fn()} />);
+
+    // Need a folder name to enable the Create button.
+    const input = screen.getByPlaceholderText(/SmithLab_ResearchOS/);
+    fireEvent.change(input, { target: { value: "MyLab" } });
+    fireEvent.click(screen.getByRole("button", { name: /Choose Location/i }));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(await screen.findByTestId("picker-system-folder-recovery")).toBeInTheDocument();
+  });
+
+  it("does not show the recovery hint when Link Folder succeeds", async () => {
+    mocks.connect.mockResolvedValueOnce(true);
+    render(<ResearchFolderSetup onComplete={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Link Folder/i }));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(screen.queryByTestId("picker-system-folder-recovery")).toBeNull();
+  });
+
+  it("dismissing the recovery hint hides it and prevents it from re-appearing", async () => {
+    mocks.connect.mockResolvedValue(false);
+    render(<ResearchFolderSetup onComplete={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Link Folder/i }));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const dismiss = await screen.findByTestId("picker-system-folder-recovery-dismiss");
+    fireEvent.click(dismiss);
+    expect(screen.queryByTestId("picker-system-folder-recovery")).toBeNull();
+
+    // A second aborted call should NOT re-summon the hint after dismiss.
+    fireEvent.click(screen.getByRole("button", { name: /Link Folder/i }));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(screen.queryByTestId("picker-system-folder-recovery")).toBeNull();
+  });
+});
+
 describe("ResearchFolderSetupNew welcome bubble + opt-in walkthrough", () => {
   it("renders the new 'strongly recommended' copy with the 2-3 minute hint", () => {
     render(<ResearchFolderSetup onComplete={vi.fn()} />);

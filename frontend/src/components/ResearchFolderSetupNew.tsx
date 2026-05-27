@@ -74,6 +74,17 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
   // explicit CTA below the welcome bubble. Returning users skip past.
   const [walkthroughOpen, setWalkthroughOpen] = useState(false);
 
+  // Chrome's File System Access API throws an `AbortError` when the
+  // user cancels the OS picker AND when Chrome refuses a system-adjacent
+  // folder (Desktop / Documents root / Downloads / home) via its native
+  // "Can't open this folder ... contains system files" dialog. Both
+  // paths look identical to JS, so after any aborted picker call we
+  // surface a gentle inline hint that doubles as recovery copy for the
+  // blocked-folder case AND as a no-op for users who simply changed
+  // their mind. The hint is dismissable so it never feels nagging.
+  const [showSystemFolderHint, setShowSystemFolderHint] = useState(false);
+  const [systemFolderHintDismissed, setSystemFolderHintDismissed] = useState(false);
+
   console.log("ResearchFolderSetupNew render:", { 
     isConnected, 
     currentUser, 
@@ -97,7 +108,22 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
   }, [isConnected, currentUser, availableUsers, onComplete]);
 
   const handleConnect = async () => {
-    await connect();
+    const ok = await connect();
+    // connect() resolves `false` on both AbortError (user cancel or
+    // Chrome system-folder block) and on hard errors (permission denied,
+    // FSA unsupported). The hard-error branch sets `error` in context,
+    // which renders below the cards. The silent AbortError branch sets
+    // nothing, so that's the gap we close here.
+    if (!ok && !systemFolderHintDismissed) {
+      setShowSystemFolderHint(true);
+    }
+  };
+
+  const handleCreateNewFolder = async () => {
+    const ok = await createNewFolder(newFolderName);
+    if (!ok && !systemFolderHintDismissed) {
+      setShowSystemFolderHint(true);
+    }
   };
 
   // Drag-and-drop handlers for the "Link Existing Folder" card. Browser
@@ -668,6 +694,19 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
             of the max-w-3xl wrapper, unaffected by BeakerBot's
             absolute positioning. */}
         <div>
+        {/* Pre-warn for Chrome's system-folder block. The File System
+            Access API refuses Desktop, Documents (root), Downloads,
+            and the home directory with a native "Can't open this
+            folder ... contains system files" dialog that JS can't
+            suppress. Surfacing the rule up front saves users a
+            dead-end click. Inline amber text rather than a heavy
+            alert because the picker UI is the main attraction. */}
+        <p
+          data-testid="picker-system-folder-prewarn"
+          className="mb-3 text-center text-xs text-amber-300/90"
+        >
+          Heads up: Chrome blocks Desktop, Documents, and Downloads as root folders. Make a subfolder like Documents/ResearchOS and pick that instead.
+        </p>
         <div className="grid md:grid-cols-2 gap-4">
           <div
             data-testid="link-folder-drop-zone"
@@ -778,7 +817,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
               </div>
 
               <button
-                onClick={() => createNewFolder(newFolderName)}
+                onClick={handleCreateNewFolder}
                 disabled={isLoading || !newFolderName.trim()}
                 className="w-full py-2.5 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -801,6 +840,53 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
         {error && (
           <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg max-w-3xl mx-auto">
             <p className="text-sm text-red-300">{error}</p>
+          </div>
+        )}
+
+        {/* Recovery hint shown after an aborted picker call. Chrome wraps
+            both legitimate user cancels and its system-folder block in
+            the same `AbortError`, so we surface a single dual-purpose
+            message: if the block fired, this is the recovery copy; if
+            the user simply cancelled, it's a harmless reminder they can
+            dismiss. We don't claim certainty ("Chrome blocked your
+            folder") because we genuinely can't tell. */}
+        {showSystemFolderHint && !systemFolderHintDismissed && (
+          <div
+            data-testid="picker-system-folder-recovery"
+            className="mt-4 p-3 bg-amber-500/15 border border-amber-300/30 rounded-lg max-w-3xl mx-auto flex items-start gap-3"
+          >
+            <svg
+              aria-hidden
+              className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-300"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            <div className="flex-1">
+              <p className="text-sm text-amber-100 font-medium">
+                If Chrome just said the folder contains system files
+              </p>
+              <p className="mt-1 text-xs text-amber-100/85 leading-relaxed">
+                Chrome refuses Desktop, Documents (the root), Downloads, and your home directory as research folders. Make a subfolder first (right-click inside Documents, choose New Folder, name it ResearchOS), then point the picker at that subfolder. Or use the Create New Folder card on the right and place it inside Documents.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setShowSystemFolderHint(false);
+                setSystemFolderHintDismissed(true);
+              }}
+              className="flex-shrink-0 rounded p-1 text-amber-200/70 hover:text-amber-100 hover:bg-amber-500/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300"
+              aria-label="Dismiss hint"
+              data-testid="picker-system-folder-recovery-dismiss"
+            >
+              <svg aria-hidden className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
         )}
 
