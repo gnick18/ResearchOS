@@ -185,16 +185,30 @@ export const wikiPointerBackDemoStep = buildWalkthroughStep({
   // start of the click-demo beat, which the static step body can't see.
   expectedRoute: "/wiki",
   // Wiki-pointer nav suppression (2026-05-27, wiki-pointer nav fix
-  // manager). Counterpart to `wikiPointerClickDemoStep.onEnter`. The
-  // cluster is past the wiki-route boundary by the time this fires:
-  // onExit runs when the controller advances past this beat OR when
-  // the controller unmounts (e.g. nav back to the app shell triggered
-  // by the cursor click above). Clearing the flag here re-arms the
-  // V4ResumePrompt so a real user-initiated nav AFTER the cluster ends
-  // (e.g. closing the tab and reopening days later) surfaces the modal
-  // normally.
+  // manager + 2026-05-27 follow-up). Counterpart to
+  // `wikiPointerClickDemoStep.onEnter`. Hand-walk follow-up: clearing
+  // the flag synchronously on onExit was racing the back-nav remount.
+  // The cursor click on "Back to app" navigates from /wiki to the app
+  // shell, which tears the V4MountForUser subtree. onExit fires
+  // before the new layout's TourBootstrap probe runs, so by the time
+  // the probe checks the flag, it's already gone and the V4ResumePrompt
+  // surfaces a second time.
+  //
+  // Fix: delay the clear via setTimeout to outlast the
+  // remount-and-probe sequence (~100-500ms in practice). 2000ms gives
+  // plenty of margin. The flag is sessionStorage-scoped, so a real
+  // user-initiated tab close + reopen still surfaces the prompt
+  // normally (sessionStorage clears on tab close). The
+  // Discard/Restart handlers in TourBootstrap also clear it explicitly
+  // as a belt-and-braces safety net.
   onExit: () => {
-    clearWikiPointerNavActive();
+    if (typeof window === "undefined") {
+      clearWikiPointerNavActive();
+      return;
+    }
+    window.setTimeout(() => {
+      clearWikiPointerNavActive();
+    }, 2000);
   },
 });
 
