@@ -118,7 +118,7 @@ async function pause(ms: number): Promise<void> {
 export const methodsCreateStep = buildWalkthroughStep({
   id: STEP_ID,
   speech:
-    "Time to make a method. I'm picking Standard Markdown and typing in something obviously-not-real lab work, so you can see how the editor flows.",
+    "For general lab work, you'll usually use the Standard Markdown builder. I'll type in something obviously-not-real so you can see how the text editor flows.",
   pose: "typing-on-laptop",
   targetSelector: targetSelector(TOUR_TARGETS.methodsCreateForm),
   cursorScript: cursorScript(async () => {

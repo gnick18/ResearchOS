@@ -116,16 +116,15 @@ export const methodsBreadthStep = buildWalkthroughStep({
   speech: (
     <>
       <p className="mb-2">
-        For specific common method types we have interactive builders
-        that draw live charts and let you tweak parameters. PCR is the
-        thermal cycle one. Let me open it and make a couple of live
-        edits so you can see how the gradient is editable.
+        For a handful of common techniques, ResearchOS gives you a
+        purpose-built editor instead of plain text. PCR gets a thermal
+        cycle builder. LC Gradient draws a live chart as you edit. There
+        are others in the catalog, but I&apos;ll show you these two so
+        you get the feel.
       </p>
       <p>
-        Once I&apos;m done, the builder is all yours. Poke at the
-        steps, try the eraser, add another cycle if you want. Hit Got
-        it, next when you&apos;re ready to move on. The wiki has the
-        full reference whenever you want details.
+        Opening the PCR builder now. Take a look around, then click
+        &quot;Got it, next&quot; to see the LC Gradient editor.
       </p>
     </>
   ),

@@ -29,7 +29,7 @@ import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 export const methodAttachmentAttachStep = buildWalkthroughStep({
   id: "experiment-attach-method-attach",
   speech:
-    "I'll pin our funny markdown method to this experiment so it's tracked.",
+    "I'll attach our funny markdown method to this experiment. Linking them ensures you always have an exact record of how the work was done.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.experimentAttachMethod),
   cursorScript: cursorScript(async () => {

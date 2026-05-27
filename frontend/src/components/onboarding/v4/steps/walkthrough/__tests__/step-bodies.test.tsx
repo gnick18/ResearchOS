@@ -800,29 +800,26 @@ describe("Methods steps (§6.4)", () => {
   it("breadth step renders the type-tour speech (PCR-only after Grant 2026-05-26 rework)", () => {
     const speech = renderSpeech(methodsBreadthStep);
     expect(speech).toMatch(/PCR/);
-    // LC Gradient demo dropped entirely (methods-cluster sub-bot
-    // 2026-05-26). The breadth speech now narrates the PCR builder
-    // beat only — the file-vs-markdown step before it covers the
-    // common-case methods.
-    expect(speech).not.toMatch(/LC Gradient/);
+    expect(speech).toMatch(/LC Gradient/);
   });
-  it("breadth step speech invites exploration (Grant 2026-05-21 rework)", () => {
-    // Grant's 2026-05-21 rework: the prior multi-sub-step PCR drama
-    // moved too fast to follow. 2026-05-26 follow-up: the LC Gradient
-    // demo is gone; PCR carries the interactive-builder narrative on
-    // its own (with two live edits + free-play). Lock the
-    // invite-to-explore copy.
+  it("breadth step speech opens the PCR builder + hands off to LC (script rewrite 2026-05-27)", () => {
+    // Script rewrite 2026-05-27: the prior breadth speech (with
+    // Compound / wiki / "click around") split into two steps. This step
+    // is now PCR-only and ends with the LC handoff line; the LC editor
+    // speech lives on the new methods-lc-demo step.
     const speech = renderSpeech(methodsBreadthStep);
     expect(speech).toMatch(/PCR/);
-    // The invite-to-explore copy. Grant's 2026-05-26 rework changed the
-    // wording from "click around" to "Poke at the steps" (the cursor
-    // now spends most of the demo budget on the live edits, so the
-    // free-play prompt names the specific affordances).
-    expect(speech).toMatch(/Poke|play|click around/i);
+    expect(speech).toMatch(/LC Gradient/);
+    expect(speech).toMatch(/purpose-built editor/i);
+    expect(speech).toMatch(/Opening the PCR builder/);
+    expect(speech).toMatch(/Take a look around/);
     expect(speech).toMatch(/Got it, next/);
     // Old fast-demo framing must be gone.
     expect(speech).not.toMatch(/Watch\./);
     expect(speech).not.toMatch(/move across them/);
+    // Old breadth copy must be gone (now lives in methods-lc-demo or is dropped).
+    expect(speech).not.toMatch(/Compound/);
+    expect(speech).not.toMatch(/wiki/i);
   });
   it("breadth step targets only PCR (Grant 2026-05-26 LC removal)", () => {
     // After the LC Gradient deep-demo removal, the breadth arc visits
@@ -893,11 +890,39 @@ describe("Methods steps (§6.4)", () => {
   });
 });
 
-// v4 tour structural manager (Wave 1, 2026-05-27): the
-// MethodsFileVsMarkdownStep describe block is removed. The step body
-// + file are retired per Grant's 2026-05-27 script rewrite. Wave 2 may
-// add a placeholder-speech assertion against the new
-// `methodsLcDemoStep` skeleton if it ships before the real body lands.
+describe("MethodsLcDemoStep (§6.4b LC Gradient invite-to-explore beat)", () => {
+  it("targets the LC Gradient tile", () => {
+    expect(methodsLcDemoStep.targetSelector).toBe(
+      "[data-tour-target=\"method-type-lc-gradient\"]",
+    );
+  });
+  it("manual-advances ('Got it, next') so the user can explore at their own pace", () => {
+    expect(methodsLcDemoStep.completion.type).toBe("manual");
+  });
+  it("speech introduces the LC Gradient editor (script rewrite 2026-05-27)", () => {
+    const speech = renderSpeech(methodsLcDemoStep);
+    expect(speech).toMatch(/LC Gradient/);
+    expect(speech).toMatch(/chart/i);
+    expect(speech).toMatch(/updates automatically/i);
+    expect(speech).toMatch(/Got it, next/);
+  });
+  it("cursor script mounts the LC editor with a single tile click (no click-around drama)", async () => {
+    const fixtures: Array<{ el: HTMLElement; cleanup: () => void }> = [];
+    try {
+      const lcTile = document.createElement("button");
+      lcTile.setAttribute("data-tour-target", "method-type-lc-gradient");
+      document.body.appendChild(lcTile);
+      fixtures.push({ el: lcTile, cleanup: () => lcTile.remove() });
+
+      const actions = await methodsLcDemoStep.cursorScript!();
+      expect(actions).toHaveLength(1);
+      expect(actions[0].type).toBe("click");
+      if (actions[0].type === "click") expect(actions[0].target).toBe(lcTile);
+    } finally {
+      for (const f of fixtures) f.cleanup();
+    }
+  });
+});
 
 describe("MethodsOpenPickerStep (§6.4 open-picker beat)", () => {
   it("declares manual completion (universal pacing rule, Grant 2026-05-22)", () => {
@@ -916,10 +941,12 @@ describe("MethodsOpenPickerStep (§6.4 open-picker beat)", () => {
   it("speech announces the New Method click verbatim", () => {
     const text = renderSpeech(methodsOpenPickerStep);
     expect(text).toMatch(
-      /I'm clicking New Method to open the picker/,
+      /I'm clicking New Method to open the catalog/,
     );
     // Also lock the leading prose so a future copy edit gets surfaced.
-    expect(text).toMatch(/Now let me show you the kinds of methods/);
+    expect(text).toMatch(
+      /Now let me show you the different kinds of methods/,
+    );
   });
   it("cursor script issues a click against the New Method button", async () => {
     const button = document.createElement("button");
@@ -1019,10 +1046,10 @@ describe("MethodAttachment split sub-steps (§6.6 popup-mount split, 2026-05-21)
   it("open sub-step expectedRoute is /workbench (popup is portal-mounted)", () => {
     expect(methodAttachmentOpenStep.expectedRoute).toBe("/workbench");
   });
-  it("open sub-step speech promises BeakerBot will open the experiment", () => {
-    expect(renderSpeech(methodAttachmentOpenStep)).toMatch(
-      /Now let me open the experiment we just made/,
-    );
+  it("open sub-step speech absorbs the experiment-tabs-overview intro (script rewrite 2026-05-27)", () => {
+    const text = renderSpeech(methodAttachmentOpenStep);
+    expect(text).toMatch(/This is one experiment, opened up/);
+    expect(text).toMatch(/We'll walk through each piece/);
   });
   it("open sub-step uses the 'Got it, next' button label (universal pacing)", () => {
     if (methodAttachmentOpenStep.completion.type !== "manual") {

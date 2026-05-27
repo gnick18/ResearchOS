@@ -33,7 +33,12 @@ import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 
 export const methodAttachmentOpenStep = buildWalkthroughStep({
   id: "experiment-attach-method-open",
-  speech: "Now let me open the experiment we just made.",
+  // Script rewrite 2026-05-27: absorbs the experiment intro that
+  // previously lived in the dropped `experiment-tabs-overview` step. The
+  // cursor click on the workbench row opens the popup; this speech then
+  // orients the user inside the freshly-opened experiment surface.
+  speech:
+    "This is one experiment, opened up. Everything that belongs to a single run lives in here: the protocol you followed, your notes from the bench, the results, any files you generated. We'll walk through each piece.",
   pose: "pointing",
   // No targetSelector: the cursor click on the workbench card is the
   // visual cue. Mirrors the §6.2 NAV pattern — a spotlight on the card

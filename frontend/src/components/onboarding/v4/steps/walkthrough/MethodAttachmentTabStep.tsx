@@ -27,7 +27,7 @@ import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 export const methodAttachmentTabStep = buildWalkthroughStep({
   id: "experiment-attach-method-tab",
   speech:
-    "Methods tab. The handle on the experiment that links what method you ran.",
+    "The Methods tab is where you pin the protocol you actually followed for this run. Six months from now, when you're trying to figure out why one experiment worked and another didn't, this is what tells you exactly what you did.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.experimentMethodsTab),
   cursorScript: cursorScript(async () => {

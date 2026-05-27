@@ -72,7 +72,7 @@ function MethodsCategoryOpenSpeech() {
         <>
           <p className="mb-1">Oops, that&apos;s not the right thing.</p>
           <p>
-            Click <strong>+ New Category</strong> up at the top of the
+            Click <strong>+ New Category</strong> at the top of the
             Methods page so we can set up your first category.
           </p>
         </>
@@ -84,8 +84,8 @@ function MethodsCategoryOpenSpeech() {
   }, [setPageLock, clearPageLock]);
   return (
     <p className="mb-2">
-      First, click <strong>+ New Category</strong> up here to open the
-      form. I&apos;ll take it from there.
+      First, click <strong>+ New Category</strong> at the top of the
+      page. I&apos;ll handle the rest.
     </p>
   );
 }

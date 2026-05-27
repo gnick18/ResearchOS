@@ -45,13 +45,14 @@ export const methodAttachmentNotesStep = buildWalkthroughStep({
   speech: (
     <>
       <p className="mb-2">
-        And a quick note on what makes this run different.
+        You can also add quick variation notes here if you changed
+        anything specific for this run.
       </p>
       <p>
         <strong>Important:</strong> when you edit a method from inside
-        an experiment, you&apos;re editing this experiment&apos;s COPY. The
-        original method stays untouched. So you can tweak per-experiment
-        without worrying about overriding the master.
+        an experiment, you&apos;re only editing this experiment&apos;s
+        COPY. Your original master protocol stays untouched, so you can
+        tweak things per-experiment safely.
       </p>
     </>
   ),

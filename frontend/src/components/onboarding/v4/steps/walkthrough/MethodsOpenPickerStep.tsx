@@ -39,7 +39,7 @@ import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 export const methodsOpenPickerStep = buildWalkthroughStep({
   id: "methods-open-picker",
   speech:
-    "Now let me show you the kinds of methods you can build. I'm clicking New Method to open the picker.",
+    "Now let me show you the different kinds of methods you can build. I'm clicking New Method to open the catalog.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.methodsNewMethodButton),
   cursorScript: cursorScript(async () => {

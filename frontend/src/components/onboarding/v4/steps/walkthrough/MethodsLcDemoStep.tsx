@@ -26,7 +26,8 @@ import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 
 export const methodsLcDemoStep = buildWalkthroughStep({
   id: "methods-lc-demo",
-  speech: "TODO(wave2): methods-lc-demo",
+  speech:
+    "And here is the LC Gradient editor. The chart updates automatically as you change values in the table. Click \"Got it, next\" when you're ready to move on.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.lcEditorWrapper),
   viewportAnchor: targetSelector(TOUR_TARGETS.lcEditorWrapper),

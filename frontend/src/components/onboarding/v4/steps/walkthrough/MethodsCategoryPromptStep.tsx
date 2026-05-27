@@ -130,12 +130,16 @@ function MethodsCategoryPromptInner() {
       data-testid="methods-category-prompt"
       className="space-y-3"
     >
-      <div className="leading-relaxed">
-        Methods are the lab techniques and protocols you use to run
-        experiments. Let&apos;s add a method category for the kinds of
-        techniques you actually run. What&apos;s a common type of
-        technique you do in the lab?
-      </div>
+      <p className="leading-relaxed mb-2">
+        Next stop: Methods. This is your library of reusable protocols.
+        Write a technique once here, then attach it to every experiment
+        that uses it instead of rewriting the steps each time.
+      </p>
+      <p className="leading-relaxed">
+        To keep the library navigable, methods get sorted into categories.
+        Let&apos;s start one based on work you actually do. What is a
+        common technique in your lab?
+      </p>
       <div className="flex flex-col gap-1.5">
         {METHODS_CATEGORY_PICKER_OPTIONS.map((label) => (
           <button
