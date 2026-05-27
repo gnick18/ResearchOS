@@ -321,9 +321,14 @@ describe("TOUR_STEP_ORDER", () => {
     // "Take the feature tour" in the wrap-up body calls
     // controller.advance(), which traverses the next applicable step
     // via getNextStep. The next step under default picks should be the
-    // start of the in-product walkthrough (home-create-project).
+    // start of the in-product walkthrough.
+    //
+    // Pre-2026-05-26 this was `home-create-project`. The transition-intro
+    // sub-bot added `home-page-intro` as a pure-narration BeakerBot intro
+    // beat per Grant's page-transition standing principle, so the first
+    // in-product step is now the intro, not the cursor-click prompt.
     const next = getNextStep("setup-wrapup", picks());
-    expect(next).toBe("home-create-project");
+    expect(next).toBe("home-page-intro");
   });
 
   it("contains the three §6.3 notification sub-step ids", () => {

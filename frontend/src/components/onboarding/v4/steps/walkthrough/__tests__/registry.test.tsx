@@ -8,9 +8,15 @@ import { describe, expect, it } from "vitest";
 import { TOUR_STEPS } from "../../../step-registry";
 
 const P5_STEP_IDS = [
+  // Page-intro narration steps added 2026-05-26 (transition-intro sub-bot)
+  // per Grant's page-transition standing principle. Pure-narration beats
+  // that sit immediately before the first cursor / user-action beat on
+  // their destination route.
+  "home-page-intro",
   "home-create-project",
   "home-create-project-fill",
   "project-overview-nav",
+  "project-page-intro",
   "project-overview-prose",
   "project-overview-context",
   "project-overview-exit",
@@ -87,6 +93,7 @@ const P5_STEP_IDS = [
   "gantt-share-profile-switch",
   "gantt-share-user-sees-edit",
   "gantt-goals-overview",
+  "settings-page-intro",
   "personalization-animations",
   // §6.10 Settings phase redesign 2026-05-22 (Settings manager). The
   // prior triplet (personalization-color, settings-more,
@@ -104,6 +111,7 @@ const P5_STEP_IDS = [
   "ai-helper-size-diff",
   "ai-helper-use-case-paste",
   "ai-helper-use-case-agentic",
+  "search-page-intro",
   "search-demo",
   // §6.12 Wiki pointer multi-beat redesign 2026-05-22 (Wiki pointer
   // manager). Legacy single `wiki-pointer` id retired; the 4-beat

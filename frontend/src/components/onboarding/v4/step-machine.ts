@@ -91,6 +91,14 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "setup-wrapup",
 
   // ----- Phase 2: universal walkthrough (§6.1 - §6.12)
+  // Home page intro added 2026-05-26 (transition-intro sub-bot) per
+  // Grant's standing principle: every route transition needs a
+  // BeakerBot intro that explains what the page is for + the core
+  // concepts before any cursor demo or click prompt. Pre-fix the user
+  // came off the setup modal, landed on home, and immediately heard
+  // "click the blue plus button" with no setup for what Home is or
+  // what a Project is on this site.
+  "home-page-intro",
   // Home + first project (§6.1). Split into TRIGGER (highlight the
   // button + advance when the form opens) + FILL (explain name +
   // color + the seven-day-week toggle + advance on
@@ -106,6 +114,15 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // because the in-product overlay unmounts on route change. See
   // ProjectOverviewNavStep.tsx for the split rationale.
   "project-overview-nav",
+  // Project page intro added 2026-05-26 (transition-intro sub-bot) per
+  // Grant's page-transition standing principle. Pure narration that
+  // explains the project page shape (topbar metadata strip, Overview
+  // as north star, experiments + notes nested below) BEFORE the
+  // project-overview-prose cursor demo types into the textarea. The
+  // pre-fix project-overview-prose blended the narration with the
+  // cursor type, asking literal readers to read + watch at the same
+  // time.
+  "project-page-intro",
   "project-overview-prose",
   // Context narration (Grant 2026-05-22, v4 §6.2 overview teach sub-bot):
   // BeakerBot points at the sticky project topbar and narrates the
@@ -262,6 +279,14 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // Goals overview — RELOCATED to after the share cluster per
   // ONBOARDING_V4_GANTT_REDESIGN.md. Conditional on picks.goals === "yes".
   "gantt-goals-overview",
+  // Settings page intro added 2026-05-26 (transition-intro sub-bot) per
+  // Grant's page-transition standing principle. Pure narration that
+  // explains what /settings is + previews the personalization +
+  // surface-narration clusters about to fire, BEFORE the
+  // personalization-animations cursor demo picks the celebration
+  // theme. Pre-fix the user came off the Gantt and immediately saw
+  // the cursor pick a tile with no setup for the page.
+  "settings-page-intro",
   // Personalization on the Gantt toolbar (§6.9)
   "personalization-animations",
   // Settings deep-dive (§6.10) — phase redesign 2026-05-22 (Settings
@@ -300,6 +325,13 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "ai-helper-size-diff",
   "ai-helper-use-case-paste",
   "ai-helper-use-case-agentic",
+  // Search page intro added 2026-05-26 (transition-intro sub-bot) per
+  // Grant's page-transition standing principle. Pure narration that
+  // explains what /search is FOR + previews the demo query, BEFORE
+  // the search-demo cursor types into the search box. Pre-fix the
+  // explainer copy was embedded inside the same step's speech bubble
+  // WHILE the cursor was running.
+  "search-page-intro",
   // Search (§6.11)
   "search-demo",
   // Wiki pointer outro (§6.12) - Wiki pointer multi-beat redesign

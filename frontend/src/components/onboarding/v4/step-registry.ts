@@ -111,6 +111,15 @@ function placeholderStep(id: TourStepId): TourStep {
 // walkthroughs (P6), lab tour (P7), and the cleanup grid (P8) still
 // render placeholders until their dispatching phase lands.
 // ---------------------------------------------------------------------
+// Page-intro narration steps added 2026-05-26 (transition-intro sub-bot)
+// per Grant's standing principle: every route transition needs a pure-
+// narration BeakerBot intro that explains the page concept BEFORE any
+// cursor demo or click prompt. Each intro sits immediately before the
+// first cursor / user-action beat on its destination route.
+import { homePageIntroStep } from "./steps/walkthrough/HomePageIntroStep";
+import { projectPageIntroStep } from "./steps/walkthrough/ProjectPageIntroStep";
+import { settingsPageIntroStep } from "./steps/walkthrough/SettingsPageIntroStep";
+import { searchPageIntroStep } from "./steps/walkthrough/SearchPageIntroStep";
 import { homeCreateProjectStep } from "./steps/walkthrough/HomeCreateProjectStep";
 import { homeCreateProjectFillStep } from "./steps/walkthrough/HomeCreateProjectFillStep";
 import { projectOverviewNavStep } from "./steps/walkthrough/ProjectOverviewNavStep";
@@ -269,6 +278,11 @@ import { tourGoodbyeStep } from "./steps/cleanup/TourGoodbyeStep";
  *  step is never reached; vice versa means the controller renders a
  *  placeholder. */
 const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
+  // Page-intro narration steps (transition-intro sub-bot, 2026-05-26)
+  [homePageIntroStep.id]: homePageIntroStep,
+  [projectPageIntroStep.id]: projectPageIntroStep,
+  [settingsPageIntroStep.id]: settingsPageIntroStep,
+  [searchPageIntroStep.id]: searchPageIntroStep,
   [homeCreateProjectStep.id]: homeCreateProjectStep,
   [homeCreateProjectFillStep.id]: homeCreateProjectFillStep,
   [projectOverviewNavStep.id]: projectOverviewNavStep,
