@@ -31,15 +31,8 @@ const STEP_ID = "ai-helper-use-case-agentic";
 
 export const settingsAiHelperUseCaseAgenticStep = buildWalkthroughStep({
   id: STEP_ID,
-  speech: (
-    <p>
-      Second use case is more interesting. Agentic models with read
-      access to your data folder can WRITE your lab notebook with
-      you. Give them a prompt + folder access; they help draft
-      entries, build methods, fill in experiment notes. Like having a
-      research collaborator that knows your codebase.
-    </p>
-  ),
+  speech:
+    "Agentic models with read access to your data folder can actually help write your notebook with you. They can draft entries and fill in notes like a collaborator who knows your entire project history.",
   pose: "thinking",
   // No spotlight — pure narration closes the AI Helper arc. The user
   // is already looking at the AI Helper section from the prior beats.

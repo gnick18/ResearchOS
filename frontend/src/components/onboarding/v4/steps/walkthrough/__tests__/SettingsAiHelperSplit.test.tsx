@@ -1,25 +1,34 @@
 /**
- * §6.10 Settings phase redesign 2026-05-22 (Settings manager).
+ * §6.10 Settings phase redesign 2026-05-22 (Settings manager), updated
+ * 2026-05-27 by v4 tour speech manager — E for the Wave 2E size-diff /
+ * size-options split.
  *
- * Per-step contract tests for the three beats that replace the prior
- * single `ai-helper-deep-explain` step:
+ * Per-step contract tests for the four beats that now make up the AI
+ * Helper Settings arc:
  *
- *   - `ai-helper-size-diff`         (BeakerBot demo, cursor cycle)
+ *   - `ai-helper-size-diff`         (NARRATION about token cost / WHY)
+ *   - `ai-helper-size-options`      (BeakerBot demo, cursor cycle)
  *   - `ai-helper-use-case-paste`    (BeakerBot demo, Copy click)
  *   - `ai-helper-use-case-agentic`  (narration-only, closes the arc)
  *
- * All three share the same gating predicate
+ * All four share the same gating predicate
  * (`picks.ai_helper ∈ {full, medium, minimal}`) so opt-out users
  * (no / maybe) skip the entire arc just as before.
+ *
+ * Wave 2E split (2026-05-27): the cursor-cycling Full → Medium →
+ * Minimal sequence MOVED from `ai-helper-size-diff` to the new
+ * `ai-helper-size-options` step. The size-diff beat is now pure
+ * narration explaining WHY token size matters before the demo runs.
  */
 import { describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
 import type { FeaturePicks } from "@/lib/onboarding/sidecar";
 import type { TourStep } from "../../../step-types";
+import { settingsAiHelperSizeDiffStep } from "../SettingsAiHelperSizeDiffStep";
 import {
-  settingsAiHelperSizeDiffStep,
-  SIZE_DIFF_PAUSE_MS,
-} from "../SettingsAiHelperSizeDiffStep";
+  aiHelperSizeOptionsStep,
+  SIZE_OPTIONS_PAUSE_MS,
+} from "../AiHelperSizeOptionsStep";
 import {
   settingsAiHelperUseCasePasteStep,
   COPIED_PROMPT_SIZE,
@@ -47,7 +56,7 @@ function renderSpeech(step: TourStep): string {
   return text;
 }
 
-describe("ai-helper-size-diff (BeakerBot demo)", () => {
+describe("ai-helper-size-diff (NARRATION post-Wave-2E)", () => {
   it("has the right id + pose + completion contract", () => {
     expect(settingsAiHelperSizeDiffStep.id).toBe("ai-helper-size-diff");
     expect(settingsAiHelperSizeDiffStep.pose).toBe("thinking");
@@ -67,21 +76,55 @@ describe("ai-helper-size-diff (BeakerBot demo)", () => {
     expect(gate(picks({ ai_helper: "no" }))).toBe(false);
     expect(gate(picks({ ai_helper: "maybe" }))).toBe(false);
   });
-  it("has a cursorScript (BeakerBot leads the size cycle)", () => {
-    expect(settingsAiHelperSizeDiffStep.cursorScript).toBeDefined();
+  it("has NO cursorScript post-Wave-2E (the cycle moved to ai-helper-size-options)", () => {
+    expect(settingsAiHelperSizeDiffStep.cursorScript).toBeUndefined();
   });
-  it("speech mentions all three size labels + the cycle", () => {
+  it("speech explains WHY token size matters (tokens / cost framing)", () => {
     const text = renderSpeech(settingsAiHelperSizeDiffStep);
-    expect(text).toMatch(/Full/);
-    expect(text).toMatch(/Medium/);
-    expect(text).toMatch(/Minimal/);
-    expect(text).toMatch(/cycle/i);
-  });
-  it("declares an 800ms read-then-watch pause between size clicks", () => {
-    expect(SIZE_DIFF_PAUSE_MS).toBe(800);
+    expect(text).toMatch(/token/i);
+    expect(text).toMatch(/Claude/);
+    expect(text).toMatch(/ChatGPT/);
+    expect(text).toMatch(/Gemini/);
   });
   it("speech is em-dash free", () => {
     expect(renderSpeech(settingsAiHelperSizeDiffStep)).not.toContain("—");
+  });
+});
+
+describe("ai-helper-size-options (BeakerBot demo, Wave 2E split)", () => {
+  it("has the right id + pose + completion contract", () => {
+    expect(aiHelperSizeOptionsStep.id).toBe("ai-helper-size-options");
+    expect(aiHelperSizeOptionsStep.pose).toBe("thinking");
+    expect(aiHelperSizeOptionsStep.completion.type).toBe("manual");
+    expect(aiHelperSizeOptionsStep.expectedRoute).toBe("/settings");
+  });
+  it("anchors on the settings-ai-helper-section spotlight target", () => {
+    expect(aiHelperSizeOptionsStep.targetSelector).toBe(
+      "[data-tour-target=\"settings-ai-helper-section\"]",
+    );
+  });
+  it("conditionalOn matches the AI Helper trio's gate", () => {
+    const gate = aiHelperSizeOptionsStep.conditionalOn!;
+    expect(gate(picks({ ai_helper: "full" }))).toBe(true);
+    expect(gate(picks({ ai_helper: "medium" }))).toBe(true);
+    expect(gate(picks({ ai_helper: "minimal" }))).toBe(true);
+    expect(gate(picks({ ai_helper: "no" }))).toBe(false);
+    expect(gate(picks({ ai_helper: "maybe" }))).toBe(false);
+  });
+  it("has a cursorScript (BeakerBot cycles through the three tabs)", () => {
+    expect(aiHelperSizeOptionsStep.cursorScript).toBeDefined();
+  });
+  it("speech mentions all three size labels", () => {
+    const text = renderSpeech(aiHelperSizeOptionsStep);
+    expect(text).toMatch(/Full/);
+    expect(text).toMatch(/Medium/);
+    expect(text).toMatch(/Minimal/);
+  });
+  it("declares an 800ms read-then-watch pause between size clicks", () => {
+    expect(SIZE_OPTIONS_PAUSE_MS).toBe(800);
+  });
+  it("speech is em-dash free", () => {
+    expect(renderSpeech(aiHelperSizeOptionsStep)).not.toContain("—");
   });
 });
 

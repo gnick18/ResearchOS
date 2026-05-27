@@ -1,99 +1,44 @@
 /**
- * §6.10 Settings — AI Helper size-diff demo (Settings manager 2026-05-22).
+ * §6.10 Settings — AI Helper size-diff narration (Wave 2E rewrite, 2026-05-27).
  *
- * First of three beats that replace the prior single
- * `ai-helper-deep-explain` step. Conditional on
- * `feature_picks.ai_helper` ∈ {full, medium, minimal}.
+ * Conditional on `feature_picks.ai_helper` ∈ {full, medium, minimal}.
  *
- * Cursor scrolls to the AI Helper section, then clicks Full → PAUSE
- * 800ms → Medium → PAUSE 800ms → Minimal. Each pause is a read-then-
- * watch beat: the user sees the preview pane update for each size
- * before the cursor moves on to the next one. The minimal tab is the
- * last one clicked, so the subsequent `ai-helper-use-case-paste`
- * beat's Copy click writes the minimal prompt to the clipboard.
+ * Wave 2E split (v4 tour speech manager — E, 2026-05-27): this beat is
+ * now PURE NARRATION explaining WHY token-size matters before the
+ * follow-up `ai-helper-size-options` beat demos the three size tabs.
+ * The cursor-cycling Full → Medium → Minimal sequence that used to
+ * live here moved to `ai-helper-size-options` (see that file for the
+ * sequence). Speech text is Grant's exact two-paragraph copy from the
+ * 2026-05-27 script.
  *
- * Speech: "This is the AI Helper. Three prompt sizes: Full, Medium,
- * Minimal. Big context for big models like Claude, ChatGPT, or
- * Gemini. I'll cycle through so you can see the size difference."
- *
- * Classification: BEAKERBOT DEMO. Cursor performs the size cycle;
- * user clicks Got-it to advance.
+ * Classification: NARRATION. No cursor, no spotlight on tab elements;
+ * the surrounding AI Helper section is already in view from
+ * `settings-tour-rerun` / `personalization-color` upstream beats. User
+ * clicks Got-it to advance to `ai-helper-size-options`.
  */
-import {
-  cursorScript,
-  safeClickAction,
-  compactScript,
-  callbackAction,
-  waitForElement,
-} from "./lib/cursor-script";
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 
 const STEP_ID = "ai-helper-size-diff";
-
-/** Read-then-watch pause between size clicks. 800ms gives the user
- *  time to register the preview-pane update before the cursor moves
- *  on. Exported so tests can probe the exact pause duration. */
-export const SIZE_DIFF_PAUSE_MS = 800;
-
-/** Sleep helper for the callbackAction pause. setTimeout returns a
- *  cleanup handle we don't need; the wrapper just resolves on tick. */
-async function pause(ms: number): Promise<void> {
-  await new Promise<void>((resolve) => {
-    if (typeof window !== "undefined") {
-      window.setTimeout(resolve, ms);
-    } else {
-      setTimeout(resolve, ms);
-    }
-  });
-}
 
 export const settingsAiHelperSizeDiffStep = buildWalkthroughStep({
   id: STEP_ID,
   speech: (
     <>
       <p className="mb-2">
-        This is the AI Helper. Three prompt sizes: Full, Medium,
-        Minimal. Big context for big models like Claude, ChatGPT, or
-        Gemini.
+        External AI tools like Claude, ChatGPT, and Gemini charge by
+        tokens. The more context you hand them about your lab
+        notebook, the more each conversation costs you.
       </p>
-      <p>I&apos;ll cycle through so you can see the size difference.</p>
+      <p>
+        That&apos;s why the AI Helper exists: it generates a system
+        prompt about how your notebook is structured, sized to fit how
+        much you&apos;re willing to spend per chat.
+      </p>
     </>
   ),
   pose: "thinking",
   targetSelector: targetSelector(TOUR_TARGETS.settingsAiHelperSection),
-  cursorScript: cursorScript(async () => {
-    // Scroll the AI Helper section into view (waitForElement triggers
-    // the spotlight's IntersectionObserver, which scrolls
-    // automatically). Then click each size tab in sequence with a
-    // read-then-watch pause between clicks.
-    await waitForElement(
-      targetSelector(TOUR_TARGETS.settingsAiHelperSection),
-    );
-    const full = await safeClickAction(
-      targetSelector(TOUR_TARGETS.settingsAiHelperTabFull),
-    );
-    const medium = await safeClickAction(
-      targetSelector(TOUR_TARGETS.settingsAiHelperTabMedium),
-    );
-    const minimal = await safeClickAction(
-      targetSelector(TOUR_TARGETS.settingsAiHelperTabMinimal),
-    );
-    // Interleave callbackAction pauses between the clicks. The
-    // callback runs at PLAYBACK time (not build time), so each pause
-    // resolves AFTER the previous click has visibly landed. Build-
-    // order vs. playback-order is the same lesson learned from
-    // §6.16's lab-permission-practice (HR 2026-05-22): a setTimeout
-    // outside callbackAction would fire during script assembly and
-    // mistime the pauses.
-    return compactScript([
-      full,
-      callbackAction(() => pause(SIZE_DIFF_PAUSE_MS)),
-      medium,
-      callbackAction(() => pause(SIZE_DIFF_PAUSE_MS)),
-      minimal,
-    ]);
-  }),
   completion: manualAdvance("Got it, next"),
   // Gate: matches step-machine.ts `isStepGatedOut` — ai_helper ∈
   // {full, medium, minimal}.

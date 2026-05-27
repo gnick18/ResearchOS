@@ -50,18 +50,8 @@ const SEARCH_QUERY = PLACEHOLDER_EXPERIMENT_NAME.split(" ").slice(0, 2).join(
 
 export const searchStep = buildWalkthroughStep({
   id: "search-demo",
-  speech: (
-    <>
-      <p className="mb-2">
-        Quick one. Search across everything: experiments, methods,
-        tasks, results.
-      </p>
-      <p>
-        Your account&apos;s pretty empty so the demo&apos;s small, try
-        this again after you&apos;ve got real experiments.
-      </p>
-    </>
-  ),
+  speech:
+    "Search runs across everything in your account at once: experiments, methods, tasks, notes, results. So a year from now, when you vaguely remember running something with a particular reagent, you can find it without remembering which project it lived in.",
   pose: "typing-on-laptop",
   targetSelector: targetSelector(TOUR_TARGETS.searchInput),
   cursorScript: cursorScript(async () => {

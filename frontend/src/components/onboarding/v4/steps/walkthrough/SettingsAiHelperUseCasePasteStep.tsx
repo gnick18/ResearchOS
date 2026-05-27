@@ -47,13 +47,19 @@ export const COPIED_PROMPT_SIZE = "minimal";
 export const settingsAiHelperUseCasePasteStep = buildWalkthroughStep({
   id: STEP_ID,
   speech: (
-    <p>
-      First use case: paste a prompt into your favorite AI chat
-      (Claude, ChatGPT, Gemini). Now you&apos;ve got a ResearchOS-
-      fluent assistant you can ask questions to. &ldquo;What
-      experiments use plasmid X?&rdquo; &ldquo;Summarize this
-      week&apos;s notes.&rdquo; That kind of thing.
-    </p>
+    <>
+      <p className="mb-2">
+        The simplest way to use this: copy the prompt, paste it as the
+        first message in a new chat with Claude, ChatGPT, or Gemini,
+        then ask your question.
+      </p>
+      <p>
+        The model now has context on how your notebook is structured.
+        You can ask things like &ldquo;summarize this week&apos;s
+        notes&rdquo; or &ldquo;what experiments use plasmid X&rdquo;
+        without explaining the layout every time.
+      </p>
+    </>
   ),
   pose: "thinking",
   targetSelector: targetSelector(TOUR_TARGETS.settingsAiHelperCopy),

@@ -47,14 +47,19 @@ describe("personalization-color (refined, §6.10 phase redesign)", () => {
     expect(settingsColorStep.cursorScript).toBeUndefined();
   });
 
-  it("speech explains the toggle + invites the user to tweak colors", () => {
+  it("speech explains the toggle + invites the user to play with it (Wave 2E copy)", () => {
     const text = renderSpeech(settingsColorStep);
     // Explains the toggle's purpose.
     expect(text).toMatch(/top bar/i);
-    // References that color was already picked at account creation.
-    expect(text).toMatch(/picked your color/i);
-    // Invites the user to refine colors here if they want.
-    expect(text).toMatch(/swatches/i);
+    // References that color was already picked at account creation. Wave
+    // 2E copy says "picked a color during setup" (was: "picked your color
+    // when you set up your account") so the regex now allows either
+    // "picked a color" or "picked your color".
+    expect(text).toMatch(/picked (?:a|your) color/i);
+    // Invites the user to play with the toggle. The prior copy also
+    // mentioned "swatches" but the Wave 2E rewrite dropped that
+    // elaboration to match Grant's exact 2026-05-27 script.
+    expect(text).toMatch(/play with it|toggle/i);
     // Manual advance prompt.
     expect(text).toMatch(/Got it, next/i);
   });

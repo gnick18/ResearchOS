@@ -50,7 +50,7 @@ let preChangeAnimation: string | null = null;
 export const animationPickerStep = buildWalkthroughStep({
   id: STEP_ID,
   speech:
-    "Quick personal touch, pick an animation theme that fires when you complete experiments.",
+    "First up: the animation picker. Finishing an experiment is one of the few moments in lab work that actually feels like a win, so ResearchOS marks it with a little animation. Pick the one you want.",
   pose: "bouncing",
   targetSelector: targetSelector(TOUR_TARGETS.settingsAnimationPicker),
   cursorScript: cursorScript(async () => {

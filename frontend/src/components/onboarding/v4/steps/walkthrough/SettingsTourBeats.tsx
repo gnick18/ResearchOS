@@ -52,7 +52,7 @@ import { targetSelector, TOUR_TARGETS } from "./lib/targets";
 export const settingsTourFolderStep = buildWalkthroughStep({
   id: "settings-tour-folder",
   speech:
-    "Your lab folder is set up. To switch folders later, sign out and pick a new one from the entry screen.",
+    "Your lab folder is set up. If you ever need to switch folders, sign out and pick a new one from the main entry screen.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.settingsFolderSection),
   completion: manualAdvance("Got it, next"),
@@ -76,7 +76,7 @@ export const settingsTourFolderStep = buildWalkthroughStep({
 export const settingsTourCalendarStep = buildWalkthroughStep({
   id: "settings-tour-calendar",
   speech:
-    "Calendar feeds aren't managed from Settings yet, go to the Calendar tab to paste an .ics URL.",
+    "Calendar feeds aren't managed here in Settings. Head over to the actual Calendar tab when you're ready to paste in your link.",
   pose: "pointing",
   // FOLLOW-UP: no anchor until Settings grows a calendar-feeds section.
   completion: manualAdvance("Got it, next"),
@@ -129,7 +129,7 @@ export const settingsTourTelegramStep = buildWalkthroughStep({
 export const settingsTourAccountTypeToggleStep = buildWalkthroughStep({
   id: "settings-tour-account-type-toggle",
   speech:
-    "If you ever pivot from solo to a lab account, the switch lives in the user picker up top, Settings doesn't carry it yet.",
+    "If you ever pivot from a solo account to a lab account, you'll do that from the user picker up top, not here in Settings.",
   pose: "pointing",
   // FOLLOW-UP: no anchor until Settings grows an account-type toggle row.
   completion: manualAdvance("Got it, next"),
@@ -143,7 +143,7 @@ export const settingsTourAccountTypeToggleStep = buildWalkthroughStep({
 export const settingsTourVisibleTabsStep = buildWalkthroughStep({
   id: "settings-tour-visible-tabs",
   speech:
-    "Anything you said 'no' to during setup hid the tab. To turn it back on later, just check the box here. Same goes for hiding tabs you decide you don't need.",
+    "If you hid any tabs during setup, you can always turn them back on using these checkboxes.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.settingsTabsSection),
   completion: manualAdvance("Got it, next"),
@@ -155,7 +155,7 @@ export const settingsTourVisibleTabsStep = buildWalkthroughStep({
 export const settingsTourStreakStep = buildWalkthroughStep({
   id: "settings-tour-streak",
   speech:
-    "Streak counter is on by default. It's private to you in the app, nobody else sees it. If you'd rather not be reminded, toggle it off here.",
+    "The streak counter is on by default. It's completely private to you. If you would rather not see it, you can toggle it off here.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.settingsStreakSection),
   completion: manualAdvance("Got it, next"),
@@ -169,7 +169,7 @@ export const settingsTourStreakStep = buildWalkthroughStep({
 export const settingsTourRerunStep = buildWalkthroughStep({
   id: "settings-tour-rerun",
   speech:
-    "Re-run the welcome tour any time from this button. Useful if you forget how something works.",
+    "If you ever forget how something works, you can re-run this welcome tour right from this button.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.settingsRerunSection),
   completion: manualAdvance("Got it, next"),

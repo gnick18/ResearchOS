@@ -61,7 +61,7 @@ import { appRouteToWikiRoute } from "@/lib/wiki/nav";
 export const wikiPointerIntroStep = buildWalkthroughStep({
   id: "wiki-pointer-intro",
   speech:
-    "Quick aside before we move on. There's a wiki with detailed documentation of every page in the app. Search behavior, list semantics, Gantt dependencies, it's all spelled out there.",
+    "We also have a built-in wiki with detailed documentation for every page in the app, covering everything from search behavior to Gantt dependencies.",
   pose: "pointing-up",
   completion: manualAdvance("Got it, next"),
 });
@@ -78,7 +78,7 @@ export const wikiPointerIntroStep = buildWalkthroughStep({
 export const wikiPointerIconSpotlightStep = buildWalkthroughStep({
   id: "wiki-pointer-icon-spotlight",
   speech:
-    "If you're on any page and curious or confused, click the question-mark icon up in the top right.",
+    "If you're ever confused on a page, just click the question-mark icon up in the top right.",
   pose: "pointing-up",
   targetSelector: targetSelector(TOUR_TARGETS.wikiNavTab),
   completion: manualAdvance("Got it, next"),
@@ -112,7 +112,7 @@ export const wikiPointerIconSpotlightStep = buildWalkthroughStep({
 export const wikiPointerClickDemoStep = buildWalkthroughStep({
   id: "wiki-pointer-click-demo",
   speech:
-    "Watch. Clicking the question mark takes you to the wiki page about whatever you were just looking at.",
+    "Clicking it takes you directly to the wiki article explaining whatever you were just looking at.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.wikiNavTab),
   cursorScript: cursorScript(async () => {
@@ -150,7 +150,7 @@ export const wikiPointerClickDemoStep = buildWalkthroughStep({
 export const wikiPointerBackDemoStep = buildWalkthroughStep({
   id: "wiki-pointer-back-demo",
   speech:
-    "When you're done exploring the wiki, hit the back button up here to jump straight back to where you started.",
+    "When you're done reading, hit the back button up here to jump right back to your work.",
   pose: "pointing-up",
   targetSelector: targetSelector(TOUR_TARGETS.wikiBackToApp),
   cursorScript: cursorScript(async () => {

@@ -107,18 +107,20 @@ describe("settings-tour-calendar (conditional: calendar === yes)", () => {
     expect(gate(picks({ calendar: "maybe" }))).toBe(false);
     expect(gate(null)).toBe(false);
   });
-  it("speech mentions .ics URLs + 'calendar' + the Calendar tab honestly", () => {
+  it("speech mentions the Calendar tab honestly (Wave 2E copy)", () => {
     // Settings fix manager R1 (2026-05-22): the prior speech narrated
     // calendar-feeds UI on /settings that doesn't exist (feeds live on
-    // /calendar). The reworked speech is explicit about routing users
-    // to the Calendar tab instead of pretending Settings owns it.
+    // /calendar). The reworked speech routes users to the Calendar tab
+    // instead of pretending Settings owns it. Wave 2E (2026-05-27)
+    // tightened the copy further: the explicit ".ics URL" detail moved
+    // to the user's framing ("paste in your link"), so the test no
+    // longer asserts ".ics" verbatim.
     const text = renderSpeech(settingsTourCalendarStep);
-    expect(text).toMatch(/\.ics/);
     expect(text).toMatch(/calendar/i);
     // The honesty signal: speech now mentions the Calendar tab as the
     // real surface AND says Settings doesn't own this yet.
     expect(text).toMatch(/Calendar tab/i);
-    expect(text).toMatch(/aren't managed from Settings/i);
+    expect(text).toMatch(/aren't managed (?:here in|from) Settings/i);
   });
   it("speech is em-dash free", () => {
     expect(renderSpeech(settingsTourCalendarStep)).not.toContain("—");
@@ -185,12 +187,14 @@ describe("settings-tour-account-type-toggle (conditional: solo only)", () => {
     // Settings fix manager R1 (2026-05-22): the prior speech promised
     // an in-Settings account-type toggle that doesn't exist (the switch
     // lives in the user picker today). The reworked speech routes users
-    // to the user picker and says Settings doesn't carry the toggle yet.
+    // to the user picker. Wave 2E (2026-05-27) tightened the copy to
+    // match Grant's exact script: "not here in Settings" replaces the
+    // prior "Settings doesn't carry it yet" framing.
     const text = renderSpeech(settingsTourAccountTypeToggleStep);
-    expect(text).toMatch(/pivot from solo/i);
+    expect(text).toMatch(/pivot from (?:a )?solo/i);
     expect(text).toMatch(/user picker/i);
     // The honesty signal: speech explicitly disclaims Settings here.
-    expect(text).toMatch(/Settings doesn't carry it/i);
+    expect(text).toMatch(/not here in Settings|Settings doesn't carry it/i);
   });
   it("speech is em-dash free", () => {
     expect(renderSpeech(settingsTourAccountTypeToggleStep)).not.toContain("—");

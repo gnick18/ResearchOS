@@ -66,20 +66,8 @@ export const SETTINGS_COLOR_PAGE_LOCK_ALLOW_LIST = [
 
 export const settingsColorStep = buildWalkthroughStep({
   id: STEP_ID,
-  speech: (
-    <>
-      <p className="mb-2">
-        You already picked your color when you set up your account. This
-        toggle decides whether the top bar takes that color too, or stays
-        a clean white.
-      </p>
-      <p>
-        Flip it on and off to see the chrome shift. If you want to change
-        your color or add a gradient, the swatches above are still live.
-        Click Got it, next when you are happy.
-      </p>
-    </>
-  ),
+  speech:
+    "You already picked a color during setup. This toggle decides whether the top bar takes that color too or stays a clean white. Play with it, and click \"Got it, next\" when you're happy.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.settingsColorTintToggle),
   // No cursorScript: the step is user-paced from the moment it mounts.

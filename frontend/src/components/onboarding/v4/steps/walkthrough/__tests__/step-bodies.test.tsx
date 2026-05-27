@@ -456,15 +456,21 @@ describe("P5 step bodies — universal contract", () => {
       ganttShareBeakerBotSharesStep,
       ganttGoalsStep,
       animationPickerStep,
-      // §6.10 Settings phase redesign 2026-05-22: BeakerBot-led demo
-      // steps that retain cursor scripts. The agentic use-case step
-      // is intentionally EXCLUDED (it's narration-only); the seven
-      // settings-tour-* beats are also excluded because they only
-      // narrate + spotlight (no cursor click). `settingsColorStep`
-      // dropped its cursorScript at commit 53959586 (re-targeted at
-      // the tint toggle and made user-paced from mount), so it is
-      // also excluded from this list.
-      settingsAiHelperSizeDiffStep,
+      // §6.10 Settings phase redesign 2026-05-22 (Wave 2E split,
+      // 2026-05-27): BeakerBot-led demo steps that retain cursor
+      // scripts. The agentic use-case step is intentionally EXCLUDED
+      // (it's narration-only); the seven settings-tour-* beats are also
+      // excluded because they only narrate + spotlight (no cursor
+      // click). `settingsColorStep` dropped its cursorScript at commit
+      // 53959586 (re-targeted at the tint toggle and made user-paced
+      // from mount), so it is also excluded.
+      //
+      // Wave 2E (v4 tour speech manager — E, 2026-05-27):
+      // `settingsAiHelperSizeDiffStep` lost its cursorScript when the
+      // cursor-cycling Full → Medium → Minimal sequence moved to the
+      // new `aiHelperSizeOptionsStep`. `size-diff` is now NARRATION;
+      // `size-options` is the BeakerBot-led demo.
+      aiHelperSizeOptionsStep,
       settingsAiHelperUseCasePasteStep,
       searchStep,
       // §6.12 Wiki pointer cluster - the two cursor-driven beats.
@@ -1339,8 +1345,20 @@ describe("Settings steps (§6.10)", () => {
       settingsAiHelperSizeDiffStep.conditionalOn?.(enable("maybe")),
     ).toBe(false);
   });
-  it("AI Helper size-diff speech mentions the three sizes", () => {
+  it("AI Helper size-diff speech explains WHY token-size matters (Wave 2E split)", () => {
+    // Wave 2E (v4 tour speech manager — E, 2026-05-27): the size-label
+    // enumeration moved to the new `ai-helper-size-options` step. The
+    // size-diff beat is now pure narration framing token cost; the
+    // three labels (**Full**, **Medium**, **Minimal**) are listed by
+    // the follow-up size-options beat.
     const text = renderSpeech(settingsAiHelperSizeDiffStep);
+    expect(text).toMatch(/token/i);
+    expect(text).toMatch(/Claude/);
+    expect(text).toMatch(/ChatGPT/);
+    expect(text).toMatch(/Gemini/);
+  });
+  it("AI Helper size-options speech mentions the three sizes (Wave 2E split, moved here)", () => {
+    const text = renderSpeech(aiHelperSizeOptionsStep);
     expect(text).toMatch(/Full/);
     expect(text).toMatch(/Medium/);
     expect(text).toMatch(/Minimal/);
@@ -1348,9 +1366,16 @@ describe("Settings steps (§6.10)", () => {
 });
 
 describe("SearchStep (§6.11)", () => {
-  it("acknowledges the empty-results case", () => {
+  it("frames search as account-wide (Wave 2E copy, 2026-05-27)", () => {
+    // Wave 2E rewrite (v4 tour speech manager — E): the step now opens
+    // with the section intro that used to live in the dropped
+    // `search-page-intro` beat. Speech frames search as running across
+    // experiments, methods, tasks, notes, and results so the user
+    // understands what gets indexed.
     const text = renderSpeech(searchStep);
-    expect(text).toMatch(/pretty empty/);
+    expect(text).toMatch(/across everything/i);
+    expect(text).toMatch(/experiments/i);
+    expect(text).toMatch(/methods/i);
   });
 });
 
