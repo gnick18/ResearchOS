@@ -192,6 +192,15 @@ export interface TourStep {
    *  cursor's target is a small toolbar button but the user's actual
    *  attention should be on the whole builder card. */
   viewportAnchor?: string;
+  /** Force the speech bubble to anchor on a specific side ("left" or
+   *  "right"), overriding the automatic flip predicate. Use this when
+   *  the auto-flip can't see a visual conflict it should avoid (e.g.,
+   *  the markdown editor has a left-side Shortcuts sidebar that the
+   *  bubble would cover, but the sidebar isn't a popup/dialog so the
+   *  flip math doesn't know to avoid it).
+   *
+   *  Leave unset for the default auto-flip behavior. */
+  forceBubbleSide?: "left" | "right";
   /** §6.7 HE-8 — off-screen cursor entry. When set, the BeakerBotCursor
    *  is repositioned off-screen on the named edge BEFORE the cursor
    *  script's first glide. The cursor's first glide therefore reads as

@@ -128,6 +128,12 @@ export function buildHybridTypingStep(opts: HybridTypingStepOpts): TourStep {
     speech: opts.speech,
     pose: "typing-on-laptop",
     targetSelector: targetSelector(TOUR_TARGETS.hybridEditorTextarea),
+    // Hand-walk fix 2026-05-27: force the speech bubble to the RIGHT
+    // side of the viewport. The hybrid editor's left-side Shortcuts /
+    // Style Guide sidebar isn't a popup/dialog, so the auto-flip
+    // predicate doesn't know to avoid it. Without this override the
+    // bubble lands on the left and covers the sidebar.
+    forceBubbleSide: "right",
     cursorScript: cursorScript(async () => {
       // Step 1: commit any currently-open edit block so the next beat
       // starts cleanly. No-op on the first beat (no textarea open).

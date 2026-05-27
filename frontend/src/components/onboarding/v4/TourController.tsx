@@ -2763,11 +2763,21 @@ function useBubbleAnchorSide(
   targetSelector: string | undefined,
   cursorActive: boolean,
   stepId: TourStepId | null,
+  forceSide?: BubbleAnchorSide,
 ): BubbleAnchorSide {
   const [side, setSide] = useState<BubbleAnchorSide>("right");
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof document === "undefined") return;
+    // forceSide overrides the auto-flip predicate. Used by steps whose
+    // visual context has a fixed-position sidebar (e.g., the hybrid
+    // markdown editor's Shortcuts panel) that the auto-flip math doesn't
+    // know to avoid. When set, skip all the rect-collecting and just
+    // commit the forced side.
+    if (forceSide) {
+      setSide((prev) => (prev === forceSide ? prev : forceSide));
+      return;
+    }
 
     let cancelled = false;
     let rafId: number | null = null;
@@ -3027,6 +3037,7 @@ function TourBeakerBotOverlay({
     step?.targetSelector,
     cursorActive,
     stepId,
+    step?.forceBubbleSide,
   );
 
   if (!step) return null;
