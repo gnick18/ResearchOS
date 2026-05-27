@@ -45,22 +45,27 @@ let preChangeSnapshot: PreChangeSnapshot | null = null;
 /** Page-lock allow-list for the user-paced free-play stage. Exported so
  *  the test file can assert the exact selectors permitted.
  *
- *  Selectors:
- *   - The tint toggle itself (the new spotlight target). The toggle's
- *     inner button/switch is captured by the wildcard `*` so the user's
- *     click lands on the underlying input.
- *   - Every palette swatch (primary + secondary share the
- *     `data-color-swatch` attribute) so the user can still tweak their
- *     colors here if they want.
- *   - `settings-color-picker-clear-secondary` for clearing the gradient.
- *   - The speech bubble's Next button via the standard `data-tour-bubble`
- *     attribute that the TourController stamps on the bubble shell.
+ *  Hand-walk fix 2026-05-27: dropped the `[data-tour-target="X"] *`
+ *  descendant selectors. TourPageLock checks each selector via
+ *  `closest()`, which walks ancestors. A descendant selector like
+ *  `A B` only matches an element that IS a B with an A ancestor — that
+ *  doesn't compose with closest's "walk up and match each ancestor"
+ *  semantics, so those entries effectively never matched. The simple
+ *  ancestor-matchable selectors below do match correctly.
+ *
+ *  Selectors (each tested via target.closest(selector)):
+ *   - The whole color + tint wrapper. Any click inside the swatches,
+ *     the toggle, or the clear-secondary button matches because they
+ *     all descend from this wrapper.
+ *   - Individual swatch buttons via `[data-color-swatch]` (belt + braces
+ *     in case the wrapper anchor moves in the future).
+ *   - The clear-secondary button.
  */
 export const SETTINGS_COLOR_PAGE_LOCK_ALLOW_LIST = [
-  `${targetSelector(TOUR_TARGETS.settingsColorTintToggle)}`,
-  `${targetSelector(TOUR_TARGETS.settingsColorTintToggle)} *`,
+  targetSelector(TOUR_TARGETS.settingsColorAndTint),
+  targetSelector(TOUR_TARGETS.settingsColorTintToggle),
+  targetSelector(TOUR_TARGETS.settingsColorPicker),
   "[data-color-swatch]",
-  `${targetSelector(TOUR_TARGETS.settingsColorPicker)} *`,
   `[data-tour-target="settings-color-picker-clear-secondary"]`,
 ] as const;
 
@@ -69,7 +74,11 @@ export const settingsColorStep = buildWalkthroughStep({
   speech:
     "You already picked a color during setup. This toggle decides whether the top bar takes that color too or stays a clean white. Play with it, and click \"Got it, next\" when you're happy.",
   pose: "pointing",
-  targetSelector: targetSelector(TOUR_TARGETS.settingsColorTintToggle),
+  // Hand-walk fix 2026-05-27 (Grant): spotlight now wraps both the
+  // color picker AND the tint toggle, not just the toggle. The user's
+  // mental model on this step is "play with the colors or the tint" so
+  // the highlight encompasses both.
+  targetSelector: targetSelector(TOUR_TARGETS.settingsColorAndTint),
   // No cursorScript: the step is user-paced from the moment it mounts.
   // The user can flip the toggle, tweak colors, or just hit Got-it-next.
   completion: manualAdvance("Got it, next"),

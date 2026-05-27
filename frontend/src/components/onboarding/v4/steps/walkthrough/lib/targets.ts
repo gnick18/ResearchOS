@@ -331,6 +331,11 @@ export const TOUR_TARGETS = {
 
   // §6.10 Settings
   settingsColorPicker: "settings-color-picker",
+  /** Wraps both the color picker (primary + secondary swatches) AND the
+   *  tint header toggle. Used by §6.10 `personalization-color` step so
+   *  the spotlight encompasses the whole section the user can play
+   *  with, not just the toggle row. */
+  settingsColorAndTint: "settings-color-and-tint",
   /** "Tint header with my color" toggle in the Profile section. The v4 tour
    *  used to demo color-picking here (auto-click a swatch). Now that users
    *  pick their color during user creation via UserColorPickerPopup, the
