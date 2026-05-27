@@ -43,6 +43,7 @@ import {
 } from "@/lib/settings/user-settings";
 import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { ANIMATION_METADATA, renderAnimationIcon, type AnimationType } from "@/components/animations";
+import DynamicAnimation from "@/components/DynamicAnimation";
 import { hasPassword, verifyPassword } from "@/lib/auth/password";
 import {
   setLabHeadPassword,
@@ -1791,6 +1792,20 @@ function DefaultsSection({ settings, update }: SectionProps) {
   );
 }
 
+// State for the live preview overlay that fires when the user picks an
+// animation tile. The `nonce` is bumped on every click and used as the
+// DynamicAnimation `key`, so clicking a new tile mid-animation forces
+// React to unmount the in-flight preview (clearing its timers + particle
+// state via the animation component's useEffect cleanup) and mount the
+// new one fresh. This is the halt-and-restart pattern from the retired
+// AnimationSettingsPopup (see commit 9d1c01ad).
+interface AnimationPreviewState {
+  type: AnimationType;
+  x: number;
+  y: number;
+  nonce: number;
+}
+
 function AnimationSection({ settings, update }: SectionProps) {
   const types = Object.keys(ANIMATION_METADATA) as AnimationType[];
   // Concatenate every animation's name + description into the section's
@@ -1803,6 +1818,26 @@ function AnimationSection({ settings, update }: SectionProps) {
       ANIMATION_METADATA[t].description,
     ])
     .join(" ");
+  const [preview, setPreview] = useState<AnimationPreviewState | null>(null);
+  const handlePick = (
+    type: AnimationType,
+    event: React.MouseEvent<HTMLButtonElement>,
+  ) => {
+    // Persist the user's selection (fire-and-forget; the optimistic
+    // update inside `update` keeps the UI snappy).
+    void update({ animationType: type });
+    // Fire the preview overlay at the clicked tile's center. The nonce
+    // forces a remount on each click so a rapid second click halts the
+    // in-flight preview and starts the new one immediately. No lockout,
+    // no queueing.
+    const rect = event.currentTarget.getBoundingClientRect();
+    setPreview({
+      type,
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+      nonce: Date.now(),
+    });
+  };
   return (
     <SectionShell
       id="animation"
@@ -1820,7 +1855,7 @@ function AnimationSection({ settings, update }: SectionProps) {
               key={type}
               type="button"
               data-animation-theme={type}
-              onClick={() => void update({ animationType: type })}
+              onClick={(e) => handlePick(type, e)}
               className={`flex items-center gap-2 p-3 rounded-lg border-2 text-left transition-colors ${
                 selected ? "border-purple-400 bg-purple-50" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
               }`}
@@ -1836,6 +1871,23 @@ function AnimationSection({ settings, update }: SectionProps) {
           );
         })}
       </div>
+      {/* Preview overlay. The `key={preview.nonce}` swap on each click
+       *  forces React to unmount the previous DynamicAnimation (running
+       *  its useEffect cleanup, which clears the underlying interval +
+       *  timeout) and mount the new one, so the user can rapidly flip
+       *  between tiles to compare. The old animation's onComplete fires
+       *  during cleanup but the `setPreview(null)` it queues is harmless,
+       *  React batches it after the new preview state already replaced
+       *  null. */}
+      {preview && (
+        <DynamicAnimation
+          key={preview.nonce}
+          type={preview.type}
+          x={preview.x}
+          y={preview.y}
+          onComplete={() => setPreview(null)}
+        />
+      )}
     </SectionShell>
   );
 }
