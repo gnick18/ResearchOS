@@ -319,4 +319,54 @@ describe("<TourSpotlight />", () => {
     });
     expect(spy).toHaveBeenCalled();
   });
+
+  // ── Popup-occlusion guard (widget tile-anatomy fix manager, 2026-05-27) ──
+  //
+  // SnapshotTilePopup (dashboard tile popup) stamps
+  // `data-tour-popup-occluding` on its overlay root. While that
+  // attribute is in the DOM the spotlight ring should disappear (the
+  // popup is the active surface; pulsing on the tile beneath it would
+  // be visually noisy). Once the popup unmounts the ring re-appears.
+
+  it("hides the ring while an element with data-tour-popup-occluding is mounted", () => {
+    const target = mountTarget({ id: "anchor-occluded-1" });
+    render(<TourSpotlight target={target} />);
+    // Sanity: ring visible before any popup mounts.
+    expect(screen.getByTestId("tour-spotlight-ring")).toBeInTheDocument();
+
+    // Mount the popup marker + dispatch the open event the way
+    // SnapshotTilePopup does.
+    const popup = document.createElement("div");
+    popup.setAttribute("data-tour-popup-occluding", "snapshot-tile");
+    document.body.appendChild(popup);
+    act(() => {
+      window.dispatchEvent(new CustomEvent("tour:snapshot-tile-popup-opened"));
+    });
+    expect(screen.queryByTestId("tour-spotlight-ring")).toBeNull();
+
+    // Unmount the popup + dispatch the close event. Ring re-appears.
+    popup.remove();
+    act(() => {
+      window.dispatchEvent(new CustomEvent("tour:snapshot-tile-popup-closed"));
+    });
+    expect(screen.getByTestId("tour-spotlight-ring")).toBeInTheDocument();
+  });
+
+  it("seeds occlusion from the DOM when the spotlight mounts mid-popup", () => {
+    // A popup is already mounted (the controller pushed the spotlight
+    // mid-step, e.g. on tour resume into an open dashboard popup). The
+    // initial render must seed occlusion=true from the DOM, not from
+    // the event.
+    const popup = document.createElement("div");
+    popup.setAttribute("data-tour-popup-occluding", "snapshot-tile");
+    document.body.appendChild(popup);
+    try {
+      const target = mountTarget({ id: "anchor-occluded-2" });
+      render(<TourSpotlight target={target} />);
+      // Ring should be suppressed on first paint.
+      expect(screen.queryByTestId("tour-spotlight-ring")).toBeNull();
+    } finally {
+      popup.remove();
+    }
+  });
 });

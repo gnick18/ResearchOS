@@ -5,6 +5,29 @@ import Tooltip from "@/components/Tooltip";
 import { PopupActionsProvider } from "@/lib/lab-overview/popup-actions";
 
 /**
+ * Window CustomEvent names dispatched by SnapshotTilePopup when it
+ * mounts / unmounts (widget tile-anatomy fix manager, 2026-05-27).
+ *
+ * Why: the §6.2b `home-widgets-tile-anatomy` step spotlights the tile
+ * the cursor demo clicks. Once the popup overlays the tile, the
+ * spotlight ring is hidden behind the popup chrome but still pulsing
+ * on the tile beneath it — visually noisy and confusing because the
+ * "active surface" has moved to the popup. TourSpotlight subscribes
+ * to these events so it can suppress the ring while the popup is up
+ * and re-show it once the popup closes (the spotlight resumes
+ * pointing at the tile the user just interacted with).
+ *
+ * Generic across all SnapshotTilePopup consumers (canvas + sidebar +
+ * tools launcher). If a future step ever WANTS the spotlight ring on
+ * a tile to persist behind the popup, this attribute-driven shape
+ * means the step body can opt out (e.g. by not using TourSpotlight at
+ * all, or by mounting its own spotlight portal). Today's behaviour:
+ * the dashboard tile popup always asks the spotlight to hide.
+ */
+export const SNAPSHOT_TILE_POPUP_OPENED_EVENT = "tour:snapshot-tile-popup-opened";
+export const SNAPSHOT_TILE_POPUP_CLOSED_EVENT = "tour:snapshot-tile-popup-closed";
+
+/**
  * Widget canvas Phase A (Phase A redispatch manager, 2026-05-23):
  * the popup shell that opens when the user clicks a snapshot tile on
  * either the canvas or the sidebar.
@@ -59,6 +82,28 @@ export default function SnapshotTilePopup({
     };
   }, []);
 
+  // Tour spotlight bridge (widget tile-anatomy fix manager, 2026-05-27).
+  // Dispatches mount/unmount events on window so TourSpotlight can
+  // suppress the spotlight ring while the popup is open and bring it
+  // back when the user dismisses the popup. Outside tour mode the
+  // events are inert (TourSpotlight is not mounted) so this is a free
+  // no-op for the rest of the app.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.dispatchEvent(new CustomEvent(SNAPSHOT_TILE_POPUP_OPENED_EVENT));
+    } catch {
+      // best-effort dispatch — never throw from a mount effect
+    }
+    return () => {
+      try {
+        window.dispatchEvent(new CustomEvent(SNAPSHOT_TILE_POPUP_CLOSED_EVENT));
+      } catch {
+        // best-effort dispatch — never throw from an unmount cleanup
+      }
+    };
+  }, []);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key !== "Escape") return;
@@ -86,6 +131,13 @@ export default function SnapshotTilePopup({
       role="dialog"
       aria-modal="true"
       aria-label={title}
+      // Marker for TourSpotlight (widget tile-anatomy fix manager,
+      // 2026-05-27). When this attribute is present anywhere in the
+      // DOM, the spotlight ring suppresses itself (it would otherwise
+      // pulse behind the popup chrome, visually noisy + confusing).
+      // Once the popup unmounts the attribute goes with it and the
+      // spotlight resumes tracking its anchor.
+      data-tour-popup-occluding="snapshot-tile"
       onClick={onClose}
     >
       <div

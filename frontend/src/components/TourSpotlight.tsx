@@ -205,6 +205,68 @@ export default function TourSpotlight({
     return () => mq.removeEventListener("change", onChange);
   }, []);
 
+  // Occlusion guard (widget tile-anatomy fix manager, 2026-05-27).
+  // When a dashboard SnapshotTilePopup (or any caller that stamps
+  // `data-tour-popup-occluding` on its overlay) mounts, the spotlight
+  // ring would otherwise pulse behind the popup chrome — visually
+  // noisy because the "active surface" has moved to the popup and the
+  // tile beneath it is no longer interactive. We listen for the
+  // open/close events and seed the initial value from the DOM so the
+  // guard is correct on mount too (e.g. when the controller mounts
+  // mid-popup due to a resume / late spotlight push).
+  //
+  // Generic shape: any element in the DOM with the
+  // `data-tour-popup-occluding` attribute hides every TourSpotlight on
+  // the page. Today only SnapshotTilePopup uses this; a future modal
+  // that wants the same handoff treatment can opt in by stamping the
+  // same attribute on its overlay root.
+  const [occluded, setOccluded] = useState<boolean>(() => {
+    if (typeof document === "undefined") return false;
+    return document.querySelector("[data-tour-popup-occluding]") !== null;
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    // Read once on effect entry in case the popup mounted between the
+    // lazy initializer and this effect (e.g. fast cursor demo).
+    const recompute = () => {
+      if (typeof document === "undefined") return;
+      const hit = document.querySelector("[data-tour-popup-occluding]");
+      setOccluded((prev) => {
+        const next = hit !== null;
+        return prev === next ? prev : next;
+      });
+    };
+    recompute();
+    const onOpen = () => setOccluded(true);
+    const onClose = () => {
+      // After the close event fires, re-read the DOM in case more
+      // than one occluding popup is stacked (e.g. fullscreen toggle
+      // re-mounts the dialog).
+      recompute();
+    };
+    window.addEventListener("tour:snapshot-tile-popup-opened", onOpen);
+    window.addEventListener("tour:snapshot-tile-popup-closed", onClose);
+    // MutationObserver as the resilient fallback — any attribute /
+    // child change that adds or removes a `data-tour-popup-occluding`
+    // node recomputes occlusion. This also covers cases where a
+    // future caller stamps the attribute without firing the event.
+    let mo: MutationObserver | null = null;
+    if (typeof MutationObserver !== "undefined" && typeof document !== "undefined") {
+      mo = new MutationObserver(recompute);
+      mo.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["data-tour-popup-occluding"],
+      });
+    }
+    return () => {
+      window.removeEventListener("tour:snapshot-tile-popup-opened", onOpen);
+      window.removeEventListener("tour:snapshot-tile-popup-closed", onClose);
+      mo?.disconnect();
+    };
+  }, []);
+
   // Position-tracking effect — wires ResizeObserver + scroll/resize listeners
   // and uses requestAnimationFrame to batch updates within a frame. The effect
   // re-runs whenever `resolved` changes, so each closure has a fresh reference
@@ -316,6 +378,11 @@ export default function TourSpotlight({
   }, [resolved, scrollIntoView]);
 
   if (!portalNode || !resolved || !rect) return null;
+  // Occlusion guard (widget tile-anatomy fix manager, 2026-05-27).
+  // Drop the ring while an overlay with `data-tour-popup-occluding`
+  // is mounted; the controller is still tracking the target so the
+  // ring re-appears the moment the overlay unmounts.
+  if (occluded) return null;
 
   // Padded rect (small breathing room around the target's bounding box) plus
   // a ring offset, so the glow sits just outside the element rather than on

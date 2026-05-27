@@ -15,6 +15,14 @@ import type {
   SnapshotTileProps,
 } from "./types";
 import type { Project, Task } from "@/lib/types";
+// §6.2b Home widgets walkthrough demo-preview hook (widget tile-anatomy
+// fix manager, 2026-05-27): the Upcoming-tasks tile is one of the home
+// canvas defaults. Its popup body falls back to DailyTasksSidebar, which
+// reads real tasks via React Query and shows "No tasks for today" /
+// "Sidebar is empty" for a brand-new account. When the tour's demo-
+// preview lease is held we render a small fixture popup body instead so
+// the lesson lands.
+import { useTourWidgetDemoPreview } from "@/components/onboarding/v4/TourWidgetDemoPreview";
 
 /**
  * Customizable PI sidebar (#146 customizable PI sidebar manager,
@@ -318,6 +326,16 @@ export function SidebarTile({ onClick }: SidebarTileProps) {
 //     selectors to target the direct aside child specifically and
 //     strip the right border + force 100% width)
 export function ExpandedView(_props: ExpandedViewProps) {
+  // §6.2b walkthrough demo-preview short-circuit (widget tile-anatomy
+  // fix manager, 2026-05-27): when the tour's demo-preview lease is
+  // held, swap the heavy DailyTasksSidebar body for a small fixture
+  // body so a brand-new account doesn't see "Sidebar is empty" / "No
+  // tasks for today" while BeakerBot is pitching "click a tile, it
+  // expands into a full popup where you can search, filter, and take
+  // action". Hook order is preserved (the hook always runs) so React
+  // rules-of-hooks hold across the toggle.
+  const isDemoPreview = useTourWidgetDemoPreview();
+  if (isDemoPreview) return <DemoUpcomingTasksBody />;
   // DailyTasksSidebar returns a fragment whose first child is the
   // `<aside class="w-64 border-r ...">`. With a div wrapper, the
   // aside becomes a direct child — the arbitrary `[&>aside]:` Tailwind
@@ -328,6 +346,115 @@ export function ExpandedView(_props: ExpandedViewProps) {
   return (
     <div className="h-full w-full overflow-hidden [&>aside]:w-full [&>aside]:border-r-0">
       <DailyTasksSidebar />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Demo-preview fixture body (widget tile-anatomy fix manager, 2026-05-27)
+// ─────────────────────────────────────────────────────────────────────────
+//
+// Rendered in place of the real DailyTasksSidebar when the §6.2b
+// walkthrough cluster has pushed a demo-preview lease. Mirrors the
+// SnapshotTile pattern: a small list of plausible tasks (lab-research
+// flavored, no real PI / project / strain names) grouped into
+// "Today" + "Upcoming" sections so the popup body matches the tile
+// teaser ("Upcoming tasks" → here are the upcoming ones).
+//
+// Read-only. No interactivity (click handlers are no-ops). The tour's
+// cursor demo opens the popup, lets the user read for a beat, then
+// auto-closes; no need to wire up TaskQuickPopup / TaskDetailPopup
+// for this preview surface.
+
+interface DemoTaskRow {
+  name: string;
+  due: string;
+  bucket: "today" | "upcoming";
+  projectName: string;
+  projectColor: string;
+}
+
+const DEMO_TASKS: DemoTaskRow[] = [
+  {
+    name: "Run yeast transformations",
+    due: "due today",
+    bucket: "today",
+    projectName: "Strain screen",
+    projectColor: "#0ea5e9",
+  },
+  {
+    name: "Image plates at confocal core",
+    due: "due today",
+    bucket: "today",
+    projectName: "Strain screen",
+    projectColor: "#0ea5e9",
+  },
+  {
+    name: "Draft Methods section",
+    due: "due Wed",
+    bucket: "upcoming",
+    projectName: "Manuscript",
+    projectColor: "#a855f7",
+  },
+  {
+    name: "Order PCR primers",
+    due: "due Thu",
+    bucket: "upcoming",
+    projectName: "Cloning sub-project",
+    projectColor: "#10b981",
+  },
+  {
+    name: "Lab meeting prep slides",
+    due: "due Fri",
+    bucket: "upcoming",
+    projectName: "Manuscript",
+    projectColor: "#a855f7",
+  },
+];
+
+function DemoTaskItem({ task }: { task: DemoTaskRow }) {
+  return (
+    <div className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50">
+      <span
+        aria-hidden="true"
+        className="w-2 h-2 rounded-full flex-shrink-0"
+        style={{ backgroundColor: task.projectColor }}
+      />
+      <div className="flex-1 min-w-0">
+        <p className="text-xs text-gray-800 truncate">{task.name}</p>
+        <p className="text-[10px] text-gray-400 truncate">
+          {task.projectName} · {task.due}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function DemoUpcomingTasksBody() {
+  const todays = DEMO_TASKS.filter((t) => t.bucket === "today");
+  const upcoming = DEMO_TASKS.filter((t) => t.bucket === "upcoming");
+  return (
+    <div className="flex flex-col h-full min-h-0 gap-3">
+      <section>
+        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest px-2 mb-1">
+          Today
+        </h3>
+        <div className="space-y-1">
+          {todays.map((t) => (
+            <DemoTaskItem key={t.name} task={t} />
+          ))}
+        </div>
+      </section>
+      <section>
+        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest px-2 mb-1">
+          Upcoming ({upcoming.length})
+        </h3>
+        <div className="space-y-1">
+          {upcoming.map((t) => (
+            <DemoTaskItem key={t.name} task={t} />
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

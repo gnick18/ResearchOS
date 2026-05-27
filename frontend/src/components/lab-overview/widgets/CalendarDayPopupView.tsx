@@ -75,7 +75,19 @@ import {
   toLocalDateString,
   type CalendarItem,
 } from "@/components/calendar/utils";
+import type { Event } from "@/lib/types";
 import type { ExpandedViewProps } from "./types";
+// §6.2b Home widgets walkthrough demo-preview hook (widget tile-anatomy
+// fix manager, 2026-05-27). The SnapshotTile already swaps to fixture
+// rows when the tour's demo-preview lease is held, but BEFORE this fix
+// the popup body (this component) still queried real events and showed
+// "No events on this day" for a brand-new account. The tile-anatomy
+// step's cursor demo opens the popup with `clickTile`, pauses for the
+// user to read it, then auto-closes; with the popup empty the lesson
+// was dead on arrival. Mirror the SnapshotTile pattern here: when the
+// demo-preview lease is held, render the same fixture day so the popup
+// body matches what the tile teaser was advertising.
+import { useTourWidgetDemoPreview } from "@/components/onboarding/v4/TourWidgetDemoPreview";
 
 // ── Geometry ─────────────────────────────────────────────────────────────
 // The popup body is ~max-w-5xl (~1024px) and ~85vh tall. The popup
@@ -190,6 +202,75 @@ const ENDED_CLASSES = "line-through opacity-60";
 
 // ── Component ────────────────────────────────────────────────────────────
 
+/**
+ * §6.2b walkthrough demo-preview fixture (widget tile-anatomy fix manager,
+ * 2026-05-27). Mirrors the SnapshotTile's DEMO_TODAY_ROWS so the popup
+ * body matches the tile teaser when the tour's demo-preview lease is
+ * held. Native events only (no external feed entries) so the lane-packing
+ * + hour grid render predictably. Stamped with today's `start_date` at
+ * read time so each event lands in `[start_date, end_date]` and shows in
+ * the day grid.
+ *
+ * No emojis, no em-dashes, light fictional content (no real PI /
+ * project / strain names).
+ */
+function buildDemoEvents(todayStr: string): Event[] {
+  return [
+    {
+      id: -1001,
+      title: "Lab meeting",
+      event_type: "meeting",
+      start_date: todayStr,
+      end_date: null,
+      start_time: "09:00",
+      end_time: "10:00",
+      location: "Conf rm 2",
+      url: null,
+      notes: null,
+      color: null,
+    },
+    {
+      id: -1002,
+      title: "Yeast transformations",
+      event_type: "other",
+      start_date: todayStr,
+      end_date: null,
+      start_time: "11:00",
+      end_time: "13:30",
+      location: null,
+      url: null,
+      notes: null,
+      color: null,
+    },
+    {
+      id: -1003,
+      title: "Confocal imaging slot",
+      event_type: "other",
+      start_date: todayStr,
+      end_date: null,
+      start_time: "14:00",
+      end_time: "16:00",
+      location: "Imaging core",
+      url: null,
+      notes: null,
+      color: null,
+    },
+    {
+      id: -1004,
+      title: "Methods draft due",
+      event_type: "deadline",
+      start_date: todayStr,
+      end_date: null,
+      start_time: "17:00",
+      end_time: null,
+      location: null,
+      url: null,
+      notes: null,
+      color: null,
+    },
+  ];
+}
+
 export default function CalendarDayPopupView(_props: ExpandedViewProps) {
   // Popup-close hook (commit 911614ba): "Open full calendar" tears
   // down the popup before client-nav so the user lands on /calendar
@@ -204,21 +285,49 @@ export default function CalendarDayPopupView(_props: ExpandedViewProps) {
   const todayStr = toLocalDateString(new Date());
   const isToday = dateStr === todayStr;
 
+  // §6.2b walkthrough demo-preview short-circuit (widget tile-anatomy
+  // fix manager, 2026-05-27): when the tour's demo-preview lease is
+  // held, swap the real events fetch for inline fixture events scoped
+  // to today. Hook order is preserved (still call useQuery /
+  // useExternalEvents) so the rules-of-hooks contract holds across the
+  // toggle.
+  const isDemoPreview = useTourWidgetDemoPreview();
+
   // Shared data: React Query dedupes the ["events"] fetch across every
   // calendar consumer (SnapshotTile + SidebarTile + /calendar page +
   // CalendarSidebar + DailyTasksSidebar), so the popup body costs
   // nothing extra when the user already had any of them mounted.
-  const { data: nativeEvents = [], isLoading: nativeLoading } = useQuery({
+  const { data: realNativeEvents = [], isLoading: realNativeLoading } = useQuery({
     queryKey: ["events"],
     queryFn: eventsApi.list,
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
   const {
-    events: externalEvents,
+    events: realExternalEvents,
     errorsByFeedId,
-    isLoading: externalLoading,
+    isLoading: realExternalLoading,
   } = useExternalEvents();
+
+  // Demo path uses the fixture; real path uses the live queries. The
+  // demo fixture is rebuilt only when the day actually changes (the
+  // todayStr is part of the dep array) so stepping forwards/backwards
+  // also re-stamps the events on the new day — which is correct: a
+  // user paging away from today during the demo would see an empty
+  // grid anyway, and the tour never steps the day. Both arrays are
+  // memoized so the downstream `items` useMemo doesn't re-run every
+  // render (the conditional expression would create a fresh array
+  // each time without the wrapper).
+  const nativeEvents = useMemo<Event[]>(
+    () => (isDemoPreview ? buildDemoEvents(todayStr) : realNativeEvents),
+    [isDemoPreview, todayStr, realNativeEvents],
+  );
+  const externalEvents = useMemo(
+    () => (isDemoPreview ? [] : realExternalEvents),
+    [isDemoPreview, realExternalEvents],
+  );
+  const nativeLoading = isDemoPreview ? false : realNativeLoading;
+  const externalLoading = isDemoPreview ? false : realExternalLoading;
 
   const items = useMemo<CalendarItem[]>(() => {
     const out: CalendarItem[] = [];
@@ -286,7 +395,12 @@ export default function CalendarDayPopupView(_props: ExpandedViewProps) {
   });
 
   const isLoading = nativeLoading || externalLoading;
-  const hasFeedErrors = errorsByFeedId.size > 0;
+  // Demo path suppresses the feed-error banner: errors stem from the
+  // real `useExternalEvents` hook, but the demo body deliberately
+  // ignores external feeds (the fixture is native-events only), so a
+  // pre-existing error from a previously-failing user feed shouldn't
+  // bleed into the tour banner.
+  const hasFeedErrors = !isDemoPreview && errorsByFeedId.size > 0;
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
