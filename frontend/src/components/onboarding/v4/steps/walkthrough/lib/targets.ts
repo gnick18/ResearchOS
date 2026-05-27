@@ -132,6 +132,12 @@ export const TOUR_TARGETS = {
 
   // §6.5 Workbench experiment creation
   workbenchNewExperiment: "workbench-new-experiment",
+  /** Project picker (the native <select>) inside TaskModal. The §6.5
+   *  cursor demo selects the user's §6.1-created project here BEFORE
+   *  typing the name, so the experiment files into that project instead
+   *  of the default Miscellaneous bucket (experiment-create sub-bot,
+   *  2026-05-26). */
+  workbenchExperimentProjectSelect: "workbench-experiment-project-select",
   workbenchExperimentNameInput: "workbench-experiment-name-input",
   workbenchExperimentSubmit: "workbench-experiment-submit",
 

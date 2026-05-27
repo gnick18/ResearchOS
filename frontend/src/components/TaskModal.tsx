@@ -576,6 +576,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
               value={projectId}
               onChange={(e) => setProjectId(Number(e.target.value))}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              data-tour-target="workbench-experiment-project-select"
             >
               {activeProjects.map((p) => (
                 <option key={`${p.owner}:${p.id}`} value={p.id}>

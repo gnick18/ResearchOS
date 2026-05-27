@@ -298,6 +298,151 @@ export async function safeTypeAction(
 }
 
 /**
+ * React-safe value setter for native inputs / textareas / selects.
+ *
+ * Mirrors the helper inside `BeakerBotCursor.typeInto`: React tracks the
+ * input's value via a private property on the DOM node, so a bare
+ * `el.value = "x"` does NOT fire the synthetic onChange in React-controlled
+ * forms. The canonical fix is to call the native Object setter, then
+ * dispatch a synthetic input / change event. This is the same shape
+ * React's own `simulateChangeEvent` uses internally.
+ *
+ * Kept local to cursor-script (rather than re-exporting from
+ * BeakerBotCursor) so the helper modules stay independent of the cursor
+ * component's render layer.
+ */
+function setNativeFieldValue(
+  el: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
+  value: string,
+): void {
+  const tag =
+    el.tagName === "TEXTAREA"
+      ? HTMLTextAreaElement
+      : el.tagName === "SELECT"
+        ? HTMLSelectElement
+        : HTMLInputElement;
+  const setter = Object.getOwnPropertyDescriptor(tag.prototype, "value")?.set;
+  if (setter) {
+    setter.call(el, value);
+  } else {
+    el.value = value;
+  }
+  // `<select>` fires `change`, not `input`. Native inputs fire both —
+  // dispatching both covers either consumer (React's synthetic onChange
+  // listens to `input` for inputs / textareas and `change` for selects).
+  if (el.tagName === "SELECT") {
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  } else {
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+}
+
+/**
+ * Build a "change a <select>'s value" action. Resolves the selector at
+ * BUILD time (so the controller's `runScript` runs the callback in the
+ * action sequence) and at PLAYBACK time programmatically sets the
+ * select's value via React's native-setter pattern so the wrapping
+ * `onChange` handler fires. The cursor visually glides to the select
+ * before the change so the user sees BeakerBot interact with it.
+ *
+ * Why this exists (experiment-create sub-bot, 2026-05-26): the §6.5
+ * cursor demo leaves the Project dropdown on Miscellaneous instead of
+ * filing the experiment into the user's §6.1-created project. There was
+ * no helper for programmatic `<select>` changes — `safeClickAction`
+ * doesn't open the dropdown options (a real click on a native select
+ * opens an OS-level picker the script can't reach into), and
+ * `safeTypeAction` types into inputs only. This helper fills that gap.
+ *
+ * The `value` argument is the option's `value` attribute (matches the
+ * select's controlled `value` prop). For numeric ids stored as strings
+ * (project id, task id), callers should pass `String(id)`.
+ *
+ * Returns `null` if the selector never mounts — callers filter with
+ * `compactScript`, same contract as the other safe* helpers.
+ */
+export async function safeChangeSelectAction(
+  selector: string,
+  value: string,
+  timeoutMs?: number,
+): Promise<CursorAction | null> {
+  const el = await waitForElement(selector, timeoutMs);
+  if (!el || !(el instanceof HTMLSelectElement)) return null;
+  await ensureInViewport(el);
+  // Re-read the rect AFTER scroll settled so the glide targets the
+  // select's NEW position.
+  const rect = el.getBoundingClientRect();
+  const x = rect.left + rect.width / 2;
+  const y = rect.top + rect.height / 2;
+  // The glide gives the user a visible cue ("BeakerBot moves to the
+  // dropdown"); the callback then fires the React-safe value setter so
+  // the parent's onChange handler runs and the controlled value commits.
+  return callbackAction(async () => {
+    // Defensive re-resolve: between BUILD and PLAYBACK the select may
+    // have re-rendered. Use the live DOM node not the stale ref.
+    if (typeof document === "undefined") return;
+    const fresh = document.querySelector(selector);
+    if (!(fresh instanceof HTMLSelectElement)) return;
+    setNativeFieldValue(fresh, value);
+  });
+  // Note: we return a single callback action here (not a glide+callback
+  // pair) so the caller can compose the glide separately if they want a
+  // pre-change visual beat. The cursor's natural glide-to-next-target
+  // before the NEXT action (e.g. the name input's safeTypeAction) gives
+  // the user a continuous motion without an explicit pre-glide here. If
+  // future demos need an explicit glide, expose it as a separate
+  // `safeGlideToElementAction(selector)` (already exists) before this
+  // helper in the script.
+  // Unused locals kept for future cursor-glide opt-in:
+  void x;
+  void y;
+}
+
+/**
+ * Build a "clear a text input" action — sets the input's value to ""
+ * via the React-safe setter so the parent's onChange handler fires and
+ * React Hook Form (or any controlled-form library) drops its stale
+ * draft. Used by demo cursor scripts that need to type into a field
+ * that might already hold a stale value (form-draft persistence chip
+ * ac4b0640: React Hook Form retains the input value across modal
+ * remounts, so the cursor's `safeTypeAction` would APPEND on top of
+ * the existing text and produce a doubled name).
+ *
+ * Why a callback and not a primitive: `CursorAction["type"]` doesn't
+ * include a "clear" variant, and adding one would touch the cursor's
+ * imperative API + every action-running test fixture. A callback is
+ * the lightest possible seam — it runs between cursor primitives,
+ * fires the React-safe setter, and resolves before the next type/click
+ * lands.
+ *
+ * Resolves the selector at BUILD time so the caller can decide whether
+ * to include the action (when the input never mounts, returns null and
+ * `compactScript` drops it). The callback re-resolves at PLAYBACK time
+ * for the same re-render safety reason `safeChangeSelectAction` uses.
+ *
+ * Returns `null` if the selector never mounts.
+ */
+export async function safeClearInputAction(
+  selector: string,
+  timeoutMs?: number,
+): Promise<CursorAction | null> {
+  const el = await waitForElement(selector, timeoutMs);
+  if (!el) return null;
+  await ensureInViewport(el);
+  return callbackAction(async () => {
+    if (typeof document === "undefined") return;
+    const fresh = document.querySelector(selector);
+    if (
+      !(fresh instanceof HTMLInputElement) &&
+      !(fresh instanceof HTMLTextAreaElement)
+    ) {
+      return;
+    }
+    setNativeFieldValue(fresh, "");
+  });
+}
+
+/**
  * Build a glide action to the center of the element matching `selector`,
  * waiting for the target to mount. Resolves the element's center via
  * `getBoundingClientRect` at script-build time, so the resulting `glide`
