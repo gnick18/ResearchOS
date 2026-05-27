@@ -318,7 +318,7 @@ export async function safeTypeAction(
  * BeakerBotCursor) so the helper modules stay independent of the cursor
  * component's render layer.
  */
-function setNativeFieldValue(
+export function setNativeFieldValue(
   el: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
   value: string,
 ): void {

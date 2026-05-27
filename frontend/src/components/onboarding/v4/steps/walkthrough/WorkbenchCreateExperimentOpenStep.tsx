@@ -40,10 +40,10 @@
 import {
   cursorScript,
   safeClickAction,
-  safeTypeAction,
-  safeChangeSelectAction,
   compactScript,
   callbackAction,
+  waitForElement,
+  setNativeFieldValue,
 } from "./lib/cursor-script";
 import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
@@ -133,50 +133,67 @@ export const workbenchCreateExperimentOpenStep = buildWalkthroughStep({
   pose: "typing-on-laptop",
   targetSelector: targetSelector(TOUR_TARGETS.workbenchNewExperiment),
   cursorScript: cursorScript(async () => {
-    // 1. Click the spotlighted "+ New Experiment" button. The handler in
-    //    WorkbenchExperimentsPanel.tsx sets isCreatingTask = true and
-    //    dispatches `tour:workbench-experiment-modal-opened`; the
-    //    TaskModal then mounts.
+    // 1. Click the spotlighted "+ New Experiment" button. The button
+    //    exists at build time, so `safeClickAction` resolves
+    //    immediately. The handler dispatches
+    //    `tour:workbench-experiment-modal-opened`; the TaskModal then
+    //    mounts.
     const openClick = await safeClickAction(
       targetSelector(TOUR_TARGETS.workbenchNewExperiment),
       3000,
     );
 
-    // 2. Pick the user's first project in the Project <select>. The
-    //    select is a native HTML element; safeChangeSelectAction
-    //    programmatically sets its value via React's native setter
-    //    pattern so the controlled onChange handler fires.
-    const projectId = await resolveFirstProjectId();
-    const pickProject =
-      projectId !== null
-        ? await safeChangeSelectAction(
-            targetSelector(TOUR_TARGETS.workbenchExperimentProjectSelect),
-            String(projectId),
-            5000,
-          )
-        : null;
+    // Steps 2-4 (project pick, name type, submit) all need the
+    // TaskModal's elements, which DON'T EXIST at build time. The naive
+    // `await safe*Action(...)` calls would each call waitForElement
+    // synchronously and time out (5000ms each, ~15s blocked) before
+    // returning null, producing a cursor with only the openClick.
+    //
+    // Hand-walk fix 2026-05-27 (second pass): wrap each post-modal
+    // action in a callbackAction that resolves at PLAYBACK time, so the
+    // selector queries see the just-mounted modal. Uses
+    // `setNativeFieldValue` for the select + name input to fire React's
+    // controlled onChange path (mirrors safeChangeSelectAction's
+    // internal callback shape).
 
-    // 3. Type the placeholder name into the Task Name input. 25ms
-    //    cadence matches §6.4d methods-create's name-typing cadence.
-    const typeName = await safeTypeAction(
-      targetSelector(TOUR_TARGETS.workbenchExperimentNameInput),
-      FIRST_EXPERIMENT_NAME,
-      25,
-    );
+    const pickProject = callbackAction(async () => {
+      if (typeof document === "undefined") return;
+      // Re-resolve the project id at playback so a project created
+      // moments earlier in the tour is in the API list.
+      const projectId = await resolveFirstProjectId();
+      if (projectId === null) return;
+      // Wait briefly for the select to mount.
+      const select = await waitForElement(
+        targetSelector(TOUR_TARGETS.workbenchExperimentProjectSelect),
+        3000,
+      );
+      if (!(select instanceof HTMLSelectElement)) return;
+      setNativeFieldValue(select, String(projectId));
+    });
 
-    // 4. Click Create Experiment. TaskModal's createTask success
-    //    branch then dispatches `tour:experiment-created` (added by
-    //    experiment-flow fix manager 2026-05-27) which the step's
-    //    completion contract listens for to enable the manual advance.
-    const submit = await safeClickAction(
-      targetSelector(TOUR_TARGETS.workbenchExperimentSubmit),
-      5000,
-    );
+    const typeName = callbackAction(async () => {
+      if (typeof document === "undefined") return;
+      const input = await waitForElement(
+        targetSelector(TOUR_TARGETS.workbenchExperimentNameInput),
+        3000,
+      );
+      if (!(input instanceof HTMLInputElement)) return;
+      setNativeFieldValue(input, FIRST_EXPERIMENT_NAME);
+    });
+
+    const submit = callbackAction(async () => {
+      if (typeof document === "undefined") return;
+      const btn = await waitForElement(
+        targetSelector(TOUR_TARGETS.workbenchExperimentSubmit),
+        3000,
+      );
+      if (!(btn instanceof HTMLElement)) return;
+      btn.click();
+    });
 
     // Interleave 800ms read-then-watch pauses between each visible
     // action so the user can register each beat (modal open → project
-    // picked → name typed → submit) before the next one fires. Matches
-    // §6.4d methods-create's pacing pattern.
+    // picked → name typed → submit) before the next one fires.
     return compactScript([
       openClick,
       callbackAction(() => pause(WORKBENCH_CREATE_PAUSE_MS)),
