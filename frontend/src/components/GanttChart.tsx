@@ -1193,7 +1193,32 @@ export default function GanttChart({
         child_id: depChildTask.id,
         dep_type: depType,
       });
-      
+
+      // gantt cluster consolidation manager (2026-05-27, Bug #30): dispatch
+      // a fast-path tour event so onboarding steps can advance the moment
+      // the user finishes a dep wire. Polling on dependenciesApi.list still
+      // works (and is the safety net for any future code path that
+      // bypasses this handler), but a 500ms polling tick after the React
+      // Query refetch settled was making the deps-user step feel laggy
+      // and the brief flagged a missing completion signal. The dispatch
+      // is fire-and-forget; failures (ancient jsdom CustomEvent ctor)
+      // fall through to the polling watcher.
+      if (typeof window !== "undefined") {
+        try {
+          window.dispatchEvent(
+            new CustomEvent("tour:gantt-dependency-created", {
+              detail: {
+                parent_id: depParentTask.id,
+                child_id: depChildTask.id,
+                dep_type: depType,
+              },
+            }),
+          );
+        } catch {
+          // Best-effort fast path; polling watcher still trips.
+        }
+      }
+
       // Calculate new start date for child task
       let newStartDate: string;
       if (depType === "FS") {

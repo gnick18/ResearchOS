@@ -51,7 +51,6 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import BeakerBot from "@/components/BeakerBot";
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
-import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 import { appendBeakerBotNote } from "./lib/gantt-share-helpers";
 import { resolveFakeTaskIds } from "./lib/gantt-redesign-helpers";
 import { useOptionalTourController } from "../../TourController";
@@ -338,15 +337,15 @@ export const ganttShareProfileSwitchStep = buildWalkthroughStep({
   id: "gantt-share-profile-switch",
   speech: () => <ProfileSwitchSpeech />,
   pose: "typing-on-laptop",
-  // Gantt fix manager R1 (P1 #6): the previous cursor click opened the
-  // real UserLoginScreen dropdown then layered a faked modal on top.
-  // The dropdown stayed mounted when the modal closed at T+6800ms,
-  // leaving the user staring at the real user-picker. Option (a) from
-  // the brief: drop the real-dropdown click entirely. The visual
-  // narration lives in the modal — it's honest about being a faked
-  // BeakerBot-view overlay, no need to dress it up with a half-real
-  // user-picker.
-  targetSelector: targetSelector(TOUR_TARGETS.userPickerButton),
+  // gantt cluster consolidation manager (2026-05-27, Bug #35): no
+  // targetSelector. The previous config still anchored a spotlight on
+  // the user-picker button even though the user-picker click was
+  // dropped (the modal IS the whole narration). A spotlight ring pulsing
+  // on the user-picker corner of the AppShell while BeakerBot's
+  // "switching" modal occupies the center of the screen is visually
+  // noisy and wrong, since the user isn't being asked to interact with
+  // the picker at all. The modal owns the focal area; no spotlight
+  // necessary.
   // onEnter is best-effort idempotent: ensures the fake-task-ids
   // resolution still passes downstream consumers.
   onEnter: async () => {

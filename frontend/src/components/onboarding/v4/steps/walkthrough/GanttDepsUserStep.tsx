@@ -111,8 +111,58 @@ export const ganttDepsUserStep = buildWalkthroughStep({
     // Polling-based completion: every 500ms, check the user's active
     // project deps for a (user_experiment → fakeB) edge. When found,
     // advance.
+    //
+    // gantt cluster consolidation manager (2026-05-27, Bug #30): also
+    // listen for the new `tour:gantt-dependency-created` window event
+    // GanttChart's handleCreateDependency dispatches synchronously the
+    // moment the user clicks "Start after". This gives a snappier
+    // advance than the 500ms polling tick on the listByProject API.
+    // The polling watcher stays in place as the safety net for any code
+    // path that bypasses the GanttChart handler.
     let cancelled = false;
+    let fired = false;
     let timer: ReturnType<typeof setInterval> | undefined;
+
+    const fireOnce = () => {
+      if (fired || cancelled) return;
+      fired = true;
+      cancelled = true;
+      if (timer) clearInterval(timer);
+      advance();
+    };
+
+    const matchesUserBDep = async (
+      detail: { parent_id?: unknown; child_id?: unknown; dep_type?: unknown } | undefined,
+    ): Promise<boolean> => {
+      if (!detail) return false;
+      try {
+        const userExp = await resolveUserExperiment();
+        const { fakeBId } = await resolveFakeTaskIds();
+        if (!userExp || !fakeBId) return false;
+        return (
+          detail.parent_id === userExp.id &&
+          detail.child_id === fakeBId &&
+          detail.dep_type === "FS"
+        );
+      } catch {
+        return false;
+      }
+    };
+
+    const onDepCreated = (e: Event) => {
+      const ce = e as CustomEvent<{
+        parent_id: number;
+        child_id: number;
+        dep_type: string;
+      }>;
+      void matchesUserBDep(ce.detail).then((hit) => {
+        if (hit) fireOnce();
+      });
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("tour:gantt-dependency-created", onDepCreated);
+    }
 
     const poll = async () => {
       if (cancelled) return;
@@ -134,9 +184,7 @@ export const ganttDepsUserStep = buildWalkthroughStep({
             d.dep_type === "FS",
         );
         if (hit) {
-          cancelled = true;
-          if (timer) clearInterval(timer);
-          advance();
+          fireOnce();
         }
       } catch (err) {
         // Best-effort polling — swallow + log so a transient FS hiccup
@@ -156,6 +204,12 @@ export const ganttDepsUserStep = buildWalkthroughStep({
     return () => {
       cancelled = true;
       if (timer) clearInterval(timer);
+      if (typeof window !== "undefined") {
+        window.removeEventListener(
+          "tour:gantt-dependency-created",
+          onDepCreated,
+        );
+      }
     };
   }),
   // Gantt fix manager R1 (P1 #9): record the user→fake_b dep edge as a

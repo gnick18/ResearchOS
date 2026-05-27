@@ -456,14 +456,73 @@ export async function appendNoteToTaskNotes(
 }
 
 /**
+ * Idempotent twin of `appendNoteToTaskNotes` that writes to results.md
+ * instead of notes.md. The Results tab in TaskDetailPopup mounts
+ * `LiveMarkdownEditor` against `${taskResultsBase}/results.md`, so the
+ * file path mirrors the notes-write helper with a different filename.
+ *
+ * gantt cluster consolidation manager (2026-05-27, Bug #35): the
+ * profile-switch demo previously wrote only to notes.md, so users who
+ * opened the Results tab on the shared experiment after switching back
+ * saw an empty surface. Grant's brief: "He needs to add some text to
+ * the lab notes and results bottom paragraph sections". This helper
+ * carries the same idempotency contract (skip when the note text is
+ * already present in the file).
+ */
+export async function appendNoteToTaskResults(
+  taskId: number,
+  taskOwner: string,
+  noteText: string,
+): Promise<boolean> {
+  if (!taskId || !taskOwner) return false;
+  try {
+    const resultsPath = `${taskResultsBase({ id: taskId, owner: taskOwner })}/results.md`;
+    let existing = "";
+    try {
+      const file = await filesApi.readFile(resultsPath);
+      existing = file.content ?? "";
+    } catch {
+      // results.md may not exist yet; treat as empty and write fresh.
+      existing = "";
+    }
+    if (existing.includes(noteText)) {
+      return true;
+    }
+    const stamp = new Date().toISOString();
+    const block = `\n\n## Results update from ${BEAKERBOT_LAB_USERNAME} (${stamp})\n\n${noteText}\n`;
+    const next = existing ? `${existing}${block}` : block.replace(/^\n\n/, "");
+    await filesApi.writeFile(
+      resultsPath,
+      next,
+      `BeakerBot tour results note on task ${taskId}`,
+    );
+    await appQueryClient.invalidateQueries({ queryKey: ["tasks"] });
+    return true;
+  } catch (err) {
+    console.warn("[gantt-share] appendNoteToTaskResults failed", err);
+    return false;
+  }
+}
+
+/**
  * Profile-switch convenience: append BeakerBot's tour note to Fake
- * experiment A's notes.md. Fake A lives in the user's namespace (the
- * user owns it; BeakerBot received edit permission via the previous
- * share-back step). This is the note the user sees in
+ * experiment A's notes.md AND results.md. Fake A lives in the user's
+ * namespace (the user owns it; BeakerBot received edit permission via
+ * the previous share-back step). This is the note the user sees in
  * `gantt-share-user-sees-edit`.
  *
+ * gantt cluster consolidation manager (2026-05-27, Bug #35): now writes
+ * to BOTH the Lab Notes tab (notes.md) and the Results tab (results.md)
+ * so the user sees BeakerBot's edit on whichever tab they open. Both
+ * writes are idempotent. A bespoke "Results update" header keeps the
+ * appended results-block visually distinct from notes-block in case a
+ * curious user opens both surfaces side by side.
+ *
  * Returns false when Fake A or the recipient username can't be
- * resolved, true on a successful (or idempotent) write.
+ * resolved. Returns true when AT LEAST ONE of the two writes succeeded
+ * (the broader user-facing promise is "you see content somewhere"; a
+ * partial filesystem failure on one of the two paths shouldn't trip
+ * the gating-event dispatcher in GanttShareProfileSwitchStep).
  */
 export async function appendBeakerBotNote(
   noteText: string,
@@ -494,7 +553,11 @@ export async function appendBeakerBotNote(
       );
       return false;
     }
-    return await appendNoteToTaskNotes(fakeAId, handle.recipient, noteText);
+    const [notesOk, resultsOk] = await Promise.all([
+      appendNoteToTaskNotes(fakeAId, handle.recipient, noteText),
+      appendNoteToTaskResults(fakeAId, handle.recipient, noteText),
+    ]);
+    return notesOk || resultsOk;
   } catch (err) {
     console.warn("[gantt-share] appendBeakerBotNote failed", err);
     return false;

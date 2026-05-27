@@ -18,13 +18,21 @@
  * Cursor:
  *   1. Glide to Fake A's bar.
  *   2. Drag Fake A onto the user's experiment bar.
- *   3. (Real implementation: the dep edge was already created by
- *      onEnter; the cursor's drag is the visual narration.)
+ *   3. Click "Finish before" in the dep-rule dialog so the dialog closes
+ *      and the next step has a clear page.
+ *   4. (Real implementation: the dep edge was already created by
+ *      onEnter; the cursor's drag + click is the visual narration.)
  *
  * Manual advance — same pattern as the legacy chained-deps step.
+ *
+ * gantt cluster consolidation manager (2026-05-27, Bug #29): added the
+ * "Finish before" click after the drag. Without it the Create
+ * Dependency dialog stayed open on screen and blocked the cursor +
+ * spotlight on the next step.
  */
 import {
   cursorScript,
+  safeClickAction,
   safeDragAction,
   compactScript,
 } from "./lib/cursor-script";
@@ -65,7 +73,19 @@ export const ganttDepsBeakerBotStep = buildWalkthroughStep({
       targetSelector(TOUR_TARGETS.ganttBarFakeA),
       targetSelector(TOUR_TARGETS.ganttBarUserExperiment),
     );
-    return compactScript([dragOntoUserExp]);
+    // gantt cluster consolidation manager (2026-05-27, Bug #29):
+    // close out the Create Dependency dialog that the GanttChart
+    // opens whenever a bar-on-bar drag lands. The cursor clicks the
+    // "Finish before" button (data-tour-target="gantt-dep-picker-start-before",
+    // dep_type "SF") so the dialog dispatches handleCreateDependency
+    // and unmounts. The dep edge itself was already wired in onEnter,
+    // so this click is purely a UI cleanup beat (a duplicate dep
+    // attempt is caught by the existing duplicate-detection branch in
+    // GanttChart's handleCreateDependency).
+    const clickFinishBefore = await safeClickAction(
+      targetSelector(TOUR_TARGETS.ganttDepPickerStartBefore),
+    );
+    return compactScript([dragOntoUserExp, clickFinishBefore]);
   }),
   completion: manualAdvance("Got it, next"),
   expectedRoute: "/gantt",

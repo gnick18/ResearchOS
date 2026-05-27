@@ -17,6 +17,7 @@
  *   7. gantt-share-user-sees-edit   — user-action, see BeakerBot's note
  */
 import { useEffect, useState } from "react";
+import TourSpotlight from "@/components/TourSpotlight";
 import { buildWalkthroughStep, manualAdvance, advanceOnEvent } from "./lib/step-helpers";
 import {
   cursorScript,
@@ -81,12 +82,25 @@ export const ganttShareBeakerBotSpawnStep = buildWalkthroughStep({
     </>
   ),
   pose: "cheering",
+  // gantt cluster consolidation manager (2026-05-27, Bug #31): the spawn
+  // step's speech invites the user to watch the timeline while the
+  // experiment lands. The prior implementation spawned the experiment
+  // in BeakerBot's namespace here but waited for the NEXT step's
+  // onEnter (gantt-share-beakerbot-shares) to issue the share, so the
+  // user's Gantt stayed empty during this step's read time. Both
+  // helpers are idempotent on names — `spawnGanttShareBeakerBot` reuses
+  // an existing experiment if one is found, and
+  // `shareCoffeeExperimentWithUser` reuses an existing share — so
+  // chaining them here doesn't double-spawn on re-runs. The next step
+  // still calls the share helper as a safety net (it no-ops idempotently
+  // when the share already exists).
   onEnter: async (ctx) => {
     if (!ctx.username) {
       console.warn("[gantt-share-beakerbot-spawn] no username; skip spawn");
       return;
     }
     await spawnGanttShareBeakerBot(ctx.username);
+    await shareCoffeeExperimentWithUser(ctx.username);
   },
   completion: manualAdvance("Got it, next"),
   expectedRoute: "/gantt",
@@ -102,6 +116,13 @@ export const ganttShareBeakerBotSharesStep = buildWalkthroughStep({
     "I just shared \"Make some coffee together\" with you. I gave you edit permission, so you can change dates and add notes.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.ganttBarSharedExperiment),
+  // gantt cluster consolidation manager (2026-05-27, Bug #31): the spawn
+  // step now performs both spawn + share so the experiment lands during
+  // the user's read time on the spawn-step speech. This step's onEnter
+  // call is a safety net (idempotent share-upsert) for the rare path
+  // where the spawn step's share failed (e.g. transient I/O blip), and
+  // also re-invalidates the tasks query so the spotlight has a chance
+  // to anchor onto the newly-visible bar.
   onEnter: async (ctx) => {
     if (!ctx.username) {
       console.warn("[gantt-share-beakerbot-shares] no username; skip share");
@@ -124,33 +145,25 @@ export const ganttShareBeakerBotSharesStep = buildWalkthroughStep({
 // =============================================================================
 
 function ShareExploreSpeech() {
-  const controller = useOptionalTourController();
-  // Bug-squad fix bot 2026-05-26 (Bug 3 family): pin only the stable
-  // useCallback handles to avoid the controller-context-rebuild
-  // infinite loop. See MethodsCategoryOpenStep for the full rationale.
-  const setPageLock = controller?.setPageLock;
-  const clearPageLock = controller?.clearPageLock;
-  useEffect(() => {
-    if (!setPageLock || !clearPageLock) return;
-    // Allow-list scope: anything inside the task popup. Both Notes +
-    // Results tabs are read-only-safe to poke. Gantt fix manager R2:
-    // the prior list omitted the Results tab even though the speech
-    // bubble invited the user to click it, which tripped the Oops
-    // flash on a legitimate path.
-    setPageLock(
-      [
-        TOUR_TARGETS.taskPopupNotesTab,
-        TOUR_TARGETS.taskPopupNotesTextarea,
-        TOUR_TARGETS.taskPopupClose,
-        TOUR_TARGETS.taskPopupEditButton,
-        TOUR_TARGETS.taskPopupNameInput,
-        TOUR_TARGETS.taskPopupSaveButton,
-        TOUR_TARGETS.experimentResultsTab,
-      ],
-      "Oops, please poke around inside the popup. The rest of the page is locked for now.",
-    );
-    return () => clearPageLock();
-  }, [setPageLock, clearPageLock]);
+  // gantt cluster consolidation manager (2026-05-27, Bug #33): dropped
+  // the page-lock for this step. The speech invites "Try adding a note
+  // or opening the results tab" — both of which require clicking
+  // affordances inside the TaskDetailPopup. The prior allow-list listed
+  // the obvious data-tour-target buttons (notes tab, results tab, save,
+  // close, edit) but missed the "Save notes" button at the bottom of
+  // the Lab Notes tab (which has no data-tour-target attribute, lives
+  // inside TaskDetailPopup which is owned by a parallel sweep bot, and
+  // therefore can't be stamped from here). Without a target attr on
+  // every affordance the user is invited to use, the page-lock
+  // surfaces a wrong-click flash on legitimate clicks and confuses
+  // the user. The step is purely "explore the shared experiment" with
+  // a manualAdvance "Got it, next" gate — no destructive action is
+  // possible from inside the popup, so dropping the lock is safe.
+  //
+  // FLAG: the TaskDetailPopup "Save notes" button (around L3786) needs
+  // a `data-tour-target="task-popup-notes-save"` attribute the next
+  // time the popup file is touched. If/when that lands, this step
+  // could opt back into a tight allow-list.
   return (
     <>
       <p className="mb-2">
@@ -275,8 +288,26 @@ function ShareBackSpeech() {
     return () => clearPageLock();
   }, [setPageLock, clearPageLock, stage]);
 
+  // gantt cluster consolidation manager (2026-05-27, Bug #34): per-stage
+  // spotlight. The previous step had a static `targetSelector` set to
+  // Fake A's bar, which left stages 2 + 3 with a stale spotlight floating
+  // over the timeline corner while the user was reading "Click the share
+  // button on the popup" / "Pick me and give me edit permission". The
+  // step config now leaves targetSelector unset; the body renders its
+  // own TourSpotlight component pointed at the right surface per stage.
+  // When the target attr isn't present yet (popup mid-mount), TourSpotlight
+  // silently no-ops via its internal MutationObserver and picks up the
+  // anchor the moment it lands.
+  const spotlightTarget =
+    stage === 1
+      ? targetSelector(TOUR_TARGETS.ganttBarFakeA)
+      : stage === 2
+        ? targetSelector(TOUR_TARGETS.taskPopupShareButton)
+        : targetSelector(TOUR_TARGETS.shareDialogUserRow);
+
   return (
     <>
+      <TourSpotlight target={spotlightTarget} />
       {stage === 1 ? (
         <p className="mb-2">
           Now share your chain back with me. Click the first task in
@@ -303,7 +334,12 @@ export const ganttShareUserSharesBackStep = buildWalkthroughStep({
   id: "gantt-share-user-shares-back",
   speech: () => <ShareBackSpeech />,
   pose: "pointing",
-  targetSelector: targetSelector(TOUR_TARGETS.ganttBarFakeA),
+  // gantt cluster consolidation manager (2026-05-27, Bug #34): no static
+  // targetSelector — ShareBackSpeech renders its own per-stage TourSpotlight
+  // so the highlight ring tracks stage 1 (timeline bar) → stage 2 (share
+  // button in popup) → stage 3 (share dialog user row). A static selector
+  // would lock the ring on stage 1's bar and leave the user without a
+  // visual cue for the popup + dialog clicks the speech invites.
   completion: advanceOnEvent((advance) => {
     // Polling-based completion: detect when Fake A in the user's
     // namespace has BeakerBot in its `shared_with` list with permission

@@ -637,11 +637,7 @@ This is your view of my shared experiment. Try adding a note or opening the resu
 _(small print)_ When you're ready, click "Got it, next" and I'll take over.
 ```
 
-Wrong-click flash:
-
-```
-Oops, please poke around inside the popup. The rest of the page is locked for now.
-```
+(Page lock dropped 2026-05-27 by the Gantt cluster consolidation manager. The TaskDetailPopup's "Save notes" button has no `data-tour-target` attribute, so the allow-list couldn't cover the legitimate save click. Step is now an open-exploration step; the user advances via the manual "Got it, next" button.)
 
 ### gantt-share-user-shares-back
 
