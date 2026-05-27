@@ -10,6 +10,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   cursorScript,
   deferredClickAction,
+  safeChangeSelectAction,
+  safeClearInputAction,
   safeClickAction,
   safeNavClickAction,
   safeTypeAction,
@@ -274,6 +276,116 @@ describe("safeTypeAction()", () => {
     } finally {
       cleanup();
     }
+  });
+});
+
+describe("safeChangeSelectAction() — experiment-create sub-bot 2026-05-26", () => {
+  it("returns a callback action that sets the select's value via the React-safe setter", async () => {
+    // Set up a controlled <select> with options for project 0 (Misc)
+    // and project 42 (the "user's project").
+    const select = document.createElement("select");
+    select.setAttribute("data-tour-target", "test-project-select");
+    const optMisc = document.createElement("option");
+    optMisc.value = "0";
+    optMisc.textContent = "Miscellaneous";
+    const optReal = document.createElement("option");
+    optReal.value = "42";
+    optReal.textContent = "Test Project";
+    select.appendChild(optMisc);
+    select.appendChild(optReal);
+    document.body.appendChild(select);
+
+    // Listen for change events to confirm the setter dispatched one.
+    let changeCount = 0;
+    select.addEventListener("change", () => {
+      changeCount += 1;
+    });
+
+    try {
+      const action = await safeChangeSelectAction(
+        "[data-tour-target='test-project-select']",
+        "42",
+      );
+      expect(action).not.toBeNull();
+      expect(action?.type).toBe("callback");
+      // Execute the callback like runScript would.
+      if (action?.type === "callback") {
+        await action.fn();
+      }
+      // The select should now reflect the new value AND have fired a
+      // change event (so React's onChange handler would run).
+      expect(select.value).toBe("42");
+      expect(changeCount).toBe(1);
+    } finally {
+      select.remove();
+    }
+  });
+  it("returns null when the select selector never mounts", async () => {
+    const action = await safeChangeSelectAction(
+      "[data-tour-target='no-such-select']",
+      "1",
+      150,
+    );
+    expect(action).toBeNull();
+  });
+  it("returns null when the selector matches a non-<select> element (guards against typos)", async () => {
+    const { cleanup } = mountFixture("not-a-select", "input");
+    try {
+      const action = await safeChangeSelectAction(
+        "[data-tour-target='not-a-select']",
+        "1",
+        150,
+      );
+      expect(action).toBeNull();
+    } finally {
+      cleanup();
+    }
+  });
+});
+
+describe("safeClearInputAction() — experiment-create sub-bot 2026-05-26", () => {
+  it("returns a callback action that clears the input + fires input/change events", async () => {
+    // Pre-fill the input to mimic the RHF / form-draft retention bug.
+    const input = document.createElement("input");
+    input.setAttribute("type", "text");
+    input.setAttribute("data-tour-target", "test-name-input");
+    input.value = "Demo Experiment One"; // stale draft from a prior modal open
+    document.body.appendChild(input);
+
+    let inputCount = 0;
+    let changeCount = 0;
+    input.addEventListener("input", () => {
+      inputCount += 1;
+    });
+    input.addEventListener("change", () => {
+      changeCount += 1;
+    });
+
+    try {
+      const action = await safeClearInputAction(
+        "[data-tour-target='test-name-input']",
+      );
+      expect(action).not.toBeNull();
+      expect(action?.type).toBe("callback");
+      if (action?.type === "callback") {
+        await action.fn();
+      }
+      expect(input.value).toBe("");
+      // The React-safe setter dispatches BOTH input and change events
+      // for inputs / textareas so any consumer (controlled state, RHF,
+      // imperative listeners) sees the clear.
+      expect(inputCount).toBe(1);
+      expect(changeCount).toBe(1);
+    } finally {
+      input.remove();
+    }
+  });
+  it("returns null when the input selector never mounts", async () => {
+    const action = await safeClearInputAction(
+      "[data-tour-target='no-such-input']",
+      150,
+    );
+    expect(action).toBeNull();
   });
 });
 
@@ -958,7 +1070,12 @@ describe("step bodies — cursor scripts produce expected actions", () => {
     expect(workbenchCreateExperimentOpenStep.cursorScript).toBeUndefined();
   });
 
-  it("WorkbenchCreateExperimentStep: cursor types the placeholder name + clicks submit (demo half of the §6.5 split)", async () => {
+  it("WorkbenchCreateExperimentStep: cursor clears the name THEN types THEN clicks submit (experiment-create sub-bot 2026-05-26)", async () => {
+    // After the experiment-create sub-bot fix, the script grew to insert
+    // a clear-input beat BEFORE the type beat (React Hook Form retention
+    // produced a doubled name otherwise). With no project select in the
+    // DOM fixture, the select-change action drops out of compactScript,
+    // leaving: clear (callback), type, click.
     const nameInput = document.createElement("input");
     nameInput.setAttribute("type", "text");
     nameInput.setAttribute(
@@ -972,15 +1089,19 @@ describe("step bodies — cursor scripts produce expected actions", () => {
     try {
       const script = await workbenchCreateExperimentStep.cursorScript?.();
       expect(script).toBeDefined();
-      expect(script).toHaveLength(2);
-      expect(script?.[0].type).toBe("type");
-      if (script?.[0].type === "type") {
-        expect(script[0].text).toBe(PLACEHOLDER_EXPERIMENT_NAME);
-        expect(script[0].target).toBe(nameInput);
+      expect(script).toHaveLength(3);
+      // Beat 1: clear is a callback (RHF / form-draft retention guard).
+      expect(script?.[0].type).toBe("callback");
+      // Beat 2: type the placeholder name.
+      expect(script?.[1].type).toBe("type");
+      if (script?.[1].type === "type") {
+        expect(script[1].text).toBe(PLACEHOLDER_EXPERIMENT_NAME);
+        expect(script[1].target).toBe(nameInput);
       }
-      expect(script?.[1].type).toBe("click");
-      if (script?.[1].type === "click") {
-        expect(script[1].target).toBe(submit);
+      // Beat 3: click submit.
+      expect(script?.[2].type).toBe("click");
+      if (script?.[2].type === "click") {
+        expect(script[2].target).toBe(submit);
       }
     } finally {
       nameInput.remove();
