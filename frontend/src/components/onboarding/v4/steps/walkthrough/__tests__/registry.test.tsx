@@ -46,7 +46,12 @@ const P5_STEP_IDS = [
   // §6.6 method-attachment split (2026-05-21): the original single
   // `experiment-attach-method` id was split into 4 popup-mount-safe
   // sub-steps. Registry must resolve every new id to a non-placeholder.
+  //
+  // §6.6 walkthrough reorder (experiment-tabs sub-bot, 2026-05-26):
+  // the tabs-overview beat sits between -open and -tab so the
+  // four-tab narration precedes the methods-attach demo.
   "experiment-attach-method-open",
+  "experiment-tabs-overview",
   "experiment-attach-method-tab",
   "experiment-attach-method-attach",
   "experiment-attach-method-notes",

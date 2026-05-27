@@ -162,6 +162,11 @@ import { methodAttachmentOpenStep } from "./steps/walkthrough/MethodAttachmentOp
 import { methodAttachmentTabStep } from "./steps/walkthrough/MethodAttachmentTabStep";
 import { methodAttachmentAttachStep } from "./steps/walkthrough/MethodAttachmentAttachStep";
 import { methodAttachmentNotesStep } from "./steps/walkthrough/MethodAttachmentNotesStep";
+// §6.6 walkthrough reorder (experiment-tabs sub-bot, 2026-05-26): pure
+// narration beat that names the four popup tabs (Details, Lab Notes,
+// Method, Results) BEFORE the methods-attach demo. Sits between
+// `experiment-attach-method-open` and `experiment-attach-method-tab`.
+import { experimentTabsOverviewStep } from "./steps/walkthrough/ExperimentTabsOverviewStep";
 // §6.7 hybrid editor redesign (Hybrid editor manager 2026-05-22): the
 // prior 4 sub-steps (shortcuts / paragraphs / image-drop / resize) are
 // retired. Their .tsx files stay in tree with @deprecated JSDoc tags
@@ -311,6 +316,10 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [workbenchCreateExperimentOpenStep.id]: workbenchCreateExperimentOpenStep,
   [workbenchCreateExperimentStep.id]: workbenchCreateExperimentStep,
   [methodAttachmentOpenStep.id]: methodAttachmentOpenStep,
+  // §6.6 walkthrough reorder (experiment-tabs sub-bot, 2026-05-26):
+  // the tabs-overview beat lives between -open and -tab so the
+  // explanation precedes the click demo.
+  [experimentTabsOverviewStep.id]: experimentTabsOverviewStep,
   [methodAttachmentTabStep.id]: methodAttachmentTabStep,
   [methodAttachmentAttachStep.id]: methodAttachmentAttachStep,
   [methodAttachmentNotesStep.id]: methodAttachmentNotesStep,

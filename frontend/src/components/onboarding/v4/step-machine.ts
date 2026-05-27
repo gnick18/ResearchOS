@@ -218,7 +218,18 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // spanned the popup-mount boundary and the second click either timed
   // out or fired on a stale DOM. Same class of bug as §6.2's
   // route-spanning script. See MethodAttachmentStep.tsx for the split.
+  //
+  // Walkthrough §6.6 reorder (experiment-tabs sub-bot, 2026-05-26): Grant
+  // 2026-05-26 fresh-user walkthrough feedback flagged that the tab
+  // explanation came AFTER the methods-attach demo (HE-0 in §6.7),
+  // which meant the user got the click demo before the conceptual
+  // frame. The new `experiment-tabs-overview` beat lands BETWEEN -open
+  // and -tab so BeakerBot can name the four popup tabs (Details, Lab
+  // Notes, Method, Results) and say what lives behind each one before
+  // any click demo fires. Pure narration plus a soft cursor glide
+  // across the tab pills, no real click.
   "experiment-attach-method-open",    // §6.6a click workbench row → open popup
+  "experiment-tabs-overview",         // §6.6a.5 narration: 4 tabs explained
   "experiment-attach-method-tab",     // §6.6b click Methods tab inside popup
   "experiment-attach-method-attach",  // §6.6c click Attach + pick funny method
   "experiment-attach-method-notes",   // §6.6d type variation note + mental model

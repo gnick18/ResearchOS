@@ -70,6 +70,10 @@ import { methodAttachmentTabStep } from "../MethodAttachmentTabStep";
 import { methodAttachmentAttachStep } from "../MethodAttachmentAttachStep";
 import { methodAttachmentNotesStep } from "../MethodAttachmentNotesStep";
 import { methodAttachmentStep } from "../MethodAttachmentStep";
+// §6.6 walkthrough reorder (experiment-tabs sub-bot, 2026-05-26): the
+// tabs-overview beat sits between -open and -tab so the four-tab
+// narration precedes the methods-attach demo.
+import { experimentTabsOverviewStep } from "../ExperimentTabsOverviewStep";
 // §6.7 hybrid editor redesign (Hybrid editor manager 2026-05-22): the
 // prior 4 step bodies are retired; new shape is 12 sub-steps.
 import { hybridNotesVsResultsStep } from "../HybridNotesVsResultsStep";
@@ -184,6 +188,7 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   workbenchCreateExperimentOpenStep,
   workbenchCreateExperimentStep,
   methodAttachmentOpenStep,
+  experimentTabsOverviewStep,
   methodAttachmentTabStep,
   methodAttachmentAttachStep,
   methodAttachmentNotesStep,
@@ -268,6 +273,10 @@ describe("P5 step bodies — universal contract", () => {
       "workbench-create-experiment-open",
       "workbench-create-experiment",
       "experiment-attach-method-open",
+      // §6.6 walkthrough reorder (experiment-tabs sub-bot, 2026-05-26):
+      // tabs-overview lives between -open and -tab so the four-tab
+      // narration precedes the methods-attach demo.
+      "experiment-tabs-overview",
       "experiment-attach-method-tab",
       "experiment-attach-method-attach",
       "experiment-attach-method-notes",
@@ -386,6 +395,11 @@ describe("P5 step bodies — universal contract", () => {
       // the BeakerBot demo (open is the user-action half).
       workbenchCreateExperimentStep,
       methodAttachmentOpenStep,
+      // §6.6 walkthrough reorder (experiment-tabs sub-bot, 2026-05-26):
+      // tabs-overview is narration + soft cursor glide across the four
+      // tab pills. Classified as a BeakerBot demo (cursorScript-bearing)
+      // even though the cursor only glides; the glide is the demo.
+      experimentTabsOverviewStep,
       methodAttachmentTabStep,
       methodAttachmentAttachStep,
       methodAttachmentNotesStep,
