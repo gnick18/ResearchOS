@@ -56,8 +56,10 @@ export const settingsAiHelperUseCasePasteStep = buildWalkthroughStep({
       <p>
         The model now has context on how your notebook is structured.
         You can ask things like &ldquo;summarize this week&apos;s
-        notes&rdquo; or &ldquo;what experiments use plasmid X&rdquo;
-        without explaining the layout every time.
+        notes&rdquo; or &ldquo;what experiments use plasmid X&rdquo;,
+        as long as the chat can also read your ResearchOS folder.
+        Without folder access, the chat understands the layout but
+        can&apos;t see your actual content.
       </p>
     </>
   ),

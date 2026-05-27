@@ -779,17 +779,19 @@ That's why the AI Helper exists: it generates a system prompt about how your not
 - ExpectedRoute: /settings
 
 ```
-Three sizes to pick from. **Full** gives the model everything it could possibly want to know. **Minimal** strips it down to the essentials. **Medium** sits in between.
+Three sizes to pick from. **Full** gives the model everything it could possibly want to know. **Minimal** strips it down to the essentials. **Lean** sits in between.
 
 Higher detail means better answers but more tokens per prompt. Pick based on what your usage budget can handle.
 ```
 
 ### ai-helper-use-case-paste
 
+Hand-walk edit 2026-05-27 (Grant): the "summarize this week's notes" example only works if the chat can also read the user's ResearchOS folder. Added a sentence making the folder-access assumption explicit so the user doesn't expect data-reading answers from a vanilla paste-only chat.
+
 ```
 The simplest way to use this: copy the prompt, paste it as the first message in a new chat with Claude, ChatGPT, or Gemini, then ask your question.
 
-The model now has context on how your notebook is structured. You can ask things like "summarize this week's notes" or "what experiments use plasmid X" without explaining the layout every time.
+The model now has context on how your notebook is structured. You can ask things like "summarize this week's notes" or "what experiments use plasmid X", as long as the chat can also read your ResearchOS folder. Without folder access, the chat understands the layout but can't see your actual content.
 ```
 
 ### ai-helper-use-case-agentic

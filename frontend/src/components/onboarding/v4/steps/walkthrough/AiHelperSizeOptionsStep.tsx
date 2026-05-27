@@ -61,7 +61,7 @@ export const aiHelperSizeOptionsStep = buildWalkthroughStep({
         Three sizes to pick from. <strong>Full</strong> gives the
         model everything it could possibly want to know.{" "}
         <strong>Minimal</strong> strips it down to the essentials.{" "}
-        <strong>Medium</strong> sits in between.
+        <strong>Lean</strong> sits in between.
       </p>
       <p>
         Higher detail means better answers but more tokens per prompt.
