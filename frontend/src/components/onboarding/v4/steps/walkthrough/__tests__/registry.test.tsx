@@ -32,6 +32,9 @@ const P5_STEP_IDS = [
   "methods-file-vs-markdown",
   "methods-type-tour",
   "methods-create",
+  // Page intro added 2026-05-26 (transition-intro sub-bot) per Grant's
+  // page-transition standing principle. Pure narration before §6.5.
+  "workbench-page-intro",
   "workbench-create-experiment-open",
   "workbench-create-experiment",
   // §6.6 method-attachment split (2026-05-21): the original single

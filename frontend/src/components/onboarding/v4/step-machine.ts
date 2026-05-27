@@ -181,6 +181,13 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "methods-type-tour",        // §6.4b-1: PCR builder demo (two edits + free-play)
   "methods-create",           // §6.4d (BeakerBot's funny markdown method)
   // Workbench experiment creation (§6.5)
+  // Page intro added 2026-05-26 (transition-intro sub-bot) per Grant's
+  // standing principle: every route transition needs a BeakerBot intro
+  // that explains what the page is for + the core concepts before any
+  // cursor demo or click prompt. Pre-fix the user landed on /workbench
+  // and immediately saw the cursor clicking "+ New Experiment" with no
+  // setup for what Workbench is or what an experiment task means.
+  "workbench-page-intro",              // §6.5 page intro (pure narration)
   // Grant 2026-05-21 split: separate the user-action open-click from
   // BeakerBot's type+submit demo. Same shape as §6.4 methods-category
   // (open + demo) and §6.1 home-create-project (open + fill). The user

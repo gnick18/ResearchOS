@@ -143,6 +143,7 @@ import { methodsBreadthStep } from "./steps/walkthrough/MethodsBreadthStep";
 // (methods-cluster sub-bot). PCR show-off carries the interactive-builder
 // narrative on its own. MethodsLcDemoStep.tsx removed from the tree.
 import { methodsCreateStep } from "./steps/walkthrough/MethodsCreateStep";
+import { workbenchPageIntroStep } from "./steps/walkthrough/WorkbenchPageIntroStep";
 import { workbenchCreateExperimentOpenStep } from "./steps/walkthrough/WorkbenchCreateExperimentOpenStep";
 import { workbenchCreateExperimentStep } from "./steps/walkthrough/WorkbenchCreateExperimentStep";
 // §6.6 method-attachment split (2026-05-21): the original
@@ -292,6 +293,7 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [methodsFileVsMarkdownStep.id]: methodsFileVsMarkdownStep,
   [methodsBreadthStep.id]: methodsBreadthStep,
   [methodsCreateStep.id]: methodsCreateStep,
+  [workbenchPageIntroStep.id]: workbenchPageIntroStep,
   [workbenchCreateExperimentOpenStep.id]: workbenchCreateExperimentOpenStep,
   [workbenchCreateExperimentStep.id]: workbenchCreateExperimentStep,
   [methodAttachmentOpenStep.id]: methodAttachmentOpenStep,
