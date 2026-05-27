@@ -37,8 +37,22 @@ export const methodAttachmentOpenStep = buildWalkthroughStep({
   // previously lived in the dropped `experiment-tabs-overview` step. The
   // cursor click on the workbench row opens the popup; this speech then
   // orients the user inside the freshly-opened experiment surface.
-  speech:
-    "This is one experiment, opened up. Everything that belongs to a single run lives in here: the protocol you followed, your notes from the bench, the results, any files you generated. We'll walk through each piece.",
+  // Hand-walk edit 2026-05-27 (Grant): added the "OK, let's open it"
+  // lead-in so the cursor click reads as a deliberate handoff from the
+  // previous workbench-create-experiment-open BeakerBot demo.
+  speech: (
+    <>
+      <p className="mb-2">
+        OK, let&apos;s open the experiment we just made.
+      </p>
+      <p>
+        This is one experiment, opened up. Everything that belongs to a
+        single run lives in here: the protocol you followed, your notes
+        from the bench, the results, any files you generated. We&apos;ll
+        walk through each piece.
+      </p>
+    </>
+  ),
   pose: "pointing",
   // No targetSelector: the cursor click on the workbench card is the
   // visual cue. Mirrors the §6.2 NAV pattern — a spotlight on the card

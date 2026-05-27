@@ -238,10 +238,14 @@ If you want to clear it from your inbox entirely, just click the X.
 
 ### workbench-create-experiment-open
 
+Hand-walk fix 2026-05-27: BeakerBot now demos opening + filling + creating the experiment (BEAKERBOT_DEMO). Speech updated to announce the demo and explain the date + optional method-link fields. Manual completion gated on `tour:experiment-created` so the tour doesn't advance past an uncreated experiment.
+
 ```
 The Workbench is where you log your day-to-day lab work. Every experiment you run gets its own entry, with space for notes, results, attached methods, and files.
 
-Click **+ New Experiment** to make your first one.
+Watch. I'll open **+ New Experiment**, file it into the project you just made, give it a placeholder name, and save.
+
+You can also set the start date and duration of the experiment here, or optionally link a method right now. We'll attach one later, so leave that for now.
 ```
 
 ### workbench-create-experiment [DROP]
@@ -254,7 +258,11 @@ I'll name the experiment for us.
 
 ### experiment-attach-method-open
 
+Hand-walk edit 2026-05-27: added "OK, let's open the experiment we just made." lead-in so the cursor click reads as a deliberate handoff from the previous workbench-create-experiment-open demo.
+
 ```
+OK, let's open the experiment we just made.
+
 This is one experiment, opened up. Everything that belongs to a single run lives in here: the protocol you followed, your notes from the bench, the results, any files you generated. We'll walk through each piece.
 ```
 

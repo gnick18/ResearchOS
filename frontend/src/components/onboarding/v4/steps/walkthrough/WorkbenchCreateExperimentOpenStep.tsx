@@ -118,10 +118,15 @@ export const workbenchCreateExperimentOpenStep = buildWalkthroughStep({
         experiment you run gets its own entry, with space for notes,
         results, attached methods, and files.
       </p>
-      <p>
+      <p className="mb-2">
         Watch. I&apos;ll open <strong>+ New Experiment</strong>, file it
         into the project you just made, give it a placeholder name, and
         save.
+      </p>
+      <p>
+        You can also set the start date and duration of the experiment
+        here, or optionally link a method right now. We&apos;ll attach
+        one later, so leave that for now.
       </p>
     </>
   ),
