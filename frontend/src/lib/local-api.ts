@@ -5462,6 +5462,26 @@ export const usersApi = {
       );
     }
 
+    // Propagate the rename into every entity JSON's user-bearing fields
+    // (orchestrator manager, 2026-05-27). Without this step, `task.owner`
+    // stays stamped with the OLD username and the experiment popup's
+    // file-read goes to users/<oldName>/results/task-N/notes.md (which no
+    // longer exists), surfacing an empty editor while the real file sits
+    // at users/<newName>/results/task-N/notes.md. Same drift hits
+    // shared_with arrays in OTHER users' records and created_by stamps in
+    // users/public/. See lib/users/propagate-rename.ts for the per-field
+    // contract. Best-effort: per-file errors are logged inside the helper
+    // and never abort the rename transaction.
+    try {
+      const { propagateOwnerRename } = await import("./users/propagate-rename");
+      await propagateOwnerRename(oldUsername, sanitized);
+    } catch (err) {
+      console.warn(
+        `usersApi.rename: owner-field propagation failed for '${oldUsername}' → '${sanitized}' (folder rename already succeeded)`,
+        err,
+      );
+    }
+
     // If renaming the current user, keep them logged in under the new name.
     const current = await getCurrentUser();
     if (current === oldUsername) {
