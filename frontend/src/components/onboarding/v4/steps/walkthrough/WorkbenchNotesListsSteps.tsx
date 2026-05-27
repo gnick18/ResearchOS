@@ -586,28 +586,61 @@ export const workbenchListMarkDoneStep = buildWalkthroughStep({
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.workbenchListItemCheckbox),
   cursorScript: cursorScript(async () => {
-    // 1. Click the first sub-task checkbox. Wait up to 4s for the
-    //    ExpandableListCard panel to be mounted (the prior combined
-    //    beat expanded the card and added the items).
-    const checkItem = await safeClickAction(
-      targetSelector(TOUR_TARGETS.workbenchListItemCheckbox),
-      4000,
-    );
+    // Hand-walk fix 2026-05-27: the prior list-create-shell modal flow
+    // no longer leaves the card expanded by default (the card is
+    // collapsed when the modal closes). The cursor MUST click the
+    // card header first to expand it; only then does the
+    // ExpandableListCard panel mount and the item checkbox become
+    // findable.
+    //
+    // The card and its descendants mount AFTER the modal closes, so
+    // we wrap each action in a callbackAction that resolves selectors
+    // at PLAYBACK time. Same defer-to-playback pattern as
+    // workbench-create-experiment-open.
 
-    // 2. Glide to the mark-complete button, then deferred-click it.
-    //    The header button is stable but ExpandableListCard re-renders
-    //    on the sub-task update, so deferred resolution is the safer
-    //    choice.
-    const glideToMark = await safeGlideToElementAction(
-      targetSelector(TOUR_TARGETS.workbenchListMarkCompleteButton),
-      4000,
-    );
-    const clickMark = deferredClickAction(
-      targetSelector(TOUR_TARGETS.workbenchListMarkCompleteButton),
-      4000,
-    );
+    // 1. Expand the list card. Click toggles ExpandableListCard's
+    //    expanded state. Idempotent if already expanded (re-renders
+    //    with same state).
+    const expandCard = callbackAction(async () => {
+      if (typeof document === "undefined") return;
+      const card = await waitForElement(
+        targetSelector(TOUR_TARGETS.workbenchListCardFirst),
+        4000,
+      );
+      if (!(card instanceof HTMLElement)) return;
+      tourClickWithLockBypass(card);
+    });
 
-    return compactScript([checkItem, glideToMark, clickMark]);
+    // 2. Click the first sub-task checkbox. waitForElement gives the
+    //    expand re-render a chance to mount the checkbox.
+    const checkItem = callbackAction(async () => {
+      if (typeof document === "undefined") return;
+      const checkbox = await waitForElement(
+        targetSelector(TOUR_TARGETS.workbenchListItemCheckbox),
+        4000,
+      );
+      if (!(checkbox instanceof HTMLElement)) return;
+      tourClickWithLockBypass(checkbox);
+    });
+
+    // 3. Click the mark-complete button.
+    const clickMark = callbackAction(async () => {
+      if (typeof document === "undefined") return;
+      const btn = await waitForElement(
+        targetSelector(TOUR_TARGETS.workbenchListMarkCompleteButton),
+        4000,
+      );
+      if (!(btn instanceof HTMLElement)) return;
+      tourClickWithLockBypass(btn);
+    });
+
+    return compactScript([
+      expandCard,
+      callbackAction(() => pause(500)),
+      checkItem,
+      callbackAction(() => pause(500)),
+      clickMark,
+    ]);
   }),
   completion: manualAdvance("Got it, next"),
   expectedRoute: "/workbench",
