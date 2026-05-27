@@ -32,21 +32,21 @@ export const hybridNotesVsResultsStep = buildWalkthroughStep({
   speech: (
     <>
       <p className="mb-2">
-        Every experiment splits your writing into two separate places,
-        on purpose.
+        Every experiment has two separate places to write:{" "}
+        <strong>Notes</strong> and <strong>Results</strong>.
       </p>
       <p className="mb-2">
-        <strong>Notes</strong> is the messy side. Daily logs, half-
-        formed ideas, things that broke. Nobody else needs to read it.
+        Notes is your working space while the experiment is running.
+        Daily logs, what you tried, what broke, what to try next.
       </p>
       <p className="mb-2">
-        <strong>Results</strong> is the clean side. Final figures, the
-        conclusion you would actually defend in a lab meeting. This is
-        what you point people to.
+        Results is for the polished writeup once you&apos;re done.
+        Final figures, the conclusions you&apos;d share with your PI
+        or put in a paper.
       </p>
       <p>
-        Same editor, but the two never bleed into each other. You can
-        be sloppy in Notes without worrying about it showing up in
+        Same editor in both, but they stay separate. You can leave
+        Notes as rough as you need without it ever ending up in
         Results.
       </p>
     </>

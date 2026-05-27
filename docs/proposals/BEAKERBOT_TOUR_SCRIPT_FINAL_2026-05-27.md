@@ -278,14 +278,16 @@ We'll come back here to actually attach a method later, after you've built one. 
 
 ### hybrid-notes-vs-results
 
+Hand-walk edit 2026-05-27 (Grant): tighter framing. Opens by introducing both surfaces by name; rewrites Notes / Results paragraphs as "working space while running" vs "polished writeup once done".
+
 ```
-Every experiment splits your writing into two separate places, on purpose.
+Every experiment has two separate places to write: **Notes** and **Results**.
 
-**Notes** is the messy side. Daily logs, half-formed ideas, things that broke. Nobody else needs to read it.
+Notes is your working space while the experiment is running. Daily logs, what you tried, what broke, what to try next.
 
-**Results** is the clean side. Final figures, the conclusion you would actually defend in a lab meeting. This is what you point people to.
+Results is for the polished writeup once you're done. Final figures, the conclusions you'd share with your PI or put in a paper.
 
-Same editor, but the two never bleed into each other. You can be sloppy in Notes without worrying about it showing up in Results.
+Same editor in both, but they stay separate. You can leave Notes as rough as you need without it ever ending up in Results.
 ```
 
 ### NEW: hybrid-editor-scope
