@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
-import { useDraftPersistence } from "@/hooks/useDraftPersistence";
 import {
   methodsApi as rawMethodsApi,
   filesApi,
@@ -120,25 +119,18 @@ export function CreateMethodModal({
   const [savingMode, setSavingMode] = useState<"save" | "extend" | null>(null);
   const saving = savingMode !== null;
 
-  // Draft persistence + navigation guard for the method name + type.
-  // Heavier state (PCR params, plate wells, etc.) is intentionally not
-  // persisted: restoring a partially-filled PCR form would be confusing,
-  // and the name + type are the most-frequently-lost fields.
-  const METHOD_DRAFT_KEY = "researchos:draft:new-method";
+  // Navigation guard for the method name + type. The draft-persistence
+  // restore was removed by the methods-create double-fill fix (2026-05-27):
+  // restoring a previously-saved `{ name, folder, uploadType }` on modal
+  // mount caused the §6.4d BeakerBot demo cursor to APPEND its typed text
+  // on top of the restored values ("BeakerBot's Patent-Pending Coffee
+  // Brewing ProtocolBeakerBot's Patent-Pending Coffee Brewing Protocol"
+  // in the name input, "MethodsMethods" in the Folder input). Grant's
+  // call: remove the auto-fill so BeakerBot's typing is the source of
+  // text. Real users who accidentally navigate away mid-form still get
+  // the browser-level unsaved-changes prompt via `useUnsavedChangesGuard`
+  // below.
   const hasMethodContent = name.trim().length > 0;
-  const { clearDraft: clearMethodDraft } = useDraftPersistence(
-    METHOD_DRAFT_KEY,
-    { name, folder, uploadType },
-    hasMethodContent,
-    {
-      onRestore: (saved) => {
-        if (!saved.name?.trim()) return;
-        setName(saved.name ?? "");
-        if (saved.folder) setFolder(saved.folder);
-        if (saved.uploadType) setUploadType(saved.uploadType as MethodTypeId);
-      },
-    },
-  );
   useUnsavedChangesGuard(hasMethodContent);
 
   // Onboarding v4 §6.4 open-picker beat dispatches a custom DOM event the
@@ -149,8 +141,21 @@ export function CreateMethodModal({
   // when no tour is running is a single no-op event per modal open. See
   // `watchMethodsPickerOpened` in
   // `components/onboarding/v4/steps/walkthrough/lib/tour-events.ts`.
+  //
+  // Also clears any stale `researchos:draft:new-method` sessionStorage
+  // entry left over from the now-removed `useDraftPersistence` hook
+  // (methods-create double-fill fix, 2026-05-27). Users who already
+  // hit the doubled-field bug have the offending draft sitting in
+  // sessionStorage; this one-line sweep makes the fix retroactive
+  // without forcing them to clear browser data manually.
   useEffect(() => {
     if (typeof window === "undefined") return;
+    try {
+      window.sessionStorage.removeItem("researchos:draft:new-method");
+    } catch {
+      // sessionStorage may be unavailable (private-mode Safari); the
+      // stale-draft cleanup is best-effort.
+    }
     window.dispatchEvent(new CustomEvent("tour:methods-picker-opened"));
   }, []);
 
@@ -636,7 +641,6 @@ export function CreateMethodModal({
             }),
           );
         }
-        clearMethodDraft();
         onCreated();
       }
     } catch (error: unknown) {
@@ -645,7 +649,7 @@ export function CreateMethodModal({
     } finally {
       setSavingMode(null);
     }
-  }, [performSave, onCreated, saving, name, clearMethodDraft]);
+  }, [performSave, onCreated, saving, name]);
 
   // Save the method, then wrap it into a freshly-created compound and hand
   // the compound back to the parent so the CompoundMethodBuilder opens with
@@ -684,7 +688,6 @@ export function CreateMethodModal({
         }),
       );
     }
-    clearMethodDraft();
     try {
       const compound = await methodsApi.wrapAsCompound(created.id);
       onCreated(compound);
@@ -698,7 +701,7 @@ export function CreateMethodModal({
     } finally {
       setSavingMode(null);
     }
-  }, [performSave, onCreated, saving, name, clearMethodDraft]);
+  }, [performSave, onCreated, saving, name]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
