@@ -1027,6 +1027,108 @@ describe("TourController — ESC opens Skip-walkthrough confirm (regression fix 
     expect(result.current.currentStep).toBe("home-create-project");
     ta.remove();
   });
+
+  // -------------------------------------------------------------------------
+  // esc-skip-confirm misfire manager regression (2026-05-27 Grant hand-walk)
+  // -------------------------------------------------------------------------
+  // GanttExistingExperimentStep dispatches a programmatic Escape on
+  // `document` to close the experiment popup after the cursor demo.
+  // hybrid-editor-helpers.commitOpenEditAction does the same on the
+  // active editor textarea. Both dispatches `bubbles: true` so they
+  // reach the window-level capture listener that drives the skip-
+  // confirm modal. The fix tags each dispatch with a marker that the
+  // listener checks for; the host surface (TaskDetailPopup /
+  // HybridMarkdownEditor) still sees the event normally, but the
+  // skip-confirm modal stays closed.
+  // -------------------------------------------------------------------------
+
+  it("does NOT open the skip-confirm modal on tour-synthetic Escape (Gantt popup dismiss)", async () => {
+    const { dispatchTourSyntheticEscape } = await import(
+      "../steps/walkthrough/lib/synthetic-escape"
+    );
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: wrapper(picks()),
+    });
+    act(() => result.current.start("home-create-project"));
+
+    // Mirror GanttExistingExperimentStep.dispatchEscape: a tagged
+    // Escape on `document` that has to bubble to window so
+    // TaskDetailPopup's own listener fires. The TourController
+    // listener must skip it.
+    act(() => {
+      dispatchTourSyntheticEscape(document);
+    });
+
+    expect(
+      document.body.querySelector(
+        "[role='dialog'][aria-label='Skip to cleanup selector']",
+      ),
+    ).toBeFalsy();
+    expect(result.current.currentStep).toBe("home-create-project");
+  });
+
+  it("does NOT open the skip-confirm modal on tour-synthetic Escape from a textarea (hybrid commitOpenEdit)", async () => {
+    const { dispatchTourSyntheticEscape } = await import(
+      "../steps/walkthrough/lib/synthetic-escape"
+    );
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: wrapper(picks()),
+    });
+    act(() => result.current.start("home-create-project"));
+
+    // Mirror hybrid-editor-helpers.commitOpenEditAction: a tagged
+    // Escape dispatched on the active textarea inside the editor
+    // wrapper. The TourController listener must skip it even though
+    // the cursor lock would otherwise force the confirm to surface
+    // regardless of focus (the comment in TourController says
+    // "ESC should still surface the confirm regardless of focus"
+    // when cursorActive is true — but tagged synthetic dispatches
+    // are tour internals, never the user's input).
+    const ta = document.createElement("textarea");
+    document.body.appendChild(ta);
+    ta.focus();
+    act(() => {
+      dispatchTourSyntheticEscape(ta);
+    });
+
+    expect(
+      document.body.querySelector(
+        "[role='dialog'][aria-label='Skip to cleanup selector']",
+      ),
+    ).toBeFalsy();
+    expect(result.current.currentStep).toBe("home-create-project");
+    ta.remove();
+  });
+
+  it("a plain (user-pressed) Escape still opens the confirm even after a tour-synthetic Escape", async () => {
+    const { dispatchTourSyntheticEscape } = await import(
+      "../steps/walkthrough/lib/synthetic-escape"
+    );
+    const { result } = renderHook(() => useTourController(), {
+      wrapper: wrapper(picks()),
+    });
+    act(() => result.current.start("home-create-project"));
+
+    // First: a tour-synthetic Escape — should be ignored.
+    act(() => {
+      dispatchTourSyntheticEscape(document);
+    });
+    expect(
+      document.body.querySelector(
+        "[role='dialog'][aria-label='Skip to cleanup selector']",
+      ),
+    ).toBeFalsy();
+
+    // Then: a real user Escape — should surface the confirm.
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    });
+    expect(
+      document.body.querySelector(
+        "[role='dialog'][aria-label='Skip to cleanup selector']",
+      ),
+    ).toBeTruthy();
+  });
 });
 
 // ---------------------------------------------------------------------------

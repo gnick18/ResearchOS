@@ -45,6 +45,7 @@ import {
   callbackAction,
   compactScript,
 } from "./cursor-script";
+import { dispatchTourSyntheticEscape } from "./synthetic-escape";
 
 /**
  * Shared shape for one bold/italic/underline/heading typing beat.
@@ -95,14 +96,12 @@ function commitOpenEditAction() {
     } catch {
       // No-op.
     }
-    active.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        key: "Escape",
-        code: "Escape",
-        bubbles: true,
-        cancelable: true,
-      }),
-    );
+    // esc-skip-confirm misfire manager (2026-05-27): dispatch via the
+    // tour-synthetic helper so TourController's window-level Escape
+    // listener skips this event. The textarea's own onKeyDown (in
+    // HybridMarkdownEditor) still fires and runs the commit + blur
+    // path; only the skip-confirm modal is suppressed.
+    dispatchTourSyntheticEscape(active);
     // Give React a tick to commit + unmount the textarea so the next
     // action's "+ Add paragraph" click can re-mount a fresh one.
     await new Promise<void>((r) => setTimeout(r, 60));

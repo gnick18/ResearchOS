@@ -52,6 +52,7 @@ import {
   recordBranchChoice,
   resetBranchChoices,
 } from "./steps/walkthrough/lib/branch-choices";
+import { isTourSyntheticEscape } from "./steps/walkthrough/lib/synthetic-escape";
 
 /**
  * Onboarding v4 tour controller — see ONBOARDING_V4_PROPOSAL.md §4.1.
@@ -2061,6 +2062,17 @@ function InProductWalkthroughOverlay({
       // Modifier-combo ESC is power-user / app-shortcut territory;
       // pass through.
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      // esc-skip-confirm misfire manager (2026-05-27): walkthrough
+      // step bodies dispatch programmatic Escape keydowns to drive
+      // host surfaces (GanttExistingExperimentStep closes the popup,
+      // hybrid-editor-helpers.commitOpenEditAction exits the open
+      // edit block). Both dispatch with `bubbles: true` so the host
+      // surface's window-level keydown listener fires — but that
+      // also reaches this listener and used to trip the skip-confirm
+      // modal mid-tour. Tagged events carry an `isTourSyntheticEscape`
+      // marker so we can route around our own dispatches without
+      // changing the host listener contracts.
+      if (isTourSyntheticEscape(e)) return;
       // Already showing the confirm — second ESC dismisses the
       // confirm dialog (recoverable keyboard path) instead of
       // bubbling to the browser. preventDefault + stopPropagation

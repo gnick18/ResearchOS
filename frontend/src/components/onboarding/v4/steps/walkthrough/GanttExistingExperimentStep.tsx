@@ -23,6 +23,7 @@ import {
   compactScript,
 } from "./lib/cursor-script";
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
+import { dispatchTourSyntheticEscape } from "./lib/synthetic-escape";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 
 /** Delay (ms) between the cursor's open-popup click and the
@@ -39,22 +40,18 @@ import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 const POPUP_DISMISS_DELAY_MS = 2800;
 
 /** Dispatch an Escape keydown so the experiment popup closes. Used by
- *  both the post-click timer and the step's onExit handler. */
+ *  both the post-click timer and the step's onExit handler.
+ *
+ *  esc-skip-confirm misfire manager (2026-05-27): tagged via
+ *  `dispatchTourSyntheticEscape` so TourController's window-level
+ *  Escape listener skips it. Prior to the marker, this dispatch
+ *  bubbled to the window-capture listener and tripped the
+ *  "Skip to the cleanup selector?" confirm modal on every advance off
+ *  this step. The popup's own Escape handler (TaskDetailPopup) still
+ *  fires normally — the marker only blocks the skip-confirm trigger. */
 function dispatchEscape(): void {
   if (typeof document === "undefined") return;
-  try {
-    document.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        key: "Escape",
-        code: "Escape",
-        bubbles: true,
-        cancelable: true,
-      }),
-    );
-  } catch {
-    // No-op in environments where KeyboardEvent construction is
-    // unavailable. User can dismiss the popup themselves.
-  }
+  dispatchTourSyntheticEscape(document);
 }
 
 export const ganttExistingExperimentStep = buildWalkthroughStep({
