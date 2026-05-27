@@ -107,6 +107,32 @@ export async function resolveFirstProjectId(): Promise<number | null> {
   }
 }
 
+/**
+ * Ensure SOME non-Misc project exists so the cursor demo has a valid
+ * target. Hand-walk fix 2026-05-27: if the user jumped to
+ * workbench-create-experiment-open via dev tools / seed-step (skipping
+ * §6.1 home-create-project), no project exists and the cursor demo
+ * dead-ends with the modal stuck on Miscellaneous + Create disabled.
+ *
+ * If a non-Misc project already exists, returns its id (no-op create).
+ * Otherwise creates a placeholder "First Project" so the cursor's
+ * pickProject can land it.
+ */
+export async function ensureFirstProjectExists(): Promise<number | null> {
+  const existing = await resolveFirstProjectId();
+  if (existing !== null) return existing;
+  try {
+    const created = await projectsApi.create({
+      name: "First Project",
+      color: "#6B7280",
+      weekend_active: false,
+    });
+    return created.id;
+  } catch {
+    return null;
+  }
+}
+
 export const workbenchCreateExperimentOpenStep = buildWalkthroughStep({
   id: STEP_ID,
   // Speech pivots from "tell the user to click +New Experiment" to
@@ -160,8 +186,10 @@ export const workbenchCreateExperimentOpenStep = buildWalkthroughStep({
     const pickProject = callbackAction(async () => {
       if (typeof document === "undefined") return;
       // Re-resolve the project id at playback so a project created
-      // moments earlier in the tour is in the API list.
-      const projectId = await resolveFirstProjectId();
+      // moments earlier in the tour is in the API list. If none
+      // exists (user skipped §6.1 home-create-project via dev tools),
+      // create a placeholder one so the demo has a valid target.
+      const projectId = await ensureFirstProjectExists();
       if (projectId === null) return;
       // Wait briefly for the select to mount.
       const select = await waitForElement(
