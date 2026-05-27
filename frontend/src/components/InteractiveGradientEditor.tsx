@@ -88,12 +88,13 @@ export function StepEditPopup({ step, onSave, onClose, isNew = false }: StepEdit
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              data-tour-target="pcr-step-name-input"
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="e.g. Denaturation"
               autoFocus
             />
           </div>
-          
+
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">
               Temperature (°C)
@@ -102,12 +103,13 @@ export function StepEditPopup({ step, onSave, onClose, isNew = false }: StepEdit
               type="number"
               value={temperature}
               onChange={(e) => setTemperature(parseFloat(e.target.value) || 0)}
+              data-tour-target="pcr-step-temp-input"
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               min="0"
               max="100"
             />
           </div>
-          
+
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">
               Duration
@@ -118,6 +120,7 @@ export function StepEditPopup({ step, onSave, onClose, isNew = false }: StepEdit
                 value={isHold ? "Indef." : duration}
                 onChange={(e) => setDuration(e.target.value)}
                 disabled={isHold}
+                data-tour-target="pcr-step-duration-input"
                 className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
                 placeholder="e.g. 30 sec"
               />
@@ -143,6 +146,7 @@ export function StepEditPopup({ step, onSave, onClose, isNew = false }: StepEdit
           </button>
           <button
             onClick={handleSave}
+            data-tour-target="pcr-step-save"
             className="flex-1 px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
           >
             Save
@@ -713,6 +717,7 @@ export function EditingToolbar({
           
           <button
             onClick={onAddStep}
+            data-tour-target="pcr-add-step"
             className="px-3 py-1.5 text-xs font-medium bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
           >
             + Add Step

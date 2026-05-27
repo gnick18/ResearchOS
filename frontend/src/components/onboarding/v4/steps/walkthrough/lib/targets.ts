@@ -72,6 +72,11 @@ export const TOUR_TARGETS = {
   methodsNewMethodButton: "methods-new-method-button",
   methodsTypePicker: "methods-type-picker",
   methodsTypeMarkdown: "method-type-markdown",
+  // §6.4b-0 (methods-cluster sub-bot 2026-05-26): the common-case
+  // file-attach card is `method-type-pdf` per the registry slug. The
+  // file-vs-markdown explainer mentions PDF in its speech but the
+  // spotlight targets the Markdown card (one rect per step).
+  methodsTypePdf: "method-type-pdf",
   // §6.4b deep-demo (sub-bot v4 sec 6.4b upgrade, 2026-05-21): replaces
   // the prior 7-tile hover sweep with two focused builder demos (PCR +
   // LC Gradient). The cursor clicks INTO each builder and exercises
@@ -84,6 +89,19 @@ export const TOUR_TARGETS = {
   pcrEditToggle: "pcr-edit-toggle",
   pcrAddCycle: "pcr-add-cycle",
   pcrAddCycleConfirm: "pcr-add-cycle-confirm",
+  // §6.4b PCR live-edit demo (methods-cluster sub-bot 2026-05-26):
+  // Grant's brief asks for "2 edits to the gradient to show them that
+  // its editable". The cursor demo clicks Edit Cycle, clicks "+ Add
+  // Step" to open the StepEditPopup, then targets the popup's three
+  // inputs (name / temperature / duration) and the Save button. The
+  // editor's existing add-step flow seeds default values so we have
+  // something to overwrite via a callback action (typeInto would
+  // append, not replace).
+  pcrAddStep: "pcr-add-step",
+  pcrStepNameInput: "pcr-step-name-input",
+  pcrStepTempInput: "pcr-step-temp-input",
+  pcrStepDurationInput: "pcr-step-duration-input",
+  pcrStepSave: "pcr-step-save",
   // §6.4b viewport-anchor (sub-bot 2026-05-21): the WHOLE PCR builder
   // card inside CreateMethodModal — description text + Thermal Gradient
   // heading + InteractiveGradientEditor + Reaction Recipe table. The

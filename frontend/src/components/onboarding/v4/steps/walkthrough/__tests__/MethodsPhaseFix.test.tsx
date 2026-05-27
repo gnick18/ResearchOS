@@ -46,8 +46,8 @@ import {
   METHODS_CATEGORY_PAUSE_MS,
 } from "../MethodsCategoryStep";
 import { methodsOpenPickerStep } from "../MethodsOpenPickerStep";
+import { methodsFileVsMarkdownStep } from "../MethodsFileVsMarkdownStep";
 import { methodsBreadthStep } from "../MethodsBreadthStep";
-import { methodsLcDemoStep } from "../MethodsLcDemoStep";
 import {
   methodsCreateStep,
   METHODS_CREATE_PAUSE_MS,
@@ -169,8 +169,8 @@ describe("Methods phase — completion contract (P1, Grant 2026-05-22)", () => {
   it.each([
     ["methods-category", methodsCategoryStep],
     ["methods-open-picker", methodsOpenPickerStep],
+    ["methods-file-vs-markdown", methodsFileVsMarkdownStep],
     ["methods-type-tour", methodsBreadthStep],
-    ["methods-lc-demo", methodsLcDemoStep],
     ["methods-create", methodsCreateStep],
   ])("%s uses manualAdvance per the universal pacing rule", (_id, step) => {
     expect(step.completion.type).toBe("manual");
@@ -223,12 +223,15 @@ describe("Methods phase — page lock (P1, Grant 2026-05-22)", () => {
     expect(methodsBreadthStep.pageLock?.pillLabel).toBeTruthy();
   });
 
-  it("methods-lc-demo declares a page-lock that allows the CreateMethodModal subtree", () => {
-    expect(methodsLcDemoStep.pageLock).toBeDefined();
-    expect(methodsLcDemoStep.pageLock?.allowList).toContain(
+  it("methods-file-vs-markdown declares a page-lock that allows the CreateMethodModal subtree", () => {
+    // Narration-only step but the user can still read the picker behind
+    // the bubble. Allow-list the modal subtree so a stray click on the
+    // Markdown or PDF tile doesn't soft-walk them out of the tour.
+    expect(methodsFileVsMarkdownStep.pageLock).toBeDefined();
+    expect(methodsFileVsMarkdownStep.pageLock?.allowList).toContain(
       TOUR_TARGETS.methodsCreateForm,
     );
-    expect(methodsLcDemoStep.pageLock?.pillLabel).toBeTruthy();
+    expect(methodsFileVsMarkdownStep.pageLock?.pillLabel).toBeTruthy();
   });
 
   it("methods-create demo declares a full page-lock", () => {

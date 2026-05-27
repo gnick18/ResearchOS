@@ -912,12 +912,9 @@ describe("§6.4b step bodies declare the expected viewportAnchor — Bug A", () 
       '[data-tour-target="pcr-editor-wrapper"]',
     );
   });
-  it("methodsLcDemoStep anchors the LC editor wrapper", async () => {
-    const { methodsLcDemoStep } = await import("../MethodsLcDemoStep");
-    expect(methodsLcDemoStep.viewportAnchor).toBe(
-      '[data-tour-target="lc-editor-wrapper"]',
-    );
-  });
+  // §6.4b LC Gradient deep-demo removed entirely (Grant 2026-05-26,
+  // methods-cluster sub-bot). The viewport-anchor sweep above used to
+  // cover `methodsLcDemoStep` here; the step body file is gone.
 });
 
 describe("targetSelector + TOUR_TARGETS", () => {

@@ -133,12 +133,15 @@ import { methodsCategoryPromptStep } from "./steps/walkthrough/MethodsCategoryPr
 import { methodsCategoryOpenStep } from "./steps/walkthrough/MethodsCategoryOpenStep";
 import { methodsCategoryStep } from "./steps/walkthrough/MethodsCategoryStep";
 import { methodsOpenPickerStep } from "./steps/walkthrough/MethodsOpenPickerStep";
+import { methodsFileVsMarkdownStep } from "./steps/walkthrough/MethodsFileVsMarkdownStep";
 import { methodsBreadthStep } from "./steps/walkthrough/MethodsBreadthStep";
 // §6.4b Grant 2026-05-21 rework: PCR sub-steps (edit / add-cycle /
 // confirm-cycle) dropped from the active flow. The bodies stay in the
-// repo for now — easy to bring back if Grant changes his mind on the
+// repo for now, easy to bring back if Grant changes his mind on the
 // detail level. Removed from TOUR_STEP_ORDER and TOUR_STEPS.
-import { methodsLcDemoStep } from "./steps/walkthrough/MethodsLcDemoStep";
+// §6.4b Grant 2026-05-26 rework: LC Gradient deep-demo dropped entirely
+// (methods-cluster sub-bot). PCR show-off carries the interactive-builder
+// narrative on its own. MethodsLcDemoStep.tsx removed from the tree.
 import { methodsCreateStep } from "./steps/walkthrough/MethodsCreateStep";
 import { workbenchCreateExperimentOpenStep } from "./steps/walkthrough/WorkbenchCreateExperimentOpenStep";
 import { workbenchCreateExperimentStep } from "./steps/walkthrough/WorkbenchCreateExperimentStep";
@@ -286,8 +289,8 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [methodsCategoryOpenStep.id]: methodsCategoryOpenStep,
   [methodsCategoryStep.id]: methodsCategoryStep,
   [methodsOpenPickerStep.id]: methodsOpenPickerStep,
+  [methodsFileVsMarkdownStep.id]: methodsFileVsMarkdownStep,
   [methodsBreadthStep.id]: methodsBreadthStep,
-  [methodsLcDemoStep.id]: methodsLcDemoStep,
   [methodsCreateStep.id]: methodsCreateStep,
   [workbenchCreateExperimentOpenStep.id]: workbenchCreateExperimentOpenStep,
   [workbenchCreateExperimentStep.id]: workbenchCreateExperimentStep,

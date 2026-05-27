@@ -170,15 +170,16 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "methods-category-open",   // §6.4a-open (user opens the modal)
   "methods-category",        // §6.4a-demo (cursor types + clicks Create Empty)
   "methods-open-picker",     // §6.4 bridge (click New Method, modal mounts)
-  // §6.4b (Grant 2026-05-21 rework): the prior 5-sub-step PCR + LC demo
-  // moved too fast to follow — clicking around at machine speed while
-  // the user was trying to read the speech bubble at the same time.
-  // Reduced to two manual-advance beats that just MOUNT each builder
-  // and invite the user to explore at their own pace. The wiki has the
-  // detail; the tour just establishes that these are interactive.
-  "methods-type-tour",       // §6.4b-1: click PCR tile, prompt user to explore
-  "methods-lc-demo",         // §6.4b-2: click LC tile, prompt user to explore
-  "methods-create",          // §6.4d (BeakerBot's funny markdown method)
+  // §6.4b (Grant 2026-05-26 rework, methods-cluster sub-bot): explain
+  // the common-case methods (file attach + markdown editor) BEFORE
+  // jumping into the interactive PCR builder. Most labs already have
+  // protocols as PDFs or Word docs, so the tour leads with that and
+  // positions interactive builders as the bonus for specific common
+  // method types. LC Gradient demo dropped entirely; PCR carries the
+  // interactive narrative on its own (with two live edits + free-play).
+  "methods-file-vs-markdown", // §6.4b-0: explain file attach + markdown
+  "methods-type-tour",        // §6.4b-1: PCR builder demo (two edits + free-play)
+  "methods-create",           // §6.4d (BeakerBot's funny markdown method)
   // Workbench experiment creation (§6.5)
   // Grant 2026-05-21 split: separate the user-action open-click from
   // BeakerBot's type+submit demo. Same shape as §6.4 methods-category

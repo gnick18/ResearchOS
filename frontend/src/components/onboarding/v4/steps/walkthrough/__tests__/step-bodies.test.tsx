@@ -49,11 +49,11 @@ import { notificationsDeleteStep } from "../NotificationsDeleteStep";
 import { methodsCategoryStep } from "../MethodsCategoryStep";
 import { methodsCategoryPromptStep } from "../MethodsCategoryPromptStep";
 import { methodsOpenPickerStep } from "../MethodsOpenPickerStep";
+import { methodsFileVsMarkdownStep } from "../MethodsFileVsMarkdownStep";
 import {
   methodsBreadthStep,
   METHODS_BREADTH_TILE_TARGETS,
 } from "../MethodsBreadthStep";
-import { methodsLcDemoStep } from "../MethodsLcDemoStep";
 import { methodsCreateStep, FUNNY_METHOD_NAME } from "../MethodsCreateStep";
 import { workbenchCreateExperimentOpenStep } from "../WorkbenchCreateExperimentOpenStep";
 import {
@@ -178,8 +178,8 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   methodsCategoryPromptStep,
   methodsCategoryStep,
   methodsOpenPickerStep,
+  methodsFileVsMarkdownStep,
   methodsBreadthStep,
-  methodsLcDemoStep,
   methodsCreateStep,
   workbenchCreateExperimentOpenStep,
   workbenchCreateExperimentStep,
@@ -262,8 +262,8 @@ describe("P5 step bodies — universal contract", () => {
       "methods-category-prompt",
       "methods-category",
       "methods-open-picker",
+      "methods-file-vs-markdown",
       "methods-type-tour",
-      "methods-lc-demo",
       "methods-create",
       "workbench-create-experiment-open",
       "workbench-create-experiment",
@@ -381,7 +381,6 @@ describe("P5 step bodies — universal contract", () => {
       methodsCategoryStep,
       methodsOpenPickerStep,
       methodsBreadthStep,
-      methodsLcDemoStep,
       methodsCreateStep,
       // §6.5 Grant 2026-05-21 split: workbench-create-experiment is
       // the BeakerBot demo (open is the user-action half).
@@ -595,45 +594,6 @@ describe("ProjectOverviewNavStep (§6.2 nav)", () => {
       card.remove();
     }
   });
-  it("cursor click sets __beakerBotCursorPendingNavigation so the auto-nav effect doesn't bounce the async router.push back to expectedRoute (§6.2 click-bypass R2 root-cause fix, 2026-05-26)", async () => {
-    // The bug this guards against: `router.push(...)` inside the
-    // onClick handler queues an async commit. The cursor-script's
-    // synchronous `finally` block clears
-    // `__beakerBotCursorScriptRunning` BEFORE the pathname useEffect
-    // observes the new route. Then the TourController's auto-nav
-    // effect fires on the pathname change, sees the running flag is
-    // false, and pushes the user back to the step's
-    // `expectedRoute = "/"` — undoing the cursor's nav. The fix:
-    // `safeNavClickAction` sets a SECOND flag,
-    // `__beakerBotCursorPendingNavigation`, that survives the
-    // running-flag's synchronous clear. The auto-nav effect consumes
-    // this flag on the cursor-driven pathname change.
-    //
-    // Lock the contract: after the playback-time callback runs (with
-    // a click receiver that simulates `router.push`), the
-    // pending-navigation flag must be set to true so the TourController
-    // auto-nav effect's consumer can see it. The auto-nav effect's
-    // OWN test (in TourController.test.tsx) covers the consumer side.
-    const w = window as unknown as {
-      __beakerBotCursorPendingNavigation?: boolean;
-    };
-    w.__beakerBotCursorPendingNavigation = false; // baseline
-    const card = document.createElement("button");
-    card.setAttribute("data-tour-target", "home-project-card-99");
-    document.body.appendChild(card);
-    try {
-      const actions = await projectOverviewNavStep.cursorScript!();
-      const cbAction = actions[1] as { type: "callback"; fn: () => void | Promise<void> };
-      await cbAction.fn();
-      // Pending-navigation flag must be true after the callback so the
-      // auto-nav effect's pathname-dep re-fire sees it and short-
-      // circuits instead of bouncing back to expectedRoute.
-      expect(w.__beakerBotCursorPendingNavigation).toBe(true);
-    } finally {
-      card.remove();
-      w.__beakerBotCursorPendingNavigation = false;
-    }
-  });
 });
 
 describe("ProjectOverviewStep (§6.2 prose)", () => {
@@ -797,94 +757,86 @@ describe("Methods steps (§6.4)", () => {
     // for the user.
     expect(methodsCategoryStep.completion.type).toBe("manual");
   });
-  it("breadth step renders the type-tour speech", () => {
+  it("breadth step renders the type-tour speech (PCR-only after Grant 2026-05-26 rework)", () => {
     const speech = renderSpeech(methodsBreadthStep);
     expect(speech).toMatch(/PCR/);
-    expect(speech).toMatch(/Compound/);
+    // LC Gradient demo dropped entirely (methods-cluster sub-bot
+    // 2026-05-26). The breadth speech now narrates the PCR builder
+    // beat only — the file-vs-markdown step before it covers the
+    // common-case methods.
+    expect(speech).not.toMatch(/LC Gradient/);
   });
   it("breadth step speech invites exploration (Grant 2026-05-21 rework)", () => {
     // Grant's 2026-05-21 rework: the prior multi-sub-step PCR drama
-    // moved too fast to follow. New framing is "I'll open the PCR
-    // builder, you click around to get a feel, then Got it next when
-    // ready." Lock that the invite-to-explore copy is present.
+    // moved too fast to follow. 2026-05-26 follow-up: the LC Gradient
+    // demo is gone; PCR carries the interactive-builder narrative on
+    // its own (with two live edits + free-play). Lock the
+    // invite-to-explore copy.
     const speech = renderSpeech(methodsBreadthStep);
     expect(speech).toMatch(/PCR/);
-    expect(speech).toMatch(/LC Gradient/);
-    expect(speech).toMatch(/Compound/);
-    expect(speech).toMatch(/interactive/);
-    expect(speech).toMatch(/Click around|play around|click around/i);
+    // The invite-to-explore copy. Grant's 2026-05-26 rework changed the
+    // wording from "click around" to "Poke at the steps" (the cursor
+    // now spends most of the demo budget on the live edits, so the
+    // free-play prompt names the specific affordances).
+    expect(speech).toMatch(/Poke|play|click around/i);
     expect(speech).toMatch(/Got it, next/);
-    expect(speech).toMatch(/wiki/i);
     // Old fast-demo framing must be gone.
     expect(speech).not.toMatch(/Watch\./);
     expect(speech).not.toMatch(/move across them/);
   });
-  it("breadth step targets only PCR and LC Gradient (v4 sec 6.4b upgrade)", () => {
-    // The deep-demo arc visits PCR + LC Gradient in order; the prior
-    // 7-tile sweep is gone. Regression guard against re-introducing
-    // the wide hover.
-    expect(METHODS_BREADTH_TILE_TARGETS).toEqual([
-      "method-type-pcr",
-      "method-type-lc-gradient",
-    ]);
+  it("breadth step targets only PCR (Grant 2026-05-26 LC removal)", () => {
+    // After the LC Gradient deep-demo removal, the breadth arc visits
+    // PCR only. Regression guard against re-introducing additional
+    // tiles in the breadth-step demo.
+    expect(METHODS_BREADTH_TILE_TARGETS).toEqual(["method-type-pcr"]);
   });
-  it("breadth step clicks the PCR tile then flips Edit Cycle (pcr-demo sub-bot 2026-05-26)", async () => {
-    // Grant's 2026-05-26 fresh-user run: the prior single-click hand-off
-    // left users unsure the cycle was editable. The cursor now performs
-    // the tile click AND a deferred Edit Cycle click so the toolbar
-    // expands as visible evidence of editability before free-play.
-    //
-    // Expected action list: [click PCR tile, pause (callback), deferred
-    // click on Edit Cycle (callback)]. Three actions, not one.
+  it("breadth step cursor script clicks PCR tile then makes two live edits via the StepEditPopup (Grant 2026-05-26)", async () => {
+    // Per Grant's 2026-05-26 brief: "can beaker do 2 edits to the
+    // gradient to show them that its editable, then have them play
+    // around?". The cursor now: clicks PCR tile, clicks Edit Cycle,
+    // clicks + Add Step (opens StepEditPopup), edits the temperature
+    // input, edits the duration input, clicks Save. The flow uses
+    // Add Step's popup so the edits land in a clean popup with
+    // predictable seeded defaults (vs editing an existing step which
+    // requires a double-click).
     const fixtures: Array<{ el: HTMLElement; cleanup: () => void }> = [];
+    const mkStub = (target: string, tag: keyof HTMLElementTagNameMap = "button") => {
+      const el = document.createElement(tag);
+      el.setAttribute("data-tour-target", target);
+      document.body.appendChild(el);
+      fixtures.push({ el: el as HTMLElement, cleanup: () => el.remove() });
+      return el;
+    };
     try {
-      const picker = document.createElement("div");
-      picker.setAttribute("data-tour-target", "methods-type-picker");
-      document.body.appendChild(picker);
-      fixtures.push({ el: picker, cleanup: () => picker.remove() });
-
-      const pcrTile = document.createElement("button");
-      pcrTile.setAttribute("data-tour-target", "method-type-pcr");
-      document.body.appendChild(pcrTile);
-      fixtures.push({ el: pcrTile, cleanup: () => pcrTile.remove() });
+      mkStub("methods-type-picker", "div");
+      const pcrTile = mkStub("method-type-pcr");
+      mkStub("pcr-edit-toggle");
+      mkStub("pcr-add-step");
+      mkStub("pcr-step-temp-input", "input");
+      mkStub("pcr-step-duration-input", "input");
+      mkStub("pcr-step-save");
 
       expect(methodsBreadthStep.cursorScript).toBeDefined();
       const actions = await methodsBreadthStep.cursorScript!();
-      expect(actions).toHaveLength(3);
-      // 1) Build-time-resolved click on the PCR tile.
-      expect(actions[0].type).toBe("click");
-      if (actions[0].type === "click") {
-        expect(actions[0].target).toBe(pcrTile);
+      // At minimum: click PCR, click Edit Cycle, click Add Step, type
+      // two inputs, click Save. Plus interleaved callback pauses.
+      const clicks = actions.filter((a) => a.type === "click");
+      const types = actions.filter((a) => a.type === "type");
+      const callbacks = actions.filter((a) => a.type === "callback");
+      expect(clicks.length).toBeGreaterThanOrEqual(4);
+      expect(types.length).toBe(2);
+      // Callback pauses interleave the visible beats (clear inputs +
+      // read-then-watch beats).
+      expect(callbacks.length).toBeGreaterThanOrEqual(4);
+      // First visible action is the PCR tile click.
+      const firstClick = actions.find((a) => a.type === "click");
+      if (firstClick && firstClick.type === "click") {
+        expect(firstClick.target).toBe(pcrTile);
       }
-      // 2) Pause callback so the prior click commits + the editor mounts
-      //    before the deferred Edit Cycle click resolves.
-      expect(actions[1].type).toBe("callback");
-      // 3) Deferred Edit Cycle click. Built via `deferredClickAction`
-      //    which returns a callback action (selector resolves at
-      //    playback time, not build time, because the Edit Cycle
-      //    toggle DOM node only mounts after the prior tile-click).
-      expect(actions[2].type).toBe("callback");
     } finally {
       for (const f of fixtures) f.cleanup();
     }
-  });
-  it("breadth step spotlight tracks the modal panel, not the PCR tile (pcr-demo sub-bot 2026-05-26 scroll-lock fix)", () => {
-    // Grant's 2026-05-26 fresh-user run: page scroll was locked during
-    // free-play. Root cause: TourSpotlight's IntersectionObserver was
-    // tracking the small PCR tile inside the modal's scrollable content
-    // and yanking scroll back whenever the tile left the viewport.
-    //
-    // Fix: target the modal panel (methodsCreateForm) instead. The
-    // modal is `fixed` + `max-h-[90vh]` centered, so it never leaves
-    // the viewport → IO never triggers scroll-back → the user can
-    // scroll the modal's overflow-y-auto content freely.
-    expect(methodsBreadthStep.targetSelector).toBe(
-      "[data-tour-target=\"methods-create-form\"]",
-    );
-    expect(methodsBreadthStep.targetSelector).not.toBe(
-      "[data-tour-target=\"method-type-pcr\"]",
-    );
-  });
+  }, 30000);
   it("breadth step uses manual advance so user can explore at their own pace (Grant 2026-05-21 rework)", () => {
     // Reverted from autoAdvanceAfter to manualAdvance: Grant's
     // feedback was that the multi-sub-step click drama moved too fast.
@@ -901,37 +853,48 @@ describe("Methods steps (§6.4)", () => {
   });
 });
 
-describe("MethodsLcDemoStep (§6.4b LC Gradient invite-to-explore beat)", () => {
-  it("targets the LC Gradient tile", () => {
-    expect(methodsLcDemoStep.targetSelector).toBe(
-      "[data-tour-target=\"method-type-lc-gradient\"]",
+describe("MethodsFileVsMarkdownStep (§6.4b-0 common-case explainer, Grant 2026-05-26)", () => {
+  it("uses the canonical step id", () => {
+    expect(methodsFileVsMarkdownStep.id).toBe("methods-file-vs-markdown");
+  });
+  it("manual-advances ('Got it, next') per the universal pacing rule", () => {
+    expect(methodsFileVsMarkdownStep.completion.type).toBe("manual");
+    if (methodsFileVsMarkdownStep.completion.type === "manual") {
+      expect(methodsFileVsMarkdownStep.completion.buttonLabel).toBe(
+        "Got it, next",
+      );
+    }
+  });
+  it("targets the markdown tile so the spotlight points at the most common option", () => {
+    // Per the brief: spotlight the Markdown card and mention the PDF
+    // option in the speech (the spotlight primitive highlights one
+    // target rect, not two).
+    expect(methodsFileVsMarkdownStep.targetSelector).toBe(
+      "[data-tour-target=\"method-type-markdown\"]",
     );
   });
-  it("manual-advances ('Got it, next') so the user can explore at their own pace", () => {
-    expect(methodsLcDemoStep.completion.type).toBe("manual");
+  it("expects the /methods route", () => {
+    expect(methodsFileVsMarkdownStep.expectedRoute).toBe("/methods");
   });
-  it("speech invites the user to play around (Grant 2026-05-21 rework)", () => {
-    const speech = renderSpeech(methodsLcDemoStep);
-    expect(speech).toMatch(/LC Gradient/);
-    expect(speech).toMatch(/chart/i);
-    expect(speech).toMatch(/play around|click around/i);
-    expect(speech).toMatch(/Got it, next/);
+  it("has no cursorScript (narration-only step per the brief)", () => {
+    expect(methodsFileVsMarkdownStep.cursorScript).toBeUndefined();
   });
-  it("cursor script mounts the LC editor with a single tile click (no click-around drama)", async () => {
-    const fixtures: Array<{ el: HTMLElement; cleanup: () => void }> = [];
-    try {
-      const lcTile = document.createElement("button");
-      lcTile.setAttribute("data-tour-target", "method-type-lc-gradient");
-      document.body.appendChild(lcTile);
-      fixtures.push({ el: lcTile, cleanup: () => lcTile.remove() });
-
-      const actions = await methodsLcDemoStep.cursorScript!();
-      expect(actions).toHaveLength(1);
-      expect(actions[0].type).toBe("click");
-      if (actions[0].type === "click") expect(actions[0].target).toBe(lcTile);
-    } finally {
-      for (const f of fixtures) f.cleanup();
-    }
+  it("speech is multi-sentence and explains BOTH the file-attach and markdown paths", () => {
+    const speech = renderSpeech(methodsFileVsMarkdownStep);
+    // Multi-sentence (BeakerBot's casual-narrative §6.4 voice).
+    const sentences = speech.split(/(?<=[.!?])\s+/).filter(Boolean);
+    expect(sentences.length).toBeGreaterThanOrEqual(3);
+    // Both common-case options are named.
+    expect(speech).toMatch(/PDF/);
+    expect(speech).toMatch(/Word/i);
+    expect(speech).toMatch(/markdown/i);
+    // And the bridge to the interactive PCR demo that follows.
+    expect(speech).toMatch(/PCR/);
+    expect(speech).toMatch(/builder/i);
+  });
+  it("speech contains no em-dashes (universal voice rule)", () => {
+    const speech = renderSpeech(methodsFileVsMarkdownStep);
+    expect(hasEmDash(speech)).toBe(false);
   });
 });
 

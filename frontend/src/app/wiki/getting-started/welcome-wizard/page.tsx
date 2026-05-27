@@ -302,12 +302,16 @@ export default function WelcomeWizardPage() {
           Method&quot; so the method builder modal mounts before the next beat.
         </Step>
         <Step>
-          <strong>methods-type-tour.</strong> Cursor opens the PCR builder tile.
-          BeakerBot invites you to explore at your own pace. Manual advance.
+          <strong>methods-file-vs-markdown.</strong> BeakerBot explains the two
+          common-case methods (attach a PDF or Word doc, or paste your protocol
+          into the markdown editor) before showing off the interactive builders.
+          Narration only, manual advance.
         </Step>
         <Step>
-          <strong>methods-lc-demo.</strong> Cursor opens the LC builder tile.
-          Same invite pattern. Manual advance.
+          <strong>methods-type-tour.</strong> Cursor opens the PCR builder tile
+          and makes two live edits to the thermal cycle (tweaks the denaturation
+          temp and the annealing time), then invites you to play around. Manual
+          advance.
         </Step>
         <Step>
           <strong>methods-create.</strong> BeakerBot creates a funny placeholder

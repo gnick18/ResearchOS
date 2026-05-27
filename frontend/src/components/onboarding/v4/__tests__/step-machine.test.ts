@@ -357,28 +357,32 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER[0]).toBe("welcome");
   });
 
-  it("places methods-open-picker between methods-category and methods-type-tour (sub-bot 2026-05-21)", () => {
-    // §6.4 open-picker beat sits between finishing the category and the
-    // wall of type-breadth speech. The cursor click on "+ New Method"
-    // owns the modal-open transition before the type-tour body fires.
+  it("places methods-open-picker between methods-category and methods-file-vs-markdown (sub-bot 2026-05-21 + methods-cluster 2026-05-26)", () => {
+    // §6.4 open-picker beat sits between finishing the category and
+    // the new file-vs-markdown explainer. The cursor click on "+ New
+    // Method" owns the modal-open transition before the
+    // file-vs-markdown narration fires.
     const categoryIdx = TOUR_STEP_ORDER.indexOf("methods-category");
     const openPickerIdx = TOUR_STEP_ORDER.indexOf("methods-open-picker");
-    const typeTourIdx = TOUR_STEP_ORDER.indexOf("methods-type-tour");
+    const fileVsMarkdownIdx = TOUR_STEP_ORDER.indexOf(
+      "methods-file-vs-markdown",
+    );
     expect(categoryIdx).toBeGreaterThanOrEqual(0);
     expect(openPickerIdx).toBeGreaterThan(categoryIdx);
-    expect(typeTourIdx).toBeGreaterThan(openPickerIdx);
+    expect(fileVsMarkdownIdx).toBeGreaterThan(openPickerIdx);
   });
 
-  it("walks the methods-type-tour deep-demo arc in PCR-then-LC order (Grant 2026-05-21 rework)", () => {
-    // §6.4b: methods-type-tour mounts the PCR builder (manual-advance
-    // pause for exploration), then methods-lc-demo mounts the LC
-    // builder (manual-advance pause), then methods-create takes over
-    // with Standard Markdown. The intermediate PCR sub-steps (edit /
-    // add-cycle / confirm-cycle) were removed per Grant's feedback
-    // that the click-around drama moved too fast to follow.
+  it("walks the methods builder arc in file-vs-markdown -> PCR -> markdown order (Grant 2026-05-26 rework)", () => {
+    // §6.4b (Grant 2026-05-26, methods-cluster sub-bot): the new
+    // file-vs-markdown explainer leads (most labs already have
+    // protocols as PDFs or pasted text), then methods-type-tour shows
+    // off the PCR builder with two live edits + free-play, then
+    // methods-create takes over with Standard Markdown. The LC
+    // Gradient deep-demo was removed entirely; PCR carries the
+    // interactive-builder narrative on its own.
     const order = [
+      "methods-file-vs-markdown",
       "methods-type-tour",
-      "methods-lc-demo",
       "methods-create",
     ];
     const indices = order.map((id) => TOUR_STEP_ORDER.indexOf(id));
@@ -391,6 +395,10 @@ describe("TOUR_STEP_ORDER", () => {
         ).toBe(indices[i - 1] + 1);
       }
     });
+  });
+
+  it("does NOT contain the retired methods-lc-demo step (Grant 2026-05-26)", () => {
+    expect(TOUR_STEP_ORDER).not.toContain("methods-lc-demo");
   });
 
   it("orders the §6.7 hybrid-editor redesign cluster HE-0 through HE-11 (Hybrid editor manager 2026-05-22)", () => {
