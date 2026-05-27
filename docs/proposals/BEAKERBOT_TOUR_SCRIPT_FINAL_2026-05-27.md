@@ -383,7 +383,7 @@ Try pressing `Cmd+B` (or `Ctrl+B` on Windows) to type some bold text. You can al
 ```
 You can attach images directly to any experiment so figures, gel photos, and bench shots live alongside the writeup.
 
-Try it now: drag any image file from your computer into the editor.
+Try it now: drag the file I attached to this experiment for you into the editor. The image will be added to the markdown file where you drop it.
 ```
 
 ### hybrid-image-drag-in

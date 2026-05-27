@@ -35,8 +35,9 @@ export const hybridImageAttachStep = buildWalkthroughStep({
         gel photos, and bench shots live alongside the writeup.
       </p>
       <p>
-        Try it now: drag any image file from your computer into the
-        editor.
+        Try it now: drag the file I attached to this experiment for
+        you into the editor. The image will be added to the markdown
+        file where you drop it.
       </p>
     </>
   ),
