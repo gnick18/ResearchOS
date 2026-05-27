@@ -76,6 +76,9 @@ import {
   safeTypeAction,
   safeGlideToElementAction,
   deferredClickAction,
+  waitForElement,
+  setNativeFieldValue,
+  tourClickWithLockBypass,
 } from "./lib/cursor-script";
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { targetSelector, TOUR_TARGETS } from "./lib/targets";
@@ -436,68 +439,79 @@ export const workbenchListCreateShellStep = buildWalkthroughStep({
       2000,
     );
 
-    // 1. Open the modal by clicking +New List Task. This sets
-    //    isCreatingTask = true + restrictedTaskType = "list", so
-    //    TaskModal mounts in list-mode (task-type pill locked).
+    // 1. Open the modal by clicking +New List Task. The button exists
+    //    at build time so safeClickAction resolves immediately.
     const openClick = await safeClickAction(
       targetSelector(TOUR_TARGETS.workbenchNewListButton),
       3000,
     );
 
-    // 2. Pick the user's first own project so the Submit button enables
-    //    (TaskModal disables submit when projectId === 0, which is the
-    //    Miscellaneous placeholder id). Mirrors §6.5
-    //    workbench-create-experiment-open. When no eligible project
-    //    exists (skipped §6.1), leave the dropdown on its default — the
-    //    user can finish the demo manually if it lands.
-    const projectId = await resolveFirstProjectId();
-    const pickProject =
-      projectId !== null
-        ? await safeChangeSelectAction(
-            targetSelector(TOUR_TARGETS.workbenchExperimentProjectSelect),
-            String(projectId),
-            5000,
-          )
-        : null;
+    // Steps 2-5 (pick project, type name, type+add items, submit) all
+    // need the TaskModal's elements, which DON'T EXIST at build time.
+    // The prior `await safe*Action(selector)` calls each ran
+    // waitForElement at build time and timed out (5000ms each, ~30s
+    // blocked total) before returning null, leaving the script with
+    // just openClick. Hand-walk fix 2026-05-27 (mirrors the
+    // workbench-create-experiment-open fix at commit 20ceb521): wrap
+    // each post-modal action in a callbackAction that resolves at
+    // PLAYBACK time so the selector sees the just-mounted modal.
 
-    // 3. Type the list name into the Task Name input (shared with the
-    //    experiment-create flow — same data-tour-target, same input).
-    const typeName = await safeTypeAction(
-      targetSelector(TOUR_TARGETS.workbenchExperimentNameInput),
-      LIST_NAME,
-      25,
-    );
-
-    // 4. For each item: type into the modal's "Add a list item..."
-    //    input, then click Add. handleAddSubTask clears the input on
-    //    each add, so successive types stack cleanly. The Add button
-    //    is disabled until the trimmed input is non-empty — the type
-    //    action lands the value before we glide to Add.
-    const buildAddItem = async (text: string) => {
-      const typeItem = await safeTypeAction(
-        targetSelector(TOUR_TARGETS.workbenchListModalItemInput),
-        text,
-        20,
-        5000,
-      );
-      const clickAdd = await safeClickAction(
-        targetSelector(TOUR_TARGETS.workbenchListModalItemAdd),
+    const pickProject = callbackAction(async () => {
+      if (typeof document === "undefined") return;
+      const projectId = await resolveFirstProjectId();
+      if (projectId === null) return;
+      const select = await waitForElement(
+        targetSelector(TOUR_TARGETS.workbenchExperimentProjectSelect),
         3000,
       );
-      return [typeItem, clickAdd];
-    };
-    const beansActions = await buildAddItem(LIST_ITEM_BEANS);
-    const filtersActions = await buildAddItem(LIST_ITEM_FILTERS);
-    const grinderActions = await buildAddItem(LIST_ITEM_GRINDER);
+      if (!(select instanceof HTMLSelectElement)) return;
+      // Wait for the option to mount (project list loads async after
+      // modal mount).
+      const optionSelector = `${targetSelector(TOUR_TARGETS.workbenchExperimentProjectSelect)} option[value="${projectId}"]`;
+      const option = await waitForElement(optionSelector, 3000);
+      if (!option) return;
+      setNativeFieldValue(select, String(projectId));
+    });
 
-    // 5. Submit. Reuses the experiment-create Submit target — the
-    //    button label switches to "Create List" automatically based on
-    //    taskType. After submit, TaskModal calls resetForm + closes;
-    //    the new list card lands in WorkbenchListsPanel.
-    const submit = await safeClickAction(
-      targetSelector(TOUR_TARGETS.workbenchExperimentSubmit),
-      5000,
-    );
+    const typeName = callbackAction(async () => {
+      if (typeof document === "undefined") return;
+      const input = await waitForElement(
+        targetSelector(TOUR_TARGETS.workbenchExperimentNameInput),
+        3000,
+      );
+      if (!(input instanceof HTMLInputElement)) return;
+      setNativeFieldValue(input, LIST_NAME);
+    });
+
+    const addItemCallback = (text: string) =>
+      callbackAction(async () => {
+        if (typeof document === "undefined") return;
+        const input = await waitForElement(
+          targetSelector(TOUR_TARGETS.workbenchListModalItemInput),
+          3000,
+        );
+        if (!(input instanceof HTMLInputElement)) return;
+        setNativeFieldValue(input, text);
+        // Brief settle before clicking Add — controlled state needs to
+        // commit so the Add button enables.
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        const addBtn = await waitForElement(
+          targetSelector(TOUR_TARGETS.workbenchListModalItemAdd),
+          3000,
+        );
+        if (!(addBtn instanceof HTMLElement)) return;
+        tourClickWithLockBypass(addBtn);
+      });
+
+    const submit = callbackAction(async () => {
+      if (typeof document === "undefined") return;
+      const btn = await waitForElement(
+        targetSelector(TOUR_TARGETS.workbenchExperimentSubmit),
+        3000,
+      );
+      if (!(btn instanceof HTMLElement)) return;
+      tourClickWithLockBypass(btn);
+    });
 
     // 6. After submit resolves, query the newly-created task by name
     //    and register the artifact. We can't listen for
@@ -523,9 +537,11 @@ export const workbenchListCreateShellStep = buildWalkthroughStep({
       callbackAction(() => pause(WORKBENCH_LIST_PAUSE_MS)),
       typeName,
       callbackAction(() => pause(WORKBENCH_LIST_PAUSE_MS)),
-      ...beansActions,
-      ...filtersActions,
-      ...grinderActions,
+      addItemCallback(LIST_ITEM_BEANS),
+      callbackAction(() => pause(400)),
+      addItemCallback(LIST_ITEM_FILTERS),
+      callbackAction(() => pause(400)),
+      addItemCallback(LIST_ITEM_GRINDER),
       callbackAction(() => pause(WORKBENCH_LIST_PAUSE_MS)),
       submit,
       registerArtifact,
