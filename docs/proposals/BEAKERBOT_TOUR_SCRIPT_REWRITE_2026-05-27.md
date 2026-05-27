@@ -354,10 +354,12 @@ For general lab work, you'll usually use the Standard Markdown builder. I'll typ
 
 Sub-bot: this step now opens with the section intro that used to live in the dropped `workbench-page-intro`.
 
-```
-Methods are the recipe. The Workbench is where you actually run it.
+Hand-walk edit 2026-05-27 (Grant): trimmed the "Methods are the recipe" framing, switched "attached protocols" to "attached methods", and moved the CTA to its own paragraph.
 
-Every experiment you do gets its own entry here, with space for notes, results, attached protocols, and files. This is the page you'll spend most of your time on. Click **+ New Experiment** to make your first one.
+```
+The Workbench is where you log your day-to-day lab work. Every experiment you run gets its own entry, with space for notes, results, attached methods, and files.
+
+Click **+ New Experiment** to make your first one.
 ```
 
 ### workbench-create-experiment [DROP]

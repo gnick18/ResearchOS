@@ -25,21 +25,19 @@ import { watchWorkbenchExperimentModalOpened } from "./lib/tour-events";
 
 export const workbenchCreateExperimentOpenStep = buildWalkthroughStep({
   id: "workbench-create-experiment-open",
-  // Script rewrite 2026-05-27: absorbs the section intro that previously
-  // lived in the dropped `workbench-page-intro` step. Voice stays
-  // USER_ACTION (the user clicks the spotlighted "+ New Experiment"
-  // button themselves; BeakerBot doesn't drive a cursor here).
+  // Script rewrite 2026-05-27 + hand-walk edit 2026-05-27 (Grant): the
+  // "Methods are the recipe" framing was dropped; copy reads as a direct
+  // workbench intro with the +New Experiment CTA on its own line. Voice
+  // stays USER_ACTION.
   speech: (
     <>
       <p className="mb-2">
-        Methods are the recipe. The Workbench is where you actually run
-        it.
+        The Workbench is where you log your day-to-day lab work. Every
+        experiment you run gets its own entry, with space for notes,
+        results, attached methods, and files.
       </p>
       <p>
-        Every experiment you do gets its own entry here, with space for
-        notes, results, attached protocols, and files. This is the page
-        you&apos;ll spend most of your time on. Click{" "}
-        <strong>+ New Experiment</strong> to make your first one.
+        Click <strong>+ New Experiment</strong> to make your first one.
       </p>
     </>
   ),
