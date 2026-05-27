@@ -598,17 +598,21 @@ export const workbenchListMarkDoneStep = buildWalkthroughStep({
     // at PLAYBACK time. Same defer-to-playback pattern as
     // workbench-create-experiment-open.
 
-    // 1. Expand the list card. Click toggles ExpandableListCard's
-    //    expanded state. Idempotent if already expanded (re-renders
-    //    with same state).
+    // 1. Expand the list card. The card-first data-tour-target sits
+    //    on an OUTER wrapper div; the expand toggle's onClick is on
+    //    an INNER role="button" header inside the ExpandableListCard
+    //    body. Native clicks on the wrapper don't propagate to
+    //    descendants' handlers, so we have to target the inner button
+    //    directly. aria-expanded is present on the header (true/false),
+    //    so the combined selector picks it precisely.
     const expandCard = callbackAction(async () => {
       if (typeof document === "undefined") return;
-      const card = await waitForElement(
-        targetSelector(TOUR_TARGETS.workbenchListCardFirst),
-        4000,
-      );
-      if (!(card instanceof HTMLElement)) return;
-      tourClickWithLockBypass(card);
+      const headerSelector = `${targetSelector(TOUR_TARGETS.workbenchListCardFirst)} [role="button"][aria-expanded]`;
+      const header = await waitForElement(headerSelector, 4000);
+      if (!(header instanceof HTMLElement)) return;
+      // Only click if not already expanded — toggle would collapse.
+      if (header.getAttribute("aria-expanded") === "true") return;
+      tourClickWithLockBypass(header);
     });
 
     // 2. Click the first sub-task checkbox. waitForElement gives the
