@@ -219,6 +219,118 @@ describe("BeakerBotCursor — type primitive", () => {
     expect(div.textContent).toBe("xyz");
     document.body.removeChild(div);
   });
+
+  it(
+    "re-resolves the typing target when the original textarea detaches mid-loop (§6.4d HybridMarkdownEditor empty-state swap)",
+    async () => {
+      // Repro of the §6.4d markdown-body bug: BeakerBot's cursor types
+      // the funny coffee protocol into the empty-state textarea, but
+      // the empty-state branch unmounts as soon as the value
+      // transitions from "" to non-empty. The cursor's prior loop kept
+      // dispatching input events at the detached node — React never
+      // saw them, so every char after the first was dropped on the
+      // floor, no `tour:method-created` event fired, no method file
+      // landed on disk, and §6.6's picker had nothing user-authored
+      // to show. With the re-resolve guard, the loop re-queries the
+      // selector and continues into the freshly-mounted textarea.
+      const wrapper = document.createElement("div");
+      wrapper.setAttribute("data-tour-target", "swap-wrapper");
+      wrapper.getBoundingClientRect = () =>
+        ({ left: 0, top: 0, width: 200, height: 60, right: 200, bottom: 60, x: 0, y: 0, toJSON: () => "" }) as DOMRect;
+      const firstTa = document.createElement("textarea");
+      firstTa.getBoundingClientRect = () =>
+        ({ left: 0, top: 0, width: 200, height: 60, right: 200, bottom: 60, x: 0, y: 0, toJSON: () => "" }) as DOMRect;
+      wrapper.appendChild(firstTa);
+      document.body.appendChild(wrapper);
+
+      // On the first input event, swap the textarea: remove the
+      // original and mount a fresh one in the same wrapper, seeded
+      // with the same value. This mirrors React unmounting the
+      // empty-state textarea and mounting the renderBlock branch's
+      // textarea (different node identity, same data-tour-target).
+      let swapped = false;
+      let secondTa: HTMLTextAreaElement | null = null;
+      firstTa.addEventListener("input", () => {
+        if (swapped) return;
+        swapped = true;
+        const carry = firstTa.value;
+        wrapper.removeChild(firstTa);
+        const fresh = document.createElement("textarea");
+        fresh.value = carry;
+        fresh.getBoundingClientRect = () =>
+          ({ left: 0, top: 0, width: 200, height: 60, right: 200, bottom: 60, x: 0, y: 0, toJSON: () => "" }) as DOMRect;
+        wrapper.appendChild(fresh);
+        secondTa = fresh;
+      });
+
+      const selector = '[data-tour-target="swap-wrapper"] textarea';
+
+      const { ref } = renderWithRef({ glideMs: 5, typeCadenceMs: 5 });
+      await act(async () => {});
+      await act(async () => {
+        await ref.current?.typeInto(firstTa, "hello", 5, selector);
+      });
+
+      // Full text landed in the SECOND textarea — the re-resolve
+      // recovered after the unmount.
+      expect(secondTa).not.toBeNull();
+      expect((secondTa as unknown as HTMLTextAreaElement).value).toBe("hello");
+      // Original detached node carries only the chars it received
+      // before the swap (1 char, the trigger that fired the swap).
+      expect(firstTa.isConnected).toBe(false);
+
+      document.body.removeChild(wrapper);
+    },
+  );
+
+  it(
+    "drops chars (regression baseline) when no selector is provided and the target detaches",
+    async () => {
+      // The opposite scenario: same swap behavior, but `typeInto` is
+      // called without a selector. The cursor has no way to recover,
+      // so the second textarea ends up with stale state. Pins the
+      // contract — if the selector wasn't passed, the legacy
+      // best-effort behavior is what we get. The walkthrough's
+      // `safeTypeAction` factory always passes the selector, so real
+      // tour code is covered by the test above; this test exists so
+      // future refactors don't accidentally make the selectorless
+      // path behave like the selector path (which would mask
+      // selectorless call sites that should opt in).
+      const wrapper = document.createElement("div");
+      wrapper.getBoundingClientRect = () =>
+        ({ left: 0, top: 0, width: 200, height: 60, right: 200, bottom: 60, x: 0, y: 0, toJSON: () => "" }) as DOMRect;
+      const ta = document.createElement("textarea");
+      ta.getBoundingClientRect = () =>
+        ({ left: 0, top: 0, width: 200, height: 60, right: 200, bottom: 60, x: 0, y: 0, toJSON: () => "" }) as DOMRect;
+      wrapper.appendChild(ta);
+      document.body.appendChild(wrapper);
+
+      let secondTa: HTMLTextAreaElement | null = null;
+      ta.addEventListener("input", () => {
+        if (secondTa) return;
+        const fresh = document.createElement("textarea");
+        fresh.value = ta.value;
+        wrapper.removeChild(ta);
+        wrapper.appendChild(fresh);
+        secondTa = fresh;
+      });
+
+      const { ref } = renderWithRef({ glideMs: 5, typeCadenceMs: 5 });
+      await act(async () => {});
+      await act(async () => {
+        // No selector arg — opts out of re-resolve.
+        await ref.current?.typeInto(ta, "hello", 5);
+      });
+
+      // The second textarea exists but only carries what the first
+      // textarea had at swap time. Typing continued at the detached
+      // node, so the second's value never grew past "h".
+      expect(secondTa).not.toBeNull();
+      expect((secondTa as unknown as HTMLTextAreaElement).value).toBe("h");
+
+      document.body.removeChild(wrapper);
+    },
+  );
 });
 
 describe("BeakerBotCursor — drag primitive", () => {

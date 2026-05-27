@@ -78,7 +78,28 @@ import { createPortal } from "react-dom";
 export type CursorAction =
   | { type: "glide"; x: number; y: number }
   | { type: "click"; target: HTMLElement }
-  | { type: "type"; target: HTMLElement; text: string; cadenceMs?: number }
+  | {
+      type: "type";
+      target: HTMLElement;
+      text: string;
+      cadenceMs?: number;
+      /**
+       * Optional CSS selector that re-resolves the typing target while
+       * `typeInto` is mid-loop. When the original `target` element gets
+       * unmounted by a parent re-render (the §6.4d
+       * `HybridMarkdownEditor` empty-state branch flips to the
+       * normal-render branch as soon as the first char lands, swapping
+       * out the empty-state textarea node), the cursor would otherwise
+       * keep dispatching `input` events at a detached node — those
+       * events don't bubble to the React root, so every char after the
+       * first is dropped on the floor. With the selector set, the
+       * typing loop re-queries the DOM and continues typing into the
+       * freshly-mounted descendant input/textarea. Set by
+       * `safeTypeAction` so existing call sites get this resilience
+       * for free.
+       */
+      selector?: string;
+    }
   | { type: "drag"; source: HTMLElement; dest: HTMLElement }
   /**
    * HTML5-drag variant of `drag`. The visual glide-and-press animation
@@ -129,8 +150,23 @@ export interface BeakerBotCursorRef {
   glideTo(x: number, y: number): Promise<void>;
   /** Glide to the element's center, then ripple + fire `target.click()`. */
   clickAt(el: HTMLElement): Promise<void>;
-  /** Glide to the element, focus it, then type chars at cadenceMs each. */
-  typeInto(el: HTMLElement, text: string, cadenceMs?: number): Promise<void>;
+  /**
+   * Glide to the element, focus it, then type chars at cadenceMs each.
+   *
+   * `reResolveSelector` is an optional CSS selector that the typing
+   * loop will use to recover when the original element is unmounted by
+   * a mid-typing React re-render (§6.4d markdown body case). When the
+   * target's `isConnected` flips to false between keystrokes, the
+   * cursor re-queries the DOM and continues typing into the matched
+   * element. Without it, dispatched `input` events fire at a detached
+   * node and never reach React.
+   */
+  typeInto(
+    el: HTMLElement,
+    text: string,
+    cadenceMs?: number,
+    reResolveSelector?: string,
+  ): Promise<void>;
   /** Glide to source → press → glide to dest → release; dispatches
    *  matching mouse events on each end so the app's handlers see it. */
   dragFromTo(source: HTMLElement, dest: HTMLElement): Promise<void>;
@@ -496,6 +532,7 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
         el: HTMLElement,
         text: string,
         cadenceMs?: number,
+        reResolveSelector?: string,
       ): Promise<void> => {
         const cadence = cadenceMs ?? typeCadenceMsRef.current;
         const { x, y } = elementCenter(el);
@@ -511,6 +548,50 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
         const isNativeInput =
           el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
 
+        /**
+         * §6.4d re-resolve guard. The `HybridMarkdownEditor` empty-state
+         * branch renders a textarea that gets unmounted as soon as the
+         * first char lands (value transitions from "" to non-empty, the
+         * `if (!value.trim())` branch falls through to the
+         * `blocks.map(renderBlock)` path, and the textarea inside
+         * `renderBlock`'s editing case is a different React node — same
+         * outer wrapper, fresh inner element). The cursor's prior loop
+         * kept dispatching input events at the detached node; React
+         * never saw them, every char past the first was dropped. When
+         * the caller supplies `reResolveSelector` (set by
+         * `safeTypeAction` so this is free for all existing call sites)
+         * we re-query the DOM whenever `el.isConnected` flips to false
+         * and pick up wherever the new mount surfaces a typable
+         * descendant. Selector matches the same shape `safeTypeAction`
+         * already accepts: an outer wrapper that may host a real
+         * `<textarea>` / `<input>` as a descendant.
+         */
+        const reResolve = (
+          stale: HTMLInputElement | HTMLTextAreaElement,
+        ): HTMLInputElement | HTMLTextAreaElement | null => {
+          if (!reResolveSelector || typeof document === "undefined") return null;
+          const next = document.querySelector(reResolveSelector);
+          if (!(next instanceof HTMLElement)) return null;
+          if (
+            next instanceof HTMLInputElement ||
+            next instanceof HTMLTextAreaElement
+          ) {
+            return next === stale ? null : next;
+          }
+          // Wrapper case: same fallback the inner-input branch below
+          // uses. Pick the first descendant textarea or text input.
+          const inner = next.querySelector(
+            "textarea, input[type='text'], input:not([type])",
+          );
+          if (
+            inner instanceof HTMLTextAreaElement ||
+            inner instanceof HTMLInputElement
+          ) {
+            return inner === stale ? null : inner;
+          }
+          return null;
+        };
+
         if (isNativeInput) {
           // Wave 2 Fix 4/9: re-read the input value on every tick so
           // user keystrokes mid-typewriter compound with BeakerBot's
@@ -521,11 +602,35 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
           // Previously a one-shot `startingValue = el.value` capture
           // meant every tick stomped the user's intervening edits
           // back to the snapshot.
+          let activeEl = el;
           let prevTypedLength = 0;
           for (let i = 0; i < text.length; i++) {
-            const currentValue = el.value;
+            // §6.4d re-resolve. If the target detached between ticks,
+            // try to find the replacement node via the caller's
+            // selector. Continue typing from `prevTypedLength` into
+            // the new node — the new node's value may not yet reflect
+            // the chars we already committed (React just re-mounted
+            // it), so we seed it with the text-so-far before resuming.
+            if (!activeEl.isConnected) {
+              const next = reResolve(activeEl);
+              if (next) {
+                activeEl = next;
+                try {
+                  activeEl.focus();
+                } catch {
+                  // No-op — jsdom focus quirks.
+                }
+                // Seed the new node with what we've already typed so
+                // the next char appends, not overwrites a stale "".
+                const seed = text.slice(0, prevTypedLength);
+                if (activeEl.value !== seed) {
+                  setNativeInputValue(activeEl, seed);
+                }
+              }
+            }
+            const currentValue = activeEl.value;
             const nextChar = text.charAt(prevTypedLength);
-            setNativeInputValue(el, currentValue + nextChar);
+            setNativeInputValue(activeEl, currentValue + nextChar);
             prevTypedLength += 1;
             // Reduced motion: still respect cadence so the test's
             // intent (cursor types into the input) is observable.
@@ -580,11 +685,33 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
           }
           // Wave 2 Fix 4/9: same compound-with-user-keystrokes
           // contract as the native-input branch above.
+          let activeInner = innerInput;
           let prevTypedLength = 0;
           for (let i = 0; i < text.length; i++) {
-            const currentValue = innerInput.value;
+            // §6.4d re-resolve. Same contract as the isNativeInput
+            // branch above — when the wrapper's inner input gets
+            // swapped out by a React re-render mid-typing, re-query
+            // and continue. Without this the HybridMarkdownEditor
+            // empty-state → full-render swap drops every char after
+            // the first.
+            if (!activeInner.isConnected) {
+              const next = reResolve(activeInner);
+              if (next) {
+                activeInner = next;
+                try {
+                  activeInner.focus();
+                } catch {
+                  // No-op.
+                }
+                const seed = text.slice(0, prevTypedLength);
+                if (activeInner.value !== seed) {
+                  setNativeInputValue(activeInner, seed);
+                }
+              }
+            }
+            const currentValue = activeInner.value;
             const nextChar = text.charAt(prevTypedLength);
-            setNativeInputValue(innerInput, currentValue + nextChar);
+            setNativeInputValue(activeInner, currentValue + nextChar);
             prevTypedLength += 1;
             await sleep(cadence);
           }
@@ -909,7 +1036,12 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
               await clickAt(action.target);
               break;
             case "type":
-              await typeInto(action.target, action.text, action.cadenceMs);
+              await typeInto(
+                action.target,
+                action.text,
+                action.cadenceMs,
+                action.selector,
+              );
               break;
             case "drag":
               await dragFromTo(action.source, action.dest);

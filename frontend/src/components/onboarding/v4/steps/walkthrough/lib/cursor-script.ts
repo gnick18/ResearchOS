@@ -294,7 +294,14 @@ export async function safeTypeAction(
   const el = await waitForElement(selector, timeoutMs);
   if (!el) return null;
   await ensureInViewport(el);
-  return { type: "type", target: el, text, cadenceMs };
+  // Pass the resolving selector through so `typeInto` can re-query the
+  // DOM if `el` gets unmounted mid-loop (the §6.4d HybridMarkdownEditor
+  // empty-state textarea is swapped for a fresh node the moment the
+  // first char lands, which detaches the cursor's captured target and
+  // drops every subsequent keystroke on the floor). Existing callers
+  // get this resilience for free since the selector is what they
+  // already passed in.
+  return { type: "type", target: el, text, cadenceMs, selector };
 }
 
 /**
