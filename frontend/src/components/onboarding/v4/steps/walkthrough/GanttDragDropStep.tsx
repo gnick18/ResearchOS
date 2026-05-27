@@ -47,6 +47,7 @@ import {
 import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 import { resolveUserExperiment } from "./lib/gantt-redesign-helpers";
+import { ensureFirstExperimentExists } from "./lib/ensure-helpers";
 
 /**
  * Add `days` calendar days to a YYYY-MM-DD string and return the new
@@ -108,6 +109,12 @@ export const ganttDragDropStep = buildWalkthroughStep({
   // documents the intent (the demo is dragging the USER's experiment,
   // not whatever happens to be the first bar).
   targetSelector: targetSelector(TOUR_TARGETS.ganttBarUserExperiment),
+  // Tour robustification 2026-05-27 (tour robustification manager):
+  // ensure the user experiment exists so a bar lands on the timeline
+  // for the drag-drop demo. Seed-jump path covered.
+  onEnter: async () => {
+    await ensureFirstExperimentExists();
+  },
   cursorScript: cursorScript(async () => {
     const bar = await waitForElement(
       targetSelector(TOUR_TARGETS.ganttBarUserExperiment),

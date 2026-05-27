@@ -42,6 +42,7 @@ import {
   createFakeAToUserDep,
   spawnGanttRedesignFakeTasks,
 } from "./lib/gantt-redesign-helpers";
+import { ensureFirstExperimentExists } from "./lib/ensure-helpers";
 
 export const ganttDepsBeakerBotStep = buildWalkthroughStep({
   id: "gantt-deps-beakerbot",
@@ -58,6 +59,13 @@ export const ganttDepsBeakerBotStep = buildWalkthroughStep({
   pose: "thinking",
   targetSelector: targetSelector(TOUR_TARGETS.ganttBarFakeA),
   onEnter: async (ctx) => {
+    // Tour robustification 2026-05-27 (tour robustification manager):
+    // ensure the user's experiment exists BEFORE spawning the fake
+    // chain — `createFakeAToUserDep` reads `resolveUserExperiment` and
+    // silently no-ops when no user experiment exists (seed-jump past
+    // §6.5). The ensure helper closes that gap so the dep edge wires
+    // up even on a skipped flow. Canonical flow no-ops the helper.
+    await ensureFirstExperimentExists();
     await spawnGanttRedesignFakeTasks(ctx);
     // Edge wiring is sequenced AFTER the spawn so the dep references
     // the freshly-created Fake A id.

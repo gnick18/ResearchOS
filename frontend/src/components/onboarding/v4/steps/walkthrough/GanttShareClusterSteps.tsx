@@ -35,7 +35,11 @@ import {
 import { sharingApi, tasksApi } from "@/lib/local-api";
 import { getCurrentUserCached } from "@/lib/storage/json-store";
 import { BEAKERBOT_LAB_USERNAME } from "../lab/lib/lab-fake-user";
-import { resolveFakeTaskIds } from "./lib/gantt-redesign-helpers";
+import {
+  resolveFakeTaskIds,
+  spawnGanttRedesignFakeTasks,
+} from "./lib/gantt-redesign-helpers";
+import { ensureFirstExperimentExists } from "./lib/ensure-helpers";
 
 // =============================================================================
 // 1. gantt-share-intro — pure narration
@@ -99,6 +103,14 @@ export const ganttShareBeakerBotSpawnStep = buildWalkthroughStep({
       console.warn("[gantt-share-beakerbot-spawn] no username; skip spawn");
       return;
     }
+    // Tour robustification 2026-05-27 (tour robustification manager):
+    // ensure the user-experiment + Fake A/B chain is in place BEFORE
+    // BeakerBot's share lands. The downstream user-shares-back step
+    // requires Fake A on the user's timeline, and on a seed-jump past
+    // the universal deps cluster Fake A would be missing. All helpers
+    // are idempotent on name; canonical flow no-ops.
+    await ensureFirstExperimentExists();
+    await spawnGanttRedesignFakeTasks(ctx);
     await spawnGanttShareBeakerBot(ctx.username);
     await shareCoffeeExperimentWithUser(ctx.username);
   },
@@ -334,6 +346,14 @@ export const ganttShareUserSharesBackStep = buildWalkthroughStep({
   id: "gantt-share-user-shares-back",
   speech: () => <ShareBackSpeech />,
   pose: "pointing",
+  // Tour robustification 2026-05-27 (tour robustification manager):
+  // ensure Fake A exists so the user has a bar to click on the
+  // timeline. Seed-jump path: a user lands here without the universal
+  // deps cluster ever having spawned Fake A/B. Idempotent helpers.
+  onEnter: async (ctx) => {
+    await ensureFirstExperimentExists();
+    await spawnGanttRedesignFakeTasks(ctx);
+  },
   // gantt cluster consolidation manager (2026-05-27, Bug #34): no static
   // targetSelector — ShareBackSpeech renders its own per-stage TourSpotlight
   // so the highlight ring tracks stage 1 (timeline bar) → stage 2 (share
@@ -439,6 +459,13 @@ export const ganttShareUserSeesEditStep = buildWalkthroughStep({
   id: "gantt-share-user-sees-edit",
   speech: () => <ShareSeesEditSpeech />,
   pose: "thinking",
+  // Tour robustification 2026-05-27 (tour robustification manager):
+  // ensure Fake A exists so the user can open the popup and check the
+  // notes tab BeakerBot wrote to. Seed-jump path covered.
+  onEnter: async (ctx) => {
+    await ensureFirstExperimentExists();
+    await spawnGanttRedesignFakeTasks(ctx);
+  },
   completion: manualAdvance("Got it, next"),
   expectedRoute: "/gantt",
 });

@@ -30,6 +30,7 @@ import {
   compactScript,
 } from "./lib/cursor-script";
 import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
+import { ensureFirstExperimentExists } from "./lib/ensure-helpers";
 
 export const methodAttachmentOpenStep = buildWalkthroughStep({
   id: "experiment-attach-method-open",
@@ -57,6 +58,16 @@ export const methodAttachmentOpenStep = buildWalkthroughStep({
   // No targetSelector: the cursor click on the workbench card is the
   // visual cue. Mirrors the §6.2 NAV pattern — a spotlight on the card
   // would dim /workbench and steal focus from the click animation.
+  //
+  // Tour robustification 2026-05-27 (tour robustification manager):
+  // ensure an experiment exists BEFORE the cursor script tries to click
+  // its row. A seed-jump past §6.5 (workbench-create-experiment-open)
+  // leaves no row to click; the ensure helper creates a placeholder
+  // "First experiment" so the cursor lands on a real row. Canonical
+  // flow (§6.5 ran first) hits the no-op branch.
+  onEnter: async () => {
+    await ensureFirstExperimentExists();
+  },
   cursorScript: cursorScript(async () => {
     // Click the most-recently-created experiment row. The `^=`
     // attribute selector matches any workbench-experiment-row-* (fine

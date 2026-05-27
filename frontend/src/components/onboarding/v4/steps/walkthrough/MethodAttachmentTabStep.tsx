@@ -27,9 +27,12 @@ import {
   cursorScript,
   safeClickAction,
   compactScript,
+  callbackAction,
+  waitForElement,
 } from "./lib/cursor-script";
 import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
+import { ensureFirstExperimentExists } from "./lib/ensure-helpers";
 
 export const methodAttachmentTabStep = buildWalkthroughStep({
   id: "experiment-attach-method-tab",
@@ -55,12 +58,40 @@ export const methodAttachmentTabStep = buildWalkthroughStep({
   ),
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.experimentMethodsTab),
+  // Tour robustification 2026-05-27 (tour robustification manager):
+  // ensure an experiment exists before this step's cursor tries to
+  // click the Methods tab. A seed-jump past the prior
+  // experiment-attach-method-open step leaves no row OR popup; the
+  // ensure helper at least guarantees a row exists so the cursor's
+  // popup-re-open fallback (below) has something to click.
+  onEnter: async () => {
+    await ensureFirstExperimentExists();
+  },
   cursorScript: cursorScript(async () => {
+    // Tour robustification 2026-05-27: if the experiment popup is NOT
+    // already open (seed-jump path), re-open it by clicking the
+    // workbench experiment row. Canonical flow has the prior
+    // experiment-attach-method-open step's cursor leave the popup
+    // open, so this branch is a no-op when the methods-tab selector
+    // is already resolvable.
+    const reopenIfNeeded = callbackAction(async () => {
+      if (typeof document === "undefined") return;
+      const tabAlreadyMounted = document.querySelector(
+        targetSelector(TOUR_TARGETS.experimentMethodsTab),
+      );
+      if (tabAlreadyMounted) return;
+      // Popup not open. Click the row to mount it.
+      const row = await waitForElement(
+        "[data-tour-target^='workbench-experiment-row-']",
+        3000,
+      );
+      if (row instanceof HTMLElement) row.click();
+    });
     const tabClick = await safeClickAction(
       targetSelector(TOUR_TARGETS.experimentMethodsTab),
       3000,
     );
-    return compactScript([tabClick]);
+    return compactScript([reopenIfNeeded, tabClick]);
   }),
   // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
   completion: manualAdvance("Got it, next"),

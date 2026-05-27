@@ -31,6 +31,10 @@
  */
 import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
+import {
+  ensureFirstExperimentExists,
+  ensureFirstMethodExists,
+} from "./lib/ensure-helpers";
 
 export const methodAttachmentNotesStep = buildWalkthroughStep({
   id: "experiment-attach-method-notes",
@@ -50,6 +54,14 @@ export const methodAttachmentNotesStep = buildWalkthroughStep({
   ),
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.experimentVariationNotes),
+  // Tour robustification 2026-05-27 (tour robustification manager):
+  // ensure experiment + method exist so the spotlight on the variation
+  // notes field has a real method-attachment row to anchor against on
+  // a seed-jump past the prior steps. Canonical flow no-ops.
+  onEnter: async () => {
+    await ensureFirstExperimentExists();
+    await ensureFirstMethodExists();
+  },
   // No cursorScript: spotlight + speech is enough (Grant 2026-05-27
   // hand-walk simplification, the typing demo was dropped).
   // Universal pacing: user clicks "Got it, next" to advance.

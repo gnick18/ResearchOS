@@ -22,7 +22,12 @@ import {
 } from "./lib/cursor-script";
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
-import { moveFakeAForward } from "./lib/gantt-redesign-helpers";
+import {
+  createFakeAToUserDep,
+  moveFakeAForward,
+  spawnGanttRedesignFakeTasks,
+} from "./lib/gantt-redesign-helpers";
+import { ensureFirstExperimentExists } from "./lib/ensure-helpers";
 
 /** Delay (ms) between the cursor script kicking off and the programmatic
  *  `tasksApi.move` fire that actually moves Fake A in the data layer.
@@ -42,6 +47,17 @@ export const ganttDepsCascadeStep = buildWalkthroughStep({
     "Once tasks are linked, moving one upstream task drags everything downstream with it. If Fake A slips by three days, your experiment and Fake B slip too. No manual rescheduling, no broken chains.",
   pose: "thinking",
   targetSelector: targetSelector(TOUR_TARGETS.ganttBarFakeA),
+  // Tour robustification 2026-05-27 (tour robustification manager):
+  // ensure the dependency chain (user experiment + Fake A + dep edge)
+  // exists before the cursor demos the cascade. A seed-jump past
+  // gantt-deps-beakerbot would leave Fake A unconnected and the cascade
+  // would be a single-bar shift instead of a chain reveal. All three
+  // helpers are idempotent on name; canonical flow no-ops.
+  onEnter: async (ctx) => {
+    await ensureFirstExperimentExists();
+    await spawnGanttRedesignFakeTasks(ctx);
+    await createFakeAToUserDep(ctx);
+  },
   cursorScript: cursorScript(async () => {
     // Visual narration: drag Fake A onto the later-date marker (today
     // + 7 days; GanttChart stamps that marker on the day header).

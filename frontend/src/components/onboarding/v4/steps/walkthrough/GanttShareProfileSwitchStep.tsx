@@ -52,7 +52,11 @@ import { createPortal } from "react-dom";
 import BeakerBot from "@/components/BeakerBot";
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { appendBeakerBotNote } from "./lib/gantt-share-helpers";
-import { resolveFakeTaskIds } from "./lib/gantt-redesign-helpers";
+import {
+  resolveFakeTaskIds,
+  spawnGanttRedesignFakeTasks,
+} from "./lib/gantt-redesign-helpers";
+import { ensureFirstExperimentExists } from "./lib/ensure-helpers";
 import { useOptionalTourController } from "../../TourController";
 
 /**
@@ -348,7 +352,15 @@ export const ganttShareProfileSwitchStep = buildWalkthroughStep({
   // necessary.
   // onEnter is best-effort idempotent: ensures the fake-task-ids
   // resolution still passes downstream consumers.
-  onEnter: async () => {
+  //
+  // Tour robustification 2026-05-27 (tour robustification manager):
+  // ensure Fake A exists before resolving its id. The
+  // appendBeakerBotNote helper writes to Fake A's notes.md; without
+  // Fake A, the write silently no-ops and the next step's "see
+  // BeakerBot's edit" beat has nothing to show.
+  onEnter: async (ctx) => {
+    await ensureFirstExperimentExists();
+    await spawnGanttRedesignFakeTasks(ctx);
     void (await resolveFakeTaskIds());
   },
   // R2 regression followup 2026-05-23: completion is `manualAdvance`

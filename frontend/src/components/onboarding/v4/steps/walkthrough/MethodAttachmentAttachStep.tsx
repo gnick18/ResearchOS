@@ -38,6 +38,10 @@ import {
 } from "./lib/cursor-script";
 import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
+import {
+  ensureFirstExperimentExists,
+  ensureFirstMethodExists,
+} from "./lib/ensure-helpers";
 
 export const methodAttachmentAttachStep = buildWalkthroughStep({
   id: "experiment-attach-method-attach",
@@ -61,6 +65,16 @@ export const methodAttachmentAttachStep = buildWalkthroughStep({
   ),
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.experimentAttachMethod),
+  // Tour robustification 2026-05-27 (tour robustification manager):
+  // ensure BOTH an experiment AND a method exist before this step's
+  // cursor re-stages the surface. A seed-jump past §6.5 + §6.7c
+  // (methods-create) leaves the user with nothing to attach. Both
+  // ensure helpers are idempotent — canonical flow hits the no-op
+  // branch.
+  onEnter: async () => {
+    await ensureFirstExperimentExists();
+    await ensureFirstMethodExists();
+  },
   cursorScript: cursorScript(async () => {
     // Hand-walk pivot 2026-05-27: cursor only re-stages the surface
     // (reopen popup + activate Methods tab). The user then clicks

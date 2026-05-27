@@ -35,7 +35,9 @@ import {
   recordUserToFakeBDepArtifact,
   resolveFakeTaskIds,
   resolveUserExperiment,
+  spawnGanttRedesignFakeTasks,
 } from "./lib/gantt-redesign-helpers";
+import { ensureFirstExperimentExists } from "./lib/ensure-helpers";
 import { useOptionalTourController } from "../../TourController";
 
 /**
@@ -107,6 +109,17 @@ export const ganttDepsUserStep = buildWalkthroughStep({
   speech: () => <GanttDepsUserSpeech />,
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.ganttBarFakeB),
+  // Tour robustification 2026-05-27 (tour robustification manager):
+  // ensure the prerequisite chain (user experiment + Fake A/B) is in
+  // place before the page-lock arms. A seed-jump past gantt-deps-
+  // beakerbot leaves no Fake B bar to drag; the user would be stuck
+  // staring at an empty timeline with the lock telling them to drag
+  // a nonexistent bar. spawnGanttRedesignFakeTasks is idempotent on
+  // name so the canonical flow no-ops.
+  onEnter: async (ctx) => {
+    await ensureFirstExperimentExists();
+    await spawnGanttRedesignFakeTasks(ctx);
+  },
   completion: advanceOnEvent((advance) => {
     // Polling-based completion: every 500ms, check the user's active
     // project deps for a (user_experiment → fakeB) edge. When found,

@@ -25,6 +25,7 @@ import {
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { dispatchTourSyntheticEscape } from "./lib/synthetic-escape";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
+import { ensureFirstExperimentExists } from "./lib/ensure-helpers";
 
 /** Delay (ms) between the cursor's open-popup click and the
  *  controller-scheduled Escape keydown that closes the popup before the
@@ -72,6 +73,13 @@ export const ganttExistingExperimentStep = buildWalkthroughStep({
   ),
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.ganttBarUserExperiment),
+  // Tour robustification 2026-05-27 (tour robustification manager):
+  // ensure an experiment with a today-bounded date exists so a bar
+  // appears on the Gantt for the cursor to click. A seed-jump past
+  // §6.5 leaves the timeline empty of user experiments.
+  onEnter: async () => {
+    await ensureFirstExperimentExists();
+  },
   cursorScript: cursorScript(async () => {
     const openPopup = await safeClickAction(
       targetSelector(TOUR_TARGETS.ganttBarUserExperiment),
