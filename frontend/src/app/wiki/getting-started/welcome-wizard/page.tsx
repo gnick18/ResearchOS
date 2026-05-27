@@ -407,9 +407,11 @@ export default function WelcomeWizardPage() {
           and picks BeakerBot&apos;s placeholder method.
         </Step>
         <Step>
-          <strong>experiment-attach-method-notes.</strong> Cursor types a
-          variation note into the popup. BeakerBot narrates the mental model
-          (methods are the protocol template; notes are the per-run delta).
+          <strong>experiment-attach-method-notes.</strong> BeakerBot
+          spotlights the Variation Notes field and narrates the mental
+          model (methods are the protocol template; notes are the
+          per-run delta). No typing demo here: the spotlight plus
+          explanation is enough.
         </Step>
       </Steps>
 

@@ -54,7 +54,10 @@ import {
 import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 import { TOUR_DOM_EVENTS } from "./lib/tour-events";
-import { readMethodsCategoryPick } from "./MethodsCategoryPromptStep";
+import {
+  clearMethodsCategoryPick,
+  readMethodsCategoryPick,
+} from "./MethodsCategoryPromptStep";
 import { flushPendingArtifacts, pendingArtifactStore } from "./lib/artifacts";
 
 const STEP_ID = "methods-create";
@@ -235,6 +238,15 @@ export const methodsCreateStep = buildWalkthroughStep({
   },
   onExit: async () => {
     await flushPendingArtifacts(STEP_ID);
+    // experiment-flow fix manager 2026-05-27: clear the picked category
+    // label only AFTER the methods-create demo has consumed it (the
+    // Folder input is typed mid-script). Was previously cleared on
+    // `methods-category`'s exit, which wiped the value before this
+    // step's cursor read it. Funny markdown method then landed in the
+    // "Methods" fallback folder instead of the user's category. A re-run
+    // of the tour still starts fresh because the prompt step re-writes
+    // the localStorage value on its own advance.
+    clearMethodsCategoryPick();
   },
   expectedRoute: "/methods",
 });

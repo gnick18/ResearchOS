@@ -233,10 +233,17 @@ describe("MethodsCategoryDemoStep (v4 sec 6.4 redesign)", () => {
     expect(methodsCategoryDemoStep.completion.buttonLabel).toBe("Got it, next");
   });
 
-  it("onExit clears the picker hand-off so a re-run starts fresh", async () => {
+  it("onExit does NOT clear the picker hand-off (experiment-flow fix manager 2026-05-27)", async () => {
+    // Hand-walk fix: the clear was moved to MethodsCreateStep's onExit
+    // because §6.4d methods-create reads the picked label to type into
+    // the Folder input. Clearing here wiped the value before that read
+    // could happen, so the funny markdown method landed in the
+    // fallback folder instead of the user's category. The clear still
+    // runs end-of-flow, just one step later (covered by MethodsCreateStep
+    // tests).
     window.localStorage.setItem(V4_METHODS_CATEGORY_PICK_KEY, "Chemistry");
     await methodsCategoryDemoStep.onExit?.();
-    expect(readMethodsCategoryPick()).toBeNull();
+    expect(readMethodsCategoryPick()).toBe("Chemistry");
   });
 
   it("demo step keeps the original `methods-category` id for backward compat", () => {

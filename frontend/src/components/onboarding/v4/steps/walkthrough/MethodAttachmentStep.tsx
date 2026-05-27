@@ -35,10 +35,11 @@
 export { methodAttachmentOpenStep } from "./MethodAttachmentOpenStep";
 export { methodAttachmentTabStep } from "./MethodAttachmentTabStep";
 export { methodAttachmentAttachStep } from "./MethodAttachmentAttachStep";
-export {
-  methodAttachmentNotesStep,
-  VARIATION_NOTE,
-} from "./MethodAttachmentNotesStep";
+export { methodAttachmentNotesStep } from "./MethodAttachmentNotesStep";
+// VARIATION_NOTE removed (experiment-flow fix manager 2026-05-27): the
+// hand-walk simplification dropped the typing demo from the notes
+// sub-step, so the constant is no longer used anywhere. Callers that
+// still pin the literal text should hard-code their own value.
 
 // Back-compat alias: the original `methodAttachmentStep` export now
 // points at the terminal id of the split. Callers that pinned the old

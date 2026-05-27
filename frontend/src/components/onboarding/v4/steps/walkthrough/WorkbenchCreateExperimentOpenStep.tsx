@@ -1,34 +1,116 @@
 /**
- * §6.5 Workbench experiment creation — open the New Experiment modal
- * (user-action sub-step, Grant 2026-05-21 split).
+ * §6.5 Workbench experiment creation: BeakerBot demos opening + filling
+ * the New Experiment modal (experiment-flow fix manager, 2026-05-27).
  *
- * Sits before workbench-create-experiment (demo: type the placeholder
- * name and click Save). The user clicks the spotlighted "+ New
- * Experiment" button to open the modal; the demo step then takes over
- * to type the placeholder experiment name and submit.
+ * Hand-walk feedback (Grant 2026-05-27): the prior shape opened the
+ * modal on a user click and advanced the moment
+ * `tour:workbench-experiment-modal-opened` fired, leaving the experiment
+ * uncreated. Downstream `experiment-attach-method-*` sub-steps fired
+ * against a not-yet-existing experiment, and the project dropdown
+ * defaulted to "Miscellaneous (standalone tasks)" instead of the
+ * project the user just made in `home-create-project-fill`.
  *
- * Classification: USER ACTION. No cursorScript — the user does the
- * click themselves. Same pattern as §6.1 home-create-project and §6.4
- * methods-category-open where the user opens the create form before
- * BeakerBot fills it.
+ * Rewrite shape: BEAKERBOT DEMO. The cursor:
+ *   1. Clicks "+ New Experiment" so the TaskModal mounts.
+ *   2. Changes the Project <select> to the user's most-recently-created
+ *      project (read from `projectsApi.list()` at script-build time,
+ *      filtering out Miscellaneous + shared projects). Falls back to
+ *      leaving the default if no own-project exists.
+ *   3. Types the placeholder name "First experiment" into the name input.
+ *   4. Clicks Create Experiment.
  *
- * Completion: event-driven on `tour:workbench-experiment-modal-opened`,
- * which WorkbenchExperimentsPanel.tsx dispatches from the New Experiment
- * button's onClick. DOM-mount fallback in the watcher handles the case
- * where the modal is already up when the step mounts (e.g. the user
- * clicked during the previous methods-create step before this step took
- * over).
+ * The "+ Link a method (optional)" affordance is intentionally NOT
+ * exercised here. Grant wants the method attached LATER in the
+ * `experiment-attach-method-attach` sub-step.
+ *
+ * Completion: `manualAdvance` per the universal pacing rule (Grant
+ * 2026-05-22), gated on `tour:experiment-created` so the "Got it, next"
+ * button stays disabled until the experiment has actually landed on
+ * disk. This fixes Bug C from the hand-walk (the tour used to advance
+ * past an unfinished experiment because completion fired the moment the
+ * modal opened, not the moment the experiment was created).
+ *
+ * pageLock: total lock during the demo so the user doesn't accidentally
+ * click outside the modal and soft-walk themselves out of the tour.
+ * Mirrors `MethodsCreateStep` and `MethodsCategoryStep`.
+ *
+ * Artifact: `{ type: "experiment", id: "<taskId>", cleanup_default: "keep" }`.
+ * The first experiment is useful past the tour.
  */
-import { advanceOnEvent, buildWalkthroughStep } from "./lib/step-helpers";
+import {
+  cursorScript,
+  safeClickAction,
+  safeTypeAction,
+  safeChangeSelectAction,
+  compactScript,
+  callbackAction,
+} from "./lib/cursor-script";
+import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
-import { watchWorkbenchExperimentModalOpened } from "./lib/tour-events";
+import { TOUR_DOM_EVENTS } from "./lib/tour-events";
+import { projectsApi } from "@/lib/local-api";
+import { flushPendingArtifacts, pendingArtifactStore } from "./lib/artifacts";
+
+const STEP_ID = "workbench-create-experiment-open";
+
+/** Placeholder experiment name the cursor types into the Name input.
+ *  Exported so the pacing / phrase-pinning tests can assert the exact
+ *  string lands in the script. */
+export const FIRST_EXPERIMENT_NAME = "First experiment";
+
+/** Read-then-watch pause between cursor beats inside the open-and-create
+ *  demo. 800ms matches the cadence used by §6.4d `methods-create` and
+ *  §6.10 `ai-helper-size-diff` so the user has a beat to register each
+ *  visible action (modal open → project picked → name typed → submit)
+ *  before the next one fires. */
+export const WORKBENCH_CREATE_PAUSE_MS = 800;
+
+async function pause(ms: number): Promise<void> {
+  await new Promise<void>((resolve) => {
+    if (typeof window !== "undefined") {
+      window.setTimeout(resolve, ms);
+    } else {
+      setTimeout(resolve, ms);
+    }
+  });
+}
+
+/**
+ * Resolve the project id the experiment should land in. Picks the
+ * most-recently-created own (non-shared) non-Miscellaneous project.
+ * Returns `null` if no qualifying project exists (e.g. the user
+ * skipped §6.1) so the cursor leaves the dropdown on its default and
+ * the experiment files into Miscellaneous instead of throwing.
+ *
+ * "Most-recently-created" is approximated as max(id) since project ids
+ * are monotonically increasing per-user (see projectsApi.create's
+ * underlying nextId pattern in projects-store).
+ */
+export async function resolveFirstProjectId(): Promise<number | null> {
+  try {
+    const projects = await projectsApi.list();
+    const eligible = projects.filter(
+      (p) =>
+        !p.is_archived &&
+        !p.is_shared_with_me &&
+        p.name !== "Miscellaneous",
+    );
+    if (eligible.length === 0) return null;
+    // Sort descending by id; pick the freshest. Mirrors the convention
+    // the methods-create step uses to find the newest method (the
+    // picker shows newest-first).
+    eligible.sort((a, b) => b.id - a.id);
+    return eligible[0].id;
+  } catch {
+    return null;
+  }
+}
 
 export const workbenchCreateExperimentOpenStep = buildWalkthroughStep({
-  id: "workbench-create-experiment-open",
-  // Script rewrite 2026-05-27 + hand-walk edit 2026-05-27 (Grant): the
-  // "Methods are the recipe" framing was dropped; copy reads as a direct
-  // workbench intro with the +New Experiment CTA on its own line. Voice
-  // stays USER_ACTION.
+  id: STEP_ID,
+  // Speech pivots from "tell the user to click +New Experiment" to
+  // "BeakerBot is opening + filling the form for you". Keeps the
+  // workbench intro framing but signals the demo.
   speech: (
     <>
       <p className="mb-2">
@@ -37,13 +119,108 @@ export const workbenchCreateExperimentOpenStep = buildWalkthroughStep({
         results, attached methods, and files.
       </p>
       <p>
-        Click <strong>+ New Experiment</strong> to make your first one.
+        Watch. I&apos;ll open <strong>+ New Experiment</strong>, file it
+        into the project you just made, give it a placeholder name, and
+        save.
       </p>
     </>
   ),
-  pose: "pointing",
+  pose: "typing-on-laptop",
   targetSelector: targetSelector(TOUR_TARGETS.workbenchNewExperiment),
-  // No cursorScript: user-action step.
-  completion: advanceOnEvent(watchWorkbenchExperimentModalOpened),
+  cursorScript: cursorScript(async () => {
+    // 1. Click the spotlighted "+ New Experiment" button. The handler in
+    //    WorkbenchExperimentsPanel.tsx sets isCreatingTask = true and
+    //    dispatches `tour:workbench-experiment-modal-opened`; the
+    //    TaskModal then mounts.
+    const openClick = await safeClickAction(
+      targetSelector(TOUR_TARGETS.workbenchNewExperiment),
+      3000,
+    );
+
+    // 2. Pick the user's first project in the Project <select>. The
+    //    select is a native HTML element; safeChangeSelectAction
+    //    programmatically sets its value via React's native setter
+    //    pattern so the controlled onChange handler fires.
+    const projectId = await resolveFirstProjectId();
+    const pickProject =
+      projectId !== null
+        ? await safeChangeSelectAction(
+            targetSelector(TOUR_TARGETS.workbenchExperimentProjectSelect),
+            String(projectId),
+            5000,
+          )
+        : null;
+
+    // 3. Type the placeholder name into the Task Name input. 25ms
+    //    cadence matches §6.4d methods-create's name-typing cadence.
+    const typeName = await safeTypeAction(
+      targetSelector(TOUR_TARGETS.workbenchExperimentNameInput),
+      FIRST_EXPERIMENT_NAME,
+      25,
+    );
+
+    // 4. Click Create Experiment. TaskModal's createTask success
+    //    branch then dispatches `tour:experiment-created` (added by
+    //    experiment-flow fix manager 2026-05-27) which the step's
+    //    completion contract listens for to enable the manual advance.
+    const submit = await safeClickAction(
+      targetSelector(TOUR_TARGETS.workbenchExperimentSubmit),
+      5000,
+    );
+
+    // Interleave 800ms read-then-watch pauses between each visible
+    // action so the user can register each beat (modal open → project
+    // picked → name typed → submit) before the next one fires. Matches
+    // §6.4d methods-create's pacing pattern.
+    return compactScript([
+      openClick,
+      callbackAction(() => pause(WORKBENCH_CREATE_PAUSE_MS)),
+      pickProject,
+      callbackAction(() => pause(WORKBENCH_CREATE_PAUSE_MS)),
+      typeName,
+      callbackAction(() => pause(WORKBENCH_CREATE_PAUSE_MS)),
+      submit,
+    ]);
+  }),
+  // Total page-lock during the BeakerBot demo. Cursor clicks pass
+  // through via the `__beakerBotCursorClicking` flag; only stray user
+  // clicks (outside the speech bubble) are blocked. Prevents the user
+  // from accidentally clicking outside the TaskModal and soft-walking
+  // themselves out of the tour. Empty allowList = total lock.
+  pageLock: {
+    allowList: [],
+    pillLabel: "BeakerBot is creating the experiment. Hold on a moment.",
+  },
+  // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for
+  // the user to click "Got it, next" before advancing. The button is
+  // DISABLED until `tour:experiment-created` fires (Bug C in the
+  // hand-walk brief), so the user can't advance past an unfinished
+  // experiment.
+  completion: manualAdvance("Got it, next", {
+    disabledUntilEvent: TOUR_DOM_EVENTS.experimentCreated,
+    disabledAriaLabel: "BeakerBot is still creating the experiment.",
+  }),
+  // Capture the created experiment task id out of the
+  // `tour:experiment-created` event detail so Phase 4 cleanup grid
+  // lists the experiment under "Experiments" with its real id.
+  // cleanup_default "keep" because the first experiment is useful past
+  // the tour (matches the §6.1 project artifact's keep default).
+  onEnter: () => {
+    if (typeof window === "undefined") return;
+    const handler = (evt: Event) => {
+      const id = (evt as CustomEvent<{ id?: number }>).detail?.id;
+      if (id === undefined || id === null) return;
+      pendingArtifactStore.add(STEP_ID, {
+        type: "experiment",
+        id: String(id),
+        cleanup_default: "keep",
+      });
+      window.removeEventListener(TOUR_DOM_EVENTS.experimentCreated, handler);
+    };
+    window.addEventListener(TOUR_DOM_EVENTS.experimentCreated, handler);
+  },
+  onExit: async () => {
+    await flushPendingArtifacts(STEP_ID);
+  },
   expectedRoute: "/workbench",
 });

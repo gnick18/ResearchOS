@@ -1,44 +1,36 @@
 /**
  * §6.6 Method attachment NOTES sub-step (4 of 4).
  *
- * BeakerBot's cursor types the variation note into the attached method's
- * notes field. This is also the step that owns the mental-model speech:
- * editing a method from inside an experiment edits THIS EXPERIMENT'S
- * COPY, not the master method.
+ * Hand-walk simplification (Grant 2026-05-27): the typing cursor was
+ * dropped. Per Grant: "he doesn't need to add a variation note. I think
+ * highlighting the area and explaining it is good enough." The
+ * variation-notes field stays spotlighted and the mental-model speech
+ * still lands; BeakerBot just doesn't type anything anymore.
  *
  * Critical mental-model moment per Grant's voice-to-text: editing a
  * method from inside an experiment edits THIS EXPERIMENT'S COPY. The
- * original method stays untouched.
+ * original method stays untouched. The speech is preserved verbatim
+ * from the prior demo shape.
  *
- * This is the terminal id of the split (replacing the original single
- * `experiment-attach-method` step). Telemetry / typeguards that pinned
- * the old id should now reference `experiment-attach-method-notes` —
+ * This is the terminal id of the §6.6 split (replacing the original
+ * single `experiment-attach-method` step). Telemetry / typeguards that
+ * pinned the old id should reference `experiment-attach-method-notes`:
  * the "step completed" beat still fires at the same logical moment
- * (user has just attached a method and added a variation note).
+ * (user has just attached a method and seen the variation-notes spot).
  *
- * Artifact:
- *   { type: "method_attachment", id: "<taskId>:<methodId>", cleanup_default: "discard" }
+ * Classification: NARRATION + SPOTLIGHT (experiment-flow fix manager,
+ * 2026-05-27). No cursorScript: BeakerBot points at the variation-notes
+ * field with the spotlight and explains. Pose changes from
+ * `typing-on-laptop` (the prior cursor was typing) to `pointing` to
+ * match the spotlight-only intent.
  *
- * Cleanup default discard — the attachment exists only for the demo,
- * users won't typically want it past the tour.
- *
- * Classification: BEAKERBOT DEMO. Speech retains the original mental-
- * model paragraph (Grant's design correction 2026-05-21).
- *
- * Pose: `typing-on-laptop` (matches the audited cursor-typing pose).
+ * Artifact: none here. The method_attachment artifact is captured by
+ * the prior `experiment-attach-method-attach` sub-step.
  *
  * expectedRoute: "/workbench" — popup-portaled, no route change.
  */
-import {
-  cursorScript,
-  safeClickAction,
-  safeTypeAction,
-  compactScript,
-} from "./lib/cursor-script";
 import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
-
-export const VARIATION_NOTE = "This experiment uses 30 C instead of 25 C.";
 
 export const methodAttachmentNotesStep = buildWalkthroughStep({
   id: "experiment-attach-method-notes",
@@ -56,20 +48,11 @@ export const methodAttachmentNotesStep = buildWalkthroughStep({
       </p>
     </>
   ),
-  pose: "typing-on-laptop",
+  pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.experimentVariationNotes),
-  cursorScript: cursorScript(async () => {
-    const focusClick = await safeClickAction(
-      targetSelector(TOUR_TARGETS.experimentVariationNotes),
-      3000,
-    );
-    const typeNote = await safeTypeAction(
-      targetSelector(TOUR_TARGETS.experimentVariationNotes),
-      VARIATION_NOTE,
-    );
-    return compactScript([focusClick, typeNote]);
-  }),
-  // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
+  // No cursorScript: spotlight + speech is enough (Grant 2026-05-27
+  // hand-walk simplification, the typing demo was dropped).
+  // Universal pacing: user clicks "Got it, next" to advance.
   completion: manualAdvance("Got it, next"),
   expectedRoute: "/workbench",
 });

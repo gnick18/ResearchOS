@@ -328,6 +328,21 @@ export default function TaskModal({ projects }: TaskModalProps) {
 
       await queryClient.refetchQueries({ queryKey: ["tasks"] });
       await queryClient.refetchQueries({ queryKey: ["dependencies"] });
+
+      // Onboarding v4 §6.5 (experiment-flow fix manager, 2026-05-27): the
+      // workbench-create-experiment-open BeakerBot demo waits on this DOM
+      // event to enable its "Got it, next" advance button. Only fires for
+      // experiment-type tasks (the §6.5 step only cares about experiments)
+      // so list/purchase create paths stay quiet for the tour. Cheap no-op
+      // when no tour is active. SSR-safe via the `window` typeof check.
+      if (typeof window !== "undefined" && taskType === "experiment") {
+        window.dispatchEvent(
+          new CustomEvent("tour:experiment-created", {
+            detail: { id: task.id, name: task.name, project_id: task.project_id },
+          }),
+        );
+      }
+
       setGanttLoading(false);
       clearTaskDraft();
       setIsCreatingTask(false);

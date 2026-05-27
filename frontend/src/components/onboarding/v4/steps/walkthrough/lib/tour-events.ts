@@ -96,6 +96,16 @@ export const TOUR_DOM_EVENTS = {
    */
   workbenchExperimentModalOpened: "tour:workbench-experiment-modal-opened",
   /**
+   * Dispatched by `TaskModal.tsx` from `createTask` after a successful
+   * experiment task save. The §6.5 `workbench-create-experiment-open`
+   * BeakerBot-demo step (experiment-flow fix manager 2026-05-27) listens
+   * on this so the manual "Got it, next" button only enables once the
+   * experiment has actually landed. Detail carries `{ id, name, project_id }`
+   * so the step's onEnter listener can record the artifact + verify the
+   * experiment got filed into the user's just-created project.
+   */
+  experimentCreated: "tour:experiment-created",
+  /**
    * Dispatched by `CreateMethodModal.tsx` after a successful save (both
    * plain Create and Save-and-extend). The §6.4d `methods-create` demo
    * step listens on this so the cursor's typed-then-Save sequence
@@ -622,6 +632,33 @@ export function watchWorkbenchExperimentModalOpened(
       TOUR_DOM_EVENTS.workbenchExperimentModalOpened,
       handler,
     );
+  };
+}
+
+/**
+ * Watch for an experiment task to land. The §6.5 workbench-create-experiment-open
+ * BeakerBot-demo step (experiment-flow fix manager 2026-05-27) uses this
+ * to gate its manual-advance button: until `tour:experiment-created` fires,
+ * the "Got it, next" button stays disabled so the user can't advance past
+ * an unfinished experiment (Bug C in the hand-walk brief).
+ *
+ * DOM event fast path via `tour:experiment-created` (dispatched by
+ * `TaskModal.tsx` after `tasksApi.create` resolves for an experiment).
+ * No polling fallback because the dispatcher already runs synchronously
+ * inside the save handler. If a future code path bypasses TaskModal,
+ * we can add a `watchCountIncrease` net then.
+ */
+export function watchExperimentCreated(advance: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  let fired = false;
+  const handler = () => {
+    if (fired) return;
+    fired = true;
+    advance();
+  };
+  window.addEventListener(TOUR_DOM_EVENTS.experimentCreated, handler);
+  return () => {
+    window.removeEventListener(TOUR_DOM_EVENTS.experimentCreated, handler);
   };
 }
 

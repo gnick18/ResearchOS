@@ -1084,30 +1084,24 @@ describe("step bodies — cursor scripts produce expected actions", () => {
     }
   });
 
-  it("WorkbenchCreateExperimentOpenStep: no cursorScript (user-action open step, Grant 2026-05-21 split)", () => {
-    // Per the §6.5 split: the open beat is user-action — the user clicks
-    // "+ New Experiment" themselves so BeakerBot's spotlight is the
-    // visual cue and nothing else. The follow-up demo step
-    // (workbenchCreateExperimentStep) is the BeakerBot-led half that
-    // types + submits.
-    expect(workbenchCreateExperimentOpenStep.cursorScript).toBeUndefined();
+  it("WorkbenchCreateExperimentOpenStep: cursor opens modal, picks project, types name, submits (experiment-flow fix manager 2026-05-27)", () => {
+    // Hand-walk fix (Grant 2026-05-27): the open beat is now a
+    // BeakerBot demo. The cursor clicks +New Experiment, changes the
+    // Project select, types the placeholder name, and clicks Create
+    // Experiment. The exact action shape is exercised by integration
+    // tests; here we just guard the cursorScript presence to prevent
+    // a future regression to the old user-action shape.
+    expect(workbenchCreateExperimentOpenStep.cursorScript).toBeDefined();
   });
-
-  // v4 tour structural manager (Wave 1, 2026-05-27):
-  // `WorkbenchCreateExperimentStep: cursor clears the name THEN types
-  // THEN clicks submit` test removed. The BeakerBot-led demo half of
-  // §6.5 was retired per Grant's [DROP] marker; only the user-action
-  // open-click survives (covered above). PLACEHOLDER_EXPERIMENT_NAME
-  // still gets exercised via the SearchStep cursor-types-the-query test.
 
   it("user-action steps with no cursorScript don't expose any glide/click actions", async () => {
     // Defense in depth: even if a future maintainer wires a cursorScript
     // back onto these user-action steps by accident, the test will
     // catch any click/type/drag actions and flag the regression.
-    const userActionSteps = [
-      homeCreateProjectStep,
-      workbenchCreateExperimentOpenStep,
-    ];
+    // (experiment-flow fix manager 2026-05-27): workbench-create-experiment-open
+    // was removed from this list; it is now a BeakerBot demo per the
+    // hand-walk brief.
+    const userActionSteps = [homeCreateProjectStep];
     for (const step of userActionSteps) {
       const script = await step.cursorScript?.();
       if (!script) continue;

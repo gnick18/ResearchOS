@@ -427,10 +427,21 @@ describe("P5 step bodies — universal contract", () => {
       // v4 tour structural manager (Wave 1, 2026-05-27):
       // workbench-create-experiment retired (Grant's [DROP] marker).
       // experiment-tabs-overview retired.
+      // experiment-flow fix manager (2026-05-27): the
+      // workbench-create-experiment-open step now carries a BeakerBot
+      // cursor demo (clicks +New Experiment, picks the first project,
+      // types the placeholder name, submits). Added to the demo list.
+      workbenchCreateExperimentOpenStep,
       methodAttachmentOpenStep,
       methodAttachmentTabStep,
       methodAttachmentAttachStep,
-      methodAttachmentNotesStep,
+      // experiment-flow fix manager (2026-05-27): the
+      // experiment-attach-method-notes cursorScript was dropped per
+      // Grant's hand-walk simplification: spotlight + speech is enough,
+      // BeakerBot doesn't need to type a variation note. Step body is
+      // now NARRATION + SPOTLIGHT and is intentionally excluded from
+      // this demo-list. The methodAttachmentNotes assertion that used
+      // to be here lives in its own describe block below.
       // §6.7 hybrid editor redesign (Hybrid editor manager 2026-05-22):
       // every BeakerBot-led demo sub-step retains a cursorScript. HE-7
       // (`hybridShortcutsStep`) is user-action and is intentionally
@@ -923,6 +934,18 @@ describe("Methods steps (§6.4)", () => {
     // capture but no longer drives advance.
     expect(methodsCreateStep.completion.type).toBe("manual");
   });
+  it("methods-create onExit clears the methods-category picker hand-off (experiment-flow fix manager 2026-05-27)", async () => {
+    // Bug B in the hand-walk brief: the funny markdown method was
+    // landing in the "Methods" fallback folder because
+    // `MethodsCategoryStep.onExit` cleared the picker localStorage
+    // before this step's cursor could read it. The clear moved here so
+    // the read-then-clear ordering matches the step traversal.
+    const { V4_METHODS_CATEGORY_PICK_KEY, readMethodsCategoryPick } =
+      await import("../MethodsCategoryPromptStep");
+    window.localStorage.setItem(V4_METHODS_CATEGORY_PICK_KEY, "Molecular Biology");
+    await methodsCreateStep.onExit?.();
+    expect(readMethodsCategoryPick()).toBeNull();
+  });
 });
 
 describe("MethodsLcDemoStep (§6.4b LC Gradient invite-to-explore beat)", () => {
@@ -1019,48 +1042,50 @@ describe("MethodsOpenPickerStep (§6.4 open-picker beat)", () => {
   });
 });
 
-describe("WorkbenchCreateExperimentOpenStep (§6.5a-open, Grant 2026-05-21 split)", () => {
+describe("WorkbenchCreateExperimentOpenStep (§6.5, experiment-flow fix manager 2026-05-27)", () => {
   it("has id `workbench-create-experiment-open`", () => {
     expect(workbenchCreateExperimentOpenStep.id).toBe(
       "workbench-create-experiment-open",
     );
   });
-  it("declares event-driven completion (modal-opened DOM event)", () => {
-    expect(workbenchCreateExperimentOpenStep.completion.type).toBe("event");
+  it("declares manual completion (universal pacing rule, Grant 2026-05-22)", () => {
+    // Hand-walk fix (Grant 2026-05-27): the step is now a BEAKERBOT
+    // demo (cursor opens + fills + submits the New Experiment modal).
+    // Universal pacing rule means demo steps use manualAdvance; the
+    // button is gated on `tour:experiment-created` so it stays disabled
+    // until the experiment has actually landed (Bug C in the brief).
+    expect(workbenchCreateExperimentOpenStep.completion.type).toBe("manual");
+  });
+  it("gates the advance button on tour:experiment-created (Bug C: don't advance past unfinished experiment)", () => {
+    if (workbenchCreateExperimentOpenStep.completion.type !== "manual") {
+      throw new Error("completion contract changed shape; update test");
+    }
+    expect(workbenchCreateExperimentOpenStep.completion.disabledUntilEvent).toBe(
+      "tour:experiment-created",
+    );
   });
   it("targets the workbench New Experiment button selector", () => {
     expect(workbenchCreateExperimentOpenStep.targetSelector).toBe(
       "[data-tour-target=\"workbench-new-experiment\"]",
     );
   });
-  it("has no cursorScript (user-action step, mirrors §6.4 methods-category-open)", () => {
-    // Cursor responsibility audit: the user clicks the spotlighted
-    // "+ New Experiment" button themselves; BeakerBot's cursor takes
-    // over in the follow-up demo step to type the name and submit.
-    expect(workbenchCreateExperimentOpenStep.cursorScript).toBeUndefined();
+  it("has a cursorScript (BeakerBot demo: open + fill + submit)", () => {
+    // Bug A in the hand-walk brief: the prior shape had no cursor and
+    // advanced the moment the modal opened, leaving the experiment
+    // uncreated. The new shape demos the full create flow.
+    expect(workbenchCreateExperimentOpenStep.cursorScript).toBeDefined();
+  });
+  it("uses pose: typing-on-laptop (matches the cursor-driven shape)", () => {
+    expect(workbenchCreateExperimentOpenStep.pose).toBe("typing-on-laptop");
   });
   it("expectedRoute is /workbench", () => {
     expect(workbenchCreateExperimentOpenStep.expectedRoute).toBe("/workbench");
   });
-  it("advances when the tour:workbench-experiment-modal-opened DOM event fires", async () => {
-    if (workbenchCreateExperimentOpenStep.completion.type !== "event") {
-      throw new Error("completion contract changed shape; update test");
-    }
-    let advanced = false;
-    const stop = workbenchCreateExperimentOpenStep.completion.eventListener(
-      () => {
-        advanced = true;
-      },
-    );
-    try {
-      window.dispatchEvent(
-        new CustomEvent("tour:workbench-experiment-modal-opened"),
-      );
-      await Promise.resolve();
-      expect(advanced).toBe(true);
-    } finally {
-      stop();
-    }
+  it("locks the page with an empty allow-list while BeakerBot drives", () => {
+    // Matches MethodsCreateStep / MethodsCategoryStep, total lock so
+    // the user doesn't accidentally click outside the modal and
+    // soft-walk themselves out of the tour mid-create.
+    expect(workbenchCreateExperimentOpenStep.pageLock?.allowList).toEqual([]);
   });
 });
 
@@ -1173,12 +1198,24 @@ describe("MethodAttachment split sub-steps (§6.6 popup-mount split, 2026-05-21)
   it("notes sub-step declares manual completion (universal pacing rule, Grant 2026-05-22)", () => {
     expect(methodAttachmentNotesStep.completion.type).toBe("manual");
   });
-  it("notes sub-step uses pose typing-on-laptop", () => {
-    expect(methodAttachmentNotesStep.pose).toBe("typing-on-laptop");
+  it("notes sub-step uses pose pointing (spotlight-only after experiment-flow fix manager 2026-05-27)", () => {
+    // Hand-walk simplification (Grant 2026-05-27): the typing cursor
+    // was dropped. Pose changed from typing-on-laptop to pointing to
+    // match the spotlight-only intent.
+    expect(methodAttachmentNotesStep.pose).toBe("pointing");
   });
-  it("notes sub-step retains the mental-model paragraph", () => {
+  it("notes sub-step has no cursorScript (experiment-flow fix manager 2026-05-27: typing demo dropped)", () => {
+    // Bug D in the hand-walk brief: BeakerBot no longer types a
+    // variation note. The spotlight + speech is enough.
+    expect(methodAttachmentNotesStep.cursorScript).toBeUndefined();
+  });
+  it("notes sub-step retains the mental-model paragraph (speech preserved verbatim)", () => {
     const speech = renderSpeech(methodAttachmentNotesStep);
     expect(speech).toMatch(/this experiment's COPY/i);
+  });
+  it("notes sub-step retains the variation-notes opener (speech preserved verbatim)", () => {
+    const speech = renderSpeech(methodAttachmentNotesStep);
+    expect(speech).toMatch(/quick variation notes here/);
   });
   it("methodAttachmentStep re-export aliases the notes sub-step (back-compat)", () => {
     expect(methodAttachmentStep.id).toBe("experiment-attach-method-notes");

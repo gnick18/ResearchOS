@@ -53,10 +53,7 @@ import {
 } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 import { TOUR_DOM_EVENTS } from "./lib/tour-events";
-import {
-  clearMethodsCategoryPick,
-  readMethodsCategoryPick,
-} from "./MethodsCategoryPromptStep";
+import { readMethodsCategoryPick } from "./MethodsCategoryPromptStep";
 import { flushPendingArtifacts, pendingArtifactStore } from "./lib/artifacts";
 
 const STEP_ID = "methods-category";
@@ -177,10 +174,14 @@ export const methodsCategoryDemoStep = buildWalkthroughStep({
     // Phase 4 cleanup grid (P8) lists it under "Methods" with the
     // user-picked label.
     await flushPendingArtifacts(STEP_ID);
-    // Clear the pick after the demo consumes it so a re-run of the
-    // tour starts fresh. Idempotent: safe to call when no pick was
-    // ever written.
-    clearMethodsCategoryPick();
+    // NOTE (experiment-flow fix manager, 2026-05-27): the
+    // `clearMethodsCategoryPick()` call that used to live here moved to
+    // `MethodsCreateStep`'s onExit. The §6.4d methods-create demo reads
+    // the picked label to type into the Folder input; clearing here
+    // wiped the value before that read ever happened, so the funny
+    // markdown method landed in the "Methods" fallback folder instead
+    // of the user's category. The clear still happens at end-of-flow,
+    // just one step later.
   },
   expectedRoute: "/methods",
 });

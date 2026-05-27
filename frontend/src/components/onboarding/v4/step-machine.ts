@@ -217,7 +217,9 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // a navigation hook to re-open the experiment popup + Methods tab
   // after the methods detour.
   "experiment-attach-method-open",    // §6.6a click workbench row → open popup
-  "experiment-attach-method-tab",     // §6.6b explain Methods tab (deferred attach)
+  "experiment-attach-method-tab",     // §6.6b click Methods tab inside popup
+  "experiment-attach-method-attach",  // §6.6c click Attach + pick funny method
+  "experiment-attach-method-notes",   // §6.6d spotlight Variation Notes + mental model
   // Hybrid editor — §6.7 redesign (Hybrid editor manager 2026-05-22).
   // 12 sub-steps replacing the prior 4. Order matches HE-0 → HE-11 in
   // ONBOARDING_V4_HYBRID_EDITOR_REDESIGN.md §6.7. The HE-2 branching
