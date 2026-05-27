@@ -375,6 +375,11 @@ export const TOUR_TARGETS = {
   settingsColorPickerSecondary: "settings-color-picker-secondary",
   settingsColorPickerClearSecondary: "settings-color-picker-clear-secondary",
 
+  /** §6.15 Calendar — the Linked Calendars button in the top-right of
+   *  the /calendar page. Tour points at it when explaining that the
+   *  user can link a feed later. */
+  calendarLinkedFeedsButton: "calendar-linked-feeds-button",
+
   // §6.11 Search
   searchInput: "search-input",
   searchSubmit: "search-submit",

@@ -954,10 +954,14 @@ Click below to return to your own page and finish the tour.
 
 ### calendar
 
+Hand-walk edit 2026-05-27 (Grant): added a third paragraph explaining that we're not linking a feed during the walkthrough, and pointing the user at the **Linked Calendars** button for when they're ready. Spotlight repointed at that button to match the closing instruction.
+
 ```
 Your day isn't just experiments. There are meetings, classes, office hours, appointments, things that aren't lab work but still eat your time. The Calendar tab gives those a home inside ResearchOS so you can see your full day in one place.
 
 Link as many feeds as you want from Outlook, Apple, or Google. Events show up on the Calendar page and in the quick-view bar on the left, kept separate from your experiments and tasks but visible right alongside them.
+
+We won't link one up for you here. When you're ready, click the **Linked Calendars** button up here and follow the prompts to paste in a feed URL.
 ```
 
 ## §6.14b Links (conditional)

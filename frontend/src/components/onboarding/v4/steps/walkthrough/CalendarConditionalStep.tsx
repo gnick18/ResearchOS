@@ -73,13 +73,21 @@ export const calendarConditionalStep: TourStep = {
         the left, kept separate from your experiments and tasks but
         visible right alongside them.
       </p>
+      <p>
+        We won&apos;t link one up for you here. When you&apos;re ready,
+        click the <strong>Linked Calendars</strong> button up here and
+        follow the prompts to paste in a feed URL.
+      </p>
     </div>
   ),
   completion: manualAdvance("Got it, next"),
-  // Calendar tab marker. Same data-tour-target shape as the other
-  // sidebar steps so TourSpotlight resolves it via the standard
-  // selector path.
-  targetSelector: "[data-tour-target='calendar-tab']",
+  // Hand-walk edit 2026-05-27: spotlight now points at the Linked
+  // Calendars button so the new third paragraph has a visual anchor.
+  // The Calendar tab marker (`calendar-tab`) is already what brought
+  // the user here via expectedRoute; pointing the spotlight at the
+  // Linked Calendars button matches the speech's "click this button
+  // later" instruction.
+  targetSelector: "[data-tour-target='calendar-linked-feeds-button']",
   conditionalOn: (picks) => picks?.calendar === "yes",
   // Auto-navigate to /calendar on refresh so the month view is visible.
   expectedRoute: "/calendar",

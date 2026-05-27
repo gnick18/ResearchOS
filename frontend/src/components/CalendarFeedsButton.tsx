@@ -30,6 +30,7 @@ export default function CalendarFeedsButton() {
         type="button"
         onClick={() => setOpen(true)}
         title="Link external calendars (Google / Outlook / iCloud)"
+        data-tour-target="calendar-linked-feeds-button"
         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-200 text-gray-700 bg-white hover:bg-gray-50 rounded-lg"
       >
         <svg
