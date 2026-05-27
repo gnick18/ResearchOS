@@ -2837,6 +2837,54 @@ function DetailsTab({
               );
             })}
           </div>
+
+          {/* Remove-from-chain action lives in the chain viewer (the surface
+              where users reason about the chain), not buried inside the
+              Properties edit form. Gated on hasDependencies (the section
+              itself only renders when a chain exists), so the checkbox
+              never shows without a chain to remove from. */}
+          <div className="mt-5 pt-4 border-t border-gray-100">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showRemoveFromChain}
+                onChange={(e) => {
+                  setShowRemoveFromChain(e.target.checked);
+                  if (e.target.checked) {
+                    setRemoveStartDate(task.start_date);
+                  }
+                }}
+                className="w-4 h-4 text-red-500 border-gray-300 rounded focus:ring-red-500"
+              />
+              <span className="text-sm text-red-600 font-medium">
+                Remove from dependency chain
+              </span>
+            </label>
+
+            {showRemoveFromChain && (
+              <div className="mt-3 pl-6 space-y-2">
+                <p className="text-xs text-gray-500">
+                  This task will become standalone. Set its new start date:
+                </p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={removeStartDate}
+                    onChange={(e) => setRemoveStartDate(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRemoveFromChain}
+                    disabled={saving}
+                    className="px-3 py-1.5 text-xs text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50"
+                  >
+                    {saving ? "Removing..." : "Remove from Chain"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </section>
       )}
 
@@ -3008,52 +3056,6 @@ function DetailsTab({
               />
             </div>
           </div>
-
-          {/* Remove from Dependency Chain Section - only show if task has dependencies */}
-          {hasDependencies && (
-            <div className="border-t border-gray-100 pt-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showRemoveFromChain}
-                  onChange={(e) => {
-                    setShowRemoveFromChain(e.target.checked);
-                    if (e.target.checked) {
-                      setRemoveStartDate(task.start_date);
-                    }
-                  }}
-                  className="w-4 h-4 text-red-500 border-gray-300 rounded focus:ring-red-500"
-                />
-                <span className="text-sm text-red-600 font-medium">
-                  Remove from dependency chain
-                </span>
-              </label>
-              
-              {showRemoveFromChain && (
-                <div className="mt-3 pl-6 space-y-2">
-                  <p className="text-xs text-gray-500">
-                    This task will become standalone. Set its new start date:
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="date"
-                      value={removeStartDate}
-                      onChange={(e) => setRemoveStartDate(e.target.value)}
-                      className="px-3 py-2 border border-gray-300 rounded-lg text-sm transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleRemoveFromChain}
-                      disabled={saving}
-                      className="px-3 py-1.5 text-xs text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50"
-                    >
-                      {saving ? "Removing..." : "Remove from Chain"}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Add Dependency Section - only for experiment tasks */}
           {canHaveDependencies && (
