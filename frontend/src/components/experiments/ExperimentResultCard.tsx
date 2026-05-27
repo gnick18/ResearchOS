@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
 import { markdownSanitizeSchema } from "@/lib/markdown/sanitize-schema";
+import remarkUnderline from "@/lib/markdown/remark-underline";
 import UserAvatar from "@/components/UserAvatar";
 import MethodChip from "./MethodChip";
 import FreshnessTag, { type FreshnessKind } from "./FreshnessTag";
@@ -214,7 +215,7 @@ export function MarkdownPreview({ content }: { content: string }) {
   return (
     <div className="text-[11px] leading-snug text-gray-700 px-3 py-2 max-h-full overflow-hidden w-full">
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, remarkUnderline]}
         rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema]]}
         components={{
           h1: ({ children }) => (

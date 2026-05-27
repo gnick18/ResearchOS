@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import rehypeSanitize from "rehype-sanitize";
 import { markdownSanitizeSchema } from "@/lib/markdown/sanitize-schema";
+import remarkUnderline from "@/lib/markdown/remark-underline";
 import { codingWorkflowApi, methodsApi as rawMethodsApi } from "@/lib/local-api";
 import type {
   CodingWorkflowLanguage,
@@ -349,6 +351,7 @@ function NotebookCell({ cell, hint }: { cell: ParsedNbCell; hint: string }) {
     return (
       <div className="rounded-lg border border-gray-100 p-3 bg-white">
         <ReactMarkdown
+          remarkPlugins={[remarkGfm, remarkUnderline]}
           rehypePlugins={[[rehypeSanitize, markdownSanitizeSchema], rehypeHighlight]}
         >
           {cell.source}

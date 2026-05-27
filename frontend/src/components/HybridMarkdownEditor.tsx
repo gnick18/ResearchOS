@@ -7,6 +7,7 @@ import rehypeRaw from "rehype-raw";
 import rehypeHighlight from "rehype-highlight";
 import rehypeSanitize from "rehype-sanitize";
 import { markdownSanitizeSchema } from "@/lib/markdown/sanitize-schema";
+import remarkUnderline from "@/lib/markdown/remark-underline";
 import {
   parseMarkdownBlocks,
   type MarkdownBlock,
@@ -2486,7 +2487,7 @@ export default function HybridMarkdownEditor({
           ) : block.content.trim() ? (
             <div className="prose prose-sm prose-gray max-w-none">
               <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
+                remarkPlugins={[remarkGfm, remarkUnderline]}
                 rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema], rehypeHighlight]}
                 components={{
                   a: ({ href, children, ...aProps }) => {

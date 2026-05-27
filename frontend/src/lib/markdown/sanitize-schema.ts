@@ -10,6 +10,10 @@ import type { Options as SanitizeOptions } from "rehype-sanitize";
  *   - Comment nodes preserved so `<!-- stamp:start -->` markers from
  *     stamp-utils.ts survive the parse → sanitize → render roundtrip while
  *     still being invisible in the rendered DOM.
+ *   - `u` added to the tag allowlist. GitHub's default schema omits `<u>`,
+ *     but ResearchOS uses underline as a first-class inline format (the
+ *     `_text_` convention plus the `<u>` literal injected by the Cmd+U
+ *     keyboard shortcut), so it must survive sanitization.
  *
  * The defaultSchema already strips `iframe`, `script`, `style`, `object`,
  * `embed`, `form`, `meta`, `link`, `base`, plus every `on*` handler, the
@@ -19,6 +23,7 @@ import type { Options as SanitizeOptions } from "rehype-sanitize";
 export const markdownSanitizeSchema: SanitizeOptions = {
   ...defaultSchema,
   allowComments: true,
+  tagNames: [...(defaultSchema.tagNames ?? []), "u"],
   protocols: {
     ...defaultSchema.protocols,
     href: ["http", "https", "mailto", "tel"],

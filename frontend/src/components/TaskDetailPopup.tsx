@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
 import { markdownSanitizeSchema } from "@/lib/markdown/sanitize-schema";
+import remarkUnderline from "@/lib/markdown/remark-underline";
 import { filesApi, methodsApi, projectsApi, dependenciesApi, fetchAllTasks, fetchAllProjectsIncludingShared, purchasesApi, tasksApi as rawTasksApi, type DuplicateCheckResult } from "@/lib/local-api";
 import { ownerScopedTasksApi } from "@/lib/tasks/owner-scoped-api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -1697,7 +1698,7 @@ function PropertyGrid({
             Deviation log
           </dt>
           <div className="prose prose-sm prose-gray max-w-none bg-amber-50 border border-amber-100 rounded-lg p-3">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema]]}>
+            <ReactMarkdown remarkPlugins={[remarkGfm, remarkUnderline]} rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema]]}>
               {task.deviation_log}
             </ReactMarkdown>
           </div>
@@ -4656,7 +4657,7 @@ function PdfAttachmentsPanel({
           {isMarkdown ? (
             markdownContent ? (
               <div className="h-full overflow-y-auto p-6 prose prose-sm prose-gray max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema]]}>
+                <ReactMarkdown remarkPlugins={[remarkGfm, remarkUnderline]} rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema]]}>
                   {markdownContent}
                 </ReactMarkdown>
               </div>

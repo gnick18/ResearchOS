@@ -7,6 +7,7 @@ import rehypeRaw from "rehype-raw";
 import rehypeHighlight from "rehype-highlight";
 import rehypeSanitize from "rehype-sanitize";
 import { markdownSanitizeSchema } from "@/lib/markdown/sanitize-schema";
+import remarkUnderline from "@/lib/markdown/remark-underline";
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 
 interface RenderedMarkdownProps {
@@ -89,7 +90,7 @@ export default function RenderedMarkdown({
   return (
     <div className={className}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, remarkUnderline]}
         rehypePlugins={rehypePlugins}
         components={{
           img: ({ src, alt, ...props }) => {

@@ -7,6 +7,7 @@ import rehypeRaw from "rehype-raw";
 import rehypeHighlight from "rehype-highlight";
 import rehypeSanitize from "rehype-sanitize";
 import { markdownSanitizeSchema } from "@/lib/markdown/sanitize-schema";
+import remarkUnderline from "@/lib/markdown/remark-underline";
 import { filesApi } from "@/lib/local-api";
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 import Tooltip from "./Tooltip";
@@ -116,7 +117,7 @@ export default function MarkdownPreview({
           {!loading && !error && (
             <div className="prose prose-sm prose-gray max-w-none">
               <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
+                remarkPlugins={[remarkGfm, remarkUnderline]}
                 rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema], rehypeHighlight]}
                 components={{
                   img: ({ src, alt, ...props }) => {
