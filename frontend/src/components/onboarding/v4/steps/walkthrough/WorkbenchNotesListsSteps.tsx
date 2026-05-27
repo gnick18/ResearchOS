@@ -638,11 +638,18 @@ export const workbenchListMarkDoneStep = buildWalkthroughStep({
       tourClickWithLockBypass(btn);
     });
 
+    // Hand-walk pacing 2026-05-27: the prior 500ms pauses collapsed
+    // expand + check + mark into a ~1.5s blur. Bumped to 1400ms so
+    // each action reads as a distinct beat. The "individual items as
+    // you work" speech beat lands during the first pause; the user
+    // sees the subtask check; then a deliberate pause; then the
+    // mark-complete reads as a separate "once everything is done"
+    // beat. Total demo runtime ~5s, which matches the speech length.
     return compactScript([
       expandCard,
-      callbackAction(() => pause(500)),
+      callbackAction(() => pause(1400)),
       checkItem,
-      callbackAction(() => pause(500)),
+      callbackAction(() => pause(1800)),
       clickMark,
     ]);
   }),
