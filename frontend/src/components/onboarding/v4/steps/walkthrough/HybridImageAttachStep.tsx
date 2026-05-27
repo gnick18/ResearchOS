@@ -1,67 +1,43 @@
 /**
- * §6.7 HE-8 — image attach (BeakerBot demo with off-screen cursor entry).
+ * §6.7 HE-8 — image attach (USER ACTION, voice-changed 2026-05-27 by
+ * v4 tour structural manager Wave 1).
  *
- * Hybrid editor manager 2026-05-22. The cursor materialises off-screen
- * right, holding a thumbnail of BeakerBot's funny selfie. It glides
- * into the attachments area (the editor's image strip) and drops the
- * file. The image preview tracks the cursor for the whole step.
+ * Pre-2026-05-27 this was BEAKERBOT_DEMO: BeakerBot's cursor materialised
+ * off-screen holding a thumbnail of the funny selfie, glided over the
+ * editor's image strip, and dropped the attachment with the onEnter
+ * helper landing the file in the experiment's Notes-tab Images folder.
  *
- * Artifact:
- *   { type: "notes_image", id: "<encoded>", cleanup_default: "discard" }
+ * Grant's 2026-05-27 tour script rewrite reclassifies this beat as a
+ * USER ACTION: the user drags any image file from their computer into
+ * the editor themselves. Wave 1 removes the cursor script, the
+ * off-screen cursor entry, and the held image so the user owns the
+ * drag without any cursor in the way. Spotlight stays on
+ * `hybridEditorImageStrip` so the user knows where to drop. Completion
+ * stays manual ("Got it, next") per the new script's metadata block.
  *
- * Hybrid editor manager 2026-05-22: this step continues to rely on the
- * existing `onEnterHybridEditorImageDrop` helper to actually seed the
- * selfie blob into the experiment's Notes-tab Images folder, so the
- * image strip has something to surface. The cursor's drop animation
- * is choreography — the real attachment lands via the onEnter helper.
+ * The seed-the-selfie-blob `onEnter` helper still hangs off this step
+ * in step-registry.ts. Wave 2 may revisit (the user is bringing their
+ * own image, so the helper might be retired) but it is harmless to
+ * leave in place for now; the seeded blob just doesn't get used.
  *
- * Off-screen entry: `cursorEntry: "offscreen-right"` snaps the cursor
- * beyond the right viewport edge before the first glide. The
- * `cursorHeldImage` config renders the selfie thumb next to the
- * cursor for the whole step.
+ * Wave 2 will fill in the real speech.
  *
- * Completion: manual ("Got it, next").
+ * v4 tour structural manager
  */
-import {
-  cursorScript,
-  safeGlideToElementAction,
-  compactScript,
-} from "./lib/cursor-script";
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
-import { SELFIE_PUBLIC_URL } from "./lib/on-enter-helpers";
 
 export const hybridImageAttachStep = buildWalkthroughStep({
   id: "hybrid-image-attach",
-  speech: (
-    <>
-      <p className="mb-2">
-        Time for images. I&apos;ll attach my own image to your
-        experiment so you can see how it works.
-      </p>
-      <p>Watch, I&apos;m bringing a file in from off-screen.</p>
-    </>
-  ),
+  // TODO(wave2): hybrid-image-attach
+  // (User-action prompt: "Try it now: drag any image file from your
+  // computer into the editor.")
+  speech: "TODO(wave2): hybrid-image-attach",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.hybridEditorImageStrip),
-  cursorEntry: "offscreen-right",
-  cursorHeldImage: {
-    src: SELFIE_PUBLIC_URL,
-    width: 56,
-    height: 56,
-    alt: "BeakerBot selfie",
-  },
-  cursorScript: cursorScript(async () => {
-    // The cursor's snapTo runs BEFORE this script via the controller's
-    // cursorEntry handling. The first glide here brings the cursor
-    // (with the held image) onto the attachments area. We use a glide
-    // action rather than a drag because the actual attachment landing
-    // is handled by the onEnter helper (`onEnterHybridImageAttach`).
-    const glideToStrip = await safeGlideToElementAction(
-      targetSelector(TOUR_TARGETS.hybridEditorImageStrip),
-      3000,
-    );
-    return compactScript([glideToStrip]);
-  }),
+  // No cursorScript, no cursorEntry, no cursorHeldImage: user-action
+  // step. Wave 2 may add a page-lock if the new script's "drag any
+  // image file from your computer" intent needs to enforce that the
+  // drop lands on the editor strip and not elsewhere.
   completion: manualAdvance("Got it, next"),
 });

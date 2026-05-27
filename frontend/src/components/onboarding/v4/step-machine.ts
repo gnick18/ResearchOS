@@ -91,14 +91,11 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "setup-wrapup",
 
   // ----- Phase 2: universal walkthrough (§6.1 - §6.12)
-  // Home page intro added 2026-05-26 (transition-intro sub-bot) per
-  // Grant's standing principle: every route transition needs a
-  // BeakerBot intro that explains what the page is for + the core
-  // concepts before any cursor demo or click prompt. Pre-fix the user
-  // came off the setup modal, landed on home, and immediately heard
-  // "click the blue plus button" with no setup for what Home is or
-  // what a Project is on this site.
-  "home-page-intro",
+  // 2026-05-27 (v4 tour structural manager, Wave 1): the prior
+  // `home-page-intro` page-transition beat is retired. Grant's
+  // 2026-05-27 script rewrite folds the home-page framing into the
+  // setup-wrapup body, so an extra narration beat between the modal
+  // and the first user-action is redundant.
   // Home + first project (§6.1). Split into TRIGGER (highlight the
   // button + advance when the form opens) + FILL (explain name +
   // color + the seven-day-week toggle + advance on
@@ -114,16 +111,19 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // because the in-product overlay unmounts on route change. See
   // ProjectOverviewNavStep.tsx for the split rationale.
   "project-overview-nav",
-  // Project page intro added 2026-05-26 (transition-intro sub-bot) per
-  // Grant's page-transition standing principle. Pure narration that
-  // explains the project page shape (topbar metadata strip, Overview
-  // as north star, experiments + notes nested below) BEFORE the
-  // project-overview-prose cursor demo types into the textarea. The
-  // pre-fix project-overview-prose blended the narration with the
-  // cursor type, asking literal readers to read + watch at the same
-  // time.
-  "project-page-intro",
+  // 2026-05-27 (v4 tour structural manager, Wave 1): the prior
+  // `project-page-intro` page-transition beat is retired. Grant's
+  // script rewrite reshapes the §6.2 opening so `project-overview-nav`
+  // carries the page-context framing directly.
   "project-overview-prose",
+  // 2026-05-27 (v4 tour structural manager, Wave 1): split off the
+  // BEAKERBOT_DEMO portion of `project-overview-prose` (the cursor
+  // typing demo) into `project-overview-typing-demo`, with a new
+  // `project-overview-rollup` NARRATION beat in between that
+  // describes how the Results / Methods / Activity sections roll up
+  // automatically. Position: prose → rollup → typing-demo → context.
+  "project-overview-rollup",
+  "project-overview-typing-demo",
   // Context narration (Grant 2026-05-22, v4 §6.2 overview teach sub-bot):
   // BeakerBot points at the sticky project topbar and narrates the
   // metadata strip (name, tags, action icons) so the user knows where
@@ -163,6 +163,11 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "home-widgets-add",
   "home-widgets-reorder",
   "home-widgets-exit",
+  // 2026-05-27 (v4 tour structural manager, Wave 1): new
+  // `notifications-intro` narration beat sits before the click-the-bell
+  // user-action so BeakerBot can frame the top-bar bell + inbox pair
+  // before the user has to interact with either.
+  "notifications-intro",
   // Notifications universal moment (§6.3). Split into three beats so
   // the user actually opens the inbox, silences the row, and dismisses
   // it before moving on — see ONBOARDING_V4_PROPOSAL.md §6.3 (Grant's
@@ -187,31 +192,37 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "methods-category-open",   // §6.4a-open (user opens the modal)
   "methods-category",        // §6.4a-demo (cursor types + clicks Create Empty)
   "methods-open-picker",     // §6.4 bridge (click New Method, modal mounts)
-  // §6.4b (Grant 2026-05-26 rework, methods-cluster sub-bot): explain
-  // the common-case methods (file attach + markdown editor) BEFORE
-  // jumping into the interactive PCR builder. Most labs already have
-  // protocols as PDFs or Word docs, so the tour leads with that and
-  // positions interactive builders as the bonus for specific common
-  // method types. LC Gradient demo dropped entirely; PCR carries the
-  // interactive narrative on its own (with two live edits + free-play).
-  "methods-file-vs-markdown", // §6.4b-0: explain file attach + markdown
+  // 2026-05-27 (v4 tour structural manager, Wave 1): the prior
+  // `methods-file-vs-markdown` explainer beat is retired. Grant's new
+  // script reshapes §6.4b around two interactive builders (PCR + LC
+  // Gradient); file-attach is mentioned in passing in the new
+  // `methods-type-tour` copy and doesn't need its own beat anymore.
   "methods-type-tour",        // §6.4b-1: PCR builder demo (two edits + free-play)
+  // 2026-05-27 (v4 tour structural manager, Wave 1): re-introduce
+  // `methods-lc-demo` as a split-off BEAKERBOT_DEMO that exercises the
+  // LC Gradient editor. Lives between PCR (`methods-type-tour`) and the
+  // standard markdown demo (`methods-create`).
+  "methods-lc-demo",          // §6.4b-2: LC Gradient editor demo
   "methods-create",           // §6.4d (BeakerBot's funny markdown method)
   // Workbench experiment creation (§6.5)
-  // Page intro added 2026-05-26 (transition-intro sub-bot) per Grant's
-  // standing principle: every route transition needs a BeakerBot intro
-  // that explains what the page is for + the core concepts before any
-  // cursor demo or click prompt. Pre-fix the user landed on /workbench
-  // and immediately saw the cursor clicking "+ New Experiment" with no
-  // setup for what Workbench is or what an experiment task means.
-  "workbench-page-intro",              // §6.5 page intro (pure narration)
+  // 2026-05-27 (v4 tour structural manager, Wave 1): the prior
+  // `workbench-page-intro` page-transition beat is retired. Grant's
+  // script rewrite folds the page framing into the
+  // `workbench-create-experiment-open` step opening so the user gets
+  // one combined narration-plus-click-prompt beat.
   // Grant 2026-05-21 split: separate the user-action open-click from
   // BeakerBot's type+submit demo. Same shape as §6.4 methods-category
   // (open + demo) and §6.1 home-create-project (open + fill). The user
   // clicks "+ New Experiment" themselves; the cursor then takes over to
   // type the placeholder name and click Create Experiment.
-  "workbench-create-experiment-open",  // §6.5a-open (user opens the modal)
-  "workbench-create-experiment",       // §6.5a-demo (cursor types + clicks Save)
+  //
+  // 2026-05-27 (v4 tour structural manager, Wave 1): the prior
+  // `workbench-create-experiment` BEAKERBOT_DEMO follow-up is retired
+  // per Grant's `[DROP]` marker in the new script. The user-action
+  // open-click stands on its own now; the workbench-create-experiment
+  // body owns the auto-fill artifact creation but is no longer a tour
+  // step.
+  "workbench-create-experiment-open",  // §6.5a (user opens the modal + names it)
   // Method attachment + variation notes + snapshot teach (§6.6).
   // Split into 4 popup-mount-safe sub-steps (2026-05-21, HR-dispatched):
   // the original single `experiment-attach-method` step's cursor script
@@ -219,17 +230,12 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // out or fired on a stale DOM. Same class of bug as §6.2's
   // route-spanning script. See MethodAttachmentStep.tsx for the split.
   //
-  // Walkthrough §6.6 reorder (experiment-tabs sub-bot, 2026-05-26): Grant
-  // 2026-05-26 fresh-user walkthrough feedback flagged that the tab
-  // explanation came AFTER the methods-attach demo (HE-0 in §6.7),
-  // which meant the user got the click demo before the conceptual
-  // frame. The new `experiment-tabs-overview` beat lands BETWEEN -open
-  // and -tab so BeakerBot can name the four popup tabs (Details, Lab
-  // Notes, Method, Results) and say what lives behind each one before
-  // any click demo fires. Pure narration plus a soft cursor glide
-  // across the tab pills, no real click.
+  // 2026-05-27 (v4 tour structural manager, Wave 1): the prior
+  // `experiment-tabs-overview` narration beat is retired. Grant's new
+  // script reshapes §6.6 so the tab framing is folded into
+  // `experiment-attach-method-open`; the standalone tabs-overview beat
+  // would now duplicate that copy.
   "experiment-attach-method-open",    // §6.6a click workbench row → open popup
-  "experiment-tabs-overview",         // §6.6a.5 narration: 4 tabs explained
   "experiment-attach-method-tab",     // §6.6b click Methods tab inside popup
   "experiment-attach-method-attach",  // §6.6c click Attach + pick funny method
   "experiment-attach-method-notes",   // §6.6d type variation note + mental model
@@ -239,6 +245,12 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // gate (hybrid-markdown-familiarity) directs the user either through
   // HE-3 (overview) or directly to HE-4 (mechanic).
   "hybrid-notes-vs-results",       // HE-0
+  // 2026-05-27 (v4 tour structural manager, Wave 1): new
+  // `hybrid-editor-scope` NARRATION beat sits between HE-0 and HE-1
+  // to call out that "this is the editor you'll use everywhere" before
+  // the markdown deep-dive starts. See the new tour script's §6.7 for
+  // the speech contract.
+  "hybrid-editor-scope",
   "hybrid-markdown-intro",         // HE-1
   "hybrid-markdown-familiarity",   // HE-2 (in-tour branch gate)
   "hybrid-markdown-overview",      // HE-3 (reached only via HE-2 "yes overview" branch)
@@ -290,14 +302,12 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // Goals overview — RELOCATED to after the share cluster per
   // ONBOARDING_V4_GANTT_REDESIGN.md. Conditional on picks.goals === "yes".
   "gantt-goals-overview",
-  // Settings page intro added 2026-05-26 (transition-intro sub-bot) per
-  // Grant's page-transition standing principle. Pure narration that
-  // explains what /settings is + previews the personalization +
-  // surface-narration clusters about to fire, BEFORE the
-  // personalization-animations cursor demo picks the celebration
-  // theme. Pre-fix the user came off the Gantt and immediately saw
-  // the cursor pick a tile with no setup for the page.
-  "settings-page-intro",
+  // 2026-05-27 (v4 tour structural manager, Wave 1): the prior
+  // `settings-page-intro` beat is replaced by `settings-intro` per
+  // Grant's new script (different id so a stale resume_state can't
+  // pin the controller to the dropped step). Pure narration framing
+  // the whole Settings phase before the animation picker.
+  "settings-intro",
   // Personalization on the Gantt toolbar (§6.9)
   "personalization-animations",
   // Settings deep-dive (§6.10) — phase redesign 2026-05-22 (Settings
@@ -334,15 +344,18 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "settings-tour-streak",
   "settings-tour-rerun",
   "ai-helper-size-diff",
+  // 2026-05-27 (v4 tour structural manager, Wave 1): split off the
+  // cursor-cycles-through-tabs demo portion of `ai-helper-size-diff`
+  // into a dedicated BEAKERBOT_DEMO step. Same `settingsAiHelperSection`
+  // spotlight as the size-diff beat; this one drives the Full / Medium /
+  // Minimal tab cycle.
+  "ai-helper-size-options",
   "ai-helper-use-case-paste",
   "ai-helper-use-case-agentic",
-  // Search page intro added 2026-05-26 (transition-intro sub-bot) per
-  // Grant's page-transition standing principle. Pure narration that
-  // explains what /search is FOR + previews the demo query, BEFORE
-  // the search-demo cursor types into the search box. Pre-fix the
-  // explainer copy was embedded inside the same step's speech bubble
-  // WHILE the cursor was running.
-  "search-page-intro",
+  // 2026-05-27 (v4 tour structural manager, Wave 1): the prior
+  // `search-page-intro` page-transition beat is retired. Grant's
+  // script rewrite folds the search framing into the `search-demo`
+  // step's speech so the page-intro beat is now redundant.
   // Search (§6.11)
   "search-demo",
   // Wiki pointer outro (§6.12) - Wiki pointer multi-beat redesign
@@ -589,6 +602,9 @@ export function isStepGatedOut(
   if (
     step === "ai-helper-deep-explain" ||
     step === "ai-helper-size-diff" ||
+    // v4 tour structural manager (Wave 1, 2026-05-27): new
+    // `ai-helper-size-options` BEAKERBOT_DEMO inherits the trio's gate.
+    step === "ai-helper-size-options" ||
     step === "ai-helper-use-case-paste" ||
     step === "ai-helper-use-case-agentic"
   ) {

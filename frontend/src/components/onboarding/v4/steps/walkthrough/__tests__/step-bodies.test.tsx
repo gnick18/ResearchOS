@@ -49,17 +49,20 @@ import { notificationsDeleteStep } from "../NotificationsDeleteStep";
 import { methodsCategoryStep } from "../MethodsCategoryStep";
 import { methodsCategoryPromptStep } from "../MethodsCategoryPromptStep";
 import { methodsOpenPickerStep } from "../MethodsOpenPickerStep";
-import { methodsFileVsMarkdownStep } from "../MethodsFileVsMarkdownStep";
+// v4 tour structural manager (Wave 1, 2026-05-27):
+// `methods-file-vs-markdown` retired; the file is deleted. The new arc
+// is PCR (methodsBreadthStep) → LC (methodsLcDemoStep skeleton) → markdown
+// (methodsCreateStep).
 import {
   methodsBreadthStep,
   METHODS_BREADTH_TILE_TARGETS,
 } from "../MethodsBreadthStep";
+import { methodsLcDemoStep } from "../MethodsLcDemoStep";
 import { methodsCreateStep, FUNNY_METHOD_NAME } from "../MethodsCreateStep";
 import { workbenchCreateExperimentOpenStep } from "../WorkbenchCreateExperimentOpenStep";
-import {
-  workbenchCreateExperimentStep,
-  PLACEHOLDER_EXPERIMENT_NAME,
-} from "../WorkbenchCreateExperimentStep";
+// v4 tour structural manager (Wave 1, 2026-05-27): `workbench-create-experiment`
+// retired (Grant's [DROP] marker); the WorkbenchCreateExperimentStep.tsx
+// file has been deleted.
 // §6.6 method-attachment split (2026-05-21, HR-dispatched): the
 // original single `methodAttachmentStep` was split into 4 sub-steps to
 // dodge the popup-mount-spanning cursor-script bug. `methodAttachmentStep`
@@ -70,10 +73,15 @@ import { methodAttachmentTabStep } from "../MethodAttachmentTabStep";
 import { methodAttachmentAttachStep } from "../MethodAttachmentAttachStep";
 import { methodAttachmentNotesStep } from "../MethodAttachmentNotesStep";
 import { methodAttachmentStep } from "../MethodAttachmentStep";
-// §6.6 walkthrough reorder (experiment-tabs sub-bot, 2026-05-26): the
-// tabs-overview beat sits between -open and -tab so the four-tab
-// narration precedes the methods-attach demo.
-import { experimentTabsOverviewStep } from "../ExperimentTabsOverviewStep";
+// v4 tour structural manager (Wave 1, 2026-05-27): `experiment-tabs-overview`
+// retired; the ExperimentTabsOverviewStep.tsx file has been deleted.
+// New skeleton imports for Wave 1.
+import { projectOverviewRollupStep } from "../ProjectOverviewRollupStep";
+import { projectOverviewTypingDemoStep } from "../ProjectOverviewTypingDemoStep";
+import { notificationsIntroStep } from "../NotificationsIntroStep";
+import { hybridEditorScopeStep } from "../HybridEditorScopeStep";
+import { settingsIntroStep } from "../SettingsIntroStep";
+import { aiHelperSizeOptionsStep } from "../AiHelperSizeOptionsStep";
 // §6.7 hybrid editor redesign (Hybrid editor manager 2026-05-22): the
 // prior 4 step bodies are retired; new shape is 12 sub-steps.
 import { hybridNotesVsResultsStep } from "../HybridNotesVsResultsStep";
@@ -175,24 +183,34 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   homeCreateProjectFillStep,
   projectOverviewNavStep,
   projectOverviewStep,
+  // v4 tour structural manager (Wave 1, 2026-05-27): new skeleton bodies
+  // between project-overview-prose and project-overview-context.
+  projectOverviewRollupStep,
+  projectOverviewTypingDemoStep,
   projectOverviewContextStep,
+  // v4 tour structural manager (Wave 1, 2026-05-27): new notifications-intro
+  // narration beat before notifications-bell.
+  notificationsIntroStep,
   notificationsBellStep,
   notificationsSilenceStep,
   notificationsDeleteStep,
   methodsCategoryPromptStep,
   methodsCategoryStep,
   methodsOpenPickerStep,
-  methodsFileVsMarkdownStep,
   methodsBreadthStep,
+  // v4 tour structural manager (Wave 1, 2026-05-27): re-introduced
+  // methods-lc-demo skeleton.
+  methodsLcDemoStep,
   methodsCreateStep,
   workbenchCreateExperimentOpenStep,
-  workbenchCreateExperimentStep,
   methodAttachmentOpenStep,
-  experimentTabsOverviewStep,
   methodAttachmentTabStep,
   methodAttachmentAttachStep,
   methodAttachmentNotesStep,
   hybridNotesVsResultsStep,
+  // v4 tour structural manager (Wave 1, 2026-05-27): new hybrid-editor-scope
+  // narration beat between HE-0 and HE-1.
+  hybridEditorScopeStep,
   hybridMarkdownIntroStep,
   hybridMarkdownFamiliarityStep,
   hybridMarkdownOverviewStep,
@@ -222,6 +240,9 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   ganttShareProfileSwitchStep,
   ganttShareUserSeesEditStep,
   ganttGoalsStep,
+  // v4 tour structural manager (Wave 1, 2026-05-27): new settings-intro
+  // narration beat replacing the retired settings-page-intro.
+  settingsIntroStep,
   animationPickerStep,
   // §6.10 Settings phase redesign 2026-05-22 (Settings manager): the
   // 11-step Settings cluster replaces the prior triplet. Legacy
@@ -237,6 +258,9 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   settingsTourStreakStep,
   settingsTourRerunStep,
   settingsAiHelperSizeDiffStep,
+  // v4 tour structural manager (Wave 1, 2026-05-27): new
+  // ai-helper-size-options skeleton between size-diff and use-case-paste.
+  aiHelperSizeOptionsStep,
   settingsAiHelperUseCasePasteStep,
   settingsAiHelperUseCaseAgenticStep,
   searchStep,
@@ -260,28 +284,28 @@ describe("P5 step bodies — universal contract", () => {
       "home-create-project-fill",
       "project-overview-nav",
       "project-overview-prose",
+      // v4 tour structural manager (Wave 1, 2026-05-27): new skeletons.
+      "project-overview-rollup",
+      "project-overview-typing-demo",
       "project-overview-context",
+      "notifications-intro",
       "notifications-bell",
       "notifications-silence",
       "notifications-delete",
       "methods-category-prompt",
       "methods-category",
       "methods-open-picker",
-      "methods-file-vs-markdown",
       "methods-type-tour",
+      "methods-lc-demo",
       "methods-create",
       "workbench-create-experiment-open",
-      "workbench-create-experiment",
       "experiment-attach-method-open",
-      // §6.6 walkthrough reorder (experiment-tabs sub-bot, 2026-05-26):
-      // tabs-overview lives between -open and -tab so the four-tab
-      // narration precedes the methods-attach demo.
-      "experiment-tabs-overview",
       "experiment-attach-method-tab",
       "experiment-attach-method-attach",
       "experiment-attach-method-notes",
       // §6.7 hybrid editor redesign (Hybrid editor manager 2026-05-22)
       "hybrid-notes-vs-results",
+      "hybrid-editor-scope",
       "hybrid-markdown-intro",
       "hybrid-markdown-familiarity",
       "hybrid-markdown-overview",
@@ -312,6 +336,7 @@ describe("P5 step bodies — universal contract", () => {
       "gantt-share-profile-switch",
       "gantt-share-user-sees-edit",
       "gantt-goals-overview",
+      "settings-intro",
       "personalization-animations",
       // §6.10 Settings phase redesign 2026-05-22 (Settings manager).
       "personalization-color",
@@ -323,6 +348,7 @@ describe("P5 step bodies — universal contract", () => {
       "settings-tour-streak",
       "settings-tour-rerun",
       "ai-helper-size-diff",
+      "ai-helper-size-options",
       "ai-helper-use-case-paste",
       "ai-helper-use-case-agentic",
       "search-demo",
@@ -391,15 +417,10 @@ describe("P5 step bodies — universal contract", () => {
       methodsOpenPickerStep,
       methodsBreadthStep,
       methodsCreateStep,
-      // §6.5 Grant 2026-05-21 split: workbench-create-experiment is
-      // the BeakerBot demo (open is the user-action half).
-      workbenchCreateExperimentStep,
+      // v4 tour structural manager (Wave 1, 2026-05-27):
+      // workbench-create-experiment retired (Grant's [DROP] marker).
+      // experiment-tabs-overview retired.
       methodAttachmentOpenStep,
-      // §6.6 walkthrough reorder (experiment-tabs sub-bot, 2026-05-26):
-      // tabs-overview is narration + soft cursor glide across the four
-      // tab pills. Classified as a BeakerBot demo (cursorScript-bearing)
-      // even though the cursor only glides; the glide is the demo.
-      experimentTabsOverviewStep,
       methodAttachmentTabStep,
       methodAttachmentAttachStep,
       methodAttachmentNotesStep,
@@ -415,7 +436,10 @@ describe("P5 step bodies — universal contract", () => {
       hybridH1Step,
       hybridH2Step,
       hybridH3Step,
-      hybridImageAttachStep,
+      // v4 tour structural manager (Wave 1, 2026-05-27): hybrid-image-attach
+      // reclassified as USER ACTION per Grant's new script. The user drags
+      // any image file from their computer into the editor themselves;
+      // no BeakerBot cursor demo. Intentionally excluded from this list.
       // HE-9 hybridImageDragInStep + HE-10 hybridImageResizeStep:
       // converted to USER-ACTION per Grant 2026-05-26 — the user does
       // the drag-in and the resize themselves now. Intentionally
@@ -869,50 +893,11 @@ describe("Methods steps (§6.4)", () => {
   });
 });
 
-describe("MethodsFileVsMarkdownStep (§6.4b-0 common-case explainer, Grant 2026-05-26)", () => {
-  it("uses the canonical step id", () => {
-    expect(methodsFileVsMarkdownStep.id).toBe("methods-file-vs-markdown");
-  });
-  it("manual-advances ('Got it, next') per the universal pacing rule", () => {
-    expect(methodsFileVsMarkdownStep.completion.type).toBe("manual");
-    if (methodsFileVsMarkdownStep.completion.type === "manual") {
-      expect(methodsFileVsMarkdownStep.completion.buttonLabel).toBe(
-        "Got it, next",
-      );
-    }
-  });
-  it("targets the markdown tile so the spotlight points at the most common option", () => {
-    // Per the brief: spotlight the Markdown card and mention the PDF
-    // option in the speech (the spotlight primitive highlights one
-    // target rect, not two).
-    expect(methodsFileVsMarkdownStep.targetSelector).toBe(
-      "[data-tour-target=\"method-type-markdown\"]",
-    );
-  });
-  it("expects the /methods route", () => {
-    expect(methodsFileVsMarkdownStep.expectedRoute).toBe("/methods");
-  });
-  it("has no cursorScript (narration-only step per the brief)", () => {
-    expect(methodsFileVsMarkdownStep.cursorScript).toBeUndefined();
-  });
-  it("speech is multi-sentence and explains BOTH the file-attach and markdown paths", () => {
-    const speech = renderSpeech(methodsFileVsMarkdownStep);
-    // Multi-sentence (BeakerBot's casual-narrative §6.4 voice).
-    const sentences = speech.split(/(?<=[.!?])\s+/).filter(Boolean);
-    expect(sentences.length).toBeGreaterThanOrEqual(3);
-    // Both common-case options are named.
-    expect(speech).toMatch(/PDF/);
-    expect(speech).toMatch(/Word/i);
-    expect(speech).toMatch(/markdown/i);
-    // And the bridge to the interactive PCR demo that follows.
-    expect(speech).toMatch(/PCR/);
-    expect(speech).toMatch(/builder/i);
-  });
-  it("speech contains no em-dashes (universal voice rule)", () => {
-    const speech = renderSpeech(methodsFileVsMarkdownStep);
-    expect(hasEmDash(speech)).toBe(false);
-  });
-});
+// v4 tour structural manager (Wave 1, 2026-05-27): the
+// MethodsFileVsMarkdownStep describe block is removed. The step body
+// + file are retired per Grant's 2026-05-27 script rewrite. Wave 2 may
+// add a placeholder-speech assertion against the new
+// `methodsLcDemoStep` skeleton if it ships before the real body lands.
 
 describe("MethodsOpenPickerStep (§6.4 open-picker beat)", () => {
   it("declares manual completion (universal pacing rule, Grant 2026-05-22)", () => {
@@ -1005,131 +990,12 @@ describe("WorkbenchCreateExperimentOpenStep (§6.5a-open, Grant 2026-05-21 split
   });
 });
 
-describe("WorkbenchCreateExperimentStep (§6.5a-demo, Grant 2026-05-21 split)", () => {
-  it("exports placeholder experiment name for re-use by §6.11 search", () => {
-    expect(PLACEHOLDER_EXPERIMENT_NAME).toBe("Demo Experiment One");
-  });
-  it("declares manual completion (universal pacing rule, Grant 2026-05-22)", () => {
-    // Was event-driven on the tasksApi.create poll. Universal pacing
-    // converts BeakerBot-led demo steps to manual advance.
-    expect(workbenchCreateExperimentStep.completion.type).toBe("manual");
-  });
-  it("retains a cursorScript (demo step types the name + clicks Save)", () => {
-    // Post-split classification: BeakerBot now types the placeholder
-    // name and clicks Create Experiment. The user-action half lives on
-    // `workbench-create-experiment-open` (cursorScript: undefined).
-    expect(workbenchCreateExperimentStep.cursorScript).toBeDefined();
-  });
-  it("targets the experiment name input (cursor types into it)", () => {
-    expect(workbenchCreateExperimentStep.targetSelector).toBe(
-      "[data-tour-target=\"workbench-experiment-name-input\"]",
-    );
-  });
-  it("cursor script clears the name input THEN types THEN clicks submit (no project select branch)", async () => {
-    // experiment-create sub-bot 2026-05-26: the cursor script grew from
-    // 2 actions (type + click) to 4 actions (select-project + clear-name
-    // + type-name + click-submit). Without a project select in the DOM
-    // (the test fixture mounts only the name + submit), the
-    // safeChangeSelectAction call resolves to null and `compactScript`
-    // drops it. The remaining sequence is: clear (callback), type, click.
-    //
-    // This guards two contracts simultaneously:
-    //  - the clear action fires BEFORE the type so RHF / form-draft does
-    //    not produce a doubled name
-    //  - the cursor script gracefully degrades when the project select
-    //    target is missing (so a future tour variant that hides the
-    //    select cannot wedge the demo)
-    const nameInput = document.createElement("input");
-    nameInput.setAttribute("type", "text");
-    nameInput.setAttribute(
-      "data-tour-target",
-      "workbench-experiment-name-input",
-    );
-    const submit = document.createElement("button");
-    submit.setAttribute("data-tour-target", "workbench-experiment-submit");
-    document.body.appendChild(nameInput);
-    document.body.appendChild(submit);
-    try {
-      expect(workbenchCreateExperimentStep.cursorScript).toBeDefined();
-      const actions = await workbenchCreateExperimentStep.cursorScript!();
-      expect(actions).toHaveLength(3);
-      // Beat 1: clear is a callback (no project-select branch taken).
-      expect(actions[0]).toMatchObject({ type: "callback" });
-      // Beat 2: type the placeholder name.
-      expect(actions[1]).toMatchObject({
-        type: "type",
-        target: nameInput,
-        text: PLACEHOLDER_EXPERIMENT_NAME,
-      });
-      // Beat 3: click submit.
-      expect(actions[2]).toMatchObject({ type: "click", target: submit });
-    } finally {
-      nameInput.remove();
-      submit.remove();
-    }
-  });
-  it("cursor script INCLUDES a project-select beat BEFORE the clear when the select target mounts (experiment-create sub-bot 2026-05-26)", async () => {
-    // Mount the project select alongside the name + submit. Even with no
-    // real project resolved (path 3 of resolveTargetProjectId returns
-    // null in this fixture), the script's compactScript filter would drop
-    // the select-change action when its resolver returns null. This test
-    // documents the gate explicitly: the select beat only fires when the
-    // resolver can pick a project. If the resolver returns null, the
-    // script falls back to the 3-action sequence (clear + type + click)
-    // and Miscellaneous wins by default — which is the same shape the
-    // pre-fix demo produced.
-    //
-    // The positive case (resolver returns a real project) is hard to
-    // construct in jsdom without mocking the entire fileService stack;
-    // the unit-level guarantee we lean on instead is that
-    // safeChangeSelectAction itself produces a callback action (covered
-    // by cursor-script.test.tsx) and that the script body inserts that
-    // action AT INDEX 0 (covered here: when resolver returns null, no
-    // action is inserted, so the rest of the script keeps its
-    // pre-existing shape).
-    const select = document.createElement("select");
-    select.setAttribute(
-      "data-tour-target",
-      "workbench-experiment-project-select",
-    );
-    const optionMisc = document.createElement("option");
-    optionMisc.value = "0";
-    optionMisc.textContent = "Miscellaneous (standalone tasks)";
-    select.appendChild(optionMisc);
-    const nameInput = document.createElement("input");
-    nameInput.setAttribute("type", "text");
-    nameInput.setAttribute(
-      "data-tour-target",
-      "workbench-experiment-name-input",
-    );
-    const submit = document.createElement("button");
-    submit.setAttribute("data-tour-target", "workbench-experiment-submit");
-    document.body.appendChild(select);
-    document.body.appendChild(nameInput);
-    document.body.appendChild(submit);
-    try {
-      const actions = await workbenchCreateExperimentStep.cursorScript!();
-      // jsdom resolver returns null (no projects in the fake FS), so the
-      // select beat is dropped and we get 3 actions. The shape assertion
-      // matches the no-select test above — the gate is wired correctly.
-      expect(actions.length).toBeGreaterThanOrEqual(3);
-      // The LAST two actions are always type then click — those don't
-      // depend on the select branch.
-      const last = actions[actions.length - 1];
-      const secondLast = actions[actions.length - 2];
-      expect(secondLast).toMatchObject({
-        type: "type",
-        target: nameInput,
-        text: PLACEHOLDER_EXPERIMENT_NAME,
-      });
-      expect(last).toMatchObject({ type: "click", target: submit });
-    } finally {
-      select.remove();
-      nameInput.remove();
-      submit.remove();
-    }
-  });
-});
+// v4 tour structural manager (Wave 1, 2026-05-27): the
+// WorkbenchCreateExperimentStep describe block is removed. The step body
+// + file are retired per Grant's [DROP] marker in the new tour script.
+// The user-action open-click half (workbench-create-experiment-open)
+// remains and is covered above; the BeakerBot-types-the-name demo half
+// is gone.
 
 describe("MethodAttachmentStep (§6.6)", () => {
   it("speech includes the mental-model paragraph about edits being a copy", () => {
@@ -1283,9 +1149,18 @@ describe("Hybrid editor steps (§6.7 redesign, Hybrid editor manager 2026-05-22)
     expect(hybridShortcutsStep.completion.type).toBe("manual");
     expect(hybridShortcutsStep.pageLock?.allowList?.length).toBeGreaterThan(0);
   });
-  it("HE-8 hybrid-image-attach uses off-screen cursor entry + held image", () => {
-    expect(hybridImageAttachStep.cursorEntry).toBe("offscreen-right");
-    expect(hybridImageAttachStep.cursorHeldImage?.src).toMatch(/beakerbot-selfie/);
+  it("HE-8 hybrid-image-attach is USER ACTION (no cursor) per v4 tour structural manager Wave 1 2026-05-27", () => {
+    // Voice change: BEAKERBOT_DEMO → USER_ACTION. The user drags any
+    // image file from their computer into the editor themselves; no
+    // cursor demo, no off-screen entry, no held image. Spotlight stays
+    // on hybridEditorImageStrip; completion stays manual.
+    expect(hybridImageAttachStep.cursorScript).toBeUndefined();
+    expect(hybridImageAttachStep.cursorEntry).toBeUndefined();
+    expect(hybridImageAttachStep.cursorHeldImage).toBeUndefined();
+    expect(hybridImageAttachStep.completion.type).toBe("manual");
+    expect(hybridImageAttachStep.targetSelector).toBe(
+      "[data-tour-target=\"hybrid-editor-image-strip\"]",
+    );
   });
   it("HE-9 hybrid-image-drag-in is USER-ACTION (no cursor) per Grant 2026-05-26", () => {
     // Converted from BeakerBot demo: the user now performs the

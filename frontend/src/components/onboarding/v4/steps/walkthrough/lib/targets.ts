@@ -30,6 +30,12 @@ export const TOUR_TARGETS = {
 
   // §6.2 Project route Overview prose
   projectOverviewTextarea: "project-overview-textarea",
+  // §6.2 project-overview rollup sections (v4 tour structural manager,
+  // Wave 1, 2026-05-27). New `project-overview-rollup` narration beat
+  // spotlights the Results / Methods / Activity sections that fill
+  // themselves in automatically below the Overview textarea. Stamped on
+  // a wrapper div around those three sibling sections in ProjectRoute.tsx.
+  projectOverviewRollupSections: "project-overview-rollup-sections",
   // §6.2c project route topbar — sticky header containing the project
   // name, tags, and action buttons (edit, share, archive, delete). The
   // §6.2 context sub-step (`project-overview-context`) spotlights this

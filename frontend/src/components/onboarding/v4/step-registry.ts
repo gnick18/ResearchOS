@@ -111,19 +111,25 @@ function placeholderStep(id: TourStepId): TourStep {
 // walkthroughs (P6), lab tour (P7), and the cleanup grid (P8) still
 // render placeholders until their dispatching phase lands.
 // ---------------------------------------------------------------------
-// Page-intro narration steps added 2026-05-26 (transition-intro sub-bot)
-// per Grant's standing principle: every route transition needs a pure-
-// narration BeakerBot intro that explains the page concept BEFORE any
-// cursor demo or click prompt. Each intro sits immediately before the
-// first cursor / user-action beat on its destination route.
-import { homePageIntroStep } from "./steps/walkthrough/HomePageIntroStep";
-import { projectPageIntroStep } from "./steps/walkthrough/ProjectPageIntroStep";
-import { settingsPageIntroStep } from "./steps/walkthrough/SettingsPageIntroStep";
-import { searchPageIntroStep } from "./steps/walkthrough/SearchPageIntroStep";
+// v4 tour structural manager (Wave 1, 2026-05-27): the four page-intro
+// narration steps (home-page-intro / project-page-intro /
+// settings-page-intro / search-page-intro) are retired. Grant's
+// 2026-05-27 script rewrite folds each page's framing into the
+// surrounding step's speech, so the standalone intros are redundant.
+// `settings-page-intro` is replaced by `settings-intro` (different id,
+// different position) and lives below alongside other Wave 1 skeletons.
 import { homeCreateProjectStep } from "./steps/walkthrough/HomeCreateProjectStep";
 import { homeCreateProjectFillStep } from "./steps/walkthrough/HomeCreateProjectFillStep";
 import { projectOverviewNavStep } from "./steps/walkthrough/ProjectOverviewNavStep";
 import { projectOverviewStep } from "./steps/walkthrough/ProjectOverviewStep";
+// v4 tour structural manager (Wave 1, 2026-05-27): new
+// `project-overview-rollup` + `project-overview-typing-demo` skeletons
+// split the prior single `project-overview-prose` step into a narration
+// of the page roll-up (Results/Methods/Activity) plus the BEAKERBOT_DEMO
+// that types into the Overview textarea. Wave 2 fills in speech + cursor
+// scripts.
+import { projectOverviewRollupStep } from "./steps/walkthrough/ProjectOverviewRollupStep";
+import { projectOverviewTypingDemoStep } from "./steps/walkthrough/ProjectOverviewTypingDemoStep";
 import { projectOverviewContextStep } from "./steps/walkthrough/ProjectOverviewContextStep";
 import { projectOverviewExitStep } from "./steps/walkthrough/ProjectOverviewExitStep";
 // §6.2b Home widgets walkthrough (home widgets §6.2b step bodies
@@ -135,6 +141,10 @@ import { homeWidgetsTileAnatomyStep } from "./steps/walkthrough/HomeWidgetsTileA
 import { homeWidgetsAddStep } from "./steps/walkthrough/HomeWidgetsAddStep";
 import { homeWidgetsReorderStep } from "./steps/walkthrough/HomeWidgetsReorderStep";
 import { homeWidgetsExitStep } from "./steps/walkthrough/HomeWidgetsExitStep";
+// v4 tour structural manager (Wave 1, 2026-05-27): new
+// `notifications-intro` narration beat sits before notifications-bell so
+// BeakerBot can frame the bell + inbox pair before the user has to click.
+import { notificationsIntroStep } from "./steps/walkthrough/NotificationsIntroStep";
 import { notificationsBellStep } from "./steps/walkthrough/NotificationsBellStep";
 import { notificationsSilenceStep } from "./steps/walkthrough/NotificationsSilenceStep";
 import { notificationsDeleteStep } from "./steps/walkthrough/NotificationsDeleteStep";
@@ -142,19 +152,25 @@ import { methodsCategoryPromptStep } from "./steps/walkthrough/MethodsCategoryPr
 import { methodsCategoryOpenStep } from "./steps/walkthrough/MethodsCategoryOpenStep";
 import { methodsCategoryStep } from "./steps/walkthrough/MethodsCategoryStep";
 import { methodsOpenPickerStep } from "./steps/walkthrough/MethodsOpenPickerStep";
-import { methodsFileVsMarkdownStep } from "./steps/walkthrough/MethodsFileVsMarkdownStep";
+// v4 tour structural manager (Wave 1, 2026-05-27): `methods-file-vs-markdown`
+// retired. Grant's new script reshapes §6.4b around two interactive
+// builders (PCR + LC Gradient); the prior explainer beat is folded into
+// surrounding speech.
 import { methodsBreadthStep } from "./steps/walkthrough/MethodsBreadthStep";
 // §6.4b Grant 2026-05-21 rework: PCR sub-steps (edit / add-cycle /
 // confirm-cycle) dropped from the active flow. The bodies stay in the
 // repo for now, easy to bring back if Grant changes his mind on the
 // detail level. Removed from TOUR_STEP_ORDER and TOUR_STEPS.
-// §6.4b Grant 2026-05-26 rework: LC Gradient deep-demo dropped entirely
-// (methods-cluster sub-bot). PCR show-off carries the interactive-builder
-// narrative on its own. MethodsLcDemoStep.tsx removed from the tree.
+// v4 tour structural manager (Wave 1, 2026-05-27): re-introduce
+// `methods-lc-demo` as a Wave 1 skeleton. Sits between methods-type-tour
+// (PCR) and methods-create (markdown). Wave 2 fills speech + cursor.
+import { methodsLcDemoStep } from "./steps/walkthrough/MethodsLcDemoStep";
 import { methodsCreateStep } from "./steps/walkthrough/MethodsCreateStep";
-import { workbenchPageIntroStep } from "./steps/walkthrough/WorkbenchPageIntroStep";
+// v4 tour structural manager (Wave 1, 2026-05-27): `workbench-page-intro`
+// retired (page framing folded into workbench-create-experiment-open) +
+// `workbench-create-experiment` retired (Grant's explicit `[DROP]` marker
+// in the new script). Only the user-action open step survives.
 import { workbenchCreateExperimentOpenStep } from "./steps/walkthrough/WorkbenchCreateExperimentOpenStep";
-import { workbenchCreateExperimentStep } from "./steps/walkthrough/WorkbenchCreateExperimentStep";
 // §6.6 method-attachment split (2026-05-21): the original
 // `methodAttachmentStep` was split into 4 popup-mount-safe sub-steps.
 // Re-export glue lives in MethodAttachmentStep.tsx for back-compat.
@@ -162,17 +178,20 @@ import { methodAttachmentOpenStep } from "./steps/walkthrough/MethodAttachmentOp
 import { methodAttachmentTabStep } from "./steps/walkthrough/MethodAttachmentTabStep";
 import { methodAttachmentAttachStep } from "./steps/walkthrough/MethodAttachmentAttachStep";
 import { methodAttachmentNotesStep } from "./steps/walkthrough/MethodAttachmentNotesStep";
-// §6.6 walkthrough reorder (experiment-tabs sub-bot, 2026-05-26): pure
-// narration beat that names the four popup tabs (Details, Lab Notes,
-// Method, Results) BEFORE the methods-attach demo. Sits between
-// `experiment-attach-method-open` and `experiment-attach-method-tab`.
-import { experimentTabsOverviewStep } from "./steps/walkthrough/ExperimentTabsOverviewStep";
+// v4 tour structural manager (Wave 1, 2026-05-27): `experiment-tabs-overview`
+// retired. Grant's new script folds the tab framing into the surrounding
+// step's speech so the standalone overview beat is redundant.
 // §6.7 hybrid editor redesign (Hybrid editor manager 2026-05-22): the
 // prior 4 sub-steps (shortcuts / paragraphs / image-drop / resize) are
 // retired. Their .tsx files stay in tree with @deprecated JSDoc tags
 // and no longer mount via the registry. New shape: 12 sub-steps from
 // HE-0 through HE-11, plus an in-tour branch gate at HE-2.
 import { hybridNotesVsResultsStep } from "./steps/walkthrough/HybridNotesVsResultsStep";
+// v4 tour structural manager (Wave 1, 2026-05-27): new
+// `hybrid-editor-scope` narration beat sits between HE-0 (notes-vs-
+// results) and HE-1 (markdown-intro) so BeakerBot can frame the editor
+// as the same one used everywhere before the markdown deep-dive starts.
+import { hybridEditorScopeStep } from "./steps/walkthrough/HybridEditorScopeStep";
 import { hybridMarkdownIntroStep } from "./steps/walkthrough/HybridMarkdownIntroStep";
 import { hybridMarkdownFamiliarityStep } from "./steps/walkthrough/HybridMarkdownFamiliarityStep";
 import { hybridMarkdownOverviewStep } from "./steps/walkthrough/HybridMarkdownOverviewStep";
@@ -223,6 +242,10 @@ import {
   ganttShareUserSeesEditStep,
 } from "./steps/walkthrough/GanttShareClusterSteps";
 import { ganttGoalsStep } from "./steps/walkthrough/GanttGoalsStep";
+// v4 tour structural manager (Wave 1, 2026-05-27): new `settings-intro`
+// narration beat replaces the retired `settings-page-intro`. Sits between
+// gantt-goals-overview and personalization-animations. Wave 2 fills speech.
+import { settingsIntroStep } from "./steps/walkthrough/SettingsIntroStep";
 import { animationPickerStep } from "./steps/walkthrough/AnimationPickerStep";
 import {
   settingsColorStep,
@@ -254,8 +277,15 @@ import {
 // in its file with @deprecated JSDoc but no longer wires through the
 // registry.
 import { settingsAiHelperSizeDiffStep } from "./steps/walkthrough/SettingsAiHelperSizeDiffStep";
+// v4 tour structural manager (Wave 1, 2026-05-27): new
+// `ai-helper-size-options` BEAKERBOT_DEMO splits off the cursor-cycles-
+// through-tabs portion of `ai-helper-size-diff`. Same gate, same spotlight.
+import { aiHelperSizeOptionsStep } from "./steps/walkthrough/AiHelperSizeOptionsStep";
 import { settingsAiHelperUseCasePasteStep } from "./steps/walkthrough/SettingsAiHelperUseCasePasteStep";
 import { settingsAiHelperUseCaseAgenticStep } from "./steps/walkthrough/SettingsAiHelperUseCaseAgenticStep";
+// v4 tour structural manager (Wave 1, 2026-05-27): `search-page-intro`
+// retired; Grant's new script folds the page framing into the existing
+// `search-demo` speech so the standalone intro is redundant.
 import { searchStep } from "./steps/walkthrough/SearchStep";
 // §6.12 Wiki pointer multi-beat redesign 2026-05-22 (Wiki pointer manager).
 // The legacy single `wikiPointerStep` body is replaced by a 4-beat cluster:
@@ -283,15 +313,20 @@ import { tourGoodbyeStep } from "./steps/cleanup/TourGoodbyeStep";
  *  step is never reached; vice versa means the controller renders a
  *  placeholder. */
 const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
-  // Page-intro narration steps (transition-intro sub-bot, 2026-05-26)
-  [homePageIntroStep.id]: homePageIntroStep,
-  [projectPageIntroStep.id]: projectPageIntroStep,
-  [settingsPageIntroStep.id]: settingsPageIntroStep,
-  [searchPageIntroStep.id]: searchPageIntroStep,
+  // v4 tour structural manager (Wave 1, 2026-05-27): the 4 page-intro
+  // narration entries (home / project / settings / search) are retired.
+  // Their framing is folded into surrounding step speech in Grant's new
+  // script. `settings-intro` is the renamed replacement for the settings
+  // beat and lives in its new position lower in this map.
   [homeCreateProjectStep.id]: homeCreateProjectStep,
   [homeCreateProjectFillStep.id]: homeCreateProjectFillStep,
   [projectOverviewNavStep.id]: projectOverviewNavStep,
   [projectOverviewStep.id]: projectOverviewStep,
+  // v4 tour structural manager (Wave 1, 2026-05-27): new
+  // `project-overview-rollup` + `project-overview-typing-demo` skeletons
+  // split off the prose step's NARRATION vs BEAKERBOT_DEMO halves.
+  [projectOverviewRollupStep.id]: projectOverviewRollupStep,
+  [projectOverviewTypingDemoStep.id]: projectOverviewTypingDemoStep,
   [projectOverviewContextStep.id]: projectOverviewContextStep,
   [projectOverviewExitStep.id]: projectOverviewExitStep,
   // §6.2b Home widgets walkthrough (home widgets §6.2b step bodies
@@ -302,6 +337,9 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [homeWidgetsAddStep.id]: homeWidgetsAddStep,
   [homeWidgetsReorderStep.id]: homeWidgetsReorderStep,
   [homeWidgetsExitStep.id]: homeWidgetsExitStep,
+  // v4 tour structural manager (Wave 1, 2026-05-27): new
+  // `notifications-intro` narration beat sits before notifications-bell.
+  [notificationsIntroStep.id]: notificationsIntroStep,
   [notificationsBellStep.id]: notificationsBellStep,
   [notificationsSilenceStep.id]: notificationsSilenceStep,
   [notificationsDeleteStep.id]: notificationsDeleteStep,
@@ -309,23 +347,29 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [methodsCategoryOpenStep.id]: methodsCategoryOpenStep,
   [methodsCategoryStep.id]: methodsCategoryStep,
   [methodsOpenPickerStep.id]: methodsOpenPickerStep,
-  [methodsFileVsMarkdownStep.id]: methodsFileVsMarkdownStep,
+  // v4 tour structural manager (Wave 1, 2026-05-27):
+  // `methods-file-vs-markdown` retired; PCR (methodsBreadthStep) +
+  // new methodsLcDemoStep carry the §6.4b builders arc.
   [methodsBreadthStep.id]: methodsBreadthStep,
+  [methodsLcDemoStep.id]: methodsLcDemoStep,
   [methodsCreateStep.id]: methodsCreateStep,
-  [workbenchPageIntroStep.id]: workbenchPageIntroStep,
+  // v4 tour structural manager (Wave 1, 2026-05-27): `workbench-page-intro`
+  // and `workbench-create-experiment` retired. Only the user-action
+  // open-click survives in TOUR_STEP_ORDER.
   [workbenchCreateExperimentOpenStep.id]: workbenchCreateExperimentOpenStep,
-  [workbenchCreateExperimentStep.id]: workbenchCreateExperimentStep,
   [methodAttachmentOpenStep.id]: methodAttachmentOpenStep,
-  // §6.6 walkthrough reorder (experiment-tabs sub-bot, 2026-05-26):
-  // the tabs-overview beat lives between -open and -tab so the
-  // explanation precedes the click demo.
-  [experimentTabsOverviewStep.id]: experimentTabsOverviewStep,
+  // v4 tour structural manager (Wave 1, 2026-05-27):
+  // `experiment-tabs-overview` retired; framing folded into surrounding
+  // step's speech.
   [methodAttachmentTabStep.id]: methodAttachmentTabStep,
   [methodAttachmentAttachStep.id]: methodAttachmentAttachStep,
   [methodAttachmentNotesStep.id]: methodAttachmentNotesStep,
   // §6.7 hybrid editor redesign (Hybrid editor manager 2026-05-22).
   // 12 sub-steps wired in TOUR_STEP_ORDER order. Legacy bodies retired.
   [hybridNotesVsResultsStep.id]: hybridNotesVsResultsStep,
+  // v4 tour structural manager (Wave 1, 2026-05-27): new scope-narration
+  // beat between HE-0 and HE-1.
+  [hybridEditorScopeStep.id]: hybridEditorScopeStep,
   [hybridMarkdownIntroStep.id]: hybridMarkdownIntroStep,
   [hybridMarkdownFamiliarityStep.id]: hybridMarkdownFamiliarityStep,
   [hybridMarkdownOverviewStep.id]: hybridMarkdownOverviewStep,
@@ -371,6 +415,11 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   // Goals overview — RELOCATED to after the share cluster. Conditional
   // on picks.goals === "yes" (step-machine.ts gating unchanged).
   [ganttGoalsStep.id]: ganttGoalsStep,
+  // v4 tour structural manager (Wave 1, 2026-05-27): new
+  // `settings-intro` narration beat replaces the retired
+  // `settings-page-intro`. Lives between gantt-goals-overview and the
+  // animation picker per the new script.
+  [settingsIntroStep.id]: settingsIntroStep,
   [animationPickerStep.id]: animationPickerStep,
   // §6.10 Settings phase redesign 2026-05-22 (Settings manager): the
   // prior single `settings-more` + `ai-helper-deep-explain` cluster is
@@ -386,6 +435,10 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [settingsTourStreakStep.id]: settingsTourStreakStep,
   [settingsTourRerunStep.id]: settingsTourRerunStep,
   [settingsAiHelperSizeDiffStep.id]: settingsAiHelperSizeDiffStep,
+  // v4 tour structural manager (Wave 1, 2026-05-27): new
+  // `ai-helper-size-options` BEAKERBOT_DEMO sits between size-diff
+  // narration and use-case-paste.
+  [aiHelperSizeOptionsStep.id]: aiHelperSizeOptionsStep,
   [settingsAiHelperUseCasePasteStep.id]: settingsAiHelperUseCasePasteStep,
   [settingsAiHelperUseCaseAgenticStep.id]: settingsAiHelperUseCaseAgenticStep,
   [searchStep.id]: searchStep,

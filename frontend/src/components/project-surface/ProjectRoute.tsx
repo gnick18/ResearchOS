@@ -369,10 +369,25 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
           editOwner={effectiveOwnerOf(project)}
           readOnly={isViewOnlyReceiver}
         />
-        <ResultsGallery project={project} />
-        <MethodsInventory project={project} />
-        {goalsEnabled && <GoalsSection project={project} />}
-        <ActivityFeed project={project} />
+        {/**
+          * Onboarding v4 §6.2 spotlight anchor for the new
+          * `project-overview-rollup` narration beat (v4 tour structural
+          * manager, Wave 1, 2026-05-27). Wraps the auto-filling
+          * Results / Methods / Activity sections (plus the optional
+          * Goals section) so BeakerBot can spotlight the whole
+          * roll-up region in one rect. The wrapper preserves the
+          * parent flex-col gap-10 layout by inheriting the same flex
+          * shape inline. See targets.ts → projectOverviewRollupSections.
+          */}
+        <div
+          data-tour-target="project-overview-rollup-sections"
+          className="flex flex-col gap-10"
+        >
+          <ResultsGallery project={project} />
+          <MethodsInventory project={project} />
+          {goalsEnabled && <GoalsSection project={project} />}
+          <ActivityFeed project={project} />
+        </div>
       </div>
 
       {showSharePopup && (

@@ -26,12 +26,11 @@ import {
 } from "../lib/cursor-script";
 import { TOUR_TARGETS, targetSelector } from "../lib/targets";
 import { homeCreateProjectStep } from "../HomeCreateProjectStep";
-import { searchStep } from "../SearchStep";
+// v4 tour structural manager (Wave 1, 2026-05-27):
+// `workbench-create-experiment` retired; the `PLACEHOLDER_EXPERIMENT_NAME`
+// constant now lives in SearchStep.tsx (the only remaining consumer).
+import { searchStep, PLACEHOLDER_EXPERIMENT_NAME } from "../SearchStep";
 import { workbenchCreateExperimentOpenStep } from "../WorkbenchCreateExperimentOpenStep";
-import {
-  workbenchCreateExperimentStep,
-  PLACEHOLDER_EXPERIMENT_NAME,
-} from "../WorkbenchCreateExperimentStep";
 
 /** Mount a fixture element with `data-tour-target` set, plus optional
  *  child elements. Returns a cleanup function. */
@@ -1094,44 +1093,12 @@ describe("step bodies — cursor scripts produce expected actions", () => {
     expect(workbenchCreateExperimentOpenStep.cursorScript).toBeUndefined();
   });
 
-  it("WorkbenchCreateExperimentStep: cursor clears the name THEN types THEN clicks submit (experiment-create sub-bot 2026-05-26)", async () => {
-    // After the experiment-create sub-bot fix, the script grew to insert
-    // a clear-input beat BEFORE the type beat (React Hook Form retention
-    // produced a doubled name otherwise). With no project select in the
-    // DOM fixture, the select-change action drops out of compactScript,
-    // leaving: clear (callback), type, click.
-    const nameInput = document.createElement("input");
-    nameInput.setAttribute("type", "text");
-    nameInput.setAttribute(
-      "data-tour-target",
-      "workbench-experiment-name-input",
-    );
-    const submit = document.createElement("button");
-    submit.setAttribute("data-tour-target", "workbench-experiment-submit");
-    document.body.appendChild(nameInput);
-    document.body.appendChild(submit);
-    try {
-      const script = await workbenchCreateExperimentStep.cursorScript?.();
-      expect(script).toBeDefined();
-      expect(script).toHaveLength(3);
-      // Beat 1: clear is a callback (RHF / form-draft retention guard).
-      expect(script?.[0].type).toBe("callback");
-      // Beat 2: type the placeholder name.
-      expect(script?.[1].type).toBe("type");
-      if (script?.[1].type === "type") {
-        expect(script[1].text).toBe(PLACEHOLDER_EXPERIMENT_NAME);
-        expect(script[1].target).toBe(nameInput);
-      }
-      // Beat 3: click submit.
-      expect(script?.[2].type).toBe("click");
-      if (script?.[2].type === "click") {
-        expect(script[2].target).toBe(submit);
-      }
-    } finally {
-      nameInput.remove();
-      submit.remove();
-    }
-  });
+  // v4 tour structural manager (Wave 1, 2026-05-27):
+  // `WorkbenchCreateExperimentStep: cursor clears the name THEN types
+  // THEN clicks submit` test removed. The BeakerBot-led demo half of
+  // §6.5 was retired per Grant's [DROP] marker; only the user-action
+  // open-click survives (covered above). PLACEHOLDER_EXPERIMENT_NAME
+  // still gets exercised via the SearchStep cursor-types-the-query test.
 
   it("user-action steps with no cursorScript don't expose any glide/click actions", async () => {
     // Defense in depth: even if a future maintainer wires a cursorScript

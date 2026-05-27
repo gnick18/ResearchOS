@@ -152,11 +152,14 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER).not.toContain("phase4-cleanup");
   });
 
-  it("inserts the §6.2b Home widgets cluster between project-overview-exit and notifications-bell (home widgets §6.2b step bodies manager 2026-05-25)", () => {
+  it("inserts the §6.2b Home widgets cluster between project-overview-exit and notifications-intro (home widgets §6.2b step bodies manager 2026-05-25; notifications-intro inserted by Wave 1 2026-05-27)", () => {
     // 5 universal sub-steps between the §6.2 exit beat (which has just
     // pushed the browser back to "/") and the §6.3 notifications cluster.
     // Order matters because each step builds on the prior one's DOM
     // state (add enters edit mode; reorder depends on edit mode being on).
+    // v4 tour structural manager (Wave 1, 2026-05-27): `notifications-intro`
+    // now sits between `home-widgets-exit` and `notifications-bell` so the
+    // §6.3 BeakerBot framing has its own beat.
     const order = [
       "project-overview-exit",
       "home-widgets-canvas-intro",
@@ -164,6 +167,7 @@ describe("TOUR_STEP_ORDER", () => {
       "home-widgets-add",
       "home-widgets-reorder",
       "home-widgets-exit",
+      "notifications-intro",
       "notifications-bell",
     ];
     const indices = order.map((id) => TOUR_STEP_ORDER.indexOf(id));
@@ -323,12 +327,12 @@ describe("TOUR_STEP_ORDER", () => {
     // via getNextStep. The next step under default picks should be the
     // start of the in-product walkthrough.
     //
-    // Pre-2026-05-26 this was `home-create-project`. The transition-intro
-    // sub-bot added `home-page-intro` as a pure-narration BeakerBot intro
-    // beat per Grant's page-transition standing principle, so the first
-    // in-product step is now the intro, not the cursor-click prompt.
+    // v4 tour structural manager (Wave 1, 2026-05-27): `home-page-intro`
+    // retired. Grant's new script folds the home framing into the
+    // setup-wrapup body, so the first in-product step is back to
+    // `home-create-project` (the user-action open-click on +New Project).
     const next = getNextStep("setup-wrapup", picks());
-    expect(next).toBe("home-page-intro");
+    expect(next).toBe("home-create-project");
   });
 
   it("contains the three §6.3 notification sub-step ids", () => {
@@ -362,32 +366,31 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER[0]).toBe("welcome");
   });
 
-  it("places methods-open-picker between methods-category and methods-file-vs-markdown (sub-bot 2026-05-21 + methods-cluster 2026-05-26)", () => {
+  it("places methods-open-picker between methods-category and methods-type-tour (Wave 1 2026-05-27)", () => {
     // §6.4 open-picker beat sits between finishing the category and
-    // the new file-vs-markdown explainer. The cursor click on "+ New
-    // Method" owns the modal-open transition before the
-    // file-vs-markdown narration fires.
+    // the type-tour PCR builder demo. The cursor click on "+ New
+    // Method" owns the modal-open transition before the PCR demo
+    // fires. v4 tour structural manager (Wave 1, 2026-05-27):
+    // `methods-file-vs-markdown` retired; methods-type-tour is now the
+    // first beat after methods-open-picker.
     const categoryIdx = TOUR_STEP_ORDER.indexOf("methods-category");
     const openPickerIdx = TOUR_STEP_ORDER.indexOf("methods-open-picker");
-    const fileVsMarkdownIdx = TOUR_STEP_ORDER.indexOf(
-      "methods-file-vs-markdown",
-    );
+    const typeTourIdx = TOUR_STEP_ORDER.indexOf("methods-type-tour");
     expect(categoryIdx).toBeGreaterThanOrEqual(0);
     expect(openPickerIdx).toBeGreaterThan(categoryIdx);
-    expect(fileVsMarkdownIdx).toBeGreaterThan(openPickerIdx);
+    expect(typeTourIdx).toBeGreaterThan(openPickerIdx);
   });
 
-  it("walks the methods builder arc in file-vs-markdown -> PCR -> markdown order (Grant 2026-05-26 rework)", () => {
-    // §6.4b (Grant 2026-05-26, methods-cluster sub-bot): the new
-    // file-vs-markdown explainer leads (most labs already have
-    // protocols as PDFs or pasted text), then methods-type-tour shows
-    // off the PCR builder with two live edits + free-play, then
-    // methods-create takes over with Standard Markdown. The LC
-    // Gradient deep-demo was removed entirely; PCR carries the
-    // interactive-builder narrative on its own.
+  it("walks the methods builder arc in PCR -> LC -> markdown order (v4 tour structural manager Wave 1, 2026-05-27)", () => {
+    // §6.4b (Grant 2026-05-27 rewrite): the new arc is PCR builder
+    // demo (methods-type-tour) followed by LC Gradient demo
+    // (methods-lc-demo, re-introduced) followed by Standard Markdown
+    // (methods-create). The 2026-05-26 file-vs-markdown explainer was
+    // retired in favor of a single combined PCR+LC interactive-builder
+    // narrative.
     const order = [
-      "methods-file-vs-markdown",
       "methods-type-tour",
+      "methods-lc-demo",
       "methods-create",
     ];
     const indices = order.map((id) => TOUR_STEP_ORDER.indexOf(id));
@@ -402,13 +405,17 @@ describe("TOUR_STEP_ORDER", () => {
     });
   });
 
-  it("does NOT contain the retired methods-lc-demo step (Grant 2026-05-26)", () => {
-    expect(TOUR_STEP_ORDER).not.toContain("methods-lc-demo");
+  it("does NOT contain the retired methods-file-vs-markdown step (Wave 1 2026-05-27)", () => {
+    expect(TOUR_STEP_ORDER).not.toContain("methods-file-vs-markdown");
   });
 
-  it("orders the §6.7 hybrid-editor redesign cluster HE-0 through HE-11 (Hybrid editor manager 2026-05-22)", () => {
+  it("orders the §6.7 hybrid-editor redesign cluster HE-0 through HE-11 (Hybrid editor manager 2026-05-22; hybrid-editor-scope inserted by Wave 1 2026-05-27)", () => {
+    // v4 tour structural manager (Wave 1, 2026-05-27): new
+    // `hybrid-editor-scope` narration beat sits between HE-0 (notes-vs-
+    // results) and HE-1 (markdown-intro).
     const order = [
       "hybrid-notes-vs-results",
+      "hybrid-editor-scope",
       "hybrid-markdown-intro",
       "hybrid-markdown-familiarity",
       "hybrid-markdown-overview",
@@ -588,12 +595,15 @@ describe("isStepGatedOut — Phase 2 conditional walkthroughs (§6.13-6.15)", ()
     expect(isStepGatedOut("ai-helper-deep-explain", null)).toBe(true);
   });
 
-  it("gates the three new ai-helper-* beats on the same ai_helper picks", () => {
+  it("gates the four ai-helper-* beats on the same ai_helper picks (trio + size-options skeleton, Wave 1 2026-05-27)", () => {
     // §6.10 Settings phase redesign 2026-05-22 (Settings manager): the
-    // ai-helper trio shares the prior single-step gate so opt-out users
-    // (no / maybe) skip the entire arc just as before.
+    // ai-helper cluster shares the prior single-step gate so opt-out users
+    // (no / maybe) skip the entire arc just as before. v4 tour structural
+    // manager (Wave 1, 2026-05-27): added `ai-helper-size-options` to the
+    // cluster; it inherits the same gate.
     const trio = [
       "ai-helper-size-diff",
+      "ai-helper-size-options",
       "ai-helper-use-case-paste",
       "ai-helper-use-case-agentic",
     ] as const;
@@ -668,7 +678,7 @@ describe("isStepGatedOut — Phase 2 conditional walkthroughs (§6.13-6.15)", ()
     }
   });
 
-  it("orders the §6.10 Settings cluster: color → 7 tour beats → 3 ai-helper beats", () => {
+  it("orders the §6.10 Settings cluster: color → 7 tour beats → 4 ai-helper beats (Wave 1 added ai-helper-size-options 2026-05-27)", () => {
     const order = [
       "personalization-color",
       "settings-tour-folder",
@@ -679,6 +689,10 @@ describe("isStepGatedOut — Phase 2 conditional walkthroughs (§6.13-6.15)", ()
       "settings-tour-streak",
       "settings-tour-rerun",
       "ai-helper-size-diff",
+      // v4 tour structural manager (Wave 1, 2026-05-27): new
+      // ai-helper-size-options BEAKERBOT_DEMO splits off the cursor-cycles
+      // portion of size-diff. Sits between size-diff and use-case-paste.
+      "ai-helper-size-options",
       "ai-helper-use-case-paste",
       "ai-helper-use-case-agentic",
     ];
@@ -1013,13 +1027,13 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
     // gates on account_type=solo.
     //
     // Solo+minimal skips: 4 prior conditionals (telegram, calendar,
-    // links, gantt-goals-overview) + 3 ai-helper-* (was 1
-    // ai-helper-deep-explain; now 3 split beats sharing the same gate)
-    // + 8 purchases cluster + 1 lab-cleanup + 7 Gantt share cluster
-    // + 1 HE-3 (branch-gated) + 2 settings-tour-* conditional
+    // links, gantt-goals-overview) + 4 ai-helper-* (Wave 1 2026-05-27
+    // added ai-helper-size-options to the trio, all 4 share the same
+    // gate) + 8 purchases cluster + 1 lab-cleanup + 7 Gantt share
+    // cluster + 1 HE-3 (branch-gated) + 2 settings-tour-* conditional
     // (calendar, telegram; account-type-toggle FIRES for solo) +
-    // 1 setup-q1c (lab-only) = 27 gated out for solo.
-    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 27);
+    // 1 setup-q1c (lab-only) = 28 gated out for solo.
+    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 28);
     // Lab+max only has HE-3 (branch-gated, choice cache empty) +
     // settings-tour-account-type-toggle (gates on solo, so lab skips it)
     // = 2 gated out.

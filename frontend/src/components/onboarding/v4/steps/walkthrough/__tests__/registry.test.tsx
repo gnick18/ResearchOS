@@ -8,16 +8,18 @@ import { describe, expect, it } from "vitest";
 import { TOUR_STEPS } from "../../../step-registry";
 
 const P5_STEP_IDS = [
-  // Page-intro narration steps added 2026-05-26 (transition-intro sub-bot)
-  // per Grant's page-transition standing principle. Pure-narration beats
-  // that sit immediately before the first cursor / user-action beat on
-  // their destination route.
-  "home-page-intro",
+  // v4 tour structural manager (Wave 1, 2026-05-27): the 4 page-intro
+  // narration steps (home / project / settings / search) + 4 other
+  // beats (experiment-tabs-overview / methods-file-vs-markdown /
+  // workbench-page-intro / workbench-create-experiment) were retired
+  // per Grant's 2026-05-27 script rewrite. 7 new skeleton ids land in
+  // their place; Wave 2 fills speech / cursor scripts.
   "home-create-project",
   "home-create-project-fill",
   "project-overview-nav",
-  "project-page-intro",
   "project-overview-prose",
+  "project-overview-rollup",
+  "project-overview-typing-demo",
   "project-overview-context",
   "project-overview-exit",
   // §6.2b Home widgets walkthrough (home widgets §6.2b step bodies
@@ -28,6 +30,7 @@ const P5_STEP_IDS = [
   "home-widgets-add",
   "home-widgets-reorder",
   "home-widgets-exit",
+  "notifications-intro",
   "notifications-bell",
   "notifications-silence",
   "notifications-delete",
@@ -35,29 +38,23 @@ const P5_STEP_IDS = [
   "methods-category-open",
   "methods-category",
   "methods-open-picker",
-  "methods-file-vs-markdown",
   "methods-type-tour",
+  "methods-lc-demo",
   "methods-create",
-  // Page intro added 2026-05-26 (transition-intro sub-bot) per Grant's
-  // page-transition standing principle. Pure narration before §6.5.
-  "workbench-page-intro",
   "workbench-create-experiment-open",
-  "workbench-create-experiment",
   // §6.6 method-attachment split (2026-05-21): the original single
   // `experiment-attach-method` id was split into 4 popup-mount-safe
   // sub-steps. Registry must resolve every new id to a non-placeholder.
-  //
-  // §6.6 walkthrough reorder (experiment-tabs sub-bot, 2026-05-26):
-  // the tabs-overview beat sits between -open and -tab so the
-  // four-tab narration precedes the methods-attach demo.
   "experiment-attach-method-open",
-  "experiment-tabs-overview",
   "experiment-attach-method-tab",
   "experiment-attach-method-attach",
   "experiment-attach-method-notes",
   // §6.7 hybrid editor redesign (Hybrid editor manager 2026-05-22):
-  // the old 4 ids retired, 12 new sub-steps HE-0 through HE-11.
+  // 12 sub-steps HE-0 through HE-11. v4 tour structural manager (Wave 1,
+  // 2026-05-27): new `hybrid-editor-scope` narration beat between HE-0
+  // and HE-1.
   "hybrid-notes-vs-results",
+  "hybrid-editor-scope",
   "hybrid-markdown-intro",
   "hybrid-markdown-familiarity",
   "hybrid-markdown-overview",
@@ -76,8 +73,7 @@ const P5_STEP_IDS = [
   // §6.7b Workbench Notes + Lists expansion (Workbench expansion
   // manager 2026-05-22, collapsed to 5 beats by Workbench fix manager
   // R1 2026-05-22). Universal steps between hybrid-file-attach and
-  // gantt-intro. R1 folded `workbench-list-add-items` into
-  // `workbench-list-create-shell` so add-items is no longer wired.
+  // gantt-intro.
   "workbench-notes-intro",
   "workbench-notes-create",
   "workbench-lists-intro",
@@ -98,13 +94,8 @@ const P5_STEP_IDS = [
   "gantt-share-profile-switch",
   "gantt-share-user-sees-edit",
   "gantt-goals-overview",
-  "settings-page-intro",
+  "settings-intro",
   "personalization-animations",
-  // §6.10 Settings phase redesign 2026-05-22 (Settings manager). The
-  // prior triplet (personalization-color, settings-more,
-  // ai-helper-deep-explain) is replaced by 11 steps. The legacy
-  // settings-more + ai-helper-deep-explain ids are NOT in
-  // TOUR_STEP_ORDER any more, so they're absent from this list.
   "personalization-color",
   "settings-tour-folder",
   "settings-tour-calendar",
@@ -114,9 +105,9 @@ const P5_STEP_IDS = [
   "settings-tour-streak",
   "settings-tour-rerun",
   "ai-helper-size-diff",
+  "ai-helper-size-options",
   "ai-helper-use-case-paste",
   "ai-helper-use-case-agentic",
-  "search-page-intro",
   "search-demo",
   // §6.12 Wiki pointer multi-beat redesign 2026-05-22 (Wiki pointer
   // manager). Legacy single `wiki-pointer` id retired; the 4-beat
