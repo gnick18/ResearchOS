@@ -111,6 +111,10 @@ export default function LeaveDemoModal({ isOpen, onClose }: Props) {
   return (
     <div
       className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      // Marker for TourSpotlight (popup-occluding sweep manager,
+      // 2026-05-27). Hides the v4 walkthrough ring while this popup
+      // is mounted; see SnapshotTilePopup for the canonical example.
+      data-tour-popup-occluding="leave-demo"
       onClick={onClose}
     >
       <div

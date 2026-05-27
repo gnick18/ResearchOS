@@ -621,6 +621,10 @@ export default function TaskDetailPopup({
     return (
       <div
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/20"
+        // Marker for TourSpotlight (popup-occluding sweep manager,
+        // 2026-05-27). Hides the v4 walkthrough ring while this popup
+        // is mounted; see SnapshotTilePopup for the canonical example.
+        data-tour-popup-occluding="task-detail-simple"
         onClick={onClose}
       >
         {animationPosition && (
@@ -776,6 +780,10 @@ export default function TaskDetailPopup({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      // Marker for TourSpotlight (popup-occluding sweep manager,
+      // 2026-05-27). Hides the v4 walkthrough ring while this popup
+      // is mounted; see SnapshotTilePopup for the canonical example.
+      data-tour-popup-occluding="task-detail"
       onClick={onClose}
     >
       {animationPosition && (
@@ -3214,6 +3222,9 @@ function DetailsTab({
       {pendingShareTarget && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          // Marker for TourSpotlight (popup-occluding sweep manager,
+          // 2026-05-27).
+          data-tour-popup-occluding="task-detail-share-confirm"
           onClick={() => {
             if (!sharingIntoProject) setPendingShareTarget(null);
           }}

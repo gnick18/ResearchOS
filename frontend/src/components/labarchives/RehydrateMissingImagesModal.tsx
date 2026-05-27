@@ -99,6 +99,10 @@ export default function RehydrateMissingImagesModal({
   return (
     <div
       className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+      // Marker for TourSpotlight (popup-occluding sweep manager,
+      // 2026-05-27). Hides the v4 walkthrough ring while this popup
+      // is mounted; see SnapshotTilePopup for the canonical example.
+      data-tour-popup-occluding="rehydrate-missing-images"
       onClick={handleClose}
     >
       <div

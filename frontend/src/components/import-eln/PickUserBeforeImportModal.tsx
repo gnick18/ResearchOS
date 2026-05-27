@@ -103,6 +103,10 @@ export default function PickUserBeforeImportModal({
       aria-modal="true"
       aria-labelledby="eln-pick-user-title"
       data-testid="eln-pick-user-modal"
+      // Marker for TourSpotlight (popup-occluding sweep manager,
+      // 2026-05-27). Hides the v4 walkthrough ring while this popup
+      // is mounted; see SnapshotTilePopup for the canonical example.
+      data-tour-popup-occluding="eln-pick-user"
       className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       onClick={(e) => {
         // Click-outside closes. Inner card stops propagation below.

@@ -150,6 +150,10 @@ export function RestoreParentPromptHost() {
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       role="presentation"
+      // Marker for TourSpotlight (popup-occluding sweep manager,
+      // 2026-05-27). Hides the v4 walkthrough ring while this popup
+      // is mounted; see SnapshotTilePopup for the canonical example.
+      data-tour-popup-occluding="restore-parent-prompt"
       onClick={() => resolve("cancel")}
     >
       <div

@@ -204,7 +204,13 @@ export default function HighLevelGoalModal({
   }, [name, startDate, endDate, projectId, color, smartGoals, isEditing, editingGoal, queryClient, onClose, clearGoalDraft]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      // Marker for TourSpotlight (popup-occluding sweep manager,
+      // 2026-05-27). Hides the v4 walkthrough ring while this popup
+      // is mounted; see SnapshotTilePopup for the canonical example.
+      data-tour-popup-occluding="high-level-goal-modal"
+    >
       <form
         onSubmit={handleSubmit}
         className="bg-white rounded-xl shadow-2xl max-w-lg w-full mx-4 p-6 max-h-[90vh] overflow-y-auto"

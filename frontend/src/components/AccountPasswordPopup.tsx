@@ -207,6 +207,10 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
   return (
     <div
       className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      // Marker for TourSpotlight (popup-occluding sweep manager,
+      // 2026-05-27). Hides the v4 walkthrough ring while this popup
+      // is mounted; see SnapshotTilePopup for the canonical example.
+      data-tour-popup-occluding="account-password"
       onClick={onClose}
     >
       <div
@@ -396,6 +400,9 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
       {showForgot && (
         <div
           className="fixed inset-0 z-[210] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          // Marker for TourSpotlight (popup-occluding sweep manager,
+          // 2026-05-27).
+          data-tour-popup-occluding="account-password-forgot"
           onClick={() => setShowForgot(false)}
         >
           <div

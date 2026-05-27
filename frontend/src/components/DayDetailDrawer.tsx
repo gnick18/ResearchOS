@@ -99,6 +99,10 @@ export default function DayDetailDrawer({
   return (
     <div
       className="fixed inset-0 z-[90] bg-black/20 backdrop-blur-[2px] flex justify-end"
+      // Marker for TourSpotlight (popup-occluding sweep manager,
+      // 2026-05-27). Hides the v4 walkthrough ring while this drawer
+      // is mounted; see SnapshotTilePopup for the canonical example.
+      data-tour-popup-occluding="day-detail-drawer"
       onClick={onClose}
     >
       <div

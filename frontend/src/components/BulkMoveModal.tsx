@@ -35,7 +35,13 @@ export default function BulkMoveModal() {
   if (!bulkMoveData) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      // Marker for TourSpotlight (popup-occluding sweep manager,
+      // 2026-05-27). Hides the v4 walkthrough ring while this popup
+      // is mounted; see SnapshotTilePopup for the canonical example.
+      data-tour-popup-occluding="bulk-move-confirm"
+    >
       <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
           Confirm Bulk Move

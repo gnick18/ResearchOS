@@ -205,6 +205,10 @@ export default function ShareDialog({
     <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]"
       data-tour-target="share-dialog"
+      // Marker for TourSpotlight (popup-occluding sweep manager,
+      // 2026-05-27). Hides the v4 walkthrough ring while this popup
+      // is mounted; see SnapshotTilePopup for the canonical example.
+      data-tour-popup-occluding="share-dialog"
       onClick={(e) => e.stopPropagation()}
     >
       <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">

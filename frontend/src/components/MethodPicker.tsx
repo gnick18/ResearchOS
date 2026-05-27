@@ -317,6 +317,10 @@ export default function MethodPicker({
   return (
     <div
       className="fixed inset-0 z-[60] flex items-start justify-center bg-black/30 backdrop-blur-sm pt-[10vh] px-4"
+      // Marker for TourSpotlight (popup-occluding sweep manager,
+      // 2026-05-27). Hides the v4 walkthrough ring while this popup
+      // is mounted; see SnapshotTilePopup for the canonical example.
+      data-tour-popup-occluding="method-picker"
       onClick={onClose}
       onKeyDown={handleKeyDown}
     >

@@ -92,6 +92,10 @@ export default function FileViewerModal({
     return (
       <div
         className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+        // Marker for TourSpotlight (popup-occluding sweep manager,
+        // 2026-05-27). Hides the v4 walkthrough ring while this popup
+        // is mounted; see SnapshotTilePopup for the canonical example.
+        data-tour-popup-occluding="file-viewer"
         onClick={onClose}
       >
         <div
@@ -135,6 +139,9 @@ export default function FileViewerModal({
   return (
     <div
       className="fixed inset-0 z-[110] flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      // Marker for TourSpotlight (popup-occluding sweep manager,
+      // 2026-05-27).
+      data-tour-popup-occluding="file-viewer-status"
       onClick={onClose}
     >
       <div

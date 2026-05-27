@@ -70,7 +70,13 @@ export function StepEditPopup({ step, onSave, onClose, isNew = false }: StepEdit
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/20">
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/20"
+      // Marker for TourSpotlight (popup-occluding sweep manager,
+      // 2026-05-27). Hides the v4 walkthrough ring while this popup
+      // is mounted; see SnapshotTilePopup for the canonical example.
+      data-tour-popup-occluding="gradient-editor-step"
+    >
       <div
         ref={popupRef}
         className="bg-white rounded-xl shadow-2xl p-6 w-80"
@@ -180,7 +186,12 @@ export function CycleEditPopup({ repeats, onSave, onClose }: CycleEditPopupProps
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/20">
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/20"
+      // Marker for TourSpotlight (popup-occluding sweep manager,
+      // 2026-05-27).
+      data-tour-popup-occluding="gradient-editor-cycle-repeats"
+    >
       <div
         ref={popupRef}
         className="bg-white rounded-xl shadow-2xl p-6 w-64"
@@ -1685,7 +1696,12 @@ export function InteractiveGradientEditor({
       
       {/* Add cycle confirmation */}
       {addingCycle && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/20">
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/20"
+          // Marker for TourSpotlight (popup-occluding sweep manager,
+          // 2026-05-27).
+          data-tour-popup-occluding="gradient-editor-add-cycle"
+        >
           <div className="bg-white rounded-xl shadow-2xl p-6 w-72">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">
               Add Empty Cycle

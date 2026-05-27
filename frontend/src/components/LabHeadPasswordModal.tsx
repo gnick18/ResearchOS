@@ -113,6 +113,10 @@ export default function LabHeadPasswordModal({
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40"
+      // Marker for TourSpotlight (popup-occluding sweep manager,
+      // 2026-05-27). Hides the v4 walkthrough ring while this popup
+      // is mounted; see SnapshotTilePopup for the canonical example.
+      data-tour-popup-occluding="lab-head-password"
       onClick={onClose}
       role="dialog"
       aria-modal="true"

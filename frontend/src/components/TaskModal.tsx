@@ -441,7 +441,13 @@ export default function TaskModal({ projects }: TaskModalProps) {
   // If no active projects, show a message
   if (activeProjects.length === 0) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+        // Marker for TourSpotlight (popup-occluding sweep manager,
+        // 2026-05-27). Hides the v4 walkthrough ring while this popup
+        // is mounted; see SnapshotTilePopup for the canonical example.
+        data-tour-popup-occluding="task-modal-no-projects"
+      >
         <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             Cannot Create Task
@@ -466,10 +472,19 @@ export default function TaskModal({ projects }: TaskModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      // Marker for TourSpotlight (popup-occluding sweep manager,
+      // 2026-05-27). Hides the v4 walkthrough ring while this popup
+      // is mounted; see SnapshotTilePopup for the canonical example.
+      data-tour-popup-occluding="task-modal"
+    >
       {/* Duplicate Warning Modal */}
       {duplicateWarning && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm">
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm"
+          data-tour-popup-occluding="task-modal-duplicate-warning"
+        >
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
             <h3 className="text-lg font-semibold text-red-600 mb-4">
               Duplicate Task Name Detected

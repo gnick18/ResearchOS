@@ -545,6 +545,10 @@ function UnsavedChangesModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="hybrid-editor-unsaved-title"
+      // Marker for TourSpotlight (popup-occluding sweep manager,
+      // 2026-05-27). Hides the v4 walkthrough ring while this popup
+      // is mounted; see SnapshotTilePopup for the canonical example.
+      data-tour-popup-occluding="hybrid-editor-unsaved"
     >
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-5">
         <h2
