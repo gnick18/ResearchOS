@@ -485,10 +485,12 @@ Now let me show you the different kinds of methods you can build. I'm clicking N
 
 ### methods-type-tour
 
+Hand-walk fix 2026-05-27: dropped the scripted PCR edits (Edit Cycle / Add Step / type temp / type duration / Save) because each subsequent `safeClickAction` refit its target into the viewport and scrolled the modal back to the top, undoing the scroll-down. Cursor now just clicks the PCR tile + scrolls the builder into view; the user pokes the gradient steps themselves. Speech updated from "Take a look around" to invite gradient-step play directly.
+
 ```
 For a handful of common techniques, ResearchOS gives you a purpose-built editor instead of plain text. PCR gets a thermal cycle builder. LC Gradient draws a live chart as you edit. There are others in the catalog, but I'll show you these two so you get the feel.
 
-Opening the PCR builder now. Take a look around, then click "Got it, next" to see the LC Gradient editor.
+Opening the PCR builder now. Try adjusting one of the gradient steps to see how it feels, then click "Got it, next" to see the LC Gradient editor.
 ```
 
 ### methods-lc-demo

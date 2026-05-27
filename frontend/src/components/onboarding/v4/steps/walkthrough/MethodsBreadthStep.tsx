@@ -1,54 +1,36 @@
 /**
- * §6.4b Methods page, PCR builder show-off (v4 sec 6.4b upgrade
- * sub-bot, 2026-05-21; LC removal + edit-cycle pump-up methods-cluster
- * sub-bot 2026-05-26).
+ * §6.4b Methods page, PCR builder show-off.
  *
- * Sits AFTER the file-vs-markdown explainer (`methods-file-vs-markdown`)
- * and BEFORE the funny markdown method demo (`methods-create`). The
- * file-vs-markdown step has already set the user's mental model around
- * the common-case methods (file attach + markdown editor); this step's
- * job is to show off ONE interactive builder so the user knows the
- * builders exist and that they're worth poking at for the specific
- * common method types that have them.
+ * Sits in the methods cluster as the introductory beat to the
+ * purpose-built interactive editors (PCR + LC Gradient). Cursor opens
+ * the PCR builder so the user can see it; the user pokes the gradient
+ * steps themselves to feel out how editable they are.
  *
- * Grant 2026-05-26 live-test feedback on the prior LC follow-up: "I
- * think we can remove this from the method, if we flesh out the PCR
- * show off that is good enough". The LC Gradient deep-demo
- * (`methods-lc-demo`, MethodsLcDemoStep.tsx) was deleted entirely; this
- * step now carries the interactive-builder narrative on its own. Grant
- * also asked for "2 edits to the gradient to show them that its
- * editable, then have them play around" so the cursor script now:
+ * History:
+ *  - 2026-05-21: rebuilt as a single-tile show-off (LC Gradient lived
+ *    on a separate follow-up step).
+ *  - 2026-05-26 (methods-cluster sub-bot): LC follow-up dropped; PCR
+ *    carried the whole interactive-builder narrative.
+ *  - 2026-05-27 (script rewrite): LC Gradient demo reintroduced as
+ *    `methods-lc-demo`; this step shrunk to PCR-only intro + handoff.
+ *  - 2026-05-27 (scroll-and-demo fix manager): added scroll-into-view
+ *    + scripted edit-cycle/add-step/type/save actions.
+ *  - 2026-05-27 (Grant hand-walk fix): scripted edits scrolled BACK to
+ *    the top of the modal because `safeClickAction` re-runs viewport
+ *    fitting on each click target, undoing the scroll-down. Dropped
+ *    the scripted edits entirely. Cursor now just clicks the PCR tile
+ *    + scrolls the builder into view. The user plays with the gradient
+ *    steps themselves. Speech updated to invite the user to try
+ *    adjusting a gradient step.
  *
- *   1. Clicks the PCR tile (the editor mounts inside the same modal).
- *   2. Clicks "Edit Cycle" to flip into edit mode (the toolbar expands).
- *   3. Edits the denaturation temperature input (95 -> 94, visually
- *      obvious change to a clearly numeric field).
- *   4. Edits the annealing time input (30 -> 45, again numeric +
- *      obvious).
- *   5. Hands off to free-play via manualAdvance + the page-lock pill.
+ * Cursor responsibility: BEAKERBOT_DEMO (opens the builder + scrolls
+ * to it). Beyond that, the user explores.
  *
- * Builder pattern (per prior investigation): CreateMethodModal is a
- * modal-in-place pattern, NOT a route nav. The picker
- * (`MethodTypeCategoryPicker`) renders ALWAYS at the top of the modal
- * regardless of `uploadType`; the per-type editor renders below it.
- * Clicking another tile swaps the editor in the same DOM subtree
- * without navigating. The modal stays mounted across the methods
- * cluster, and `methodsCreateStep` picks up with the same modal still
- * open and just switches back to Markdown.
- *
- * Cursor responsibility: BEAKERBOT DEMO. Speech narrates the live
- * edits, the cursor performs them.
- *
- * Completion: manualAdvance("Got it, next") so the user has time to
- * poke at the PCR builder after the cursor's edits land.
- *
- * No artifact (the modal stays open; the eventual methodsCreateStep
- * saves a Markdown method, this builder pivot persists nothing).
+ * Completion: manualAdvance("Got it, next").
  */
 import {
   cursorScript,
   safeClickAction,
-  safeTypeAction,
   callbackAction,
   compactScript,
   waitForElement,
@@ -58,56 +40,19 @@ import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 
 /**
- * The tiles the breadth-step demo visits. PCR-only after Grant's
- * 2026-05-26 LC removal (methods-cluster sub-bot): the prior LC
- * Gradient follow-up step is gone, and PCR carries the interactive-
- * builder narrative on its own.
+ * The tiles the breadth-step demo visits. PCR-only: the LC Gradient
+ * demo lives on its own follow-up step (`methods-lc-demo`).
  *
- * Kept as an exported const so the v4 sec 6.4b upgrade tests can
- * assert the demo visits exactly this tile and no others (regression
- * guard against re-introducing the wide hover sweep).
+ * Exported so tests can regression-guard against re-introducing the
+ * old wide-hover sweep across multiple tiles.
  */
 export const METHODS_BREADTH_TILE_TARGETS = ["method-type-pcr"] as const;
 
-/**
- * Read-then-watch pause between the cursor's visible actions. Matches
- * the 800ms canonical cadence used by methods-category / methods-create
- * so the live-edit beats feel paced like the rest of the cluster.
- */
+/** Read-then-watch pause between the cursor's visible actions. Matches
+ *  the 800ms canonical cadence used by other methods-cluster steps. */
 export const METHODS_PCR_DEMO_PAUSE_MS = 800;
 
-/** Demo values the cursor types into the StepEditPopup. The defaults
- *  the popup seeds with ("New Step" / 60 / 30 sec) get replaced with
- *  values that read as a recognisable PCR denaturation step. Exported
- *  for the test so the assertion can reference the exact strings. */
-export const METHODS_PCR_DEMO_TEMP = "94";
-export const METHODS_PCR_DEMO_DURATION = "45 sec";
-
-/** Small helper used in the demo's callback steps. Clears the value of
- *  an input via the React-safe setter (setNativeInputValue lives inside
- *  BeakerBotCursor.tsx but the same approach works inline). Without
- *  this, the cursor's `type` action APPENDS to the input's current
- *  value, which would yield "6094" instead of "94". The setter pattern
- *  fires onChange so React's state stays in sync. */
-function clearInputValue(target: string): void {
-  if (typeof document === "undefined") return;
-  const el = document.querySelector<HTMLInputElement>(target);
-  if (!el) return;
-  const proto =
-    el instanceof HTMLInputElement
-      ? HTMLInputElement.prototype
-      : HTMLTextAreaElement.prototype;
-  const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
-  if (!setter) {
-    el.value = "";
-  } else {
-    setter.call(el, "");
-  }
-  el.dispatchEvent(new Event("input", { bubbles: true }));
-}
-
-/** Sleep helper used inside the demo's callback pauses. Matches the
- *  pattern from MethodsCategoryStep / MethodsCreateStep. */
+/** Sleep helper used inside the demo's callback pauses. */
 function pause(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -124,16 +69,17 @@ export const methodsBreadthStep = buildWalkthroughStep({
         you get the feel.
       </p>
       <p>
-        Opening the PCR builder now. Take a look around, then click
-        &quot;Got it, next&quot; to see the LC Gradient editor.
+        Opening the PCR builder now. Try adjusting one of the gradient
+        steps to see how it feels, then click &quot;Got it, next&quot;
+        to see the LC Gradient editor.
       </p>
     </>
   ),
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.methodsTypePcrTile),
   cursorScript: cursorScript(async () => {
-    // Wait for the picker (already visible from the open-picker beat
-    // immediately preceding this step). 1) Click PCR tile -> the
+    // 1) Wait for the picker (already visible from the open-picker beat
+    // immediately preceding this step). Click PCR -> the
     // InteractiveGradientEditor mounts inside the same modal.
     await waitForElement(targetSelector(TOUR_TARGETS.methodsTypePicker), 3000);
     const clickPcr = await safeClickAction(
@@ -141,155 +87,54 @@ export const methodsBreadthStep = buildWalkthroughStep({
       2000,
     );
 
-    // 2) Pause so the user sees the editor mount before the next move.
+    // 2) Pause so the user sees the editor mount before the scroll
+    // moves the viewport.
     const pauseAfterTileClick = callbackAction(() =>
       pause(METHODS_PCR_DEMO_PAUSE_MS),
     );
 
-    // 2b) Scroll the modal's inner overflow-y-auto container so the
-    // PCR builder card (Thermal Gradient header + InteractiveGradientEditor
-    // + Reaction Recipe) is visible. The CreateMethodModal body uses
-    // `flex-1 overflow-y-auto p-6` so the builder mounts BELOW the fold
-    // on a typical viewport (the modal is taller than the visible
-    // section). Without this beat, Grant's hand-walk (2026-05-27)
-    // showed BeakerBot firing edit-cycle / add-step / temp-input /
-    // duration-input / save off-screen — the user saw nothing happen.
+    // 3) Scroll the modal's inner overflow-y-auto container so the PCR
+    // builder (Thermal Gradient header + InteractiveGradientEditor +
+    // Reaction Recipe) is visible. The CreateMethodModal body is taller
+    // than the typical viewport, so the builder mounts below the fold.
     //
-    // We wait for `pcr-editor-wrapper` to mount first (it appears on
-    // the PCR tile click), then re-use the controller's
-    // ensureViewportAnchor helper which scrolls the element to
-    // `block: "center"` (or "start" if taller than the viewport).
-    // scrollIntoView traverses scrollable ancestors natively, so the
-    // modal's inner container scrolls without us reaching into it.
-    //
-    // The InputLockOverlay's wheel block does NOT interfere here:
-    // programmatic scrollIntoView is not a wheel event; only USER
-    // wheel scrolling is blocked while the cursor is running. After
-    // the script ends, the InputLockOverlay unmounts and the user
-    // can wheel-scroll inside the modal freely (TourPageLock only
-    // gates clicks via its allow-list, not scroll events).
+    // We loop the scroll a few times with short pauses to outlast any
+    // post-mount layout shifts inside the LC/PCR editor that could
+    // reset the scroll position (e.g., focus management, recharts
+    // mounting). Programmatic scrollIntoView is not a wheel event, so
+    // the InputLockOverlay's wheel block doesn't gate it.
     const scrollBuilderIntoView = callbackAction(async () => {
       await waitForElement(
         targetSelector(TOUR_TARGETS.pcrEditorWrapper),
         2000,
       );
-      await ensureViewportAnchor(
-        targetSelector(TOUR_TARGETS.pcrEditorWrapper),
-        2000,
-      );
+      for (let i = 0; i < 3; i += 1) {
+        await ensureViewportAnchor(
+          targetSelector(TOUR_TARGETS.pcrEditorWrapper),
+          2000,
+        );
+        await pause(250);
+      }
     });
-
-    // 2c) Give the smooth scroll a beat to settle before the cursor
-    // glides into the now-visible toolbar. ensureViewportAnchor polls
-    // until the rect stops moving, so this pause is the "reading
-    // breath" after the builder lands, not a scroll-settle wait.
-    const pauseAfterScroll = callbackAction(() =>
-      pause(METHODS_PCR_DEMO_PAUSE_MS),
-    );
-
-    // 3) Click "Edit Cycle" -> toolbar expands, the Add Step / Add
-    // Cycle / Eraser buttons mount.
-    const clickEditCycle = await safeClickAction(
-      targetSelector(TOUR_TARGETS.pcrEditToggle),
-      2000,
-    );
-
-    const pauseAfterEditCycle = callbackAction(() =>
-      pause(METHODS_PCR_DEMO_PAUSE_MS),
-    );
-
-    // 4) Click "+ Add Step" -> StepEditPopup mounts with defaults
-    // (name "New Step", temperature 60, duration "30 sec"). The popup
-    // is autoFocus'd on the name input.
-    const clickAddStep = await safeClickAction(
-      targetSelector(TOUR_TARGETS.pcrAddStep),
-      2000,
-    );
-
-    // 5) Clear the temperature input and type the demo value. typeInto
-    // APPENDS so we need a callback clear before the type action.
-    const clearTemp = callbackAction(() => {
-      clearInputValue(targetSelector(TOUR_TARGETS.pcrStepTempInput));
-      return pause(150);
-    });
-    const typeTemp = await safeTypeAction(
-      targetSelector(TOUR_TARGETS.pcrStepTempInput),
-      METHODS_PCR_DEMO_TEMP,
-      undefined,
-      2000,
-    );
-
-    const pauseBetweenEdits = callbackAction(() =>
-      pause(METHODS_PCR_DEMO_PAUSE_MS),
-    );
-
-    // 6) Clear the duration input and type the demo value. Same
-    // clear-then-type pattern. Duration is a text input so the type
-    // cadence reads naturally.
-    const clearDuration = callbackAction(() => {
-      clearInputValue(targetSelector(TOUR_TARGETS.pcrStepDurationInput));
-      return pause(150);
-    });
-    const typeDuration = await safeTypeAction(
-      targetSelector(TOUR_TARGETS.pcrStepDurationInput),
-      METHODS_PCR_DEMO_DURATION,
-      undefined,
-      2000,
-    );
-
-    const pauseBeforeSave = callbackAction(() =>
-      pause(METHODS_PCR_DEMO_PAUSE_MS),
-    );
-
-    // 7) Click Save -> popup closes, the new step lands in the
-    // gradient flow with the edited temp + duration.
-    const clickSave = await safeClickAction(
-      targetSelector(TOUR_TARGETS.pcrStepSave),
-      2000,
-    );
 
     return compactScript([
       clickPcr,
       pauseAfterTileClick,
-      // Scroll the modal's inner container so the builder is visible
-      // BEFORE the cursor starts firing Edit Cycle / Add Step / etc.
-      // Grant's 2026-05-27 hand-walk: without this, every action below
-      // landed off-screen.
       scrollBuilderIntoView,
-      pauseAfterScroll,
-      clickEditCycle,
-      pauseAfterEditCycle,
-      clickAddStep,
-      clearTemp,
-      typeTemp,
-      pauseBetweenEdits,
-      clearDuration,
-      typeDuration,
-      pauseBeforeSave,
-      clickSave,
     ]);
   }),
-  // Grant 2026-05-21 rework: manual advance so the user has time to
-  // poke at the PCR builder + read the speech bubble. The prior
-  // 4-sub-step click-around drama moved too fast to follow.
+  // Manual advance: the user pokes at the PCR builder for as long as
+  // they want, then clicks Got it, next to advance to methods-lc-demo.
   completion: manualAdvance("Got it, next"),
   expectedRoute: "/methods",
-  // Methods fix manager 2026-05-22: allow-list lock so the user can
-  // poke around the PCR builder (per the speech bubble's "click
-  // around to get a feel for it") but can't accidentally click outside
-  // the CreateMethodModal / category builder and soft-walk themselves
-  // out of the tour. The methodsCreateForm anchor covers the whole
-  // modal subtree, including the picker tiles + the just-mounted
-  // InteractiveGradientEditor.
+  // Allow-list lock so the user can play inside the CreateMethodModal
+  // (per the speech "Try adjusting one of the gradient steps") without
+  // accidentally clicking out of the tour.
   pageLock: {
     allowList: [TOUR_TARGETS.methodsCreateForm],
     pillLabel: "Play with PCR. Hit Got it, next when you're ready.",
   },
-  // §6.4b viewport anchor (input-lock + viewport-anchor sub-bot 2026-05-21):
-  // the cursor only clicks the small PCR tile, but the user should see
-  // the whole CreateMethodModal surface so the tile click context is
-  // visible. Using the modal wrapper (methodsCreateForm) rather than a
-  // narrower per-builder wrapper because this step is the picker entry —
-  // the PCR builder hasn't mounted yet.
+  // Viewport anchor for step entry. The post-click scroll callback
+  // handles bringing the builder into view once PCR is selected.
   viewportAnchor: targetSelector(TOUR_TARGETS.methodsCreateForm),
 });

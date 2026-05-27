@@ -86,15 +86,24 @@ export const methodsLcDemoStep = buildWalkthroughStep({
     // modal's inner overflow-y-auto container scrolls without us
     // reaching into it. Programmatic scrollIntoView is not a wheel
     // event, so the InputLockOverlay's wheel block does not gate it.
+    //
+    // Grant hand-walk 2026-05-27 follow-up: the single scrollIntoView
+    // call landed but didn't stick — the LC editor's recharts mount +
+    // focus management reset the modal's scroll position back near the
+    // top before the user could see the chart. Loop the scroll a few
+    // times with short pauses to outlast those post-mount layout shifts.
     const scrollChartIntoView = callbackAction(async () => {
       await waitForElement(
         targetSelector(TOUR_TARGETS.lcGradientChart),
         2000,
       );
-      await ensureViewportAnchor(
-        targetSelector(TOUR_TARGETS.lcGradientChart),
-        2000,
-      );
+      for (let i = 0; i < 3; i += 1) {
+        await ensureViewportAnchor(
+          targetSelector(TOUR_TARGETS.lcGradientChart),
+          2000,
+        );
+        await pause(250);
+      }
     });
 
     return compactScript([clickLc, pauseAfterTileClick, scrollChartIntoView]);

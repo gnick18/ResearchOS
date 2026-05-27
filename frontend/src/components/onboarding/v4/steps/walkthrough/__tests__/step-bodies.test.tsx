@@ -838,15 +838,14 @@ describe("Methods steps (§6.4)", () => {
     // tiles in the breadth-step demo.
     expect(METHODS_BREADTH_TILE_TARGETS).toEqual(["method-type-pcr"]);
   });
-  it("breadth step cursor script clicks PCR tile then makes two live edits via the StepEditPopup (Grant 2026-05-26)", async () => {
-    // Per Grant's 2026-05-26 brief: "can beaker do 2 edits to the
-    // gradient to show them that its editable, then have them play
-    // around?". The cursor now: clicks PCR tile, clicks Edit Cycle,
-    // clicks + Add Step (opens StepEditPopup), edits the temperature
-    // input, edits the duration input, clicks Save. The flow uses
-    // Add Step's popup so the edits land in a clean popup with
-    // predictable seeded defaults (vs editing an existing step which
-    // requires a double-click).
+  it("breadth step cursor script clicks PCR tile then scrolls the builder into view (Grant 2026-05-27 hand-walk fix)", async () => {
+    // Grant's 2026-05-27 hand-walk found that the prior scripted edits
+    // (Edit Cycle, Add Step, type temp, type duration, Save) all
+    // scrolled the modal back to the top — each `safeClickAction`
+    // refits its target into the viewport, undoing the earlier
+    // scroll-down. Dropped the scripted edits entirely. Cursor now
+    // just clicks the PCR tile + scrolls the builder into view; the
+    // user pokes the gradient steps themselves.
     const fixtures: Array<{ el: HTMLElement; cleanup: () => void }> = [];
     const mkStub = (target: string, tag: keyof HTMLElementTagNameMap = "button") => {
       const el = document.createElement(tag);
@@ -858,25 +857,20 @@ describe("Methods steps (§6.4)", () => {
     try {
       mkStub("methods-type-picker", "div");
       const pcrTile = mkStub("method-type-pcr");
-      mkStub("pcr-edit-toggle");
-      mkStub("pcr-add-step");
-      mkStub("pcr-step-temp-input", "input");
-      mkStub("pcr-step-duration-input", "input");
-      mkStub("pcr-step-save");
+      mkStub("pcr-editor-wrapper", "div");
 
       expect(methodsBreadthStep.cursorScript).toBeDefined();
       const actions = await methodsBreadthStep.cursorScript!();
-      // At minimum: click PCR, click Edit Cycle, click Add Step, type
-      // two inputs, click Save. Plus interleaved callback pauses.
       const clicks = actions.filter((a) => a.type === "click");
       const types = actions.filter((a) => a.type === "type");
       const callbacks = actions.filter((a) => a.type === "callback");
-      expect(clicks.length).toBeGreaterThanOrEqual(4);
-      expect(types.length).toBe(2);
-      // Callback pauses interleave the visible beats (clear inputs +
-      // read-then-watch beats).
-      expect(callbacks.length).toBeGreaterThanOrEqual(4);
-      // First visible action is the PCR tile click.
+      // Cursor performs exactly one click (the PCR tile) + no types +
+      // at least two callbacks (the post-click pause + the scroll
+      // callback which loops scrollIntoView).
+      expect(clicks.length).toBe(1);
+      expect(types.length).toBe(0);
+      expect(callbacks.length).toBeGreaterThanOrEqual(2);
+      // First action is the PCR tile click.
       const firstClick = actions.find((a) => a.type === "click");
       if (firstClick && firstClick.type === "click") {
         expect(firstClick.target).toBe(pcrTile);
