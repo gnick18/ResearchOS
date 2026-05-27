@@ -53,6 +53,9 @@ import {
   safeTypeAction,
   compactScript,
   callbackAction,
+  waitForElement,
+  setNativeFieldValue,
+  tourClickWithLockBypass,
 } from "./lib/cursor-script";
 import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
@@ -153,67 +156,69 @@ export const methodsCreateStep = buildWalkthroughStep({
       30,
     );
 
-    // 4a. Click the markdown body wrapper to focus the editor and
-    //     guarantee a textarea is mounted before we try to type into
-    //     it. `HybridMarkdownEditor`'s `autoStartEditing` prop (set by
-    //     `CreateMethodModal` for the markdown branch) seeds
-    //     `editingBlockOffset=0` on initial mount when the value is
-    //     empty, so the empty-state textarea SHOULD already be there.
-    //     But the wrapper's onClick is a safe no-op when the textarea
-    //     is already mounted (the `editingBlockOffset === null` guard
-    //     short-circuits) and it actively mounts one when it isn't.
-    //     This makes the body-typing beat resilient to any future flip
-    //     in HybridMarkdownEditor's autoStartEditing seed timing.
-    const clickBodyWrapper = await safeClickAction(
-      targetSelector(TOUR_TARGETS.methodsCreateBodyInput),
-    );
-
-    // 4b. Type the funny body into the markdown editor's empty-state
-    //     textarea. The CSS combinator selector reaches into the
-    //     wrapper's nested textarea without needing a second
-    //     tour-target name. `safeTypeAction` passes the selector
-    //     through so BeakerBotCursor.typeInto can re-resolve if the
-    //     node remounts mid-loop.
+    // Hand-walk fix 2026-05-27 (second pass): the prior `await
+    // safe*Action` calls for the body wrapper, body textarea, save
+    // button, and submit ALL ran waitForElement at BUILD time. Two
+    // ways they could fail:
+    //   1. The Markdown form's body textarea doesn't exist when LC or
+    //      another type was previously selected. After pickMarkdown
+    //      PLAYS, the form re-renders to mount the HybridMarkdownEditor
+    //      — but BUILD time runs before any action plays.
+    //   2. The pickMarkdown click is the LAST thing whose targets are
+    //      reliably present at build time. Everything after must defer.
     //
-    //     25ms cadence on the ~700-character body keeps total typing
-    //     around 18 seconds. Faster than that reads as paste; slower
-    //     drags the demo.
-    const typeBody = await safeTypeAction(
-      '[data-tour-target="methods-create-body-input"] textarea',
-      FUNNY_METHOD_BODY,
-      25,
-    );
+    // Wrap each post-pickMarkdown action in a callbackAction so the
+    // selector resolves at PLAYBACK. Mirrors the
+    // workbench-create-experiment-open + workbench-list-create-shell
+    // defer-to-playback patterns landed earlier today.
 
-    // 4c. methods-create body-typing fix manager 2026-05-27: flush the
-    //     buffered edit into the parent's `mdContent` BEFORE clicking
-    //     Create Method. Under HybridMarkdownEditor's manual-save
-    //     model (commit ff96016e, 2026-05-26) typing into the textarea
-    //     writes only to a local buffer; the parent's `onChange` fires
-    //     only on explicit Save (button click or Cmd+S). Without this
-    //     beat, `CreateMethodModal`'s `mdContent.trim()` stays empty,
-    //     the Create Method button stays disabled, and BeakerBot's
-    //     submit click silently no-ops, dead-ending Grant's 2026-05-27
-    //     hand-walk.
-    //
-    //     The Save button is rendered by `SaveChrome` inside the
-    //     editor; it carries `data-testid="hybrid-editor-save"` and is
-    //     enabled (non-disabled) whenever the editor is dirty, which
-    //     it becomes on the first typed keystroke via
-    //     `handleEditChange → markDirty`. We click via the data-testid
-    //     selector rather than adding a new tour-target so this stays
-    //     local to MethodsCreateStep without touching the editor's
-    //     render layer.
-    const saveBody = await safeClickAction(
-      '[data-tour-target="methods-create-body-input"] [data-testid="hybrid-editor-save"]',
-    );
+    const clickBodyWrapper = callbackAction(async () => {
+      if (typeof document === "undefined") return;
+      const wrapper = await waitForElement(
+        targetSelector(TOUR_TARGETS.methodsCreateBodyInput),
+        3000,
+      );
+      if (!(wrapper instanceof HTMLElement)) return;
+      tourClickWithLockBypass(wrapper);
+    });
 
-    // 5. Click Create Method to save. The modal dispatches
-    //    `tour:method-created` from its handleSave success branch, so
-    //    the step's completion listener fires the instant the save
-    //    resolves.
-    const submit = await safeClickAction(
-      targetSelector(TOUR_TARGETS.methodsCreateSubmit),
-    );
+    const typeBody = callbackAction(async () => {
+      if (typeof document === "undefined") return;
+      // Wait for the body wrapper's nested textarea to mount. The
+      // HybridMarkdownEditor's autoStartEditing seeds the textarea on
+      // mount for empty value; if it isn't there yet, the prior wrapper
+      // click should have triggered the editor to mount one.
+      const textarea = await waitForElement(
+        '[data-tour-target="methods-create-body-input"] textarea',
+        3000,
+      );
+      if (!(textarea instanceof HTMLTextAreaElement)) return;
+      setNativeFieldValue(textarea, FUNNY_METHOD_BODY);
+    });
+
+    const saveBody = callbackAction(async () => {
+      if (typeof document === "undefined") return;
+      // The Save button (SaveChrome inside the editor) carries
+      // data-testid="hybrid-editor-save". Enabled once the editor is
+      // dirty, which it becomes on the first keystroke (or the
+      // setNativeFieldValue input event above).
+      const saveBtn = await waitForElement(
+        '[data-tour-target="methods-create-body-input"] [data-testid="hybrid-editor-save"]',
+        3000,
+      );
+      if (!(saveBtn instanceof HTMLElement)) return;
+      tourClickWithLockBypass(saveBtn);
+    });
+
+    const submit = callbackAction(async () => {
+      if (typeof document === "undefined") return;
+      const btn = await waitForElement(
+        targetSelector(TOUR_TARGETS.methodsCreateSubmit),
+        3000,
+      );
+      if (!(btn instanceof HTMLElement)) return;
+      tourClickWithLockBypass(btn);
+    });
 
     // Methods fix manager 2026-05-22: interleave 800ms read-then-watch
     // pauses between each visible action so the user can register one
