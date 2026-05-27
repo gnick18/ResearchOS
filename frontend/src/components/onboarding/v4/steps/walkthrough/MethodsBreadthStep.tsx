@@ -52,6 +52,7 @@ import {
   callbackAction,
   compactScript,
   waitForElement,
+  ensureViewportAnchor,
 } from "./lib/cursor-script";
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
@@ -145,6 +146,47 @@ export const methodsBreadthStep = buildWalkthroughStep({
       pause(METHODS_PCR_DEMO_PAUSE_MS),
     );
 
+    // 2b) Scroll the modal's inner overflow-y-auto container so the
+    // PCR builder card (Thermal Gradient header + InteractiveGradientEditor
+    // + Reaction Recipe) is visible. The CreateMethodModal body uses
+    // `flex-1 overflow-y-auto p-6` so the builder mounts BELOW the fold
+    // on a typical viewport (the modal is taller than the visible
+    // section). Without this beat, Grant's hand-walk (2026-05-27)
+    // showed BeakerBot firing edit-cycle / add-step / temp-input /
+    // duration-input / save off-screen — the user saw nothing happen.
+    //
+    // We wait for `pcr-editor-wrapper` to mount first (it appears on
+    // the PCR tile click), then re-use the controller's
+    // ensureViewportAnchor helper which scrolls the element to
+    // `block: "center"` (or "start" if taller than the viewport).
+    // scrollIntoView traverses scrollable ancestors natively, so the
+    // modal's inner container scrolls without us reaching into it.
+    //
+    // The InputLockOverlay's wheel block does NOT interfere here:
+    // programmatic scrollIntoView is not a wheel event; only USER
+    // wheel scrolling is blocked while the cursor is running. After
+    // the script ends, the InputLockOverlay unmounts and the user
+    // can wheel-scroll inside the modal freely (TourPageLock only
+    // gates clicks via its allow-list, not scroll events).
+    const scrollBuilderIntoView = callbackAction(async () => {
+      await waitForElement(
+        targetSelector(TOUR_TARGETS.pcrEditorWrapper),
+        2000,
+      );
+      await ensureViewportAnchor(
+        targetSelector(TOUR_TARGETS.pcrEditorWrapper),
+        2000,
+      );
+    });
+
+    // 2c) Give the smooth scroll a beat to settle before the cursor
+    // glides into the now-visible toolbar. ensureViewportAnchor polls
+    // until the rect stops moving, so this pause is the "reading
+    // breath" after the builder lands, not a scroll-settle wait.
+    const pauseAfterScroll = callbackAction(() =>
+      pause(METHODS_PCR_DEMO_PAUSE_MS),
+    );
+
     // 3) Click "Edit Cycle" -> toolbar expands, the Add Step / Add
     // Cycle / Eraser buttons mount.
     const clickEditCycle = await safeClickAction(
@@ -209,6 +251,12 @@ export const methodsBreadthStep = buildWalkthroughStep({
     return compactScript([
       clickPcr,
       pauseAfterTileClick,
+      // Scroll the modal's inner container so the builder is visible
+      // BEFORE the cursor starts firing Edit Cycle / Add Step / etc.
+      // Grant's 2026-05-27 hand-walk: without this, every action below
+      // landed off-screen.
+      scrollBuilderIntoView,
+      pauseAfterScroll,
       clickEditCycle,
       pauseAfterEditCycle,
       clickAddStep,

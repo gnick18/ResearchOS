@@ -917,7 +917,12 @@ describe("MethodsLcDemoStep (§6.4b LC Gradient invite-to-explore beat)", () => 
     expect(speech).toMatch(/updates automatically/i);
     expect(speech).toMatch(/Got it, next/);
   });
-  it("cursor script mounts the LC editor with a single tile click (no click-around drama)", async () => {
+  it("cursor script clicks the LC tile then scrolls the chart into view (scroll-and-demo fix manager 2026-05-27)", async () => {
+    // Per Grant's 2026-05-27 hand-walk: clicking the LC tile alone left
+    // the chart below the fold on the CreateMethodModal's inner scroll
+    // container. Cursor now: clicks tile, pauses, scrolls the chart
+    // into view via ensureViewportAnchor (no interactive edits — the
+    // chart updates as the user pokes the table values themselves).
     const fixtures: Array<{ el: HTMLElement; cleanup: () => void }> = [];
     try {
       const lcTile = document.createElement("button");
@@ -926,9 +931,16 @@ describe("MethodsLcDemoStep (§6.4b LC Gradient invite-to-explore beat)", () => 
       fixtures.push({ el: lcTile, cleanup: () => lcTile.remove() });
 
       const actions = await methodsLcDemoStep.cursorScript!();
-      expect(actions).toHaveLength(1);
+      const clicks = actions.filter((a) => a.type === "click");
+      const callbacks = actions.filter((a) => a.type === "callback");
+      // One click (the tile) plus callbacks for the post-click pause +
+      // scroll-into-view. No edit clicks per Grant's brief.
+      expect(clicks).toHaveLength(1);
+      expect(callbacks.length).toBeGreaterThanOrEqual(2);
+      if (clicks[0].type === "click") expect(clicks[0].target).toBe(lcTile);
+      // First visible action must be the tile click (so the user sees
+      // BeakerBot pick LC Gradient before the scroll happens).
       expect(actions[0].type).toBe("click");
-      if (actions[0].type === "click") expect(actions[0].target).toBe(lcTile);
     } finally {
       for (const f of fixtures) f.cleanup();
     }
