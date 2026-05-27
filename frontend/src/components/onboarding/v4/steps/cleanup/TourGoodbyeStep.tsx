@@ -126,25 +126,23 @@ function TourGoodbyeSpeech() {
   const showBuiltLine = builtSomething !== false;
   return (
     <div data-step-id="tour-goodbye" className="space-y-2">
-      <p className="leading-relaxed">
-        You&apos;re set! Here&apos;s to many great experiments ahead.
-      </p>
       {showBuiltLine ? (
         <p className="leading-relaxed">
-          I&apos;ll tidy up the demo stuff we built together and leave you
-          with your first project.
+          That&apos;s the tour. Your first project is ready to go, and
+          everything else we built together gets swept out so you start
+          with a clean account.
         </p>
       ) : (
         <p className="leading-relaxed">
-          You skipped ahead, so there&apos;s nothing for me to clean up.
-          Your account is ready to go whenever you are.
+          That&apos;s the tour. Nothing to clean up since you skipped
+          ahead, so your account is ready whenever you&apos;re.
         </p>
       )}
       <p className="leading-relaxed">
-        If you ever need a refresher, every page has its own wiki guide.
-        Look for the help icon up top, next to the gear icon.
+        If you get stuck on any page, the question-mark icon in the top
+        right pulls up the wiki article for whatever you&apos;re looking
+        at. Good luck.
       </p>
-      <p className="leading-relaxed">Good luck.</p>
     </div>
   );
 }

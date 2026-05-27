@@ -62,11 +62,16 @@ export const calendarConditionalStep: TourStep = {
   speech: (
     <div className="space-y-2" data-testid="calendar-explainer-body">
       <p>
-        Calendar tab&apos;s optional. You can add events directly, or
-        link external calendars (Outlook, Apple, Google iCloud) in
-        read-only mode. ResearchOS shows your external events alongside
-        your experiments and tasks. When you want, set it up in
-        Settings.
+        Your day isn&apos;t just experiments. There are meetings, classes,
+        office hours, appointments, things that aren&apos;t lab work but
+        still eat your time. The Calendar tab gives those a home inside
+        ResearchOS so you can see your full day in one place.
+      </p>
+      <p>
+        Link as many feeds as you want from Outlook, Apple, or Google.
+        Events show up on the Calendar page and in the quick-view bar on
+        the left, kept separate from your experiments and tasks but
+        visible right alongside them.
       </p>
     </div>
   ),

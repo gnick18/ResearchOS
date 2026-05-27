@@ -154,19 +154,23 @@ describe("tourGoodbyeStep record", () => {
     render(<>{speechNode}</>);
     // Check across multiple text nodes; "You're set!" + tidy-up
     // framing + landmark-anchored wiki guidance.
-    expect(screen.getByText(/You're set!/)).toBeTruthy();
-    expect(
-      screen.getByText(/Here's to many great experiments ahead\./),
-    ).toBeTruthy();
-    // Wait for the sidecar-driven conditional copy to resolve.
+    // Wait for the sidecar-driven conditional copy to resolve to the
+    // populated branch (artifacts_created has two entries in the
+    // readOnboarding mock above).
     await waitFor(() =>
-      expect(screen.getByText(/I'll tidy up the demo stuff/)).toBeTruthy(),
+      expect(
+        screen.getByText(/Your first project is ready to go/),
+      ).toBeTruthy(),
     );
-    expect(screen.getByText(/every page has its own wiki guide/)).toBeTruthy();
-    expect(screen.getByText(/next to the gear icon/)).toBeTruthy();
-    // The retired ❓ emoji + absolute-position pointer must NOT appear.
+    expect(screen.getByText(/That's the tour\./)).toBeTruthy();
+    expect(
+      screen.getByText(/question-mark icon in the top right/),
+    ).toBeTruthy();
+    expect(screen.getByText(/Good luck/)).toBeTruthy();
+    // The retired ❓ emoji + retired copy must NOT appear.
     expect(screen.queryByText(/❓/)).toBeNull();
-    expect(screen.queryByText(/icon in the top right/)).toBeNull();
+    expect(screen.queryByText(/next to the gear icon/)).toBeNull();
+    expect(screen.queryByText(/You're set!/)).toBeNull();
     vi.useFakeTimers({ shouldAdvanceTime: true });
   });
 });

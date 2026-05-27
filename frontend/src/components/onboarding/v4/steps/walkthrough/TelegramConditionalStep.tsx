@@ -331,8 +331,8 @@ function TelegramBranchPicker() {
     return (
       <div className="space-y-3" data-testid="telegram-branch-ask">
         <p>
-          I see you wanted the Telegram bot. Quick question first: do you
-          have Telegram installed on your phone right now?
+          I see you wanted the Telegram integration. Do you have Telegram
+          installed on your phone right now?
         </p>
         <div className="flex flex-col gap-1.5">
           <button
@@ -368,7 +368,7 @@ function TelegramBranchPicker() {
     return (
       <div className="space-y-2" data-testid="telegram-branch-later-body">
         <p>
-          No problem, I&apos;ll let you set it up later. Skipping for now.
+          No problem, I&apos;ll let you set it up later in Settings.
         </p>
       </div>
     );
@@ -378,9 +378,8 @@ function TelegramBranchPicker() {
     return (
       <div className="space-y-2" data-testid="telegram-branch-synthetic-body">
         <p>
-          No problem, let me show you what it WOULD look like. I&apos;ll
-          drop a synthetic photo into your inbox and walk you through the
-          caption and metadata flow.
+          No problem. I&apos;ll drop a synthetic photo into your inbox to
+          show you how the caption and metadata flow works.
         </p>
         {syntheticError ? (
           <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded px-2 py-1.5">
@@ -424,8 +423,7 @@ function TelegramBranchPicker() {
       ) : !photoLanded ? (
         <>
           <p>
-            Paired. Now send me a photo from Telegram, anything works.
-            I&apos;ll catch it in your inbox.
+            Paired. Now send me a photo from Telegram. Anything works.
           </p>
           <p className="text-xs text-gray-500">
             Waiting for your photo to land...

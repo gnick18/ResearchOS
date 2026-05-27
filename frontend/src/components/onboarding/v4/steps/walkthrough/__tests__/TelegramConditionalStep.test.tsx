@@ -180,7 +180,7 @@ describe("TelegramBranchPicker initial ask branch", () => {
   it("speech text matches the §6.13 initial copy + no em-dashes", () => {
     renderStep();
     const ask = screen.getByTestId("telegram-branch-ask");
-    expect(ask.textContent).toMatch(/Telegram bot/);
+    expect(ask.textContent).toMatch(/Telegram integration/);
     expect(ask.textContent).toMatch(/installed on your phone/);
     expect(ask.textContent ?? "").not.toContain("—");
   });
@@ -253,7 +253,7 @@ describe("TelegramBranchPicker Branch B (yes-later)", () => {
     expect(screen.getByTestId("telegram-branch-later-body")).toBeInTheDocument();
     const body = screen.getByTestId("telegram-branch-later-body");
     expect(body.textContent).toMatch(/No problem/);
-    expect(body.textContent).toMatch(/Skipping for now/);
+    expect(body.textContent).toMatch(/set it up later in Settings/);
     // Yes-later persists no sidecar artifact (per §6.13). Wait a beat
     // to confirm no asynchronous patch is in flight.
     await new Promise((res) => setTimeout(res, 50));

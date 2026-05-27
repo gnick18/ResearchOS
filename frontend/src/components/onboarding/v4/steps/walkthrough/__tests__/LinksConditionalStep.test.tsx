@@ -107,8 +107,8 @@ describe("LinksExplainerBody — solo accounts see ONLY beat 1", () => {
   it("beat 1 hits the spec phrases", () => {
     renderInProvider(picks({ account_type: "solo", links: "yes" }));
     const beat1 = screen.getByTestId("links-explainer-beat-1");
-    expect(beat1.textContent).toMatch(/save bookmarks/i);
-    expect(beat1.textContent).toMatch(/Add Link/i);
+    expect(beat1.textContent).toMatch(/Links tab is a home/i);
+    expect(beat1.textContent).toMatch(/URLs you open/i);
     expect(beat1.textContent).toMatch(/VPN/i);
     expect(beat1.textContent).toMatch(/freezer inventory/i);
   });
@@ -143,6 +143,6 @@ describe("LinksExplainerBody — lab accounts see BOTH beats", () => {
     renderInProvider(picks({ account_type: "lab", links: "yes" }));
     const beat2 = screen.getByTestId("links-explainer-beat-2");
     expect(beat2.textContent).toMatch(/public/i);
-    expect(beat2.textContent).toMatch(/teammates/i);
+    expect(beat2.textContent).toMatch(/labmates/i);
   });
 });

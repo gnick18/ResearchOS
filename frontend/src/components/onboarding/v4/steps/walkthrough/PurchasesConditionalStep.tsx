@@ -127,18 +127,14 @@ export const purchasesIntroStep: TourStep = buildWalkthroughStep({
   speech: (
     <div className="space-y-2" data-testid="purchases-intro">
       <p>
-        This is your Purchases page. It summarizes every purchase order
-        you&apos;ve ever logged.
+        The Purchases page tracks every order you place and groups it by
+        funding source, category, and project as you go.
       </p>
       <p>
-        What&apos;s nice: every order rolls up automatically by funding
-        source, by category, by project. No SUMIF wrangling, and the CSV
-        export is grant-ready.
-      </p>
-      <p>
-        I&apos;m going to show you how to make your first purchase order.
-        (You can also make these straight from the Gantt chart, same form,
-        different entry point.)
+        The reason it exists: when a grant report or budget question comes
+        around, the numbers are already sorted. No digging through email
+        threads or rebuilding a year of orders in a spreadsheet. Let&apos;s
+        log one.
       </p>
     </div>
   ),
@@ -266,18 +262,17 @@ function PurchasesFormFillBody() {
     return (
       <div className="space-y-2" data-testid="purchases-form-fill-watching">
         <p>
-          Alright, I&apos;ll fill in a fake coffee bean order so you can see
-          the shape. Watch.
+          I&apos;ll fill in a fake coffee bean order so you can see how it
+          works.
         </p>
         <p>
           Heads up on the last field: &ldquo;Funding String&rdquo; is just a
-          label for where the money came from. Grant number, gift fund,
-          your PI&apos;s discretionary line, anything. Group your purchases
-          however your lab thinks about money.
+          label for where the money came from, like a grant number or gift
+          fund. Group your purchases however your lab thinks about money.
         </p>
         <p className="text-xs text-gray-500">
           Item: &ldquo;{PURCHASE_ITEM_NAME}&rdquo; from {PURCHASE_VENDOR},
-          ${PURCHASE_PRICE.toFixed(2)} × {PURCHASE_QTY}, charged to &ldquo;
+          ${PURCHASE_PRICE.toFixed(2)} x {PURCHASE_QTY}, charged to &ldquo;
           {FUNDING_STRING_NAME}&rdquo;.
         </p>
       </div>
@@ -286,9 +281,7 @@ function PurchasesFormFillBody() {
   return (
     <div className="space-y-2" data-testid="purchases-form-fill-done">
       <p>
-        Done. Your coffee order is on the Purchases tab, charged to{" "}
-        {FUNDING_STRING_NAME}. Totals roll up by funding source, by
-        category, and by project automatically.
+        Done. Your coffee order is logged and automatically categorized.
       </p>
     </div>
   );
@@ -524,15 +517,15 @@ function PurchasesAutocompleteDemoBody() {
   if (stage === "autofilled") {
     return (
       <div className="space-y-2" data-testid="purchases-autocomplete-done">
-        <p>Boom. Vendor and price pulled in. Recurring purchases stop being annoying.</p>
+        <p>The vendor and price pull in automatically.</p>
       </div>
     );
   }
   return (
     <div className="space-y-2" data-testid="purchases-autocomplete-prompting">
-      <p>Here&apos;s a feature you&apos;ll love. Every item you log gets remembered.</p>
       <p>
-        Open a new purchase, start typing &ldquo;coffee&rdquo; in the item
+        Every item you log gets remembered to make recurring purchases
+        easy. Open a new purchase, type &ldquo;coffee&rdquo; into the item
         name, and watch what happens.
       </p>
     </div>
@@ -604,12 +597,11 @@ function PurchasesDemoWarpPromptBody() {
   return (
     <div className="space-y-3" data-testid="purchases-demo-warp-prompt">
       <p>
-        The really cool stuff on this page only kicks in once you&apos;ve
-        stacked up a bunch of purchases: analytics, breakdowns, charts.
-      </p>
-      <p>
-        Want me to flip you over to a demo account that&apos;s already full
-        of purchases? I&apos;ll bring you right back.
+        The real point of this page is the analytics, but charts on an
+        empty account don&apos;t show much. I can flip you over to a demo
+        account (&ldquo;Alex&rdquo;) that has a year of purchases across
+        three projects, so the breakdowns and budget bars actually have
+        shape to them. Want to take a look?
       </p>
     </div>
   );
@@ -660,9 +652,8 @@ export const purchasesDemoViewerStep: TourStep = buildWalkthroughStep({
   speech: (
     <div className="space-y-2" data-testid="purchases-demo-viewer">
       <p>
-        This is Alex, a sample researcher from our demo lab. About a year
-        of purchases across three projects, enough that the charts
-        actually have shape.
+        Here is Alex&apos;s account. Let&apos;s look at how the analytics
+        come together.
       </p>
     </div>
   ),
@@ -701,19 +692,13 @@ export const purchasesDemoChartsStep: TourStep = buildWalkthroughStep({
   speech: (
     <div className="space-y-2" data-testid="purchases-demo-charts">
       <p>
-        Scroll down. Each funding account gets its own card: budget,
-        spent so far, and a progress bar. You see the red ones at a
-        glance when something is over budget.
+        Each funding account gets its own card with a budget and progress
+        bar, letting you see at a glance if something is over budget.
       </p>
       <p>
-        Then the breakdown chart. Right now it&apos;s grouped by category,
-        biggest spend at the top. See how Miscellaneous tracks separately
-        from your project-tied purchases?
-      </p>
-      <p>
-        Flip the lens to Project: each project sorted by spend, biggest
-        at the top. Same for Vendor when you want to know which company
-        you hand the most money to.
+        The breakdown chart groups your spending. You can flip the lens
+        from Category to Project or Vendor to instantly see exactly where
+        your money is going.
       </p>
     </div>
   ),
@@ -820,8 +805,7 @@ function PurchasesBackToRealBody() {
   return (
     <div className="space-y-3" data-testid="purchases-back-to-real">
       <p>
-        Cool? Click below to get back to your own page and finish the
-        tour.
+        Click below to return to your own page and finish the tour.
       </p>
     </div>
   );

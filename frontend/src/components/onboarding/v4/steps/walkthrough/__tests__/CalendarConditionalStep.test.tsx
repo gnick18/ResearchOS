@@ -92,13 +92,12 @@ describe("CalendarExplainerBody speech copy", () => {
     const body = screen.getByTestId("calendar-explainer-body");
     // Hits the key spec phrases.
     expect(body.textContent).toMatch(/Calendar tab/);
-    expect(body.textContent).toMatch(/optional/);
-    expect(body.textContent).toMatch(/external calendars/i);
+    expect(body.textContent).toMatch(/meetings/i);
+    expect(body.textContent).toMatch(/Link as many feeds/i);
     expect(body.textContent).toMatch(/Outlook/);
     expect(body.textContent).toMatch(/Apple/);
-    expect(body.textContent).toMatch(/Google iCloud/);
-    expect(body.textContent).toMatch(/read-only/i);
-    expect(body.textContent).toMatch(/Settings/);
+    expect(body.textContent).toMatch(/Google/);
+    expect(body.textContent).toMatch(/quick-view bar/i);
   });
 
   it("does not contain em-dashes (Grant standing rule)", () => {

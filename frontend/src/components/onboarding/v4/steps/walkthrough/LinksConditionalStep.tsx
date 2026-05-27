@@ -43,15 +43,16 @@ function LinksExplainerBody() {
   return (
     <div className="space-y-2" data-testid="links-explainer-body">
       <p data-testid="links-explainer-beat-1">
-        Here&apos;s where you save bookmarks. Click + Add Link, type a
-        URL, give it a label, save. Stuff like your university VPN,
-        the lab calendar, the freezer inventory spreadsheet, your
-        manuscript drafts.
+        The Links tab is a home for the URLs you open ten times a week:
+        the university VPN, the freezer inventory sheet, the shared
+        drive. One place to keep them so you stop digging through
+        bookmarks.
       </p>
       {isLab && (
         <p data-testid="links-explainer-beat-2">
-          If you mark a card public, your teammates see it on their
-          Links page. That&apos;s how labs ship shared resource pages.
+          Mark a link as public and your labmates see it on their Links
+          page too. Useful for shared resources where you want everyone
+          landing on the same version.
         </p>
       )}
     </div>
