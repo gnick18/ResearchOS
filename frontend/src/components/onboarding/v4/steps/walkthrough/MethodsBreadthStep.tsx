@@ -34,7 +34,6 @@ import {
   callbackAction,
   compactScript,
   waitForElement,
-  ensureViewportAnchor,
 } from "./lib/cursor-script";
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
@@ -69,9 +68,9 @@ export const methodsBreadthStep = buildWalkthroughStep({
         you get the feel.
       </p>
       <p>
-        Opening the PCR builder now. Try adjusting one of the gradient
-        steps to see how it feels, then click &quot;Got it, next&quot;
-        to see the LC Gradient editor.
+        Opening the PCR builder now. Scroll down inside the modal to
+        see the thermal gradient and try adjusting one of the steps.
+        Click &quot;Got it, next&quot; to see the LC Gradient editor.
       </p>
     </>
   ),
@@ -87,41 +86,22 @@ export const methodsBreadthStep = buildWalkthroughStep({
       2000,
     );
 
-    // 2) Pause so the user sees the editor mount before the scroll
-    // moves the viewport.
+    // 2) Pause so the user sees the editor mount, then hand control
+    // back to the user.
     const pauseAfterTileClick = callbackAction(() =>
       pause(METHODS_PCR_DEMO_PAUSE_MS),
     );
 
-    // 3) Scroll the modal's inner overflow-y-auto container so the PCR
-    // builder (Thermal Gradient header + InteractiveGradientEditor +
-    // Reaction Recipe) is visible. The CreateMethodModal body is taller
-    // than the typical viewport, so the builder mounts below the fold.
-    //
-    // We loop the scroll a few times with short pauses to outlast any
-    // post-mount layout shifts inside the LC/PCR editor that could
-    // reset the scroll position (e.g., focus management, recharts
-    // mounting). Programmatic scrollIntoView is not a wheel event, so
-    // the InputLockOverlay's wheel block doesn't gate it.
-    const scrollBuilderIntoView = callbackAction(async () => {
-      await waitForElement(
-        targetSelector(TOUR_TARGETS.pcrEditorWrapper),
-        2000,
-      );
-      for (let i = 0; i < 3; i += 1) {
-        await ensureViewportAnchor(
-          targetSelector(TOUR_TARGETS.pcrEditorWrapper),
-          2000,
-        );
-        await pause(250);
-      }
-    });
+    // No scripted scroll. Hand-walk fix 2026-05-27 follow-up: the
+    // prior multi-shot `ensureViewportAnchor` loop never settled
+    // because the CreateMethodModal's inner overflow container has
+    // post-mount layout shifts that keep resetting the scroll
+    // position. While the loop was running the InputLockOverlay also
+    // blocked the user's own wheel scroll, soft-locking the page. The
+    // speech now invites the user to scroll down themselves, which
+    // works fine once the cursor script ends and the lock unmounts.
 
-    return compactScript([
-      clickPcr,
-      pauseAfterTileClick,
-      scrollBuilderIntoView,
-    ]);
+    return compactScript([clickPcr, pauseAfterTileClick]);
   }),
   // Manual advance: the user pokes at the PCR builder for as long as
   // they want, then clicks Got it, next to advance to methods-lc-demo.

@@ -32,8 +32,6 @@ import {
   safeClickAction,
   callbackAction,
   compactScript,
-  ensureViewportAnchor,
-  waitForElement,
 } from "./lib/cursor-script";
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
@@ -49,7 +47,7 @@ function pause(ms: number): Promise<void> {
 export const methodsLcDemoStep = buildWalkthroughStep({
   id: "methods-lc-demo",
   speech:
-    "And here is the LC Gradient editor. The chart updates automatically as you change values in the table. Click \"Got it, next\" when you're ready to move on.",
+    "And here is the LC Gradient editor. Scroll down inside the modal to see the live chart that updates as you change values in the table. Click \"Got it, next\" when you're ready to move on.",
   pose: "pointing",
   // Spotlight ring lands on the LC tile the cursor is about to click.
   // Scroll-and-demo fix manager 2026-05-27: re-pointed from
@@ -67,46 +65,22 @@ export const methodsLcDemoStep = buildWalkthroughStep({
       2000,
     );
 
-    // 2) Pause so the user sees the editor mount before the scroll
-    // moves the page.
+    // 2) Pause so the user sees the editor mount, then hand control
+    // back to the user.
     const pauseAfterTileClick = callbackAction(() =>
       pause(METHODS_LC_DEMO_PAUSE_MS),
     );
 
-    // 3) Scroll the modal's inner container so the LC Gradient chart
-    // is visible. Same shape as the methods-type-tour fix: the modal
-    // body is taller than the viewport on Grant's hand-walk, and
-    // without an explicit scroll the chart sits below the fold and
-    // the user reads the speech "the chart updates automatically as
-    // you change values" with nothing to look at.
-    //
-    // We anchor on the chart itself (lcGradientChart) rather than the
-    // wrapper so the recharts svg lands centered in the viewport.
-    // scrollIntoView traverses scrollable ancestors natively, so the
-    // modal's inner overflow-y-auto container scrolls without us
-    // reaching into it. Programmatic scrollIntoView is not a wheel
-    // event, so the InputLockOverlay's wheel block does not gate it.
-    //
-    // Grant hand-walk 2026-05-27 follow-up: the single scrollIntoView
-    // call landed but didn't stick — the LC editor's recharts mount +
-    // focus management reset the modal's scroll position back near the
-    // top before the user could see the chart. Loop the scroll a few
-    // times with short pauses to outlast those post-mount layout shifts.
-    const scrollChartIntoView = callbackAction(async () => {
-      await waitForElement(
-        targetSelector(TOUR_TARGETS.lcGradientChart),
-        2000,
-      );
-      for (let i = 0; i < 3; i += 1) {
-        await ensureViewportAnchor(
-          targetSelector(TOUR_TARGETS.lcGradientChart),
-          2000,
-        );
-        await pause(250);
-      }
-    });
+    // No scripted scroll. Hand-walk fix 2026-05-27 follow-up: the
+    // prior multi-shot `ensureViewportAnchor` loop never settled
+    // because the LC editor's recharts mount + focus management keep
+    // resetting the modal's inner scroll position. While the loop was
+    // running the InputLockOverlay also blocked the user's own wheel
+    // scroll, soft-locking the page. The speech now invites the user
+    // to scroll down themselves, which works fine once the cursor
+    // script ends and the lock unmounts.
 
-    return compactScript([clickLc, pauseAfterTileClick, scrollChartIntoView]);
+    return compactScript([clickLc, pauseAfterTileClick]);
   }),
   // Universal pacing rule (Grant 2026-05-22): BeakerBot-led demo steps
   // wait for the user. The chart is now visible; the user pokes the
