@@ -15,6 +15,12 @@ const tasksListMock = vi.fn();
 const tasksCreateMock = vi.fn();
 const methodsListMock = vi.fn();
 const methodsCreateMock = vi.fn();
+// Activity-spam fix manager 2026-05-28: ensureFirstExperimentExists now
+// also calls the project-agnostic `fetchAllTasks` for its name-keyed
+// idempotency fallback. Default to empty so existing tests fall through
+// to the create branch exactly as before; the new dedicated tests below
+// drive it explicitly.
+const fetchAllTasksMock = vi.fn(async () => [] as unknown[]);
 
 vi.mock("@/lib/local-api", () => ({
   projectsApi: {
@@ -29,6 +35,7 @@ vi.mock("@/lib/local-api", () => ({
     list: () => methodsListMock(),
     create: (data: unknown) => methodsCreateMock(data),
   },
+  fetchAllTasks: () => fetchAllTasksMock(),
 }));
 
 import {
@@ -51,6 +58,10 @@ describe("ensure-helpers (tour robustification manager 2026-05-27)", () => {
     tasksCreateMock.mockReset();
     methodsListMock.mockReset();
     methodsCreateMock.mockReset();
+    fetchAllTasksMock.mockReset();
+    // Default: no own tasks anywhere, so the name-keyed idempotency
+    // fallback is a no-op and tests behave as they did pre-fix.
+    fetchAllTasksMock.mockResolvedValue([]);
   });
 
   // -------------------------------------------------------------------------
@@ -235,6 +246,78 @@ describe("ensure-helpers (tour robustification manager 2026-05-27)", () => {
       expect(tasksCreateMock).toHaveBeenCalledWith(
         expect.objectContaining({ project_id: 7 }),
       );
+    });
+
+    // -----------------------------------------------------------------------
+    // Activity-spam fix manager 2026-05-28: name-keyed idempotency fallback.
+    // The §6.5 experiment can live in Miscellaneous or be Standalone
+    // (project_id 0) — both invisible to resolveFirstExperiment, which only
+    // looks inside the highest-id non-Misc project. Before the fix every
+    // downstream caller re-created "First experiment", flooding the Lab
+    // activity feed with duplicates.
+    // -----------------------------------------------------------------------
+    it("no-ops when 'First experiment' already exists in Miscellaneous (name-keyed)", async () => {
+      // resolveFirstExperiment sees nothing usable (only the Misc project,
+      // which is filtered out of resolveFirstProjectId).
+      projectsListMock.mockResolvedValue([
+        { id: 1, name: "Miscellaneous", is_archived: false, is_shared_with_me: false },
+      ]);
+      // But the name-keyed global lookup finds the experiment.
+      fetchAllTasksMock.mockResolvedValue([
+        {
+          id: 77,
+          name: PLACEHOLDER_EXPERIMENT_NAME,
+          task_type: "experiment",
+          project_id: 1,
+        },
+      ]);
+
+      const exp = await ensureFirstExperimentExists();
+
+      expect(exp?.id).toBe(77);
+      expect(tasksCreateMock).not.toHaveBeenCalled();
+      expect(projectsCreateMock).not.toHaveBeenCalled();
+    });
+
+    it("no-ops when 'First experiment' is Standalone (project_id 0)", async () => {
+      projectsListMock.mockResolvedValue([]);
+      fetchAllTasksMock.mockResolvedValue([
+        {
+          id: 88,
+          name: PLACEHOLDER_EXPERIMENT_NAME,
+          task_type: "experiment",
+          project_id: 0,
+        },
+      ]);
+
+      const exp = await ensureFirstExperimentExists();
+
+      expect(exp?.id).toBe(88);
+      expect(tasksCreateMock).not.toHaveBeenCalled();
+      expect(projectsCreateMock).not.toHaveBeenCalled();
+    });
+
+    it("ignores shared 'First experiment' tasks in the name-keyed fallback", async () => {
+      projectsListMock.mockResolvedValue([]);
+      // A shared experiment with the same name must NOT count as the user's
+      // own — we still create a project + experiment for the user.
+      fetchAllTasksMock.mockResolvedValue([
+        {
+          id: 90,
+          name: PLACEHOLDER_EXPERIMENT_NAME,
+          task_type: "experiment",
+          project_id: 5,
+          is_shared_with_me: true,
+        },
+      ]);
+      projectsCreateMock.mockResolvedValue({ id: 7, name: PLACEHOLDER_PROJECT_NAME });
+      tasksListMock.mockResolvedValue([]);
+      tasksCreateMock.mockResolvedValue({ id: 8, name: PLACEHOLDER_EXPERIMENT_NAME });
+
+      const exp = await ensureFirstExperimentExists();
+
+      expect(exp?.id).toBe(8);
+      expect(tasksCreateMock).toHaveBeenCalled();
     });
   });
 

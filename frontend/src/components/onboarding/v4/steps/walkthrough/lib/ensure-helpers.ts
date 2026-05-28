@@ -28,7 +28,12 @@
  * (gantt-redesign-helpers.ts, gantt-share-helpers.ts) so a future
  * contributor adding a new ensureX has one place to look.
  */
-import { methodsApi, projectsApi, tasksApi } from "@/lib/local-api";
+import {
+  fetchAllTasks,
+  methodsApi,
+  projectsApi,
+  tasksApi,
+} from "@/lib/local-api";
 import type { Method, Project, Task } from "@/lib/types";
 import { appQueryClient } from "@/lib/query-client";
 
@@ -148,11 +153,56 @@ export async function resolveFirstExperiment(): Promise<Task | null> {
 }
 
 /**
+ * Resolve any non-deleted experiment named PLACEHOLDER_EXPERIMENT_NAME
+ * across ALL of the user's own tasks, regardless of which project (or
+ * none) it lives in. Returns null when no such task exists.
+ *
+ * Activity-spam fix manager 2026-05-28: `resolveFirstExperiment` only
+ * looks inside the single highest-id NON-Miscellaneous project. The §6.5
+ * user-action flow lets the user file "First experiment" into
+ * Miscellaneous or leave it Standalone (project_id 0) — both invisible to
+ * `resolveFirstProjectId`. With the canonical experiment unresolvable,
+ * every one of the ~10 downstream `ensureFirstExperimentExists` callers
+ * (each Gantt + Method step's onEnter) fell through to the create branch
+ * and minted a fresh duplicate, flooding the Lab activity feed with
+ * identical "started experiment: First experiment" rows. This name-keyed,
+ * project-agnostic lookup makes the helper genuinely idempotent on name —
+ * the contract its own docstrings already claimed. Tasks are hard-deleted
+ * (the file is removed), so anything a list returns is non-deleted.
+ */
+async function resolveExistingPlaceholderExperiment(): Promise<Task | null> {
+  try {
+    const all = await fetchAllTasks();
+    const match = all.filter(
+      (t) =>
+        t.task_type === "experiment" &&
+        !t.is_shared_with_me &&
+        t.name === PLACEHOLDER_EXPERIMENT_NAME,
+    );
+    if (match.length === 0) return null;
+    // Most-recently-created (max id) when several somehow exist, so a
+    // pre-existing flood resolves to one stable target rather than churning.
+    const sorted = [...match].sort((a, b) => b.id - a.id);
+    return sorted[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Ensure the user's first experiment exists so steps that depend on it
  * (experiment-attach-method-*, gantt-existing-experiment, etc.) have a
  * row / bar to anchor against. First ensures a project exists (chains
  * to ensureFirstProjectExists); then creates a placeholder experiment
  * if none is found.
+ *
+ * Idempotency (activity-spam fix manager 2026-05-28): before creating,
+ * we check BOTH the active-project resolver (`resolveFirstExperiment`,
+ * which returns the user's real experiment when it lives in a non-Misc
+ * project) AND a name-keyed global lookup that catches the placeholder
+ * even when it sits in Miscellaneous / Standalone. Without the latter,
+ * repeated calls across the tour spawned duplicate "First experiment"
+ * tasks. See `resolveExistingPlaceholderExperiment`.
  *
  * Returns the resolved/created task, or null when neither path
  * succeeds.
@@ -160,6 +210,11 @@ export async function resolveFirstExperiment(): Promise<Task | null> {
 export async function ensureFirstExperimentExists(): Promise<Task | null> {
   const existing = await resolveFirstExperiment();
   if (existing !== null) return existing;
+  // Name-keyed fallback: the §6.5 experiment may live in Miscellaneous or
+  // be Standalone, both invisible to resolveFirstExperiment. Re-using it
+  // here keeps re-entry / re-spawn from minting duplicates.
+  const placeholder = await resolveExistingPlaceholderExperiment();
+  if (placeholder !== null) return placeholder;
   const projectId = await ensureFirstProjectExists();
   if (projectId === null) return null;
   try {
