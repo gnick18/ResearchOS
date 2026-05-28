@@ -93,11 +93,16 @@ export const ganttDepsBeakerBotStep = buildWalkthroughStep({
   speech: (
     <>
       <p className="mb-2">
-        Dependencies ensure you don't schedule an experiment before you
-        have the necessary prerequisites. I'm linking "Fake A" so it
-        has to finish before your experiment can start.
+        Dependencies ensure you don&apos;t schedule an experiment before
+        you have the necessary prerequisites. I&apos;m linking &quot;Fake
+        A&quot; so it has to finish before your experiment can start.
       </p>
-      <p>Notice the arrow pointing from A to your experiment.</p>
+      <p>
+        Notice the colored dots in the corner of each bar. They mark
+        which tasks are in the same chain and the task&apos;s position
+        in it. Click any bar to see the full chain in the
+        Dependency-chain section.
+      </p>
     </>
   ),
   pose: "thinking",
