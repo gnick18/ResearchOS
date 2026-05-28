@@ -5,6 +5,10 @@ import TelegramPairingModal from "@/components/TelegramPairingModal";
 import { fileService } from "@/lib/file-system/file-service";
 import { imageEvents } from "@/lib/attachments/image-events";
 import { readPairing, type TelegramPairing } from "@/lib/telegram/telegram-store";
+import {
+  clearTelegramTutorial,
+  startTelegramTutorialStep,
+} from "@/lib/telegram/tutorial-store";
 import { patchOnboarding } from "@/lib/onboarding/sidecar";
 import type { ImageSidecar } from "@/lib/attachments/image-folder";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -236,6 +240,42 @@ function TelegramBranchPicker() {
     return () => unsubscribe();
   }, [branch, paired, advance, noteEventFired]);
 
+  // Branch A: flip the per-user `_telegram_tutorial.json` sidecar to
+  // `tutorial_active: true, active_step: "first-photo"` while the user
+  // is paired and waiting for their first send. The polling tab (which
+  // may be a different browser / tab) reads this on every inbound
+  // photo and serves the simplified one-button "Place in Inbox" picker
+  // instead of the full active-experiments + lists destination prompt.
+  // Cleared on unmount (tour advance, skip, tab close) so the bot
+  // returns to its normal production routing the moment the user
+  // moves past this beat. Wired only for the live-send branch; Branch
+  // B (yes-later) skips the bot entirely, Branch C (synthetic) injects
+  // its photo programmatically without going through the bot.
+  useEffect(() => {
+    if (branch !== "yes-now" || !username) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        await startTelegramTutorialStep(username, "first-photo");
+      } catch (err) {
+        if (cancelled) return;
+        console.warn(
+          "[onboarding-v4] start telegram tutorial sidecar failed:",
+          err,
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+      void clearTelegramTutorial(username).catch((err) => {
+        console.warn(
+          "[onboarding-v4] clear telegram tutorial sidecar failed:",
+          err,
+        );
+      });
+    };
+  }, [branch, username]);
+
   const persistArtifact = useCallback(
     async (artifactType: string, artifactId: string, isLater: boolean) => {
       if (!username) return;
@@ -424,6 +464,12 @@ function TelegramBranchPicker() {
         <>
           <p>
             Paired. Now send me a photo from Telegram. Anything works.
+          </p>
+          <p className="text-xs text-gray-500">
+            Heads up: just for this first send, the bot will only offer
+            &quot;Place in Inbox&quot; so the picker stays simple. After
+            the tour, it will also let you attach to active experiments
+            and lists.
           </p>
           <p className="text-xs text-gray-500">
             Waiting for your photo to land...

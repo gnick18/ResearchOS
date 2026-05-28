@@ -165,6 +165,12 @@ type BatchState =
       mediaGroupId: string;
       ctx: BatchRouteContext;
       photos: BatchPhoto[];
+      /** When true, the prompt only offered the Inbox button (walkthrough
+       *  tutorial-mode pass-through). Click-handler short-circuits the
+       *  style picker and commits straight to inbox so the guided tour
+       *  isn't buried under three follow-up questions. See
+       *  `routeSinglePhotoTutorialMode`. */
+      tutorialMode?: boolean;
     }
   | {
       kind: "awaiting-subtab";
@@ -1061,15 +1067,77 @@ export async function routeSinglePhotoThroughBatch(
   await commitBuffer(ctx.chatId);
 }
 
-/** Buffer-window expired or photo cap hit. Branch on which surface(s) were
- *  open at first-photo time:
+/** Tutorial-mode entry: a single photo arrived while the user is in the
+ *  v4 walkthrough's Telegram setup beat (`tutorial_active: true`,
+ *  `active_step: "first-photo"` in `_telegram_tutorial.json`). Skips the
+ *  active-task confirmation entirely (the walkthrough's first send is
+ *  always meant to land in Inbox so the user sees the inbox flow before
+ *  they learn the per-experiment attachment flow) and shows a one-button
+ *  picker with explanatory copy.
  *
- *    - both task AND note  → awaiting-active-disambiguation (A/B/C)
- *    - only task           → awaiting-active-confirmation (existing flow)
- *    - only note           → awaiting-note-confirmation (new short prompt)
- *    - neither             → awaiting-destination (full picker)
+ *  Why we still PROMPT instead of silent-auto-saving: Grant's UX call —
+ *  the user needs to see the bot ask "where should this go?" so they
+ *  learn the model. The simplification is only that the picker has one
+ *  button (Inbox), so the long active-experiments list doesn't overwhelm
+ *  them on their very first send.
  *
- *  Either way, ASK first — no more silent auto-attach. */
+ *  After Inbox click the callback handler commits straight to disk
+ *  (timestamp filename, `tutorial_test: true` sidecar marker for
+ *  post-tutorial cleanup) and skips the style + caption prompts. The
+ *  full prompt sequence comes back the moment the user advances past
+ *  this tour beat (tutorial sidecar flips off). */
+export async function routeSinglePhotoTutorialMode(
+  photo: BatchPhoto,
+  ctx: BatchRouteContext,
+): Promise<void> {
+  // Same "new batch cancels old" guard as the non-tutorial entry, so a
+  // photo arriving while a stale batch sits in awaiting-* state doesn't
+  // confuse the callback dispatcher.
+  const existing = batches.get(ctx.chatId);
+  if (existing) {
+    clearBatch(ctx.chatId);
+    await noticeReplaced(ctx);
+  }
+  const mediaGroupId = `tutorial:${photo.messageId}`;
+  batches.set(ctx.chatId, {
+    kind: "awaiting-destination",
+    chatId: ctx.chatId,
+    mediaGroupId,
+    ctx,
+    photos: [photo],
+    tutorialMode: true,
+  });
+  await sendTutorialDestinationPrompt(ctx);
+}
+
+/** Tutorial-mode picker copy. Two short sentences (Grant's wiki voice
+ *  rule: concept-first, plus the heads-up about the post-tutorial
+ *  default). No em-dashes; no emoji in the prose. The Inbox button
+ *  keeps the standard 📥 selector for visual continuity with the
+ *  production picker. */
+const TUTORIAL_DESTINATION_PROMPT =
+  "Got a photo. While you're getting set up, I'll keep things simple and drop it in your Inbox.\n\n" +
+  "Later, when you have an experiment open or active, I'll ask if you want to attach it there instead.";
+
+async function sendTutorialDestinationPrompt(
+  ctx: BatchRouteContext,
+): Promise<void> {
+  const keyboard: InlineKeyboardMarkup = {
+    inline_keyboard: [[{ text: `${INBOX_LABEL} Place in Inbox`, callback_data: "inbox" }]],
+  };
+  await sendMessage(ctx.botToken, ctx.chatId, TUTORIAL_DESTINATION_PROMPT, {
+    reply_markup: keyboard,
+  });
+}
+
+/** Re-export for tests + any in-app surface that wants to mirror the
+ *  exact bot text without drift. */
+export { TUTORIAL_DESTINATION_PROMPT };
+
+/** Buffer-window expired or photo cap hit. Either prompt the user to
+ *  confirm the open active task (when one was open at first-photo time)
+ *  or jump straight to the full task picker. Either way, ASK first —
+ *  no more silent auto-attach. */
 async function commitBuffer(chatId: number): Promise<void> {
   const state = batches.get(chatId);
   if (!state || state.kind !== "buffering") return;
@@ -1404,6 +1472,14 @@ export async function routeBatchCallbackQuery(
     }
     await answerCallbackQuery(ctx.botToken, cq.id);
     const destination: BatchDestination = { kind: "inbox" };
+    // Tutorial-mode short-circuit: the v4 walkthrough's first-photo beat
+    // wants a single-tap "place in inbox" + commit, NOT the full style
+    // picker + name prompt cascade. The photo is one shot, sidecar gets
+    // `tutorial_test: true` so post-tutorial cleanup can sweep it.
+    if (state.tutorialMode) {
+      await commitTutorialInbox(state);
+      return;
+    }
     batches.set(ctx.chatId, {
       kind: "awaiting-style",
       chatId: ctx.chatId,
@@ -1666,6 +1742,50 @@ export async function routeBatchCallbackQuery(
 
   // Unknown payload — acknowledge to clear the spinner.
   await answerCallbackQuery(ctx.botToken, cq.id);
+}
+
+/** Tutorial-mode terminal commit. The user clicked "Place in Inbox"
+ *  from the simplified one-button prompt; write the single photo to
+ *  inbox with a timestamp filename + `tutorial_test: true` sidecar
+ *  marker (so the post-tutorial cleanup pass in `tutorial-cleanup.ts`
+ *  picks it up). Skip the style + caption prompts entirely; the tour
+ *  beat advances the moment the file lands and the inbox badge
+ *  refreshes. */
+async function commitTutorialInbox(
+  state: BatchState & { kind: "awaiting-destination" },
+): Promise<void> {
+  const photo = state.photos[0];
+  if (!photo) {
+    clearBatch(state.ctx.chatId);
+    return;
+  }
+  const target = inboxBase(state.ctx.username);
+  const desired = `${timestampStem(`inbox-${photo.suggestedStem}`)}.${photo.suggestedExt}`;
+  const result = await attachImageToTask({
+    ownerUsername: state.ctx.username,
+    taskId: 0,
+    basePath: target,
+    blob: photo.blob,
+    suggestedFilename: desired,
+    altText: photo.caption ?? "",
+  });
+  await writeSidecar(target, result.finalFilename, {
+    caption: photo.caption ?? undefined,
+    source: "telegram",
+    receivedAt: new Date(photo.date * 1000).toISOString(),
+    telegramMessageId: photo.messageId,
+    telegramChatId: state.ctx.chatId,
+    // Tutorial-cleanup marker. tutorial-cleanup.ts scans the inbox for
+    // sidecars with this flag and deletes the file + sidecar on
+    // tour-end so the demo doesn't accumulate test photos.
+    tutorial_test: true,
+  });
+  clearBatch(state.ctx.chatId);
+  await sendMessage(
+    state.ctx.botToken,
+    state.ctx.chatId,
+    "Got it. The photo is in your Inbox in ResearchOS. Head back to the tour to see it.",
+  );
 }
 
 /** Write all photos to disk with timestamp-based names (no user

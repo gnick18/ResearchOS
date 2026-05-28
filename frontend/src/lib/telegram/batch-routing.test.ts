@@ -167,6 +167,8 @@ import {
   routeBatchablePhoto,
   routeBatchCallbackQuery,
   routeSinglePhotoThroughBatch,
+  routeSinglePhotoTutorialMode,
+  TUTORIAL_DESTINATION_PROMPT,
   type BatchPhoto,
   type BatchRouteContext,
 } from "./batch-routing";
@@ -1228,527 +1230,101 @@ describe("batch-routing: chatId guard", () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────
-// Note-attach extension (telegram note-attach manager, 2026-05-26):
-// new states for active-note tracking + disambiguation + a Notes section
-// in the full picker.
-// ─────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// Tutorial-mode entry: walkthrough's first Telegram send.
+// Grant's UX call 2026-05-27 (manager: telegram tutorial simplified-mode):
+// the bot should still PROMPT (so the user sees the routing model) but
+// the picker should offer only an Inbox button + a two-sentence note,
+// not the full active-experiments + lists picker that was overwhelming
+// on the user's very first send.
+// ---------------------------------------------------------------------------
 
-import {
-  _setNotesLoaderForTests,
-  _resetNotesLoaderForTests,
-  partitionPickerNotes,
-  PICKER_NOTES_CAP,
-} from "./batch-routing";
-import type { Note } from "@/lib/types";
-import type { ActiveNote } from "@/lib/store";
-
-function makeNote(overrides: Partial<Note>): Note {
-  return {
-    id: 1,
-    title: "Default Note",
-    description: "",
-    is_running_log: false,
-    is_shared: false,
-    entries: [],
-    comments: [],
-    username: USER,
-    updated_at: "2026-05-15T10:00:00Z",
-    created_at: "2026-05-01T10:00:00Z",
-    shared_with: [],
-    ...overrides,
-  } as Note;
-}
-
-beforeEach(() => {
-  _resetNotesLoaderForTests();
-});
-
-describe("batch-routing: active-note-only confirmation (Case C)", () => {
-  it("only activeNote → awaiting-note-confirmation, then A commits to note destination", async () => {
-    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
-    const activeNote: ActiveNote = { id: 5, owner: USER, title: "Bench Log" };
-
-    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null, activeNote);
-    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
-    expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-note-confirmation");
-
-    const prompt = hoisted.sendMessageMock.mock.calls.find((c) =>
-      String(c[2]).toLowerCase().includes("attach"),
-    );
-    expect(prompt).toBeDefined();
-    const body = String(prompt![2]);
-    expect(body).toContain("Bench Log");
-    expect(body).toContain("A) Attach to Bench Log");
-    expect(body).toContain("B) Pick a different note or experiment");
-
-    const markup = (prompt![3] as { reply_markup?: { inline_keyboard: { text: string; callback_data: string }[][] } })
-      ?.reply_markup;
-    const buttons = markup!.inline_keyboard.flat();
-    expect(buttons.map((b) => b.text)).toEqual(["A", "B"]);
-    expect(buttons[0].callback_data).toBe("note:5:alex");
-    expect(buttons[1].callback_data).toBe("pick-other");
-
-    // Click A → commits to awaiting-style with note destination.
-    await routeBatchCallbackQuery(makeCallback("note:5:alex"), baseCtx);
-    const after = _peekBatchForTests(CHAT_ID);
-    expect(after?.kind).toBe("awaiting-style");
-    if (after?.kind === "awaiting-style") {
-      expect(after.destination).toEqual({
-        kind: "note",
-        noteId: 5,
-        owner: USER,
-        title: "Bench Log",
-      });
+describe("batch-routing: tutorial-mode simplified picker", () => {
+  it("routeSinglePhotoTutorialMode parks state in awaiting-destination with tutorialMode flag", async () => {
+    await routeSinglePhotoTutorialMode(makePhoto(), baseCtx);
+    const state = _peekBatchForTests(CHAT_ID);
+    expect(state?.kind).toBe("awaiting-destination");
+    if (state?.kind === "awaiting-destination") {
+      expect(state.tutorialMode).toBe(true);
+      expect(state.photos).toHaveLength(1);
     }
   });
 
-  it("only activeNote → B (pick-other) escapes to the full picker", async () => {
-    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
-    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null, {
-      id: 5,
-      owner: USER,
-      title: "Bench Log",
-    });
-    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
-    expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-note-confirmation");
+  it("sends the simplified two-sentence prompt body with a single Inbox button", async () => {
+    await routeSinglePhotoTutorialMode(makePhoto(), baseCtx);
+    expect(hoisted.sendMessageMock).toHaveBeenCalledTimes(1);
+    const [, , body, opts] = hoisted.sendMessageMock.mock.calls[0];
+    // Body is the canonical tutorial copy.
+    expect(body).toBe(TUTORIAL_DESTINATION_PROMPT);
+    // No em-dashes in the prose (Grant standing rule).
+    expect(body).not.toMatch(/—/);
+    // Mentions both the "place in Inbox now" frame and the
+    // "later you'll get the full active-experiments picker" promise.
+    expect(body).toContain("Inbox");
+    expect(body).toContain("experiment");
+    // Inline keyboard has exactly one button, routing to the existing
+    // inbox callback so the production callback handler doesn't need a
+    // separate decoder path.
+    const keyboard = (opts as { reply_markup?: { inline_keyboard?: unknown[][] } })
+      ?.reply_markup;
+    expect(keyboard?.inline_keyboard).toBeDefined();
+    expect(keyboard?.inline_keyboard).toHaveLength(1);
+    expect(keyboard?.inline_keyboard?.[0]).toHaveLength(1);
+    const button = (keyboard?.inline_keyboard?.[0]?.[0]) as {
+      text: string;
+      callback_data: string;
+    };
+    expect(button.callback_data).toBe("inbox");
+    expect(button.text).toContain(INBOX_LABEL);
+  });
 
-    await routeBatchCallbackQuery(makeCallback("pick-other"), baseCtx);
+  it("Inbox click in tutorial mode commits straight to inbox with tutorial_test sidecar marker and skips style prompt", async () => {
+    const photo = makePhoto("tutorial", "jpg");
+    await routeSinglePhotoTutorialMode(photo, baseCtx);
+    // Clear so the inbox-click sendMessage is observable alone.
+    hoisted.sendMessageMock.mockClear();
+    await routeBatchCallbackQuery(makeCallback("inbox"), baseCtx);
+    // One attach (inbox), no style prompt, no batch-name prompt.
+    expect(hoisted.attachImageToTaskMock).toHaveBeenCalledTimes(1);
+    const attachArg = hoisted.attachImageToTaskMock.mock.calls[0][0] as unknown as {
+      basePath: string;
+      ownerUsername: string;
+      taskId: number;
+    };
+    expect(attachArg.basePath).toBe(`users/${USER}/inbox`);
+    expect(attachArg.ownerUsername).toBe(USER);
+    expect(attachArg.taskId).toBe(0);
+    // Sidecar carries tutorial_test:true so tutorial-cleanup.ts can
+    // sweep the photo when the user advances past the beat.
+    const sidecarKeys = [...hoisted.memFs.keys()].filter((k) =>
+      k.startsWith(`users/${USER}/inbox/Images/`) && k.endsWith(".json"),
+    );
+    expect(sidecarKeys).toHaveLength(1);
+    const sidecar = hoisted.memFs.get(sidecarKeys[0]) as {
+      tutorial_test?: boolean;
+      source?: string;
+    };
+    expect(sidecar.tutorial_test).toBe(true);
+    expect(sidecar.source).toBe("telegram");
+    // Bot replies with the terminal "got it" line; no style picker.
+    expect(hoisted.sendMessageMock).toHaveBeenCalledTimes(1);
+    const reply = hoisted.sendMessageMock.mock.calls[0][2] as string;
+    expect(reply).toContain("Inbox");
+    expect(reply).not.toMatch(/auto-number|Name each/i);
+    // State is cleared after the terminal commit.
+    expect(_peekBatchForTests(CHAT_ID)).toBeUndefined();
+  });
+
+  it("non-tutorial Inbox click still flows through the style picker (regression guard)", async () => {
+    // The tutorialMode flag is per-batch; a normal single-photo flow
+    // still hits awaiting-style after the Inbox click, exactly as the
+    // production state machine specifies.
+    await routeSinglePhotoThroughBatch(makePhoto(), baseCtx, null);
     expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-destination");
-  });
-});
-
-describe("batch-routing: both-active disambiguation (Case A)", () => {
-  it("both activeTask AND activeNote → awaiting-active-disambiguation prompt", async () => {
-    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
-    const activeTask: ActiveTask = { id: 7, owner: USER, name: "Western Blot" };
-    const activeNote: ActiveNote = { id: 11, owner: USER, title: "Group Meeting" };
-
-    await routeBatchablePhoto("g1", makePhoto(), baseCtx, activeTask, activeNote);
-    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
-    expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-active-disambiguation");
-
-    const prompt = hoisted.sendMessageMock.mock.calls.find((c) =>
-      String(c[2]).toLowerCase().includes("both"),
-    );
-    expect(prompt).toBeDefined();
-    const body = String(prompt![2]);
-    expect(body).toContain("A) Western Blot (experiment)");
-    expect(body).toContain("B) Group Meeting (note)");
-    expect(body).toContain("C) Pick another experiment or note");
-
-    const markup = (prompt![3] as { reply_markup?: { inline_keyboard: { text: string; callback_data: string }[][] } })
-      ?.reply_markup;
-    const buttons = markup!.inline_keyboard.flat();
-    expect(buttons.map((b) => b.text)).toEqual(["A", "B", "C"]);
-    expect(buttons[0].callback_data).toBe("task:7:alex");
-    expect(buttons[1].callback_data).toBe("note:11:alex");
-    expect(buttons[2].callback_data).toBe("pick-other");
-  });
-
-  it("both-active → A (experiment) → sub-tab picker → awaiting-style with task destination", async () => {
-    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
-    await routeBatchablePhoto(
-      "g1",
-      makePhoto(),
-      baseCtx,
-      { id: 7, owner: USER, name: "Western Blot" },
-      { id: 11, owner: USER, title: "Group Meeting" },
-    );
-    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
-    // Click A (the experiment).
-    await routeBatchCallbackQuery(makeCallback("task:7:alex"), baseCtx);
-    expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-subtab");
-    // Sub-tab picker.
-    await routeBatchCallbackQuery(makeCallback("subtab:7:alex:notes"), baseCtx);
-    const after = _peekBatchForTests(CHAT_ID);
-    expect(after?.kind).toBe("awaiting-style");
-    if (after?.kind === "awaiting-style") {
-      expect(after.destination).toEqual({
-        kind: "task",
-        taskId: 7,
-        owner: USER,
-        name: "Western Blot",
-        subTab: "notes",
-      });
-    }
-  });
-
-  it("both-active → B (note) commits straight to awaiting-style", async () => {
-    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
-    await routeBatchablePhoto(
-      "g1",
-      makePhoto(),
-      baseCtx,
-      { id: 7, owner: USER, name: "Western Blot" },
-      { id: 11, owner: USER, title: "Group Meeting" },
-    );
-    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
-    await routeBatchCallbackQuery(makeCallback("note:11:alex"), baseCtx);
-    const after = _peekBatchForTests(CHAT_ID);
-    expect(after?.kind).toBe("awaiting-style");
-    if (after?.kind === "awaiting-style") {
-      expect(after.destination).toEqual({
-        kind: "note",
-        noteId: 11,
-        owner: USER,
-        title: "Group Meeting",
-      });
-    }
-  });
-
-  it("both-active → C (pick-other) escapes to the full picker", async () => {
-    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
-    await routeBatchablePhoto(
-      "g1",
-      makePhoto(),
-      baseCtx,
-      { id: 7, owner: USER, name: "Western Blot" },
-      { id: 11, owner: USER, title: "Group Meeting" },
-    );
-    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
-    await routeBatchCallbackQuery(makeCallback("pick-other"), baseCtx);
-    expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-destination");
-  });
-});
-
-describe("batch-routing: full picker with Notes section (Case D)", () => {
-  it("renders both Experiments and Notes sections", async () => {
-    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
-    _setExperimentsLoaderForTests(async () => [
-      makeExperiment({ id: 1, name: "ExpOne", project_id: 1 }),
-    ]);
-    _setProjectsLoaderForTests(async () => [makeProject({ id: 1, name: "P" })]);
-    _setNotesLoaderForTests(async () => [
-      makeNote({ id: 100, title: "Note One", updated_at: "2026-05-15T10:00:00Z" }),
-      makeNote({ id: 101, title: "Note Two", updated_at: "2026-05-14T10:00:00Z" }),
-    ]);
-
-    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null);
-    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
-
-    const prompt = hoisted.sendMessageMock.mock.calls.find((c) =>
-      String(c[2]).toLowerCase().includes("where"),
-    );
-    const body = String(prompt![2]);
-    expect(body).toContain("——— Active ———");
-    expect(body).toContain("——— Notes ———");
-    expect(body).toContain("ExpOne — Lab Notes");
-    expect(body).toContain("ExpOne — Results");
-    expect(body).toContain("Note One");
-    expect(body).toContain("Note Two");
-
-    const markup = (prompt![3] as { reply_markup?: { inline_keyboard: { text: string; callback_data: string }[][] } })
-      ?.reply_markup;
-    const buttons = markup!.inline_keyboard.flat();
-    // 2 experiment letter buttons + 2 note letter buttons + 1 inbox.
-    expect(buttons).toHaveLength(5);
-    const noteOneBtn = buttons.find((b) => b.callback_data === "note:100:alex");
-    expect(noteOneBtn).toBeDefined();
-    const noteTwoBtn = buttons.find((b) => b.callback_data === "note:101:alex");
-    expect(noteTwoBtn).toBeDefined();
-  });
-
-  it("empty Notes section: header omitted, no note rows", async () => {
-    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
-    _setExperimentsLoaderForTests(async () => [
-      makeExperiment({ id: 1, name: "ExpOne" }),
-    ]);
-    _setNotesLoaderForTests(async () => []);
-    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null);
-    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
-
-    const prompt = hoisted.sendMessageMock.mock.calls.find((c) =>
-      String(c[2]).toLowerCase().includes("where"),
-    );
-    const body = String(prompt![2]);
-    expect(body).not.toContain("——— Notes ———");
-    expect(body).toContain("——— Active ———");
-  });
-
-  it("picker note button → commits straight to awaiting-style with note destination", async () => {
-    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
-    _setExperimentsLoaderForTests(async () => []);
-    _setNotesLoaderForTests(async () => [
-      makeNote({ id: 42, title: "Meeting" }),
-    ]);
-    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null);
-    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
-
-    await routeBatchCallbackQuery(makeCallback("note:42:alex"), baseCtx);
-    const after = _peekBatchForTests(CHAT_ID);
-    expect(after?.kind).toBe("awaiting-style");
-    if (after?.kind === "awaiting-style") {
-      expect(after.destination).toEqual({
-        kind: "note",
-        noteId: 42,
-        owner: USER,
-        title: "Meeting",
-      });
-    }
-  });
-});
-
-describe("batch-routing: partitionPickerNotes", () => {
-  it("returns the most-recent-by-updated_at notes up to the cap", () => {
-    const notes: Note[] = [
-      makeNote({ id: 1, title: "Old", updated_at: "2026-01-01T00:00:00Z" }),
-      makeNote({ id: 2, title: "Newest", updated_at: "2026-05-20T00:00:00Z" }),
-      makeNote({ id: 3, title: "Mid", updated_at: "2026-03-15T00:00:00Z" }),
-      makeNote({ id: 4, title: "Recent2", updated_at: "2026-05-10T00:00:00Z" }),
-      makeNote({ id: 5, title: "Recent3", updated_at: "2026-04-20T00:00:00Z" }),
-      makeNote({ id: 6, title: "Recent4", updated_at: "2026-04-15T00:00:00Z" }),
-    ];
-    const picked = partitionPickerNotes(notes);
-    expect(picked).toHaveLength(PICKER_NOTES_CAP);
-    expect(picked.map((n) => n.title)).toEqual(["Newest", "Recent2", "Recent3", "Recent4"]);
-  });
-});
-
-describe("batch-routing: end-to-end note attach", () => {
-  it("note destination + style:auto + name → writes to users/<owner>/notes/<id>/Images via attachImageToNote", async () => {
-    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
-    _setNotesLoaderForTests(async () => [makeNote({ id: 99, title: "Bench Log" })]);
-
-    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null, {
-      id: 99,
-      owner: USER,
-      title: "Bench Log",
-    });
-    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
-    await routeBatchCallbackQuery(makeCallback("note:99:alex"), baseCtx);
-    await routeBatchCallbackQuery(makeCallback("style:auto"), baseCtx);
-    await consumeBatchTextReply("Plate1", baseCtx);
-
-    // Note destination routes through attachImageToNote (separate mock).
-    expect(hoisted.attachImageToNoteMock).toHaveBeenCalledTimes(1);
-    const call = hoisted.attachImageToNoteMock.mock.calls[0][0];
-    expect((call as { ownerUsername: string }).ownerUsername).toBe(USER);
-    expect((call as { noteId: number }).noteId).toBe(99);
-    expect((call as { suggestedFilename: string }).suggestedFilename).toBe("Plate1-1.jpg");
-
-    // Sidecar writes to users/<owner>/notes/<id>/Images/<file>.json.
-    const sidecarPath = `users/${USER}/notes/99/Images/Plate1-1.jpg.json`;
-    const sidecar = hoisted.memFs.get(sidecarPath) as
-      | { caption?: string; source?: string }
-      | undefined;
-    expect(sidecar).toBeDefined();
-    expect(sidecar?.caption).toBe("Plate1");
-    expect(sidecar?.source).toBe("telegram");
-  });
-});
-
-// --- Entry picker for multi-entry notes -----------------------------------
-//
-// Bug-fix coverage for note-attach R2 (2026-05-26). The prior chip routed
-// every note-attach to the latest entry by `updated_at` with no
-// disambiguation; running-log notes (e.g. weekly bench logs, recurring
-// 1:1 meetings) can have many entries, and the user often wants the photo
-// on an OLDER entry that matches the conversation it came from.
-//
-// The injected state is `awaiting-entry-pick`, sitting between the note
-// callback and the style prompt. Single-entry notes skip the new state
-// entirely (one-shot remains one-shot). The entry id is threaded through
-// `awaiting-style` → `awaiting-batch-name` → `attachImageToNote.entryId`.
-describe("batch-routing: entry picker for multi-entry notes", () => {
-  it("single-entry note: skip the picker and go straight to style", async () => {
-    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
-    _setNotesLoaderForTests(async () => [
-      makeNote({
-        id: 50,
-        title: "Single Entry Note",
-        entries: [
-          {
-            id: "e1",
-            title: "Day 1",
-            date: "2026-05-15",
-            content: "",
-            created_at: "2026-05-15T10:00:00Z",
-            updated_at: "2026-05-15T10:00:00Z",
-          },
-        ],
-      }),
-    ]);
-    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null, {
-      id: 50,
-      owner: USER,
-      title: "Single Entry Note",
-    });
-    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
-    await routeBatchCallbackQuery(makeCallback(`note:50:${USER}`), baseCtx);
-    // Single-entry note must NOT enter the entry-pick state.
-    const next = _peekBatchForTests(CHAT_ID);
-    expect(next?.kind).toBe("awaiting-style");
-  });
-
-  it("multi-entry note: routes through awaiting-entry-pick, then style", async () => {
-    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
-    _setNotesLoaderForTests(async () => [
-      makeNote({
-        id: 60,
-        title: "Multi Entry Note",
-        entries: [
-          {
-            id: "older",
-            title: "Older",
-            date: "2026-05-01",
-            content: "",
-            created_at: "2026-05-01T10:00:00Z",
-            updated_at: "2026-05-01T10:00:00Z",
-          },
-          {
-            id: "newer",
-            title: "Newer",
-            date: "2026-05-15",
-            content: "",
-            created_at: "2026-05-15T10:00:00Z",
-            updated_at: "2026-05-15T10:00:00Z",
-          },
-        ],
-      }),
-    ]);
-    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null, {
-      id: 60,
-      owner: USER,
-      title: "Multi Entry Note",
-    });
-    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
-    await routeBatchCallbackQuery(makeCallback(`note:60:${USER}`), baseCtx);
-
-    // After the note pick, the bot is now asking which entry to attach to.
-    const inPick = _peekBatchForTests(CHAT_ID);
-    expect(inPick?.kind).toBe("awaiting-entry-pick");
-    // The prompt body lists the entries (newest first) plus the "Latest"
-    // shortcut. We sanity-check the latest message body.
-    const lastCall = hoisted.sendMessageMock.mock.calls.at(-1);
-    expect(lastCall?.[2]).toContain("Multi Entry Note");
-    expect(lastCall?.[2]).toContain("Latest entry (default)");
-  });
-
-  it("multi-entry note + Latest sentinel: noteEntryId is undefined", async () => {
-    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
-    _setNotesLoaderForTests(async () => [
-      makeNote({
-        id: 61,
-        title: "Multi Latest",
-        entries: [
-          {
-            id: "older",
-            title: "Older",
-            date: "2026-05-01",
-            content: "",
-            created_at: "2026-05-01T10:00:00Z",
-            updated_at: "2026-05-01T10:00:00Z",
-          },
-          {
-            id: "newer",
-            title: "Newer",
-            date: "2026-05-15",
-            content: "",
-            created_at: "2026-05-15T10:00:00Z",
-            updated_at: "2026-05-15T10:00:00Z",
-          },
-        ],
-      }),
-    ]);
-    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null, {
-      id: 61,
-      owner: USER,
-      title: "Multi Latest",
-    });
-    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
-    await routeBatchCallbackQuery(makeCallback(`note:61:${USER}`), baseCtx);
-    await routeBatchCallbackQuery(makeCallback("entry:latest"), baseCtx);
-    await routeBatchCallbackQuery(makeCallback("style:auto"), baseCtx);
-    await consumeBatchTextReply("Plate2", baseCtx);
-
-    expect(hoisted.attachImageToNoteMock).toHaveBeenCalledTimes(1);
-    const call = hoisted.attachImageToNoteMock.mock.calls[0][0];
-    expect((call as { entryId?: string }).entryId).toBeUndefined();
-  });
-
-  it("multi-entry note + pick A (newest): entryId === sorted[0].id", async () => {
-    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
-    _setNotesLoaderForTests(async () => [
-      makeNote({
-        id: 62,
-        title: "Multi A",
-        entries: [
-          {
-            id: "older",
-            title: "Older",
-            date: "2026-05-01",
-            content: "",
-            created_at: "2026-05-01T10:00:00Z",
-            updated_at: "2026-05-01T10:00:00Z",
-          },
-          {
-            id: "newer",
-            title: "Newer",
-            date: "2026-05-15",
-            content: "",
-            created_at: "2026-05-15T10:00:00Z",
-            updated_at: "2026-05-15T10:00:00Z",
-          },
-        ],
-      }),
-    ]);
-    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null, {
-      id: 62,
-      owner: USER,
-      title: "Multi A",
-    });
-    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
-    await routeBatchCallbackQuery(makeCallback(`note:62:${USER}`), baseCtx);
-    // Entries are sorted newest-first by updated_at, so A → "newer".
-    await routeBatchCallbackQuery(makeCallback("entry:0"), baseCtx);
-    await routeBatchCallbackQuery(makeCallback("style:auto"), baseCtx);
-    await consumeBatchTextReply("Plate3", baseCtx);
-
-    expect(hoisted.attachImageToNoteMock).toHaveBeenCalledTimes(1);
-    const call = hoisted.attachImageToNoteMock.mock.calls[0][0];
-    expect((call as { entryId?: string }).entryId).toBe("newer");
-  });
-
-  it("multi-entry note + pick B (older): entryId === sorted[1].id", async () => {
-    vi.useFakeTimers({ now: new Date("2026-05-15T10:00:00Z") });
-    _setNotesLoaderForTests(async () => [
-      makeNote({
-        id: 63,
-        title: "Multi B",
-        entries: [
-          {
-            id: "older",
-            title: "Older",
-            date: "2026-05-01",
-            content: "",
-            created_at: "2026-05-01T10:00:00Z",
-            updated_at: "2026-05-01T10:00:00Z",
-          },
-          {
-            id: "newer",
-            title: "Newer",
-            date: "2026-05-15",
-            content: "",
-            created_at: "2026-05-15T10:00:00Z",
-            updated_at: "2026-05-15T10:00:00Z",
-          },
-        ],
-      }),
-    ]);
-    await routeBatchablePhoto("g1", makePhoto(), baseCtx, null, {
-      id: 63,
-      owner: USER,
-      title: "Multi B",
-    });
-    await vi.advanceTimersByTimeAsync(BATCH_WINDOW_MS + 50);
-    await routeBatchCallbackQuery(makeCallback(`note:63:${USER}`), baseCtx);
-    await routeBatchCallbackQuery(makeCallback("entry:1"), baseCtx);
-    await routeBatchCallbackQuery(makeCallback("style:auto"), baseCtx);
-    await consumeBatchTextReply("Plate4", baseCtx);
-
-    expect(hoisted.attachImageToNoteMock).toHaveBeenCalledTimes(1);
-    const call = hoisted.attachImageToNoteMock.mock.calls[0][0];
-    expect((call as { entryId?: string }).entryId).toBe("older");
+    hoisted.sendMessageMock.mockClear();
+    await routeBatchCallbackQuery(makeCallback("inbox"), baseCtx);
+    expect(_peekBatchForTests(CHAT_ID)?.kind).toBe("awaiting-style");
+    // No commit yet; production flow still asks about naming.
+    expect(hoisted.attachImageToTaskMock).not.toHaveBeenCalled();
   });
 });

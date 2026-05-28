@@ -1,6 +1,4 @@
 import { fileService } from "@/lib/file-system/file-service";
-import { attachImageToTask } from "@/lib/attachments/attach-image";
-import { resolveTaskResultsBase } from "@/lib/tasks/results-paths";
 import { sidecarPath, type ImageSidecar } from "@/lib/attachments/image-folder";
 import { imageEvents } from "@/lib/attachments/image-events";
 import { useAppStore } from "@/lib/store";
@@ -19,6 +17,7 @@ import {
   consumeBatchTextReply,
   routeBatchablePhoto,
   routeSinglePhotoThroughBatch,
+  routeSinglePhotoTutorialMode,
   type BatchPhoto,
 } from "./batch-routing";
 
@@ -37,26 +36,11 @@ interface RouteContext {
   chatId: number;
 }
 
-function pad(n: number): string {
-  return String(n).padStart(2, "0");
-}
-
-function timestampStem(prefix: string): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(
-    d.getHours()
-  )}${pad(d.getMinutes())}-${prefix}`;
-}
-
 function extFromPath(filePath: string, fallback = "jpg"): string {
   const dot = filePath.lastIndexOf(".");
   if (dot < 0) return fallback;
   const e = filePath.slice(dot + 1).toLowerCase();
   return /^[a-z0-9]{1,8}$/.test(e) ? e : fallback;
-}
-
-function inboxBase(username: string): string {
-  return `users/${username}/inbox`;
 }
 
 async function writeSidecar(
@@ -263,84 +247,30 @@ export async function routeTelegramMessage(
     return;
   }
 
-  // Tutorial-mode pass-through: keep the silent auto-attach path so the
-  // demo sequencer's first-photo signal fires reliably on the first
-  // photo sent during the guided tour. The user can still text /help
-  // to see the same dual-mode framing as the production flow.
-  let basePath: string;
-  let savedFilename: string;
-  let replyHint: string;
-
-  if (active) {
-    const resolved = await resolveTaskResultsBase(
-      { id: active.id, owner: active.owner },
-      ctx.username
-    );
-    const desired = `${timestampStem(`task${active.id}-${suggestedStem}`)}.${suggestedExt}`;
-    const result = await attachImageToTask({
-      ownerUsername: active.owner,
-      taskId: active.id,
-      basePath: resolved,
-      blob,
-      suggestedFilename: desired,
-      altText: message.caption ?? "",
-    });
-    basePath = resolved;
-    savedFilename = result.finalFilename;
-    replyHint =
-      tutorial.active_step === "first-photo"
-        ? `Got it! Saved to Experiment ${active.id}, "${active.name}". Head back to ResearchOS to see it on the experiment.`
-        : `Saved to Experiment ${active.id}, "${active.name}".`;
-  } else {
-    const base = inboxBase(ctx.username);
-    const desired = `${timestampStem(`inbox-${suggestedStem}`)}.${suggestedExt}`;
-    const result = await attachImageToTask({
-      ownerUsername: ctx.username,
-      taskId: 0, // unused, basePath override takes precedence
-      basePath: base,
-      blob,
-      suggestedFilename: desired,
-      altText: message.caption ?? "",
-    });
-    basePath = base;
-    savedFilename = result.finalFilename;
-    replyHint =
-      tutorial.active_step === "first-photo"
-        ? "Got it! Saved to your Inbox in your real folder. Head back to ResearchOS to see it on the experiment."
-        : "No experiment open right now, so I dropped this in your Inbox (top-bar badge). Open it in ResearchOS to file with \"Move to active\" or right-click \"Send to task...\".";
-  }
-
-  await writeSidecar(basePath, savedFilename, {
-    caption: message.caption,
-    source: "telegram",
-    receivedAt: new Date(message.date * 1000).toISOString(),
-    telegramMessageId: message.message_id,
-    telegramChatId: ctx.chatId,
-    // Marker for the post-tutorial inbox cleanup pass. Only stamped when
-    // the photo flowed through this tutorial pass-through branch (i.e.
-    // tutorial.tutorial_active is true at this point — the non-tutorial
-    // path returned earlier via routeSinglePhotoThroughBatch / batch).
-    // See lib/telegram/tutorial-cleanup.ts.
-    tutorial_test: true,
-  });
-
-  if (!message.caption) {
-    pendingCaptions.set(ctx.chatId, { basePath, filename: savedFilename });
-  } else {
-    pendingCaptions.delete(ctx.chatId);
-  }
-
-  const captionPrompt = message.caption
-    ? "Caption captured."
-    : "What is this? Reply with a description, or send /skip.";
-  try {
-    await sendMessage(ctx.botToken, ctx.chatId, `${replyHint} ${captionPrompt}`, {
-      reply_to_message_id: message.message_id,
-    });
-  } catch {
-    /* best-effort */
-  }
-
+  // Tutorial-mode pass-through (v4 walkthrough's Telegram setup beat):
+  // route through the simplified picker. The prior implementation silent-
+  // auto-saved (to active task if any, else inbox), which surfaced no
+  // prompt at all. Grant's UX call (2026-05-27): the user needs to SEE
+  // the bot ask "where should this go?" so they learn the routing model,
+  // but the picker should NOT list the full set of active experiments +
+  // lists on their very first send (it was overwhelming in testing). The
+  // simplified picker shows only an Inbox button + a two-sentence note
+  // explaining that the normal "active experiments" options will appear
+  // after the tour. Active task is intentionally ignored here so the
+  // tutorial flow is the same whether or not an experiment popup is
+  // open in the demo tab. After the user advances past the first-photo
+  // beat, `clearTelegramTutorial` flips the sidecar off and the bot
+  // returns to its full production routing.
+  const batchPhoto: BatchPhoto = {
+    messageId: message.message_id,
+    date: message.date,
+    caption: message.caption ?? null,
+    blob,
+    suggestedStem,
+    suggestedExt,
+    fileId,
+  };
+  await routeSinglePhotoTutorialMode(batchPhoto, ctx);
   // V3 cross-tab broadcast removed with the V3 rip (Phase B 2026-05-22):
   // the V3 sequencer was the only consumer; tutorial-signal.ts is gone.
 }

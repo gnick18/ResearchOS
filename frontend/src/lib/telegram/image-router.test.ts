@@ -114,15 +114,18 @@ vi.mock("@/lib/store", () => ({
 // Spy on batch-routing so the tutorial-mode pass-through test can confirm
 // `routeBatchablePhoto` is NOT invoked even when the photo has a
 // media_group_id. `routeSinglePhotoThroughBatch` is the non-album entry
-// for the redesigned ASK-always flow.
+// for the redesigned ASK-always flow. `routeSinglePhotoTutorialMode` is
+// the tutorial-mode entry that drives the simplified Inbox-only picker.
 const batchSpy = vi.hoisted(() => ({
   routeBatchablePhotoMock: vi.fn(async (..._args: unknown[]) => {}),
   routeSinglePhotoThroughBatchMock: vi.fn(async (..._args: unknown[]) => {}),
+  routeSinglePhotoTutorialModeMock: vi.fn(async (..._args: unknown[]) => {}),
   consumeBatchTextReplyMock: vi.fn(async () => false),
 }));
 vi.mock("./batch-routing", () => ({
   routeBatchablePhoto: batchSpy.routeBatchablePhotoMock,
   routeSinglePhotoThroughBatch: batchSpy.routeSinglePhotoThroughBatchMock,
+  routeSinglePhotoTutorialMode: batchSpy.routeSinglePhotoTutorialModeMock,
   consumeBatchTextReply: batchSpy.consumeBatchTextReplyMock,
 }));
 
@@ -179,6 +182,7 @@ beforeEach(() => {
   hoisted.attachImageToTaskMock.mockClear();
   batchSpy.routeBatchablePhotoMock.mockClear();
   batchSpy.routeSinglePhotoThroughBatchMock.mockClear();
+  batchSpy.routeSinglePhotoTutorialModeMock.mockClear();
   batchSpy.consumeBatchTextReplyMock.mockClear();
   batchSpy.consumeBatchTextReplyMock.mockImplementation(async () => false);
   hoisted.activeTaskRef.current = null;
@@ -212,40 +216,50 @@ describe("image-router text commands", () => {
   });
 });
 
-describe("image-router photo handling, tutorial-aware reply", () => {
-  it("uses the tutorial reply when the sidecar has first-photo active", async () => {
+describe("image-router photo handling, tutorial-mode simplified picker", () => {
+  it("routes to routeSinglePhotoTutorialMode when the sidecar has first-photo active", async () => {
     await startTelegramTutorialStep(USER, "first-photo");
     // The router caches tutorial state for 1s; the freshly-written
     // sidecar is the first read so the cache picks it up.
     await routeTelegramMessage(photoMessage(), baseCtx);
-    expect(hoisted.sendMessageMock).toHaveBeenCalled();
-    const replyText = hoisted.sendMessageMock.mock.calls[0][2] as string;
-    // Inbox path because activeTask is null. Tutorial-aware copy
-    // begins with "Got it!" and mentions the user's real folder.
-    expect(replyText).toMatch(/^Got it!/);
-    expect(replyText).toContain("real folder");
+    // Tutorial-mode entry is invoked exactly once.
+    expect(batchSpy.routeSinglePhotoTutorialModeMock).toHaveBeenCalledTimes(1);
+    // Non-tutorial entries are NOT invoked (the tutorial branch
+    // short-circuits before the ASK-always single-photo path).
+    expect(batchSpy.routeSinglePhotoThroughBatchMock).not.toHaveBeenCalled();
+    expect(batchSpy.routeBatchablePhotoMock).not.toHaveBeenCalled();
+    // image-router itself doesn't write the sidecar or reply for the
+    // tutorial branch anymore — routeSinglePhotoTutorialMode owns both
+    // (and routeSinglePhotoTutorialMode is mocked here, so memFs stays
+    // empty + sendMessage is never called from the router).
+    expect(hoisted.attachImageToTaskMock).not.toHaveBeenCalled();
+    expect(hoisted.sendMessageMock).not.toHaveBeenCalled();
   });
 
-  it("stamps tutorial_test:true in the sidecar when the photo arrives in tutorial mode", async () => {
+  it("ignores the active task when tutorial is active (Inbox-only flow)", async () => {
+    // Grant's UX call: even with an experiment popup open in the demo
+    // tab, the walkthrough's first send should land in Inbox so the
+    // user learns the simple flow first. routeSinglePhotoTutorialMode
+    // takes no active-task arg — the router doesn't forward it.
+    hoisted.activeTaskRef.current = {
+      id: 7,
+      owner: "alex",
+      name: "Yeast transformation",
+    };
     await startTelegramTutorialStep(USER, "first-photo");
     await routeTelegramMessage(photoMessage(), baseCtx);
-    // attachImageToTaskMock returns finalFilename "photo-final.jpg"; the
-    // inbox base is users/alex/inbox (no active task in this test).
-    const written = hoisted.memFs.get(
-      "users/alex/inbox/Images/photo-final.jpg.json",
-    ) as { tutorial_test?: boolean; source?: string } | undefined;
-    expect(written).toBeDefined();
-    expect(written?.tutorial_test).toBe(true);
-    expect(written?.source).toBe("telegram");
+    expect(batchSpy.routeSinglePhotoTutorialModeMock).toHaveBeenCalledTimes(1);
+    const args = batchSpy.routeSinglePhotoTutorialModeMock.mock.calls[0];
+    // Signature is (photo, ctx) — no third active-task arg.
+    expect(args.length).toBe(2);
   });
 
-  it("does NOT stamp tutorial_test when tutorial is inactive (non-tutorial path delegates to batch)", async () => {
+  it("does NOT route to tutorial entry when tutorial is inactive", async () => {
     // Tutorial sidecar not started → tutorial.tutorial_active is false →
-    // image-router returns early at routeSinglePhotoThroughBatch before
-    // the tutorial-mode writeSidecar block. No sidecar is written by the
-    // router at all in this branch (batch-routing owns that write).
+    // image-router delegates to routeSinglePhotoThroughBatch instead.
     await routeTelegramMessage(photoMessage(), baseCtx);
-    expect(hoisted.memFs.get("users/alex/inbox/Images/photo-final.jpg.json")).toBeUndefined();
+    expect(batchSpy.routeSinglePhotoTutorialModeMock).not.toHaveBeenCalled();
+    expect(batchSpy.routeSinglePhotoThroughBatchMock).toHaveBeenCalledTimes(1);
   });
 
 });
@@ -312,16 +326,21 @@ describe("image-router photo handling, media_group_id branch", () => {
     expect(hoisted.sendMessageMock).not.toHaveBeenCalled();
   });
 
-  it("falls through to the per-photo flow when tutorial is active, even with media_group_id", async () => {
-    // Tutorial active → batch flow short-circuits so the per-photo
-    // tutorial-aware attach + reply path runs. V3 cross-tab broadcast
-    // was removed with the V3 rip (Phase B 2026-05-22).
+  it("falls through to the tutorial-mode entry when tutorial is active, even with media_group_id", async () => {
+    // Tutorial active → album batching is bypassed so the simplified
+    // Inbox-only picker still drives the user's first send. Each photo
+    // arrival routes through the tutorial entry. (The legacy silent-
+    // auto-attach behavior was replaced 2026-05-27 with the explicit
+    // one-button picker — Grant's UX call.)
     await startTelegramTutorialStep(USER, "first-photo");
     await routeTelegramMessage(albumPhotoMessage(), baseCtx);
-    // Batch routing skipped.
+    // Album batch routing skipped.
     expect(batchSpy.routeBatchablePhotoMock).not.toHaveBeenCalled();
-    // Single-photo path ran: attach + tutorial-aware reply.
-    expect(hoisted.attachImageToTaskMock).toHaveBeenCalledTimes(1);
-    expect(hoisted.sendMessageMock).toHaveBeenCalledTimes(1);
+    // Tutorial-mode entry ran.
+    expect(batchSpy.routeSinglePhotoTutorialModeMock).toHaveBeenCalledTimes(1);
+    // image-router itself no longer writes the sidecar or replies in
+    // the tutorial branch.
+    expect(hoisted.attachImageToTaskMock).not.toHaveBeenCalled();
+    expect(hoisted.sendMessageMock).not.toHaveBeenCalled();
   });
 });
