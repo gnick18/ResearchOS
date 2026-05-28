@@ -553,35 +553,12 @@ const FIXTURE_ROUTES = [
       );
     },
   },
-  {
-    path: "/experiments",
-    file: "editor-language-picker.png",
-    waitFor: "h1, h2, text=Lab Notes",
-    settleMs: 800,
-    action: async (page) => {
-      if (!(await revealCompletedAndOpenTask(
-        page,
-        /Yeast transformation:\s*pYES-GAL1::flbA/i,
-      ))) return;
-      try {
-        await openLabNotesTab(page);
-        await switchEditorMode(page, "Edit");
-        const ta = page.locator("textarea").first();
-        if (!(await ta.count())) return;
-        await ta.click({ timeout: 3000 });
-        // Jump to the bottom of the body and create a fresh empty line.
-        await page.keyboard.press("Control+End").catch(() => {});
-        await page.keyboard.press("End");
-        await page.keyboard.press("Enter");
-        await page.keyboard.press("Enter");
-        await page.keyboard.type("```", { delay: 80 });
-        await page.waitForTimeout(600);
-      } catch (err) {
-        console.warn(`  ⚠ editor-language-picker action: ${err.message}`);
-      }
-    },
-    highlight: { selector: "input[placeholder*='Search language' i]" },
-  },
+  // NOTE: editor-language-picker.png was retired 2026-05-28. It was never
+  // referenced by a wiki page, and its action (type ``` to open the
+  // code-block language picker) no longer surfaces the picker after the
+  // editor's code-fence handling changed, so the capture just re-shot the
+  // plain Lab Notes view. Re-add with a verified action if a wiki page
+  // ever needs the language-picker illustration.
   {
     path: "/experiments",
     file: "editor-hybrid-selected.png",
@@ -1365,137 +1342,12 @@ const FIXTURE_ROUTES = [
     waitFor: "text=Calendar, text=May",
     highlight: { text: "New Event" },
   },
-  { path: "/lab", file: "lab-mode.png", waitFor: "text=Activity, text=Lab" },
-  {
-    // Activity tab stacks 3 sections: Running now, Recently completed, and
-    // Recent shared notes. The last section sits below the viewport fold at
-    // 900px, so use fullPage to capture all three.
-    path: "/lab",
-    file: "lab-mode-activity.png",
-    waitFor: "text=Activity, text=Lab",
-    settleMs: 1200,
-    fullPage: true,
-  },
-  {
-    path: "/lab",
-    file: "lab-mode-gantt.png",
-    waitFor: "text=Activity, text=Lab",
-    settleMs: 1200,
-    action: async (page) => {
-      await switchLabTab(page, "GANTT");
-    },
-  },
-  {
-    path: "/lab",
-    file: "lab-mode-purchases.png",
-    waitFor: "text=Activity, text=Lab",
-    settleMs: 1200,
-    action: async (page) => {
-      await switchLabTab(page, "Purchases");
-    },
-  },
-  {
-    path: "/lab",
-    file: "lab-mode-cross-user-lists.png",
-    waitFor: "text=Activity, text=Lab",
-    settleMs: 1200,
-    action: async (page) => {
-      await switchLabTab(page, "Experiments");
-    },
-  },
-  {
-    path: "/lab",
-    file: "lab-mode-user-filter.png",
-    waitFor: "text=Activity, text=Lab",
-    settleMs: 1200,
-    action: async (page) => {
-      // The floating chip lives in the bottom-right corner. Match by the
-      // tooltip set on the inner clickable div.
-      try {
-        const chip = page.locator("[title='Filter users to display']").first();
-        if (await chip.count()) {
-          await chip.click({ timeout: 3000 });
-          await page.waitForTimeout(700);
-        }
-      } catch (err) {
-        console.warn(`  ⚠ lab-mode-user-filter open chip: ${err.message}`);
-      }
-    },
-  },
-  {
-    path: "/lab",
-    file: "purchases-lab-funding-cards.png",
-    waitFor: "text=Activity, text=Lab",
-    settleMs: 1200,
-    action: async (page) => {
-      await switchLabTab(page, "Purchases");
-      // Compute a tight clip around the Funding Accounts Overview panel.
-      try {
-        const clip = await page.evaluate(() => {
-          const headings = Array.from(document.querySelectorAll("h2, h3, h4"));
-          const heading = headings.find(
-            (el) => (el.textContent || "").trim() === "Funding Accounts Overview",
-          );
-          if (!heading) return null;
-          // Walk up to find the panel wrapper that contains both heading
-          // and cards (a div with rounded border / background).
-          let panel = heading.parentElement;
-          for (let i = 0; i < 5 && panel; i++) {
-            const cs = getComputedStyle(panel);
-            if (cs.borderRadius && cs.borderRadius !== "0px") break;
-            panel = panel.parentElement;
-          }
-          if (!panel) return null;
-          const r = panel.getBoundingClientRect();
-          const pad = 24;
-          const x = Math.max(0, Math.floor(r.left - pad));
-          const y = Math.max(0, Math.floor(r.top - pad));
-          const width = Math.min(
-            Math.max(0, window.innerWidth - x),
-            Math.ceil(r.width + pad * 2),
-          );
-          const height = Math.min(
-            Math.max(0, window.innerHeight - y),
-            Math.ceil(r.height + pad * 2),
-          );
-          return { x, y, width, height };
-        });
-        if (clip && clip.width > 100 && clip.height > 100) {
-          return { clip };
-        }
-      } catch (err) {
-        console.warn(`  ⚠ purchases-lab-funding-cards clip: ${err.message}`);
-      }
-    },
-  },
-  {
-    path: "/lab",
-    file: "purchases-lab-list.png",
-    waitFor: "text=Activity, text=Lab",
-    settleMs: 1200,
-    action: async (page) => {
-      await switchLabTab(page, "Purchases");
-      // Scroll the page so the "Purchase Orders" list dominates the
-      // viewport (funding cards and summary tiles move off the top).
-      try {
-        await page.evaluate(() => {
-          // Try the most likely scroll containers in turn.
-          const headings = Array.from(document.querySelectorAll("h2, h3, h4"));
-          const heading = headings.find(
-            (el) => (el.textContent || "").trim() === "Purchase Orders",
-          );
-          if (heading) {
-            heading.scrollIntoView({ block: "start", behavior: "instant" });
-            // Nudge a bit further so we get more rows in view.
-            window.scrollBy(0, -16);
-          } else {
-            window.scrollTo(0, 600);
-          }
-        });
-        await page.waitForTimeout(400);
-      } catch {}
-    },
-  },
+  // NOTE: the lab-mode-*.png and purchases-lab-*.png captures were retired
+  // 2026-05-28. They all navigated to "/lab", which no longer exists (the
+  // lab features live at /lab-overview now), so every shot was a Next.js
+  // 404 page. None were referenced by any wiki page. If a future wiki page
+  // needs lab-overview illustrations, add fresh entries pointed at
+  // /lab-overview with verified `action`s and re-capture.
   {
     path: "/search?q=DEMO",
     file: "search-results.png",
@@ -2623,8 +2475,23 @@ async function _capturePageAt(page, route, url) {
 }
 
 async function main() {
+  // Optional positional filter: any non-flag args are treated as
+  // file-name substrings, and only routes whose `file` matches one of
+  // them are captured. Lets you re-shoot a single broken image without
+  // regenerating all ~87 (which risks regressing currently-good shots if
+  // an unrelated `action` has drifted). Example:
+  //   node scripts/capture-wiki-screenshots.mjs search-results editor-image
+  const onlyArgs = process.argv.slice(2).filter((a) => !a.startsWith("-"));
+  const matchOnly = (route) =>
+    onlyArgs.length === 0 ||
+    onlyArgs.some((a) => route.file.includes(a));
+
   console.log(`Capturing wiki screenshots → ${OUT_DIR}`);
-  console.log(`Base URL: ${BASE_URL}\n`);
+  console.log(`Base URL: ${BASE_URL}`);
+  if (onlyArgs.length) {
+    console.log(`Filter: only files matching [${onlyArgs.join(", ")}]`);
+  }
+  console.log("");
 
   await mkdir(OUT_DIR, { recursive: true });
 
@@ -2634,14 +2501,15 @@ async function main() {
   let fail = 0;
 
   // 1. Public / pre-auth pages (fresh context, no IndexedDB)
-  console.log("Public pages:");
-  {
+  const publicRoutes = PUBLIC_ROUTES.filter(matchOnly);
+  if (publicRoutes.length) {
+    console.log("Public pages:");
     const ctx = await browser.newContext({
       viewport: VIEWPORT,
       deviceScaleFactor: 2,
     });
     const page = await ctx.newPage();
-    for (const route of PUBLIC_ROUTES) {
+    for (const route of publicRoutes) {
       const success = await capturePublicPage(page, route, BASE_URL);
       success ? ok++ : fail++;
     }
@@ -2650,14 +2518,15 @@ async function main() {
 
   // 2. Picker-mode pages (fresh context — fixture installed without
   //    signing in, so the user-picker screen renders)
-  console.log("\nPicker-mode pages:");
-  {
+  const pickerRoutes = PICKER_ROUTES.filter(matchOnly);
+  if (pickerRoutes.length) {
+    console.log("\nPicker-mode pages:");
     const ctx = await browser.newContext({
       viewport: VIEWPORT,
       deviceScaleFactor: 2,
     });
     const page = await ctx.newPage();
-    for (const route of PICKER_ROUTES) {
+    for (const route of pickerRoutes) {
       const success = await capturePage(page, route, BASE_URL);
       success ? ok++ : fail++;
     }
@@ -2665,14 +2534,15 @@ async function main() {
   }
 
   // 3. Fixture-mode pages (fresh context, signed in as "alex")
-  console.log("\nFixture-mode pages:");
-  {
+  const fixtureRoutes = FIXTURE_ROUTES.filter(matchOnly);
+  if (fixtureRoutes.length) {
+    console.log("\nFixture-mode pages:");
     const ctx = await browser.newContext({
       viewport: VIEWPORT,
       deviceScaleFactor: 2,
     });
     const page = await ctx.newPage();
-    for (const route of FIXTURE_ROUTES) {
+    for (const route of fixtureRoutes) {
       const success = await capturePage(page, route, BASE_URL);
       success ? ok++ : fail++;
     }
