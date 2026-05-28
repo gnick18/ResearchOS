@@ -7,10 +7,13 @@
  * Fake A forward 2 days; both downstream tasks shift with it. This is
  * the "dependency cascade" reveal.
  *
- * Cursor: drag Fake A onto the later-date marker. The actual
- * `tasksApi.move` fires programmatically ~3s after the cursor begins
- * (mismatch: cursor's mousedown/up doesn't drive Gantt's HTML5
- * DragEvent drop handler; same pattern as the legacy step).
+ * Cursor: drag Fake A onto the later-date marker (today + 7 days,
+ * stamped by GanttChart). The actual `tasksApi.move` fires
+ * programmatically ~3s after the cursor begins (mismatch: cursor's
+ * mousedown/up doesn't drive Gantt's HTML5 DragEvent drop handler;
+ * same pattern as the legacy step). FORWARD_DAYS MUST match the
+ * marker offset so the programmatic landing lines up with the
+ * cursor's visual drop and there's no "snap back" second move.
  *
  * Manual advance after the cascade lands. The user reads "both linked
  * tasks shift with it" then clicks Got it.
@@ -36,15 +39,21 @@ import { ensureFirstExperimentExists } from "./lib/ensure-helpers";
  *  renders, even on slow machines (Gantt fix manager R1, P2 #13). */
 const CASCADE_FIRE_DELAY_MS = 3500;
 
-/** How many days forward to push Fake A. Two days is enough to be a
- *  clearly visible shift on the timeline; not so far that the user
- *  loses sight of the bars. */
-const FORWARD_DAYS = 2;
+/** How many days forward to push Fake A. MUST match the
+ *  `ganttLaterDateMarker` offset (today + 7 days) so the programmatic
+ *  data move lands on the SAME date the cursor visually dropped on,
+ *  preventing the "double bump" Grant flagged on 2026-05-27 (the legacy
+ *  GanttDependenciesStep already gets this right via getCascadeTargetDate).
+ *  Without this alignment, the cursor would visually land Fake A on
+ *  next week (where the marker lives), then React would re-render with
+ *  Fake A at today + 2 (the prior FORWARD_DAYS value), producing a
+ *  visible "snap back" a second after the cursor's drop animation. */
+const FORWARD_DAYS = 7;
 
 export const ganttDepsCascadeStep = buildWalkthroughStep({
   id: "gantt-deps-cascade",
   speech:
-    "Once tasks are linked, moving one upstream task drags everything downstream with it. If Fake A slips by three days, your experiment and Fake B slip too. No manual rescheduling, no broken chains.",
+    "Once tasks are linked, moving one upstream task drags everything downstream with it. If Fake A slips by a week, your experiment and Fake B slip too. No manual rescheduling, no broken chains.",
   pose: "thinking",
   targetSelector: targetSelector(TOUR_TARGETS.ganttBarFakeA),
   // Tour robustification 2026-05-27 (tour robustification manager):
