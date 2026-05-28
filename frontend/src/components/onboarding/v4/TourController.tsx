@@ -1268,6 +1268,18 @@ export function TourControllerProvider({
 
     let mo: MutationObserver | null = null;
     let detached = false;
+    // Has the spotlight target EVER been present during this step? A
+    // target that has not mounted yet (step still entering, onEnter still
+    // spawning its surface) reading "absent" is not a close — only a
+    // target that appeared and THEN vanished is. Without this guard the
+    // MutationObserver (which fires on the very first DOM mutation, well
+    // before the 200ms initial-settle timer) reports a false detach the
+    // instant any unrelated mutation happens during step entry.
+    let seenPresent = false;
+    // Debounce handle for the absence -> recovery decision (see
+    // confirmDetach below). Cleared on re-presence, on the completion
+    // event, and on teardown.
+    let recheckTimer: number | null = null;
     // Grant feedback 2026-05-26 (methods-category demo false recovery):
     // when BeakerBot's own cursor script's terminal action closes the
     // surface containing the spotlight target (e.g. clicking "Create
@@ -1301,6 +1313,12 @@ export function TourControllerProvider({
         : undefined;
     const onCompletionEvent = () => {
       completionEventFired = true;
+      // Cancel a pending debounced detach so the success-close can't fire
+      // recovery after the event lands.
+      if (recheckTimer !== null) {
+        window.clearTimeout(recheckTimer);
+        recheckTimer = null;
+      }
       // Clear any recovery hint that may have raced in just before the
       // event landed, so a transient false-positive doesn't linger.
       setTargetDetachRecovery(null);
@@ -1308,6 +1326,33 @@ export function TourControllerProvider({
     if (completionEvent && typeof window !== "undefined") {
       window.addEventListener(completionEvent, onCompletionEvent);
     }
+
+    // Confirm a suspected detach after a settle delay. A target can
+    // vanish for a frame or two during a re-render, or when a SIBLING
+    // surface closes and the page underneath reflows — e.g. a step's own
+    // onExit closes BeakerBot's shared-experiment popup, and the gantt
+    // bar the NEXT step spotlights is briefly replaced as React
+    // reconciles. Only fire the "Looks like that closed" recovery if the
+    // target is STILL gone after the settle, which separates a genuine
+    // user-close from transient churn. Grant 2026-05-28 (gantt-share
+    // false recovery after BeakerBot closes the popup for the user).
+    const confirmDetach = () => {
+      recheckTimer = null;
+      if (!selector || detached) return;
+      if (cursorScriptRanThisStep || completionEventFired) return;
+      const wNow =
+        typeof window !== "undefined"
+          ? (window as unknown as { __beakerBotCursorScriptRunning?: boolean })
+          : null;
+      if (wNow?.__beakerBotCursorScriptRunning) {
+        cursorScriptRanThisStep = true;
+        return;
+      }
+      if (!document.querySelector(selector)) {
+        detached = true;
+        setTargetDetachRecovery({ label: hint, stepId: owningStepId });
+      }
+    };
 
     const evaluate = () => {
       if (!selector) return;
@@ -1330,13 +1375,23 @@ export function TourControllerProvider({
       // the surface closing is the expected result of the user's click.
       if (completionEventFired) return;
       const present = !!document.querySelector(selector);
-      if (!present && !detached) {
-        detached = true;
-        setTargetDetachRecovery({ label: hint, stepId: owningStepId });
-      } else if (present && detached) {
-        detached = false;
-        setTargetDetachRecovery(null);
+      if (present) {
+        seenPresent = true;
+        if (recheckTimer !== null) {
+          window.clearTimeout(recheckTimer);
+          recheckTimer = null;
+        }
+        if (detached) {
+          detached = false;
+          setTargetDetachRecovery(null);
+        }
+        return;
       }
+      // Target absent. Ignore until it has appeared at least once (a
+      // not-yet-mounted target is not a "close"), and debounce so a
+      // transient re-render / sibling-surface-close gap does not fire.
+      if (!seenPresent || detached || recheckTimer !== null) return;
+      recheckTimer = window.setTimeout(confirmDetach, 400);
     };
 
     if (selector) {
@@ -1353,6 +1408,7 @@ export function TourControllerProvider({
       }
       return () => {
         window.clearTimeout(initialTimer);
+        if (recheckTimer !== null) window.clearTimeout(recheckTimer);
         mo?.disconnect();
         if (completionEvent && typeof window !== "undefined") {
           window.removeEventListener(completionEvent, onCompletionEvent);
