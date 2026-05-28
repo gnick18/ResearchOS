@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-05-27T16:46:54.247Z",
-  "pageCount": 51,
+  "generatedAt": "2026-05-28T19:58:59.528Z",
+  "pageCount": 54,
   "categories": [
     {
       "id": "start-here",
@@ -25,6 +25,10 @@
     {
       "id": "integrations",
       "label": "Integrations"
+    },
+    {
+      "id": "compliance",
+      "label": "Compliance"
     },
     {
       "id": "security",
@@ -60,6 +64,104 @@
         "Looking for security and privacy details? The Security page covers data storage, encryption, and what never leaves your machine. It does not appear in the section grid above because it has no sub-pages.",
         "The wiki is big because the app is big. If you only have time for one page, Start Here covers the 7 things worth knowing up front and how to navigate the rest of the wiki when you actually need it.",
         "Read Shared Lab Accounts first. Putting the ResearchOS folder inside OneDrive, Google Drive, Dropbox, or iCloud lets multiple lab members use the same folder, but you have to configure it to stay downloaded locally . If you don't, ResearchOS won't be able to read and write rel..."
+      ]
+    },
+    {
+      "href": "/wiki/compliance",
+      "title": "Compliance",
+      "breadcrumbs": [
+        "Compliance"
+      ],
+      "categoryId": "compliance",
+      "headings": [],
+      "bodySnippets": [
+        "Plain-English answers to the two questions labs ask before they trust an electronic notebook with grant-funded data: does ResearchOS support the NIH Data Management & Sharing Policy, and how does it compare to LabArchives?"
+      ]
+    },
+    {
+      "href": "/wiki/compliance/labarchives-comparison",
+      "title": "ResearchOS vs LabArchives",
+      "breadcrumbs": [
+        "Compliance",
+        "ResearchOS vs LabArchives"
+      ],
+      "categoryId": "compliance",
+      "headings": [
+        "Who each one is for",
+        "Where ResearchOS wins",
+        "Where LabArchives is still ahead",
+        "The honest bottom line"
+      ],
+      "bodySnippets": [
+        "An honest side-by-side. LabArchives is the incumbent most academic labs are leaving, so it is the right thing to measure against. ResearchOS wins decisively on data ownership and cost; LabArchives is still ahead on a few specific things, and this page says so plainly.",
+        "LabArchives is a hosted, cloud ELN sold per seat. You trade money and data custody for managed backups, security certifications, and turnkey institutional administration. It suits labs that want a vendor to hold the data and an IT department that wants a certified cloud contract.",
+        "ResearchOS is a free, open-source, local-first ELN. Your data is a folder of open files on your own disk, shared across a lab through whatever cloud drive you already pay for. It suits labs that want to own their data outright, avoid per-seat fees, and keep unpublished work of...",
+        "Saying otherwise would not survive a demo, so here it is straight:",
+        "You own your data, in open formats, forever. The single biggest difference. Your work is plain files on your disk, not rows in a vendor database. NIH's repository guidance prizes exactly this kind of portability and non-proprietary format.",
+        "No per-seat fees. A ten-person lab on LabArchives Professional is several thousand dollars a year, every year. ResearchOS is free.",
+        "Unpublished research never leaves your control. No vendor server holds your pre-publication data. For sensitive or competitive work, that is a real advantage, not a checkbox.",
+        "Built for bench work. The visual PCR editor, plate layouts, LC gradients, cell-culture schedules, Gantt scheduling, and lab purchasing are first-class, not bolt-ons.",
+        "Switching in is easy. ResearchOS imports your LabArchives Offline Notebook ZIP directly, so you are not retyping years of notebooks.",
+        "One-click sharing endpoint. Built-in Figshare export and DOI minting. In ResearchOS you export and deposit into a repository yourself.",
+        "Complete per-entry revision history. Shipped today in LabArchives; still on the ResearchOS roadmap.",
+        "Security certifications. FedRAMP, SOC 2, ISO 27001, and 21 CFR Part 11. If your institution mandates a certified cloud vendor, this is decisive, and ResearchOS does not compete here by design.",
+        "Managed backups and any-browser access. The vendor handles redundancy, and there is no File System Access API browser requirement.",
+        "Structured grant and identifier metadata. Dedicated fields rather than tags and free text.",
+        "If your priorities are owning your data in open formats, eliminating per-seat cost, and keeping unpublished work off a vendor server, ResearchOS is the better choice and supports your NIH DMS compliance fully (see NIH Data Management & Sharing ). If your institution requires a..."
+      ]
+    },
+    {
+      "href": "/wiki/compliance/nih-data-management",
+      "title": "NIH Data Management & Sharing",
+      "breadcrumbs": [
+        "Compliance",
+        "NIH Data Management & Sharing"
+      ],
+      "categoryId": "compliance",
+      "headings": [
+        "There is no such thing as a certified ELN",
+        "What the policy actually asks for",
+        "How ResearchOS supports it",
+        "Where your data actually gets shared",
+        "Honest limits worth knowing about",
+        "The official sources",
+        "1. Plan and budget",
+        "2. Create the DMS Plan",
+        "3. Implement the plan",
+        "So what are universities actually paying for?",
+        "NIH does not want your lab notebook",
+        "No built-in repository or DOI integration",
+        "Per-entry edit history is on the roadmap",
+        "Grant and identifier metadata is free-text today",
+        "No third-party security certifications"
+      ],
+      "bodySnippets": [
+        "Vendors advertise \"NIH Data Management & Sharing support\" like it is a certificate they bought. It is not. This page explains what the policy actually requires, why no electronic notebook is \"NIH certified,\" and exactly how ResearchOS supports your compliance.",
+        "The NIH Data Management and Sharing (DMS) Policy, in effect since January 25 2023, binds researchers and institutions that receive NIH funding. It does not bind software. There is no NIH program that audits, licenses, or certifies an electronic lab notebook, and there is no ba...",
+        "Compliance is something a researcher does, not something a tool is. You comply by writing a Data Management and Sharing Plan with your grant application and then following it. The notebook is where the work that the plan describes actually happens. Any ELN with the right featu...",
+        "NIH expects funded investigators to do three things:",
+        "ResearchOS supports all three expectations. The same plan / create / implement structure other ELN vendors use to map their features to the policy applies here, with the bonus that your data lives in open formats on your own disk the entire time.",
+        "Use separate projects to model how each grant's data will be organized, and reusable methods and templates so the whole lab captures data the same way from day one. Planning the structure up front is most of what a DMS Plan's data-organization section asks you to describe.",
+        "The plan itself is a short document built against NIH's required format. Most institutions point researchers at the free DMPTool , which has the official NIH template built in. Draft it there, then keep the finished plan in ResearchOS as a note or attachment alongside the proj...",
+        "This is where the day-to-day work lives, and where ResearchOS is strongest. The table below maps what the policy and NIH's Desirable Characteristics of Data Repositories guidance expect against the ResearchOS feature that delivers it.",
+        "The DMS Plan names a repository, and that repository is where sharing happens, not the notebook. NIH does not mandate a specific one. It publishes Desirable Characteristics of Data Repositories (persistent identifiers, long-term stewardship, curation, clear reuse terms) and ex...",
+        "ResearchOS gets you to that handoff cleanly. You export the curated experiment or dataset, then upload it to the repository your plan names. The repository is what mints the DOI or other persistent identifier and hosts the public copy. Because your ResearchOS data is already i...",
+        "ResearchOS supports your DMS compliance, and it is honest about where a feature is a manual step rather than a built-in one. None of these block compliance, but you should know them before you write your plan.",
+        "Do not anchor a compliance decision to a vendor blog (including this one). The primary sources are short and readable:",
+        "Wondering how ResearchOS stacks up against the tool most labs are leaving? See ResearchOS vs LabArchives .",
+        "Plan and budget for managing and sharing scientific data, before the work starts.",
+        "Write a DMS Plan (a two-page document) and submit it with the funding application.",
+        "Implement the plan : manage the data rigorously during the project, then share it no later than publication or the end of the award, whichever comes first.",
+        "NIH DMS Policy overview and the policy hub at sharing.nih.gov .",
+        "NOT-OD-21-013 : the Final NIH Policy itself.",
+        "NOT-OD-21-014 : the required elements of a DMS Plan. This is the real checklist.",
+        "NOT-OD-21-016 : desirable characteristics of data repositories.",
+        "Not a DMS certificate. The enterprise price tag buys security certifications (FedRAMP, SOC 2, ISO 27001, 21 CFR Part 11), hosted backups, institutional administration, and brand trust. The \"NIH selected LabArchives\" line you may have seen refers to NIH's intramural program (NI...",
+        "This is the part most vendor pages bury. NIH explicitly says investigators are not expected to share laboratory notebooks, preliminary analyses, drafts, or communications. What you share is a curated dataset , deposited into an appropriate repository. So a notebook's real job ...",
+        "ResearchOS does not push directly to Zenodo or Figshare and does not mint DOIs itself. You export, then deposit into the repository yourself, and the repository issues the identifier. This is one extra manual step compared to LabArchives' Figshare and DOI buttons.",
+        "The append-only PI audit log and soft-delete Trash exist today. A full per-record revision history with a revert button is planned, not shipped. If your plan or institution requires a complete versioned history of every entry, account for that gap now.",
+        "ResearchOS has tags and free-text fields, but no first-class fields for ORCID iDs or funding and award numbers. Record those in note bodies or tags for now.",
+        "ResearchOS holds no FedRAMP, SOC 2, ISO 27001, or 21 CFR Part 11 attestation. Its security posture is different by design: a local-first app with no vendor database to certify (see Security ). That is the right trade-off for many labs, but if your institution requires a certif..."
       ]
     },
     {
@@ -149,6 +251,7 @@
         "Attach a method (or a PCR protocol)",
         "Variation Notes and per-run PCR tweaks",
         "Export an experiment",
+        "Standalone tasks with no project",
         "1. Ready to start",
         "2. Blocked",
         "3. Running",
@@ -171,6 +274,7 @@
         "The Workbench packs three different views of your in-flight work into one page. The tab strip across the top names them and gives each a color identity: Experiments (blue), Notes (emerald), Lists (violet). The active tab fills with its color; the other two read as gray text bu...",
         "Each tab uses a different organizing principle, which is the whole point of keeping them apart. The Experiments tab groups protocols by where they sit in the run cycle (ready, blocked, running, awaiting writeup, recent results, archive). The Lists tab groups list tasks by how ...",
         "Directly below the tab strip sits a row of colored pills, one per project, plus an All projects pill on the left. Click a pill to narrow the view to that project; click it again (or pick a different one) to clear. The filter applies across tabs: pick a project on Experiments a...",
+        "Some tasks never get filed under a project: a one-off experiment you spin up in the \"Miscellaneous\" standalone slot stays project-less on purpose. To move a task into or out of a project later, open it and use the project dropdown on the popup's Details tab. Alongside your rea...",
         "The Experiments tab organizes every experiment task in your library by stage of the protocol. Six sections stack vertically, always in this order:",
         "Experiments scheduled to begin today or recently, with no incomplete upstream task blocking the start. These are the cards you can pick up and run today, so the section sits at the top and reads first.",
         "Experiments that depend on an upstream task that hasn't finished yet. The blocking parent's name renders directly under the card in a small amber strip so you know what you're waiting on. Click the parent name to jump straight to that task and unblock the chain.",
@@ -225,8 +329,7 @@
         "The Workbench in its default state: Experiments tab selected, sections stacked top-to-bottom.",
         "The Workbench page with the Experiments tab active, showing the three-tab strip, the project filter pills, and the stacked section headers.",
         "Each section reads as an uppercase header with a count, plus a one-line helper on the right summarizing the rule (e.g., 'Today falls between start and end date').",
-        "The Experiments tab scrolled to show several stacked section headers (Ready to start, Blocked, Running, Awaiting writeup) with cards underneath each.",
-        "The Notes tab leads with a search box and three type filters; the grid below filters live as you type."
+        "The Experiments tab scrolled to show several stacked section headers (Ready to start, Blocked, Running, Awaiting writeup) with cards underneath each."
       ]
     },
     {
@@ -282,7 +385,10 @@
         "Mark a day as PTO",
         "Goals on the timeline",
         "Open a task",
-        "Weekend rules ride along"
+        "See a whole chain at once: hover-highlight",
+        "Standalone tasks have no project to filter by",
+        "Weekend rules ride along",
+        "Dependency chains are experiment-only"
       ],
       "bodySnippets": [
         "The Gantt timeline holds every active task across every project you can see. The view trades calendar precision for visual rhythm: you scan packed rows of colored bars and your eye picks out the busy weeks, the dependencies that cross projects, and the gaps where work is not y...",
@@ -290,9 +396,14 @@
         "The toolbar at the top of the page is where you scope and zoom the chart. The 2026-05 redesign collapsed the old per-project pill row into a single multi-select dropdown so a lab with many projects can keep the chrome compact.",
         "Grab any bar and drag it to a different day. On drop, the task's start date moves to that day and its duration stays the same. Any downstream tasks linked through a dependency recompute their dates to keep their constraints valid: an FS (start-after) child of a moved parent sl...",
         "Most cascades apply silently. The orange \"This change will affect N task(s)\" modal only opens when an SF (finish-before) chain would shift a task to start in the past. The modal lists every affected task with its old and new dates and a per-task warning line for the past-date ...",
-        "Drag one bar and drop it on top of another. A popup asks how the two tasks should be linked:",
+        "A dependency captures the idea that one piece of bench work cannot sensibly begin (or end) until another one reaches a certain point. On the Gantt you express that by dragging one bar and dropping it on top of another. A popup then asks how the two tasks should be linked:",
         "Once you pick a relationship, the dragged task's start date snaps to whatever the dependency requires. Tasks in the same chain share the same colored top stripe, so you can trace a chain across bars. Drag a bar in the chain and downstream tasks shift with it.",
+        "Because bars pack into rows by date rather than by chain, the members of one dependency chain can end up scattered across the timeline. Two cues help you read them as a group. The first is always on: each bar in a chain carries small chain-colored dots in its corner, where the...",
+        "The second cue is the hover treatment. Move your cursor over any bar that belongs to a multi-member chain and the whole chain lights up: every bar in that chain stays at full strength and picks up a ring in the chain's color, while every bar outside the chain dims back so the ...",
         "The redesigned toolbar replaced the long pill row with a single dropdown. The interaction is:",
+        "Not every task belongs to a project. A quick experiment you spin up without filing it under a research question lives in the \"Miscellaneous\" standalone slot, with no project attached. Those orphan tasks used to vanish the moment you scoped the chart to a specific project, sinc...",
+        "The bottom of the Projects dropdown now carries a Standalone row (set off by a dashed divider and marked with a hollow dashed swatch and a small \"no project\" hint) whose tooltip reads \"Toggle visibility of experiments with no project.\" Tick it to fold your standalone tasks bac...",
+        "To move a task into or out of that bucket, open the task and use the project dropdown in its detail popup. Alongside your real projects it lists a Standalone (no project) option; picking it drops the task off every project, and picking a real project files an orphan task back ...",
         "PIs land on the same Gantt UI as every member, but the timeline pulls from a wider pool. The project dropdown on the left of the toolbar now spans every member's projects across the lab, not just the PI's own. One scroll of the chart shows the whole lab's work side by side.",
         "This shifts the role of the page. For a member, the Gantt is a personal schedule. For a PI, it becomes a coordination surface: dependency chains can stretch across users, the project dropdown doubles as a per-member filter (untick a student's projects to focus on a co-PI's tim...",
         "Drag any image file from Finder or the desktop and drop it on a task bar. The image attaches to that task as a new Images-folder entry and a markdown reference is appended to the task's Lab Notes body. This is the fastest path to file a gel image or a microscope snap straight ...",
@@ -317,15 +428,16 @@
         "Zoom segmented control. Eight buttons: , , , , , , , . Shorter zooms keep day-level detail; longer ones span many weeks. All currently shows an 8-week window starting from the current Monday, not a full-history view.",
         "Week navigator on the right. Step the visible window back and forward one week at a time, with a date picker for jumping to a specific Monday and a Today link that snaps back to this week.",
         "+ Task and + Goal buttons at the far right of the toolbar to add a task or a high-level goal without leaving the chart.",
-        "Start at same time (SS). Both tasks begin on the same day.",
-        "Start after (FS). The dragged task starts the day after the target ends.",
-        "Finish before (SF). The dragged task finishes before the target starts.",
+        "Start at same time (SS). Both tasks begin on the same day. On the chart they line up at the same left edge.",
+        "Start after (FS). The dragged task starts the day after the target finishes, so the two sit back to back with no overlap.",
+        "Finish before (SF). The dragged task finishes the day before the target starts. This is a strict gap: the predecessor clears the calendar entirely before the successor begins, so the two never share a day even when the predecessor is a single-day task. That keeps \"finish befor...",
         "Click Projects to expand the list.",
         "The default is all checked . The chart shows every project until you uncheck something.",
         "Select all at the top of the dropdown restores the everyone-checked default (useful after a long Unselect-and-pick session).",
         "Unselect all clears every checkmark in one click, so you can quickly re-tick only the one or two projects you want to focus on.",
         "The dropdown stays open while you click, so you can stage the right filter set without dropdown-bounce.",
         "Dropping on a Saturday or Sunday in a project that has weekends disabled bumps the start date to the next Monday. Toggle the weekend setting from each project's detail popup on the Home page.",
+        "Only experiments can be chained. Lists and purchases are deliberately kept out of dependency chains, since linking a shopping order or a checklist into a scheduling chain tends to create constraints nobody wanted. On the Gantt this shows up as a non-interactive signal: drag a ...",
         "The Gantt at a glance: packed rows of bars colored by project, a multi-select project dropdown in the toolbar, weekend hash, and PTO stripes.",
         "The Gantt timeline with packed rows of colored bars, a multi-select project dropdown in the toolbar, PTO stripes on a Saturday cell, and a dependency stripe linking two bars across rows.",
         "Lab head view: the project dropdown spans every member's projects, so one timeline shows the whole lab.",
@@ -2156,6 +2268,8 @@
         "When both an experiment and a note are open",
         "Filing a batch of photos",
         "Pairing isn't saved until your bot receives a message",
+        "During setup, your first photo just goes to the Inbox",
+        "Photos render inline, even with spaces in the name",
         "Right-click works on a single row too",
         "Keep your bot token private"
       ],
@@ -2197,6 +2311,8 @@
         "On your phone, open a chat with your new bot and send any message (e.g., ). ResearchOS picks up the message, captures your chat id, and the modal flips to a green \"Paired\" confirmation.",
         "Send any photo to the bot. The bot replies with an inline keyboard asking where to send it. Tap a button and the photo appears in ResearchOS within a couple of seconds.",
         "The \"send a message\" step is how the bot learns which Telegram chat belongs to you. Until that first message arrives, the modal sits at the \"waiting\" screen. You can cancel from that screen at any time.",
+        "The bot can route to a lot of places, and showing the full destination picker on your very first send (before you have your bearings) is more overwhelming than helpful. So while you are walking through setup, the bot keeps it simple: the first photo you send gets a single Plac...",
+        "Whatever the photo ends up named, once it lands in Lab Notes or Results it shows up inline in the markdown rather than as a broken link. Filenames with spaces (a phone document called , say, or a batch name you typed) used to trip up the markdown image reference and quietly dr...",
         "You don't need to select multiple rows first. Right-click any inbox row and pick Send to task... to file that one photo into any experiment, even one you don't have open. It saves opening the experiment's popup just to use the Move to active button.",
         "Anyone with this token can send messages and receive photos as your bot. ResearchOS writes the token to in your data folder and auto-appends a rule so it isn't committed if the data folder is a git repo. Treat the token like a password.",
         "Click the Telegram pill in the top bar to open this pairing modal.",
@@ -2236,7 +2352,7 @@
         "When you pick a data folder, ResearchOS reads and writes everything directly to that folder on your machine. The bytes never leave it. You can open the folder at any time in your operating system's file browser and see exactly what is there.",
         "The folder holds:",
         "Three routes on the ResearchOS server are involved. The first two are CORS-bypass streams that exist because browsers refuse to talk directly to the upstream services. The third is an anonymous page-view ping. None of them ever sees the contents of your data folder.",
-        "The two CORS-bypass proxy routes use the most defensive shape we know how to write: HTTPS only, private-IP blocking, redirect re-validation, byte cap, timeout, content-type denylist, and per-IP rate limiting. The Vercel Analytics endpoint is a Vercel-owned script and beacon ta...",
+        "The two CORS-bypass proxy routes use the most defensive shape we know how to write: HTTPS only, private-IP blocking, redirect re-validation, byte cap, timeout, content-type denylist, and per-IP rate limiting. The Vercel Analytics and Speed Insights endpoints are Vercel-owned s...",
         "The on-disk sidecar can disappear for ordinary reasons: a misshared OneDrive deletion, an iCloud sync hiccup, a lab-mate tidying up. ResearchOS keeps two optional recovery paths so you don't have to start over from BotFather when that happens. Both live on your own machine. Ne...",
         "The first recovery path is a browser-scoped IndexedDB store ( ) that holds a minimal credential row so the app can offer a one-click recovery prompt instead of making you re-pair. The cache stores only , , and , keyed by .",
         "The cache is symmetric in risk with the disk sidecar: both are DevTools-readable on the local machine, and the cache is NOT exposed via cloud-folder share (browser-scoped, not file-scoped). This is actually a small win over disk-only storage for the multi-user-folder case, Ali...",
@@ -2245,8 +2361,8 @@
         "Lose your account password and you lose the backup. There is no recovery key, no escape hatch, and no copy of your password anywhere in ResearchOS (we never had it). Anyone who knows your account password can also decrypt this backup, so treat the encrypted backup and your acc...",
         "Changing your account password through the normal change- password flow handles the re-encryption automatically. The submit button label flips to \"Re-encrypting Telegram backup...\" while it runs, and the success banner reads \"Password updated. Telegram backup re-encrypted.\" Th...",
         "The encryption parameters (KDF, cipher, IV / salt sizes, fail-closed decryption semantics) live in SECURITY_AUDIT.md sections 1.5 and 1.6 for readers who want the bytes.",
-        "We collect anonymous page-view pings via Vercel Web Analytics. When you navigate between pages, an anonymous beacon goes to Vercel. No IDs, no folder contents, no typed text, no markdown bodies. We use this to know which pages get used and which sit idle. Settings -> Offline m...",
-        "We do not collect anything else. No Sentry, no Google Analytics, no Mixpanel, no PostHog, no Hotjar, no Datadog, no Amplitude. No background phone-home. No crash reporter. No content telemetry. Running against the repo will confirm only is present, and the network tab will con...",
+        "We collect anonymous page-view pings via Vercel Web Analytics and anonymous Core Web Vitals (load and responsiveness timings) via Vercel Speed Insights. When you navigate between pages, anonymous beacons go to Vercel. No IDs, no folder contents, no typed text, no markdown bodi...",
+        "We do not collect anything else. No Sentry, no Google Analytics, no Mixpanel, no PostHog, no Hotjar, no Datadog, no Amplitude. No background phone-home. No crash reporter. No content telemetry. Running against the repo will confirm only and are present, and the network tab wil...",
         "The Report an issue button does not auto-submit anything. When you click it, your browser opens a pre-filled GitHub issue URL in a new tab. You see the body, edit it, and click Submit . Nothing happens until you do.",
         "The above claims are real. They have implications you should make peace with before you trust ResearchOS with anything sensitive.",
         "You don't have to take any of this on faith. There are two ways to confirm what the app is doing. The first is built into Settings and takes about thirty seconds.",
@@ -2263,7 +2379,7 @@
         "Telegram file CDN. When a photo arrives through your bot, the browser asks to fetch the bytes from Telegram (whose CDN refuses to set CORS headers, so the browser cannot reach it directly). The bot token travels in a request header, never in the URL. The bytes stream straight ...",
         "Vercel Web Analytics. When you navigate between pages, your browser sends an anonymous page-view beacon to Vercel telling them which route you visited. No IDs, no folder contents, no typed text, no markdown bodies, no project names. Vercel sees your IP address (which they hash...",
         "The Data inventory panel lists every file path the app has written and every IndexedDB key in use, alongside an External Calls section that names each outbound endpoint in plain English.",
-        "The Offline mode toggle disables the two proxy routes plus the Vercel Analytics script tag in one click, for anyone who wants zero outbound network from the app surface.",
+        "The Offline mode toggle disables the two proxy routes plus the Vercel Analytics and Speed Insights script tags in one click, for anyone who wants zero outbound network from the app surface.",
         "\"Where is this stored?\" hints on each integration field so you always know which file holds the credential you just entered.",
         "The first, , holds the opaque File System Access handle for your data folder. This is what gives the browser permission to read and write the folder you picked.",
         "The second, , holds three small session-routing strings: the folder name plus its grant timestamp, the currently signed-in user, and (if you are a PI signed in) the primary account.",
