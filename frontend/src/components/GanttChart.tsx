@@ -1124,12 +1124,22 @@ export default function GanttChart({
   }, []);
 
   // Handle drag over a task bar
+  // Experiments-only gate (Grant 2026-05-27): dependency chains are an
+  // experiment-only feature. Lists and purchases can still be dragged
+  // (to reschedule onto a new date), but dragging one onto another task
+  // bar to LINK them is restricted to experiments on both ends.
+  // Suppress the drop-zone visual when either party is not an experiment
+  // so the user gets a clear signal that the link drop won't fire.
   const handleDragOverTask = useCallback((e: React.DragEvent, task: Task) => {
+    if (!draggedTask) return;
+    if (draggedTask.task_type !== "experiment" || task.task_type !== "experiment") {
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
     setDragOverTask(task);
     setDragOverDate(null); // Clear date highlight when over a task
-  }, []);
+  }, [draggedTask]);
 
   // Handle drop on a task bar - show dependency popup
   const handleDropOnTask = useCallback((e: React.DragEvent, targetTask: Task) => {
@@ -1141,7 +1151,19 @@ export default function GanttChart({
       setDraggedTask(null);
       return;
     }
-    
+
+    // Experiments-only gate (Grant 2026-05-27): if either the dragged
+    // task or the drop target is not an experiment, silently abort the
+    // link operation. Reschedule drag (drop on empty date) is still
+    // allowed for all task types; this only blocks the LINK path.
+    if (
+      draggedTask.task_type !== "experiment" ||
+      targetTask.task_type !== "experiment"
+    ) {
+      setDraggedTask(null);
+      return;
+    }
+
     // Show dependency popup
     setDepParentTask(targetTask); // The task being dropped ON is the parent
     setDepChildTask(draggedTask); // The dragged task is the child

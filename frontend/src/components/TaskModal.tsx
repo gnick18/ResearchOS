@@ -159,11 +159,14 @@ export default function TaskModal({ projects }: TaskModalProps) {
 
   // Filter tasks to show as potential parents. The fetcher already restricts
   // to own projects, but we also gate on the matched project being own here
-  // — defense in depth so a stale cache or future fetcher change cannot
-  // re-introduce cross-owner siblings.
+  // (defense in depth so a stale cache or future fetcher change cannot
+  // re-introduce cross-owner siblings). Experiments-only gate (Grant
+  // 2026-05-27): dependency chains are restricted to experiments on both
+  // sides, so the parent picker only surfaces experiment tasks.
   const availableParentTasks = useMemo(() => {
     return allTasks.filter((t) => {
       if (t.project_id !== projectId) return false;
+      if (t.task_type !== "experiment") return false;
       const project = projects.find(
         (p) =>
           p.id === t.project_id &&
@@ -242,6 +245,18 @@ export default function TaskModal({ projects }: TaskModalProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `hasTaskContent` intentionally omitted so the effect doesn't re-fire as the user types
   }, [isCreatingTask, activeProjects, newTaskStartDate, restrictedTaskType]);
+
+  // Experiments-only gate (Grant 2026-05-27): dependency mode is
+  // experiment-only. If the user flips from experiment to list /
+  // purchase while dependency mode is selected, snap back to date mode
+  // so the form doesn't carry hidden dependency intent the user can't
+  // see (the After Task toggle is hidden for non-experiment types).
+  useEffect(() => {
+    if (taskType !== "experiment" && schedulingMode === "dependency") {
+      setSchedulingMode("date");
+      setParentTaskId(null);
+    }
+  }, [taskType, schedulingMode]);
 
   const resetForm = useCallback(() => {
     setName("");
@@ -711,36 +726,45 @@ export default function TaskModal({ projects }: TaskModalProps) {
             </div>
           )}
 
-          {/* Scheduling Mode Toggle */}
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-2">
-              Scheduling
-            </label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setSchedulingMode("date")}
-                className={`flex-1 px-4 py-2.5 text-sm rounded-lg border transition-colors ${
-                  schedulingMode === "date"
-                    ? "bg-purple-50 border-purple-300 text-purple-700 font-medium"
-                    : "border-gray-200 text-gray-500 hover:bg-gray-50"
-                }`}
-              >
-                Set Date
-              </button>
-              <button
-                type="button"
-                onClick={() => setSchedulingMode("dependency")}
-                className={`flex-1 px-4 py-2.5 text-sm rounded-lg border transition-colors ${
-                  schedulingMode === "dependency"
-                    ? "bg-orange-50 border-orange-300 text-orange-700 font-medium"
-                    : "border-gray-200 text-gray-500 hover:bg-gray-50"
-                }`}
-              >
-                After Task
-              </button>
+          {/* Scheduling Mode Toggle. Experiments-only gate (Grant
+              2026-05-27): the "After Task" (dependency) mode is hidden
+              for list + purchase tasks since dependency chains are
+              experiment-only. For non-experiment task types we render
+              just the Set-Date branch without the toggle, since there's
+              only one option. If the user changes task type from
+              experiment to list / purchase while in dependency mode,
+              snap back to date mode (handled by the effect below). */}
+          {taskType === "experiment" ? (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-2">
+                Scheduling
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSchedulingMode("date")}
+                  className={`flex-1 px-4 py-2.5 text-sm rounded-lg border transition-colors ${
+                    schedulingMode === "date"
+                      ? "bg-purple-50 border-purple-300 text-purple-700 font-medium"
+                      : "border-gray-200 text-gray-500 hover:bg-gray-50"
+                  }`}
+                >
+                  Set Date
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSchedulingMode("dependency")}
+                  className={`flex-1 px-4 py-2.5 text-sm rounded-lg border transition-colors ${
+                    schedulingMode === "dependency"
+                      ? "bg-orange-50 border-orange-300 text-orange-700 font-medium"
+                      : "border-gray-200 text-gray-500 hover:bg-gray-50"
+                  }`}
+                >
+                  After Task
+                </button>
+              </div>
             </div>
-          </div>
+          ) : null}
 
           {/* Date Mode: Start Date + Duration */}
           {schedulingMode === "date" && (

@@ -1976,8 +1976,12 @@ function DetailsTab({
     } else if (newDepType === "SS") {
       return selectedNewParent.start_date;
     } else if (newDepType === "SF") {
+      // SF strict-gap (dep semantics manager 2026-05-27): child finishes
+      // strictly before parent starts, so child.end = parent.start - 1
+      // and child.start = parent.start - duration. Matches GanttChart's
+      // dialog handler + the engine's shift.ts SF branch.
       const newStart = new Date(parentStart);
-      newStart.setDate(newStart.getDate() - durationDays + 1);
+      newStart.setDate(newStart.getDate() - durationDays);
       return newStart.toISOString().split("T")[0];
     }
     return startDate;
