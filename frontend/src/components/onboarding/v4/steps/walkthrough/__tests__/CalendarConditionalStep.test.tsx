@@ -48,8 +48,12 @@ describe("calendarConditionalStep step shape", () => {
   it("exposes the expected id + pose + conditional gate", () => {
     expect(calendarConditionalStep.id).toBe("calendar");
     expect(calendarConditionalStep.pose).toBe("pointing");
+    // Hand-walk edit 2026-05-27: the spotlight moved from the Calendar
+    // tab marker to the Linked Calendars button so the new third
+    // paragraph ("click the Linked Calendars button up here") has a
+    // visual anchor. Assertion updated to the current target.
     expect(calendarConditionalStep.targetSelector).toBe(
-      "[data-tour-target='calendar-tab']",
+      "[data-tour-target='calendar-linked-feeds-button']",
     );
   });
 

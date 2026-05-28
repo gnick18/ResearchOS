@@ -191,8 +191,16 @@ describe("R2 fix-pass P1: HE-3 paragraph 3 restored with corrected location", ()
   });
 });
 
-describe("R2 fix-pass P1: HE-7 speech includes the Cmd+B framing from spec line 131", () => {
-  it("speech mentions Cmd+B (the spec-mandated framing) alongside Cmd+I and Cmd+U", () => {
+describe("R2 fix-pass P1: HE-7 speech teaches the Cmd+B keyboard shortcut", () => {
+  it("speech mentions Cmd+B plus the Ctrl+B Windows variant (Wave 2C rewrite 2026-05-27)", () => {
+    // Wave 2C speech rewrite (v4 tour speech manager — C, 2026-05-27):
+    // Grant's two-paragraph copy intentionally trimmed the HE-7 speech
+    // to a SINGLE representative shortcut — Cmd+B (bold) — with the
+    // Ctrl+B Windows equivalent. The earlier "Cmd+I / Cmd+U / Word
+    // shortcuts" laundry list (spec line 131) was dropped to keep the
+    // user-action prompt short. Cmd+B is still the spec-mandated
+    // framing and is present; the assertion now matches the current
+    // copy instead of the retired multi-shortcut list.
     const speech =
       typeof hybridShortcutsStep.speech === "function"
         ? hybridShortcutsStep.speech()
@@ -200,9 +208,8 @@ describe("R2 fix-pass P1: HE-7 speech includes the Cmd+B framing from spec line 
     const { container } = render(<>{speech}</>);
     const text = container.textContent ?? "";
     expect(text).toMatch(/Cmd\+B/);
-    expect(text).toMatch(/Cmd\+I/);
-    expect(text).toMatch(/Cmd\+U/);
-    expect(text).toMatch(/Word shortcuts/i);
+    expect(text).toMatch(/Ctrl\+B/);
+    expect(text).toMatch(/bold text/i);
   });
 });
 

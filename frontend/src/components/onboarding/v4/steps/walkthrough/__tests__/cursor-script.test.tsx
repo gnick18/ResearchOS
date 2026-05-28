@@ -1019,11 +1019,17 @@ describe("§6.4b step bodies declare the expected viewportAnchor — Bug A", () 
    * into view before the cursor demo runs. Catches a regression where
    * a future maintainer drops the field by accident.
    */
-  it("methodsBreadthStep anchors the methods modal", async () => {
+  it("methodsBreadthStep no longer anchors the modal (hand-walk fix 2026-05-27)", async () => {
+    // Hand-walk fix 2026-05-27 (third pass): the breadth step
+    // deliberately DROPPED its viewportAnchor. The CreateMethodModal is
+    // a portal covering most of the screen, so it is already in view;
+    // re-anchoring re-snapped the scroll to the top and fought the
+    // user's own wheel scroll as they tried to reach the gradient
+    // builder. The PCR tile is highlighted in purple post-click for the
+    // visual cue. This step is now the one §6.4b sub-step WITHOUT an
+    // anchor; the four PCR sub-steps below still declare theirs.
     const { methodsBreadthStep } = await import("../MethodsBreadthStep");
-    expect(methodsBreadthStep.viewportAnchor).toBe(
-      '[data-tour-target="methods-create-form"]',
-    );
+    expect(methodsBreadthStep.viewportAnchor).toBeUndefined();
   });
   it("methodsPcrEditStep anchors the PCR editor wrapper", async () => {
     const { methodsPcrEditStep } = await import("../MethodsPcrEditStep");
@@ -1069,29 +1075,46 @@ describe("step bodies — cursor scripts produce expected actions", () => {
     expect(homeCreateProjectStep.cursorScript).toBeUndefined();
   });
 
-  it("SearchStep: types the placeholder query into the search input", async () => {
-    const { cleanup } = mountFixture(TOUR_TARGETS.searchInput, "input");
+  it("SearchStep: clicks the Search button (no keyword typing) — hand-walk simplification 2026-05-27", async () => {
+    // Hand-walk simplification 2026-05-27 (Grant): the search demo no
+    // longer TYPES a partial-match query ("Demo Experiment") into the
+    // Keywords input. The cursor now just CLICKS the Search button with
+    // no filters set, returning every experiment in the account (one
+    // for a fresh user). So the script is a single click on the
+    // `search-submit` target, NOT a type into `search-input`.
+    //
+    // Mount the search-submit button fixture (what the cursor now waits
+    // for). The prior version mounted `search-input` and asserted a
+    // "type" action; with the rewrite, safeClickAction(search-submit)
+    // would wait 5000ms on an element the old fixture never provided,
+    // tripping the test timeout. Mounting the correct fixture makes
+    // waitForElement resolve immediately.
+    const { cleanup } = mountFixture(TOUR_TARGETS.searchSubmit, "button");
     try {
       const script = await searchStep.cursorScript?.();
       expect(script).toBeDefined();
       expect(script).toHaveLength(1);
-      expect(script?.[0].type).toBe("type");
-      if (script?.[0].type === "type") {
-        expect(script[0].text).toMatch(/Demo Experiment/);
-      }
+      expect(script?.[0].type).toBe("click");
     } finally {
       cleanup();
     }
   });
 
-  it("WorkbenchCreateExperimentOpenStep: cursor opens modal, picks project, types name, submits (experiment-flow fix manager 2026-05-27)", () => {
-    // Hand-walk fix (Grant 2026-05-27): the open beat is now a
-    // BeakerBot demo. The cursor clicks +New Experiment, changes the
-    // Project select, types the placeholder name, and clicks Create
-    // Experiment. The exact action shape is exercised by integration
-    // tests; here we just guard the cursorScript presence to prevent
-    // a future regression to the old user-action shape.
-    expect(workbenchCreateExperimentOpenStep.cursorScript).toBeDefined();
+  it("WorkbenchCreateExperimentOpenStep: USER_ACTION open beat, no cursor demo (experiment-create user-action manager 2026-05-27)", () => {
+    // Refactor 2026-05-27 (experiment-create user-action manager): the
+    // open beat was deliberately flipped FROM a BeakerBot cursor demo
+    // (which kept regressing on modal-mount timing, react-query cache
+    // freshness, and <option> render races) TO a USER_ACTION step. The
+    // user clicks "+ New Experiment" themselves. So this step now has:
+    //   - NO cursorScript (the prior assertion guarded the demo shape)
+    //   - a spotlight targetSelector on the +New Experiment button
+    //   - an event completion that advances when the user opens the
+    //     modal (tour:workbench-experiment-modal-opened)
+    expect(workbenchCreateExperimentOpenStep.cursorScript).toBeUndefined();
+    expect(workbenchCreateExperimentOpenStep.targetSelector).toBe(
+      "[data-tour-target=\"workbench-new-experiment\"]",
+    );
+    expect(workbenchCreateExperimentOpenStep.completion.type).toBe("event");
   });
 
   it("user-action steps with no cursorScript don't expose any glide/click actions", async () => {

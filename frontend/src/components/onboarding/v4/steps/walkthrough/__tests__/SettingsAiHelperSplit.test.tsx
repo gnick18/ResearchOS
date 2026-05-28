@@ -115,9 +115,13 @@ describe("ai-helper-size-options (BeakerBot demo, Wave 2E split)", () => {
     expect(aiHelperSizeOptionsStep.cursorScript).toBeDefined();
   });
   it("speech mentions all three size labels", () => {
+    // Wave 2E speech rewrite (2026-05-27): the middle tier's USER-FACING
+    // label in the speech is "Lean" (the underlying pick value is still
+    // `medium`, see the gate test above). Assertion updated from the old
+    // "Medium" wording to the current "Lean" label.
     const text = renderSpeech(aiHelperSizeOptionsStep);
     expect(text).toMatch(/Full/);
-    expect(text).toMatch(/Medium/);
+    expect(text).toMatch(/Lean/);
     expect(text).toMatch(/Minimal/);
   });
   it("declares an 800ms read-then-watch pause between size clicks", () => {

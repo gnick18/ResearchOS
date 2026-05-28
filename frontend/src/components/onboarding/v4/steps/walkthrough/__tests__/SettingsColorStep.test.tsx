@@ -37,9 +37,14 @@ describe("personalization-color (refined, §6.10 phase redesign)", () => {
     expect(settingsColorStep.expectedRoute).toBe("/settings");
   });
 
-  it("targets the tint-header toggle (not the color picker anymore)", () => {
+  it("targets the combined color + tint wrapper (hand-walk fix 2026-05-27)", () => {
+    // Hand-walk fix 2026-05-27 (Grant): the spotlight now wraps BOTH the
+    // color picker and the tint toggle (settings-color-and-tint), not
+    // just the toggle. The user's mental model here is "play with the
+    // colors or the tint", so the highlight encompasses both. The tint
+    // toggle itself stays in the page-lock allow-list (asserted below).
     expect(settingsColorStep.targetSelector).toBe(
-      "[data-tour-target=\"settings-color-tint-toggle\"]",
+      "[data-tour-target=\"settings-color-and-tint\"]",
     );
   });
 
