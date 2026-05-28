@@ -241,6 +241,15 @@ export default function SettingsFeaturePage() {
         Pick the one that suits your vibe. The change takes effect the next
         time you check off a task.
       </p>
+      <p>
+        Below the grid sits a separate <strong>BeakerBot animations</strong>{" "}
+        toggle. This is a different control: it governs BeakerBot&apos;s daily
+        hello wave (a quick &quot;Hi!&quot; the first time you open ResearchOS
+        each day) and the BeakerBot streak-celebration scenes that fire when you
+        hit a streak milestone. Leave it on for the full personality, or turn it
+        off for a quieter experience. The per-task celebration you picked above
+        keeps playing either way.
+      </p>
 
       <h2>Notifications &amp; behavior</h2>
       <p>

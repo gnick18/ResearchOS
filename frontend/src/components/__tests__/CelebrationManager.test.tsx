@@ -97,6 +97,33 @@ import CelebrationManager, {
 const USER = "alex";
 const PATH = `users/${USER}/_streak.json`;
 
+/** ISO YYYY-MM-DD for today (local), mirroring the manager's helper. */
+function todayIso(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** Mark the per-user daily-hello as already fired today so the once-per-
+ *  day greeting (beakerbot-joy manager) does not fire in tests that
+ *  assert on the milestone path in isolation. */
+function suppressHelloToday(username: string): void {
+  window.localStorage.setItem(
+    `researchOS.beakerHello.${username}.lastDate`,
+    todayIso(),
+  );
+}
+
+/** Set the user's beakerBotAnimations setting (read by the manager via
+ *  useBeakerBotAnimations → readUserSettings → fileService). Writing the
+ *  settings.json into the in-memory FS is enough; the hook reads it on
+ *  mount. */
+function setBeakerBotAnimations(username: string, value: boolean): void {
+  memFs.set(`users/${username}/settings.json`, { beakerBotAnimations: value });
+}
+
 function freshSidecar(over: Partial<StreakSidecar> = {}): StreakSidecar {
   return {
     schema_version: 1,
@@ -121,6 +148,15 @@ beforeEach(() => {
   __resetStreakWriteQueueForTests();
   __resetStreakActivityTrackerForTests();
   tourState.mode = null;
+  // Isolate the daily-hello localStorage dedup between tests. Each test
+  // that wants the hello suppressed calls suppressHelloToday explicitly.
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.clear();
+    } catch {
+      // jsdom localStorage is always present; guard for safety.
+    }
+  }
   // Default matchMedia stub: not reduced-motion. Multi-stage scenes
   // (Ladder / Eureka / MouseWave) inspect this when their effects run.
   if (typeof window !== "undefined") {
@@ -165,6 +201,9 @@ function celebrationSceneCount(): number {
 describe("CelebrationManager", () => {
   it("renders nothing when no celebrations are pending", async () => {
     // Empty sidecar + no user_metadata → no pending tags.
+    // Suppress the once-per-day hello so this asserts the milestone path
+    // in isolation (the hello has its own dedicated tests below).
+    suppressHelloToday(USER);
     memFs.set(PATH, freshSidecar());
     render(<CelebrationManager username={USER} />);
     // Give the async evaluator a chance to settle.
@@ -267,7 +306,9 @@ describe("CelebrationManager", () => {
   });
 
   it("live milestone event appends to the queue and fires a scene", async () => {
-    // Start with no pending celebrations.
+    // Start with no pending celebrations. Suppress the daily hello so the
+    // initial "0 scenes" assertion isolates the live-event path.
+    suppressHelloToday(USER);
     memFs.set(PATH, freshSidecar());
     render(<CelebrationManager username={USER} />);
 
@@ -292,6 +333,7 @@ describe("CelebrationManager", () => {
   });
 
   it("ignores milestone events for a different username", async () => {
+    suppressHelloToday(USER);
     memFs.set(PATH, freshSidecar());
     render(<CelebrationManager username={USER} />);
 
@@ -324,6 +366,57 @@ describe("CelebrationManager", () => {
     // mocked controller value, and the deferred scene should now fire.
     tourState.mode = null;
     rerender(<CelebrationManager username={USER} />);
+
+    await waitFor(() => {
+      expect(celebrationSceneCount()).toBe(1);
+    });
+  });
+});
+
+describe("CelebrationManager daily hello (beakerbot-joy manager)", () => {
+  it("fires the once-per-day hello wave for a fresh user with no milestones", async () => {
+    // No localStorage hello key set, empty sidecar, no milestones → the
+    // daily hello fires the mouseWave scene.
+    memFs.set(PATH, freshSidecar());
+    render(<CelebrationManager username={USER} />);
+
+    await waitFor(() => {
+      expect(
+        document.querySelector(
+          '[data-testid="beakerbot-mouse-wave-scene"]',
+        ),
+      ).not.toBeNull();
+    });
+    // And the per-day localStorage dedup is now stamped with today.
+    expect(
+      window.localStorage.getItem(`researchOS.beakerHello.${USER}.lastDate`),
+    ).toBe(todayIso());
+  });
+
+  it("does NOT re-fire the hello once it has already fired today", async () => {
+    suppressHelloToday(USER);
+    memFs.set(PATH, freshSidecar());
+    render(<CelebrationManager username={USER} />);
+
+    await new Promise((r) => setTimeout(r, 40));
+    expect(celebrationSceneCount()).toBe(0);
+  });
+
+  it("suppresses BOTH hello AND streak celebrations when beakerBotAnimations is off", async () => {
+    // Opt-out: a pending milestone (count=7) AND a never-fired daily hello
+    // are both suppressed when the setting is false.
+    setBeakerBotAnimations(USER, false);
+    memFs.set(PATH, freshSidecar({ current_count: 7 }));
+    render(<CelebrationManager username={USER} />);
+
+    await new Promise((r) => setTimeout(r, 60));
+    expect(celebrationSceneCount()).toBe(0);
+  });
+
+  it("still fires streak celebrations when beakerBotAnimations is on", async () => {
+    setBeakerBotAnimations(USER, true);
+    memFs.set(PATH, freshSidecar({ current_count: 7 }));
+    render(<CelebrationManager username={USER} />);
 
     await waitFor(() => {
       expect(celebrationSceneCount()).toBe(1);
