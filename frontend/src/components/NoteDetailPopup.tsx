@@ -34,48 +34,6 @@ interface NoteDetailPopupProps {
   readOnly?: boolean;
 }
 
-// Debounce helper with cancel capability
-function useDebouncedCallback<T extends (...args: string[]) => void>(
-  callback: T,
-  delay: number
-): { debounced: T; cancel: () => void; flush: () => void } {
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const argsRef = useRef<Parameters<T> | null>(null);
-  
-  const cancel = useCallback(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-      argsRef.current = null;
-    }
-  }, []);
-  
-  const flush = useCallback(() => {
-    if (timeoutRef.current && argsRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-      callback(...argsRef.current);
-      argsRef.current = null;
-    }
-  }, [callback]);
-  
-  const debounced = useCallback(
-    (...args: Parameters<T>) => {
-      argsRef.current = args;
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-      timeoutRef.current = setTimeout(() => {
-        callback(...args);
-        argsRef.current = null;
-      }, delay);
-    },
-    [callback, delay]
-  ) as T;
-  
-  return { debounced, cancel, flush };
-}
-
 export default function NoteDetailPopup({
   note,
   onClose,
@@ -167,10 +125,41 @@ export default function NoteDetailPopup({
     return () => setActiveNote(null);
   }, [setActiveNote, note.id, note.username, note.title, currentUser]);
 
-  // Track unsaved content for auto-save
+  // Track unsaved content (pending writes that haven't been manually saved
+  // yet). Still drives the close + SPA-nav safety nets even though we no
+  // longer auto-save: a user can navigate away mid-edit and we flush these.
   const unsavedContentRef = useRef<Map<string, string>>(new Map());
   const isSavingRef = useRef(false);
   const isClosingRef = useRef(false);
+
+  // note-save (note-save manager): manual-save model mirroring the experiment
+  // Lab Notes tab. `savedContentRef` holds the last-saved (disk) baseline per
+  // entry so we can compute, for the ACTIVE entry, whether there is anything
+  // new to save. The parent "Save note" button lights up while that differs.
+  const savedContentRef = useRef<Map<string, string>>(new Map());
+  // Mirrors the editor's in-flight buffer-dirty flag. The editor buffers
+  // keystrokes and only flushes to the entry content on block commit, so the
+  // content (and thus hasUnsavedChanges) lags while the user is mid-block. We
+  // OR this into the Save button's enabled state so it lights up the instant
+  // typing starts, not only after a block switch.
+  const [editorDirty, setEditorDirty] = useState(false);
+  // Imperative flush handle published by the embedded editor. Calling it
+  // commits the editor's in-flight block buffer, fires onChange, and returns
+  // the freshest full-document string so the "Save note" button persists the
+  // very latest edit even if the user never left the active block.
+  const editorSaveRef = useRef<(() => string) | null>(null);
+
+  // Seed / refresh the saved baseline whenever entries load (mount, add,
+  // delete, or a successful save replaces the entries array). We only set a
+  // baseline for entries we don't already track so an unsaved in-flight edit
+  // isn't clobbered back to "clean" by an unrelated entries refresh.
+  useEffect(() => {
+    for (const entry of entries) {
+      if (!savedContentRef.current.has(entry.id)) {
+        savedContentRef.current.set(entry.id, entry.content ?? "");
+      }
+    }
+  }, [entries]);
 
   // Set initial active tab
   useEffect(() => {
@@ -191,7 +180,10 @@ export default function NoteDetailPopup({
   // Get the current entry being edited
   const currentEntry = entries.find((e) => e.id === activeTab);
 
-  // Debounced save function
+  // Manual-save function (note-save manager). This is the explicit
+  // version-control save: every write is a git commit. Called from the
+  // parent "Save note" button, the editor's Cmd+S (onExplicitSave), the
+  // tab-switch flush, and the close / SPA-nav safety nets.
   const saveEntryContent = useCallback(
     async (entryId: string, content: string) => {
       if (isSavingRef.current) return;
@@ -207,6 +199,12 @@ export default function NoteDetailPopup({
           setEntries(updated.entries);
         }
         unsavedContentRef.current.delete(entryId);
+        // Move this entry's saved baseline to what we just wrote so the
+        // "Save note" button greys out (nothing new to save). Clearing the
+        // editor's dirty flag is belt-and-suspenders: the editor also clears
+        // its own dirty state when its buffer flushes.
+        savedContentRef.current.set(entryId, content);
+        setEditorDirty(false);
         // Drop the SPA-nav draft for this entry — disk now matches what
         // the user typed, so a later remount should pick up the disk
         // baseline cleanly rather than re-hydrating a stale slug.
@@ -228,51 +226,65 @@ export default function NoteDetailPopup({
     [note.id, onUpdate, notesApi, currentUser, note.username]
   );
 
-  // Debounced save (1.5 seconds after user stops typing)
-  const { debounced: debouncedSave, cancel: cancelDebouncedSave, flush: flushDebouncedSave } = useDebouncedCallback(
-    (entryId: string, content: string) => {
-      saveEntryContent(entryId, content);
-    },
-    1500
-  );
+  // note-save (note-save manager): notes no longer auto-save. Versions push
+  // only on an explicit save. This helper flushes EVERY pending entry to disk
+  // synchronously (best-effort, in parallel) and is the manual replacement for
+  // the old debounced flush — used by the close path, the SPA-nav guard, and
+  // the unsaved-changes beforeunload guard so in-flight edits are never lost.
+  const flushAllUnsaved = useCallback(() => {
+    if (unsavedContentRef.current.size === 0) return;
+    const pending = Array.from(unsavedContentRef.current.entries());
+    for (const [entryId, content] of pending) {
+      // Fire-and-forget; saveEntryContent self-guards against re-entry. We
+      // don't await here because the guard callbacks are synchronous.
+      void saveEntryContent(entryId, content);
+    }
+  }, [saveEntryContent]);
 
-  // Track dirty state across every editable surface, not just the debounced
-  // entry body. The inline title + description editors and the new-entry
-  // form all live in local React state, so a refresh / tab-close mid-edit
-  // would silently drop them without this gate.
+  // hasUnsavedChanges for the ACTIVE entry only: the parent "Save note" button
+  // saves the active entry, so it should reflect whether the active entry
+  // differs from its last-saved baseline. (Outgoing-entry edits are flushed on
+  // tab switch, see the activeTab effect below.)
+  const hasUnsavedChanges = currentEntry
+    ? currentEntry.content !== (savedContentRef.current.get(currentEntry.id) ?? "")
+    : false;
+
+  // Track dirty state across every editable surface, not just the entry
+  // body. The inline title + description editors and the new-entry form all
+  // live in local React state, so a refresh / tab-close mid-edit would
+  // silently drop them without this gate.
   //
-  // `unsavedEntryContent` is intentionally not part of React state (the ref
-  // is updated synchronously by `updateEntryContent` while the debounced
-  // save is in flight); we mirror it into a re-render boundary by passing
-  // the ref's `.size > 0` value through here, which re-evaluates on every
-  // render that follows a typed character (the editor body change calls
-  // setEntries above, which triggers a render).
+  // `unsavedContentRef` is intentionally not part of React state (the ref is
+  // updated synchronously by `updateEntryContent` as the user types); we
+  // mirror it into a re-render boundary by passing the ref's `.size > 0`
+  // value through here, which re-evaluates on every render that follows a
+  // typed character (the editor body change calls setEntries above, which
+  // triggers a render).
   const hasUnsavedEdits =
     unsavedContentRef.current.size > 0 ||
     (editingTitle && title !== note.title) ||
     (editingDescription && description !== note.description) ||
     (showNewEntryForm && newEntryTitle.trim().length > 0);
 
-  // beforeunload guard. `onFlush` runs the debounced editor-body write
-  // synchronously, giving the in-flight save a fighting chance before the
+  // beforeunload guard. `onFlush` saves every pending entry synchronously via
+  // the manual path, giving the in-flight write a fighting chance before the
   // browser tears down. The guard itself only triggers when `hasUnsavedEdits`
   // is true, so it does not prompt for clean closes.
   useUnsavedChangesGuard(hasUnsavedEdits && !saving, {
-    onFlush: flushDebouncedSave,
+    onFlush: flushAllUnsaved,
   });
 
-  // SPA-nav-safe persistence for the currently-active entry's body. The
-  // existing debounced API save handles the happy path (user keeps typing,
-  // server eventually catches up), and `handleClose` flushes pending writes
-  // on the user-initiated close path. But a SPA nav-link click unmounts the
-  // popup WITHOUT going through `handleClose`, so the in-flight content
-  // sitting in `unsavedContentRef` is silently dropped.
+  // SPA-nav-safe persistence for the currently-active entry's body. Notes
+  // now save manually (note-save manager), and `handleClose` flushes pending
+  // writes on the user-initiated close path. But a SPA nav-link click unmounts
+  // the popup WITHOUT going through `handleClose`, so the in-flight content
+  // sitting in `unsavedContentRef` would otherwise be silently dropped.
   //
   // Persisting the active entry's body to sessionStorage closes that gap:
   // on remount (user returns to this note via inbox / search / direct nav)
-  // the onRestore hydrates `unsavedContentRef` + the entry's local content,
-  // and the debounced save fires once the user types again (or `handleClose`
-  // flushes on close).
+  // the onRestore hydrates `unsavedContentRef` + the entry's local content so
+  // the "Save note" button lights up again and the user can persist it (or
+  // `handleClose` flushes it on close).
   //
   // Per-user + per-note + per-entry key so an open in another tab does not
   // collide; entries are independent because each entry has its own id.
@@ -304,19 +316,20 @@ export default function NoteDetailPopup({
         ),
       );
       unsavedContentRef.current.set(activeTab, saved);
-      // Kick off the debounced save so the recovered content lands on
-      // disk without requiring the user to type another character.
-      debouncedSave(activeTab, saved);
+      // note-save (note-save manager): notes no longer auto-save, so we do
+      // NOT push the recovered content to disk here. It's restored into the
+      // editor + tracked as unsaved so the "Save note" button lights up and
+      // the close / guard flush will persist it when the user is ready.
     },
   });
 
-  // Handle close with save - saves any pending changes before closing
+  // Handle close with save - saves any pending changes before closing.
+  // note-save (note-save manager): notes no longer auto-save, but closing the
+  // popup still flushes any pending (unsaved) entries so an explicit "X" /
+  // Escape doesn't silently drop in-flight edits.
   const handleClose = useCallback(async () => {
     // Mark that we're closing to prevent state updates after save
     isClosingRef.current = true;
-
-    // Cancel any pending debounced saves
-    cancelDebouncedSave();
 
     // Save any unsaved content immediately
     if (unsavedContentRef.current.size > 0) {
@@ -349,7 +362,7 @@ export default function NoteDetailPopup({
     }
 
     onClose();
-  }, [note.id, note.username, onClose, cancelDebouncedSave, notesApi, currentUser]);
+  }, [note.id, note.username, onClose, notesApi, currentUser]);
 
   // Handle escape key to close or exit fullscreen
   useEffect(() => {
@@ -423,7 +436,11 @@ export default function NoteDetailPopup({
     }
   };
 
-  // Update entry content - immediate local update, debounced API save
+  // Update entry content - immediate local update only (note-save manager).
+  // Notes no longer auto-save: this keeps the editor responsive and tracks
+  // the unsaved content for the close / SPA-nav / tab-switch safety nets, but
+  // it does NOT write to disk. The user persists via the "Save note" button
+  // (or Cmd+S, which routes through onExplicitSave -> saveEntryContent).
   const updateEntryContent = useCallback(
     (content: string) => {
       if (!activeTab) return;
@@ -435,13 +452,42 @@ export default function NoteDetailPopup({
         )
       );
 
-      // Track unsaved content
+      // Track unsaved content so close / nav-away flushes can recover it.
       unsavedContentRef.current.set(activeTab, content);
-
-      // Trigger debounced save
-      debouncedSave(activeTab, content);
     },
-    [activeTab, debouncedSave]
+    [activeTab]
+  );
+
+  // Running-log tab switch (note-save manager). Auto-save used to cover the
+  // case where the user typed in one entry then clicked another tab. With
+  // manual save we'd lose those edits, so flush-save the OUTGOING entry first.
+  // We pull the freshest text from the editor buffer (editorSaveRef) and fall
+  // back to whatever is tracked in unsavedContentRef. Saving is fire-and-
+  // forget; saveEntryContent updates state and the saved baseline so the
+  // outgoing tab is clean when the user returns.
+  const switchToTab = useCallback(
+    (nextId: string) => {
+      if (nextId === activeTab) return;
+      const outgoing = activeTab;
+      if (outgoing) {
+        const buffered = editorSaveRef.current?.();
+        const pending =
+          typeof buffered === "string"
+            ? buffered
+            : unsavedContentRef.current.get(outgoing);
+        if (
+          typeof pending === "string" &&
+          pending !== (savedContentRef.current.get(outgoing) ?? "")
+        ) {
+          void saveEntryContent(outgoing, pending);
+        }
+      }
+      // Clear the dirty mirror so the incoming entry starts clean; the editor
+      // re-publishes dirty on the next keystroke.
+      setEditorDirty(false);
+      setActiveTab(nextId);
+    },
+    [activeTab, saveEntryContent]
   );
 
   const handleImageUpload = useCallback(
@@ -470,9 +516,9 @@ export default function NoteDetailPopup({
       // Drop writes the file to Images/ and emits the attached event so
       // the bottom ImageStrip refreshes; placing the markdown ref inline
       // is the user's explicit drag from the strip into the editor body.
-      // Because we do NOT call updateEntryContent here, the debounced
-      // autosave does not fire from a drop alone — so the GC sweep won't
-      // touch the new file until the user types or drags it in.
+      // We do NOT call updateEntryContent here, so a drop alone never marks
+      // the entry dirty — the GC sweep won't touch the new file until the
+      // user references it and explicitly saves.
       for (const file of uniqueFiles) {
         try {
           await attachImageToTask({
@@ -971,7 +1017,8 @@ export default function NoteDetailPopup({
                 }}
               />
 
-              {/* Auto-save indicator */}
+              {/* Save-in-progress indicator (note-save manager): shown while
+                  an explicit save (or title / sharing write) is in flight. */}
               {saving && (
                 <span className="text-xs text-gray-400 flex items-center gap-1">
                   <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
@@ -996,7 +1043,7 @@ export default function NoteDetailPopup({
                   .map((entry) => (
                     <button
                       key={entry.id}
-                      onClick={() => setActiveTab(entry.id)}
+                      onClick={() => switchToTab(entry.id)}
                       className={`px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-colors ${
                         activeTab === entry.id
                           ? "bg-emerald-100 text-emerald-700 font-medium"
@@ -1124,6 +1171,42 @@ export default function NoteDetailPopup({
             </div>
           )}
 
+          {/* Save toolbar (note-save manager). Notes now use the manual
+              version-control save model from the experiment Lab Notes tab:
+              this parent-owned "Save note" button lights up the moment there
+              are unsaved edits (including while typing) and greys when there
+              is nothing new to save. Each save is a git commit; notes no
+              longer auto-save. Hidden entirely in readOnly mode. */}
+          {!readOnly && currentEntry && (
+            <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-100 flex-shrink-0">
+              <div className="flex-1" />
+              {(hasUnsavedChanges || editorDirty) && (
+                <span className="inline-flex items-center gap-1 text-xs text-amber-700 font-medium">
+                  <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  Unsaved changes
+                </span>
+              )}
+              <button
+                data-testid="note-save"
+                data-tour-target="note-save"
+                onClick={() => {
+                  // Flush the editor's in-flight block buffer first so the
+                  // last in-progress edit lands on disk, then persist.
+                  const latest = editorSaveRef.current?.() ?? (currentEntry?.content ?? "");
+                  if (activeTab) void saveEntryContent(activeTab, latest);
+                }}
+                disabled={saving || readOnly || (!hasUnsavedChanges && !editorDirty)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                  (hasUnsavedChanges || editorDirty) && !saving
+                    ? "text-white bg-blue-600 hover:bg-blue-700"
+                    : "text-gray-400 bg-gray-100 cursor-not-allowed"
+                }`}
+              >
+                {saving ? "Saving..." : "Save note"}
+              </button>
+            </div>
+          )}
+
           {/* Editor */}
           <div className="flex-1 overflow-y-auto">
             {note.is_running_log ? (
@@ -1138,6 +1221,15 @@ export default function NoteDetailPopup({
                   onFileDrop={handleFileUpload}
                   imageBasePath={basePath}
                   recordType="note"
+                  // note-save (note-save manager): the popup owns its own
+                  // version-controlled "Save note" button above, so hide the
+                  // editor's internal buffer-commit button. saveRef lets that
+                  // button flush the live buffer; onExplicitSave routes Cmd+S
+                  // to disk; onDirtyChange keeps the button lit while mid-edit.
+                  hideSaveButton
+                  saveRef={editorSaveRef}
+                  onExplicitSave={(v) => { if (activeTab) void saveEntryContent(activeTab, v); }}
+                  onDirtyChange={setEditorDirty}
                 />
               ) : (
                 <div className="flex items-center justify-center h-full text-gray-400">
@@ -1161,6 +1253,11 @@ export default function NoteDetailPopup({
                   onFileDrop={handleFileUpload}
                   imageBasePath={basePath}
                   recordType="note"
+                  // note-save (note-save manager): see running-log branch.
+                  hideSaveButton
+                  saveRef={editorSaveRef}
+                  onExplicitSave={(v) => { if (activeTab) void saveEntryContent(activeTab, v); }}
+                  onDirtyChange={setEditorDirty}
                 />
               )
             )}
