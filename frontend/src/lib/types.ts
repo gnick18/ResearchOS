@@ -1970,4 +1970,11 @@ export interface LabNote {
   updated_at: string;
   username: string;
   user_color: string;
+  // VCP R3 attribution stamps (2026-05-26): mirror the optional
+  // last-edited fields on `Note` so NoteCard can read them off the
+  // `Note | LabNote` union without a type error. Optional + the
+  // AttributionChip self-hides when absent, so lab notes that don't
+  // carry attribution simply render no chip.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
