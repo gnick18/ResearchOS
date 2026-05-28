@@ -8,6 +8,15 @@ export async function validateResearchFolder(handle: FileSystemDirectoryHandle):
     const usersHandle = await handle.getDirectoryHandle("users");
     return usersHandle.kind === "directory";
   } catch (err) {
+    // A missing "users" directory is the EXPECTED signal that this is a
+    // brand-new / empty folder we're about to initialize. The caller turns
+    // a `false` here into `needsInitialization: true`, so a NotFoundError is
+    // normal flow, not a fault. Only log genuinely unexpected failures
+    // (permissions, I/O) to avoid scaring users with a red console error on
+    // every first-time empty-folder link.
+    if (err instanceof DOMException && err.name === "NotFoundError") {
+      return false;
+    }
     console.error("validateResearchFolder error:", err);
     return false;
   }
