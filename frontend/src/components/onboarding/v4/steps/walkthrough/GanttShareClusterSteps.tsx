@@ -557,7 +557,31 @@ export const ganttShareUserSeesEditStep = buildWalkthroughStep({
   // Tour robustification 2026-05-27 (tour robustification manager):
   // ensure Fake A exists so the user can open the popup and check the
   // notes tab BeakerBot wrote to. Seed-jump path covered.
+  //
+  // gantt-share fix manager (BUG 1): close any task-detail popup that is
+  // STILL OPEN from the share-back cluster before this step's speech
+  // shows. Fake A's popup stays mounted from `gantt-share-user-shares-back`
+  // (the Share dialog renders INSIDE it) all the way through the
+  // profile-switch step. Its LabNotesTab loaded notes.md ONCE on mount,
+  // back when the file did not yet exist (scaffold-in-state, nothing on
+  // disk). BeakerBot's note is written to disk during profile-switch, but
+  // the tab's load effect is keyed on [task.id, task.owner, ...] which do
+  // not change on a query refetch, so the open tab never re-reads and the
+  // user keeps seeing the empty scaffold. The write path and read path
+  // already agree (users/<owner>/results/task-<id>/notes.md); the failure
+  // was a stale in-memory read. Forcing the popup closed here means the
+  // speech's "Open Fake A on the timeline" makes the user re-open it,
+  // which freshly mounts LabNotesTab and reads the just-written note off
+  // disk. Idempotent / safe when nothing is open (querySelector returns
+  // null). Routed through tourClickWithLockBypass so the InputLockOverlay
+  // capture-phase blocker does not swallow the X.
   onEnter: async (ctx) => {
+    if (typeof document !== "undefined") {
+      const closeBtn = document.querySelector<HTMLElement>(
+        '[data-tour-target="task-popup-close"]',
+      );
+      if (closeBtn) tourClickWithLockBypass(closeBtn);
+    }
     await ensureFirstExperimentExists();
     await spawnGanttRedesignFakeTasks(ctx);
   },

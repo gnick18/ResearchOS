@@ -24,7 +24,7 @@ import {
   setUserMetadataField,
   getUserMetadata,
 } from "@/lib/file-system/user-metadata";
-import { JsonStore } from "@/lib/storage/json-store";
+import { JsonStore, getCurrentUserCached } from "@/lib/storage/json-store";
 import { sharingApi, filesApi } from "@/lib/local-api";
 import { appQueryClient } from "@/lib/query-client";
 import { taskResultsBase } from "@/lib/tasks/results-paths";
@@ -527,16 +527,33 @@ export async function appendNoteToTaskResults(
 export async function appendBeakerBotNote(
   noteText: string,
 ): Promise<boolean> {
-  // Resolve Fake A's id in the recipient's namespace. The handle's
-  // recipient field carries the username; spawnGanttShareBeakerBot or
-  // the disk-resolve fallback populates it.
-  let handle = cachedHandle;
-  if (!handle) {
-    // Best-effort cache restore (mid-tour refresh path). We don't know
-    // the recipient here; in practice the share step has already run
-    // and populated the cache. If the cache is still empty, log + bail.
+  // The only field this function needs off the handle is `recipient`:
+  // BeakerBot's note targets the USER's own Fake A (owned by the active
+  // user), so `recipient` IS the active username. spawnGanttShareBeakerBot
+  // populates the cache during the spawn step; the fallback below recovers
+  // it after a mid-tour refresh.
+  let recipient = cachedHandle?.recipient ?? null;
+  if (!recipient) {
+    // Recipient restore (mid-tour refresh path). gantt-share fix manager
+    // (BUG 1): the previous version bailed here, so a refresh anywhere in
+    // the share-back cluster (steps 5a-5d, a long USER_ACTION sequence)
+    // wiped the JS heap and the profile-switch note write silently
+    // no-op'd. Recover the recipient from the active user directly (the
+    // note's target owner is the active user, independent of whether
+    // BeakerBot's coffee experiment is still resolvable on disk).
+    try {
+      const active = await getCurrentUserCached();
+      if (active && active !== "_no_user_") recipient = active;
+    } catch (err) {
+      console.warn(
+        "[gantt-share] appendBeakerBotNote: recipient restore failed",
+        err,
+      );
+    }
+  }
+  if (!recipient) {
     console.warn(
-      "[gantt-share] appendBeakerBotNote: no cached handle; skip",
+      "[gantt-share] appendBeakerBotNote: no recipient resolvable; skip",
     );
     return false;
   }
@@ -554,8 +571,8 @@ export async function appendBeakerBotNote(
       return false;
     }
     const [notesOk, resultsOk] = await Promise.all([
-      appendNoteToTaskNotes(fakeAId, handle.recipient, noteText),
-      appendNoteToTaskResults(fakeAId, handle.recipient, noteText),
+      appendNoteToTaskNotes(fakeAId, recipient, noteText),
+      appendNoteToTaskResults(fakeAId, recipient, noteText),
     ]);
     return notesOk || resultsOk;
   } catch (err) {

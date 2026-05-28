@@ -41,6 +41,32 @@ import {
   spawnDemoDependencyTasks,
 } from "../GanttDependenciesStep";
 import { appendArtifact, encodeTelegramImageId } from "./artifacts";
+import { tourClickWithLockBypass } from "./cursor-script";
+
+/**
+ * Close any open task-detail popup before the goals step's speech runs.
+ *
+ * gantt-share fix manager (BUG 2): the prior `gantt-share-user-sees-edit`
+ * step leaves the user with Fake A's TaskDetailPopup open. The goals
+ * step's authored body (GanttGoalsStep.tsx) declared an `onEnter` that
+ * closed it, but the registry binding overrides that `onEnter` with
+ * `onEnterGanttGoalsOverview` (the demo-goal spawn), so the close never
+ * fired and the goals speech showed on top of the stale popup. Folding
+ * the close here keeps both behaviors (close + spawn) on the single
+ * onEnter the registry actually wires up, so it cannot regress again.
+ *
+ * Idempotent / safe when no popup is open: the query returns null and we
+ * no-op. Routed through `tourClickWithLockBypass` so the
+ * InputLockOverlay's capture-phase blocker (which may be armed for the
+ * next step's lock by the time onEnter fires) does not swallow the X.
+ */
+function closeAnyOpenTaskPopup(): void {
+  if (typeof document === "undefined") return;
+  const closeBtn = document.querySelector<HTMLElement>(
+    '[data-tour-target="task-popup-close"]',
+  );
+  if (closeBtn) tourClickWithLockBypass(closeBtn);
+}
 
 /** Selfie filename written into the experiment's `Images/` folder. The
  *  asset itself lives in `frontend/public/onboarding/beakerbot-selfie.png`
@@ -422,6 +448,10 @@ export const GANTT_DEMO_GOAL_NAME = "BeakerBot demo goal";
 export async function onEnterGanttGoalsOverview(ctx: {
   username: string | null;
 }): Promise<number | null> {
+  // gantt-share fix manager (BUG 2): close the leftover Fake A popup from
+  // the prior sees-edit step BEFORE the goals speech shows. See
+  // closeAnyOpenTaskPopup for why this lives here (registry override).
+  closeAnyOpenTaskPopup();
   const project = await getActiveProject();
   if (!project) {
     console.warn(

@@ -53,12 +53,19 @@ export const ganttGoalsStep = buildWalkthroughStep({
   // any leftover TaskDetailPopup before this step's speech fires. The
   // prior gantt-share-user-sees-edit step leaves the user with an open
   // experiment popup (Lab Notes tab on Fake A); without this defensive
-  // close, the New Goal modal — which used to be opened by this step's
-  // cursor click on "+ Goal" — would layer on top, and even with the
-  // cursor click dropped (Bug 36 fix), users who left the popup open
-  // would still see it occlude the goals affordance the spotlight is
-  // anchored to. Route through tourClickWithLockBypass so the
-  // InputLockOverlay's capture-phase blocker doesn't swallow the X.
+  // close, the goals speech layers on top of the stale popup.
+  //
+  // gantt-share fix manager (BUG 2): NOTE — the registry binding
+  // (step-registry.ts) OVERRIDES this `onEnter` with
+  // `onEnterGanttGoalsOverview` (the demo-goal spawn), so the body
+  // below never actually runs in the wired tour. The popup-close was
+  // dead here and the screen stayed stuck on Fake A. The authoritative
+  // close now lives in `onEnterGanttGoalsOverview` (via
+  // `closeAnyOpenTaskPopup`) so it fires on the onEnter the registry
+  // really uses. This body is kept for the standalone step-body tests
+  // and as documentation of the intent. Route through
+  // tourClickWithLockBypass so the InputLockOverlay's capture-phase
+  // blocker doesn't swallow the X.
   onEnter: async () => {
     if (typeof document === "undefined") return;
     const closeBtn = document.querySelector<HTMLElement>(

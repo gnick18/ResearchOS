@@ -199,5 +199,26 @@ describe("on-enter-helpers defensive guards (Wave 1 sidecar hardening v2)", () =
       // guard skips the artifact persist when createdId stayed null.
       expect(patchOnboardingMock).not.toHaveBeenCalled();
     });
+
+    // gantt-share fix manager (BUG 2): the goals step's authored body
+    // closed a leftover popup in its onEnter, but the registry binding
+    // overrides that onEnter with onEnterGanttGoalsOverview, so the close
+    // was dead and the goals speech showed on top of Fake A's stale
+    // popup. The close now lives in onEnterGanttGoalsOverview (the onEnter
+    // the registry actually wires). The popup-close path uses
+    // `typeof document === "undefined"` as its guard, so in this node-env
+    // suite it is a safe no-op; the assertion here is that folding the
+    // close into the helper did NOT break the goal-resolution path it
+    // shares an onEnter with.
+    it("still resolves the goal id with the popup-close prelude in place", async () => {
+      projectsListMock.mockResolvedValue([
+        { id: 7, name: "Demo", created_at: "2026-01-01" },
+      ]);
+      goalsListMock.mockResolvedValue([
+        { id: 99, project_id: 7, name: GANTT_DEMO_GOAL_NAME },
+      ]);
+      const result = await onEnterGanttGoalsOverview({ username: "alex" });
+      expect(result).toBe(99);
+    });
   });
 });
