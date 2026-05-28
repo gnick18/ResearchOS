@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { labApi, tasksApi } from "@/lib/local-api";
+import { labApi, projectsApi as rawProjectsApi, tasksApi } from "@/lib/local-api";
+import { defaultFundingStringForProject } from "@/lib/funding/prefill";
 import SharingChips from "@/components/sharing/SharingChips";
 import { ownerScopedPurchasesApi } from "@/lib/purchases/owner-scoped-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -177,6 +178,67 @@ export default function PurchaseEditor({
     queryKey: ["funding-accounts"],
     queryFn: () => purchasesApi.listFundingAccounts(),
   });
+
+  // Funding-string prefill (funding-niceties bot, 2026-05-28). Load the parent
+  // task's project so a new purchase can default its funding string to the
+  // project's PRIMARY grant link (Project.funding_account_id). Read-only: this
+  // is a default the user can change or clear, never a stored value. Routed
+  // through the same `username` owner hint the task read uses so shared-project
+  // tasks resolve the project from the owner's directory.
+  const projectId = parentTask?.project_id ?? null;
+  const { data: parentProject } = useQuery({
+    queryKey: ["purchase-editor-project", projectId, username],
+    queryFn: () =>
+      projectId != null
+        ? rawProjectsApi.get(projectId, username ?? undefined)
+        : Promise.resolve(null),
+    enabled: projectId != null,
+  });
+  // The primary grant's NAME (matches how funding_string resolves to an
+  // account). null when the project is unlinked or its grant was deleted.
+  const projectFundingDefault = useMemo(
+    () =>
+      defaultFundingStringForProject(
+        parentProject?.funding_account_id,
+        fundingAccounts,
+      ),
+    [parentProject?.funding_account_id, fundingAccounts],
+  );
+  // Funding-string prefill state (funding-niceties bot, 2026-05-28).
+  // `fundingTouched` flips true once the user edits the funding <select> so the
+  // prefill stops re-asserting the default (and never fights an explicit
+  // clear). `lastAppliedFundingDefault` tracks the default we last wrote so the
+  // render-time sync below only fires when the resolved default actually
+  // changes (mirrors OverviewSection's "store info from previous renders"
+  // pattern, which the lint rules permit because it runs in render, not an
+  // effect). Both reset when the new row resets after a successful add.
+  const [fundingTouched, setFundingTouched] = useState(false);
+  const [lastAppliedFundingDefault, setLastAppliedFundingDefault] = useState<
+    string | null
+  >(null);
+
+  // Render-time prefill sync. When the resolved project default changes (the
+  // project loads, or its grant link changes) and the user has not touched the
+  // field, write the default into the empty new-row funding string. Setting
+  // state during render is the React-blessed alternative to the effect+setState
+  // anti-pattern: React bails out of the in-flight render and re-renders with
+  // the new value, no extra commit / flash. Guarded on a value change so it
+  // does not loop. Skipped entirely in read-only / shared contexts (no new
+  // row is rendered there).
+  if (
+    !writesDisabled &&
+    !fundingTouched &&
+    projectFundingDefault &&
+    projectFundingDefault !== lastAppliedFundingDefault &&
+    newRow.funding_string.trim().length === 0
+  ) {
+    setLastAppliedFundingDefault(projectFundingDefault);
+    setNewRow((prev) =>
+      prev.funding_string.trim().length === 0
+        ? { ...prev, funding_string: projectFundingDefault }
+        : prev,
+    );
+  }
 
   // Autocomplete sources for vendor + category come from the same merged-view
   // dataset the /purchases page already fetches. Reusing the queryKey lets
@@ -395,6 +457,10 @@ export default function PurchaseEditor({
       });
       setNewRow({ ...EMPTY_ROW });
       setSelectedCatalogItem(null);
+      // Re-arm the funding prefill so the next item re-defaults to the
+      // project's primary grant (funding-niceties bot, 2026-05-28).
+      setFundingTouched(false);
+      setLastAppliedFundingDefault(null);
       refetch();
       await queryClient.refetchQueries({ queryKey: ["purchases-all"] });
       await queryClient.refetchQueries({ queryKey: ["funding-accounts"] });
@@ -1082,7 +1148,13 @@ export default function PurchaseEditor({
                 <td className="py-2 px-2">
                   <select
                     value={newRow.funding_string}
-                    onChange={(e) => handleFieldChange("funding_string", e.target.value)}
+                    onChange={(e) => {
+                      // Mark the funding field as user-touched so the project
+                      // prefill default stops re-asserting itself (and an
+                      // explicit clear to "—" sticks). funding-niceties bot.
+                      setFundingTouched(true);
+                      handleFieldChange("funding_string", e.target.value);
+                    }}
                     className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
                   >
                     <option value="">—</option>

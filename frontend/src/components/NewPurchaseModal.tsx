@@ -11,6 +11,7 @@ import {
 } from "@/lib/purchases/misc-project";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { useDraftPersistence } from "@/hooks/useDraftPersistence";
+import { defaultFundingStringForProject } from "@/lib/funding/prefill";
 
 /**
  * Quick "+ New Purchase" modal mounted from the /purchases page.
@@ -168,6 +169,17 @@ export default function NewPurchaseModal({
   const [form, setForm] = useState<NewPurchaseFormState>(EMPTY_STATE);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Funding-string prefill state (funding-niceties bot, 2026-05-28).
+  // `fundingTouched` flips true once the user edits the Funding string field so
+  // the project-grant default stops re-asserting itself (an explicit clear /
+  // pick always wins). `lastAppliedFundingDefault` tracks the default we last
+  // wrote so the render-time sync below only fires on a real change. Both reset
+  // on each fresh open so a reopened modal re-defaults from the selected
+  // project.
+  const [fundingTouched, setFundingTouched] = useState(false);
+  const [lastAppliedFundingDefault, setLastAppliedFundingDefault] = useState<
+    string | null
+  >(null);
 
   // Draft persistence: warn on navigation and survive accidental closes.
   // Key is per-user so two accounts on the same browser don't share drafts.
@@ -237,6 +249,10 @@ export default function NewPurchaseModal({
         }
         return prev;
       });
+      // A fresh open re-arms the funding prefill so the selected project's
+      // grant can default the funding string again.
+      setFundingTouched(false);
+      setLastAppliedFundingDefault(null);
       setError(null);
     }
   }, [open, initial]);
@@ -277,6 +293,43 @@ export default function NewPurchaseModal({
     queryFn: () => purchasesApi.listFundingAccounts(),
     enabled: open,
   });
+
+  // Funding-string prefill (funding-niceties bot, 2026-05-28). The Category
+  // select doubles as the project picker here, so the selected real project's
+  // primary grant link is the prefill source. "Miscellaneous" / unselected =>
+  // no default. Resolve the project's `funding_account_id` to the grant NAME
+  // (matches how funding_string resolves to an account).
+  const selectedProjectFundingDefault = useMemo(() => {
+    const parsed = Number.parseInt(form.category, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) return null;
+    const project = userProjects.find((p) => p.id === parsed);
+    return defaultFundingStringForProject(
+      project?.funding_account_id,
+      fundingAccounts,
+    );
+  }, [form.category, userProjects, fundingAccounts]);
+
+  // Render-time prefill sync. When the selected project's resolved grant
+  // default changes (the user picks a project, or funding accounts finish
+  // loading) and the user has not touched the field, write the default into the
+  // empty funding string. Setting state during render is the React-blessed
+  // alternative to the effect+setState anti-pattern: React bails out of the
+  // in-flight render and re-renders with the new value. Guarded on a value
+  // change + emptiness so it never loops or clobbers a typed value.
+  if (
+    open &&
+    !fundingTouched &&
+    selectedProjectFundingDefault &&
+    selectedProjectFundingDefault !== lastAppliedFundingDefault &&
+    form.fundingString.trim().length === 0
+  ) {
+    setLastAppliedFundingDefault(selectedProjectFundingDefault);
+    setForm((prev) =>
+      prev.fundingString.trim().length === 0
+        ? { ...prev, fundingString: selectedProjectFundingDefault }
+        : prev,
+    );
+  }
 
   // F1 (§6.14 Purchases redesign 2026-05-22): prior PurchaseItems owned
   // by the current user, de-duped + sorted, used to seed the Item Name
@@ -610,7 +663,12 @@ export default function NewPurchaseModal({
               type="text"
               list={FUNDING_DATALIST_ID}
               value={form.fundingString}
-              onChange={(e) => handleField("fundingString", e.target.value)}
+              onChange={(e) => {
+                // User edit wins over the project-grant prefill default
+                // (funding-niceties bot, 2026-05-28).
+                setFundingTouched(true);
+                handleField("fundingString", e.target.value);
+              }}
               placeholder="e.g. NIH-R01-12345"
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
               data-tour-target="purchases-form-funding"

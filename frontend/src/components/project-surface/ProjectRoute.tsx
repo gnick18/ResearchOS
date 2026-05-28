@@ -9,6 +9,7 @@ import type { ProjectUpdate } from "@/lib/local-api";
 import type { FundingAccount } from "@/lib/types";
 import ShareDialogAdapter from "@/components/sharing/ShareDialogAdapter";
 import Tooltip from "@/components/Tooltip";
+import ProjectFundingSection from "@/components/project-surface/ProjectFundingSection";
 import ResultsGallery from "@/components/project-surface/ResultsGallery";
 import MethodsInventory from "@/components/project-surface/MethodsInventory";
 import GoalsSection from "@/components/project-surface/GoalsSection";
@@ -370,6 +371,10 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
           editOwner={effectiveOwnerOf(project)}
           readOnly={isViewOnlyReceiver}
         />
+        {/* Project funding (funding-niceties bot, 2026-05-28): the stored
+            primary grant link plus the DERIVED set of grants actually charged
+            in this project. Self-hides when the project has no funding. */}
+        <ProjectFundingSection project={project} />
         {/**
           * Onboarding v4 §6.2 spotlight anchor for the new
           * `project-overview-rollup` narration beat (v4 tour structural
