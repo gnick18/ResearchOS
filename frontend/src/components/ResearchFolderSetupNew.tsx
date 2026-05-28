@@ -610,6 +610,8 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <VersionBadge tone="onDark" className="fixed top-3 left-4 z-[110]" />
+      <BetaNotice className="hidden sm:block fixed bottom-4 left-4 z-[110] max-w-xs shadow-lg" />
       <div className="absolute inset-0 opacity-5">
         <div
           className="absolute inset-0"
