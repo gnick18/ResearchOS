@@ -59,10 +59,16 @@ import {
 } from "../MethodsBreadthStep";
 import { methodsLcDemoStep } from "../MethodsLcDemoStep";
 import { methodsCreateStep, FUNNY_METHOD_NAME } from "../MethodsCreateStep";
-import { workbenchCreateExperimentOpenStep } from "../WorkbenchCreateExperimentOpenStep";
-// v4 tour structural manager (Wave 1, 2026-05-27): `workbench-create-experiment`
-// retired (Grant's [DROP] marker); the WorkbenchCreateExperimentStep.tsx
-// file has been deleted.
+import {
+  workbenchCreateExperimentOpenStep,
+  workbenchCreateExperimentNameStep,
+  workbenchCreateExperimentProjectStep,
+  workbenchCreateExperimentSubmitStep,
+} from "../WorkbenchCreateExperimentOpenStep";
+// USER_ACTION refactor 2026-05-27 (Grant hand-walk): the single
+// BeakerBot-demo open step is now a four-beat user-driven sequence
+// (open, name, project, submit). All four export from
+// WorkbenchCreateExperimentOpenStep.tsx.
 // §6.6 method-attachment split (2026-05-21, HR-dispatched): the
 // original single `methodAttachmentStep` was split into 4 sub-steps to
 // dodge the popup-mount-spanning cursor-script bug. `methodAttachmentStep`
@@ -452,11 +458,12 @@ describe("P5 step bodies — universal contract", () => {
       // v4 tour structural manager (Wave 1, 2026-05-27):
       // workbench-create-experiment retired (Grant's [DROP] marker).
       // experiment-tabs-overview retired.
-      // experiment-flow fix manager (2026-05-27): the
-      // workbench-create-experiment-open step now carries a BeakerBot
-      // cursor demo (clicks +New Experiment, picks the first project,
-      // types the placeholder name, submits). Added to the demo list.
-      workbenchCreateExperimentOpenStep,
+      // USER_ACTION refactor 2026-05-27 (Grant hand-walk): the
+      // workbench-create-experiment cluster (open, name, project,
+      // submit) is now four USER_ACTION beats with NO cursorScript.
+      // They're covered by their own describe block + the
+      // "no beat declares a pageLock" / "no cursor" assertions there,
+      // and are intentionally EXCLUDED from this demo-with-cursor list.
       methodAttachmentOpenStep,
       methodAttachmentTabStep,
       methodAttachmentAttachStep,
@@ -1067,59 +1074,92 @@ describe("MethodsOpenPickerStep (§6.4 open-picker beat)", () => {
   });
 });
 
-describe("WorkbenchCreateExperimentOpenStep (§6.5, experiment-flow fix manager 2026-05-27)", () => {
-  it("has id `workbench-create-experiment-open`", () => {
+describe("WorkbenchCreateExperiment 4-beat sequence (§6.5, USER_ACTION refactor 2026-05-27)", () => {
+  // Grant hand-walk: the prior single BeakerBot-demo step (cursor
+  // opened + filled + submitted the modal) kept regressing on
+  // DOM-mount timing / react-query cache / option-render races. Flipped
+  // to four guided USER_ACTION beats: the user does the work, BeakerBot
+  // spotlights each affordance. NONE of the four carry a cursorScript.
+
+  it("beat 1 (open) has id, targets New Experiment, advances on modal-opened event, no cursor", () => {
     expect(workbenchCreateExperimentOpenStep.id).toBe(
       "workbench-create-experiment-open",
     );
-  });
-  it("declares manual completion (universal pacing rule, Grant 2026-05-22)", () => {
-    // Hand-walk fix (Grant 2026-05-27): the step is now a BEAKERBOT
-    // demo (cursor opens + fills + submits the New Experiment modal).
-    // Universal pacing rule means demo steps use manualAdvance; the
-    // button is gated on `tour:experiment-created` so it stays disabled
-    // until the experiment has actually landed (Bug C in the brief).
-    expect(workbenchCreateExperimentOpenStep.completion.type).toBe("manual");
-  });
-  it("gates the advance button on tour:experiment-created (Bug C: don't advance past unfinished experiment)", () => {
-    if (workbenchCreateExperimentOpenStep.completion.type !== "manual") {
-      throw new Error("completion contract changed shape; update test");
-    }
-    expect(workbenchCreateExperimentOpenStep.completion.disabledUntilEvent).toBe(
-      "tour:experiment-created",
-    );
-  });
-  it("targets the workbench New Experiment button selector", () => {
     expect(workbenchCreateExperimentOpenStep.targetSelector).toBe(
       "[data-tour-target=\"workbench-new-experiment\"]",
     );
-  });
-  it("has a cursorScript (BeakerBot demo: open + fill + submit)", () => {
-    // Bug A in the hand-walk brief: the prior shape had no cursor and
-    // advanced the moment the modal opened, leaving the experiment
-    // uncreated. The new shape demos the full create flow.
-    expect(workbenchCreateExperimentOpenStep.cursorScript).toBeDefined();
-  });
-  it("uses pose: typing-on-laptop (matches the cursor-driven shape)", () => {
-    expect(workbenchCreateExperimentOpenStep.pose).toBe("typing-on-laptop");
-  });
-  it("expectedRoute is /workbench", () => {
+    // advanceOnEvent -> completion.type === "event" (the panel
+    // dispatches tour:workbench-experiment-modal-opened on the user's
+    // click). NOT a cursor demo.
+    expect(workbenchCreateExperimentOpenStep.completion.type).toBe("event");
+    expect(workbenchCreateExperimentOpenStep.cursorScript).toBeUndefined();
     expect(workbenchCreateExperimentOpenStep.expectedRoute).toBe("/workbench");
   });
-  it("locks the page with an empty allow-list while BeakerBot drives", () => {
-    // Matches MethodsCreateStep / MethodsCategoryStep, total lock so
-    // the user doesn't accidentally click outside the modal and
-    // soft-walk themselves out of the tour mid-create.
-    expect(workbenchCreateExperimentOpenStep.pageLock?.allowList).toEqual([]);
+
+  it("beat 2 (name) spotlights the Name input, manual advance, no cursor", () => {
+    expect(workbenchCreateExperimentNameStep.id).toBe(
+      "workbench-create-experiment-name",
+    );
+    expect(workbenchCreateExperimentNameStep.targetSelector).toBe(
+      "[data-tour-target=\"workbench-experiment-name-input\"]",
+    );
+    expect(workbenchCreateExperimentNameStep.completion.type).toBe("manual");
+    expect(workbenchCreateExperimentNameStep.cursorScript).toBeUndefined();
+  });
+
+  it("beat 3 (project) spotlights the Project dropdown, manual advance, no cursor", () => {
+    expect(workbenchCreateExperimentProjectStep.id).toBe(
+      "workbench-create-experiment-project",
+    );
+    expect(workbenchCreateExperimentProjectStep.targetSelector).toBe(
+      "[data-tour-target=\"workbench-experiment-project-select\"]",
+    );
+    expect(workbenchCreateExperimentProjectStep.completion.type).toBe("manual");
+    expect(workbenchCreateExperimentProjectStep.cursorScript).toBeUndefined();
+  });
+
+  it("beat 4 (submit) spotlights Create Experiment, gated on tour:experiment-created, no cursor", () => {
+    expect(workbenchCreateExperimentSubmitStep.id).toBe(
+      "workbench-create-experiment-submit",
+    );
+    expect(workbenchCreateExperimentSubmitStep.targetSelector).toBe(
+      "[data-tour-target=\"workbench-experiment-submit\"]",
+    );
+    expect(workbenchCreateExperimentSubmitStep.completion.type).toBe("manual");
+    if (workbenchCreateExperimentSubmitStep.completion.type !== "manual") {
+      throw new Error("completion contract changed shape; update test");
+    }
+    // Bug C carry-over: the advance button stays disabled until the
+    // experiment actually lands on disk (TaskModal dispatches
+    // tour:experiment-created on a successful create).
+    expect(
+      workbenchCreateExperimentSubmitStep.completion.disabledUntilEvent,
+    ).toBe("tour:experiment-created");
+    expect(workbenchCreateExperimentSubmitStep.cursorScript).toBeUndefined();
+  });
+
+  it("all four beats use pose pointing (USER_ACTION click-affordance pose)", () => {
+    for (const step of [
+      workbenchCreateExperimentOpenStep,
+      workbenchCreateExperimentNameStep,
+      workbenchCreateExperimentProjectStep,
+      workbenchCreateExperimentSubmitStep,
+    ]) {
+      expect(step.pose).toBe("pointing");
+    }
+  });
+
+  it("no beat declares a pageLock (USER_ACTION, the user drives the form)", () => {
+    for (const step of [
+      workbenchCreateExperimentOpenStep,
+      workbenchCreateExperimentNameStep,
+      workbenchCreateExperimentProjectStep,
+      workbenchCreateExperimentSubmitStep,
+    ]) {
+      expect(step.pageLock).toBeUndefined();
+    }
   });
 });
-
-// v4 tour structural manager (Wave 1, 2026-05-27): the
-// WorkbenchCreateExperimentStep describe block is removed. The step body
-// + file are retired per Grant's [DROP] marker in the new tour script.
-// The user-action open-click half (workbench-create-experiment-open)
-// remains and is covered above; the BeakerBot-types-the-name demo half
-// is gone.
 
 describe("MethodAttachmentStep (§6.6)", () => {
   it("speech includes the mental-model paragraph about edits being a copy", () => {
