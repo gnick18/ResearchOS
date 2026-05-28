@@ -193,7 +193,20 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // open-click stands on its own now; the workbench-create-experiment
   // body owns the auto-fill artifact creation but is no longer a tour
   // step.
-  "workbench-create-experiment-open",  // §6.5a (user opens the modal + names it)
+  "workbench-create-experiment-open",  // §6.5a (user clicks + New Experiment)
+  // USER_ACTION refactor 2026-05-27 (Grant hand-walk): the prior single
+  // BeakerBot demo step that filled + submitted the form kept regressing
+  // (cursor scripting depended on DOM mount timing, react-query cache
+  // freshness, option rendering races). Replaced with three guided
+  // USER_ACTION beats so the user does the work themselves. Each beat
+  // spotlights one affordance: name input, project dropdown, submit
+  // button. Manual advance between them. The submit beat's advance is
+  // gated on tour:experiment-created so the user cannot race past the
+  // button click. See WorkbenchCreateExperimentOpenStep.tsx for the
+  // step bodies.
+  "workbench-create-experiment-name",    // §6.5b (user types a name)
+  "workbench-create-experiment-project", // §6.5c (user picks a project, or skips)
+  "workbench-create-experiment-submit",  // §6.5d (user clicks Create Experiment)
   // §6.6 Experiment detail intro + Methods tab framing.
   //
   // FINAL restructure (FINAL reorder manager 2026-05-27): the

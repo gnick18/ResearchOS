@@ -170,7 +170,16 @@ import { methodsCreateStep } from "./steps/walkthrough/MethodsCreateStep";
 // retired (page framing folded into workbench-create-experiment-open) +
 // `workbench-create-experiment` retired (Grant's explicit `[DROP]` marker
 // in the new script). Only the user-action open step survives.
-import { workbenchCreateExperimentOpenStep } from "./steps/walkthrough/WorkbenchCreateExperimentOpenStep";
+// USER_ACTION refactor 2026-05-27 (Grant hand-walk): the single
+// `workbench-create-experiment-open` step is now the FIRST of four
+// user-driven beats (open, name, project, submit). All four exports
+// live in WorkbenchCreateExperimentOpenStep.tsx.
+import {
+  workbenchCreateExperimentOpenStep,
+  workbenchCreateExperimentNameStep,
+  workbenchCreateExperimentProjectStep,
+  workbenchCreateExperimentSubmitStep,
+} from "./steps/walkthrough/WorkbenchCreateExperimentOpenStep";
 // §6.6 method-attachment split (2026-05-21): the original
 // `methodAttachmentStep` was split into 4 popup-mount-safe sub-steps.
 // Re-export glue lives in MethodAttachmentStep.tsx for back-compat.
@@ -367,6 +376,9 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   // and `workbench-create-experiment` retired. Only the user-action
   // open-click survives in TOUR_STEP_ORDER.
   [workbenchCreateExperimentOpenStep.id]: workbenchCreateExperimentOpenStep,
+  [workbenchCreateExperimentNameStep.id]: workbenchCreateExperimentNameStep,
+  [workbenchCreateExperimentProjectStep.id]: workbenchCreateExperimentProjectStep,
+  [workbenchCreateExperimentSubmitStep.id]: workbenchCreateExperimentSubmitStep,
   [methodAttachmentOpenStep.id]: methodAttachmentOpenStep,
   // v4 tour structural manager (Wave 1, 2026-05-27):
   // `experiment-tabs-overview` retired; framing folded into surrounding

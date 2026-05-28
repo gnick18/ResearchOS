@@ -367,18 +367,14 @@ export default function TaskModal({ projects }: TaskModalProps) {
       await queryClient.refetchQueries({ queryKey: ["dependencies"] });
 
       // Onboarding v4 §6.5 (experiment-flow fix manager, 2026-05-27): the
-      // workbench-create-experiment-open BeakerBot demo waits on this DOM
-      // event to enable its "Got it, next" advance button. Only fires for
-      // experiment-type tasks (the §6.5 step only cares about experiments)
-      // so list/purchase create paths stay quiet for the tour. Cheap no-op
-      // when no tour is active. SSR-safe via the `window` typeof check.
-      if (typeof window !== "undefined" && taskType === "experiment") {
-        window.dispatchEvent(
-          new CustomEvent("tour:experiment-created", {
-            detail: { id: task.id, name: task.name, project_id: task.project_id },
-          }),
-        );
-      }
+      // §6.5 USER_ACTION refactor 2026-05-27: the `tour:experiment-created`
+      // dispatch moved DOWN one layer (from this UI handler to
+      // `tasksApi.create` in `lib/local-api.ts`). That way both the
+      // modal-driven create flow AND the programmatic create flow used
+      // by the tour's `ensureFirstExperimentExists` helper fire the
+      // same event. Keeping the dispatch here too would double-fire
+      // (the artifact-capture listener in the submit step would stamp
+      // the task twice). Intentionally removed from here.
 
       setGanttLoading(false);
       clearTaskDraft();

@@ -308,12 +308,24 @@ describe("TOUR_STEP_ORDER", () => {
 
   it("places experiment-attach-method-open / -tab immediately before the hybrid editor cluster (FINAL reorder manager 2026-05-27)", () => {
     // FINAL restructure: the §6.6 experiment-detail framing beats
-    // (open + tab) stay right after workbench-create-experiment-open
-    // so BeakerBot can frame the experiment popup + Methods tab
-    // before the §6.7 hybrid editor deep-dive. The attach + notes
-    // beats moved to §6.7d (after methods cluster).
+    // (open + tab) stay right after the §6.5 experiment-create cluster
+    // (open, name, project, submit), so BeakerBot can frame the
+    // experiment popup + Methods tab before the §6.7 hybrid editor
+    // deep-dive. The attach + notes beats moved to §6.7d (after
+    // methods cluster).
+    //
+    // USER_ACTION refactor 2026-05-27: the single
+    // `workbench-create-experiment-open` beat became four
+    // (open, name, project, submit). Order assertion updated to
+    // require the FULL four-beat cluster comes first, with
+    // experiment-attach-method-open / -tab landing right after the
+    // submit beat. Each adjacent pair must be contiguous in
+    // TOUR_STEP_ORDER (no other ids in between).
     const order = [
       "workbench-create-experiment-open",
+      "workbench-create-experiment-name",
+      "workbench-create-experiment-project",
+      "workbench-create-experiment-submit",
       "experiment-attach-method-open",
       "experiment-attach-method-tab",
       "hybrid-notes-vs-results",
@@ -1192,10 +1204,14 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
     // links, gantt-goals-overview) + 4 ai-helper-* (Wave 1 2026-05-27
     // added ai-helper-size-options to the trio, all 4 share the same
     // gate) + 8 purchases cluster + 1 lab-cleanup + 7 Gantt share
-    // cluster + 1 HE-3 (branch-gated) + 2 settings-tour-* conditional
-    // (calendar, telegram; account-type-toggle FIRES for solo) +
-    // 1 setup-q1c (lab-only) = 28 gated out for solo.
-    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 28);
+    // cluster + 1 HE-3 (branch-gated) + 1 settings-tour-* conditional
+    // (telegram; calendar's settings beat retired 2026-05-27,
+    // account-type-toggle FIRES for solo) + 1 setup-q1c (lab-only) =
+    // 27 gated out for solo. Constant dropped from 28 to 27 on
+    // 2026-05-27 when the settings-tour-calendar step was retired
+    // (the retirement removed a step from BOTH TOUR_STEP_ORDER and
+    // the gating cohort).
+    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 27);
     // Lab+max only has HE-3 (branch-gated, choice cache empty) +
     // settings-tour-account-type-toggle (gates on solo, so lab skips it)
     // = 2 gated out.
