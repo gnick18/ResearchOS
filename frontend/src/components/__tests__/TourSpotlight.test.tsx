@@ -369,4 +369,39 @@ describe("<TourSpotlight />", () => {
       popup.remove();
     }
   });
+
+  it("KEEPS the ring when the target is INSIDE the occluding popup (in-modal spotlight, 2026-05-27)", () => {
+    // Refined occlusion guard: a USER_ACTION beat can spotlight an
+    // element inside an occluding popup (e.g. the Project dropdown
+    // inside the New Experiment modal, which stamps
+    // data-tour-popup-occluding). The target IS the active surface, so
+    // the ring must render. Only targets OUTSIDE the popup (a tile the
+    // popup is covering) get suppressed.
+    const popup = document.createElement("div");
+    popup.setAttribute("data-tour-popup-occluding", "task-modal");
+    document.body.appendChild(popup);
+    try {
+      // Target lives INSIDE the popup, not on document.body.
+      const target = document.createElement("div");
+      target.id = "anchor-in-modal";
+      popup.appendChild(target);
+      target.getBoundingClientRect = () =>
+        ({
+          x: 100,
+          y: 200,
+          left: 100,
+          top: 200,
+          width: 80,
+          height: 40,
+          right: 180,
+          bottom: 240,
+          toJSON: () => ({}),
+        }) as DOMRect;
+      render(<TourSpotlight target={target} />);
+      // Ring visible because the target is contained by the popup.
+      expect(screen.getByTestId("tour-spotlight-ring")).toBeInTheDocument();
+    } finally {
+      popup.remove();
+    }
+  });
 });

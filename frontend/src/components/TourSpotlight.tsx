@@ -378,11 +378,29 @@ export default function TourSpotlight({
   }, [resolved, scrollIntoView]);
 
   if (!portalNode || !resolved || !rect) return null;
-  // Occlusion guard (widget tile-anatomy fix manager, 2026-05-27).
-  // Drop the ring while an overlay with `data-tour-popup-occluding`
-  // is mounted; the controller is still tracking the target so the
-  // ring re-appears the moment the overlay unmounts.
-  if (occluded) return null;
+  // Occlusion guard (widget tile-anatomy fix manager, 2026-05-27;
+  // refined 2026-05-27 for in-modal spotlights).
+  //
+  // Drop the ring while an overlay with `data-tour-popup-occluding` is
+  // mounted, BUT only when the spotlight target sits OUTSIDE that
+  // overlay. The original guard hid EVERY spotlight whenever any
+  // occluding popup existed, which was right for the SnapshotTilePopup
+  // case (the spotlight target is a dashboard tile BEHIND the popup, no
+  // longer the active surface). It is wrong for a USER_ACTION beat that
+  // spotlights an element INSIDE the popup, e.g. the Project dropdown
+  // inside the New Experiment modal (workbench-create-experiment-project):
+  // there the target IS the active surface and the ring should show.
+  // The spotlight z-index (440) is above the modal (z-50), so the ring
+  // draws on top of the in-modal target.
+  if (occluded) {
+    let targetInsideOccludingPopup = false;
+    document
+      .querySelectorAll("[data-tour-popup-occluding]")
+      .forEach((el) => {
+        if (el.contains(resolved)) targetInsideOccludingPopup = true;
+      });
+    if (!targetInsideOccludingPopup) return null;
+  }
 
   // Padded rect (small breathing room around the target's bounding box) plus
   // a ring offset, so the glow sits just outside the element rather than on
