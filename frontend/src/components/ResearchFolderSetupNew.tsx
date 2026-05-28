@@ -696,11 +696,10 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
           data-testid="picker-system-folder-prewarn"
           className="mb-3 text-center text-xs text-amber-300/90"
         >
-          Heads up: Chrome blocks Desktop, Documents, and Downloads as your
-          research folder. On Mac it also blocks anything inside Desktop or
-          Downloads, even a subfolder. Make your folder in Documents (like
-          Documents/ResearchOS) or in your home directory, then link it. A
-          folder on the Desktop will not work.
+          Heads up: Chrome blocks Desktop, Documents, and Downloads
+          themselves, but a folder you make INSIDE any of them works fine.
+          Make a new folder (like Documents/ResearchOS), then link that
+          folder, not the top-level one.
         </p>
         <div className="max-w-xl mx-auto">
           <div
@@ -750,12 +749,17 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                 </p>
                 <ol className="text-xs text-slate-400 leading-relaxed list-decimal list-inside space-y-0.5">
                   <li>
-                    Open your file manager and go to Documents. Avoid Desktop
-                    and Downloads: the browser won&apos;t let you link a folder
-                    there, even one you make yourself.
+                    Open your file manager and make a new folder anywhere you
+                    like (Documents/ResearchOS works well). Inside Desktop,
+                    Documents, or Downloads is fine: Chrome only blocks those
+                    top-level folders themselves, not a folder you make inside
+                    them.
                   </li>
-                  <li>Make a new folder, name it something like ResearchOS.</li>
-                  <li>Click Link Folder below and select that folder.</li>
+                  <li>Name it something like ResearchOS.</li>
+                  <li>
+                    Click Link Folder below and select the folder you just made,
+                    not its top-level parent.
+                  </li>
                 </ol>
               </div>
               <p
@@ -848,17 +852,16 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                   </h3>
                   <p className="mt-2 text-sm text-amber-100/90 leading-relaxed">
                     If Chrome just told you a folder &quot;contains system
-                    files&quot;, that is its block on sensitive locations.
-                    Chrome and macOS block Desktop, Documents (the root),
-                    Downloads, and your home directory. On Mac they also block
-                    any subfolder inside Desktop or Downloads, so a folder on
-                    the Desktop will not work even one level deep.
+                    files&quot;, that is its block on sensitive locations. Chrome
+                    blocks the top-level Desktop, Documents, Downloads, and home
+                    folders themselves, but a subfolder you make inside any of
+                    them works fine.
                   </p>
                   <p className="mt-2 text-sm text-amber-100/90 leading-relaxed">
-                    Make an empty folder in your Documents (like
-                    Documents/ResearchOS) or your home directory using your
-                    file manager, then link it here. We set up an empty folder
-                    automatically the first time you link it.
+                    Make an empty folder with your file manager (like
+                    Documents/ResearchOS, or even one on your Desktop), then link
+                    that folder here, not its top-level parent. We set up an
+                    empty folder automatically the first time you link it.
                   </p>
                 </div>
               </div>

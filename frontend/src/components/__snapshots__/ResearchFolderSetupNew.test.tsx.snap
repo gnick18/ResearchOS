@@ -51,13 +51,13 @@ exports[`ResearchFolderSetupNew drop zone > renders the drop-zone with default h
         class="text-xs text-slate-400 leading-relaxed list-decimal list-inside space-y-0.5"
       >
         <li>
-          Open your file manager and go to Documents. Avoid Desktop and Downloads: the browser won't let you link a folder there, even one you make yourself.
+          Open your file manager and make a new folder anywhere you like (Documents/ResearchOS works well). Inside Desktop, Documents, or Downloads is fine: Chrome only blocks those top-level folders themselves, not a folder you make inside them.
         </li>
         <li>
-          Make a new folder, name it something like ResearchOS.
+          Name it something like ResearchOS.
         </li>
         <li>
-          Click Link Folder below and select that folder.
+          Click Link Folder below and select the folder you just made, not its top-level parent.
         </li>
       </ol>
     </div>
