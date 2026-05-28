@@ -59,8 +59,14 @@ import { tourClickWithLockBypass } from "./cursor-script";
  * no-op. Routed through `tourClickWithLockBypass` so the
  * InputLockOverlay's capture-phase blocker (which may be armed for the
  * next step's lock by the time onEnter fires) does not swallow the X.
+ *
+ * gantt-share-robust manager (BUG A): also reused by the §6.8 share-back
+ * open beat (`gantt-share-user-shares-back`) to close any stale popup
+ * before the beat arms, so a leftover popup can't fire
+ * `tour:experiment-popup-opened` and auto-advance the beat before the
+ * user clicks Fake A.
  */
-function closeAnyOpenTaskPopup(): void {
+export function closeAnyOpenTaskPopup(): void {
   if (typeof document === "undefined") return;
   const closeBtn = document.querySelector<HTMLElement>(
     '[data-tour-target="task-popup-close"]',

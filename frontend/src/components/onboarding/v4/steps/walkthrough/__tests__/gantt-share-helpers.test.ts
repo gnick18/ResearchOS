@@ -71,12 +71,16 @@ vi.mock("@/lib/query-client", () => ({
   },
 }));
 
+const ensureUserFolderStructureMock = vi.fn().mockResolvedValue(true);
+const setUserMetadataFieldMock = vi.fn().mockResolvedValue(undefined);
+
 vi.mock("@/lib/file-system/user-discovery", () => ({
-  ensureUserFolderStructure: vi.fn().mockResolvedValue(true),
+  ensureUserFolderStructure: (u: string) => ensureUserFolderStructureMock(u),
 }));
 
 vi.mock("@/lib/file-system/user-metadata", () => ({
-  setUserMetadataField: vi.fn().mockResolvedValue(undefined),
+  setUserMetadataField: (u: string, k: string, v: unknown) =>
+    setUserMetadataFieldMock(u, k, v),
   getUserMetadata: vi.fn().mockResolvedValue({
     deleted_at: null,
   }),
@@ -90,6 +94,7 @@ vi.mock("../lab/lib/lab-fake-user", () => ({
 import {
   spawnGanttShareBeakerBot,
   shareCoffeeExperimentWithUser,
+  ensureBeakerBotUser,
   appendNoteToTaskNotes,
   COFFEE_METHOD_NAME,
   SHARE_DEMO_EXPERIMENT_NAME,
@@ -108,7 +113,62 @@ describe("gantt-share-helpers (Gantt fix manager R1, 2026-05-22)", () => {
     filesReadFileMock.mockReset();
     filesWriteFileMock.mockReset();
     invalidateQueriesMock.mockClear();
+    ensureUserFolderStructureMock.mockReset();
+    ensureUserFolderStructureMock.mockResolvedValue(true);
+    setUserMetadataFieldMock.mockReset();
+    setUserMetadataFieldMock.mockResolvedValue(undefined);
     _resetShareDemoHandleForTests();
+  });
+
+  describe("ensureBeakerBotUser (gantt-share-robust manager, BUG B)", () => {
+    it("seeds the BeakerBot folder + is_tutorial + color metadata", async () => {
+      const ok = await ensureBeakerBotUser();
+      expect(ok).toBe(true);
+      expect(ensureUserFolderStructureMock).toHaveBeenCalledWith("beakerbot");
+      expect(setUserMetadataFieldMock).toHaveBeenCalledWith(
+        "beakerbot",
+        "is_tutorial",
+        true,
+      );
+      expect(setUserMetadataFieldMock).toHaveBeenCalledWith(
+        "beakerbot",
+        "color",
+        "#0ea5e9",
+      );
+    });
+
+    it("is idempotent: repeat calls re-run the same idempotent seeders", async () => {
+      await ensureBeakerBotUser();
+      await ensureBeakerBotUser();
+      // Both calls fire the underlying idempotent seeders (which no-op on
+      // existing data); no throw, returns true each time.
+      expect(ensureUserFolderStructureMock).toHaveBeenCalledTimes(2);
+      expect(setUserMetadataFieldMock).toHaveBeenCalledTimes(4);
+    });
+
+    it("returns false when the folder ensure fails", async () => {
+      ensureUserFolderStructureMock.mockResolvedValueOnce(false);
+      const ok = await ensureBeakerBotUser();
+      expect(ok).toBe(false);
+      // Metadata writes are skipped when the folder ensure fails.
+      expect(setUserMetadataFieldMock).not.toHaveBeenCalled();
+    });
+
+    it("spawnGanttShareBeakerBot routes its user-seed through ensureBeakerBotUser", async () => {
+      projectsListAllForUserMock.mockResolvedValue([]);
+      tasksListAllForUserMock.mockResolvedValue([]);
+      methodsListAllForUserMock.mockResolvedValue([]);
+
+      await spawnGanttShareBeakerBot("alex");
+      // The seed runs exactly once via the shared helper (one source of
+      // truth), not duplicated inline.
+      expect(ensureUserFolderStructureMock).toHaveBeenCalledWith("beakerbot");
+      expect(setUserMetadataFieldMock).toHaveBeenCalledWith(
+        "beakerbot",
+        "is_tutorial",
+        true,
+      );
+    });
   });
 
   describe("spawnGanttShareBeakerBot (P0 #1: coffee method attached)", () => {

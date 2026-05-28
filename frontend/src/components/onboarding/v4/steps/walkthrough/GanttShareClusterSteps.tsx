@@ -32,7 +32,7 @@ import {
 } from "./lib/cursor-script";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 import {
-  watchExperimentPopupOpened,
+  watchExperimentPopupOpenedFor,
   watchShareDialogOpened,
   watchShareUserAdded,
 } from "./lib/tour-events";
@@ -40,8 +40,10 @@ import { useOptionalTourController } from "../../TourController";
 import {
   spawnGanttShareBeakerBot,
   shareCoffeeExperimentWithUser,
+  ensureBeakerBotUser,
   SHARE_DEMO_EXPERIMENT_NAME,
 } from "./lib/gantt-share-helpers";
+import { closeAnyOpenTaskPopup } from "./lib/on-enter-helpers";
 import { sharingApi, tasksApi } from "@/lib/local-api";
 import { getCurrentUserCached } from "@/lib/storage/json-store";
 import { BEAKERBOT_LAB_USERNAME } from "../lab/lib/lab-fake-user";
@@ -304,10 +306,35 @@ export const ganttShareUserSharesBackStep = buildWalkthroughStep({
   // No cursorScript: USER_ACTION beat. The user clicks the spotlighted
   // Fake A bar themselves.
   onEnter: async (ctx) => {
+    // gantt-share-robust manager (BUG A): close any stale task popup
+    // BEFORE the ensure/spawn calls so a leftover / re-mounted popup
+    // (e.g. the coffee experiment from the earlier explore beat) cannot
+    // fire `tour:experiment-popup-opened` and auto-advance this beat to
+    // 5b before the user has clicked Fake A. Safe / idempotent when no
+    // popup is open.
+    closeAnyOpenTaskPopup();
+    // gantt-share-robust manager (BUG B): seed the BeakerBot lab user so
+    // it is in the share dialog's "Pick a user" dropdown even when a
+    // Settings re-run jumped past the spawn beat that normally creates
+    // it. Idempotent; canonical flow no-ops.
+    await ensureBeakerBotUser();
     await ensureFirstExperimentExists();
     await spawnGanttRedesignFakeTasks(ctx);
   },
-  completion: advanceOnEvent(watchExperimentPopupOpened),
+  // gantt-share-robust manager (BUG A): filter the popup-opened event to
+  // Fake A's id so ONLY the user opening Fake A advances this beat. The
+  // bare `watchExperimentPopupOpened` advanced on ANY popup-open event,
+  // so a stale popup left the user stranded on 5b ("click Share") with no
+  // popup open. The popup stays open after it fires, so the async resolve
+  // in the handler is harmless.
+  completion: advanceOnEvent((advance) =>
+    watchExperimentPopupOpenedFor((detail) => {
+      void (async () => {
+        const { fakeAId } = await resolveFakeTaskIds();
+        if (fakeAId != null && detail?.experimentId === fakeAId) advance();
+      })();
+    }),
+  ),
   // Allow-list: Fake A's bar (the click that opens the popup). The
   // popup share button is included so a fast user who reaches for Share
   // before the experimentPopupOpened event has advanced this beat (the
@@ -390,6 +417,13 @@ export const ganttShareUserFillsDialogStep = buildWalkthroughStep({
   ),
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.shareDialogUserRow),
+  // gantt-share-robust manager (BUG B): seed the BeakerBot lab user here
+  // too so it is in the "Pick a user" dropdown no matter how the user
+  // reached the share-back sequence (canonical flow, Settings re-run, or
+  // skip). Idempotent; canonical flow no-ops.
+  onEnter: async () => {
+    await ensureBeakerBotUser();
+  },
   // No cursorScript: USER_ACTION beat. The user drives the dialog.
   completion: advanceOnEvent((advance) =>
     watchShareUserAdded((detail) => {

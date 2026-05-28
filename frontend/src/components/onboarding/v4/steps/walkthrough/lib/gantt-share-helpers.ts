@@ -126,6 +126,45 @@ async function resolveCoffeeMethodForAttachment(
 }
 
 /**
+ * Idempotent BeakerBot-lab-user seed. Ensures the BeakerBot user folder
+ * structure plus the `is_tutorial` + `color` metadata exist, so the
+ * BeakerBot user shows up in surfaces that read the user list (e.g. the
+ * ShareDialog "Pick a user" dropdown). Returns true on success, false on
+ * a best-effort skip / failure.
+ *
+ * gantt-share-robust manager (BUG B): the share-back beats (5a-5d) ask
+ * the user to pick beakerbot from the dropdown, but the user was only
+ * seeded inside the cluster's FIRST beat via
+ * `shareCoffeeExperimentWithUser`'s spawn. A Settings re-run that jumps
+ * into the middle of the cluster skips that beat, so beakerbot never
+ * exists and is absent from the dropdown. Extracting the seed lets the
+ * share-back beats call it directly in their onEnter so beakerbot is in
+ * the dropdown no matter how the user reached the sequence. One source
+ * of truth: `spawnGanttShareBeakerBot` routes its own step-1 through
+ * here. Safe / idempotent to call repeatedly (the underlying
+ * `ensureUserFolderStructure` + `setUserMetadataField` already are).
+ */
+export async function ensureBeakerBotUser(): Promise<boolean> {
+  try {
+    const folderOk = await ensureUserFolderStructure(BEAKERBOT_LAB_USERNAME);
+    if (!folderOk) {
+      console.warn("[gantt-share] BeakerBot folder ensure failed");
+      return false;
+    }
+    await setUserMetadataField(BEAKERBOT_LAB_USERNAME, "is_tutorial", true);
+    await setUserMetadataField(
+      BEAKERBOT_LAB_USERNAME,
+      "color",
+      BEAKERBOT_LAB_COLOR,
+    );
+    return true;
+  } catch (err) {
+    console.warn("[gantt-share] BeakerBot user setup failed", err);
+    return false;
+  }
+}
+
+/**
  * Idempotent BeakerBot-spawn-for-share-teaching. Ensures the BeakerBot
  * lab user exists, ensures a "Coffee morning project" with a "Make
  * some coffee together" experiment exists in their namespace, and
@@ -152,24 +191,12 @@ export async function spawnGanttShareBeakerBot(
     return null;
   }
 
-  // 1) User folder + metadata. Idempotent under
-  //    ensureUserFolderStructure / setUserMetadataField.
-  try {
-    const folderOk = await ensureUserFolderStructure(BEAKERBOT_LAB_USERNAME);
-    if (!folderOk) {
-      console.warn("[gantt-share] BeakerBot folder ensure failed");
-      return null;
-    }
-    await setUserMetadataField(BEAKERBOT_LAB_USERNAME, "is_tutorial", true);
-    await setUserMetadataField(
-      BEAKERBOT_LAB_USERNAME,
-      "color",
-      BEAKERBOT_LAB_COLOR,
-    );
-  } catch (err) {
-    console.warn("[gantt-share] BeakerBot user setup failed", err);
-    return null;
-  }
+  // 1) User folder + metadata. Single source of truth: route through
+  //    `ensureBeakerBotUser` (extracted so the share-back beats can seed
+  //    the user on a Settings re-run that skips this spawn step). Already
+  //    idempotent under ensureUserFolderStructure / setUserMetadataField.
+  const userSeeded = await ensureBeakerBotUser();
+  if (!userSeeded) return null;
 
   const projectsStore = new JsonStore<Project>("projects");
   const tasksStore = new JsonStore<Task>("tasks");

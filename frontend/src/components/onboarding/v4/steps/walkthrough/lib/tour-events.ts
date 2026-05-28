@@ -849,6 +849,35 @@ export function watchExperimentPopupOpened(
 }
 
 /**
+ * Detail-forwarding variant of `watchExperimentPopupOpened`. The
+ * `tour:experiment-popup-opened` event carries `{ experimentId }` (see
+ * `TaskDetailPopup.tsx`), so a caller that needs to advance only when a
+ * SPECIFIC experiment's popup opens (e.g. the §6.8 share-back beat, which
+ * must ignore a stale / re-mounted popup from an earlier explore beat)
+ * can filter on the id. Mirrors `watchShareUserAdded`: forwards the event
+ * detail to the callback and returns a cleanup that removes the listener.
+ *
+ * Kept separate from `watchExperimentPopupOpened` (whose fire-and-forget
+ * signature other callers, e.g. MethodAttachmentOpenStep, depend on).
+ * No DOM-mount fallback: this variant is used where the right popup must
+ * be opened by a real click during the beat, so a mount-fallback that
+ * fires on a pre-existing popup would defeat the id-filter's purpose.
+ */
+export function watchExperimentPopupOpenedFor(
+  onOpened: (detail: { experimentId?: number } | undefined) => void,
+): () => void {
+  if (typeof window === "undefined") return () => {};
+  const handler = (event: Event) => {
+    const detail = (event as CustomEvent<{ experimentId?: number }>).detail;
+    onOpened(detail);
+  };
+  window.addEventListener(TOUR_DOM_EVENTS.experimentPopupOpened, handler);
+  return () => {
+    window.removeEventListener(TOUR_DOM_EVENTS.experimentPopupOpened, handler);
+  };
+}
+
+/**
  * Watch for the experiment popup's Methods tab to become active.
  * `TaskDetailPopup.tsx` dispatches `tour:experiment-methods-tab-active`
  * from `selectTab` when the new tab is `"method"`. The §6.6
