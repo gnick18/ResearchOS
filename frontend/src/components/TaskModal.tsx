@@ -73,7 +73,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
   const [name, setName] = useState("");
   const [projectId, setProjectId] = useState<number>(activeProjects[0]?.id || 0);
   const [startDate, setStartDate] = useState(
-    newTaskStartDate || new Date().toISOString().split("T")[0]
+    newTaskStartDate || new Date().toLocaleDateString("en-CA")
   );
   const [durationDays, setDurationDays] = useState(1);
   const [isHighLevel, setIsHighLevel] = useState(false);
@@ -236,7 +236,16 @@ export default function TaskModal({ projects }: TaskModalProps) {
         setStartDate(newTaskStartDate);
         setSchedulingMode("date"); // Ensure we're in date mode
       } else if (!draftPresent) {
-        setStartDate(new Date().toISOString().split("T")[0]);
+        // Local-tz YYYY-MM-DD (Grant 2026-05-27 hand-walk fix). The
+        // codebase convention is local-tz date strings; using UTC
+        // (toISOString) here meant experiments created near end-of-day
+        // in west-of-UTC timezones got start_date = tomorrow-local,
+        // which the workbench's sectionAssignment then classified as
+        // "scheduled" and filtered out of the visible list. Visible
+        // symptom: header showed "1 experiment in flight" but the
+        // panel rendered the empty state. Sibling fix at the useState
+        // initial above (line 76).
+        setStartDate(new Date().toLocaleDateString("en-CA"));
       }
       // If task type is restricted, set it
       if (restrictedTaskType) {
