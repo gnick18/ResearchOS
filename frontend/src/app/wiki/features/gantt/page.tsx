@@ -167,21 +167,30 @@ export default function GanttFeaturePage() {
 
       <h2>Chain two tasks with a dependency</h2>
       <p>
-        Drag one bar and drop it on top of another. A popup asks how the
-        two tasks should be linked:
+        A dependency captures the idea that one piece of bench work cannot
+        sensibly begin (or end) until another one reaches a certain point.
+        On the Gantt you express that by dragging one bar and dropping it on
+        top of another. A popup then asks how the two tasks should be linked:
       </p>
       <ul>
         <li>
           <strong>Start at same time</strong> (SS). Both tasks begin on the
-          same day.
+          same day. On the chart they line up at the same left edge.
         </li>
         <li>
           <strong>Start after</strong> (FS). The dragged task starts the day
-          after the target ends.
+          after the target finishes, so the two sit back to back with no
+          overlap.
         </li>
         <li>
-          <strong>Finish before</strong> (SF). The dragged task finishes
-          before the target starts.
+          <strong>Finish before</strong> (SF). The dragged task finishes the
+          day before the target starts. This is a strict gap: the predecessor
+          clears the calendar entirely before the successor begins, so the two
+          never share a day even when the predecessor is a single-day task.
+          That keeps &quot;finish before&quot; reading as a real before, not a
+          same-day overlap, and it renders at a visibly different level from
+          &quot;start at same time&quot; in both the chart and the chain
+          viewer.
         </li>
       </ul>
       <p>
@@ -189,6 +198,37 @@ export default function GanttFeaturePage() {
         snaps to whatever the dependency requires. Tasks in the same chain
         share the same colored top stripe, so you can trace a chain across
         bars. Drag a bar in the chain and downstream tasks shift with it.
+      </p>
+      <Callout variant="info" title="Dependency chains are experiment-only">
+        Only experiments can be chained. Lists and purchases are deliberately
+        kept out of dependency chains, since linking a shopping order or a
+        checklist into a scheduling chain tends to create constraints nobody
+        wanted. On the Gantt this shows up as a non-interactive signal: drag a
+        list or purchase bar (or aim one at a list or purchase target) and the
+        blue drop zone never appears, so the link simply will not form. The
+        same rule holds when you build a task: the &quot;After Task&quot;
+        scheduling mode and its parent picker only surface for experiment
+        tasks.
+      </Callout>
+
+      <h3>See a whole chain at once: hover-highlight</h3>
+      <p>
+        Because bars pack into rows by date rather than by chain, the members
+        of one dependency chain can end up scattered across the timeline. Two
+        cues help you read them as a group. The first is always on: each bar
+        in a chain carries small chain-colored dots in its corner, where the
+        dot count matches the chain length and the fully-opaque dot marks this
+        task&apos;s position in the order.
+      </p>
+      <p>
+        The second cue is the hover treatment. Move your cursor over any bar
+        that belongs to a multi-member chain and the whole chain lights up:
+        every bar in that chain stays at full strength and picks up a ring in
+        the chain&apos;s color, while every bar outside the chain dims back so
+        the group reads as one unit. Move off and the chart returns to normal.
+        Solo tasks (a chain of one, with no peers) do not trigger the effect,
+        since there would be nothing to group and dimming the rest of the
+        timeline for a lone task would only confuse.
       </p>
 
       <h2>Filter with the multi-select project dropdown</h2>
@@ -217,6 +257,33 @@ export default function GanttFeaturePage() {
           right filter set without dropdown-bounce.
         </li>
       </ul>
+
+      <h3>Standalone tasks have no project to filter by</h3>
+      <p>
+        Not every task belongs to a project. A quick experiment you spin up
+        without filing it under a research question lives in the
+        &quot;Miscellaneous&quot; standalone slot, with no project attached.
+        Those orphan tasks used to vanish the moment you scoped the chart to a
+        specific project, since they have no project key to match against.
+      </p>
+      <p>
+        The bottom of the Projects dropdown now carries a{" "}
+        <strong>Standalone</strong> row (set off by a dashed divider and marked
+        with a hollow dashed swatch and a small &quot;no project&quot; hint)
+        whose tooltip reads &quot;Toggle visibility of experiments with no
+        project.&quot; Tick it to fold your standalone tasks back into the
+        view alongside whatever projects you have checked, or untick it to
+        hide them while you concentrate on real projects. It composes with the
+        project checkboxes rather than replacing them, so you can show one
+        project plus your standalone bucket at the same time.
+      </p>
+      <p>
+        To move a task into or out of that bucket, open the task and use the
+        project dropdown in its detail popup. Alongside your real projects it
+        lists a <strong>Standalone (no project)</strong> option; picking it
+        drops the task off every project, and picking a real project files an
+        orphan task back under it.
+      </p>
 
       <h2>Gantt for PIs</h2>
       <p>

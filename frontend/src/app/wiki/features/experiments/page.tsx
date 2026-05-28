@@ -63,6 +63,21 @@ export default function ExperimentsFeaturePage() {
         content instead.
       </Callout>
 
+      <h3>Standalone tasks with no project</h3>
+      <p>
+        Some tasks never get filed under a project: a one-off experiment you
+        spin up in the &quot;Miscellaneous&quot; standalone slot stays
+        project-less on purpose. To move a task into or out of a project
+        later, open it and use the project dropdown on the popup&apos;s
+        Details tab. Alongside your real projects it offers a{" "}
+        <strong>Standalone (no project)</strong> option: pick it to drop the
+        task off every project, or pick a real project to file an orphan task
+        back under it. On the{" "}
+        <Link href="/wiki/features/gantt">Gantt timeline</Link> the project
+        dropdown also carries a Standalone toggle so you can show or hide
+        those orphan tasks while a specific project is in focus.
+      </p>
+
       <h2>The Experiments tab</h2>
       <p>
         The Experiments tab organizes every experiment task in your

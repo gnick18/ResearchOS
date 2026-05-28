@@ -123,6 +123,20 @@ export default function TelegramIntegrationPage() {
         that screen at any time.
       </Callout>
 
+      <Callout
+        variant="tip"
+        title="During setup, your first photo just goes to the Inbox"
+      >
+        The bot can route to a lot of places, and showing the full
+        destination picker on your very first send (before you have your
+        bearings) is more overwhelming than helpful. So while you are walking
+        through setup, the bot keeps it simple: the first photo you send gets
+        a single <strong>Place in Inbox</strong> button and lands in your
+        Inbox, no caption or style prompts. Once you finish the walkthrough,
+        the bot switches to its full behavior and starts offering to attach
+        photos to whatever experiment you have open or active.
+      </Callout>
+
       <h2>Where photos arrive</h2>
       <p>
         Every inbound photo triggers the same inline-keyboard routing flow,
@@ -181,6 +195,16 @@ export default function TelegramIntegrationPage() {
           <code>Images/</code> folder under <code>results.md</code>.
         </li>
       </ul>
+      <Callout variant="info" title="Photos render inline, even with spaces in the name">
+        Whatever the photo ends up named, once it lands in Lab Notes or
+        Results it shows up inline in the markdown rather than as a broken
+        link. Filenames with spaces (a phone document called{" "}
+        <code>gel run 2.jpg</code>, say, or a batch name you typed) used to
+        trip up the markdown image reference and quietly drop the picture.
+        The reference is now written so the image displays correctly in the
+        editor regardless of spaces in the filename, both for photos that come
+        in over Telegram and for images you drag in from the bottom strip.
+      </Callout>
 
       <h3>Attaching to a Note</h3>
       <p>
