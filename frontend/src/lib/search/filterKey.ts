@@ -24,6 +24,24 @@ export interface FilterKeyParts {
   id: number;
 }
 
+/**
+ * Sentinel filter-key value that scopes the project filter pill bar to
+ * "orphan" tasks (project_id === null). Background: tasks created in the
+ * Miscellaneous / standalone slot persist with project_id null (see
+ * TaskModal.tsx where projectId === 0 maps to null on save). The
+ * composite-key matchers in this file all require `task.project_id ===
+ * parts.id`, and `null === <anything>` is always false, so a user with any
+ * specific project pill selected can't see their orphan experiments at
+ * all (Workbench header counts them, panel renders empty).
+ *
+ * We use a literal double-underscored token so it cannot collide with the
+ * `<owner>:<id>` composite-key format (real owners cannot contain `__` as
+ * a leading sentinel; the parser also rejects keys with no colon).
+ * Treated as an opaque constant: callers import this rather than typing
+ * the magic string.
+ */
+export const STANDALONE_FILTER_KEY: FilterKey = "__standalone__";
+
 /** Build a composite filter key from an owned record. */
 export function encodeFilterKey(record: { owner: string; id: number }): FilterKey {
   return `${record.owner}:${record.id}`;
@@ -85,6 +103,19 @@ export function matchesAnyProjectFilter(
 ): boolean {
   if (filterKeys.length === 0) return true;
   for (const key of filterKeys) {
+    // Standalone sentinel: matches orphan tasks (project_id === null) that
+    // the composite-key matcher cannot reach. Falls through to the next
+    // key on miss so the sentinel composes with real project keys via OR
+    // (a Workbench user can scope to "SLUT + Standalone" in one filter).
+    if (key === STANDALONE_FILTER_KEY) {
+      // Orphan / standalone bucket: tasks created in the Miscellaneous
+      // slot. The persisted Task shape stores `project_id: 0` for "no
+      // project" (see local-api.ts where null is normalized to 0 on
+      // disk), but callers reading from the wire / intermediate shapes
+      // may see literal `null` here too. Both are treated as orphans.
+      if (task.project_id === null || task.project_id === 0) return true;
+      continue;
+    }
     if (matchesProjectFilter(task, key)) return true;
   }
   return false;

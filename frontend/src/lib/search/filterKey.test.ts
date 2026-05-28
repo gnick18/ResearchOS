@@ -6,6 +6,7 @@ import {
   matchesMethodFilter,
   matchesAnyProjectFilter,
   narrowLabSearchByCompositeKeys,
+  STANDALONE_FILTER_KEY,
 } from "./filterKey";
 
 describe("filterKey: encode / parse round-trip", () => {
@@ -147,6 +148,52 @@ describe("matchesAnyProjectFilter: multi-key OR for global pill bar", () => {
     expect(matchesAnyProjectFilter(alexProj2Task, ["alex:1", "morgan:1"])).toBe(
       false,
     );
+  });
+});
+
+describe("matchesAnyProjectFilter: standalone sentinel (orphan tasks)", () => {
+  // Background: tasks created in the Miscellaneous / standalone slot
+  // persist with project_id null (wire shape) or 0 (on-disk normalized
+  // shape; see local-api.ts). A user with any specific project pill
+  // selected can't see their orphan experiments because real composite
+  // keys ("alex:1") never match `null`/`0`. The STANDALONE_FILTER_KEY
+  // sentinel scopes the filter to the orphan bucket.
+  const orphanWireTask = { owner: "alex", project_id: null };
+  const orphanDiskTask = { owner: "alex", project_id: 0 };
+  const realProjectTask = { owner: "alex", project_id: 1 };
+
+  it("exposes the sentinel constant for callers (no magic strings sprinkled)", () => {
+    expect(STANDALONE_FILTER_KEY).toBe("__standalone__");
+  });
+
+  it("matches orphan tasks (project_id null) when sentinel is the only key", () => {
+    expect(matchesAnyProjectFilter(orphanWireTask, [STANDALONE_FILTER_KEY])).toBe(true);
+  });
+
+  it("matches orphan tasks (project_id 0, normalized on-disk shape) too", () => {
+    expect(matchesAnyProjectFilter(orphanDiskTask, [STANDALONE_FILTER_KEY])).toBe(true);
+  });
+
+  it("rejects real-project tasks when sentinel is the only key", () => {
+    expect(matchesAnyProjectFilter(realProjectTask, [STANDALONE_FILTER_KEY])).toBe(false);
+  });
+
+  it("composes with real-project keys via OR (the workbench multi-pill case)", () => {
+    const keys = ["alex:1", STANDALONE_FILTER_KEY];
+    // The orphan passes via the sentinel branch.
+    expect(matchesAnyProjectFilter(orphanWireTask, keys)).toBe(true);
+    // The real-project task passes via the composite key.
+    expect(matchesAnyProjectFilter(realProjectTask, keys)).toBe(true);
+    // A different-owner real project (morgan:1) collides with neither.
+    expect(matchesAnyProjectFilter({ owner: "morgan", project_id: 2 }, keys)).toBe(false);
+  });
+
+  it("sentinel does not collide with a real owner named '__standalone__:42'", () => {
+    // Defensive: composite parsing keys on the last colon, so an owner
+    // literally named "__standalone__" would still produce a valid
+    // "<owner>:<id>" key. The sentinel itself contains no colon, so it
+    // can never be mistaken for a composite key.
+    expect(parseFilterKey(STANDALONE_FILTER_KEY)).toBeNull();
   });
 });
 

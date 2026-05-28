@@ -9,6 +9,7 @@ import { markdownSanitizeSchema } from "@/lib/markdown/sanitize-schema";
 import remarkUnderline from "@/lib/markdown/remark-underline";
 import { filesApi, methodsApi, projectsApi, dependenciesApi, fetchAllTasks, fetchAllProjectsIncludingShared, purchasesApi, tasksApi as rawTasksApi, type DuplicateCheckResult } from "@/lib/local-api";
 import { ownerScopedTasksApi } from "@/lib/tasks/owner-scoped-api";
+import { STANDALONE_FILTER_KEY } from "@/lib/search/filterKey";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import PurchaseEditor from "./PurchaseEditor";
@@ -1770,6 +1771,15 @@ function DetailsTab({
     if (task.external_project) {
       return `${task.external_project.owner}:${task.external_project.id}`;
     }
+    // Orphan tasks (created in the "Miscellaneous / standalone" slot)
+    // persist with project_id 0 on disk (null is normalized to 0 in
+    // local-api.ts) but the wire/transitional shape can also surface
+    // literal null. Surface either as the standalone sentinel option
+    // rather than a malformed "<owner>:null" composite key (which
+    // would parse to NaN -> 0 downstream).
+    if (task.project_id === null || task.project_id === 0) {
+      return STANDALONE_FILTER_KEY;
+    }
     return `${task.owner || currentUser || ""}:${task.project_id}`;
   })();
   const [selectedProjectKey, setSelectedProjectKey] = useState<string>(initialProjectKey);
@@ -1833,6 +1843,8 @@ function DetailsTab({
   useEffect(() => {
     if (task.external_project) {
       setSelectedProjectKey(`${task.external_project.owner}:${task.external_project.id}`);
+    } else if (task.project_id === null || task.project_id === 0) {
+      setSelectedProjectKey(STANDALONE_FILTER_KEY);
     } else {
       setSelectedProjectKey(`${task.owner || currentUser || ""}:${task.project_id}`);
     }
@@ -1905,22 +1917,31 @@ function DetailsTab({
     enabled: editing,
   });
 
-  // Resolve the selected dropdown value back to a (owner, id) pair.
+  // Resolve the selected dropdown value back to a (owner, id) pair. The
+  // standalone sentinel resolves to (owner: "", id: 0) which the save
+  // path translates into project_id null below (mirroring TaskModal's
+  // `projectId === 0 -> null` rule).
   const selectedProjectInfo = useMemo(() => {
+    if (selectedProjectKey === STANDALONE_FILTER_KEY) {
+      return { owner: "", id: 0 };
+    }
     const [owner, rawId] = selectedProjectKey.split(":");
     const id = Number(rawId);
     return { owner: owner ?? "", id: Number.isFinite(id) ? id : 0 };
   }, [selectedProjectKey]);
 
   // Whose-project-is-this-anyway sentinel. Drives the save flow's
-  // "share into project" vs "regular project_id update" branch.
+  // "share into project" vs "regular project_id update" branch. The
+  // standalone option is never foreign (it has no owner; reassignment
+  // simply nulls project_id on the current task).
   const isSelectedProjectForeign = useMemo(() => {
     if (!currentUser) return false;
+    if (selectedProjectKey === STANDALONE_FILTER_KEY) return false;
     // The task's own owner. For shared-with-me tasks (receiver editing),
     // that's the owner field; for own tasks it's the current user.
     const taskOwner = task.owner || currentUser;
     return selectedProjectInfo.owner && selectedProjectInfo.owner !== taskOwner;
-  }, [currentUser, task.owner, selectedProjectInfo.owner]);
+  }, [currentUser, task.owner, selectedProjectInfo.owner, selectedProjectKey]);
 
   // Load all tasks for dependency display
   const { data: allTasks = [] } = useQuery({
@@ -2050,10 +2071,14 @@ function DetailsTab({
         await queryClient.refetchQueries({ queryKey: ["tasks"] });
         await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
       } else {
-        // Regular update - don't send start_date if task has parent dependencies
+        // Regular update - don't send start_date if task has parent dependencies.
+        // Mirror TaskModal's `projectId === 0 -> null` rule so picking the
+        // Standalone (no project) option in the dropdown nulls project_id
+        // on disk, matching the orphan-task representation other code
+        // already expects.
         const updateData: Parameters<typeof tasksApi.update>[1] = {
           name: name.trim(),
-          project_id: projectId,
+          project_id: projectId === 0 ? null : projectId,
           task_type: task.task_type,
           duration_days: durationDays,
           is_complete: isComplete,
@@ -2151,9 +2176,11 @@ function DetailsTab({
         await queryClient.refetchQueries({ queryKey: ["tasks"] });
         await queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
       } else {
+        // Mirror handleSave: standalone option (projectId 0) nulls out
+        // project_id on disk so the task lands in the orphan bucket.
         const updateData: Parameters<typeof tasksApi.update>[1] = {
           name: name.trim(),
-          project_id: projectId,
+          project_id: projectId === 0 ? null : projectId,
           task_type: task.task_type,
           duration_days: durationDays,
           is_complete: isComplete,
@@ -2987,6 +3014,14 @@ function DetailsTab({
               onChange={(e) => {
                 const next = e.target.value;
                 setSelectedProjectKey(next);
+                // Standalone sentinel: drop the task off any project
+                // (project_id null). Mirrors TaskModal's `projectId === 0
+                // -> null` rule by storing 0 in the legacy projectId
+                // state, then translating to null in handleSave.
+                if (next === STANDALONE_FILTER_KEY) {
+                  setProjectId(0);
+                  return;
+                }
                 // Keep the legacy projectId state in sync for own-project
                 // picks so handleSave's existing `tasksApi.update` call
                 // gets the right id. Foreign picks branch off in handleSave.
@@ -3006,6 +3041,13 @@ function DetailsTab({
                       {p.name}
                     </option>
                   ))}
+                {/* Standalone / orphan option (project_id null). Reassigning
+                    here is the user-facing way to drop a task off any
+                    project, or to lift an orphan out of the standalone
+                    bucket once the user picks a real project. */}
+                <option value={STANDALONE_FILTER_KEY}>
+                  Standalone (no project)
+                </option>
               </optgroup>
               {projects.some((p) => p.is_shared_with_me) && (
                 <optgroup label="Share into someone else's project">

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAppStore } from "@/lib/store";
-import { encodeFilterKey, parseFilterKey } from "@/lib/search/filterKey";
+import { encodeFilterKey, parseFilterKey, STANDALONE_FILTER_KEY } from "@/lib/search/filterKey";
 import type { Project, ViewMode } from "@/lib/types";
 import Tooltip from "@/components/Tooltip";
 
@@ -159,6 +159,12 @@ export default function Toolbar({
     }
     if (selectedProjectIds.length === 1) {
       const onlyKey = selectedProjectIds[0];
+      // Standalone sentinel rendered as its own labeled chip on the
+      // trigger so the user sees "Projects: Standalone" instead of "1
+      // selected" when they've scoped to orphan tasks (project_id null).
+      if (onlyKey === STANDALONE_FILTER_KEY) {
+        return { kind: "standalone" as const };
+      }
       const match = projects.find((p) => encodeFilterKey(p) === onlyKey);
       if (match) {
         return {
@@ -261,6 +267,9 @@ export default function Toolbar({
                 {projectFilterLabel.name}
               </span>
             </span>
+          )}
+          {projectFilterLabel.kind === "standalone" && (
+            <span className="font-medium">Standalone</span>
           )}
           {projectFilterLabel.kind === "many" && (
             <span className="font-medium">
@@ -386,6 +395,69 @@ export default function Toolbar({
                     </button>
                   );
                 })
+              )}
+              {/* Standalone sentinel row. Toggling this key visibility-OR's
+                  orphan tasks (project_id null) into the filtered Workbench /
+                  Gantt views. Lives at the end of the project rows, separated
+                  by a faint divider, and uses a grey-dashed swatch instead of
+                  a colored dot so it reads as "category", not "project". */}
+              {(projectFilterQuery.trim() === "" ||
+                "standalone".includes(projectFilterQuery.trim().toLowerCase())) && (
+                <>
+                  <div className="my-1 border-t border-dashed border-gray-200" aria-hidden="true" />
+                  <Tooltip
+                    label="Toggle visibility of experiments with no project"
+                    placement="bottom"
+                  >
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={
+                        projectFilterMode === "all" ||
+                        selectedProjectIds.includes(STANDALONE_FILTER_KEY)
+                      }
+                      onClick={() => toggleProject(STANDALONE_FILTER_KEY)}
+                      data-tour-target="gantt-project-filter-standalone"
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left hover:bg-gray-50 focus:outline-none focus:bg-gray-50"
+                    >
+                      <span
+                        className={`
+                          inline-flex items-center justify-center w-4 h-4 rounded border
+                          ${
+                            projectFilterMode === "all" ||
+                            selectedProjectIds.includes(STANDALONE_FILTER_KEY)
+                              ? "bg-blue-600 border-blue-600 text-white"
+                              : "bg-white border-gray-300"
+                          }
+                        `}
+                        aria-hidden="true"
+                      >
+                        {(projectFilterMode === "all" ||
+                          selectedProjectIds.includes(STANDALONE_FILTER_KEY)) && (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="10"
+                            height="10"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        )}
+                      </span>
+                      <span
+                        className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 border border-dashed border-gray-400 bg-white"
+                        aria-hidden="true"
+                      />
+                      <span className="truncate text-gray-700">Standalone</span>
+                      <span className="ml-auto text-[10px] text-gray-400 italic">no project</span>
+                    </button>
+                  </Tooltip>
+                </>
               )}
             </div>
             {projectFilterMode === "all" && (
