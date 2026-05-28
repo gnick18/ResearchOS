@@ -30,6 +30,7 @@ import { createNewFileContent, normalizeStampFormat, hasLegacyStampFormat } from
 import { exportExperiments, downloadResult } from "@/lib/export/orchestrate";
 import type { ExportFormat } from "@/lib/export/types";
 import ExportFormatDialog from "@/components/ExportFormatDialog";
+import DepositDialog from "@/components/DepositDialog";
 import ProgressEntertainer from "@/components/progress/ProgressEntertainer";
 import { useFileRenamePopup } from "@/components/FileRenamePopup";
 import { useDuplicateResolver } from "@/components/DuplicateUploadDialog";
@@ -1136,6 +1137,7 @@ export default function TaskDetailPopup({
                 </Tooltip>
               )}
               {isExperiment && <TaskExportButton task={task} />}
+              {isExperiment && <TaskDepositButton task={task} />}
               {!readOnly && !task.is_shared_with_me && (
                 <Tooltip label="Share task" placement="bottom">
                   <button
@@ -5068,6 +5070,58 @@ function TaskExportButton({ task }: { task: Task }) {
         open={exporting}
         title="Preparing your export…"
         subtitle={`Exporting "${task.name}"`}
+      />
+    </>
+  );
+}
+
+/**
+ * Deposit-to-a-repository affordance (guided-deposit bot, 2026-05-28). Sits
+ * beside the export button in the experiment popup header. Opens the guided
+ * three-step deposit dialog: curate -> metadata -> hand off to a repository's
+ * own web upload page. Phase 1 is the GUIDED path; no API calls, no DOI is
+ * minted here.
+ */
+function TaskDepositButton({ task }: { task: Task }) {
+  const [open, setOpen] = useState(false);
+  const { currentUser } = useCurrentUser();
+
+  return (
+    <>
+      <Tooltip label="Deposit to a repository" placement="bottom">
+        <button
+          aria-label="Deposit to a repository"
+          onClick={() => setOpen(true)}
+          data-testid="task-deposit-button"
+          className="text-gray-400 hover:text-gray-600 p-1"
+        >
+          {/* Repository / archive-with-upload-arrow glyph (inline SVG; no
+              icon library, no emoji). */}
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="M21 8v13H3V8" />
+            <rect x="1" y="3" width="22" height="5" rx="1" />
+            <path d="M12 17V11" />
+            <polyline points="9 14 12 11 15 14" />
+          </svg>
+        </button>
+      </Tooltip>
+
+      <DepositDialog
+        isOpen={open}
+        task={task}
+        currentUser={currentUser}
+        onClose={() => setOpen(false)}
       />
     </>
   );
