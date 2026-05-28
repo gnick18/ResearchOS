@@ -11,7 +11,7 @@
 //      JSON object missing every new field still loads unchanged (no eager
 //      migration, absent field stays absent).
 //
-// Node-env test (.test.ts) — exercises the JsonStore / fileService boundary
+// Node-env test (.test.ts) - exercises the JsonStore / fileService boundary
 // against an in-memory file map, mirroring tasks-api-update.test.ts.
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
@@ -59,7 +59,7 @@ beforeEach(() => {
 });
 
 // ── Funding-account round-trip ──────────────────────────────────────────────
-describe("FundingAccount — structured grant fields round-trip", () => {
+describe("FundingAccount - structured grant fields round-trip", () => {
   it("creates an account carrying the new award/funder fields", async () => {
     const created = await purchasesApi.createFundingAccount({
       name: "R01 lab string",
@@ -167,7 +167,7 @@ describe("FundingAccount — structured grant fields round-trip", () => {
     expect(loaded.award_title).toBeUndefined();
 
     // A budget-only update on the legacy record does not invent the new
-    // fields — backward-compat preserved end to end.
+    // fields - backward-compat preserved end to end.
     const updated = await purchasesApi.updateFundingAccount(99, {
       total_budget: 6000,
     });
@@ -178,7 +178,7 @@ describe("FundingAccount — structured grant fields round-trip", () => {
 });
 
 // ── Project -> grant link round-trip ────────────────────────────────────────
-describe("Project — funding_account_id round-trip", () => {
+describe("Project - funding_account_id round-trip", () => {
   it("creates a project linked to a funding account", async () => {
     const project = await projectsApi.create({
       name: "Linked project",

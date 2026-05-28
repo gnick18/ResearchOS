@@ -9,7 +9,7 @@
  *
  * These helpers are pure and dependency-free so they can run in any
  * environment (node test suite, jsdom component tests, the browser UI).
- * Validation is intentionally a SOFT signal — callers surface a non-blocking
+ * Validation is intentionally a SOFT signal - callers surface a non-blocking
  * warning, they never refuse a save.
  */
 
@@ -23,7 +23,7 @@
  * upper-cased core, or `null` when the input doesn't contain exactly 16
  * ORCID characters.
  *
- * This does NOT validate the checksum — it only extracts the core so
+ * This does NOT validate the checksum - it only extracts the core so
  * `normalizeOrcid` can re-group it and `isValidOrcid` can verify it.
  */
 export function extractOrcidCore(input: string | null | undefined): string | null {
@@ -49,7 +49,7 @@ export function extractOrcidCore(input: string | null | undefined): string | nul
  * to the canonical bare hyphenated 16-character string. Returns `null` when
  * the input can't be coerced to 16 ORCID characters.
  *
- * Does NOT enforce the checksum — an input with a wrong check digit still
+ * Does NOT enforce the checksum - an input with a wrong check digit still
  * normalizes (so the UI can store what the user typed and show a soft
  * warning beside it). Use `isValidOrcid` for the checksum gate.
  */

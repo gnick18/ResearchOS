@@ -237,10 +237,12 @@ export default function NihDataManagementPage() {
         shipped. If your plan or institution requires a complete versioned
         history of every entry, account for that gap now.
       </Callout>
-      <Callout variant="warning" title="Grant and identifier metadata is free-text today">
-        ResearchOS has tags and free-text fields, but no first-class fields
-        for ORCID iDs or funding and award numbers. Record those in note
-        bodies or tags for now.
+      <Callout variant="info" title="Structured grant and ORCID fields are in">
+        ResearchOS now has first-class fields for your ORCID iD (on your
+        profile) and for funder and award numbers (on each funding account),
+        named to match the DataCite schema a DOI deposit uses. The remaining
+        piece is the one-click deposit that reads them automatically; until
+        that lands you enter the deposit metadata at upload time.
       </Callout>
       <Callout variant="warning" title="No third-party security certifications">
         ResearchOS holds no FedRAMP, SOC 2, ISO 27001, or 21 CFR Part 11

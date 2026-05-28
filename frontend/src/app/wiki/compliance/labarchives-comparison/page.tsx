@@ -194,8 +194,7 @@ export default function LabArchivesComparisonPage() {
                 <strong>Structured grant / ORCID metadata</strong>
               </td>
               <td>
-                <Partial>Tags and free text only.</Partial>
-                <ComingSoon />
+                <Yes>Dedicated ORCID + funder/award fields.</Yes>
               </td>
               <td>
                 <Yes>Dedicated metadata fields.</Yes>
@@ -323,10 +322,6 @@ export default function LabArchivesComparisonPage() {
           <strong>Managed backups and any-browser access.</strong> The
           vendor handles redundancy, and there is no File System Access API
           browser requirement.
-        </li>
-        <li>
-          <strong>Structured grant and identifier metadata.</strong>{" "}
-          Dedicated fields rather than tags and free text.
         </li>
       </ul>
 

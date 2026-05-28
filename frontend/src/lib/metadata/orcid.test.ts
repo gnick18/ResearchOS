@@ -13,7 +13,7 @@ import {
   orcidRecordUrl,
 } from "./orcid";
 
-describe("orcidCheckDigit — MOD 11-2", () => {
+describe("orcidCheckDigit - MOD 11-2", () => {
   it("computes the documented digit-result case", () => {
     // 0000-0002-1825-0097 → first 15 digits "000000021825009" → check "7".
     expect(orcidCheckDigit("000000021825009")).toBe("7");
@@ -25,7 +25,7 @@ describe("orcidCheckDigit — MOD 11-2", () => {
   });
 });
 
-describe("isValidOrcid — checksum gate", () => {
+describe("isValidOrcid - checksum gate", () => {
   it("accepts a valid hyphenated iD", () => {
     expect(isValidOrcid("0000-0002-1825-0097")).toBe(true);
   });
@@ -55,7 +55,7 @@ describe("isValidOrcid — checksum gate", () => {
   });
 });
 
-describe("extractOrcidCore — paste extraction", () => {
+describe("extractOrcidCore - paste extraction", () => {
   it("extracts from the bare hyphenated form", () => {
     expect(extractOrcidCore("0000-0002-1825-0097")).toBe("0000000218250097");
   });
@@ -96,7 +96,7 @@ describe("extractOrcidCore — paste extraction", () => {
   });
 });
 
-describe("normalizeOrcid — canonical hyphenated form", () => {
+describe("normalizeOrcid - canonical hyphenated form", () => {
   it("hyphenates a no-hyphen string", () => {
     expect(normalizeOrcid("0000000218250097")).toBe("0000-0002-1825-0097");
   });

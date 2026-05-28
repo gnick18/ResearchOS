@@ -44,7 +44,7 @@ beforeEach(() => {
   memFs.clear();
 });
 
-describe("UserMetadataEntry.orcid — round-trip", () => {
+describe("UserMetadataEntry.orcid - round-trip", () => {
   it("persists the canonical ORCID via setUserMetadataField and reads it back", async () => {
     // Seed an existing entry so the write merges onto it.
     memFs.set(METADATA_PATH, {
@@ -82,7 +82,7 @@ describe("UserMetadataEntry.orcid — round-trip", () => {
   });
 });
 
-describe("UserMetadataEntry.orcid — backward-compat", () => {
+describe("UserMetadataEntry.orcid - backward-compat", () => {
   it("an old metadata entry missing orcid still loads", async () => {
     memFs.set(METADATA_PATH, {
       users: {
@@ -93,7 +93,7 @@ describe("UserMetadataEntry.orcid — backward-compat", () => {
     const all = await readAllUserMetadata();
     expect(all.morgan).toBeDefined();
     expect(all.morgan.color).toBe("#ef4444");
-    // Absent field stays absent — no eager migration.
+    // Absent field stays absent - no eager migration.
     expect(all.morgan.orcid).toBeUndefined();
   });
 

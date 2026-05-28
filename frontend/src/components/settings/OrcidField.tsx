@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * OrcidField — Settings -> Profile ORCID iD input (metadata implementation
+ * OrcidField - Settings -> Profile ORCID iD input (metadata implementation
  * bot, 2026-05-28).
  *
  * The person's ORCID iD lives on `UserMetadataEntry.orcid` in
@@ -16,7 +16,7 @@
  *     on blur.
  *   - Live, NON-blocking MOD 11-2 checksum check with an inline SVG
  *     check/warn glyph (no emoji). A bad checksum is a soft warning, never a
- *     hard block — the value still saves.
+ *     hard block - the value still saves.
  *   - A "Where is this stored?" hint matching the Settings convention.
  *   - A small external link to the ORCID record once the iD is valid.
  */
@@ -33,7 +33,7 @@ import {
 } from "@/lib/metadata/orcid";
 
 interface OrcidFieldProps {
-  /** Active folder username — the metadata key the iD is stored under. */
+  /** Active folder username - the metadata key the iD is stored under. */
   currentUser: string | null;
 }
 
@@ -75,7 +75,7 @@ export default function OrcidField({ currentUser }: OrcidFieldProps) {
   const commit = async () => {
     if (!currentUser) return;
     // Persist the canonical bare hyphenated form when we can normalize it
-    // (even if the checksum is off — the warning is soft). An empty field
+    // (even if the checksum is off - the warning is soft). An empty field
     // clears the stored value back to null.
     const next = hasValue ? (normalizeOrcid(trimmed) ?? trimmed) : null;
     // Reflect the normalized form in the input so the user sees the
@@ -114,7 +114,7 @@ export default function OrcidField({ currentUser }: OrcidFieldProps) {
           />
           {/* Inline status glyph: only shown when there's something typed.
               Green check = valid checksum; amber warn triangle = could not
-              validate (soft, never blocks). Custom inline SVGs — no emoji,
+              validate (soft, never blocks). Custom inline SVGs - no emoji,
               no lucide. */}
           {hasValue && (
             <span
@@ -195,7 +195,7 @@ export default function OrcidField({ currentUser }: OrcidFieldProps) {
         </p>
       )}
 
-      {/* "Where is this stored?" hint — matches the Settings convention
+      {/* "Where is this stored?" hint - matches the Settings convention
           (e.g. the header's "Stored in users/<u>/settings.json" line). */}
       <p className="text-xs text-gray-400 mt-1">
         Stored in{" "}
