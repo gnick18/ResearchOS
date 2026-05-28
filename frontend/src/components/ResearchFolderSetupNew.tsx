@@ -847,58 +847,91 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
           </div>
         )}
 
-        {/* Recovery hint shown after an aborted picker call. Chrome wraps
-            both legitimate user cancels and its system-folder block in
-            the same `AbortError`, so we surface a single dual-purpose
-            message: if the block fired, this is the recovery copy; if
-            the user simply cancelled, it's a harmless reminder they can
-            dismiss. We don't claim certainty ("Chrome blocked your
-            folder") because we genuinely can't tell. */}
+        {/* Recovery popup shown after an aborted picker call. Chrome wraps
+            both legitimate user cancels and its system-folder block in the
+            same `AbortError`, so we can't tell with certainty which fired
+            (the OS owns the picker; JS never sees the blocked selection).
+            Grant 2026-05-28: promoted from an easy-to-miss inline banner to
+            a centered modal so the guidance is impossible to overlook after
+            a failed pick. Copy is framed to cover both cases (block OR plain
+            cancel) without claiming "Chrome blocked your folder". The two
+            buttons let the user retry into Documents (createNewFolder
+            re-opens the picker with startIn:"documents") or dismiss. */}
         {showSystemFolderHint && !systemFolderHintDismissed && (
           <div
-            data-testid="picker-system-folder-recovery"
-            className="mt-4 p-3 bg-amber-500/15 border border-amber-300/30 rounded-lg max-w-3xl mx-auto flex items-start gap-3"
+            className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="picker-system-folder-recovery-title"
           >
-            <svg
-              aria-hidden
-              className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-300"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
+            <div
+              data-testid="picker-system-folder-recovery"
+              className="w-full max-w-md rounded-2xl bg-slate-900 border border-amber-300/30 shadow-2xl p-6"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-            </svg>
-            <div className="flex-1">
-              <p className="text-sm text-amber-100 font-medium">
-                If Chrome just said the folder contains system files
-              </p>
-              <p className="mt-1 text-xs text-amber-100/85 leading-relaxed">
-                Chrome refuses Desktop, Documents (the root), Downloads, and
-                your home directory. On Mac it also refuses folders INSIDE
-                Desktop or Downloads, so a subfolder on the Desktop will not
-                work either. The reliable spot is a subfolder of Documents:
-                right-click inside Documents, choose New Folder, name it
-                ResearchOS, then point the picker at it. Or use the Create New
-                Folder card on the right, type a name, and when the picker
-                opens choose your Documents folder (not Desktop) as the place
-                to put it.
-              </p>
+              <div className="flex items-start gap-3">
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-amber-500/20">
+                  <svg
+                    aria-hidden
+                    className="h-5 w-5 text-amber-300"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  </svg>
+                </span>
+                <div className="flex-1">
+                  <h3
+                    id="picker-system-folder-recovery-title"
+                    className="text-base font-semibold text-white"
+                  >
+                    That folder can&apos;t be used. Pick a different spot.
+                  </h3>
+                  <p className="mt-2 text-sm text-amber-100/90 leading-relaxed">
+                    If Chrome just told you a folder &quot;contains system
+                    files&quot;, that is its block on sensitive locations.
+                    Chrome and macOS block Desktop, Documents (the root),
+                    Downloads, and your home directory. On Mac they also block
+                    any subfolder inside Desktop or Downloads, so a folder on
+                    the Desktop will not work even one level deep.
+                  </p>
+                  <p className="mt-2 text-sm text-amber-100/90 leading-relaxed">
+                    The reliable spot is a folder in your Documents (like
+                    Documents/ResearchOS) or in your home directory. Use Create
+                    New Folder, type a name, and when the picker opens keep it
+                    in Documents.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-5 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSystemFolderHint(false);
+                    setSystemFolderHintDismissed(true);
+                  }}
+                  className="px-3 py-2 text-sm rounded-lg text-amber-100/80 hover:text-white hover:bg-white/10 transition-colors"
+                  data-testid="picker-system-folder-recovery-dismiss"
+                >
+                  Got it
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Retry straight into the Create-New-Folder flow, which
+                    // re-opens the picker with startIn:"documents". Clear the
+                    // hint first so a fresh abort can re-trigger it.
+                    setShowSystemFolderHint(false);
+                    void handleCreateNewFolder();
+                  }}
+                  className="px-4 py-2 text-sm font-medium rounded-lg bg-amber-500/90 text-slate-900 hover:bg-amber-400 transition-colors"
+                  data-testid="picker-system-folder-recovery-retry"
+                >
+                  Try again in Documents
+                </button>
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setShowSystemFolderHint(false);
-                setSystemFolderHintDismissed(true);
-              }}
-              className="flex-shrink-0 rounded p-1 text-amber-200/70 hover:text-amber-100 hover:bg-amber-500/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300"
-              aria-label="Dismiss hint"
-              data-testid="picker-system-folder-recovery-dismiss"
-            >
-              <svg aria-hidden className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
           </div>
         )}
 
