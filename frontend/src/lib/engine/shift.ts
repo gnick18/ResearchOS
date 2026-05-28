@@ -222,8 +222,11 @@ export async function shiftTask(
           parentNewStart = currentStart;
         }
       } else if (depType === "SF") {
-        if (formatDate(parentOldStart) !== formatDate(currentEnd)) {
-          parentNewStart = currentEnd;
+        // SF (strict-gap): child finishes strictly before parent starts.
+        // Required: parent.start = child.end + 1 (one-day gap).
+        const requiredParentStart = addDays(currentEnd, 1);
+        if (formatDate(parentOldStart) !== formatDate(requiredParentStart)) {
+          parentNewStart = requiredParentStart;
         }
       }
 
@@ -294,10 +297,20 @@ export async function shiftTask(
         } else if (parentDepType === "SS") {
           requiredStarts.push(parentStart);
         } else if (parentDepType === "SF") {
+          // SF (strict-gap): child finishes the day BEFORE parent starts.
+          // Required: child.end = parent.start - 1, so child.start =
+          // (parent.start - 1) - (duration - 1) = parent.start - duration
+          // (weekend-active path). With PTO / weekend-skip, walk back from
+          // (parent.start - 1) using computeStartDateFromEnd.
           if (childWa) {
-            requiredStarts.push(subDays(parentStart, childTask.duration_days - 1));
+            requiredStarts.push(subDays(parentStart, childTask.duration_days));
           } else {
-            const computedStart = computeStartDateFromEnd(parentStart, childTask.duration_days, false, ptoDates);
+            const computedStart = computeStartDateFromEnd(
+              subDays(parentStart, 1),
+              childTask.duration_days,
+              false,
+              ptoDates,
+            );
             requiredStarts.push(computedStart);
           }
         }

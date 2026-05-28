@@ -1261,9 +1261,13 @@ export default function GanttChart({
         const parentStart = new Date(depParentTask.start_date);
         newStartDate = parentStart.toISOString().split("T")[0];
       } else {
-        // SF: Finish before parent starts
+        // SF (Finish-before-Start): child must finish strictly before parent
+        // starts. Strict-gap convention (mirrors FS): child.end = parent.start
+        // - 1, so child.start = parent.start - duration. This keeps SF visually
+        // distinct from SS (where child.start = parent.start) and matches the
+        // user-visible "before" semantic in the Create Dependency dialog.
         const parentStart = new Date(depParentTask.start_date);
-        parentStart.setDate(parentStart.getDate() - depChildTask.duration_days + 1);
+        parentStart.setDate(parentStart.getDate() - depChildTask.duration_days);
         newStartDate = parentStart.toISOString().split("T")[0];
       }
       
