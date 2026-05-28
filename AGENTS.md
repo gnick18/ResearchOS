@@ -146,6 +146,20 @@ Reliable recipe for a spawn prompt:
 - **Commit explicitly, don't push, don't merge.** Sub-bots have misread "don't push, don't merge" as "don't commit" and left uncommitted work that the orchestrator then had to copy file-by-file (the export-arc Sub-bot F mishap, 2026-05-13). Brief explicitly: "commit your changes on your branch in coherent chunks; do NOT push, do NOT merge — the orchestrator handles integration via branch merge." If the bot is in a worktree, this lets the orchestrator pull the branch cleanly.
 - **Double-check shape claims against types/regex sources, not memory.** Two factual errors in the export-arc PCR-rendering brief (`pcr_gradient` was described as markdown when it's JSON-encoded, `source_path` was described as `pcr://{id}` when the real format is `pcr://protocol/{id}`) were caught by the sub-bot, not the orchestrator. When the brief asserts a data shape or path format, grep the actual `types.ts` or the regex source first.
 
+### Sub-bot anchor drift (2026-05-27, learned the hard way)
+
+A spawned worktree branches from the commit `main` pointed at **when the agent was launched**, not live `main`. During a long session the orchestrator lands dozens of cherry-picks onto `main`, so by the time a sub-bot finishes, its anchor can be 30+ commits stale. This bit us repeatedly in one night. Two halves to the rule:
+
+**Sub-bot side — rebase before committing.** Brief every spawned bot: "FIRST run `git merge main --no-edit` in your worktree root and confirm it succeeds before doing any work. If it conflicts non-trivially, STOP and report." A bot that rebases onto current `main` produces a commit that cherry-picks cleanly with no conflict resolution at all. The telegram-image-path bot did this and its cherry-pick was a clean fast-forward; the bots that didn't caused the messes below.
+
+**Orchestrator side — never `-X theirs` a stale-anchor commit onto a fast-moving main.** `-X theirs` resolves every conflict by taking the cherry-picked (stale) side. When that side is older than `main`, it **silently reverts** whatever landed on `main` after the anchor. Concrete damage from one night:
+- A telegram-tutorial cherry-pick reverted 424 lines of `batch-routing.test.ts` coverage that had landed post-anchor (tests still "passed" — on a shrunken set). Had to restore main's file and re-graft the new tests.
+- A workbench-create cherry-pick auto-merged `step-machine.ts` from the stale base and produced **duplicate step ids** + a dropped `settings-tour-calendar` slot, which only surfaced as test failures. Had to revert the whole commit and re-apply the change surgically by hand on top of current main.
+
+**Verification after every cherry-pick:** run `git show <hash> --stat` and sanity-check the line deltas. If a file you didn't expect to shrink lost hundreds of lines (especially a test file), that's anchor-drift clobbering, not an intended edit. Diff the file against `main`'s pre-cherry-pick version (`git show <main-before>:path | wc -l`) and recover the lost content. Better: prefer **merging the sub-bot's branch** over `cherry-pick -X theirs` when the branch was rebased onto main; reserve `-X theirs` for the case where you've already confirmed the only divergence is the intended change.
+
+**Circular-import footgun (same night):** `step-registry → WikiPointerStep → TourBootstrap → step-registry` closed a cycle that Next.js tolerated but vitest's module loader did not — it silently broke the entire `step-bodies.test.tsx` import (0 tests ran), masking every step-body assertion for who-knows-how-long. When a registry imports a step that imports a bootstrap that imports the registry, extract the shared leaf helpers into a dependency-free module (the `wiki-pointer-nav-flag.ts` / `lib/query-client.ts` pattern). If a whole test file reports "no tests" instead of pass/fail, suspect an import cycle, not an empty file.
+
 ### Commits
 
 - Subject line: present tense, concise (under 70 chars). Body explains the **why**, not just the what.
