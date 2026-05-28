@@ -64,20 +64,23 @@ describe("workbench-notes-intro", () => {
   it("has a cursorScript (BeakerBot demo)", () => {
     expect(typeof workbenchNotesIntroStep.cursorScript).toBe("function");
   });
-  it("speech mentions Notes + the scratch / two-flavors framing", () => {
+  it("speech mentions Notes + the two-flavors framing", () => {
     const text = renderSpeech(workbenchNotesIntroStep);
     expect(text).toMatch(/Notes/);
-    // R1 spec: rewritten intro bridges from §6.7 + uses the general-
-    // scratch + running-log split. "general scratch" replaces the
-    // prior "scratch notes" phrasing.
-    expect(text).toMatch(/scratch/i);
+    // Wave 2C rewrite (2026-05-27, Grant's new copy): the intro now
+    // splits Notes into "Two flavors" — Single Notes vs Running Logs.
+    // The prior "general scratch" phrasing was dropped in the rewrite.
+    expect(text).toMatch(/two flavors/i);
+    expect(text).toMatch(/single notes/i);
     expect(text).toMatch(/running logs/i);
   });
-  it("speech bridges from §6.7 (Verify-C T1)", () => {
-    // R1 bridge: opening sentence should reference the prior chapter's
-    // experiment-scoped notes ("Those notes lived inside one experiment").
+  it("speech bridges from the experiment-scoped notes (Verify-C T1)", () => {
+    // Wave 2C bridge: opening sentence references that not everything you
+    // write down belongs to a specific experiment (the §6.7 lab-notes
+    // lived inside one). The rewrite phrases this as "a specific
+    // experiment" rather than the prior "one experiment".
     const text = renderSpeech(workbenchNotesIntroStep);
-    expect(text).toMatch(/one experiment/i);
+    expect(text).toMatch(/specific experiment/i);
   });
   it("speech is em-dash free", () => {
     expect(renderSpeech(workbenchNotesIntroStep)).not.toContain("—");
@@ -103,15 +106,14 @@ describe("workbench-notes-create", () => {
     expect(typeof workbenchNotesCreateStep.cursorScript).toBe("function");
     expect(typeof workbenchNotesCreateStep.onExit).toBe("function");
   });
-  it("speech mentions the single-note + markdown-rendering framing", () => {
+  it("speech mentions the single-note + same-editor callback", () => {
     const text = renderSpeech(workbenchNotesCreateStep);
-    // R1 spec: rewritten one-sentence speech now calls out the
-    // headings + bold + bullets that the markdown editor renders as
-    // the note saves. "markdown" verbatim is dropped in favor of the
-    // rendered-syntax cues.
+    // Wave 2C rewrite (2026-05-27, Grant's tight one-sentence framing):
+    // the materialised conference note now leans on the same-editor
+    // callback ("the exact same text editor you just learned") rather
+    // than enumerating headings/bullets, so assert those instead.
     expect(text).toMatch(/single note/i);
-    expect(text).toMatch(/headings/i);
-    expect(text).toMatch(/bullets/i);
+    expect(text).toMatch(/same text editor/i);
   });
   it("note body constant is lab-recipe style markdown, not prose", () => {
     // Per memory note_style_lab_recipe.md: short, measurement +
@@ -157,11 +159,12 @@ describe("workbench-lists-intro", () => {
   it("speech mentions Lists + lighter-cousin framing (Verify-C G4)", () => {
     const text = renderSpeech(workbenchListsIntroStep);
     expect(text).toMatch(/Lists/);
-    // R1 spec: tightened framing is "checklist task ... lighter
-    // cousin of an experiment" + "grocery runs, reagent restocks,
-    // daily to-dos".
+    // Wave 2C rewrite (2026-05-27, Grant's new copy): a list is framed
+    // as "a lightweight task with a checklist inside" with restock /
+    // errands / conference-prep examples. The prior "daily to-dos"
+    // phrasing was dropped, so assert the lightweight-task framing.
     expect(text).toMatch(/checklist/i);
-    expect(text).toMatch(/daily/i);
+    expect(text).toMatch(/lightweight/i);
   });
   it("speech is em-dash free", () => {
     expect(renderSpeech(workbenchListsIntroStep)).not.toContain("—");
@@ -232,15 +235,19 @@ describe("workbench-list-mark-done", () => {
   it("speech mentions both check-off + mark-list-done moves", () => {
     const text = renderSpeech(workbenchListMarkDoneStep);
     expect(text).toMatch(/check off/i);
-    expect(text).toMatch(/mark the LIST itself/);
+    // Wave 2C rewrite phrases this lowercase ("mark the list itself
+    // complete"); match case-insensitively.
+    expect(text).toMatch(/mark the list itself/i);
   });
   it("speech explains WHY mark-list-done matters (Verify-C G5)", () => {
-    // R1 spec: second paragraph now spells out the active-bucket
-    // payoff so the user knows why marking the parent matters.
+    // Wave 2C rewrite (2026-05-27, Grant's new copy): the second
+    // paragraph now frames the payoff as the list dropping out of your
+    // active view so it stops competing for attention, rather than
+    // naming the Overdue/Doing/Upcoming buckets. Assert the active-view
+    // framing.
     const text = renderSpeech(workbenchListMarkDoneStep);
-    expect(text).toMatch(/Overdue/);
-    expect(text).toMatch(/Doing/);
-    expect(text).toMatch(/Upcoming/);
+    expect(text).toMatch(/active view/i);
+    expect(text).toMatch(/competing for your attention/i);
   });
   it("speech is em-dash free", () => {
     expect(renderSpeech(workbenchListMarkDoneStep)).not.toContain("—");
