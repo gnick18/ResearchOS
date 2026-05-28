@@ -178,7 +178,7 @@ describe("ResearchFolderSetupNew drop zone", () => {
     // Snapshot only the drop-zone subtree — the rest of the screen is
     // covered by other tests / unrelated to this feature.
     expect(zone).toMatchSnapshot();
-    expect(container.textContent).toContain("Drop your lab folder here, or click below to pick");
+    expect(container.textContent).toContain("Drop your folder here, or click below to pick");
   });
 
   it("shows the dragging-over visual treatment when a folder is dragged in", () => {
@@ -279,19 +279,10 @@ describe("ResearchFolderSetupNew system-folder block UX", () => {
     expect(hint.textContent).toContain("subfolder");
   });
 
-  it("shows the recovery hint after Create New Folder resolves false", async () => {
-    mocks.createNewFolder.mockResolvedValueOnce(false);
-    render(<ResearchFolderSetup onComplete={vi.fn()} />);
-
-    // Need a folder name to enable the Create button.
-    const input = screen.getByPlaceholderText(/SmithLab_ResearchOS/);
-    fireEvent.change(input, { target: { value: "MyLab" } });
-    fireEvent.click(screen.getByRole("button", { name: /Choose Location/i }));
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(await screen.findByTestId("picker-system-folder-recovery")).toBeInTheDocument();
-  });
+  // Create-New-Folder was removed 2026-05-28 (Chrome can't create a folder
+  // for us: the OS picker blocks the parent locations we would need, even
+  // Documents root). The only flow is now Link Folder, so the prior
+  // "recovery hint after Create New Folder resolves false" test is gone.
 
   it("does not show the recovery hint when Link Folder succeeds", async () => {
     mocks.connect.mockResolvedValueOnce(true);

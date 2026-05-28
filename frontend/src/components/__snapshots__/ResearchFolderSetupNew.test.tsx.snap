@@ -31,18 +31,40 @@ exports[`ResearchFolderSetupNew drop zone > renders the drop-zone with default h
       <h2
         class="text-lg font-bold text-white"
       >
-        Link Existing Folder
+        Link a folder
       </h2>
     </div>
     <p
       class="text-slate-400 text-sm mb-4"
     >
-      Connect to an existing ResearchOS folder with your projects and data. Perfect if you've synced your folder via OneDrive or iCloud.
+      Point ResearchOS at a folder on your computer. It can be an existing ResearchOS folder (with your projects and data, maybe synced via OneDrive or iCloud), or a brand-new empty folder. We set up an empty folder automatically the first time you link it.
     </p>
+    <div
+      class="mb-4 rounded-lg bg-white/5 border border-white/10 p-3"
+    >
+      <p
+        class="text-xs font-medium text-slate-300 mb-1"
+      >
+        Starting fresh? Make an empty folder first:
+      </p>
+      <ol
+        class="text-xs text-slate-400 leading-relaxed list-decimal list-inside space-y-0.5"
+      >
+        <li>
+          Open your file manager and go to Documents (not Desktop or Downloads, which the browser blocks).
+        </li>
+        <li>
+          Make a new folder, name it something like ResearchOS.
+        </li>
+        <li>
+          Click Link Folder below and select that folder.
+        </li>
+      </ol>
+    </div>
     <p
       class="text-xs mb-4 transition-colors text-slate-500"
     >
-      Drop your lab folder here, or click below to pick
+      Drop your folder here, or click below to pick
     </p>
     <button
       class="w-full py-2.5 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"

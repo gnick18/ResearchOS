@@ -40,14 +40,12 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
     needsInitialization,
     initializeFolder,
     lastConnectedFolder,
-    createNewFolder,
   } = useFileSystem();
 
   const [showUserSelection, setShowUserSelection] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [newFolderName, setNewFolderName] = useState("");
   const [elnImportOpen, setElnImportOpen] = useState(false);
   // Inline user-picker modal for the "Import from LabArchives" CTA. When
   // no `currentUser` is set, clicking the CTA opens this picker rather
@@ -119,14 +117,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
     }
   };
 
-  const handleCreateNewFolder = async () => {
-    const ok = await createNewFolder(newFolderName);
-    if (!ok && !systemFolderHintDismissed) {
-      setShowSystemFolderHint(true);
-    }
-  };
-
-  // Drag-and-drop handlers for the "Link Existing Folder" card. Browser
+  // Drag-and-drop handlers for the "Link a folder" card. Browser
   // support note: `DataTransferItem.getAsFileSystemHandle()` and
   // `showDirectoryPicker()` ship together in Chromium (Chrome / Edge /
   // Brave) and are absent in Safari + Firefox alike. We already gate the
@@ -707,11 +698,11 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
         >
           Heads up: Chrome blocks Desktop, Documents, and Downloads as your
           research folder. On Mac it also blocks anything inside Desktop or
-          Downloads, even a subfolder. Pick or create a folder in Documents
-          (like Documents/ResearchOS) or in your home directory instead. A
+          Downloads, even a subfolder. Make your folder in Documents (like
+          Documents/ResearchOS) or in your home directory, then link it. A
           folder on the Desktop will not work.
         </p>
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="max-w-xl mx-auto">
           <div
             data-testid="link-folder-drop-zone"
             onDragEnter={handleDragEnter}
@@ -741,11 +732,31 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                     />
                   </svg>
                 </div>
-                <h2 className="text-lg font-bold text-white">Link Existing Folder</h2>
+                <h2 className="text-lg font-bold text-white">Link a folder</h2>
               </div>
               <p className="text-slate-400 text-sm mb-4">
-                Connect to an existing ResearchOS folder with your projects and data. Perfect if you&apos;ve synced your folder via OneDrive or iCloud.
+                Point ResearchOS at a folder on your computer. It can be an
+                existing ResearchOS folder (with your projects and data, maybe
+                synced via OneDrive or iCloud), or a brand-new empty folder. We
+                set up an empty folder automatically the first time you link it.
               </p>
+              {/* Make-a-blank-folder instructions (Grant 2026-05-28). Chrome
+                  cannot create a folder for you (the OS picker blocks the
+                  parent locations we would need, even Documents root), so the
+                  reliable path is: you make an empty folder, then link it. */}
+              <div className="mb-4 rounded-lg bg-white/5 border border-white/10 p-3">
+                <p className="text-xs font-medium text-slate-300 mb-1">
+                  Starting fresh? Make an empty folder first:
+                </p>
+                <ol className="text-xs text-slate-400 leading-relaxed list-decimal list-inside space-y-0.5">
+                  <li>
+                    Open your file manager and go to Documents (not Desktop or
+                    Downloads, which the browser blocks).
+                  </li>
+                  <li>Make a new folder, name it something like ResearchOS.</li>
+                  <li>Click Link Folder below and select that folder.</li>
+                </ol>
+              </div>
               <p
                 className={`text-xs mb-4 transition-colors ${
                   isDragOver ? "text-blue-200 font-medium" : "text-slate-500"
@@ -753,7 +764,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
               >
                 {isDragOver
                   ? "Release to link this folder"
-                  : "Drop your lab folder here, or click below to pick"}
+                  : "Drop your folder here, or click below to pick"}
               </p>
               <button
                 onClick={handleConnect}
@@ -782,62 +793,6 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
               )}
             </div>
           </div>
-
-          <div className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
-            <div className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
-                  <svg
-                    className="w-5 h-5 text-purple-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                    />
-                  </svg>
-                </div>
-                <h2 className="text-lg font-bold text-white">Create New Folder</h2>
-              </div>
-              <p className="text-slate-400 text-sm mb-4">
-                Start fresh with a new ResearchOS folder. Enter a name and choose where to save it.
-              </p>
-
-              <div className="mb-4">
-                <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                  Folder Name
-                </label>
-                <input
-                  type="text"
-                  value={newFolderName}
-                  onChange={(e) => setNewFolderName(e.target.value)}
-                  placeholder="e.g., SmithLab_ResearchOS"
-                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-                />
-              </div>
-
-              <button
-                onClick={handleCreateNewFolder}
-                disabled={isLoading || !newFolderName.trim()}
-                className="w-full py-2.5 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                    </svg>
-                    Choose Location
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
         </div>
         </div>
 
@@ -854,9 +809,11 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
             Grant 2026-05-28: promoted from an easy-to-miss inline banner to
             a centered modal so the guidance is impossible to overlook after
             a failed pick. Copy is framed to cover both cases (block OR plain
-            cancel) without claiming "Chrome blocked your folder". The two
-            buttons let the user retry into Documents (createNewFolder
-            re-opens the picker with startIn:"documents") or dismiss. */}
+            cancel) without claiming "Chrome blocked your folder". The retry
+            button re-opens the link picker (startIn:"documents"); dismiss
+            closes it. Create-New-Folder was removed 2026-05-28 (Chrome can't
+            create a folder for us: the picker blocks the parent locations we
+            would need, even Documents root), so the only flow is link. */}
         {showSystemFolderHint && !systemFolderHintDismissed && (
           <div
             className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
@@ -897,10 +854,10 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                     the Desktop will not work even one level deep.
                   </p>
                   <p className="mt-2 text-sm text-amber-100/90 leading-relaxed">
-                    The reliable spot is a folder in your Documents (like
-                    Documents/ResearchOS) or in your home directory. Use Create
-                    New Folder, type a name, and when the picker opens keep it
-                    in Documents.
+                    Make an empty folder in your Documents (like
+                    Documents/ResearchOS) or your home directory using your
+                    file manager, then link it here. We set up an empty folder
+                    automatically the first time you link it.
                   </p>
                 </div>
               </div>
@@ -919,16 +876,15 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                 <button
                   type="button"
                   onClick={() => {
-                    // Retry straight into the Create-New-Folder flow, which
-                    // re-opens the picker with startIn:"documents". Clear the
+                    // Re-open the link picker (startIn:"documents"). Clear the
                     // hint first so a fresh abort can re-trigger it.
                     setShowSystemFolderHint(false);
-                    void handleCreateNewFolder();
+                    void handleConnect();
                   }}
                   className="px-4 py-2 text-sm font-medium rounded-lg bg-amber-500/90 text-slate-900 hover:bg-amber-400 transition-colors"
                   data-testid="picker-system-folder-recovery-retry"
                 >
-                  Try again in Documents
+                  Link a folder in Documents
                 </button>
               </div>
             </div>
