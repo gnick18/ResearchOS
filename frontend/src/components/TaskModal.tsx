@@ -411,7 +411,10 @@ export default function TaskModal({ projects }: TaskModalProps) {
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!name.trim() || !projectId) return;
+      // projectId 0 is the "Miscellaneous (standalone)" sentinel — a valid
+      // choice that maps to project_id: null in createTask. Only the name is
+      // actually required, so don't block submit on a 0 (standalone) project.
+      if (!name.trim()) return;
 
       // Check if project is archived
       // See note above on createTask: TaskModal creates under the active
@@ -1025,7 +1028,11 @@ export default function TaskModal({ projects }: TaskModalProps) {
           </button>
           <button
             type="submit"
-            disabled={isCheckingDuplicate || !name.trim() || !projectId}
+            // projectId 0 = "Miscellaneous (standalone)" is a valid selection
+            // (maps to project_id: null). Gating on !projectId wrongly
+            // disabled Create whenever no real project was picked, even though
+            // standalone is an intended outcome. Only the name is required.
+            disabled={isCheckingDuplicate || !name.trim()}
             data-tour-target="workbench-experiment-submit"
             className={`px-4 py-2 text-sm text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
               taskType === "experiment"
