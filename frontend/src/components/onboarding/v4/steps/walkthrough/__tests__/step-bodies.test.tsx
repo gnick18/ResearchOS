@@ -504,7 +504,15 @@ describe("P5 step bodies — universal contract", () => {
       ganttDepsBeakerBotStep,
       ganttDepsCascadeStep,
       ganttShareBeakerBotSharesStep,
-      ganttGoalsStep,
+      // `ganttGoalsStep` (gantt-goals-overview) is intentionally
+      // EXCLUDED: the gantt cluster consolidation manager (2026-05-27,
+      // Bug #36) reclassified it from BeakerBot-demo to NARRATION. The
+      // cursor click that opened the New Goal create modal was dropped
+      // because it mismatched the viewing-focused speech ("Goals
+      // visualize over the Gantt") and stacked a second modal on top of
+      // a leftover experiment popup. The step is now pure narration with
+      // a static spotlight on the "+ Goal" button, so it no longer
+      // carries a cursorScript.
       animationPickerStep,
       // §6.10 Settings phase redesign 2026-05-22 (Wave 2E split,
       // 2026-05-27): BeakerBot-led demo steps that retain cursor
@@ -896,7 +904,11 @@ describe("Methods steps (§6.4)", () => {
     expect(speech).toMatch(/LC Gradient/);
     expect(speech).toMatch(/purpose-built editor/i);
     expect(speech).toMatch(/Opening the PCR builder/);
-    expect(speech).toMatch(/Take a look around/);
+    // 2026-05-27 hand-walk fix: the scripted edits were dropped and the
+    // speech now invites the user to scroll + poke the gradient steps
+    // themselves ("try adjusting one of the steps") instead of the old
+    // "Take a look around" wording.
+    expect(speech).toMatch(/try adjusting/i);
     expect(speech).toMatch(/Got it, next/);
     // Old fast-demo framing must be gone.
     expect(speech).not.toMatch(/Watch\./);
@@ -937,12 +949,15 @@ describe("Methods steps (§6.4)", () => {
       const clicks = actions.filter((a) => a.type === "click");
       const types = actions.filter((a) => a.type === "type");
       const callbacks = actions.filter((a) => a.type === "callback");
-      // Cursor performs exactly one click (the PCR tile) + no types +
-      // at least two callbacks (the post-click pause + the scroll
-      // callback which loops scrollIntoView).
+      // Cursor performs exactly one click (the PCR tile) + no types.
+      // 2026-05-27 hand-walk follow-up: the scripted scroll callback was
+      // removed (the ensureViewportAnchor loop fought the user's wheel),
+      // so the script now ships exactly one callback (the post-click
+      // read-then-watch pause). The speech invites the user to scroll
+      // down themselves.
       expect(clicks.length).toBe(1);
       expect(types.length).toBe(0);
-      expect(callbacks.length).toBeGreaterThanOrEqual(2);
+      expect(callbacks.length).toBeGreaterThanOrEqual(1);
       // First action is the PCR tile click.
       const firstClick = actions.find((a) => a.type === "click");
       if (firstClick && firstClick.type === "click") {
@@ -981,10 +996,28 @@ describe("Methods steps (§6.4)", () => {
 });
 
 describe("MethodsLcDemoStep (§6.4b LC Gradient invite-to-explore beat)", () => {
-  it("targets the LC Gradient tile", () => {
-    expect(methodsLcDemoStep.targetSelector).toBe(
-      "[data-tour-target=\"method-type-lc-gradient\"]",
-    );
+  it("targets the LC Gradient tile via its cursor script (spotlight dropped 2026-05-27)", async () => {
+    // Hand-walk fix 2026-05-27 (third pass): the spotlight targetSelector
+    // was removed on purpose. Anchoring the spotlight on the LC tile at
+    // the top of the modal made TourSpotlight's keep-in-view logic
+    // auto-scroll the modal back up whenever the user scrolled down to
+    // the chart, so the step is now spotlight-less. The cursor script
+    // still clicks the LC Gradient tile, which is the affordance the
+    // step is "targeting". Assert the script aims at that tile.
+    expect(methodsLcDemoStep.targetSelector).toBeUndefined();
+    const lcTile = document.createElement("button");
+    lcTile.setAttribute("data-tour-target", "method-type-lc-gradient");
+    document.body.appendChild(lcTile);
+    try {
+      const actions = await methodsLcDemoStep.cursorScript!();
+      const firstClick = actions.find((a) => a.type === "click");
+      expect(firstClick).toBeDefined();
+      if (firstClick && firstClick.type === "click") {
+        expect(firstClick.target).toBe(lcTile);
+      }
+    } finally {
+      lcTile.remove();
+    }
   });
   it("manual-advances ('Got it, next') so the user can explore at their own pace", () => {
     expect(methodsLcDemoStep.completion.type).toBe("manual");
@@ -993,7 +1026,9 @@ describe("MethodsLcDemoStep (§6.4b LC Gradient invite-to-explore beat)", () => 
     const speech = renderSpeech(methodsLcDemoStep);
     expect(speech).toMatch(/LC Gradient/);
     expect(speech).toMatch(/chart/i);
-    expect(speech).toMatch(/updates automatically/i);
+    // Speech wording evolved to "the live chart that updates as you
+    // change values in the table" (was "updates automatically").
+    expect(speech).toMatch(/updates as you change values/i);
     expect(speech).toMatch(/Got it, next/);
   });
   it("cursor script clicks the LC tile then scrolls the chart into view (scroll-and-demo fix manager 2026-05-27)", async () => {
@@ -1012,10 +1047,14 @@ describe("MethodsLcDemoStep (§6.4b LC Gradient invite-to-explore beat)", () => 
       const actions = await methodsLcDemoStep.cursorScript!();
       const clicks = actions.filter((a) => a.type === "click");
       const callbacks = actions.filter((a) => a.type === "callback");
-      // One click (the tile) plus callbacks for the post-click pause +
-      // scroll-into-view. No edit clicks per Grant's brief.
+      // One click (the tile) plus the post-click read-then-watch pause
+      // callback. No edit clicks per Grant's brief. 2026-05-27 hand-walk
+      // follow-up: the scripted scroll-into-view callback was dropped
+      // (the ensureViewportAnchor loop fought the user's wheel), so the
+      // script now ships exactly one callback. The speech invites the
+      // user to scroll down to the chart themselves.
       expect(clicks).toHaveLength(1);
-      expect(callbacks.length).toBeGreaterThanOrEqual(2);
+      expect(callbacks.length).toBeGreaterThanOrEqual(1);
       if (clicks[0].type === "click") expect(clicks[0].target).toBe(lcTile);
       // First visible action must be the tile click (so the user sees
       // BeakerBot pick LC Gradient before the scroll happens).
@@ -1290,10 +1329,14 @@ describe("MethodAttachment split sub-steps (§6.6 popup-mount split, 2026-05-21)
 describe("Hybrid editor steps (§6.7 redesign, Hybrid editor manager 2026-05-22)", () => {
   it("HE-0 hybrid-notes-vs-results explains the two-store mental model", () => {
     const text = renderSpeech(hybridNotesVsResultsStep);
-    expect(text).toMatch(/two places to write/);
+    // Wave 2C speech rewrite (2026-05-27): "two separate places to
+    // write" (was "two places to write" + a "separate stores" coda).
+    // The same-editor-but-separate framing now reads "they stay
+    // separate".
+    expect(text).toMatch(/two separate places to write/);
     expect(text).toMatch(/Notes/);
     expect(text).toMatch(/Results/);
-    expect(text).toMatch(/separate stores/);
+    expect(text).toMatch(/stay separate/);
   });
   it("HE-0 spotlights the Notes tab specifically (R1 fix-pass P1 #9)", () => {
     // Tightened from `experiment-tab-container` (which wraps Details /
@@ -1386,8 +1429,13 @@ describe("Hybrid editor steps (§6.7 redesign, Hybrid editor manager 2026-05-22)
     // since the 2026-05-22 redesign; the resize step should not
     // duplicate it.
     expect(text).not.toMatch(/notes-tab images and results-tab images/);
-    // Speech still mentions the 50% pick the user should perform.
-    expect(text).toMatch(/50%/i);
+    // Wave 2C speech rewrite (2026-05-27): the explicit "50%" instruction
+    // was dropped in favor of one tight sentence describing the
+    // click-to-resize affordance (matches both BEAKERBOT_TOUR_SCRIPT
+    // FINAL + REWRITE source docs). Speech still points the user at the
+    // resize affordance in the pop-up menu.
+    expect(text).toMatch(/resize it/i);
+    expect(text).toMatch(/pop-up menu/i);
   });
   it("HE-11 hybrid-file-attach narrates the file-vs-image difference", () => {
     const text = renderSpeech(hybridFileAttachStep);
@@ -1407,7 +1455,9 @@ describe("Gantt steps (§6.8) — Gantt manager redesign 2026-05-22", () => {
   it("intro step explains what a Gantt chart is", () => {
     const speech = renderSpeech(ganttIntroStep);
     expect(speech).toMatch(/Gantt chart/);
-    expect(speech).toMatch(/timeline view/);
+    // Speech rewrite: the opener contrasts the "list view" against the
+    // Gantt's "one timeline" framing (was "timeline view").
+    expect(speech).toMatch(/one timeline/);
   });
   it("existing-experiment step targets the user's experiment bar", () => {
     expect(ganttExistingExperimentStep.targetSelector).toBe(
@@ -1476,13 +1526,17 @@ describe("AnimationPickerStep (§6.9)", () => {
 });
 
 describe("Settings steps (§6.10)", () => {
-  it("color step targets the tint toggle (re-pointed 2026-05-23)", () => {
+  it("color step spotlights the combined color + tint wrapper (broadened 2026-05-27)", () => {
     // §6.10 re-target (commit 53959586): users now pick their color in
-    // the new-user creation popup, so the walkthrough beat spotlights
-    // the "Tint header with my color" toggle instead of the picker.
-    // Picker swatches remain reachable via the step's page-lock allow-list.
+    // the new-user creation popup, so the walkthrough beat no longer
+    // demos color picking. Hand-walk fix 2026-05-27 (Grant): the
+    // spotlight was broadened from the tint toggle alone to the combined
+    // color picker + tint wrapper (`settings-color-and-tint`), since the
+    // user's mental model on this step is "play with the colors or the
+    // tint". The tint toggle + picker swatches all live inside this
+    // wrapper and stay reachable via the step's page-lock allow-list.
     expect(settingsColorStep.targetSelector).toBe(
-      "[data-tour-target=\"settings-color-tint-toggle\"]",
+      "[data-tour-target=\"settings-color-and-tint\"]",
     );
   });
   // §6.10 Settings phase redesign 2026-05-22 (Settings manager): the
@@ -1530,7 +1584,12 @@ describe("Settings steps (§6.10)", () => {
   it("AI Helper size-options speech mentions the three sizes (Wave 2E split, moved here)", () => {
     const text = renderSpeech(aiHelperSizeOptionsStep);
     expect(text).toMatch(/Full/);
-    expect(text).toMatch(/Medium/);
+    // The middle size is labeled "Lean" in the Settings UI (value
+    // `lean`, ~10k tokens) and the speech matches that label (was
+    // "Medium" in the REWRITE draft, finalized to "Lean"). The internal
+    // tour-target name `settings-ai-helper-tab-medium` is a legacy alias
+    // stamped onto the Lean tab and is not user-facing.
+    expect(text).toMatch(/Lean/);
     expect(text).toMatch(/Minimal/);
   });
 });
