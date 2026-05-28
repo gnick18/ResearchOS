@@ -343,6 +343,23 @@ export const WIKI_NAV: WikiNode[] = [
     ],
   },
   {
+    href: "/wiki/compliance",
+    label: "Compliance",
+    blurb: "How ResearchOS supports the NIH Data Management & Sharing Policy, and how it stacks up against LabArchives.",
+    children: [
+      {
+        href: "/wiki/compliance/nih-data-management",
+        label: "NIH Data Management & Sharing",
+        blurb: "What the policy actually requires, why there is no certification, and how ResearchOS supports it.",
+      },
+      {
+        href: "/wiki/compliance/labarchives-comparison",
+        label: "ResearchOS vs LabArchives",
+        blurb: "An honest side-by-side: where ResearchOS wins, where LabArchives is still ahead.",
+      },
+    ],
+  },
+  {
     href: "/wiki/security",
     label: "Security",
     blurb: "What stays on your computer, what briefly touches our server, and what we never collect.",
