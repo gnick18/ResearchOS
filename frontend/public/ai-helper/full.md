@@ -463,6 +463,13 @@ export interface Project {
   // write.
   last_edited_by?: string;
   last_edited_at?: string;
+  // Project -> grant link (metadata implementation bot, 2026-05-28). Points
+  // at a FundingAccount.id (the existing Purchases & Funding structure).
+  // null / undefined = unlinked (the current behavior). Single grant per
+  // project for v1 (no multi-grant). Optional + additive: project files
+  // written before this slice load unchanged, and `projectsStore.update`'s
+  // spread-merge filters `undefined` so partial updates preserve it.
+  funding_account_id?: number | null;
 }
 
 export interface ProjectCreate {
@@ -474,6 +481,8 @@ export interface ProjectCreate {
   // ordinary user-created projects leave this off.
   is_hidden?: boolean;
   sort_order?: number;
+  // Project -> grant link — see Project.funding_account_id.
+  funding_account_id?: number | null;
 }
 
 export interface ProjectUpdate {
@@ -489,6 +498,9 @@ export interface ProjectUpdate {
   // usually omit; the write path overwrites whatever is supplied.
   last_edited_by?: string;
   last_edited_at?: string;
+  // Project -> grant link — see Project.funding_account_id. `null` clears
+  // the link; a number sets it.
+  funding_account_id?: number | null;
 }
 
 // ── Sub-Tasks ─────────────────────────────────────────────────────────────────
@@ -1749,6 +1761,22 @@ export interface CatalogItem {
 
 // ── Funding Accounts ──────────────────────────────────────────────────────────
 
+/**
+ * Structured-research-metadata foundation (metadata implementation bot,
+ * 2026-05-28). Identifier scheme for a funder, mirroring DataCite's
+ * `funderIdentifierType` controlled vocabulary so a later DOI deposit can
+ * copy the value straight across. "Other" / null cover funders whose id
+ * scheme we don't model. Kept as a string union (not an enum) to stay
+ * consistent with the rest of types.ts.
+ */
+export type FunderIdType =
+  | "Crossref Funder ID"
+  | "ROR"
+  | "GRID"
+  | "ISNI"
+  | "Other"
+  | null;
+
 export interface FundingAccount {
   id: number;
   name: string;
@@ -1756,18 +1784,45 @@ export interface FundingAccount {
   total_budget: number;
   spent: number;
   remaining: number;
+  // Structured grant / award metadata (metadata implementation bot,
+  // 2026-05-28). All optional + additive: funding-account files written
+  // before this slice load unchanged (absent field = "not set"), and the
+  // `fundingAccountsStore.update` spread-merge filters `undefined` so
+  // partial updates never clobber these. Field names mirror DataCite
+  // `fundingReference` (awardNumber, funderName, funderIdentifier,
+  // funderIdentifierType, awardTitle) so a later export is a direct copy.
+  //
+  // NOTE: `name` stays the user-chosen label purchases match on; it and
+  // `award_number` are deliberately separate values that may differ.
+  award_number?: string | null;
+  funder_name?: string | null;
+  funder_id?: string | null;
+  funder_id_type?: FunderIdType;
+  award_title?: string | null;
 }
 
 export interface FundingAccountCreate {
   name: string;
   description?: string | null;
   total_budget?: number;
+  // Structured grant metadata — see FundingAccount.
+  award_number?: string | null;
+  funder_name?: string | null;
+  funder_id?: string | null;
+  funder_id_type?: FunderIdType;
+  award_title?: string | null;
 }
 
 export interface FundingAccountUpdate {
   name?: string;
   description?: string | null;
   total_budget?: number;
+  // Structured grant metadata — see FundingAccount.
+  award_number?: string | null;
+  funder_name?: string | null;
+  funder_id?: string | null;
+  funder_id_type?: FunderIdType;
+  award_title?: string | null;
 }
 
 export interface FundingSummary {
@@ -2114,6 +2169,13 @@ export interface LabNote {
   updated_at: string;
   username: string;
   user_color: string;
+  // VCP R3 attribution stamps (2026-05-26): mirror the optional
+  // last-edited fields on `Note` so NoteCard can read them off the
+  // `Note | LabNote` union without a type error. Optional + the
+  // AttributionChip self-hides when absent, so lab notes that don't
+  // carry attribution simply render no chip.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 ```
 
@@ -3456,14 +3518,17 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 | Telegram Bot | `/wiki/integrations/telegram` |
 | Calendar Feeds | `/wiki/integrations/calendar-feeds` |
 | LabArchives | `/wiki/integrations/labarchives` |
+| Compliance | `/wiki/compliance` |
+| NIH Data Management & Sharing | `/wiki/compliance/nih-data-management` |
+| ResearchOS vs LabArchives | `/wiki/compliance/labarchives-comparison` |
 | Security | `/wiki/security` |
 
 ## §11 Build metadata
 
 - **Variant:** `full`
-- **Helper version:** `15`
-- **Schema hash:** `7385623473ea79ffa9bfab49d1ef58894aed4f3dd603d848dfbcef4c3ca51786`
-- **Built at:** `2026-05-28T02:51:59.041Z`
-- **Built from commit:** `dd2ab619edf6cf48f00bd1872d19e1fada2e5bed`
+- **Helper version:** `17`
+- **Schema hash:** `06d94c8712d64315ab5587c70317a1435a6057be586b4a554fba1747c5af85ae`
+- **Built at:** `2026-05-28T21:00:04.473Z`
+- **Built from commit:** `ea1696912d4c561a7c3ed8b2b0ad2b68418281ca`
 
 _Generated by `scripts/build-ai-helper.mjs`. Do not edit by hand — run `npm run --prefix frontend ai-helper:refresh` to rebuild and commit._
