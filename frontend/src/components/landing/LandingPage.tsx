@@ -32,9 +32,8 @@ import BeakerBot from "../BeakerBot";
 import BeakerBotMouseWaveScene from "../BeakerBotMouseWaveScene";
 import BetaNotice from "../BetaNotice";
 import VersionBadge from "../VersionBadge";
+import AppFooter from "../AppFooter";
 import { markLandingSeen } from "@/lib/landing/landing-gate";
-
-const GITHUB_URL = "https://github.com/gnick18/ResearchOS";
 
 interface LandingPageProps {
   /** Inline-gate mode: called when "Get Started" is clicked to dismiss the
@@ -726,35 +725,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
       </section>
 
       {/* ── Footer ───────────────────────────────────────────────────── */}
-      <footer className="border-t border-gray-200 bg-white py-10">
-        <div className="mx-auto flex max-w-5xl flex-col items-center gap-4 px-6 text-center">
-          <div className="rounded bg-white p-0.5">
-            <Image
-              src="/credentials/uw-rise-logo.png"
-              alt="Wisconsin RISE Initiative (Wisconsin Research, Innovation and Scholarly Excellence)"
-              width={260}
-              height={69}
-              unoptimized
-              className="h-12 w-auto"
-            />
-          </div>
-          <p className="text-sm text-gray-500">
-            Funded by the UW-Madison RISE Initiative. Free and open source on{" "}
-            <a
-              href={GITHUB_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-semibold text-sky-600 underline-offset-2 hover:text-sky-700 hover:underline"
-            >
-              GitHub
-            </a>
-            .
-          </p>
-          <p className="text-xs text-gray-400">
-            Built by Dr. Grant R. Nickles, PhD.
-          </p>
-        </div>
-      </footer>
+      <AppFooter />
     </div>
   );
 }
