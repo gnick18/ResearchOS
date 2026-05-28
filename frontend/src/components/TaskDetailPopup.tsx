@@ -1955,18 +1955,35 @@ function DetailsTab({
     queryFn: () => dependenciesApi.list(),
   });
 
-  // Find dependencies for this task
-  const taskDependencies = dependencies.filter(d => d.child_id === task.id);
-  const dependentTasks = dependencies.filter(d => d.parent_id === task.id);
+  // Namespace scoping for the dependency chain (Grant 2026-05-28).
+  // Dependency records are stored per-user with namespace-local ids (the
+  // Dependency type has no owner field; parent_id / child_id reference
+  // the CURRENT user's own task ids). For a shared-in experiment the
+  // owner's dependency graph lives in the OWNER's namespace, which this
+  // viewer never has loaded, so the viewer's `dependencies` are simply
+  // the wrong data. Because matching is by bare numeric id, a per-user
+  // id collision then renders the VIEWER's chain inside the foreign
+  // experiment: opening @beakerbot's "Make some coffee together" showed
+  // @Test's Fake A -> First Experiment -> Fake B with "First Experiment
+  // (this task)". Scope to empty for shared-in tasks so no bogus chain
+  // renders; owned tasks keep the full list.
+  const scopedDependencies = task.is_shared_with_me ? [] : dependencies;
 
-  // Get parent task names
+  // Find dependencies for this task
+  const taskDependencies = scopedDependencies.filter(d => d.child_id === task.id);
+  const dependentTasks = scopedDependencies.filter(d => d.parent_id === task.id);
+
+  // Get parent task names. Resolve only against own-namespace tasks
+  // (!is_shared_with_me): the dep's parent_id is a current-user id, so a
+  // shared-in task that happens to share that numeric id must not be
+  // pulled in (same per-user id-collision class as the chain bug above).
   const parentTasks = taskDependencies
-    .map(dep => allTasks.find(t => t.id === dep.parent_id))
+    .map(dep => allTasks.find(t => t.id === dep.parent_id && !t.is_shared_with_me))
     .filter(Boolean) as Task[];
 
-  // Get child task names
+  // Get child task names (own-namespace only, same rationale).
   const childTasks = dependentTasks
-    .map(dep => allTasks.find(t => t.id === dep.child_id))
+    .map(dep => allTasks.find(t => t.id === dep.child_id && !t.is_shared_with_me))
     .filter(Boolean) as Task[];
 
   // Check if task has any dependencies
@@ -2291,34 +2308,43 @@ function DetailsTab({
   // Tasks at the same level should be displayed horizontally (parallel)
   // Different levels should be displayed vertically (sequential)
   const buildDependencyChain = useCallback((): Task[][] => {
+    // Shared-in experiments have no viewer-side chain (see
+    // scopedDependencies rationale above); return empty so the
+    // Dependency-chain section never renders a foreign / colliding graph.
+    if (task.is_shared_with_me) return [];
+
     // First, collect all tasks in the dependency graph
     const chainTasks = new Set<number>();
     const visited = new Set<number>();
-    
+
     // Helper to find all tasks in the chain (both upstream and downstream)
     const collectChainTasks = (taskId: number) => {
       if (visited.has(taskId)) return;
       visited.add(taskId);
       chainTasks.add(taskId);
-      
+
       // Add parents (tasks this depends on)
-      const parentDeps = dependencies.filter(d => d.child_id === taskId);
+      const parentDeps = scopedDependencies.filter(d => d.child_id === taskId);
       for (const dep of parentDeps) {
         collectChainTasks(dep.parent_id);
       }
-      
+
       // Add children (tasks that depend on this)
-      const childDeps = dependencies.filter(d => d.parent_id === taskId);
+      const childDeps = scopedDependencies.filter(d => d.parent_id === taskId);
       for (const dep of childDeps) {
         collectChainTasks(dep.child_id);
       }
     };
-    
+
     // Collect all tasks in this chain
     collectChainTasks(task.id);
-    
-    // Get all tasks in the chain with their data
-    const tasksInChain = allTasks.filter(t => chainTasks.has(t.id));
+
+    // Get all tasks in the chain with their data. Own-namespace only
+    // (!is_shared_with_me): chain ids are current-user ids, so a shared-in
+    // task with a colliding numeric id must not be pulled into the chain.
+    const tasksInChain = allTasks.filter(
+      (t) => chainTasks.has(t.id) && !t.is_shared_with_me,
+    );
     
     // Group tasks by start date
     const tasksByStartDate = new Map<string, Task[]>();
@@ -2336,7 +2362,7 @@ function DetailsTab({
     });
     
     return levels;
-  }, [task.id, allTasks, dependencies]);
+  }, [task.id, task.is_shared_with_me, allTasks, scopedDependencies]);
 
   // Get the ordered chain levels
   const dependencyChainLevels = useMemo(() => buildDependencyChain(), [buildDependencyChain]);
