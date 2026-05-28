@@ -33,6 +33,7 @@
     "@react-pdf/renderer": "^4.5.1",
     "@tanstack/react-query": "^5.90.21",
     "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
     "date-fns": "^4.1.0",
     "frappe-gantt": "^1.0.4",
     "ical.js": "^2.2.1",

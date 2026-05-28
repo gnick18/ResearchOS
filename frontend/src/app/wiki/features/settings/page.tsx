@@ -380,7 +380,8 @@ export default function SettingsFeaturePage() {
         <code>/api/telegram-file</code> on this app&apos;s origin, which
         proxies Telegram CDN file downloads; and (d){" "}
         <code>va.vercel-scripts.com</code> / <code>vitals.vercel-insights.com</code>{" "}
-        for anonymous page-view pings via Vercel Web Analytics. Enabling
+        for anonymous page-view pings via Vercel Web Analytics plus anonymous
+        Core Web Vitals via Vercel Speed Insights. Enabling
         Offline mode (below) blocks destinations (b), (c), and (d). Direct{" "}
         Telegram polling continues regardless.
       </p>

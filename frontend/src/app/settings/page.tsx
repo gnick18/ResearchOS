@@ -2536,7 +2536,8 @@ function DataInventorySection() {
           <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
             vitals.vercel-insights.com
           </code>{" "}
-          for anonymous page-view pings via Vercel Web Analytics; and (e){" "}
+          for anonymous page-view pings via Vercel Web Analytics and
+          anonymous Core Web Vitals via Vercel Speed Insights; and (e){" "}
           <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
             research-os-xi.vercel.app
           </code>{" "}

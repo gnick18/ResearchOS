@@ -18,8 +18,8 @@ export default function SecurityPage() {
         uploaded to a database we control, because there is no database
         we control. Two narrow proxy routes we wrote exist for browser
         CORS reasons and are documented below, but they are streams, not
-        stores. Vercel Web Analytics adds one more outbound destination,
-        also documented below.
+        stores. Vercel Web Analytics and Speed Insights add a couple of
+        outbound destinations, also documented below.
       </p>
 
       <h2>What stays on your computer</h2>
@@ -143,9 +143,9 @@ export default function SecurityPage() {
         The two CORS-bypass proxy routes use the most defensive shape we
         know how to write: HTTPS only, private-IP blocking, redirect
         re-validation, byte cap, timeout, content-type denylist, and
-        per-IP rate limiting. The Vercel Analytics endpoint is a
-        Vercel-owned script and beacon target, its posture is Vercel&apos;s,
-        not ours. The route-defense code is in{" "}
+        per-IP rate limiting. The Vercel Analytics and Speed Insights
+        endpoints are Vercel-owned scripts and beacon targets, their
+        posture is Vercel&apos;s, not ours. The route-defense code is in{" "}
         <code>frontend/src/lib/api/url-guards.ts</code> and{" "}
         <code>frontend/src/lib/api/rate-limit.ts</code> if you want to read
         it line by line.
@@ -250,22 +250,24 @@ export default function SecurityPage() {
 
       <h2>What we collect, and what we don&apos;t</h2>
       <p>
-        We collect anonymous page-view pings via Vercel Web Analytics. When
-        you navigate between pages, an anonymous beacon goes to Vercel. No
-        IDs, no folder contents, no typed text, no markdown bodies. We use
-        this to know which pages get used and which sit idle.{" "}
-        <strong>Settings &rarr; Offline mode</strong> disables it durably,
-        the analytics script is never injected when the toggle is on, and
-        the toggle is read at component-mount time so the choice survives
-        reloads.
+        We collect anonymous page-view pings via Vercel Web Analytics and
+        anonymous Core Web Vitals (load and responsiveness timings) via
+        Vercel Speed Insights. When you navigate between pages, anonymous
+        beacons go to Vercel. No IDs, no folder contents, no typed text, no
+        markdown bodies. We use this to know which pages get used, which sit
+        idle, and where the app feels slow.{" "}
+        <strong>Settings &rarr; Offline mode</strong> disables both durably,
+        neither script is injected when the toggle is on, and the toggle is
+        read at component-mount time so the choice survives reloads.
       </p>
       <p>
         We do not collect anything else. No Sentry, no Google Analytics, no
         Mixpanel, no PostHog, no Hotjar, no Datadog, no Amplitude. No
         background phone-home. No crash reporter. No content telemetry.
         Running <code>npm ls</code> against the repo will confirm only{" "}
-        <code>@vercel/analytics</code> is present, and the network tab will
-        confirm no other endpoints are contacted.
+        <code>@vercel/analytics</code> and{" "}
+        <code>@vercel/speed-insights</code> are present, and the network tab
+        will confirm no other endpoints are contacted.
       </p>
       <p>
         The <strong>Report an issue</strong> button does not auto-submit
@@ -335,8 +337,9 @@ export default function SecurityPage() {
           </li>
           <li>
             The <strong>Offline mode</strong> toggle disables the two proxy
-            routes plus the Vercel Analytics script tag in one click, for
-            anyone who wants zero outbound network from the app surface.
+            routes plus the Vercel Analytics and Speed Insights script tags
+            in one click, for anyone who wants zero outbound network from
+            the app surface.
           </li>
           <li>
             <strong>&ldquo;Where is this stored?&rdquo;</strong> hints on
