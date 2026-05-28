@@ -68,8 +68,7 @@ const PUBLIC_ROUTES = [
   // standalone /welcome route (renders for everyone, no fixture needed).
   // settleMs lets the hi-wave BeakerBot greeting finish and unmount (~2s)
   // so the corner is clear in the hero shot. Viewport capture (the hero),
-  // not fullPage, so the Ladder scene (which only fires on scroll) stays
-  // out of frame.
+  // not fullPage.
   {
     path: "/welcome",
     file: "landing.png",

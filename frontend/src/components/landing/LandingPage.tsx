@@ -17,21 +17,19 @@
  *     (never looping back here).
  *
  * BeakerBot is the only mascot. The hi-wave (MouseWave) fires once on mount
- * as a greeting; the Ladder scene fires when the how-it-works band scrolls
- * into view. Both scenes honor prefers-reduced-motion internally. The landing
- * is pre-login, so there is no per-user animation setting to read yet; we lean
- * on the reduced-motion guard the scenes already implement.
+ * as a greeting. The scene honors prefers-reduced-motion internally. The
+ * landing is pre-login, so there is no per-user animation setting to read yet;
+ * we lean on the reduced-motion guard the scene already implements.
  *
  * Voice rules: no em-dashes, no emojis. Every icon is an inline SVG.
  */
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import BeakerBot from "../BeakerBot";
 import BeakerBotMouseWaveScene from "../BeakerBotMouseWaveScene";
-import BeakerBotLadderScene from "../BeakerBotLadderScene";
 import BetaNotice from "../BetaNotice";
 import VersionBadge from "../VersionBadge";
 import { markLandingSeen } from "@/lib/landing/landing-gate";
@@ -108,30 +106,6 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
   // Hi-wave greeting: fires once on mount from the bottom-right corner.
   const [waveActive, setWaveActive] = useState(true);
 
-  // Ladder scene: fires once when the how-it-works band scrolls into view.
-  const howItWorksRef = useRef<HTMLDivElement | null>(null);
-  const ladderFiredRef = useRef(false);
-  const [ladderActive, setLadderActive] = useState(false);
-
-  useEffect(() => {
-    const el = howItWorksRef.current;
-    if (!el || ladderFiredRef.current) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting && !ladderFiredRef.current) {
-            ladderFiredRef.current = true;
-            setLadderActive(true);
-            observer.disconnect();
-          }
-        }
-      },
-      { threshold: 0.4 },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
   const handleGetStarted = () => {
     if (onGetStarted) {
       onGetStarted();
@@ -155,11 +129,6 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
       <BeakerBotMouseWaveScene
         active={waveActive}
         onComplete={() => setWaveActive(false)}
-      />
-      {/* Ladder scene, triggered when the how-it-works band enters view. */}
-      <BeakerBotLadderScene
-        active={ladderActive}
-        onComplete={() => setLadderActive(false)}
       />
 
       {/* ── Hero ─────────────────────────────────────────────────────── */}
@@ -465,8 +434,8 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
         </div>
       </section>
 
-      {/* ── How it works (Ladder scene fires on scroll-in) ───────────── */}
-      <section ref={howItWorksRef} className="mx-auto max-w-5xl px-6 py-20">
+      {/* ── How it works ─────────────────────────────────────────────── */}
+      <section className="mx-auto max-w-5xl px-6 py-20">
         <div className="mx-auto mb-14 max-w-2xl text-center">
           <span className="text-sm font-semibold uppercase tracking-wide text-sky-600">
             Up and running in three steps
