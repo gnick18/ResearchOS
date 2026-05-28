@@ -3431,6 +3431,12 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
   // the freshest full-document string, so the popup "Save notes" button can
   // persist the very latest edit even if the user never left the active block.
   const editorSaveRef = useRef<(() => string) | null>(null);
+  // Mirrors the editor's in-flight buffer-dirty flag. Because the editor
+  // buffers keystrokes and only flushes to `content` on commit, `content`
+  // (and thus hasUnsavedChanges) lags while the user is mid-block. We OR this
+  // into the Save button's enabled state so the button lights up the instant
+  // typing starts, not only after a block switch.
+  const [editorDirty, setEditorDirty] = useState(false);
   // Holds the draft captured by `useDraftPersistence`'s onRestore until the
   // disk load below finishes. Pattern: onRestore fires on mount BEFORE the
   // async disk read resolves, so we can't set `content` directly (the disk
@@ -3895,7 +3901,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                   }}
                 />
                 <div className="flex-1" />
-                {hasUnsavedChanges && (
+                {(hasUnsavedChanges || editorDirty) && (
                   <span className="inline-flex items-center gap-1 text-xs text-amber-700 font-medium">
                     <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                     Unsaved changes
@@ -3909,7 +3915,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                     const latest = editorSaveRef.current?.() ?? content;
                     void handleSave(latest);
                   }}
-                  disabled={saving || !hasUnsavedChanges}
+                  disabled={saving || (!hasUnsavedChanges && !editorDirty)}
                   className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                     hasUnsavedChanges && !saving
                       ? "text-white bg-blue-600 hover:bg-blue-700"
@@ -4029,10 +4035,12 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                   // The popup owns its own version-controlled "Save notes"
                   // button (above), so hide the editor's internal one to
                   // avoid two Save buttons. saveRef lets that button flush
-                  // the live buffer; onExplicitSave routes Cmd+S to disk.
+                  // the live buffer; onExplicitSave routes Cmd+S to disk;
+                  // onDirtyChange keeps that button enabled while mid-edit.
                   hideSaveButton
                   saveRef={editorSaveRef}
                   onExplicitSave={(v) => { void handleSave(v); }}
+                  onDirtyChange={setEditorDirty}
                 />
               )}
             </div>
@@ -4083,6 +4091,10 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
   // See LabNotesTab: imperative flush handle from the embedded editor so the
   // popup "Save results" button persists the freshest in-progress block.
   const editorSaveRef = useRef<(() => string) | null>(null);
+  // See LabNotesTab: mirrors the editor's in-flight buffer-dirty flag so the
+  // "Save results" button enables the instant typing starts (not only after
+  // a block switch flushes to `content`).
+  const [editorDirty, setEditorDirty] = useState(false);
   // See LabNotesTab — same SPA-nav draft-restore staging slot. Holds the
   // sessionStorage draft (if any) until the disk loader resolves, then the
   // loader promotes it on top of the disk baseline.
@@ -4470,7 +4482,7 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
                 }}
               />
               <div className="flex-1" />
-              {hasUnsavedChanges && (
+              {(hasUnsavedChanges || editorDirty) && (
                 <span className="inline-flex items-center gap-1 text-xs text-amber-700 font-medium">
                   <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                   Unsaved changes
@@ -4484,7 +4496,7 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
                   const latest = editorSaveRef.current?.() ?? content;
                   void handleSave(latest);
                 }}
-                disabled={saving || !hasUnsavedChanges}
+                disabled={saving || (!hasUnsavedChanges && !editorDirty)}
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                   hasUnsavedChanges && !saving
                     ? "text-white bg-blue-600 hover:bg-blue-700"
@@ -4546,10 +4558,12 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
                 // The popup owns its own version-controlled "Save results"
                 // button (above), so hide the editor's internal one to avoid
                 // two Save buttons. saveRef lets that button flush the live
-                // buffer; onExplicitSave routes Cmd+S to disk.
+                // buffer; onExplicitSave routes Cmd+S to disk; onDirtyChange
+                // keeps that button enabled while mid-edit.
                 hideSaveButton
                 saveRef={editorSaveRef}
                 onExplicitSave={(v) => { void handleSave(v); }}
+                onDirtyChange={setEditorDirty}
               />
             )}
           </div>

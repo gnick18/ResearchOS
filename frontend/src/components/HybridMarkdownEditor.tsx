@@ -347,6 +347,12 @@ interface HybridMarkdownEditorProps {
    *  with the value committed to the parent, so the parent can persist it
    *  to disk in contexts where the editor's own button is hidden. */
   onExplicitSave?: (value: string) => void;
+  /** Fired whenever the editor's in-flight buffer-dirty flag flips. A
+   *  parent that hides the internal Save button needs this so ITS own Save
+   *  button can enable the moment the user starts typing (the controlled
+   *  `value`/onChange round-trip lags the buffer, so disk-diff alone would
+   *  keep the parent button disabled mid-edit). */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 /**
@@ -632,6 +638,7 @@ export default function HybridMarkdownEditor({
   hideSaveButton = false,
   saveRef,
   onExplicitSave,
+  onDirtyChange,
 }: HybridMarkdownEditorProps) {
   // Track which block is currently being edited by its start offset
   // Using startOffset is more stable than block ID because it doesn't
@@ -1081,6 +1088,15 @@ export default function HybridMarkdownEditor({
       if (saveRef) saveRef.current = null;
     };
   }, [saveRef, commitBufferedEdit, clearDirty, onChange]);
+
+  // Surface the in-flight buffer-dirty flag to a parent (when one asks).
+  // A parent that hides our own Save button gates ITS button on disk-diff,
+  // which lags the buffer; without this it would stay disabled while the
+  // user is mid-edit. `onDirtyChange` is a stable useState setter at the
+  // callsite, so listing it in deps does not churn.
+  useEffect(() => {
+    onDirtyChange?.(editBufferDirty);
+  }, [editBufferDirty, onDirtyChange]);
 
   // Wire the existing useUnsavedChangesGuard hook so the browser's
   // native "Leave site?" dialog fires on full-tab unload (close,

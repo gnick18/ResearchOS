@@ -160,6 +160,10 @@ interface LiveMarkdownEditorProps {
   /** Pass-through to HybridMarkdownEditor: fired on an explicit save with the
    *  value committed to the parent, so the parent can persist it to disk. */
   onExplicitSave?: (value: string) => void;
+  /** Pass-through to HybridMarkdownEditor: fired when the editor's in-flight
+   *  buffer-dirty flag flips, so a parent that hides the internal Save button
+   *  can enable its own Save button the moment the user starts typing. */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 /**
@@ -187,6 +191,7 @@ export default function LiveMarkdownEditor({
   hideSaveButton = false,
   saveRef,
   onExplicitSave,
+  onDirtyChange,
 }: LiveMarkdownEditorProps) {
   // Internal mode state (used if onModeChange is not provided)
   const [internalMode, setInternalMode] = useState<EditorMode>(mode);
@@ -1789,6 +1794,7 @@ export default function LiveMarkdownEditor({
               hideSaveButton={hideSaveButton}
               saveRef={saveRef}
               onExplicitSave={onExplicitSave}
+              onDirtyChange={onDirtyChange}
             />
           )}
         </div>
