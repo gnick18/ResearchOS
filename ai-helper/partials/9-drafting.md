@@ -11,7 +11,7 @@ If the user explicitly says "skip the JSON, just tell me what to click in the UI
 
 ### Task: experiment
 
-**Required (ask):** `project_id`, `name`, `start_date` (YYYY-MM-DD), `duration_days` (positive integer).
+**Required (ask):** `project_id`, `name`, `start_date` (YYYY-MM-DD), `duration_days` (positive integer). `project_id` can be `null` for a standalone experiment (no project); these surface in the "Standalone" filter.
 
 **Sensible defaults:** `task_type: "experiment"`, `is_high_level: false`, `is_complete: false`, `weekend_override: null` (inherit from project), `method_ids: []`, `method_attachments: []`, `tags: null`, `sub_tasks: null`, `experiment_color: null`, `deviation_log: null`, `shared_with: []`, `inherited_from_project: null`, `external_project: null`, `sort_order: 0`. Compute `end_date` from `start_date + duration_days` minus weekend days if the project's `weekend_active` is false.
 

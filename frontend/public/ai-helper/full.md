@@ -457,6 +457,12 @@ export interface Project {
   // the receiver of a shared project loads it. Never persisted to disk.
   is_shared_with_me?: boolean;
   shared_permission?: "view" | "edit";
+  // VCP R3 attribution stamps (VCP R3 attribution stamps, 2026-05-26):
+  // most-recent editor + when. Stamped on every `projectsApi.update`
+  // path. Optional on read for pre-R3 records; back-fills on next
+  // write.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 export interface ProjectCreate {
@@ -479,6 +485,10 @@ export interface ProjectUpdate {
   is_archived?: boolean;
   archived_at?: string | null;
   is_hidden?: boolean;
+  // VCP R3 — optional; auto-stamped by `projectsApi.update`. Callers
+  // usually omit; the write path overwrites whatever is supplied.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 // ── Sub-Tasks ─────────────────────────────────────────────────────────────────
@@ -597,6 +607,12 @@ export interface Task {
   // When set, lists show a red flag icon and the popup surfaces a banner
   // the owner can clear. See `lib/lab/pi-actions.ts` for the writer.
   flagged?: PiFlag | null;
+  // VCP R3 attribution stamps (VCP R3 attribution stamps, 2026-05-26):
+  // most-recent editor + when. Stamped on every `tasksApi.update` path
+  // including PI cross-owner edits. Optional on read for pre-R3 records;
+  // back-fills on next write.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 /**
@@ -739,6 +755,10 @@ export interface TaskUpdate {
   assignee?: string | null;
   /** Lab Head Phase 3 — PI flag (object sets, `null` clears). */
   flagged?: PiFlag | null;
+  // VCP R3 — optional; auto-stamped by `tasksApi.update`. Callers
+  // usually omit; the write path overwrites whatever is supplied.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 export interface TaskMoveRequest {
@@ -806,6 +826,11 @@ export interface HighLevelGoal {
   // owning user folder on next save.
   owner?: string;
   shared_with?: SharedUser[];
+  // VCP R3 attribution stamps (VCP R3 attribution stamps, 2026-05-26):
+  // most-recent editor + when. Stamped on every `goalsApi.update` path.
+  // Optional on read for pre-R3 records; back-fills on next write.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 export interface HighLevelGoalCreate {
@@ -824,6 +849,9 @@ export interface HighLevelGoalUpdate {
   color?: string | null;
   smart_goals?: SmartGoal[];
   is_complete?: boolean;
+  // VCP R3 — optional; auto-stamped by `goalsApi.update`.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 // ── UI Types ─────────────────────────────────────────────────────────────────
@@ -853,6 +881,12 @@ export interface Method {
   // `frontend/src/lib/methods/compound-graph.ts` for cycle / depth /
   // orphan validation.
   components?: CompoundComponent[];
+  // VCP R3 attribution stamps (VCP R3 attribution stamps, 2026-05-26):
+  // most-recent editor + when. `created_by` stays the original author
+  // stamp; `last_edited_by` is purely the latest editor. Optional on
+  // read for pre-R3 records; back-fills on next write.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 export interface MethodCreate {
@@ -890,6 +924,9 @@ export interface MethodUpdate {
   tags?: string[];
   is_public?: boolean;
   components?: CompoundComponent[];
+  // VCP R3 — optional; auto-stamped by `methodsApi.update`.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 // ── PCR Methods ──────────────────────────────────────────────────────────────
@@ -1492,6 +1529,14 @@ export interface MassSpecProtocol {
   source: MassSpecSourceParams;
   scan: MassSpecScanParams;
   calibration: MassSpecCalibration;
+  // VCP R3 attribution stamps (VCP R3 attribution stamps, 2026-05-26):
+  // most-recent editor + when. Distinct from `created_by` (original
+  // author) and `updated_at` (kept as the canonical write-time field
+  // for sorts; `last_edited_at` mirrors it on writes through
+  // `massSpecApi.update`). Optional on read for pre-R3 records;
+  // back-fills on next write.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 export interface MassSpecProtocolCreate {
@@ -1517,6 +1562,9 @@ export type MassSpecProtocolUpdate = Partial<{
   source: MassSpecSourceParams;
   scan: MassSpecScanParams;
   calibration: MassSpecCalibration;
+  // VCP R3 — optional; auto-stamped by `massSpecApi.update`.
+  last_edited_by: string;
+  last_edited_at: string;
 }>;
 
 // ── Compound Methods ─────────────────────────────────────────────────────────
@@ -1631,6 +1679,13 @@ export interface PurchaseItem {
   // Old records without either field behave as "pending".
   declined_at?: string | null;
   declined_by?: string | null;
+  // VCP R3 attribution stamps (VCP R3 attribution stamps, 2026-05-26):
+  // most-recent editor + when. Distinct from `approved_by` /
+  // `declined_by` (PI approval-state stamps) and from `flagged.by` (PI
+  // flag stamp); `last_edited_by` captures any editor of any field.
+  // Optional on read for pre-R3 records; back-fills on next write.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 /** Pending = waiting for the lab head's approval. Approved and declined
@@ -1679,6 +1734,9 @@ export interface PurchaseItemUpdate {
    *  to null; decline sets them. See PurchaseItem doc for state machine. */
   declined_at?: string | null;
   declined_by?: string | null;
+  // VCP R3 — optional; auto-stamped by `purchasesApi.update`.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 export interface CatalogItem {
@@ -1864,6 +1922,11 @@ export interface LabLink {
   // unified sharing surface. Optional during the migration window.
   owner?: string;
   shared_with?: SharedUser[];
+  // VCP R3 attribution stamps (VCP R3 attribution stamps, 2026-05-26):
+  // most-recent editor + when. Stamped on every `labLinksApi.update`
+  // path. Optional on read for pre-R3 records; back-fills on next write.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 export interface LabLinkCreate {
@@ -1883,6 +1946,9 @@ export interface LabLinkUpdate {
   color?: string | null;
   preview_image_url?: string | null;
   sort_order?: number;
+  // VCP R3 — optional; auto-stamped by `labLinksApi.update`.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 export interface LinkPreview {
@@ -1989,6 +2055,16 @@ export interface Note {
   // "*" entry in `shared_with`. Both fields are kept readable during
   // the release window so legacy code keeps working.
   shared_with?: SharedUser[];
+  // VCP R3 attribution stamps (VCP R3 attribution stamps, 2026-05-26):
+  // most-recent editor + when. Distinct from `username` (the original
+  // author / creator stamp) and `updated_at` (the canonical write-time
+  // field used by sorts and the activity sidecar; we keep BOTH because
+  // existing call sites rely on `updated_at`). `last_edited_by` is
+  // stamped on every update path including PI cross-owner edits — the
+  // "(PI)" badge is a UI render concern, not a stored field. Optional
+  // on read for pre-R3 records; back-fills on next write.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 export interface NoteCreate {
@@ -2005,6 +2081,10 @@ export interface NoteUpdate {
   is_shared?: boolean;
   /** Lab Head Phase 3 — PI flag (object sets, `null` clears). */
   flagged?: PiFlag | null;
+  // VCP R3 — optional; auto-stamped by `notesApi.update`. The note
+  // path also stamps `updated_at`; both fields land together.
+  last_edited_by?: string;
+  last_edited_at?: string;
 }
 
 export interface NoteEntriesReorderRequest {
@@ -2878,7 +2958,7 @@ The calendar is a month / week / day view that overlays native ResearchOS Events
 
 ### `/gantt`: Gantt Chart
 
-The Gantt chart is the dependency-aware timeline: every task as a horizontal bar, every dependency as a connector, drag-to-reschedule with cascade shifts. The page foregrounds Tasks, Dependencies, and HighLevelGoals all on the same horizontal axis. The right sidebar lists HighLevelGoals (drag to reorder, click to edit the embedded SmartGoals checklist). The view-mode toggle (1week / 2week / 3week / 1month / 3month / 6month / 1year / all) sits at the top alongside a project filter. Affordances: drag a task bar to move it; the dependency engine cascades child tasks forward, weekend rules apply per project. Drag the right edge to resize duration. Click a task to open the detail popup. Click between two tasks to draft a Dependency (`FS` finish-to-start, `SS` start-to-start, `SF` start-to-finish). Animations on cascade shifts are configurable in Settings. The page also renders a "Goals" lane above the task swim-lanes so the user can see how scheduled work tracks against high-level objectives. Cross-owner-hosted tasks (Option C, `external_project` set) appear on the destination project's Gantt with the source owner's color. Requires a folder connection. Available in demo mode. Lab-mode has its own combined Gantt at `/lab` that overlays every user's tasks on one timeline. → See `/wiki/features/gantt`.
+The Gantt chart is the dependency-aware timeline: every task as a horizontal bar, every dependency as a connector, drag-to-reschedule with cascade shifts. The page foregrounds Tasks, Dependencies, and HighLevelGoals all on the same horizontal axis. The right sidebar lists HighLevelGoals (drag to reorder, click to edit the embedded SmartGoals checklist). The view-mode toggle (1week / 2week / 3week / 1month / 3month / 6month / 1year / all) sits at the top alongside a project filter (which includes a "Standalone" pill scoping to orphan tasks with `project_id` null). Affordances: drag a task bar to move it; the dependency engine cascades child tasks forward, weekend rules apply per project. Drag the right edge to resize duration. Click a task to open the detail popup. Click between two experiment bars to draft a Dependency (only experiments can be linked into dependency chains, not lists or purchases). The three dependency types: `SS` "Start at same time" (child starts the same day as the parent), `FS` "Start after" (child starts the day after the parent ends, strict gap), `SF` "Finish before" (child finishes the day strictly before the parent starts, no same-day overlap). Animations on cascade shifts are configurable in Settings. The page also renders a "Goals" lane above the task swim-lanes so the user can see how scheduled work tracks against high-level objectives. Cross-owner-hosted tasks (Option C, `external_project` set) appear on the destination project's Gantt with the source owner's color. Requires a folder connection. Available in demo mode. Lab-mode has its own combined Gantt at `/lab` that overlays every user's tasks on one timeline. → See `/wiki/features/gantt`.
 
 ### `/methods`: Methods Library
 
@@ -3037,7 +3117,7 @@ Bread-and-butter workflows below. Each is "user goal → click path → what got
 
 These rules govern how you answer. The user can override any of them with explicit instructions, but the defaults below are what you fall back to.
 
-**Ask before generating.** Drafting a Task, Method, Project, or anything else with required fields means **asking first**, not guessing. Lead with the schema-required fields, in question form. For a Task: `project_id`, `name`, `start_date`, `duration_days`, `task_type`, `is_high_level`. For a Project: `name`, optionally `weekend_active`, `tags`, `color`. For a Method: `name`, `method_type`, `is_public`. The schemas in §4 are the source of truth.
+**Ask before generating.** Drafting a Task, Method, Project, or anything else with required fields means **asking first**, not guessing. Lead with the schema-required fields, in question form. For a Task: `project_id`, `name`, `start_date`, `duration_days`, `task_type`, `is_high_level`. (A task can also be standalone: `project_id` null is valid (the Miscellaneous slot), and these orphan tasks surface in the "Standalone" filter, so ask whether the task belongs to a project or stands alone.) For a Project: `name`, optionally `weekend_active`, `tags`, `color`. For a Method: `name`, `method_type`, `is_public`. The schemas in §4 are the source of truth.
 
 If the user says "just draft something reasonable, I'll edit it," that's an explicit override. Make sensible choices, document them inline as `// assumed: <reason>` comments inside the JSON, and call out the assumptions in your prose response.
 
@@ -3080,7 +3160,7 @@ If the user explicitly says "skip the JSON, just tell me what to click in the UI
 
 ### Task: experiment
 
-**Required (ask):** `project_id`, `name`, `start_date` (YYYY-MM-DD), `duration_days` (positive integer).
+**Required (ask):** `project_id`, `name`, `start_date` (YYYY-MM-DD), `duration_days` (positive integer). `project_id` can be `null` for a standalone experiment (no project); these surface in the "Standalone" filter.
 
 **Sensible defaults:** `task_type: "experiment"`, `is_high_level: false`, `is_complete: false`, `weekend_override: null` (inherit from project), `method_ids: []`, `method_attachments: []`, `tags: null`, `sub_tasks: null`, `experiment_color: null`, `deviation_log: null`, `shared_with: []`, `inherited_from_project: null`, `external_project: null`, `sort_order: 0`. Compute `end_date` from `start_date + duration_days` minus weekend days if the project's `weekend_active` is false.
 
@@ -3369,6 +3449,7 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 | Results (moved) | `/wiki/features/results` |
 | Import from LabArchives | `/wiki/features/import-from-eln` |
 | Settings | `/wiki/features/settings` |
+| Trash & History | `/wiki/features/trash` |
 | Notifications & Inbox | `/wiki/features/notifications` |
 | Feedback | `/wiki/features/feedback` |
 | Integrations | `/wiki/integrations` |
@@ -3380,9 +3461,9 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 ## §11 Build metadata
 
 - **Variant:** `full`
-- **Helper version:** `14`
-- **Schema hash:** `17f35beb0d4eeec5282ae0549cb63c49ff0c2c844cbd75d78cb43ef678aa2f02`
-- **Built at:** `2026-05-26T17:58:56.848Z`
-- **Built from commit:** `a2bdba84bd7b27030b9d1d83d5437a4993446899`
+- **Helper version:** `15`
+- **Schema hash:** `7385623473ea79ffa9bfab49d1ef58894aed4f3dd603d848dfbcef4c3ca51786`
+- **Built at:** `2026-05-28T02:51:59.041Z`
+- **Built from commit:** `dd2ab619edf6cf48f00bd1872d19e1fada2e5bed`
 
 _Generated by `scripts/build-ai-helper.mjs`. Do not edit by hand — run `npm run --prefix frontend ai-helper:refresh` to rebuild and commit._
