@@ -175,62 +175,55 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "notifications-bell",      // §6.3a: open the inbox
   "notifications-silence",   // §6.3b: mark-as-read (mute the bell badge)
   "notifications-delete",    // §6.3c: dismiss the row
-  // Workbench experiment creation (§6.5)
-  // 2026-05-27 (v4 tour structural manager, Wave 1): the prior
-  // `workbench-page-intro` page-transition beat is retired. Grant's
-  // script rewrite folds the page framing into the
-  // `workbench-create-experiment-open` step opening so the user gets
-  // one combined narration-plus-click-prompt beat.
-  // Grant 2026-05-21 split: separate the user-action open-click from
-  // BeakerBot's type+submit demo. Same shape as §6.4 methods-category
-  // (open + demo) and §6.1 home-create-project (open + fill). The user
-  // clicks "+ New Experiment" themselves; the cursor then takes over to
-  // type the placeholder name and click Create Experiment.
-  //
-  // 2026-05-27 (v4 tour structural manager, Wave 1): the prior
-  // `workbench-create-experiment` BEAKERBOT_DEMO follow-up is retired
-  // per Grant's `[DROP]` marker in the new script. The user-action
-  // open-click stands on its own now; the workbench-create-experiment
-  // body owns the auto-fill artifact creation but is no longer a tour
-  // step.
-  "workbench-create-experiment-open",  // §6.5a (user opens the modal + names it)
-  // §6.6 Experiment detail intro + Methods tab framing.
-  //
-  // FINAL restructure (FINAL reorder manager 2026-05-27): the
-  // experiment-detail / Methods-tab framing now lives BEFORE the methods
-  // cluster (§6.7c) and the actual method-attachment beats (§6.7d).
-  // The order is:
-  //
-  //   experiment-attach-method-open  (open the experiment popup, frame it)
-  //   experiment-attach-method-tab   (point at the Methods tab, defer the
-  //                                  attach to after the methods cluster)
-  //   ... hybrid editor + workbench notes/lists clusters ...
-  //   ... methods cluster (§6.7c) ...
-  //   experiment-attach-method-attach (return to the experiment, attach
-  //                                   the method just built)
-  //   experiment-attach-method-notes  (variation notes + mental model)
-  //
-  // The attach + notes beats moved to AFTER methods-create per the FINAL
-  // tour script so the user has built a method (in the methods cluster)
-  // BEFORE we ask them to attach one to the experiment. The tab beat
-  // stays here to introduce the concept early; the attach beat carries
-  // a navigation hook to re-open the experiment popup + Methods tab
-  // after the methods detour.
-  //
-  // Saved-step jump-ahead fix (2026-05-27, tour saved-step jump-ahead
-  // fix manager): the FINAL reorder relocated `experiment-attach-method-
-  // attach` + `experiment-attach-method-notes` to §6.7d (after the
-  // methods cluster, around line 316 below) but left their original
-  // §6.6c / §6.6d entries here too. Because `STEP_INDEX` is built from
-  // `TOUR_STEP_ORDER.map((id, i) => [id, i])` and a Map keeps the LAST
-  // value per duplicate key, every lookup of these two ids resolved to
-  // their LATE indices. The controller would advance from `-tab` to
-  // `-attach` (the first occurrence at +1 in the array), but the next
-  // advance / back-step consulted STEP_INDEX and jumped to / from the
-  // LATE position, skipping ~30 steps (hybrid editor + workbench notes/
-  // lists + methods cluster). Removing the duplicates here keeps `-open`
-  // / `-tab` as the §6.6a/b framing beats and lets the canonical §6.7d
-  // entries below own the actual attach / notes interactions.
+  // Methods page deep-dive (§6.4)
+  // sec 6.4 redesign (Grant 2026-05-21): split the original
+  // category step into a prompt (BeakerBot asks the user what kind of
+  // technique they do) + a demo (cursor types the user's pick and
+  // saves). The picker lives in MethodsCategoryPromptStep.tsx; the
+  // demo retains the `methods-category` id.
+  // Then the open-picker beat (Grant 2026-05-21) bridges to the type-
+  // breadth wall of speech by having BeakerBot click "+ New Method" so
+  // the modal mounts before the next step fires.
+  "methods-category-prompt", // §6.4a-prompt (interactive picker)
+  // Grant 2026-05-21 rethink: separate the user-action open-click from
+  // BeakerBot's type+submit demo. The user clicks "+ New Category"
+  // themselves; the cursor then takes over to type the picked label and
+  // click Create Empty.
+  "methods-category-open",   // §6.4a-open (user opens the modal)
+  "methods-category",        // §6.4a-demo (cursor types + clicks Create Empty)
+  "methods-open-picker",     // §6.4 bridge (click New Method, modal mounts)
+  // §6.4b (Grant 2026-05-21 rework): the prior 5-sub-step PCR + LC demo
+  // moved too fast to follow — clicking around at machine speed while
+  // the user was trying to read the speech bubble at the same time.
+  // Reduced to two manual-advance beats that just MOUNT each builder
+  // and invite the user to explore at their own pace. The wiki has the
+  // detail; the tour just establishes that these are interactive.
+  "methods-type-tour",       // §6.4b-1: click PCR tile, prompt user to explore
+  "methods-lc-demo",         // §6.4b-2: click LC tile, prompt user to explore
+  "methods-create",          // §6.4d (BeakerBot's funny markdown method)
+  // Workbench experiment creation (§6.5) — USER_ACTION refactor
+  // (experiment-create user-action manager 2026-05-27). The prior
+  // open-then-demo split (open + cursor-driven type+submit) kept
+  // regressing because the cursor scripting depended on DOM elements,
+  // modal-mount timing, react-query cache freshness, and `<option>`
+  // rendering races. Flipped to a four-beat user-driven sequence:
+  // open (event-advance on modal mount) -> name (manual advance) ->
+  // project (manual advance) -> submit (manual advance, gated on
+  // `tour:experiment-created` so the user can't race past the button
+  // click). The `workbench-create-experiment-open` id is preserved
+  // verbatim for migration / hand-walk resume continuity. The legacy
+  // `workbench-create-experiment` id is retired (body @deprecated in
+  // WorkbenchCreateExperimentStep.tsx for git-history reference).
+  "workbench-create-experiment-open",     // §6.5a (user clicks +New Experiment)
+  "workbench-create-experiment-name",     // §6.5b (user types the name)
+  "workbench-create-experiment-project",  // §6.5c (user picks the project)
+  "workbench-create-experiment-submit",   // §6.5d (user clicks Create Experiment)
+  // Method attachment + variation notes + snapshot teach (§6.6).
+  // Split into 4 popup-mount-safe sub-steps (2026-05-21, HR-dispatched):
+  // the original single `experiment-attach-method` step's cursor script
+  // spanned the popup-mount boundary and the second click either timed
+  // out or fired on a stale DOM. Same class of bug as §6.2's
+  // route-spanning script. See MethodAttachmentStep.tsx for the split.
   "experiment-attach-method-open",    // §6.6a click workbench row → open popup
   "experiment-attach-method-tab",     // §6.6b click Methods tab inside popup
   // Hybrid editor — §6.7 redesign (Hybrid editor manager 2026-05-22).

@@ -727,9 +727,22 @@ export const tasksApi = {
       owner: currentUser,
       shared_with: [],
     });
+    // Onboarding v4 §6.5 user-action refactor (experiment-create user-action
+    // manager 2026-05-27): notify the workbench-create-experiment-submit
+    // sub-step that a new task landed, so BeakerBot can advance without
+    // depending on the 500ms polling tick. Cheap no-op when no tour is
+    // active. SSR-safe via the `window` typeof check. Mirrors the
+    // `tour:project-created` dispatch in projectsApi.create above.
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("tour:experiment-created", {
+          detail: { id: task.id, taskType: task.task_type },
+        }),
+      );
+    }
     return task;
   },
-  
+
   update: async (id: number, data: TaskUpdate, owner?: string): Promise<Task | null> => {
     const existing = await getTaskForCaller(id, owner);
     if (!existing) return null;

@@ -41,7 +41,14 @@ const P5_STEP_IDS = [
   "methods-type-tour",
   "methods-lc-demo",
   "methods-create",
+  // §6.5 USER_ACTION refactor (experiment-create user-action manager
+  // 2026-05-27): the prior open + cursor-demo pair is replaced by a
+  // four-beat user-driven sequence. The retired `workbench-create-
+  // experiment` id is intentionally absent from this list.
   "workbench-create-experiment-open",
+  "workbench-create-experiment-name",
+  "workbench-create-experiment-project",
+  "workbench-create-experiment-submit",
   // §6.6 method-attachment split (2026-05-21): the original single
   // `experiment-attach-method` id was split into 4 popup-mount-safe
   // sub-steps. Registry must resolve every new id to a non-placeholder.
