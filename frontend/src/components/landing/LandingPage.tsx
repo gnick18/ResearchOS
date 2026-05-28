@@ -100,6 +100,48 @@ function FeatureCard({
   );
 }
 
+/** Small emerald check used in the ResearchOS column of the comparison. */
+function CheckMark() {
+  return (
+    <svg
+      className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-600"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      viewBox="0 0 24 24"
+      aria-hidden
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+    </svg>
+  );
+}
+
+/** One row of the LabArchives comparison table. The ResearchOS column is
+ *  tinted and check-marked; the LabArchives column is plain so the table
+ *  reads as an honest side-by-side, not a hit piece. */
+function ComparisonRow({
+  label,
+  us,
+  them,
+}: {
+  label: string;
+  us: string;
+  them: string;
+}) {
+  return (
+    <tr className="border-b border-gray-100 align-top last:border-0">
+      <td className="px-4 py-3 text-sm font-medium text-gray-900">{label}</td>
+      <td className="bg-sky-50/60 px-4 py-3 text-sm text-gray-800">
+        <span className="flex items-start gap-2">
+          <CheckMark />
+          <span>{us}</span>
+        </span>
+      </td>
+      <td className="px-4 py-3 text-sm text-gray-600">{them}</td>
+    </tr>
+  );
+}
+
 export default function LandingPage({ onGetStarted }: LandingPageProps) {
   const router = useRouter();
 
@@ -395,6 +437,95 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               the data it is about, instead of buried in email.
             </FeatureCard>
           </div>
+        </div>
+      </section>
+
+      {/* ── How we compare to LabArchives (features + price) ─────────── */}
+      <section className="bg-slate-50 py-20">
+        <div className="mx-auto max-w-5xl px-6">
+          <div className="mx-auto mb-12 max-w-2xl text-center">
+            <span className="text-sm font-semibold uppercase tracking-wide text-sky-600">
+              Free vs per-seat
+            </span>
+            <h2 className="mt-2 text-3xl font-bold tracking-tight text-gray-900">
+              How we compare to LabArchives
+            </h2>
+            <p className="mt-3 text-base leading-relaxed text-gray-600">
+              LabArchives is the incumbent most labs are leaving. Here is the
+              honest side-by-side on the things that matter most.
+            </p>
+          </div>
+
+          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="w-[28%] px-4 py-3 text-sm font-semibold text-gray-500">
+                      <span className="sr-only">Capability</span>
+                    </th>
+                    <th className="w-[36%] bg-sky-50 px-4 py-3 text-sm font-bold text-sky-700">
+                      ResearchOS
+                    </th>
+                    <th className="w-[36%] px-4 py-3 text-sm font-semibold text-gray-700">
+                      LabArchives (Professional)
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <ComparisonRow
+                    label="Price"
+                    us="Free and open source, forever"
+                    them="$330+ per user, per year; limited free tier"
+                  />
+                  <ComparisonRow
+                    label="Per-seat fees"
+                    us="None: the whole lab, free"
+                    them="Charged per user, every year"
+                  />
+                  <ComparisonRow
+                    label="Where your data lives"
+                    us="A folder on your own machine"
+                    them="On LabArchives' cloud servers"
+                  />
+                  <ComparisonRow
+                    label="File formats"
+                    us="Open Markdown and your original files"
+                    them="Proprietary cloud store"
+                  />
+                  <ComparisonRow
+                    label="Own your data, no lock-in"
+                    us="You own the folder outright"
+                    them="The live copy is theirs while you pay"
+                  />
+                  <ComparisonRow
+                    label="Bench tools (PCR, plates, LC, Gantt, purchasing)"
+                    us="Built in, first-class"
+                    them="Widgets and third-party add-ons"
+                  />
+                  <ComparisonRow
+                    label="Moving in from LabArchives"
+                    us="Imports your Offline Notebook ZIP directly"
+                    them="Not applicable"
+                  />
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <p className="mx-auto mt-6 max-w-2xl text-center text-sm leading-relaxed text-gray-500">
+            Being straight: LabArchives still leads on security certifications,
+            vendor-managed backups, and one-click DOI publishing.{" "}
+            <Link
+              href="/wiki/compliance/labarchives-comparison"
+              onClick={markLandingSeen}
+              data-testid="landing-compare-full"
+              className="font-semibold text-sky-600 underline-offset-2 hover:text-sky-700 hover:underline"
+            >
+              See the full, honest comparison
+            </Link>
+            .
+          </p>
         </div>
       </section>
 
