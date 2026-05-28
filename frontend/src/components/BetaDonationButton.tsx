@@ -83,7 +83,15 @@ export default function BetaDonationButton({ variant = "floating" }: BetaDonatio
 function DonationModal({ onClose }: { onClose: () => void }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      // pointer-events-auto (Grant 2026-05-27): DonationModal is
+      // rendered inside AppShell's floating-cluster div which has
+      // `pointer-events-none` so the cluster's bounding box doesn't
+      // eat clicks on the underlying page. Without this override the
+      // modal subtree inherits `pointer-events: none`, so the X
+      // close button (and the backdrop) silently no-op. The heart
+      // trigger button has its own `pointer-events-auto`; the modal
+      // it spawns needs the same treatment.
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-auto"
       // Marker for TourSpotlight (popup-occluding sweep manager,
       // 2026-05-27). Hides the v4 walkthrough ring while this popup
       // is mounted; see SnapshotTilePopup for the canonical example.
