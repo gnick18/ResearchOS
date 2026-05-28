@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 
 interface RockPiece {
   id: number;
@@ -613,6 +613,18 @@ export default function RockExplosionAnimation({ x, y, onComplete }: RockExplosi
     return newPieces;
   }, [x, y]);
 
+  // Stable handle to the latest onComplete (double-fire fix). Consumers pass
+  // an inline onComplete (a fresh reference every render). The handlers do an
+  // async tasksApi.update + refetch right after firing; when the refetch lands
+  // mid-animation the parent re-renders, onComplete's identity changes, and
+  // (when it was an effect dep) the spawn effect re-ran, resetting pieces
+  // and replaying the burst (the animation "firing twice"). Reading onComplete
+  // through a ref keeps the spawn effect mount-only.
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot init of mount-time random particles, then setInterval drives animation
     setPieces(createPieces());
@@ -675,14 +687,17 @@ export default function RockExplosionAnimation({ x, y, onComplete }: RockExplosi
     // Clean up after animation
     const timeout = setTimeout(() => {
       clearInterval(interval);
-      onComplete();
+      onCompleteRef.current();
     }, 2500);
 
     return () => {
       clearInterval(interval);
       clearTimeout(timeout);
     };
-  }, [createPieces, onComplete, x, y]);
+    // onComplete is read via the ref above, so it is intentionally NOT a dep
+    // here (that re-run was the mid-animation double-fire). Keep createPieces
+    // and x/y, which are stable for a given celebration instance.
+  }, [createPieces, x, y]);
 
   // Size dispatch — fire is small, rest are standard
   const sizeFor = (type: RockPiece["type"]) => (type === "fire" ? 22 : 44);

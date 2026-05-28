@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 
 type SportsParticleType =
   | "soccer"
@@ -355,6 +355,18 @@ export default function SportsAnimation({ x, y, onComplete }: SportsAnimationPro
     return newParticles;
   }, [x, y]);
 
+  // Stable handle to the latest onComplete (double-fire fix). Consumers pass
+  // an inline onComplete (a fresh reference every render). The handlers do an
+  // async tasksApi.update + refetch right after firing; when the refetch lands
+  // mid-animation the parent re-renders, onComplete's identity changes, and
+  // (when it was an effect dep) the spawn effect re-ran, resetting particles
+  // and replaying the burst (the animation "firing twice"). Reading onComplete
+  // through a ref keeps the spawn effect mount-only.
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot init of mount-time random particles, then setInterval drives animation
     setParticles(createParticles());
@@ -383,14 +395,17 @@ export default function SportsAnimation({ x, y, onComplete }: SportsAnimationPro
 
     const timeout = setTimeout(() => {
       clearInterval(interval);
-      onComplete();
+      onCompleteRef.current();
     }, 2800);
 
     return () => {
       clearInterval(interval);
       clearTimeout(timeout);
     };
-  }, [createParticles, onComplete]);
+    // onComplete is read via the ref above, so it is intentionally NOT a dep
+    // here (that re-run was the mid-animation double-fire). Keep createParticles,
+    // which is stable for a given celebration instance.
+  }, [createParticles]);
 
   return (
     <div className="fixed inset-0 pointer-events-none z-[100]">

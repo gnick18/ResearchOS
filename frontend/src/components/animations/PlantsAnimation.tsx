@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 
 type PlantType =
   | "tulip"
@@ -166,6 +166,18 @@ export default function PlantsAnimation({ x, y, onComplete }: PlantsAnimationPro
     return newParticles;
   }, [x, y]);
 
+  // Stable handle to the latest onComplete (double-fire fix). Consumers pass
+  // an inline onComplete (a fresh reference every render). The handlers do an
+  // async tasksApi.update + refetch right after firing; when the refetch lands
+  // mid-animation the parent re-renders, onComplete's identity changes, and
+  // (when it was an effect dep) the spawn effect re-ran, resetting particles
+  // and replaying the burst (the animation "firing twice"). Reading onComplete
+  // through a ref keeps the spawn effect mount-only.
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
   useEffect(() => {
     setParticles(createParticles());
 
@@ -220,14 +232,17 @@ export default function PlantsAnimation({ x, y, onComplete }: PlantsAnimationPro
 
     const timeout = setTimeout(() => {
       clearInterval(interval);
-      onComplete();
+      onCompleteRef.current();
     }, 3500);
 
     return () => {
       clearInterval(interval);
       clearTimeout(timeout);
     };
-  }, [createParticles, onComplete, x, y]);
+    // onComplete is read via the ref above, so it is intentionally NOT a dep
+    // here (that re-run was the mid-animation double-fire). Keep createParticles
+    // and x/y, which are stable for a given celebration instance.
+  }, [createParticles, x, y]);
 
   // Suppress unused-var lint for tick — re-rendering keeps sway transforms in sync
   void tick;
