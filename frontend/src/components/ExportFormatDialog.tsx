@@ -35,6 +35,12 @@ interface ExportFormatDialogProps {
   // Blob. Hidden entirely in Firefox / Safari and when the prop is
   // omitted (e.g. the single-task TaskDetailPopup caller).
   onExportToFile?: (format: ExportFormat) => void;
+  // Optional "Combined PDF" path (combined-pdf bot, 2026-05-28). When
+  // provided, the dialog renders an extra option that merges every selected
+  // experiment into ONE navigable PDF (cover + clickable index + bookmarks)
+  // instead of the default zip-of-individual-files. Omitted by single-item
+  // callers (e.g. TaskDetailPopup) where "combined" has no meaning.
+  onExportCombined?: () => void;
 }
 
 /**
@@ -89,6 +95,7 @@ export default function ExportFormatDialog({
   onClose,
   onExport,
   onExportToFile,
+  onExportCombined,
 }: ExportFormatDialogProps) {
   // Once the user OKs the large-export warning we don't re-warn while the
   // dialog stays open. Reset on close so re-opening starts fresh. Tracked
@@ -221,6 +228,24 @@ export default function ExportFormatDialog({
                   </div>
                 </button>
               ))}
+
+              {onExportCombined && taskCount > 1 ? (
+                <button
+                  type="button"
+                  disabled={isExporting}
+                  onClick={onExportCombined}
+                  className="w-full text-left rounded-lg border border-gray-200 px-4 py-3 hover:border-blue-400 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 disabled:hover:bg-white"
+                >
+                  <div className="text-sm font-medium text-gray-900">
+                    Combined PDF
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1 leading-relaxed">
+                    Merge every selected experiment into one navigable PDF with
+                    a cover page, a clickable index, and bookmarks. One file
+                    instead of a zip of separate PDFs.
+                  </div>
+                </button>
+              ) : null}
 
               {showSaveToDisk ? (
                 <div className="rounded-lg border border-gray-200 px-4 py-3 bg-gray-50">

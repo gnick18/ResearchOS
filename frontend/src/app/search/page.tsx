@@ -16,6 +16,7 @@ import {
   type ExportSizeEstimate,
 } from "@/lib/export/orchestrate";
 import type { ExportFormat } from "@/lib/export/types";
+import { buildCombinedPdf } from "@/lib/export/combined-pdf";
 import { taskKey, type Task, type Method, type Project } from "@/lib/types";
 import { resolveMethodById } from "@/lib/methods/lookup";
 import {
@@ -412,6 +413,51 @@ export default function SearchPage() {
     [searchResults, selectedTaskKeys, currentUser, cancelSelectMode]
   );
 
+  // Combined-PDF path (combined-pdf bot, 2026-05-28). Merges every selected
+  // experiment into ONE navigable PDF (cover + clickable index + bookmarks)
+  // via `buildCombinedPdf` instead of the default zip-of-individual-PDFs.
+  // The Search page selects experiments only, so every item is kind
+  // "experiment"; the builder also supports notes for other callers.
+  const handleExportCombined = useCallback(async () => {
+    const tasksToExport = searchResults
+      .filter((r) => selectedTaskKeys.has(taskKey(r.task)))
+      .map((r) => r.task);
+    if (tasksToExport.length === 0) return;
+
+    setExporting(true);
+    setExportProgress(null);
+    try {
+      const blob = await buildCombinedPdf({
+        title:
+          tasksToExport.length === 1
+            ? tasksToExport[0].name
+            : `${tasksToExport.length} experiments`,
+        items: tasksToExport.map((t) => ({
+          kind: "experiment" as const,
+          id: t.id,
+        })),
+      });
+      const stamp = new Date().toISOString().slice(0, 10);
+      downloadResult({
+        blob,
+        filename: `combined-${stamp}.pdf`,
+        mimeType: "application/pdf",
+      });
+      setExportDialogOpen(false);
+      cancelSelectMode();
+    } catch (error) {
+      console.error("Combined PDF export failed:", error);
+      alert(
+        `Failed to export combined PDF: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    } finally {
+      setExporting(false);
+      setExportProgress(null);
+    }
+  }, [searchResults, selectedTaskKeys, cancelSelectMode]);
+
   return (
     <AppShell>
       <div className="flex-1 overflow-auto p-6">
@@ -790,6 +836,7 @@ export default function SearchPage() {
         onClose={() => setExportDialogOpen(false)}
         onExport={handleExport}
         onExportToFile={handleExportToFile}
+        onExportCombined={handleExportCombined}
       />
     </AppShell>
   );

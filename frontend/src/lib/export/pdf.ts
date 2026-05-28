@@ -139,42 +139,77 @@ function isImage(mime: string): boolean {
 // network blips during the local-asset fetch.
 let fontsRegistered = false;
 
-// ── PDF generator (dynamic import; all JSX lives inside) ────────────────────
+// Inter typography — served from `frontend/public/fonts/` so PDF
+// export works offline and stays immune to CDN URL changes. The
+// previous jsDelivr URL (gh/rsms/inter@v3.19/docs/font-files/) went
+// dead in 2026 — the `docs/font-files/` path was removed from the
+// Inter repo, every PDF export threw "Failed to fetch font ... 404"
+// and no blob was produced. react-pdf doesn't gracefully fall back
+// to Helvetica on a fetched-font error; it bubbles the failure up.
+// Local paths sidestep both issues. ~830 KB total for both weights —
+// negligible in the public assets bundle.
+//
+// Memoized via module-level `fontsRegistered` flag: react-pdf caches
+// successful registrations globally, but a FAILED registration is
+// not cached and silently retries on every subsequent export. Set
+// the flag only after the call returns without throwing so failures
+// can retry.
+//
+// Pulled out of `buildPdf` (combined-pdf bot, 2026-05-28) so the
+// combined-document builder in `combined-pdf.ts` can register the same
+// family before it renders its own Document. Idempotent — the flag is
+// module-global so a single registration covers both call sites.
+export function registerExportFonts(ReactPDF: any): void {
+  if (fontsRegistered) return;
+  ReactPDF.Font.register({
+    family: "Inter",
+    fonts: [
+      { src: "/fonts/Inter-Regular.ttf" },
+      { src: "/fonts/Inter-Bold.ttf", fontWeight: "bold" },
+    ],
+  });
+  fontsRegistered = true;
+}
 
-export async function buildPdf(
+/**
+ * The reusable parts of one experiment's PDF rendering. Returned by
+ * `buildExperimentParts` so both the single-experiment `buildPdf` and the
+ * multi-item `buildCombinedPdf` (combined-pdf.ts) share the SAME markdown +
+ * method renderers without reimplementing experiment rendering.
+ *
+ * `tocEntries` carry per-section anchor ids and titles; `contentChildren`
+ * are the already-rendered react-pdf nodes (each a bookmarked SectionView
+ * with a matching `id` destination). `idPrefix` namespaces every anchor so
+ * multiple experiments in one combined document never collide.
+ */
+export interface ExperimentPdfParts {
+  // Anchor ids + titles for this experiment's sections, in document order.
+  tocEntries: { id: string; title: string }[];
+  // The rendered section nodes (bookmarked SectionViews) for this experiment.
+  contentChildren: React.ReactNode[];
+  // The provenance manifest for this experiment (single-export embeds this in
+  // the Document keywords; the combined builder ignores it per-item).
+  manifest: PdfManifest;
+}
+
+// combined-pdf bot (2026-05-28): the section renderers below are unchanged
+// from the original `buildPdf` closure; they were lifted verbatim into
+// `buildExperimentParts` so the combined-document builder reuses them. The
+// only additions are the `idPrefix` parameter (anchor namespacing) and the
+// returned `ExperimentPdfParts` instead of an inline document assembly.
+
+export function buildExperimentParts(
+  ReactPDF: any,
   payload: ExperimentExportPayload,
-  baseFilename?: string,
-): Promise<ExportResult> {
-  const ReactPDF: any = await import("@react-pdf/renderer");
-  const { pdf, Document, Page, View, Text, Image, Link, StyleSheet, Font } =
-    ReactPDF;
+  idPrefix = "",
+): ExperimentPdfParts {
+  const { View, Text, Image, Link, StyleSheet } = ReactPDF;
   const h = React.createElement;
 
-  // Inter typography — served from `frontend/public/fonts/` so PDF
-  // export works offline and stays immune to CDN URL changes. The
-  // previous jsDelivr URL (gh/rsms/inter@v3.19/docs/font-files/) went
-  // dead in 2026 — the `docs/font-files/` path was removed from the
-  // Inter repo, every PDF export threw "Failed to fetch font ... 404"
-  // and no blob was produced. react-pdf doesn't gracefully fall back
-  // to Helvetica on a fetched-font error; it bubbles the failure up.
-  // Local paths sidestep both issues. ~830 KB total for both weights —
-  // negligible in the public assets bundle.
-  //
-  // Memoized via module-level `fontsRegistered` flag: react-pdf caches
-  // successful registrations globally, but a FAILED registration is
-  // not cached and silently retries on every subsequent export. Set
-  // the flag only after the call returns without throwing so failures
-  // can retry.
-  if (!fontsRegistered) {
-    Font.register({
-      family: "Inter",
-      fonts: [
-        { src: "/fonts/Inter-Regular.ttf" },
-        { src: "/fonts/Inter-Bold.ttf", fontWeight: "bold" },
-      ],
-    });
-    fontsRegistered = true;
-  }
+  // Namespaced anchor id helper. Single-export passes "" so ids stay
+  // exactly as before ("section-labnotes"); combined passes e.g.
+  // "exp-12-" so multiple experiments never share a destination name.
+  const anchor = (raw: string): string => `${idPrefix}${raw}`;
 
   // View/Text don't expose `bookmark` in the renderer's published types but the
   // runtime supports it (BaseProps in @react-pdf/types/node.d.ts). Cast once.
@@ -748,7 +783,7 @@ export async function buildPdf(
 
   // ── Document assembly ────────────────────────────────────────────────────
 
-  const { task, project, attachments, meta, methods } = payload;
+  const { task, attachments, meta, methods } = payload;
   const notesUserMd = demoteHeadings(extractUserContent(payload.notesMarkdown));
   const resultsUserMd = demoteHeadings(extractUserContent(payload.resultsMarkdown));
   const hasNotes = hasUserContent(payload.notesMarkdown);
@@ -774,82 +809,30 @@ export async function buildPdf(
     0;
 
   const tocEntries: { id: string; title: string }[] = [];
-  if (hasNotes) tocEntries.push({ id: "section-labnotes", title: "Lab Notes" });
-  if (hasResults) tocEntries.push({ id: "section-results", title: "Results" });
+  if (hasNotes) tocEntries.push({ id: anchor("section-labnotes"), title: "Lab Notes" });
+  if (hasResults) tocEntries.push({ id: anchor("section-results"), title: "Results" });
   if (hasMethods) {
     methods.forEach((mp) => {
       tocEntries.push({
-        id: `section-methods-${mp.method.id}`,
+        id: anchor(`section-methods-${mp.method.id}`),
         title: `Method: ${mp.method.name}`,
       });
     });
   }
   if (hasSubTasks)
-    tocEntries.push({ id: "section-subtasks", title: "Sub-tasks" });
+    tocEntries.push({ id: anchor("section-subtasks"), title: "Sub-tasks" });
   if (hasDeviation)
-    tocEntries.push({ id: "section-deviation", title: "Deviation log" });
+    tocEntries.push({ id: anchor("section-deviation"), title: "Deviation log" });
   if (hasFiles)
-    tocEntries.push({ id: "section-files", title: "Files attached" });
+    tocEntries.push({ id: anchor("section-files"), title: "Files attached" });
 
   // ── Section renderers ────────────────────────────────────────────────────
-
-  function MetaRow({ label, value }: { label: string; value: string }) {
-    return h(
-      Text,
-      { style: styles.metaRow },
-      h(Text, { style: styles.metaLabel }, `${label.padEnd(11, " ")} `),
-      value,
-    );
-  }
-
-  function TitlePage() {
-    return h(
-      Page,
-      { size: "A4", style: styles.page },
-      h(Text, { style: styles.titleH1 }, task.name),
-      h(MetaRow, { label: "Project:", value: project.name }),
-      h(MetaRow, { label: "Owner:", value: meta.ownerLabel }),
-      h(MetaRow, {
-        label: "Date range:",
-        value: `${task.start_date} → ${task.end_date}`,
-      }),
-      h(MetaRow, {
-        label: "Duration:",
-        value: `${meta.durationDays} day${meta.durationDays === 1 ? "" : "s"}`,
-      }),
-      h(MetaRow, { label: "Status:", value: meta.statusLabel }),
-      h(MetaRow, {
-        label: "Methods:",
-        value: meta.methodNames.length ? meta.methodNames.join(", ") : "—",
-      }),
-      h(
-        Text,
-        { style: styles.generatedNote },
-        `Generated:  ${meta.exportedAt} by ResearchOS`,
-      ),
-    );
-  }
-
-  function TocPage() {
-    return h(
-      Page,
-      { size: "A4", style: styles.page },
-      h(Text, { style: styles.tocTitle }, "Contents"),
-      ...tocEntries.map((e) =>
-        h(
-          Link,
-          { key: e.id, src: `#${e.id}`, style: styles.tocEntry },
-          e.title,
-        ),
-      ),
-    );
-  }
 
   function LabNotesSection() {
     return h(
       SectionView,
       {
-        id: "section-labnotes",
+        id: anchor("section-labnotes"),
         bookmark: { title: "Lab Notes", fit: true },
         style: styles.sectionWrap,
       },
@@ -866,7 +849,7 @@ export async function buildPdf(
     return h(
       SectionView,
       {
-        id: "section-results",
+        id: anchor("section-results"),
         bookmark: { title: "Results", fit: true },
         style: styles.sectionWrap,
       },
@@ -1992,7 +1975,7 @@ export async function buildPdf(
     return h(
       SectionView,
       {
-        id: `section-methods-${method.id}`,
+        id: anchor(`section-methods-${method.id}`),
         bookmark: { title: `Method: ${method.name}`, fit: true },
         style: styles.sectionWrap,
       },
@@ -2004,7 +1987,7 @@ export async function buildPdf(
     return h(
       SectionView,
       {
-        id: "section-subtasks",
+        id: anchor("section-subtasks"),
         bookmark: { title: "Sub-tasks", fit: true },
         style: styles.sectionWrap,
       },
@@ -2036,7 +2019,7 @@ export async function buildPdf(
     return h(
       SectionView,
       {
-        id: "section-deviation",
+        id: anchor("section-deviation"),
         bookmark: { title: "Deviation log", fit: true },
         style: styles.sectionWrap,
       },
@@ -2085,7 +2068,7 @@ export async function buildPdf(
     return h(
       SectionView,
       {
-        id: "section-files",
+        id: anchor("section-files"),
         bookmark: { title: "Files attached", fit: true },
         style: styles.sectionWrap,
       },
@@ -2093,26 +2076,24 @@ export async function buildPdf(
     );
   }
 
-  // ── Build document tree ──────────────────────────────────────────────────
+  // ── Collect section nodes ────────────────────────────────────────────────
+  //
+  // Each key is namespaced by `idPrefix` so a combined document holding
+  // several experiments never emits duplicate React keys across items.
 
   const contentChildren: React.ReactNode[] = [];
-  if (hasNotes) contentChildren.push(h(LabNotesSection, { key: "ln" }));
-  if (hasResults) contentChildren.push(h(ResultsSection, { key: "rs" }));
+  if (hasNotes) contentChildren.push(h(LabNotesSection, { key: `${idPrefix}ln` }));
+  if (hasResults) contentChildren.push(h(ResultsSection, { key: `${idPrefix}rs` }));
   if (hasMethods) {
     methods.forEach((mp) => {
-      contentChildren.push(h(MethodSubsection, { key: `m${mp.method.id}`, mp }));
+      contentChildren.push(
+        h(MethodSubsection, { key: `${idPrefix}m${mp.method.id}`, mp }),
+      );
     });
   }
-  if (hasSubTasks) contentChildren.push(h(SubTasksSection, { key: "st" }));
-  if (hasDeviation) contentChildren.push(h(DeviationSection, { key: "dv" }));
-  if (hasFiles) contentChildren.push(h(FilesAppendix, { key: "fa" }));
-
-  const ContentPage = () =>
-    h(
-      Page,
-      { size: "A4", style: styles.page, wrap: true },
-      ...contentChildren,
-    );
+  if (hasSubTasks) contentChildren.push(h(SubTasksSection, { key: `${idPrefix}st` }));
+  if (hasDeviation) contentChildren.push(h(DeviationSection, { key: `${idPrefix}dv` }));
+  if (hasFiles) contentChildren.push(h(FilesAppendix, { key: `${idPrefix}fa` }));
 
   // Provenance manifest, embedded as PDF metadata so downstream tooling can
   // detect "this came from a ResearchOS export" without inspecting content.
@@ -2129,9 +2110,104 @@ export async function buildPdf(
     task_id: task.id,
   };
 
+  return { tocEntries, contentChildren, manifest };
+}
+
+// ── Single-experiment PDF generator ─────────────────────────────────────────
+
+export async function buildPdf(
+  payload: ExperimentExportPayload,
+  baseFilename?: string,
+): Promise<ExportResult> {
+  const ReactPDF: any = await import("@react-pdf/renderer");
+  const { pdf, Document, Page, View, Text, Link, StyleSheet } = ReactPDF;
+  const h = React.createElement;
+
+  registerExportFonts(ReactPDF);
+
+  const styles = StyleSheet.create({
+    page: {
+      paddingTop: 72,
+      paddingBottom: 72,
+      paddingHorizontal: 72,
+      fontSize: 11,
+      fontFamily: "Inter",
+      lineHeight: 1.4,
+      color: "#111",
+    },
+    titleH1: { fontSize: 24, fontFamily: "Inter", fontWeight: "bold", marginBottom: 28 },
+    metaRow: { fontSize: 11, marginBottom: 6 },
+    metaLabel: { fontFamily: "Inter", fontWeight: "bold" },
+    generatedNote: { fontSize: 10, color: "#666", marginTop: 36 },
+    tocTitle: { fontSize: 18, fontFamily: "Inter", fontWeight: "bold", marginBottom: 18 },
+    tocEntry: { fontSize: 12, marginBottom: 8, color: "#0066cc" },
+  });
+
+  const { task, project, meta } = payload;
+  const { tocEntries, contentChildren, manifest } = buildExperimentParts(
+    ReactPDF,
+    payload,
+  );
+
+  function MetaRow({ label, value }: { label: string; value: string }) {
+    return h(
+      Text,
+      { style: styles.metaRow },
+      h(Text, { style: styles.metaLabel }, `${label.padEnd(11, " ")} `),
+      value,
+    );
+  }
+
+  const TitlePage = () =>
+    h(
+      Page,
+      { size: "A4", style: styles.page },
+      h(Text, { style: styles.titleH1 }, task.name),
+      h(MetaRow, { label: "Project:", value: project.name }),
+      h(MetaRow, { label: "Owner:", value: meta.ownerLabel }),
+      h(MetaRow, {
+        label: "Date range:",
+        value: `${task.start_date} → ${task.end_date}`,
+      }),
+      h(MetaRow, {
+        label: "Duration:",
+        value: `${meta.durationDays} day${meta.durationDays === 1 ? "" : "s"}`,
+      }),
+      h(MetaRow, { label: "Status:", value: meta.statusLabel }),
+      h(MetaRow, {
+        label: "Methods:",
+        value: meta.methodNames.length ? meta.methodNames.join(", ") : "—",
+      }),
+      h(
+        Text,
+        { style: styles.generatedNote },
+        `Generated:  ${meta.exportedAt} by ResearchOS`,
+      ),
+    );
+
+  const TocPage = () =>
+    h(
+      Page,
+      { size: "A4", style: styles.page },
+      h(Text, { style: styles.tocTitle }, "Contents"),
+      ...tocEntries.map((e) =>
+        h(Link, { key: e.id, src: `#${e.id}`, style: styles.tocEntry }, e.title),
+      ),
+    );
+
+  const ContentPage = () =>
+    h(
+      Page,
+      { size: "A4", style: styles.page, wrap: true },
+      ...contentChildren,
+    );
+
   // Deterministic creationDate — use `meta.exportedAt` instead of
   // `new Date()` so re-exports of the same task don't differ only in PDF
   // metadata. Mirrors the JSZip `date:` story for raw / html.
+  // `void View` keeps the destructured component referenced even though the
+  // single-export document only assembles Page/Text/Link directly.
+  void View;
   const docTree = h(
     Document,
     {
