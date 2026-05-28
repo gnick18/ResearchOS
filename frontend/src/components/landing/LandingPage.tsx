@@ -188,7 +188,10 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
   };
 
   const handleTryDemo = () => {
-    markLandingSeen();
+    // Note: deliberately does NOT mark the landing seen. Trying the demo is
+    // exploration, not "I'm done with the sell" — leaving the demo should
+    // return the visitor to the landing, same as the docs / comparison links.
+    // Only "Get Started" (entering folder setup) marks the landing seen.
     router.push("/demo");
   };
 
@@ -246,7 +249,6 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
           <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-slate-400">
             <Link
               href="/wiki/getting-started"
-              onClick={markLandingSeen}
               data-testid="landing-read-docs"
               className="font-medium text-sky-300 underline-offset-4 hover:text-sky-200 hover:underline"
             >
@@ -257,7 +259,6 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             </span>
             <Link
               href="/wiki/security"
-              onClick={markLandingSeen}
               data-testid="landing-how-private"
               className="font-medium text-sky-300 underline-offset-4 hover:text-sky-200 hover:underline"
             >
@@ -607,7 +608,6 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             thing exists). Want the row-by-row detail?{" "}
             <Link
               href="/wiki/compliance/labarchives-comparison"
-              onClick={markLandingSeen}
               data-testid="landing-compare-full"
               className="font-semibold text-sky-600 underline-offset-2 hover:text-sky-700 hover:underline"
             >
@@ -637,7 +637,6 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
               href="/wiki/compliance/nih-data-management"
-              onClick={markLandingSeen}
               data-testid="landing-nih-compliance"
               className="rounded-xl bg-white px-6 py-3 text-base font-semibold text-sky-700 shadow-lg transition-all hover:scale-[1.02] hover:bg-sky-50"
             >
@@ -645,7 +644,6 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             </Link>
             <Link
               href="/wiki/compliance/labarchives-comparison"
-              onClick={markLandingSeen}
               className="rounded-xl border border-white/40 px-6 py-3 text-base font-semibold text-white transition-all hover:bg-white/10"
             >
               Compare to LabArchives

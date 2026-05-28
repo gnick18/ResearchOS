@@ -18,8 +18,11 @@
  * who already engaged once; it never gates a returning user.
  */
 
-/** localStorage key set once the visitor engages any landing CTA, so a
- *  reload mid-connect-flow does not re-show the sell. */
+/** localStorage key set once the visitor clicks "Get Started" (chooses to
+ *  enter folder setup), so a reload mid-connect-flow does not re-show the
+ *  sell. Deliberately NOT set by the exploratory links (docs, security,
+ *  comparison, Try the demo): reading those is part of the sell, so
+ *  returning to the app should land back on the landing, not skip past it. */
 export const LANDING_SEEN_KEY = "researchos:seen-landing";
 
 /** URL query param that bypasses the landing and drops straight onto the
