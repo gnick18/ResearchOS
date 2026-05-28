@@ -134,6 +134,7 @@ export default function DevForceWalkthroughButton({
   };
 
   const handleConfirmUser = async () => {
+    console.log("[RR-DEBUG] DevForceWalkthroughButton.handleConfirmUser ENTRY");
     if (busy) return;
     setBusy(true);
     setError(null);
@@ -178,7 +179,9 @@ export default function DevForceWalkthroughButton({
       // From AppShell: no callback needed (setCurrentUser updates the
       // FileSystem context, which re-renders AppShell with the new user).
       // Either way, V4MountForUser reads the fresh sidecar + TourBootstrap fires.
+      console.log("[RR-DEBUG] DevForceWalkthroughButton — about to setCurrentUser", testUserName);
       await setCurrentUser(testUserName);
+      console.log("[RR-DEBUG] DevForceWalkthroughButton — setCurrentUser resolved");
       setMode(null);
       onLoggedIn?.();
     } catch (err) {
