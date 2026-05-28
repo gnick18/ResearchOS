@@ -165,6 +165,17 @@ export default function ShareDialog({
       return;
     }
     setShared((prev) => upsertSharedEntry(prev, addUsername, addLevel));
+    // Notify the onboarding v4 share-back walkthrough beat that a user
+    // was added to the in-dialog share list (the Add button only updates
+    // local dialog state; Save persists). Cheap no-op when no tour is
+    // active and SSR-safe.
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("tour:share-user-added", {
+          detail: { username: addUsername, level: addLevel },
+        }),
+      );
+    }
     setAddUsername("");
     setError(null);
   };

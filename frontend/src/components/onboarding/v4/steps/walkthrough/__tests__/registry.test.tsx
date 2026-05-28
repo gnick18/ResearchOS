@@ -99,6 +99,7 @@ const P5_STEP_IDS = [
   "gantt-share-user-shares-back",
   "gantt-share-user-clicks-share",
   "gantt-share-user-fills-dialog",
+  "gantt-share-user-saves-dialog",
   "gantt-share-profile-switch",
   "gantt-share-user-sees-edit",
   "gantt-goals-overview",

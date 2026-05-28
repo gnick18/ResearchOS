@@ -1,8 +1,9 @@
 /**
  * §6.8 lab-only share cluster step bodies (Gantt redesign 2026-05-22,
  * Gantt manager). The single share-back step was split into a 3-beat
- * USER_ACTION cluster on 2026-05-28 (share-back user-action manager), so
- * the file now exports 9 step constants.
+ * USER_ACTION cluster on 2026-05-28 (share-back user-action manager), then
+ * the dialog beat was itself split into Add + Save beats on 2026-05-28
+ * (share-dialog manager), so the file now exports 10 step constants.
  *
  * Co-located in one file because each step is small and they share the
  * same support helpers (gantt-share-helpers). Splitting into separate
@@ -16,7 +17,8 @@
  *   4.  gantt-share-user-explores    : user-action, popup poke
  *   5a. gantt-share-user-shares-back : user-action, click Fake A to open
  *   5b. gantt-share-user-clicks-share: user-action, click Share on popup
- *   5c. gantt-share-user-fills-dialog: user-action, pick beakerbot + edit
+ *   5c. gantt-share-user-fills-dialog: user-action, pick beakerbot + edit, Add
+ *   5d. gantt-share-user-saves-dialog: user-action, click Save to persist
  *   6.  gantt-share-profile-switch   : REAL profile switch (or faked fallback)
  *   7.  gantt-share-user-sees-edit   : user-action, see BeakerBot's note
  */
@@ -32,6 +34,7 @@ import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 import {
   watchExperimentPopupOpened,
   watchShareDialogOpened,
+  watchShareUserAdded,
 } from "./lib/tour-events";
 import { useOptionalTourController } from "../../TourController";
 import {
@@ -240,10 +243,17 @@ export const ganttShareUserExploresStep = buildWalkthroughStep({
 //       Advance on `tour:share-dialog-opened` when the dialog mounts.
 //
 //   5c. gantt-share-user-fills-dialog (NEW)
-//       Spotlight the share dialog. Speech guides "pick beakerbot, give
-//       edit permission, confirm." Advance on the share-completion poll
+//       Spotlight the "Pick a user" dropdown. Speech guides "pick
+//       beakerbot, leave permission on edit, click Add." Advance on
+//       `tour:share-user-added` (filtered to beakerbot) when the user is
+//       added to the in-dialog list (the Add button is local state only).
+//
+//   5d. gantt-share-user-saves-dialog (NEW, share-dialog manager 2026-05-28)
+//       Spotlight the Save button. Speech guides "click Save to persist
+//       and head back to the Gantt." Advance on the share-completion poll
 //       (Fake A's shared_with carries BeakerBot @ permission "edit"),
-//       reused verbatim from the prior single-step completion.
+//       moved verbatim from the prior fills-dialog completion. Save is
+//       the button that actually writes the share to disk.
 //
 // Why this refactor (Grant 2026-05-28): the cursor demo kept regressing.
 // The synthetic bar click did not reliably fire the bar's React onClick,
@@ -265,6 +275,7 @@ export const ganttShareUserExploresStep = buildWalkthroughStep({
 const SHARE_BACK_OPEN_STEP_ID = "gantt-share-user-shares-back";
 const SHARE_BACK_CLICK_SHARE_STEP_ID = "gantt-share-user-clicks-share";
 const SHARE_BACK_FILL_DIALOG_STEP_ID = "gantt-share-user-fills-dialog";
+const SHARE_BACK_SAVE_DIALOG_STEP_ID = "gantt-share-user-saves-dialog";
 
 /** Beat 5a (id PRESERVED): spotlight Fake A's Gantt bar. The user clicks
  *  it to open the TaskDetailPopup; `TaskDetailPopup` dispatches
@@ -354,35 +365,86 @@ export const ganttShareUserClicksShareStep = buildWalkthroughStep({
   expectedRoute: "/gantt",
 });
 
-/** Beat 5c (NEW): spotlight the share dialog. Speech guides the user
- *  through picking BeakerBot, granting edit permission, and confirming.
- *  Completion is the share-completion poll reused verbatim from the
- *  prior single-step: it detects when Fake A in the user's namespace has
- *  BeakerBot in its `shared_with` list with permission === "edit". The
- *  sharing API does not dispatch a global event, so this poll is the
- *  simplest reliable final signal. */
+/** Beat 5c (REWORKED, share-dialog manager 2026-05-28): spotlight the
+ *  "Pick a user" dropdown (not the whole dialog). Speech guides the user
+ *  to pick BeakerBot, leave the permission on Edit, and click Add. The
+ *  Add button only mutates the dialog's local "Currently shared with"
+ *  list (it does NOT persist), so the prior disk-poll completion could
+ *  not fire here. This beat now advances on `tour:share-user-added`
+ *  (dispatched by ShareDialog.handleAdd), filtered to beakerbot. The
+ *  follow-up 5d beat guides the Save that actually writes to disk and
+ *  owns the disk-poll (moved there verbatim). */
 export const ganttShareUserFillsDialogStep = buildWalkthroughStep({
   id: SHARE_BACK_FILL_DIALOG_STEP_ID,
   speech: (
     <>
       <p className="mb-2">
-        Your turn. Pick me (<strong>beakerbot</strong>), give me edit
-        permission, and confirm.
+        Your turn. Pick me (<strong>beakerbot</strong>) from the dropdown,
+        leave the permission on <strong>Edit</strong>, and click{" "}
+        <strong>Add</strong>.
       </p>
       <p className="text-xs text-gray-500">
-        Add me, leave the permission on Edit, then hit the confirm button
-        to share.
+        Adding me puts me on the share list. We will save it next.
       </p>
     </>
   ),
   pose: "pointing",
-  targetSelector: targetSelector(TOUR_TARGETS.shareDialog),
+  targetSelector: targetSelector(TOUR_TARGETS.shareDialogUserRow),
   // No cursorScript: USER_ACTION beat. The user drives the dialog.
+  completion: advanceOnEvent((advance) =>
+    watchShareUserAdded((detail) => {
+      if (detail?.username === BEAKERBOT_LAB_USERNAME) advance();
+    }),
+  ),
+  // Allow-list: the share dialog affordances the user clicks in
+  // sequence. shareDialogConfirm (Save) stays allowed so a fast user who
+  // reaches for Save before this beat advances on the Add event does not
+  // trip the wrong-click flash; taskPopupClose stays allowed so closing
+  // the underlying popup is not flashed.
+  pageLock: {
+    allowList: [
+      TOUR_TARGETS.shareDialog,
+      TOUR_TARGETS.shareDialogUserRow,
+      TOUR_TARGETS.shareDialogAdd,
+      TOUR_TARGETS.shareDialogConfirm,
+      TOUR_TARGETS.taskPopupClose,
+    ],
+    pillLabel: "Pick beakerbot, leave it on Edit, then click Add.",
+  },
+  expectedRoute: "/gantt",
+});
+
+/** Beat 5d (NEW, share-dialog manager 2026-05-28): spotlight the Save
+ *  button. After 5c's Add put BeakerBot on the in-dialog list, this beat
+ *  guides the user to click Save, which persists the share to disk and
+ *  closes the dialog. Completion is the share-completion poll moved
+ *  verbatim from the prior fills-dialog beat: it detects when Fake A in
+ *  the user's namespace has BeakerBot in its `shared_with` list with
+ *  permission === "edit". The sharing API does not dispatch a global
+ *  event, so this poll is the simplest reliable final signal — and it
+ *  only trips once Save has actually written the share. */
+export const ganttShareUserSavesDialogStep = buildWalkthroughStep({
+  id: SHARE_BACK_SAVE_DIALOG_STEP_ID,
+  speech: (
+    <>
+      <p className="mb-2">
+        Nice, you added me with edit access. Now click <strong>Save</strong>{" "}
+        to share it and head back to the Gantt.
+      </p>
+      <p className="text-xs text-gray-500">
+        Save writes the share and closes the dialog.
+      </p>
+    </>
+  ),
+  pose: "pointing",
+  targetSelector: targetSelector(TOUR_TARGETS.shareDialogConfirm),
+  // No cursorScript: USER_ACTION beat. The user clicks Save themselves.
   completion: advanceOnEvent((advance) => {
     // Polling-based completion: detect when Fake A in the user's
     // namespace has BeakerBot in its `shared_with` list with permission
     // === "edit". The current sharing API doesn't dispatch a global
-    // event; this poll is the simplest reliable signal.
+    // event; this poll is the simplest reliable signal. Moved verbatim
+    // from the prior fills-dialog beat (it only fires once Save persists).
     let cancelled = false;
     let timer: ReturnType<typeof setInterval> | undefined;
 
@@ -408,7 +470,7 @@ export const ganttShareUserFillsDialogStep = buildWalkthroughStep({
         }
       } catch (err) {
         console.warn(
-          "[gantt-share-user-fills-dialog] share-poll failed",
+          "[gantt-share-user-saves-dialog] share-poll failed",
           err,
         );
       }
@@ -421,20 +483,20 @@ export const ganttShareUserFillsDialogStep = buildWalkthroughStep({
       if (timer) clearInterval(timer);
     };
   }),
-  // Allow-list: the share dialog affordances the user clicks in
-  // sequence. shareDialogAdd is required because the user must move
-  // BeakerBot into the share list before confirm becomes meaningful;
+  // Allow-list: the share dialog affordances the user clicks. Save
+  // (shareDialogConfirm) is the action; the picker + Add stay allowed so
+  // a user who needs to re-add beakerbot before saving is not flashed;
   // taskPopupClose stays allowed so closing the underlying popup after
   // the share lands is not flashed.
   pageLock: {
     allowList: [
       TOUR_TARGETS.shareDialog,
+      TOUR_TARGETS.shareDialogConfirm,
       TOUR_TARGETS.shareDialogUserRow,
       TOUR_TARGETS.shareDialogAdd,
-      TOUR_TARGETS.shareDialogConfirm,
       TOUR_TARGETS.taskPopupClose,
     ],
-    pillLabel: "Pick beakerbot, give edit permission, then confirm.",
+    pillLabel: "Click Save to share and return to the Gantt.",
   },
   expectedRoute: "/gantt",
 });

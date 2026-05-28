@@ -1202,18 +1202,22 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
     // Solo+minimal skips: 4 prior conditionals (telegram, calendar,
     // links, gantt-goals-overview) + 4 ai-helper-* (Wave 1 2026-05-27
     // added ai-helper-size-options to the trio, all 4 share the same
-    // gate) + 8 purchases cluster + 1 lab-cleanup + 9 Gantt share
+    // gate) + 8 purchases cluster + 1 lab-cleanup + 10 Gantt share
     // cluster + 1 HE-3 (branch-gated) + 1 settings-tour-* conditional
     // (telegram; calendar's settings beat retired 2026-05-27,
     // account-type-toggle FIRES for solo) + 1 setup-q1c (lab-only) =
-    // 29 gated out for solo. Constant dropped from 28 to 27 on
+    // 30 gated out for solo. Constant dropped from 28 to 27 on
     // 2026-05-27 when the settings-tour-calendar step was retired (the
     // retirement removed a step from BOTH TOUR_STEP_ORDER and the gating
     // cohort), then rose from 27 to 29 on 2026-05-28 when
     // share-back user-action manager split gantt-share-user-shares-back
     // into 3 lab-only beats (2 net-new lab-only steps, both gated out
-    // for solo, added to BOTH TOUR_STEP_ORDER and the share cluster).
-    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 29);
+    // for solo, added to BOTH TOUR_STEP_ORDER and the share cluster),
+    // then rose from 29 to 30 on 2026-05-28 when share-dialog manager
+    // split gantt-share-user-fills-dialog into Add + Save beats (1
+    // net-new lab-only step, gated out for solo, added to BOTH
+    // TOUR_STEP_ORDER and the share cluster).
+    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 30);
     // Lab+max only has HE-3 (branch-gated, choice cache empty) +
     // settings-tour-account-type-toggle (gates on solo, so lab skips it)
     // = 2 gated out.

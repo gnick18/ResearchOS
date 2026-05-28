@@ -363,7 +363,8 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // The first id is preserved for migration continuity.
   "gantt-share-user-shares-back", // lab: user-action, click Fake A to open popup
   "gantt-share-user-clicks-share",// lab: user-action, click Share on the popup
-  "gantt-share-user-fills-dialog",// lab: user-action, pick beakerbot + edit + confirm
+  "gantt-share-user-fills-dialog",// lab: user-action, pick beakerbot + edit, click Add
+  "gantt-share-user-saves-dialog",// lab: user-action, click Save to persist the share
   "gantt-share-profile-switch",   // lab: REAL user-context switch (faked-flagged)
   "gantt-share-user-sees-edit",   // lab: user-action, open popup to see BeakerBot's note
   // Goals overview — RELOCATED to after the share cluster per
@@ -563,6 +564,7 @@ const GANTT_SHARE_LAB_ONLY_STEP_IDS: ReadonlySet<TourStepId> =
     "gantt-share-user-shares-back",
     "gantt-share-user-clicks-share",
     "gantt-share-user-fills-dialog",
+    "gantt-share-user-saves-dialog",
     "gantt-share-profile-switch",
     "gantt-share-user-sees-edit",
   ]);

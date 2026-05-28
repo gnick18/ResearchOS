@@ -124,6 +124,7 @@ import {
   ganttShareUserSharesBackStep,
   ganttShareUserClicksShareStep,
   ganttShareUserFillsDialogStep,
+  ganttShareUserSavesDialogStep,
   ganttShareProfileSwitchStep,
   ganttShareUserSeesEditStep,
 } from "../GanttShareClusterSteps";
@@ -254,6 +255,7 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   ganttShareUserSharesBackStep,
   ganttShareUserClicksShareStep,
   ganttShareUserFillsDialogStep,
+  ganttShareUserSavesDialogStep,
   ganttShareProfileSwitchStep,
   ganttShareUserSeesEditStep,
   ganttGoalsStep,
@@ -358,6 +360,7 @@ describe("P5 step bodies — universal contract", () => {
       "gantt-share-user-shares-back",
       "gantt-share-user-clicks-share",
       "gantt-share-user-fills-dialog",
+      "gantt-share-user-saves-dialog",
       "gantt-share-profile-switch",
       "gantt-share-user-sees-edit",
       "gantt-goals-overview",

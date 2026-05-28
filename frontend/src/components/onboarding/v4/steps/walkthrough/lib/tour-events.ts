@@ -160,6 +160,17 @@ export const TOUR_DOM_EVENTS = {
    */
   shareDialogOpened: "tour:share-dialog-opened",
   /**
+   * Dispatched by `ShareDialog.tsx` from `handleAdd` when the user adds a
+   * user to the in-dialog "Currently shared with" list (the Add button
+   * only mutates local dialog state; Save persists). The §6.8
+   * `gantt-share-user-fills-dialog` beat (share-dialog manager 2026-05-28)
+   * advances on this so BeakerBot can acknowledge the Add, then the
+   * follow-up `gantt-share-user-saves-dialog` beat guides the Save.
+   * Detail carries `{ username, level }` so the listener can filter to
+   * beakerbot before advancing.
+   */
+  shareUserAdded: "tour:share-user-added",
+  /**
    * Dispatched by `NewPurchaseModal.tsx` after the parent task + line
    * item save succeeds. The §6.14 `purchases` cursor-driven demo step
    * captures the task id, line item id, and the typed funding string
@@ -948,6 +959,35 @@ export function watchShareDialogOpened(advance: () => void): () => void {
   return () => {
     removeListener?.();
     mo?.disconnect();
+  };
+}
+
+/**
+ * Watch for a user to be added to the share dialog's in-dialog list.
+ * `ShareDialog.tsx` dispatches `tour:share-user-added` from `handleAdd`
+ * when the user clicks Add (local dialog state only; Save persists). The
+ * §6.8 `gantt-share-user-fills-dialog` beat (share-dialog manager
+ * 2026-05-28) advances on this so BeakerBot can acknowledge the Add and
+ * the follow-up `gantt-share-user-saves-dialog` beat can guide the Save.
+ *
+ * Unlike the fire-and-forget popup-mount watchers, this helper forwards
+ * the event detail (`{ username, level }`) to the callback so the step
+ * body can filter to beakerbot before advancing. Returns a cleanup that
+ * removes the listener (matches the unsubscribe shape the controller
+ * expects).
+ */
+export function watchShareUserAdded(
+  onAdded: (detail: { username?: string; level?: string } | undefined) => void,
+): () => void {
+  if (typeof window === "undefined") return () => {};
+  const handler = (event: Event) => {
+    const detail = (event as CustomEvent<{ username?: string; level?: string }>)
+      .detail;
+    onAdded(detail);
+  };
+  window.addEventListener(TOUR_DOM_EVENTS.shareUserAdded, handler);
+  return () => {
+    window.removeEventListener(TOUR_DOM_EVENTS.shareUserAdded, handler);
   };
 }
 
