@@ -254,11 +254,13 @@ describe("ResearchFolderSetupNew drop zone", () => {
 // pre-warns up front and surfaces a recovery hint after any aborted
 // picker call, so a blocked user gets a concrete next step.
 describe("ResearchFolderSetupNew system-folder block UX", () => {
-  it("renders the pre-warn copy above the picker cards on initial mount", () => {
+  it("surfaces the Chrome system-folder rule inline in the make-a-folder steps", () => {
+    // The standalone amber pre-warn banner was dropped 2026-05-28 to
+    // declutter; the same guidance now lives in the make-a-folder steps.
     render(<ResearchFolderSetup onComplete={vi.fn()} />);
-    const prewarn = screen.getByTestId("picker-system-folder-prewarn");
-    expect(prewarn.textContent).toContain("Chrome blocks Desktop, Documents, and Downloads");
-    expect(prewarn.textContent).toContain("Documents/ResearchOS");
+    const steps = screen.getByTestId("picker-make-folder-steps");
+    expect(steps.textContent).toContain("Chrome blocks Desktop, Documents, and Downloads");
+    expect(steps.textContent).toContain("Documents/ResearchOS");
   });
 
   it("does not show the recovery hint on initial mount", () => {

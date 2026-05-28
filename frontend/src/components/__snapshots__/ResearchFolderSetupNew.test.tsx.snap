@@ -49,9 +49,20 @@ exports[`ResearchFolderSetupNew drop zone > renders the drop-zone with default h
       </p>
       <ol
         class="text-xs text-slate-400 leading-relaxed list-decimal list-inside space-y-0.5"
+        data-testid="picker-make-folder-steps"
       >
         <li>
-          Open your file manager and make a new folder anywhere you like (Documents/ResearchOS works well). Inside Desktop, Documents, or Downloads is fine: Chrome only blocks those top-level folders themselves, not a folder you make inside them.
+          Open your file manager and make a 
+          <strong>
+            new
+          </strong>
+           
+          folder anywhere you like (Documents/ResearchOS works well).
+           
+          <strong>
+            IMPORTANT
+          </strong>
+          : Chrome blocks Desktop, Documents, and Downloads themselves, but a folder you make INSIDE any of them works fine. Make a new folder (like Documents/ResearchOS), then link that folder, not the top-level one.
         </li>
         <li>
           Name it something like ResearchOS.

@@ -691,22 +691,12 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
             of the max-w-3xl wrapper, unaffected by BeakerBot's
             absolute positioning. */}
         <div>
-        {/* Pre-warn for Chrome's system-folder block. The File System
-            Access API refuses Desktop, Documents (root), Downloads,
-            and the home directory with a native "Can't open this
-            folder ... contains system files" dialog that JS can't
-            suppress. Surfacing the rule up front saves users a
-            dead-end click. Inline amber text rather than a heavy
-            alert because the picker UI is the main attraction. */}
-        <p
-          data-testid="picker-system-folder-prewarn"
-          className="mb-3 text-center text-xs text-amber-300/90"
-        >
-          Heads up: Chrome blocks Desktop, Documents, and Downloads
-          themselves, but a folder you make INSIDE any of them works fine.
-          Make a new folder (like Documents/ResearchOS), then link that
-          folder, not the top-level one.
-        </p>
+        {/* Chrome's system-folder block (Desktop / Documents-root /
+            Downloads / home throw a native "contains system files"
+            dialog JS can't suppress) is now explained inline in the
+            make-a-folder steps below, so the separate amber pre-warn
+            banner that used to sit here was dropped to declutter the
+            screen (Grant 2026-05-28). */}
         <div className="max-w-xl mx-auto">
           <div
             data-testid="link-folder-drop-zone"
@@ -753,13 +743,18 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                 <p className="text-xs font-medium text-slate-300 mb-1">
                   Starting fresh? Make an empty folder first:
                 </p>
-                <ol className="text-xs text-slate-400 leading-relaxed list-decimal list-inside space-y-0.5">
+                <ol
+                  data-testid="picker-make-folder-steps"
+                  className="text-xs text-slate-400 leading-relaxed list-decimal list-inside space-y-0.5"
+                >
                   <li>
-                    Open your file manager and make a new folder anywhere you
-                    like (Documents/ResearchOS works well). Inside Desktop,
-                    Documents, or Downloads is fine: Chrome only blocks those
-                    top-level folders themselves, not a folder you make inside
-                    them.
+                    Open your file manager and make a <strong>new</strong>{" "}
+                    folder anywhere you like (Documents/ResearchOS works well).{" "}
+                    <strong>IMPORTANT</strong>: Chrome blocks Desktop,
+                    Documents, and Downloads themselves, but a folder you make
+                    INSIDE any of them works fine. Make a new folder (like
+                    Documents/ResearchOS), then link that folder, not the
+                    top-level one.
                   </li>
                   <li>Name it something like ResearchOS.</li>
                   <li>
