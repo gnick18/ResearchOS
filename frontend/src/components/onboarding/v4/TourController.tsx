@@ -1282,6 +1282,33 @@ export function TourControllerProvider({
     // only ever for unsolicited surface closes.
     let cursorScriptRanThisStep = false;
 
+    // USER_ACTION completion-event suppression (Grant 2026-05-27).
+    // When a step's manual-advance is gated on a `disabledUntilEvent`
+    // (e.g. workbench-create-experiment-submit waits on
+    // `tour:experiment-created`), the user clicking the spotlighted
+    // button is what fires that event AND closes the surface the button
+    // lived in (the New Experiment modal unmounts on a successful
+    // create). Without this guard the MutationObserver sees the button
+    // detach and fires "Looks like that closed, re-open and try again"
+    // even though the user did exactly what was asked. Track whether the
+    // completion event has fired; once it has, any subsequent detach is
+    // the expected success effect, not a mis-click. Mirrors the
+    // cursorScriptRanThisStep suppression for the BeakerBot-demo case.
+    let completionEventFired = false;
+    const completionEvent =
+      body.completion.type === "manual"
+        ? body.completion.disabledUntilEvent
+        : undefined;
+    const onCompletionEvent = () => {
+      completionEventFired = true;
+      // Clear any recovery hint that may have raced in just before the
+      // event landed, so a transient false-positive doesn't linger.
+      setTargetDetachRecovery(null);
+    };
+    if (completionEvent && typeof window !== "undefined") {
+      window.addEventListener(completionEvent, onCompletionEvent);
+    }
+
     const evaluate = () => {
       if (!selector) return;
       // Suppress while BeakerBot is actively driving — the modal-close
@@ -1299,6 +1326,9 @@ export function TourControllerProvider({
         return;
       }
       if (cursorScriptRanThisStep) return;
+      // USER_ACTION success path: the completion-gating event fired, so
+      // the surface closing is the expected result of the user's click.
+      if (completionEventFired) return;
       const present = !!document.querySelector(selector);
       if (!present && !detached) {
         detached = true;
@@ -1324,6 +1354,9 @@ export function TourControllerProvider({
       return () => {
         window.clearTimeout(initialTimer);
         mo?.disconnect();
+        if (completionEvent && typeof window !== "undefined") {
+          window.removeEventListener(completionEvent, onCompletionEvent);
+        }
       };
     }
 
@@ -1331,6 +1364,14 @@ export function TourControllerProvider({
     // case a future lab-only target-detach contract reappears (R5 may
     // need it for the `/lab` deletion sweep).
     void isLabStep;
+
+    // No-selector path still has to tear down the completion-event
+    // listener if one was attached above.
+    return () => {
+      if (completionEvent && typeof window !== "undefined") {
+        window.removeEventListener(completionEvent, onCompletionEvent);
+      }
+    };
   }, [state.currentStep, state.paused]);
 
   // Render-time stale-step guard (Bug 5 fix). The flashSpeech consumer
