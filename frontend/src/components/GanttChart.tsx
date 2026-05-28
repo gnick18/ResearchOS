@@ -512,6 +512,18 @@ export default function GanttChart({
   // Goal hover state
   const [, setHoveredGoal] = useState<HighLevelGoal | null>(null);
 
+  // Chain hover-highlight state (Grant 2026-05-27): when the user hovers
+  // any task bar that's part of a dependency chain, we surface that
+  // membership by ringing all bars in the same chain and dimming
+  // non-chain bars. The chainId comes from chainInfo (computed below
+  // via assignChainIds). Null means no chain is currently highlighted
+  // and every bar renders at normal opacity. This is the lightweight
+  // alternative to drawing literal arrows between bars on the Gantt:
+  // the chain-membership signal is delivered by coloring, not by
+  // pathing, so the row-shift problem that killed past arrow attempts
+  // doesn't apply.
+  const [hoveredChainId, setHoveredChainId] = useState<number | null>(null);
+
   // ---- PTO (Streak Phase S4) ------------------------------------------
   // Load the active user's PTO list once per user-switch. Used for:
   //   1. Striped PTO overlay on day cells / headers (visual)
@@ -1740,6 +1752,19 @@ export default function GanttChart({
                           const chainColor = taskChainInfo?.chainColor;
                           const positionInChain = taskChainInfo?.positionInChain ?? 0;
                           const chainTasks = taskChainInfo?.chainTasks || [task];
+                          // Chain hover-highlight (Grant 2026-05-27):
+                          // bars in the actively-hovered chain ring;
+                          // bars in OTHER chains (or no chain at all)
+                          // dim. We only consider real multi-member
+                          // chains (chainTasks.length > 1) for the
+                          // hover state itself; a single-member "chain"
+                          // is just a standalone task with no peer.
+                          const taskChainId = taskChainInfo?.chainId ?? null;
+                          const isHoveredChainMember =
+                            hoveredChainId !== null &&
+                            taskChainId === hoveredChainId;
+                          const isOtherChainBar =
+                            hoveredChainId !== null && !isHoveredChainMember;
 
                           // Base color for the task
                           // In Lab Mode: use user colors instead of project colors
@@ -1841,6 +1866,23 @@ export default function GanttChart({
                                 onDragEnd={isLabMode ? undefined : handleDragEnd}
                                 onDragOver={isLabMode ? undefined : (e) => handleDragOverTask(e, task)}
                                 onDrop={isLabMode ? undefined : (e) => handleDropOnTask(e, task)}
+                                onMouseEnter={() => {
+                                  // Chain hover-highlight (Grant 2026-05-27):
+                                  // only multi-member chains get a hover
+                                  // group; a solo task hovering its own
+                                  // "chain" of one wouldn't visually do
+                                  // anything (no peers to ring) but WOULD
+                                  // dim every other bar, which would be
+                                  // confusing. Gate on chainTasks.length > 1.
+                                  if (taskChainId !== null && chainTasks.length > 1) {
+                                    setHoveredChainId(taskChainId);
+                                  }
+                                }}
+                                onMouseLeave={() => {
+                                  setHoveredChainId((current) =>
+                                    current === taskChainId ? null : current,
+                                  );
+                                }}
                                 onClick={() => {
                                   if (isLabMode && onTaskClickLab) {
                                     onTaskClickLab(task as Task & { username?: string });
@@ -1850,10 +1892,28 @@ export default function GanttChart({
                                 }}
                                 className={`absolute inset-x-0 top-1 bottom-1 rounded-lg cursor-pointer flex items-center px-3 text-white text-xs font-medium truncate shadow-sm hover:shadow-md transition-all overflow-hidden ${
                                   isTaskDragged ? "opacity-50 scale-95" : ""
-                                } ${dragOverTask !== null && taskKey(dragOverTask) === tk ? "ring-2 ring-orange-400 ring-offset-1" : ""}`}
+                                } ${dragOverTask !== null && taskKey(dragOverTask) === tk ? "ring-2 ring-orange-400 ring-offset-1" : ""} ${
+                                  isHoveredChainMember ? "z-10" : ""
+                                }`}
                                 style={{
                                   backgroundColor: taskColor,
-                                  opacity: task.is_high_level ? 0.6 : isTaskDragged ? 0.3 : task.is_complete ? completedOpacity : 1,
+                                  opacity: task.is_high_level
+                                    ? (isOtherChainBar ? 0.25 : 0.6)
+                                    : isTaskDragged
+                                      ? 0.3
+                                      : isOtherChainBar
+                                        ? 0.35
+                                        : task.is_complete
+                                          ? completedOpacity
+                                          : 1,
+                                  // Chain hover-highlight: dynamic ring
+                                  // color matches the chain's color so
+                                  // the highlight reads as "these belong
+                                  // together" without picking a fixed
+                                  // accent. Only applied when isHoveredChainMember.
+                                  ...(isHoveredChainMember && chainColor
+                                    ? { boxShadow: `0 0 0 2px ${chainColor}` }
+                                    : {}),
                                 }}
                                 title={`${task.name}\n${task.start_date} → ${task.end_date}${isLabMode ? "" : "\nDrag to reschedule, or drop on another task to create dependency"}`}
                               >
