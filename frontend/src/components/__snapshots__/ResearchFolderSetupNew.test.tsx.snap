@@ -59,10 +59,14 @@ exports[`ResearchFolderSetupNew drop zone > renders the drop-zone with default h
            
           folder anywhere you like (Documents/ResearchOS works well).
            
-          <strong>
-            IMPORTANT
-          </strong>
-          : Chrome blocks Desktop, Documents, and Downloads themselves, but a folder you make INSIDE any of them works fine. Make a new folder (like Documents/ResearchOS), then link that folder, not the top-level one.
+          <span
+            class="text-amber-300 font-medium"
+          >
+            <strong>
+              IMPORTANT
+            </strong>
+            : Chrome blocks Desktop, Documents, and Downloads themselves, but a folder you make INSIDE any of them works fine.
+          </span>
         </li>
         <li>
           Name it something like ResearchOS.

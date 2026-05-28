@@ -750,11 +750,11 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                   <li>
                     Open your file manager and make a <strong>new</strong>{" "}
                     folder anywhere you like (Documents/ResearchOS works well).{" "}
-                    <strong>IMPORTANT</strong>: Chrome blocks Desktop,
-                    Documents, and Downloads themselves, but a folder you make
-                    INSIDE any of them works fine. Make a new folder (like
-                    Documents/ResearchOS), then link that folder, not the
-                    top-level one.
+                    <span className="text-amber-300 font-medium">
+                      <strong>IMPORTANT</strong>: Chrome blocks Desktop,
+                      Documents, and Downloads themselves, but a folder you make
+                      INSIDE any of them works fine.
+                    </span>
                   </li>
                   <li>Name it something like ResearchOS.</li>
                   <li>
