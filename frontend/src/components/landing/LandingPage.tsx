@@ -100,44 +100,74 @@ function FeatureCard({
   );
 }
 
-/** Small emerald check used in the ResearchOS column of the comparison. */
-function CheckMark() {
-  return (
-    <svg
-      className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-600"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      viewBox="0 0 24 24"
-      aria-hidden
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-    </svg>
-  );
+/** How a comparison cell is marked. `win` is an emerald check (a clear
+ *  advantage), `have` is a muted gray check (the column genuinely has or
+ *  leads on this), `soon` is a "Coming soon" pill (roadmapped for
+ *  ResearchOS), and `none` is plain text (does not have it). */
+type CellMark = "win" | "have" | "soon" | "none";
+
+/** Renders the leading mark for a comparison cell. A fixed-width slot keeps
+ *  text aligned across rows whether or not a check is present. */
+function MarkIcon({ mark }: { mark: CellMark }) {
+  if (mark === "soon") {
+    return (
+      <span className="mt-0.5 inline-block flex-shrink-0 whitespace-nowrap rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-700">
+        Coming soon
+      </span>
+    );
+  }
+  if (mark === "win" || mark === "have") {
+    return (
+      <svg
+        className={`mt-0.5 h-4 w-4 flex-shrink-0 ${
+          mark === "win" ? "text-emerald-600" : "text-gray-400"
+        }`}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        viewBox="0 0 24 24"
+        aria-hidden
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+      </svg>
+    );
+  }
+  // `none`: reserve the check slot so text stays aligned with checked rows.
+  return <span className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden />;
 }
 
-/** One row of the LabArchives comparison table. The ResearchOS column is
- *  tinted and check-marked; the LabArchives column is plain so the table
- *  reads as an honest side-by-side, not a hit piece. */
+interface Cell {
+  mark: CellMark;
+  text: string;
+}
+
+/** One row of the LabArchives comparison. The ResearchOS column is tinted;
+ *  both columns carry checks where each tool genuinely has the capability,
+ *  so the table reads as an honest side-by-side rather than a hit piece. */
 function ComparisonRow({
   label,
   us,
   them,
 }: {
   label: string;
-  us: string;
-  them: string;
+  us: Cell;
+  them: Cell;
 }) {
   return (
     <tr className="border-b border-gray-100 align-top last:border-0">
       <td className="px-4 py-3 text-sm font-medium text-gray-900">{label}</td>
       <td className="bg-sky-50/60 px-4 py-3 text-sm text-gray-800">
         <span className="flex items-start gap-2">
-          <CheckMark />
-          <span>{us}</span>
+          <MarkIcon mark={us.mark} />
+          <span>{us.text}</span>
         </span>
       </td>
-      <td className="px-4 py-3 text-sm text-gray-600">{them}</td>
+      <td className="px-4 py-3 text-sm text-gray-600">
+        <span className="flex items-start gap-2">
+          <MarkIcon mark={them.mark} />
+          <span>{them.text}</span>
+        </span>
+      </td>
     </tr>
   );
 }
@@ -475,38 +505,97 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                 <tbody>
                   <ComparisonRow
                     label="Price"
-                    us="Free and open source, forever"
-                    them="$330+ per user, per year; limited free tier"
+                    us={{ mark: "win", text: "Free and open source, forever" }}
+                    them={{
+                      mark: "none",
+                      text: "$330+ per user, per year; limited free tier",
+                    }}
                   />
                   <ComparisonRow
                     label="Per-seat fees"
-                    us="None: the whole lab, free"
-                    them="Charged per user, every year"
+                    us={{ mark: "win", text: "None: the whole lab, free" }}
+                    them={{ mark: "none", text: "Charged per user, every year" }}
                   />
                   <ComparisonRow
                     label="Where your data lives"
-                    us="A folder on your own machine"
-                    them="On LabArchives' cloud servers"
+                    us={{ mark: "win", text: "A folder on your own machine" }}
+                    them={{ mark: "none", text: "On LabArchives' cloud servers" }}
                   />
                   <ComparisonRow
                     label="File formats"
-                    us="Open Markdown and your original files"
-                    them="Proprietary cloud store"
+                    us={{
+                      mark: "win",
+                      text: "Open Markdown and your original files",
+                    }}
+                    them={{ mark: "none", text: "Proprietary cloud store" }}
                   />
                   <ComparisonRow
                     label="Own your data, no lock-in"
-                    us="You own the folder outright"
-                    them="The live copy is theirs while you pay"
+                    us={{ mark: "win", text: "You own the folder outright" }}
+                    them={{
+                      mark: "none",
+                      text: "The live copy is theirs while you pay",
+                    }}
                   />
                   <ComparisonRow
                     label="Bench tools (PCR, plates, LC, Gantt, purchasing)"
-                    us="Built in, first-class"
-                    them="Widgets and third-party add-ons"
+                    us={{ mark: "win", text: "Built in, first-class" }}
+                    them={{
+                      mark: "have",
+                      text: "Widgets and third-party add-ons",
+                    }}
                   />
                   <ComparisonRow
-                    label="Moving in from LabArchives"
-                    us="Imports your Offline Notebook ZIP directly"
-                    them="Not applicable"
+                    label="Move in from LabArchives"
+                    us={{
+                      mark: "win",
+                      text: "Imports your Offline Notebook ZIP directly",
+                    }}
+                    them={{ mark: "none", text: "Not applicable" }}
+                  />
+                  <ComparisonRow
+                    label="Per-entry revision history"
+                    us={{
+                      mark: "soon",
+                      text: "Append-only audit log now; per-entry revert roadmapped",
+                    }}
+                    them={{
+                      mark: "have",
+                      text: "Full revision history on every entry",
+                    }}
+                  />
+                  <ComparisonRow
+                    label="Repository deposit + DOI"
+                    us={{
+                      mark: "soon",
+                      text: "Export and deposit to a repository yourself",
+                    }}
+                    them={{
+                      mark: "have",
+                      text: "Built-in Figshare export and DOI",
+                    }}
+                  />
+                  <ComparisonRow
+                    label="Security certifications"
+                    us={{
+                      mark: "none",
+                      text: "None by design; published security audit instead",
+                    }}
+                    them={{
+                      mark: "have",
+                      text: "FedRAMP, SOC 2, ISO 27001, 21 CFR Part 11",
+                    }}
+                  />
+                  <ComparisonRow
+                    label="Managed backups + browser support"
+                    us={{
+                      mark: "none",
+                      text: "Your own cloud drive; Chrome, Edge, or Brave",
+                    }}
+                    them={{
+                      mark: "have",
+                      text: "Vendor-managed backups; any modern browser",
+                    }}
                   />
                 </tbody>
               </table>
@@ -514,8 +603,8 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
           </div>
 
           <p className="mx-auto mt-6 max-w-2xl text-center text-sm leading-relaxed text-gray-500">
-            Being straight: LabArchives still leads on security certifications,
-            vendor-managed backups, and one-click DOI publishing.{" "}
+            No electronic notebook is &ldquo;NIH certified&rdquo; (no such
+            thing exists). Want the row-by-row detail?{" "}
             <Link
               href="/wiki/compliance/labarchives-comparison"
               onClick={markLandingSeen}
