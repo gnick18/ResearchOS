@@ -39,6 +39,12 @@ vi.mock("@/lib/store", () => ({
 
 vi.mock("@/lib/local-api", () => ({
   projectsApi: { reorder: vi.fn(), create: vi.fn() },
+  // The home-page import graph now reaches the v4 walkthrough step registry
+  // (GanttShareClusterSteps), which imports sharingApi + tasksApi at module
+  // eval time. They aren't exercised by these drag-affordance tests, so inert
+  // stubs are enough to keep module evaluation from throwing.
+  sharingApi: {},
+  tasksApi: { get: vi.fn(async () => null) },
   fetchAllTasksIncludingShared: vi.fn(async () => []),
   fetchAllProjectsIncludingShared: vi.fn(async () => []),
 }));
