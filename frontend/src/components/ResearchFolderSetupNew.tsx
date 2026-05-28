@@ -705,7 +705,11 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
           data-testid="picker-system-folder-prewarn"
           className="mb-3 text-center text-xs text-amber-300/90"
         >
-          Heads up: Chrome blocks Desktop, Documents, and Downloads as root folders. Make a subfolder like Documents/ResearchOS and pick that instead.
+          Heads up: Chrome blocks Desktop, Documents, and Downloads as your
+          research folder. On Mac it also blocks anything inside Desktop or
+          Downloads, even a subfolder. Pick or create a folder in Documents
+          (like Documents/ResearchOS) or in your home directory instead. A
+          folder on the Desktop will not work.
         </p>
         <div className="grid md:grid-cols-2 gap-4">
           <div
@@ -870,7 +874,15 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                 If Chrome just said the folder contains system files
               </p>
               <p className="mt-1 text-xs text-amber-100/85 leading-relaxed">
-                Chrome refuses Desktop, Documents (the root), Downloads, and your home directory as research folders. Make a subfolder first (right-click inside Documents, choose New Folder, name it ResearchOS), then point the picker at that subfolder. Or use the Create New Folder card on the right and place it inside Documents.
+                Chrome refuses Desktop, Documents (the root), Downloads, and
+                your home directory. On Mac it also refuses folders INSIDE
+                Desktop or Downloads, so a subfolder on the Desktop will not
+                work either. The reliable spot is a subfolder of Documents:
+                right-click inside Documents, choose New Folder, name it
+                ResearchOS, then point the picker at it. Or use the Create New
+                Folder card on the right, type a name, and when the picker
+                opens choose your Documents folder (not Desktop) as the place
+                to put it.
               </p>
             </div>
             <button

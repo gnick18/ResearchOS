@@ -671,7 +671,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
   }, [finishConnect, hydrateSettingsForUser]);
 
   const connect = useCallback(async (): Promise<boolean> => {
-    const showDirectoryPicker = (window as unknown as { showDirectoryPicker?: (options?: { mode?: string }) => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker;
+    const showDirectoryPicker = (window as unknown as { showDirectoryPicker?: (options?: { mode?: string; startIn?: string }) => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker;
     if (!showDirectoryPicker) {
       setState((prev) => ({
         ...prev,
@@ -693,7 +693,12 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     let handle: FileSystemDirectoryHandle | null = null;
 
     try {
-      handle = await showDirectoryPicker({ mode: "readwrite" });
+      // startIn "documents" opens the OS picker in the Documents folder
+      // (Grant 2026-05-28). Chrome / macOS block Desktop, Downloads, and
+      // their Mac subfolders, so steering the picker to Documents (whose
+      // subfolders ARE allowed) reduces the chance the user lands on a
+      // blocked folder and hits the "contains system files" dead-end.
+      handle = await showDirectoryPicker({ mode: "readwrite", startIn: "documents" });
     } catch (err) {
       // User dismissed the picker — clear loading state and bail quietly.
       if (err instanceof Error && err.name === "AbortError") {
@@ -830,7 +835,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const createNewFolder = useCallback(async (folderName: string): Promise<boolean> => {
-    const showDirectoryPicker = (window as unknown as { showDirectoryPicker?: (options?: { mode?: string }) => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker;
+    const showDirectoryPicker = (window as unknown as { showDirectoryPicker?: (options?: { mode?: string; startIn?: string }) => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker;
     if (!showDirectoryPicker) {
       setState((prev) => ({
         ...prev,
@@ -856,7 +861,11 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     let parentHandle: FileSystemDirectoryHandle | null = null;
 
     try {
-      parentHandle = await showDirectoryPicker({ mode: "readwrite" });
+      // startIn "documents" (Grant 2026-05-28): open the picker in
+      // Documents so the user creates the new folder somewhere allowed.
+      // Chrome / macOS block Desktop, Downloads, and their Mac subfolders;
+      // Documents subfolders are fine, so this is the safe landing spot.
+      parentHandle = await showDirectoryPicker({ mode: "readwrite", startIn: "documents" });
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") {
         setState((prev) => ({ ...prev, isLoading: false, loadingStage: null }));
