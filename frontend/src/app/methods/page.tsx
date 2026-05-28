@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -1336,6 +1336,18 @@ function MarkdownMethodViewer({
 
   const hasUnsavedChanges = content !== originalContent && !loading;
 
+  // Imperative flush handle published by the embedded editor. Calling it
+  // commits the editor's in-flight block buffer, fires onChange, and returns
+  // the freshest full-document string, so the parent "Save" button can persist
+  // the very latest edit even if the user never left the active block.
+  const editorSaveRef = useRef<(() => string) | null>(null);
+  // Mirrors the editor's in-flight buffer-dirty flag. Because the editor
+  // buffers keystrokes and only flushes to `content` on commit, `content`
+  // (and thus hasUnsavedChanges) lags while the user is mid-block. We OR this
+  // into the Save button's enabled state so the button lights up the instant
+  // typing starts, not only after a block switch.
+  const [editorDirty, setEditorDirty] = useState(false);
+
   // Owner-aware view: shared-with-edit methods write back to the owner's dir.
   const scopedMethodsApi = useMemo(() => ownerScopedMethodsApi(currentMethod), [currentMethod]);
 
@@ -1448,18 +1460,24 @@ function MarkdownMethodViewer({
     };
   }, [method, method.source_path, method.name, canModifyMethod]);
 
-  const handleSave = useCallback(async () => {
+  // When `explicitValue` is supplied (the parent Save button flushes the
+  // editor buffer first and passes the freshest doc, or Cmd+S routes the
+  // buffer value), persist that instead of the async-lagging `content` state.
+  // Falls back to `content` otherwise.
+  const handleSave = useCallback(async (explicitValue?: string) => {
     if (!method.source_path) return;
+    const latest = typeof explicitValue === "string" ? explicitValue : content;
     setSaving(true);
     try {
       await filesApi.writeFile(
         method.source_path,
-        content,
+        latest,
         `Update method: ${method.name}`
       );
       // Update the baseline so subsequent unsaved-change checks compare
       // against the just-saved content.
-      setOriginalContent(content);
+      setContent(latest);
+      setOriginalContent(latest);
       setEditing(false);
     } catch {
       alert("Failed to save");
@@ -1522,7 +1540,7 @@ function MarkdownMethodViewer({
               </>
             ) : (
               <>
-                {hasUnsavedChanges && (
+                {(hasUnsavedChanges || editorDirty) && (
                   <span className="text-xs text-amber-600 font-medium">Unsaved changes</span>
                 )}
                 <button
@@ -1532,8 +1550,13 @@ function MarkdownMethodViewer({
                   Cancel
                 </button>
                 <button
-                  onClick={handleSave}
-                  disabled={saving || !hasUnsavedChanges}
+                  onClick={() => {
+                    // Flush the editor's in-flight block buffer first so the
+                    // last in-progress edit lands on disk, then persist.
+                    const latest = editorSaveRef.current?.() ?? content;
+                    void handleSave(latest);
+                  }}
+                  disabled={saving || (!hasUnsavedChanges && !editorDirty)}
                   className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
                     hasUnsavedChanges
                       ? "text-white bg-blue-600 hover:bg-blue-700"
@@ -1579,6 +1602,14 @@ function MarkdownMethodViewer({
                 imageBasePath={methodDir}
                 showToolbar={true}
                 recordType="method"
+                // The parent owns its own version-controlled "Save" button, so
+                // hide the editor's internal one. saveRef flushes the live
+                // buffer; onExplicitSave routes Cmd+S to disk; onDirtyChange
+                // keeps the parent button enabled while mid-edit.
+                hideSaveButton
+                saveRef={editorSaveRef}
+                onExplicitSave={(v) => { void handleSave(v); }}
+                onDirtyChange={setEditorDirty}
               />
               {uploadWarning && (
                 <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">

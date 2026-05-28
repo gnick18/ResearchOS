@@ -148,6 +148,16 @@ export function CompoundChildCreator({
 
   // Markdown
   const [mdContent, setMdContent] = useState("");
+  // Imperative flush handle published by the embedded markdown editor. Calling
+  // it commits the in-flight block buffer, fires onChange, and returns the
+  // freshest full-document string, so the submit handler can write the very
+  // latest edit even if the user never left the active block.
+  const editorSaveRef = useRef<(() => string) | null>(null);
+  // Mirrors the editor's in-flight buffer-dirty flag. `mdContent` lags while
+  // the user is mid-block (the editor only flushes on commit), so we OR this
+  // into the submit button's enabled state to light it the instant the user
+  // starts typing the markdown body, not only after a block switch.
+  const [editorDirty, setEditorDirty] = useState(false);
   // PDF
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
@@ -383,7 +393,11 @@ export function CompoundChildCreator({
           folder.trim() || "Methods",
           "method",
         );
-        const body = mdContent ? `${stamped}\n${mdContent}` : stamped;
+        // Flush the editor's in-flight block buffer first so the last
+        // in-progress edit is written, then fall back to `mdContent`.
+        const flushed = editorSaveRef.current?.();
+        const md = typeof flushed === "string" ? flushed : mdContent;
+        const body = md ? `${stamped}\n${md}` : stamped;
         await filesApi.writeFile(sourcePath, body, `Create method: ${name}`);
         created = await methodsApi.create({
           ...sharedBase,
@@ -586,7 +600,9 @@ export function CompoundChildCreator({
     saving ||
     !name.trim() ||
     (phase.kind === "edit" && phase.type === "pdf" && !pdfFile) ||
-    (phase.kind === "edit" && phase.type === "markdown" && !mdContent.trim());
+    // OR in editorDirty so the button lights the instant the user starts
+    // typing — `mdContent` lags the editor's in-flight buffer until a commit.
+    (phase.kind === "edit" && phase.type === "markdown" && !(mdContent.trim() || editorDirty));
 
   if (phase.kind === "pick-type") {
     return (
@@ -679,6 +695,13 @@ export function CompoundChildCreator({
                 onFileDrop={handleFileUpload}
                 allowAnyFileType
                 showToolbar
+                // The form owns its own submit button, so hide the editor's
+                // internal Save. saveRef lets the submit handler flush the live
+                // buffer; onDirtyChange lights the submit button while typing.
+                // No onExplicitSave: Cmd+S must not submit a half-filled form.
+                hideSaveButton
+                saveRef={editorSaveRef}
+                onDirtyChange={setEditorDirty}
               />
             </div>
             <p className="text-[11px] text-gray-400 mt-1">

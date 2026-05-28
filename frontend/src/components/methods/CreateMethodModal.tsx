@@ -161,6 +161,15 @@ export function CreateMethodModal({
 
   // Markdown state
   const [mdContent, setMdContent] = useState("");
+  // Imperative flush handle published by the embedded markdown editor. Calling
+  // it commits the in-flight block buffer, fires onChange, and returns the
+  // freshest full-document string, so performSave can write the very latest
+  // edit even if the user never left the active block.
+  const editorSaveRef = useRef<(() => string) | null>(null);
+  // Mirrors the editor's in-flight buffer-dirty flag. `mdContent` lags while
+  // the user is mid-block, so we OR this into the submit button's enabled
+  // state to light it the instant the user starts typing the markdown body.
+  const [editorDirty, setEditorDirty] = useState(false);
   const [, setUploading] = useState(false);
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
   const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
@@ -419,7 +428,11 @@ export function CreateMethodModal({
         folder.trim() || "Methods",
         "method"
       );
-      const body = mdContent ? `${stampedScaffold}\n${mdContent}` : stampedScaffold;
+      // Flush the editor's in-flight block buffer first so the last
+      // in-progress edit is written, then fall back to `mdContent`.
+      const flushed = editorSaveRef.current?.();
+      const md = typeof flushed === "string" ? flushed : mdContent;
+      const body = md ? `${stampedScaffold}\n${md}` : stampedScaffold;
       await filesApi.writeFile(sourcePath, body, `Create method: ${name}`);
       return await methodsApi.create({
         name: name.trim(),
@@ -825,6 +838,13 @@ export function CreateMethodModal({
                     imageBasePath={`methods/${slug}`}
                     showToolbar={true}
                     autoStartEditing
+                    // The modal owns its own Create button, so hide the
+                    // editor's internal Save. saveRef lets performSave flush
+                    // the live buffer; onDirtyChange lights Create while typing.
+                    // No onExplicitSave: Cmd+S must not submit a half-filled form.
+                    hideSaveButton
+                    saveRef={editorSaveRef}
+                    onDirtyChange={setEditorDirty}
                   />
                 </div>
                 {!mdContent.trim() && (
@@ -1222,7 +1242,7 @@ export function CreateMethodModal({
                   saving ||
                   !name.trim() ||
                   (uploadType === "pdf" && !pdfFile) ||
-                  (uploadType === "markdown" && !mdContent.trim())
+                  (uploadType === "markdown" && !(mdContent.trim() || editorDirty))
                 }
                 className="px-4 py-2 text-sm text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg disabled:opacity-50"
               >
@@ -1236,7 +1256,7 @@ export function CreateMethodModal({
               saving ||
               !name.trim() ||
               (uploadType === "pdf" && !pdfFile) ||
-              (uploadType === "markdown" && !mdContent.trim())
+              (uploadType === "markdown" && !(mdContent.trim() || editorDirty))
             }
             data-tour-target="methods-create-submit"
             className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
