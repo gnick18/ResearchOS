@@ -159,31 +159,38 @@ export default function DevForceWalkthroughButton({
       // protects against any future gate change.
       await clearWizardCompletion(testUserName);
 
-      // Flip the V4 preview sticky so providers.tsx's
-      // isDemoOrWikiCapture branch gate (line 192) flips true on the
-      // next render. Without this, the dev button under ?wikiCapture=1
-      // (or ?wikiCapture=picker without ?wizard-preview=1) signs the
-      // Test-N user in but never mounts V4MountForUser, so the tour
-      // can't auto-fire even though wizard_force_show is set. The
-      // unconditional V4 mount branch further down providers.tsx
-      // (real-folder paths, no wikiCapture / demo flag) ignores this
-      // sticky entirely. (v4 mount gate fix manager, 2026-05-25)
-      try {
-        window.sessionStorage.setItem(V4_PREVIEW_STICKY_KEY, "1");
-      } catch {
-        // sessionStorage can throw in private-mode browsers; best-effort.
-      }
+      // wikiCapture vs real-folder split (dev-button fix, 2026-05-28).
+      // Under ?wikiCapture, a hard nav would drop the capture param and
+      // leave fixture mode, so we keep the soft-swap path: flip the V4
+      // preview sticky (so providers.tsx's isDemoOrWikiCapture gate mounts
+      // V4MountForUser) and swap the user in place. On a REAL folder (the
+      // home-screen / Settings dev button Grant uses), the soft swap did
+      // NOT reliably re-fire TourBootstrap: the bootstrap's sidecar probe
+      // is one-shot per mount and the in-place user swap did not re-mount
+      // it cleanly, so "User setup walkthrough" looked like it did nothing.
+      // setCurrentUser persists the chosen user (storeCurrentUser), so a
+      // hard nav to "/" reloads as the fresh Test-N user and TourBootstrap
+      // probes the just-cleared sidecar on a clean mount and fires. Mirrors
+      // the folder flow's hard-nav reliability.
+      const isWikiCapture =
+        typeof window !== "undefined" &&
+        window.location.search.includes("wikiCapture");
 
-      // Swap the active user. From UserLoginScreen: the onLogin callback
-      // (passed through onLoggedIn) unmounts the picker, AppShell mounts.
-      // From AppShell: no callback needed (setCurrentUser updates the
-      // FileSystem context, which re-renders AppShell with the new user).
-      // Either way, V4MountForUser reads the fresh sidecar + TourBootstrap fires.
-      console.log("[RR-DEBUG] DevForceWalkthroughButton — about to setCurrentUser", testUserName);
-      await setCurrentUser(testUserName);
-      console.log("[RR-DEBUG] DevForceWalkthroughButton — setCurrentUser resolved");
-      setMode(null);
-      onLoggedIn?.();
+      if (isWikiCapture) {
+        try {
+          window.sessionStorage.setItem(V4_PREVIEW_STICKY_KEY, "1");
+        } catch {
+          // sessionStorage can throw in private-mode browsers; best-effort.
+        }
+        await setCurrentUser(testUserName);
+        setMode(null);
+        onLoggedIn?.();
+      } else {
+        // Persist the fresh user, then hard-reload so the bootstrap re-probes
+        // its sidecar on a clean mount and starts the tour for Test-N.
+        await setCurrentUser(testUserName);
+        window.location.href = "/";
+      }
     } catch (err) {
       console.error("[dev-force-walkthrough] user flow failed:", err);
       setError(
