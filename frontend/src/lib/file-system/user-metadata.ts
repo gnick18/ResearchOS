@@ -98,6 +98,16 @@ export interface UserMetadataEntry {
   // the others (mirrors how `color` is per-user). No migration needed:
   // existing entries without the field render exactly as before.
   native_calendar_color?: string;
+  // Structured-research-metadata foundation (metadata implementation bot,
+  // 2026-05-28). The person's ORCID iD, stored in the canonical bare
+  // hyphenated 16-character form (e.g. "0000-0002-1825-0097") with NO
+  // URL prefix. Lives on the person, not on tasks. Optional + additive:
+  // entries written before this slice load unchanged (absent / null =
+  // "not set"). Written via the existing `setUserMetadataField` path and
+  // read via `getUserMetadata` / `readAllUserMetadata`. Validation
+  // (MOD 11-2 checksum) is a SOFT warning surfaced in the Settings UI —
+  // never gates the save.
+  orcid?: string | null;
 }
 
 export interface UserMetadataFile {

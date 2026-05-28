@@ -63,6 +63,7 @@ import type {
   FundingAccount,
   FundingAccountCreate,
   FundingAccountUpdate,
+  FunderIdType,
   LabLink,
   LabLinkCreate,
   LabLinkUpdate,
@@ -294,6 +295,13 @@ export const projectsApi = {
       // is_hidden is only set by the misc-purchases bootstrap; ordinary
       // projects leave it undefined (treated as false on read).
       ...(data.is_hidden ? { is_hidden: true } : {}),
+      // Project -> grant link (metadata implementation bot, 2026-05-28).
+      // Only persist the field when the caller supplied a value, so projects
+      // created without a grant link stay clean (absent = unlinked). null is
+      // a valid explicit "unlinked" value the edit form may send.
+      ...(data.funding_account_id !== undefined
+        ? { funding_account_id: data.funding_account_id }
+        : {}),
     });
     // Onboarding v4 §6.1: notify the home-create-project walkthrough
     // step that a new project landed, so BeakerBot can advance without
@@ -3301,13 +3309,26 @@ export const purchasesApi = {
       total_budget: data.total_budget ?? 0,
       spent: 0,
       remaining: data.total_budget ?? 0,
+      // Structured grant metadata (metadata implementation bot, 2026-05-28).
+      // Default each to null on create so a freshly-created account has a
+      // consistent on-disk shape; the editor fills them in later. `...data`
+      // above already carries any value the caller passed, but the explicit
+      // `?? null` normalizes `undefined` to `null` for a clean file.
+      award_number: data.award_number ?? null,
+      funder_name: data.funder_name ?? null,
+      funder_id: data.funder_id ?? null,
+      funder_id_type: data.funder_id_type ?? null,
+      award_title: data.award_title ?? null,
     });
   },
-  
+
+  // Partial-update via the store's spread-merge (filters `undefined`, so
+  // omitted fields keep their existing value; `null` explicitly clears).
+  // The structured grant fields ride along on `...data` untouched.
   updateFundingAccount: async (id: number, data: FundingAccountUpdate): Promise<FundingAccount | null> => {
     const existing = await fundingAccountsStore.get(id);
     if (!existing) return null;
-    
+
     const totalBudget = data.total_budget ?? existing.total_budget;
     return fundingAccountsStore.update(id, {
       ...data,
@@ -6263,6 +6284,7 @@ export type {
   FundingAccount,
   FundingAccountCreate,
   FundingAccountUpdate,
+  FunderIdType,
   LabLink,
   LabLinkCreate,
   LabLinkUpdate,

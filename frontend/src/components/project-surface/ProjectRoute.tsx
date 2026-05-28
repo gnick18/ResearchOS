@@ -4,8 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "@/components/FixtureLink";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { projectsApi as rawProjectsApi } from "@/lib/local-api";
+import { projectsApi as rawProjectsApi, purchasesApi } from "@/lib/local-api";
 import type { ProjectUpdate } from "@/lib/local-api";
+import type { FundingAccount } from "@/lib/types";
 import ShareDialogAdapter from "@/components/sharing/ShareDialogAdapter";
 import Tooltip from "@/components/Tooltip";
 import ResultsGallery from "@/components/project-surface/ResultsGallery";
@@ -678,7 +679,18 @@ export function EditProjectModal({ project, onClose, onSave }: EditProjectModalP
   const [tagsText, setTagsText] = useState(project.tags?.join(", ") || "");
   const [color, setColor] = useState(project.color || DEFAULT_COLORS[0]);
   const [weekendActive, setWeekendActive] = useState(project.weekend_active);
+  // Project -> grant link (metadata implementation bot, 2026-05-28). Empty
+  // string in the <select> = "None" (unlinked); maps to null on save.
+  const [fundingAccountId, setFundingAccountId] = useState<string>(
+    project.funding_account_id != null ? String(project.funding_account_id) : "",
+  );
   const [saving, setSaving] = useState(false);
+
+  // Populate the grant select from the existing funding-accounts list.
+  const { data: fundingAccounts = [] } = useQuery<FundingAccount[]>({
+    queryKey: ["funding-accounts"],
+    queryFn: () => purchasesApi.listFundingAccounts(),
+  });
 
   const handleSave = async () => {
     if (!name.trim()) return;
@@ -689,6 +701,8 @@ export function EditProjectModal({ project, onClose, onSave }: EditProjectModalP
         tags: tagsText.split(",").map((t) => t.trim()).filter(Boolean),
         color,
         weekend_active: weekendActive,
+        // null clears the link; a number sets it.
+        funding_account_id: fundingAccountId === "" ? null : Number(fundingAccountId),
       });
       onClose();
     } catch {
@@ -756,6 +770,31 @@ export function EditProjectModal({ project, onClose, onSave }: EditProjectModalP
             />
             <span className="text-sm text-gray-600">7-day schedule (weekends active)</span>
           </label>
+          {/* Project -> grant link (metadata implementation bot,
+              2026-05-28). Optional single funding account per project.
+              "None" = unlinked (the default / current behavior). */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Funding account / grant
+            </label>
+            <select
+              value={fundingAccountId}
+              onChange={(e) => setFundingAccountId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">None</option>
+              {fundingAccounts.map((acc) => (
+                <option key={acc.id} value={String(acc.id)}>
+                  {acc.name}
+                  {acc.award_number ? ` (${acc.award_number})` : ""}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">
+              Link this project to a grant so its outputs can carry the
+              funding metadata later.
+            </p>
+          </div>
         </div>
         <div className="flex justify-end gap-3 pt-6">
           <button

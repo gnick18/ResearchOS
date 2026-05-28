@@ -10,6 +10,7 @@ import ImportExperimentDialog from "@/components/ImportExperimentDialog";
 import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
 import Tooltip from "@/components/Tooltip";
 import UserAvatar from "@/components/UserAvatar";
+import OrcidField from "@/components/settings/OrcidField";
 import VersionBadge from "@/components/VersionBadge";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { discoverUsers } from "@/lib/file-system/user-discovery";
@@ -739,7 +740,7 @@ function ProfileSection({ settings, update }: SectionProps) {
       id="personalize"
       title="Profile"
       description="How you appear in the app. The color flows everywhere your initial bubble appears — lab views, comments, the login screen, etc."
-      searchKeywords="display name color avatar gradient primary secondary swatch palette personalize header tint"
+      searchKeywords="display name color avatar gradient primary secondary swatch palette personalize header tint orcid id researcher identifier"
     >
       {/* Live avatar preview — colorOverride + secondaryOverride use the
           in-flight pick so the gradient updates instantly before the save
@@ -783,6 +784,12 @@ function ProfileSection({ settings, update }: SectionProps) {
           Leave blank to use your folder name ({currentUser}).
         </p>
       </div>
+
+      {/* ORCID iD (metadata implementation bot, 2026-05-28). Lives on the
+          person in `users/_user_metadata.json`, written via the dedicated
+          metadata path — separate from the rest of this section's
+          `settings.json`-backed fields. */}
+      <OrcidField currentUser={currentUser ?? null} />
 
       {/* personalization-color step (§6.10): spotlight wraps both
           the color picker and the tint toggle so the user understands
