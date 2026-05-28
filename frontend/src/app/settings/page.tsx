@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import AppFooter from "@/components/AppFooter";
 import AccountPasswordPopup from "@/components/AccountPasswordPopup";
 import ImportExperimentDialog from "@/components/ImportExperimentDialog";
 import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
@@ -421,8 +422,8 @@ function SettingsBody() {
   }
 
   return (
-    <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
-      <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
+    <div ref={scrollContainerRef} className="flex-1 overflow-y-auto flex flex-col">
+      <div className="max-w-3xl mx-auto w-full px-6 py-8 space-y-8">
         {/* Onboarding v4 §6.10 Settings phase redesign 2026-05-22
             (Settings manager): the page header doubles as the
             spotlight anchor for the `settings-tour-folder` narration
@@ -519,6 +520,7 @@ function SettingsBody() {
           }}
         />
       )}
+      <AppFooter className="mt-auto" />
     </div>
   );
 }
