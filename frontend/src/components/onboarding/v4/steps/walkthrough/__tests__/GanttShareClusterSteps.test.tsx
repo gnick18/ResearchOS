@@ -9,10 +9,14 @@
  *     Fake A. Users couldn't open the bar that had the note.
  *   - `gantt-share-user-explores` speech invited the user to "open the
  *     results tab" but the allow-list didn't include it, so a
- *     legitimate click tripped the Oops flash.
+ *     legitimate click tripped the Oops flash. Resolved by DROPPING the
+ *     page-lock entirely (Bug #33, 2026-05-27): the explore beat is now
+ *     deliberately unlocked, so the test below pins "no setPageLock"
+ *     rather than a specific allow-list.
  *
  * The tests render each step's speech body inside a stub
- * TourController and assert the targets passed to `setPageLock`.
+ * TourController and assert the targets passed to `setPageLock` (or, for
+ * the explore beat, that it is never called).
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render } from "@testing-library/react";
@@ -57,23 +61,20 @@ describe("Gantt share cluster allow-list regression (R2 fix)", () => {
     clearPageLockMock.mockClear();
   });
 
-  describe("gantt-share-user-explores (P1: results-tab in allow-list)", () => {
-    it("allow-lists the results tab so the speech invitation stays honest", () => {
-      // The speech bubble explicitly mentions "opening the results tab"
-      // as a safe poke. The allow-list must include it or the Oops
-      // flash fires on a legitimate click.
+  describe("gantt-share-user-explores (intentionally unlocked, Bug #33)", () => {
+    it("does NOT lock the page (the explore surface is deliberately free)", () => {
+      // Bug #33 (2026-05-27) DROPPED the page-lock for this step. The
+      // speech invites the user to "add a note or open the results tab",
+      // both of which require clicking affordances inside TaskDetailPopup,
+      // several of which carry no data-tour-target. A page-lock therefore
+      // surfaced a wrong-click Oops flash on legitimate clicks. The beat is
+      // a pure explore-the-shared-experiment poke with a manualAdvance
+      // "Got it, next" gate and no destructive action reachable from the
+      // popup, so it stays unlocked. This test pins that decision: if
+      // someone re-adds a page-lock here, the Oops-flash regression is
+      // caught before it ships.
       renderSpeechFor(ganttShareUserExploresStep);
-      expect(setPageLockMock).toHaveBeenCalledTimes(1);
-      const [targets] = setPageLockMock.mock.calls[0];
-      expect(targets).toContain(TOUR_TARGETS.experimentResultsTab);
-    });
-
-    it("allow-lists the notes-tab affordances (read-only safe surface)", () => {
-      renderSpeechFor(ganttShareUserExploresStep);
-      const [targets] = setPageLockMock.mock.calls[0];
-      expect(targets).toContain(TOUR_TARGETS.taskPopupNotesTab);
-      expect(targets).toContain(TOUR_TARGETS.taskPopupNotesTextarea);
-      expect(targets).toContain(TOUR_TARGETS.taskPopupClose);
+      expect(setPageLockMock).not.toHaveBeenCalled();
     });
 
     it("registers an onExit hook that closes the popup before the next step", () => {
