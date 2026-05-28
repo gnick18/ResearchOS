@@ -397,10 +397,28 @@ describe("P5 step bodies — universal contract", () => {
   // user-action steps where the user clicks the product surface
   // themselves. A BeakerBot demo that auto-advanced would leave the
   // user reading speech while the next step kicked in.
+  //
+  // Hybrid carve-out (share-back interaction manager, 2026-05-27):
+  // some steps combine a setup-only cursor demo with a user-action
+  // completion. The cursor handles the boring "get to the right
+  // surface" beats (e.g. open the popup, click the share button) and
+  // hands off to the user for the actual teaching moment (pick a
+  // recipient + permission in the share dialog). These can't use
+  // manualAdvance because the user's product interaction is the
+  // completion signal; they can't drop the cursorScript because the
+  // setup-getting-to-the-share-dialog is mechanical and not worth
+  // making the user discover. Listed by ID below; new entries need a
+  // matching comment justifying the hybrid shape.
+  const HYBRID_DEMO_AND_USER_ACTION_STEPS = [
+    // §6.8 gantt-share: BeakerBot opens Fake A + clicks share, user
+    // completes the share dialog (pick BeakerBot + edit permission).
+    "gantt-share-user-shares-back",
+  ];
   it("every step with a cursorScript has manual completion (universal pacing rule, Grant 2026-05-22)", () => {
     const violations: Array<{ id: string; type: string }> = [];
     for (const step of ALL_STEPS) {
       if (step.cursorScript === undefined) continue;
+      if (HYBRID_DEMO_AND_USER_ACTION_STEPS.includes(step.id)) continue;
       if (step.completion.type !== "manual") {
         violations.push({ id: step.id, type: step.completion.type });
       }
