@@ -75,6 +75,32 @@ function isExcluded(route) {
   );
 }
 
+/** A canonical-map key can deliberately anchor a NESTED or DYNAMIC route
+ *  that discoverAppRoutes (top-level + concrete only) never enumerates.
+ *  The prime example is "/workbench/projects": there is no bare index
+ *  page there, only the dynamic "/workbench/projects/[id]/page.tsx", and
+ *  the map key exists so getWikiForRouteWithPrefix resolves every
+ *  "/workbench/projects/<id>" up to the projects wiki page. Treat such a
+ *  key as live (not STALE) when its app/ directory exists and either it
+ *  carries a page.tsx itself or has a dynamic child segment ([id],
+ *  [[...slug]]) that carries one. */
+function appRouteDirIsLive(route) {
+  const dir = path.join(APP_DIR, ...route.split("/").filter(Boolean));
+  if (!existsSync(dir) || !statSync(dir).isDirectory()) return false;
+  if (existsSync(path.join(dir, "page.tsx"))) return true;
+  for (const child of readdirSync(dir)) {
+    if (!child.startsWith("[")) continue;
+    const childDir = path.join(dir, child);
+    if (
+      statSync(childDir).isDirectory() &&
+      existsSync(path.join(childDir, "page.tsx"))
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /* ---------- parse the canonical map --------------------------------- */
 
 /** Pulls keys out of the `APP_ROUTE_TO_WIKI: Record<string, string>`
@@ -123,7 +149,9 @@ function main() {
 
   const stale = [];
   for (const route of map.keys()) {
-    if (!appRoutes.has(route)) stale.push(route);
+    if (appRoutes.has(route)) continue; // concrete top-level route
+    if (appRouteDirIsLive(route)) continue; // nested / dynamic-parent anchor
+    stale.push(route);
   }
 
   const orphaned = [];
