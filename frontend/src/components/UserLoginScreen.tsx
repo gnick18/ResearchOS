@@ -26,6 +26,7 @@ import BeakerBot from "@/components/BeakerBot";
 import VersionBadge from "@/components/VersionBadge";
 import BetaNotice from "@/components/BetaNotice";
 import DevForceWalkthroughButton from "@/components/DevForceWalkthroughButton";
+import DevForceLandingButton from "@/components/DevForceLandingButton";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
 
 interface UserLoginScreenProps {
@@ -1199,6 +1200,11 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
           onboarding rip removed the original DevForceTipButton; the
           new button is v4-only and never touches a real account. */}
       <DevForceWalkthroughButton onLoggedIn={onLogin} />
+
+      {/* Dev-only floating button (left of the Force-walkthrough FAB):
+          preview the first-time landing ("sell") page via /welcome. Renders
+          nothing in production. (landing-page manager) */}
+      <DevForceLandingButton />
 
     </div>
   );
