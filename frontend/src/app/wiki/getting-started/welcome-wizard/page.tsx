@@ -383,24 +383,12 @@ export default function WelcomeWizardPage() {
       </p>
       <Steps>
         <Step>
-          <strong>workbench-create-experiment-open.</strong> You click &quot;+
-          New Experiment&quot; to open the form.
-        </Step>
-        <Step>
-          <strong>workbench-create-experiment-name.</strong> Spotlight on the
-          Name input. You type whatever you want and click &quot;Got it,
-          next&quot; to advance.
-        </Step>
-        <Step>
-          <strong>workbench-create-experiment-project.</strong> Spotlight on
-          the Project dropdown. Pick the project you just made, or leave it on
-          Standalone (you can refile later).
-        </Step>
-        <Step>
-          <strong>workbench-create-experiment-submit.</strong> Spotlight on
-          the Create Experiment button. The advance button stays disabled
-          until the experiment lands on disk, so you can&apos;t race past the
-          save click.
+          <strong>workbench-create-experiment-open.</strong> Combined beat:
+          BeakerBot frames the Workbench-as-bench-record, then asks you to
+          click &quot;+ New Experiment.&quot; The form opens, you fill it in,
+          and the experiment lands on the page. (The prior split
+          BEAKERBOT_DEMO follow-up that auto-typed the experiment name is
+          retired.)
         </Step>
       </Steps>
 

@@ -166,19 +166,11 @@ import { methodsBreadthStep } from "./steps/walkthrough/MethodsBreadthStep";
 // (PCR) and methods-create (markdown). Wave 2 fills speech + cursor.
 import { methodsLcDemoStep } from "./steps/walkthrough/MethodsLcDemoStep";
 import { methodsCreateStep } from "./steps/walkthrough/MethodsCreateStep";
-// §6.5 USER_ACTION refactor (experiment-create user-action manager
-// 2026-05-27): the prior open + cursor-demo split is replaced by a
-// four-beat user-driven sequence. All four exports live in
-// WorkbenchCreateExperimentOpenStep.tsx so the per-beat bodies stay
-// adjacent to each other for review + edits. The legacy
-// `workbenchCreateExperimentStep` body in
-// WorkbenchCreateExperimentStep.tsx is @deprecated and NOT wired here.
-import {
-  workbenchCreateExperimentOpenStep,
-  workbenchCreateExperimentNameStep,
-  workbenchCreateExperimentProjectStep,
-  workbenchCreateExperimentSubmitStep,
-} from "./steps/walkthrough/WorkbenchCreateExperimentOpenStep";
+// v4 tour structural manager (Wave 1, 2026-05-27): `workbench-page-intro`
+// retired (page framing folded into workbench-create-experiment-open) +
+// `workbench-create-experiment` retired (Grant's explicit `[DROP]` marker
+// in the new script). Only the user-action open step survives.
+import { workbenchCreateExperimentOpenStep } from "./steps/walkthrough/WorkbenchCreateExperimentOpenStep";
 // §6.6 method-attachment split (2026-05-21): the original
 // `methodAttachmentStep` was split into 4 popup-mount-safe sub-steps.
 // Re-export glue lives in MethodAttachmentStep.tsx for back-compat.
@@ -371,13 +363,10 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [methodsBreadthStep.id]: methodsBreadthStep,
   [methodsLcDemoStep.id]: methodsLcDemoStep,
   [methodsCreateStep.id]: methodsCreateStep,
-  // §6.5 USER_ACTION refactor (experiment-create user-action manager
-  // 2026-05-27): four user-driven beats replace the prior
-  // open + cursor-driven demo.
+  // v4 tour structural manager (Wave 1, 2026-05-27): `workbench-page-intro`
+  // and `workbench-create-experiment` retired. Only the user-action
+  // open-click survives in TOUR_STEP_ORDER.
   [workbenchCreateExperimentOpenStep.id]: workbenchCreateExperimentOpenStep,
-  [workbenchCreateExperimentNameStep.id]: workbenchCreateExperimentNameStep,
-  [workbenchCreateExperimentProjectStep.id]: workbenchCreateExperimentProjectStep,
-  [workbenchCreateExperimentSubmitStep.id]: workbenchCreateExperimentSubmitStep,
   [methodAttachmentOpenStep.id]: methodAttachmentOpenStep,
   // v4 tour structural manager (Wave 1, 2026-05-27):
   // `experiment-tabs-overview` retired; framing folded into surrounding

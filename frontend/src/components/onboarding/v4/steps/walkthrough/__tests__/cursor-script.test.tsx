@@ -26,17 +26,11 @@ import {
 } from "../lib/cursor-script";
 import { TOUR_TARGETS, targetSelector } from "../lib/targets";
 import { homeCreateProjectStep } from "../HomeCreateProjectStep";
-import { searchStep } from "../SearchStep";
-// §6.5 USER_ACTION refactor (experiment-create user-action manager
-// 2026-05-27): four user-driven beats replace the prior open + cursor-
-// demo split. None of the new beats carry a cursorScript.
-import {
-  workbenchCreateExperimentOpenStep,
-  workbenchCreateExperimentNameStep,
-  workbenchCreateExperimentProjectStep,
-  workbenchCreateExperimentSubmitStep,
-} from "../WorkbenchCreateExperimentOpenStep";
-import { PLACEHOLDER_EXPERIMENT_NAME } from "../WorkbenchCreateExperimentStep";
+// v4 tour structural manager (Wave 1, 2026-05-27):
+// `workbench-create-experiment` retired; the `PLACEHOLDER_EXPERIMENT_NAME`
+// constant now lives in SearchStep.tsx (the only remaining consumer).
+import { searchStep, PLACEHOLDER_EXPERIMENT_NAME } from "../SearchStep";
+import { workbenchCreateExperimentOpenStep } from "../WorkbenchCreateExperimentOpenStep";
 
 /** Mount a fixture element with `data-tour-target` set, plus optional
  *  child elements. Returns a cleanup function. */
@@ -1090,36 +1084,24 @@ describe("step bodies — cursor scripts produce expected actions", () => {
     }
   });
 
-  it("§6.5 USER_ACTION refactor (2026-05-27): none of the four beats carry a cursorScript", () => {
-    // The prior BeakerBot demo (pick project, type name, click submit)
-    // kept regressing on DOM-mount / cache-freshness / option-rendering
-    // races. Flipped to a four-beat user-driven sequence; defense in
-    // depth that no maintainer accidentally wires a cursorScript back
-    // onto any of the beats.
-    expect(workbenchCreateExperimentOpenStep.cursorScript).toBeUndefined();
-    expect(workbenchCreateExperimentNameStep.cursorScript).toBeUndefined();
-    expect(workbenchCreateExperimentProjectStep.cursorScript).toBeUndefined();
-    expect(workbenchCreateExperimentSubmitStep.cursorScript).toBeUndefined();
-  });
-
-  it("PLACEHOLDER_EXPERIMENT_NAME stays exported for §6.11 search re-use", () => {
-    // Survives the user-driven refactor because SearchStep still uses
-    // it to seed the demo query. The user's actual experiment name
-    // may differ; SearchStep is robust to partial matches.
-    expect(PLACEHOLDER_EXPERIMENT_NAME).toBe("Demo Experiment One");
+  it("WorkbenchCreateExperimentOpenStep: cursor opens modal, picks project, types name, submits (experiment-flow fix manager 2026-05-27)", () => {
+    // Hand-walk fix (Grant 2026-05-27): the open beat is now a
+    // BeakerBot demo. The cursor clicks +New Experiment, changes the
+    // Project select, types the placeholder name, and clicks Create
+    // Experiment. The exact action shape is exercised by integration
+    // tests; here we just guard the cursorScript presence to prevent
+    // a future regression to the old user-action shape.
+    expect(workbenchCreateExperimentOpenStep.cursorScript).toBeDefined();
   });
 
   it("user-action steps with no cursorScript don't expose any glide/click actions", async () => {
     // Defense in depth: even if a future maintainer wires a cursorScript
     // back onto these user-action steps by accident, the test will
     // catch any click/type/drag actions and flag the regression.
-    const userActionSteps = [
-      homeCreateProjectStep,
-      workbenchCreateExperimentOpenStep,
-      workbenchCreateExperimentNameStep,
-      workbenchCreateExperimentProjectStep,
-      workbenchCreateExperimentSubmitStep,
-    ];
+    // (experiment-flow fix manager 2026-05-27): workbench-create-experiment-open
+    // was removed from this list; it is now a BeakerBot demo per the
+    // hand-walk brief.
+    const userActionSteps = [homeCreateProjectStep];
     for (const step of userActionSteps) {
       const script = await step.cursorScript?.();
       if (!script) continue;

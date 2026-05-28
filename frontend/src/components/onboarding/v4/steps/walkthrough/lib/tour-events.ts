@@ -96,19 +96,13 @@ export const TOUR_DOM_EVENTS = {
    */
   workbenchExperimentModalOpened: "tour:workbench-experiment-modal-opened",
   /**
-   * Dispatched by tasksApi.create (in lib/local-api.ts) after the task
-   * lands on disk. The §6.5 user-action refactor (experiment-create
-   * user-action manager 2026-05-27) replaces the prior BeakerBot demo
-   * with a 4-beat USER_ACTION sequence; the terminal beat
-   * (workbench-create-experiment-submit) gates manual-advance on this
-   * event so the user cannot click "Got it, next" until the experiment
-   * is actually saved. Cheap no-op when no tour is active.
-   *
-   * `detail.id`: the new task id. `detail.taskType`: the task_type
-   * string (`experiment` / `list` / `purchase`) so a listener can filter
-   * by type if needed. The submit-step's disabledUntilEvent gate doesn't
-   * filter on type since the tour only opens the experiment-typed modal,
-   * but consumers that care can read it.
+   * Dispatched by `TaskModal.tsx` from `createTask` after a successful
+   * experiment task save. The §6.5 `workbench-create-experiment-open`
+   * BeakerBot-demo step (experiment-flow fix manager 2026-05-27) listens
+   * on this so the manual "Got it, next" button only enables once the
+   * experiment has actually landed. Detail carries `{ id, name, project_id }`
+   * so the step's onEnter listener can record the artifact + verify the
+   * experiment got filed into the user's just-created project.
    */
   experimentCreated: "tour:experiment-created",
   /**

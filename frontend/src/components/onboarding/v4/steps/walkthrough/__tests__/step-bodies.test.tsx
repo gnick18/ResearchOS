@@ -59,19 +59,10 @@ import {
 } from "../MethodsBreadthStep";
 import { methodsLcDemoStep } from "../MethodsLcDemoStep";
 import { methodsCreateStep, FUNNY_METHOD_NAME } from "../MethodsCreateStep";
-// §6.5 USER_ACTION refactor (experiment-create user-action manager
-// 2026-05-27): four user-driven beats replace the prior open + cursor-
-// demo split. All four exports live in WorkbenchCreateExperimentOpenStep
-// for adjacency. The legacy `workbenchCreateExperimentStep` body is
-// @deprecated; PLACEHOLDER_EXPERIMENT_NAME stays exported from the
-// retired file so SearchStep + other importers still resolve.
-import {
-  workbenchCreateExperimentOpenStep,
-  workbenchCreateExperimentNameStep,
-  workbenchCreateExperimentProjectStep,
-  workbenchCreateExperimentSubmitStep,
-} from "../WorkbenchCreateExperimentOpenStep";
-import { PLACEHOLDER_EXPERIMENT_NAME } from "../WorkbenchCreateExperimentStep";
+import { workbenchCreateExperimentOpenStep } from "../WorkbenchCreateExperimentOpenStep";
+// v4 tour structural manager (Wave 1, 2026-05-27): `workbench-create-experiment`
+// retired (Grant's [DROP] marker); the WorkbenchCreateExperimentStep.tsx
+// file has been deleted.
 // §6.6 method-attachment split (2026-05-21, HR-dispatched): the
 // original single `methodAttachmentStep` was split into 4 sub-steps to
 // dodge the popup-mount-spanning cursor-script bug. `methodAttachmentStep`
@@ -216,9 +207,6 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   methodsLcDemoStep,
   methodsCreateStep,
   workbenchCreateExperimentOpenStep,
-  workbenchCreateExperimentNameStep,
-  workbenchCreateExperimentProjectStep,
-  workbenchCreateExperimentSubmitStep,
   methodAttachmentOpenStep,
   methodAttachmentTabStep,
   methodAttachmentAttachStep,
@@ -317,14 +305,7 @@ describe("P5 step bodies — universal contract", () => {
       "methods-type-tour",
       "methods-lc-demo",
       "methods-create",
-      // §6.5 USER_ACTION refactor (experiment-create user-action
-      // manager 2026-05-27): four user-driven beats replace the prior
-      // open + cursor-demo split. Retired `workbench-create-experiment`
-      // id is intentionally absent from this set.
       "workbench-create-experiment-open",
-      "workbench-create-experiment-name",
-      "workbench-create-experiment-project",
-      "workbench-create-experiment-submit",
       "experiment-attach-method-open",
       "experiment-attach-method-tab",
       "experiment-attach-method-attach",
@@ -450,10 +431,14 @@ describe("P5 step bodies — universal contract", () => {
       methodsOpenPickerStep,
       methodsBreadthStep,
       methodsCreateStep,
-      // §6.5 USER_ACTION refactor (experiment-create user-action
-      // manager 2026-05-27): all four beats are user-action, none
-      // carry a cursorScript. The retired BeakerBot demo step
-      // (`workbench-create-experiment`) is no longer in TOUR_STEP_ORDER.
+      // v4 tour structural manager (Wave 1, 2026-05-27):
+      // workbench-create-experiment retired (Grant's [DROP] marker).
+      // experiment-tabs-overview retired.
+      // experiment-flow fix manager (2026-05-27): the
+      // workbench-create-experiment-open step now carries a BeakerBot
+      // cursor demo (clicks +New Experiment, picks the first project,
+      // types the placeholder name, submits). Added to the demo list.
+      workbenchCreateExperimentOpenStep,
       methodAttachmentOpenStep,
       methodAttachmentTabStep,
       methodAttachmentAttachStep,
@@ -1064,10 +1049,8 @@ describe("MethodsOpenPickerStep (§6.4 open-picker beat)", () => {
   });
 });
 
-describe("WorkbenchCreateExperimentOpenStep (§6.5a, USER_ACTION refactor 2026-05-27)", () => {
-  it("preserves the legacy step id for migration / hand-walk resume continuity", () => {
-    // The id stays verbatim so any hand-walk resume mechanism keyed off
-    // step ids still finds the (now user-driven) open beat.
+describe("WorkbenchCreateExperimentOpenStep (§6.5, experiment-flow fix manager 2026-05-27)", () => {
+  it("has id `workbench-create-experiment-open`", () => {
     expect(workbenchCreateExperimentOpenStep.id).toBe(
       "workbench-create-experiment-open",
     );
@@ -1093,10 +1076,16 @@ describe("WorkbenchCreateExperimentOpenStep (§6.5a, USER_ACTION refactor 2026-0
       "[data-tour-target=\"workbench-new-experiment\"]",
     );
   });
-  it("has no cursorScript (user-action step)", () => {
-    expect(workbenchCreateExperimentOpenStep.cursorScript).toBeUndefined();
+  it("has a cursorScript (BeakerBot demo: open + fill + submit)", () => {
+    // Bug A in the hand-walk brief: the prior shape had no cursor and
+    // advanced the moment the modal opened, leaving the experiment
+    // uncreated. The new shape demos the full create flow.
+    expect(workbenchCreateExperimentOpenStep.cursorScript).toBeDefined();
   });
-  it("expectedRoute is /workbench so refresh auto-navigates back", () => {
+  it("uses pose: typing-on-laptop (matches the cursor-driven shape)", () => {
+    expect(workbenchCreateExperimentOpenStep.pose).toBe("typing-on-laptop");
+  });
+  it("expectedRoute is /workbench", () => {
     expect(workbenchCreateExperimentOpenStep.expectedRoute).toBe("/workbench");
   });
   it("locks the page with an empty allow-list while BeakerBot drives", () => {
@@ -1107,93 +1096,12 @@ describe("WorkbenchCreateExperimentOpenStep (§6.5a, USER_ACTION refactor 2026-0
   });
 });
 
-describe("WorkbenchCreateExperimentNameStep (§6.5b, NEW 2026-05-27)", () => {
-  it("has id `workbench-create-experiment-name`", () => {
-    expect(workbenchCreateExperimentNameStep.id).toBe(
-      "workbench-create-experiment-name",
-    );
-  });
-  it("targets the experiment name input (the user types into this field)", () => {
-    expect(workbenchCreateExperimentNameStep.targetSelector).toBe(
-      "[data-tour-target=\"workbench-experiment-name-input\"]",
-    );
-  });
-  it("declares manual advance with the standard Got it, next label", () => {
-    if (workbenchCreateExperimentNameStep.completion.type !== "manual") {
-      throw new Error("completion contract changed shape; update test");
-    }
-    expect(workbenchCreateExperimentNameStep.completion.buttonLabel).toBe(
-      "Got it, next",
-    );
-  });
-  it("has no cursorScript (user-action step)", () => {
-    expect(workbenchCreateExperimentNameStep.cursorScript).toBeUndefined();
-  });
-});
-
-describe("WorkbenchCreateExperimentProjectStep (§6.5c, NEW 2026-05-27)", () => {
-  it("has id `workbench-create-experiment-project`", () => {
-    expect(workbenchCreateExperimentProjectStep.id).toBe(
-      "workbench-create-experiment-project",
-    );
-  });
-  it("targets the experiment project select (the user picks from this dropdown)", () => {
-    expect(workbenchCreateExperimentProjectStep.targetSelector).toBe(
-      "[data-tour-target=\"workbench-experiment-project-select\"]",
-    );
-  });
-  it("declares manual advance with no selection gate (user can leave on Misc)", () => {
-    if (workbenchCreateExperimentProjectStep.completion.type !== "manual") {
-      throw new Error("completion contract changed shape; update test");
-    }
-    // No disabledUntilEvent — the speech tells the user that Standalone
-    // is a legitimate choice, so we don't force them to pick a real
-    // project to advance.
-    expect(
-      workbenchCreateExperimentProjectStep.completion.disabledUntilEvent,
-    ).toBeUndefined();
-  });
-  it("has no cursorScript (user-action step)", () => {
-    expect(workbenchCreateExperimentProjectStep.cursorScript).toBeUndefined();
-  });
-});
-
-describe("WorkbenchCreateExperimentSubmitStep (§6.5d, NEW 2026-05-27)", () => {
-  it("has id `workbench-create-experiment-submit`", () => {
-    expect(workbenchCreateExperimentSubmitStep.id).toBe(
-      "workbench-create-experiment-submit",
-    );
-  });
-  it("targets the Create Experiment submit button", () => {
-    expect(workbenchCreateExperimentSubmitStep.targetSelector).toBe(
-      "[data-tour-target=\"workbench-experiment-submit\"]",
-    );
-  });
-  it("gates manual advance on tour:experiment-created (user must save first)", () => {
-    if (workbenchCreateExperimentSubmitStep.completion.type !== "manual") {
-      throw new Error("completion contract changed shape; update test");
-    }
-    expect(
-      workbenchCreateExperimentSubmitStep.completion.disabledUntilEvent,
-    ).toBe("tour:experiment-created");
-  });
-  it("has no cursorScript (user-action step)", () => {
-    expect(workbenchCreateExperimentSubmitStep.cursorScript).toBeUndefined();
-  });
-  it("declares both onEnter + onExit hooks for artifact capture + flush", () => {
-    // onEnter installs the `tour:experiment-created` listener that
-    // pushes the new task id into pendingArtifactStore.
-    // onExit calls flushPendingArtifacts to persist to the sidecar.
-    expect(workbenchCreateExperimentSubmitStep.onEnter).toBeDefined();
-    expect(workbenchCreateExperimentSubmitStep.onExit).toBeDefined();
-  });
-  it("PLACEHOLDER_EXPERIMENT_NAME stays exported for §6.11 search-step re-use", () => {
-    // The constant survives the refactor even though the user-driven
-    // beats no longer type it verbatim. SearchStep imports it to seed
-    // the demo query string.
-    expect(PLACEHOLDER_EXPERIMENT_NAME).toBe("Demo Experiment One");
-  });
-});
+// v4 tour structural manager (Wave 1, 2026-05-27): the
+// WorkbenchCreateExperimentStep describe block is removed. The step body
+// + file are retired per Grant's [DROP] marker in the new tour script.
+// The user-action open-click half (workbench-create-experiment-open)
+// remains and is covered above; the BeakerBot-types-the-name demo half
+// is gone.
 
 describe("MethodAttachmentStep (§6.6)", () => {
   it("speech includes the mental-model paragraph about edits being a copy", () => {

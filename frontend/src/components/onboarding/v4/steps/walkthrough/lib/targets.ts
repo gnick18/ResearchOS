@@ -145,11 +145,6 @@ export const TOUR_TARGETS = {
    *  2026-05-26). */
   workbenchExperimentProjectSelect: "workbench-experiment-project-select",
   workbenchExperimentNameInput: "workbench-experiment-name-input",
-  // §6.5 user-action refactor (experiment-create user-action manager
-  // 2026-05-27): the modal's Project `<select>` is now its own spotlight
-  // beat (workbench-create-experiment-project). Stamps the same node the
-  // user changes via setProjectId so the spotlight wraps the dropdown.
-  workbenchExperimentProjectSelect: "workbench-experiment-project-select",
   workbenchExperimentSubmit: "workbench-experiment-submit",
 
   // §6.7b Workbench Notes + Lists expansion (Workbench expansion manager
