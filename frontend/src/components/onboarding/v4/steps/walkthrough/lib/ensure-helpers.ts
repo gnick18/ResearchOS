@@ -30,6 +30,7 @@
  */
 import { methodsApi, projectsApi, tasksApi } from "@/lib/local-api";
 import type { Method, Project, Task } from "@/lib/types";
+import { appQueryClient } from "@/lib/query-client";
 
 /** Placeholder project name BeakerBot creates when the user skipped
  *  §6.1. Matches the constant in WorkbenchCreateExperimentOpenStep.tsx
@@ -95,6 +96,22 @@ export async function ensureFirstProjectExists(): Promise<number | null> {
       color: "#6B7280",
       weekend_active: false,
     });
+    // experiment-create regression fix 2026-05-27 (Grant hand-walk):
+    // After a fresh project create, the workbench page's react-query
+    // cache for ["projects"] is stale, so TaskModal's `projects` prop
+    // doesn't include the new project. The cursor's pickProject then
+    // can't find an `<option value="<newId>">` to target, waitForElement
+    // times out, the action drops silently, and the user sees the
+    // Misc-stuck modal with the disabled Create Experiment button.
+    // Invalidate the query so TaskModal re-renders with the option
+    // before the cursor tries to pick it. Best-effort: if the
+    // invalidate throws (no provider mounted, test harness, etc.) we
+    // still return the id so the caller can decide what to do.
+    try {
+      await appQueryClient.invalidateQueries({ queryKey: ["projects"] });
+    } catch {
+      // ignore; the create itself succeeded
+    }
     return created.id;
   } catch {
     return null;
@@ -153,6 +170,15 @@ export async function ensureFirstExperimentExists(): Promise<Task | null> {
       duration_days: 1,
       task_type: "experiment",
     });
+    // Same stale-query fix as ensureFirstProjectExists above. The
+    // workbench page's ["tasks", "own", ownProjectKeys] cache is the
+    // primary consumer; the gantt page's ["tasks", projectId] is the
+    // secondary. Broad invalidate by key prefix catches both.
+    try {
+      await appQueryClient.invalidateQueries({ queryKey: ["tasks"] });
+    } catch {
+      // ignore
+    }
     return created;
   } catch {
     return null;
@@ -203,6 +229,15 @@ export async function ensureFirstMethodExists(): Promise<Method | null> {
       method_type: "markdown",
       folder_path: "Methods",
     });
+    // Same stale-query fix as the project + experiment helpers above.
+    // The methods page + the experiment popup's methods picker both
+    // pull from ["methods"]. Invalidating here makes the method appear
+    // in the picker the moment the cursor opens it.
+    try {
+      await appQueryClient.invalidateQueries({ queryKey: ["methods"] });
+    } catch {
+      // ignore
+    }
     return created;
   } catch {
     return null;

@@ -49,8 +49,11 @@ import {
 import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 import { TOUR_DOM_EVENTS } from "./lib/tour-events";
-import { projectsApi } from "@/lib/local-api";
 import { flushPendingArtifacts, pendingArtifactStore } from "./lib/artifacts";
+import {
+  ensureFirstProjectExists as canonicalEnsureFirstProjectExists,
+  resolveFirstProjectId as canonicalResolveFirstProjectId,
+} from "./lib/ensure-helpers";
 
 const STEP_ID = "workbench-create-experiment-open";
 
@@ -76,62 +79,19 @@ async function pause(ms: number): Promise<void> {
   });
 }
 
-/**
- * Resolve the project id the experiment should land in. Picks the
- * most-recently-created own (non-shared) non-Miscellaneous project.
- * Returns `null` if no qualifying project exists (e.g. the user
- * skipped §6.1) so the cursor leaves the dropdown on its default and
- * the experiment files into Miscellaneous instead of throwing.
- *
- * "Most-recently-created" is approximated as max(id) since project ids
- * are monotonically increasing per-user (see projectsApi.create's
- * underlying nextId pattern in projects-store).
- */
-export async function resolveFirstProjectId(): Promise<number | null> {
-  try {
-    const projects = await projectsApi.list();
-    const eligible = projects.filter(
-      (p) =>
-        !p.is_archived &&
-        !p.is_shared_with_me &&
-        p.name !== "Miscellaneous",
-    );
-    if (eligible.length === 0) return null;
-    // Sort descending by id; pick the freshest. Mirrors the convention
-    // the methods-create step uses to find the newest method (the
-    // picker shows newest-first).
-    eligible.sort((a, b) => b.id - a.id);
-    return eligible[0].id;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Ensure SOME non-Misc project exists so the cursor demo has a valid
- * target. Hand-walk fix 2026-05-27: if the user jumped to
- * workbench-create-experiment-open via dev tools / seed-step (skipping
- * §6.1 home-create-project), no project exists and the cursor demo
- * dead-ends with the modal stuck on Miscellaneous + Create disabled.
- *
- * If a non-Misc project already exists, returns its id (no-op create).
- * Otherwise creates a placeholder "First Project" so the cursor's
- * pickProject can land it.
- */
-export async function ensureFirstProjectExists(): Promise<number | null> {
-  const existing = await resolveFirstProjectId();
-  if (existing !== null) return existing;
-  try {
-    const created = await projectsApi.create({
-      name: "First Project",
-      color: "#6B7280",
-      weekend_active: false,
-    });
-    return created.id;
-  } catch {
-    return null;
-  }
-}
+// experiment-create regression fix 2026-05-27: dedupe with the
+// canonical helpers in `./lib/ensure-helpers`. The local copies that
+// used to live here (resolveFirstProjectId + ensureFirstProjectExists)
+// silently diverged: the canonical lib version learned to invalidate
+// the ["projects"] react-query cache after a create so TaskModal's
+// `projects` prop reflects the new project, while the local copies
+// here did not. The result was the recurring "cursor opens modal,
+// types name, but Project stays on Miscellaneous and Create stays
+// disabled" symptom Grant kept flagging. Re-exports below keep prior
+// callers (and tests that imported from this file) working while
+// guaranteeing one source of truth.
+export const resolveFirstProjectId = canonicalResolveFirstProjectId;
+export const ensureFirstProjectExists = canonicalEnsureFirstProjectExists;
 
 export const workbenchCreateExperimentOpenStep = buildWalkthroughStep({
   id: STEP_ID,
@@ -203,8 +163,17 @@ export const workbenchCreateExperimentOpenStep = buildWalkthroughStep({
       // `select.value` to a value not yet in the options silently
       // no-ops, leaving the select on Miscellaneous. Poll until the
       // option for our projectId exists.
+      //
+      // Timeout bumped 3s → 6s on 2026-05-27 (Grant hand-walk regression):
+      // when ensureFirstProjectExists creates a placeholder project and
+      // the canonical helper invalidates the ["projects"] query, react-
+      // query's refetch + the workbench page's re-render + the TaskModal's
+      // prop propagation can take longer than 3s on slow machines. The
+      // extra headroom is cheap (the polling loop short-circuits the
+      // moment the option mounts) and prevents the silent-drop symptom
+      // Grant kept hitting.
       const optionSelector = `${targetSelector(TOUR_TARGETS.workbenchExperimentProjectSelect)} option[value="${projectId}"]`;
-      const option = await waitForElement(optionSelector, 3000);
+      const option = await waitForElement(optionSelector, 6000);
       if (!option) return;
       setNativeFieldValue(select, String(projectId));
     });
