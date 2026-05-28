@@ -1967,7 +1967,19 @@ function DetailsTab({
   // @Test's Fake A -> First Experiment -> Fake B with "First Experiment
   // (this task)". Scope to empty for shared-in tasks so no bogus chain
   // renders; owned tasks keep the full list.
-  const scopedDependencies = task.is_shared_with_me ? [] : dependencies;
+  //
+  // Robustness (Grant 2026-05-28 followup, still repro'd): rely on owner
+  // mismatch in addition to the is_shared_with_me flag. The tour spawns
+  // "Make some coffee together" in BeakerBot's namespace and delivers it
+  // via _shared_with_me.json, but the loaded task object did not always
+  // carry is_shared_with_me=true, so the flag-only gate missed it. A
+  // task whose `owner` is set and differs from the current user is
+  // foreign-owned regardless of the flag. Own tasks (owner unset or ===
+  // currentUser) keep their chain.
+  const isForeignOwnedTask =
+    task.is_shared_with_me ||
+    (!!task.owner && !!currentUser && task.owner !== currentUser);
+  const scopedDependencies = isForeignOwnedTask ? [] : dependencies;
 
   // Find dependencies for this task
   const taskDependencies = scopedDependencies.filter(d => d.child_id === task.id);
@@ -2308,10 +2320,10 @@ function DetailsTab({
   // Tasks at the same level should be displayed horizontally (parallel)
   // Different levels should be displayed vertically (sequential)
   const buildDependencyChain = useCallback((): Task[][] => {
-    // Shared-in experiments have no viewer-side chain (see
-    // scopedDependencies rationale above); return empty so the
+    // Shared-in / foreign-owned experiments have no viewer-side chain
+    // (see scopedDependencies rationale above); return empty so the
     // Dependency-chain section never renders a foreign / colliding graph.
-    if (task.is_shared_with_me) return [];
+    if (isForeignOwnedTask) return [];
 
     // First, collect all tasks in the dependency graph
     const chainTasks = new Set<number>();
@@ -2362,7 +2374,7 @@ function DetailsTab({
     });
     
     return levels;
-  }, [task.id, task.is_shared_with_me, allTasks, scopedDependencies]);
+  }, [task.id, isForeignOwnedTask, allTasks, scopedDependencies]);
 
   // Get the ordered chain levels
   const dependencyChainLevels = useMemo(() => buildDependencyChain(), [buildDependencyChain]);
