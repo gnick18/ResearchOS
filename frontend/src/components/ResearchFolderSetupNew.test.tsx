@@ -48,6 +48,7 @@ const fsState = vi.hoisted(() => ({
   isConnected: false as boolean,
   availableUsers: [] as string[],
   currentUser: null as string | null,
+  mainUser: null as string | null,
 }));
 
 vi.mock("@/lib/file-system/file-system-context", () => ({
@@ -59,7 +60,7 @@ vi.mock("@/lib/file-system/file-system-context", () => ({
     isConnected: fsState.isConnected,
     availableUsers: fsState.availableUsers,
     currentUser: fsState.currentUser,
-    mainUser: null,
+    mainUser: fsState.mainUser,
     directoryName: fsState.isConnected ? "test-folder" : null,
     needsInitialization: false,
     lastConnectedFolder: null,
@@ -114,6 +115,7 @@ beforeEach(() => {
   fsState.isConnected = false;
   fsState.availableUsers = [];
   fsState.currentUser = null;
+  fsState.mainUser = null;
   // Clear sticky-intent flag between tests so a sessionStorage write
   // from one test can't leak into the next.
   try {
@@ -458,6 +460,38 @@ describe("ResearchFolderSetupNew Import-from-LabArchives picker flow", () => {
     expect(screen.queryByTestId("eln-pick-user-modal")).toBeNull();
     expect(sessionStorage.getItem("researchos:eln-import-pending")).toBeNull();
     expect(mocks.setCurrentUser).not.toHaveBeenCalled();
+  });
+});
+
+// The "set as Main" affordance on the account picker. Previously this
+// inline picker only let you log in, with no way to designate the owner
+// (Main) account on a fresh machine, even though the data layer expects
+// Main to be set by an explicit star-click. These cover that the control
+// now renders and reflects the current Main correctly.
+describe("ResearchFolderSetupNew account picker — set-as-Main affordance", () => {
+  const enterPickerWith = (users: string[], mainUser: string | null) => {
+    fsState.isConnected = true;
+    fsState.availableUsers = users;
+    fsState.currentUser = null;
+    fsState.mainUser = mainUser;
+  };
+
+  it("shows a 'Set as main account' star on every row when no Main is set", () => {
+    enterPickerWith(["mira", "alex"], null);
+    render(<ResearchFolderSetup onComplete={vi.fn()} />);
+    const stars = screen.getAllByLabelText("Set as main account");
+    expect(stars).toHaveLength(2);
+    // No (Main) badge anywhere yet.
+    expect(screen.queryByText("(Main)")).toBeNull();
+  });
+
+  it("badges the current Main user and hides its own star", () => {
+    enterPickerWith(["mira", "alex"], "mira");
+    render(<ResearchFolderSetup onComplete={vi.fn()} />);
+    // mira is Main: badge shows, and only the non-Main row keeps a star.
+    expect(screen.getByText("(Main)")).toBeInTheDocument();
+    const stars = screen.getAllByLabelText("Set as main account");
+    expect(stars).toHaveLength(1);
   });
 });
 

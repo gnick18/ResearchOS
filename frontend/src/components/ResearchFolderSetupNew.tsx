@@ -21,6 +21,7 @@ import {
   describeDropExtractionError,
   type DropExtractionResult,
 } from "@/lib/file-system/drop-folder";
+import { usersApi } from "@/lib/local-api";
 
 interface ResearchFolderSetupProps {
   onComplete: () => void;
@@ -42,7 +43,16 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
     needsInitialization,
     initializeFolder,
     lastConnectedFolder,
+    mainUser,
   } = useFileSystem();
+
+  // Local override so a star-click reflects instantly. The context's
+  // mainUser is read from _user_metadata.json at connect time; the file
+  // write in handleSetMainUser is authoritative, but the context value
+  // doesn't refresh until the next connect, so we mirror the choice here
+  // for immediate (Main) badge feedback on this screen.
+  const [mainUserOverride, setMainUserOverride] = useState<string | null>(null);
+  const effectiveMainUser = mainUserOverride ?? mainUser;
 
   const [showUserSelection, setShowUserSelection] = useState(false);
   const [newUsername, setNewUsername] = useState("");
@@ -173,6 +183,20 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
     onComplete();
   };
 
+  // Explicit "set as Main" star, mirroring UserLoginScreen. Main is the
+  // owner account on this machine; the data layer never auto-promotes on
+  // connect (so folder switches don't silently re-pin Main), so the only
+  // way to designate it in a multi-user folder is this control.
+  const handleSetMainUser = async (username: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await usersApi.setMainUser(username);
+      setMainUserOverride(username);
+    } catch (err) {
+      console.error("Failed to set main user:", err);
+    }
+  };
+
   const handleCreateUser = async () => {
     if (!newUsername.trim()) {
       setCreateError("Please enter a username");
@@ -185,12 +209,25 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
       return;
     }
 
+    // Capture before createUser mutates availableUsers: the first account
+    // on a fresh folder is unambiguously the owner, so auto-promote it to
+    // Main. Multi-user folders never auto-promote (use the star instead).
+    const isFirstAccount = availableUsers.length === 0;
+
     setIsCreating(true);
     setCreateError(null);
 
     try {
       const success = await createUser(sanitized);
       if (success) {
+        if (isFirstAccount) {
+          try {
+            await usersApi.setMainUser(sanitized);
+            setMainUserOverride(sanitized);
+          } catch {
+            // Best-effort; the star remains available to set it later.
+          }
+        }
         await setCurrentUser(sanitized);
         onComplete();
       } else {
@@ -259,14 +296,49 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
 
                   <div className="space-y-2 mb-6">
                     {availableUsers.map((user) => (
-                      <button
+                      <div
                         key={user}
-                        onClick={() => handleSelectUser(user)}
-                        className="w-full p-4 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-blue-500/50 rounded-lg transition-all text-left flex items-center gap-3"
+                        className="group flex items-center gap-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-blue-500/50 rounded-lg transition-all"
                       >
-                        <UserAvatar username={user} size="md" />
-                        <span className="text-white font-medium">{user}</span>
-                      </button>
+                        <button
+                          onClick={() => handleSelectUser(user)}
+                          className="flex-1 min-w-0 p-4 text-left flex items-center gap-2"
+                        >
+                          <UserAvatar username={user} size="md" />
+                          <span className="text-white font-medium truncate">{user}</span>
+                          {effectiveMainUser === user && (
+                            <span className="shrink-0 text-xs text-amber-400 font-normal">
+                              (Main)
+                            </span>
+                          )}
+                        </button>
+                        {effectiveMainUser !== user && (
+                          <div className="relative group/icon pr-2">
+                            <button
+                              onClick={(e) => handleSetMainUser(user, e)}
+                              className="p-2 opacity-0 group-hover:opacity-100 hover:bg-amber-500/20 rounded-lg text-slate-400 hover:text-amber-400 transition-all"
+                              aria-label="Set as main account"
+                            >
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+                                />
+                              </svg>
+                            </button>
+                            <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap px-2 py-1 text-[10px] font-medium rounded bg-slate-900/95 text-slate-100 border border-white/10 opacity-0 group-hover/icon:opacity-100 transition-opacity z-10">
+                              Set as main
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </>
