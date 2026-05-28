@@ -3917,7 +3917,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                   }}
                   disabled={saving || (!hasUnsavedChanges && !editorDirty)}
                   className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                    hasUnsavedChanges && !saving
+                    (hasUnsavedChanges || editorDirty) && !saving
                       ? "text-white bg-blue-600 hover:bg-blue-700"
                       : "text-gray-400 bg-gray-100 cursor-not-allowed"
                   }`}
@@ -4498,7 +4498,7 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
                 }}
                 disabled={saving || (!hasUnsavedChanges && !editorDirty)}
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                  hasUnsavedChanges && !saving
+                  (hasUnsavedChanges || editorDirty) && !saving
                     ? "text-white bg-blue-600 hover:bg-blue-700"
                     : "text-gray-400 bg-gray-100 cursor-not-allowed"
                 }`}

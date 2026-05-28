@@ -1558,7 +1558,7 @@ function MarkdownMethodViewer({
                   }}
                   disabled={saving || (!hasUnsavedChanges && !editorDirty)}
                   className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
-                    hasUnsavedChanges
+                    (hasUnsavedChanges || editorDirty) && !saving
                       ? "text-white bg-blue-600 hover:bg-blue-700"
                       : "text-gray-400 bg-gray-200 cursor-not-allowed"
                   } disabled:opacity-50`}
