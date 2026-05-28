@@ -1,6 +1,7 @@
 import { fileService } from "@/lib/file-system/file-service";
 import { taskResultsBase } from "@/lib/tasks/results-paths";
 import { imageEvents } from "@/lib/attachments/image-events";
+import { encodeAttachmentRefPath } from "@/lib/utils/blob-url-resolver";
 import { notesApi } from "@/lib/local-api";
 import type { NoteEntry } from "@/lib/types";
 
@@ -59,13 +60,15 @@ export async function attachImageToTask(opts: AttachImageOptions): Promise<Attac
 
   const relativePath = `Images/${finalFilename}`;
   const alt = opts.altText ?? opts.suggestedFilename;
-  // NOTE: do NOT angle-bracket the URL here. The HybridMarkdownEditor's
-  // pre-resolve regex and the <img> renderer both key off the raw src
-  // and don't strip CommonMark brackets, so wrapping in <> breaks the
-  // blob-URL cache lookup. The trade-off: filenames with spaces still
-  // don't render inline (see the renderer's `[^)\s]+` capture at
-  // HybridMarkdownEditor.tsx:568). That's a separate fix.
-  const markdownSnippet = `\n![${alt}](${relativePath})\n`;
+  // Percent-encode the filename in the markdown destination so filenames with
+  // spaces (e.g. a Telegram document named "gel run 2.jpg", or a batch name
+  // the user typed with spaces) render inline. CommonMark truncates an
+  // un-encoded destination at the first space, so `![](Images/gel run 2.jpg)`
+  // is parsed as plain text and the image never renders. The encoded form
+  // round-trips back to the literal on-disk name via resolvePath's decodeURI.
+  // Do NOT angle-bracket as an alternative: the pre-resolve regex / <img>
+  // renderer key off the raw src and don't strip CommonMark brackets.
+  const markdownSnippet = `\n![${alt}](${encodeAttachmentRefPath("Images", finalFilename)})\n`;
 
   imageEvents.emitAttached({ basePath: base, relativePath });
 
@@ -156,7 +159,9 @@ export async function attachImageToNote(
 
   const relativePath = `Images/${finalFilename}`;
   const alt = opts.altText ?? opts.suggestedFilename;
-  const markdownLink = `\n![${alt}](${relativePath})\n`;
+  // Percent-encode the destination so spaced filenames render inline — see
+  // attachImageToTask for the CommonMark-truncation rationale.
+  const markdownLink = `\n![${alt}](${encodeAttachmentRefPath("Images", finalFilename)})\n`;
 
   imageEvents.emitAttached({ basePath: base, relativePath });
 

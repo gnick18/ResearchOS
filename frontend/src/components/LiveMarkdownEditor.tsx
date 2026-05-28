@@ -10,7 +10,7 @@ import { markdownSanitizeSchema } from "@/lib/markdown/sanitize-schema";
 import remarkUnderline from "@/lib/markdown/remark-underline";
 import { attachmentsApi } from "@/lib/local-api";
 import HybridMarkdownEditor from "./HybridMarkdownEditor";
-import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
+import { blobUrlResolver, encodeAttachmentRefPath } from "@/lib/utils/blob-url-resolver";
 import { fileService } from "@/lib/file-system/file-service";
 import ImageResizePopover from "./ImageResizePopover";
 import { rewriteImageBySrcAlt, parseWidthPercent } from "@/lib/image-resize-utils";
@@ -876,7 +876,7 @@ export default function LiveMarkdownEditor({
           const blob = await fileService.readFileAsBlob(correctPath);
           if (!blob) throw new Error(`source not found: ${correctPath}`);
           await fileService.writeFileFromBlob(`${imageBasePath}/Images/${finalName}`, blob);
-          newPath = `Images/${finalName}`;
+          newPath = encodeAttachmentRefPath("Images", finalName);
         } catch {
           alert(`Failed to copy ${correctPath} into the notes folder. The markdown reference was left unchanged.`);
           setShowBrokenImagePopup(false);
@@ -1068,7 +1068,7 @@ export default function LiveMarkdownEditor({
         const finalName = await pickUniqueImageFilename(imagesDir, desiredName);
         await fileService.writeFileFromBlob(`${imagesDir}/${finalName}`, file);
 
-        const newPath = `Images/${finalName}`;
+        const newPath = encodeAttachmentRefPath("Images", finalName);
         const { originalSrc, alt } = currentBrokenImage;
         const escapedAlt = alt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         const escapedSrc = originalSrc.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -1598,14 +1598,16 @@ export default function LiveMarkdownEditor({
                     n += 1;
                   }
                   await fileService.writeFileFromBlob(`${imageBasePath}/Images/${destName}`, blob);
-                  snippet = `![${parsed.caption ?? ""}](Images/${destName})`;
+                  snippet = `![${parsed.caption ?? ""}](${encodeAttachmentRefPath("Images", destName)})`;
                 }
               } catch {
                 // fall through to default snippet below
               }
             }
             if (!snippet) {
-              snippet = `![${parsed.caption ?? ""}](Images/${parsed.filename})`;
+              // Percent-encode so a spaced filename renders inline; CommonMark
+              // truncates an un-encoded destination at the first space.
+              snippet = `![${parsed.caption ?? ""}](${encodeAttachmentRefPath("Images", parsed.filename)})`;
             }
           } else if (fileRaw) {
             let parsed: { filename: string; basePath?: string } | null = null;

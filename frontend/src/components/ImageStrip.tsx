@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
+import { blobUrlResolver, encodeAttachmentRefPath } from "@/lib/utils/blob-url-resolver";
 import { imageEvents } from "@/lib/attachments/image-events";
 import { listImagesInFolder, type FolderImageEntry } from "@/lib/attachments/image-folder";
 import ImageMetadataPopup from "./ImageMetadataPopup";
@@ -214,7 +214,10 @@ export default function ImageStrip({
                 e.dataTransfer.setData(STRIP_DRAG_MIME, JSON.stringify(payload));
                 e.dataTransfer.setData(
                   "text/plain",
-                  `![${entry.sidecarCaption ?? ""}](Images/${entry.filename})`
+                  // Percent-encode the filename so a spaced name produces a
+                  // CommonMark-valid destination when the receiving editor
+                  // falls back to the text/plain payload (matches FileStrip).
+                  `![${entry.sidecarCaption ?? ""}](${encodeAttachmentRefPath("Images", entry.filename)})`
                 );
                 e.dataTransfer.effectAllowed = "copyMove";
                 const img = e.currentTarget.querySelector("img");

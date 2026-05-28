@@ -12,7 +12,7 @@ import {
   parseMarkdownBlocks,
   type MarkdownBlock,
 } from "@/lib/markdown-block-parser";
-import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
+import { blobUrlResolver, encodeAttachmentRefPath } from "@/lib/utils/blob-url-resolver";
 import { fileService } from "@/lib/file-system/file-service";
 import { rewriteImageBySrcAlt, parseWidthPercent } from "@/lib/image-resize-utils";
 import { ValueHistory, type PushKind } from "@/lib/undo/value-history";
@@ -2431,7 +2431,10 @@ export default function HybridMarkdownEditor({
               return;
             }
             if (!parsed?.filename) return;
-            const snippet = `![${parsed.caption ?? ""}](Images/${parsed.filename})`;
+            // Percent-encode so a spaced filename renders inline; CommonMark
+            // truncates an un-encoded destination at the first space, which
+            // dropped the image entirely (the Telegram spaced-filename bug).
+            const snippet = `![${parsed.caption ?? ""}](${encodeAttachmentRefPath("Images", parsed.filename)})`;
             // Insert against the LIVE working document so unsaved
             // pending edits aren't clobbered by the splice. Stays
             // local via pushAndCommit until the user Saves.
