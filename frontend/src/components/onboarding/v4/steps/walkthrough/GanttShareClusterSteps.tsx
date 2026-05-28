@@ -24,6 +24,8 @@ import {
   safeClickAction,
   safeGlideToElementAction,
   deferredClickAction,
+  callbackAction,
+  pause,
   compactScript,
   tourClickWithLockBypass,
 } from "./lib/cursor-script";
@@ -40,6 +42,7 @@ import { BEAKERBOT_LAB_USERNAME } from "../lab/lib/lab-fake-user";
 import {
   resolveFakeTaskIds,
   spawnGanttRedesignFakeTasks,
+  GANTT_REDESIGN_FAKE_A_NAME,
 } from "./lib/gantt-redesign-helpers";
 import { ensureFirstExperimentExists } from "./lib/ensure-helpers";
 
@@ -378,6 +381,15 @@ function ShareBackSpeech() {
   );
 }
 
+/** Pause (ms) after the tour:open-task-popup event so the TaskDetailPopup
+ *  visibly mounts before BeakerBot glides to the share button. Mirrors
+ *  the POST_DRAG_PAUSE_MS beat in the deps cluster's open-dialog flow. */
+const SHARE_BACK_POPUP_MOUNT_PAUSE_MS = 800;
+
+/** Pause (ms) between the glide-to-share-button and the deferred click so
+ *  the glide reads cleanly before the share dialog pops. */
+const SHARE_BACK_PRE_SHARE_CLICK_PAUSE_MS = 500;
+
 export const ganttShareUserSharesBackStep = buildWalkthroughStep({
   id: "gantt-share-user-shares-back",
   speech: () => <ShareBackSpeech />,
@@ -392,26 +404,63 @@ export const ganttShareUserSharesBackStep = buildWalkthroughStep({
   // bubble's "I'll help" rails framing nor Grant's expectation that
   // BeakerBot demonstrate the click.
   //
+  // share-back popup-open manager (2026-05-28, Grant's two-screenshot
+  // bug): the prior build opened the popup with
+  // safeClickAction(ganttBarFakeA). That failed two ways. First,
+  // safeClickAction resolves the bar's rect at BUILD time, but the
+  // upstream cascade step (gantt-deps-cascade) moves Fake A to a new
+  // date, so the build-time bar identity / position is stale by the
+  // time this step plays. The cursor landed near the WRONG bar
+  // (BeakerBot's coffee experiment) and the click missed. Second, a
+  // synthetic cursor click on a Gantt bar does not reliably fire the
+  // bar's React onClick (the handler that calls onTaskClick(taskKey)
+  // to open the popup), so even a well-aimed click left the popup
+  // closed. This is the same class of problem the deps cluster hit
+  // with the HTML5 drag, solved there by dispatching a programmatic
+  // event GanttChart listens for (tour:open-dep-popup). We mirror that
+  // exactly with a new tour:open-task-popup event.
+  //
   // Why deferredClickAction for the share button: the popup mounts in
-  // response to the Fake A click at PLAYBACK time, so the share button
+  // response to the open event at PLAYBACK time, so the share button
   // doesn't exist at BUILD time. safeClickAction would resolve null
   // here and the second beat would silently drop (same root-cause class
   // as the lab-mode-* tab demos fixed in the Lab Mode R1 fix manager
   // pass). deferredClickAction's playback-time waitForElement + click
-  // bridges the popup mount.
-  //
-  // The cursor's click sets `__beakerBotCursorClicking`, so the page
-  // lock bypass is automatic on both beats. No `tourClickWithLockBypass`
-  // call needed here since deferredClickAction already mirrors that
-  // bypass internally (see cursor-script.ts deferredClickAction comment).
+  // bridges the popup mount, and it already sets `__beakerBotCursorClicking`
+  // internally so the InputLockOverlay capture-phase blocker lets it
+  // through (no tourClickWithLockBypass call needed here).
   cursorScript: cursorScript(async () => {
-    // 1. Open Fake A. waitForElement gives the bar up to 5s to mount
-    //    after the previous step's onExit closed the prior popup and
-    //    the user-shares-back step took focus.
-    const openFakeA = await safeClickAction(
+    // 1. Glide to Fake A's bar for the visual cue so BeakerBot visibly
+    //    moves to the right bar. Resolved at BUILD time; if the bar
+    //    hasn't mounted yet this no-ops and the open event below still
+    //    fires. The glide is purely narrative; the open is event-driven.
+    const glideToFakeA = await safeGlideToElementAction(
       targetSelector(TOUR_TARGETS.ganttBarFakeA),
+      4000,
     );
-    // 2. Glide toward the share button for the visual cue, then
+    // 2. Open Fake A's popup at PLAYBACK time via tour:open-task-popup.
+    //    We resolve Fake A's id live (resolveFakeTaskIds reads the
+    //    current task list) so a cascade-moved Fake A is still found,
+    //    and GanttChart's listener opens the popup through the same
+    //    onTaskClick(taskKey) path a real bar click uses. This sidesteps
+    //    both the stale-rect and the synthetic-click-doesn't-fire-onClick
+    //    failures the old safeClickAction approach had.
+    const openFakeA = callbackAction(async () => {
+      if (typeof window === "undefined") return;
+      const { fakeAId } = await resolveFakeTaskIds();
+      if (!fakeAId) {
+        console.warn(
+          "[gantt-share-user-shares-back] could not resolve Fake A id; popup open skipped",
+        );
+        return;
+      }
+      window.dispatchEvent(
+        new CustomEvent("tour:open-task-popup", {
+          detail: { taskId: fakeAId, taskName: GANTT_REDESIGN_FAKE_A_NAME },
+        }),
+      );
+    });
+    // 3. Glide toward the share button for the visual cue, then
     //    deferred-click it. The glide resolves at BUILD time so it
     //    only fires if the button is already in the DOM (a no-op
     //    fallback if the popup hasn't mounted yet, which is the
@@ -424,7 +473,17 @@ export const ganttShareUserSharesBackStep = buildWalkthroughStep({
       targetSelector(TOUR_TARGETS.taskPopupShareButton),
       4000,
     );
-    return compactScript([openFakeA, glideToShare, clickShare]);
+    // Pauses: POPUP lets the popup visibly mount after the open event
+    // before the glide-to-share beat reads cleanly; SHARE gives the
+    // glide a moment to settle on the button before the click lands.
+    return compactScript([
+      glideToFakeA,
+      openFakeA,
+      pause(SHARE_BACK_POPUP_MOUNT_PAUSE_MS),
+      glideToShare,
+      pause(SHARE_BACK_PRE_SHARE_CLICK_PAUSE_MS),
+      clickShare,
+    ]);
   }),
   completion: advanceOnEvent((advance) => {
     // Polling-based completion: detect when Fake A in the user's

@@ -998,6 +998,51 @@ export default function GanttChart({
     return () => window.removeEventListener("tour:open-dep-popup", onOpen);
   }, [tasks]);
 
+  // Tour hook (onboarding v4 §6.8 share cluster): the BeakerBot share-back
+  // demo needs to open Fake A's TaskDetailPopup from the cursor, but a
+  // simulated cursor click on a Gantt bar does not reliably fire the bar's
+  // React onClick (which is what calls onTaskClick(taskKey) to open the
+  // popup). It's the same mismatch the deps cluster hit with the HTML5
+  // drag. Rather than fight the synthetic click, the share-back step body
+  // dispatches `tour:open-task-popup` at PLAYBACK time and we open the
+  // popup here via the exact same path a bar click uses: resolve the task
+  // in the live `tasks` list (so a cascade-moved bar is handled, no stale
+  // build-time identity) and call `onTaskClick(taskKey(task))`. The detail
+  // carries either a `taskId` or a `taskName`; taskName is the canonical
+  // form the share-back step uses since Fake A is matched by name upstream.
+  // Best-effort: if the task isn't in the current Gantt list, no-op.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onOpenTaskPopup = (ev: Event) => {
+      const detail = (ev as CustomEvent<{
+        taskId?: number;
+        taskName?: string;
+      }>).detail;
+      if (!detail) return;
+      const { taskId, taskName } = detail;
+      // Prefer an explicit id; fall back to a name match. Restrict to the
+      // user's own tasks (not is_shared_with_me) so the share-back demo
+      // never accidentally opens a read-only shared bar that has no share
+      // button. Fake A is always user-owned.
+      const match =
+        typeof taskId === "number"
+          ? tasks.find((t) => t.id === taskId && !t.is_shared_with_me)
+          : typeof taskName === "string"
+            ? tasks.find((t) => t.name === taskName && !t.is_shared_with_me)
+            : null;
+      if (!match) return;
+      const key = taskKey(match);
+      if (isLabMode && onTaskClickLab) {
+        onTaskClickLab(match as Task & { username?: string });
+      } else {
+        onTaskClick(key);
+      }
+    };
+    window.addEventListener("tour:open-task-popup", onOpenTaskPopup);
+    return () =>
+      window.removeEventListener("tour:open-task-popup", onOpenTaskPopup);
+  }, [tasks, onTaskClick, onTaskClickLab, isLabMode]);
+
   // Calculate task positions after render using useLayoutEffect
   useLayoutEffect(() => {
     if (!containerRef.current) return;
