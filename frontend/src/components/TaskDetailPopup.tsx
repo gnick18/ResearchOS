@@ -3426,6 +3426,11 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
   const { resolve: resolveDuplicates, DialogComponent: DuplicateDialog } =
     useDuplicateResolver();
   const { currentUser } = useCurrentUser();
+  // Imperative flush handle published by the embedded editor. Calling it
+  // commits the editor's in-flight block buffer, fires onChange, and returns
+  // the freshest full-document string, so the popup "Save notes" button can
+  // persist the very latest edit even if the user never left the active block.
+  const editorSaveRef = useRef<(() => string) | null>(null);
   // Holds the draft captured by `useDraftPersistence`'s onRestore until the
   // disk load below finishes. Pattern: onRestore fires on mount BEFORE the
   // async disk read resolves, so we can't set `content` directly (the disk
@@ -3801,11 +3806,15 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
     [content, ensureAttachmentsSplit, requestRename, resolveDuplicates, tabBase]
   );
 
-  const handleSave = useCallback(async () => {
+  // When `explicitValue` is supplied (the popup Save button flushes the
+  // editor buffer first and passes the freshest doc), persist that instead of
+  // the async-lagging `content` state. Falls back to `content` otherwise.
+  const handleSave = useCallback(async (explicitValue?: string) => {
+    const latest = typeof explicitValue === "string" ? explicitValue : content;
     setSaving(true);
     try {
-      const split = await ensureAttachmentsSplit(content);
-      const toWrite = split.migrated ? split.notesContent : content;
+      const split = await ensureAttachmentsSplit(latest);
+      const toWrite = split.migrated ? split.notesContent : latest;
       await filesApi.writeFile(notesPath, toWrite, `Update lab notes for: ${task.name}`);
       setContent(toWrite);
       setOriginalContent(toWrite);
@@ -3893,7 +3902,13 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                   </span>
                 )}
                 <button
-                  onClick={handleSave}
+                  data-tour-target="task-popup-notes-save"
+                  onClick={() => {
+                    // Flush the editor's in-flight block buffer first so the
+                    // last in-progress edit lands on disk, then persist.
+                    const latest = editorSaveRef.current?.() ?? content;
+                    void handleSave(latest);
+                  }}
                   disabled={saving || !hasUnsavedChanges}
                   className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                     hasUnsavedChanges && !saving
@@ -4011,6 +4026,13 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                   // sidecar is absent (= not an ELN-imported task).
                   notesMarkdownPath={notesPath}
                   showToolbar={true}
+                  // The popup owns its own version-controlled "Save notes"
+                  // button (above), so hide the editor's internal one to
+                  // avoid two Save buttons. saveRef lets that button flush
+                  // the live buffer; onExplicitSave routes Cmd+S to disk.
+                  hideSaveButton
+                  saveRef={editorSaveRef}
+                  onExplicitSave={(v) => { void handleSave(v); }}
                 />
               )}
             </div>
@@ -4058,6 +4080,9 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
   const { resolve: resolveDuplicates, DialogComponent: DuplicateDialog } =
     useDuplicateResolver();
   const { currentUser } = useCurrentUser();
+  // See LabNotesTab: imperative flush handle from the embedded editor so the
+  // popup "Save results" button persists the freshest in-progress block.
+  const editorSaveRef = useRef<(() => string) | null>(null);
   // See LabNotesTab — same SPA-nav draft-restore staging slot. Holds the
   // sessionStorage draft (if any) until the disk loader resolves, then the
   // loader promotes it on top of the disk baseline.
@@ -4357,11 +4382,15 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
     [content, ensureAttachmentsSplit, requestRename, resolveDuplicates, tabBase]
   );
 
-  const handleSave = useCallback(async () => {
+  // When `explicitValue` is supplied (the popup Save button flushes the
+  // editor buffer first and passes the freshest doc), persist that instead of
+  // the async-lagging `content` state. Falls back to `content` otherwise.
+  const handleSave = useCallback(async (explicitValue?: string) => {
+    const latest = typeof explicitValue === "string" ? explicitValue : content;
     setSaving(true);
     try {
-      const split = await ensureAttachmentsSplit(content);
-      const toWrite = split.migrated ? split.resultsContent : content;
+      const split = await ensureAttachmentsSplit(latest);
+      const toWrite = split.migrated ? split.resultsContent : latest;
       await filesApi.writeFile(resultsPath, toWrite, `Update results: ${task.name}`);
       setContent(toWrite);
       setOriginalContent(toWrite);
@@ -4448,7 +4477,13 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
                 </span>
               )}
               <button
-                onClick={handleSave}
+                data-tour-target="task-popup-results-save"
+                onClick={() => {
+                  // Flush the editor's in-flight block buffer first so the
+                  // last in-progress edit lands on disk, then persist.
+                  const latest = editorSaveRef.current?.() ?? content;
+                  void handleSave(latest);
+                }}
                 disabled={saving || !hasUnsavedChanges}
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                   hasUnsavedChanges && !saving
@@ -4508,6 +4543,13 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
                 // sidecar read short-circuits cleanly when absent.
                 notesMarkdownPath={resultsPath}
                 showToolbar={true}
+                // The popup owns its own version-controlled "Save results"
+                // button (above), so hide the editor's internal one to avoid
+                // two Save buttons. saveRef lets that button flush the live
+                // buffer; onExplicitSave routes Cmd+S to disk.
+                hideSaveButton
+                saveRef={editorSaveRef}
+                onExplicitSave={(v) => { void handleSave(v); }}
               />
             )}
           </div>

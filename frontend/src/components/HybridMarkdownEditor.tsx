@@ -329,6 +329,24 @@ interface HybridMarkdownEditorProps {
    *  false so existing surfaces (notes, results, etc.) keep their
    *  placeholder-first behavior. */
   autoStartEditing?: boolean;
+  /** When true, the editor's own internal SaveChrome button (testid
+   *  "hybrid-editor-save") is NOT rendered. Used inside surfaces that
+   *  already provide their OWN version-controlled disk-save button (the
+   *  experiment detail popup's "Save notes" / "Save results"), where the
+   *  editor's in-memory buffer-flush button would read as a confusing
+   *  second Save. Defaults to false (button shown) so the methods-create
+   *  tour flow and every standalone editor usage keep the button. */
+  hideSaveButton?: boolean;
+  /** When provided, the editor publishes an imperative function here that
+   *  flushes the in-flight edit buffer, fires onChange with the latest
+   *  full document, and RETURNS that latest string synchronously. Lets a
+   *  parent commit the last in-progress block before persisting to disk
+   *  (no waiting on the async controlled-value round-trip). */
+  saveRef?: React.MutableRefObject<(() => string) | null>;
+  /** Fired on an explicit save (Cmd/Ctrl+S or the internal Save button)
+   *  with the value committed to the parent, so the parent can persist it
+   *  to disk in contexts where the editor's own button is hidden. */
+  onExplicitSave?: (value: string) => void;
 }
 
 /**
@@ -611,6 +629,9 @@ export default function HybridMarkdownEditor({
   onImageDrop,
   allowAnyFileType = false,
   autoStartEditing = false,
+  hideSaveButton = false,
+  saveRef,
+  onExplicitSave,
 }: HybridMarkdownEditorProps) {
   // Track which block is currently being edited by its start offset
   // Using startOffset is more stable than block ID because it doesn't
@@ -843,6 +864,15 @@ export default function HybridMarkdownEditor({
   // to a stable callable. The real implementation is wired further
   // down once `commitBufferedEdit` is available.
 
+  // Mirror the onExplicitSave prop into a ref so manualSave can notify it
+  // without listing onExplicitSave in its useCallback deps (which would
+  // churn the callback identity on every parent render). Same pattern as
+  // manualSaveRef above.
+  const onExplicitSaveRef = useRef(onExplicitSave);
+  useEffect(() => {
+    onExplicitSaveRef.current = onExplicitSave;
+  }, [onExplicitSave]);
+
   /**
    * Begin a buffered edit session. Captures the current document value
    * into the snapshot (both state and ref — see the
@@ -999,6 +1029,9 @@ export default function HybridMarkdownEditor({
     lastAcceptedValueRef.current = toSave;
     clearDirty();
     onChange(toSave);
+    // Notify any parent that wants to persist this explicit save to disk
+    // (the experiment popup hides our own button and listens here).
+    onExplicitSaveRef.current?.(toSave);
     // Exit edit mode after Save so the user has a visible "saved"
     // signal (textarea collapses to preview, blocks re-render against
     // the committed value).
@@ -1019,6 +1052,35 @@ export default function HybridMarkdownEditor({
   useEffect(() => {
     manualSaveRef.current = manualSave;
   }, [manualSave]);
+
+  // Publish an imperative flush function on saveRef (when a parent supplies
+  // one). Unlike manualSave (void), this returns the latest full-document
+  // string synchronously so the parent can persist it to disk WITHOUT
+  // waiting for the async controlled-value round-trip through onChange.
+  // Mirrors manualSave's edit-mode cleanup so editor and parent agree on
+  // the committed state.
+  useEffect(() => {
+    if (!saveRef) return;
+    saveRef.current = () => {
+      if (editSessionSnapshotRef.current !== null) commitBufferedEdit();
+      const v = pendingDocumentRef.current ?? valueRef.current ?? "";
+      lastAcceptedValueRef.current = v;
+      clearDirty();
+      onChange(v);
+      editingBlockOffsetRef.current = null;
+      editingBlockContentRef.current = "";
+      isEditingRef.current = false;
+      setEditingBlockOffset(null);
+      setEditingBlockContent("");
+      setEditCursorPosition(null);
+      setShowLanguageSelector(false);
+      historyRef.current?.flushBoundary();
+      return v;
+    };
+    return () => {
+      if (saveRef) saveRef.current = null;
+    };
+  }, [saveRef, commitBufferedEdit, clearDirty, onChange]);
 
   // Wire the existing useUnsavedChangesGuard hook so the browser's
   // native "Leave site?" dialog fires on full-tab unload (close,
@@ -2767,12 +2829,16 @@ export default function HybridMarkdownEditor({
         {/* Save header chrome — same component used in the main
             branch. Floating top-right; disabled when not dirty,
             primary-blue when dirty. Hidden when there's no Save
-            target (no edit session active AND no pending). */}
-        <SaveChrome
-          dirty={editBufferDirty}
-          disabled={disabled}
-          onSave={manualSave}
-        />
+            target (no edit session active AND no pending). Also
+            hidden entirely when hideSaveButton is set (the parent
+            owns the Save action). */}
+        {!hideSaveButton && (
+          <SaveChrome
+            dirty={editBufferDirty}
+            disabled={disabled}
+            onSave={manualSave}
+          />
+        )}
         <div
           ref={containerRef}
           data-tour-target="hybrid-editor-textarea"
@@ -3002,12 +3068,15 @@ export default function HybridMarkdownEditor({
             when dirty. The button is the ONLY user-driven path to
             commit edits to the parent under the manual-save model;
             Cmd+S is a document-level alias bound in the keydown
-            effect higher up. */}
-        <SaveChrome
-          dirty={editBufferDirty}
-          disabled={disabled}
-          onSave={manualSave}
-        />
+            effect higher up. Hidden entirely when hideSaveButton is
+            set (the parent owns the Save action). */}
+        {!hideSaveButton && (
+          <SaveChrome
+            dirty={editBufferDirty}
+            disabled={disabled}
+            onSave={manualSave}
+          />
+        )}
         <div
           ref={containerRef}
           data-tour-target="hybrid-editor-textarea"

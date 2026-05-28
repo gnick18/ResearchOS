@@ -149,6 +149,17 @@ interface LiveMarkdownEditorProps {
   /** Context label for Browse tooltip and strip empty-state copy.
    *  Defaults to "experiment" for backward compatibility. */
   recordType?: "experiment" | "note" | "method" | "list" | "purchase";
+  /** Pass-through to HybridMarkdownEditor: hide the editor's own internal
+   *  Save button. Used by surfaces that own their own disk-save action (the
+   *  experiment popup). Defaults to false (button shown). */
+  hideSaveButton?: boolean;
+  /** Pass-through to HybridMarkdownEditor: receives an imperative function
+   *  that flushes the edit buffer, fires onChange, and returns the latest
+   *  full-document string synchronously. */
+  saveRef?: React.MutableRefObject<(() => string) | null>;
+  /** Pass-through to HybridMarkdownEditor: fired on an explicit save with the
+   *  value committed to the parent, so the parent can persist it to disk. */
+  onExplicitSave?: (value: string) => void;
 }
 
 /**
@@ -173,6 +184,9 @@ export default function LiveMarkdownEditor({
   onModeChange,
   autoStartEditing = false,
   recordType = "experiment",
+  hideSaveButton = false,
+  saveRef,
+  onExplicitSave,
 }: LiveMarkdownEditorProps) {
   // Internal mode state (used if onModeChange is not provided)
   const [internalMode, setInternalMode] = useState<EditorMode>(mode);
@@ -1772,6 +1786,9 @@ export default function LiveMarkdownEditor({
               onImageDrop={onImageDrop}
               allowAnyFileType={allowAnyFileType}
               autoStartEditing={autoStartEditing}
+              hideSaveButton={hideSaveButton}
+              saveRef={saveRef}
+              onExplicitSave={onExplicitSave}
             />
           )}
         </div>
