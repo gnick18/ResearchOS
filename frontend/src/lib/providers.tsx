@@ -140,16 +140,11 @@ function AppContent({ children }: { children: ReactNode }) {
   const { isConnected, isLoading, currentUser, loadingStage } = useFileSystem();
   const [showSetup, setShowSetup] = useState(false);
 
-  console.log("AppContent render:", { isConnected, isLoading, currentUser, showSetup });
-
   useEffect(() => {
-    console.log("AppContent useEffect:", { isLoading, isConnected, currentUser });
     if (!isLoading && !isConnected) {
-      console.log("AppContent: showing setup (not connected)");
       // eslint-disable-next-line react-hooks/set-state-in-effect -- state machine: setup gate flips based on external fs-connection state transitions
       setShowSetup(true);
     } else if (isConnected && currentUser) {
-      console.log("AppContent: hiding setup (connected with user)");
       setShowSetup(false);
     }
   }, [isLoading, isConnected, currentUser]);
@@ -229,12 +224,10 @@ function AppContent({ children }: { children: ReactNode }) {
   }
 
   if (isLoading) {
-    console.log("AppContent: rendering loading screen");
     return <StagedLoadingScreen stage={loadingStage} />;
   }
 
   if (!isFileSystemAccessSupported()) {
-    console.log("AppContent: rendering browser not supported");
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
         <div className="max-w-lg mx-4 p-6 bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20">
@@ -262,7 +255,6 @@ function AppContent({ children }: { children: ReactNode }) {
   // now. No more one-shot localStorage gate; the picker is always what
   // a fresh visitor sees on first paint.
   if (showSetup || !isConnected) {
-    console.log("AppContent: rendering ResearchFolderSetupNew because:", { showSetup, isConnected, currentUser });
     // Wrapped in QueryClientProvider because the user-picker renders
     // <UserAvatar> which calls useUserColor() → useQuery(). Without the
     // provider, the picker throws "No QueryClient set" the moment there
@@ -298,7 +290,6 @@ function AppContent({ children }: { children: ReactNode }) {
   // QueryClientProvider needed for the same useUserColor() useQuery() reason
   // as the ResearchFolderSetupNew branch above.
   if (!currentUser) {
-    console.log("AppContent: rendering UserLoginScreen (connected, no user)");
     return (
       <QueryClientProvider client={queryClient}>
         <UserLoginScreen
@@ -310,7 +301,6 @@ function AppContent({ children }: { children: ReactNode }) {
     );
   }
 
-  console.log("AppContent: rendering main app with QueryClientProvider");
   // Onboarding wrapper. After the V3 rip (V3 rip Phase B 2026-05-22),
   // OnboardingProvider / OnboardingOrchestrator / useOnboarding are gone:
   // v4 is the only walkthrough and it mounts via V4MountForUser.

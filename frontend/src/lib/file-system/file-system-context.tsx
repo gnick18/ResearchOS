@@ -986,7 +986,6 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const setCurrentUser = useCallback(async (username: string) => {
-    console.log("[FileSystemProvider.setCurrentUser] Called with username:", username);
     // edit-session bleed fix 2026-05-24: a still-unlocked lab-head
     // session belongs to whichever username was just active. Switching
     // to a different user must drop that unlock back to idle so the
@@ -1005,9 +1004,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     // The encrypted backup is keyed per-user and the password gate
     // belongs to whichever account we just left.
     clearCachedPassword();
-    console.log("[FileSystemProvider.setCurrentUser] Cache cleared");
     await storeCurrentUser(username);
-    console.log("[FileSystemProvider.setCurrentUser] Stored to IndexedDB");
     setState((prev) => ({ ...prev, currentUser: username }));
     await hydrateSettingsForUser(username);
     // React Query cache invalidation on user-switch (events-widget
@@ -1027,7 +1024,6 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     if (isUserChange) {
       appQueryClient.invalidateQueries();
     }
-    console.log("[FileSystemProvider.setCurrentUser] State updated + settings hydrated");
   }, [hydrateSettingsForUser]);
 
   const createUser = useCallback(async (username: string): Promise<boolean> => {

@@ -3776,7 +3776,6 @@ function TipsSection() {
   }, [currentUser]);
 
   const handleRerunWizard = useCallback(async () => {
-    console.log("[RR-DEBUG] handleRerunWizard ENTRY", { currentUser, hasTourController: !!tourController });
     if (!currentUser) return;
     setBusy(true);
     setStatus(null);
@@ -3799,11 +3798,9 @@ function TipsSection() {
       }));
       // Reset the controller's in-memory feature_picks snapshot so the
       // re-run's gating machine sees the cleared picks immediately.
-      console.log("[RR-DEBUG] patchOnboarding success — about to clear featurePicks");
       tourController?.setFeaturePicks(null);
       setStatus("Re-running the tour. BeakerBot is on the way.");
       setTimeout(() => {
-        console.log("[RR-DEBUG] timeout fired — router.push('/') + tourController.start()", { hasTourController: !!tourController });
         setBusy(false);
         router.push("/");
         // TourBootstrap is one-shot per mount with `[username, previewMode]`
@@ -3822,7 +3819,6 @@ function TipsSection() {
         // in TourController routes to home if the router.push has not yet
         // landed by the time start() flips currentStep to "welcome".
         tourController?.start();
-        console.log("[RR-DEBUG] tourController.start() called");
       }, 600);
     } catch (err) {
       console.error("[Settings/Tips] re-run wizard failed", err);

@@ -134,7 +134,6 @@ export default function DevForceWalkthroughButton({
   };
 
   const handleConfirmUser = async () => {
-    console.log("[RR-DEBUG] DevForceWalkthroughButton.handleConfirmUser ENTRY");
     if (busy) return;
     setBusy(true);
     setError(null);

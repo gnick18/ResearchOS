@@ -426,7 +426,6 @@ function reducer(state: ReducerState, action: Action): ReducerState {
   switch (action.type) {
     case "START": {
       const next = action.initialStep ?? firstApplicableStep(state.featurePicks);
-      console.log("[RR-DEBUG] reducer START", { next, featurePicks: state.featurePicks, prevStep: state.currentStep, prevPaused: state.paused });
       return {
         ...state,
         currentStep: next,
@@ -612,7 +611,6 @@ export function TourControllerProvider({
   // -------------------------------------------------------------------
 
   const start = useCallback((initial?: TourStepId) => {
-    console.log("[RR-DEBUG] TourController.start CALLED", { initial });
     setLastTourTransition("start");
     // Reset the informational skipList alongside the START dispatch so an
     // in-session re-run (no reload) does not persist stale skips from the
@@ -1578,7 +1576,6 @@ function TourOverlay({
 }: TourOverlayProps) {
   const controller = useTourController();
 
-  console.log("[RR-DEBUG] TourOverlay render", { currentStep: controller.currentStep, paused: controller.paused, tourMode: controller.tourMode });
   if (!controller.currentStep || controller.paused) return null;
 
   // Wave 2 Fix 1/9: popstate toast — rendered alongside whichever phase
