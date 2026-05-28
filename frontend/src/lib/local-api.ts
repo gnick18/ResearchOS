@@ -727,9 +727,26 @@ export const tasksApi = {
       owner: currentUser,
       shared_with: [],
     });
+    // Onboarding v4 §6.5: notify the workbench-create-experiment-submit
+    // walkthrough beat that an experiment landed. The submit step's
+    // manual-advance is gated on this event (disabledUntilEvent), its
+    // onEnter listener stamps the created task as a tour artifact, and the
+    // TourController's detach watcher uses it to suppress the false "Looks
+    // like that closed" recovery when TaskModal closes on a successful
+    // create. Dispatched here (not in TaskModal) so BOTH the modal-driven
+    // create AND the tour's programmatic `ensureFirstExperimentExists`
+    // helper fire the same event. Gated on experiments — lists / purchases
+    // don't drive this beat. Cheap no-op when no tour is active. SSR-safe.
+    if (typeof window !== "undefined" && task.task_type === "experiment") {
+      window.dispatchEvent(
+        new CustomEvent("tour:experiment-created", {
+          detail: { id: task.id },
+        }),
+      );
+    }
     return task;
   },
-  
+
   update: async (id: number, data: TaskUpdate, owner?: string): Promise<Task | null> => {
     const existing = await getTaskForCaller(id, owner);
     if (!existing) return null;
