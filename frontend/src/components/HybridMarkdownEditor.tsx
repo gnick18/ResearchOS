@@ -944,10 +944,17 @@ export default function HybridMarkdownEditor({
     }
     const originalLength = editingBlockOriginalLengthRef.current;
 
-    // Blank-line block emergence guard. Wrap with \n so the parser
-    // doesn't merge the new content into the adjacent paragraphs.
+    // Blank-line block emergence guard. When the user types into a
+    // freshly-created blank block (the "+ Add paragraph" affordance or a
+    // double-clicked blankLine), wrap the buffer so it lands as its OWN
+    // paragraph rather than merging into an adjacent one. Under the
+    // triple-newline parser rule (markdown-block-parser, commit 88774947)
+    // a single blank line is absorbed as a soft break; a true split needs
+    // two-or-more consecutive blank lines. So we lead with "\n\n" (two
+    // blank lines above) and a single "\n" below — the trailing blank-line
+    // run that the parser keeps as the next "+ Add paragraph" anchor.
     if (editSessionStartedBlankRef.current && buffer.trim().length > 0) {
-      buffer = "\n" + buffer + "\n";
+      buffer = "\n\n" + buffer + "\n";
     }
 
     const newFullContent =
@@ -1940,12 +1947,20 @@ export default function HybridMarkdownEditor({
         return;
       }
 
-      // Shift+Enter performs a hard paragraph split. Inserts a blank line at
-      // the cursor and exits edit mode so the next re-parse cleanly produces
-      // two paragraph blocks. Exiting beats transitioning into the new lower
-      // block: the textarea would have to remount on a new offset anyway,
-      // which is the rekey path that was the root cause of several prior
-      // focus / cursor bugs in this editor.
+      // Shift+Enter performs a hard paragraph split. Inserts a true
+      // paragraph break at the cursor and exits edit mode so the next
+      // re-parse cleanly produces two paragraph blocks. Exiting beats
+      // transitioning into the new lower block: the textarea would have to
+      // remount on a new offset anyway, which is the rekey path that was the
+      // root cause of several prior focus / cursor bugs in this editor.
+      //
+      // The split inserts TWO blank lines ("\n\n\n"), not one. Under the
+      // triple-newline parser rule (markdown-block-parser, commit 88774947)
+      // a single blank line is absorbed as a soft break inside the same
+      // paragraph; only two-or-more consecutive blank lines split. A
+      // one-blank-line split therefore silently merged the two halves back
+      // into a single paragraph. Two blank lines is the deliberate "I really
+      // want a new block" signal the parser splits on.
       if (
         e.key === "Enter" &&
         e.shiftKey &&
@@ -1959,7 +1974,7 @@ export default function HybridMarkdownEditor({
         if (!textarea || editingBlockOffset === null) return;
         const start = textarea.selectionStart;
         const end = textarea.selectionEnd;
-        const hardSplit = "\n\n";
+        const hardSplit = "\n\n\n";
         const newContent =
           editingBlockContent.substring(0, start) +
           hardSplit +
@@ -2381,7 +2396,12 @@ export default function HybridMarkdownEditor({
     if (!textarea) return;
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    const hardSplit = "\n\n";
+    // Two blank lines, not one: under the triple-newline parser rule
+    // (markdown-block-parser, commit 88774947) a single blank line is a
+    // soft break absorbed into the same paragraph. The "Split here" button
+    // is the UI twin of the Shift+Enter hard split, so it must insert the
+    // same true paragraph break to actually produce two blocks.
+    const hardSplit = "\n\n\n";
     const newContent =
       editingBlockContent.substring(0, start) +
       hardSplit +

@@ -164,8 +164,18 @@ describe("HybridMarkdownEditor", () => {
     // active textarea writes only to local buffer state — the live
     // value does not change — so surrounding blocks (memoized off
     // the snapshot) don't re-render.
+    //
+    // Fixture uses TWO blank lines between the paragraphs. Under the
+    // triple-newline parser rule (markdown-block-parser, commit
+    // 88774947) a single blank line is a soft break that keeps both
+    // sentences in ONE paragraph block; the old single-blank fixture
+    // therefore rendered one combined block, so double-clicking the
+    // first sentence swallowed "Second paragraph." into the same
+    // textarea and there was no sibling block to assert against. Two
+    // blank lines produce two genuinely independent preview blocks,
+    // which is what the isolation contract is about.
     const onChange = vi.fn();
-    const value = "First paragraph.\n\nSecond paragraph.";
+    const value = "First paragraph.\n\n\nSecond paragraph.";
     render(<HybridMarkdownEditor value={value} onChange={onChange} />);
 
     const firstPara = screen.getByText("First paragraph.");
@@ -255,19 +265,61 @@ describe("HybridMarkdownEditor", () => {
     expect(blocks[0].type).toBe("paragraph");
   });
 
-  it("Enter + Enter + text yields TWO blocks after Save (paragraph split)", () => {
+  it("Shift+Enter hard split then a second paragraph yields TWO blocks after Save", () => {
+    // Paragraph-split pin, rewritten to drive the REAL gesture.
+    //
+    // Why the rewrite: this test used to inject the literal string
+    // "test  \n  \ntest 2" via fireEvent.change and assert 2 blocks. That
+    // predates commit 88774947 (2026-05-26, "triple-newline rule for new
+    // blocks"), which DELIBERATELY changed the parser so a single blank
+    // line is a soft break absorbed into the same paragraph, and only
+    // TWO+ consecutive blank lines split. Under that (intended) rule
+    // "test  \n  \ntest 2" correctly parses to ONE block, and the editor
+    // commit path passes typed text through verbatim (verified: onChange
+    // received "test  \n  \ntest 2" unchanged — no normalization). So the
+    // old assertion baked in stale parser behavior AND an input a real
+    // user cannot type: plain Enter inserts a soft break, so casual line
+    // spacing stays one paragraph by design.
+    //
+    // The REAL "make a new paragraph" gesture is Shift+Enter, which
+    // handleEditKeyDown turns into a hard split. The editor's split used
+    // to insert only one blank line ("\n\n"), which the triple-newline
+    // parser silently merged back into one paragraph — a real
+    // user-facing regression. The split now inserts two blank lines
+    // ("\n\n\n") so the deliberate gesture survives the commit. We drive
+    // the full gesture: type the first paragraph, Shift+Enter, then type
+    // the second paragraph into the new block.
     const onChange = vi.fn();
-    render(
-      <HybridMarkdownEditor value="" autoStartEditing onChange={onChange} />,
-    );
+    render(<HybridMarkdownEditor value="test" onChange={onChange} />);
+
+    fireEvent.doubleClick(screen.getByText("test"));
     const textarea = document.querySelector(
       "textarea",
     ) as HTMLTextAreaElement | null;
-    fireEvent.change(textarea!, { target: { value: "test  \n  \ntest 2" } });
+    expect(textarea).not.toBeNull();
+    // Cursor at the end of "test", then Shift+Enter for a hard split.
+    // The split commits and exits edit mode, leaving a fresh trailing
+    // block below the first paragraph.
+    textarea!.setSelectionRange(4, 4);
+    fireEvent.keyDown(textarea!, { key: "Enter", shiftKey: true });
+
+    // Re-enter the trailing block and type the second paragraph.
+    const trailingBlock = document.querySelector(
+      '[data-block-type="blankLine"]',
+    ) as HTMLElement | null;
+    expect(trailingBlock).not.toBeNull();
+    fireEvent.doubleClick(trailingBlock!);
+    const secondTextarea = document.querySelector(
+      "textarea",
+    ) as HTMLTextAreaElement | null;
+    expect(secondTextarea).not.toBeNull();
+    fireEvent.change(secondTextarea!, { target: { value: "test 2" } });
+
     fireEvent.click(screen.getByTestId("hybrid-editor-save"));
 
     expect(onChange).toHaveBeenCalledTimes(1);
-    const blocks = parseMarkdownBlocks(onChange.mock.calls[0][0]);
+    const raw = onChange.mock.calls[0][0];
+    const blocks = parseMarkdownBlocks(raw);
     expect(blocks).toHaveLength(2);
     expect(blocks[0].type).toBe("paragraph");
     expect(blocks[1].type).toBe("paragraph");
