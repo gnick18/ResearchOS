@@ -49,10 +49,15 @@ import {
 import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 import { appRouteToWikiRoute } from "@/lib/wiki/nav";
+// Import the nav-flag helpers from the standalone module, NOT from
+// TourBootstrap (circular-import break 2026-05-27). TourBootstrap
+// imports step-registry, step-registry imports this file, so importing
+// TourBootstrap here closed a cycle that broke vitest's module loader.
+// See wiki-pointer-nav-flag.ts for the full narrative.
 import {
   markWikiPointerNavActive,
   clearWikiPointerNavActive,
-} from "../../TourBootstrap";
+} from "../../wiki-pointer-nav-flag";
 
 /**
  * §6.12 beat 1 - speech-only intro.

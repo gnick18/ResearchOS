@@ -19,60 +19,24 @@ import { useTourController } from "./TourController";
  *  handoff narrative. */
 const AUTO_RESUME_FLAG = "v4_auto_resume_on_next_mount";
 
-/** sessionStorage key flipped to "1" while the §6.12 wiki-pointer
- *  cluster is mid-walk and the BeakerBot-driven cursor click on the
- *  `?` icon is about to (or has just) navigated the user to a
- *  `/wiki/*` route. The wiki route runs under a different early-return
- *  branch in `providers.tsx`, which unmounts the previous tree's
- *  `V4MountForUser` and mounts a fresh one inside the wiki shell. That
- *  remount restarts TourBootstrap from scratch, which reads the
- *  persisted `wizard_resume_state.current_step` off disk -- now a
- *  wiki-pointer-* step -- and would otherwise surface the
- *  Restart / Resume / Discard modal mid-tour. The flag tells the probe
- *  "I'm mid-cluster, do NOT pop the modal; silently resume the saved
- *  step instead." Set in `wikiPointerClickDemoStep.onEnter`, cleared in
- *  `wikiPointerBackDemoStep.onExit` so the suppression is scoped to
- *  the in-cluster window only. See WikiPointerStep.tsx for the matching
- *  set/clear hooks. (wiki-pointer nav fix manager, 2026-05-27) */
-const WIKI_NAV_FLAG = "tour:wiki-pointer-nav-active";
+// Wiki-pointer nav suppression flag helpers moved to a standalone
+// dependency-free module (circular-import break 2026-05-27). The cycle
+// was step-registry -> WikiPointerStep -> TourBootstrap -> step-registry,
+// which vitest's module loader couldn't resolve (step-bodies test suite
+// failed to import). WikiPointerStep now imports the set/clear helpers
+// from wiki-pointer-nav-flag.ts directly instead of from this file, so
+// the cycle never forms. Re-exported here so any prior importer that
+// reaches for them via TourBootstrap keeps working.
+import {
+  isWikiNavInProgress,
+  markWikiPointerNavActive,
+  clearWikiPointerNavActive,
+} from "./wiki-pointer-nav-flag";
 
-/** True when the wiki-pointer nav suppression flag is set. SSR-safe:
- *  returns false when `sessionStorage` is undefined. */
-function isWikiNavInProgress(): boolean {
-  if (typeof sessionStorage === "undefined") return false;
-  try {
-    return sessionStorage.getItem(WIKI_NAV_FLAG) === "1";
-  } catch {
-    return false;
-  }
-}
-
-/** Set the wiki-pointer nav suppression flag. Called from
- *  `wikiPointerClickDemoStep.onEnter` the moment the cluster's
- *  cursor-driven navigation beat starts. Swallows storage errors
- *  (private-mode / disabled storage) so the step never throws on entry. */
-export function markWikiPointerNavActive(): void {
-  if (typeof sessionStorage === "undefined") return;
-  try {
-    sessionStorage.setItem(WIKI_NAV_FLAG, "1");
-  } catch {
-    // Swallow.
-  }
-}
-
-/** Clear the wiki-pointer nav suppression flag. Called from
- *  `wikiPointerBackDemoStep.onExit` once the cluster's final beat
- *  truly advances past the cluster. Also called defensively from the
- *  Discard / Restart paths so a flag left over from a previous run
- *  cannot bleed into the next session. */
-export function clearWikiPointerNavActive(): void {
-  if (typeof sessionStorage === "undefined") return;
-  try {
-    sessionStorage.removeItem(WIKI_NAV_FLAG);
-  } catch {
-    // Swallow.
-  }
-}
+// Re-export so any prior importer reaching for these via TourBootstrap
+// keeps working. `clearWikiPointerNavActive` + `isWikiNavInProgress`
+// are also used internally below.
+export { markWikiPointerNavActive, clearWikiPointerNavActive };
 
 /** v4 step ids in the §6.12 wiki-pointer cluster. Used by the bootstrap
  *  probe to recognize a saved resume step as "mid-cluster" so the
