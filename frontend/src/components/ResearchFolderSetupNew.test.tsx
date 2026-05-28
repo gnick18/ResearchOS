@@ -327,14 +327,11 @@ describe("ResearchFolderSetupNew system-folder block UX", () => {
 describe("ResearchFolderSetupNew welcome bubble + opt-in walkthrough", () => {
   it("renders the new 'strongly recommended' copy with the 2-3 minute hint", () => {
     render(<ResearchFolderSetup onComplete={vi.fn()} />);
+    // The author + funding byline now lives in the walkthrough modal's
+    // welcome beat and the RISE stamp, not the picker bubble.
     const copy = screen.getByTestId("picker-welcome-copy");
-    // First paragraph (author + funding) is preserved.
-    expect(copy.textContent).toContain("Dr. Grant R. Nickles");
-    // The sibling paragraph carries the new framing. We assert on the
-    // bubble container so the test covers both paragraphs together.
-    const bubble = screen.getByTestId("picker-welcome-bubble");
-    expect(bubble.textContent).toContain("strongly recommended");
-    expect(bubble.textContent).toContain("3 minutes");
+    expect(copy.textContent).toContain("strongly recommended");
+    expect(copy.textContent).toContain("3 minutes");
   });
 
   it("does not render the walkthrough modal on initial mount (walkthroughOpen=false)", () => {
