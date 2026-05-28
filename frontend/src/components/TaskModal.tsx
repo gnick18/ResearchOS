@@ -21,6 +21,18 @@ interface TaskModalProps {
 
 type SchedulingMode = "date" | "dependency";
 
+// Local-tz date math (TaskModal date math manager 2026-05-27). Parses a
+// YYYY-MM-DD string as local midnight (not UTC) and returns the offset day
+// in the same local-tz format. `new Date("2026-05-27")` parses as UTC, so
+// reading the day back out via `toISOString()` drifts in west-of-UTC zones;
+// `new Date("2026-05-27T00:00:00")` parses as local and `toLocaleDateString
+// ("en-CA")` re-emits YYYY-MM-DD. Exported for the sibling unit test.
+export function addDaysLocal(dateStr: string, days: number): string {
+  const d = new Date(`${dateStr}T00:00:00`);
+  d.setDate(d.getDate() + days);
+  return d.toLocaleDateString("en-CA");
+}
+
 export default function TaskModal({ projects }: TaskModalProps) {
   const isCreatingTask = useAppStore((s) => s.isCreatingTask);
   const setIsCreatingTask = useAppStore((s) => s.setIsCreatingTask);
@@ -182,27 +194,28 @@ export default function TaskModal({ projects }: TaskModalProps) {
     return availableParentTasks.find((t) => t.id === parentTaskId) || null;
   }, [availableParentTasks, parentTaskId]);
 
-  // Calculate suggested start date based on dependency type
+  // Calculate suggested start date based on dependency type. Date math stays
+  // in local-tz YYYY-MM-DD throughout (TaskModal date math manager 2026-05-27):
+  // the prior `new Date(yyyy-mm-dd)` + `toISOString()` round-trip parsed the
+  // local date as UTC midnight and then read the UTC day back out, which in
+  // west-of-UTC zones near end-of-day landed the suggested child start on the
+  // wrong calendar day. Matches the sibling fix at lines 76 + 248. SF formula
+  // is strict-gap (child.end = parent.start - 1 → child.start = parent.start -
+  // duration), matching GanttChart + engine (9548b32c) and TaskDetailPopup's
+  // preview (e7e9242b); the prior `- duration + 1` was the old "no-gap"
+  // overlap.
   const suggestedStartDate = useMemo(() => {
     if (!selectedParentTask) return startDate;
-    
-    const parentEnd = new Date(selectedParentTask.end_date);
-    const parentStart = new Date(selectedParentTask.start_date);
-    
+
     if (depType === "FS") {
-      // Finish-to-Start: start after parent ends
-      parentEnd.setDate(parentEnd.getDate() + 1);
-      return parentEnd.toISOString().split("T")[0];
+      // Finish-to-Start: start the day after parent ends
+      return addDaysLocal(selectedParentTask.end_date, 1);
     } else if (depType === "SS") {
       // Start-to-Start: start at same time as parent
       return selectedParentTask.start_date;
     } else if (depType === "SF") {
-      // Start-to-Finish: start so that this task finishes when parent starts
-      // Calculate backwards from parent start
-      const duration = durationDays;
-      const newStart = new Date(parentStart);
-      newStart.setDate(newStart.getDate() - duration + 1);
-      return newStart.toISOString().split("T")[0];
+      // Start-to-Finish strict-gap: child finishes the day before parent starts
+      return addDaysLocal(selectedParentTask.start_date, -durationDays);
     }
     return startDate;
   }, [selectedParentTask, depType, durationDays, startDate]);
