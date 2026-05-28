@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 
 type ParticleType =
   | "confetti-rect"
@@ -426,6 +426,21 @@ export default function CelebrationAnimation({ x, y, onComplete }: CelebrationAn
     return out;
   }, [x, y]);
 
+  // Stable handle to the latest onComplete (Grant 2026-05-27 double-fire
+  // fix). Consumers pass an inline `onComplete={() => setCelebration(null)}`,
+  // a fresh reference every render. The animation handlers do an async
+  // tasksApi.update + refetch right after firing; when the refetch lands
+  // mid-animation the parent re-renders, onComplete's identity changes,
+  // and (when it was in the effect dep array) the spawn effect re-ran,
+  // resetting particles + restarting the 3.5s timer. That replayed the
+  // burst, which read as the animation "firing twice." Holding
+  // onComplete in a ref keeps the spawn effect mount-only so a parent
+  // re-render no longer restarts it.
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
   useEffect(() => {
     setParticles(createParticles());
 
@@ -463,14 +478,19 @@ export default function CelebrationAnimation({ x, y, onComplete }: CelebrationAn
 
     const timeout = setTimeout(() => {
       clearInterval(interval);
-      onComplete();
+      onCompleteRef.current();
     }, 3500);
 
     return () => {
       clearInterval(interval);
       clearTimeout(timeout);
     };
-  }, [createParticles, onComplete]);
+    // `createParticles` is stable per mount (its only deps are x/y, which
+    // are fixed for a given celebration instance, and the component is
+    // keyed by nonce so a new burst remounts fresh). onComplete is read
+    // through the ref above, so it's intentionally NOT a dep — that's
+    // the whole point of the double-fire fix.
+  }, [createParticles]);
 
   return (
     <div className="fixed inset-0 pointer-events-none z-[100]">
