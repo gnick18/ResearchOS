@@ -750,8 +750,9 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                 </p>
                 <ol className="text-xs text-slate-400 leading-relaxed list-decimal list-inside space-y-0.5">
                   <li>
-                    Open your file manager and go to Documents (not Desktop or
-                    Downloads, which the browser blocks).
+                    Open your file manager and go to Documents. Avoid Desktop
+                    and Downloads: the browser won&apos;t let you link a folder
+                    there, even one you make yourself.
                   </li>
                   <li>Make a new folder, name it something like ResearchOS.</li>
                   <li>Click Link Folder below and select that folder.</li>

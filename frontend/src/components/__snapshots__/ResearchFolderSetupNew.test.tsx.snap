@@ -51,7 +51,7 @@ exports[`ResearchFolderSetupNew drop zone > renders the drop-zone with default h
         class="text-xs text-slate-400 leading-relaxed list-decimal list-inside space-y-0.5"
       >
         <li>
-          Open your file manager and go to Documents (not Desktop or Downloads, which the browser blocks).
+          Open your file manager and go to Documents. Avoid Desktop and Downloads: the browser won't let you link a folder there, even one you make yourself.
         </li>
         <li>
           Make a new folder, name it something like ResearchOS.
