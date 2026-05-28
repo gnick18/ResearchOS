@@ -138,6 +138,25 @@ export default function StagedLoadingScreen({
             {REASSURANCE_MESSAGES[reassuranceIdx]}
           </p>
         )}
+
+        {/* Temporary beta notice (Grant 2026-05-28). While ResearchOS is
+            pre-1.0, set expectations and invite feedback on the screen
+            every user passes through on the way in. Remove (or soften)
+            once we ship 1.0. */}
+        <div
+          data-testid="beta-loading-notice"
+          className="mt-8 rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-left"
+        >
+          <p className="text-xs font-semibold text-amber-300 mb-1">
+            ResearchOS is in beta
+          </p>
+          <p className="text-xs text-slate-300 leading-relaxed">
+            You will run into the occasional bug while we keep polishing, and
+            we are working hard to fix them. Thank you for being an early user!
+            Please report anything that breaks, and we would love to hear what
+            is and isn&apos;t working for you.
+          </p>
+        </div>
       </div>
 
       <style>{`

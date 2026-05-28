@@ -13,6 +13,7 @@ import UserAvatar from "@/components/UserAvatar";
 import BeakerBot from "@/components/BeakerBot";
 import PickerWalkthroughModal from "@/components/picker-walkthrough/PickerWalkthroughModal";
 import RiseCredentialsStamp from "@/components/RiseCredentialsStamp";
+import VersionBadge from "@/components/VersionBadge";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
 import {
   extractDirectoryHandleFromDrop,
@@ -218,6 +219,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
   if (showUserSelection) {
     return (
       <div className="fixed inset-0 z-[100] overflow-y-auto flex items-start sm:items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-8">
+        <VersionBadge tone="onDark" className="fixed top-3 left-4 z-[110]" />
         <div className="absolute inset-0 opacity-5">
           <div
             className="absolute inset-0"

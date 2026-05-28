@@ -10,6 +10,7 @@ import ImportExperimentDialog from "@/components/ImportExperimentDialog";
 import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
 import Tooltip from "@/components/Tooltip";
 import UserAvatar from "@/components/UserAvatar";
+import VersionBadge from "@/components/VersionBadge";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { discoverUsers } from "@/lib/file-system/user-discovery";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
@@ -437,7 +438,10 @@ function SettingsBody() {
           className="flex items-center justify-between"
         >
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+              <VersionBadge />
+            </div>
             <p className="text-sm text-gray-500 mt-1">
               Stored in <code className="px-1 py-0.5 bg-gray-100 rounded text-xs">users/{currentUser}/settings.json</code>
             </p>
