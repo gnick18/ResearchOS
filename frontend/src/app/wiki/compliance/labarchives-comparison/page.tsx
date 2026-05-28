@@ -30,6 +30,14 @@ function Partial({ children }: { children?: ReactNode }) {
   );
 }
 
+function ComingSoon() {
+  return (
+    <span className="ml-1.5 inline-block whitespace-nowrap rounded-full bg-sky-100 text-sky-700 text-[11px] font-semibold px-2 py-0.5 align-middle">
+      Coming soon
+    </span>
+  );
+}
+
 export default function LabArchivesComparisonPage() {
   return (
     <WikiPage
@@ -173,6 +181,7 @@ export default function LabArchivesComparisonPage() {
                 <No>
                   Export then deposit yourself; the repository mints the DOI.
                 </No>
+                <ComingSoon />
               </td>
               <td>
                 <Yes>
@@ -186,6 +195,7 @@ export default function LabArchivesComparisonPage() {
               </td>
               <td>
                 <Partial>Tags and free text only.</Partial>
+                <ComingSoon />
               </td>
               <td>
                 <Yes>Dedicated metadata fields.</Yes>
