@@ -90,7 +90,11 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER).not.toContain("settings-more");
     expect(TOUR_STEP_ORDER).not.toContain("ai-helper-deep-explain");
     expect(TOUR_STEP_ORDER).toContain("settings-tour-folder");
-    expect(TOUR_STEP_ORDER).toContain("settings-tour-calendar");
+    // settings-tour-calendar retired 2026-05-27 (Grant hand-walk): the
+    // step told the user to "head over to the Calendar tab" but the
+    // tour page-lock kept them on /settings, so the instruction was
+    // unactionable. Step body remains @deprecated for git history.
+    expect(TOUR_STEP_ORDER).not.toContain("settings-tour-calendar");
     expect(TOUR_STEP_ORDER).toContain("settings-tour-telegram");
     expect(TOUR_STEP_ORDER).toContain("settings-tour-account-type-toggle");
     expect(TOUR_STEP_ORDER).toContain("settings-tour-visible-tabs");
@@ -735,18 +739,11 @@ describe("isStepGatedOut — Phase 2 conditional walkthroughs (§6.13-6.15)", ()
     }
   });
 
-  it("gates settings-tour-calendar on picks.calendar === 'yes'", () => {
-    expect(
-      isStepGatedOut("settings-tour-calendar", picks({ calendar: "yes" })),
-    ).toBe(false);
-    expect(
-      isStepGatedOut("settings-tour-calendar", picks({ calendar: "no" })),
-    ).toBe(true);
-    expect(
-      isStepGatedOut("settings-tour-calendar", picks({ calendar: "maybe" })),
-    ).toBe(true);
-    expect(isStepGatedOut("settings-tour-calendar", null)).toBe(true);
-  });
+  // settings-tour-calendar retired 2026-05-27 (Grant hand-walk): the
+  // step told the user to "head over to the Calendar tab" but the
+  // tour page-lock kept them on /settings. Gating predicate dropped
+  // alongside the step removal; the prior `gates settings-tour-calendar
+  // on picks.calendar === 'yes'` test was deleted with the step.
 
   it("gates settings-tour-telegram on picks.telegram === 'yes'", () => {
     expect(
@@ -796,11 +793,10 @@ describe("isStepGatedOut — Phase 2 conditional walkthroughs (§6.13-6.15)", ()
     }
   });
 
-  it("orders the §6.10 Settings cluster: color → 7 tour beats → 4 ai-helper beats (Wave 1 added ai-helper-size-options 2026-05-27)", () => {
+  it("orders the §6.10 Settings cluster: color → 6 tour beats → 4 ai-helper beats (Wave 1 added ai-helper-size-options 2026-05-27; settings-tour-calendar retired 2026-05-27)", () => {
     const order = [
       "personalization-color",
       "settings-tour-folder",
-      "settings-tour-calendar",
       "settings-tour-telegram",
       "settings-tour-account-type-toggle",
       "settings-tour-visible-tabs",
@@ -981,7 +977,10 @@ describe("getNextStep — forward traversal", () => {
     expect(visited).toContain("ai-helper-use-case-paste");
     expect(visited).toContain("ai-helper-use-case-agentic");
     expect(visited).toContain("settings-tour-folder");
-    expect(visited).toContain("settings-tour-calendar");
+    // settings-tour-calendar retired 2026-05-27 (Grant hand-walk): the
+    // step is no longer in TOUR_STEP_ORDER, so the maximal-lab walk
+    // skips it even with calendar=yes.
+    expect(visited).not.toContain("settings-tour-calendar");
     expect(visited).toContain("settings-tour-telegram");
     expect(visited).not.toContain("settings-tour-account-type-toggle");
     expect(visited).toContain("settings-tour-visible-tabs");
