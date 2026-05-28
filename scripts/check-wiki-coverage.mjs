@@ -42,6 +42,7 @@ const EXCLUDED_PREFIXES = [
   "/results", // redirect-only transitional route → /workbench (page killed per RESULTS_PAGE_PROPOSAL.md)
   "/experiments", // redirect-only stub → /workbench (no AppShell, so the ? icon never renders here)
   "/lab-inbox", // redirect-only stub → /lab-overview (legacy bookmark target after the 2026-05-23 rename)
+  "/welcome", // first-time-visitor landing ("sell") page, not a documented app feature; captured as landing.png
 ];
 
 /** Next.js conventions to ignore when walking app/. */

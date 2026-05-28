@@ -5,6 +5,7 @@ import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { nextTestUserName } from "@/lib/onboarding/dev-sandbox";
 import { clearWizardCompletion } from "@/lib/onboarding/sidecar";
 import { clearAllStickyDemoFlags, V4_PREVIEW_STICKY_KEY } from "@/lib/file-system/wiki-capture-mock";
+import { clearLandingSeen } from "@/lib/landing/landing-gate";
 import BeakerBot from "./BeakerBot";
 import Tooltip from "./Tooltip";
 
@@ -68,7 +69,7 @@ import Tooltip from "./Tooltip";
  */
 const IS_DEV = process.env.NODE_ENV === "development";
 
-type WalkthroughMode = "folder" | "user";
+type WalkthroughMode = "folder" | "user" | "landing";
 
 interface DevForceWalkthroughButtonProps {
   /** Optional callback fired after the test user is created + signed in.
@@ -216,18 +217,47 @@ export default function DevForceWalkthroughButton({
       // root route falls back to the pre-onboarding folder picker. Then
       // wipe any sticky demo / wiki-capture flags so the picker doesn't
       // silently re-enter fixture mode (mirrors the LeaveDemoModal exit
-      // path). Hard nav to "/" so React tears down all in-memory context
-      // cleanly — soft nav (router.push) can leave the FileSystem
-      // provider holding stale state the picker doesn't expect.
+      // path). Hard nav to "/?connect=1" so React tears down all in-memory
+      // context cleanly AND the landing-page gate is bypassed: disconnect
+      // clears IndexedDB, which would otherwise read as "truly-new" and show
+      // the marketing landing instead of the folder picker this option is
+      // meant to test. The connect bypass keeps the destination the folder
+      // picker. (landing-page manager, 2026-05-28)
       await disconnect();
       clearAllStickyDemoFlags();
-      window.location.href = "/";
+      window.location.href = "/?connect=1";
     } catch (err) {
       console.error("[dev-force-walkthrough] folder flow failed:", err);
       setError(
         err instanceof Error
           ? err.message
           : "Failed to disconnect folder. Check the console.",
+      );
+      setBusy(false);
+    }
+  };
+
+  const handleConfirmLanding = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      // Re-show the first-time-visitor landing page. Disconnect (clears the
+      // IndexedDB handle + current user so the gate reads "truly-new"), wipe
+      // sticky demo / wiki-capture flags, and clear the localStorage
+      // seen-landing flag so shouldShowLanding returns true again. Hard nav
+      // to "/" (NOT /?connect=1) so the gate renders the landing on a clean
+      // mount. (landing-page manager, 2026-05-28)
+      await disconnect();
+      clearAllStickyDemoFlags();
+      clearLandingSeen();
+      window.location.href = "/";
+    } catch (err) {
+      console.error("[dev-force-walkthrough] landing flow failed:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to reset to the landing page. Check the console.",
       );
       setBusy(false);
     }
@@ -284,13 +314,24 @@ export default function DevForceWalkthroughButton({
         type="button"
         role="menuitem"
         onClick={() => openMode("user")}
-        className="w-full text-left px-3 py-2.5 hover:bg-sky-50 transition-colors"
+        className="w-full text-left px-3 py-2.5 hover:bg-sky-50 transition-colors border-b border-gray-100"
       >
         <p className="text-sm font-medium text-gray-900">
           User setup walkthrough
         </p>
         <p className="mt-0.5 text-xs text-gray-500 leading-snug">
           Tests the v4 walkthrough on a fresh test user
+        </p>
+      </button>
+      <button
+        type="button"
+        role="menuitem"
+        onClick={() => openMode("landing")}
+        className="w-full text-left px-3 py-2.5 hover:bg-sky-50 transition-colors"
+      >
+        <p className="text-sm font-medium text-gray-900">Landing page</p>
+        <p className="mt-0.5 text-xs text-gray-500 leading-snug">
+          Re-shows the first-time-visitor sell page
         </p>
       </button>
     </div>
@@ -322,7 +363,9 @@ export default function DevForceWalkthroughButton({
           aria-label={
             mode === "folder"
               ? "Force the folder-setup walkthrough"
-              : "Force the user-setup walkthrough"
+              : mode === "landing"
+                ? "Re-show the landing page"
+                : "Force the user-setup walkthrough"
           }
           className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50 backdrop-blur-sm"
           onClick={closeDialog}
@@ -351,7 +394,9 @@ export default function DevForceWalkthroughButton({
                   <h2 className="mt-1 text-lg font-semibold text-gray-900">
                     {mode === "folder"
                       ? "Force the folder-setup walkthrough?"
-                      : "Force the welcome walkthrough?"}
+                      : mode === "landing"
+                        ? "Re-show the landing page?"
+                        : "Force the welcome walkthrough?"}
                   </h2>
                 </div>
               </div>
@@ -368,6 +413,18 @@ export default function DevForceWalkthroughButton({
                     After disconnecting, you&apos;ll land on the
                     pre-onboarding folder picker so you can re-test the
                     first-time connection flow.
+                  </p>
+                </>
+              ) : mode === "landing" ? (
+                <>
+                  <p>
+                    This will disconnect your current folder. Your data is
+                    safe but you&apos;ll need to reconnect afterward.
+                  </p>
+                  <p className="mt-2 text-xs text-gray-500">
+                    Clears the &ldquo;seen landing&rdquo; flag and resets to a
+                    truly-new state so the first-time-visitor sell page shows
+                    again.
                   </p>
                 </>
               ) : (
@@ -405,6 +462,7 @@ export default function DevForceWalkthroughButton({
                 type="button"
                 onClick={() => {
                   if (mode === "folder") void handleConfirmFolder();
+                  else if (mode === "landing") void handleConfirmLanding();
                   else void handleConfirmUser();
                 }}
                 disabled={busy}
@@ -413,10 +471,14 @@ export default function DevForceWalkthroughButton({
                 {busy ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    {mode === "folder" ? "Disconnecting..." : "Creating..."}
+                    {mode === "folder" || mode === "landing"
+                      ? "Disconnecting..."
+                      : "Creating..."}
                   </>
                 ) : mode === "folder" ? (
                   "Disconnect + go to folder picker"
+                ) : mode === "landing" ? (
+                  "Disconnect + show landing page"
                 ) : (
                   "Create test user + start tour"
                 )}

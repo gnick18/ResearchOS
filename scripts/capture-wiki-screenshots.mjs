@@ -52,14 +52,29 @@ const VIEWPORT = { width: 1440, height: 900 };
 
 /** Public, no-auth routes (fresh browser context). */
 const PUBLIC_ROUTES = [
-  // The folder-connect screen at / (the only public-route screenshot referenced
-  // by the wiki). The wiki pages themselves are validated by `next build` and
+  // The folder-connect screen. A fresh context is "truly-new", which now
+  // renders the first-time-visitor landing page instead of the connect
+  // screen. `?connect=1` is the landing-gate bypass (see
+  // lib/landing/landing-gate.ts) so this shot still captures the connect
+  // screen. The wiki pages themselves are validated by `next build` and
   // don't need screenshot snapshots in /public.
   {
-    path: "/",
+    path: "/?connect=1",
     file: "folder-connect.png",
     waitFor: "text=Connect Folder",
     highlight: { text: "Link Folder" },
+  },
+  // The first-time-visitor landing ("sell") page. Captured from the
+  // standalone /welcome route (renders for everyone, no fixture needed).
+  // settleMs lets the hi-wave BeakerBot greeting finish and unmount (~2s)
+  // so the corner is clear in the hero shot. Viewport capture (the hero),
+  // not fullPage, so the Ladder scene (which only fires on scroll) stays
+  // out of frame.
+  {
+    path: "/welcome",
+    file: "landing.png",
+    waitFor: '[data-testid="landing-page"]',
+    settleMs: 2300,
   },
 ];
 

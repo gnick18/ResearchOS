@@ -10,6 +10,13 @@ import {
   isV4PreviewMode,
 } from "@/lib/file-system/wiki-capture-mock";
 import ResearchFolderSetupNew from "@/components/ResearchFolderSetupNew";
+import LandingPage from "@/components/landing/LandingPage";
+import {
+  shouldShowLanding,
+  hasSeenLanding,
+  markLandingSeen,
+  hasConnectBypass,
+} from "@/lib/landing/landing-gate";
 import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
 import { ELN_IMPORT_PENDING_KEY } from "@/components/import-eln/PickUserBeforeImportModal";
 import UserLoginScreen from "@/components/UserLoginScreen";
@@ -128,6 +135,15 @@ function AppContent({ children }: { children: ReactNode }) {
   // any future client-rendered queries inside the wiki work.
   const isWikiRoute = pathname?.startsWith("/wiki");
 
+  // The `/welcome` route renders the marketing landing standalone (the
+  // "revisit the welcome page" path from Settings, and the surface the
+  // wiki-screenshot capture shoots `landing.png` from). It must render for
+  // EVERY visitor regardless of connection state, so it bypasses the
+  // truly-new gate below the same way `/wiki/*` does. The page itself is
+  // <LandingPage> with no `onGetStarted`, so its primary CTA navigates to
+  // /?connect=1 rather than dismissing an inline gate.
+  const isWelcomeRoute = pathname === "/welcome";
+
   // QueryClient is a module-level singleton (see `appQueryClient` below)
   // so non-React-tree consumers (e.g. the onboarding-v4 cursor scripts
   // that fire programmatic API calls outside the component tree) can
@@ -137,8 +153,19 @@ function AppContent({ children }: { children: ReactNode }) {
   // singleton is created once on first import and reused forever.
   const queryClient = appQueryClient;
 
-  const { isConnected, isLoading, currentUser, loadingStage } = useFileSystem();
+  const {
+    isConnected,
+    isLoading,
+    currentUser,
+    loadingStage,
+    availableUsers,
+    lastConnectedFolder,
+  } = useFileSystem();
   const [showSetup, setShowSetup] = useState(false);
+  // Truly-new visitors see the landing once. Clicking "Get Started" flips
+  // this (and persists a localStorage flag via markLandingSeen) so the gate
+  // below falls through to the connect-folder screen.
+  const [landingDismissed, setLandingDismissed] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isConnected) {
@@ -179,6 +206,16 @@ function AppContent({ children }: { children: ReactNode }) {
         </QueryClientProvider>
       );
     }
+    return (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+  }
+
+  // `/welcome`: render the route's own page (the standalone landing) for
+  // every visitor, skipping the loading / connect / picker gates below. A
+  // connected user reaching it from the Settings "revisit" link still sees
+  // the marketing page rather than being bounced back into the app.
+  if (isWelcomeRoute) {
     return (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );
@@ -244,6 +281,42 @@ function AppContent({ children }: { children: ReactNode }) {
           </a>
         </div>
       </div>
+    );
+  }
+
+  // First-time-visitor landing ("sell") page. Sits between the browser-
+  // support check and the connect-folder screen, and renders ONLY for a
+  // genuinely-new visitor: nothing in IndexedDB (no connected folder, no
+  // stored handle, no stored user, no discovered users) AND they have not
+  // already dismissed it AND no `?connect=1` bypass. Any returning signal
+  // makes shouldShowLanding false, so returning users fall straight through
+  // to their reconnect / picker / app surfaces below with zero extra clicks.
+  //
+  // Placed AFTER the isLoading check above: a returning user's silent
+  // reconnect keeps isLoading true until it resolves, so the landing never
+  // flashes before "returning" is known. Demo / wiki-capture / wiki / welcome
+  // routes already returned above, so they cannot reach this branch. The
+  // landing is gated to supported browsers (the unsupported-browser screen
+  // returns just above), so it never sells a tool the visitor cannot run.
+  if (
+    shouldShowLanding({
+      isConnected,
+      currentUser,
+      lastConnectedFolder,
+      availableUsers,
+      seen: landingDismissed || hasSeenLanding(),
+      connectBypass: hasConnectBypass(),
+    })
+  ) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <LandingPage
+          onGetStarted={() => {
+            markLandingSeen();
+            setLandingDismissed(true);
+          }}
+        />
+      </QueryClientProvider>
     );
   }
 

@@ -3865,6 +3865,25 @@ function TipsSection() {
           {busy ? "Resetting..." : "Re-run tour"}
         </button>
       </div>
+      {/* Revisit the first-time-visitor landing ("sell") page. It is gated
+          to truly-new visitors at "/", so a connected user can only re-see
+          it via this dedicated /welcome route. (landing-page manager) */}
+      <div className="mt-4 flex items-start justify-between gap-4 border-t border-gray-100 pt-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm text-gray-800">View the welcome page</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Revisit the landing page new visitors see on their very first
+            open, with the overview of what ResearchOS does.
+          </p>
+        </div>
+        <Link
+          href="/welcome"
+          data-testid="settings-view-welcome-page"
+          className="px-3 py-2 text-sm border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg whitespace-nowrap"
+        >
+          View welcome page
+        </Link>
+      </div>
       {process.env.NODE_ENV === "development" && (
         <div className="mt-4 border-t border-gray-100 pt-3 text-xs text-gray-500">
           <Link
