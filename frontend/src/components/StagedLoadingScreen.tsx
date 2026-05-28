@@ -83,7 +83,10 @@ export default function StagedLoadingScreen({
   const showReassurance = elapsedSec >= 4;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div
+      data-testid="staged-loading-screen"
+      className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900"
+    >
       <div className="max-w-xl w-full mx-4 text-center">
         <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg mb-6">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-white"></div>

@@ -2488,6 +2488,20 @@ async function _capturePageAt(page, route, url) {
     console.error(`  ✗ ${route.file} — goto failed: ${err.message}`);
     return false;
   }
+  // Never capture the full-screen "Loading ResearchOS" splash. The fixture
+  // installs synchronously, but React hydration + the provider's
+  // isLoading→false flip can still lag the fixed `settleMs` on slower
+  // routes, so a fixed sleep alone races the splash. Wait for
+  // StagedLoadingScreen to leave the DOM first; `detached` resolves
+  // immediately when the splash was never mounted, so this is free for
+  // already-loaded routes. A timeout here is non-fatal — fall through to
+  // the content selector + settle below. v4, 2026-05-28.
+  await page
+    .waitForSelector('[data-testid="staged-loading-screen"]', {
+      state: "detached",
+      timeout: 10000,
+    })
+    .catch(() => null);
   if (route.waitFor) {
     // Accept comma-separated alternatives; succeed if any one resolves first.
     const candidates = route.waitFor.split(",").map((s) => s.trim()).filter(Boolean);
