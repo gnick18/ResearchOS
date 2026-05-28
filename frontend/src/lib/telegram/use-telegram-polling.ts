@@ -75,7 +75,11 @@ export function useTelegramPolling(username: string | null): void {
 
     let cancelled = false;
     const tabId = Math.random().toString(36).slice(2);
-    const controller = new AbortController();
+    // Per-iteration abort handle. A focus / visibility "kick" aborts the
+    // in-flight long-poll (which the browser may have stalled while the tab
+    // was backgrounded) so the loop re-polls immediately instead of waiting
+    // out the 25s timeout or needing a manual page refresh.
+    let pollController: AbortController | null = null;
     const mountedAt = Date.now();
     // Stale-detection state lives here (not in React state) so the
     // polling loop can mutate without re-rendering and the broadcast
@@ -92,6 +96,28 @@ export function useTelegramPolling(username: string | null): void {
       });
       setStaleSignal({ isStale: stale, botUsername: stale ? botUsername : null });
     };
+
+    // When this tab becomes foreground/visible it should be the one
+    // polling: claim the cross-tab lock and drop any stalled in-flight poll
+    // so the loop re-polls right away and drains anything Telegram queued
+    // while we were backgrounded. Without this, a returning user had to
+    // refresh the page before a photo they had already sent was picked up.
+    const kick = (): void => {
+      if (cancelled) return;
+      writeLock(tabId);
+      pollController?.abort();
+    };
+    const onVisibility = (): void => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        kick();
+      }
+    };
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", onVisibility);
+    }
+    if (typeof window !== "undefined") {
+      window.addEventListener("focus", kick);
+    }
 
     const heartbeat = window.setInterval(() => {
       tryClaimLock(tabId);
@@ -117,10 +143,11 @@ export function useTelegramPolling(username: string | null): void {
           continue;
         }
         try {
+          pollController = new AbortController();
           const updates = await getUpdates(pairing.botToken, {
             offset: pairing.lastUpdateId + 1,
             timeout: 25,
-            signal: controller.signal,
+            signal: pollController.signal,
           });
           if (cancelled) return;
           if (updates.length === 0) {
@@ -167,7 +194,13 @@ export function useTelegramPolling(username: string | null): void {
           setPollingHealth("ok");
         } catch (err) {
           if (cancelled) return;
-          if (err instanceof DOMException && err.name === "AbortError") return;
+          if (err instanceof DOMException && err.name === "AbortError") {
+            // A focus / visibility kick aborted the in-flight poll. Loop
+            // immediately (reset backoff) to re-poll and drain anything
+            // queued while the tab was backgrounded.
+            backoffMs = 1000;
+            continue;
+          }
           if (err instanceof TelegramApiError && err.code === 401) {
             console.warn("[telegram-poll] token rejected (401); user must re-pair");
             setPollingHealth("auth_error");
@@ -191,8 +224,14 @@ export function useTelegramPolling(username: string | null): void {
 
     return () => {
       cancelled = true;
-      controller.abort();
+      pollController?.abort();
       window.clearInterval(heartbeat);
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", onVisibility);
+      }
+      if (typeof window !== "undefined") {
+        window.removeEventListener("focus", kick);
+      }
       releaseLock(tabId);
       setPollingHealth("idle");
       // Drop any stale-banner state on unmount so a re-mounting tab
