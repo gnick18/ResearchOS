@@ -652,6 +652,13 @@ export default function GanttChart({
 
   const dates = useMemo(() => getDateRange(filteredTasks, weeksToShow, ganttStartDate), [filteredTasks, weeksToShow, ganttStartDate]);
   const weeks = useMemo(() => splitIntoWeeks(dates), [dates]);
+  // First visible day across all week rows. Used to decide which weekly
+  // segment of a task carries the one-shot `data-tour-target` (the segment
+  // where the task STARTS, or week 0 if it began before the window). The
+  // attribute used to be hardcoded to weekIdx===0, which silently dropped it
+  // for tour anchors (Fake experiment A/B, etc.) scheduled in a later visible
+  // week — breaking both the spotlight and the page-lock allow-list.
+  const firstVisibleDate = weeks.length > 0 ? formatDate(weeks[0][0]) : "";
 
   const today = formatDate(new Date());
 
@@ -1843,15 +1850,26 @@ export default function GanttChart({
                           // sortedTasks above). `demoBarIdx` only lands
                           // when the task name matches one of
                           // `DEP_CHAIN_NAMES`; `isFirstTaskBar` only
-                          // lands on the first bar's first weekly slice.
-                          // Guard both attrs with `weekIdx === 0` so a
-                          // task spanning multiple weeks only emits the
-                          // attr once (querySelector picks the first
-                          // match, but duplicate attrs would confuse
-                          // CSS selectors and screen readers).
+                          // lands on the first bar.
+                          //
+                          // The one-shot `data-tour-target` must land on the
+                          // task's FIRST visible weekly segment so a task that
+                          // spans multiple weeks emits the attr exactly once
+                          // (duplicate attrs would confuse selectors + screen
+                          // readers). That segment is the week containing the
+                          // task's start, or week 0 when the task began before
+                          // the visible window. The old `weekIdx === 0` guard
+                          // wrongly assumed every tour anchor lived in the
+                          // first row; anchors scheduled in a later week (e.g.
+                          // Fake experiment A on a cascade-pushed date) never
+                          // got the attr, so the spotlight + page-lock could
+                          // not find them.
+                          const isFirstSegment =
+                            (task.start_date >= weekStart && task.start_date <= weekEnd) ||
+                            (task.start_date < firstVisibleDate && weekIdx === 0);
                           const demoBarIdx =
-                            weekIdx === 0 ? demoBarIndexByKey.get(tk) : undefined;
-                          const isFirstTaskBar = firstTaskKey === tk && weekIdx === 0;
+                            isFirstSegment ? demoBarIndexByKey.get(tk) : undefined;
+                          const isFirstTaskBar = firstTaskKey === tk && isFirstSegment;
                           // Gantt redesign 2026-05-22 (Gantt manager):
                           // priority-ordered tour-target attribute. Each
                           // tk only gets ONE attribute — the most
@@ -1860,12 +1878,12 @@ export default function GanttChart({
                           // that target a specific role can find their
                           // anchor regardless of which one bubbled to
                           // `data-tour-target` here.
-                          const isFakeA = weekIdx === 0 && fakeAKey === tk;
-                          const isFakeB = weekIdx === 0 && fakeBKey === tk;
+                          const isFakeA = isFirstSegment && fakeAKey === tk;
+                          const isFakeB = isFirstSegment && fakeBKey === tk;
                           const isSharedExperiment =
-                            weekIdx === 0 && sharedExperimentKey === tk;
+                            isFirstSegment && sharedExperimentKey === tk;
                           const isUserExperiment =
-                            weekIdx === 0 && userExperimentKey === tk;
+                            isFirstSegment && userExperimentKey === tk;
                           const tourTarget = isFakeA
                             ? "gantt-bar-fake-a"
                             : isFakeB
