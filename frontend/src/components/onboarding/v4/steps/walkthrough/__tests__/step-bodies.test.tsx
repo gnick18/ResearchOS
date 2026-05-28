@@ -122,6 +122,8 @@ import {
   ganttShareBeakerBotSharesStep,
   ganttShareUserExploresStep,
   ganttShareUserSharesBackStep,
+  ganttShareUserClicksShareStep,
+  ganttShareUserFillsDialogStep,
   ganttShareProfileSwitchStep,
   ganttShareUserSeesEditStep,
 } from "../GanttShareClusterSteps";
@@ -250,6 +252,8 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   ganttShareBeakerBotSharesStep,
   ganttShareUserExploresStep,
   ganttShareUserSharesBackStep,
+  ganttShareUserClicksShareStep,
+  ganttShareUserFillsDialogStep,
   ganttShareProfileSwitchStep,
   ganttShareUserSeesEditStep,
   ganttGoalsStep,
@@ -348,7 +352,12 @@ describe("P5 step bodies — universal contract", () => {
       "gantt-share-beakerbot-spawn",
       "gantt-share-beakerbot-shares",
       "gantt-share-user-explores",
+      // share-back user-action manager 2026-05-28: the single
+      // gantt-share-user-shares-back cursor demo is now a 3-beat
+      // USER_ACTION cluster (click Fake A, click Share, fill the dialog).
       "gantt-share-user-shares-back",
+      "gantt-share-user-clicks-share",
+      "gantt-share-user-fills-dialog",
       "gantt-share-profile-switch",
       "gantt-share-user-sees-edit",
       "gantt-goals-overview",
@@ -404,22 +413,18 @@ describe("P5 step bodies — universal contract", () => {
   // themselves. A BeakerBot demo that auto-advanced would leave the
   // user reading speech while the next step kicked in.
   //
-  // Hybrid carve-out (share-back interaction manager, 2026-05-27):
-  // some steps combine a setup-only cursor demo with a user-action
-  // completion. The cursor handles the boring "get to the right
-  // surface" beats (e.g. open the popup, click the share button) and
-  // hands off to the user for the actual teaching moment (pick a
-  // recipient + permission in the share dialog). These can't use
-  // manualAdvance because the user's product interaction is the
-  // completion signal; they can't drop the cursorScript because the
-  // setup-getting-to-the-share-dialog is mechanical and not worth
-  // making the user discover. Listed by ID below; new entries need a
-  // matching comment justifying the hybrid shape.
-  const HYBRID_DEMO_AND_USER_ACTION_STEPS = [
-    // §6.8 gantt-share: BeakerBot opens Fake A + clicks share, user
-    // completes the share dialog (pick BeakerBot + edit permission).
-    "gantt-share-user-shares-back",
-  ];
+  // Hybrid carve-out: steps that combine a setup-only cursor demo with a
+  // user-action completion (cursor gets to the surface, user finishes the
+  // teaching moment). These can't use manualAdvance because the user's
+  // product interaction is the completion signal, and can't drop the
+  // cursorScript because the setup is mechanical. Listed by ID; new
+  // entries need a matching comment justifying the hybrid shape.
+  //
+  // share-back user-action manager 2026-05-28: emptied. The §6.8
+  // gantt-share-user-shares-back hybrid was refactored into a pure 3-beat
+  // USER_ACTION cluster (click Fake A, click Share, fill the dialog) with
+  // NO cursorScript on any beat, so it no longer needs this carve-out.
+  const HYBRID_DEMO_AND_USER_ACTION_STEPS: string[] = [];
   it("every step with a cursorScript has manual completion (universal pacing rule, Grant 2026-05-22)", () => {
     const violations: Array<{ id: string; type: string }> = [];
     for (const step of ALL_STEPS) {

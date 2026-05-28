@@ -254,6 +254,8 @@ import {
   ganttShareBeakerBotSharesStep,
   ganttShareUserExploresStep,
   ganttShareUserSharesBackStep,
+  ganttShareUserClicksShareStep,
+  ganttShareUserFillsDialogStep,
   ganttShareProfileSwitchStep,
   ganttShareUserSeesEditStep,
 } from "./steps/walkthrough/GanttShareClusterSteps";
@@ -437,6 +439,8 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [ganttShareBeakerBotSharesStep.id]: ganttShareBeakerBotSharesStep,
   [ganttShareUserExploresStep.id]: ganttShareUserExploresStep,
   [ganttShareUserSharesBackStep.id]: ganttShareUserSharesBackStep,
+  [ganttShareUserClicksShareStep.id]: ganttShareUserClicksShareStep,
+  [ganttShareUserFillsDialogStep.id]: ganttShareUserFillsDialogStep,
   [ganttShareProfileSwitchStep.id]: ganttShareProfileSwitchStep,
   [ganttShareUserSeesEditStep.id]: ganttShareUserSeesEditStep,
   // Goals overview — RELOCATED to after the share cluster. Conditional

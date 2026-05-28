@@ -150,6 +150,16 @@ export const TOUR_DOM_EVENTS = {
    */
   experimentMethodsTabActive: "tour:experiment-methods-tab-active",
   /**
+   * Dispatched by `ShareDialog.tsx` when the dialog opens (its `isOpen`
+   * effect flips true). The §6.8 `gantt-share-user-clicks-share`
+   * USER_ACTION beat (share-back user-action manager 2026-05-28) advances
+   * on this so the follow-up `gantt-share-user-fills-dialog` beat takes
+   * over the moment the share dialog is on screen. Mirrors the
+   * popup-mount events (experimentPopupOpened, methodsPickerOpened):
+   * cheap fire-and-forget, no detail payload.
+   */
+  shareDialogOpened: "tour:share-dialog-opened",
+  /**
    * Dispatched by `NewPurchaseModal.tsx` after the parent task + line
    * item save succeeds. The §6.14 `purchases` cursor-driven demo step
    * captures the task id, line item id, and the typed funding string
@@ -878,6 +888,56 @@ export function watchExperimentMethodsTabActive(
             "[data-tour-target=\"experiment-attach-method\"]",
           )
         ) {
+          fireOnce();
+        }
+      });
+      mo.observe(document.body, { childList: true, subtree: true });
+    }
+  }
+
+  return () => {
+    removeListener?.();
+    mo?.disconnect();
+  };
+}
+
+/**
+ * Watch for the share dialog to open. `ShareDialog.tsx` dispatches
+ * `tour:share-dialog-opened` from its `isOpen` effect when the dialog
+ * flips open (the user clicked the Share button on the TaskDetailPopup).
+ * The §6.8 `gantt-share-user-clicks-share` USER_ACTION beat advances on
+ * this so the follow-up `gantt-share-user-fills-dialog` beat takes over
+ * the moment the dialog is on screen. Mirrors `watchExperimentPopupOpened`.
+ *
+ * DOM-mount fallback watches for the dialog's `share-dialog` anchor so a
+ * future refactor that drops the explicit dispatch still trips the
+ * advance, and so a step that mounts AFTER the dialog already opened
+ * (e.g. tour resume) fires immediately.
+ */
+export function watchShareDialogOpened(advance: () => void): () => void {
+  let fired = false;
+  const fireOnce = () => {
+    if (fired) return;
+    fired = true;
+    advance();
+  };
+
+  let removeListener: (() => void) | undefined;
+  let mo: MutationObserver | undefined;
+
+  if (typeof window !== "undefined") {
+    const handler = () => fireOnce();
+    window.addEventListener(TOUR_DOM_EVENTS.shareDialogOpened, handler);
+    removeListener = () =>
+      window.removeEventListener(TOUR_DOM_EVENTS.shareDialogOpened, handler);
+  }
+
+  if (typeof document !== "undefined") {
+    if (document.querySelector("[data-tour-target=\"share-dialog\"]")) {
+      fireOnce();
+    } else if (typeof MutationObserver !== "undefined") {
+      mo = new MutationObserver(() => {
+        if (document.querySelector("[data-tour-target=\"share-dialog\"]")) {
           fireOnce();
         }
       });

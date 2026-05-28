@@ -108,6 +108,16 @@ export default function ShareDialog({
       setAddLevel("edit");
       setCascadeToTasks(false);
       setError(null);
+      // share-back user-action manager (2026-05-28): fire-and-forget tour
+      // signal. The §6.8 gantt-share-user-clicks-share beat advances on
+      // this event the instant the share dialog opens (the user clicked
+      // Share on the popup). Mirrors the cheap CustomEvent pattern the
+      // other tour surfaces use (tour:experiment-popup-opened,
+      // tour:home-create-modal-opened). Costs one dispatch per dialog open
+      // regardless of listeners; no-op when no tour is running.
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("tour:share-dialog-opened"));
+      }
     }
   }, [isOpen, currentSharedWith]);
 

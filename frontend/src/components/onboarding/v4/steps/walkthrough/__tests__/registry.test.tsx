@@ -94,7 +94,11 @@ const P5_STEP_IDS = [
   "gantt-share-beakerbot-spawn",
   "gantt-share-beakerbot-shares",
   "gantt-share-user-explores",
+  // share-back user-action manager 2026-05-28: split into a 3-beat
+  // USER_ACTION cluster (click Fake A, click Share, fill the dialog).
   "gantt-share-user-shares-back",
+  "gantt-share-user-clicks-share",
+  "gantt-share-user-fills-dialog",
   "gantt-share-profile-switch",
   "gantt-share-user-sees-edit",
   "gantt-goals-overview",

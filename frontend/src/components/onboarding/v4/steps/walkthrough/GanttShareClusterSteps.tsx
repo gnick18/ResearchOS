@@ -1,35 +1,38 @@
 /**
- * §6.8 lab-only share cluster — 7 step bodies (Gantt redesign 2026-05-22,
- * Gantt manager).
+ * §6.8 lab-only share cluster step bodies (Gantt redesign 2026-05-22,
+ * Gantt manager). The single share-back step was split into a 3-beat
+ * USER_ACTION cluster on 2026-05-28 (share-back user-action manager), so
+ * the file now exports 9 step constants.
  *
  * Co-located in one file because each step is small and they share the
- * same support helpers (gantt-share-helpers). Splitting into 7 files
- * would make navigating the cluster harder; the registry imports each
- * named export from this module.
+ * same support helpers (gantt-share-helpers). Splitting into separate
+ * files would make navigating the cluster harder; the registry imports
+ * each named export from this module.
  *
  * Cluster shape (per ONBOARDING_V4_GANTT_REDESIGN.md):
- *   1. gantt-share-intro            — narration
- *   2. gantt-share-beakerbot-spawn  — BeakerBot user + coffee experiment
- *   3. gantt-share-beakerbot-shares — share lands on user's Gantt
- *   4. gantt-share-user-explores    — user-action, popup poke (page-lock)
- *   5. gantt-share-user-shares-back — user-action, share chain back (page-lock)
- *   6. gantt-share-profile-switch   — REAL profile switch (or faked fallback)
- *   7. gantt-share-user-sees-edit   — user-action, see BeakerBot's note
+ *   1.  gantt-share-intro            : narration
+ *   2.  gantt-share-beakerbot-spawn  : BeakerBot user + coffee experiment
+ *   3.  gantt-share-beakerbot-shares : share lands on user's Gantt
+ *   4.  gantt-share-user-explores    : user-action, popup poke
+ *   5a. gantt-share-user-shares-back : user-action, click Fake A to open
+ *   5b. gantt-share-user-clicks-share: user-action, click Share on popup
+ *   5c. gantt-share-user-fills-dialog: user-action, pick beakerbot + edit
+ *   6.  gantt-share-profile-switch   : REAL profile switch (or faked fallback)
+ *   7.  gantt-share-user-sees-edit   : user-action, see BeakerBot's note
  */
-import { useEffect, useState } from "react";
-import TourSpotlight from "@/components/TourSpotlight";
+import { useEffect } from "react";
 import { buildWalkthroughStep, manualAdvance, advanceOnEvent } from "./lib/step-helpers";
 import {
   cursorScript,
   safeClickAction,
-  safeGlideToElementAction,
-  deferredClickAction,
-  callbackAction,
-  pause,
   compactScript,
   tourClickWithLockBypass,
 } from "./lib/cursor-script";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
+import {
+  watchExperimentPopupOpened,
+  watchShareDialogOpened,
+} from "./lib/tour-events";
 import { useOptionalTourController } from "../../TourController";
 import {
   spawnGanttShareBeakerBot,
@@ -42,7 +45,6 @@ import { BEAKERBOT_LAB_USERNAME } from "../lab/lib/lab-fake-user";
 import {
   resolveFakeTaskIds,
   spawnGanttRedesignFakeTasks,
-  GANTT_REDESIGN_FAKE_A_NAME,
 } from "./lib/gantt-redesign-helpers";
 import { ensureFirstExperimentExists } from "./lib/ensure-helpers";
 
@@ -220,271 +222,162 @@ export const ganttShareUserExploresStep = buildWalkthroughStep({
 });
 
 // =============================================================================
-// 5. gantt-share-user-shares-back — user shares own chain back to BeakerBot
+// 5. gantt-share-user-shares-back CLUSTER (3 USER_ACTION beats)
+//    (share-back user-action manager 2026-05-28 refactor).
+//
+// Replaces the prior BeakerBot cursor demo (glide to Fake A, dispatch
+// tour:open-task-popup, deferred-click the share button) plus its
+// stage-machine page-lock and DOM-poll stage detector with a three-beat
+// user-driven sequence, mirroring the §6.5 experiment-create refactor
+// (WorkbenchCreateExperimentOpenStep.tsx, commit 5bae5c8d):
+//
+//   5a. gantt-share-user-shares-back (id PRESERVED for migration)
+//       Spotlight Fake A's Gantt bar. Speech tells the user to click it.
+//       Advance on `tour:experiment-popup-opened` when the popup mounts.
+//
+//   5b. gantt-share-user-clicks-share (NEW)
+//       Spotlight the Share button in the popup header. User clicks it.
+//       Advance on `tour:share-dialog-opened` when the dialog mounts.
+//
+//   5c. gantt-share-user-fills-dialog (NEW)
+//       Spotlight the share dialog. Speech guides "pick beakerbot, give
+//       edit permission, confirm." Advance on the share-completion poll
+//       (Fake A's shared_with carries BeakerBot @ permission "edit"),
+//       reused verbatim from the prior single-step completion.
+//
+// Why this refactor (Grant 2026-05-28): the cursor demo kept regressing.
+// The synthetic bar click did not reliably fire the bar's React onClick,
+// so the popup often stayed closed; the cascade step moves Fake A so the
+// build-time bar rect went stale and the cursor aimed at the wrong bar;
+// and the deferred share-button click depended on popup-mount timing.
+// Flipping to USER_ACTION eliminates that whole brittle path: the user
+// clicks the spotlighted real affordances and each beat advances on a
+// real DOM signal.
+//
+// Each beat declares a static `pageLock.allowList` (raw data-tour-target
+// names, matched by TourPageLock) instead of the old controller-driven
+// shifting stage machine. The lists stay loose enough to cover the
+// brief mount windows (e.g. beat 5a keeps Fake A's bar allowed, beat 5b
+// keeps Fake A harmless so a re-click after an accidental popup close is
+// not flashed). No cursorScript on any beat.
 // =============================================================================
 
-/** DOM selector for the TaskDetailPopup chrome. Used by `ShareBackSpeech`
- *  to detect when the popup has mounted (the user just clicked Fake A)
- *  vs when the share dialog has mounted (the user just clicked the
- *  share button). Both are distinct surfaces so a presence-check on
- *  each drives the allow-list state machine. */
-const TASK_POPUP_DETECT_SELECTOR = '[data-tour-target="task-popup-close"]';
-const SHARE_DIALOG_DETECT_SELECTOR = '[data-tour-target="share-dialog"]';
+const SHARE_BACK_OPEN_STEP_ID = "gantt-share-user-shares-back";
+const SHARE_BACK_CLICK_SHARE_STEP_ID = "gantt-share-user-clicks-share";
+const SHARE_BACK_FILL_DIALOG_STEP_ID = "gantt-share-user-fills-dialog";
 
-function ShareBackSpeech() {
-  const controller = useOptionalTourController();
-  // Stage drives the allow-list:
-  //   1: timeline — only Fake A's bar is clickable
-  //   2: popup    — only the share button (+ close + the bar to re-click)
-  //   3: dialog   — share dialog affordances open
-  const [stage, setStage] = useState<1 | 2 | 3>(1);
-
-  // Stage transitions: poll the DOM every 350ms for the presence of the
-  // popup / share dialog. Cheap and beats wiring a global mount-watcher
-  // through the popup component. Once we see the share dialog, we lock
-  // into stage 3 (the step's completion poll handles the final advance).
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    const id = window.setInterval(() => {
-      const dialog = document.querySelector(SHARE_DIALOG_DETECT_SELECTOR);
-      if (dialog) {
-        setStage(3);
-        return;
-      }
-      const popup = document.querySelector(TASK_POPUP_DETECT_SELECTOR);
-      if (popup) {
-        setStage((cur) => (cur === 1 ? 2 : cur));
-      } else {
-        // Popup was dismissed — drop back to stage 1 so the user can
-        // re-open Fake A if they bailed out by accident.
-        setStage((cur) => (cur === 3 ? cur : 1));
-      }
-    }, 350);
-    return () => window.clearInterval(id);
-  }, []);
-
-  // Allow-list shifts as the stage progresses. Gantt fix manager R1
-  // (P1 #11): the previous static list let the user click ANYTHING in
-  // the chain without the lock surfacing "do this next" guidance, and
-  // mis-clicks on inactive stages fell through silently. The shifting
-  // allow-list also keeps the speech bubble synchronized with the
-  // actual current affordance.
-  // Bug-squad fix bot 2026-05-26 (Bug 3 family): same pattern.
-  //
-  // Share-back interaction manager (2026-05-27): include the popup share
-  // button + close in stage 1's list too. The stage poll runs every
-  // 350ms; if the user (or BeakerBot's cursor) opens the popup and
-  // immediately reaches for share inside that polling gap, the old
-  // allow-list (Fake A only) tripped the Oops flash on a legitimate
-  // click. The extra entries are harmless before the popup mounts
-  // (closest() finds nothing) and let the click pass through during the
-  // sub-second window before the polling-driven stage flip catches up.
-  const setPageLock = controller?.setPageLock;
-  const clearPageLock = controller?.clearPageLock;
-  useEffect(() => {
-    if (!setPageLock || !clearPageLock) return;
-    const allowByStage: Record<1 | 2 | 3, string[]> = {
-      1: [
-        TOUR_TARGETS.ganttBarFakeA,
-        TOUR_TARGETS.taskPopupShareButton,
-        TOUR_TARGETS.taskPopupClose,
-        // Share-back interaction manager (2026-05-27): preempt the
-        // 350ms polling gap when BeakerBot's cursor races ahead of
-        // the stage detector. Including the share dialog affordances
-        // here is harmless before the dialog mounts (closest() finds
-        // nothing) and prevents the gap from blocking a legitimate
-        // user click during the brief window between cursor-click-
-        // share-button and the poller seeing the dialog.
-        TOUR_TARGETS.shareDialog,
-        TOUR_TARGETS.shareDialogUserRow,
-        TOUR_TARGETS.shareDialogAdd,
-        TOUR_TARGETS.shareDialogConfirm,
-      ],
-      2: [
-        TOUR_TARGETS.ganttBarFakeA,
-        TOUR_TARGETS.taskPopupShareButton,
-        TOUR_TARGETS.taskPopupClose,
-        TOUR_TARGETS.shareDialog,
-        TOUR_TARGETS.shareDialogUserRow,
-        TOUR_TARGETS.shareDialogAdd,
-        TOUR_TARGETS.shareDialogConfirm,
-      ],
-      // Stage 3 allow-list: the share-dialog affordances the user
-      // needs to click in sequence. The "Add" button is required
-      // because the user MUST move BeakerBot into the share list
-      // before Confirm becomes meaningful (the prior list omitted
-      // it and the permission radio it referenced wasn't stamped on
-      // any product surface, so clicks on Add tripped the wrong-
-      // click handler). Walkthrough audit fix manager (2026-05-25).
-      3: [
-        TOUR_TARGETS.shareDialog,
-        TOUR_TARGETS.shareDialogUserRow,
-        TOUR_TARGETS.shareDialogAdd,
-        TOUR_TARGETS.shareDialogConfirm,
-        TOUR_TARGETS.taskPopupClose,
-      ],
-    };
-    const flashByStage: Record<1 | 2 | 3, string> = {
-      1: "Hang tight, I'm opening the first task in your chain.",
-      2: "Hang tight, I'm clicking the share button now.",
-      3: "Pick me (beakerbot) and give me edit permission.",
-    };
-    setPageLock(allowByStage[stage], flashByStage[stage]);
-    return () => clearPageLock();
-  }, [setPageLock, clearPageLock, stage]);
-
-  // gantt cluster consolidation manager (2026-05-27, Bug #34): per-stage
-  // spotlight. The previous step had a static `targetSelector` set to
-  // Fake A's bar, which left stages 2 + 3 with a stale spotlight floating
-  // over the timeline corner while the user was reading "Click the share
-  // button on the popup" / "Pick me and give me edit permission". The
-  // step config now leaves targetSelector unset; the body renders its
-  // own TourSpotlight component pointed at the right surface per stage.
-  // When the target attr isn't present yet (popup mid-mount), TourSpotlight
-  // silently no-ops via its internal MutationObserver and picks up the
-  // anchor the moment it lands.
-  const spotlightTarget =
-    stage === 1
-      ? targetSelector(TOUR_TARGETS.ganttBarFakeA)
-      : stage === 2
-        ? targetSelector(TOUR_TARGETS.taskPopupShareButton)
-        : targetSelector(TOUR_TARGETS.shareDialogUserRow);
-
-  return (
+/** Beat 5a (id PRESERVED): spotlight Fake A's Gantt bar. The user clicks
+ *  it to open the TaskDetailPopup; `TaskDetailPopup` dispatches
+ *  `tour:experiment-popup-opened` on mount, which advances this beat.
+ *
+ *  onEnter ensures the prerequisite chain is in place (Fake A on the
+ *  user's timeline) so a seed-jump past the universal deps cluster does
+ *  not leave the user staring at an empty timeline. Both helpers are
+ *  idempotent on name so the canonical flow no-ops. */
+export const ganttShareUserSharesBackStep = buildWalkthroughStep({
+  id: SHARE_BACK_OPEN_STEP_ID,
+  speech: (
     <>
-      {/* Share-back interaction manager (2026-05-27): the cursor script
-          drives stages 1 + 2 (open Fake A, click share). The speech
-          copy now narrates what BeakerBot is doing rather than asking
-          the user to click. Once the share dialog mounts the user
-          takes over at stage 3 (pick recipient + permission). */}
-      {stage === 1 ? (
-        <p className="mb-2">
-          Now share YOUR chain back with me. Watch, I'll open the first
-          task in your chain for you.
-        </p>
-      ) : null}
-      {stage === 2 ? (
-        <p className="mb-2">
-          Now I'll click the share button on the popup.
-        </p>
-      ) : null}
-      {stage === 3 ? (
-        <p className="mb-2">
-          Your turn. Pick me (beakerbot) and give me edit permission.
-        </p>
-      ) : null}
+      <p className="mb-2">
+        Now share your chain back with me. Click{" "}
+        <strong>Fake experiment A</strong> on the timeline to open it.
+      </p>
       <p className="text-xs text-gray-500">
-        (I'll keep you on rails. Clicks outside the right affordance
-        will be ignored.)
+        (I'll keep you on rails. Clicks outside the highlighted bar will
+        be ignored.)
       </p>
     </>
-  );
-}
-
-/** Pause (ms) after the tour:open-task-popup event so the TaskDetailPopup
- *  visibly mounts before BeakerBot glides to the share button. Mirrors
- *  the POST_DRAG_PAUSE_MS beat in the deps cluster's open-dialog flow. */
-const SHARE_BACK_POPUP_MOUNT_PAUSE_MS = 800;
-
-/** Pause (ms) between the glide-to-share-button and the deferred click so
- *  the glide reads cleanly before the share dialog pops. */
-const SHARE_BACK_PRE_SHARE_CLICK_PAUSE_MS = 500;
-
-export const ganttShareUserSharesBackStep = buildWalkthroughStep({
-  id: "gantt-share-user-shares-back",
-  speech: () => <ShareBackSpeech />,
+  ),
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.ganttBarFakeA),
-  // Share-back interaction manager (2026-05-27): BeakerBot's cursor
-  // demos the setup beats (open Fake A, click the share button) so the
-  // user lands directly on the share dialog with the only remaining
-  // task being "pick BeakerBot + edit." The prior body had no cursor
-  // script, leaving the user to discover the share button themselves
-  // with no demo of where it lives, which matched neither the speech
-  // bubble's "I'll help" rails framing nor Grant's expectation that
-  // BeakerBot demonstrate the click.
-  //
-  // share-back popup-open manager (2026-05-28, Grant's two-screenshot
-  // bug): the prior build opened the popup with
-  // safeClickAction(ganttBarFakeA). That failed two ways. First,
-  // safeClickAction resolves the bar's rect at BUILD time, but the
-  // upstream cascade step (gantt-deps-cascade) moves Fake A to a new
-  // date, so the build-time bar identity / position is stale by the
-  // time this step plays. The cursor landed near the WRONG bar
-  // (BeakerBot's coffee experiment) and the click missed. Second, a
-  // synthetic cursor click on a Gantt bar does not reliably fire the
-  // bar's React onClick (the handler that calls onTaskClick(taskKey)
-  // to open the popup), so even a well-aimed click left the popup
-  // closed. This is the same class of problem the deps cluster hit
-  // with the HTML5 drag, solved there by dispatching a programmatic
-  // event GanttChart listens for (tour:open-dep-popup). We mirror that
-  // exactly with a new tour:open-task-popup event.
-  //
-  // Why deferredClickAction for the share button: the popup mounts in
-  // response to the open event at PLAYBACK time, so the share button
-  // doesn't exist at BUILD time. safeClickAction would resolve null
-  // here and the second beat would silently drop (same root-cause class
-  // as the lab-mode-* tab demos fixed in the Lab Mode R1 fix manager
-  // pass). deferredClickAction's playback-time waitForElement + click
-  // bridges the popup mount, and it already sets `__beakerBotCursorClicking`
-  // internally so the InputLockOverlay capture-phase blocker lets it
-  // through (no tourClickWithLockBypass call needed here).
-  cursorScript: cursorScript(async () => {
-    // 1. Glide to Fake A's bar for the visual cue so BeakerBot visibly
-    //    moves to the right bar. Resolved at BUILD time; if the bar
-    //    hasn't mounted yet this no-ops and the open event below still
-    //    fires. The glide is purely narrative; the open is event-driven.
-    const glideToFakeA = await safeGlideToElementAction(
-      targetSelector(TOUR_TARGETS.ganttBarFakeA),
-      4000,
-    );
-    // 2. Open Fake A's popup at PLAYBACK time via tour:open-task-popup.
-    //    We resolve Fake A's id live (resolveFakeTaskIds reads the
-    //    current task list) so a cascade-moved Fake A is still found,
-    //    and GanttChart's listener opens the popup through the same
-    //    onTaskClick(taskKey) path a real bar click uses. This sidesteps
-    //    both the stale-rect and the synthetic-click-doesn't-fire-onClick
-    //    failures the old safeClickAction approach had.
-    const openFakeA = callbackAction(async () => {
-      if (typeof window === "undefined") return;
-      const { fakeAId } = await resolveFakeTaskIds();
-      if (!fakeAId) {
-        console.warn(
-          "[gantt-share-user-shares-back] could not resolve Fake A id; popup open skipped",
-        );
-        return;
-      }
-      window.dispatchEvent(
-        new CustomEvent("tour:open-task-popup", {
-          detail: { taskId: fakeAId, taskName: GANTT_REDESIGN_FAKE_A_NAME },
-        }),
-      );
-    });
-    // 3. Glide toward the share button for the visual cue, then
-    //    deferred-click it. The glide resolves at BUILD time so it
-    //    only fires if the button is already in the DOM (a no-op
-    //    fallback if the popup hasn't mounted yet, which is the
-    //    common case here); the click is playback-resolved either way.
-    const glideToShare = await safeGlideToElementAction(
-      targetSelector(TOUR_TARGETS.taskPopupShareButton),
-      4000,
-    );
-    const clickShare = deferredClickAction(
-      targetSelector(TOUR_TARGETS.taskPopupShareButton),
-      4000,
-    );
-    // Pauses: POPUP lets the popup visibly mount after the open event
-    // before the glide-to-share beat reads cleanly; SHARE gives the
-    // glide a moment to settle on the button before the click lands.
-    return compactScript([
-      glideToFakeA,
-      openFakeA,
-      pause(SHARE_BACK_POPUP_MOUNT_PAUSE_MS),
-      glideToShare,
-      pause(SHARE_BACK_PRE_SHARE_CLICK_PAUSE_MS),
-      clickShare,
-    ]);
-  }),
+  // No cursorScript: USER_ACTION beat. The user clicks the spotlighted
+  // Fake A bar themselves.
+  onEnter: async (ctx) => {
+    await ensureFirstExperimentExists();
+    await spawnGanttRedesignFakeTasks(ctx);
+  },
+  completion: advanceOnEvent(watchExperimentPopupOpened),
+  // Allow-list: Fake A's bar (the click that opens the popup). The
+  // popup share button is included so a fast user who reaches for Share
+  // before the experimentPopupOpened event has advanced this beat (the
+  // event + the next beat's lock arming have a sub-frame gap) does not
+  // trip the wrong-click flash on a legitimate click.
+  pageLock: {
+    allowList: [
+      TOUR_TARGETS.ganttBarFakeA,
+      TOUR_TARGETS.taskPopupShareButton,
+      TOUR_TARGETS.taskPopupClose,
+    ],
+    pillLabel: "Click Fake experiment A on the timeline to open it.",
+  },
+  expectedRoute: "/gantt",
+});
+
+/** Beat 5b (NEW): spotlight the Share button in the popup header. The
+ *  button renders only for owned, non-shared tasks (Fake A is
+ *  user-owned, so it is present). When the user clicks it, the
+ *  ShareDialog opens and dispatches `tour:share-dialog-opened`, which
+ *  advances this beat. */
+export const ganttShareUserClicksShareStep = buildWalkthroughStep({
+  id: SHARE_BACK_CLICK_SHARE_STEP_ID,
+  speech: (
+    <>
+      <p className="mb-2">
+        Now click the <strong>Share</strong> button up top.
+      </p>
+      <p className="text-xs text-gray-500">
+        (It is the little share icon in the popup header.)
+      </p>
+    </>
+  ),
+  pose: "pointing",
+  targetSelector: targetSelector(TOUR_TARGETS.taskPopupShareButton),
+  // No cursorScript: USER_ACTION beat. The user clicks Share themselves.
+  completion: advanceOnEvent(watchShareDialogOpened),
+  // Allow-list: the share button (the click that opens the dialog).
+  // Fake A's bar stays allowed (harmless once the popup is up) so a user
+  // who accidentally closed the popup can re-open it without a flash;
+  // the share dialog affordances are pre-allowed to cover the sub-frame
+  // window before the next beat's lock arms.
+  pageLock: {
+    allowList: [
+      TOUR_TARGETS.taskPopupShareButton,
+      TOUR_TARGETS.ganttBarFakeA,
+      TOUR_TARGETS.taskPopupClose,
+      TOUR_TARGETS.shareDialog,
+      TOUR_TARGETS.shareDialogUserRow,
+      TOUR_TARGETS.shareDialogAdd,
+      TOUR_TARGETS.shareDialogConfirm,
+    ],
+    pillLabel: "Click the Share button in the popup header.",
+  },
+  expectedRoute: "/gantt",
+});
+
+/** Beat 5c (NEW): spotlight the share dialog. Speech guides the user
+ *  through picking BeakerBot, granting edit permission, and confirming.
+ *  Completion is the share-completion poll reused verbatim from the
+ *  prior single-step: it detects when Fake A in the user's namespace has
+ *  BeakerBot in its `shared_with` list with permission === "edit". The
+ *  sharing API does not dispatch a global event, so this poll is the
+ *  simplest reliable final signal. */
+export const ganttShareUserFillsDialogStep = buildWalkthroughStep({
+  id: SHARE_BACK_FILL_DIALOG_STEP_ID,
+  speech: (
+    <>
+      <p className="mb-2">
+        Your turn. Pick me (<strong>beakerbot</strong>), give me edit
+        permission, and confirm.
+      </p>
+      <p className="text-xs text-gray-500">
+        Add me, leave the permission on Edit, then hit the confirm button
+        to share.
+      </p>
+    </>
+  ),
+  pose: "pointing",
+  targetSelector: targetSelector(TOUR_TARGETS.shareDialog),
+  // No cursorScript: USER_ACTION beat. The user drives the dialog.
   completion: advanceOnEvent((advance) => {
     // Polling-based completion: detect when Fake A in the user's
     // namespace has BeakerBot in its `shared_with` list with permission
@@ -515,7 +408,7 @@ export const ganttShareUserSharesBackStep = buildWalkthroughStep({
         }
       } catch (err) {
         console.warn(
-          "[gantt-share-user-shares-back] share-poll failed",
+          "[gantt-share-user-fills-dialog] share-poll failed",
           err,
         );
       }
@@ -528,6 +421,21 @@ export const ganttShareUserSharesBackStep = buildWalkthroughStep({
       if (timer) clearInterval(timer);
     };
   }),
+  // Allow-list: the share dialog affordances the user clicks in
+  // sequence. shareDialogAdd is required because the user must move
+  // BeakerBot into the share list before confirm becomes meaningful;
+  // taskPopupClose stays allowed so closing the underlying popup after
+  // the share lands is not flashed.
+  pageLock: {
+    allowList: [
+      TOUR_TARGETS.shareDialog,
+      TOUR_TARGETS.shareDialogUserRow,
+      TOUR_TARGETS.shareDialogAdd,
+      TOUR_TARGETS.shareDialogConfirm,
+      TOUR_TARGETS.taskPopupClose,
+    ],
+    pillLabel: "Pick beakerbot, give edit permission, then confirm.",
+  },
   expectedRoute: "/gantt",
 });
 

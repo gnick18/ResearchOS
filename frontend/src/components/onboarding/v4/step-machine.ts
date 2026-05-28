@@ -357,7 +357,13 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "gantt-share-beakerbot-spawn",  // lab: BeakerBot spawns coffee experiment
   "gantt-share-beakerbot-shares", // lab: BeakerBot shares the experiment with user
   "gantt-share-user-explores",    // lab: user-action, explore the shared experiment
-  "gantt-share-user-shares-back", // lab: user-action, share user's chain back
+  // share-back user-action manager (2026-05-28): the single
+  // `gantt-share-user-shares-back` cursor demo is now a 3-beat
+  // USER_ACTION cluster (click Fake A, click Share, fill the dialog).
+  // The first id is preserved for migration continuity.
+  "gantt-share-user-shares-back", // lab: user-action, click Fake A to open popup
+  "gantt-share-user-clicks-share",// lab: user-action, click Share on the popup
+  "gantt-share-user-fills-dialog",// lab: user-action, pick beakerbot + edit + confirm
   "gantt-share-profile-switch",   // lab: REAL user-context switch (faked-flagged)
   "gantt-share-user-sees-edit",   // lab: user-action, open popup to see BeakerBot's note
   // Goals overview — RELOCATED to after the share cluster per
@@ -555,6 +561,8 @@ const GANTT_SHARE_LAB_ONLY_STEP_IDS: ReadonlySet<TourStepId> =
     "gantt-share-beakerbot-shares",
     "gantt-share-user-explores",
     "gantt-share-user-shares-back",
+    "gantt-share-user-clicks-share",
+    "gantt-share-user-fills-dialog",
     "gantt-share-profile-switch",
     "gantt-share-user-sees-edit",
   ]);
