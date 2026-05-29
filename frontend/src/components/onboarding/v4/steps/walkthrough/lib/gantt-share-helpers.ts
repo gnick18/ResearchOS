@@ -151,6 +151,20 @@ export async function ensureBeakerBotUser(): Promise<boolean> {
       console.warn("[gantt-share] BeakerBot folder ensure failed");
       return false;
     }
+    // REVIVE: clear any tombstone a prior cleanup left behind.
+    // `cleanupBeakerBotLabUser` routes through `usersApi.delete`, which
+    // writes a `deleted_at` tombstone, and `discoverUsers` / `usersApi.list`
+    // filter out ANY user carrying `deleted_at` REGARDLESS of whether the
+    // folder was re-created here. Without clearing it, a BeakerBot that was
+    // cleaned up earlier this session (or in a prior tour run) stays
+    // invisible in the ShareDialog "Pick a user" dropdown: the
+    // full-walkthrough / re-run bug. Setting it null makes the seed truly
+    // reviving and idempotent.
+    await setUserMetadataField(
+      BEAKERBOT_LAB_USERNAME,
+      "deleted_at",
+      undefined,
+    );
     await setUserMetadataField(BEAKERBOT_LAB_USERNAME, "is_tutorial", true);
     await setUserMetadataField(
       BEAKERBOT_LAB_USERNAME,

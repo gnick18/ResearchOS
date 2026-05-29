@@ -121,10 +121,20 @@ describe("gantt-share-helpers (Gantt fix manager R1, 2026-05-22)", () => {
   });
 
   describe("ensureBeakerBotUser (gantt-share-robust manager, BUG B)", () => {
-    it("seeds the BeakerBot folder + is_tutorial + color metadata", async () => {
+    it("seeds the BeakerBot folder + clears the tombstone + is_tutorial + color metadata", async () => {
       const ok = await ensureBeakerBotUser();
       expect(ok).toBe(true);
       expect(ensureUserFolderStructureMock).toHaveBeenCalledWith("beakerbot");
+      // REVIVE: a prior cleanup tombstones BeakerBot via `deleted_at`, and
+      // `discoverUsers` filters tombstoned users out of the share dropdown.
+      // The seed must clear it so BeakerBot is discoverable again (the
+      // full-walkthrough / re-run bug where BeakerBot was missing from the
+      // "Pick a user" list).
+      expect(setUserMetadataFieldMock).toHaveBeenCalledWith(
+        "beakerbot",
+        "deleted_at",
+        undefined,
+      );
       expect(setUserMetadataFieldMock).toHaveBeenCalledWith(
         "beakerbot",
         "is_tutorial",
@@ -141,9 +151,10 @@ describe("gantt-share-helpers (Gantt fix manager R1, 2026-05-22)", () => {
       await ensureBeakerBotUser();
       await ensureBeakerBotUser();
       // Both calls fire the underlying idempotent seeders (which no-op on
-      // existing data); no throw, returns true each time.
+      // existing data); no throw, returns true each time. Three metadata
+      // writes per call now (deleted_at revive + is_tutorial + color) => 6.
       expect(ensureUserFolderStructureMock).toHaveBeenCalledTimes(2);
-      expect(setUserMetadataFieldMock).toHaveBeenCalledTimes(4);
+      expect(setUserMetadataFieldMock).toHaveBeenCalledTimes(6);
     });
 
     it("returns false when the folder ensure fails", async () => {

@@ -155,6 +155,13 @@ export async function spawnBeakerBotLabUser(
   if (!folderOk) {
     throw new Error("Failed to create BeakerBot user folder");
   }
+  // REVIVE: clear any tombstone a prior cleanup left behind, so re-running
+  // the lab cluster after `cleanupBeakerBotLabUser` (which `usersApi.delete`s
+  // BeakerBot, writing a `deleted_at`) makes BeakerBot discoverable again.
+  // `discoverUsers` / `usersApi.list` filter out tombstoned users even when
+  // the folder is re-created, so without this the spawned BeakerBot would not
+  // appear in any user-picker (same root cause as the gantt-share dropdown).
+  await setUserMetadataField(BEAKERBOT_LAB_USERNAME, "deleted_at", undefined);
   await setUserMetadataField(BEAKERBOT_LAB_USERNAME, "is_tutorial", true);
   await setUserMetadataField(
     BEAKERBOT_LAB_USERNAME,
