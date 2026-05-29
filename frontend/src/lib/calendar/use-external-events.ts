@@ -10,9 +10,14 @@ import {
   markFeedSynced,
 } from "./external-feeds-store";
 import { parseIcsToExternalEvents } from "./ics-parser";
+import { FEED_EVENTS_PREFIX } from "./feed-cache-keys";
 
 const FEEDS_QUERY_KEY = ["calendar-feeds"] as const;
-const FEED_EVENTS_PREFIX = "calendar-feed-events";
+
+// Re-exported for back-compat with existing importers; the canonical
+// definition lives in `./feed-cache-keys` (a cycle-free module shared
+// with the account-switch handler). See that file for the rationale.
+export { FEED_EVENTS_PREFIX };
 
 const FIFTEEN_MIN_MS = 15 * 60 * 1000;
 const ONE_HOUR_MS = 60 * 60 * 1000;
@@ -61,7 +66,25 @@ export function useExternalEvents() {
 
   const perFeed = useQueries({
     queries: enabledFeeds.map((feed) => ({
-      queryKey: [FEED_EVENTS_PREFIX, feed.id, feed.kind, feed.icsUrl] as const,
+      // currentUser is the FIRST key segment (calendar-privacy fix,
+      // 2026-05-29). External ICS feed events are strictly personal:
+      // they are the read-only events fetched from a user's linked
+      // Google / iCloud / Outlook calendars and must never surface
+      // under another account. Before this fix the key was
+      // [FEED_EVENTS_PREFIX, feed.id, feed.kind, feed.icsUrl] with NO
+      // user segment. `feed.id` is a per-user monotonic counter (it
+      // starts at 1 for every user), so two different users' "first
+      // feed" collide on the same cache key. On a same-browser account
+      // switch (a PI testing the member experience, or vice versa) the
+      // prior user's parsed events stayed resident in this shared cache
+      // (`gcTime: ONE_HOUR_MS`) and could be served to the next user.
+      // Prefixing with currentUser gives every user a private cache
+      // namespace so a feed-events entry can never be read across
+      // accounts. The matching cache CLEAR on switch lives in
+      // file-system-context.tsx setCurrentUser (removeQueries by the
+      // FEED_EVENTS_PREFIX), which evicts the previous user's resident
+      // events outright rather than merely marking them stale.
+      queryKey: [FEED_EVENTS_PREFIX, currentUser, feed.id, feed.kind, feed.icsUrl] as const,
       queryFn: async () => {
         const events = await fetchIcsFeed(feed);
         if (currentUser) {

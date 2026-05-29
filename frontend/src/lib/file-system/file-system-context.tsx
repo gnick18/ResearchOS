@@ -24,6 +24,7 @@ import { getWikiCaptureVariant, getDemoMode, markDemoMode, installWikiCaptureFix
 import { rebaseDemoDates, isDemoLab } from "../demo/rebase";
 import { resetEditSession } from "../lab/edit-session";
 import { appQueryClient } from "../query-client";
+import { FEED_EVENTS_PREFIX } from "../calendar/feed-cache-keys";
 import {
   migrateLegacyNotesTrashAllUsers,
   runAutoCleanupPass,
@@ -1022,6 +1023,22 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     // from a prior session and skipping avoids triggering redundant
     // refetches the moment widgets first mount.
     if (isUserChange) {
+      // Calendar-privacy fix (2026-05-29): external ICS calendar feed
+      // events are strictly personal (a user's linked Google / iCloud /
+      // Outlook feeds) and must NEVER bleed across an account switch.
+      // The blanket invalidateQueries() below only marks queries stale;
+      // it leaves the previous user's resident data in the cache until a
+      // refetch resolves, and the per-feed external-event entries
+      // (gcTime: ONE_HOUR_MS) sit there keyed by a per-user feed id that
+      // collides across users (every user's first feed is id 1). Without
+      // an explicit eviction the next user could be served the prior
+      // user's parsed feed events out of cache. removeQueries drops those
+      // entries outright so nothing personal survives the switch; the
+      // new user's useExternalEvents re-fetches under its own
+      // user-scoped key. Run BEFORE the blanket invalidate so the removed
+      // entries don't get a redundant background refetch scheduled
+      // against the now-departed user.
+      appQueryClient.removeQueries({ queryKey: [FEED_EVENTS_PREFIX] });
       appQueryClient.invalidateQueries();
     }
   }, [hydrateSettingsForUser]);
