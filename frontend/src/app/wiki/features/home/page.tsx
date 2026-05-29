@@ -7,291 +7,225 @@ import { Steps, Step } from "@/components/wiki/Steps";
 export default function HomeFeaturePage() {
   return (
     <WikiPage
-      intro="The Home page is your project hub. Each project gets a card with its color, a progress bar, and a peek at what's coming up next."
+      intro="Your landing page at / is one customizable widget dashboard. You pin the summaries you care about, drag them into the order you want, and click any tile to open its full story. There is no fixed layout to fight: the dashboard is whatever you make it."
     >
+      {/* SCREENSHOTS FLAG (wiki-home-unified bot, 2026-05-29): the assets
+          this page used to reference (home-projects.png, home-project-popup.png)
+          and the existing home-widget-canvas.png all show the OLD Home: the
+          hardcoded "Research Project Overview" project grid + the small widget
+          canvas pinned below it. That page is GONE. The capture-wiki-screenshots
+          scripts still `waitFor: "text=Research Project Overview"`, which no
+          longer renders, so they cannot recapture the new dashboard as-is
+          (the home/dashboard entries need their waitFor + highlight selectors
+          rewritten before a recapture will succeed). Until then this page
+          references home-dashboard.png, which must be captured MANUALLY in
+          fixture mode (?wikiCapture=1) at / and saved to
+          frontend/public/wiki/screenshots/home-dashboard.png. Never capture
+          real user data; fixture mode only. */}
       <Screenshot
-        src="/wiki/screenshots/home-projects.png"
-        alt="Home page showing several colored project cards and the New Project button."
-        caption="The Home page after creating a few projects."
+        src="/wiki/screenshots/home-dashboard.png"
+        alt="The dashboard at / showing a grid of widget tiles, with the Projects Overview tile at the top and the page toolbar (heading, Add widget, Edit layout, Reset, Tools) running along the top edge."
+        caption="The unified dashboard at /. A grid of glanceable tiles you curate; the toolbar along the top edge holds Add widget, Edit layout, Reset, and the Tools launcher."
       />
 
-      <h2>The project card</h2>
+      <h2>One page, two names</h2>
       <p>
-        Each card carries the project&apos;s color bar at the top, its name,
-        and a <strong>7-day</strong> badge if weekends are active. Below that
-        you&apos;ll see a progress bar (completed / total tasks with a
-        percentage), an <strong>Active / Overdue / Upcoming</strong> stats
-        row, and a <strong>Next Up</strong> list of the next five upcoming
-        tasks. Project tags appear as <code>#tag</code> chips at the bottom.
+        There used to be two separate landing pages: a Home page with a
+        hardcoded grid of project cards, and a Lab Overview dashboard for
+        PIs. They are now a single surface that lives at <code>/</code>.
+        Which name you see in the sidebar depends on your account type. A
+        solo researcher or a lab member sees it labelled{" "}
+        <strong>Home</strong>. A lab head (PI) sees the exact same page
+        labelled <strong>Lab Overview</strong>. The label follows the same
+        account-aware pattern as the &ldquo;Links&rdquo; vs &ldquo;Lab
+        Links&rdquo; nav entry: one route, one mental model, a name that
+        matches who is looking at it.
       </p>
       <p>
-        Own project cards show a six-dot drag handle on the right. Cards for
-        projects a labmate shared with you do not have a handle and cannot be
-        reordered.
+        The page itself is nothing but widgets. There is no fixed section
+        bolted to the top of it anymore. Everything you see is a tile you
+        pinned (or that came pinned by default), and everything is yours to
+        rearrange or remove.
+      </p>
+      <Callout variant="info" title="Where the project grid went">
+        The old hardcoded &ldquo;Research Project Overview&rdquo; grid no
+        longer exists as a fixed block. Your projects live in the{" "}
+        <strong>Projects Overview</strong> widget instead, which ships
+        pinned at the top of a fresh dashboard. Nothing is lost: that widget
+        carries the same at-a-glance project cards <em>and</em> the inline
+        New Project button the grid used to own.
+      </Callout>
+
+      <h2>The dashboard is a canvas of tiles</h2>
+      <p>
+        The mental model is closer to a phone home screen than a tab. Each
+        widget renders as a small <strong>snapshot tile</strong> in the grid:
+        a compact, glanceable summary. Click a tile and it opens into a full
+        popup with the complete picture. Pin the things you want to glance at
+        every morning, click in only when you need the detail. A fresh
+        dashboard starts with a small, sensible default set rather than a
+        blank page, so there is always something useful to look at on day
+        one.
       </p>
       <p>
-        The color you pick follows the project everywhere: the bar on the{" "}
-        <Link href="/wiki/features/gantt">Gantt</Link>, the badge on the{" "}
-        <Link href="/wiki/features/lab-overview">Lab Overview</Link>{" "}
-        widgets, and the overlay on the calendar. Pick distinct colors
-        early so a busy Gantt stays readable.
+        For the deeper reference on how tiles, popups, and the widget catalog
+        work (the same vocabulary this dashboard uses), see{" "}
+        <Link href="/wiki/features/lab-overview/snapshot-tiles-and-expanded-views">
+          Snapshot Tiles and Expanded Views
+        </Link>{" "}
+        and the full{" "}
+        <Link href="/wiki/features/lab-overview/widgets-and-tools">
+          Widgets and Tools
+        </Link>{" "}
+        catalog.
       </p>
+
+      <h2>The Projects Overview widget</h2>
       <p>
-        Clicking a task name <em>inside</em> the <strong>Next Up</strong>{" "}
-        list opens that task&apos;s detail popup directly. Clicking anywhere
-        else on the card navigates to that project&apos;s dedicated route
-        (see{" "}
+        This is the widget that replaces the old project grid, and it is
+        seeded at the top of every new dashboard. The tile shows your top
+        projects with their color dot, a percent-complete progress bar, and
+        the open-task count. Open the tile and you get the full grid: a card
+        per project with the project color, a progress bar, and an{" "}
+        <strong>Active / Overdue / Upcoming</strong> counts row (Overdue
+        turns red when there is anything overdue), plus the open-task total.
+        Click any card to jump straight to that project&apos;s dedicated
+        route (see{" "}
         <Link href="/wiki/features/projects">Project Surface</Link> for the
-        full walkthrough of Overview, Results, Methods, Goals, and Activity).
+        Overview, Results, Methods, Goals, and Activity walkthrough).
       </p>
-
-      <h2>Card actions (kebab menu)</h2>
       <p>
-        Hover any project card to reveal a three-dots kebab button in the
-        top-right corner. The menu contains the following items:
+        The popup also carries an inline <strong>New Project</strong> button.
+        Click it, pick a color, type a name, and the project appears
+        everywhere at once: in this widget, in the Gantt, in the project
+        sidebar. You never have to leave the dashboard to start a project.
       </p>
-      <ul>
-        <li>
-          <strong>Edit</strong> opens the EditProjectModal, where you can
-          rename the project, change its color, edit tags, and toggle the
-          7-day schedule.
-        </li>
-        <li>
-          <strong>Share</strong> opens the share dialog so you can grant a
-          labmate access. This item is hidden on projects that were shared{" "}
-          <em>to</em> you (only the owner can grant access).
-        </li>
-        <li>
-          <strong>Archive / Unarchive</strong> triggers an amber confirmation
-          dialog. Archived projects keep all their tasks but move to the
-          separate <strong>Archived Projects</strong> section below the active
-          grid, where they appear as muted cards and stop showing in the Gantt
-          and task sidebar. Unarchive from the same menu whenever you want
-          them back.
-        </li>
-        <li>
-          <strong>Delete</strong> is disabled on projects shared to you. Only
-          the original owner can delete the project. Use the kebab Delete item
-          (or the trash-can icon in the project route&apos;s top bar) to
-          permanently remove a project you own. This also deletes every task
-          in the project and cannot be undone, so archive first if you&apos;re
-          not sure.
-        </li>
-      </ul>
-      <Callout variant="info" title="The Miscellaneous project is permanent">
-        A built-in project called <strong>Miscellaneous</strong> holds
-        standalone tasks that don&apos;t belong to a research project. The
-        kebab menu is hidden entirely for Miscellaneous. You can share it and
-        open its tasks, but the project itself can&apos;t be renamed or
-        removed.
+      <Callout variant="info" title="My projects vs Lab projects">
+        For a PI, the Projects Overview tile carries a{" "}
+        <strong>My projects / Lab projects</strong> toggle. &ldquo;My&rdquo;
+        scope shows only your own work; &ldquo;Lab&rdquo; scope rolls up
+        every member&apos;s projects you are allowed to see. Solo and member
+        accounts always see &ldquo;My&rdquo; scope (the toggle is PI-only),
+        and the privacy gate is strict either way: a project shared with
+        someone else never appears unless you are the owner, a PI, or it was
+        shared with you.
       </Callout>
 
-      <h2>Projects a labmate shared with you</h2>
+      <h2>The Single Project widget</h2>
       <p>
-        When a labmate shares a project with you, its card slides into the
-        Home grid right next to your own. The card looks the same as any
-        other (the project&apos;s color bar, the same progress bar and{" "}
-        <strong>Next Up</strong> list). There&apos;s no special badge or
-        owner pill marking it as shared.
-      </p>
-      <p>
-        The tasks listed inside the project route are the <em>owner&apos;s</em>{" "}
-        tasks for that project, the same tasks they see on their own
-        Home page. The progress bar and the stats counts on the card all
-        reflect those tasks too.
-      </p>
-      <p>
-        On a shared project, a few actions change their behavior:
-      </p>
-      <ul>
-        <li>
-          <strong>The Share kebab item is hidden.</strong> Only the original
-          owner can grant access to a project. If you want a third labmate
-          to see it too, ask the owner to share with them as well.
-        </li>
-        <li>
-          <strong>The Delete item is disabled for receivers.</strong> Hover it
-          and a tooltip points back to the owner. Only the original owner can
-          destroy the project file.
-        </li>
-        <li>
-          <strong>View-only receivers see greyed-out edit controls.</strong>{" "}
-          The Edit item and the Archive action both render but stay disabled
-          with a tooltip explaining that only the owner and edit-permission
-          collaborators can change the project.
-        </li>
-      </ul>
-      <p>
-        Whether your edits actually go anywhere depends on the permission
-        the owner picked when they shared:
-      </p>
-      <ul>
-        <li>
-          <strong>Edit permission</strong>: the edit form, the archive
-          action, and task edits inside the project route all save back to the
-          original owner&apos;s copy of the data. Your changes show up on
-          their Home page too (after their next refresh, since each
-          person&apos;s app reads its own files on its own schedule).
-        </li>
-        <li>
-          <strong>View permission</strong>: edit and archive actions are
-          disabled. Treat the project as read-only and use it as a window into
-          the owner&apos;s work.
-        </li>
-      </ul>
-      <p>
-        Individual tasks behave the same way. When you open a task that
-        was shared to you (either directly or by belonging to a shared
-        project), the share icon vanishes and the delete button greys out
-        with a tooltip pointing back to the owner. If you have edit
-        permission, edits to the task (completion toggle, dates, lab
-        notes, results, sub-tasks) save back to the owner&apos;s task
-        file.
+        When you want one specific project front and center, pin the{" "}
+        <strong>Single Project</strong> widget and choose a project for it.
+        The tile then reads like one of the old Home cards: the project color
+        and name, a percent-complete progress bar, and the same{" "}
+        <strong>Active / Overdue / Upcoming</strong> counts row with the
+        open-task total. A pinned tile clicks straight through to the full
+        project page. It is the natural choice for a PI keeping a close eye on
+        one member&apos;s project, but anyone can pin their own.
       </p>
 
-      <Callout variant="tip" title="Want a lab-wide read-only roll-up?">
-        Project sharing is the right tool when one labmate wants a
-        specific other labmate to follow along on a specific project. For
-        a single dashboard that rolls up every labmate&apos;s projects,
-        tasks, purchases, and announcements at once, the PI opens
-        the <Link href="/wiki/features/lab-overview">Lab Overview</Link>{" "}
-        at <code>/lab-overview</code>.
-      </Callout>
+      <h2>Add, arrange, and reset</h2>
+      <p>
+        The dashboard toolbar runs along the top edge of the page, next to
+        the heading. It holds the layout controls:
+      </p>
+      <ul>
+        <li>
+          <strong>+ Add widget</strong> opens the palette of every widget
+          you are allowed to pin. Clicking it flips the dashboard into edit
+          mode if it was off, then opens the palette. Drag a tile from the
+          palette onto the canvas to pin it.
+        </li>
+        <li>
+          <strong>Edit layout</strong> toggles edit mode. With it on, tiles
+          gain drag handles. Drag a tile to a new spot and the grid reflows;
+          your order is saved per user.
+        </li>
+        <li>
+          <strong>Reset</strong> wipes your custom arrangement and restores
+          the default layout for your account type. It is a sibling button to
+          Add widget and Edit layout, not a menu item.
+        </li>
+        <li>
+          <strong>Tools</strong> opens any tool popup directly, without
+          pinning it. Useful for a one-shot look at something you do not want
+          taking up permanent space on the canvas.
+        </li>
+      </ul>
+      <p>
+        Your arrangement persists in your settings sidecar under the single{" "}
+        <code>dashboard_layout</code> field. There is no longer a separate
+        Home layout and Lab Overview layout to keep in sync: it is one saved
+        layout for the one page.
+      </p>
 
       <h2>Create a new project</h2>
       <Steps>
         <Step>
-          Click <strong>+ New Project</strong> at the top right of the Home
-          page.
+          Open the <strong>Projects Overview</strong> tile (it sits at the
+          top of a fresh dashboard).
         </Step>
         <Step>
-          Type a name (e.g. <em>CRISPR Gene Editing Study</em>) and pick a
-          color from the row of swatches.
+          Click <strong>New Project</strong> in the popup, pick a color from
+          the swatch, and type a name (e.g. <em>CRISPR Gene Editing
+          Study</em>).
         </Step>
         <Step>
-          Optionally add tags as a comma-separated list (e.g.{" "}
-          <code>sequencing, LC-MS, cell-culture</code>). They show up as{" "}
-          <code>#tag</code> chips on the card and in search.
-        </Step>
-        <Step>
-          Tick <strong>7-day schedule (weekends active)</strong> if work on
-          this project spills into Saturday and Sunday. The Gantt respects
-          this setting when it shifts dates around dependencies.
-        </Step>
-        <Step>
-          Click <strong>Create Project</strong>. The card appears in the
-          active grid.
+          Press <strong>Create</strong> (or Enter). The card appears in the
+          widget immediately, and the project shows up in the Gantt and the
+          project sidebar too.
         </Step>
       </Steps>
-
-      <h2>Reorder and archive</h2>
-      <ul>
-        <li>
-          <strong>Drag a card</strong> to a new spot in the grid. The order
-          is per-user and persists across sessions. Only own project cards
-          have a drag handle; shared-in cards cannot be reordered.
-        </li>
-        <li>
-          <strong>Archive a project</strong> from the kebab menu&apos;s{" "}
-          <strong>Archive Project</strong> option. Archived projects keep
-          all their tasks but move below the active grid into a separate{" "}
-          <strong>Archived Projects</strong> section, where they read as
-          muted cards. Their tasks stop showing in the Gantt and the task
-          sidebar. Unarchive from the same kebab menu whenever you want them
-          back.
-        </li>
-      </ul>
-
       <Callout variant="tip" title="Color is visual grouping everywhere">
-        The color you pick on Home drives every project bar on the Gantt,
-        every badge across the Lab Overview widgets, and the calendar
-        overlay. Pick distinct colors early so the Gantt stays readable
-        as the project count grows.
+        The color you pick follows the project across the whole app: the bar
+        on the <Link href="/wiki/features/gantt">Gantt</Link>, the dot in the
+        Projects Overview and Single Project tiles, and the overlay on the
+        calendar. Pick distinct colors early so a busy Gantt stays readable
+        as your project count grows.
       </Callout>
 
-      <h2>The customizable widget canvas</h2>
-      <Callout variant="info" title="The canvas sits BELOW the project grid">
-        Most dashboards put widgets at the top of the page; Home does the
-        opposite. The widget canvas mounts after your active projects,
-        archived projects, and the empty-state hint, so on a fresh account
-        with a few projects you have to scroll down to see it. Once you
-        know it lives at the bottom, the pattern is easy: projects up top
-        (the things you primarily work on), widgets at the bottom (the
-        glanceable summaries).
-      </Callout>
+      <h2>PIs see additional lab widgets</h2>
       <p>
-        Beyond the project grid, Home is also a customizable widget canvas.
-        New accounts start with two default widgets at the top of the
-        canvas: <strong>Upcoming tasks</strong> on the left and{" "}
-        <strong>Today&apos;s events</strong> on the right. From there, you
-        can add, remove, and reorder widgets from the canvas controls to
-        match how you actually start your day. The canvas works the same
-        way as the{" "}
-        <Link href="/wiki/features/lab-overview">Lab Overview</Link>{" "}
-        canvas: tiles open into full popups, drag-and-drop reorders them,
-        and the canvas toolbar (the row of text buttons running along the
-        top edge of the canvas itself, with <strong>+ Add widget</strong>,{" "}
-        <strong>Edit layout</strong>, and <strong>Reset</strong>) reveals
-        the layout controls. The deeper widget catalog reference lives at{" "}
-        <Link href="/wiki/features/lab-overview/widgets-and-tools">
-          Widgets and Tools
-        </Link>
-        .
+        The dashboard is account-aware in what it can show, not just in its
+        label. For a solo researcher or a member, the widget palette is the
+        personal set: your projects, your upcoming tasks, your calendar
+        events, announcements, comments. For a lab head, the palette opens up
+        to the dense lab-aggregation widgets that roll up the whole lab:
+        cross-lab activity, every member&apos;s projects via the Lab scope of
+        Projects Overview, lab-wide announcements and comments, and the rest
+        of the PI catalog. A PI&apos;s fresh dashboard also seeds a richer
+        default set than a member&apos;s.
       </p>
-      {/* TODO screenshot agent: capture Home with the default widget canvas + project grid below.
-          Route: /home
-          Fixture: ?wikiCapture=1
-          Viewport: desktop 1440x900
-          State: member fixture with default widget set + 3 project cards
-          Save to: frontend/public/wiki/screenshots/home-widget-canvas.png
-      */}
-      <Screenshot
-        src="/wiki/screenshots/home-widget-canvas.png"
-        alt="The Home page showing the project grid at the top with the two default widgets (Upcoming tasks, Today's events) on the widget canvas at the bottom."
-        caption="Home. Project grid at the top, widget canvas at the bottom with the two defaults (Upcoming tasks and Today's events) pinned by default. Pin and reorder the widgets that match how you start your day."
-      />
-      <ul>
-        <li>
-          <strong>+ Add widget</strong> in the canvas toolbar opens the
-          palette of every available widget (the same catalog the Lab
-          Overview uses). Clicking +Add auto-flips the canvas into edit
-          mode if it was off, then opens the palette. Drag a tile onto the
-          canvas to pin it.
-        </li>
-        <li>
-          <strong>Drag tiles to reorder</strong> with edit mode on (toggled
-          via the <strong>Edit layout</strong> button in the canvas
-          toolbar). Tiles snap to the grid and the layout persists in your
-          settings sidecar at <code>_user_settings.json:home_layout</code>.
-          Home&apos;s layout is independent of your Lab Overview layout
-          (if you are a PI), so you customize each surface separately.
-        </li>
-        <li>
-          <strong>Reset</strong> in the canvas toolbar wipes your custom
-          layout and restores the two-widget default. It is a sibling
-          button to Edit layout and +Add widget, not a menu item.
-        </li>
-        <li>
-          <strong>Tools launcher</strong> in the header opens any Tool
-          popup directly, without pinning. Useful for one-shot looks.
-        </li>
-        <li>
-          <strong>Default widgets</strong>: new accounts start with
-          Upcoming tasks (top) and Today&apos;s events (next to it). They
-          cover the two most common &ldquo;what do I do this morning&rdquo;{" "}
-          questions without crowding the canvas. Pin extras like
-          announcements, comments, or lab activity from the catalog
-          whenever you want more on the page.
-        </li>
-        <li>
-          <strong>New widgets in the catalog do NOT auto-pin to Home.</strong>{" "}
-          Home is user-curated: if a new widget variant ships, you have to
-          add it via the palette to see it on your canvas. (Lab Overview
-          behaves differently and auto-appends new lab-overview-eligible
-          widgets to a saved layout.) If you wonder why a newly-shipped
-          widget did not appear, that is why.
-        </li>
-      </ul>
+      <Callout variant="info" title="New widgets do not auto-pin">
+        The dashboard is user-curated. If a new widget variant ships, it
+        appears in the palette but does not automatically land on your canvas.
+        Add it from <strong>+ Add widget</strong> when you want it. So if a
+        newly-shipped widget does not show up on its own, that is why: pin it
+        yourself.
+      </Callout>
+
+      <h2>Shared projects appear here too</h2>
+      <p>
+        When a labmate shares a project with you, it surfaces inside the{" "}
+        <strong>Projects Overview</strong> widget alongside your own (and, for
+        a PI in Lab scope, the project is tagged with the owner&apos;s
+        avatar). The card reads the same as any other: color, progress, the
+        Active / Overdue / Upcoming counts. The tasks shown are the{" "}
+        <em>owner&apos;s</em> tasks for that project, the same ones they see.
+        Whether your edits save back depends on the permission the owner
+        granted: edit permission writes to their copy, view permission is
+        read-only. See{" "}
+        <Link href="/wiki/features/sharing-and-permissions">
+          Sharing and permissions
+        </Link>{" "}
+        for the full permission model.
+      </p>
+      <Callout variant="tip" title="Want a lab-wide roll-up?">
+        Sharing a single project is the right tool when one labmate wants to
+        follow along on one specific project. For a single surface that rolls
+        up every member&apos;s projects, tasks, and announcements at once, a
+        PI uses this same dashboard with the lab widgets pinned (which is why
+        it is labelled <strong>Lab Overview</strong> for them).
+      </Callout>
     </WikiPage>
   );
 }
