@@ -293,12 +293,12 @@
   }
 }
 
-/* The backlight halo: a warm gold RING that peaks OUTSIDE the bot's
-   silhouette, not behind his body. The center is transparent (the dark
-   pocket owns the area directly behind him), and the glow blooms around his
-   edge so it rims him rather than washing his already-light fill. Warm gold,
-   not near-white, so it contrasts with his white body. screen-blend keeps it
-   additive over the stage black without graying the dark base. */
+/* The spotlight pool: a single soft, WARM pool of light centered on the bot
+   (the drag-stage spotlight pooling onto the performer). Moderate, warm-gold,
+   NOT a near-white blowout (that washed his light body) and NOT a ring with a
+   dark center (that read as a black donut). The bot renders ON TOP (z6) with
+   a crisp dark rim, so he sits clearly in front of the pool, lit but defined.
+   screen-blend keeps it additive over the stage black. */
 .spotlightBacklight {
   position: absolute;
   inset: 0;
@@ -306,12 +306,11 @@
   pointer-events: none;
   mix-blend-mode: screen;
   background: radial-gradient(
-    ellipse 340px 380px at 50% 50%,
-    rgba(11, 11, 18, 0) 0%,
-    rgba(255, 226, 158, 0.12) 28%,
-    rgba(255, 214, 130, 0.52) 50%,
-    rgba(244, 196, 96, 0.24) 70%,
-    rgba(11, 11, 18, 0) 90%
+    ellipse 300px 340px at 50% 50%,
+    rgba(255, 238, 196, 0.5) 0%,
+    rgba(255, 222, 156, 0.3) 36%,
+    rgba(246, 206, 122, 0.13) 62%,
+    rgba(11, 11, 18, 0) 84%
   );
 }
 .spotlightBacklightActive {
@@ -332,22 +331,12 @@
    so the brightest halo ring sits AROUND the bot, not over him, and his
    edges separate. Rendered just under the backlight (multiply, not screen,
    so it actually darkens). */
+/* The dark contrast pocket was removed: it read as an ugly black donut
+   around the bot. Grant wants just the spotlight with the bot in front of
+   everything, no dark ring. Kept as a no-op so the rig component + stacking
+   stay intact. */
 .spotlightPocket {
-  position: absolute;
-  inset: 0;
-  z-index: 5; /* between the backlight (z4) and the bot (z6) */
-  pointer-events: none;
-  /* Larger + darker than the bot (160px) so his ENTIRE silhouette sits on a
-     solid dark backing: no bright glow leaks behind his light fill, and the
-     warm ring (above) blooms only outside this dark zone. */
-  background: radial-gradient(
-    ellipse 240px 270px at 50% 50%,
-    rgba(8, 8, 14, 0.92) 0%,
-    rgba(8, 8, 14, 0.74) 32%,
-    rgba(8, 8, 14, 0.4) 56%,
-    rgba(8, 8, 14, 0.12) 76%,
-    rgba(11, 11, 18, 0) 90%
-  );
+  display: none;
 }
 
 /* ── Runway auto-show (redesigned) ─────────────────────────────────── */
@@ -400,10 +389,11 @@
   width: 160px;
   height: 160px;
   z-index: 6;
+  /* A tight crisp rim only: defines his edge against the warm pool so he
+     reads as in front, without a wide dark halo (which looked like a ring). */
   filter:
-    drop-shadow(0 0 2px rgba(8, 8, 14, 1))
-    drop-shadow(0 0 6px rgba(8, 8, 14, 0.85))
-    drop-shadow(0 0 16px rgba(8, 8, 14, 0.5));
+    drop-shadow(0 0 2px rgba(8, 8, 14, 0.95))
+    drop-shadow(0 0 5px rgba(8, 8, 14, 0.6));
 }
 .botTrio {
   display: flex;
