@@ -30,6 +30,7 @@ import AutoErrorConfirmHost from "@/components/AutoErrorConfirmHost";
 import V4MountForUser from "@/components/onboarding/v4/V4MountForUser";
 import CelebrationManager from "@/components/onboarding/CelebrationManager";
 import IdleAnimationManager from "@/components/onboarding/IdleAnimationManager";
+import WhatsNewManager from "@/components/WhatsNewManager";
 import WikiCaptureBodyClass from "@/components/WikiCaptureBodyClass";
 import { initializeErrorHandlers } from "@/lib/error-reporting";
 import { projectsApi } from "@/lib/local-api";
@@ -412,6 +413,14 @@ function AppContent({ children }: { children: ReactNode }) {
             sessionStorage. Independent of the streak/milestone path
             CelebrationManager owns. */}
         <IdleAnimationManager />
+        {/* WhatsNewManager: developer-announcement / "What's New" popup
+            (whats-new bot). Peer of CelebrationManager so it lives inside
+            the TourControllerProvider tree and defers while a tour is
+            active. Fires only on a genuine APP_VERSION upgrade; a
+            brand-new account silently records the version and stays
+            quiet. Gated to the logged-in/connected surface by virtue of
+            mounting under V4MountForUser. */}
+        <WhatsNewManager username={currentUser} />
       </V4MountForUser>
     </QueryClientProvider>
   );

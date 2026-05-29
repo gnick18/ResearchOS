@@ -245,6 +245,19 @@ export interface UserSettings {
   // polling continues because that talks to api.telegram.org directly.
   offlineMode: boolean;
 
+  // What's-new popup (whats-new bot, 2026-05-29). The version string of
+  // the most recent release the user has acknowledged in the developer-
+  // announcement / "What's New" popup. Optional + additive:
+  //   - absent  → brand-new account / never seen the popup. On first load
+  //     the manager silently records the current APP_VERSION here WITHOUT
+  //     showing the popup, so only a genuine upgrade (a newer APP_VERSION
+  //     than this stored value) ever triggers it.
+  //   - present → the popup fires when APP_VERSION is strictly newer than
+  //     this value; dismissing sets it to the latest release version.
+  // Per-account: stored under users/<u>/settings.json like every other
+  // user setting, so two accounts on the same browser track independently.
+  lastSeenAnnouncementVersion?: string;
+
   // LEGACY (dashboard-unification build, 2026-05-29): superseded by
   // `dashboard_layout` above. Kept READABLE for one release so the
   // one-time migration can seed `dashboard_layout` from it for an

@@ -13,6 +13,8 @@ import Tooltip from "@/components/Tooltip";
 import UserAvatar from "@/components/UserAvatar";
 import OrcidField from "@/components/settings/OrcidField";
 import VersionBadge from "@/components/VersionBadge";
+import WhatsNewModal from "@/components/WhatsNewModal";
+import { RELEASE_NOTES } from "@/lib/release-notes";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { discoverUsers } from "@/lib/file-system/user-discovery";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
@@ -3813,6 +3815,10 @@ function TipsSection() {
   const router = useRouter();
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // What's-new on-demand re-open (whats-new bot). Shows the FULL release
+  // history (every release expanded) so the popup is viewable any time,
+  // not just on a genuine upgrade. Does NOT touch last-seen.
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   // Wave 1 sidecar hardening manager (v2): orphan-artifact recovery
   // banner. On mount (and when the active user changes) we read the
   // sidecar's artifacts-created count, scoped to the case where the
@@ -3905,7 +3911,7 @@ function TipsSection() {
       title="Onboarding"
       tourTarget="settings-rerun-section"
       description="Re-run the welcome tour to revisit setup picks and the BeakerBot walkthrough on your real account."
-      searchKeywords="welcome tour walkthrough tips BeakerBot replay re-run reset wizard"
+      searchKeywords="welcome tour walkthrough tips BeakerBot replay re-run reset wizard what's new whats new release notes changelog updates announcement"
     >
       {orphanedArtifactCount > 0 && (
         <div
@@ -3938,6 +3944,36 @@ function TipsSection() {
           {busy ? "Resetting..." : "Re-run tour"}
         </button>
       </div>
+      {/* What's new (whats-new bot): re-open the developer-announcement
+          popup showing the full release history on demand. The popup
+          otherwise fires only on a genuine APP_VERSION upgrade, so this
+          row keeps it reachable any time. */}
+      <div className="mt-4 flex items-start justify-between gap-4 border-t border-gray-100 pt-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm text-gray-800">What&apos;s new</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Revisit the latest release highlights and the full history of
+            what changed in ResearchOS.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setWhatsNewOpen(true)}
+          data-testid="settings-open-whats-new"
+          className="px-3 py-2 text-sm border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg whitespace-nowrap"
+        >
+          What&apos;s new
+        </button>
+      </div>
+      {whatsNewOpen && (
+        <WhatsNewModal
+          releases={RELEASE_NOTES}
+          showAllExpanded
+          waveOnOpen={false}
+          onDismiss={() => setWhatsNewOpen(false)}
+        />
+      )}
+
       {/* Revisit the first-time-visitor landing ("sell") page. It is gated
           to truly-new visitors at "/", so a connected user can only re-see
           it via this dedicated /welcome route. (landing-page manager) */}
