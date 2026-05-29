@@ -2919,6 +2919,14 @@ export default function HybridMarkdownEditor({
                         {IS_MAC ? "⌘S" : "Ctrl+S"}
                       </span>
                     </div>
+                    <div className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group">
+                      <span className="text-xs text-gray-600 group-hover:text-gray-800">
+                        Focus mode
+                      </span>
+                      <span className="text-xs font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
+                        {IS_MAC ? "⌘⇧F" : "Ctrl+Shift+F"}
+                      </span>
+                    </div>
                     {KEYBOARD_SHORTCUTS.filter((s) => !s.description.startsWith("Heading")).map((shortcut) => (
                       <div
                         key={shortcut.key + shortcut.shiftKey}
@@ -3161,6 +3169,14 @@ export default function HybridMarkdownEditor({
                     </span>
                     <span className="text-xs font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
                       {IS_MAC ? "⌘S" : "Ctrl+S"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group">
+                    <span className="text-xs text-gray-600 group-hover:text-gray-800">
+                      Focus mode
+                    </span>
+                    <span className="text-xs font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
+                      {IS_MAC ? "⌘⇧F" : "Ctrl+Shift+F"}
                     </span>
                   </div>
                   {KEYBOARD_SHORTCUTS.filter((s) => !s.description.startsWith("Heading")).map((shortcut) => (
