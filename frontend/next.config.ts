@@ -63,6 +63,21 @@ const COMMIT_SHA = resolveCommitSha();
  *     proxies cover production). The toggle in Settings > Offline Mode
  *     (security affordance #2, d164fd2b) prevents the <Analytics /> wrapper
  *     from mounting at all when on.
+ *   connect-src data:: @react-pdf/renderer's PDF export path loads its
+ *     yoga-layout engine, whose browser build (yoga-layout 3.2.1) ships the
+ *     WASM as a `data:application/octet-stream;base64,...` module and loads
+ *     it with `fetch(dataUrl)`. Without `data:` here that fetch is CSP-blocked
+ *     and the browser logs "Fetch API cannot load data:... violates the
+ *     document's Content Security Policy". yoga does fall back to decoding the
+ *     embedded base64 synchronously, so the export still completes, but the
+ *     violation is noisy and the fallback is fragile; allowing `data:` lets
+ *     yoga use its intended load path. Scoped to connect-src ONLY: a `data:`
+ *     URI is inert self-contained bytes with no remote endpoint, so it cannot
+ *     be used as a data-exfiltration channel the way an attacker-controlled
+ *     https: origin could. NB: react-pdf needs NO worker-src/blob: (it spawns
+ *     no Worker) and NO 'unsafe-eval' (its WASM init only needs the
+ *     'wasm-unsafe-eval' already granted above); verified against react-pdf
+ *     4.5.1 in a production build. See AGENTS.md §6 trap entry.
  *   frame-src blob:: PDF previews render via <iframe src=blob:...>.
  *   frame-ancestors 'none': blocks clickjacking via third-party embedding.
  */
@@ -72,7 +87,7 @@ const CSP = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' blob: data:",
   "font-src 'self' data:",
-  "connect-src 'self' https://api.telegram.org https://vitals.vercel-insights.com",
+  "connect-src 'self' https://api.telegram.org https://vitals.vercel-insights.com data:",
   "frame-src 'self' blob:",
   "frame-ancestors 'none'",
   "object-src 'none'",
