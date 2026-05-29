@@ -1,0 +1,1072 @@
+/* frontend/src/components/showcase/showcase.module.css
+ *
+ * The BeakerBot Drag Main Stage. All keyframe + gradient values are
+ * pinned from the proposal R3 (the build-ready spec). Stage-black base
+ * everywhere; rainbow uses BeakerBot's exact five liquid stops
+ * (#FFD2B0 / #FFF1A8 / #B7EBB1 / #A6D2F4 / #D6B5F0). Gold accent
+ * #E7C873. Plum curtains #3a1d3d / #4a2750.
+ *
+ * Every animated surface collapses to a static-but-glam freeze under
+ * prefers-reduced-motion (R3.10). No emojis (custom SVG only).
+ */
+
+/* ── Stage root + backdrop ─────────────────────────────────────────── */
+
+.stageRoot {
+  position: relative;
+  background: #0b0b12; /* stage black */
+  color: #f3f1f7;
+  min-height: 100svh;
+}
+
+/* The persistent set: rendered ONCE, fixed behind the scroll column
+   (R3.2). Only the spotlight + bot + placard change per look. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background: #0b0b12;
+}
+
+/* ── Rainbow wash (R3.3) ───────────────────────────────────────────── */
+
+.rainbowWash {
+  position: absolute;
+  inset: 0;
+  opacity: 0.3;
+  mix-blend-mode: screen;
+  background: linear-gradient(
+    100deg,
+    #ffd2b0 0%,
+    #fff1a8 25%,
+    #b7ebb1 50%,
+    #a6d2f4 75%,
+    #d6b5f0 100%
+  );
+  filter: brightness(0.45) saturate(0.85);
+  background-size: 220% 100%;
+  animation: rainbowSweep 14s linear infinite;
+}
+@keyframes rainbowSweep {
+  0% {
+    background-position: 0% 0;
+  }
+  100% {
+    background-position: 220% 0;
+  }
+}
+
+/* ── Marquee (R3.3) ────────────────────────────────────────────────── */
+
+.marquee {
+  position: absolute;
+  top: 1svh;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 70vw;
+  max-width: 980px;
+  height: 12svh;
+}
+.marqueeBulbs {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.mbulb {
+  fill: #fff6d8;
+  animation: bulbChase 1.8s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * -60ms);
+}
+@keyframes bulbChase {
+  0%,
+  100% {
+    fill: #6b5a2e; /* dim amber */
+  }
+  50% {
+    fill: #fff6d8; /* lit warm white */
+  }
+}
+
+/* ── Valance (R3.4) ────────────────────────────────────────────────── */
+
+.valance {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 7svh;
+  background: linear-gradient(#e7c873, #b9923f);
+  border-bottom: 2px solid #8a6a2c;
+  z-index: 3;
+}
+
+/* ── Side curtains (R3.4) ──────────────────────────────────────────── */
+
+.sideCurtain {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 16vw;
+  background: repeating-linear-gradient(
+    90deg,
+    #3a1d3d 0 16px,
+    #4a2750 16px 32px
+  );
+  z-index: 2;
+}
+.sideCurtainLeft {
+  left: 0;
+  box-shadow: inset -24px 0 40px rgba(0, 0, 0, 0.5);
+}
+.sideCurtainRight {
+  right: 0;
+  box-shadow: inset 24px 0 40px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Catwalk (R3.2 + R3.5) ─────────────────────────────────────────── */
+
+.catwalk {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  /* The R3.2 trapezoid: foot 78vw at 80svh, head 26vw at 30svh. */
+  clip-path: polygon(37vw 30svh, 63vw 30svh, 89vw 80svh, 11vw 80svh);
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-auto-rows: 1fr;
+  gap: 3px;
+  /* Constrain the grid box to the trapezoid bounding region so the
+     5-col grid reads as a receding runway once clipped. */
+  padding: 30svh 11vw 20svh 11vw;
+}
+.catwalkPanel {
+  background: linear-gradient(
+    180deg,
+    rgba(180, 210, 255, 0.06) 0%,
+    rgba(180, 210, 255, 0.18) 100%
+  );
+  border: 1px solid rgba(180, 210, 255, 0.14);
+  animation: panelPulse 2.4s ease-in-out infinite;
+  animation-delay: calc(var(--panel-index, 0) * -0.12s);
+}
+@keyframes panelPulse {
+  0%,
+  100% {
+    background-color: rgba(180, 210, 255, 0.04);
+  }
+  50% {
+    background-color: rgba(180, 210, 255, 0.28);
+  }
+}
+
+/* ── Photographers' pit (R3.6, R3.7) ───────────────────────────────── */
+
+.pit {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 20svh; /* the 80-100svh band */
+  z-index: 2;
+  pointer-events: none;
+}
+.pitCameraWrap {
+  position: absolute;
+  bottom: 4svh;
+  transform: translateX(-50%);
+  width: 48px;
+  height: 32px;
+}
+.pitCamera {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.pitCameraBloom {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 28px;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 255, 255, 0.5),
+    transparent 70%
+  );
+  animation: pitFlicker var(--flick-dur, 3.2s) ease-in-out infinite;
+  animation-delay: var(--flick-delay, 0s);
+}
+@keyframes pitFlicker {
+  0%,
+  100% {
+    opacity: 0.1;
+  }
+  50% {
+    opacity: 0.22;
+  }
+}
+
+/* The flash burst itself (R2.5 verbatim). */
+.flashBurst {
+  position: absolute;
+  width: 56px;
+  height: 56px;
+  transform: translateX(-50%) scale(0.4);
+  opacity: 0;
+  animation: flashPop 360ms ease-out forwards;
+  pointer-events: none;
+}
+@keyframes flashPop {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.4);
+  }
+  12% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.15);
+  }
+  30% {
+    opacity: 0.85;
+    transform: translateX(-50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.95);
+  }
+}
+
+/* ── Tracking spotlight (R3.6) ─────────────────────────────────────── */
+
+.spotlight {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background: radial-gradient(
+    ellipse 320px 420px at 50% 38%,
+    rgba(255, 248, 230, 0.92) 0%,
+    rgba(255, 244, 214, 0.45) 28%,
+    rgba(20, 18, 30, 0.78) 62%,
+    rgba(11, 11, 18, 0.96) 100%
+  );
+}
+.spotlightActive {
+  animation: spotWarmUp 700ms ease-out both;
+}
+@keyframes spotWarmUp {
+  0% {
+    opacity: 0.35;
+    transform: translateX(-6%);
+  }
+  60% {
+    opacity: 0.85;
+    transform: translateX(1.5%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ── Runway scroll column (R3.8) ───────────────────────────────────── */
+
+.runwayScroll {
+  position: relative;
+  z-index: 5;
+}
+.runwayLook {
+  scroll-snap-align: center;
+  min-height: 100svh;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+.runwayInterstitial {
+  scroll-snap-align: center;
+  min-height: 60svh;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  z-index: 5;
+}
+.interstitialKicker {
+  font-size: 0.72rem;
+  letter-spacing: 0.28em;
+  color: #e7c873;
+  text-transform: uppercase;
+}
+.interstitialTitle {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #fff;
+  text-transform: uppercase;
+}
+.interstitialMood {
+  font-size: 0.9rem;
+  color: #a6d2f4;
+  letter-spacing: 0.08em;
+}
+
+/* The bot, centered on the 38svh mark. */
+.botMark {
+  position: absolute;
+  left: 50%;
+  top: 38svh;
+  transform: translate(-50%, -50%);
+  width: 128px;
+  height: 128px;
+  z-index: 6;
+}
+.botTrio {
+  position: absolute;
+  left: 50%;
+  top: 38svh;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: flex-end;
+  gap: 24px;
+  z-index: 6;
+}
+.botTrioItem {
+  width: 96px;
+  height: 96px;
+}
+
+/* ── Category placard (R2.5 + R3.8) ────────────────────────────────── */
+
+.placard {
+  position: absolute;
+  left: 50%;
+  top: 62svh;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 28px;
+  max-width: 70vw;
+  text-align: center;
+  background: rgba(11, 11, 18, 0.72);
+  border: 1.5px solid #e7c873;
+  border-radius: 12px;
+  box-shadow: 0 0 24px rgba(231, 200, 115, 0.35);
+  transform-origin: center bottom;
+  z-index: 7;
+}
+.placardActive {
+  animation: placardFlipUp 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes placardFlipUp {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) rotateX(-90deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) rotateX(0deg);
+  }
+}
+.placardKicker {
+  font-size: 0.72rem;
+  letter-spacing: 0.28em;
+  color: #e7c873;
+  text-transform: uppercase;
+}
+.placardCategory {
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #fff;
+  text-transform: uppercase;
+}
+.placardLook {
+  font-size: 0.9rem;
+  letter-spacing: 0.14em;
+  color: #a6d2f4;
+  text-transform: uppercase;
+}
+
+/* ── Marquee hero (R2.4) ───────────────────────────────────────────── */
+
+.hero {
+  position: relative;
+  z-index: 5;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+  scroll-snap-align: center;
+}
+.heroTitle {
+  font-size: clamp(2.5rem, 9vw, 5rem);
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  color: #fff6d8;
+  text-transform: uppercase;
+  text-shadow: 0 0 24px rgba(255, 246, 216, 0.6);
+}
+.heroLive {
+  font-size: clamp(1.4rem, 5vw, 2.4rem);
+  font-weight: 700;
+  font-style: italic;
+  letter-spacing: 0.04em;
+  color: #d6b5f0;
+}
+.heroTagline {
+  font-size: 0.9rem;
+  letter-spacing: 0.2em;
+  color: #e7c873;
+  text-transform: uppercase;
+}
+.heroKicker {
+  font-size: 0.8rem;
+  letter-spacing: 0.18em;
+  color: #a6d2f4;
+  font-style: italic;
+}
+.heroScrollCue {
+  margin-top: 24px;
+  font-size: 0.72rem;
+  letter-spacing: 0.24em;
+  color: #f3f1f7;
+  text-transform: uppercase;
+  opacity: 0.7;
+  animation: scrollCueBob 1.8s ease-in-out infinite;
+}
+@keyframes scrollCueBob {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateY(6px);
+    opacity: 1;
+  }
+}
+.heroBot {
+  width: 160px;
+  height: 160px;
+}
+
+/* The "skip to the scenes" corner pin (R2/R3 optional polish). */
+.skipPin {
+  position: fixed;
+  top: calc(7svh + 12px);
+  right: 18px;
+  z-index: 20;
+  padding: 6px 14px;
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #0b0b12;
+  background: #e7c873;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 0 16px rgba(231, 200, 115, 0.4);
+}
+.skipPin:hover {
+  background: #f0d489;
+}
+
+/* ── Performance Hall (R3.8) ───────────────────────────────────────── */
+
+.hall {
+  position: relative;
+  z-index: 5;
+  padding: 12svh 0 6svh 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24svh;
+}
+.hallHeader {
+  text-align: center;
+  margin-bottom: 4svh;
+}
+.hallHeaderKicker {
+  font-size: 0.72rem;
+  letter-spacing: 0.28em;
+  color: #e7c873;
+  text-transform: uppercase;
+}
+.hallHeaderTitle {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #fff;
+  text-transform: uppercase;
+}
+.hallActWrap {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+/* ── Proscenium frame (R2.5 + R3.8) ────────────────────────────────── */
+
+.proscenium {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  width: min(900px, 84vw);
+  background: #0b0b12;
+  border: 2px solid #e7c873;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 0 36px rgba(231, 200, 115, 0.22);
+  cursor: pointer;
+}
+.prosceniumWide {
+  /* Skateboard letterbox intermission band (R3.8). */
+  aspect-ratio: 21 / 9;
+  width: 100vw;
+  max-width: none;
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+}
+.prosceniumBulbs {
+  position: absolute;
+  inset: 0 0 auto 0;
+  display: flex;
+  justify-content: space-around;
+  padding: 6px 10px;
+  z-index: 4;
+}
+.bulb {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff6d8;
+  box-shadow: 0 0 6px 2px rgba(255, 246, 216, 0.8);
+  animation: bulbChasePros 1.4s ease-in-out infinite;
+}
+@keyframes bulbChasePros {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.prosceniumValance {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 26px;
+  background: linear-gradient(#e7c873, #b9923f);
+  border-bottom: 2px solid #8a6a2c;
+  z-index: 3;
+}
+.curtain {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 52%;
+  background: repeating-linear-gradient(
+    90deg,
+    #3a1d3d 0 14px,
+    #4a2750 14px 28px
+  );
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.5);
+  transition: transform 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  z-index: 5;
+}
+.curtainLeft {
+  left: 0;
+  transform: translateX(0);
+}
+.curtainRight {
+  right: 0;
+  transform: translateX(0);
+}
+.prosceniumActive .curtainLeft {
+  transform: translateX(-100%);
+}
+.prosceniumActive .curtainRight {
+  transform: translateX(100%);
+}
+.prosceniumStage {
+  position: absolute;
+  inset: 26px 0 0 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.prosceniumFootlights {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 18px;
+  background: radial-gradient(
+    ellipse at center bottom,
+    rgba(255, 246, 216, 0.5),
+    transparent 70%
+  );
+  z-index: 4;
+  pointer-events: none;
+}
+.prosceniumPlacard {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%);
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  color: #e7c873;
+  text-transform: uppercase;
+  z-index: 6;
+  white-space: nowrap;
+}
+/* The faint resting poster bot behind closed curtains. */
+.posterBot {
+  width: 96px;
+  height: 96px;
+  opacity: 0.4;
+}
+
+/* Faux cursor for MouseWave (R3.8). */
+.fauxCursor {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  z-index: 3;
+  left: 100%;
+  top: 45%;
+  animation: fauxCursorDrift 900ms ease-out forwards;
+}
+@keyframes fauxCursorDrift {
+  0% {
+    left: 100%;
+    top: 30%;
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    left: 60%;
+    top: 45%;
+    opacity: 1;
+  }
+}
+
+/* Progress shimmer for CoffeeRefill (R3.8). */
+.progressShimmerTrack {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 18px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  z-index: 6;
+  overflow: hidden;
+}
+.progressShimmerFill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(
+    90deg,
+    #ffd2b0,
+    #fff1a8,
+    #b7ebb1,
+    #a6d2f4,
+    #d6b5f0
+  );
+  animation: progressShimmer var(--shimmer-dur, 13000ms) linear forwards;
+}
+@keyframes progressShimmer {
+  0% {
+    width: 0%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+/* ── Curtain-call footer (R2) ──────────────────────────────────────── */
+
+.footer {
+  position: relative;
+  z-index: 5;
+  min-height: 70svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  text-align: center;
+}
+.footerBot {
+  width: 128px;
+  height: 128px;
+}
+.footerCredits {
+  font-size: 0.8rem;
+  letter-spacing: 0.16em;
+  color: #a6d2f4;
+  text-transform: uppercase;
+}
+.footerLink {
+  font-size: 0.85rem;
+  letter-spacing: 0.12em;
+  color: #e7c873;
+  text-transform: uppercase;
+  text-decoration: none;
+  border: 1.5px solid #e7c873;
+  border-radius: 999px;
+  padding: 8px 20px;
+}
+.footerLink:hover {
+  background: rgba(231, 200, 115, 0.15);
+}
+
+/* ── Curtain Reveal unlock transition (R3.9) ───────────────────────── */
+
+.revealRoot {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000; /* above all app chrome + modals */
+  pointer-events: none;
+}
+.revealDim {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(11, 11, 18, 0) 0%,
+    rgba(11, 11, 18, 0.4) 40%,
+    rgba(11, 11, 18, 1) 100%
+  );
+  opacity: 0;
+  animation: revealDimIn 600ms ease-in forwards;
+}
+@keyframes revealDimIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+.revealBlack {
+  position: absolute;
+  inset: 0;
+  background: #0b0b12;
+  opacity: 0;
+  /* fades to full black behind the dim by 600ms, then stays */
+  animation: revealBlackIn 600ms ease-in 600ms forwards;
+}
+@keyframes revealBlackIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+.revealCurtain {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 56vw;
+  background: repeating-linear-gradient(
+    90deg,
+    #3a1d3d 0 16px,
+    #4a2750 16px 32px
+  );
+  box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.55);
+}
+/* Slam closed at 600-1420ms, hold, then part at 1820-2640ms. We sequence
+   both halves of the motion in one keyframe per side so a single mount
+   plays the whole reveal. */
+.revealCurtainLeft {
+  left: 0;
+  transform: translateX(-100%);
+  animation: revealCurtainLeft 2640ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+.revealCurtainRight {
+  right: 0;
+  transform: translateX(100%);
+  animation: revealCurtainRight 2640ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+@keyframes revealCurtainLeft {
+  0% {
+    transform: translateX(-100%);
+  } /* off-stage */
+  22.7% {
+    transform: translateX(-100%);
+  } /* hold off until t=600ms */
+  51% {
+    transform: translateX(2%);
+  } /* slam closed (slight overshoot) at ~1340ms */
+  53.8% {
+    transform: translateX(0);
+  } /* settle closed at 1420ms */
+  68.9% {
+    transform: translateX(0);
+  } /* held beat until 1820ms */
+  100% {
+    transform: translateX(-100%);
+  } /* part open by 2640ms */
+}
+@keyframes revealCurtainRight {
+  0% {
+    transform: translateX(100%);
+  }
+  22.7% {
+    transform: translateX(100%);
+  }
+  51% {
+    transform: translateX(-2%);
+  }
+  53.8% {
+    transform: translateX(0);
+  }
+  68.9% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+.revealToast {
+  position: absolute;
+  left: 50%;
+  bottom: 12svh;
+  transform: translateX(-50%);
+  padding: 10px 24px;
+  background: rgba(11, 11, 18, 0.85);
+  border: 1.5px solid #e7c873;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  letter-spacing: 0.18em;
+  color: #fff6d8;
+  text-transform: uppercase;
+  opacity: 0;
+  animation: revealToastIn 400ms ease-out 1420ms forwards;
+}
+@keyframes revealToastIn {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+/* ── New drag scenes: Runway Strut + Twirl (R2.2) ──────────────────── */
+
+.strutBot {
+  position: fixed;
+  top: 70%;
+  left: 0;
+  width: 128px;
+  height: 128px;
+  z-index: 800;
+  pointer-events: none;
+  transform: translate(0, -50%);
+  animation: strutWalk var(--strut-dur, 3200ms) cubic-bezier(0.4, 0, 0.6, 1)
+    forwards;
+}
+.strutSway {
+  width: 100%;
+  height: 100%;
+  animation: strutSway 520ms ease-in-out infinite;
+}
+@keyframes strutWalk {
+  0% {
+    transform: translate(0, -50%) scale(0.7);
+  }
+  12% {
+    transform: translate(8vw, -50%) scale(0.74);
+  }
+  70% {
+    transform: translate(46vw, -50%) scale(1);
+  }
+  82% {
+    /* hit the mark center-front, hold the freeze */
+    transform: translate(46vw, -50%) scale(1);
+  }
+  100% {
+    transform: translate(46vw, -50%) scale(1);
+  }
+}
+@keyframes strutSway {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-2deg);
+  }
+  50% {
+    transform: translateY(-5px) rotate(2deg);
+  }
+}
+
+.twirlBot {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 128px;
+  height: 128px;
+  z-index: 800;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  animation: twirlSpin var(--twirl-dur, 1500ms) cubic-bezier(0.3, 0, 0.3, 1)
+    forwards;
+}
+@keyframes twirlSpin {
+  0% {
+    transform: translate(-50%, -50%) rotateY(0deg);
+  }
+  80% {
+    transform: translate(-50%, -50%) rotateY(720deg);
+  }
+  100% {
+    transform: translate(-50%, -50%) rotateY(720deg);
+  }
+}
+.twirlTrail {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 799;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+.twirlTrailArc {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  opacity: 0;
+  animation: twirlTrailArc var(--twirl-dur, 1500ms) ease-out forwards;
+  animation-delay: var(--trail-delay, 0ms);
+}
+@keyframes twirlTrailArc {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--arc-angle, 0deg)) translateX(0) scale(0.4);
+  }
+  30% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--arc-angle, 0deg)) translateX(90px) scale(1);
+  }
+}
+
+/* ── Reduced-motion: static-but-glam (R3.10) ───────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .rainbowWash {
+    animation: none;
+    background-position: 50% 0;
+  }
+  .mbulb {
+    animation: none;
+    fill: #fff6d8;
+  }
+  .catwalkPanel {
+    animation: none;
+    background-color: rgba(180, 210, 255, 0.12);
+  }
+  .pitCameraBloom {
+    animation: none;
+    opacity: 0.18;
+  }
+  .flashBurst {
+    animation: none;
+    opacity: 0.6;
+    transform: translateX(-50%) scale(1);
+  }
+  .spotlight,
+  .spotlightActive {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .placard,
+  .placardActive {
+    animation: none;
+  }
+  .bulb {
+    animation: none;
+    opacity: 0.85;
+  }
+  .curtain {
+    transition: none;
+  }
+  .progressShimmerFill {
+    animation: none;
+    width: 100%;
+  }
+  .fauxCursor {
+    animation: none;
+    left: 60%;
+    top: 45%;
+    opacity: 1;
+  }
+  .heroScrollCue {
+    animation: none;
+    opacity: 0.8;
+  }
+  .strutBot {
+    animation: none;
+    transform: translate(46vw, -50%) scale(1);
+  }
+  .strutSway {
+    animation: none;
+  }
+  .twirlBot {
+    animation: none;
+    transform: translate(-50%, -50%);
+  }
+  .twirlTrailArc {
+    animation: none;
+    opacity: 0;
+  }
+  .revealDim {
+    animation: none;
+    opacity: 1;
+  }
+  .revealBlack {
+    animation: none;
+    opacity: 1;
+  }
+  .revealCurtainLeft {
+    animation: none;
+    transform: translateX(-100%);
+  }
+  .revealCurtainRight {
+    animation: none;
+    transform: translateX(100%);
+  }
+  .revealToast {
+    animation: none;
+    opacity: 1;
+    transform: translateX(-50%);
+  }
+}

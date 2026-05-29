@@ -11,11 +11,12 @@
 //     thinking, typing, typing-on-laptop, bow-wink, giggle,
 //     rolling-laughing, volcano-eruption, sleeping, hiccup, yawn,
 //     reading, panicked, amazed, embarrassed)
-//   - 9 multi-stage scene components (Ladder, BugStomp, Skateboard,
+//   - 11 multi-stage scene components (Ladder, BugStomp, Skateboard,
 //     TooManyBeakers, MouseWave, Centrifuge, Eureka, CoffeeRefill,
-//     BlowingBubbles)
+//     BlowingBubbles, RunwayStrut, Twirl — the last two are the P1
+//     Drag Main Stage showcase scenes)
 //   - 3 pose-celebration variants (cheering, bouncing, volcano-eruption)
-//   = 33 entries total
+//   = 35 entries total
 //
 // Loop mechanic:
 //   - Scenes: on onComplete, flip active=false, wait 500ms, bump a
@@ -51,6 +52,8 @@ import BeakerBotCentrifugeScene from "@/components/BeakerBotCentrifugeScene";
 import BeakerBotEurekaScene from "@/components/BeakerBotEurekaScene";
 import BeakerBotCoffeeRefillScene from "@/components/BeakerBotCoffeeRefillScene";
 import BeakerBotBlowingBubblesScene from "@/components/BeakerBotBlowingBubblesScene";
+import BeakerBotRunwayStrutScene from "@/components/BeakerBotRunwayStrutScene";
+import BeakerBotTwirlScene from "@/components/BeakerBotTwirlScene";
 import BeakerBotPoseCelebrationScene from "@/components/onboarding/BeakerBotPoseCelebrationScene";
 
 // ── Catalog types ──────────────────────────────────────────────────────────
@@ -320,8 +323,9 @@ const POSES: PoseEntry[] = [
   },
 ];
 
-/** 9 multi-stage scene components. All share the {active, onComplete}
- *  envelope so the gallery can drive them through one code path. */
+/** 11 multi-stage scene components (9 original + the 2 P1 Drag Main
+ *  Stage showcase scenes). All share the {active, onComplete} envelope
+ *  so the gallery can drive them through one code path. */
 const SCENES: SceneEntry[] = [
   {
     kind: "scene",
@@ -404,6 +408,27 @@ const SCENES: SceneEntry[] = [
       "BeakerBot blows bubbles that drift across the screen. Click any bubble to pop it, or they auto-pop after a few seconds.",
     timingNote: "~8000ms total",
   },
+  // Drag Main Stage showcase scenes (P1). Reuse existing poses +
+  // translate/particle primitives, no new bot art. See the showcase
+  // proposal R2.2.
+  {
+    kind: "scene",
+    id: "scene:runway-strut",
+    label: "BeakerBotRunwayStrutScene",
+    Component: BeakerBotRunwayStrutScene as unknown as SceneComponent,
+    description:
+      "BeakerBot enters stage-left, struts down the lit catwalk with a confident bob-and-sway walk, hits the mark center-front and strikes a cheering freeze. The signature drag-stage moment.",
+    timingNote: "~3200ms total",
+  },
+  {
+    kind: "scene",
+    id: "scene:twirl",
+    label: "BeakerBotTwirlScene",
+    Component: BeakerBotTwirlScene as unknown as SceneComponent,
+    description:
+      "BeakerBot plants center stage and does a celebratory double spin, trailing rainbow motion streaks in his own five liquid colors, settling on a cheering freeze. Short, joyful, gif-able.",
+    timingNote: "~1500ms total",
+  },
 ];
 
 /** 3 pose-celebration variants. The wrapper component portals a single
@@ -440,7 +465,7 @@ const POSE_CELEBRATIONS: PoseCelebrationEntry[] = [
 ];
 
 /** Single flat catalog. Order: poses, then scenes, then
- *  pose-celebrations. Tests assert counts (21 + 9 + 3 = 33). */
+ *  pose-celebrations. Tests assert counts (21 + 11 + 3 = 35). */
 export const BEAKERBOT_ANIMATION_CATALOG: readonly CatalogEntry[] = [
   ...POSES,
   ...SCENES,
