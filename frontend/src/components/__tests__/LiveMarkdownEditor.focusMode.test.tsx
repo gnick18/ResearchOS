@@ -121,6 +121,32 @@ describe("LiveMarkdownEditor: Writing Focus Mode", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
+  it("Cmd/Ctrl+Shift+F enters focus mode even when no editable element is focused (reported bug: shortcut no-op on a freshly opened editor)", () => {
+    render(<LiveMarkdownEditor value="hello" onChange={vi.fn()} />);
+
+    // Reading state: a freshly opened editor leaves focus on document.body /
+    // the host popup's chrome, NOT inside the editor. The shortcut used to
+    // require containerRef focus (the Cmd+S scoping) and so silently no-opped
+    // here. It must still enter focus mode when nothing editable is focused.
+    act(() => {
+      (document.activeElement as HTMLElement | null)?.blur?.();
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    act(() => {
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "F",
+          ctrlKey: true,
+          shiftKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
   it("guarded Escape exits when parked, and early-returns on a tour-synthetic Escape (decision 1, §9)", () => {
     render(<LiveMarkdownEditor value="hello" onChange={vi.fn()} />);
     act(() => {

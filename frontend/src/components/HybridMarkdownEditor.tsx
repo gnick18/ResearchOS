@@ -2340,7 +2340,26 @@ export default function HybridMarkdownEditor({
       // editors. The actual state lives in the LiveMarkdownEditor wrapper;
       // we just request the toggle via onToggleFocusModeRef.
       if (e.shiftKey && e.key.toLowerCase() === "f") {
-        if (onToggleFocusModeRef.current && ownsFocus()) {
+        // Unlike Cmd+S, focus mode is a VIEW toggle the user reaches while
+        // just reading, before clicking into any text block, so requiring
+        // focus to already be inside this editor (ownsFocus) made the
+        // shortcut silently no-op on a freshly opened editor (the reported
+        // bug: focus sat on document.body / the host's close button). Fire
+        // when this editor owns focus OR when no editable field anywhere
+        // owns focus (the common single-open-editor case). If a DIFFERENT
+        // editor's textarea/input is focused, editableFocused is true and
+        // ownsFocus is false, so this instance yields and that editor's own
+        // handler claims the toggle, the shortcut never crosses wires.
+        const activeEl = document.activeElement as HTMLElement | null;
+        const editableFocused =
+          !!activeEl &&
+          (activeEl.tagName === "TEXTAREA" ||
+            activeEl.tagName === "INPUT" ||
+            activeEl.isContentEditable);
+        if (
+          onToggleFocusModeRef.current &&
+          (ownsFocus() || !editableFocused)
+        ) {
           e.preventDefault();
           e.stopPropagation();
           onToggleFocusModeRef.current();
