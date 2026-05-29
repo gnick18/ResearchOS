@@ -40,7 +40,7 @@ import {
   manualAdvance,
   buildWalkthroughStep,
 } from "./lib/step-helpers";
-import { TOUR_TARGETS, targetSelector } from "./lib/targets";
+import { homeOrLabOverviewNavSelector } from "./lib/targets";
 
 // panel copy polish 2026-05-26: literal-reader bot flagged the prior
 // "Let me take us back home" copy as confusing when the step fires
@@ -58,10 +58,16 @@ export const projectOverviewExitStep = buildWalkthroughStep({
   id: "project-overview-exit",
   speech: () => exitSpeech(),
   pose: "pointing",
-  targetSelector: targetSelector(TOUR_TARGETS.homeNavTab),
+  // PI Home migration (pi-walkthrough hardening, 2026-05-29): glide to /
+  // spotlight the Home tab for members + solo accounts, OR the Lab
+  // Overview tab for lab_head (PI) accounts whose Home tab is hidden.
+  // The combined selector lets DOM presence decide (see
+  // `homeOrLabOverviewNavSelector`), so the cursor never anchors to a
+  // tab that the PI Home migration removed from the navbar.
+  targetSelector: homeOrLabOverviewNavSelector(),
   cursorScript: cursorScript(async () => {
     const glide = await safeGlideToElementAction(
-      targetSelector(TOUR_TARGETS.homeNavTab),
+      homeOrLabOverviewNavSelector(),
     );
     return compactScript([glide]);
   }),

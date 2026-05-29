@@ -399,6 +399,14 @@ export const TOUR_TARGETS = {
   // project page. Visible "exiting the project" beat per Grant.
   homeNavTab: "home-nav-tab",
 
+  // PI Home migration (pi-walkthrough hardening, 2026-05-29): the Lab
+  // Overview top-nav tab. AppShell stamps this on the /lab-overview nav
+  // entry, which is rendered ONLY for lab_head (PI) accounts. For a PI
+  // the Home tab is hidden by default, so the §6.2→6.3 transition step
+  // glides to / spotlights this tab instead of the (absent) Home tab.
+  // See `homeOrLabOverviewNavSelector` below.
+  labOverviewNavTab: "lab-overview-nav-tab",
+
   // §6.2b Home widgets walkthrough (home widgets surface-prep manager,
   // 2026-05-25). Anchors for the 5-step section that introduces the
   // per-user widget canvas between project-overview-exit and
@@ -545,4 +553,40 @@ export type TourTargetName = (typeof TOUR_TARGETS)[keyof typeof TOUR_TARGETS];
  */
 export function targetSelector(name: TourTargetName): string {
   return `[data-tour-target="${name}"]`;
+}
+
+/**
+ * Account-type-aware selector for the "back to Home" transition anchor
+ * (PI Home migration, pi-walkthrough hardening 2026-05-29).
+ *
+ * The §6.2→6.3 transition step (`project-overview-exit`) glides the
+ * cursor to, and spotlights, the top-nav tab the user is being sent
+ * back to. For members + solo accounts that is the Home tab. For
+ * lab_head (PI) accounts the Home tab is HIDDEN by default after the PI
+ * Home migration (AppShell drops the `home-nav-tab` nav entry and shows
+ * `lab-overview-nav-tab` as the leftmost tab instead), so anchoring to
+ * the Home tab would leave the glide / spotlight with nothing to latch
+ * onto — it degrades silently but looks broken.
+ *
+ * Rather than thread the async account-type read into a synchronous
+ * step `targetSelector` string, the selector matches EITHER tab and
+ * lets DOM presence decide. `document.querySelector` (used by both
+ * TourSpotlight and the cursor-glide `waitForElement`) returns the
+ * first match in document order:
+ *
+ *   - Member / solo: only `home-nav-tab` is rendered → Home tab.
+ *   - PI, Home hidden (the post-migration default): only
+ *     `lab-overview-nav-tab` is rendered → Lab Overview tab.
+ *   - PI who opted Home back in (settings.showHomeForLabHead): BOTH are
+ *     rendered, and AppShell slots Home before Lab Overview, so the
+ *     first match is Home — which is correct, the PI chose to keep Home.
+ *
+ * This makes the target account-type-aware without a settings read or a
+ * race: whichever tab the PI Home migration actually rendered is the
+ * one the cursor lands on.
+ */
+export function homeOrLabOverviewNavSelector(): string {
+  return `${targetSelector(TOUR_TARGETS.homeNavTab)}, ${targetSelector(
+    TOUR_TARGETS.labOverviewNavTab,
+  )}`;
 }

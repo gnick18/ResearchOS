@@ -19,6 +19,9 @@ import HomeCanvas from "@/components/home/HomeCanvas";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useAppStore } from "@/lib/store";
 import { useAccountType } from "@/hooks/useAccountType";
+import { useOptionalTourController } from "@/components/onboarding/v4/TourController";
+import { V4_PREVIEW_STICKY_KEY } from "@/lib/file-system/wiki-capture-mock";
+import { decideLandingRedirect } from "./page-landing-redirect";
 import type { Task } from "@/lib/types";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { useDraftPersistence } from "@/hooks/useDraftPersistence";
@@ -110,47 +113,56 @@ export default function HomePage() {
   // it) — this only changes the one-shot first-load destination.
   const accountType = useAccountType(currentUser || null);
   const showHomeForLabHead = useAppStore((s) => s.showHomeForLabHead);
+  // pi-walkthrough hardening (2026-05-29): the v4 onboarding walkthrough
+  // mounts page.tsx inside <TourControllerProvider> (via V4MountForUser
+  // → providers.tsx), so the live tour mode is readable here. The
+  // walkthrough's universal Home phase (home-create-project →
+  // home-widgets-* → notifications-* → project-overview-exit) navigates
+  // to "/" via the controller's router.push. Without a guard, the
+  // one-shot landing bounce below would fire on that "/" landing and
+  // replace("/lab-overview"), yanking a PI out of the Home phase and
+  // breaking the tour. `tourMode !== null` is true across every tour
+  // phase (modal-setup / in-product-walkthrough / lab / cleanup); we
+  // also consult the sticky preview flag as a belt-and-suspenders for
+  // the brief reload window before TourBootstrap re-starts the
+  // controller under ?wizard-preview=1.
+  const tourController = useOptionalTourController();
+  const tourActive =
+    (tourController?.tourMode ?? null) !== null ||
+    (typeof window !== "undefined" &&
+      typeof sessionStorage !== "undefined" &&
+      sessionStorage.getItem(V4_PREVIEW_STICKY_KEY) === "1");
   useEffect(() => {
-    if (didLandingRedirect) return;
-    if (!currentUser) return;
-    // Wait for the account-type read to resolve before deciding the
-    // landing destination, so a PI isn't briefly parked on Home before
-    // the redirect to Lab Overview can fire (and a member isn't
-    // mis-bounced). `undefined` = read in flight.
-    if (accountType === undefined) return;
-    const fromRedirect = searchParams?.get("from");
-    if (fromRedirect) {
-      // Arrived via a redirect from another in-app surface — that
-      // surface already picked Home as the intended destination, so the
-      // landing-tab bounce would just contradict it. Mark the one-shot
-      // flag and clear the sentinel from the URL so reload + share work.
-      didLandingRedirect = true;
-      const next = new URLSearchParams(searchParams!.toString());
+    const decision = decideLandingRedirect({
+      didLandingRedirect,
+      currentUser,
+      accountType,
+      defaultLandingTab,
+      showHomeForLabHead,
+      fromRedirect: searchParams?.get("from") ?? null,
+      tourActive,
+    });
+    if (decision.markOneShot) didLandingRedirect = true;
+    if (decision.kind === "replace") {
+      router.replace(decision.to);
+      return;
+    }
+    // A `?from=` sentinel that resolved to "stay on Home" still needs
+    // the sentinel stripped from the URL (so reload + share work). The
+    // pure decision returns { kind: "none", markOneShot: true } in that
+    // case; detect it here by the presence of the sentinel.
+    if (decision.markOneShot && searchParams?.get("from")) {
+      const next = new URLSearchParams(searchParams.toString());
       next.delete("from");
       const query = next.toString();
       router.replace(query ? `/?${query}` : "/");
-      return;
-    }
-    if (defaultLandingTab && defaultLandingTab !== "/") {
-      // An explicit non-Home landing tab always wins, for every account
-      // type (a PI who picked /workbench as their landing keeps it).
-      didLandingRedirect = true;
-      router.replace(defaultLandingTab);
-    } else if (
-      accountType === "lab_head" &&
-      !showHomeForLabHead
-    ) {
-      // PI with Home hidden + no explicit landing override → Lab Overview.
-      didLandingRedirect = true;
-      router.replace("/lab-overview");
-    } else if (defaultLandingTab === "/") {
-      didLandingRedirect = true;
     }
   }, [
     currentUser,
     defaultLandingTab,
     accountType,
     showHomeForLabHead,
+    tourActive,
     router,
     searchParams,
   ]);
