@@ -230,7 +230,11 @@ describe("PtoEditor", () => {
     expect(
       screen.getByTestId("pto-editor-soft-cap-warning"),
     ).toBeInTheDocument();
-  });
+    // Rendering 500+ PTO rows is legitimately heavy (~9s on a loaded machine),
+    // so this case exceeded vitest's default 5s timeout and timed out (not an
+    // assertion failure). Give it a generous explicit timeout; the assertions
+    // themselves pass once the render completes.
+  }, 20000);
 });
 
 // Wait helper: in case the first flush isn't enough for the soft-cap render

@@ -1357,7 +1357,14 @@ describe("TourController — cursor-lock watchdog (§6.2 escape hatch)", () => {
         ms?: number,
         ...rest: unknown[]
       ) => {
-        const adjusted = ms === 30_000 ? 80 : ms;
+        // The 30s cursor-lock watchdog is compressed for the test. It was
+        // 80ms, but under heavy full-suite load the gap between runScript
+        // firing and the "lock is present" assertion below could exceed 80ms,
+        // so the watchdog released the lock first and the assertion saw null
+        // (a load race, not a real failure). 800ms gives the present-assertion
+        // ample headroom and still resolves well within the 2000ms
+        // lock-disappear waitFor that follows.
+        const adjusted = ms === 30_000 ? 800 : ms;
         return realSetTimeout(fn, adjusted, ...(rest as []));
       }) as typeof setTimeout);
 
