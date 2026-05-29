@@ -139,6 +139,11 @@ import TraineeNotesWidget, {
   SidebarTile as TraineeNotesSidebar,
   HELP_TEXT as TraineeNotesHelp,
 } from "./TraineeNotesWidget";
+import WeeklyGoalsWidget, {
+  SnapshotTile as WeeklyGoalsSnapshot,
+  SidebarTile as WeeklyGoalsSidebar,
+  HELP_TEXT as WeeklyGoalsHelp,
+} from "./WeeklyGoalsWidget";
 
 // Touch the default exports so TypeScript doesn't flag them as unused
 // imports — we intentionally import them for symmetry / side-effect
@@ -158,6 +163,7 @@ void LabActivityWidget;
 void LabPurchasesWidget;
 void CalendarEventsTodayWidget;
 void TraineeNotesWidget;
+void WeeklyGoalsWidget;
 
 export const WIDGET_CATALOG: WidgetDefinition[] = [
   // ── Canvas widgets ───────────────────────────────────────────────────
@@ -228,23 +234,46 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     memberVisible: false, // lab_head only
   },
 
-  // Trainee notes (PI beta feedback, pi-notes-widget, 2026-05-29): a
-  // roster-style tile. Clicking a member in the popup surfaces the notes
-  // that member has shared with the PI. PI-only (memberVisible: false) —
-  // it's a supervision surface. Canvas + sidebar eligible so the PI can
-  // pin it on the lab-overview dashboard or the customizable rail.
+  // Trainee notes + weekly goals (PI beta feedback, weekly-goals widget,
+  // 2026-05-29; extends pi-notes-widget, 2026-05-29): a roster-style
+  // tile. Clicking a member in the popup surfaces the notes AND weekly
+  // goals that member has shared with the PI. PI-only
+  // (memberVisible: false) — it's a supervision surface. Canvas + sidebar
+  // eligible so the PI can pin it on the lab-overview dashboard or the
+  // customizable rail. The PER-INSTANCE config (`pinnedMember`) lets the
+  // PI place one widget per trainee on the /lab-overview canvas.
   {
     id: "trainee-notes",
     toolId: "trainee-notes",
-    title: "Trainee notes",
+    title: "Trainee notes & goals",
     description:
-      "Lab roster; click a member to read the notes they've shared with you. Lab head only.",
+      "Lab roster; click a member to read the notes and weekly goals they've shared with you. Pin to one trainee. Lab head only.",
     helpText: TraineeNotesHelp,
     SnapshotTile: TraineeNotesSnapshot,
     SidebarTile: TraineeNotesSidebar,
     defaultLayout: { w: 4, h: 6, minW: 3, minH: 4 },
     surfaces: { canvas: true, sidebar: true },
     memberVisible: false, // lab_head only — a supervision surface
+  },
+  // Weekly goals capture (PI beta feedback, weekly-goals widget,
+  // 2026-05-29): the TRAINEE-facing capture box. Add / toggle-done /
+  // delete the lightweight weekly goals set in 1:1s. memberVisible: true
+  // so trainees can pin it. Canvas + home eligible (opt-in via the Add
+  // widget palette); deliberately NOT in any default layout so this
+  // change stays out of the Home default-layout migration. Distinct from
+  // the Gantt goal system; a weekly goal never lands on the Gantt.
+  {
+    id: "weekly-goals",
+    toolId: "weekly-goals",
+    title: "Weekly goals",
+    description:
+      "Log the lightweight goals you set in your 1:1 meetings. Shared goals are visible to your PI.",
+    helpText: WeeklyGoalsHelp,
+    SnapshotTile: WeeklyGoalsSnapshot,
+    SidebarTile: WeeklyGoalsSidebar,
+    defaultLayout: { w: 4, h: 6, minW: 3, minH: 4 },
+    surfaces: { canvas: true, home: true, sidebar: true },
+    memberVisible: true,
   },
 
   // R3 catalog additions (R3 widget catalog manager, 2026-05-23):

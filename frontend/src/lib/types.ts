@@ -2067,6 +2067,74 @@ export interface NoteEntriesReorderRequest {
   entry_ids: string[];
 }
 
+// ── Weekly goals ───────────────────────────────────────────────────────────────
+//
+// Weekly goals widget (PI beta feedback, weekly-goals widget, 2026-05-29).
+//
+// DATA-SHAPE CHANGE (new entity). A WeeklyGoal is a LIGHTWEIGHT, STANDALONE
+// record set by a trainee in (or around) a 1:1 meeting: "what do I want to
+// get done this week". It is deliberately DISTINCT from `HighLevelGoal` /
+// the Gantt goal system — no project_id, no SMART sub-goals, no date range,
+// no color. A weekly goal NEVER lands on the Gantt. The two concepts stay
+// visually and conceptually separate.
+//
+// Sharing mirrors `Note` EXACTLY so the same `canRead(record, viewer)` gate
+// from `lib/sharing/unified.ts` works unchanged:
+//   - `is_shared: boolean`  — the coarse "did the owner share this at all"
+//     flag. `labApi.getWeeklyGoals({ shared_only: true })` filters on it,
+//     mirroring `labApi.getNotes({ shared_only: true })`.
+//   - `shared_with: SharedUser[]` — the precise recipient list. The "*"
+//     sentinel = whole-lab. Goals set in a 1:1 DEFAULT to whole-lab
+//     ("*", visible to the PI) but still flow through the REAL sharing
+//     gate; there is no bypass.
+//
+// Stored per-user at `users/<owner>/weekly_goals/<id>.json` via a `JsonStore`,
+// mirroring `notesStore` / `eventsStore` (per-user scoping + per-user
+// counters). `id` is a numeric JsonStore key (not a UUID) to match the rest
+// of the store records; `owner` carries the trainee username for the sharing
+// gate (same role `note.username` plays for notes).
+export interface WeeklyGoal {
+  /** Numeric JsonStore key, unique within the owner's `weekly_goals` dir. */
+  id: number;
+  /** Trainee username this goal belongs to. Drives the sharing gate
+   *  (`canRead` compares `owner` to the viewer). */
+  owner: string;
+  /** The goal text. Free-form, single line. */
+  text: string;
+  /** YYYY-MM-DD anchoring the week (the Monday of that week). Used to
+   *  group goals by week in the UI. */
+  week_of: string;
+  /** Done toggle. */
+  is_complete: boolean;
+  /** ISO timestamp of creation. */
+  created_at: string;
+  /** Username that created the record (normally === owner; kept separate
+   *  so a future PI-set-on-behalf flow has a home without a migration). */
+  created_by: string;
+  /** Coarse sharing flag — mirrors `Note.is_shared`. `shared_only`
+   *  aggregations filter on this. */
+  is_shared: boolean;
+  /** Precise recipient list — mirrors `Note.shared_with`. "*" = whole lab.
+   *  Optional on read so a record written before this field normalizes to
+   *  owner-only (same back-compat shape as notes). */
+  shared_with?: SharedUser[];
+}
+
+export interface WeeklyGoalCreate {
+  text: string;
+  /** Defaults to the current week's Monday when omitted. */
+  week_of?: string;
+  /** Defaults to true (1:1 goals are visible to the PI / whole lab). */
+  is_shared?: boolean;
+}
+
+export interface WeeklyGoalUpdate {
+  text?: string;
+  week_of?: string;
+  is_complete?: boolean;
+  is_shared?: boolean;
+}
+
 // ── Lab Mode Notes ─────────────────────────────────────────────────────────────
 
 export interface LabNoteEntry {

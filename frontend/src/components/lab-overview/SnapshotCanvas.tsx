@@ -14,6 +14,7 @@ import {
   addHomeCanvasWidget,
   patchCanvasOrder,
   patchHomeCanvasOrder,
+  patchWidgetConfig,
   readResolvedHomeLayout,
   readResolvedLayout,
   removeCanvasWidget,
@@ -25,7 +26,10 @@ import {
   resolveExpandedView,
   resolveToolTitle,
 } from "@/lib/lab-overview/tool-registry";
-import type { LabOverviewLayout } from "@/lib/settings/user-settings";
+import type {
+  LabOverviewLayout,
+  WidgetInstanceConfig,
+} from "@/lib/settings/user-settings";
 import type { AccountType } from "@/lib/settings/user-settings";
 import Tooltip from "@/components/Tooltip";
 
@@ -134,6 +138,14 @@ export default function SnapshotCanvas({
   const adapter = surface === "home" ? HOME_ADAPTER : CANVAS_ADAPTER;
   const [isEditing, setIsEditing] = useState(false);
   const [order, setOrder] = useState<string[] | null>(null);
+  // Per-instance widget config keyed by widget id (weekly-goals widget,
+  // 2026-05-29). Loaded from the persisted layout; passed down to each
+  // tile + the popup body. Only the /lab-overview canvas persists edits
+  // today (the /home surface has no `patchWidgetConfig` variant), so the
+  // single-member pin is a PI-dashboard feature.
+  const [widgetConfig, setWidgetConfig] = useState<
+    Record<string, WidgetInstanceConfig>
+  >({});
   const [showPalette, setShowPalette] = useState(false);
   const [openWidgetId, setOpenWidgetId] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -159,10 +171,16 @@ export default function SnapshotCanvas({
     (async () => {
       try {
         const resolved = await adapter.readResolvedLayout(username, catalog);
-        if (!cancelled) setOrder(resolved.widgetOrder.canvas);
+        if (!cancelled) {
+          setOrder(resolved.widgetOrder.canvas);
+          setWidgetConfig(resolved.widgetConfig ?? {});
+        }
       } catch (err) {
         console.warn("[SnapshotCanvas] failed to load layout", err);
-        if (!cancelled) setOrder([]);
+        if (!cancelled) {
+          setOrder([]);
+          setWidgetConfig({});
+        }
       }
     })();
     return () => {
@@ -244,6 +262,7 @@ export default function SnapshotCanvas({
       await adapter.addCanvasWidget(username, def);
       const resolved = await adapter.readResolvedLayout(username, catalog);
       setOrder(resolved.widgetOrder.canvas);
+      setWidgetConfig(resolved.widgetConfig ?? {});
     },
     [username, catalog, adapter],
   );
@@ -253,8 +272,31 @@ export default function SnapshotCanvas({
       await adapter.removeCanvasWidget(username, widgetId);
       const resolved = await adapter.readResolvedLayout(username, catalog);
       setOrder(resolved.widgetOrder.canvas);
+      setWidgetConfig(resolved.widgetConfig ?? {});
     },
     [username, catalog, adapter],
+  );
+
+  // Persist a per-instance config change for a placed widget (weekly-goals
+  // widget, 2026-05-29). Only wired on the /lab-overview canvas surface;
+  // the /home surface returns this as undefined to its widgets, so a
+  // single-member pin is a PI-dashboard affordance. Optimistically updates
+  // local state so the popup reflects the new mode without a re-read.
+  const handleConfigChange = useCallback(
+    async (widgetId: string, config: WidgetInstanceConfig | null) => {
+      setWidgetConfig((prev) => {
+        const next = { ...prev };
+        if (!config || !config.pinnedMember) delete next[widgetId];
+        else next[widgetId] = config;
+        return next;
+      });
+      try {
+        await patchWidgetConfig(username, widgetId, config);
+      } catch (err) {
+        console.warn("[SnapshotCanvas] failed to persist widget config", err);
+      }
+    },
+    [username],
   );
 
   const defaultResetMsg =
@@ -270,6 +312,7 @@ export default function SnapshotCanvas({
     await adapter.resetLayout(username);
     const resolved = await adapter.readResolvedLayout(username, catalog);
     setOrder(resolved.widgetOrder.canvas);
+    setWidgetConfig(resolved.widgetConfig ?? {});
   }, [username, catalog, adapter, resetMsg]);
 
   if (order === null) {
@@ -528,7 +571,7 @@ export default function SnapshotCanvas({
                 // B is scoped to /lab-overview per the proposal).
                 helpText={surface === "home" ? undefined : def.helpText}
               >
-                <Tile surface="canvas" />
+                <Tile surface="canvas" config={widgetConfig[id]} />
               </Widget>
             </div>
           );
@@ -544,12 +587,28 @@ export default function SnapshotCanvas({
       {openWidget &&
         (() => {
           const Expanded = resolveExpandedView(openWidget);
+          // Per-instance config (weekly-goals widget, 2026-05-29): pass the
+          // placed widget's config + a persist callback to the popup body.
+          // `onConfigChange` is only wired on the /lab-overview canvas
+          // surface (the /home surface persists to a different settings
+          // field with no config mutator today), so single-member pins are
+          // a PI-dashboard affordance.
+          const openId = openWidget.id;
           return (
             <SnapshotTilePopup
               title={resolveToolTitle(openWidget)}
               onClose={() => setOpenWidgetId(null)}
             >
-              <Expanded surface="canvas" isEditing={false} />
+              <Expanded
+                surface="canvas"
+                isEditing={false}
+                config={widgetConfig[openId]}
+                onConfigChange={
+                  surface === "canvas"
+                    ? (cfg) => handleConfigChange(openId, cfg)
+                    : undefined
+                }
+              />
             </SnapshotTilePopup>
           );
         })()}

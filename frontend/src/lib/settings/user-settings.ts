@@ -62,6 +62,24 @@ export interface LabOverviewLayoutV1 {
   };
 }
 
+/**
+ * Per-instance widget configuration (weekly-goals widget, 2026-05-29).
+ *
+ * PERSISTED-LAYOUT-SHAPE CHANGE — additive + optional. A placed widget can
+ * carry a small config object persisted alongside the canvas layout. The
+ * first (and currently only) field is `pinnedMember`: when set, a widget
+ * that supports a single-member mode (e.g. the Trainee notes + weekly goals
+ * widget) shows that ONE member directly instead of the roster step. Unset
+ * = the widget's default (everyone / roster) mode.
+ *
+ * Old layouts that predate this field simply have no `widgetConfig` map and
+ * read as "every widget in default mode" — no migration needed.
+ */
+export interface WidgetInstanceConfig {
+  /** When set, the widget is pinned to this one member's username. */
+  pinnedMember?: string;
+}
+
 /** Current v2 ordered-list shape. Written by every Phase A mutator. */
 export interface LabOverviewLayoutV2 {
   version: 2;
@@ -69,6 +87,14 @@ export interface LabOverviewLayoutV2 {
     canvas: string[];
     sidebar: string[];
   };
+  /**
+   * Per-instance widget config, keyed by widget id (weekly-goals widget,
+   * 2026-05-29). Optional + additive: absent map = every widget in its
+   * default mode. Keyed by widget id (the same id used in `widgetOrder`)
+   * because the canvas tracks one placed instance per widget id today.
+   * Entries for ids not in `widgetOrder` are harmless and ignored.
+   */
+  widgetConfig?: Record<string, WidgetInstanceConfig>;
 }
 
 /** The canonical type consumers reference. Always v2 when read through

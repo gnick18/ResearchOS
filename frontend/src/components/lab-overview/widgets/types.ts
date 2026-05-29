@@ -51,7 +51,10 @@
  *   - PIs always see every catalog entry (no separate `piVisible` field).
  */
 import type { ComponentType } from "react";
-import type { AccountType } from "@/lib/settings/user-settings";
+import type {
+  AccountType,
+  WidgetInstanceConfig,
+} from "@/lib/settings/user-settings";
 
 /** Legacy single-surface field (kept for back-compat — see `surfaces`
  *  below for the new model). Pre-home-canvas migration, every widget
@@ -137,6 +140,15 @@ export function widgetHasSurface(
  *  tiles than lab-overview), widen this union then. */
 export interface SnapshotTileProps {
   surface: "canvas" | "sidebar";
+  /**
+   * Per-instance config for this placed widget (weekly-goals widget,
+   * 2026-05-29). Optional + additive — widgets that don't support
+   * per-instance config ignore it. The canvas reads it from the persisted
+   * `lab_overview_layout.widgetConfig[widgetId]` and passes it down. A
+   * single-member-pinned widget reads `config.pinnedMember` to show a
+   * focused tile.
+   */
+  config?: WidgetInstanceConfig;
 }
 
 /** Props passed to a widget's `SidebarTile`. The sidebar tile is the
@@ -175,6 +187,19 @@ export interface ExpandedViewProps {
    *  layout-aware bodies (a sidebar variant might suppress whitespace
    *  the canvas variant uses). */
   surface: "canvas" | "sidebar";
+  /**
+   * Per-instance config for this placed widget (weekly-goals widget,
+   * 2026-05-29). Optional + additive. A configurable widget reads
+   * `config.pinnedMember` to switch into single-member mode.
+   */
+  config?: WidgetInstanceConfig;
+  /**
+   * Persist a new per-instance config for this widget (or clear it with
+   * `null`). Supplied by the canvas; a configurable widget calls it from
+   * its in-popup config control. Undefined on surfaces that don't support
+   * editing config (e.g. the read-only Tools launcher popup).
+   */
+  onConfigChange?: (config: WidgetInstanceConfig | null) => void;
 }
 
 /** Back-compat type alias: existing widget bodies are typed against

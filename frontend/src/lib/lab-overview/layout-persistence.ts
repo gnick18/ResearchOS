@@ -139,7 +139,10 @@ export function migrateLayoutToV2(
   saved: LabOverviewLayout | LabOverviewLayoutV1 | undefined,
 ): LabOverviewLayout | undefined {
   if (!saved) return undefined;
-  // Already v2: idempotent pass-through.
+  // Already v2: idempotent pass-through. The per-instance `widgetConfig`
+  // map (weekly-goals widget, 2026-05-29) is carried through untouched so
+  // a single-member pin survives a re-read; v1 payloads never had it, so
+  // it stays undefined on the upgrade path.
   if ("widgetOrder" in saved && saved.widgetOrder) {
     return {
       version: LAB_OVERVIEW_LAYOUT_VERSION,
@@ -147,6 +150,7 @@ export function migrateLayoutToV2(
         canvas: [...saved.widgetOrder.canvas],
         sidebar: [...saved.widgetOrder.sidebar],
       },
+      ...(saved.widgetConfig ? { widgetConfig: { ...saved.widgetConfig } } : {}),
     };
   }
   // v1 → v2:
@@ -236,23 +240,45 @@ export function resolveLayout(
     return next;
   }
 
+  const canvas = normalizeOrder(
+    migrated.widgetOrder.canvas,
+    canvasIds,
+    catalog,
+    (w) => widgetHasSurface(w, "canvas"),
+  );
+  const sidebar = normalizeOrder(
+    migrated.widgetOrder.sidebar,
+    sidebarIds,
+    catalog,
+    (w) => widgetHasSurface(w, "sidebar"),
+  );
+
   return {
     version: LAB_OVERVIEW_LAYOUT_VERSION,
-    widgetOrder: {
-      canvas: normalizeOrder(
-        migrated.widgetOrder.canvas,
-        canvasIds,
-        catalog,
-        (w) => widgetHasSurface(w, "canvas"),
-      ),
-      sidebar: normalizeOrder(
-        migrated.widgetOrder.sidebar,
-        sidebarIds,
-        catalog,
-        (w) => widgetHasSurface(w, "sidebar"),
-      ),
-    },
+    widgetOrder: { canvas, sidebar },
+    // Carry the per-instance config through, pruning entries whose widget
+    // id is no longer mounted on either surface (weekly-goals widget,
+    // 2026-05-29). Keeps the config map from accumulating stale pins.
+    ...pruneWidgetConfig(migrated.widgetConfig, [...canvas, ...sidebar]),
   };
+}
+
+/**
+ * Prune a `widgetConfig` map to the set of currently-mounted widget ids.
+ * Returns `{}` (no key) when there's nothing to carry, so callers can
+ * spread it conditionally and old layouts stay shape-stable.
+ */
+function pruneWidgetConfig(
+  config: Record<string, { pinnedMember?: string }> | undefined,
+  mountedIds: string[],
+): { widgetConfig?: Record<string, { pinnedMember?: string }> } {
+  if (!config) return {};
+  const mounted = new Set(mountedIds);
+  const next: Record<string, { pinnedMember?: string }> = {};
+  for (const [id, cfg] of Object.entries(config)) {
+    if (mounted.has(id)) next[id] = cfg;
+  }
+  return Object.keys(next).length > 0 ? { widgetConfig: next } : {};
 }
 
 /** Convenience: read settings + return the resolved layout in one call. */
@@ -298,6 +324,50 @@ export async function patchCanvasOrder(
         canvas: nextCanvasOrder,
         sidebar: existing.widgetOrder.sidebar,
       },
+      // Preserve per-instance config across reorders (weekly-goals
+      // widget, 2026-05-29).
+      ...(existing.widgetConfig
+        ? { widgetConfig: existing.widgetConfig }
+        : {}),
+    },
+  });
+}
+
+/**
+ * Set or clear the per-instance config for a placed widget id on the
+ * /lab-overview canvas (weekly-goals widget, 2026-05-29). Passing an
+ * empty/undefined config removes the entry so the widget reverts to its
+ * default mode. Persisted-LAYOUT-shape mutator — additive, no-ops for old
+ * layouts that never had a `widgetConfig` map.
+ */
+export async function patchWidgetConfig(
+  username: string,
+  widgetId: string,
+  config: import("@/lib/settings/user-settings").WidgetInstanceConfig | null,
+): Promise<void> {
+  const current = await readUserSettings(username);
+  const existing =
+    migrateLayoutToV2(current.lab_overview_layout) ??
+    defaultLayoutFor(current.account_type);
+  const nextConfig: Record<
+    string,
+    import("@/lib/settings/user-settings").WidgetInstanceConfig
+  > = { ...(existing.widgetConfig ?? {}) };
+  // A null/empty config (no meaningful fields) clears the entry.
+  const isEmpty =
+    !config || (config.pinnedMember === undefined || config.pinnedMember === "");
+  if (isEmpty) {
+    delete nextConfig[widgetId];
+  } else {
+    nextConfig[widgetId] = config;
+  }
+  await patchUserSettings(username, {
+    lab_overview_layout: {
+      version: LAB_OVERVIEW_LAYOUT_VERSION,
+      widgetOrder: existing.widgetOrder,
+      ...(Object.keys(nextConfig).length > 0
+        ? { widgetConfig: nextConfig }
+        : {}),
     },
   });
 }
@@ -340,6 +410,9 @@ export async function addCanvasWidget(
         canvas: [...existing.widgetOrder.canvas, widget.id],
         sidebar: existing.widgetOrder.sidebar,
       },
+      ...(existing.widgetConfig
+        ? { widgetConfig: existing.widgetConfig }
+        : {}),
     },
   });
 }
@@ -354,6 +427,10 @@ export async function removeCanvasWidget(
     migrateLayoutToV2(current.lab_overview_layout) ??
     defaultLayoutFor(current.account_type);
   if (!existing.widgetOrder.canvas.includes(widgetId)) return;
+  // Drop the removed widget's per-instance config too (weekly-goals
+  // widget, 2026-05-29) so a re-add starts fresh in default mode.
+  const nextConfig = { ...(existing.widgetConfig ?? {}) };
+  delete nextConfig[widgetId];
   await patchUserSettings(username, {
     lab_overview_layout: {
       version: LAB_OVERVIEW_LAYOUT_VERSION,
@@ -361,6 +438,9 @@ export async function removeCanvasWidget(
         canvas: existing.widgetOrder.canvas.filter((id) => id !== widgetId),
         sidebar: existing.widgetOrder.sidebar,
       },
+      ...(Object.keys(nextConfig).length > 0
+        ? { widgetConfig: nextConfig }
+        : {}),
     },
   });
 }

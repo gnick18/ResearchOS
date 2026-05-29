@@ -71,6 +71,9 @@ import type {
   NoteCreate,
   NoteUpdate,
   NoteEntry,
+  WeeklyGoal,
+  WeeklyGoalCreate,
+  WeeklyGoalUpdate,
   NoteComment,
   TaskComment,
   ImageMetadata,
@@ -96,6 +99,7 @@ import {
   isWholeLabShared,
   normalizeSharedWith,
 } from "./sharing/unified";
+import { mondayOf } from "./weekly-goals/week";
 
 const projectsStore = new JsonStore<Project>("projects");
 const tasksStore = new JsonStore<Task>("tasks");
@@ -122,6 +126,14 @@ const purchaseItemsStore = new JsonStore<PurchaseItem>("purchase_items");
 const catalogStore = new JsonStore<CatalogItem>("item_catalog");
 const labLinksStore = new JsonStore<LabLink>("lab_links");
 const notesStore = new JsonStore<Note>("notes");
+// Weekly goals widget (PI beta feedback, weekly-goals widget, 2026-05-29).
+// DATA-SHAPE CHANGE: a new per-user store at
+// `users/<owner>/weekly_goals/<id>.json`. Mirrors `notesStore` /
+// `eventsStore` exactly — user-scoped JsonStore, per-user counters. The
+// lightweight standalone "weekly goal" record (see `WeeklyGoal` in
+// types.ts) is DISTINCT from the Gantt `goalsStore` (`HighLevelGoal`); it
+// is never placed on the Gantt.
+const weeklyGoalsStore = new JsonStore<WeeklyGoal>("weekly_goals");
 const fundingAccountsStore = getLabStore<FundingAccount>("funding_accounts");
 
 async function loadLabUsers(): Promise<{
@@ -3762,6 +3774,70 @@ export const notesApi = {
   },
 };
 
+// ── Weekly goals (PI beta feedback, weekly-goals widget, 2026-05-29) ─────────
+//
+// Current-user-scoped CRUD for the trainee's OWN weekly goals. The owner is
+// always the current user (these writes land in the viewer's own
+// `weekly_goals` dir via the default user-scoped JsonStore). The PI surface
+// does NOT read through here — it reads the sharing-respecting aggregation
+// `labApi.getWeeklyGoals({ shared_only: true })` (mirroring notes). This is
+// the same separation Notes use: per-user CRUD here; cross-lab read in
+// labApi, gated by sharing.
+//
+// Sharing mirrors notes exactly:
+//   - `is_shared` is the coarse flag (set/clear together with the "*"
+//     whole-lab `shared_with` sentinel).
+//   - default for a NEW goal is shared-to-lab ("*") so a 1:1 goal is
+//     visible to the PI — but it still flows through `canRead`, never a
+//     bypass.
+export const weeklyGoalsApi = {
+  /** List the current user's own weekly goals (newest week first). */
+  list: async (): Promise<WeeklyGoal[]> => {
+    const goals = await weeklyGoalsStore.listAll();
+    return goals.sort((a, b) => b.week_of.localeCompare(a.week_of) || b.id - a.id);
+  },
+
+  get: async (id: number): Promise<WeeklyGoal | null> => {
+    return weeklyGoalsStore.get(id);
+  },
+
+  create: async (data: WeeklyGoalCreate): Promise<WeeklyGoal> => {
+    const owner = await getCurrentUserCached();
+    const now = new Date().toISOString();
+    // Default a 1:1 goal to whole-lab shared so the PI sees it. The "*"
+    // sentinel + `is_shared` flag are set together, mirroring how notes
+    // carry both fields. Owner-only is the explicit opt-out
+    // (`is_shared: false`).
+    const isShared = data.is_shared ?? true;
+    return weeklyGoalsStore.create({
+      owner,
+      text: data.text,
+      week_of: data.week_of ?? mondayOf(),
+      is_complete: false,
+      created_at: now,
+      created_by: owner,
+      is_shared: isShared,
+      shared_with: isShared ? [{ username: WHOLE_LAB_SENTINEL, level: "read" }] : [],
+    });
+  },
+
+  update: async (id: number, data: WeeklyGoalUpdate): Promise<WeeklyGoal | null> => {
+    // Keep `is_shared` and the "*" sentinel in lockstep, same as the
+    // create path: flipping the share flag rewrites `shared_with`.
+    const patch: Partial<WeeklyGoal> = { ...data };
+    if (data.is_shared !== undefined) {
+      patch.shared_with = data.is_shared
+        ? [{ username: WHOLE_LAB_SENTINEL, level: "read" }]
+        : [];
+    }
+    return weeklyGoalsStore.update(id, patch);
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await weeklyGoalsStore.delete(id);
+  },
+};
+
 export const attachmentsApi = {
   /**
    * Search the data folder for image files whose name contains the given
@@ -5449,6 +5525,39 @@ export const labApi = {
   getUserNotes: async (username: string): Promise<Note[]> => {
     const notes = await notesStore.listAllForUser(username);
     return notes.map((n) => ({ ...n, username: n.username || username }));
+  },
+
+  // Weekly goals widget (PI beta feedback, weekly-goals widget,
+  // 2026-05-29). The sharing-respecting cross-lab aggregation. MIRRORS
+  // `getNotes` EXACTLY: walk every user's `weekly_goals` dir, stamp the
+  // `owner` defensively, then (when `shared_only`) keep only goals whose
+  // `is_shared` flag is set. This is GATE 1 — the coarse filter that keeps
+  // owner-only goals out of the dataset entirely. The PI widget then
+  // applies GATE 2 (`canRead(record, viewer)`) per record, identical to
+  // the Trainee notes widget. The PI surface MUST consume this aggregation,
+  // never a raw per-user read.
+  getWeeklyGoals: async (
+    params?: { usernames?: string; shared_only?: boolean },
+  ): Promise<WeeklyGoal[]> => {
+    const usernames = await discoverUsers();
+    const goals: WeeklyGoal[] = [];
+
+    for (const username of usernames) {
+      const userGoals = await weeklyGoalsStore.listAllForUser(username);
+      for (const goal of userGoals) {
+        goals.push({ ...goal, owner: goal.owner || username });
+      }
+    }
+
+    if (params?.shared_only) {
+      return goals.filter((g) => g.is_shared);
+    }
+    return goals;
+  },
+
+  getUserWeeklyGoals: async (username: string): Promise<WeeklyGoal[]> => {
+    const goals = await weeklyGoalsStore.listAllForUser(username);
+    return goals.map((g) => ({ ...g, owner: g.owner || username }));
   },
 };
 

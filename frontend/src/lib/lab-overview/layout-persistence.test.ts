@@ -726,3 +726,102 @@ describe("resolveHomeLayout + defaultHomeLayoutFor", () => {
     expect(layout.widgetOrder.canvas).toEqual(["announcements"]);
   });
 });
+
+/**
+ * Per-instance widget config (weekly-goals widget, 2026-05-29):
+ * PERSISTED-LAYOUT-SHAPE CHANGE tests. The new optional `widgetConfig`
+ * map must:
+ *   - migrate idempotently (v2 -> v2 pass-through preserves it),
+ *   - survive `resolveLayout` for ids still mounted,
+ *   - be pruned for ids no longer in the catalog / order,
+ *   - be absent (no key) when there's nothing to carry, so OLD layouts
+ *     stay shape-stable and load unchanged.
+ */
+describe("widgetConfig (per-instance config) — layout-shape change", () => {
+  const cfgCatalog: WidgetDefinition[] = [
+    {
+      id: "trainee-notes",
+      toolId: "trainee-notes",
+      title: "Trainee notes & goals",
+      SnapshotTile: NullSnapshot,
+      SidebarTile: NullSidebar,
+      defaultLayout: { w: 4, h: 6 },
+      surfaces: { canvas: true },
+      memberVisible: false,
+    },
+    {
+      id: "announcements",
+      toolId: "announcements",
+      title: "Announcements",
+      SnapshotTile: NullSnapshot,
+      SidebarTile: NullSidebar,
+      defaultLayout: { w: 12, h: 3 },
+      surfaces: { canvas: true },
+      memberVisible: true,
+    },
+  ];
+
+  it("OLD layout without widgetConfig loads unchanged (no key added)", () => {
+    const saved: LabOverviewLayout = {
+      version: 2,
+      widgetOrder: { canvas: ["announcements"], sidebar: [] },
+    };
+    const layout = resolveLayout(saved, "lab_head", cfgCatalog);
+    expect(layout.widgetConfig).toBeUndefined();
+  });
+
+  it("carries a pinnedMember config through migrateLayoutToV2 idempotently", () => {
+    const saved: LabOverviewLayout = {
+      version: 2,
+      widgetOrder: { canvas: ["trainee-notes"], sidebar: [] },
+      widgetConfig: { "trainee-notes": { pinnedMember: "morgan" } },
+    };
+    const migrated = migrateLayoutToV2(saved);
+    expect(migrated?.widgetConfig).toEqual({
+      "trainee-notes": { pinnedMember: "morgan" },
+    });
+  });
+
+  it("resolveLayout preserves config for a mounted widget", () => {
+    const saved: LabOverviewLayout = {
+      version: 2,
+      widgetOrder: { canvas: ["trainee-notes", "announcements"], sidebar: [] },
+      widgetConfig: { "trainee-notes": { pinnedMember: "morgan" } },
+    };
+    const layout = resolveLayout(saved, "lab_head", cfgCatalog);
+    expect(layout.widgetConfig).toEqual({
+      "trainee-notes": { pinnedMember: "morgan" },
+    });
+  });
+
+  it("resolveLayout prunes config for an id that is no longer in the catalog", () => {
+    // A widget id that was deleted from the catalog in a prior version is
+    // dropped from widgetOrder by the resolver — and its stale config is
+    // pruned with it. (Catalog widgets still present are auto-appended by
+    // resolveLayout, so their config is never pruned; only genuinely-gone
+    // ids lose their config.)
+    const saved: LabOverviewLayout = {
+      version: 2,
+      widgetOrder: { canvas: ["deleted-widget-from-prior-version"], sidebar: [] },
+      widgetConfig: {
+        "deleted-widget-from-prior-version": { pinnedMember: "morgan" },
+      },
+    };
+    const layout = resolveLayout(saved, "lab_head", cfgCatalog);
+    expect(
+      layout.widgetConfig?.["deleted-widget-from-prior-version"],
+    ).toBeUndefined();
+  });
+
+  it("resolveLayout drops the widgetConfig key entirely when nothing survives", () => {
+    const saved: LabOverviewLayout = {
+      version: 2,
+      widgetOrder: { canvas: ["deleted-widget-from-prior-version"], sidebar: [] },
+      widgetConfig: {
+        "deleted-widget-from-prior-version": { pinnedMember: "morgan" },
+      },
+    };
+    const layout = resolveLayout(saved, "lab_head", cfgCatalog);
+    expect(layout.widgetConfig).toBeUndefined();
+  });
+});

@@ -5,43 +5,55 @@ import { useQuery } from "@tanstack/react-query";
 import { labApi } from "@/lib/local-api";
 import NoteDetailPopup from "@/components/NoteDetailPopup";
 import UserAvatar from "@/components/UserAvatar";
+import Tooltip from "@/components/Tooltip";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAccountType } from "@/hooks/useAccountType";
 import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
 import { canRead } from "@/lib/sharing/unified";
-import type { Note } from "@/lib/types";
+import { weekLabel } from "@/lib/weekly-goals/week";
+import type { Note, WeeklyGoal } from "@/lib/types";
+import type {
+  ExpandedViewProps,
+  SnapshotTileProps,
+  SidebarTileProps,
+} from "./types";
 
 /**
- * Trainee notes widget (PI beta feedback, pi-notes-widget, 2026-05-29).
+ * Trainee notes + weekly goals widget (PI beta feedback, weekly-goals
+ * widget, 2026-05-29). EXTENDS the original Trainee notes widget
+ * (pi-notes-widget, 2026-05-29).
  *
- * A roster-style list of lab members. Clicking a member surfaces the
- * notes that member has SHARED with the viewing user, so a PI can read a
- * trainee's 1:1 / running-log notes at a glance without hunting through
- * the cross-lab notes gallery. Click a note row to open it read-only.
+ * A roster-style PI surface. Clicking a member surfaces the notes AND the
+ * weekly goals that member has SHARED with the viewing user, so a PI can
+ * read a trainee's 1:1 / running-log notes plus the weekly goals set in
+ * those meetings at a glance. Click a note row to open it read-only.
+ *
+ * TWO MODES (driven by the per-instance `config.pinnedMember`):
+ *   - Everyone mode (default, no config): roster -> click a member ->
+ *     that member's shared notes + shared weekly goals.
+ *   - Single-member mode (config.pinnedMember set): shows that one
+ *     member's notes + weekly goals directly and concisely, no roster
+ *     step. The PI can place one widget per trainee.
  *
  * PRIVACY CONTRACT (the whole point of this widget):
- *   The list NEVER exposes a member's private / unshared notes. Two
- *   gates, both reading the EXISTING shared-data aggregation; we never
- *   read raw `users/<member>/notes/` in a way that bypasses sharing:
+ *   The list NEVER exposes a member's private / unshared notes OR goals.
+ *   BOTH datasets flow through the SAME two-gate sharing pipeline, reading
+ *   the EXISTING sharing-respecting aggregations; we never read raw
+ *   `users/<member>/...` in a way that bypasses sharing:
  *
- *     1. `labApi.getNotes({ shared_only: true })` is the coarse gate.
- *        It returns only notes whose `is_shared` flag is set, so a
- *        member's owner-only notes never enter the dataset at all.
- *     2. `canRead(shareable, viewer)` is the precise per-viewer gate
- *        (same primitive `LabNotesWidget` uses). A note reaches the PI
- *        only if it is shared with them specifically OR whole-lab via
- *        the "*" sentinel OR the viewer is a lab_head (implicit
- *        view-all). The lab_head branch is deliberately layered on TOP
- *        of gate 1, so even view-all only ever sees genuinely-shared
- *        notes, never a private draft.
+ *     1. `labApi.getNotes({ shared_only: true })` /
+ *        `labApi.getWeeklyGoals({ shared_only: true })` are the coarse
+ *        gates. They return only records whose `is_shared` flag is set, so
+ *        a member's owner-only records never enter the dataset at all.
+ *     2. `canRead(shareable, viewer)` is the precise per-viewer gate (same
+ *        primitive `LabNotesWidget` uses). A record reaches the PI only if
+ *        it is shared with them specifically OR whole-lab via the "*"
+ *        sentinel OR the viewer is a lab_head (implicit view-all). The
+ *        lab_head branch is layered ON TOP of gate 1, so even view-all
+ *        only ever sees genuinely-shared records, never a private draft.
  *
- *   The member's OWN notes (where `note.username === currentUser`) are
- *   not interesting here (the PI sees their own notes elsewhere) and the
- *   roster lists OTHER members, so self-owned notes drop out naturally.
- *
- * Mirrors `LabRoster` (lab-head/LabRoster.tsx) for the member-row look
- * and reuses the same `labApi.getNotes({ shared_only: true })` query key
- * as `LabNotesWidget` so the underlying read is shared (warm cache).
+ *   A member's OWN records (where the record's owner === currentUser) drop
+ *   out naturally because the roster lists OTHER members.
  */
 
 const DOC_SVG = (
@@ -59,6 +71,45 @@ const DOC_SVG = (
   >
     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
     <polyline points="14 2 14 8 20 8" />
+  </svg>
+);
+
+// Target / bullseye motif for weekly goals. Distinct from the document
+// motif used for notes so the two sections read apart at a glance. NOT the
+// Gantt high-level-goal icon — weekly goals are a separate concept.
+const TARGET_SVG = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <circle cx="12" cy="12" r="9" />
+    <circle cx="12" cy="12" r="5" />
+    <circle cx="12" cy="12" r="1" />
+  </svg>
+);
+
+const CHECK_SVG = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="12"
+    height="12"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="3"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <polyline points="20 6 9 17 4 12" />
   </svg>
 );
 
@@ -97,6 +148,24 @@ const BACK_ARROW_SVG = (
   </svg>
 );
 
+const PIN_SVG = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <line x1="12" y1="17" x2="12" y2="22" />
+    <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24z" />
+  </svg>
+);
+
 function formatWhen(iso: string | undefined | null): string {
   if (!iso) return "";
   const then = new Date(iso).getTime();
@@ -112,10 +181,26 @@ function formatWhen(iso: string | undefined | null): string {
   return new Date(iso).toLocaleDateString();
 }
 
+/** The unified-sharing Viewer the gate compares against. Collapses the
+ *  user-settings AccountType ("member" | "lab_head") into the sharing
+ *  Viewer account_type the same way LabNotesWidget does. */
+function useViewer(): { username: string; account_type: "lab" | "lab_head" } | null {
+  const { currentUser } = useCurrentUser();
+  const accountType = useAccountType(currentUser);
+  return useMemo(() => {
+    if (!currentUser || !accountType) return null;
+    return {
+      username: currentUser,
+      account_type:
+        accountType === "lab_head" ? ("lab_head" as const) : ("lab" as const),
+    };
+  }, [currentUser, accountType]);
+}
+
 /**
- * The viewer-scoped, shared-only notes the widget operates on. Exported
- * helper so the SnapshotTile / SidebarTile / ExpandedView all compute
- * the same set, and so the privacy gate has a single home.
+ * The viewer-scoped, shared-only notes the widget operates on. GATE 1
+ * (shared_only) + GATE 2 (canRead). Exported shape so the SnapshotTile /
+ * SidebarTile / ExpandedView all compute the same set.
  */
 function useSharedNotesByMember(): {
   isLoading: boolean;
@@ -123,7 +208,7 @@ function useSharedNotesByMember(): {
   byMember: Map<string, Note[]>;
 } {
   const { currentUser } = useCurrentUser();
-  const accountType = useAccountType(currentUser);
+  const viewer = useViewer();
 
   // Same query key as LabNotesWidget so React Query dedupes the read.
   // GATE 1: shared_only -> only notes with is_shared set come back.
@@ -136,23 +221,11 @@ function useSharedNotesByMember(): {
 
   const byMember = useMemo(() => {
     const map = new Map<string, Note[]>();
-    if (!currentUser || !accountType) return map;
-    // The unified-sharing Viewer uses "solo" | "lab" | "lab_head"; the
-    // user-settings AccountType is "member" | "lab_head". Only the
-    // lab_head branch shifts canRead behavior, so collapse "member" ->
-    // "lab" (same mapping LabNotesWidget uses).
-    const viewer = {
-      username: currentUser,
-      account_type:
-        accountType === "lab_head" ? ("lab_head" as const) : ("lab" as const),
-    };
+    if (!currentUser || !viewer) return map;
     for (const note of notes) {
-      // Skip the viewer's own notes — the roster lists OTHER members and
-      // the PI reads their own notes elsewhere.
+      // Skip the viewer's own notes — the roster lists OTHER members.
       if (note.username === currentUser) continue;
-      // GATE 2: precise per-viewer read check. Drops any note not shared
-      // with this viewer (or whole-lab via "*"); lab_head view-all still
-      // only ever sees notes that passed GATE 1 (genuinely shared).
+      // GATE 2: precise per-viewer read check.
       const shareable = {
         owner: note.username,
         shared_with: note.shared_with ?? [],
@@ -162,7 +235,6 @@ function useSharedNotesByMember(): {
       list.push(note);
       map.set(note.username, list);
     }
-    // Newest-first within each member.
     for (const [, list] of map) {
       list.sort(
         (a, b) =>
@@ -171,29 +243,264 @@ function useSharedNotesByMember(): {
       );
     }
     return map;
-  }, [notes, currentUser, accountType]);
+  }, [notes, currentUser, viewer]);
 
   return { isLoading, byMember };
 }
 
 /**
- * ExpandedView: the roster -> member -> shared notes drill-down. This is
- * the popup body opened from the snapshot / sidebar tiles.
+ * The viewer-scoped, shared-only WEEKLY GOALS the widget operates on.
+ * MIRRORS `useSharedNotesByMember` EXACTLY — same two gates, same
+ * structure — only the aggregation source differs
+ * (`labApi.getWeeklyGoals` instead of `labApi.getNotes`). This is how the
+ * privacy contract is identical for notes and goals.
  */
-export default function TraineeNotesWidget(_props?: {
-  isEditing?: boolean;
-  surface?: "canvas" | "sidebar";
+function useSharedWeeklyGoalsByMember(): {
+  isLoading: boolean;
+  /** member username -> their shared-with-the-viewer goals, newest week first */
+  byMember: Map<string, WeeklyGoal[]>;
+} {
+  const { currentUser } = useCurrentUser();
+  const viewer = useViewer();
+
+  // GATE 1: shared_only -> only goals with is_shared set come back.
+  const { data: goals = [], isLoading } = useQuery<WeeklyGoal[]>({
+    queryKey: ["lab", "weekly-goals-shared"],
+    queryFn: () => labApi.getWeeklyGoals({ shared_only: true }),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+
+  const byMember = useMemo(() => {
+    const map = new Map<string, WeeklyGoal[]>();
+    if (!currentUser || !viewer) return map;
+    for (const goal of goals) {
+      // Skip the viewer's own goals — the roster lists OTHER members.
+      if (goal.owner === currentUser) continue;
+      // GATE 2: precise per-viewer read check. `WeeklyGoal` carries the
+      // same `{ owner, shared_with }` shape as a Note, so the identical
+      // `canRead` primitive applies with no special-casing.
+      const shareable = {
+        owner: goal.owner,
+        shared_with: goal.shared_with ?? [],
+      };
+      if (!canRead(shareable, viewer)) continue;
+      const list = map.get(goal.owner) ?? [];
+      list.push(goal);
+      map.set(goal.owner, list);
+    }
+    // Newest week first, then incomplete before complete within a week.
+    for (const [, list] of map) {
+      list.sort((a, b) => {
+        const byWeek = b.week_of.localeCompare(a.week_of);
+        if (byWeek !== 0) return byWeek;
+        if (a.is_complete !== b.is_complete) return a.is_complete ? 1 : -1;
+        return b.id - a.id;
+      });
+    }
+    return map;
+  }, [goals, currentUser, viewer]);
+
+  return { isLoading, byMember };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Member detail panel (shared by everyone-mode drill-down + single-member mode)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function MemberDetail({
+  member,
+  label,
+  notes,
+  goals,
+  onOpenNote,
+}: {
+  member: string;
+  label: string;
+  notes: Note[];
+  goals: WeeklyGoal[];
+  onOpenNote: (note: Note) => void;
 }) {
+  void member;
+  void label;
+  return (
+    <div className="flex-1 min-h-0 overflow-auto flex flex-col gap-4">
+      {/* Weekly goals section. Conceptually + visually SEPARATE from the
+          notes section (and from the Gantt). */}
+      <div>
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <span aria-hidden="true" className="text-emerald-500 flex-shrink-0">
+            {TARGET_SVG}
+          </span>
+          <span className="text-[11px] uppercase tracking-wide font-semibold text-gray-500">
+            Weekly goals
+          </span>
+        </div>
+        {goals.length === 0 ? (
+          <p className="text-xs text-gray-400 italic">
+            No weekly goals shared with you yet.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-1">
+            {goals.map((goal) => (
+              <li
+                key={`g-${goal.owner}-${goal.id}`}
+                className="flex items-start gap-2 text-sm"
+                data-testid={`trainee-goal-${goal.id}`}
+              >
+                <span
+                  aria-hidden="true"
+                  className={`mt-0.5 inline-flex items-center justify-center w-4 h-4 rounded-full flex-shrink-0 ${
+                    goal.is_complete
+                      ? "bg-emerald-500 text-white"
+                      : "border border-gray-300 text-transparent"
+                  }`}
+                >
+                  {CHECK_SVG}
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span
+                    className={
+                      goal.is_complete
+                        ? "text-gray-400 line-through"
+                        : "text-gray-800"
+                    }
+                  >
+                    {goal.text}
+                  </span>
+                  <span className="ml-2 text-[10px] text-gray-400">
+                    {weekLabel(goal.week_of)}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Notes section. */}
+      <div className="flex-1 min-h-0 flex flex-col">
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <span aria-hidden="true" className="text-sky-500 flex-shrink-0">
+            {DOC_SVG}
+          </span>
+          <span className="text-[11px] uppercase tracking-wide font-semibold text-gray-500">
+            Shared notes
+          </span>
+        </div>
+        {notes.length === 0 ? (
+          <p className="text-xs text-gray-400 italic">
+            No notes shared with you yet. Private notes never appear.
+          </p>
+        ) : (
+          <ul className="divide-y divide-gray-100 border border-gray-200 rounded-lg">
+            {notes.map((note) => (
+              <li key={`${note.username}:${note.id}`}>
+                <button
+                  type="button"
+                  onClick={() => onOpenNote(note)}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-gray-50 transition-colors"
+                  data-testid={`trainee-notes-note-${note.id}`}
+                >
+                  <span aria-hidden="true" className="text-sky-500 flex-shrink-0">
+                    {DOC_SVG}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-800 truncate">
+                      {note.title || "Untitled note"}
+                      {note.is_running_log && (
+                        <span className="ml-2 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-purple-100 text-purple-700 align-middle">
+                          Running log
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-[11px] text-gray-500 truncate">
+                      Updated {formatWhen(note.updated_at)}
+                    </p>
+                  </div>
+                  <span aria-hidden="true" className="text-gray-300 flex-shrink-0">
+                    {CHEVRON_RIGHT_SVG}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Config control (single-member pin). Rendered in the ExpandedView popup
+ * only when the canvas supplies `onConfigChange` (the /lab-overview canvas
+ * surface). Lets the PI pin this widget instance to one trainee, or clear
+ * the pin to return to roster (everyone) mode.
+ */
+function PinConfigBar({
+  roster,
+  pinnedMember,
+  onConfigChange,
+}: {
+  roster: { username: string; label: string }[];
+  pinnedMember: string | undefined;
+  onConfigChange: ExpandedViewProps["onConfigChange"];
+}) {
+  if (!onConfigChange) return null;
+  return (
+    <div className="flex items-center gap-2 rounded-lg bg-gray-50 border border-gray-200 px-3 py-2">
+      <span aria-hidden="true" className="text-gray-400 flex-shrink-0">
+        {PIN_SVG}
+      </span>
+      <label
+        htmlFor="trainee-widget-pin"
+        className="text-xs font-medium text-gray-600 flex-shrink-0"
+      >
+        Pin to trainee
+      </label>
+      <select
+        id="trainee-widget-pin"
+        data-testid="trainee-widget-pin-select"
+        value={pinnedMember ?? ""}
+        onChange={(e) => {
+          const v = e.target.value;
+          onConfigChange(v ? { pinnedMember: v } : null);
+        }}
+        className="flex-1 min-w-0 text-xs rounded border border-gray-200 bg-white px-2 py-1 text-gray-800"
+      >
+        <option value="">Everyone (roster)</option>
+        {roster.map((r) => (
+          <option key={r.username} value={r.username}>
+            {r.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+/**
+ * ExpandedView: the popup body. Renders either the roster drill-down
+ * (everyone mode) or a single member's detail (single-member mode), driven
+ * by `config.pinnedMember`.
+ */
+export default function TraineeNotesWidget(props?: ExpandedViewProps) {
+  const config = props?.config;
+  const onConfigChange = props?.onConfigChange;
+  const pinnedMember = config?.pinnedMember;
+
   const { currentUser } = useCurrentUser();
   const profileMap = useLabUserProfileMap();
-  const { isLoading, byMember } = useSharedNotesByMember();
+  const { isLoading: notesLoading, byMember: notesByMember } =
+    useSharedNotesByMember();
+  const { isLoading: goalsLoading, byMember: goalsByMember } =
+    useSharedWeeklyGoalsByMember();
+  const isLoading = notesLoading || goalsLoading;
+
   const [selectedMember, setSelectedMember] = useState<string | null>(null);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
 
   // Roster = every other lab member, lab_head first then alphabetical.
-  // Drawn from the profile map (the canonical cross-user roster source)
-  // so a member with zero shared notes still appears with an empty
-  // state, matching the brief.
   const roster = useMemo(() => {
     return Object.values(profileMap)
       .filter((p) => p.username !== currentUser)
@@ -204,25 +511,77 @@ export default function TraineeNotesWidget(_props?: {
         const aLabel = a.displayName?.trim() || a.username;
         const bLabel = b.displayName?.trim() || b.username;
         return aLabel.localeCompare(bLabel);
-      });
+      })
+      .map((p) => ({
+        username: p.username,
+        label: p.displayName?.trim() || p.username,
+        account_type: p.account_type,
+      }));
   }, [profileMap, currentUser]);
 
   if (isLoading) {
     return (
       <div className="flex items-center gap-2 text-sm text-gray-500">
         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-sky-600" />
-        Loading lab roster…
+        Loading shared notes and goals…
       </div>
     );
   }
 
-  // Drill-down view: a member's shared notes.
+  const renderNotePopup = () =>
+    selectedNote && (
+      <NoteDetailPopup
+        note={selectedNote}
+        onClose={() => setSelectedNote(null)}
+        onUpdate={(updated) => setSelectedNote(updated)}
+        onDelete={() => setSelectedNote(null)}
+        readOnly={selectedNote.username !== currentUser}
+      />
+    );
+
+  // ── Single-member mode: show that one member directly, no roster step ──
+  if (pinnedMember) {
+    const profile = profileMap[pinnedMember];
+    const label = profile?.displayName?.trim() || pinnedMember;
+    return (
+      <div className="h-full flex flex-col gap-3 min-h-0">
+        <PinConfigBar
+          roster={roster}
+          pinnedMember={pinnedMember}
+          onConfigChange={onConfigChange}
+        />
+        <div className="flex items-center gap-2 min-w-0">
+          <UserAvatar username={pinnedMember} size="sm" />
+          <span className="text-sm font-semibold text-gray-900 truncate">
+            {label}
+          </span>
+          <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-sky-100 text-sky-700">
+            Pinned
+          </span>
+        </div>
+        <MemberDetail
+          member={pinnedMember}
+          label={label}
+          notes={notesByMember.get(pinnedMember) ?? []}
+          goals={goalsByMember.get(pinnedMember) ?? []}
+          onOpenNote={(n) => setSelectedNote(n)}
+        />
+        {renderNotePopup()}
+      </div>
+    );
+  }
+
+  // ── Everyone mode: roster -> drill-down ──
   if (selectedMember) {
     const profile = profileMap[selectedMember];
     const label = profile?.displayName?.trim() || selectedMember;
-    const memberNotes = byMember.get(selectedMember) ?? [];
     return (
       <div className="h-full flex flex-col gap-3 min-h-0">
+        <PinConfigBar
+          roster={roster}
+          pinnedMember={undefined}
+          onConfigChange={onConfigChange}
+        />
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -243,70 +602,14 @@ export default function TraineeNotesWidget(_props?: {
             </span>
           </div>
         </div>
-
-        {memberNotes.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/40 px-4 py-6 text-center">
-            <p className="text-sm font-medium text-gray-700">
-              {label} has not shared any notes with you yet
-            </p>
-            <p className="mt-1 text-xs text-gray-500">
-              When {label} shares a note with you (or with the whole lab),
-              it shows up here. Private notes never appear.
-            </p>
-          </div>
-        ) : (
-          <ul className="flex-1 min-h-0 overflow-auto divide-y divide-gray-100 border border-gray-200 rounded-lg">
-            {memberNotes.map((note) => (
-              <li key={`${note.username}:${note.id}`}>
-                <button
-                  type="button"
-                  onClick={() => setSelectedNote(note)}
-                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-gray-50 transition-colors"
-                  data-testid={`trainee-notes-note-${note.id}`}
-                >
-                  <span
-                    aria-hidden="true"
-                    className="text-sky-500 flex-shrink-0"
-                  >
-                    {DOC_SVG}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-800 truncate">
-                      {note.title || "Untitled note"}
-                      {note.is_running_log && (
-                        <span className="ml-2 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-purple-100 text-purple-700 align-middle">
-                          Running log
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-[11px] text-gray-500 truncate">
-                      Updated {formatWhen(note.updated_at)}
-                    </p>
-                  </div>
-                  <span
-                    aria-hidden="true"
-                    className="text-gray-300 flex-shrink-0"
-                  >
-                    {CHEVRON_RIGHT_SVG}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {selectedNote && (
-          <NoteDetailPopup
-            note={selectedNote}
-            onClose={() => setSelectedNote(null)}
-            onUpdate={(updated) => setSelectedNote(updated)}
-            onDelete={() => setSelectedNote(null)}
-            // A trainee's shared note is always read-only here unless the
-            // viewer happens to own it (they don't — self is filtered
-            // out), so the popup opens read-only.
-            readOnly={selectedNote.username !== currentUser}
-          />
-        )}
+        <MemberDetail
+          member={selectedMember}
+          label={label}
+          notes={notesByMember.get(selectedMember) ?? []}
+          goals={goalsByMember.get(selectedMember) ?? []}
+          onOpenNote={(n) => setSelectedNote(n)}
+        />
+        {renderNotePopup()}
       </div>
     );
   }
@@ -314,8 +617,14 @@ export default function TraineeNotesWidget(_props?: {
   // Roster view.
   return (
     <div className="h-full flex flex-col gap-2 min-h-0">
+      <PinConfigBar
+        roster={roster}
+        pinnedMember={undefined}
+        onConfigChange={onConfigChange}
+      />
       <p className="text-xs text-gray-500">
-        Click a member to read the notes they have shared with you.
+        Click a member to read the notes and weekly goals they have shared
+        with you.
       </p>
       {roster.length === 0 ? (
         <p className="text-sm text-gray-400 italic">
@@ -324,8 +633,8 @@ export default function TraineeNotesWidget(_props?: {
       ) : (
         <ul className="flex-1 min-h-0 overflow-auto divide-y divide-gray-100 border border-gray-200 rounded-lg">
           {roster.map((p) => {
-            const label = p.displayName?.trim() || p.username;
-            const count = byMember.get(p.username)?.length ?? 0;
+            const noteCount = notesByMember.get(p.username)?.length ?? 0;
+            const goalCount = goalsByMember.get(p.username)?.length ?? 0;
             return (
               <li key={p.username}>
                 <button
@@ -338,7 +647,7 @@ export default function TraineeNotesWidget(_props?: {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-gray-900 truncate">
-                        {label}
+                        {p.label}
                       </span>
                       {p.account_type === "lab_head" && (
                         <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-100 text-amber-800">
@@ -350,15 +659,32 @@ export default function TraineeNotesWidget(_props?: {
                       @{p.username}
                     </div>
                   </div>
-                  <span
-                    className={`flex-shrink-0 inline-flex items-center justify-center min-w-[20px] px-1.5 py-0.5 rounded-full text-[11px] font-semibold tabular-nums ${
-                      count > 0
-                        ? "bg-sky-100 text-sky-700"
-                        : "bg-gray-100 text-gray-400"
-                    }`}
-                  >
-                    {count}
-                  </span>
+                  {/* Goal count pill (emerald, target motif). */}
+                  <Tooltip label="Weekly goals shared with you" placement="top">
+                    <span
+                      className={`flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[11px] font-semibold tabular-nums ${
+                        goalCount > 0
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-gray-100 text-gray-400"
+                      }`}
+                    >
+                      <span aria-hidden="true">{TARGET_SVG}</span>
+                      {goalCount}
+                    </span>
+                  </Tooltip>
+                  {/* Note count pill (sky, document motif). */}
+                  <Tooltip label="Notes shared with you" placement="top">
+                    <span
+                      className={`flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[11px] font-semibold tabular-nums ${
+                        noteCount > 0
+                          ? "bg-sky-100 text-sky-700"
+                          : "bg-gray-100 text-gray-400"
+                      }`}
+                    >
+                      <span aria-hidden="true">{DOC_SVG}</span>
+                      {noteCount}
+                    </span>
+                  </Tooltip>
                   <span aria-hidden="true" className="text-gray-300 flex-shrink-0">
                     {CHEVRON_RIGHT_SVG}
                   </span>
@@ -378,14 +704,13 @@ export const ExpandedView = TraineeNotesWidget;
  * Lab overview PI tooltips help-badge copy.
  */
 export const HELP_TEXT =
-  "A roster of your lab members. Click a member to read the notes they have shared with you (1:1 or running-log notes). Only shared notes appear; private notes are never shown.";
+  "A roster of your lab members. Click a member to read the notes and weekly goals they have shared with you. Only shared records appear; private notes and goals are never shown. Pin the widget to a single trainee to skip the roster.";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tiles
 // ─────────────────────────────────────────────────────────────────────────────
 
 import SidebarStatTile from "./snapshot/SidebarStatTile";
-import type { SnapshotTileProps, SidebarTileProps } from "./types";
 
 const PEOPLE_SVG = (
   <svg
@@ -408,32 +733,92 @@ const PEOPLE_SVG = (
 );
 
 /**
- * SnapshotTile: top members by shared-note count, so the PI sees at a
- * glance who has shared what. The outer tile click opens the full roster
- * popup (the canvas owns that wiring); per-row clicks aren't needed.
+ * SnapshotTile. In everyone mode, shows top members by shared-record count.
+ * In single-member mode (`config.pinnedMember`), shows that one member's
+ * note + goal counts directly.
  */
-export function SnapshotTile(_props: SnapshotTileProps) {
+export function SnapshotTile(props: SnapshotTileProps) {
+  const pinnedMember = props.config?.pinnedMember;
   const { currentUser } = useCurrentUser();
   const profileMap = useLabUserProfileMap();
-  const { isLoading, byMember } = useSharedNotesByMember();
+  const { isLoading: notesLoading, byMember: notesByMember } =
+    useSharedNotesByMember();
+  const { isLoading: goalsLoading, byMember: goalsByMember } =
+    useSharedWeeklyGoalsByMember();
+  const isLoading = notesLoading || goalsLoading;
 
+  // Everyone-mode aggregates. Computed unconditionally (before the
+  // single-member early return) so the hook order stays stable across
+  // both modes (rules of hooks).
   const rows = useMemo(() => {
     return Object.values(profileMap)
       .filter((p) => p.username !== currentUser)
       .map((p) => ({
         username: p.username,
         label: p.displayName?.trim() || p.username,
-        count: byMember.get(p.username)?.length ?? 0,
+        notes: notesByMember.get(p.username)?.length ?? 0,
+        goals: goalsByMember.get(p.username)?.length ?? 0,
       }))
-      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+      .sort(
+        (a, b) =>
+          b.notes + b.goals - (a.notes + a.goals) ||
+          a.label.localeCompare(b.label),
+      )
       .slice(0, 4);
-  }, [profileMap, byMember, currentUser]);
+  }, [profileMap, notesByMember, goalsByMember, currentUser]);
 
   const totalShared = useMemo(() => {
     let n = 0;
-    for (const list of byMember.values()) n += list.length;
+    for (const list of notesByMember.values()) n += list.length;
+    for (const list of goalsByMember.values()) n += list.length;
     return n;
-  }, [byMember]);
+  }, [notesByMember, goalsByMember]);
+
+  // Single-member tile.
+  if (pinnedMember) {
+    const profile = profileMap[pinnedMember];
+    const label = profile?.displayName?.trim() || pinnedMember;
+    const noteCount = notesByMember.get(pinnedMember)?.length ?? 0;
+    const goalCount = goalsByMember.get(pinnedMember)?.length ?? 0;
+    return (
+      <div className="relative h-full overflow-hidden flex flex-col">
+        <div className="flex items-center gap-1.5 text-gray-500">
+          <span aria-hidden="true" className="text-sky-500 flex-shrink-0">
+            {PEOPLE_SVG}
+          </span>
+          <span className="text-[10px] uppercase tracking-wide font-medium truncate">
+            {label}
+          </span>
+        </div>
+        <div className="mt-2 flex-1 min-h-0 flex flex-col justify-center gap-2">
+          {isLoading ? (
+            <p className="text-xs text-gray-400 italic">Loading…</p>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <span aria-hidden="true" className="text-emerald-500">
+                  {TARGET_SVG}
+                </span>
+                <span className="text-sm font-semibold tabular-nums text-gray-800">
+                  {goalCount}
+                </span>
+                <span className="text-xs text-gray-500">weekly goals</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span aria-hidden="true" className="text-sky-500">
+                  {DOC_SVG}
+                </span>
+                <span className="text-sm font-semibold tabular-nums text-gray-800">
+                  {noteCount}
+                </span>
+                <span className="text-xs text-gray-500">shared notes</span>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative h-full overflow-hidden flex flex-col">
@@ -442,7 +827,7 @@ export function SnapshotTile(_props: SnapshotTileProps) {
           {PEOPLE_SVG}
         </span>
         <span className="text-[10px] uppercase tracking-wide font-medium">
-          Trainee notes
+          Trainee notes &amp; goals
         </span>
       </div>
       {totalShared > 0 && (
@@ -469,10 +854,17 @@ export function SnapshotTile(_props: SnapshotTileProps) {
               </span>
               <span
                 className={`flex-shrink-0 text-[10px] font-semibold tabular-nums ${
-                  row.count > 0 ? "text-sky-700" : "text-gray-400"
+                  row.goals > 0 ? "text-emerald-600" : "text-gray-400"
                 }`}
               >
-                {row.count}
+                {row.goals}g
+              </span>
+              <span
+                className={`flex-shrink-0 text-[10px] font-semibold tabular-nums ${
+                  row.notes > 0 ? "text-sky-700" : "text-gray-400"
+                }`}
+              >
+                {row.notes}n
               </span>
             </div>
           ))
@@ -485,7 +877,11 @@ export function SnapshotTile(_props: SnapshotTileProps) {
 export function SidebarTile({ onClick }: SidebarTileProps) {
   const { currentUser } = useCurrentUser();
   const profileMap = useLabUserProfileMap();
-  const { isLoading, byMember } = useSharedNotesByMember();
+  const { isLoading: notesLoading, byMember: notesByMember } =
+    useSharedNotesByMember();
+  const { isLoading: goalsLoading, byMember: goalsByMember } =
+    useSharedWeeklyGoalsByMember();
+  const isLoading = notesLoading || goalsLoading;
 
   const memberCount = useMemo(
     () =>
@@ -495,15 +891,16 @@ export function SidebarTile({ onClick }: SidebarTileProps) {
   );
   const totalShared = useMemo(() => {
     let n = 0;
-    for (const list of byMember.values()) n += list.length;
+    for (const list of notesByMember.values()) n += list.length;
+    for (const list of goalsByMember.values()) n += list.length;
     return n;
-  }, [byMember]);
+  }, [notesByMember, goalsByMember]);
 
   return (
     <SidebarStatTile
       icon={PEOPLE_SVG}
       iconClassName="text-sky-500"
-      label="Trainee notes"
+      label="Trainee notes & goals"
       stat={
         isLoading ? (
           "—"

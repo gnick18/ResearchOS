@@ -70,11 +70,18 @@ import { ExpandedView as DailyTasksExpanded } from "@/components/lab-overview/wi
 // powers the SnapshotTile + SidebarTile of CalendarEventsTodayWidget,
 // it's only the popup ExpandedView that switches.
 import { ExpandedView as CalendarDayPopupExpanded } from "@/components/lab-overview/widgets/CalendarDayPopupView";
-// Trainee notes Tool (PI beta feedback, pi-notes-widget, 2026-05-29):
-// a lab-roster surface where clicking a member surfaces the notes that
-// member has SHARED with the viewer. Read-only; respects the same
-// canRead + shared_only gates LabNotesWidget uses.
+// Trainee notes + weekly goals Tool (PI beta feedback, weekly-goals
+// widget, 2026-05-29): a lab-roster surface where clicking a member
+// surfaces the notes AND weekly goals that member has SHARED with the
+// viewer. Read-only; respects the same canRead + shared_only gates
+// LabNotesWidget uses. Supports a single-member-pinned mode via the
+// per-instance widget config.
 import { ExpandedView as TraineeNotesExpanded } from "@/components/lab-overview/widgets/TraineeNotesWidget";
+// Weekly goals capture Tool (PI beta feedback, weekly-goals widget,
+// 2026-05-29): the trainee-facing capture box. Add / toggle-done /
+// delete the lightweight weekly goals set in 1:1s. Distinct from the
+// Gantt goal system.
+import { ExpandedView as WeeklyGoalsExpanded } from "@/components/lab-overview/widgets/WeeklyGoalsWidget";
 
 // ── Small inline icons (no emojis, no lucide-react) ───────────────────────
 // Each tool gets a 16x16 SVG. Pulled from / mirrors the existing widget
@@ -212,6 +219,16 @@ const CALENDAR_ICON = (
   </svg>
 );
 
+const WEEKLY_GOALS_ICON = (
+  // Target / bullseye. Mirrors TARGET_SVG from WeeklyGoalsWidget. Distinct
+  // from the Gantt goal motif — weekly goals are a separate concept.
+  <svg {...ICON_PROPS}>
+    <circle cx="12" cy="12" r="9" />
+    <circle cx="12" cy="12" r="5" />
+    <circle cx="12" cy="12" r="1" />
+  </svg>
+);
+
 // ── Tool definitions ─────────────────────────────────────────────────────
 
 export interface ToolDefinition {
@@ -285,18 +302,33 @@ export const TOOL_REGISTRY: ToolDefinition[] = [
     memberVisible: false,
   },
   {
-    // Trainee notes (PI beta feedback, pi-notes-widget, 2026-05-29).
-    // PI-only: a roster where clicking a member surfaces the notes that
-    // member has shared with the PI (1:1 / running-log notes). Read-only
-    // and gated by the same shared_only + canRead checks LabNotesWidget
-    // uses; never exposes a member's private notes.
+    // Trainee notes + weekly goals (PI beta feedback, weekly-goals
+    // widget, 2026-05-29; extends pi-notes-widget, 2026-05-29). PI-only:
+    // a roster where clicking a member surfaces the notes AND weekly
+    // goals that member has shared with the PI. Read-only and gated by
+    // the same shared_only + canRead checks LabNotesWidget uses; never
+    // exposes a member's private notes or goals. Supports a
+    // single-member-pinned mode via the per-instance widget config.
     id: "trainee-notes",
-    title: "Trainee notes",
+    title: "Trainee notes & goals",
     description:
-      "Lab roster; click a member to read the notes they've shared with you.",
+      "Lab roster; click a member to read the notes and weekly goals they've shared with you. Pin to one trainee.",
     Icon: TRAINEE_NOTES_ICON,
     ExpandedView: TraineeNotesExpanded,
     memberVisible: false,
+  },
+  {
+    // Weekly goals capture (PI beta feedback, weekly-goals widget,
+    // 2026-05-29). The trainee-facing box for logging the lightweight
+    // weekly goals set in 1:1s. Member-visible. Distinct from the Gantt
+    // goal system; a weekly goal never lands on the Gantt.
+    id: "weekly-goals",
+    title: "Weekly goals",
+    description:
+      "Log the lightweight goals you set in your 1:1 meetings. Shared goals are visible to your PI.",
+    Icon: WEEKLY_GOALS_ICON,
+    ExpandedView: WeeklyGoalsExpanded,
+    memberVisible: true,
   },
   {
     id: "daily-tasks",
