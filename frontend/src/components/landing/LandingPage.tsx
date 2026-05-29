@@ -24,7 +24,8 @@
  * Voice rules: no em-dashes, no emojis. Every icon is an inline SVG.
  */
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -33,6 +34,7 @@ import BeakerBotMouseWaveScene from "../BeakerBotMouseWaveScene";
 import BetaNotice from "../BetaNotice";
 import VersionBadge from "../VersionBadge";
 import AppFooter from "../AppFooter";
+import Tooltip from "../Tooltip";
 import { markLandingSeen } from "@/lib/landing/landing-gate";
 
 interface LandingPageProps {
@@ -40,6 +42,12 @@ interface LandingPageProps {
    *  landing and reveal the connect-folder screen. When omitted (the
    *  standalone /welcome route), Get Started navigates to /?connect=1. */
   onGetStarted?: () => void;
+}
+
+/** A screenshot the lightbox can expand. */
+interface LightboxImage {
+  src: string;
+  alt: string;
 }
 
 /** A single trust pillar: inline-SVG icon, title, blurb. */
@@ -71,24 +79,54 @@ function FeatureCard({
   alt,
   title,
   children,
+  onExpand,
 }: {
   src: string;
   alt: string;
   title: string;
   children: ReactNode;
+  onExpand: (image: LightboxImage) => void;
 }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-      <div className="relative aspect-[16/10] w-full overflow-hidden border-b border-gray-100 bg-slate-100">
+      {/* The screenshot is a button: clicking it opens the lightbox so the
+          reader can see the detail without leaving the page. */}
+      <button
+        type="button"
+        onClick={() => onExpand({ src, alt })}
+        aria-label={`Expand image: ${alt}`}
+        className="group relative block aspect-[16/10] w-full cursor-zoom-in overflow-hidden border-b border-gray-100 bg-slate-100"
+      >
         <Image
           src={src}
           alt={alt}
           fill
           unoptimized
           sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
-          className="object-cover object-top"
+          className="object-cover object-top transition-transform duration-300 group-hover:scale-[1.03]"
         />
-      </div>
+        {/* Hover affordance: a faint veil + a zoom-in chip so it reads as
+            clickable. pointer-events-none so the button stays the target. */}
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-slate-900/0 transition-colors duration-200 group-hover:bg-slate-900/20">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-gray-800 opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100">
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              <circle cx="11" cy="11" r="7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M21 21l-3.5-3.5M11 8.5v5M8.5 11h5"
+              />
+            </svg>
+          </span>
+        </span>
+      </button>
       <div className="p-5">
         <h3 className="text-base font-semibold text-gray-900">{title}</h3>
         <p className="mt-1.5 text-sm leading-relaxed text-gray-600">
@@ -96,6 +134,93 @@ function FeatureCard({
         </p>
       </div>
     </div>
+  );
+}
+
+/**
+ * Modal lightbox for expanding a feature screenshot. Opens centered with a
+ * margin (never full-bleed), dims and blurs the page behind it, and closes on
+ * Escape, the close button, or a click on the backdrop. Clicking the image
+ * itself does not close. Renders through a portal so it sits above the page
+ * and locks body scroll while open. A subtle fade + zoom entrance (skipped
+ * under prefers-reduced-motion) gives it a modern feel.
+ */
+function ImageLightbox({
+  image,
+  onClose,
+}: {
+  image: LightboxImage | null;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    if (!image) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    // Lock background scroll while the lightbox is open; restore on close.
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [image, onClose]);
+
+  if (!image) return null;
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={image.alt}
+      onClick={onClose}
+      className="lb-backdrop fixed inset-0 z-[2000] flex items-center justify-center bg-slate-950/80 p-6 backdrop-blur-sm md:p-10"
+    >
+      <style>{`
+        @keyframes lb-fade { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes lb-zoom { from { opacity: 0; transform: scale(0.96) } to { opacity: 1; transform: scale(1) } }
+        .lb-backdrop { animation: lb-fade 150ms ease-out; }
+        .lb-figure { animation: lb-zoom 180ms ease-out; }
+        @media (prefers-reduced-motion: reduce) {
+          .lb-backdrop, .lb-figure { animation: none; }
+        }
+      `}</style>
+      <div className="lb-figure relative" onClick={(e) => e.stopPropagation()}>
+        <Tooltip label="Close" placement="left">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close expanded image"
+            className="absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-lg backdrop-blur transition-colors hover:bg-white"
+          >
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6 6l12 12M18 6L6 18"
+              />
+            </svg>
+          </button>
+        </Tooltip>
+        <Image
+          src={image.src}
+          alt={image.alt}
+          width={1600}
+          height={1000}
+          unoptimized
+          className="block h-auto max-h-[85vh] w-auto max-w-[88vw] rounded-xl object-contain shadow-2xl ring-1 ring-white/10"
+        />
+      </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -176,6 +301,9 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
 
   // Hi-wave greeting: fires once on mount from the bottom-right corner.
   const [waveActive, setWaveActive] = useState(true);
+
+  // Expandable-screenshot lightbox: null when closed, the image when open.
+  const [lightbox, setLightbox] = useState<LightboxImage | null>(null);
 
   const handleGetStarted = () => {
     if (onGetStarted) {
@@ -374,6 +502,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
           </div>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             <FeatureCard
+              onExpand={setLightbox}
               src="/wiki/screenshots/gantt-overview.png"
               alt="A Gantt timeline of experiments in ResearchOS"
               title="Plan on a timeline"
@@ -382,6 +511,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               running, blocked, or due.
             </FeatureCard>
             <FeatureCard
+              onExpand={setLightbox}
               src="/wiki/screenshots/methods-library.png"
               alt="The protocol and methods library in ResearchOS"
               title="Protocols that do the math"
@@ -390,6 +520,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               calculate your reaction volumes for you.
             </FeatureCard>
             <FeatureCard
+              onExpand={setLightbox}
               src="/wiki/screenshots/workbench-experiments.png"
               alt="The experiment workbench and lab notebook in ResearchOS"
               title="A real lab notebook"
@@ -398,6 +529,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               keep a tidy record of what you actually did.
             </FeatureCard>
             <FeatureCard
+              onExpand={setLightbox}
               src="/wiki/screenshots/purchases-unified-scroll.png"
               alt="The purchasing and spending dashboard in ResearchOS"
               title="Track every dollar"
@@ -406,6 +538,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               budget on a live dashboard.
             </FeatureCard>
             <FeatureCard
+              onExpand={setLightbox}
               src="/wiki/screenshots/search-results.png"
               alt="Search across the whole notebook in ResearchOS"
               title="Find anything, fast"
@@ -414,6 +547,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               box.
             </FeatureCard>
             <FeatureCard
+              onExpand={setLightbox}
               src="/wiki/screenshots/calendar-month.png"
               alt="The calendar view in ResearchOS"
               title="One calendar for everything"
@@ -443,6 +577,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
           </div>
           <div className="grid gap-6 md:grid-cols-3">
             <FeatureCard
+              onExpand={setLightbox}
               src="/wiki/screenshots/sharing-method-share-dialog.png"
               alt="Sharing a protocol with a labmate in ResearchOS"
               title="Share with your team"
@@ -451,6 +586,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               They see your updates while you keep ownership.
             </FeatureCard>
             <FeatureCard
+              onExpand={setLightbox}
               src="/wiki/screenshots/lab-overview-pi-default.png"
               alt="The PI lab-overview dashboard in ResearchOS"
               title="A view built for the PI"
@@ -459,6 +595,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               projects, funding, and progress on one configurable dashboard.
             </FeatureCard>
             <FeatureCard
+              onExpand={setLightbox}
               src="/wiki/screenshots/lab-inbox-comments-thread.png"
               alt="A comment thread on an experiment in ResearchOS"
               title="Talk in context"
@@ -726,6 +863,9 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
 
       {/* ── Footer ───────────────────────────────────────────────────── */}
       <AppFooter />
+
+      {/* Expandable-screenshot lightbox. Renders nothing while closed. */}
+      <ImageLightbox image={lightbox} onClose={() => setLightbox(null)} />
     </div>
   );
 }
