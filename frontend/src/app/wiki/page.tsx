@@ -48,13 +48,16 @@ export default function WikiLandingPage() {
           can&apos;t read local folders yet.
         </li>
         <li>
-          Click <strong>Link Folder</strong> to pick an existing folder on
-          your disk, or <strong>Create New Folder</strong> to start fresh.
-          This is your ResearchOS folder. If you want a quick intro to the
-          app first, BeakerBot waves at you from the upper-right of this
-          screen with an optional <strong>3-minute walkthrough</strong>{" "}
-          button. The walkthrough is a 4-beat modal that explains data
-          security and folder choice; it does not link a folder for you. See{" "}
+          Click <strong>Link Folder</strong> to point ResearchOS at a folder
+          on your disk. It can be an existing ResearchOS folder or a brand-new
+          empty one you made first (Chrome cannot create a folder from the
+          picker, so starting fresh means making an empty folder in your file
+          manager, then linking it). This is your ResearchOS folder. If you
+          want a quick intro to the app first, BeakerBot waves at you from the
+          upper-right of this screen with an optional{" "}
+          <strong>3-minute walkthrough</strong> button. The walkthrough is a
+          4-beat modal that explains data security and folder choice; it does
+          not link a folder for you. See{" "}
           <Link href="/wiki/getting-started/connecting-your-folder">
             Connecting Your Folder
           </Link>{" "}
