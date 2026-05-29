@@ -49,9 +49,9 @@ import { homeOrLabOverviewNavSelector } from "./lib/targets";
 // promises a navigation when one is actually about to happen.
 function exitSpeech(): string {
   if (typeof window !== "undefined" && window.location?.pathname === "/") {
-    return "Great. Let me show you how your Home dashboard works.";
+    return "Great. Let me show you how your dashboard works.";
   }
-  return "Great. Let me take us back home so we can look at your dashboard.";
+  return "Great. Let me take us back to your dashboard so we can look at it.";
 }
 
 export const projectOverviewExitStep = buildWalkthroughStep({

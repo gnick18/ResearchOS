@@ -70,13 +70,13 @@ export const homeWidgetsCanvasIntroStep = buildWalkthroughStep({
   speech: (
     <>
       <p className="mb-2">
-        Home is the first page you land on every time you open
+        Your dashboard is the first page you land on every time you open
         ResearchOS. The point is to answer one question before you click
         anywhere else: what needs my attention today.
       </p>
       <p>
-        You build that answer out of widgets. We started you with two,
-        Upcoming tasks and Today&apos;s events. I&apos;ll use these to
+        You build that answer out of widgets. We started you with a few,
+        including your projects and upcoming work. I&apos;ll use these to
         show you how the canvas works, but there&apos;s a full catalog of
         widgets to pull from once you know the mechanic.
       </p>

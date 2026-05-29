@@ -141,12 +141,27 @@ function useViewerProjects(scope: "my" | "lab"): {
   return { isLoading, projects };
 }
 
-/** Resolve the active scope from config + surface default. Unset config
- *  ⇒ "lab" on canvas, "my" on home. */
+/**
+ * Resolve the active scope. PI-gated (dashboard-unification build,
+ * 2026-05-29): only a `lab_head` viewer can ever be in "lab" scope. For
+ * solo and member accounts the scope is FORCED to "my" regardless of any
+ * stored `projectScope` (a member who previously flipped a canvas
+ * instance to "lab" does not retain lab scope), since the My/Lab toggle
+ * is PI-only.
+ *
+ * For a lab_head: an explicit stored `projectScope` wins; otherwise the
+ * surface default ("my" on home, "lab" on canvas).
+ *
+ * `isLabHead` is passed undefined while the account-type read is in
+ * flight; treat that as "not yet lab_head" so a member never briefly
+ * lands on lab scope.
+ */
 function resolveScope(
   config: ExpandedViewProps["config"],
   surface: "canvas" | "sidebar" | "home" | undefined,
+  isLabHead: boolean | undefined,
 ): "my" | "lab" {
+  if (isLabHead !== true) return "my";
   if (config?.projectScope) return config.projectScope;
   return surface === "home" ? "my" : "lab";
 }
@@ -231,11 +246,15 @@ export default function ProjectsOverviewWidget(props?: ExpandedViewProps) {
   const config = props?.config;
   const onConfigChange = props?.onConfigChange;
   const surface = props?.surface;
-  const scope = resolveScope(config, surface);
 
   const router = useRouter();
   const queryClient = useQueryClient();
   const { currentUser } = useCurrentUser();
+  // PI-gate (dashboard-unification build, 2026-05-29): the My/Lab scope
+  // toggle is lab_head-only; solo + member viewers are forced to "my".
+  const accountType = useAccountType(currentUser);
+  const isLabHead = accountType === "lab_head";
+  const scope = resolveScope(config, surface, isLabHead);
   const profileMap = useLabUserProfileMap();
   const { isLoading, projects } = useViewerProjects(scope);
 
@@ -275,12 +294,41 @@ export default function ProjectsOverviewWidget(props?: ExpandedViewProps) {
   return (
     <div className="h-full flex flex-col gap-3 min-h-0">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <ScopeToggle scope={scope} onConfigChange={onConfigChange} config={config} />
+        {/* PI-gate (dashboard-unification build, 2026-05-29): the My/Lab
+            toggle renders only for lab_head. Solo + member viewers are
+            forced to "my" scope (see resolveScope) and see no toggle. */}
+        {isLabHead ? (
+          <ScopeToggle
+            scope={scope}
+            onConfigChange={onConfigChange}
+            config={config}
+          />
+        ) : (
+          <span />
+        )}
         {scope === "my" && !creating && (
           <button
             type="button"
             data-testid="projects-overview-new-project"
-            onClick={() => setCreating(true)}
+            // Dashboard unification (dashboard-unification build,
+            // 2026-05-29): the §6.1 walkthrough "create your first project"
+            // step targets `home-new-project` and watches for the
+            // `tour:home-create-modal-opened` event. The hardcoded Home
+            // grid that previously owned those anchors is gone; the
+            // Projects Overview widget is its 1:1 replacement, so the
+            // anchor + event move here. NOTE: this widget's New Project
+            // flow lives inside the tile popup, so the tour must open the
+            // widget before this anchor resolves (see the build report's
+            // FLAG on the §6.1/§6.2 tour-flow follow-up).
+            data-tour-target="home-new-project"
+            onClick={() => {
+              setCreating(true);
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(
+                  new CustomEvent("tour:home-create-modal-opened"),
+                );
+              }
+            }}
             className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors"
           >
             <span aria-hidden="true">{PLUS_SVG}</span>
@@ -293,6 +341,10 @@ export default function ProjectsOverviewWidget(props?: ExpandedViewProps) {
         <div
           className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 p-2"
           data-testid="projects-overview-new-project-form"
+          // §6.1 walkthrough FILL step anchor (dashboard-unification
+          // build, 2026-05-29): spotlights the create-project form, the
+          // role the deleted Home grid form used to fill.
+          data-tour-target="home-project-create-form"
         >
           <Tooltip label="Project color" placement="top">
             <input
@@ -309,6 +361,7 @@ export default function ProjectsOverviewWidget(props?: ExpandedViewProps) {
             value={newName}
             placeholder="New project name"
             data-testid="projects-overview-new-project-name"
+            data-tour-target="home-project-name-input"
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") submitNewProject();
@@ -324,6 +377,7 @@ export default function ProjectsOverviewWidget(props?: ExpandedViewProps) {
             disabled={!newName.trim() || saving}
             onClick={submitNewProject}
             data-testid="projects-overview-new-project-save"
+            data-tour-target="home-project-create-submit"
             className="rounded-md bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
           >
             {saving ? "Creating…" : "Create"}
@@ -365,6 +419,12 @@ export default function ProjectsOverviewWidget(props?: ExpandedViewProps) {
                 <button
                   type="button"
                   data-testid={`projects-overview-card-${p.owner}-${p.id}`}
+                  // §6.2 walkthrough NAV step anchor (dashboard-unification
+                  // build, 2026-05-29): the step clicks
+                  // `[data-tour-target^='home-project-card-']` to open the
+                  // freshly created project. The deleted Home grid carried
+                  // this prefix; the widget cards now do.
+                  data-tour-target={`home-project-card-${p.owner}-${p.id}`}
                   onClick={() => router.push(projectHref(p, currentUser))}
                   className="w-full text-left rounded-lg border border-gray-200 p-3 hover:border-gray-300 hover:bg-gray-50 transition-colors"
                 >
@@ -423,7 +483,13 @@ export const HELP_TEXT =
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function SnapshotTile(props: SnapshotTileProps) {
-  const scope = resolveScope(props.config, props.surface);
+  // PI-gate (dashboard-unification build, 2026-05-29): mirror the
+  // ExpandedView scope resolution so the compact tile shows the same
+  // project set the popup would. Non-lab_head viewers are forced to "my".
+  const { currentUser } = useCurrentUser();
+  const accountType = useAccountType(currentUser);
+  const isLabHead = accountType === "lab_head";
+  const scope = resolveScope(props.config, props.surface, isLabHead);
   const { isLoading, projects } = useViewerProjects(scope);
   const top = projects.slice(0, 3);
 

@@ -96,6 +96,12 @@ function defaultLabHeadLayout(): LabOverviewLayout {
     version: LAB_OVERVIEW_LAYOUT_VERSION,
     widgetOrder: {
       canvas: [
+        // Dashboard unification (dashboard-unification build, 2026-05-29):
+        // Projects Overview is seeded at the TOP for every account type so
+        // the unified dashboard opens to a project view 1:1 with the
+        // deleted hardcoded Home grid. A lab_head's instance defaults to
+        // "lab" scope (the widget's surface default for the canvas surface).
+        "projects-overview",
         "announcements",
         "lab-purchases",
         "lab-purchases-burn-rate",
@@ -120,7 +126,10 @@ function defaultMemberLayout(): LabOverviewLayout {
   return {
     version: LAB_OVERVIEW_LAYOUT_VERSION,
     widgetOrder: {
-      canvas: ["announcements", "comment-feed"],
+      // Dashboard unification (dashboard-unification build, 2026-05-29):
+      // Projects Overview seeded at the top (defaults to "my" scope on the
+      // home surface).
+      canvas: ["projects-overview", "announcements", "comment-feed"],
       sidebar: ["sidebar-overdue", "sidebar-today", "sidebar-upcoming"],
     },
   };
@@ -572,7 +581,10 @@ function defaultMemberHomeLayout(): LabOverviewLayout {
   return {
     version: LAB_OVERVIEW_LAYOUT_VERSION,
     widgetOrder: {
-      canvas: ["sidebar-upcoming", "calendar-events-today"],
+      // Dashboard unification (dashboard-unification build, 2026-05-29):
+      // Projects Overview seeded at the top so the unified dashboard
+      // replaces the deleted hardcoded Home grid 1:1.
+      canvas: ["projects-overview", "sidebar-upcoming", "calendar-events-today"],
       // Home sidebar is unused today (see note above). Leave empty so
       // the home canvas reader has a stable shape to read.
       sidebar: [],
@@ -595,7 +607,13 @@ function defaultLabHeadHomeLayout(): LabOverviewLayout {
   return {
     version: LAB_OVERVIEW_LAYOUT_VERSION,
     widgetOrder: {
-      canvas: ["sidebar-upcoming", "calendar-events-today"],
+      // Dashboard unification (dashboard-unification build, 2026-05-29):
+      // Projects Overview seeded at the top, matching the member home
+      // default. (Lab heads resolve their dashboard from
+      // `defaultLabHeadLayout` via the canvas surface; this home default
+      // is retained for back-compat with the legacy `home_layout`
+      // read/seed path.)
+      canvas: ["projects-overview", "sidebar-upcoming", "calendar-events-today"],
       sidebar: [],
     },
   };
@@ -764,5 +782,306 @@ export async function resetHomeLayout(username: string): Promise<void> {
   const current = await readUserSettings(username);
   await patchUserSettings(username, {
     home_layout: defaultHomeLayoutFor(current.account_type),
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Unified dashboard (dashboard-unification build, 2026-05-29)
+// ─────────────────────────────────────────────────────────────────────────
+//
+// DATA-SHAPE CHANGE (FLAG). Home (route "/") and Lab Overview (route
+// "/lab-overview", now a redirect to "/") collapse into ONE per-user
+// widget dashboard. Both surfaces previously had their own persistence
+// field (`home_layout` / `lab_overview_layout`); they now share
+// `dashboard_layout`.
+//
+// The catalog surface key stays ACCOUNT-AWARE so the existing
+// per-surface catalog gating (lab-aggregation widgets are `canvas`-only;
+// the personal home defaults are `home`-eligible) keeps working without
+// touching the registry:
+//   - lab_head → the "canvas" surface (the dense PI widget set)
+//   - member / solo → the "home" surface (the personal widget set)
+// Both write to the SAME `dashboard_layout` field. A user who changes
+// account type later re-resolves against the new surface; unknown ids for
+// that surface drop at read time exactly as before.
+//
+// ONE-TIME MIGRATION: when `dashboard_layout` is absent, seed it from the
+// account-appropriate LEGACY field (lab_head ← `lab_overview_layout`,
+// everyone else ← `home_layout`), then inject a Projects Overview
+// instance at the TOP if the seeded layout lacks one — so no existing
+// user opens the unified dashboard to a missing project view. The legacy
+// fields stay readable for one release (see `user-settings.ts`); they are
+// never written by these dashboard mutators.
+
+/** The Projects Overview widget id, seeded/injected at the top of every
+ *  dashboard. Kept as a named constant so the seed default + the
+ *  migration injection + tests reference one source of truth. */
+export const PROJECTS_OVERVIEW_WIDGET_ID = "projects-overview";
+
+/** Which catalog surface a given account type's dashboard reads from. */
+export function dashboardSurfaceFor(
+  accountType: AccountType,
+): "canvas" | "home" {
+  return accountType === "lab_head" ? "canvas" : "home";
+}
+
+/** Account-type-aware unified dashboard default. lab_head gets the dense
+ *  PI canvas default; everyone else gets the personal home default. Both
+ *  already seed Projects Overview at the top (see the default builders). */
+export function defaultDashboardLayoutFor(
+  accountType: AccountType,
+): LabOverviewLayout {
+  return accountType === "lab_head"
+    ? defaultLabHeadLayout()
+    : defaultHomeLayoutFor(accountType);
+}
+
+/**
+ * Inject a Projects Overview instance at the TOP of a canvas order if it
+ * is not already present. Pure; returns the same reference shape. Used by
+ * the one-time migration so an existing saved layout that predates the
+ * unified dashboard still opens to a project view.
+ */
+function injectProjectsOverviewAtTop(canvas: string[]): string[] {
+  if (canvas.includes(PROJECTS_OVERVIEW_WIDGET_ID)) return canvas;
+  return [PROJECTS_OVERVIEW_WIDGET_ID, ...canvas];
+}
+
+/**
+ * Seed the unified `dashboard_layout` from the legacy fields when it is
+ * absent. Pure: takes the settings-shaped legacy fields by value, returns
+ * the layout to use as the dashboard's saved layout (still subject to
+ * `resolveLayout`-style catalog normalization downstream).
+ *
+ * Precedence:
+ *   1. `dashboard_layout` present → use it as-is (migrate v1→v2).
+ *   2. absent → seed from the account-appropriate legacy field
+ *      (lab_head ← `lab_overview_layout`, else ← `home_layout`), inject
+ *      Projects Overview at the top if missing.
+ *   3. neither legacy field present → the account-type default (which
+ *      already includes Projects Overview at the top).
+ */
+export function seedDashboardLayout(
+  dashboardLayout: LabOverviewLayout | LabOverviewLayoutV1 | undefined,
+  legacyLabOverview: LabOverviewLayout | LabOverviewLayoutV1 | undefined,
+  legacyHome: LabOverviewLayout | LabOverviewLayoutV1 | undefined,
+  accountType: AccountType,
+): LabOverviewLayout {
+  const existing = migrateLayoutToV2(dashboardLayout);
+  if (existing) return existing;
+
+  const legacy = migrateLayoutToV2(
+    accountType === "lab_head" ? legacyLabOverview : legacyHome,
+  );
+  if (!legacy) return defaultDashboardLayoutFor(accountType);
+
+  return {
+    version: LAB_OVERVIEW_LAYOUT_VERSION,
+    widgetOrder: {
+      canvas: injectProjectsOverviewAtTop(legacy.widgetOrder.canvas),
+      sidebar: legacy.widgetOrder.sidebar,
+    },
+    ...(legacy.widgetConfig ? { widgetConfig: { ...legacy.widgetConfig } } : {}),
+  };
+}
+
+/**
+ * Resolve the unified dashboard layout against the current catalog +
+ * viewer. Mirrors `resolveLayout` / `resolveHomeLayout` but reads from the
+ * account-aware dashboard surface (`canvas` for lab_head, `home`
+ * otherwise) and seeds from the legacy fields on first read.
+ *
+ * Pure (no I/O). The caller reads settings first and passes the three
+ * layout fields in.
+ */
+export function resolveDashboardLayout(
+  dashboardLayout: LabOverviewLayout | LabOverviewLayoutV1 | undefined,
+  legacyLabOverview: LabOverviewLayout | LabOverviewLayoutV1 | undefined,
+  legacyHome: LabOverviewLayout | LabOverviewLayoutV1 | undefined,
+  accountType: AccountType,
+  catalog: WidgetDefinition[],
+): LabOverviewLayout {
+  const seeded = seedDashboardLayout(
+    dashboardLayout,
+    legacyLabOverview,
+    legacyHome,
+    accountType,
+  );
+  const surfaceKey = dashboardSurfaceFor(accountType);
+
+  const eligible = new Set(
+    catalog.filter((w) => widgetHasSurface(w, surfaceKey)).map((w) => w.id),
+  );
+
+  const renamed = applyIdRenames(seeded.widgetOrder.canvas);
+  const seen = new Set<string>();
+  const canvas: string[] = [];
+  for (const id of renamed) {
+    if (!eligible.has(id)) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(
+          `[dashboard/layout] Dropping unknown widget id "${id}" from saved dashboard layout.`,
+        );
+      }
+      continue;
+    }
+    if (seen.has(id)) continue;
+    seen.add(id);
+    canvas.push(id);
+  }
+
+  return {
+    version: LAB_OVERVIEW_LAYOUT_VERSION,
+    widgetOrder: {
+      canvas,
+      // The dashboard surface does not use the in-page sidebar axis
+      // (mirrors the prior home surface). Keep an empty list for shape
+      // stability.
+      sidebar: [],
+    },
+    ...pruneWidgetConfig(seeded.widgetConfig, canvas),
+  };
+}
+
+/** Convenience: read settings + return the resolved dashboard layout. */
+export async function readResolvedDashboardLayout(
+  username: string,
+  catalog: WidgetDefinition[],
+): Promise<LabOverviewLayout> {
+  const settings = await readUserSettings(username);
+  return resolveDashboardLayout(
+    settings.dashboard_layout,
+    settings.lab_overview_layout,
+    settings.home_layout,
+    settings.account_type,
+    catalog,
+  );
+}
+
+/**
+ * Read the current persisted dashboard layout (seeded from legacy on
+ * first read), in the raw v2 shape WITHOUT catalog normalization. Used by
+ * the mutators below so a write preserves any widget id the current
+ * catalog filter might not list (mirrors the prior surface mutators that
+ * read `migrateLayoutToV2(field) ?? default`).
+ */
+async function readDashboardLayoutRaw(
+  username: string,
+): Promise<LabOverviewLayout> {
+  const settings = await readUserSettings(username);
+  return seedDashboardLayout(
+    settings.dashboard_layout,
+    settings.lab_overview_layout,
+    settings.home_layout,
+    settings.account_type,
+  );
+}
+
+/** Replace the entire dashboard layout. Used by Reset. */
+export async function writeDashboardLayout(
+  username: string,
+  layout: LabOverviewLayout,
+): Promise<void> {
+  await patchUserSettings(username, { dashboard_layout: layout });
+}
+
+/** Patch the dashboard canvas order. Called once per drop. */
+export async function patchDashboardCanvasOrder(
+  username: string,
+  nextCanvasOrder: string[],
+): Promise<void> {
+  const existing = await readDashboardLayoutRaw(username);
+  await patchUserSettings(username, {
+    dashboard_layout: {
+      version: LAB_OVERVIEW_LAYOUT_VERSION,
+      widgetOrder: {
+        canvas: nextCanvasOrder,
+        sidebar: existing.widgetOrder.sidebar,
+      },
+      ...(existing.widgetConfig
+        ? { widgetConfig: existing.widgetConfig }
+        : {}),
+    },
+  });
+}
+
+/** Add a dashboard canvas widget at the end. No-op if already present. */
+export async function addDashboardWidget(
+  username: string,
+  widget: WidgetDefinition,
+): Promise<void> {
+  const existing = await readDashboardLayoutRaw(username);
+  if (existing.widgetOrder.canvas.includes(widget.id)) return;
+  await patchUserSettings(username, {
+    dashboard_layout: {
+      version: LAB_OVERVIEW_LAYOUT_VERSION,
+      widgetOrder: {
+        canvas: [...existing.widgetOrder.canvas, widget.id],
+        sidebar: existing.widgetOrder.sidebar,
+      },
+      ...(existing.widgetConfig
+        ? { widgetConfig: existing.widgetConfig }
+        : {}),
+    },
+  });
+}
+
+/** Remove a dashboard canvas widget. No-op if absent. */
+export async function removeDashboardWidget(
+  username: string,
+  widgetId: string,
+): Promise<void> {
+  const existing = await readDashboardLayoutRaw(username);
+  if (!existing.widgetOrder.canvas.includes(widgetId)) return;
+  // Drop the removed widget's per-instance config too so a re-add starts
+  // fresh in default mode.
+  const nextConfig = { ...(existing.widgetConfig ?? {}) };
+  delete nextConfig[widgetId];
+  await patchUserSettings(username, {
+    dashboard_layout: {
+      version: LAB_OVERVIEW_LAYOUT_VERSION,
+      widgetOrder: {
+        canvas: existing.widgetOrder.canvas.filter((id) => id !== widgetId),
+        sidebar: existing.widgetOrder.sidebar,
+      },
+      ...(Object.keys(nextConfig).length > 0
+        ? { widgetConfig: nextConfig }
+        : {}),
+    },
+  });
+}
+
+/** Set or clear a per-instance widget config on the dashboard. Passing an
+ *  empty/undefined config removes the entry. */
+export async function patchDashboardWidgetConfig(
+  username: string,
+  widgetId: string,
+  config: WidgetInstanceConfig | null,
+): Promise<void> {
+  const existing = await readDashboardLayoutRaw(username);
+  const nextConfig: Record<string, WidgetInstanceConfig> = {
+    ...(existing.widgetConfig ?? {}),
+  };
+  if (isWidgetConfigEmpty(config)) {
+    delete nextConfig[widgetId];
+  } else {
+    nextConfig[widgetId] = config as WidgetInstanceConfig;
+  }
+  await patchUserSettings(username, {
+    dashboard_layout: {
+      version: LAB_OVERVIEW_LAYOUT_VERSION,
+      widgetOrder: existing.widgetOrder,
+      ...(Object.keys(nextConfig).length > 0
+        ? { widgetConfig: nextConfig }
+        : {}),
+    },
+  });
+}
+
+/** Reset the dashboard layout to the account-type default. */
+export async function resetDashboardLayout(username: string): Promise<void> {
+  const current = await readUserSettings(username);
+  await patchUserSettings(username, {
+    dashboard_layout: defaultDashboardLayoutFor(current.account_type),
   });
 }

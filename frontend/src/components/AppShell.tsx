@@ -53,9 +53,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const visibleTabs = useAppStore((s) => s.visibleTabs);
   const coloredHeader = useAppStore((s) => s.coloredHeader);
-  // PI Home migration (pi-home-migration, 2026-05-29): lab-head opt-back-in
-  // for the Home tab. Read from the store so a Settings flip reflects live.
-  const showHomeForLabHead = useAppStore((s) => s.showHomeForLabHead);
   const { currentUser } = useFileSystem();
   const userColors = useUserColors(currentUser ?? "");
   const baseColor = userColors.primary;
@@ -135,64 +132,34 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // "solo") have no lab to belong to and never get the tab. The composer
   // + metrics gate themselves internally on account_type === "lab_head".
   //
-  // Lab Overview rename (lab overview rename manager, 2026-05-23):
-  // promote the entry from the right-edge of the top-nav into the
-  // second slot (immediately right of Home) since the surface now hosts
-  // announcements + comments + metrics + roster + audit notices and is
-  // the primary lab-mode landing surface alongside Home. The label
-  // changes from "Lab Inbox" to "Lab Overview"; the route directory
-  // moved to /lab-overview (legacy /lab-inbox redirects).
-  //
-  // Home canvas migration (Home canvas migration manager, 2026-05-23):
-  // /lab-overview is retired for lab MEMBERS — the same announcements
-  // + comments + lab-activity signals now live on the Home page via
-  // the new customizable home canvas. Lab heads keep /lab-overview
-  // as the PI dashboard. The nav entry is therefore lab-head-only
-  // post-migration; members never see it. (The /lab-overview route
-  // itself still exists and the page-level guard redirects members
-  // to "/" if they navigate there directly.) Solo accounts continue
-  // to never see the tab.
-  const accountType = useAccountType(currentUser ?? null);
-  // isLabWorkspace was previously used to surface /lab-overview for
-  // lab MEMBERS (so they could see PI announcements). Kept as a
-  // variable in case a future chip needs to gate something else by
-  // workspace shape; the underscore-prefixed alias signals "computed
-  // but intentionally unused in the current gate".
-  const _isLabWorkspace = featurePicks?.account_type === "lab";
-  void _isLabWorkspace;
-  const showLabOverview = accountType === "lab_head";
-
-  // PI Home migration (pi-home-migration, 2026-05-29): for lab_head (PI)
-  // accounts the Home page duplicates Lab Overview (which already surfaces
-  // announcements + comments + lab-activity + metrics via its widgets), so
-  // the Home top-nav tab is HIDDEN by default. The PI can opt back in via
-  // Settings → Lab Mode → PI → "Show Home page" (settings.showHomeForLabHead
-  // / store.showHomeForLabHead).
-  //
-  // Members are unaffected — Home is always shown for them. The Home ROUTE
-  // ("/") is never removed: hiding the tab only drops the nav entry. Direct
-  // navigation to "/" (including the v4 onboarding walkthrough, which pushes
-  // routes via the Next router rather than clicking the tab) keeps working
-  // for everyone, hidden tab or not.
+  // Dashboard unification (dashboard-unification build, 2026-05-29): Home
+  // and Lab Overview collapsed into ONE dashboard at "/". There is a
+  // single nav entry for the dashboard whose LABEL is account-aware:
+  // "Lab Overview" for a lab_head (PI), "Home" for solo + member. This
+  // mirrors the existing "Links" vs "Lab Links" account-aware label
+  // pattern. `/lab-overview` is now a redirect to "/", so it is no longer
+  // a separate nav entry.
   //
   // `accountType === undefined` (settings read in flight) is treated the
-  // same as "not lab_head" → Home stays shown, so the tab never flickers
-  // OUT for a member on first paint. The worst case for a PI is a one-frame
-  // flash of the Home tab before the read resolves, which is the safe
-  // direction (a guaranteed-reachable tab, never a missing one).
-  const showHomeTab = accountType !== "lab_head" || showHomeForLabHead;
+  // same as "not lab_head" → the label resolves to "Home" until the read
+  // settles. The tab itself never disappears (the dashboard at "/" is the
+  // guaranteed-reachable landing tab), so there's no flicker-out risk.
+  const accountType = useAccountType(currentUser ?? null);
+  const _isLabWorkspace = featurePicks?.account_type === "lab";
+  void _isLabWorkspace;
+  const dashboardLabel = accountType === "lab_head" ? "Lab Overview" : "Home";
 
-  // Home is normally shown so the user has a guaranteed safe landing tab even
-  // if they hide everything else (or if Settings was wiped). The lab-head
-  // Home migration above is the sole exception. Settings itself is rendered
-  // as a gear icon, never as part of NAV_ITEMS.
+  // The dashboard ("/") is always shown so the user has a guaranteed safe
+  // landing tab even if they hide everything else (or if Settings was
+  // wiped). Settings itself is rendered as a gear icon, never as part of
+  // NAV_ITEMS.
   const filtered = NAV_ITEMS.filter((item) => {
-    if (item.href === HOME_HREF) return showHomeTab;
+    if (item.href === HOME_HREF) return true;
     return effectiveVisibleTabs.includes(item.href);
   });
   // Widget catalog cleanup (widget catalog cleanup manager, 2026-05-23):
   // for lab_head accounts the /purchases top-nav entry is hidden because
-  // the LabPurchasesWidget on Lab Overview now covers their workflow
+  // the LabPurchasesWidget on the dashboard now covers their workflow
   // (pending approvals + recent purchases + funding rollup). The route
   // itself stays alive, so a lab head who types /purchases directly still
   // gets the full page, and members keep the nav entry unchanged.
@@ -201,19 +168,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     if (accountType === "lab_head") {
       next = next.filter((i) => i.href !== "/purchases");
     }
-    if (showLabOverview) {
-      // Slot the entry right after Home. When the Home tab is shown
-      // (PI opted back in via showHomeForLabHead, or a member), Home is
-      // at index 0 of `filtered` and Lab Overview lands at index 1. When
-      // the Home tab is hidden (the PI default post-migration), homeIdx
-      // is -1 and Lab Overview becomes the leftmost tab — the intended
-      // primary landing surface for a PI.
-      const homeIdx = next.findIndex((item) => item.href === HOME_HREF);
-      const insertAt = homeIdx >= 0 ? homeIdx + 1 : 0;
-      next.splice(insertAt, 0, { href: "/lab-overview", label: "Lab Overview" });
-    }
+    // Apply the account-aware dashboard label to the "/" entry in place
+    // (NAV_ITEMS hard-codes "Home"; a PI sees "Lab Overview").
+    next = next.map((item) =>
+      item.href === HOME_HREF ? { ...item, label: dashboardLabel } : item,
+    );
     return next;
-  }, [filtered, showLabOverview, accountType]);
+  }, [filtered, accountType, dashboardLabel]);
 
   // Onboarding v4 L23: while the in-product walkthrough is active, the
   // top-nav tabs are visually disabled + onClick-suppressed so the user

@@ -374,7 +374,6 @@ function SettingsBody() {
           sidebarEventsHorizonDays: saved.sidebarEventsHorizonDays,
           coloredHeader: saved.coloredHeader,
           offlineMode: saved.offlineMode,
-          showHomeForLabHead: saved.showHomeForLabHead,
         });
         // If either color field changed, invalidate the user-color map so
         // every <UserAvatar /> in the app re-renders with the new gradient
@@ -1068,23 +1067,12 @@ function LabHeadSection({
       id="lab-head"
       title="PI"
       description="Manage your edit-mode password and session for the Phase 5 PI workflow. Use Request edit on another member's record to start a session."
-      searchKeywords="edit mode session password PI roster home page landing tab"
+      searchKeywords="edit mode session password PI roster"
     >
-      {/* PI Home migration (pi-home-migration, 2026-05-29): for PIs the
-          Home page duplicates Lab Overview, so the Home tab is hidden by
-          default and the PI lands on Lab Overview. This toggle brings the
-          Home tab back (and lets the PI land there if they set it as their
-          default landing tab). Default off; members never see this control
-          and are unaffected. */}
-      <div className="mb-3 p-3 rounded-lg border border-gray-200 bg-white">
-        <ToggleRow
-          label="Show Home page"
-          description="As a PI your Lab Overview already covers the Home dashboard, so the Home tab is hidden by default. Turn this on to bring the Home tab back."
-          checked={settings.showHomeForLabHead}
-          onChange={(v) => void update({ showHomeForLabHead: v })}
-        />
-      </div>
-
+      {/* Dashboard unification (dashboard-unification build, 2026-05-29):
+          the "Show Home page" toggle is removed. Home and Lab Overview are
+          one dashboard at "/" now (the nav label reads "Lab Overview" for
+          a PI), so there is no separate Home tab to hide or restore. */}
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-gray-200 bg-white">
           <div className="min-w-0">

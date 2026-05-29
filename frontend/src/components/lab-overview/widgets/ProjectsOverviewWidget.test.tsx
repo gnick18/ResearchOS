@@ -227,18 +227,31 @@ describe("ProjectsOverviewWidget: PRIVACY gate (lab + cross-member)", () => {
     // CROSS-MEMBER privacy claim is proven by the member case below.
   });
 
-  it("a regular member NEVER sees a project shared with a DIFFERENT member", async () => {
-    // View as alex (regular member). canRead does the heavy lifting.
+  it("a regular member is PI-gated to MY scope even with a stored lab config (no toggle, no cross-member reads)", async () => {
+    // PI-gate (dashboard-unification build, 2026-05-29): the My/Lab toggle
+    // is lab_head-only. A member with a STORED { projectScope: "lab" }
+    // config (e.g. flipped before the gate landed) is forced back to "my"
+    // scope. View as alex (regular member); alex owns no projects in the
+    // fixture, so the gate-narrowed view shows nothing belonging to others.
     viewerRef.username = "alex";
     accountTypeRef.value = "member";
     renderExpanded({ surface: "canvas", config: { projectScope: "lab" } });
 
-    // alex sees the whole-lab project and the project shared with alex.
-    expect(await screen.findByText("Aim 1 (whole lab)")).toBeInTheDocument();
+    // The toggle does not render for a member at all.
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId("projects-overview-scope-toggle"),
+      ).toBeNull(),
+    );
+    // Forced to "my" scope, alex sees the New Project affordance (a "my"
+    // surface affordance) and NONE of morgan's projects — not the
+    // whole-lab one, the shared-with-alex one, the PI-only one, nor the
+    // private one. Lab scope is unreachable for a member.
     expect(
-      screen.getByText("Shared-with-alex-only project"),
+      await screen.findByTestId("projects-overview-new-project"),
     ).toBeInTheDocument();
-    // alex must NOT see the PI-only project nor morgan's private project.
+    expect(screen.queryByText("Aim 1 (whole lab)")).toBeNull();
+    expect(screen.queryByText("Shared-with-alex-only project")).toBeNull();
     expect(screen.queryByText("Aim 2 (for PI)")).toBeNull();
     expect(screen.queryByText("SECRET private morgan project")).toBeNull();
   });

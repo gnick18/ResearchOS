@@ -11,15 +11,22 @@ import {
 } from "./widgets/types";
 import {
   addCanvasWidget,
+  addDashboardWidget,
   addHomeCanvasWidget,
+  dashboardSurfaceFor,
   patchCanvasOrder,
+  patchDashboardCanvasOrder,
+  patchDashboardWidgetConfig,
   patchHomeCanvasOrder,
   patchHomeWidgetConfig,
   patchWidgetConfig,
+  readResolvedDashboardLayout,
   readResolvedHomeLayout,
   readResolvedLayout,
   removeCanvasWidget,
+  removeDashboardWidget,
   removeHomeCanvasWidget,
+  resetDashboardLayout,
   resetHomeLayout,
   resetLayout,
 } from "@/lib/lab-overview/layout-persistence";
@@ -70,11 +77,18 @@ export interface SnapshotCanvasProps {
   /**
    * Which surface this canvas instance represents. Controls the catalog
    * filter (canvas-eligible vs home-eligible widgets), the persistence
-   * field (`lab_overview_layout` vs `home_layout`), and the default
-   * layout. Defaults to `"canvas"` for back-compat with the existing
-   * /lab-overview mount.
+   * field, and the default layout. Defaults to `"canvas"` for back-compat
+   * with the existing /lab-overview mount.
+   *
+   * Dashboard unification (dashboard-unification build, 2026-05-29):
+   * `"dashboard"` is the unified surface mounted at "/" for every account
+   * type. It reads/writes the single `dashboard_layout` field and filters
+   * the catalog by an ACCOUNT-AWARE surface key (lab_head → "canvas",
+   * member/solo → "home"), so a PI keeps the dense lab widgets while a
+   * member keeps the personal set. The legacy `"canvas"` / `"home"`
+   * surfaces remain for any back-compat mount.
    */
-  surface?: "canvas" | "home";
+  surface?: "canvas" | "home" | "dashboard";
   /** Reset-confirmation copy. Defaults to the lab-overview wording.
    *  Home uses a different label since the user perceives it as a
    *  different "page". */
@@ -118,8 +132,13 @@ interface SurfaceAdapter {
     widgetId: string,
     config: WidgetInstanceConfig | null,
   ) => Promise<void>;
-  /** Which surface key to read from `visibleCatalog` results. */
-  surfaceKey: "canvas" | "home";
+  /**
+   * Which surface key to read from `visibleCatalog` / `widgetHasSurface`.
+   * A function of the viewer's account type so the unified dashboard can
+   * resolve an ACCOUNT-AWARE key (lab_head → "canvas", member/solo →
+   * "home") while the legacy adapters return a constant.
+   */
+  surfaceKey: (accountType: AccountType) => "canvas" | "home";
 }
 
 const CANVAS_ADAPTER: SurfaceAdapter = {
@@ -129,7 +148,7 @@ const CANVAS_ADAPTER: SurfaceAdapter = {
   removeCanvasWidget,
   resetLayout,
   patchWidgetConfig,
-  surfaceKey: "canvas",
+  surfaceKey: () => "canvas",
 };
 
 const HOME_ADAPTER: SurfaceAdapter = {
@@ -139,7 +158,21 @@ const HOME_ADAPTER: SurfaceAdapter = {
   removeCanvasWidget: removeHomeCanvasWidget,
   resetLayout: resetHomeLayout,
   patchWidgetConfig: patchHomeWidgetConfig,
-  surfaceKey: "home",
+  surfaceKey: () => "home",
+};
+
+// Dashboard unification (dashboard-unification build, 2026-05-29): the
+// unified "/" surface. ONE persistence field (`dashboard_layout`); the
+// catalog surface key is account-aware so a PI sees the dense lab widgets
+// and a member sees the personal home set.
+const DASHBOARD_ADAPTER: SurfaceAdapter = {
+  readResolvedLayout: readResolvedDashboardLayout,
+  patchCanvasOrder: patchDashboardCanvasOrder,
+  addCanvasWidget: addDashboardWidget,
+  removeCanvasWidget: removeDashboardWidget,
+  resetLayout: resetDashboardLayout,
+  patchWidgetConfig: patchDashboardWidgetConfig,
+  surfaceKey: dashboardSurfaceFor,
 };
 
 export default function SnapshotCanvas({
@@ -151,7 +184,19 @@ export default function SnapshotCanvas({
   toolbarLeft,
   toolbarExtras,
 }: SnapshotCanvasProps) {
-  const adapter = surface === "home" ? HOME_ADAPTER : CANVAS_ADAPTER;
+  const adapter =
+    surface === "dashboard"
+      ? DASHBOARD_ADAPTER
+      : surface === "home"
+        ? HOME_ADAPTER
+        : CANVAS_ADAPTER;
+  // The unified dashboard carries the same `home-widget-*` tour anchors
+  // the §6.2b walkthrough phase targets (the tour was authored against
+  // the old /home canvas; the unified dashboard inherits those steps).
+  const usesHomeTourAnchors = surface === "home" || surface === "dashboard";
+  // Catalog surface key for visibility filtering — account-aware for the
+  // dashboard surface, constant for the legacy surfaces.
+  const surfaceKey = adapter.surfaceKey(accountType);
   const [isEditing, setIsEditing] = useState(false);
   const [order, setOrder] = useState<string[] | null>(null);
   // Per-instance widget config keyed by widget id (weekly-goals widget,
@@ -173,12 +218,12 @@ export default function SnapshotCanvas({
   // sidebar-upcoming opts into the home canvas for lab heads but is
   // sidebar-carved-out elsewhere).
   const catalog = useMemo(
-    () => visibleCatalog(WIDGET_CATALOG, accountType, adapter.surfaceKey),
-    [accountType, adapter.surfaceKey],
+    () => visibleCatalog(WIDGET_CATALOG, accountType, surfaceKey),
+    [accountType, surfaceKey],
   );
   const canvasCatalog = useMemo(
-    () => catalog.filter((w) => widgetHasSurface(w, adapter.surfaceKey)),
-    [catalog, adapter.surfaceKey],
+    () => catalog.filter((w) => widgetHasSurface(w, surfaceKey)),
+    [catalog, surfaceKey],
   );
 
   // ── Load initial layout ────────────────────────────────────────────────
@@ -319,9 +364,11 @@ export default function SnapshotCanvas({
   );
 
   const defaultResetMsg =
-    surface === "home"
-      ? "Reset Home layout to default? Your widget order will be lost."
-      : "Reset Lab Overview layout to default? Your widget order will be lost.";
+    surface === "dashboard"
+      ? "Reset your dashboard to default? Your widget order will be lost."
+      : surface === "home"
+        ? "Reset Home layout to default? Your widget order will be lost."
+        : "Reset Lab Overview layout to default? Your widget order will be lost.";
   const resetMsg = resetConfirmMessage ?? defaultResetMsg;
 
   const handleReset = useCallback(async () => {
@@ -371,7 +418,7 @@ export default function SnapshotCanvas({
             // /home mount so the /lab-overview canvas isn't affected.
             // See targets.ts `homeWidgetAddButton`.
             data-tour-target={
-              surface === "home" ? "home-widget-add-button" : undefined
+              usesHomeTourAnchors ? "home-widget-add-button" : undefined
             }
             className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
           >
@@ -396,7 +443,7 @@ export default function SnapshotCanvas({
             // left it on). Lab-overview canvas keeps the unattributed
             // shape so its onboarding paths aren't affected.
             data-tour-target={
-              surface === "home" ? "home-widget-edit-toggle" : undefined
+              usesHomeTourAnchors ? "home-widget-edit-toggle" : undefined
             }
             className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
               isEditing
@@ -424,7 +471,7 @@ export default function SnapshotCanvas({
             // surface-prep manager, 2026-05-25). Catalog root stamps
             // only on the /home mount.
             data-tour-target={
-              surface === "home" ? "home-widget-catalog" : undefined
+              usesHomeTourAnchors ? "home-widget-catalog" : undefined
             }
             className="absolute top-full right-0 mt-2 w-72 bg-white border border-gray-200 rounded-lg shadow-lg z-30 p-2 max-h-96 overflow-auto"
             role="dialog"
@@ -455,7 +502,7 @@ export default function SnapshotCanvas({
                     // step body selects via prefix match or the exact
                     // id. Stamps only on the /home mount.
                     data-tour-target={
-                      surface === "home"
+                      usesHomeTourAnchors
                         ? `home-widget-catalog-item-${widget.id}`
                         : undefined
                     }
@@ -544,7 +591,7 @@ export default function SnapshotCanvas({
           // documented as resolving to the SAME node (no separate
           // attribute, single-source-of-truth selector per node).
           const tourTileTarget =
-            surface === "home" ? `home-widget-tile-${id}` : undefined;
+            usesHomeTourAnchors ? `home-widget-tile-${id}` : undefined;
           return (
             <div
               key={id}
@@ -583,12 +630,15 @@ export default function SnapshotCanvas({
                 isEditing={isEditing}
                 onRemove={() => handleRemoveWidget(id)}
                 surface="canvas"
-                tourSurface={surface === "home" ? "home" : undefined}
-                // Lab overview PI tooltips (Chip B, 2026-05-25): only
-                // wire the help-badge copy on the /lab-overview canvas
-                // mount. /home tiles intentionally skip the badge (Chip
-                // B is scoped to /lab-overview per the proposal).
-                helpText={surface === "home" ? undefined : def.helpText}
+                tourSurface={usesHomeTourAnchors ? "home" : undefined}
+                // Lab overview PI tooltips (Chip B, 2026-05-25): the
+                // help-badge copy is a PI-dashboard affordance. On the
+                // unified dashboard (dashboard-unification build,
+                // 2026-05-29) show it for the lab_head canvas surface and
+                // skip it for the personal home surface, preserving the
+                // original "/lab-overview only" scoping. The legacy /home
+                // mount stays badge-free.
+                helpText={surfaceKey === "canvas" ? def.helpText : undefined}
               >
                 <Tile surface="canvas" config={widgetConfig[id]} />
               </Widget>

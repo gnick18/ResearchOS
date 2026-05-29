@@ -1,11 +1,16 @@
 import { describe, it, expect } from "vitest";
 import {
   LAB_OVERVIEW_LAYOUT_VERSION,
+  PROJECTS_OVERVIEW_WIDGET_ID,
   WIDGET_ID_RENAMES,
+  dashboardSurfaceFor,
+  defaultDashboardLayoutFor,
   defaultHomeLayoutFor,
   migrateLayoutToV2,
+  resolveDashboardLayout,
   resolveHomeLayout,
   resolveLayout,
+  seedDashboardLayout,
 } from "./layout-persistence";
 import {
   isWidgetVisibleForLabHead,
@@ -624,17 +629,18 @@ describe("resolveHomeLayout + defaultHomeLayoutFor", () => {
     );
   });
 
-  it("default seed is in the documented order: upcoming-tasks first, today's-events second", () => {
-    // Home widgets surface-prep manager (2026-05-25): the order is
-    // load-bearing for the §6.2b walkthrough — Upcoming tasks (top)
-    // explicitly demonstrates a project-aware tile, Today's events
-    // (below) demonstrates a calendar-aware tile. Asserting the
-    // sequence here so a future "alphabetize the defaults" refactor
-    // can't silently break the walkthrough copy.
+  it("default seed leads with Projects Overview, then upcoming-tasks, then today's-events", () => {
+    // Dashboard unification (dashboard-unification build, 2026-05-29):
+    // Projects Overview is now seeded at the TOP of every account type's
+    // default so the unified dashboard replaces the deleted hardcoded
+    // Home grid 1:1. The remaining order stays load-bearing for the
+    // §6.2b walkthrough — Upcoming tasks demonstrates a project-aware
+    // tile, Today's events a calendar-aware tile.
     const def = defaultHomeLayoutFor("member");
-    expect(def.widgetOrder.canvas).toHaveLength(2);
-    expect(def.widgetOrder.canvas[0]).toBe("sidebar-upcoming");
-    expect(def.widgetOrder.canvas[1]).toBe("calendar-events-today");
+    expect(def.widgetOrder.canvas).toHaveLength(3);
+    expect(def.widgetOrder.canvas[0]).toBe("projects-overview");
+    expect(def.widgetOrder.canvas[1]).toBe("sidebar-upcoming");
+    expect(def.widgetOrder.canvas[2]).toBe("calendar-events-today");
   });
 
   it("the new default seed only applies to accounts WITHOUT a saved layout", () => {
@@ -823,5 +829,267 @@ describe("widgetConfig (per-instance config) — layout-shape change", () => {
     };
     const layout = resolveLayout(saved, "lab_head", cfgCatalog);
     expect(layout.widgetConfig).toBeUndefined();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Dashboard unification (dashboard-unification build, 2026-05-29)
+// ─────────────────────────────────────────────────────────────────────────
+//
+// The one-time `dashboard_layout` migration: seed from the account-
+// appropriate LEGACY field (lab_head ← lab_overview_layout, else ←
+// home_layout) and inject Projects Overview at the top if missing. Tests
+// both directions so no existing arrangement is dropped.
+
+// Catalog covering both the canvas (PI) surface and the home (member)
+// surface, plus the multi-surface Projects Overview widget. Legacy single-
+// surface entries can't opt into `home`, so the dashboard-surface entries
+// use the `surfaces` map.
+const dashboardCatalog: WidgetDefinition[] = [
+  {
+    id: PROJECTS_OVERVIEW_WIDGET_ID,
+    toolId: "projects-overview",
+    title: "Projects overview",
+    SnapshotTile: NullSnapshot,
+    SidebarTile: NullSidebar,
+    defaultLayout: { w: 6, h: 6 },
+    surfaces: { canvas: true, home: true },
+    memberVisible: true,
+  },
+  {
+    id: "announcements",
+    toolId: "announcements",
+    title: "Announcements",
+    SnapshotTile: NullSnapshot,
+    SidebarTile: NullSidebar,
+    defaultLayout: { w: 12, h: 3 },
+    surfaces: { canvas: true, home: true },
+    memberVisible: true,
+  },
+  {
+    id: "lab-experiments",
+    toolId: "experiments",
+    title: "Lab experiments",
+    SnapshotTile: NullSnapshot,
+    SidebarTile: NullSidebar,
+    defaultLayout: { w: 6, h: 6 },
+    // Canvas-only (PI dashboard); not home-eligible.
+    surfaces: { canvas: true },
+    memberVisible: true,
+  },
+  {
+    id: "calendar-events-today",
+    toolId: "calendar",
+    title: "Today's events",
+    SnapshotTile: NullSnapshot,
+    SidebarTile: NullSidebar,
+    defaultLayout: { w: 4, h: 6 },
+    // Home-eligible (member dashboard).
+    surfaces: { canvas: true, home: true },
+    memberVisible: true,
+  },
+];
+
+describe("dashboard surface key", () => {
+  it("lab_head reads the canvas surface, member/solo read the home surface", () => {
+    expect(dashboardSurfaceFor("lab_head")).toBe("canvas");
+    expect(dashboardSurfaceFor("member")).toBe("home");
+  });
+});
+
+describe("seedDashboardLayout — one-time legacy migration", () => {
+  it("seeds a lab_head's dashboard from lab_overview_layout, not home_layout", () => {
+    const legacyLabOverview: LabOverviewLayout = {
+      version: 2,
+      widgetOrder: {
+        canvas: ["projects-overview", "lab-experiments", "announcements"],
+        sidebar: ["sidebar-recent-activity"],
+      },
+    };
+    const legacyHome: LabOverviewLayout = {
+      version: 2,
+      widgetOrder: { canvas: ["calendar-events-today"], sidebar: [] },
+    };
+    const seeded = seedDashboardLayout(
+      undefined,
+      legacyLabOverview,
+      legacyHome,
+      "lab_head",
+    );
+    // Took the lab_overview arrangement verbatim (Projects Overview was
+    // already present, so no injection).
+    expect(seeded.widgetOrder.canvas).toEqual([
+      "projects-overview",
+      "lab-experiments",
+      "announcements",
+    ]);
+  });
+
+  it("seeds a member's dashboard from home_layout, not lab_overview_layout", () => {
+    const legacyLabOverview: LabOverviewLayout = {
+      version: 2,
+      widgetOrder: { canvas: ["lab-experiments"], sidebar: [] },
+    };
+    const legacyHome: LabOverviewLayout = {
+      version: 2,
+      widgetOrder: {
+        canvas: ["projects-overview", "calendar-events-today"],
+        sidebar: [],
+      },
+    };
+    const seeded = seedDashboardLayout(
+      undefined,
+      legacyLabOverview,
+      legacyHome,
+      "member",
+    );
+    expect(seeded.widgetOrder.canvas).toEqual([
+      "projects-overview",
+      "calendar-events-today",
+    ]);
+    // Did NOT pull from the lab-overview arrangement.
+    expect(seeded.widgetOrder.canvas).not.toContain("lab-experiments");
+  });
+
+  it("injects Projects Overview at the TOP of an existing layout that lacks it", () => {
+    const legacyHome: LabOverviewLayout = {
+      version: 2,
+      widgetOrder: { canvas: ["calendar-events-today", "announcements"], sidebar: [] },
+    };
+    const seeded = seedDashboardLayout(undefined, undefined, legacyHome, "member");
+    expect(seeded.widgetOrder.canvas[0]).toBe(PROJECTS_OVERVIEW_WIDGET_ID);
+    // Preserves the rest of the user's arrangement after the injected one.
+    expect(seeded.widgetOrder.canvas).toEqual([
+      "projects-overview",
+      "calendar-events-today",
+      "announcements",
+    ]);
+  });
+
+  it("does NOT inject a second Projects Overview when one already exists", () => {
+    const legacyLabOverview: LabOverviewLayout = {
+      version: 2,
+      widgetOrder: {
+        canvas: ["announcements", "projects-overview"],
+        sidebar: [],
+      },
+    };
+    const seeded = seedDashboardLayout(
+      undefined,
+      legacyLabOverview,
+      undefined,
+      "lab_head",
+    );
+    const occurrences = seeded.widgetOrder.canvas.filter(
+      (id) => id === PROJECTS_OVERVIEW_WIDGET_ID,
+    );
+    expect(occurrences).toHaveLength(1);
+    // Existing position is preserved (not moved to the top).
+    expect(seeded.widgetOrder.canvas).toEqual([
+      "announcements",
+      "projects-overview",
+    ]);
+  });
+
+  it("an explicit dashboard_layout wins over the legacy fields", () => {
+    const dashboard: LabOverviewLayout = {
+      version: 2,
+      widgetOrder: { canvas: ["announcements"], sidebar: [] },
+    };
+    const legacyHome: LabOverviewLayout = {
+      version: 2,
+      widgetOrder: { canvas: ["projects-overview"], sidebar: [] },
+    };
+    const seeded = seedDashboardLayout(dashboard, undefined, legacyHome, "member");
+    expect(seeded.widgetOrder.canvas).toEqual(["announcements"]);
+  });
+
+  it("falls back to the account default (with Projects Overview) when nothing exists", () => {
+    const seeded = seedDashboardLayout(undefined, undefined, undefined, "member");
+    expect(seeded.widgetOrder.canvas).toContain(PROJECTS_OVERVIEW_WIDGET_ID);
+    expect(defaultDashboardLayoutFor("member").widgetOrder.canvas[0]).toBe(
+      PROJECTS_OVERVIEW_WIDGET_ID,
+    );
+    expect(defaultDashboardLayoutFor("lab_head").widgetOrder.canvas[0]).toBe(
+      PROJECTS_OVERVIEW_WIDGET_ID,
+    );
+  });
+
+  it("migrates a v1 legacy free-grid into the seeded dashboard", () => {
+    const legacyHomeV1: LabOverviewLayoutV1 = {
+      version: 1,
+      canvas: {
+        "calendar-events-today": { x: 0, y: 0, w: 4, h: 4 },
+        announcements: { x: 0, y: 1, w: 12, h: 3 },
+      },
+      sidebar: { order: [], hidden: [] },
+    };
+    const seeded = seedDashboardLayout(undefined, undefined, legacyHomeV1, "member");
+    // v1 → v2 sorts by y ASC: calendar (y0) before announcements (y1),
+    // then Projects Overview injected at the top.
+    expect(seeded.widgetOrder.canvas).toEqual([
+      "projects-overview",
+      "calendar-events-today",
+      "announcements",
+    ]);
+  });
+});
+
+describe("resolveDashboardLayout — surface-aware normalization", () => {
+  it("a lab_head dashboard keeps canvas-only widgets (lab-experiments survives)", () => {
+    const legacyLabOverview: LabOverviewLayout = {
+      version: 2,
+      widgetOrder: {
+        canvas: ["projects-overview", "lab-experiments", "announcements"],
+        sidebar: [],
+      },
+    };
+    const resolved = resolveDashboardLayout(
+      undefined,
+      legacyLabOverview,
+      undefined,
+      "lab_head",
+      visibleCatalog(dashboardCatalog, "lab_head", "canvas"),
+    );
+    expect(resolved.widgetOrder.canvas).toContain("lab-experiments");
+    expect(resolved.widgetOrder.canvas).toContain("projects-overview");
+  });
+
+  it("a member dashboard DROPS canvas-only widgets that aren't home-eligible", () => {
+    // A member whose legacy home_layout somehow references a canvas-only
+    // widget: it must not surface on the member's (home-surface) dashboard.
+    const legacyHome: LabOverviewLayout = {
+      version: 2,
+      widgetOrder: {
+        canvas: ["projects-overview", "lab-experiments", "calendar-events-today"],
+        sidebar: [],
+      },
+    };
+    const resolved = resolveDashboardLayout(
+      undefined,
+      undefined,
+      legacyHome,
+      "member",
+      visibleCatalog(dashboardCatalog, "member", "home"),
+    );
+    // lab-experiments is canvas-only → dropped on the home surface.
+    expect(resolved.widgetOrder.canvas).not.toContain("lab-experiments");
+    expect(resolved.widgetOrder.canvas).toContain("projects-overview");
+    expect(resolved.widgetOrder.canvas).toContain("calendar-events-today");
+  });
+
+  it("injects Projects Overview at the top for an existing member layout missing it", () => {
+    const legacyHome: LabOverviewLayout = {
+      version: 2,
+      widgetOrder: { canvas: ["calendar-events-today"], sidebar: [] },
+    };
+    const resolved = resolveDashboardLayout(
+      undefined,
+      undefined,
+      legacyHome,
+      "member",
+      visibleCatalog(dashboardCatalog, "member", "home"),
+    );
+    expect(resolved.widgetOrder.canvas[0]).toBe(PROJECTS_OVERVIEW_WIDGET_ID);
   });
 });

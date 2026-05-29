@@ -93,9 +93,12 @@ describe("useFirstPaintHint — auto-open contract", () => {
     seedLabHeadSettings("lab_head");
     seedSidecar(null);
 
-    // The canonical first canvas widget is `announcements`
-    // (see defaultLabHeadLayout in layout-persistence.ts).
-    const { result } = renderHook(() => useFirstPaintHint("announcements"));
+    // Dashboard unification (dashboard-unification build, 2026-05-29):
+    // the canonical first canvas widget is now `projects-overview`
+    // (seeded at the top of defaultLabHeadLayout in layout-persistence.ts).
+    const { result } = renderHook(() =>
+      useFirstPaintHint("projects-overview"),
+    );
 
     await waitFor(() => expect(result.current.shouldAutoOpen).toBe(true));
   });
@@ -104,9 +107,10 @@ describe("useFirstPaintHint — auto-open contract", () => {
     seedLabHeadSettings("lab_head");
     seedSidecar(null);
 
-    // `lab-purchases` is the SECOND canvas tile in the lab_head default,
-    // so the hint hook should not claim the auto-open for it.
-    const { result } = renderHook(() => useFirstPaintHint("lab-purchases"));
+    // `announcements` is now the SECOND canvas tile in the lab_head
+    // default (Projects Overview leads), so the hint hook should not
+    // claim the auto-open for it.
+    const { result } = renderHook(() => useFirstPaintHint("announcements"));
 
     // The hook resolves after a tick (reads sidecar / settings async),
     // but for a non-first widget it short-circuits before any sidecar

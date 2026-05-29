@@ -215,6 +215,23 @@ export interface UserSettings {
   // Per-user opt-out (mirrored to _user_metadata.json so the existing lab readers keep working)
   hideGoalsFromLab: boolean;
 
+  // Dashboard unification (dashboard-unification build, 2026-05-29):
+  // ONE per-user dashboard layout. Home (route "/") and Lab Overview
+  // (route "/lab-overview", now a redirect to "/") collapsed into a
+  // single widget canvas at "/". This field is the unified persistence
+  // for that canvas, replacing the previous split between `home_layout`
+  // and `lab_overview_layout`.
+  //
+  // DATA-SHAPE MIGRATION (read at `readResolvedDashboardLayout`): when
+  // this field is absent, it is seeded ONCE from the account-appropriate
+  // legacy field — lab_head from `lab_overview_layout`, everyone else
+  // from `home_layout` — and a Projects Overview instance is injected at
+  // the top if the seeded layout lacks one. The legacy fields below stay
+  // READABLE for one release for back-compat (do not delete them in the
+  // same change). Optional + additive; same v2 shape as the legacy
+  // fields so the SnapshotCanvas mechanics are reused unchanged.
+  dashboard_layout?: LabOverviewLayout | LabOverviewLayoutV1;
+
   // Lab Head Phase 1: role inside the lab. Defaults to `member` for every
   // existing user via plain object spread in `normalize()`. `lab_head`
   // reveals the Lab Overview top-nav entry (renamed from "Lab Inbox" +
@@ -223,26 +240,17 @@ export interface UserSettings {
   // allowed by design, per Grant's 2026-05-23 decisions).
   account_type: AccountType;
 
-  // PI Home migration (pi-home-migration, 2026-05-29): for lab_head (PI)
-  // accounts the Home page is redundant with Lab Overview, so the Home
-  // top-nav tab is hidden by default and the PI lands on Lab Overview
-  // instead. This flag is the opt-back-in: when `true`, a lab head sees
-  // the Home tab again and can land on it. Default `false` for lab heads.
-  //
-  // The field has no effect for `member` accounts — members always keep
-  // the Home tab and their existing landing behavior regardless of this
-  // value (AppShell + the landing-route logic both gate the hide on
-  // `account_type === "lab_head"`). Default below is `false`, which is
-  // also the correct value for a brand-new member: it simply never gates
-  // their Home tab. A member who later switches to PI inherits the
-  // hidden-by-default behavior until they flip this on.
-  showHomeForLabHead: boolean;
-
   // When on, the app makes zero calls to its own server proxies
   // (`/api/calendar-feed`, `/api/telegram-file`). Direct browser → Telegram
   // polling continues because that talks to api.telegram.org directly.
   offlineMode: boolean;
 
+  // LEGACY (dashboard-unification build, 2026-05-29): superseded by
+  // `dashboard_layout` above. Kept READABLE for one release so the
+  // one-time migration can seed `dashboard_layout` from it for an
+  // existing lab_head's saved arrangement. Never written by the new
+  // dashboard mutators; do not delete in this change.
+  //
   // Lab Mode retirement R2 (R2 widget framework manager, 2026-05-23):
   // optional, additive. When absent, the layout-persistence reader fills
   // in the account-type-appropriate default. When present, unknown
@@ -255,19 +263,16 @@ export interface UserSettings {
   // type-check. `readResolvedLayout` migrates v1 → v2 on the fly.
   lab_overview_layout?: LabOverviewLayout | LabOverviewLayoutV1;
 
-  // Home canvas migration (Home canvas migration manager, 2026-05-23):
-  // separate per-user persistence for the new /home widget canvas.
-  // Reuses the same v2 shape as `lab_overview_layout` so the
-  // SnapshotCanvas-style mechanics can be reused. Independent field so
-  // the two pages' customizations stay decoupled — a lab head can have
-  // a dense PI dashboard on /lab-overview AND a quieter personal
-  // canvas on /home. Optional; absent → account-type default kicks in
-  // (see `defaultHomeLayoutFor` in `lab-overview/layout-persistence.ts`).
+  // LEGACY (dashboard-unification build, 2026-05-29): superseded by
+  // `dashboard_layout` above. Kept READABLE for one release so the
+  // one-time migration can seed `dashboard_layout` from it for an
+  // existing member's / solo's saved arrangement. Never written by the
+  // new dashboard mutators; do not delete in this change.
   //
-  // Migration safety: members who previously customized
-  // `lab_overview_layout` keep that payload on disk after this
-  // migration — it just becomes orphaned (members no longer have
-  // /lab-overview). New `home_layout` starts unset; defaults apply.
+  // Home canvas migration (Home canvas migration manager, 2026-05-23):
+  // separate per-user persistence for the old /home widget canvas.
+  // Reuses the same v2 shape as `lab_overview_layout` so the
+  // SnapshotCanvas-style mechanics can be reused.
   home_layout?: LabOverviewLayout | LabOverviewLayoutV1;
 }
 
@@ -295,7 +300,6 @@ export const DEFAULT_SETTINGS: UserSettings = {
   hideGoalsFromLab: false,
   offlineMode: false,
   account_type: "member",
-  showHomeForLabHead: false,
 };
 
 /** Horizon choices surfaced in the Settings → Sidebar selector. */

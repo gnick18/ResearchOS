@@ -457,16 +457,16 @@ describe("TOUR_STEP_ORDER", () => {
     expect(next).toBe("home-create-project");
   });
 
-  it("PI (lab_head) skips the whole Home/project/notifications block; walkthrough starts at Workbench", () => {
-    // PI Home migration interim (2026-05-29): a lab_head no longer uses
-    // Home (hidden from nav, defaults to Lab Overview), so the universal
-    // walkthrough skips sections 6.1-6.3 (every step anchored to "/") and
-    // resumes at the Workbench phase. Members + solo accounts still see
-    // the full block.
+  it("every account type (PI, member, solo) walks the same dashboard-canvas phase", () => {
+    // Dashboard unification (dashboard-unification build, 2026-05-29): Home
+    // and Lab Overview collapsed into ONE dashboard at "/", so the interim
+    // PI Home-phase skip is removed. A lab_head now walks the same
+    // sections 6.1-6.3 (project creation + dashboard widgets +
+    // notifications) as members and solo accounts.
     const pi = picks({ account_type: "lab", lab_head: true });
     const member = picks({ account_type: "lab", lab_head: false });
     const solo = picks();
-    const homeBlock: TourStepId[] = [
+    const dashboardBlock: TourStepId[] = [
       "home-create-project",
       "home-create-project-fill",
       "project-overview-nav",
@@ -485,17 +485,15 @@ describe("TOUR_STEP_ORDER", () => {
       "notifications-silence",
       "notifications-delete",
     ];
-    for (const id of homeBlock) {
-      expect(isStepGatedOut(id, pi)).toBe(true);
+    for (const id of dashboardBlock) {
+      expect(isStepGatedOut(id, pi)).toBe(false);
       expect(isStepGatedOut(id, member)).toBe(false);
       expect(isStepGatedOut(id, solo)).toBe(false);
     }
-    // The PI walkthrough resumes at the first non-Home feature step.
-    expect(getNextStep("setup-wrapup", pi)).toBe(
-      "workbench-create-experiment-open",
-    );
-    // Members still begin at home-create-project.
+    // Every account type now begins the walkthrough at home-create-project.
+    expect(getNextStep("setup-wrapup", pi)).toBe("home-create-project");
     expect(getNextStep("setup-wrapup", member)).toBe("home-create-project");
+    expect(getNextStep("setup-wrapup", solo)).toBe("home-create-project");
   });
 
   it("contains the three §6.3 notification sub-step ids", () => {

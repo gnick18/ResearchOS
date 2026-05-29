@@ -157,7 +157,6 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         sidebarEventsHorizonDays: settings.sidebarEventsHorizonDays,
         coloredHeader: settings.coloredHeader,
         offlineMode: settings.offlineMode,
-        showHomeForLabHead: settings.showHomeForLabHead,
       });
     } catch (err) {
       console.warn("[FileSystemProvider.hydrateSettingsForUser] failed", err);
@@ -173,7 +172,6 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         sidebarEventsHorizonDays: DEFAULT_SETTINGS.sidebarEventsHorizonDays,
         coloredHeader: DEFAULT_SETTINGS.coloredHeader,
         offlineMode: DEFAULT_SETTINGS.offlineMode,
-        showHomeForLabHead: DEFAULT_SETTINGS.showHomeForLabHead,
       });
     }
   }, []);

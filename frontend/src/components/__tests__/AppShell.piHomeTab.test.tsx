@@ -1,26 +1,20 @@
 /**
- * AppShell — Home top-nav tab visibility for lab_head (PI) accounts.
+ * AppShell — unified dashboard top-nav tab.
  *
- * PI Home migration (pi-home-migration, 2026-05-29). Contract:
- *   - account_type === "lab_head" + showHomeForLabHead === false (the
- *     default post-migration): the Home tab ("/") is HIDDEN from the
- *     top nav. Lab Overview takes the leftmost slot.
- *   - account_type === "lab_head" + showHomeForLabHead === true (PI opted
- *     back in via Settings): the Home tab is SHOWN again.
- *   - account_type === "member": the Home tab is ALWAYS shown, regardless
- *     of showHomeForLabHead — members are unaffected.
+ * Dashboard unification (dashboard-unification build, 2026-05-29). Home
+ * and Lab Overview collapsed into ONE dashboard at "/". Contract:
+ *   - There is a SINGLE nav entry for the dashboard ("/"), shown for every
+ *     account type. `/lab-overview` is no longer a separate nav entry (it
+ *     redirects to "/").
+ *   - The entry's LABEL is account-aware: "Lab Overview" for a lab_head
+ *     (PI), "Home" for solo + member. Mirrors the "Links" vs "Lab Links"
+ *     account-aware label pattern.
  *   - account_type === undefined (settings read in flight): treated as
- *     "not lab_head" so Home stays shown and never flickers OUT for a
- *     member on first paint.
+ *     "not lab_head" so the label resolves to "Home" until the read
+ *     settles; the tab itself never disappears.
  *
- * The Home ROUTE is never removed — this suite only asserts the nav-tab
- * VISIBILITY, which is the only thing the migration changes. Direct
- * navigation to "/" (incl. the v4 tour's router pushes) is covered by
- * the route staying live, not by a tab.
- *
- * Harness mirrors AppShell.featurePicksTabs.test.tsx; the differences are
- * (a) a per-test `useAccountType` holder and (b) driving the real Zustand
- * store's `showHomeForLabHead` before each render.
+ * The "Show Home page" toggle and the showHomeForLabHead store field were
+ * removed by this build — there is no separate Home tab to hide/restore.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
@@ -53,8 +47,8 @@ vi.mock("@/lib/file-system/file-system-context", () => ({
 }));
 
 // Stable null picks → nav filter resolves to the default visibleTabs
-// (Home + every NAV_ITEM). This isolates the account-type gate from the
-// feature-picks gate.
+// (the dashboard + every NAV_ITEM). This isolates the account-type gate
+// from the feature-picks gate.
 vi.mock("@/hooks/useFeaturePicks", () => ({
   useFeaturePicks: () => null,
 }));
@@ -128,16 +122,9 @@ vi.mock("@/components/UserLoginScreen", () => ({ default: () => null }));
 vi.mock("@/components/FeedbackModal", () => ({ default: () => null }));
 
 import AppShell from "@/components/AppShell";
-import { useAppStore } from "@/lib/store";
 
-function renderShell(opts: {
-  accountType: AccountType | null | undefined;
-  showHomeForLabHead: boolean;
-}) {
+function renderShell(opts: { accountType: AccountType | null | undefined }) {
   currentAccountType = opts.accountType;
-  // Drive the real store the same way FileSystemProvider.hydrateSettings
-  // would after reading settings.json on login.
-  useAppStore.getState().setShowHomeForLabHead(opts.showHomeForLabHead);
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
@@ -165,59 +152,37 @@ function navHrefs(container: HTMLElement): string[] {
   return items;
 }
 
+function dashboardLabel(container: HTMLElement): string | null {
+  const el = container.querySelector('nav a[href="/"]');
+  return el ? (el.textContent ?? "").trim() : null;
+}
+
 afterEach(() => {
-  // Reset the store flag so a leaked value doesn't bleed into the next
-  // test (the store module is shared across the suite).
-  useAppStore.getState().setShowHomeForLabHead(false);
   currentAccountType = "member";
 });
 
-describe("AppShell — Home tab visibility for lab_head (PI Home migration)", () => {
-  it("lab_head + showHomeForLabHead=false HIDES the Home tab (the default)", () => {
-    const { container } = renderShell({
-      accountType: "lab_head",
-      showHomeForLabHead: false,
-    });
+describe("AppShell — unified dashboard nav entry", () => {
+  it("lab_head: single '/' entry labeled 'Lab Overview'; no separate /lab-overview tab", () => {
+    const { container } = renderShell({ accountType: "lab_head" });
     const hrefs = navHrefs(container);
-    expect(hrefs).not.toContain("/");
-    // Lab Overview is shown (and takes the leftmost slot) for the PI.
-    expect(hrefs).toContain("/lab-overview");
+    expect(hrefs).toContain("/");
+    expect(hrefs).not.toContain("/lab-overview");
+    expect(dashboardLabel(container)).toBe("Lab Overview");
     // Other non-PI-suppressed tabs still render.
     expect(hrefs).toContain("/workbench");
   });
 
-  it("lab_head + showHomeForLabHead=true SHOWS the Home tab (PI opted back in)", () => {
-    const { container } = renderShell({
-      accountType: "lab_head",
-      showHomeForLabHead: true,
-    });
+  it("member: single '/' entry labeled 'Home'", () => {
+    const { container } = renderShell({ accountType: "member" });
     const hrefs = navHrefs(container);
     expect(hrefs).toContain("/");
-    // Lab Overview is still present alongside Home.
-    expect(hrefs).toContain("/lab-overview");
+    expect(hrefs).not.toContain("/lab-overview");
+    expect(dashboardLabel(container)).toBe("Home");
   });
 
-  it("member ALWAYS shows the Home tab — showHomeForLabHead=false has no effect", () => {
-    const { container } = renderShell({
-      accountType: "member",
-      showHomeForLabHead: false,
-    });
+  it("accountType undefined (read in flight): '/' shown, label falls back to 'Home'", () => {
+    const { container } = renderShell({ accountType: undefined });
     expect(navHrefs(container)).toContain("/");
-  });
-
-  it("member shows the Home tab even when showHomeForLabHead=true", () => {
-    const { container } = renderShell({
-      accountType: "member",
-      showHomeForLabHead: true,
-    });
-    expect(navHrefs(container)).toContain("/");
-  });
-
-  it("accountType undefined (read in flight) keeps the Home tab shown — never flickers OUT for a member", () => {
-    const { container } = renderShell({
-      accountType: undefined,
-      showHomeForLabHead: false,
-    });
-    expect(navHrefs(container)).toContain("/");
+    expect(dashboardLabel(container)).toBe("Home");
   });
 });
