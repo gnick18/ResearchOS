@@ -5383,6 +5383,18 @@ export const labApi = {
     const { usernames, metadata } = await loadLabUsers();
     const out: ViewerVisibleProject[] = [];
 
+    // LOCAL today as YYYY-MM-DD. Task start/end dates are stored as local
+    // date strings, so the open/overdue/upcoming buckets must compare
+    // against the viewer's LOCAL calendar day, not a UTC instant (a late
+    // evening in a behind-UTC zone would otherwise read tomorrow's date and
+    // misclassify same-day tasks). Mirrors the streak tracker's local-day
+    // derivation.
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
+      2,
+      "0",
+    )}-${String(now.getDate()).padStart(2, "0")}`;
+
     for (const username of usernames) {
       const userProjects = await projectsStore.listAllForUser(username);
       const userColor = colorFor(metadata, username);
@@ -5396,6 +5408,21 @@ export const labApi = {
         const projectTasks = ownerTasks.filter((t) => t.project_id === p.id);
         const taskTotal = projectTasks.length;
         const taskCompleted = projectTasks.filter((t) => t.is_complete).length;
+        // Per-project task breakdown, logic lifted verbatim from the
+        // pre-unification Home project cards (start_date >= today =
+        // upcoming; end_date < today = overdue; spanning today = active).
+        // An incomplete task can land in more than one bucket only at the
+        // boundaries, exactly as the old cards counted it.
+        const incompleteTasks = projectTasks.filter((t) => !t.is_complete);
+        const taskUpcoming = incompleteTasks.filter(
+          (t) => t.start_date >= today,
+        ).length;
+        const taskOverdue = incompleteTasks.filter(
+          (t) => t.end_date < today,
+        ).length;
+        const taskActive = incompleteTasks.filter(
+          (t) => t.start_date <= today && t.end_date >= today,
+        ).length;
         out.push({
           id: p.id,
           name: p.name,
@@ -5406,6 +5433,9 @@ export const labApi = {
           taskTotal,
           taskCompleted,
           taskIncomplete: taskTotal - taskCompleted,
+          taskUpcoming,
+          taskOverdue,
+          taskActive,
         });
       }
     }
@@ -6818,6 +6848,27 @@ export interface ViewerVisibleProject {
   taskTotal: number;
   taskCompleted: number;
   taskIncomplete: number;
+  /**
+   * Per-project incomplete-task breakdown (additive, single-project-widget
+   * bot, 2026-05-29), mirroring the old Home project cards. `today` is the
+   * viewer's LOCAL YYYY-MM-DD.
+   *   - `taskUpcoming` = incomplete tasks whose `start_date >= today`
+   *   - `taskOverdue`  = incomplete tasks whose `end_date < today`
+   *   - `taskActive`   = incomplete tasks spanning today
+   *     (`start_date <= today && end_date >= today`)
+   * Lets the Single-Project widget render an at-a-glance Active / Overdue /
+   * Upcoming counts row without a second cross-lab tasks fetch.
+   *
+   * Marked OPTIONAL so the addition stays purely additive: existing
+   * `ViewerVisibleProject` literals elsewhere (e.g. the Projects Overview
+   * widget's test fixtures) keep type-checking without edits.
+   * `getProjectsWithProgress` ALWAYS populates these, so a live record never
+   * omits them; the consuming widget defaults to 0 for the (test-only)
+   * absent case.
+   */
+  taskUpcoming?: number;
+  taskOverdue?: number;
+  taskActive?: number;
 }
 
 export interface LabMethod {

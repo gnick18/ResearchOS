@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { labApi } from "@/lib/local-api";
@@ -17,10 +17,18 @@ import SidebarStatTile from "./snapshot/SidebarStatTile";
 /**
  * Single-Project widget (project-widgets family, project-widgets,
  * 2026-05-29). Mirrors `TraineeNotesWidget`'s single-target pin, but for
- * a PROJECT: pin one project and the widget shows its live status:
- * progress, incomplete-task count, the project color/owner, and a link to
- * open it. Most useful for a PI tracking a specific member's project; a
- * member can pin their own.
+ * a PROJECT: pin one project and the SnapshotTile shows its live status as
+ * a rich card mirroring the old Home project cards: the project color + name,
+ * percent-complete + a progress bar, and an Active / Overdue / Upcoming
+ * counts row (Overdue red when > 0) plus the open-task count. Most useful for
+ * a PI tracking a specific member's project; a member can pin their own.
+ *
+ * NAVIGATION (single-project-widget bot, 2026-05-29): a PINNED tile click
+ * routes STRAIGHT to the full project page (`projectHref`), not the
+ * ExpandedView popup, guarded so it never fires in edit/drag mode. The
+ * popup is demoted to the pin-PICKER host: an UNPINNED tile click opens it,
+ * and a pinned tile carries a small "Change project" affordance that
+ * re-opens it.
  *
  * Per-instance config: `config.pinnedProject = { id, owner }`. Carries the
  * owner because project ids are namespaced per owner. Unset = the widget
@@ -89,6 +97,30 @@ const OPEN_SVG = (
     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
     <polyline points="15 3 21 3 21 9" />
     <line x1="10" y1="14" x2="21" y2="3" />
+  </svg>
+);
+
+/** "Change project" affordance: a two-way swap arrow. Lets a user re-open
+ *  the pin picker for an ALREADY-pinned widget (the pinned-tile body click
+ *  now navigates straight to the project, so this is the only re-pin path
+ *  from the tile face). */
+const SWAP_SVG = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="13"
+    height="13"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <polyline points="17 1 21 5 17 9" />
+    <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+    <polyline points="7 23 3 19 7 15" />
+    <path d="M21 13v2a4 4 0 0 1-4 4H3" />
   </svg>
 );
 
@@ -361,26 +393,141 @@ export default function SingleProjectWidget(props?: ExpandedViewProps) {
 export const ExpandedView = SingleProjectWidget;
 
 export const HELP_TEXT =
-  "Tracks a single project's status: progress, open vs done task counts, and a link to open it. Pin any project you can see; a PI can pin a member's project to keep an eye on it. The picker only lists projects shared with you, so it never exposes a project you cannot already read.";
+  "Tracks a single project at a glance: progress, plus its active, overdue, and upcoming task counts. Click the tile to jump straight to the full project; use Change project to re-pin. Pin any project you can see; a PI can pin a member's project to keep an eye on it. The picker only lists projects shared with you, so it never exposes a project you cannot already read.";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SnapshotTile: the pinned project's headline progress + open count.
+// SnapshotTile: a rich, at-a-glance card mirroring the OLD project cards.
+//   color dot + name · percent + progress bar · Active / Overdue / Upcoming
+//   counts (Overdue red when > 0) + the open-task count.
+// A PINNED tile click navigates STRAIGHT to the full project page (the old
+// popup, a lone bar + a link, was useless). The picker stays reachable: an
+// UNPINNED tile click bubbles to the canvas wrapper (opens the pin-picker
+// popup), and a pinned tile gets a small "Change project" affordance that
+// re-opens the picker.
 // ─────────────────────────────────────────────────────────────────────────────
+
+/** One labelled count in the Active / Overdue / Upcoming row. */
+function CountStat({
+  label,
+  value,
+  emphasizeWarn,
+}: {
+  label: string;
+  value: number;
+  /** Render in red when > 0 (used for Overdue). */
+  emphasizeWarn?: boolean;
+}) {
+  const warn = emphasizeWarn && value > 0;
+  return (
+    <div className="min-w-0">
+      <div
+        className={`text-sm font-semibold tabular-nums leading-tight ${
+          warn ? "text-red-600" : "text-gray-900"
+        }`}
+      >
+        {value}
+      </div>
+      <div
+        className={`text-[9px] uppercase tracking-wide leading-tight ${
+          warn ? "text-red-400" : "text-gray-400"
+        }`}
+      >
+        {label}
+      </div>
+    </div>
+  );
+}
+
+/** Pixel movement between pointerdown and click above which we treat the
+ *  gesture as a drag, not a navigation click. Belt-and-suspenders alongside
+ *  the edit-mode `draggable` check (the canvas wrapper is `draggable` only
+ *  in edit mode). */
+const DRAG_SLOP_PX = 6;
 
 export function SnapshotTile(props: SnapshotTileProps) {
   const pin = props.config?.pinnedProject;
+  const router = useRouter();
+  const { currentUser } = useCurrentUser();
   const { isLoading, projects } = useViewerProjects();
   const pinned = findPinned(projects, pin);
 
+  // Drag-guard: remember where the pointer went down so a click that ends
+  // far from its start (a drag-reorder gesture) doesn't fire navigation.
+  const downAt = useRef<{ x: number; y: number } | null>(null);
+
+  const pct = pinned ? progressPct(pinned) : 0;
+
+  /** Pinned tile body click → open the full project page directly, NOT the
+   *  ExpandedView popup. Guards:
+   *    1. "Change project" affordance: a click on (or inside) it must reach
+   *       the canvas wrapper to open the pin-picker popup, so we bail
+   *       WITHOUT stopping propagation.
+   *    2. Edit mode: the canvas wrapper is `draggable="true"` only while
+   *       editing layout, so we bail and a tile click in edit mode never
+   *       navigates.
+   *    3. Drag: bail if the pointer moved past the slop threshold (a
+   *       reorder drag, not a click).
+   *  On a real navigate click we `stopPropagation` so the wrapper's
+   *  popup-open handler doesn't also fire (the popup is now the picker, not
+   *  the primary destination of a pinned-tile click). */
+  const onBodyClick = (e: React.MouseEvent) => {
+    if (!pinned) return; // unpinned: let it bubble → wrapper opens the picker
+    // Clicks on the change affordance bubble up to the wrapper untouched so
+    // the picker opens; we just don't navigate for them.
+    if ((e.target as HTMLElement).closest("[data-single-project-change]")) {
+      return;
+    }
+    const editing =
+      (e.currentTarget as HTMLElement).closest('[draggable="true"]') !== null;
+    if (editing) return; // edit/drag mode: swallow, don't navigate
+    const start = downAt.current;
+    if (
+      start &&
+      (Math.abs(e.clientX - start.x) > DRAG_SLOP_PX ||
+        Math.abs(e.clientY - start.y) > DRAG_SLOP_PX)
+    ) {
+      return; // moved too far: this was a drag, not a click
+    }
+    e.stopPropagation();
+    router.push(projectHref(pinned, currentUser));
+  };
+
   return (
-    <div className="relative h-full overflow-hidden flex flex-col">
+    <div
+      className="relative h-full overflow-hidden flex flex-col"
+      onPointerDown={(e) => {
+        downAt.current = { x: e.clientX, y: e.clientY };
+      }}
+      onClick={onBodyClick}
+    >
       <div className="flex items-center gap-1.5 text-gray-500">
-        <span aria-hidden="true" className="text-blue-500 flex-shrink-0">
-          {FOLDER_SVG}
-        </span>
-        <span className="text-[10px] uppercase tracking-wide font-medium truncate">
+        <span
+          aria-hidden="true"
+          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+          style={{ backgroundColor: pinned ? pinned.color : "#cbd5e1" }}
+        />
+        <span className="text-[11px] font-semibold text-gray-700 truncate">
           {pinned ? pinned.name : "Project"}
         </span>
+        {pinned && (
+          <Tooltip label="Change project" placement="top">
+            <button
+              type="button"
+              data-testid="single-project-change"
+              data-single-project-change=""
+              aria-label="Change project"
+              // No handler of its own: the click bubbles up to the canvas
+              // wrapper, which opens the pin-picker popup (the same popup the
+              // unpinned tile opens). The root's navigate handler skips this
+              // click because the target sits inside `data-single-project-
+              // change`, so a pinned tile still re-pins via the picker
+              // without navigating away.
+              className="ml-auto flex-shrink-0 text-gray-300 hover:text-gray-500 transition-colors"
+            >
+              <span aria-hidden="true">{SWAP_SVG}</span>
+            </button>
+          </Tooltip>
+        )}
       </div>
       <div className="mt-2 flex-1 min-h-0 flex flex-col justify-center gap-2">
         {isLoading ? (
@@ -390,21 +537,27 @@ export function SnapshotTile(props: SnapshotTileProps) {
         ) : (
           <>
             <div className="flex items-baseline gap-1.5">
-              <span className="text-2xl font-semibold tabular-nums text-gray-900">
-                {progressPct(pinned)}%
+              <span className="text-xl font-semibold tabular-nums text-gray-900">
+                {pct}%
               </span>
               <span className="text-xs text-gray-500">complete</span>
             </div>
             <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
               <div
                 className="h-full rounded-full"
-                style={{
-                  width: `${progressPct(pinned)}%`,
-                  backgroundColor: pinned.color,
-                }}
+                style={{ width: `${pct}%`, backgroundColor: pinned.color }}
               />
             </div>
-            <p className="text-[11px] text-gray-500 tabular-nums">
+            <div className="grid grid-cols-3 gap-1">
+              <CountStat label="Active" value={pinned.taskActive ?? 0} />
+              <CountStat
+                label="Overdue"
+                value={pinned.taskOverdue ?? 0}
+                emphasizeWarn
+              />
+              <CountStat label="Upcoming" value={pinned.taskUpcoming ?? 0} />
+            </div>
+            <p className="text-[10px] text-gray-400 tabular-nums">
               {pinned.taskIncomplete} task
               {pinned.taskIncomplete === 1 ? "" : "s"} open
             </p>

@@ -26,6 +26,9 @@ const ALL_PROJECTS: ViewerVisibleProject[] = [
     taskTotal: 4,
     taskCompleted: 1,
     taskIncomplete: 3,
+    taskActive: 2,
+    taskOverdue: 1,
+    taskUpcoming: 0,
   },
   {
     id: 2,
@@ -37,6 +40,9 @@ const ALL_PROJECTS: ViewerVisibleProject[] = [
     taskTotal: 2,
     taskCompleted: 2,
     taskIncomplete: 0,
+    taskActive: 0,
+    taskOverdue: 0,
+    taskUpcoming: 0,
   },
   {
     id: 3,
@@ -48,6 +54,9 @@ const ALL_PROJECTS: ViewerVisibleProject[] = [
     taskTotal: 5,
     taskCompleted: 0,
     taskIncomplete: 5,
+    taskActive: 3,
+    taskOverdue: 2,
+    taskUpcoming: 0,
   },
   {
     id: 4,
@@ -59,6 +68,9 @@ const ALL_PROJECTS: ViewerVisibleProject[] = [
     taskTotal: 3,
     taskCompleted: 1,
     taskIncomplete: 2,
+    taskActive: 1,
+    taskOverdue: 0,
+    taskUpcoming: 1,
   },
 ];
 
@@ -165,6 +177,77 @@ describe("SingleProjectWidget: render + empty state", () => {
       </QueryClientProvider>,
     );
     expect(await screen.findByText(/complete/)).toBeInTheDocument();
+  });
+});
+
+describe("SingleProjectWidget: SnapshotTile rich card", () => {
+  function renderTile(
+    config: WidgetInstanceConfig = { pinnedProject: { id: 1, owner: "morgan" } },
+    wrapperOnClick?: () => void,
+  ) {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    return render(
+      <QueryClientProvider client={client}>
+        {/* Stand-in for the canvas wrapper: it opens the pin-picker popup on
+            a bubbled click, and is `draggable` only in edit mode (off here). */}
+        <div
+          data-testid="canvas-wrapper"
+          role="button"
+          draggable={false}
+          onClick={wrapperOnClick}
+        >
+          <SnapshotTile surface="canvas" config={config} />
+        </div>
+      </QueryClientProvider>,
+    );
+  }
+
+  it("renders the project name + percent + Active/Overdue/Upcoming counts", async () => {
+    renderTile();
+    expect(await screen.findByText("Aim 1 (whole lab)")).toBeInTheDocument();
+    // 1/4 complete ⇒ 25%.
+    expect(screen.getByText("25%")).toBeInTheDocument();
+    // The labelled counts row mirrors the old project cards.
+    expect(screen.getByText("Active")).toBeInTheDocument();
+    expect(screen.getByText("Overdue")).toBeInTheDocument();
+    expect(screen.getByText("Upcoming")).toBeInTheDocument();
+    // The open-task count is surfaced too (3 incomplete tasks).
+    expect(screen.getByText(/3 tasks open/)).toBeInTheDocument();
+  });
+
+  it("a pinned-tile body click navigates to the project page and does NOT open the popup", async () => {
+    const wrapperOnClick = vi.fn();
+    renderTile({ pinnedProject: { id: 1, owner: "morgan" } }, wrapperOnClick);
+    const name = await screen.findByText("Aim 1 (whole lab)");
+    fireEvent.click(name);
+    // Routes with the owner suffix (project owned by a different member).
+    expect(pushMock).toHaveBeenCalledWith("/workbench/projects/1?owner=morgan");
+    // The popup (canvas wrapper onClick) must NOT also fire.
+    expect(wrapperOnClick).not.toHaveBeenCalled();
+  });
+
+  it("the Change project affordance opens the picker (popup) and does NOT navigate", async () => {
+    const wrapperOnClick = vi.fn();
+    renderTile({ pinnedProject: { id: 1, owner: "morgan" } }, wrapperOnClick);
+    const change = await screen.findByTestId("single-project-change");
+    fireEvent.click(change);
+    // The click bubbles to the wrapper (opens the pin-picker popup)…
+    expect(wrapperOnClick).toHaveBeenCalledTimes(1);
+    // …but the tile does NOT navigate away.
+    expect(pushMock).not.toHaveBeenCalled();
+  });
+
+  it("an UNPINNED tile click bubbles to the wrapper (opens the picker) and does NOT navigate", async () => {
+    const wrapperOnClick = vi.fn();
+    renderTile({}, wrapperOnClick);
+    const empty = await screen.findByText("No project pinned");
+    fireEvent.click(empty);
+    expect(wrapperOnClick).toHaveBeenCalledTimes(1);
+    expect(pushMock).not.toHaveBeenCalled();
+    // No Change-project affordance when there is nothing pinned.
+    expect(screen.queryByTestId("single-project-change")).toBeNull();
   });
 });
 
