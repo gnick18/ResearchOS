@@ -6531,11 +6531,22 @@ export const fetchAllTasksIncludingShared = async () => {
 // `owner` at read time. Public methods are already surfaced by
 // `methodsApi.list`; this only adds the receiver-shared private ones.
 export const fetchAllMethodsIncludingShared = async (): Promise<Method[]> => {
-  const ownMethods = await methodsApi.list();
+  const currentUser = await getCurrentUserCached();
+  // Provenance ownership: methodsApi.list() reads the CURRENT user's own
+  // methods folder, so every method it returns belongs to the current user.
+  // Methods created before the owner / created_by attribution fields existed
+  // carry neither, and without backfilling owner from provenance here
+  // isOwnMethod() wrongly files the user's OWN methods under "Shared with
+  // Lab" and makes them look un-editable (Grant 2026-05-29). Backfill owner
+  // when absent, and mark own-folder methods as not shared-in.
+  const ownMethods: Method[] = (await methodsApi.list()).map((m) => ({
+    ...m,
+    owner: m.owner ?? currentUser ?? undefined,
+    is_shared_with_me: false,
+  }));
 
   const sharedMethods: Method[] = [];
   try {
-    const currentUser = await getCurrentUserCached();
     const manifest = await fileService.readJson<SharedManifest>(
       `users/${currentUser}/_shared_with_me.json`
     );
