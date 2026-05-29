@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   getLastError,
   clearLastError,
@@ -9,11 +9,32 @@ import {
   type ErrorInfo,
   type FeedbackType,
 } from "@/lib/error-reporting";
+import Tooltip from "@/components/Tooltip";
 
 interface FeedbackModalProps {
   isOpen: boolean;
   onClose: () => void;
   prefilledError?: ErrorInfo | null;
+}
+
+// An attached screenshot lives only in in-memory component state — the app
+// is local-first with no server, so images are never uploaded, written to
+// the research folder, or persisted anywhere. They exist only to be copied
+// to the user's own clipboard so they can paste them into the GitHub issue
+// on the next screen. (feedback-screenshots bot)
+interface AttachedImage {
+  id: string;
+  blob: Blob;
+  /** Object URL for the thumbnail preview. Revoked on remove / unmount. */
+  previewUrl: string;
+  /** Display name when available (file picker / pasted file), else a default. */
+  name: string;
+}
+
+let imageIdCounter = 0;
+function nextImageId(): string {
+  imageIdCounter += 1;
+  return `img-${imageIdCounter}-${Date.now()}`;
 }
 
 const TYPE_STORAGE_KEY = "researchos:feedback-type-last";
@@ -50,6 +71,21 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
   const [description, setDescription] = useState("");
   const [copied, setCopied] = useState(false);
 
+  // Attached screenshots (in-memory only) + drag-hover affordance.
+  const [images, setImages] = useState<AttachedImage[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  // When the user submits with images attached, we don't close the modal
+  // immediately. The clipboard can hold only ONE image at a time, so we
+  // transition to a "last step" confirmation that keeps the thumbnails +
+  // per-image Copy buttons reachable. `null` = still in the compose state.
+  const [confirmStep, setConfirmStep] = useState<null | { copyOk: boolean }>(null);
+  // id of the image whose per-thumbnail Copy button just fired (for the
+  // transient "Copied" affordance on that specific thumbnail).
+  const [copiedImageId, setCopiedImageId] = useState<string | null>(null);
+  const [clipboardError, setClipboardError] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const errorInfo = prefilledError || getLastError();
 
   // Snapshot errorInfo when the modal opens. errorInfo itself is
@@ -64,18 +100,65 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
     errorInfoRef.current = errorInfo;
   }, [errorInfo]);
 
+  // Keep a ref to the live images so the unmount cleanup can revoke every
+  // object URL without re-subscribing on each add/remove. Reading state in
+  // a cleanup closure would capture a stale snapshot.
+  const imagesRef = useRef<AttachedImage[]>([]);
+  useEffect(() => {
+    imagesRef.current = images;
+  }, [images]);
+
+  // Revoke every outstanding object URL when the modal unmounts so previews
+  // don't leak. Per-image revokes happen on remove; this catches the rest.
+  useEffect(() => {
+    return () => {
+      for (const img of imagesRef.current) URL.revokeObjectURL(img.previewUrl);
+    };
+  }, []);
+
   // Reset form whenever the modal (re)opens. If the open was triggered by an
   // error, lock the type to "bug" so the user sees the error context they
   // came to report; otherwise restore their last-used preference.
   useEffect(() => {
     if (!isOpen) return;
     const snapshot = errorInfoRef.current;
+    // Revoke any URLs left from a prior session before clearing the list.
+    for (const img of imagesRef.current) URL.revokeObjectURL(img.previewUrl);
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reset form when modal opens (sync state to prop transition)
     setTitle("");
     setDescription("");
     setCopied(false);
+    setImages([]);
+    setIsDragging(false);
+    setConfirmStep(null);
+    setCopiedImageId(null);
+    setClipboardError(null);
     setType(snapshot ? "bug" : readStoredType() ?? "bug");
   }, [isOpen]);
+
+  // Add image blobs (from drop / paste / file picker) to in-memory state.
+  // Non-image blobs are ignored so a stray text paste / file drop is a no-op.
+  const addImageBlobs = useCallback((blobs: Array<{ blob: Blob; name?: string }>) => {
+    const additions: AttachedImage[] = [];
+    for (const { blob, name } of blobs) {
+      if (!blob.type.startsWith("image/")) continue;
+      additions.push({
+        id: nextImageId(),
+        blob,
+        previewUrl: URL.createObjectURL(blob),
+        name: name?.trim() || "screenshot",
+      });
+    }
+    if (additions.length > 0) setImages((prev) => [...prev, ...additions]);
+  }, []);
+
+  const removeImage = useCallback((id: string) => {
+    setImages((prev) => {
+      const target = prev.find((img) => img.id === id);
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((img) => img.id !== id);
+    });
+  }, []);
 
   if (!isOpen) return null;
 
@@ -93,18 +176,65 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
   // only descriptions count as empty — `trim()` strips newlines too,
   // so a user mashing Enter doesn't fool the gate. (feedback polish R1)
   const isDescriptionValid = description.trim().length > 0;
+  const hasImages = images.length > 0;
 
-  const handleSubmit = () => {
+  // Copy a single image blob to the clipboard so the user can paste it into
+  // the GitHub description (GitHub uploads images on paste). Guarded so a
+  // clipboard rejection surfaces a friendly message instead of throwing.
+  // Returns true on success. Plain function (not a hook) so it can live
+  // below the early `if (!isOpen)` return alongside the other handlers.
+  const copyImageToClipboard = async (img: AttachedImage): Promise<boolean> => {
+    try {
+      if (typeof ClipboardItem === "undefined" || !navigator.clipboard?.write) {
+        throw new Error("Clipboard image write is not available in this browser.");
+      }
+      await navigator.clipboard.write([
+        new ClipboardItem({ [img.blob.type]: img.blob }),
+      ]);
+      return true;
+    } catch (err) {
+      console.error("Failed to copy image to clipboard:", err);
+      setClipboardError(
+        "Could not copy the image automatically. Right-click the thumbnail to copy it, or drag it into the GitHub description.",
+      );
+      return false;
+    }
+  };
+
+  const handleCopyImage = async (img: AttachedImage) => {
+    setClipboardError(null);
+    const ok = await copyImageToClipboard(img);
+    if (ok) {
+      setCopiedImageId(img.id);
+      setTimeout(() => setCopiedImageId((cur) => (cur === img.id ? null : cur)), 2000);
+    }
+  };
+
+  const handleSubmit = async () => {
     if (!isDescriptionValid) return;
     const url = generateGitHubIssueUrl({
       type,
       title,
       description,
       errorInfo: payloadErrorInfo,
+      hasScreenshots: hasImages,
     });
     window.open(url, "_blank");
     clearLastError();
-    onClose();
+
+    // No images: keep today's behavior — open the issue and close.
+    if (!hasImages) {
+      onClose();
+      return;
+    }
+
+    // Images attached: the clipboard holds only ONE image at a time, so we
+    // can't stuff them all in at once. Auto-copy the first image and switch
+    // to a short "last step" confirmation that keeps the thumbnails + Copy
+    // buttons reachable for any additional images. Done closes the modal.
+    setClipboardError(null);
+    const ok = await copyImageToClipboard(images[0]);
+    setConfirmStep({ copyOk: ok });
   };
 
   const handleCopy = async () => {
@@ -113,6 +243,7 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
       title,
       description,
       errorInfo: payloadErrorInfo,
+      hasScreenshots: hasImages,
     });
     try {
       await navigator.clipboard.writeText(url);
@@ -121,6 +252,47 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
     } catch (err) {
       console.error("Failed to copy:", err);
     }
+  };
+
+  // Drag-and-drop onto the modal body.
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = Array.from(e.dataTransfer?.files ?? []);
+    addImageBlobs(files.map((f) => ({ blob: f, name: f.name })));
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!isDragging) setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    // Only clear when leaving the drop surface itself, not a child.
+    if (e.currentTarget === e.target) setIsDragging(false);
+  };
+
+  // Paste anywhere in the modal. Pull image items out of the clipboard data.
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = Array.from(e.clipboardData?.items ?? []);
+    const blobs: Array<{ blob: Blob; name?: string }> = [];
+    for (const item of items) {
+      if (item.kind === "file" && item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) blobs.push({ blob: file, name: file.name });
+      }
+    }
+    if (blobs.length > 0) {
+      e.preventDefault();
+      addImageBlobs(blobs);
+    }
+  };
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    addImageBlobs(files.map((f) => ({ blob: f, name: f.name })));
+    // Reset so selecting the same file again re-fires onChange.
+    e.target.value = "";
   };
 
   const heading =
@@ -164,7 +336,106 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
         onClick={onClose}
       />
 
-      <div className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden max-h-[90vh] flex flex-col">
+      <div
+        className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden max-h-[90vh] flex flex-col"
+        onPaste={confirmStep ? undefined : handlePaste}
+        onDragOver={confirmStep ? undefined : handleDragOver}
+        onDragLeave={confirmStep ? undefined : handleDragLeave}
+        onDrop={confirmStep ? undefined : handleDrop}
+      >
+        {/* Drag overlay: a dashed sky frame while a file is hovering the
+            modal, so it's obvious where to drop. (feedback-screenshots bot) */}
+        {isDragging && !confirmStep && (
+          <div className="absolute inset-0 z-10 m-2 rounded-xl border-2 border-dashed border-sky-400 bg-sky-50/80 flex items-center justify-center pointer-events-none">
+            <p className="text-sm font-medium text-sky-700">Drop images to attach</p>
+          </div>
+        )}
+
+        {confirmStep ? (
+          <div className="flex flex-col">
+            <div className="p-6 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-green-100">
+                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Last step: add your screenshots</h2>
+                  <p className="text-xs text-gray-500">The GitHub issue opened in a new tab</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4 overflow-y-auto flex-1">
+              {clipboardError ? (
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
+                  <p className="text-sm text-amber-800">{clipboardError}</p>
+                </div>
+              ) : (
+                <div className="rounded-lg bg-green-50 border border-green-200 p-3">
+                  <p className="text-sm text-green-800">
+                    {images.length === 1
+                      ? "Your screenshot is on the clipboard. Switch to the GitHub tab and paste it into the description (Cmd/Ctrl+V) under the Screenshots heading."
+                      : "The first screenshot is on the clipboard. Switch to the GitHub tab and paste it (Cmd/Ctrl+V) under the Screenshots heading."}
+                  </p>
+                </div>
+              )}
+
+              {images.length > 1 && (
+                <p className="text-xs text-gray-500">
+                  The clipboard holds one image at a time. After pasting the first, come back here and use the Copy button on each remaining screenshot, then paste it into GitHub. Repeat for all of them.
+                </p>
+              )}
+
+              <div className="grid grid-cols-3 gap-3">
+                {images.map((img, idx) => (
+                  <div
+                    key={img.id}
+                    className="relative group rounded-lg border border-gray-200 overflow-hidden bg-gray-50"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element -- ephemeral in-memory object URL, never a network asset */}
+                    <img src={img.previewUrl} alt={img.name} className="w-full h-20 object-cover" />
+                    <div className="absolute bottom-0 inset-x-0 flex items-center justify-between gap-1 bg-black/60 px-1.5 py-1">
+                      <span className="text-[10px] text-white">{idx + 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyImage(img)}
+                        className="text-[10px] font-medium text-white hover:text-green-300 transition-colors flex items-center gap-0.5"
+                      >
+                        {copiedImageId === img.id ? (
+                          <>
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                            Copy
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-sm text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        ) : (
+        <>
         <div className="p-6 border-b border-gray-100">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -344,6 +615,101 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
             </div>
           )}
 
+          {/* Screenshot attach area. Available for every feedback type.
+              Images live in in-memory state only (no server, no folder
+              write); on submit the user copies them to their clipboard and
+              pastes them into the GitHub description. (feedback-screenshots
+              bot) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Screenshots (optional)
+            </label>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full rounded-lg border-2 border-dashed border-gray-200 hover:border-sky-300 hover:bg-sky-50/40 transition-colors px-3 py-4 flex flex-col items-center gap-1.5 text-center"
+            >
+              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span className="text-sm text-gray-600 font-medium">
+                Drop, paste, or click to add images
+              </span>
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleFileInput}
+              className="hidden"
+              aria-label="Attach screenshot images"
+            />
+            <p className="mt-1.5 text-xs text-gray-500">
+              Screenshots help us act on your report. You will paste them into GitHub on the next screen.
+            </p>
+
+            {clipboardError && (
+              <div className="mt-2 rounded-lg bg-amber-50 border border-amber-200 p-2.5">
+                <p className="text-xs text-amber-800">{clipboardError}</p>
+              </div>
+            )}
+
+            {images.length > 0 && (
+              <div className="mt-3 grid grid-cols-3 gap-3">
+                {images.map((img) => (
+                  <div
+                    key={img.id}
+                    className="relative group rounded-lg border border-gray-200 overflow-hidden bg-gray-50"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element -- ephemeral in-memory object URL, never a network asset */}
+                    <img src={img.previewUrl} alt={img.name} className="w-full h-20 object-cover" />
+
+                    <Tooltip label="Remove" placement="top">
+                      <button
+                        type="button"
+                        onClick={() => removeImage(img.id)}
+                        aria-label={`Remove ${img.name}`}
+                        className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center transition-colors"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </Tooltip>
+
+                    <div className="absolute bottom-0 inset-x-0 flex justify-center bg-black/60 py-1">
+                      <Tooltip label="Copy this image to the clipboard" placement="top">
+                        <button
+                          type="button"
+                          onClick={() => handleCopyImage(img)}
+                          aria-label={`Copy ${img.name} to clipboard`}
+                          className="text-[10px] font-medium text-white hover:text-green-300 transition-colors flex items-center gap-0.5"
+                        >
+                          {copiedImageId === img.id ? (
+                            <>
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              Copied
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                              Copy
+                            </>
+                          )}
+                        </button>
+                      </Tooltip>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <p className="text-xs text-gray-400">
             Clicking &quot;{submitLabel}&quot; will open a new tab where you can review and submit on GitHub.
             You&apos;ll need a GitHub account.
@@ -388,6 +754,8 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
             {submitLabel}
           </button>
         </div>
+        </>
+        )}
       </div>
     </div>
   );

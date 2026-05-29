@@ -103,7 +103,34 @@ export interface FeedbackPayload {
   title?: string;
   description: string;
   errorInfo?: ErrorInfo | null;
+  /**
+   * Whether the user attached screenshots in the feedback modal. The app
+   * is local-first with no server, and a GitHub new-issue URL is text-only
+   * (you cannot pre-attach an image), so images can never auto-flow into
+   * the issue. When this is true we instead append a `## Screenshots`
+   * section to the issue body that invites the user to paste the images
+   * they copied from our modal. (feedback-screenshots bot)
+   */
+  hasScreenshots?: boolean;
 }
+
+// The trailing free-text textarea on each issue form. We drop the
+// `## Screenshots` prompt here so it lands in a natural "anything else"
+// slot rather than colliding with a required field. Each id matches the
+// last `type: textarea` in the corresponding template under
+// .github/ISSUE_TEMPLATE.
+const SCREENSHOT_FIELD: Record<FeedbackType, string> = {
+  bug: "additional-context",
+  feature: "alternatives",
+  feedback: "additional-context",
+};
+
+// The markdown block appended to the issue body when screenshots are
+// attached. GitHub uploads images on paste into a textarea, so the hint
+// invites exactly that. Kept as an exported const so the test can assert
+// the body contains the section without hard-coding the copy twice.
+export const SCREENSHOTS_SECTION =
+  "## Screenshots\n\nPaste your screenshot(s) below.";
 
 const TYPE_LABEL: Record<FeedbackType, string> = {
   bug: "Bug",
@@ -142,7 +169,7 @@ const TYPE_LABEL_PARAM: Record<FeedbackType, string | null> = {
 export function generateGitHubIssueUrl(
   payload: FeedbackPayload
 ): string {
-  const { type, title: userTitle, description, errorInfo } = payload;
+  const { type, title: userTitle, description, errorInfo, hasScreenshots } = payload;
   const labelTag = `[${TYPE_LABEL[type]}]`;
 
   let titleBody: string;
@@ -181,6 +208,17 @@ export function generateGitHubIssueUrl(
   } else {
     // feedback.yml uses `feedback` as its main field id.
     if (description) fields.feedback = description;
+  }
+
+  // When screenshots are attached, prompt the user to paste them in the
+  // trailing free-text field. Append (rather than overwrite) so any
+  // existing content in that field is preserved.
+  if (hasScreenshots) {
+    const fieldId = SCREENSHOT_FIELD[type];
+    const existing = fields[fieldId];
+    fields[fieldId] = existing
+      ? `${existing}\n\n${SCREENSHOTS_SECTION}`
+      : SCREENSHOTS_SECTION;
   }
 
   const params = new URLSearchParams({
