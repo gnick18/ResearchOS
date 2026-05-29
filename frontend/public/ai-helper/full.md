@@ -381,6 +381,55 @@ export interface LabFlagForReviewNotification {
   read: boolean;
 }
 
+/**
+ * Lab-manager ordering workflow (purchases-assignee fix, 2026-05-29):
+ * bell notifications for the trainee -> lab-member ordering handoff. Two
+ * directions:
+ *   - "purchase_assignment" — a requester asked the receiver to place
+ *     an order (the receiver is the assignee).
+ *   - "purchase_ordered"    — a supply the receiver requested was marked
+ *     ordered (the receiver is the original requester / item owner).
+ *
+ * Both carry `from_user` (the other party), `created_at`, `read` like the
+ * existing lab notification types. The receiver is implicit (the file
+ * owner of `_notifications.json`). Cross-user writes are best-effort and
+ * scoped to lab-folder members, mirroring the PI soft-write fan-out.
+ */
+export interface PurchaseAssignmentNotification {
+  id: string;
+  type: "purchase_assignment";
+  /** Username of the requester who assigned the item. */
+  from_user: string;
+  /** Username of the purchase-item owner (the requester's data folder). */
+  owner_username: string;
+  /** Numeric purchase_item id in the owner's namespace. */
+  purchase_item_id: number;
+  /** Numeric parent purchase task id (for deep-linking). */
+  task_id: number;
+  /** Denormalized item name for the bell row. */
+  item_name: string;
+  created_at: string;
+  read: boolean;
+}
+
+export interface PurchaseOrderedNotification {
+  id: string;
+  type: "purchase_ordered";
+  /** Username of the person who marked the order ordered (the assignee
+   *  or whoever flipped the order to complete). */
+  from_user: string;
+  /** Username of the purchase-item owner (= the receiver / requester). */
+  owner_username: string;
+  /** Numeric purchase_item id in the owner's namespace. */
+  purchase_item_id: number;
+  /** Numeric parent purchase task id (for deep-linking). */
+  task_id: number;
+  /** Denormalized item name for the bell row. */
+  item_name: string;
+  created_at: string;
+  read: boolean;
+}
+
 export type Notification =
   | SharedItemNotification
   | EventReminderNotification
@@ -389,7 +438,9 @@ export type Notification =
   | LabAnnouncementNotification
   | LabTaskAssignmentNotification
   | LabPurchaseApprovalNotification
-  | LabFlagForReviewNotification;
+  | LabFlagForReviewNotification
+  | PurchaseAssignmentNotification
+  | PurchaseOrderedNotification;
 
 /**
  * On-disk sidecar at `users/<owner>/_shifted-alerts.json`. Append-only on
@@ -1658,6 +1709,42 @@ export interface DeviationSaveRequest {
 
 // ── Purchases ────────────────────────────────────────────────────────────────
 
+/**
+ * Per-item ordering status (purchases-ordered-stage, 2026-05-29). The real
+ * ordering stage of a purchase line item. The default is "needs_ordering";
+ * the field is optional on `PurchaseItem` so pre-existing records (which
+ * never carried it) normalize cleanly via `normalizeOrderStatus`.
+ */
+export type PurchaseOrderStatus = "needs_ordering" | "ordered" | "received";
+
+/** The default stage for a freshly-created or pre-feature line item. */
+export const DEFAULT_PURCHASE_ORDER_STATUS: PurchaseOrderStatus =
+  "needs_ordering";
+
+/**
+ * Coerce an arbitrary on-disk `order_status` value into a known
+ * `PurchaseOrderStatus`. Old records (no field) and any unexpected string
+ * fall back to "needs_ordering" so callers can treat the result as always
+ * present. Centralized so the list mappers, UI grouping, and the
+ * setOrderStatus transition all agree on the same normalization.
+ */
+export function normalizeOrderStatus(
+  value: PurchaseOrderStatus | string | null | undefined,
+): PurchaseOrderStatus {
+  if (value === "ordered" || value === "received") return value;
+  return DEFAULT_PURCHASE_ORDER_STATUS;
+}
+
+/** Human-facing label for each ordering stage (drives chips + filters). */
+export const PURCHASE_ORDER_STATUS_LABEL: Record<
+  PurchaseOrderStatus,
+  string
+> = {
+  needs_ordering: "Needs ordering",
+  ordered: "Ordered",
+  received: "Received",
+};
+
 export interface PurchaseItem {
   id: number;
   task_id: number;
@@ -1672,6 +1759,25 @@ export interface PurchaseItem {
   funding_string: string | null;  // New field for funding account
   vendor: string | null;
   category: string | null;
+  // Lab-manager ordering workflow (purchases-assignee fix, 2026-05-29):
+  // username of the lab member who was asked to actually place this order.
+  // null / undefined = unassigned (the item's owner orders it themselves).
+  // Mirrors the Task.assignee pattern: when set and !== the item owner,
+  // lists render a small "assigned to X" chip. Additive — old records
+  // without it normalize as unassigned.
+  assigned_to?: string | null;
+  // Per-item ordering status (purchases-ordered-stage, 2026-05-29). The real
+  // ordering stage of a single line item, replacing the stopgap where the
+  // parent task's complete-toggle stood in for "ordered". Three stages:
+  //   "needs_ordering" : the default — nobody has placed this order yet
+  //   "ordered"        : someone (often the assignee) has placed the order
+  //   "received"       : the supply arrived
+  // Additive + optional: old records without the field normalize to
+  // "needs_ordering" on read (see `normalizeOrderStatus` + the purchasesApi
+  // list mappers). The "needs_ordering" -> "ordered" transition is what
+  // fires the `purchase_ordered` bell to the requester (purchasesApi
+  // .setOrderStatus), NOT the parent complete-toggle anymore.
+  order_status?: PurchaseOrderStatus;
   // Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23): PI approval
   // (informational only, NOT a blocking gate per the brief). All three
   // additive — old records without them behave as if unapproved.
@@ -1722,6 +1828,11 @@ export interface PurchaseItemCreate {
   funding_string?: string | null;  // New field for funding account
   vendor?: string | null;
   category?: string | null;
+  // Lab-manager ordering workflow (purchases-assignee fix, 2026-05-29).
+  assigned_to?: string | null;
+  // Per-item ordering status (purchases-ordered-stage, 2026-05-29). Omit to
+  // let `purchasesApi.create` default it to "needs_ordering".
+  order_status?: PurchaseOrderStatus;
 }
 
 export interface PurchaseItemUpdate {
@@ -1735,6 +1846,17 @@ export interface PurchaseItemUpdate {
   funding_string?: string | null;  // New field for funding account
   vendor?: string | null;
   category?: string | null;
+  /** Lab-manager ordering workflow (purchases-assignee fix, 2026-05-29):
+   *  username to assign (or `null` to clear). The writer that flips this
+   *  to a non-owner user posts a `purchase_assignment` bell to the
+   *  assignee. */
+  assigned_to?: string | null;
+  /** Per-item ordering status (purchases-ordered-stage, 2026-05-29). Prefer
+   *  `purchasesApi.setOrderStatus` over a raw `update` so the
+   *  `needs_ordering` -> `ordered` transition fires the `purchase_ordered`
+   *  bell. A direct `update({ order_status })` persists the field but is
+   *  silent (used by tests / migrations). */
+  order_status?: PurchaseOrderStatus;
   /** Lab Head Phase 3 — PI approval. The writer that flips this also
    *  stamps `approved_by` + `approved_at`. */
   approved?: boolean;
@@ -2144,6 +2266,74 @@ export interface NoteUpdate {
 
 export interface NoteEntriesReorderRequest {
   entry_ids: string[];
+}
+
+// ── Weekly goals ───────────────────────────────────────────────────────────────
+//
+// Weekly goals widget (PI beta feedback, weekly-goals widget, 2026-05-29).
+//
+// DATA-SHAPE CHANGE (new entity). A WeeklyGoal is a LIGHTWEIGHT, STANDALONE
+// record set by a trainee in (or around) a 1:1 meeting: "what do I want to
+// get done this week". It is deliberately DISTINCT from `HighLevelGoal` /
+// the Gantt goal system — no project_id, no SMART sub-goals, no date range,
+// no color. A weekly goal NEVER lands on the Gantt. The two concepts stay
+// visually and conceptually separate.
+//
+// Sharing mirrors `Note` EXACTLY so the same `canRead(record, viewer)` gate
+// from `lib/sharing/unified.ts` works unchanged:
+//   - `is_shared: boolean`  — the coarse "did the owner share this at all"
+//     flag. `labApi.getWeeklyGoals({ shared_only: true })` filters on it,
+//     mirroring `labApi.getNotes({ shared_only: true })`.
+//   - `shared_with: SharedUser[]` — the precise recipient list. The "*"
+//     sentinel = whole-lab. Goals set in a 1:1 DEFAULT to whole-lab
+//     ("*", visible to the PI) but still flow through the REAL sharing
+//     gate; there is no bypass.
+//
+// Stored per-user at `users/<owner>/weekly_goals/<id>.json` via a `JsonStore`,
+// mirroring `notesStore` / `eventsStore` (per-user scoping + per-user
+// counters). `id` is a numeric JsonStore key (not a UUID) to match the rest
+// of the store records; `owner` carries the trainee username for the sharing
+// gate (same role `note.username` plays for notes).
+export interface WeeklyGoal {
+  /** Numeric JsonStore key, unique within the owner's `weekly_goals` dir. */
+  id: number;
+  /** Trainee username this goal belongs to. Drives the sharing gate
+   *  (`canRead` compares `owner` to the viewer). */
+  owner: string;
+  /** The goal text. Free-form, single line. */
+  text: string;
+  /** YYYY-MM-DD anchoring the week (the Monday of that week). Used to
+   *  group goals by week in the UI. */
+  week_of: string;
+  /** Done toggle. */
+  is_complete: boolean;
+  /** ISO timestamp of creation. */
+  created_at: string;
+  /** Username that created the record (normally === owner; kept separate
+   *  so a future PI-set-on-behalf flow has a home without a migration). */
+  created_by: string;
+  /** Coarse sharing flag — mirrors `Note.is_shared`. `shared_only`
+   *  aggregations filter on this. */
+  is_shared: boolean;
+  /** Precise recipient list — mirrors `Note.shared_with`. "*" = whole lab.
+   *  Optional on read so a record written before this field normalizes to
+   *  owner-only (same back-compat shape as notes). */
+  shared_with?: SharedUser[];
+}
+
+export interface WeeklyGoalCreate {
+  text: string;
+  /** Defaults to the current week's Monday when omitted. */
+  week_of?: string;
+  /** Defaults to true (1:1 goals are visible to the PI / whole lab). */
+  is_shared?: boolean;
+}
+
+export interface WeeklyGoalUpdate {
+  text?: string;
+  week_of?: string;
+  is_complete?: boolean;
+  is_shared?: boolean;
 }
 
 // ── Lab Mode Notes ─────────────────────────────────────────────────────────────
@@ -3526,9 +3716,9 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 ## §11 Build metadata
 
 - **Variant:** `full`
-- **Helper version:** `17`
-- **Schema hash:** `06d94c8712d64315ab5587c70317a1435a6057be586b4a554fba1747c5af85ae`
-- **Built at:** `2026-05-28T21:08:42.729Z`
-- **Built from commit:** `98115d3d007e4dda5e54382edadb3bab802a2f40`
+- **Helper version:** `18`
+- **Schema hash:** `6ada322f6537cbe77c3c63b908ef3a787b4035702f40bc099ab7ada128151196`
+- **Built at:** `2026-05-29T18:17:32.252Z`
+- **Built from commit:** `fa0ffacf584917266de6286b17652a308634509b`
 
 _Generated by `scripts/build-ai-helper.mjs`. Do not edit by hand — run `npm run --prefix frontend ai-helper:refresh` to rebuild and commit._
