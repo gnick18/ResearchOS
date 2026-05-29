@@ -4,10 +4,13 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import AppShell from "@/components/AppShell";
 import Tooltip from "@/components/Tooltip";
+import UserAvatar from "@/components/UserAvatar";
 import { labLinksApi } from "@/lib/local-api";
 import type { LabLink } from "@/lib/types";
+import { isWholeLabShared } from "@/lib/sharing/unified";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useFeaturePicks } from "@/hooks/useFeaturePicks";
+import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { useDraftPersistence } from "@/hooks/useDraftPersistence";
 import AttributionChip from "@/components/AttributionChip";
@@ -54,6 +57,10 @@ export default function LabLinksPage() {
   void featurePicks;
   const surfaceLabel = "Links";
 
+  // Lab-share restore (links lab-share restore bot, 2026-05-29): per-user
+  // display-name map so shared-in (non-owned) cards can badge their owner.
+  const profileMap = useLabUserProfileMap();
+
   // Form state
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
@@ -61,6 +68,15 @@ export default function LabLinksPage() {
   const [category, setCategory] = useState("");
   const [color, setColor] = useState(CARD_COLORS[0].value);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  // Visibility toggle: false = "Just me" (private), true = "Whole lab".
+  // New links default to "Just me".
+  const [wholeLab, setWholeLab] = useState(false);
+
+  // A link is owned by the viewer when its owner is unset (legacy, lives in
+  // the viewer's own folder) or equals the current user. Only the owner may
+  // edit / delete; shared-in cards are view-only.
+  const isOwnLink = (link: LabLink): boolean =>
+    !link.owner || link.owner === currentUser;
 
   // Draft persistence + navigation guard for the create form.
   // Edit form drafts are intentionally skipped: the server copy is
@@ -97,6 +113,7 @@ export default function LabLinksPage() {
     setCategory("");
     setColor(CARD_COLORS[0].value);
     setPreviewImageUrl(null);
+    setWholeLab(false);
   };
 
   const handleFetchPreview = async () => {
@@ -132,6 +149,7 @@ export default function LabLinksPage() {
         category: category.trim() || null,
         color,
         preview_image_url: previewImageUrl,
+        whole_lab: wholeLab,
       });
       queryClient.invalidateQueries({ queryKey: ["lab-links"] });
       clearLinkDraft();
@@ -153,6 +171,7 @@ export default function LabLinksPage() {
         category: category.trim() || null,
         color,
         preview_image_url: previewImageUrl,
+        whole_lab: wholeLab,
       });
       queryClient.invalidateQueries({ queryKey: ["lab-links"] });
       setEditingLink(null);
@@ -180,6 +199,9 @@ export default function LabLinksPage() {
     setCategory(link.category || "");
     setColor(link.color || CARD_COLORS[0].value);
     setPreviewImageUrl(link.preview_image_url);
+    // Initialize the Visibility toggle from whether the link carries the
+    // "*" whole-lab sentinel in shared_with.
+    setWholeLab(isWholeLabShared(link.shared_with ?? []));
     setIsCreating(false);
   };
 
@@ -317,6 +339,63 @@ export default function LabLinksPage() {
                   ))}
                 </div>
               </div>
+              {/* Visibility toggle (links lab-share restore bot,
+                  2026-05-29): "Just me" keeps the link private to the
+                  owner; "Whole lab" stamps the edit-level "*" sentinel so
+                  every lab member can see (and collaboratively maintain)
+                  the bookmark. New links default to "Just me". */}
+              <div className="md:col-span-2">
+                <label className="block text-xs font-medium text-gray-500 mb-1">
+                  Visibility
+                </label>
+                <div
+                  role="radiogroup"
+                  aria-label="Link visibility"
+                  className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-gray-50"
+                >
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={!wholeLab}
+                    onClick={() => setWholeLab(false)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      !wholeLab
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
+                    Just me
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={wholeLab}
+                    onClick={() => setWholeLab(true)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      wholeLab
+                        ? "bg-white text-blue-600 shadow-sm"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                    Whole lab
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  {wholeLab
+                    ? "Everyone in your lab can see and edit this link."
+                    : "Only you can see this link."}
+                </p>
+              </div>
               <div className="md:col-span-2">
                 <label className="block text-xs font-medium text-gray-500 mb-1">
                   Description
@@ -442,39 +521,44 @@ export default function LabLinksPage() {
                             </span>
                           </div>
                         )}
-                        {/* Action buttons overlay */}
-                        <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Tooltip label="Edit" placement="bottom">
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                startEdit(link);
-                              }}
-                              className="p-1.5 bg-white/90 text-gray-600 hover:text-gray-800 hover:bg-white rounded-lg transition-colors shadow-sm"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
-                              </svg>
-                            </button>
-                          </Tooltip>
-                          <Tooltip label="Delete" placement="bottom">
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setDeleteConfirmId(link.id);
-                              }}
-                              className="p-1.5 bg-white/90 text-gray-400 hover:text-red-500 hover:bg-white rounded-lg transition-colors shadow-sm"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M3 6h18"/>
-                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
-                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
-                              </svg>
-                            </button>
-                          </Tooltip>
-                        </div>
+                        {/* Action buttons overlay. Only the link's OWNER
+                            may edit / delete; shared-in cards (owned by
+                            another lab member) are view-only, so the
+                            affordances are hidden entirely for them. */}
+                        {isOwnLink(link) && (
+                          <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Tooltip label="Edit" placement="bottom">
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  startEdit(link);
+                                }}
+                                className="p-1.5 bg-white/90 text-gray-600 hover:text-gray-800 hover:bg-white rounded-lg transition-colors shadow-sm"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+                                </svg>
+                              </button>
+                            </Tooltip>
+                            <Tooltip label="Delete" placement="bottom">
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setDeleteConfirmId(link.id);
+                                }}
+                                className="p-1.5 bg-white/90 text-gray-400 hover:text-red-500 hover:bg-white rounded-lg transition-colors shadow-sm"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M3 6h18"/>
+                                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                                </svg>
+                              </button>
+                            </Tooltip>
+                          </div>
+                        )}
                       </div>
                       
                       {/* Content */}
@@ -490,6 +574,21 @@ export default function LabLinksPage() {
                         <p className="text-xs text-gray-400 mt-2 truncate">
                           {new URL(link.url).hostname}
                         </p>
+                        {/* Owner badge (links lab-share restore bot,
+                            2026-05-29): shared-in cards (owned by another
+                            lab member) carry the owner's avatar + name so
+                            it is clear which cards are yours vs shared with
+                            you. Own cards omit the badge. */}
+                        {!isOwnLink(link) && link.owner && (
+                          <div className="flex items-center gap-1.5 mt-2 min-w-0">
+                            <UserAvatar username={link.owner} size="xs" />
+                            <span className="text-xs text-gray-500 truncate">
+                              Shared by{" "}
+                              {profileMap[link.owner]?.displayName?.trim() ||
+                                link.owner}
+                            </span>
+                          </div>
+                        )}
                         {/* VCP R3 attribution stamps (VCP R3 attribution
                             stamps, 2026-05-26): inline last-edited chip in
                             the lab link card footer. Self-hides on pre-R3

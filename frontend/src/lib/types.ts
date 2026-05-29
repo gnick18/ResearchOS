@@ -1969,6 +1969,11 @@ export interface LabLinkCreate {
   category?: string | null;
   color?: string | null;
   preview_image_url?: string | null;
+  // Lab-share restore (links lab-share restore bot, 2026-05-29): the
+  // Visibility toggle. `true` = "Whole lab" (stamps the edit-level "*"
+  // whole-lab sentinel on `shared_with`); falsy / omitted = "Just me"
+  // (private, empty `shared_with`). Default for a new link is "Just me".
+  whole_lab?: boolean;
 }
 
 export interface LabLinkUpdate {
@@ -1982,6 +1987,10 @@ export interface LabLinkUpdate {
   // VCP R3 — optional; auto-stamped by `labLinksApi.update`.
   last_edited_by?: string;
   last_edited_at?: string;
+  // Lab-share restore: same Visibility toggle as create. When present it
+  // rewrites `shared_with` in lockstep ("*" sentinel for whole-lab, [] for
+  // private); when omitted the existing sharing is left untouched.
+  whole_lab?: boolean;
 }
 
 export interface LinkPreview {

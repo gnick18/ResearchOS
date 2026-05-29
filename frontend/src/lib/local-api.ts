@@ -105,6 +105,8 @@ import {
   WHOLE_LAB_SENTINEL,
   isWholeLabShared,
   normalizeSharedWith,
+  canRead,
+  type Viewer,
 } from "./sharing/unified";
 import { mondayOf } from "./weekly-goals/week";
 
@@ -3514,30 +3516,118 @@ export const purchasesApi = {
   },
 };
 
+/**
+ * Lab-share restore (links lab-share restore bot, 2026-05-29): build the
+ * unified-sharing `Viewer` for the CURRENT signed-in user. The `account_type`
+ * drives the implicit Lab Head view-all branch inside `canRead`. We read
+ * `settings.json` directly via `fileService` (mirroring the existing
+ * lab-head fan-out in `dispatchCommentNotifications`) rather than pulling in
+ * `readUserSettings`, keeping local-api free of the settings module's deps.
+ *
+ * UserSettings stores `account_type` as `"member" | "lab_head"`; the unified
+ * `Viewer` union is `"solo" | "lab" | "lab_head"`. Only "lab_head" carries a
+ * privilege, so anything else collapses to the conservative "lab".
+ */
+async function buildCurrentViewer(): Promise<Viewer> {
+  const username = (await getCurrentUserCached()) ?? "";
+  let accountType: Viewer["account_type"] = "lab";
+  try {
+    const s = await fileService.readJson<{ account_type?: string }>(
+      `users/${username}/settings.json`,
+    );
+    if (s?.account_type === "lab_head") accountType = "lab_head";
+  } catch {
+    // Settings read failure is non-fatal: fall back to the conservative
+    // "lab" viewer (no implicit view-all). canRead still honors owner +
+    // explicit / "*" shares.
+  }
+  return { username, account_type: accountType };
+}
+
+/** The whole-lab `shared_with` shape for a LabLink. Edit-level "*" so the
+ *  lab can collaboratively maintain shared bookmarks, matching the
+ *  migrate-unified mapping for LabLink. */
+const LINK_WHOLE_LAB_SHARE: SharedUser[] = [
+  { username: WHOLE_LAB_SENTINEL, level: "edit", permission: "edit" },
+];
+
 export const labLinksApi = {
+  // Lab-share restore (links lab-share restore bot, 2026-05-29): the Links
+  // page aggregates across the whole lab. We return the viewer's OWN links
+  // PLUS links owned by OTHER members that the viewer is allowed to see.
+  //
+  // PRIVACY GATE: every cross-user record is run through the unified
+  // `canRead(link, viewer)` before it can enter the result. `canRead`
+  // returns true only when (a) the viewer owns it, (b) the viewer is a
+  // lab_head (implicit view-all), or (c) `shared_with` contains the
+  // viewer's username OR the "*" whole-lab sentinel. A link that is private
+  // to another member (empty `shared_with`, or one that names neither this
+  // viewer nor "*") is NEVER returned. Ids are per-user namespaced, so no
+  // cross-user de-dupe is needed; we carry `owner` defensively so the UI can
+  // badge shared-in (non-owned) cards.
   list: async (): Promise<LabLink[]> => {
-    return labLinksStore.listAll();
+    const viewer = await buildCurrentViewer();
+    const usernames = await discoverUsers();
+    const out: LabLink[] = [];
+    for (const username of usernames) {
+      const userLinks = await labLinksStore.listAllForUser(username);
+      for (const link of userLinks) {
+        const owner = link.owner || username;
+        // Own links always pass; cross-user records MUST clear canRead.
+        if (owner === viewer.username) {
+          out.push({ ...link, owner });
+          continue;
+        }
+        const shareable = { owner, shared_with: link.shared_with ?? [] };
+        if (!canRead(shareable, viewer)) continue;
+        out.push({ ...link, owner });
+      }
+    }
+    return out;
   },
-  
+
   get: async (id: number): Promise<LabLink | null> => {
     return labLinksStore.get(id);
   },
-  
+
   create: async (data: LabLinkCreate): Promise<LabLink> => {
+    const owner = (await getCurrentUserCached()) ?? "";
+    // Visibility toggle (default "Just me"): the page passes
+    // `whole_lab: true` for the "Whole lab" option, which stamps the
+    // edit-level "*" sentinel. Otherwise `shared_with` stays empty (private).
+    const sharedWith = data.whole_lab ? LINK_WHOLE_LAB_SHARE : [];
     return labLinksStore.create({
-      ...data,
+      title: data.title,
+      url: data.url,
       description: data.description ?? null,
       category: data.category ?? null,
       color: data.color ?? null,
       preview_image_url: data.preview_image_url ?? null,
       sort_order: 0,
       created_at: new Date().toISOString(),
+      owner,
+      shared_with: sharedWith,
     });
   },
-  
+
   // VCP R3 attribution stamps.
   update: async (id: number, data: LabLinkUpdate): Promise<LabLink | null> => {
-    const patch = { ...data, ...(await buildAttributionStamp(data.last_edited_by)) };
+    const { whole_lab, ...rest } = data;
+    const patch: Partial<LabLink> = {
+      ...rest,
+      ...(await buildAttributionStamp(data.last_edited_by)),
+    };
+    // Preserve owner on update: stamp it if the record predates owner
+    // stamping (pre-R1b links). Never reassign an existing owner.
+    const existing = await labLinksStore.get(id);
+    if (existing && !existing.owner) {
+      patch.owner = (await getCurrentUserCached()) ?? "";
+    }
+    // Visibility toggle round-trips through update too: flip the "*"
+    // sentinel in lockstep, mirroring the create path.
+    if (whole_lab !== undefined) {
+      patch.shared_with = whole_lab ? LINK_WHOLE_LAB_SHARE : [];
+    }
     return labLinksStore.update(id, patch);
   },
 
