@@ -551,6 +551,37 @@ export const PURCHASES_CLUSTER_STEP_IDS: ReadonlySet<TourStepId> =
     "purchases-back-to-real",
   ]);
 
+/** PI Home-phase skip (PI Home migration interim, 2026-05-29). A PI
+ *  (FeaturePicks.lab_head === true) no longer uses the Home page: it is
+ *  hidden from their nav and they default to Lab Overview. So the
+ *  universal walkthrough skips the entire Home / project-overview /
+ *  home-widgets / notifications block (sections 6.1 through 6.3, every
+ *  step of which is anchored to the "/" route) for PIs, and they resume
+ *  at the Workbench phase. Contiguous in TOUR_STEP_ORDER from
+ *  home-create-project through notifications-delete. This is the interim
+ *  until a dedicated PI walkthrough is built once Lab Overview is
+ *  finalized; members and solo accounts are unaffected. */
+const PI_SKIPPED_HOME_PHASE_STEP_IDS: ReadonlySet<TourStepId> =
+  new Set<TourStepId>([
+    "home-create-project",
+    "home-create-project-fill",
+    "project-overview-nav",
+    "project-overview-prose",
+    "project-overview-rollup",
+    "project-overview-typing-demo",
+    "project-overview-context",
+    "project-overview-exit",
+    "home-widgets-canvas-intro",
+    "home-widgets-tile-anatomy",
+    "home-widgets-add",
+    "home-widgets-reorder",
+    "home-widgets-exit",
+    "notifications-intro",
+    "notifications-bell",
+    "notifications-silence",
+    "notifications-delete",
+  ]);
+
 /** Lab-only Gantt share cluster step ids (Gantt redesign 2026-05-22).
  *  Gated on `picks.account_type === "lab"` so solo accounts skip the
  *  entire cluster. Tracked separately from LAB_STEP_IDS because these
@@ -612,6 +643,17 @@ export function isStepGatedOut(
   // the Lab Overview cluster gate (only lab heads see the dashboard
   // customization tour).
   if (step === "setup-q1c") return picks?.account_type !== "lab";
+
+  // PI Home migration interim (2026-05-29): a PI (lab_head === true) skips
+  // the entire Home / project-overview / home-widgets / notifications
+  // block (sections 6.1 - 6.3, all anchored to "/"), since Home is hidden
+  // from their nav and they default to Lab Overview. getNextStep /
+  // firstApplicableStep route them straight to the Workbench phase.
+  // Members + solo accounts are unaffected. Interim until a dedicated PI
+  // walkthrough lands.
+  if (picks?.lab_head === true && PI_SKIPPED_HOME_PHASE_STEP_IDS.has(step)) {
+    return true;
+  }
 
   // Phase 2 conditional walkthroughs (§6.13 - §6.15).
   if (step === "telegram") return picks?.telegram !== "yes";
