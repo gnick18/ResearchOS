@@ -2,16 +2,39 @@
 
 import { useEffect, useRef, useState } from "react";
 import BeakerBotCentrifugeScene from "@/components/BeakerBotCentrifugeScene";
+import BeakerBotCoffeeRefillScene from "@/components/BeakerBotCoffeeRefillScene";
+import BeakerBotBlowingBubblesScene from "@/components/BeakerBotBlowingBubblesScene";
+import BeakerBotTooManyBeakersScene from "@/components/BeakerBotTooManyBeakersScene";
+import BeakerBotBugStompScene from "@/components/BeakerBotBugStompScene";
+
+/** The pool of BeakerBot "entertainer" scenes the overlay rotates
+ *  through while a long operation runs. Every scene shares the same
+ *  { active, onComplete } contract and the shared ground-line / size
+ *  constants, so they compose interchangeably. The overlay advances to
+ *  the next scene on every loop (and on each re-open), so a long
+ *  export cycles through the whole set instead of replaying one
+ *  animation. These are all bench-style scenes that plant BeakerBot on
+ *  the same ground line, which keeps the composition steady as scenes
+ *  swap. Reorder or extend the list to change the rotation. */
+const ENTERTAINER_SCENES = [
+  BeakerBotCentrifugeScene,
+  BeakerBotCoffeeRefillScene,
+  BeakerBotBlowingBubblesScene,
+  BeakerBotTooManyBeakersScene,
+  BeakerBotBugStompScene,
+] as const;
 
 /**
  * Reusable progress overlay that pairs a determinate / indeterminate
- * progress bar with the BeakerBot centrifuge animation as an
+ * progress bar with a rotating set of BeakerBot animations as an
  * "entertainer" — long async operations get visual feedback PLUS a
  * little slapstick to lighten the wait. Grant's brief on the
  * Centrifuge scene was the source: "this could be good for big saves
  * or exports but in that case we should have a progress bar to show
  * the user please wait while we prepare your file and then have the
- * beakerbot animation run to entertain them."
+ * beakerbot animation run to entertain them." Grant later asked for
+ * the wait to rotate through several scenes rather than only the
+ * centrifuge, hence the ENTERTAINER_SCENES pool above.
  *
  * Composition:
  *   - Full-viewport backdrop (z-[850]) with a dimming layer so the
@@ -72,6 +95,10 @@ export default function ProgressEntertainer({
   // restart prop on the scene itself.
   const [iterationKey, setIterationKey] = useState(0);
   const [sceneActive, setSceneActive] = useState(true);
+  // Which entertainer scene is showing. Advances on every loop
+  // completion AND on each re-open so the wait cycles through the pool
+  // instead of replaying one animation.
+  const [sceneIndex, setSceneIndex] = useState(0);
   const restartTimer = useRef<number | null>(null);
 
   // Re-arm the scene each time `open` toggles from false → true so a
@@ -85,6 +112,7 @@ export default function ProgressEntertainer({
     if (open) {
       setIterationKey((k) => k + 1);
       setSceneActive(true);
+      setSceneIndex((i) => (i + 1) % ENTERTAINER_SCENES.length);
     }
   }
 
@@ -115,6 +143,7 @@ export default function ProgressEntertainer({
     setSceneActive(false);
     restartTimer.current = window.setTimeout(() => {
       setIterationKey((k) => k + 1);
+      setSceneIndex((i) => (i + 1) % ENTERTAINER_SCENES.length);
       setSceneActive(true);
     }, 500);
   };
@@ -129,14 +158,19 @@ export default function ProgressEntertainer({
     ? Math.round(Math.min(1, Math.max(0, progress!)) * 100)
     : 0;
 
+  // The entertainer scene to render this iteration; rotates via
+  // sceneIndex (bounded by the modulo on every update, so always valid).
+  const ActiveScene = ENTERTAINER_SCENES[sceneIndex];
+
   return (
     <>
-      {/* Centrifuge scene as the entertainer. Renders its own portal
-          to document.body at z-800 with viewport-relative
-          trajectories, so it visually composites above the backdrop
-          but below the modal panel (z-[900]). The key forces a clean
-          remount per loop iteration. */}
-      <BeakerBotCentrifugeScene
+      {/* Active entertainer scene (rotates through ENTERTAINER_SCENES).
+          Renders its own portal to document.body at z-800 with
+          viewport-relative trajectories, so it visually composites
+          above the backdrop but below the modal panel (z-[900]). The
+          key forces a clean remount per loop iteration, and the scene
+          component type also changes as sceneIndex advances. */}
+      <ActiveScene
         key={iterationKey}
         active={sceneActive}
         onComplete={handleSceneComplete}
