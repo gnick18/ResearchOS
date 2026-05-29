@@ -1281,3 +1281,422 @@ Everything else (geometry, keyframes, gradients, timings, component contracts, r
 ---
 
 *R3 sketches are illustrative. No routes, scene props, or components were built. R3 is a build-ready specification + a category-name menu; hand-off to the build chip happens at Grant's word. Authored by the showcase-spec sub-bot per orchestrator manager dispatch.*
+
+---
+---
+
+# Visual Design (R4): Death Drop + Dance Number Choreography
+
+**Author:** showcase-choreography sub-bot (dispatched by orchestrator manager)
+**Date:** 2026-05-29
+**Status:** Detailed choreography spec for the two marquee new scenes. Builds on R1 (concept), R2 (the Drag Main Stage direction + the new-scene brainstorm), and R3 (the build-ready spec + component breakdown). Still doc-only: no routes, no scene props, no components built. Every snippet below is illustrative and lives inside this doc. The goal of R4 is that a build sub-bot can implement the Death Drop (P2) and the Dance Number (P3) with zero further animation decisions left to make: every beat, duration, easing curve, liquid-slosh keyframe, and confetti parameter is pinned here.
+
+## R4.0 Scope, and what R4 inherits
+
+R2.2 brainstormed seven new drag-stage scenes and recommended a build order: P1 (Curtain Reveal, Runway Strut, Twirl), P2 (Death Drop), P3 (Dance Number + the optional grace notes). R3.11 gave each new scene a component contract (`DeathDropScene`, `DanceNumberScene`) on the same envelope as the nine existing scenes (`{ active, onComplete?, bounds? }`). R4 takes the two marquee scenes (Death Drop, Dance Number) from one-paragraph brainstorm to frame-by-frame choreography.
+
+What R4 inherits and does NOT re-decide (read R1 to R3 for these):
+
+- **Scene envelope:** `{ active, onComplete?, bounds? }`, `createPortal` to `document.body` (P1/P2 takeover) or into `bounds.container` (P2+ in-frame), `position: fixed` / `absolute`, `SCENE_Z_INDEX = 800`, a `prefers-reduced-motion` gate with a static end-pose fallback. (Verified pattern: `BeakerBotEurekaScene.tsx`, `BeakerBotCentrifugeScene.tsx`.)
+- **Bot scale + tint:** 128px (`BEAKERBOT_SCENE_SIZE_PX = 128`, class `w-32 h-32`), `text-sky-500`, hardcoded pastel-rainbow liquid. He is never re-colored; he is already the rainbow.
+- **The five liquid stops** (the canonical palette for trails / confetti / slosh tints): `#FFD2B0` peach, `#FFF1A8` yellow, `#B7EBB1` mint, `#A6D2F4` sky, `#D6B5F0` lavender. (Verified: `BeakerBot.tsx` lines 517 to 523.)
+- **The particle-array pattern:** `{ cx, cy, r, fill, delayMs, endX, endY }` in a 0-to-40 viewBox, with a per-item `delayMs` stagger and a per-particle CSS-var destination (`--volcano-end-x` / `-y`) the keyframe arcs toward. (Verified: `VOLCANO_PARTICLES`, `HICCUP_POP_PARTICLES` in `BeakerBot.tsx`; keyframe `beakerBotVolcanoParticle` in `BeakerBot.module.css`.)
+- **The existing tilt-with-liquid primitive:** the `volcano-eruption` pose already rotates the whole filled beaker (`beakerBotVolcanoBody`, up to +/-7deg, lines 364 to 398) while the liquid rides along. The Death Drop's bigger tip extends exactly this idea. The liquid surface itself is a single SVG `<path>` (the wavy meniscus at `y=19`, body to `y=32`: `d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z"`, verified `BeakerBot.tsx` line 547). The slosh animates a wrapper around THIS path.
+- **Timing convention to compose with:** the nine scenes run roughly 5.5 to 6s (Centrifuge `TOTAL_DURATION_MS = 5800`, Eureka `5700`, both verified by summing their `STAGE_DURATIONS`), with the longest (CoffeeRefill) at `13000` because the wait IS the joke. The new scenes target this band so they sit naturally in the same sequencer.
+
+Where R4 and R2.2's one-paragraph sketch differ, R4 wins (R4 is the version a build implements). R4 deliberately keeps R2.2's safety promise (the drop is cute and intentional, never harm) and makes it concrete.
+
+---
+
+## R4.1 The Death Drop (P2): the iconic move, done for a beaker
+
+### R4.1.0 The brief, and the safety thesis
+
+The death drop (the "dip") is the signature drag-runway finale: a dramatic, controlled backward fall to the floor, one leg tucked under, frozen in a striking pose, while the room loses its mind. BeakerBot is a rounded beaker with liquid inside, so the whole charm is in how a beaker death-drops: he cannot slam flat (he would spill, and a spill reads as harm), so the comedy and the grace both live in the **controlled tip onto a hidden cushion**, the **liquid sloshing but never cresting the lip**, and the **triumphant freeze** at the bottom. The move is glamour and confidence, not a pratfall.
+
+**The safety thesis (the bar every beat is measured against):** the drop must read as *fabulous, intentional, and cute*, never as the beaker getting hurt. Concretely, that means:
+
+- **No shattering, no cracks, no impact lines, no "ow" stars** (the volcano-dizzy stars are a wobble cue and must NOT appear here; they would read as concussion).
+- **No spilling.** The liquid sloshes up the inside wall but its surface never crosses the beaker lip at `y=12`. The slosh peak is capped at `y=14` (R4.1.4). A spill would read as injury and break the no-harm rule.
+- **No face of distress.** He wears `cheering` confidence on the way down and lands in a winking `bow-wink`. No `panicked`, no `embarrassed`, no wide-eyes-of-terror at any frame.
+- **The landing is soft.** A hidden cushion (a small pillow that puffs up to catch him) plus a gentle settle-bounce, not a thud. The cushion is the visual promise that this was always safe and planned.
+- **He is in control the whole time.** The wind-up is a confident vogue flourish (he chose this); the drop is a slow, controlled tip (not a free-fall); the recovery is a proud rise. Speed and easing carry "control": no fast `ease-in` accelerations that read as falling, only `ease-out` and `ease-in-out` that read as placing himself down.
+
+If any single frame could be screenshotted and read as "the beaker fell and got hurt," that frame is wrong and gets retuned. The screenshot we WANT is "the beaker just served the most fabulous dip you have ever seen."
+
+### R4.1.1 Beat-by-beat choreography (the stages)
+
+Six stages, on the same state-machine pattern as the existing scenes (a `STAGE_DURATIONS` object summed to `TOTAL_DURATION_MS`, a timer chain advancing the stage, transforms switched per stage). Total runtime **5800ms**, deliberately matched to Centrifuge so it composes in the same sequencer band.
+
+| # | Stage | Duration | What happens | Bot pose | Easing |
+|---|---|---|---|---|---|
+| 1 | `voguePrep` | 900ms | The wind-up. BeakerBot stands on the mark, then strikes a confident vogue flourish: a sharp arm-frame (reuse `cheering`'s both-arms-up), a tiny chin-up head-tilt, weight shifts back. A single anticipatory flash pops. This is "watch this." | `cheering` | `ease-in-out` |
+| 2 | `theTipBack` | 1100ms | The drop itself: a CONTROLLED backward tip. The body rotates backward (negative rotate on the head-back axis) while translating down toward the floor, pivoting around a low point so it arcs rather than falls. The cushion puffs up underneath in the last 300ms to meet him. Liquid sloshes (R4.1.4). | `cheering` holding, transitioning | `cubic-bezier(0.34, 0.02, 0.3, 1)` (slow, controlled, NO sharp accel) |
+| 3 | `theFreeze` | 700ms | The pose lands. He hits the floor-contact freeze: tipped back at the dip angle, resting on the cushion, one "leg" tucked (the beaker has no legs, so the tuck reads as the body angled with the rounded bottom kicked up and out, plus a jaunty arm line). He goes dead still. The liquid settles. | `bow-wink` (winking, held) | none (instant freeze) |
+| 4 | `flashbulbFrenzy` | 900ms | The held moment: the pit goes WILD. A rapid flurry of 6 to 8 flashbulbs fires in fast succession across the whole pit (R4.1.5), the spotlight pulses brighter twice, the bot holds the freeze rock-steady through it. This is the screenshot beat. | `bow-wink` held | flash-driven |
+| 5 | `theRecovery` | 1200ms | The rise. He pushes back up smoothly to standing (the cushion deflates away), arriving back upright with a small triumphant settle-bob. NOT a snap-up; a graceful, proud recovery. A final celebratory flash on arrival upright. | `bow-wink` rising to `cheering` | `cubic-bezier(0.2, 0.8, 0.2, 1)` (confident ease-out) |
+| 6 | `holdAndDone` | 1000ms | Standing tall, `cheering` freeze, one last flash, then `onComplete`. (In the showcase this either loops on tap or rests as a poster of the freeze pose.) | `cheering` | `ease-out` |
+
+`STAGE_DURATIONS` sum: 900 + 1100 + 700 + 900 + 1200 + 1000 = **5800ms**. (Mirrors `BeakerBotCentrifugeScene.STAGE_DURATIONS`.)
+
+**The "controlled, not falling" rule restated in motion terms:** the only stage that moves the body downward is `theTipBack`, and it uses a slow ease with a near-flat entry (the `0.34, 0.02` control points keep the first third gentle) so he eases INTO the tip rather than dropping. The cushion arriving in the last 300ms of the tip is the visual guarantee of a soft landing before contact ever happens.
+
+### R4.1.2 The body transform per stage (exact)
+
+The bot wrapper (the 128px square) gets a per-stage `transform` switched via CSS transition (the existing scene pattern: a `switch (stage)` returning a transform string, transitioned by `transition: transform <stageDuration> <easing>`). Pivot is a low point so the tip ARCS (a dip), not a topple. `transform-origin: 50% 92%` (near the rounded bottom, so he hinges from his base like a dancer dipping from the hips).
+
+| Stage | `transform` on the bot wrapper | Notes |
+|---|---|---|
+| `voguePrep` | `translateY(0) rotate(0deg) scale(1)` then a 4% settle: `translateY(-2%) rotate(-2deg)` at the prep peak | weight-back chin-up flourish |
+| `theTipBack` | `translateY(34%) rotate(-58deg) scale(0.98)` | the dip: down + tipped back 58deg, hinging from the low pivot. 58deg (not 90deg flat) keeps the liquid safely below the lip and reads as a glamorous dip, not a flat collapse |
+| `theFreeze` | `translateY(34%) rotate(-58deg) scale(0.98)` (held, identical to tip end) | dead still |
+| `flashbulbFrenzy` | same held transform | rock-steady through the flashes |
+| `theRecovery` | `translateY(0) rotate(0deg) scale(1)` | smooth rise back to upright |
+| `holdAndDone` | `translateY(0) rotate(0deg) scale(1)` with a tiny `-2%` settle-bob at midpoint | proud landing |
+
+**Why -58deg, not flat:** a real death drop ends near-horizontal, but a beaker tipped past ~60deg would let the liquid surface approach the lip and threaten a spill read. 58deg is the sweet spot: dramatic enough to read unmistakably as a dip, shallow enough that the sloshed liquid surface (R4.1.4) stays at or below `y=14`, comfortably under the `y=12` lip. The cushion + the tucked-bottom silhouette sell the "all the way down" drama without the body actually going flat. (If Grant wants it more extreme, -64deg is the absolute max before the liquid cap has to tighten; flagged.)
+
+### R4.1.3 The hidden cushion (new prop)
+
+A small soft pillow that puffs up under BeakerBot during the last 300ms of `theTipBack` to catch him, stays through `theFreeze` + `flashbulbFrenzy`, then deflates away during `theRecovery`. It is the visual promise of safety: you see him land on something soft and intentional.
+
+- **Art:** a simple rounded-rectangle pillow, inline-SVG, in a soft plum-tinted neutral that reads against stage-black without competing with the bot. A subtle gold piping edge (`#E7C873`, the showcase accent) ties it to the stage. Two small corner tassels optional. No emojis; pure SVG shapes.
+- **Geometry:** roughly 90px wide x 36px tall, centered under the bot's landing point, sitting on the floor-contact line.
+- **Puff-in:** `scaleY(0)` to `scaleY(1)` with a slight `scaleX` overshoot (1.0 to 1.08 to 1.0), `cubic-bezier(0.2, 0.8, 0.2, 1)`, over 300ms, so it inflates to meet him.
+- **Deflate-out:** reverse, `scaleY(1)` to `scaleY(0)` over 400ms as he rises, `ease-in`, so it tucks away as if it was never needed.
+
+### R4.1.4 The internal liquid slosh (the signature charm beat)
+
+This is the beat the whole scene is built around: how a beaker's liquid behaves when the beaker dips. It is the cutest, most "it is a BEAKER doing this" moment, and it is what users will replay.
+
+**The mechanism.** The liquid is one SVG `<path>` (the meniscus + body, verified `BeakerBot.tsx` line 547). To slosh it independently of the body tilt, the build wraps that single liquid path in a `<g class="dropLiquid">` and animates a `transform` on THAT group, in the bot's local 0-to-40 viewBox coordinate space, while the body tilts around it. The liquid lags and overshoots the body's rotation (inertia), then settles. Because the slosh is a transform on the existing path (not a redrawn surface), it is cheap and stays perfectly rainbow.
+
+**The physics story, beat by beat:**
+
+1. **On the tip (during `theTipBack`):** as the body rotates backward, the liquid's inertia makes its surface lag, so it appears to slosh UP the wall that is now lower (the back/upper wall as he tips). Modeled as a counter-rotation + skew on the liquid group: the liquid rotates slightly LESS than the body (lag) and skews so the surface stays closer to true-horizontal than the tilted beaker walls (liquid wants to stay level). Peak slosh at about 70% through the tip.
+2. **The cap (the no-spill guarantee):** the sloshed surface is clamped so its highest point never crosses `y=14` (well under the `y=12` lip). This is enforced by limiting the skew + translate magnitude (values in the keyframe below). The liquid kisses the upper wall, it never crests it.
+3. **At the freeze (during `theFreeze`):** the liquid does two or three quick damped wobbles (decreasing amplitude) and settles flat-relative-to-gravity, i.e. it finds its level inside the tipped beaker. This "settling" is the satisfying punctuation: the body is frozen mid-dip but the liquid does its little jiggle and goes calm. Pure charm.
+4. **On the recovery (during `theRecovery`):** a gentle reverse slosh as he rises (the liquid sways back the other way once, softly), settling level again by the time he is upright.
+
+**Color:** the liquid is unchanged (the five-stop rainbow gradient). The slosh does not recolor it; the rainbow simply rides the wobble, which is exactly the joy of it. (For the five named single-color variants peach/yellow/mint/sky/lavender that BeakerBot can render, the slosh is identical; only the fill differs, and the build inherits whatever fill the instance already uses. No per-color slosh tuning needed.)
+
+**Illustrative liquid-slosh keyframe (doc-only, NOT wired in).** The transform animates the `<g>` wrapping the liquid path, in the 0-to-40 local viewBox (so `transform-origin` and translate values are in viewBox units; 1 unit ~ 3.2px at the 128px render). The skew keeps the surface level-ish while the body tilts; the translate is the up-the-wall slosh; both are capped to keep the surface under `y=14`. Damped settle wobbles encoded as decreasing-amplitude keyframe steps.
+
+```css
+/* ILLUSTRATIVE ONLY. The death-drop liquid slosh. Applied to the <g>
+   that wraps BeakerBot's single liquid <path> (the wavy-meniscus path
+   at y=19, body to y=32). The BODY tilts -58deg around 50% 92%; this
+   group counter-moves so the liquid surface lags, sloshes up the wall,
+   then damps to level. transform-origin is the liquid centroid
+   (~20, 26 in viewBox units) so the slosh pivots inside the beaker.
+   Magnitudes are CAPPED so the surface never crosses y=14 (lip is y=12)
+   => no spill, no harm. Total 5800ms to match the scene; the percentages
+   below map onto the R4.1.1 stage timeline. */
+.dropLiquid {
+  transform-origin: 20px 26px;   /* liquid centroid, viewBox units */
+  animation: deathDropSlosh 5800ms cubic-bezier(0.34, 0.02, 0.3, 1) both;
+}
+@keyframes deathDropSlosh {
+  /* voguePrep (0 to ~15.5%): a tiny anticipatory ripple */
+  0%    { transform: rotate(0deg)   skewX(0deg)   translate(0, 0); }
+  12%   { transform: rotate(1.5deg) skewX(-1deg)  translate(-0.2px, 0); }
+  15.5% { transform: rotate(0deg)   skewX(0deg)   translate(0, 0); }
+  /* theTipBack (~15.5% to ~34.5%): body tips -58deg; liquid LAGS
+     (rotates less, ~+12deg the other way relative to the body) and
+     sloshes UP the now-lower wall. Surface stays <= y=14 (capped). */
+  26%   { transform: rotate(8deg)  skewX(6deg)  translate(1.4px, -1.6px); }  /* sloshing up */
+  31%   { transform: rotate(12deg) skewX(9deg)  translate(2.0px, -2.2px); }  /* peak slosh, surface ~y=14 */
+  34.5% { transform: rotate(10deg) skewX(7deg)  translate(1.6px, -1.4px); }  /* tip settles */
+  /* theFreeze (~34.5% to ~46.5%): damped wobbles, decreasing amplitude,
+     liquid finds its level inside the tipped beaker. */
+  38%   { transform: rotate(13deg) skewX(8deg)  translate(1.2px, -1.0px); }  /* wobble 1 */
+  41%   { transform: rotate(9deg)  skewX(5deg)  translate(0.7px, -0.6px); }  /* wobble 2 */
+  44%   { transform: rotate(11deg) skewX(6.5deg) translate(0.9px, -0.8px); } /* tiny wobble 3 */
+  46.5% { transform: rotate(10deg) skewX(6deg)  translate(0.8px, -0.7px); }  /* settled, level in the dip */
+  /* flashbulbFrenzy (~46.5% to ~62%): held level, dead calm (the body
+     is frozen; the liquid is calm so the freeze reads as a POSE). */
+  62%   { transform: rotate(10deg) skewX(6deg)  translate(0.8px, -0.7px); }
+  /* theRecovery (~62% to ~83%): he rises; one gentle reverse sway. */
+  72%   { transform: rotate(-4deg) skewX(-3deg) translate(-0.6px, 0.2px); } /* reverse sway */
+  83%   { transform: rotate(0deg)  skewX(0deg)  translate(0, 0); }          /* level, upright */
+  /* holdAndDone (~83% to 100%): level, still. */
+  100%  { transform: rotate(0deg)  skewX(0deg)  translate(0, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dropLiquid { animation: none; transform: none; }   /* static, level */
+}
+```
+
+The cap values (skew <= ~9deg, translate-up <= ~2.2px = ~7px on screen) are chosen so the meniscus high point lands at about `y=14`, a clear 2 viewBox units below the `y=12` lip. A build should verify visually that no part of the rainbow fill crosses the lip at any frame; if it does, scale the `theTipBack`/`theFreeze` translate-y and skew down proportionally (the angle of the body can stay; only the liquid magnitude needs to shrink to honor the no-spill rule).
+
+### R4.1.5 Flashbulb frenzy (reuses the R3.7 / R2.5 FlashBurst)
+
+The held moment is where the pit erupts. This reuses the existing `FlashBurst` SVG primitive (R2.5) and the pit-camera layout (R3.7) verbatim; only the firing pattern is new (denser than the per-look 3-flash flurry).
+
+- **Anticipatory flash (`voguePrep`):** 1 flash, from a center-pit camera, on the vogue peak. "Watch this."
+- **Landing flash (`theFreeze` start):** 2 flashes, staggered 0 / 60ms, as he hits the freeze.
+- **The frenzy (`flashbulbFrenzy`):** 6 to 8 flashes across all 6 pit cameras in rapid succession, staggered `0 / 50 / 90 / 140 / 190 / 250 / 320 / 400ms` (denser than the normal `0/40/80` look flurry, deliberately, so it reads as a crowd losing it). Each is a standard `FlashBurst` at 56px above its camera. The spotlight does two quick brighten-pulses during this window (a short `filter: brightness(1.0 -> 1.25 -> 1.0)` on the `.runway-spotlight`, 250ms each).
+- **Recovery flash:** 1 celebratory flash as he arrives upright.
+
+No new flash art; the frenzy is purely a denser firing schedule over the existing component.
+
+### R4.1.6 New art vs. reused (build-cost ledger for the Death Drop)
+
+| Item | New or reused | Build cost |
+|---|---|---|
+| Tipped-back body pose (the -58deg dip) | **New keyframe / transform** (composes the existing `cheering` + `bow-wink` poses at a new rotation; no new SVG geometry for the bot) | Low-medium. It is a transform on the existing 128px bot, not new bot art. |
+| Liquid-slosh keyframe (`deathDropSlosh`) | **New keyframe** (animates a wrapper `<g>` around the EXISTING liquid path) | Medium. The signature beat; needs visual tuning to honor the no-spill cap. The single most important new thing in this scene. |
+| Hidden cushion | **New small SVG prop** (rounded pillow + puff/deflate keyframes) | Low. Simple rounded-rect SVG + two scale keyframes. |
+| Floor-contact shadow | **New, but trivial** (a soft radial-gradient ellipse that grows/darkens as he dips and shrinks as he rises; sells the floor contact + softens the landing read) | Low. One `radial-gradient` div + a scale/opacity keyframe synced to the body translateY. |
+| Flashbulb frenzy | **Reused** (`FlashBurst` from R2.5/R3.7; only a denser firing schedule is new) | Trivial. A timing array. |
+| Spotlight brighten-pulses | **Reused** (`.runway-spotlight` from R3.6 + a brief brightness filter) | Trivial. |
+| Bookend poses (`cheering`, `bow-wink`) | **Reused** (existing poses) | Zero. |
+| State machine / envelope / reduced-motion gate | **Reused pattern** (mirror `BeakerBotCentrifugeScene`) | Low. Boilerplate the build already knows. |
+
+**Net new art:** one body-tip transform, one liquid-slosh keyframe (the real work), one small cushion SVG, one floor-shadow gradient. Everything else composes. This matches R2.2's "High difficulty, but worth it" estimate: the difficulty is concentrated in tuning the slosh + the controlled-tip easing so it reads fabulous-not-painful, not in volume of new assets.
+
+### R4.1.7 Reduced-motion fallback (Death Drop)
+
+Per the house pattern (R3.10) and verified scene behavior: under `prefers-reduced-motion: reduce`, the scene skips the motion entirely and shows a **static "she served the dip" freeze-frame**: BeakerBot rendered statically in the freeze pose (tipped at -58deg, `bow-wink`, on the inflated cushion, floor-shadow present) under a static lit spotlight, with the pit cameras showing their constant gentle bloom (no strobing). The liquid sits static and level-in-the-dip (the slosh end-state, `transform: none`). It still looks like a queen who just landed the most fabulous dip; it simply does not move. Dwell ~2000ms (matching the existing scenes' `REDUCED_MOTION_DURATION_MS = 2000`), then `onComplete`.
+
+---
+
+## R4.2 The Dance Number (P3): the closer
+
+### R4.2.0 The brief
+
+The grand finale of the showcase: a short choreographed celebration routine, music-video / production-number energy WITHOUT audio (audio is out of scope per R1 section 7 / R2). Rhythm is conveyed entirely through motion timing: regular, on-beat accents so the eye feels a tempo even in silence. It composes from existing poses + the P1 Strut/Twirl + the P2 Death Drop (the routine incorporates the drop as its showstopper center), rains rainbow confetti throughout, and ends on a big finish pose. It is the longest scene, so the choreography is built to stay engaging: a clear four-phrase structure with escalating energy, each phrase visually distinct, no dead air.
+
+### R4.2.1 Conveying rhythm without sound
+
+The trick to "production number" without audio is a **felt beat**: pick a tempo and put every accent on it. Spec tempo: **120 BPM = 500ms per beat = 2000ms per 4-beat phrase.** Every pose-hit, confetti burst, and spotlight accent lands on a beat or a clean half-beat (250ms). The eye reads regular spacing as rhythm. Four phrases of 2000ms = a tight, danceable structure. (A build can treat the 500ms beat as the grid that all sub-timings snap to.)
+
+### R4.2.2 The four phrases (the routine)
+
+Total runtime **8500ms**: a 500ms entrance pickup + four 2000ms phrases (8000ms). Longest scene on the page, but the phrase structure + escalation keep it from dragging. Each phrase is a self-contained 4-beat unit with its own move and its own visual flourish.
+
+**Pickup (0 to 500ms, 1 beat), the entrance.** BeakerBot pops up into frame from a low crouch (a quick `scaleY` squash-and-rise, or a reuse of the `bouncing` keyframe's up-pop) onto the center mark, arms snapping to a ready `cheering` frame on the downbeat. The spotlight snaps on. One flash. This is the "and... GO" pickup beat.
+
+**Phrase 1 (500 to 2500ms), STEP-TOUCH WARM-UP (establish the beat).**
+- Beats 1 to 4: a step-touch sway, the body translating left, center, right, center on each beat (`translateX(-8%)`, `0`, `+8%`, `0`), with a synced gentle bob (`translateY` -3% on each step, the existing idle-bob amplitude) and a slight `rotate` lean into each side (+/-4deg, the `beakerBotThink` lean amplitude). Pose: `idle` body with a relaxed arm sway, or `waving` arms loosely keeping time.
+- **Flourish:** the first confetti drizzle begins (light, a few particles per beat, R4.2.4), and the catwalk panels pulse ON THE BEAT (override their ambient chase to flash on each 500ms downbeat during the dance). Establishes the tempo.
+
+**Phrase 2 (2500 to 4500ms), THE TWIRL + SHIMMY (build energy).**
+- Beats 1 to 2: BeakerBot does the P1 **Twirl** (the celebratory 360 with the rainbow motion trail, R2.2 scene 2), landing facing front on beat 2.
+- Beats 3 to 4: a little shimmy: rapid small `rotate` oscillations (+/-6deg at ~125ms each, i.e. four quick shakes across two beats) with `cheering` arms up. A liquid-jiggle rides the shimmy (a small-amplitude version of the slosh, the liquid keeping time).
+- **Flourish:** confetti steps up to a medium fall; the rainbow trail from the twirl lingers and fades across beats 3 to 4. Spotlight does a small circular sweep following the twirl.
+
+**Phrase 3 (4500 to 6500ms), THE DEATH DROP (the showstopper center).**
+- This is the centerpiece: the routine drops the P2 **Death Drop** in here, time-compressed to fit two-and-a-half phrases-worth of drama into ~2000ms. The full 5800ms Death Drop is too long for a phrase, so the dance uses a **compressed cut**: vogue-prep is folded into the end of Phrase 2's shimmy (he is already arms-up), so Phrase 3 is just tip (700ms) + freeze (400ms) + a SHORT frenzy (500ms) + a quick recovery (400ms). The liquid slosh runs its compressed version (same shape, ~1600ms instead of the standalone's longer arc).
+- **Flourish:** the BIGGEST confetti burst of the routine fires on the freeze (a full burst, not a drizzle), the pit erupts (the R4.1.5 frenzy, compressed), the spotlight double-pulses. This is the peak. Putting the death drop at Phrase 3 (not the very end) means the routine has somewhere to GO after the biggest move (the finish), so it does not peak-then-fizzle.
+
+**Phrase 4 (6500 to 8500ms), THE FINISH (the button).**
+- Beats 1 to 2: he rises from the drop's recovery into a final strut-step toward front-center (a 2-beat micro-strut, reusing the P1 Strut's bob-sway, just two steps), building back up.
+- Beats 3 to 4: the big finish pose. Arms thrown wide into `cheering`, a final settle-bob, and he HITS the pose on the final downbeat (beat 4) and freezes. A full confetti cannon + a flash flurry land exactly on that final downbeat (the "button" of the number, everything hits at once). Hold the freeze ~500ms past the beat, then `onComplete`.
+- **Flourish:** confetti cannon (the densest moment, R4.2.4), full pit flash flurry, spotlight at max brightness, all synchronized to the final downbeat. The whole thing lands together. That synchronized hit is what makes a silent number feel like it had a final chord.
+
+| Segment | Window | Move | Composed from | Confetti level |
+|---|---|---|---|---|
+| Pickup | 0 to 500ms | Pop-up entrance | `bouncing` up-pop, `cheering` | none yet |
+| Phrase 1 | 500 to 2500ms | Step-touch sway | `idle`/`waving` + idle-bob + think-lean | light drizzle |
+| Phrase 2 | 2500 to 4500ms | Twirl + shimmy | **P1 Twirl** + small rotate-oscillation + cheering | medium |
+| Phrase 3 | 4500 to 6500ms | **Death Drop** (compressed) | **P2 Death Drop** (tip/freeze/short-frenzy/recovery) | big burst on freeze |
+| Phrase 4 | 6500 to 8500ms | Micro-strut to big finish | **P1 Strut** (2 steps) + `cheering` finish freeze | cannon on final downbeat |
+
+`STAGE_DURATIONS` sum: 500 + 2000 + 2000 + 2000 + 2000 = **8500ms**.
+
+**Keeping it engaging (not draggy):** the escalation is the engine. Energy and confetti density climb monotonically (drizzle to medium to burst to cannon), each phrase has a visually distinct move (sway is lateral, twirl is rotational, drop is vertical, finish is a pose-hit), and the on-beat accents give a felt pulse the whole way. There is never a phrase that repeats the previous one's silhouette, so the eye always has a new shape. The death-drop-at-Phrase-3 (not the end) is the deliberate anti-fizzle: the routine still has the finish to climb to.
+
+### R4.2.3 The body transform per phrase (exact, on the 500ms beat grid)
+
+(Transforms on the bot wrapper, switched per beat; the build can drive these with a small beat-indexed timeline or one long keyframe at 8500ms with stops on the 500ms grid. Pivot `transform-origin: 50% 92%` to match the Death Drop's hinge.)
+
+- **Pickup (beat 0):** `scaleY(0.7) translateY(20%)` to `scaleY(1) translateY(0)` (squash-and-pop), `cubic-bezier(0.2,0.9,0.3,1.2)` (a touch of overshoot for bounce).
+- **Phrase 1 step-touch (beats 1 to 4):** per beat, `translateX(-8% / 0 / +8% / 0)` + `translateY(-3%)` on the step + `rotate(-4deg / 0 / +4deg / 0)`, each beat `cubic-bezier(0.3,0,0.3,1)` (a crisp on-beat snap).
+- **Phrase 2 twirl (beats 1 to 2):** `rotateY(0 -> 360deg)` (or `rotate` for a flat spin) over 1000ms `ease-in-out`; **shimmy (beats 3 to 4):** `rotate(+/-6deg)` oscillating at 125ms intervals (8 micro-steps), `ease-in-out`.
+- **Phrase 3 death drop (compressed):** tip to `translateY(34%) rotate(-58deg)` over 700ms (the R4.1.2 dip, `cubic-bezier(0.34,0.02,0.3,1)`), hold 400ms, then recover to upright over 400ms (`cubic-bezier(0.2,0.8,0.2,1)`). Cushion + floor-shadow as in R4.1.3.
+- **Phrase 4 micro-strut (beats 1 to 2):** two strut steps, `translateX` small forward-feel + bob (`translateY(-4%)` per step); **finish (beats 3 to 4):** settle to `translateY(0) rotate(0)` and HIT `cheering` on the final downbeat with a tiny `-3%` settle-bob, freeze.
+
+### R4.2.4 Rainbow confetti (the particle system)
+
+Confetti reuses the established particle pattern (the `VOLCANO_PARTICLES` array shape + the `beakerBotVolcanoParticle` CSS-var-destination keyframe), inverted to fall DOWNWARD (the volcano fountain goes up; confetti rains down) and scaled up in count. The five liquid stops ARE the confetti colors, so the confetti is literally made of BeakerBot's own rainbow.
+
+**Approach: a staged emitter, not one giant array.** Rather than one 200-particle array (a perf risk and hard to escalate), the confetti is emitted in **bursts tied to the phrases**, each burst a small array of particles with staggered `delayMs`, mounted at the phrase boundary and cleaned up when its animation completes (`onAnimationEnd` removes the particle, the standard cleanup pattern). This keeps the live particle count bounded and lets density escalate by burst size.
+
+- **Particle shape (mirrors `VOLCANO_PARTICLES`):** `{ id, xPct, fill, sizePx, delayMs, driftXPct, durationMs, rotDeg }` where `xPct` is the spawn x across the frame top, `fill` is one of the five stops (round-robin or random across the five), `driftXPct` is the horizontal sway as it falls, `rotDeg` is a tumble rotation.
+- **Physics:** each particle falls from above the frame (`top: -5%`) to below (`top: 105%`) over `durationMs` (1800 to 2600ms, randomized so they do not fall in lockstep), with a horizontal sine-ish drift (`driftXPct` +/-6%) and a tumble (`rotateZ` 0 to `rotDeg`, 180 to 540deg). Gentle, floaty, celebratory; NOT fast/heavy (heavy reads as debris, floaty reads as celebration). Confetti pieces are tiny rounded rects or circles (4 to 8px), inline-SVG or styled divs.
+- **Counts per phrase (the escalation):** Phrase 1 drizzle ~6 particles, Phrase 2 medium ~14, Phrase 3 burst ~30 on the death-drop freeze, Phrase 4 cannon ~40 on the final downbeat. Peak live count stays modest (a few dozen) because earlier bursts have largely fallen out by the time later ones spawn.
+- **Stagger:** within a burst, `delayMs` staggered like the volcano array (e.g. `0, 40, 80, 120...`) so the confetti enters as a shower, not a wall.
+- **Cleanup:** each particle removes itself `onAnimationEnd` (the existing scene cleanup convention), so nothing accumulates. The whole confetti layer unmounts with the scene.
+
+**Illustrative confetti-burst keyframe + emitter sketch (doc-only, NOT wired in).** Mirrors the `beakerBotVolcanoParticle` CSS-var-destination pattern, inverted to fall downward, with a drift + tumble. The five-stop palette is the confetti color set.
+
+```tsx
+// ILLUSTRATIVE ONLY. One confetti burst for the dance number. Mirrors
+// the VOLCANO_PARTICLES array shape; the five liquid stops are the
+// colors (the confetti is literally made of BeakerBot's rainbow). A
+// burst is mounted at a phrase boundary; each piece cleans itself up
+// onAnimationEnd. Escalate by passing a bigger `count`.
+const CONFETTI_STOPS = ["#FFD2B0", "#FFF1A8", "#B7EBB1", "#A6D2F4", "#D6B5F0"];
+
+function ConfettiBurst({ count, originXPct = 50 }: { count: number; originXPct?: number }) {
+  // deterministic pseudo-random per index (mirrors the seeded jitter
+  // pattern in BeakerBotCentrifugeScene so it is stable across renders)
+  const pieces = Array.from({ length: count }, (_, i) => {
+    const seed = (i * 7919 + 104729) % 233280;
+    const r = seed / 233280;
+    return {
+      id: i,
+      xPct: originXPct + (r - 0.5) * 80,                 // spread across the top
+      fill: CONFETTI_STOPS[i % CONFETTI_STOPS.length],   // round-robin the rainbow
+      sizePx: 4 + Math.round(r * 4),                     // 4 to 8px
+      delayMs: (i % 8) * 40,                             // shower stagger (volcano pattern)
+      driftXPct: (r - 0.5) * 12,                         // +/-6% horizontal sway
+      durationMs: 1800 + Math.round(r * 800),            // 1800 to 2600ms float
+      rotDeg: 180 + Math.round(r * 360),                 // 180 to 540deg tumble
+    };
+  });
+  return (
+    <div className="confetti-layer" aria-hidden>
+      {pieces.map((p) => (
+        <span
+          key={p.id}
+          className="confetti-piece"
+          onAnimationEnd={(e) => e.currentTarget.remove()}  /* self-cleanup */
+          style={{
+            left: `${p.xPct}%`,
+            width: p.sizePx, height: p.sizePx,
+            background: p.fill,
+            // per-piece destinations as CSS vars (volcano pattern)
+            ["--drift-x" as string]: `${p.driftXPct}%`,
+            ["--rot" as string]: `${p.rotDeg}deg`,
+            animationDelay: `${p.delayMs}ms`,
+            animationDuration: `${p.durationMs}ms`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+```
+
+```css
+/* ILLUSTRATIVE ONLY. Confetti fall: from above the frame to below it,
+   with a horizontal drift and a tumble. Floaty (gentle ease), so it
+   reads as celebration, not debris. Inverts the upward volcano
+   fountain. */
+.confetti-piece {
+  position: absolute;
+  top: -5%;
+  border-radius: 2px;                       /* tiny rounded rect */
+  opacity: 0;
+  animation-name: confettiFall;
+  animation-timing-function: cubic-bezier(0.25, 0.6, 0.45, 1);  /* gentle float */
+  animation-fill-mode: forwards;
+}
+@keyframes confettiFall {
+  0%   { opacity: 0; transform: translate(0, 0) rotateZ(0deg); }
+  8%   { opacity: 1; }
+  100% { opacity: 0;
+         transform: translate(var(--drift-x, 0), 110vh) rotateZ(var(--rot, 360deg)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .confetti-layer { display: none; }        /* no confetti; suppressed entirely */
+}
+```
+
+### R4.2.5 The visual flourishes per phrase (beyond confetti)
+
+- **Spotlight:** on-beat brighten pulses through Phrase 1; a small circular sweep tracking the Twirl in Phrase 2; a double-pulse on the death-drop freeze in Phrase 3; max brightness on the Phrase 4 final downbeat.
+- **Catwalk panels:** override their ambient head-to-foot chase to flash on the 500ms downbeat during the dance (the floor keeps the beat), returning to ambient chase after the number.
+- **Liquid color shifts (optional, flagged):** R2 floated "color shifts in his liquid" during the dance. BeakerBot's liquid is a fixed five-stop rainbow gradient; a tasteful option is a slow `hue-rotate` filter on the liquid group during the dance only (a gentle rainbow cycle, +/- a small range so he never stops looking like himself), returning to the canonical gradient at the end. This is optional sparkle, not required; default OFF unless Grant wants it, since the canonical rainbow is already the signature. Flagged in R4.4.
+- **Rainbow trail:** the Twirl's existing rainbow motion-trail (P1) is reused in Phrase 2 and lingers into beats 3 to 4.
+- **Flash flurries:** light per-phrase flashes building to the full pit flurry on the Phrase 4 button (reusing R3.7).
+
+### R4.2.6 New art vs. reused (build-cost ledger for the Dance Number)
+
+| Item | New or reused | Build cost |
+|---|---|---|
+| Step-touch sway (Phrase 1) | **New timeline** over existing idle-bob + think-lean amplitudes; no new bot art | Low. A beat-gridded translate/rotate sequence. |
+| Twirl + rainbow trail (Phrase 2) | **Reused** (the P1 Twirl scene) | Zero (assuming P1 shipped). |
+| Shimmy (Phrase 2) | **New small oscillation** (a rotate wiggle) | Low. |
+| Death Drop, compressed (Phrase 3) | **Reused** (the P2 Death Drop, time-compressed) | Low (assuming P2 shipped; only the compressed timing is new). |
+| Micro-strut + finish (Phrase 4) | **Reused** (P1 Strut steps + `cheering`) | Low. |
+| Rainbow confetti system | **New, but built on the existing particle pattern** (inverted volcano fountain, staged bursts, self-cleanup) | Medium. The genuinely new system; the escalation + cleanup are the work. The single most important new thing in this scene. |
+| On-beat spotlight / panel accents | **Reused** (R3.6 spotlight, R3.5 panels) + a beat-synced override | Low. |
+| Liquid hue-cycle (optional) | **New, optional** (a `hue-rotate` filter, off by default) | Low, and skippable. |
+| State machine / envelope / reduced-motion | **Reused pattern** | Low. Boilerplate. |
+
+**Net new art:** the confetti system (the real work) + a few beat-gridded transform timelines (sway, shimmy, finish). Everything dance-move-wise composes from P1 + P2 + existing poses. This matches R2.2's "Medium-to-high: no new bot art, but choreographing the beats so it reads as a dance is the work, plus a confetti system that does not tank performance." R4 resolves both: the four-phrase 120-BPM grid IS the choreography spine, and the staged-burst-with-cleanup confetti IS the perf-safe system.
+
+### R4.2.7 Reduced-motion fallback (Dance Number)
+
+Per R3.10: all motion suppressed, confetti suppressed entirely (`.confetti-layer { display: none }`), replaced by a static **"she served" finale freeze-frame**: BeakerBot in the Phrase 4 big-finish `cheering` pose under a static lit spotlight, the pit cameras at their constant gentle bloom. It reads as the final bow of the number, paused on its best frame. Dwell ~2000ms, then `onComplete`.
+
+---
+
+## R4.3 Catalog + placement
+
+### R4.3.1 How both register in `BEAKERBOT_ANIMATION_CATALOG`
+
+Both are scenes, so they take the `SceneEntry` shape (`kind: "scene"`, verified shape in `frontend/src/app/dev/beakerbot-gallery/page.tsx`: `{ kind, id, label, Component, description, timingNote }`). The `timingNote` is the catalog's looping-metadata field; for one-shot scenes it states the total runtime (mirroring how Centrifuge etc. note their duration). Proposed entries:
+
+```tsx
+// ILLUSTRATIVE ONLY. The two new SceneEntry rows for the catalog.
+// Same shape as the 9 existing scene entries. Component refs are the
+// R3.11 components (DeathDropScene / DanceNumberScene).
+{
+  kind: "scene",
+  id: "scene:death-drop",
+  label: "Death Drop",
+  Component: DeathDropScene,
+  description:
+    "The iconic drag finale, done for a beaker: a confident vogue, a controlled backward dip onto a hidden cushion (liquid sloshing, never spilling), a held freeze while the pit erupts in flashbulbs, then a proud rise. Fabulous and safe, never a fall.",
+  timingNote: "~5.8s one-shot (matches Centrifuge)",
+},
+{
+  kind: "scene",
+  id: "scene:dance-number",
+  label: "Dance Number",
+  Component: DanceNumberScene,
+  description:
+    "The grand-finale production number: a 120-BPM four-phrase routine (step-touch, twirl + shimmy, the death-drop showstopper, a big finish) with escalating rainbow confetti made of BeakerBot's own five liquid colors. The closer of the whole show.",
+  timingNote: "~8.5s one-shot (the longest scene; the page closer)",
+},
+```
+
+The category-menu (R3.1) is a runway-pose concern; scenes are announced by their `NOW PERFORMING - [name]` marquee placard (R3.8) pulling `name` + `description` from the catalog, so the Death Drop and Dance Number need no per-pose category line. If Grant wants the Dance Number's closer placard to carry a drag-voice flourish, "THE CATEGORY IS... THE FINAL CURTAIN, DARLING" or "GIVE HIM HIS FLOWERS" are on-tone candidates (flagged, optional).
+
+### R4.3.2 Where they live on the showcase page
+
+**The Death Drop: a featured spotlight moment, NOT a standard proscenium.** It earns special placement because it is the single best screenshot moment. Recommendation: place it as a **featured full-bleed spotlight act at the TOP of the Performance Hall** (between the Runway and the standard 9-scene proscenium grid), in a larger, more dramatic frame than the uniform 16:10 prosceniums, framed as the headliner ("TONIGHT'S HEADLINER" or "THE MAIN EVENT" placard). It gets room: a near-full-viewport stage so the dip reads at full drama, with the pit and flashbulbs prominent. This makes it the transition between "the looks" (Runway) and "the acts" (Performance Hall), and it reads as the marquee draw of the whole show. (Alternative considered: a special spotlight moment ON the runway, as a 22nd "look." Rejected: it is a full scene with a timeline, not a held pose, so it belongs in the Hall with the other timed acts, just elevated. Flagged as Grant's call if he prefers it as a runway capstone instead.)
+
+**The Dance Number: the grand-finale closer at the BOTTOM of the page (the curtain call).** It is explicitly the closer, so it lives at the very bottom, as the page's final act, right before (or merged into) the curtain-call footer (R3.11 `CurtainCallFooter`). Recommendation: the Dance Number plays as the last full stage the user scrolls to, and on its final-downbeat freeze it dovetails into the curtain-call footer (the `bow-wink` BeakerBot + credits caption + link back to the app). So the page's emotional arc is: find the backstage door (unlock) to the marquee hero to the runway of looks to the headliner Death Drop to the 9 acts to the Dance Number finale to the bow. The Dance Number IS the curtain call; the footer is its final bow. This gives the whole scroll a real ending instead of just stopping.
+
+### R4.3.3 Build difficulty + sequencing (confirm/adjust)
+
+R2.2's order holds, confirmed:
+
+- **Death Drop = P2** (after P1's Curtain Reveal / Strut / Twirl land). Confirmed. Rationale: it needs the most genuinely new art (the slosh keyframe + cushion + floor shadow), and it depends on nothing from P3, so it is the right "prove the showstopper" step once the stage exists. Difficulty: medium-high, concentrated in tuning the slosh + the controlled-tip easing to honor the safety thesis.
+- **Dance Number = P3** (after the Death Drop, since the routine INCORPORATES the drop as its Phrase-3 centerpiece). Confirmed, and it is now a hard dependency, not just a sequencing preference: the Dance Number's Phrase 3 reuses the `DeathDropScene` timing, and Phrase 2 / Phrase 4 reuse the P1 Twirl / Strut. So P3's Dance Number genuinely cannot be built until P1 (Twirl, Strut) AND P2 (Death Drop) exist. The only NET-new work in the Dance Number itself is the confetti system + the beat-gridded sway/shimmy/finish timelines; the dance moves are reuse. This is why it is correctly last: it is the capstone that composes everything below it.
+
+One adjustment to flag: because the Dance Number leans so heavily on P1 + P2, if Grant wants the Dance Number sooner, the cheapest path is to make sure the Twirl, Strut, and Death Drop are solid first; there is no shortcut that builds the dance independently without re-implementing those moves.
+
+### R4.3.4 Reduced-motion (both): summary
+
+Both follow the house pattern (R3.10), each detailed above (R4.1.7, R4.2.7): suppress all motion, suppress confetti/slosh/flash entirely, render a static "she served" freeze-frame of the end pose (`cheering` for both, with the Death Drop optionally showing its tipped-freeze-on-cushion frame instead if Grant prefers the more dramatic still) under a static lit spotlight with the pit at constant gentle bloom, dwell ~2000ms, then `onComplete`. The fallback is "the show, paused on its best freeze-frame," consistent with every existing scene and the rest of the showcase chrome.
+
+## R4.4 Open questions for Grant (R4-specific)
+
+Few, by design; the choreography is pinned and a build can implement both from the beats + snippets above without a new animation decision. The genuinely open items:
+
+1. **Death Drop dip angle.** Spec defaults to -58deg (dramatic, but shallow enough to keep the liquid safely below the lip with no spill). Grant can push to -64deg max (tighter liquid cap needed) for more extreme drama, or pull shallower for a gentler dip. Default -58deg is shippable as-is.
+2. **Death Drop placement.** Recommended as the elevated "headliner" featured act at the top of the Performance Hall (its own larger frame). Alternative: a special capstone moment at the end of the Runway. Recommendation stands; Grant's call.
+3. **Dance Number liquid hue-cycle.** R2 floated "color shifts in his liquid" during the dance. Spec leaves it OFF by default (a slow, small-range `hue-rotate` is the optional implementation) because his canonical five-stop rainbow is already the signature. Turn it on, or keep him his canonical self? Default OFF is shippable.
+4. **Dance Number closer placard flourish.** The finale can carry a drag-voice flourish on its placard ("THE FINAL CURTAIN, DARLING" / "GIVE HIM HIS FLOWERS") or just read "NOW PERFORMING - Dance Number". Optional; default to the plain catalog name unless Grant picks a flourish.
+
+Everything else (every beat, duration, easing curve, the liquid-slosh keyframe, the confetti system + counts + cleanup, the cushion + floor shadow, the flash schedules, catalog entries, placement, sequencing, reduced-motion) is pinned. A build sub-bot can implement the Death Drop (P2) and the Dance Number (P3) from R4 + the snippets without making a new design decision.
+
+---
+
+*R4 sketches are illustrative. No routes, scene props, or components were built. R4 is the detailed choreography for the two marquee new scenes (Death Drop, Dance Number); hand-off to the build chip happens at Grant's word, sequenced P2 then P3 per R4.3.3. Authored by the showcase-choreography sub-bot per orchestrator manager dispatch.*
