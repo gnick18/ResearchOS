@@ -63,6 +63,12 @@ export interface BeakerBotBugStompSceneProps {
    *  spawns at a fixed deterministic position; only BeakerBot's entry
    *  edge changes. */
   beakerBotEntersFrom?: "left" | "right";
+  /** Where the scene's full-screen portal mounts. Defaults to
+   *  document.body (the global easter-egg behavior, unchanged). The
+   *  showcase Scenes view passes its scaled in-frame viewport so the
+   *  scene plays inside the fixed window. When explicitly null the scene
+   *  renders nothing (the target is not live yet). */
+  portalTarget?: HTMLElement | null;
 }
 
 /** Stage durations in ms. Exported so tests can re-derive the total. */
@@ -315,6 +321,7 @@ export default function BeakerBotBugStompScene({
   active,
   onComplete,
   beakerBotEntersFrom = "right",
+  portalTarget,
 }: BeakerBotBugStompSceneProps) {
   const [mounted, setMounted] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -411,7 +418,10 @@ export default function BeakerBotBugStompScene({
     };
   }, [beakerBotEntersFrom]);
 
-  if (!active || !mounted) return null;
+  // Default (prop omitted) keeps the global behavior: portal to body.
+  // An explicit null means "target not live yet" so we render nothing.
+  const portalRoot = portalTarget === undefined ? document.body : portalTarget;
+  if (!active || !mounted || !portalRoot) return null;
 
   // Reduced-motion fallback: static aftermath, no animation.
   if (reducedMotion) {
@@ -464,7 +474,7 @@ export default function BeakerBotBugStompScene({
           </div>
         </div>
       </div>,
-      document.body,
+      portalRoot,
     );
   }
 
@@ -722,7 +732,7 @@ export default function BeakerBotBugStompScene({
         </div>
       </div>
     </>,
-    document.body,
+    portalRoot,
   );
 }
 

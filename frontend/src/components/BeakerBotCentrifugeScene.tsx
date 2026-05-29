@@ -79,6 +79,12 @@ export interface BeakerBotCentrifugeSceneProps {
   /** Side from which BeakerBot enters carrying the centrifuge. He exits
    *  off the OPPOSITE side. Default "left". */
   enterFrom?: "left" | "right";
+  /** Where the scene's full-screen portal mounts. Defaults to
+   *  document.body (the global easter-egg behavior, unchanged). The
+   *  showcase Scenes view passes its scaled in-frame viewport so the
+   *  scene plays inside the fixed window. When explicitly null the scene
+   *  renders nothing (the target is not live yet). */
+  portalTarget?: HTMLElement | null;
 }
 
 /** Pastel sample-tube palette — four distinct colors so the tubes
@@ -181,6 +187,7 @@ export default function BeakerBotCentrifugeScene({
   active,
   onComplete,
   enterFrom = "left",
+  portalTarget,
 }: BeakerBotCentrifugeSceneProps) {
   const [mounted, setMounted] = useState(false);
   const [stage, setStage] = useState<SceneStage>("idle");
@@ -250,7 +257,15 @@ export default function BeakerBotCentrifugeScene({
     [],
   );
 
-  if (!active || !mounted || typeof document === "undefined") {
+  // Default (prop omitted) keeps the global behavior: portal to body.
+  // An explicit null means "target not live yet" so we render nothing.
+  const portalRoot =
+    typeof document === "undefined"
+      ? null
+      : portalTarget === undefined
+        ? document.body
+        : portalTarget;
+  if (!active || !mounted || !portalRoot) {
     return null;
   }
 
@@ -742,7 +757,7 @@ export default function BeakerBotCentrifugeScene({
         }
       `}</style>
     </div>,
-    document.body,
+    portalRoot,
   );
 }
 

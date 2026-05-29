@@ -78,6 +78,12 @@ export interface BeakerBotTooManyBeakersSceneProps {
   /** Side BeakerBot enters from. Default "left" (walks left → right,
    *  rolls off the right). With "right", entry + exit mirror. */
   entersFrom?: "left" | "right";
+  /** Where the scene's full-screen portal mounts. Defaults to
+   *  document.body (the global easter-egg behavior, unchanged). The
+   *  showcase Scenes view passes its scaled in-frame viewport so the
+   *  scene plays inside the fixed window. When explicitly null the scene
+   *  renders nothing (the target is not live yet). */
+  portalTarget?: HTMLElement | null;
 }
 
 /** Pastel-rainbow palette stops shared with the BeakerBot liquid
@@ -219,6 +225,7 @@ export default function BeakerBotTooManyBeakersScene({
   onComplete,
   beakerCount = 4,
   entersFrom = "left",
+  portalTarget,
 }: BeakerBotTooManyBeakersSceneProps) {
   const [mounted, setMounted] = useState(false);
   const [stage, setStage] = useState<SceneStage>("idle");
@@ -293,7 +300,15 @@ export default function BeakerBotTooManyBeakersScene({
     };
   }, [active, mounted, prefersReducedMotion]);
 
-  if (!active || !mounted || typeof document === "undefined") {
+  // Default (prop omitted) keeps the global behavior: portal to body.
+  // An explicit null means "target not live yet" so we render nothing.
+  const portalRoot =
+    typeof document === "undefined"
+      ? null
+      : portalTarget === undefined
+        ? document.body
+        : portalTarget;
+  if (!active || !mounted || !portalRoot) {
     return null;
   }
 
@@ -791,7 +806,7 @@ export default function BeakerBotTooManyBeakersScene({
         }
       `}</style>
     </div>,
-    document.body,
+    portalRoot,
   );
 }
 

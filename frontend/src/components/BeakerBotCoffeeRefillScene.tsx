@@ -55,6 +55,12 @@ export interface BeakerBotCoffeeRefillSceneProps {
   /** Side from which BeakerBot enters carrying the beans bag. Default
    *  "left". He exits the opposite side carrying the full pot. */
   enterFrom?: "left" | "right";
+  /** Where the scene's full-screen portal mounts. Defaults to
+   *  document.body (the global easter-egg behavior, unchanged). The
+   *  showcase Scenes view passes its scaled in-frame viewport so the
+   *  scene plays inside the fixed window. When explicitly null the scene
+   *  renders nothing (the target is not live yet). */
+  portalTarget?: HTMLElement | null;
 }
 
 /** Stage durations in ms. Exported so tests can derive the total without
@@ -468,6 +474,7 @@ export default function BeakerBotCoffeeRefillScene({
   active,
   onComplete,
   enterFrom = "left",
+  portalTarget,
 }: BeakerBotCoffeeRefillSceneProps) {
   const isClient = useIsClient();
   const [stage, setStage] = useState<CoffeeRefillStage>("idle");
@@ -563,7 +570,10 @@ export default function BeakerBotCoffeeRefillScene({
     };
   }, [enterFrom]);
 
-  if (!active || !isClient) return null;
+  // Default (prop omitted) keeps the global behavior: portal to body.
+  // An explicit null means "target not live yet" so we render nothing.
+  const portalRoot = portalTarget === undefined ? document.body : portalTarget;
+  if (!active || !isClient || !portalRoot) return null;
 
   // ----- Stage-driven visual state -----
 
@@ -1119,7 +1129,7 @@ export default function BeakerBotCoffeeRefillScene({
         </div>
       </div>
     </div>,
-    document.body,
+    portalRoot,
   );
 }
 

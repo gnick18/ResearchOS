@@ -28,6 +28,12 @@ export interface BeakerBotTwirlSceneProps {
   active: boolean;
   onComplete?: () => void;
   bounds?: SceneBounds;
+  /** Where the scene's full-screen portal mounts. Defaults to
+   *  document.body (the global easter-egg behavior, unchanged). The
+   *  showcase Scenes view passes its scaled in-frame viewport so the
+   *  scene plays inside the fixed window. When explicitly null the scene
+   *  renders nothing (the target is not live yet). */
+  portalTarget?: HTMLElement | null;
 }
 
 export const TWIRL_DURATION_MS = 1500;
@@ -64,6 +70,7 @@ function useClientMounted(): boolean {
 export default function BeakerBotTwirlScene({
   active,
   onComplete,
+  portalTarget,
 }: BeakerBotTwirlSceneProps) {
   const mounted = useClientMounted();
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -89,7 +96,10 @@ export default function BeakerBotTwirlScene({
     return () => window.clearTimeout(handle);
   }, [active, reducedMotion]);
 
-  if (!mounted || !active) return null;
+  // Default (prop omitted) keeps the global behavior: portal to body.
+  // An explicit null means "target not live yet" so we render nothing.
+  const portalRoot = portalTarget === undefined ? document.body : portalTarget;
+  if (!mounted || !active || !portalRoot) return null;
 
   return createPortal(
     <div
@@ -138,6 +148,6 @@ export default function BeakerBotTwirlScene({
         />
       </div>
     </div>,
-    document.body,
+    portalRoot,
   );
 }

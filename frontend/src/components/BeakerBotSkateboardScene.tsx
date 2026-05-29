@@ -50,6 +50,12 @@ export interface BeakerBotSkateboardSceneProps {
    *  skateboard glide that crosses a ~1440px viewport in ~4s
    *  including entry + exit. */
   speedPxPerSec?: number;
+  /** Where the scene's full-screen portal mounts. Defaults to
+   *  document.body (the global easter-egg behavior, unchanged). The
+   *  showcase Scenes view passes its scaled in-frame viewport so the
+   *  scene plays inside the fixed window. When explicitly null the scene
+   *  renders nothing (the target is not live yet). */
+  portalTarget?: HTMLElement | null;
 }
 
 /** Visual constants — kept module-scoped so reduced-motion hold can
@@ -106,6 +112,7 @@ export default function BeakerBotSkateboardScene({
   direction = "left-to-right",
   bottomY = 85,
   speedPxPerSec = 350,
+  portalTarget,
 }: BeakerBotSkateboardSceneProps) {
   const [mounted, setMounted] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -168,7 +175,10 @@ export default function BeakerBotSkateboardScene({
     return () => window.clearTimeout(handle);
   }, [active, reducedMotion, totalMs]);
 
-  if (!mounted || !active) return null;
+  // Default (prop omitted) keeps the global behavior: portal to body.
+  // An explicit null means "target not live yet" so we render nothing.
+  const portalRoot = portalTarget === undefined ? document.body : portalTarget;
+  if (!mounted || !active || !portalRoot) return null;
 
   // ---- Reduced-motion branch: static center-screen render ---------
   if (reducedMotion) {
@@ -190,7 +200,7 @@ export default function BeakerBotSkateboardScene({
       >
         <SkateboardStack uid={uid} animate={false} />
       </div>,
-      document.body,
+      portalRoot,
     );
   }
 
@@ -363,7 +373,7 @@ export default function BeakerBotSkateboardScene({
         </div>
       </div>
     </>,
-    document.body,
+    portalRoot,
   );
 }
 

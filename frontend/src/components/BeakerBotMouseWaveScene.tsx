@@ -86,6 +86,12 @@ export interface BeakerBotMouseWaveSceneProps {
    *  clutter). Pass false to disable in contexts where the bubble
    *  would distract. */
   showSpeechBubble?: boolean;
+  /** Where the scene's full-screen portal mounts. Defaults to
+   *  document.body (the global easter-egg behavior, unchanged). The
+   *  showcase Scenes view passes its scaled in-frame viewport so the
+   *  scene plays inside the fixed window. When explicitly null the scene
+   *  renders nothing (the target is not live yet). */
+  portalTarget?: HTMLElement | null;
 }
 
 type Stage = "turn" | "wave" | "settle" | "done";
@@ -168,6 +174,7 @@ export default function BeakerBotMouseWaveScene({
   targetY,
   beakerBotAnchor = "bottom-right",
   showSpeechBubble = true,
+  portalTarget,
 }: BeakerBotMouseWaveSceneProps) {
   const isClient = useIsClient();
   const [stage, setStage] = useState<Stage>("turn");
@@ -309,7 +316,10 @@ export default function BeakerBotMouseWaveScene({
     return sign * clamped * max;
   }, [resolvedTargetY, anchorY, facing]);
 
-  if (!active || !isClient) return null;
+  // Default (prop omitted) keeps the global behavior: portal to body.
+  // An explicit null means "target not live yet" so we render nothing.
+  const portalRoot = portalTarget === undefined ? document.body : portalTarget;
+  if (!active || !isClient || !portalRoot) return null;
 
   // Stable pose-by-stage. The waving pose handles the arm geometry;
   // the wrapper's keyframe animation pulses three discrete waves on
@@ -458,6 +468,6 @@ export default function BeakerBotMouseWaveScene({
         )}
       </div>
     </div>,
-    document.body,
+    portalRoot,
   );
 }

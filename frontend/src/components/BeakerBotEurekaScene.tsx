@@ -61,6 +61,12 @@ export interface BeakerBotEurekaSceneProps {
   /** Side from which BeakerBot enters carrying the microscope.
    *  Default "right". He exits the opposite side. */
   enterFrom?: "left" | "right";
+  /** Where the scene's full-screen portal mounts. Defaults to
+   *  document.body (the global easter-egg behavior, unchanged). The
+   *  showcase Scenes view passes its scaled in-frame viewport so the
+   *  scene plays inside the fixed window. When explicitly null the scene
+   *  renders nothing (the target is not live yet). */
+  portalTarget?: HTMLElement | null;
 }
 
 /** Stage durations in ms. Kept as a const so tests can re-derive the
@@ -267,6 +273,7 @@ export default function BeakerBotEurekaScene({
   active,
   onComplete,
   enterFrom = "right",
+  portalTarget,
 }: BeakerBotEurekaSceneProps) {
   const isClient = useIsClient();
   const [stage, setStage] = useState<EurekaStage>("idle");
@@ -372,7 +379,10 @@ export default function BeakerBotEurekaScene({
     });
   }, []);
 
-  if (!active || !isClient) return null;
+  // Default (prop omitted) keeps the global behavior: portal to body.
+  // An explicit null means "target not live yet" so we render nothing.
+  const portalRoot = portalTarget === undefined ? document.body : portalTarget;
+  if (!active || !isClient || !portalRoot) return null;
 
   // ----- Stage-driven visual state -----
 
@@ -820,6 +830,6 @@ export default function BeakerBotEurekaScene({
         </div>
       </div>
     </div>,
-    document.body,
+    portalRoot,
   );
 }
