@@ -1,11 +1,15 @@
-// Tests for the IntersectionObserver sequencer (useCenteredActive,
-// R1 section 4 Option 3 / R3.8) and the Performance Hall it drives.
-// The sequencer is the no-overlap mechanism for P1: exactly ONE element
-// is active at any scroll position, so two full-screen-portal scenes
-// never stack.
+// Tests for the Performance Hall (Scenes view) picker model and the
+// (now standalone) useCenteredActive hook.
+//
+// PICKER REDESIGN: the Hall no longer scrolls between 11 prosceniums. It
+// is ONE fixed window plus a scene-picker (one pill per act). Clicking a
+// pill plays THAT act inside the window; exactly one scene is mounted +
+// active at a time (the selected one), so two full-screen-portal scenes
+// never overlap. The Hall no longer uses useCenteredActive; the hook
+// remains exported + tested here for its own contract.
 
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, act, fireEvent, within } from "@testing-library/react";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
@@ -18,8 +22,8 @@ import PerformanceHall, {
 
 // ── Controllable IntersectionObserver mock ──────────────────────────
 //
-// Captures the callback so a test can push synthetic intersection
-// entries and assert the sequencer picks exactly one winner.
+// Captures the callback so the hook tests can push synthetic
+// intersection entries and assert the hook picks exactly one winner.
 
 type IOCallback = (
   entries: { target: Element; intersectionRatio: number }[],
@@ -68,9 +72,6 @@ beforeEach(() => {
   vi.useFakeTimers();
   // jsdom lacks IntersectionObserver; install the controllable mock.
   vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
-  // getBoundingClientRect is used for tie-breaking; give each element a
-  // stable rect (jsdom returns all-zero by default, which is fine for
-  // the non-tie path we exercise).
 });
 
 afterEach(() => {
@@ -79,7 +80,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("useCenteredActive sequencer", () => {
+describe("useCenteredActive hook", () => {
   it("activates exactly one index, the highest-ratio one above 0.6", () => {
     const seen: number[] = [];
     function Harness() {
@@ -107,7 +108,7 @@ describe("useCenteredActive sequencer", () => {
     });
     expect(seen.at(-1)).toBe(1);
 
-    // Scroll on: now element 2 dominates.
+    // Now element 2 dominates.
     act(() => {
       ioCallbacks[0]!([
         { target: observedTargets[1]!, intersectionRatio: 0.3 },
@@ -130,8 +131,6 @@ describe("useCenteredActive sequencer", () => {
       );
     }
     render(<Harness />);
-    // Both only half on screen: no element crosses 0.6, so the active
-    // index stays at its initial 0 (no thrash).
     act(() => {
       ioCallbacks[0]!([
         { target: observedTargets[0]!, intersectionRatio: 0.5 },
@@ -142,39 +141,71 @@ describe("useCenteredActive sequencer", () => {
   });
 });
 
-describe("PerformanceHall", () => {
-  it("renders one proscenium per act", () => {
+describe("PerformanceHall (picker model)", () => {
+  it("renders exactly ONE fixed proscenium window (not one per act)", () => {
     render(<PerformanceHall />);
     const frames = screen.getAllByTestId("showcase-proscenium");
-    expect(frames).toHaveLength(PERFORMANCE_HALL_ACT_COUNT);
+    expect(frames).toHaveLength(1);
+  });
+
+  it("renders a scene-picker with one button per act", () => {
+    render(<PerformanceHall />);
+    const picker = screen.getByTestId("showcase-scene-picker");
+    const buttons = within(picker).getAllByRole("tab");
+    expect(buttons).toHaveLength(PERFORMANCE_HALL_ACT_COUNT);
     // 9 original scenes + 2 new P1 scenes = 11 acts.
     expect(PERFORMANCE_HALL_ACT_COUNT).toBe(11);
   });
 
-  it("never marks more than one proscenium active at a time", () => {
+  it("defaults to the first act (The Greeting) selected", () => {
     render(<PerformanceHall />);
-    // Drive several acts into view in sequence; after each push, assert
-    // at most one frame is data-active="true".
-    const assertSingleActive = () => {
-      const frames = screen.getAllByTestId("showcase-proscenium");
-      const active = frames.filter(
-        (f) => f.getAttribute("data-active") === "true",
-      );
-      expect(active.length).toBeLessThanOrEqual(1);
-    };
-    assertSingleActive();
+    const greeting = screen.getByTestId("showcase-scene-pick-mouse-wave");
+    expect(greeting.getAttribute("aria-selected")).toBe("true");
+    expect(greeting.getAttribute("data-selected")).toBe("true");
+    // Every other pill is unselected: exactly one selected at a time.
+    const picker = screen.getByTestId("showcase-scene-picker");
+    const selected = within(picker)
+      .getAllByRole("tab")
+      .filter((b) => b.getAttribute("aria-selected") === "true");
+    expect(selected).toHaveLength(1);
+  });
+
+  it("clicking a picker button selects that act (exactly one selected)", () => {
+    render(<PerformanceHall />);
+    const eureka = screen.getByTestId("showcase-scene-pick-eureka");
     act(() => {
-      ioCallbacks[0]!([
-        { target: observedTargets[2]!, intersectionRatio: 0.9 },
-      ]);
+      fireEvent.click(eureka);
     });
-    assertSingleActive();
+    expect(eureka.getAttribute("aria-selected")).toBe("true");
+    // The previous default is no longer selected.
+    const greeting = screen.getByTestId("showcase-scene-pick-mouse-wave");
+    expect(greeting.getAttribute("aria-selected")).toBe("false");
+    // Still exactly one selected.
+    const picker = screen.getByTestId("showcase-scene-picker");
+    const selected = within(picker)
+      .getAllByRole("tab")
+      .filter((b) => b.getAttribute("aria-selected") === "true");
+    expect(selected).toHaveLength(1);
+  });
+
+  it("the placard caption reflects the selected act", () => {
+    render(<PerformanceHall />);
+    // Default placard names The Greeting.
+    expect(
+      screen.getByTestId("showcase-proscenium").textContent,
+    ).toContain("The Greeting");
     act(() => {
-      ioCallbacks[0]!([
-        { target: observedTargets[2]!, intersectionRatio: 0.2 },
-        { target: observedTargets[5]!, intersectionRatio: 0.85 },
-      ]);
+      fireEvent.click(screen.getByTestId("showcase-scene-pick-twirl"));
     });
-    assertSingleActive();
+    expect(
+      screen.getByTestId("showcase-proscenium").textContent,
+    ).toContain("The Twirl");
+  });
+
+  it("exposes the in-frame scaled scene viewport (the portal target)", () => {
+    render(<PerformanceHall />);
+    // One window => one scene viewport the active scene portals into.
+    const viewports = screen.getAllByTestId("showcase-scene-viewport");
+    expect(viewports).toHaveLength(1);
   });
 });

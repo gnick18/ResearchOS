@@ -89,7 +89,12 @@ export default function BeakerBotRunwayStrutScene({
 
   // Default (prop omitted) keeps the global behavior: portal to body.
   // An explicit null means "target not live yet" so we render nothing.
-  const portalRoot = portalTarget === undefined ? document.body : portalTarget;
+  const portalRoot =
+    typeof document === "undefined"
+      ? null
+      : portalTarget === undefined
+        ? document.body
+        : portalTarget;
   if (!mounted || !active || !portalRoot) return null;
 
   // Reduced motion: the "she served" static freeze of the end pose
