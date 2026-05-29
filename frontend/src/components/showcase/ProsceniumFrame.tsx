@@ -4,9 +4,16 @@
 //
 // The marquee-lit proscenium each Performance Hall act performs inside
 // (R2.5 + R3.8). Curtains drawn = resting (poster); parted = active
-// (scene plays). In the P1 Option-3 sequencer the active scene still
-// portals full-screen, but only ONE is active at a time so they never
-// overlap. `stageRef` is the future Option-1 bounds target (P2+).
+// (scene plays).
+//
+// Picker redesign (orchestrator manager): the Scenes view is now ONE
+// fixed, centered proscenium window (no scroll sequencer). The selected
+// scene plays INSIDE this window: it portals into `sceneViewportRef`
+// (a viewport-sized element transform-scaled to fit the frame), so the
+// scene's own choreography (which uses viewport-relative units) is
+// preserved exactly while the whole composition is scaled into the gold
+// frame, centered and not clipped. `stageRef` still marks the resting
+// poster stage.
 //
 // No emojis; the chrome (bulbs, curtains, valance, footlights) is pure
 // CSS + an idle BeakerBot poster behind the closed curtain.
@@ -28,6 +35,7 @@ export default function ProsceniumFrame({
   title,
   active,
   stageRef,
+  sceneViewportRef,
   children,
   onReplay,
   wide = false,
@@ -36,6 +44,10 @@ export default function ProsceniumFrame({
   title: string;
   active: boolean;
   stageRef: React.Ref<HTMLDivElement>;
+  /** The viewport-sized, transform-scaled element the active scene
+   *  portals INTO so it plays inside this fixed window (picker redesign).
+   *  Optional: omitted in any legacy resting-only use. */
+  sceneViewportRef?: React.Ref<HTMLDivElement>;
   children: React.ReactNode;
   /** Tap-to-replay handler when resting. */
   onReplay?: () => void;
@@ -77,17 +89,36 @@ export default function ProsceniumFrame({
         ))}
       </div>
       <div className={styles.prosceniumValance} aria-hidden="true" />
-      {/* The stage the scene plays inside (bounds target, P2+). The
-          active scene currently still portals to body; the resting
-          poster lives here. */}
+      {/* The stage the scene plays inside. The active scene now portals
+          INTO the scaled scene viewport below (so it plays inside this
+          fixed window, not full-screen on body); the resting poster lives
+          here. */}
       <div className={styles.prosceniumStage} ref={stageRef}>
         {/* Change 2 anti-wash backlight rig: brightest glow BEHIND the
             scene content, with a dark contrast pocket on the silhouette so
             the scene bot is rimmed, not washed (only lit while active). */}
         <div className={styles.prosceniumBacklight} aria-hidden="true" />
         <div className={styles.prosceniumPocket} aria-hidden="true" />
-        {/* Scene content sits ON TOP of the backlight rig (positioned z2 in
-            the stage so it never paints under the glow). */}
+        {/* The scaled scene viewport: a real-viewport-sized element
+            (100vw x 100svh) transform-scaled DOWN to fit this window and
+            centered. The active scene portals into this element. Because
+            it carries a transform, it becomes the containing block for the
+            portaled scene's `position: fixed`, so the scene fills + scales
+            to the window while keeping its own viewport-unit choreography
+            intact. Picker redesign. */}
+        {sceneViewportRef ? (
+          <div className={styles.prosceniumSceneViewportClip} aria-hidden="true">
+            <div
+              className={styles.prosceniumSceneViewport}
+              ref={sceneViewportRef}
+              data-testid="showcase-scene-viewport"
+            />
+          </div>
+        ) : null}
+        {/* Frame-scoped chrome (special cases) + the resting poster. The
+            scene itself lives in the scaled viewport above; this layer
+            holds frame-scale overlays (FauxCursor / ProgressShimmer) so
+            they read at frame scale, not scaled with the scene. */}
         <div className={styles.prosceniumContent}>
           {active ? (
             children

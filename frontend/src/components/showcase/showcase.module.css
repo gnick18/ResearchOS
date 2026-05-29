@@ -524,34 +524,95 @@
   color: #e9d6f7;
 }
 
-/* ── Performance Hall (R3.8) ───────────────────────────────────────── */
+/* ── Performance Hall (Scenes view, picker redesign) ───────────────── */
 
+/* The Scenes view now fits a single screen, like the Runway view: ONE
+   fixed proscenium window + a scene-picker. No scroll sequencer. */
 .hall {
   position: relative;
   z-index: 5;
-  /* Extra bottom padding clears the fixed bottom nav (Change 3). */
-  padding: 12svh 0 120px 0;
+  min-height: 100svh;
+  /* Bottom padding clears the fixed bottom nav (StageNav). */
+  padding: 4svh 0 120px 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 24svh;
+  justify-content: center;
+  gap: 3svh;
 }
 .hallHeader {
   text-align: center;
-  margin-bottom: 4svh;
+  margin-bottom: 0;
 }
 .hallHeaderTitle {
-  font-size: 2rem;
+  font-size: 1.75rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   color: #fff;
   text-transform: uppercase;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
 }
-.hallActWrap {
+/* Wraps the single fixed window so it centers in the view. The window
+   itself owns its size (the .proscenium aspect-ratio box). */
+.hallStageWrap {
   display: flex;
   justify-content: center;
+  align-items: center;
   width: 100%;
+}
+
+/* ── Scene picker (picker redesign) ────────────────────────────────── */
+
+/* A professional act selector: one pill per scene, styled like the
+   StageNav (gold active, plum accents, uppercase letter-spacing,
+   rounded). A centered wrapping grid so 11 acts read as a polished
+   selector, not a plain list. */
+.scenePicker {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  max-width: min(900px, 90vw);
+  padding: 10px 12px;
+  background: rgba(11, 11, 18, 0.7);
+  border: 1.5px solid rgba(231, 200, 115, 0.5);
+  border-radius: 18px;
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.5),
+    0 0 22px rgba(231, 200, 115, 0.16);
+  backdrop-filter: blur(6px);
+}
+.scenePickerBtn {
+  appearance: none;
+  border: 1px solid rgba(214, 181, 240, 0.3);
+  background: rgba(58, 29, 61, 0.55); /* plum #3a1d3d tint */
+  color: #d6b5f0;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 8px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+.scenePickerBtn:hover {
+  background: rgba(74, 39, 80, 0.85); /* plum #4a2750 */
+  color: #e9d6f7;
+  border-color: rgba(214, 181, 240, 0.55);
+}
+.scenePickerBtnActive,
+.scenePickerBtnActive:hover {
+  color: #0b0b12;
+  background: #e7c873; /* gold active */
+  border-color: #e7c873;
+  box-shadow: 0 0 16px rgba(231, 200, 115, 0.5);
 }
 
 /* ── Proscenium frame (R2.5 + R3.8) ────────────────────────────────── */
@@ -646,6 +707,33 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* The scaled scene viewport (picker redesign). The active scene portals
+   into .prosceniumSceneViewport, which is sized to the REAL viewport
+   (100vw x 100svh) so the scene's own viewport-unit choreography is
+   preserved exactly, then transform-scaled DOWN (--scene-scale, measured
+   in JS as a contain-fit) and centered so the whole scene fits inside this
+   window. Carrying a transform also makes it the containing block for the
+   portaled scene's `position: fixed`, anchoring the scene to this window
+   instead of the page. The clip wrapper keeps any spill inside the frame. */
+.prosceniumSceneViewportClip {
+  position: absolute;
+  inset: 0;
+  z-index: 2; /* same plane as the frame-scale content layer */
+  overflow: hidden;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.prosceniumSceneViewport {
+  position: relative;
+  width: 100vw;
+  height: 100svh;
+  flex: 0 0 auto;
+  transform: scale(var(--scene-scale, 0.32));
+  transform-origin: center center;
 }
 
 /* Change 2: carry the runway's stage lighting + camera flashes onto the
