@@ -18,6 +18,7 @@ import SubTaskProgressDots from "@/components/workbench/SubTaskProgressDots";
 import HomeCanvas from "@/components/home/HomeCanvas";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useAppStore } from "@/lib/store";
+import { useAccountType } from "@/hooks/useAccountType";
 import type { Task } from "@/lib/types";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { useDraftPersistence } from "@/hooks/useDraftPersistence";
@@ -100,9 +101,23 @@ export default function HomePage() {
   // to where they actually clicked. We still mark the one-shot flag so a
   // subsequent manual visit to "/" stays put.
   const defaultLandingTab = useAppStore((s) => s.defaultLandingTab);
+  // PI Home migration (pi-home-migration, 2026-05-29): for lab_head (PI)
+  // accounts the Home tab is hidden by default and Lab Overview is the
+  // primary landing surface. When such a PI lands on "/" with no explicit
+  // non-Home landing tab set, bounce them to /lab-overview rather than
+  // parking them on a page whose own nav tab is hidden. The Home ROUTE
+  // still renders if they navigate here directly (or the v4 tour pushes
+  // it) — this only changes the one-shot first-load destination.
+  const accountType = useAccountType(currentUser || null);
+  const showHomeForLabHead = useAppStore((s) => s.showHomeForLabHead);
   useEffect(() => {
     if (didLandingRedirect) return;
     if (!currentUser) return;
+    // Wait for the account-type read to resolve before deciding the
+    // landing destination, so a PI isn't briefly parked on Home before
+    // the redirect to Lab Overview can fire (and a member isn't
+    // mis-bounced). `undefined` = read in flight.
+    if (accountType === undefined) return;
     const fromRedirect = searchParams?.get("from");
     if (fromRedirect) {
       // Arrived via a redirect from another in-app surface — that
@@ -117,12 +132,28 @@ export default function HomePage() {
       return;
     }
     if (defaultLandingTab && defaultLandingTab !== "/") {
+      // An explicit non-Home landing tab always wins, for every account
+      // type (a PI who picked /workbench as their landing keeps it).
       didLandingRedirect = true;
       router.replace(defaultLandingTab);
+    } else if (
+      accountType === "lab_head" &&
+      !showHomeForLabHead
+    ) {
+      // PI with Home hidden + no explicit landing override → Lab Overview.
+      didLandingRedirect = true;
+      router.replace("/lab-overview");
     } else if (defaultLandingTab === "/") {
       didLandingRedirect = true;
     }
-  }, [currentUser, defaultLandingTab, router, searchParams]);
+  }, [
+    currentUser,
+    defaultLandingTab,
+    accountType,
+    showHomeForLabHead,
+    router,
+    searchParams,
+  ]);
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", currentUser],

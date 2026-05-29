@@ -374,6 +374,7 @@ function SettingsBody() {
           sidebarEventsHorizonDays: saved.sidebarEventsHorizonDays,
           coloredHeader: saved.coloredHeader,
           offlineMode: saved.offlineMode,
+          showHomeForLabHead: saved.showHomeForLabHead,
         });
         // If either color field changed, invalidate the user-color map so
         // every <UserAvatar /> in the app re-renders with the new gradient
@@ -1040,7 +1041,15 @@ function AccountTypeSection({ settings, update }: SectionProps) {
  * `LabRosterSection` so members (who never see this Lab Head section)
  * still get the read-only roster under the Lab Mode tab.
  */
-function LabHeadSection({ username }: { username: string }) {
+function LabHeadSection({
+  username,
+  settings,
+  update,
+}: {
+  username: string;
+  settings: UserSettings;
+  update: (patch: Partial<UserSettings>) => Promise<void>;
+}) {
   const session = useEditSession();
   const [changePwOpen, setChangePwOpen] = useState(false);
 
@@ -1059,8 +1068,23 @@ function LabHeadSection({ username }: { username: string }) {
       id="lab-head"
       title="PI"
       description="Manage your edit-mode password and session for the Phase 5 PI workflow. Use Request edit on another member's record to start a session."
-      searchKeywords="edit mode session password PI roster"
+      searchKeywords="edit mode session password PI roster home page landing tab"
     >
+      {/* PI Home migration (pi-home-migration, 2026-05-29): for PIs the
+          Home page duplicates Lab Overview, so the Home tab is hidden by
+          default and the PI lands on Lab Overview. This toggle brings the
+          Home tab back (and lets the PI land there if they set it as their
+          default landing tab). Default off; members never see this control
+          and are unaffected. */}
+      <div className="mb-3 p-3 rounded-lg border border-gray-200 bg-white">
+        <ToggleRow
+          label="Show Home page"
+          description="As a PI your Lab Overview already covers the Home dashboard, so the Home tab is hidden by default. Turn this on to bring the Home tab back."
+          checked={settings.showHomeForLabHead}
+          onChange={(v) => void update({ showHomeForLabHead: v })}
+        />
+      </div>
+
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-gray-200 bg-white">
           <div className="min-w-0">
@@ -1223,7 +1247,11 @@ function LabModeTabContent({
     <>
       <AccountTypeSection settings={settings} update={update} />
       {settings.account_type === "lab_head" && (
-        <LabHeadSection username={currentUser} />
+        <LabHeadSection
+          username={currentUser}
+          settings={settings}
+          update={update}
+        />
       )}
       <LabRosterSection />
     </>

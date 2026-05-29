@@ -147,6 +147,21 @@ export interface UserSettings {
   // allowed by design, per Grant's 2026-05-23 decisions).
   account_type: AccountType;
 
+  // PI Home migration (pi-home-migration, 2026-05-29): for lab_head (PI)
+  // accounts the Home page is redundant with Lab Overview, so the Home
+  // top-nav tab is hidden by default and the PI lands on Lab Overview
+  // instead. This flag is the opt-back-in: when `true`, a lab head sees
+  // the Home tab again and can land on it. Default `false` for lab heads.
+  //
+  // The field has no effect for `member` accounts — members always keep
+  // the Home tab and their existing landing behavior regardless of this
+  // value (AppShell + the landing-route logic both gate the hide on
+  // `account_type === "lab_head"`). Default below is `false`, which is
+  // also the correct value for a brand-new member: it simply never gates
+  // their Home tab. A member who later switches to PI inherits the
+  // hidden-by-default behavior until they flip this on.
+  showHomeForLabHead: boolean;
+
   // When on, the app makes zero calls to its own server proxies
   // (`/api/calendar-feed`, `/api/telegram-file`). Direct browser → Telegram
   // polling continues because that talks to api.telegram.org directly.
@@ -204,6 +219,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   hideGoalsFromLab: false,
   offlineMode: false,
   account_type: "member",
+  showHomeForLabHead: false,
 };
 
 /** Horizon choices surfaced in the Settings → Sidebar selector. */

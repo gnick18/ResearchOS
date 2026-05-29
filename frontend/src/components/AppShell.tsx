@@ -53,6 +53,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const visibleTabs = useAppStore((s) => s.visibleTabs);
   const coloredHeader = useAppStore((s) => s.coloredHeader);
+  // PI Home migration (pi-home-migration, 2026-05-29): lab-head opt-back-in
+  // for the Home tab. Read from the store so a Settings flip reflects live.
+  const showHomeForLabHead = useAppStore((s) => s.showHomeForLabHead);
   const { currentUser } = useFileSystem();
   const userColors = useUserColors(currentUser ?? "");
   const baseColor = userColors.primary;
@@ -117,14 +120,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return `${wikiPath}?return=${encodeURIComponent(returnPath)}`;
   }, [pathname, searchParams]);
 
-  // Home is always shown so the user has a guaranteed safe landing tab even
-  // if they hide everything else (or if Settings was wiped). Settings itself
-  // is rendered as a gear icon, never as part of NAV_ITEMS.
-  const filtered = NAV_ITEMS.filter(
-    (item) =>
-      item.href === HOME_HREF || effectiveVisibleTabs.includes(item.href),
-  );
-
   // Lab Head Phase 1 (lab head Phase 1 manager, 2026-05-23): append a
   // "Lab Inbox" nav entry when the active user has `settings.account_type
   // === "lab_head"`. The entry is account-type-gated rather than
@@ -166,6 +161,35 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const _isLabWorkspace = featurePicks?.account_type === "lab";
   void _isLabWorkspace;
   const showLabOverview = accountType === "lab_head";
+
+  // PI Home migration (pi-home-migration, 2026-05-29): for lab_head (PI)
+  // accounts the Home page duplicates Lab Overview (which already surfaces
+  // announcements + comments + lab-activity + metrics via its widgets), so
+  // the Home top-nav tab is HIDDEN by default. The PI can opt back in via
+  // Settings → Lab Mode → PI → "Show Home page" (settings.showHomeForLabHead
+  // / store.showHomeForLabHead).
+  //
+  // Members are unaffected — Home is always shown for them. The Home ROUTE
+  // ("/") is never removed: hiding the tab only drops the nav entry. Direct
+  // navigation to "/" (including the v4 onboarding walkthrough, which pushes
+  // routes via the Next router rather than clicking the tab) keeps working
+  // for everyone, hidden tab or not.
+  //
+  // `accountType === undefined` (settings read in flight) is treated the
+  // same as "not lab_head" → Home stays shown, so the tab never flickers
+  // OUT for a member on first paint. The worst case for a PI is a one-frame
+  // flash of the Home tab before the read resolves, which is the safe
+  // direction (a guaranteed-reachable tab, never a missing one).
+  const showHomeTab = accountType !== "lab_head" || showHomeForLabHead;
+
+  // Home is normally shown so the user has a guaranteed safe landing tab even
+  // if they hide everything else (or if Settings was wiped). The lab-head
+  // Home migration above is the sole exception. Settings itself is rendered
+  // as a gear icon, never as part of NAV_ITEMS.
+  const filtered = NAV_ITEMS.filter((item) => {
+    if (item.href === HOME_HREF) return showHomeTab;
+    return effectiveVisibleTabs.includes(item.href);
+  });
   // Widget catalog cleanup (widget catalog cleanup manager, 2026-05-23):
   // for lab_head accounts the /purchases top-nav entry is hidden because
   // the LabPurchasesWidget on Lab Overview now covers their workflow
@@ -178,10 +202,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       next = next.filter((i) => i.href !== "/purchases");
     }
     if (showLabOverview) {
-      // Slot the entry right after Home. Home is always at index 0 of
-      // `filtered` (Home is force-included via the filter predicate
-      // above), so a splice at index 1 is safe even when every other
-      // NAV_ITEMS entry has been hidden via Settings → Tabs.
+      // Slot the entry right after Home. When the Home tab is shown
+      // (PI opted back in via showHomeForLabHead, or a member), Home is
+      // at index 0 of `filtered` and Lab Overview lands at index 1. When
+      // the Home tab is hidden (the PI default post-migration), homeIdx
+      // is -1 and Lab Overview becomes the leftmost tab — the intended
+      // primary landing surface for a PI.
       const homeIdx = next.findIndex((item) => item.href === HOME_HREF);
       const insertAt = homeIdx >= 0 ? homeIdx + 1 : 0;
       next.splice(insertAt, 0, { href: "/lab-overview", label: "Lab Overview" });

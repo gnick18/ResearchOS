@@ -76,6 +76,7 @@ export default function SidebarContentsPopup({ onClose, anchorRef }: Props) {
       sidebarEventsHorizonDays: saved.sidebarEventsHorizonDays,
       coloredHeader: saved.coloredHeader,
       offlineMode: saved.offlineMode,
+      showHomeForLabHead: saved.showHomeForLabHead,
     });
   };
 

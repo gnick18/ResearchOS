@@ -31,6 +31,11 @@ export interface SettingsHydration {
   sidebarEventsHorizonDays: number;
   coloredHeader: boolean;
   offlineMode: boolean;
+  // PI Home migration (pi-home-migration, 2026-05-29): mirrored so
+  // AppShell + the landing-route logic can read the lab-head Home
+  // opt-back-in reactively without re-reading disk. See
+  // `UserSettings.showHomeForLabHead`.
+  showHomeForLabHead: boolean;
 }
 
 interface ConnectionState {
@@ -153,6 +158,12 @@ interface AppState extends ConnectionState {
 
   offlineMode: boolean;
   setOfflineMode: (v: boolean) => void;
+
+  // PI Home migration (pi-home-migration, 2026-05-29): lab-head opt-back-in
+  // for the Home tab. Read by AppShell (nav visibility) and the Home page
+  // (landing redirect). Has no effect for members.
+  showHomeForLabHead: boolean;
+  setShowHomeForLabHead: (v: boolean) => void;
 
   hydrateFromSettings: (s: SettingsHydration) => void;
   resetSettingsToDefaults: () => void;
@@ -308,6 +319,9 @@ export const useAppStore = create<AppState>()((set) => ({
   offlineMode: false,
   setOfflineMode: (v) => set({ offlineMode: v }),
 
+  showHomeForLabHead: false,
+  setShowHomeForLabHead: (v) => set({ showHomeForLabHead: v }),
+
   hydrateFromSettings: (s) =>
     set({
       // Coerce so a stale stored value (e.g. the retired "beakerbot")
@@ -324,6 +338,7 @@ export const useAppStore = create<AppState>()((set) => ({
       sidebarEventsHorizonDays: s.sidebarEventsHorizonDays,
       coloredHeader: s.coloredHeader,
       offlineMode: s.offlineMode,
+      showHomeForLabHead: s.showHomeForLabHead,
     }),
 
   resetSettingsToDefaults: () =>
@@ -339,6 +354,7 @@ export const useAppStore = create<AppState>()((set) => ({
       sidebarEventsHorizonDays: 7,
       coloredHeader: true,
       offlineMode: false,
+      showHomeForLabHead: false,
     }),
 
   ganttLoading: false,
