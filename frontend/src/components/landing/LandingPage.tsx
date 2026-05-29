@@ -566,7 +566,11 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               five different tools.
             </p>
           </div>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {/* Centered flex-wrap (not a fixed-column grid) so the row count
+              flexes with the number of cards: a trailing partial row centers
+              instead of orphaning to the left. basis math: 3-up on lg, 2-up
+              on sm, 1-up on mobile, each minus its share of the gap. */}
+          <div className="flex flex-wrap justify-center gap-6 [&>*]:basis-full sm:[&>*]:basis-[calc(50%_-_0.75rem)] lg:[&>*]:basis-[calc(33.333%_-_1rem)]">
             <FeatureCard
               onExpand={setLightbox}
               src="/wiki/screenshots/gantt-overview.png"
@@ -620,6 +624,24 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             >
               Link your iCloud, Google, or Outlook calendars and see meetings
               and deadlines right alongside your experiments and cultures.
+            </FeatureCard>
+            <FeatureCard
+              onExpand={setLightbox}
+              src="/wiki/screenshots/telegram-inbox.png"
+              alt="The Telegram capture inbox in ResearchOS"
+              title="Snap it from the bench"
+            >
+              Send photos and notes from your phone over Telegram and they land
+              in your notebook inbox, ready to attach to an experiment.
+            </FeatureCard>
+            <FeatureCard
+              onExpand={setLightbox}
+              src="/wiki/screenshots/import-eln-format-pick.png"
+              alt="Importing a LabArchives notebook into ResearchOS"
+              title="Bring your old notebook"
+            >
+              Switching from LabArchives? Import an Offline Notebook ZIP and
+              pick up where you left off, no retyping.
             </FeatureCard>
           </div>
         </div>
