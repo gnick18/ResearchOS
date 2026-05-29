@@ -150,11 +150,79 @@ function pickColor(takenColors: Set<string>, username: string): string {
   return hashColor(username);
 }
 
+/**
+ * Heuristic: does this value look like a single `UserMetadataEntry` (the
+ * VALUE side of the users map), as opposed to the top-level wrapper or a
+ * scalar field? Used only to recognize a flat legacy map — a plain object
+ * keyed by username -> entry written WITHOUT the `{ users: {…} }` wrapper.
+ *
+ * We accept any plain object that is NOT itself a wrapper (no nested `users`
+ * key). Real entries always carry at least `color` + `created_at`, but we do
+ * not require specific fields here so the recognizer stays robust to partial
+ * / future entries; the negative checks (must be a plain object, must not be
+ * an array, must not look like a wrapper) are what make it safe.
+ */
+function looksLikeUserMetadataEntry(value: unknown): boolean {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  // A nested `users` object would mean we mistook the wrapper for an entry.
+  if ("users" in (value as Record<string, unknown>)) return false;
+  return true;
+}
+
+/**
+ * Reads `users/_user_metadata.json` and normalizes it to the canonical
+ * `{ users: {…} }` wrapper shape.
+ *
+ * The HAPPY PATH is unchanged: a well-formed `{ users: {…} }` object is
+ * returned verbatim (so `main_user` and any other top-level fields ride
+ * along untouched, exactly as before).
+ *
+ * The added tolerance handles a FLAT LEGACY map — the file is a plain
+ * `{ <username>: <entry>, … }` object with no `users` wrapper. This shape is
+ * what the demo/fixture seed ships (and what any pre-wrapper folder could
+ * hold). Without this, such a file parsed to `{}` and every downstream
+ * consumer (e.g. `useArchivedUsers`) saw zero users, so the archived-member
+ * filter silently no-opped and archived accounts leaked into share / mention
+ * / assignee pickers. We treat the whole object AS the users map in that case.
+ *
+ * REAL connected folders always go through `ensureLabUserMetadata`, which
+ * writes the wrapper, so they hit the happy path and behave exactly as
+ * before; the flat-map branch only triggers for the legacy/demo shape.
+ */
 async function readMetadataFile(): Promise<UserMetadataFile> {
   if (!fileService.isConnected()) return { users: {} };
-  const data = await fileService.readJson<UserMetadataFile>(METADATA_PATH);
-  if (!data || typeof data !== "object" || !data.users) return { users: {} };
-  return data;
+  // Read as `unknown` because this path deliberately normalizes across two
+  // on-disk shapes (the canonical wrapper and a flat legacy map); the narrowing
+  // below establishes the concrete type rather than trusting the file's claim.
+  const data = await fileService.readJson<unknown>(METADATA_PATH);
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return { users: {} };
+  }
+  // Canonical wrapper shape — unchanged behavior. `data.users` must be a plain
+  // object (not an array / scalar) to count; otherwise fall through to the
+  // flat-map recognizer rather than trusting a malformed wrapper.
+  const wrapped = data as UserMetadataFile;
+  if (
+    wrapped.users &&
+    typeof wrapped.users === "object" &&
+    !Array.isArray(wrapped.users)
+  ) {
+    return wrapped;
+  }
+  // Tolerant fallback: a flat legacy map keyed by username -> entry, written
+  // WITHOUT the wrapper. Recognize it only when every value looks like a user
+  // entry (a plain non-wrapper object) so we never misread an unrelated file.
+  const flat = data as Record<string, unknown>;
+  const values = Object.values(flat);
+  if (
+    values.length > 0 &&
+    values.every((v) => looksLikeUserMetadataEntry(v))
+  ) {
+    return { users: flat as Record<string, UserMetadataEntry> };
+  }
+  return { users: {} };
 }
 
 /**

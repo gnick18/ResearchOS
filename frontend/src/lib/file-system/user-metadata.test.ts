@@ -145,6 +145,91 @@ describe("setUserMetadataColors", () => {
   });
 });
 
+describe("readAllUserMetadata — shape tolerance (flat legacy map vs wrapper)", () => {
+  // Both the canonical `{ users: {…} }` wrapper AND a flat legacy map
+  // `{ <username>: <entry>, … }` (the demo/fixture seed shape) must parse to
+  // the SAME users map. Before the fix, the flat map parsed to `{}`, so
+  // `useArchivedUsers` saw zero users and the archived-member filter no-opped,
+  // leaking archived accounts into share / mention / assignee pickers.
+
+  it("parses the canonical { users: {…} } wrapper unchanged", async () => {
+    memFs.set("users/_user_metadata.json", {
+      users: {
+        alex: { color: "#3b82f6", created_at: "2026-01-15T00:00:00Z" },
+        sam: {
+          color: "#64748b",
+          created_at: "2025-09-01T00:00:00Z",
+          deleted_at: "2026-03-15T10:00:00.000Z",
+        },
+      },
+      main_user: "alex",
+    });
+
+    const all = await readAllUserMetadata();
+    expect(Object.keys(all).sort()).toEqual(["alex", "sam"]);
+    expect(all.alex?.color).toBe("#3b82f6");
+    // The archived/tombstoned user is present in the parsed map so downstream
+    // filters (useArchivedUsers / pickers) can act on it.
+    expect(all.sam?.deleted_at).toBe("2026-03-15T10:00:00.000Z");
+  });
+
+  it("parses a flat legacy map (no wrapper) to the SAME users map", async () => {
+    // This is the demo/fixture on-disk shape: a plain username -> entry map.
+    memFs.set("users/_user_metadata.json", {
+      alex: { color: "#3b82f6", created_at: "2026-01-15T00:00:00Z" },
+      morgan: { color: "#10b981", created_at: "2026-01-20T00:00:00Z" },
+      mira: { color: "#f97316", created_at: "2026-01-05T00:00:00Z" },
+      sam: {
+        color: "#64748b",
+        created_at: "2025-09-01T00:00:00Z",
+        deleted_at: "2026-03-15T10:00:00.000Z",
+      },
+    });
+
+    const all = await readAllUserMetadata();
+    expect(Object.keys(all).sort()).toEqual([
+      "alex",
+      "mira",
+      "morgan",
+      "sam",
+    ]);
+    // The archived/tombstoned user surfaces in the parsed map (the bug being
+    // fixed: before, this whole map collapsed to {} so sam was invisible).
+    expect(all.sam?.deleted_at).toBe("2026-03-15T10:00:00.000Z");
+  });
+
+  it("wrapper and flat shapes with identical content produce identical maps", async () => {
+    const entries = {
+      alex: { color: "#3b82f6", created_at: "2026-01-15T00:00:00Z" },
+      sam: {
+        color: "#64748b",
+        created_at: "2025-09-01T00:00:00Z",
+        deleted_at: "2026-03-15T10:00:00.000Z",
+      },
+    };
+
+    memFs.set("users/_user_metadata.json", { users: entries });
+    const fromWrapper = await readAllUserMetadata();
+
+    memFs.set("users/_user_metadata.json", entries);
+    const fromFlat = await readAllUserMetadata();
+
+    expect(fromFlat).toEqual(fromWrapper);
+  });
+
+  it("returns an empty map for an empty file (neither shape)", async () => {
+    memFs.set("users/_user_metadata.json", {});
+    expect(await readAllUserMetadata()).toEqual({});
+  });
+
+  it("a wrapper with main_user but no users yields an empty map (no flat misread of the scalar)", async () => {
+    // Only `main_user` (a string) present. The flat-map recognizer must NOT
+    // treat the scalar value as a user entry; the result is an empty users map.
+    memFs.set("users/_user_metadata.json", { main_user: "alex" });
+    expect(await readAllUserMetadata()).toEqual({});
+  });
+});
+
 describe("suggestInitialColorForNewUser", () => {
   it("returns the first palette color when no other users exist", () => {
     const result = suggestInitialColorForNewUser("alice", {});

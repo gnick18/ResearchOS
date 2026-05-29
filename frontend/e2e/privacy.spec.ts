@@ -234,23 +234,17 @@ test.describe("share dialog candidate dropdown (the class of bug that shipped)",
     // The owner is never offered as a share target.
     expect(candidates).not.toContain("@alex");
 
-    // CORRECT BEHAVIOR (currently a KNOWN FAILURE — see FINDING below):
     // sam is an ARCHIVED user (`users/sam/_onboarding.json` archived:true) and
-    // ShareDialog's `eligibleUsers` is supposed to filter archived members. In
-    // fixture/demo mode it does NOT, so @sam leaks into the candidate list.
-    //
-    // FINDING (reported to HR): the demo `_user_metadata.json` is seeded as a
-    // FLAT map `{alex:{…},…}` but `readMetadataFile()` expects the wrapper
-    // shape `{ users: {…} }` and returns `{}` otherwise, so
-    // `readAllUserMetadata()` → `useArchivedUsers()` resolves to an EMPTY set
-    // in demo/fixture mode and the archived filter no-ops everywhere (share,
-    // mention, assignee pickers). Real connected folders are unaffected
-    // (`ensureLabUserMetadata` writes the wrapper). This is a fixture/demo data
-    // bug — do NOT edit fixture data to make this pass. The assertion below
-    // encodes the CORRECT behavior and is marked test.fail() so the suite
-    // stays green until the fixture/demo metadata shape is corrected, at which
-    // point it flips to a real failure if archived filtering ever regresses.
-    expectArchivedUserExcluded(candidates, "@sam");
+    // ShareDialog's `eligibleUsers` filters archived members, so @sam must
+    // NEVER be offered as a share candidate. This was previously a soft-
+    // asserted KNOWN FIXTURE BUG: the demo `_user_metadata.json` ships as a
+    // FLAT map `{alex:{…},…}` and `readMetadataFile()` returned `{}` for any
+    // shape lacking the `{ users: {…} }` wrapper, so `readAllUserMetadata()` →
+    // `useArchivedUsers()` resolved to an EMPTY set in demo/fixture mode and
+    // the archived filter no-opped. `readMetadataFile()` is now tolerant of
+    // the flat legacy map (treats it AS the users map), so the filter works
+    // and this is a HARD assertion.
+    expect(candidates).not.toContain("@sam");
   });
 
   test("morgan's share dialog offers the live members and never the owner", async ({
@@ -267,35 +261,8 @@ test.describe("share dialog candidate dropdown (the class of bug that shipped)",
     // The owner is never offered.
     expect(candidates).not.toContain("@morgan");
 
-    // CORRECT BEHAVIOR (same KNOWN FAILURE as the alex case above).
-    expectArchivedUserExcluded(candidates, "@sam");
+    // Archived @sam must never be offered (same archived-filter guarantee as
+    // the alex case above; see that comment for the fixture-shape history).
+    expect(candidates).not.toContain("@sam");
   });
 });
-
-/**
- * Encodes the CORRECT privacy behavior: an archived user must never appear in
- * the share-dialog candidate list. Wrapped in a soft expectation that records
- * the assertion without failing the suite, because the demo/fixture
- * `_user_metadata.json` shape bug (documented at the call site) currently lets
- * archived @sam leak in. When the fixture/demo metadata is fixed to the
- * `{ users: {…} }` wrapper shape, REMOVE this helper and inline a hard
- * `expect(candidates).not.toContain(username)` so the assertion becomes
- * load-bearing again.
- */
-function expectArchivedUserExcluded(
-  candidates: string[],
-  username: string,
-): void {
-  const excluded = !candidates.includes(username);
-  if (!excluded) {
-    // Surface the known fixture-data bug in the test log without failing the
-    // regression suite. See the FINDING comment at the call site.
-    console.warn(
-      `[privacy.spec] KNOWN FIXTURE BUG: archived user ${username} is offered ` +
-        `as a share candidate (demo _user_metadata.json shape mismatch breaks ` +
-        `useArchivedUsers). Correct behavior is exclusion. candidates=${JSON.stringify(
-          candidates,
-        )}`,
-    );
-  }
-}
