@@ -126,3 +126,85 @@ Headline tradeoff: Path A protects the three things that are genuinely load-bear
 4. Should the Hybrid / Preview MODE toggle disappear entirely once editing is always-live, or do you still want a one-click "clean read-only render" (e.g. for proofreading / presenting)?
 5. Scope: apply the new model to ALL markdown surfaces at once (Lab Notes, Results, Notes, Methods write-up, method create/variation panels), or pilot it on one surface (e.g. standalone Notes) first?
 6. Confirm the structured method editors (PCR, plate, LC gradient, mass spec, qPCR, cell-culture, coding-workflow, purchases) stay entirely out of scope -- the Typora change is markdown-surfaces-only.
+
+## Open-source / library evaluation
+
+Author: editor-oss-eval bot (for HR), 2026-05-29. Grant asked whether we can lean on an existing open-source editor (github.com/topics/typora-alternative) instead of building the new inline-WYSIWYG mode from scratch. This section evaluates the realistic candidates against the six constraints that actually decide it for THIS app, leads with the round-trip and license verdicts, and ends with one decision for Grant.
+
+### 0. Our markdown DIALECT (what any candidate must survive byte-for-byte)
+
+Read from source before scoring. The disk contract is "clean markdown the user owns," and our dialect has four load-bearing pieces that standard CommonMark/GFM tooling does NOT model:
+
+1. `_text_` (SINGLE underscore) = UNDERLINE, not italic. This is a deliberate CommonMark OVERRIDE implemented by our own `remark-underline.ts` plugin: it inspects the emphasis node's source offsets and rewrites underscore-flanked emphasis to `<u>` via `data.hName`. Italic is `*text*` only. Bold is `**text**` / `__text__` (double underscore stays strong). Any editor whose model treats `_x_` as generic emphasis will re-serialize it as `*x*` (or `_x_`-as-italic), silently changing its MEANING in our app.
+2. `<u>...</u>` LITERAL HTML, injected by the Cmd+U shortcut (`HybridMarkdownEditor.tsx:180`, `prefix:"<u>"`). So underline reaches disk in TWO forms and both must survive.
+3. `<!-- stamp:start -->` / `<!-- stamp:end -->` HTML COMMENTS from stamp-utils; the sanitize schema deliberately keeps comment nodes (`sanitize-schema.ts`, `allowComments:true`) so they round-trip invisibly.
+4. Raw HTML generally (`<img src=...>` and friends) via `rehype-raw`, plus full GFM (tables, `~~strike~~`, task lists). Relative image refs are resolved to blob URLs at RENDER time only; the SOURCE keeps the relative path.
+
+The save/tour facts that constrain candidate #4 and #5: we are MANUAL-SAVE only (explicit Cmd+S / Save button -> `pushAndCommit` -> `pendingDocument`; deliberately NO onBlur commit), with a per-editor `ValueHistory` and `useUnsavedChangesGuard`. The v4 tour resolves a REAL `<textarea>` inside `[data-tour-target="hybrid-editor-textarea"]`, types via `safeTypeAction` (sets `.value` + dispatches input), and COMMITS via a real `Escape` `KeyboardEvent {bubbles:true}` that the editor's `onKeyDown` picks up (`hybrid-editor-helpers.tsx:85-108`).
+
+### 1. The two engine families (why round-trip splits them cleanly)
+
+- TEXT-MODEL engines (CodeMirror 6): the document IS the markdown string. "Rendering" is a VIEW-ONLY overlay of decorations/widgets; the underlying bytes are never transformed. Round-trip is therefore not a feature to verify, it is structurally guaranteed: save = read `state.doc.toString()`, which is the exact text the user's keystrokes produced. Our `_underline_`, `<u>`, `<img>`, and `<!-- stamp -->` are just characters the editor stores and never reinterprets.
+- DOCUMENT-MODEL engines (ProseMirror: Milkdown / Tiptap / BlockNote): the source is parsed into a typed node tree (the schema), edited as that tree, and SERIALIZED BACK to markdown on demand. Round-trip fidelity is bounded by what the schema models. Anything the schema does not have a node/mark for is normalized, escaped, or dropped. This is the architectural reason the round-trip risk lives entirely on this side.
+
+This is not a knock on ProseMirror; it is the right tool when the document model is the truth (Notion-style apps). It is the wrong tool when clean-markdown-on-disk is the truth, which is precisely our contract.
+
+### 2. Round-trip verdict per candidate (the #1 disqualifier), with evidence
+
+- CodeMirror 6 (+ inline live-preview layer): LOSSLESS. Confirmed against a primary source: the CM6 inline-preview project `kenforthewin/atomic-editor` states outright that "Raw markdown is the source of truth. All decorations are view-only -- copy, save, and round-trip to any markdown parser are identical to what you'd expect from a plain textarea." Our four dialect pieces survive trivially because the editor never parses them into a lossy model. CONFIRMED, refuting nothing in section 4 (which already called CM6 round-trip EXCELLENT); this evaluation upgrades that from "excellent" to "structurally guaranteed."
+- Milkdown (ProseMirror + remark): LOSSY for OUR dialect. CONFIRMED the existing doc's claim with evidence. (a) Raw/inline HTML is an OPEN, unimplemented feature request, not a supported path: issue #1249 ("[Feature] Limited support for commonly used HTML tags and entities") and the older #105 / #126 all request `<img>`/`<ins>`/`<br>` support that the requester notes is missing ("I couldn't find a plugin to support those HTML tags"); issue #2379 (serializer EMITTING unexpected raw HTML on break insertion) was closed "Not planned." So our literal `<u>` and raw `<img>` are at real risk of being dropped or escaped. (b) The single-underscore underline override cannot survive: remark/mdast parses `_x_` as generic emphasis, so Milkdown would re-serialize it as italic, destroying the meaning our `remark-underline` plugin assigns. Milkdown's "byte-for-byte round-trip" marketing holds for PLAIN CommonMark/GFM, not for the non-standard syntax our app depends on. DEALBREAKER.
+- Tiptap (ProseMirror, rich-text-first): LOSSY by design. Tiptap's own conversion docs state re-importing exported markdown "will produce a simplified document" and that anything not mapping to CommonMark is dropped. Markdown is an import/export concern, not the native document. Same single-underscore and raw-HTML failures as Milkdown, plus markdown is even less central. DEALBREAKER.
+- BlockNote (block-based, ProseMirror/Tiptap under the hood): LOSSY, and self-documented as such: the export API is literally named `blocksToMarkdownLossy`, and the docs note non-list block nesting is flattened and "certain styles being removed." Block model further mismatches our flat markdown. DEALBREAKER (and see license below).
+
+Bottom line on the crux: every ProseMirror-family library is lossy for our dialect; only the text-model engine (CM6) is lossless. This single axis decides the family.
+
+### 3. License verdict per candidate (we ship MIT; GPL/AGPL is disqualifying for code reuse)
+
+| Candidate | License | Verdict for embedding/forking in our MIT app |
+| --- | --- | --- |
+| CodeMirror 6 (`@codemirror/*`, incl. lang-markdown) | MIT | OK |
+| Lezer (the markdown tokenizer CM6 uses) | MIT | OK |
+| `kenforthewin/atomic-editor` (CM6 inline-preview reference) | MIT | OK to read/fork/adapt |
+| `segphault/codemirror-rich-markdoc` (CM6 hide-syntax reference) | MIT | OK to read/fork/adapt |
+| Milkdown | MIT | License OK (round-trip is the disqualifier, not license) |
+| Tiptap (core editor + the 10 ex-Pro extensions now MIT) | MIT (core); some advanced features are paid SaaS, not GPL | License OK (round-trip is the disqualifier) |
+| BlockNote | MPL-2.0 (core) + GPL-3.0 (`@blocknote/xl-*` packages) | CORE OK to ship (MPL is weak/file-level copyleft, MIT-app-compatible); the GPL-3.0 XL packages are DISQUALIFYING for code reuse and must not be imported/forked. Adds a per-package license-policing burden. |
+| MarkText/Muya, Zettlr, etc. (topic-page apps) | Mostly GPL-3.0, Electron desktop apps | DISQUALIFYING + not embeddable. License + extraction-cost note only; do not deep-dive. Muya (MarkText's engine) is MIT-ish but tied to MarkText internals and unmaintained; extraction cost exceeds building our own CM6 layer. |
+
+### 4. Scorecard against all six constraints
+
+Scale: PASS / OK (workable with effort) / RISK / FAIL.
+
+| Constraint | CM6 + inline-preview layer | Milkdown | Tiptap | BlockNote |
+| --- | --- | --- | --- | --- |
+| 1. Lossless plain-md round-trip (OUR dialect) | PASS (doc IS the text; view-only decorations) | FAIL (raw HTML unimpl. #1249/#2379; `_x_` underline override lost) | FAIL (docs: "simplified document"; md not native) | FAIL (`blocksToMarkdownLossy`; block nesting flattened) |
+| 2. License (MIT-compatible to embed/fork) | PASS (MIT) | PASS (MIT) | PASS (MIT core) | RISK (MPL core OK, GPL-3.0 XL pkgs disqualifying) |
+| 3. React-embeddable, no server, local-first | PASS (mount in effect; or via `@uiw/react-codemirror`, MIT) | PASS (React adapter) | PASS (`@tiptap/react`) | PASS (React-first) |
+| 4. Coexists with MANUAL-SAVE (we own save) | PASS (read `doc.toString()` on Cmd+S; no autosave; CM6 history extension swaps for `ValueHistory`) | OK (must suppress per-keystroke emit; has history) | OK (same) | RISK (block/autosave-leaning ergonomics) |
+| 5. Tour automatability (synthetic typing + Escape on a real focusable target) | OK (CM6 `contentEditable`, but transactions are dispatchable deterministically; re-point target + re-author the type/Escape beats; cleaner than PM) | RISK (PM `contentEditable`; our `.value`+input+Escape handshake does not map; worst of the lot) | RISK (same PM issue) | RISK (same PM issue) |
+| 6. Bundle (approx) + maintenance health | ~75KB gz minimal / ~135KB gz full; +lang-markdown + inline layer ~ +150-250KB raw. Health: STRONG (Marijn Haverbeke, MIT, active, lang-markdown maintained) | ~300KB+ (PM core + plugins). Health: GOOD (11.5k stars, v7.21.1 May 2026, active) | Large (PM + extensions). Health: STRONG (very active, big community) | Large (PM/Tiptap + block UI). Health: GOOD (active) |
+
+Reference-implementation health for the CM6 layer (we would adapt patterns, not depend on these): `codemirror-rich-markdoc` (MIT, ~109 stars, lezer-markdown + block widgets) and `atomic-editor` (MIT, inline decorations, "no layout shift") both demonstrate the exact hide-syntax-until-caret technique; neither is a maintained dependency we would pin, they are pattern sources. The durable dependency is `@codemirror/*` itself, which is first-tier maintained.
+
+### 5. Recommendation
+
+Build the new inline-WYSIWYG mode on CODEMIRROR 6, using our OWN thin inline-live-preview extension (decorations that hide the markers on inactive lines/spans and a caret-aware reveal, plus block widgets for tables/code), with `codemirror-rich-markdoc` and `atomic-editor` as MIT pattern references (adapt, do not pin).
+
+Deciding rationale, in priority order:
+1. ROUND-TRIP (the #1 disqualifier): CM6 is the only family that is lossless for OUR dialect, and it is lossless STRUCTURALLY (the document is the markdown text), not as a best-effort feature. Every ProseMirror library (Milkdown / Tiptap / BlockNote) is lossy for raw HTML and for our single-underscore underline override, which is the whole point of a notebook whose promise is "your data is clean markdown files you own." This alone eliminates Path-B ProseMirror.
+2. LICENSE: CM6 is MIT, clean. (BlockNote's GPL-3.0 XL packages would also be a standing audit burden even if round-trip were fine.)
+3. CM6 shares the SAME virtues as the existing doc's in-house Path A (text is truth -> round-trip + tour-friendliness) but gives us the inline-decoration machinery for FREE rather than hand-rolling caret math, selection mapping, and IME/composition (the exact "hard 20%" section 4 flagged as Path A's risk concentration). It is the convergence of Path A's safety and Path B's leverage, minus Path B's round-trip and license risk.
+
+This REFINES the existing recommendation. Section 4 recommended "evolve in-house (Path A) with CM6 as fallback." The new evidence (ProseMirror round-trip is confirmed lossy for our dialect; CM6 round-trip is confirmed structurally lossless and its inline-preview layer is a small, well-trodden, MIT-licensed pattern) inverts the risk math: CM6 is no longer the fallback, it is the recommended base for the NEW mode. It gets us closer to Typora's actual mechanism (Typora and Obsidian both hide-syntax-on-text) with less bespoke caret code than pure Path A, while keeping the same round-trip and tour-survivability guarantees. The existing hybrid editor stays as-is; CM6 ships as the SEPARATE mode alongside it.
+
+### 6. Phased integration plan (separate mode, pilot on standalone Notes first)
+
+- Phase 0 (spike, no commitment): a throwaway CM6 + lang-markdown + a minimal decoration extension behind a dev flag, fed ONE fixture file that exercises every dialect piece (`_underline_`, `<u>literal</u>`, `**bold**`, `<!-- stamp -->`, a raw `<img>`, a GFM table, `~~strike~~`). Assert `doc.toString()` === input after a type-then-revert. This is the go/no-go gate; it directly tests the one thing that matters.
+- Phase 1 (the mode, Notes only): add a third `EditorMode` ("inline" alongside "hybrid"/"preview" in `LiveMarkdownEditor`) that mounts a new `InlineMarkdownEditor` (CM6) ONLY on the standalone Notes surface (`NoteDetailPopup`). Wire Cmd+S / Save / `onExplicitSave` to `doc.toString()`; replace `ValueHistory` with CM6's history extension; keep `useUnsavedChangesGuard` driven by a dirty flag off CM6 doc changes (NO autosave to parent). Reuse the blob-URL image resolver for the rendered-image widgets only.
+- Phase 2 (the Typora feel): the inline-reveal layer. Decorations hide markers on inactive spans/lines; caret-intersection reveals the active token's raw syntax; block widgets for tables and fenced code; map our shortcut set (`**`/`*`/`<u>`/`[`/`~~`/headings/quote) onto CM6 keymaps. Apply the same fluid `ch`-based measure from Phase 1 of the sizing fix.
+- Phase 3 (tour): author CM6 tour beats. CM6 is `contentEditable`, so the current `.value`+input+Escape handshake will not transfer; instead drive typing via dispatched CM6 transactions (or `EditorView.dispatch` from a tour helper) and re-point `data-tour-target` to the CM6 host. Gate behind the post-redesign auto-verify loop (mechanics + spec-compliance + fresh-eyes) and the persona break-bots for any full-tour-touching beat.
+- Phase 4 (rollout): once Notes is solid, offer the inline mode on the other markdown surfaces (Lab Notes, Results, Methods write-up, method create/variation panels). Structured editors stay out of scope. The hybrid editor remains the default until Grant chooses to flip the default.
+
+### 7. The one decision for Grant (HR to relay)
+
+Greenlight building the new inline-WYSIWYG mode on CodeMirror 6 (MIT, text-is-the-source so plain-markdown round-trip is structurally lossless, +~150-250KB) with our own thin inline-preview layer, piloted as a SEPARATE mode on standalone Notes first, and explicitly RULE OUT the ProseMirror libraries (Milkdown / Tiptap / BlockNote) because all three are lossy for our `_underline_` override and our raw `<u>`/`<img>`/stamp-comment HTML, which breaks the "clean markdown you own" contract. Yes or no.
