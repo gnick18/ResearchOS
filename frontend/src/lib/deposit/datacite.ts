@@ -90,8 +90,13 @@ export interface DepositMetadata {
   // Free-form subjects / keywords (DataCite `subjects`). Sourced from the
   // task's tags. Empty array when the task is untagged.
   subjects: { subject: string }[];
-  // resourceType is always "Dataset" for an experiment deposit in Phase 1.
-  types: { resourceTypeGeneral: "Dataset"; resourceType: "Experiment" };
+  // resourceTypeGeneral is always "Dataset". resourceType is "Experiment" for
+  // a single-experiment deposit and "Collection" for a project-level
+  // (multi-item) deposit.
+  types: {
+    resourceTypeGeneral: "Dataset";
+    resourceType: "Experiment" | "Collection";
+  };
   // Zero or one funding references (Phase 1 derives ONLY the project's
   // primary funding account). Empty array when no funder data is available.
   fundingReferences: DataCiteFundingReference[];
@@ -197,8 +202,16 @@ export interface DepositMetadataInput {
   // softly here.
   ownerOrcid?: string | null;
   // The project's primary funding account, or null when the project has no
-  // grant link or the account could not be resolved.
+  // grant link or the account could not be resolved. This is the MAIN funder
+  // and always sorts first in `fundingReferences`.
   fundingAccount?: FundingAccount | null;
+  // The DERIVED charged-grants set (project-level deposit only): the distinct
+  // FundingAccounts that purchases inside the project were actually charged
+  // to, from `computeChargedGrants`. Folded in as ADDITIONAL funders after
+  // the primary, deduped against it (same grant -> one reference). Absent /
+  // empty on the single-experiment path. The builder is the only place these
+  // two sources combine, so the dedupe rule lives in one spot.
+  additionalFundingAccounts?: ReadonlyArray<FundingAccount> | null;
   // A user-typed abstract that, when non-empty, overrides the auto-summary
   // derived from notes/results. The dialog seeds this from the auto-summary
   // and lets the user edit it.
@@ -220,20 +233,23 @@ function publicationYearFrom(dateIso: string | null | undefined): string {
 }
 
 /**
- * Build the DataCite-shaped `fundingReference` array from a single funding
- * account. Returns `[]` when the account is absent OR carries neither a
- * funder name nor an award number (an empty reference would be useless to a
- * repository). The funder identifier + type only ride along when both are
- * present and the type is one of the controlled values.
+ * Build ONE DataCite-shaped `fundingReference` from a single funding account,
+ * or `null` when the account is absent OR carries neither a funder name nor an
+ * award number (an empty reference would be useless to a repository). The
+ * funder identifier + type only ride along when both are present and the type
+ * is one of the controlled values.
+ *
+ * Kept separate from the array builder so the project-level deposit can reuse
+ * the per-account mapping while controlling the dedupe across many accounts.
  */
-export function buildFundingReferences(
+export function buildFundingReference(
   account: FundingAccount | null | undefined,
-): DataCiteFundingReference[] {
-  if (!account) return [];
+): DataCiteFundingReference | null {
+  if (!account) return null;
   const funderName = (account.funder_name ?? "").trim();
   const awardNumber = (account.award_number ?? "").trim();
   // Need at least a funder name or an award number to be worth emitting.
-  if (!funderName && !awardNumber) return [];
+  if (!funderName && !awardNumber) return null;
 
   const ref: DataCiteFundingReference = {
     // DataCite requires funderName on a fundingReference. When the account
@@ -258,7 +274,55 @@ export function buildFundingReferences(
   const awardTitle = (account.award_title ?? "").trim();
   if (awardTitle) ref.awardTitle = awardTitle;
 
-  return [ref];
+  return ref;
+}
+
+/**
+ * The stable identity used to dedupe two funding references that name the same
+ * grant. We key on `funderName + awardNumber` (both lower-cased + trimmed)
+ * rather than the source account id, so the PRIMARY account and a charged
+ * account that point at the same real grant collapse to one reference even
+ * when they came from different FundingAccount records. An award number alone
+ * (no funder name) and a funder name alone are each their own key.
+ */
+function fundingReferenceKey(ref: DataCiteFundingReference): string {
+  const name = ref.funderName.trim().toLowerCase();
+  const award = (ref.awardNumber ?? "").trim().toLowerCase();
+  return `${name}|${award}`;
+}
+
+/**
+ * Build the DataCite `fundingReference` array from ONE OR MORE funding
+ * accounts, deduped. This is the project-level multi-funder entry point: the
+ * caller passes the project's PRIMARY funding account FIRST, then the DERIVED
+ * charged-grants set; the primary wins ordering, and any charged account that
+ * resolves to the same grant is dropped. Accounts with no usable data are
+ * skipped. A single account behaves exactly like the old single-account path.
+ *
+ * Returns `[]` when no account yields a usable reference.
+ */
+export function buildFundingReferences(
+  accounts:
+    | FundingAccount
+    | null
+    | undefined
+    | ReadonlyArray<FundingAccount | null | undefined>,
+): DataCiteFundingReference[] {
+  const list = Array.isArray(accounts)
+    ? accounts
+    : ([accounts] as ReadonlyArray<FundingAccount | null | undefined>);
+
+  const out: DataCiteFundingReference[] = [];
+  const seen = new Set<string>();
+  for (const account of list) {
+    const ref = buildFundingReference(account);
+    if (!ref) continue;
+    const key = fundingReferenceKey(ref);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(ref);
+  }
+  return out;
 }
 
 /**
@@ -381,7 +445,94 @@ export function buildDepositMetadata(
     publicationYear: publicationYearFrom(input.publicationDate),
     subjects,
     types: { resourceTypeGeneral: "Dataset", resourceType: "Experiment" },
-    fundingReferences: buildFundingReferences(input.fundingAccount),
+    // Primary funder first, then the derived charged-grants set; deduped by
+    // `buildFundingReferences`. The single-experiment path passes only the
+    // primary, so this stays a one-element array there.
+    fundingReferences: buildFundingReferences([
+      input.fundingAccount ?? null,
+      ...(input.additionalFundingAccounts ?? []),
+    ]),
+    rights: buildRights(input.licenseSpdxId, input.licenseCustomName),
+    doi: null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Project-level (multi-item) deposit metadata
+// ---------------------------------------------------------------------------
+
+/**
+ * Inputs to `buildProjectDepositMetadata`. A project maps to ONE dataset / one
+ * DOI, so the title is the PROJECT name and the subjects are the project tags.
+ * The primary funder (`fundingAccount`) plus the derived charged-grants set
+ * (`additionalFundingAccounts`) fold into one deduped `fundingReferences`
+ * array, mirroring `buildDepositMetadata`. The creator + ORCID + license +
+ * abstract fields behave identically to the single-experiment path.
+ */
+export interface ProjectDepositMetadataInput {
+  // The deposited project. Its `name` becomes the title, its `tags` become the
+  // subjects.
+  project: Project;
+  // The owner's display name (resolved by the caller).
+  ownerDisplayName: string;
+  ownerOrcid?: string | null;
+  // The project's primary funding account (main funder), or null.
+  fundingAccount?: FundingAccount | null;
+  // The DERIVED charged-grants set (additional funders), deduped against the
+  // primary by the builder.
+  additionalFundingAccounts?: ReadonlyArray<FundingAccount> | null;
+  // The user-editable abstract for the whole dataset.
+  abstract?: string | null;
+  licenseSpdxId?: string | null;
+  licenseCustomName?: string | null;
+  publicationDate?: string | null;
+}
+
+/**
+ * The PURE project-level DataCite metadata builder. Same `DepositMetadata`
+ * shape the single-experiment builder produces, but scoped to a PROJECT
+ * (one dataset / one DOI):
+ *
+ *   title            <- project.name
+ *   creators         <- ownerDisplayName + ownerOrcid (via buildCreators)
+ *   descriptions     <- user abstract (caller seeds from the selected items)
+ *   publicationYear  <- publicationDate (defaults to today)
+ *   subjects         <- project.tags
+ *   types            <- Dataset / Collection (a multi-item bundle is a collection)
+ *   fundingReferences<- primary funder + derived charged grants, deduped
+ *   rights           <- user-picked license (via buildRights)
+ *   doi              <- null (the repository mints it)
+ *
+ * No I/O, no DOM, no network. Reuses the same pure helpers as
+ * `buildDepositMetadata` so the two paths stay field-for-field consistent.
+ */
+export function buildProjectDepositMetadata(
+  input: ProjectDepositMetadataInput,
+): DepositMetadata {
+  const title = (input.project.name ?? "").trim() || "Untitled project";
+
+  const subjects = (input.project.tags ?? [])
+    .map((t) => (typeof t === "string" ? t.trim() : ""))
+    .filter((t) => t.length > 0)
+    .map((subject) => ({ subject }));
+
+  const abstract = (input.abstract ?? "").trim();
+
+  return {
+    titles: [{ title }],
+    creators: buildCreators(input.ownerDisplayName, input.ownerOrcid),
+    descriptions: abstract
+      ? [{ description: abstract, descriptionType: "Abstract" }]
+      : [],
+    publicationYear: publicationYearFrom(input.publicationDate),
+    subjects,
+    // A project deposit gathers multiple experiments + notes, so it is a
+    // DataCite Collection rather than a single Experiment.
+    types: { resourceTypeGeneral: "Dataset", resourceType: "Collection" },
+    fundingReferences: buildFundingReferences([
+      input.fundingAccount ?? null,
+      ...(input.additionalFundingAccounts ?? []),
+    ]),
     rights: buildRights(input.licenseSpdxId, input.licenseCustomName),
     doi: null,
   };

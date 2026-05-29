@@ -11,7 +11,9 @@ import type { FundingAccount, Project, Task } from "@/lib/types";
 import {
   buildCreators,
   buildDepositMetadata,
+  buildFundingReference,
   buildFundingReferences,
+  buildProjectDepositMetadata,
   buildRights,
   deriveAbstract,
   inspectDepositMetadata,
@@ -378,5 +380,214 @@ describe("deriveAbstract", () => {
     expect(out.length).toBeLessThanOrEqual(110);
     expect(out.endsWith(" ...")).toBe(true);
     expect(out).not.toContain("wor.");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Multi-funder fundingReferences (project-level: primary + derived, deduped)
+// ---------------------------------------------------------------------------
+
+describe("buildFundingReferences - multi-funder (project-level)", () => {
+  it("builds one reference per distinct account, primary first", () => {
+    const primary = makeFundingAccount({
+      id: 7,
+      name: "R01 main",
+      funder_name: "National Institutes of Health",
+      award_number: "R01-GM123456",
+      funder_id: "https://ror.org/01cwqze88",
+      funder_id_type: "ROR",
+      award_title: "Mechanisms of gene regulation",
+    });
+    const charged = makeFundingAccount({
+      id: 9,
+      name: "NSF supplement",
+      funder_name: "National Science Foundation",
+      award_number: "NSF-2099",
+      funder_id: null,
+      funder_id_type: null,
+      award_title: null,
+    });
+    const refs = buildFundingReferences([primary, charged]);
+    expect(refs).toHaveLength(2);
+    expect(refs[0].funderName).toBe("National Institutes of Health");
+    expect(refs[1].funderName).toBe("National Science Foundation");
+    expect(refs[1].awardNumber).toBe("NSF-2099");
+  });
+
+  it("dedupes a charged account that resolves to the same grant as the primary", () => {
+    // Two SEPARATE FundingAccount records that point at the same real grant
+    // (same funder name + award number). Should collapse to one reference,
+    // keeping the primary's richer metadata (it sorts first).
+    const primary = makeFundingAccount({
+      id: 7,
+      name: "R01 main",
+      funder_name: "National Institutes of Health",
+      award_number: "R01-GM123456",
+    });
+    const dupeCharged = makeFundingAccount({
+      id: 13,
+      name: "R01 (charged label)",
+      funder_name: "National Institutes of Health",
+      award_number: "R01-GM123456",
+      funder_id: null,
+      funder_id_type: null,
+      award_title: null,
+    });
+    const refs = buildFundingReferences([primary, dupeCharged]);
+    expect(refs).toHaveLength(1);
+    expect(refs[0].funderName).toBe("National Institutes of Health");
+    // The primary won, so its identifier survives.
+    expect(refs[0].funderIdentifier).toBe("https://ror.org/01cwqze88");
+  });
+
+  it("skips accounts with no usable funder data and keeps the rest", () => {
+    const usable = makeFundingAccount({
+      id: 7,
+      funder_name: "NIH",
+      award_number: "R01-1",
+    });
+    const empty = makeFundingAccount({
+      id: 8,
+      name: "empty",
+      funder_name: null,
+      award_number: null,
+      funder_id: null,
+      award_title: null,
+    });
+    const refs = buildFundingReferences([null, usable, empty, undefined]);
+    expect(refs).toHaveLength(1);
+    expect(refs[0].funderName).toBe("NIH");
+  });
+
+  it("returns an empty array when no account carries usable data", () => {
+    const empty = makeFundingAccount({
+      funder_name: null,
+      award_number: null,
+      funder_id: null,
+      award_title: null,
+    });
+    expect(buildFundingReferences([null, undefined, empty])).toEqual([]);
+    expect(buildFundingReferences([])).toEqual([]);
+  });
+
+  it("buildFundingReference returns null for an absent / empty account", () => {
+    expect(buildFundingReference(null)).toBeNull();
+    expect(buildFundingReference(undefined)).toBeNull();
+    expect(
+      buildFundingReference(
+        makeFundingAccount({
+          funder_name: null,
+          award_number: null,
+          funder_id: null,
+          award_title: null,
+        }),
+      ),
+    ).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Project-level metadata builder
+// ---------------------------------------------------------------------------
+
+describe("buildProjectDepositMetadata", () => {
+  const primary = makeFundingAccount({
+    id: 7,
+    name: "R01 main",
+    funder_name: "National Institutes of Health",
+    award_number: "R01-GM123456",
+    funder_id: "https://ror.org/01cwqze88",
+    funder_id_type: "ROR",
+    award_title: "Mechanisms of gene regulation",
+  });
+  const charged = makeFundingAccount({
+    id: 9,
+    name: "NSF supplement",
+    funder_name: "National Science Foundation",
+    award_number: "NSF-2099",
+    funder_id: null,
+    funder_id_type: null,
+    award_title: null,
+  });
+
+  it("titles from the project name and maps project tags to subjects", () => {
+    const md = buildProjectDepositMetadata({
+      project: makeProject({
+        name: "Gene editing pipeline",
+        tags: ["genomics", "crispr"],
+      } as Partial<Project>),
+      ownerDisplayName: "Alex Rivera",
+      ownerOrcid: VALID_ORCID,
+      fundingAccount: primary,
+      additionalFundingAccounts: [charged],
+      licenseSpdxId: "CC-BY-4.0",
+      publicationDate: "2026-05-29",
+    });
+    expect(md.titles).toEqual([{ title: "Gene editing pipeline" }]);
+    expect(md.subjects).toEqual([
+      { subject: "genomics" },
+      { subject: "crispr" },
+    ]);
+  });
+
+  it("types a project deposit as a Dataset / Collection", () => {
+    const md = buildProjectDepositMetadata({
+      project: makeProject(),
+      ownerDisplayName: "Alex",
+      licenseSpdxId: "CC-BY-4.0",
+    });
+    expect(md.types).toEqual({
+      resourceTypeGeneral: "Dataset",
+      resourceType: "Collection",
+    });
+  });
+
+  it("folds the primary grant plus the derived charged grants into fundingReferences", () => {
+    const md = buildProjectDepositMetadata({
+      project: makeProject(),
+      ownerDisplayName: "Alex",
+      fundingAccount: primary,
+      additionalFundingAccounts: [charged],
+      licenseSpdxId: "CC-BY-4.0",
+    });
+    expect(md.fundingReferences).toHaveLength(2);
+    expect(md.fundingReferences[0].funderName).toBe(
+      "National Institutes of Health",
+    );
+    expect(md.fundingReferences[1].funderName).toBe(
+      "National Science Foundation",
+    );
+  });
+
+  it("carries the ORCID nameIdentifier on the creator", () => {
+    const md = buildProjectDepositMetadata({
+      project: makeProject(),
+      ownerDisplayName: "Alex Rivera",
+      ownerOrcid: VALID_ORCID,
+      licenseSpdxId: "CC-BY-4.0",
+    });
+    expect(md.creators[0].nameIdentifiers?.[0].nameIdentifier).toBe(VALID_ORCID);
+  });
+
+  it("degrades gracefully with no funders, no tags, no ORCID", () => {
+    const md = buildProjectDepositMetadata({
+      project: makeProject({ name: "Bare project", tags: null } as Partial<Project>),
+      ownerDisplayName: "morgan",
+      fundingAccount: null,
+      additionalFundingAccounts: [],
+      licenseSpdxId: "CC0-1.0",
+    });
+    expect(md.subjects).toEqual([]);
+    expect(md.fundingReferences).toEqual([]);
+    expect(md.creators[0].nameIdentifiers).toBeUndefined();
+    expect(md.titles[0].title).toBe("Bare project");
+  });
+
+  it("falls back to a placeholder title for an unnamed project", () => {
+    const md = buildProjectDepositMetadata({
+      project: makeProject({ name: "   " } as Partial<Project>),
+      ownerDisplayName: "morgan",
+    });
+    expect(md.titles[0].title).toBe("Untitled project");
   });
 });

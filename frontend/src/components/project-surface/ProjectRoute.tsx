@@ -8,6 +8,7 @@ import { projectsApi as rawProjectsApi, purchasesApi } from "@/lib/local-api";
 import type { ProjectUpdate } from "@/lib/local-api";
 import type { FundingAccount } from "@/lib/types";
 import ShareDialogAdapter from "@/components/sharing/ShareDialogAdapter";
+import ProjectDepositDialog from "@/components/ProjectDepositDialog";
 import Tooltip from "@/components/Tooltip";
 import ProjectFundingSection from "@/components/project-surface/ProjectFundingSection";
 import ResultsGallery from "@/components/project-surface/ResultsGallery";
@@ -74,6 +75,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
   });
 
   const [showSharePopup, setShowSharePopup] = useState(false);
+  const [showDepositDialog, setShowDepositDialog] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -275,6 +277,36 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
               )}
 
               {!isMiscellaneousProject && (
+                <Tooltip label="Deposit to a repository" placement="bottom">
+                  <button
+                    onClick={() => setShowDepositDialog(true)}
+                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                    aria-label="Deposit to a repository"
+                    data-testid="project-deposit-button"
+                  >
+                    {/* Repository / archive-with-upload-arrow glyph (inline SVG;
+                        no icon library, no emoji). Mirrors the per-experiment
+                        deposit button in TaskDetailPopup. */}
+                    <svg
+                      className="w-5 h-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden
+                    >
+                      <path d="M21 8v13H3V8" />
+                      <rect x="1" y="3" width="22" height="5" rx="1" />
+                      <path d="M12 17V11" />
+                      <polyline points="9 14 12 11 15 14" />
+                    </svg>
+                  </button>
+                </Tooltip>
+              )}
+
+              {!isMiscellaneousProject && (
                 <Tooltip
                   label={
                     isViewOnlyReceiver
@@ -408,6 +440,14 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
           onShared={() => queryClient.refetchQueries({ queryKey: ["projects"] })}
         />
       )}
+
+      <ProjectDepositDialog
+        isOpen={showDepositDialog}
+        project={project}
+        currentUser={currentUser}
+        ownerHint={effectiveOwnerOf(project)}
+        onClose={() => setShowDepositDialog(false)}
+      />
 
       {showEditModal && projectsApi && (
         <EditProjectModal
