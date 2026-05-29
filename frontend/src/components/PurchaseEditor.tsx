@@ -18,6 +18,7 @@ import {
 } from "@/components/lab-head/PurchaseApprovalControls";
 import FlagForReviewButton from "@/components/lab-head/FlagForReviewButton";
 import PurchaseAssigneePicker from "@/components/PurchaseAssigneePicker";
+import PurchaseOrderStatusControl from "@/components/PurchaseOrderStatusControl";
 import Tooltip from "@/components/Tooltip";
 import type { CatalogItem, PurchaseItem, Task } from "@/lib/types";
 
@@ -715,6 +716,12 @@ export default function PurchaseEditor({
               <th className="text-left py-2 px-2 text-xs font-semibold text-gray-500 w-32">
                 Assigned to
               </th>
+              {/* Per-item ordering status (purchases-ordered-stage,
+                  2026-05-29): the real Needs ordering / Ordered / Received
+                  stage. */}
+              <th className="text-left py-2 px-2 text-xs font-semibold text-gray-500 w-40">
+                Order status
+              </th>
               {/* PI Phase 3 (PI Phase 3 manager, 2026-05-23):
                   approval + flag column. Always rendered so list rows
                   line up consistently regardless of view. */}
@@ -865,9 +872,10 @@ export default function PurchaseEditor({
                       className="w-full px-2 py-1 border border-amber-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-amber-400"
                     />
                   </td>
-                  {/* Empty assignee + PI-status cells to keep columns
-                      aligned in edit mode — assign/approve/flag actions
-                      aren't surfaced mid-edit. */}
+                  {/* Empty assignee + order-status + PI-status cells to keep
+                      columns aligned in edit mode — assign / advance status /
+                      approve actions aren't surfaced mid-edit. */}
+                  <td className="py-2 px-2" />
                   <td className="py-2 px-2" />
                   <td className="py-2 px-2" />
                   <td className="py-2 px-1 flex items-center gap-1">
@@ -957,6 +965,24 @@ export default function PurchaseEditor({
                       currentUser={currentUser}
                       readOnly={writesDisabled}
                       onAssigned={() => refetch()}
+                    />
+                  </td>
+                  {/* Per-item ordering status (purchases-ordered-stage,
+                      2026-05-29): the real Needs ordering / Ordered /
+                      Received stage + advance / revert arrows. readOnly in
+                      lab mode + shared-into-me (writes are owner-scoped).
+                      Advancing into "Ordered" fires the requester's
+                      purchase_ordered bell. */}
+                  <td
+                    className="py-2 px-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <PurchaseOrderStatusControl
+                      item={item}
+                      ownerUsername={username ?? currentUser}
+                      currentUser={currentUser}
+                      readOnly={writesDisabled}
+                      onChanged={() => refetch()}
                     />
                   </td>
                   {/* PI Phase 3 (PI Phase 3 manager,
@@ -1220,9 +1246,11 @@ export default function PurchaseEditor({
                     className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
                   />
                 </td>
-                {/* Assignee + PI-status cells are empty in the new-row:
-                    both act on the persisted record, so assign / approve
-                    happen after the item is added. */}
+                {/* Assignee + order-status + PI-status cells are empty in the
+                    new-row: all three act on the persisted record, so assign
+                    / advance status / approve happen after the item is added
+                    (a fresh item is always "Needs ordering"). */}
+                <td className="py-2 px-2" />
                 <td className="py-2 px-2" />
                 <td className="py-2 px-2" />
                 <td className="py-2 px-1">
@@ -1248,9 +1276,9 @@ export default function PurchaseEditor({
               <td className="py-2 px-2 text-right font-bold text-gray-900">
                 ${taskTotal.toFixed(2)}
               </td>
-              {/* Funding + Vendor + Category + Notes + Assigned to + PI
-                  status + actions = 7 trailing columns. */}
-              <td colSpan={7}></td>
+              {/* Funding + Vendor + Category + Notes + Assigned to + Order
+                  status + PI status + actions = 8 trailing columns. */}
+              <td colSpan={8}></td>
             </tr>
           </tfoot>
         </table>

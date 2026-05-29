@@ -1565,6 +1565,42 @@ export interface DeviationSaveRequest {
 
 // ── Purchases ────────────────────────────────────────────────────────────────
 
+/**
+ * Per-item ordering status (purchases-ordered-stage, 2026-05-29). The real
+ * ordering stage of a purchase line item. The default is "needs_ordering";
+ * the field is optional on `PurchaseItem` so pre-existing records (which
+ * never carried it) normalize cleanly via `normalizeOrderStatus`.
+ */
+export type PurchaseOrderStatus = "needs_ordering" | "ordered" | "received";
+
+/** The default stage for a freshly-created or pre-feature line item. */
+export const DEFAULT_PURCHASE_ORDER_STATUS: PurchaseOrderStatus =
+  "needs_ordering";
+
+/**
+ * Coerce an arbitrary on-disk `order_status` value into a known
+ * `PurchaseOrderStatus`. Old records (no field) and any unexpected string
+ * fall back to "needs_ordering" so callers can treat the result as always
+ * present. Centralized so the list mappers, UI grouping, and the
+ * setOrderStatus transition all agree on the same normalization.
+ */
+export function normalizeOrderStatus(
+  value: PurchaseOrderStatus | string | null | undefined,
+): PurchaseOrderStatus {
+  if (value === "ordered" || value === "received") return value;
+  return DEFAULT_PURCHASE_ORDER_STATUS;
+}
+
+/** Human-facing label for each ordering stage (drives chips + filters). */
+export const PURCHASE_ORDER_STATUS_LABEL: Record<
+  PurchaseOrderStatus,
+  string
+> = {
+  needs_ordering: "Needs ordering",
+  ordered: "Ordered",
+  received: "Received",
+};
+
 export interface PurchaseItem {
   id: number;
   task_id: number;
@@ -1586,6 +1622,18 @@ export interface PurchaseItem {
   // lists render a small "assigned to X" chip. Additive — old records
   // without it normalize as unassigned.
   assigned_to?: string | null;
+  // Per-item ordering status (purchases-ordered-stage, 2026-05-29). The real
+  // ordering stage of a single line item, replacing the stopgap where the
+  // parent task's complete-toggle stood in for "ordered". Three stages:
+  //   "needs_ordering" : the default — nobody has placed this order yet
+  //   "ordered"        : someone (often the assignee) has placed the order
+  //   "received"       : the supply arrived
+  // Additive + optional: old records without the field normalize to
+  // "needs_ordering" on read (see `normalizeOrderStatus` + the purchasesApi
+  // list mappers). The "needs_ordering" -> "ordered" transition is what
+  // fires the `purchase_ordered` bell to the requester (purchasesApi
+  // .setOrderStatus), NOT the parent complete-toggle anymore.
+  order_status?: PurchaseOrderStatus;
   // Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23): PI approval
   // (informational only, NOT a blocking gate per the brief). All three
   // additive — old records without them behave as if unapproved.
@@ -1638,6 +1686,9 @@ export interface PurchaseItemCreate {
   category?: string | null;
   // Lab-manager ordering workflow (purchases-assignee fix, 2026-05-29).
   assigned_to?: string | null;
+  // Per-item ordering status (purchases-ordered-stage, 2026-05-29). Omit to
+  // let `purchasesApi.create` default it to "needs_ordering".
+  order_status?: PurchaseOrderStatus;
 }
 
 export interface PurchaseItemUpdate {
@@ -1656,6 +1707,12 @@ export interface PurchaseItemUpdate {
    *  to a non-owner user posts a `purchase_assignment` bell to the
    *  assignee. */
   assigned_to?: string | null;
+  /** Per-item ordering status (purchases-ordered-stage, 2026-05-29). Prefer
+   *  `purchasesApi.setOrderStatus` over a raw `update` so the
+   *  `needs_ordering` -> `ordered` transition fires the `purchase_ordered`
+   *  bell. A direct `update({ order_status })` persists the field but is
+   *  silent (used by tests / migrations). */
+  order_status?: PurchaseOrderStatus;
   /** Lab Head Phase 3 — PI approval. The writer that flips this also
    *  stamps `approved_by` + `approved_at`. */
   approved?: boolean;

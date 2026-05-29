@@ -60,6 +60,7 @@ import type {
   PurchaseItem,
   PurchaseItemCreate,
   PurchaseItemUpdate,
+  PurchaseOrderStatus,
   FundingAccount,
   FundingAccountCreate,
   FundingAccountUpdate,
@@ -93,6 +94,12 @@ import type {
   ShiftedAlertEntry,
   ShiftedAlertsFile,
   SeenShiftAlertsFile,
+} from "./types";
+// Runtime helpers (values, not types) for the per-item ordering status
+// (purchases-ordered-stage, 2026-05-29).
+import {
+  DEFAULT_PURCHASE_ORDER_STATUS,
+  normalizeOrderStatus,
 } from "./types";
 import {
   WHOLE_LAB_SENTINEL,
@@ -3078,6 +3085,9 @@ export const purchasesApi = {
       total_price: item.total_price ?? (item.price_per_unit ?? 0) * item.quantity + (item.shipping_fees ?? 0),
       vendor: item.vendor ?? null,
       category: item.category ?? null,
+      // Pre-feature records have no order_status — normalize to the default
+      // so UI grouping / filters can treat it as always present.
+      order_status: normalizeOrderStatus(item.order_status),
     }));
   },
 
@@ -3088,6 +3098,7 @@ export const purchasesApi = {
       total_price: item.total_price ?? (item.price_per_unit ?? 0) * item.quantity + (item.shipping_fees ?? 0),
       vendor: item.vendor ?? null,
       category: item.category ?? null,
+      order_status: normalizeOrderStatus(item.order_status),
     }));
   },
 
@@ -3124,6 +3135,7 @@ export const purchasesApi = {
         (item.price_per_unit ?? 0) * item.quantity + (item.shipping_fees ?? 0),
       vendor: item.vendor ?? null,
       category: item.category ?? null,
+      order_status: normalizeOrderStatus(item.order_status),
     }));
 
     // Build the set of (owner, taskId) pairs the viewer can see via shares.
@@ -3195,6 +3207,7 @@ export const purchasesApi = {
             (item.price_per_unit ?? 0) * item.quantity + (item.shipping_fees ?? 0),
           vendor: item.vendor ?? null,
           category: item.category ?? null,
+          order_status: normalizeOrderStatus(item.order_status),
         });
       }
     }
@@ -3219,6 +3232,9 @@ export const purchasesApi = {
       funding_string: data.funding_string ?? null,
       vendor: data.vendor ?? null,
       category: data.category ?? null,
+      // Per-item ordering status (purchases-ordered-stage, 2026-05-29). New
+      // line items start in "needs_ordering" unless the caller seeds one.
+      order_status: data.order_status ?? DEFAULT_PURCHASE_ORDER_STATUS,
     };
     return owner
       ? purchaseItemsStore.createForUser(payload, owner)
@@ -3298,54 +3314,86 @@ export const purchasesApi = {
   },
 
   /**
-   * Lab-manager ordering workflow (purchases-assignee fix, 2026-05-29):
-   * fire "your supply was ordered" bells when a purchase order is marked
-   * ordered (the parent task flips to complete). For every line item that
-   * carries an `assigned_to` set to a user OTHER than the requester (the
-   * item owner), notify the requester so they know their assignee placed
-   * the order. `actor` is who marked it ordered (the notification's
-   * `from_user`); `owner` routes the read into the item owner's folder
-   * for shared / lab-mode tasks.
+   * Per-item ordering status transition (purchases-ordered-stage,
+   * 2026-05-29). Sets a single line item's `order_status` and — on the
+   * transition INTO "ordered" (from any non-ordered stage) — fires the
+   * `purchase_ordered` bell to the requester (the item owner) so they learn
+   * their supply was placed. This REPLACES the stopgap where the parent
+   * task's complete-toggle stood in for "ordered" (the old
+   * `notifyOrdered`, removed here): the bell now tracks the real per-item
+   * stage instead of the whole-order completion.
    *
-   * Best-effort and idempotent-ish: re-marking an already-complete order
-   * could re-fire, so callers should only invoke this on the
-   * incomplete -> complete transition. Returns the count of bells sent.
+   * The bell fires only when ALL of these hold (mirrors the prior
+   * notifyOrdered guards, now per item):
+   *   - the new status is "ordered" and the item was NOT already "ordered"
+   *     (so re-affirming "ordered", or moving ordered -> received, is
+   *     silent — no duplicate bell)
+   *   - the item was handed off to someone OTHER than the requester
+   *     (`assigned_to` set and != owner); an item the requester keeps for
+   *     themselves needs no "it was ordered" ping
+   *   - the actor is NOT the requester (you don't bell yourself for marking
+   *     your own item ordered)
+   *
+   * `owner` is the item owner's username (the requester) — omit for the
+   * current user's own items, pass it for shared / lab-mode items so the
+   * write + read route into the owner's folder. `actor` is who flipped the
+   * status (the bell's `from_user`); defaults to the current user.
+   *
+   * Returns the updated item plus whether a bell was sent.
    */
-  notifyOrdered: async (
-    taskId: number,
+  setOrderStatus: async (
+    id: number,
+    status: PurchaseOrderStatus,
     options?: { owner?: string; actor?: string },
-  ): Promise<{ notified_count: number }> => {
+  ): Promise<{ item: PurchaseItem | null; notified: boolean }> => {
     const actor = options?.actor ?? (await getCurrentUserCached()) ?? "";
     const requester =
       options?.owner ?? (await getCurrentUserCached()) ?? "";
-    if (!requester) return { notified_count: 0 };
-    // The requester marking their own order ordered is silent — they
-    // already know. The bell is for the case where someone else (the
-    // assignee) placed the order on the requester's behalf.
-    if (actor && actor === requester) return { notified_count: 0 };
 
-    const items = await purchasesApi.listByTask(taskId, options?.owner);
-    let notified = 0;
-    for (const item of items) {
-      const assignee = item.assigned_to;
-      // Only items that were actually handed off to someone else trigger
-      // the requester-facing "it was ordered" bell.
-      if (!assignee || assignee === requester) continue;
-      const notif: PurchaseOrderedNotification = {
-        id: newAlertId(),
-        type: "purchase_ordered",
-        from_user: actor || assignee,
-        owner_username: requester,
-        purchase_item_id: item.id,
-        task_id: taskId,
-        item_name: item.item_name,
-        created_at: new Date().toISOString(),
-        read: false,
-      };
-      await appendPurchaseNotification(requester, notif);
-      notified += 1;
+    // Read the prior status so we only bell on the actual transition INTO
+    // "ordered", never on a re-save of an already-ordered item.
+    const existing = options?.owner
+      ? await purchaseItemsStore.getForUser(id, options.owner)
+      : await purchaseItemsStore.get(id);
+    if (!existing) return { item: null, notified: false };
+    const priorStatus = normalizeOrderStatus(existing.order_status);
+
+    const updated = await purchasesApi.update(
+      id,
+      { order_status: status },
+      options?.owner,
+    );
+    if (!updated) return { item: null, notified: false };
+
+    const enteringOrdered = status === "ordered" && priorStatus !== "ordered";
+    if (!enteringOrdered) return { item: updated, notified: false };
+
+    const assignee = updated.assigned_to;
+    // Only items handed off to someone else trigger the requester-facing
+    // "it was ordered" bell, and the requester marking their own item is
+    // silent (they already know).
+    if (
+      !requester ||
+      !assignee ||
+      assignee === requester ||
+      (actor && actor === requester)
+    ) {
+      return { item: updated, notified: false };
     }
-    return { notified_count: notified };
+
+    const notif: PurchaseOrderedNotification = {
+      id: newAlertId(),
+      type: "purchase_ordered",
+      from_user: actor || assignee,
+      owner_username: requester,
+      purchase_item_id: updated.id,
+      task_id: updated.task_id,
+      item_name: updated.item_name,
+      created_at: new Date().toISOString(),
+      read: false,
+    };
+    await appendPurchaseNotification(requester, notif);
+    return { item: updated, notified: true };
   },
 
   // VCP R2 trash everywhere (2026-05-26): soft-delete via

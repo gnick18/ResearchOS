@@ -18,7 +18,14 @@ import {
   MISC_CATEGORY_LABEL,
   isMiscProject,
 } from "@/lib/purchases/misc-project";
-import { taskKey, type Task, type PurchaseItem } from "@/lib/types";
+import {
+  normalizeOrderStatus,
+  PURCHASE_ORDER_STATUS_LABEL,
+  taskKey,
+  type PurchaseOrderStatus,
+  type Task,
+  type PurchaseItem,
+} from "@/lib/types";
 
 /**
  * Segmented filter on /purchases: gates which purchase tasks render.
@@ -36,6 +43,15 @@ import { taskKey, type Task, type PurchaseItem } from "@/lib/types";
  * the rest of the list in the way.
  */
 type PurchaseCategoryFilter = "all" | "project" | "misc" | "awaiting_approval";
+
+/**
+ * Per-item ordering-status filter (purchases-ordered-stage, 2026-05-29).
+ * Gates the purchase-task list to orders that contain at least one line item
+ * in the selected stage, so the wiki / AI-helper "Needs ordering / Ordered /
+ * Received" framing finally maps onto a real field. "any" shows everything
+ * (the default). Applied on top of the category filter.
+ */
+type PurchaseOrderStatusFilter = "any" | PurchaseOrderStatus;
 
 export default function PurchasesPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -67,6 +83,9 @@ export default function PurchasesPage() {
     };
   }, []);
   const [categoryFilter, setCategoryFilter] = useState<PurchaseCategoryFilter>("all");
+  // Per-item ordering-status filter (purchases-ordered-stage, 2026-05-29).
+  const [orderStatusFilter, setOrderStatusFilter] =
+    useState<PurchaseOrderStatusFilter>("any");
   const queryClient = useQueryClient();
   const selectedProjectIds = useAppStore((s) => s.selectedProjectIds);
   const router = useRouter();
@@ -176,6 +195,18 @@ export default function PurchasesPage() {
   // can reuse the same composite-key map).
   const categorizedTasks = useMemo(() => {
     return purchaseTasks.filter((task) => {
+      // Order-status filter (purchases-ordered-stage, 2026-05-29): keep the
+      // order if any of its line items is in the selected stage. Applied
+      // first so it composes with whichever category chip is active.
+      if (orderStatusFilter !== "any") {
+        const items = allPurchases.filter(
+          (p) => p.owner === task.owner && p.task_id === task.id,
+        );
+        const hasStatus = items.some(
+          (p) => normalizeOrderStatus(p.order_status) === orderStatusFilter,
+        );
+        if (!hasStatus) return false;
+      }
       if (categoryFilter === "awaiting_approval") {
         const items = allPurchases.filter(
           (p) => p.owner === task.owner && p.task_id === task.id,
@@ -190,7 +221,7 @@ export default function PurchasesPage() {
       if (categoryFilter === "project") return !taskIsMisc;
       return true;
     });
-  }, [purchaseTasks, projects, categoryFilter, allPurchases]);
+  }, [purchaseTasks, projects, categoryFilter, orderStatusFilter, allPurchases]);
 
   // Counts for the segmented control labels. Computed off the full
   // purchase-task list so the chip badges stay stable as the user
@@ -216,6 +247,27 @@ export default function PurchasesPage() {
       awaitingApprovalCount: awaiting,
     };
   }, [purchaseTasks, projects, allPurchases]);
+
+  // Per-ordering-status task counts (purchases-ordered-stage, 2026-05-29).
+  // A task contributes to a stage's count when it has at least one line item
+  // in that stage. Computed off the full purchase-task list so the chip
+  // badges stay stable regardless of the active category / status filter.
+  const orderStatusCounts = useMemo(() => {
+    const counts: Record<PurchaseOrderStatus, number> = {
+      needs_ordering: 0,
+      ordered: 0,
+      received: 0,
+    };
+    for (const task of purchaseTasks) {
+      const items = allPurchases.filter(
+        (p) => p.owner === task.owner && p.task_id === task.id,
+      );
+      const seen = new Set<PurchaseOrderStatus>();
+      for (const p of items) seen.add(normalizeOrderStatus(p.order_status));
+      for (const s of seen) counts[s] += 1;
+    }
+    return counts;
+  }, [purchaseTasks, allPurchases]);
 
   // Unified scroll — pure reverse chronology, no active/earlier split.
   // The active-before-complete partition was Chip-2's temporary mirror of
@@ -450,6 +502,62 @@ export default function PurchasesPage() {
           })}
         </div>
 
+        {/* Order-status filter chips (purchases-ordered-stage, 2026-05-29).
+            The wiki / AI-helper "Needs ordering / Ordered / Received"
+            vocabulary now maps onto the real per-item `order_status` field.
+            Filters the list to orders containing at least one line item in
+            the chosen stage; composes with the category chips above. */}
+        <div
+          className="flex items-center gap-2 mb-4"
+          role="tablist"
+          aria-label="Filter purchases by ordering status"
+        >
+          <span className="text-xs text-gray-400 mr-1">Ordering:</span>
+          {([
+            { key: "any", label: "Any stage", count: purchaseTasks.length },
+            {
+              key: "needs_ordering",
+              label: PURCHASE_ORDER_STATUS_LABEL.needs_ordering,
+              count: orderStatusCounts.needs_ordering,
+            },
+            {
+              key: "ordered",
+              label: PURCHASE_ORDER_STATUS_LABEL.ordered,
+              count: orderStatusCounts.ordered,
+            },
+            {
+              key: "received",
+              label: PURCHASE_ORDER_STATUS_LABEL.received,
+              count: orderStatusCounts.received,
+            },
+          ] as const).map((chip) => {
+            const isActive = orderStatusFilter === chip.key;
+            return (
+              <button
+                key={chip.key}
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setOrderStatusFilter(chip.key)}
+                data-tour-target={`purchases-order-status-${chip.key}`}
+                className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                  isActive
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {chip.label}
+                <span
+                  className={`ml-2 ${
+                    isActive ? "text-blue-100" : "text-gray-400"
+                  }`}
+                >
+                  {chip.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* Funding Accounts Manager */}
         {showFundingManager && (
           <FundingAccountsManager
@@ -580,28 +688,14 @@ export default function PurchasesPage() {
                             try {
                               const willComplete = !task.is_complete;
                               await tasksApi.update(task.id, { is_complete: willComplete });
-                              // Lab-manager ordering workflow
-                              // (purchases-assignee fix, 2026-05-29):
-                              // marking the order complete IS the
-                              // "ordered" transition. Notify the requester
-                              // of every assigned line item that their
-                              // supply was ordered. Only on the
-                              // incomplete -> complete edge; best-effort so
-                              // a notification hiccup never blocks the
-                              // completion write. The button is disabled for
-                              // shared-into-me tasks, so the order owner is
-                              // always the current user here.
-                              if (willComplete) {
-                                try {
-                                  await purchasesApi.notifyOrdered(task.id, {
-                                    owner: task.owner,
-                                    actor: currentUser,
-                                  });
-                                } catch {
-                                  // Non-fatal: the order is still marked
-                                  // complete; the bell just didn't land.
-                                }
-                              }
+                              // Per-item ordering status
+                              // (purchases-ordered-stage, 2026-05-29): the
+                              // `purchase_ordered` bell no longer fires here.
+                              // The complete-toggle is now purely the parent
+                              // order's done/not-done state. The real
+                              // "ordered" transition (and its requester bell)
+                              // lives on each line item's order-status control
+                              // in PurchaseEditor -> purchasesApi.setOrderStatus.
                               queryClient.invalidateQueries({ queryKey: ["tasks"] });
                             } catch {
                               alert("Failed to update task");

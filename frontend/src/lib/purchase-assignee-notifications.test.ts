@@ -1,12 +1,16 @@
-// Lab-manager ordering workflow (purchases-assignee fix, 2026-05-29).
+// Lab-manager ordering workflow (purchases-assignee fix, 2026-05-29) +
+// per-item ordering status (purchases-ordered-stage, 2026-05-29).
 //
 // Exercises the two halves of the trainee -> lab-member ordering handoff:
 //   - `purchasesApi.assign` persists `assigned_to` AND posts a
 //     `purchase_assignment` bell to the assignee (skipping self-assign and
 //     non-lab-member targets).
-//   - `purchasesApi.notifyOrdered` posts a `purchase_ordered` bell to the
-//     requester (item owner) for every assigned line item when the order
-//     is marked ordered (skipping the requester-marks-own-order case).
+//   - `purchasesApi.setOrderStatus` persists `order_status` and, ONLY on the
+//     transition INTO "ordered", posts a `purchase_ordered` bell to the
+//     requester (item owner) for an item handed off to someone else
+//     (skipping the requester-marks-own-order case, re-affirming "ordered",
+//     and the ordered -> received step). This REPLACES the old
+//     complete-toggle-driven `notifyOrdered`.
 //
 // Mocks the file system so we can assert what landed in each user's
 // `_notifications.json` and on each purchase item file.
@@ -81,6 +85,7 @@ function seedItem(item: Partial<PurchaseItem> & { id: number; task_id: number; i
     vendor: null,
     category: null,
     assigned_to: null,
+    order_status: "needs_ordering",
     ...item,
   };
   memFs.set(`users/${owner}/purchase_items/${item.id}.json`, full);
@@ -159,54 +164,168 @@ describe("purchasesApi.assign", () => {
   });
 });
 
-describe("purchasesApi.notifyOrdered", () => {
-  it("notifies the requester for each assigned item when ordered by someone else", async () => {
-    // alex requested two items on task 5 and handed them to morgan.
-    seedItem({ id: 10, task_id: 5, item_name: "Taq polymerase", assigned_to: "morgan" });
-    seedItem({ id: 11, task_id: 5, item_name: "dNTP mix", assigned_to: "morgan" });
-    // A third item alex kept for herself (no assignee) — no bell.
-    seedItem({ id: 12, task_id: 5, item_name: "Ethanol", assigned_to: null });
+describe("purchasesApi.setOrderStatus — status round-trip", () => {
+  it("persists each stage on the item file and defaults pre-feature records", async () => {
+    // No `order_status` set on disk — read-side normalization treats it as
+    // "needs_ordering" so the transition logic sees a clean baseline.
+    seedItem({ id: 40, task_id: 8, item_name: "Falcon tubes" });
+    delete (getItem(40) as unknown as Record<string, unknown>).order_status;
 
-    // morgan marks the order ordered.
-    const result = await purchasesApi.notifyOrdered(5, {
+    const toOrdered = await purchasesApi.setOrderStatus(40, "ordered", {
+      actor: "alex",
+    });
+    expect(toOrdered.item?.order_status).toBe("ordered");
+    expect(getItem(40)?.order_status).toBe("ordered");
+
+    const toReceived = await purchasesApi.setOrderStatus(40, "received", {
+      actor: "alex",
+    });
+    expect(toReceived.item?.order_status).toBe("received");
+    expect(getItem(40)?.order_status).toBe("received");
+
+    // Revert is supported (received -> needs_ordering).
+    const back = await purchasesApi.setOrderStatus(40, "needs_ordering", {
+      actor: "alex",
+    });
+    expect(back.item?.order_status).toBe("needs_ordering");
+    expect(getItem(40)?.order_status).toBe("needs_ordering");
+  });
+
+  it("returns null without writing when the item does not exist", async () => {
+    const result = await purchasesApi.setOrderStatus(999, "ordered", {
+      actor: "alex",
+    });
+    expect(result.item).toBeNull();
+    expect(result.notified).toBe(false);
+  });
+});
+
+describe("purchasesApi.setOrderStatus — purchase_ordered bell", () => {
+  it("fires the requester bell on the needs_ordering -> ordered transition for a handed-off item", async () => {
+    // alex requested the item and handed it to morgan; morgan places it.
+    seedItem({
+      id: 10,
+      task_id: 5,
+      item_name: "Taq polymerase",
+      assigned_to: "morgan",
+      order_status: "needs_ordering",
+    });
+
+    const result = await purchasesApi.setOrderStatus(10, "ordered", {
       owner: "alex",
       actor: "morgan",
     });
 
-    expect(result.notified_count).toBe(2);
+    expect(result.notified).toBe(true);
+    expect(result.item?.order_status).toBe("ordered");
 
     const alexNotifs = getNotifs("alex");
-    expect(alexNotifs).toHaveLength(2);
-    expect(alexNotifs.every((n) => n.type === "purchase_ordered")).toBe(true);
-    expect(alexNotifs.every((n) => n.owner_username === "alex")).toBe(true);
-    expect(alexNotifs.map((n) => n.item_name).sort()).toEqual([
-      "Taq polymerase",
-      "dNTP mix",
-    ]);
+    expect(alexNotifs).toHaveLength(1);
+    expect(alexNotifs[0].type).toBe("purchase_ordered");
+    expect(alexNotifs[0].owner_username).toBe("alex");
     expect(alexNotifs[0].from_user).toBe("morgan");
+    expect(alexNotifs[0].purchase_item_id).toBe(10);
+    expect(alexNotifs[0].task_id).toBe(5);
+    expect(alexNotifs[0].item_name).toBe("Taq polymerase");
   });
 
-  it("is silent when the requester marks their own order ordered", async () => {
-    seedItem({ id: 20, task_id: 6, item_name: "Tubes", assigned_to: "morgan" });
+  it("does NOT re-fire when an already-ordered item is set to ordered again", async () => {
+    seedItem({
+      id: 11,
+      task_id: 5,
+      item_name: "dNTP mix",
+      assigned_to: "morgan",
+      order_status: "ordered",
+    });
 
-    const result = await purchasesApi.notifyOrdered(6, {
+    const result = await purchasesApi.setOrderStatus(11, "ordered", {
+      owner: "alex",
+      actor: "morgan",
+    });
+
+    expect(result.notified).toBe(false);
+    expect(getNotifs("alex")).toHaveLength(0);
+  });
+
+  it("does NOT fire on the ordered -> received transition", async () => {
+    seedItem({
+      id: 12,
+      task_id: 5,
+      item_name: "Agarose",
+      assigned_to: "morgan",
+      order_status: "ordered",
+    });
+
+    const result = await purchasesApi.setOrderStatus(12, "received", {
+      owner: "alex",
+      actor: "morgan",
+    });
+
+    expect(result.notified).toBe(false);
+    expect(getNotifs("alex")).toHaveLength(0);
+  });
+
+  it("is silent when the requester marks their own handed-off item ordered", async () => {
+    seedItem({
+      id: 20,
+      task_id: 6,
+      item_name: "Tubes",
+      assigned_to: "morgan",
+      order_status: "needs_ordering",
+    });
+
+    const result = await purchasesApi.setOrderStatus(20, "ordered", {
       owner: "alex",
       actor: "alex",
     });
 
-    expect(result.notified_count).toBe(0);
+    expect(result.notified).toBe(false);
     expect(getNotifs("alex")).toHaveLength(0);
+    // The status still persisted — only the bell is suppressed.
+    expect(getItem(20)?.order_status).toBe("ordered");
   });
 
-  it("sends no bells when no items are assigned", async () => {
-    seedItem({ id: 30, task_id: 7, item_name: "Gloves", assigned_to: null });
+  it("sends no bell for an unassigned item the requester keeps for themselves", async () => {
+    seedItem({
+      id: 30,
+      task_id: 7,
+      item_name: "Gloves",
+      assigned_to: null,
+      order_status: "needs_ordering",
+    });
 
-    const result = await purchasesApi.notifyOrdered(7, {
+    const result = await purchasesApi.setOrderStatus(30, "ordered", {
       owner: "alex",
       actor: "morgan",
     });
 
-    expect(result.notified_count).toBe(0);
+    expect(result.notified).toBe(false);
     expect(getNotifs("alex")).toHaveLength(0);
+    expect(getItem(30)?.order_status).toBe("ordered");
+  });
+
+  it("does not mint a bell for a non-lab-member requester", async () => {
+    // Item owned by "stranger" (not in discoverUsers), handed to morgan.
+    seedItem(
+      {
+        id: 31,
+        task_id: 9,
+        item_name: "Buffer",
+        assigned_to: "morgan",
+        order_status: "needs_ordering",
+      },
+      "stranger",
+    );
+
+    const result = await purchasesApi.setOrderStatus(31, "ordered", {
+      owner: "stranger",
+      actor: "morgan",
+    });
+
+    // setOrderStatus reports notified=true (it attempted the write), but the
+    // membership guard in appendPurchaseNotification drops the actual write.
+    expect(getNotifs("stranger")).toHaveLength(0);
+    expect(getItem(31, "stranger")?.order_status).toBe("ordered");
+    void result;
   });
 });
