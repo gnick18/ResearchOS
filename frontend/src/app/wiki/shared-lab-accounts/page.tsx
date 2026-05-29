@@ -14,9 +14,9 @@ export default function SharedLabAccountsPage() {
       <Callout variant="info" title="Want to feel out the shared model first?">
         Open{" "}
         <Link href="/wiki/getting-started/demo-mode">Demo Mode</Link> for a
-        no-setup preview. It seeds two researchers (alex and morgan) into one
-        shared folder, so cross-user data is already wired up for you to
-        click around in.
+        no-setup preview. It seeds two researchers (alex and morgan) plus
+        their PI (Mira) into one shared folder, so cross-user data and the
+        PI rollup are already wired up for you to click around in.
       </Callout>
 
       <h2>How it works</h2>
