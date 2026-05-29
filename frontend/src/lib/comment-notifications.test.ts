@@ -91,6 +91,25 @@ function getNotifs(username: string): NotifFile["notifications"] {
   return file?.notifications ?? [];
 }
 
+// Notifications are dispatched via fire-and-forget void promises, so a fixed
+// sleep races the async write and flakes under load (the historical
+// "comment-notifications flake"). Poll until every expected recipient has at
+// least its expected count, with a generous deadline; fall through on timeout
+// so a genuine miss still reports the real assertion diff rather than hanging.
+async function waitForNotifs(
+  expected: Record<string, number>,
+  timeoutMs = 2000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const satisfied = Object.entries(expected).every(
+      ([username, count]) => getNotifs(username).length >= count,
+    );
+    if (satisfied || Date.now() > deadline) return;
+    await new Promise((r) => setTimeout(r, 10));
+  }
+}
+
 beforeEach(() => {
   memFs.clear();
 });
@@ -103,8 +122,7 @@ describe("comment-notification dispatch", () => {
     seedSettings("mira", "lab_head");
 
     await tasksApi.addComment(1, "looks good", "alex", "morgan");
-    // Notifications are written via void promises — give them a tick.
-    await new Promise((r) => setTimeout(r, 20));
+    await waitForNotifs({ morgan: 1, mira: 1 });
 
     // Owner gets one "comment_on_owned" entry.
     const morganNotifs = getNotifs("morgan");
@@ -132,7 +150,7 @@ describe("comment-notification dispatch", () => {
     await tasksApi.addComment(2, "@morgan can you weigh in?", "alex", "alex", {
       mentions: ["morgan"],
     });
-    await new Promise((r) => setTimeout(r, 20));
+    await waitForNotifs({ morgan: 1, mira: 1 });
 
     const morganNotifs = getNotifs("morgan");
     // morgan is mentioned (and is not the owner), so type === comment_mention.
@@ -150,7 +168,7 @@ describe("comment-notification dispatch", () => {
     seedSettings("mira", "lab_head");
 
     await tasksApi.addComment(3, "self-note", "alex");
-    await new Promise((r) => setTimeout(r, 20));
+    await waitForNotifs({ mira: 1 });
 
     expect(getNotifs("alex")).toHaveLength(0);
     // mira still gets the lab-head feed entry because she's a different
