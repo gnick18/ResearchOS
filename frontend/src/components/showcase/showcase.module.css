@@ -293,10 +293,12 @@
   }
 }
 
-/* The backlight halo: the brightest part of the rig, BEHIND the bot. Sits
-   at the bot's center (50% 50% of its stage) as a warm radial bloom so he
-   is rimmed from behind and pops off the stage black. screen-blend keeps it
-   additive over the rainbow wash without graying the dark base. */
+/* The backlight halo: a warm gold RING that peaks OUTSIDE the bot's
+   silhouette, not behind his body. The center is transparent (the dark
+   pocket owns the area directly behind him), and the glow blooms around his
+   edge so it rims him rather than washing his already-light fill. Warm gold,
+   not near-white, so it contrasts with his white body. screen-blend keeps it
+   additive over the stage black without graying the dark base. */
 .spotlightBacklight {
   position: absolute;
   inset: 0;
@@ -304,11 +306,12 @@
   pointer-events: none;
   mix-blend-mode: screen;
   background: radial-gradient(
-    ellipse 260px 300px at 50% 50%,
-    rgba(255, 250, 236, 0.95) 0%,
-    rgba(255, 240, 205, 0.6) 26%,
-    rgba(231, 200, 115, 0.28) 48%,
-    rgba(11, 11, 18, 0) 72%
+    ellipse 340px 380px at 50% 50%,
+    rgba(11, 11, 18, 0) 0%,
+    rgba(255, 226, 158, 0.12) 28%,
+    rgba(255, 214, 130, 0.52) 50%,
+    rgba(244, 196, 96, 0.24) 70%,
+    rgba(11, 11, 18, 0) 90%
   );
 }
 .spotlightBacklightActive {
@@ -334,11 +337,16 @@
   inset: 0;
   z-index: 5; /* between the backlight (z4) and the bot (z6) */
   pointer-events: none;
+  /* Larger + darker than the bot (160px) so his ENTIRE silhouette sits on a
+     solid dark backing: no bright glow leaks behind his light fill, and the
+     warm ring (above) blooms only outside this dark zone. */
   background: radial-gradient(
-    ellipse 130px 165px at 50% 50%,
-    rgba(11, 11, 18, 0.55) 0%,
-    rgba(11, 11, 18, 0.32) 45%,
-    rgba(11, 11, 18, 0) 75%
+    ellipse 240px 270px at 50% 50%,
+    rgba(8, 8, 14, 0.92) 0%,
+    rgba(8, 8, 14, 0.74) 32%,
+    rgba(8, 8, 14, 0.4) 56%,
+    rgba(8, 8, 14, 0.12) 76%,
+    rgba(11, 11, 18, 0) 90%
   );
 }
 
@@ -393,8 +401,9 @@
   height: 160px;
   z-index: 6;
   filter:
-    drop-shadow(0 0 3px rgba(11, 11, 18, 0.9))
-    drop-shadow(0 0 10px rgba(11, 11, 18, 0.55));
+    drop-shadow(0 0 2px rgba(8, 8, 14, 1))
+    drop-shadow(0 0 6px rgba(8, 8, 14, 0.85))
+    drop-shadow(0 0 16px rgba(8, 8, 14, 0.5));
 }
 .botTrio {
   display: flex;
@@ -406,8 +415,9 @@
   width: 112px;
   height: 112px;
   filter:
-    drop-shadow(0 0 3px rgba(11, 11, 18, 0.9))
-    drop-shadow(0 0 10px rgba(11, 11, 18, 0.55));
+    drop-shadow(0 0 2px rgba(8, 8, 14, 1))
+    drop-shadow(0 0 6px rgba(8, 8, 14, 0.85))
+    drop-shadow(0 0 16px rgba(8, 8, 14, 0.5));
 }
 
 /* ── Emotion label (redesigned, replaces the category placard) ─────── */
