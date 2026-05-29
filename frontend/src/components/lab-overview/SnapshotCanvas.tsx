@@ -14,6 +14,7 @@ import {
   addHomeCanvasWidget,
   patchCanvasOrder,
   patchHomeCanvasOrder,
+  patchHomeWidgetConfig,
   patchWidgetConfig,
   readResolvedHomeLayout,
   readResolvedLayout,
@@ -26,9 +27,10 @@ import {
   resolveExpandedView,
   resolveToolTitle,
 } from "@/lib/lab-overview/tool-registry";
-import type {
-  LabOverviewLayout,
-  WidgetInstanceConfig,
+import {
+  isWidgetConfigEmpty,
+  type LabOverviewLayout,
+  type WidgetInstanceConfig,
 } from "@/lib/settings/user-settings";
 import type { AccountType } from "@/lib/settings/user-settings";
 import Tooltip from "@/components/Tooltip";
@@ -104,6 +106,18 @@ interface SurfaceAdapter {
   removeCanvasWidget: (username: string, id: string) => Promise<void>;
   /** Reset to default. */
   resetLayout: (username: string) => Promise<void>;
+  /**
+   * Persist a per-instance widget config to THIS surface's settings
+   * field. Project-widgets family (2026-05-29): wired for both surfaces
+   * now (canvas → `lab_overview_layout`, home → `home_layout`) so the
+   * Projects Overview My/Lab toggle persists wherever it is changed.
+   * Previously only the canvas had a config mutator.
+   */
+  patchWidgetConfig: (
+    username: string,
+    widgetId: string,
+    config: WidgetInstanceConfig | null,
+  ) => Promise<void>;
   /** Which surface key to read from `visibleCatalog` results. */
   surfaceKey: "canvas" | "home";
 }
@@ -114,6 +128,7 @@ const CANVAS_ADAPTER: SurfaceAdapter = {
   addCanvasWidget,
   removeCanvasWidget,
   resetLayout,
+  patchWidgetConfig,
   surfaceKey: "canvas",
 };
 
@@ -123,6 +138,7 @@ const HOME_ADAPTER: SurfaceAdapter = {
   addCanvasWidget: addHomeCanvasWidget,
   removeCanvasWidget: removeHomeCanvasWidget,
   resetLayout: resetHomeLayout,
+  patchWidgetConfig: patchHomeWidgetConfig,
   surfaceKey: "home",
 };
 
@@ -278,25 +294,28 @@ export default function SnapshotCanvas({
   );
 
   // Persist a per-instance config change for a placed widget (weekly-goals
-  // widget, 2026-05-29). Only wired on the /lab-overview canvas surface;
-  // the /home surface returns this as undefined to its widgets, so a
-  // single-member pin is a PI-dashboard affordance. Optimistically updates
-  // local state so the popup reflects the new mode without a re-read.
+  // widget, 2026-05-29). Project-widgets family (2026-05-29): now wired on
+  // BOTH surfaces via `adapter.patchWidgetConfig` (canvas →
+  // lab_overview_layout, home → home_layout) so the Projects Overview
+  // My/Lab toggle persists on /home too. The single-member pin
+  // (TraineeNotes) remains a PI-dashboard affordance because that widget
+  // is canvas-only. Optimistically updates local state so the popup
+  // reflects the new mode without a re-read.
   const handleConfigChange = useCallback(
     async (widgetId: string, config: WidgetInstanceConfig | null) => {
       setWidgetConfig((prev) => {
         const next = { ...prev };
-        if (!config || !config.pinnedMember) delete next[widgetId];
-        else next[widgetId] = config;
+        if (isWidgetConfigEmpty(config)) delete next[widgetId];
+        else next[widgetId] = config as WidgetInstanceConfig;
         return next;
       });
       try {
-        await patchWidgetConfig(username, widgetId, config);
+        await adapter.patchWidgetConfig(username, widgetId, config);
       } catch (err) {
         console.warn("[SnapshotCanvas] failed to persist widget config", err);
       }
     },
-    [username],
+    [username, adapter],
   );
 
   const defaultResetMsg =
@@ -589,10 +608,10 @@ export default function SnapshotCanvas({
           const Expanded = resolveExpandedView(openWidget);
           // Per-instance config (weekly-goals widget, 2026-05-29): pass the
           // placed widget's config + a persist callback to the popup body.
-          // `onConfigChange` is only wired on the /lab-overview canvas
-          // surface (the /home surface persists to a different settings
-          // field with no config mutator today), so single-member pins are
-          // a PI-dashboard affordance.
+          // Project-widgets family (2026-05-29): `onConfigChange` is now
+          // wired on BOTH surfaces (each adapter has its own
+          // `patchWidgetConfig`), so the Projects Overview My/Lab toggle
+          // persists on /home as well as /lab-overview.
           const openId = openWidget.id;
           return (
             <SnapshotTilePopup
@@ -603,11 +622,7 @@ export default function SnapshotCanvas({
                 surface="canvas"
                 isEditing={false}
                 config={widgetConfig[openId]}
-                onConfigChange={
-                  surface === "canvas"
-                    ? (cfg) => handleConfigChange(openId, cfg)
-                    : undefined
-                }
+                onConfigChange={(cfg) => handleConfigChange(openId, cfg)}
               />
             </SnapshotTilePopup>
           );

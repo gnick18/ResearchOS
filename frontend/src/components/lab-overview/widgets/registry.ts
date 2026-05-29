@@ -144,6 +144,19 @@ import WeeklyGoalsWidget, {
   SidebarTile as WeeklyGoalsSidebar,
   HELP_TEXT as WeeklyGoalsHelp,
 } from "./WeeklyGoalsWidget";
+// Project-widgets family (project-widgets, 2026-05-29): the at-a-glance
+// project grid (configurable My/Lab scope) + a single-project pin, both on
+// the current widget framework.
+import ProjectsOverviewWidget, {
+  SnapshotTile as ProjectsOverviewSnapshot,
+  SidebarTile as ProjectsOverviewSidebar,
+  HELP_TEXT as ProjectsOverviewHelp,
+} from "./ProjectsOverviewWidget";
+import SingleProjectWidget, {
+  SnapshotTile as SingleProjectSnapshot,
+  SidebarTile as SingleProjectSidebar,
+  HELP_TEXT as SingleProjectHelp,
+} from "./SingleProjectWidget";
 
 // Touch the default exports so TypeScript doesn't flag them as unused
 // imports — we intentionally import them for symmetry / side-effect
@@ -164,6 +177,8 @@ void LabPurchasesWidget;
 void CalendarEventsTodayWidget;
 void TraineeNotesWidget;
 void WeeklyGoalsWidget;
+void ProjectsOverviewWidget;
+void SingleProjectWidget;
 
 export const WIDGET_CATALOG: WidgetDefinition[] = [
   // ── Canvas widgets ───────────────────────────────────────────────────
@@ -616,6 +631,40 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     // Home palette for users who want to pin a daily-tasks card
     // directly on the canvas.
     surfaces: { sidebar: true, home: true },
+    memberVisible: true,
+  },
+
+  // ── Project widgets (project-widgets family, 2026-05-29) ─────────────
+  // Restore the at-a-glance project grid + New Project affordance PIs lost
+  // when /home was hidden for lab heads. Two widgets on the current
+  // framework; both canvas + home eligible, both member-visible.
+  {
+    id: "projects-overview",
+    toolId: "projects-overview",
+    title: "Projects overview",
+    description:
+      "Your projects at a glance with progress bars. Toggle My projects (with New Project) vs Lab projects (sharing-respecting).",
+    helpText: ProjectsOverviewHelp,
+    SnapshotTile: ProjectsOverviewSnapshot,
+    SidebarTile: ProjectsOverviewSidebar,
+    defaultLayout: { w: 6, h: 6, minW: 4, minH: 4 },
+    // canvas + home: members get it on /home (defaults to "my"); PIs get it
+    // on /lab-overview (defaults to "lab"). The default-by-surface lives in
+    // the widget; the catalog just opts both surfaces in.
+    surfaces: { canvas: true, home: true },
+    memberVisible: true,
+  },
+  {
+    id: "single-project",
+    toolId: "single-project",
+    title: "Single project",
+    description:
+      "Pin one project and track its progress + open-task count. Most useful for a PI watching a member's project.",
+    helpText: SingleProjectHelp,
+    SnapshotTile: SingleProjectSnapshot,
+    SidebarTile: SingleProjectSidebar,
+    defaultLayout: { w: 4, h: 5, minW: 3, minH: 3 },
+    surfaces: { canvas: true, home: true },
     memberVisible: true,
   },
 ];

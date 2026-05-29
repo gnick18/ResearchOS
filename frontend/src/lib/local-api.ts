@@ -5261,6 +5261,68 @@ export const labApi = {
     return projects;
   },
 
+  /**
+   * Project-widgets family (project-widgets, 2026-05-29): a
+   * sharing-aware cross-member projects read for the Projects Overview
+   * (lab mode) + Single-Project pin-picker widgets.
+   *
+   * UNLIKE `getProjects` above (which flattens every member's projects
+   * with NO sharing filter; it backs the lab search index, which has its
+   * own downstream canRead pass), this accessor carries the per-record
+   * sharing primitive fields (`owner` + `shared_with`) straight through
+   * so the WIDGET can run the unified `canRead(record, viewer)` gate, the
+   * SAME way `TraineeNotesWidget` does over `getNotes`. We deliberately do
+   * NOT pre-filter here: the precise per-viewer gate lives in the widget
+   * (it needs the live `Viewer` shape, username + account_type, which
+   * the API layer doesn't have). Returning the raw `shared_with` + owner
+   * is what makes the gate enforceable client-side.
+   *
+   * Each record is also annotated with task-derived progress
+   * (`taskTotal` / `taskCompleted` / `taskIncomplete`) computed from that
+   * owner's OWN tasks for the project (project ids are namespaced
+   * per-owner, so `t.project_id === p.id` within one owner's task list is
+   * unambiguous). Hidden + archived projects are dropped to match every
+   * other project surface (Home grid, Workbench, pickers).
+   *
+   * PRIVACY: this returns every member's project records to the client,
+   * exactly like `getNotes`. It is NOT a viewer-scoped read on its own;
+   * the caller MUST apply `canRead`. The Projects Overview + Single-
+   * Project widgets do; see their privacy contracts + tests.
+   */
+  getProjectsWithProgress: async (): Promise<ViewerVisibleProject[]> => {
+    const { usernames, metadata } = await loadLabUsers();
+    const out: ViewerVisibleProject[] = [];
+
+    for (const username of usernames) {
+      const userProjects = await projectsStore.listAllForUser(username);
+      const userColor = colorFor(metadata, username);
+      // One task read per owner; reused across all of that owner's
+      // projects so we don't re-read the file per project.
+      const ownerTasks = await tasksStore.listAllForUser(username);
+      for (const p of userProjects) {
+        if (p.is_hidden) continue;
+        if (p.is_archived) continue;
+        const owner = p.owner || username;
+        const projectTasks = ownerTasks.filter((t) => t.project_id === p.id);
+        const taskTotal = projectTasks.length;
+        const taskCompleted = projectTasks.filter((t) => t.is_complete).length;
+        out.push({
+          id: p.id,
+          name: p.name,
+          color: p.color || "#3b82f6",
+          owner,
+          shared_with: p.shared_with ?? [],
+          user_color: userColor,
+          taskTotal,
+          taskCompleted,
+          taskIncomplete: taskTotal - taskCompleted,
+        });
+      }
+    }
+
+    return out;
+  },
+
   getMethods: async (): Promise<LabMethod[]> => {
     const { usernames, metadata } = await loadLabUsers();
     const methods: LabMethod[] = [];
@@ -6629,6 +6691,32 @@ export interface LabProject {
   username: string;
   user_color: string;
   is_archived: boolean;
+}
+
+/**
+ * Project-widgets family (project-widgets, 2026-05-29): the shape
+ * returned by `labApi.getProjectsWithProgress`. UNLIKE `LabProject` it
+ * carries the unified-sharing primitive fields (`owner` + `shared_with`)
+ * so the consuming widget can run `canRead(record, viewer)` itself:
+ * the project records double as `ShareableRecord`s. Adds task-derived
+ * progress so the widget can render a progress bar + incomplete-task
+ * count without a second cross-lab tasks fetch.
+ */
+export interface ViewerVisibleProject {
+  id: number;
+  name: string;
+  color: string;
+  /** Project owner username. Used by the `canRead` gate + as the
+   *  per-owner namespace key when opening the project route. */
+  owner: string;
+  /** Raw sharing list straight off the on-disk record. Feeds the
+   *  `canRead` gate in the widget. */
+  shared_with: SharedUser[];
+  /** The owner's avatar/display color. */
+  user_color: string;
+  taskTotal: number;
+  taskCompleted: number;
+  taskIncomplete: number;
 }
 
 export interface LabMethod {

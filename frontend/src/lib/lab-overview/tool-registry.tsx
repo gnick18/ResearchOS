@@ -82,6 +82,11 @@ import { ExpandedView as TraineeNotesExpanded } from "@/components/lab-overview/
 // delete the lightweight weekly goals set in 1:1s. Distinct from the
 // Gantt goal system.
 import { ExpandedView as WeeklyGoalsExpanded } from "@/components/lab-overview/widgets/WeeklyGoalsWidget";
+// Project-widgets family (project-widgets, 2026-05-29): the Projects
+// Overview popup (My/Lab scope grid + New Project) and the Single-Project
+// pinned-status popup.
+import { ExpandedView as ProjectsOverviewExpanded } from "@/components/lab-overview/widgets/ProjectsOverviewWidget";
+import { ExpandedView as SingleProjectExpanded } from "@/components/lab-overview/widgets/SingleProjectWidget";
 
 // ── Small inline icons (no emojis, no lucide-react) ───────────────────────
 // Each tool gets a 16x16 SVG. Pulled from / mirrors the existing widget
@@ -226,6 +231,14 @@ const WEEKLY_GOALS_ICON = (
     <circle cx="12" cy="12" r="9" />
     <circle cx="12" cy="12" r="5" />
     <circle cx="12" cy="12" r="1" />
+  </svg>
+);
+
+const PROJECTS_ICON = (
+  // Folder. Mirrors FOLDER_SVG from the project widgets. Shared by both
+  // project Tools (Projects overview + Single project).
+  <svg {...ICON_PROPS}>
+    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
   </svg>
 );
 
@@ -392,6 +405,31 @@ export const TOOL_REGISTRY: ToolDefinition[] = [
     description: "Today's events across your subscribed calendars.",
     Icon: CALENDAR_ICON,
     ExpandedView: CalendarDayPopupExpanded,
+    memberVisible: true,
+  },
+  {
+    // Project-widgets family (project-widgets, 2026-05-29). The at-a-glance
+    // project grid. Member-visible: members see it on /home (My scope), PIs
+    // see it on /lab-overview (Lab scope). Lab scope is sharing-respecting
+    // (canRead gate in the widget body).
+    id: "projects-overview",
+    title: "Projects overview",
+    description:
+      "Your projects at a glance with progress bars. Toggle My vs Lab projects.",
+    Icon: PROJECTS_ICON,
+    ExpandedView: ProjectsOverviewExpanded,
+    memberVisible: true,
+  },
+  {
+    // Project-widgets family (project-widgets, 2026-05-29). Single pinned
+    // project status. Member-visible; the pin picker only lists projects
+    // the viewer can read (canRead gate).
+    id: "single-project",
+    title: "Single project",
+    description:
+      "Track one pinned project's progress and open-task count.",
+    Icon: PROJECTS_ICON,
+    ExpandedView: SingleProjectExpanded,
     memberVisible: true,
   },
 ];

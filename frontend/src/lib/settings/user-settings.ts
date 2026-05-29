@@ -78,6 +78,56 @@ export interface LabOverviewLayoutV1 {
 export interface WidgetInstanceConfig {
   /** When set, the widget is pinned to this one member's username. */
   pinnedMember?: string;
+  /**
+   * Project-widgets family (project-widgets, 2026-05-29). PERSISTED-
+   * LAYOUT-SHAPE CHANGE: additive + optional.
+   *
+   * The Projects Overview widget's scope toggle. `"my"` = the viewer's
+   * own projects; `"lab"` = all members' projects the viewer can see
+   * (sharing-respecting). UNSET = the widget's default-by-surface
+   * (`"lab"` on the lab-overview canvas, `"my"` on /home). Persisting it
+   * lets a PI flip a home instance to lab scope, or a member flip a
+   * canvas instance to their own projects, and have it stick.
+   */
+  projectScope?: "my" | "lab";
+  /**
+   * Project-widgets family (project-widgets, 2026-05-29). PERSISTED-
+   * LAYOUT-SHAPE CHANGE: additive + optional.
+   *
+   * The Single-Project widget's pinned target. Carries BOTH the project
+   * id AND its owner because project ids are namespaced per-owner (a PI's
+   * own project 5 and a trainee's project 5 are distinct records). Unset
+   * = the widget shows its empty "pick a project" state. Mirrors
+   * `pinnedMember` as a single-target pin, but for a project instead of a
+   * member.
+   */
+  pinnedProject?: { id: number; owner: string };
+}
+
+/**
+ * Project-widgets family (project-widgets, 2026-05-29): is this
+ * per-instance config "empty", i.e. carries no meaningful field, so the
+ * persistence layer should DROP the entry and let the widget fall back to
+ * its default mode?
+ *
+ * Before this helper, the canvas + persistence layers special-cased the
+ * single `pinnedMember` field ("empty iff no pinnedMember"). With more
+ * config fields (`projectScope`, `pinnedProject`) that test would wrongly
+ * discard a `{ projectScope: "lab" }` config. This is the single source
+ * of truth: a config is empty iff EVERY known field is unset/blank.
+ */
+export function isWidgetConfigEmpty(
+  config: WidgetInstanceConfig | null | undefined,
+): boolean {
+  if (!config) return true;
+  const hasMember =
+    config.pinnedMember !== undefined && config.pinnedMember !== "";
+  const hasScope = config.projectScope !== undefined;
+  const hasProject =
+    config.pinnedProject !== undefined &&
+    config.pinnedProject !== null &&
+    typeof config.pinnedProject.id === "number";
+  return !hasMember && !hasScope && !hasProject;
 }
 
 /** Current v2 ordered-list shape. Written by every Phase A mutator. */

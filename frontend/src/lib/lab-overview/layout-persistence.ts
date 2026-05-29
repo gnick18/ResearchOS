@@ -32,11 +32,13 @@
  * See proposal §3 (snapshot canvas) and §3g (vertical sidebar).
  */
 import {
+  isWidgetConfigEmpty,
   patchUserSettings,
   readUserSettings,
   type AccountType,
   type LabOverviewLayout,
   type LabOverviewLayoutV1,
+  type WidgetInstanceConfig,
 } from "@/lib/settings/user-settings";
 import {
   widgetHasSurface,
@@ -343,26 +345,68 @@ export async function patchCanvasOrder(
 export async function patchWidgetConfig(
   username: string,
   widgetId: string,
-  config: import("@/lib/settings/user-settings").WidgetInstanceConfig | null,
+  config: WidgetInstanceConfig | null,
 ): Promise<void> {
   const current = await readUserSettings(username);
   const existing =
     migrateLayoutToV2(current.lab_overview_layout) ??
     defaultLayoutFor(current.account_type);
-  const nextConfig: Record<
-    string,
-    import("@/lib/settings/user-settings").WidgetInstanceConfig
-  > = { ...(existing.widgetConfig ?? {}) };
-  // A null/empty config (no meaningful fields) clears the entry.
-  const isEmpty =
-    !config || (config.pinnedMember === undefined || config.pinnedMember === "");
-  if (isEmpty) {
+  const nextConfig: Record<string, WidgetInstanceConfig> = {
+    ...(existing.widgetConfig ?? {}),
+  };
+  // A null/empty config (no meaningful fields) clears the entry. Project-
+  // widgets family (2026-05-29): generalized past the original
+  // pinnedMember-only test so `{ projectScope }` / `{ pinnedProject }`
+  // configs persist instead of being discarded.
+  if (isWidgetConfigEmpty(config)) {
     delete nextConfig[widgetId];
   } else {
-    nextConfig[widgetId] = config;
+    nextConfig[widgetId] = config as WidgetInstanceConfig;
   }
   await patchUserSettings(username, {
     lab_overview_layout: {
+      version: LAB_OVERVIEW_LAYOUT_VERSION,
+      widgetOrder: existing.widgetOrder,
+      ...(Object.keys(nextConfig).length > 0
+        ? { widgetConfig: nextConfig }
+        : {}),
+    },
+  });
+}
+
+/**
+ * Project-widgets family (project-widgets, 2026-05-29): the /home-surface
+ * variant of `patchWidgetConfig`. Writes to `home_layout` instead of
+ * `lab_overview_layout` so a per-instance config edited on the Home
+ * canvas (e.g. the Projects Overview My/Lab toggle) persists to the
+ * surface it was changed on.
+ *
+ * Preserves `widgetOrder` (both canvas + sidebar). Note the sibling home
+ * order mutators (`patchHomeCanvasOrder` etc.) currently DROP
+ * `widgetConfig`; this mutator is the one place home config is written,
+ * and it keeps the order intact, so a config change does not clobber the
+ * order. (The order mutators dropping config on reorder is a pre-existing
+ * home-surface gap, out of scope here.)
+ */
+export async function patchHomeWidgetConfig(
+  username: string,
+  widgetId: string,
+  config: WidgetInstanceConfig | null,
+): Promise<void> {
+  const current = await readUserSettings(username);
+  const existing =
+    migrateLayoutToV2(current.home_layout) ??
+    defaultHomeLayoutFor(current.account_type);
+  const nextConfig: Record<string, WidgetInstanceConfig> = {
+    ...(existing.widgetConfig ?? {}),
+  };
+  if (isWidgetConfigEmpty(config)) {
+    delete nextConfig[widgetId];
+  } else {
+    nextConfig[widgetId] = config as WidgetInstanceConfig;
+  }
+  await patchUserSettings(username, {
+    home_layout: {
       version: LAB_OVERVIEW_LAYOUT_VERSION,
       widgetOrder: existing.widgetOrder,
       ...(Object.keys(nextConfig).length > 0
