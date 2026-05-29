@@ -21,18 +21,17 @@ export function useCenteredActive(count: number): {
   registerRef: (index: number) => (el: HTMLElement | null) => void;
 } {
   const [activeIndex, setActiveIndex] = useState(0);
-  const elementsRef = useRef<(HTMLElement | null)[]>([]);
-
-  // Keep the registry sized to `count`.
-  if (elementsRef.current.length !== count) {
-    elementsRef.current = Array.from(
-      { length: count },
-      (_, i) => elementsRef.current[i] ?? null,
-    );
-  }
+  // Sparse registry of element refs by index. Never sized or read during
+  // render (only mutated in the ref callback + read inside the effect),
+  // so it never triggers the refs-during-render lint rule.
+  const elementsRef = useRef<Map<number, HTMLElement | null>>(new Map());
 
   const registerRef = (index: number) => (el: HTMLElement | null) => {
-    elementsRef.current[index] = el;
+    if (el) {
+      elementsRef.current.set(index, el);
+    } else {
+      elementsRef.current.delete(index);
+    }
   };
 
   useEffect(() => {
@@ -43,12 +42,14 @@ export function useCenteredActive(count: number): {
     // winner whenever any of them crosses a threshold.
     const ratios = new Map<Element, number>();
 
+    const registry = elementsRef.current;
+
     const recomputeWinner = () => {
       const viewportCenter = window.innerHeight / 2;
       let best = -1;
       let bestRatio = -1;
       let bestCenterDist = Number.POSITIVE_INFINITY;
-      elementsRef.current.forEach((el, i) => {
+      registry.forEach((el, i) => {
         if (!el) return;
         const ratio = ratios.get(el) ?? 0;
         if (ratio < 0.6) return; // must be comfortably centered
@@ -83,13 +84,9 @@ export function useCenteredActive(count: number): {
       },
     );
 
-    const observed: Element[] = [];
-    for (const el of elementsRef.current) {
-      if (el) {
-        observer.observe(el);
-        observed.push(el);
-      }
-    }
+    registry.forEach((el) => {
+      if (el) observer.observe(el);
+    });
 
     return () => {
       observer.disconnect();

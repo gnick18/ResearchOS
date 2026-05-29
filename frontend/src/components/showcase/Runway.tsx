@@ -16,7 +16,7 @@
 // Scroll order: hero is rendered by the parent; this component renders
 // [interstitial, ...looks] per collection, weaving the pointing trio in.
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import BeakerBot from "../BeakerBot";
 import CategoryPlacard from "./CategoryPlacard";
 import { Spotlight, Flashbulbs } from "./StageChrome";
@@ -26,7 +26,6 @@ import {
   SHOWCASE_LOOKS,
   POINTING_TRIO,
   type RunwayLookData,
-  type ShowcaseCollectionId,
 } from "./showcase-data";
 import styles from "./showcase.module.css";
 
@@ -68,13 +67,14 @@ export default function Runway() {
   const [frames] = useState<RunwayFrame[]>(() => buildFrames());
   const { activeIndex, registerRef } = useCenteredActive(frames.length);
 
-  // Per-look flash flurry: bump a fire key whenever the active look
-  // changes (look entry) so the flashbulbs re-mount + pop. Also bump on
-  // click of the active look frame.
-  const [flashKey, setFlashKey] = useState(0);
-  useEffect(() => {
-    setFlashKey((k) => k + 1);
-  }, [activeIndex]);
+  // Per-look flash flurry. The fire key is derived from the active look
+  // index plus a click counter so the flashbulbs re-mount + pop on look
+  // entry (new activeIndex) AND on click of the active look frame
+  // (clickBump), without any setState-in-effect cascade.
+  const [clickBump, setClickBump] = useState(0);
+  // A monotonic-ish fire key: changing activeIndex OR clickBump yields a
+  // new value, re-mounting the Flashbulbs and replaying the pop.
+  const flashKey = (activeIndex + 1) * 1000 + clickBump;
 
   return (
     <div className={styles.runwayScroll}>
@@ -105,7 +105,7 @@ export default function Runway() {
               data-testid="showcase-look"
               data-active={active ? "true" : "false"}
               data-look="pointing-trio"
-              onClick={() => active && setFlashKey((k) => k + 1)}
+              onClick={() => active && setClickBump((k) => k + 1)}
             >
               <Spotlight active={active} />
               {active && <Flashbulbs fireKey={flashKey} />}
@@ -138,7 +138,7 @@ export default function Runway() {
             data-testid="showcase-look"
             data-active={active ? "true" : "false"}
             data-look={data.pose}
-            onClick={() => active && setFlashKey((k) => k + 1)}
+            onClick={() => active && setClickBump((k) => k + 1)}
           >
             <Spotlight active={active} />
             {active && <Flashbulbs fireKey={flashKey} />}
