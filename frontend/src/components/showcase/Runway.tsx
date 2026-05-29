@@ -26,7 +26,7 @@
 import { useState } from "react";
 import BeakerBot from "../BeakerBot";
 import EmotionLabel from "./EmotionLabel";
-import { Spotlight, Flashbulbs } from "./StageChrome";
+import { Spotlight, StageBacklightRig, Flashbulbs } from "./StageChrome";
 import { useRunwayAutoplay } from "./useRunwayAutoplay";
 import { SHOWCASE_FRAMES } from "./showcase-data";
 import styles from "./showcase.module.css";
@@ -54,7 +54,13 @@ export default function Runway() {
       aria-label="BeakerBot runway show"
       onClick={() => setClickBump((k) => k + 1)}
     >
+      {/* Overhead beam ambiance (hot white up high, not over the bot). */}
       <Spotlight active />
+      {/* The anti-wash backlight rig: the brightest glow sits BEHIND the
+          bot (halo) with a dark contrast pocket on his silhouette, so he is
+          lit + rimmed but never washed (Change 1). Rendered before the
+          stage so it stacks below the bot (z4/z5 < the bot's z6). */}
+      <StageBacklightRig active />
       {/* The flash flurry re-mounts (new key) on every look change and on
           click, replaying the pop. */}
       <Flashbulbs fireKey={flashKey} />

@@ -190,14 +190,50 @@ export function Catwalk() {
   );
 }
 
-/* ── Spotlight (R3.6) ──────────────────────────────────────────────── */
+/* ── Spotlight (R3.6, re-architected: backlight not frontal) ────────── */
 
+/** The overhead theatrical beam ONLY (ambiance). Its hot white sits up
+ *  high above the bot's head and fades to dark before it reaches his body,
+ *  so it cannot wash him out. Used by the persistent backdrop. */
 export function Spotlight({ active }: { active: boolean }) {
   return (
     <div
       className={`${styles.spotlight} ${active ? styles.spotlightActive : ""}`}
       aria-hidden="true"
     />
+  );
+}
+
+/** The brightest part of the rig, placed BEHIND the bot as a warm radial
+ *  halo (Change 1 anti-wash core). Render this just below the bot in the
+ *  same stage column so the bot is rimmed/backlit, never washed. */
+export function SpotlightBacklight({ active }: { active: boolean }) {
+  return (
+    <div
+      className={`${styles.spotlightBacklight} ${
+        active ? styles.spotlightBacklightActive : ""
+      }`}
+      aria-hidden="true"
+    />
+  );
+}
+
+/** A soft dark vignette directly behind the bot's silhouette so the bright
+ *  halo ring sits AROUND him and his edges separate from the glow. Render
+ *  between the backlight and the bot. */
+export function SpotlightPocket() {
+  return <div className={styles.spotlightPocket} aria-hidden="true" />;
+}
+
+/** Convenience: the full anti-wash backlight rig (halo + contrast pocket)
+ *  that sits BEHIND the bot. Drop this in a stage column right before the
+ *  bot mark; the overhead beam ambiance comes from <Spotlight> separately. */
+export function StageBacklightRig({ active }: { active: boolean }) {
+  return (
+    <>
+      <SpotlightBacklight active={active} />
+      <SpotlightPocket />
+    </>
   );
 }
 

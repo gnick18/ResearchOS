@@ -240,20 +240,39 @@
   }
 }
 
-/* ── Tracking spotlight (R3.6) ─────────────────────────────────────── */
+/* ── Tracking spotlight (R3.6, re-architected: backlight not frontal) ── */
 
+/* Anti-wash principle (Grant): BeakerBot stands IN FRONT OF the light, lit
+   but not washed. His light/white/rainbow body used to dissolve into a hot
+   frontal beam. So the spotlight is now THREE layered pieces, two of which
+   sit BEHIND the bot:
+     1. .spotlight       the theatrical beam from above (ambiance only). Its
+                         hot white now lives UP HIGH (above the bot's head),
+                         not over his body, and the screen-blend is softened
+                         so it cannot blow out his fill.
+     2. .spotlightBacklight  a bright radial HALO placed behind the bot
+                         (lower z than the bot). This is the brightest part
+                         of the whole rig, and it rims/separates his
+                         silhouette from the dark stage.
+     3. .spotlightPocket a subtle DARKER contrast pocket directly behind the
+                         silhouette so his blue outline reads crisp against
+                         the glow rather than melting into it.
+   The bot itself renders ON TOP of all three (z-index 6), fully saturated. */
 .spotlight {
   position: absolute;
   inset: 0;
   z-index: 2;
   pointer-events: none;
   mix-blend-mode: screen;
+  /* Hot white pushed UP to 22% (above the bot's head) and dimmed; the beam
+     reads as a shaft from the rig overhead, fading to dark before it
+     reaches the bot's body so it no longer washes him out. */
   background: radial-gradient(
-    ellipse 320px 420px at 50% 38%,
-    rgba(255, 248, 230, 0.92) 0%,
-    rgba(255, 244, 214, 0.45) 28%,
-    rgba(20, 18, 30, 0.78) 62%,
-    rgba(11, 11, 18, 0.96) 100%
+    ellipse 300px 360px at 50% 22%,
+    rgba(255, 248, 230, 0.55) 0%,
+    rgba(255, 244, 214, 0.22) 30%,
+    rgba(20, 18, 30, 0.55) 58%,
+    rgba(11, 11, 18, 0.85) 100%
   );
 }
 .spotlightActive {
@@ -272,6 +291,55 @@
     opacity: 1;
     transform: translateX(0);
   }
+}
+
+/* The backlight halo: the brightest part of the rig, BEHIND the bot. Sits
+   at the bot's center (50% 50% of its stage) as a warm radial bloom so he
+   is rimmed from behind and pops off the stage black. screen-blend keeps it
+   additive over the rainbow wash without graying the dark base. */
+.spotlightBacklight {
+  position: absolute;
+  inset: 0;
+  z-index: 4; /* behind the bot (z6), in front of the beam (z2) */
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background: radial-gradient(
+    ellipse 260px 300px at 50% 50%,
+    rgba(255, 250, 236, 0.95) 0%,
+    rgba(255, 240, 205, 0.6) 26%,
+    rgba(231, 200, 115, 0.28) 48%,
+    rgba(11, 11, 18, 0) 72%
+  );
+}
+.spotlightBacklightActive {
+  animation: backlightWarmUp 700ms ease-out both;
+}
+@keyframes backlightWarmUp {
+  0% {
+    opacity: 0.3;
+    transform: scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* The contrast pocket: a soft dark vignette directly behind the silhouette
+   so the brightest halo ring sits AROUND the bot, not over him, and his
+   edges separate. Rendered just under the backlight (multiply, not screen,
+   so it actually darkens). */
+.spotlightPocket {
+  position: absolute;
+  inset: 0;
+  z-index: 5; /* between the backlight (z4) and the bot (z6) */
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 130px 165px at 50% 50%,
+    rgba(11, 11, 18, 0.55) 0%,
+    rgba(11, 11, 18, 0.32) 45%,
+    rgba(11, 11, 18, 0) 75%
+  );
 }
 
 /* ── Runway auto-show (redesigned) ─────────────────────────────────── */
@@ -312,11 +380,18 @@
   }
 }
 
-/* The bot, centered on stage. */
+/* The bot, centered on stage. He renders ON TOP of the backlight halo +
+   contrast pocket (z6 > z5 > z4) so he is lit but never washed. The dark
+   drop-shadow rim is the anti-wash safety net: it draws a thin dark
+   separation around his silhouette so his blue outline + rainbow liquid
+   stay crisp even where the bright halo presses against his edges. */
 .botMark {
   width: 160px;
   height: 160px;
   z-index: 6;
+  filter:
+    drop-shadow(0 0 3px rgba(11, 11, 18, 0.9))
+    drop-shadow(0 0 10px rgba(11, 11, 18, 0.55));
 }
 .botTrio {
   display: flex;
@@ -327,6 +402,9 @@
 .botTrioItem {
   width: 112px;
   height: 112px;
+  filter:
+    drop-shadow(0 0 3px rgba(11, 11, 18, 0.9))
+    drop-shadow(0 0 10px rgba(11, 11, 18, 0.55));
 }
 
 /* ── Emotion label (redesigned, replaces the category placard) ─────── */
@@ -975,6 +1053,12 @@
   }
   .spotlight,
   .spotlightActive {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .spotlightBacklight,
+  .spotlightBacklightActive {
     animation: none;
     opacity: 1;
     transform: none;
