@@ -42,6 +42,9 @@ import { rebaseDemoDates, isDemoLab } from "../demo/rebase";
  *  PNGs that aren't markdown-referenced (e.g. the Telegram inbox photo). */
 const DEMO_PNG_PATHS = [
   "users/alex/inbox/Images/photo-2026-05-12.png",
+  "users/alex/inbox/Images/photo-2026-05-13a.png",
+  "users/alex/inbox/Images/photo-2026-05-13b.png",
+  "users/alex/inbox/Images/photo-2026-05-13c.png",
 ];
 
 /** Markdown method bodies. The JSON fixtures point at these via `source_path`
@@ -62,52 +65,18 @@ const DEMO_METHOD_MD_PATHS = [
   "users/morgan/methods/2.md",
 ];
 
-/** JSON sidecars that live alongside the inbox PNG (caption / sender /
- *  timestamp). Loaded into the `files` map so the inbox panel renders
- *  the metadata next to each card. */
+/** JSON sidecars that live alongside the inbox PNGs (caption / sender /
+ *  timestamp). Loaded into the `files` map so the inbox panel renders the
+ *  metadata next to each card. One per inbox photo above — each is a real
+ *  on-disk file written by `scripts/generate-demo-images.mjs`, so the four
+ *  inbox rows show four distinct images (bench notes, patch plate, gel,
+ *  microscope) with their own captions + timestamps. (No more reusing a
+ *  single PNG for every row — fixed 2026-05-29.) */
 const DEMO_JSON_SIDECAR_PATHS = [
   "users/alex/inbox/Images/photo-2026-05-12.png.json",
-];
-
-/** Extra inbox rows seeded for the multi-select capture
- *  (`telegram-inbox-multiselect.png`). The PNG bytes are reused from the
- *  existing `photo-2026-05-12.png` entry above so we don't have to ship
- *  more binary fixtures — what the capture needs is three+ visible rows
- *  with distinct captions and timestamps, not three unique images.
- *  Sidecars are inlined here (not loaded from `/demo-data/`) because there
- *  is no on-disk counterpart for these alias rows. */
-const INBOX_ALIAS_SOURCE = "users/alex/inbox/Images/photo-2026-05-12.png";
-const INBOX_ALIAS_ROWS: Array<{ name: string; sidecar: Record<string, unknown> }> = [
-  {
-    name: "photo-2026-05-13a.png",
-    sidecar: {
-      caption: "Patch plate from this morning (SD-Ura, 48 h).",
-      sender: "alex",
-      receivedAt: "2026-05-13T09:14:00Z",
-      source: "telegram",
-      is_demo: true,
-    },
-  },
-  {
-    name: "photo-2026-05-13b.png",
-    sidecar: {
-      caption: "Gel image, PCR screen of the 16 transformants.",
-      sender: "alex",
-      receivedAt: "2026-05-13T11:42:00Z",
-      source: "telegram",
-      is_demo: true,
-    },
-  },
-  {
-    name: "photo-2026-05-13c.png",
-    sidecar: {
-      caption: "Notebook page, picks for sequencing tomorrow.",
-      sender: "alex",
-      receivedAt: "2026-05-13T15:08:00Z",
-      source: "telegram",
-      is_demo: true,
-    },
-  },
+  "users/alex/inbox/Images/photo-2026-05-13a.png.json",
+  "users/alex/inbox/Images/photo-2026-05-13b.png.json",
+  "users/alex/inbox/Images/photo-2026-05-13c.png.json",
 ];
 
 /** Demo users whose `users/<user>/results/task-<n>/notes.md` +
@@ -721,28 +690,9 @@ export async function installWikiCaptureFixture(
     }),
   );
 
-  // Seed extra inbox rows for the multi-select screenshot. Each alias
-  // reuses the source PNG's bytes (so the thumbnails render) and pairs
-  // it with an inline sidecar (caption + timestamp) so the rows look
-  // like distinct uploads in the Inbox panel.
-  {
-    const sourceBlob = blobs.get(normalizePath(INBOX_ALIAS_SOURCE));
-    if (sourceBlob) {
-      const inboxDir = "users/alex/inbox/Images";
-      for (const { name, sidecar } of INBOX_ALIAS_ROWS) {
-        const pngKey = normalizePath(`${inboxDir}/${name}`);
-        const jsonKey = normalizePath(`${inboxDir}/${name}.json`);
-        blobs.set(pngKey, sourceBlob);
-        files.set(jsonKey, sidecar);
-        addParentDirs(pngKey, dirs);
-        addParentDirs(jsonKey, dirs);
-      }
-    } else {
-      console.warn(
-        `[wiki-capture-mock] Inbox alias seed skipped: source PNG ${INBOX_ALIAS_SOURCE} not loaded.`,
-      );
-    }
-  }
+  // (The four inbox rows are now four real on-disk photos fetched via
+  // DEMO_PNG_PATHS + DEMO_JSON_SIDECAR_PATHS above, so there is no alias
+  // cloning to do here anymore.)
 
   // Pull the on-disk experiment writeups + their inline images for each
   // demo user. Two-phase per user:

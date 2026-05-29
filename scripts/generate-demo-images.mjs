@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Generates the 10 fake PNG images that ship with the Demo Lab.
+ * Generates the fake PNG images that ship with the Demo Lab.
  *
  * Every image carries a visible "FAKE DEMO" watermark so there is zero risk
  * a viewer mistakes it for real data. Watermarks are placed bottom-center
@@ -11,7 +11,8 @@
  *   - 2 growth curves (OD600 vs time, heat-shock survival bar plot)
  *   - 2 96-well fluorescence plates (plate heat-maps)
  *   - 2 colony / patch plates (random circular colonies)
- *   - 1 Telegram-styled bench photo (plus its sidecar .json)
+ *   - 4 Telegram inbox photos (bench notes, patch plate, gel, microscope
+ *     field) each with its sidecar .json
  *
  * Run: `node scripts/generate-demo-images.mjs` (requires @napi-rs/canvas
  * which is installed as a devDependency in frontend/).
@@ -606,6 +607,104 @@ function drawBenchPhoto({ title = "Bench photo (demo)", seed = 5 } = {}) {
     ctx.arc(W * 0.82 + rng() * 60, H * 0.18 + rng() * 60, 14 + rng() * 12, 0, Math.PI * 2);
     ctx.fill();
   }
+
+  watermark(ctx, W, H, "FAKE — AI-styled demo photo");
+  return canvas;
+}
+
+// ─── Microscope field (phone-down-the-eyepiece style) ────────────────────────
+
+function drawMicroscopeField({ title = "Microscope field (demo)", seed = 12 } = {}) {
+  const W = 900;
+  const H = 1200;
+  const canvas = createCanvas(W, H);
+  const ctx = canvas.getContext("2d");
+  const rng = makeRng(seed);
+
+  // Black surround: what a phone sees pointed down the eyepiece.
+  ctx.fillStyle = "#0b0d0f";
+  ctx.fillRect(0, 0, W, H);
+
+  const cx = W / 2;
+  const cy = H / 2 - 30;
+  const R = 380;
+
+  // Clip everything to the circular field of view.
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.clip();
+
+  // Bright-field illumination, slightly uneven (off-center light).
+  const bg = ctx.createRadialGradient(cx - 70, cy - 70, 30, cx, cy, R);
+  bg.addColorStop(0, "#fbfdff");
+  bg.addColorStop(1, "#c6d3dc");
+  ctx.fillStyle = bg;
+  ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
+
+  // Out-of-focus debris in the background plane.
+  for (let i = 0; i < 14; i++) {
+    ctx.fillStyle = `rgba(120, 140, 160, ${0.1 + rng() * 0.1})`;
+    ctx.beginPath();
+    ctx.arc(
+      cx + (rng() * 2 - 1) * R * 0.85,
+      cy + (rng() * 2 - 1) * R * 0.85,
+      18 + rng() * 34,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+  }
+
+  // Budding yeast cells: oval bodies, roughly half with a smaller bud.
+  const n = 64;
+  for (let i = 0; i < n; i++) {
+    const a = rng() * Math.PI * 2;
+    const rad = Math.sqrt(rng()) * (R - 36);
+    const x = cx + Math.cos(a) * rad;
+    const y = cy + Math.sin(a) * rad;
+    const r = 9 + rng() * 8;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rng() * Math.PI);
+    ctx.fillStyle = `rgba(176, 196, 210, ${0.55 + rng() * 0.25})`;
+    ctx.strokeStyle = "rgba(64, 86, 104, 0.6)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, r, r * 0.78, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    if (rng() > 0.5) {
+      const br = r * 0.55;
+      ctx.beginPath();
+      ctx.ellipse(r * 0.9, -r * 0.3, br, br * 0.85, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  ctx.restore(); // release the circular clip
+
+  // Soft vignette so the field edge falls off into the black surround.
+  const vg = ctx.createRadialGradient(cx, cy, R - 70, cx, cy, R);
+  vg.addColorStop(0, "rgba(0,0,0,0)");
+  vg.addColorStop(1, "rgba(0,0,0,0.6)");
+  ctx.fillStyle = vg;
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Scale bar inside the field.
+  ctx.fillStyle = "rgba(20,30,40,0.9)";
+  ctx.fillRect(cx - 90, cy + R - 56, 100, 8);
+  ctx.font = "bold 18px sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("20 µm", cx - 90, cy + R - 66);
+
+  // Magnification / strain label on the black, phone-photo style.
+  ctx.fillStyle = "rgba(255,255,255,0.72)";
+  ctx.font = "bold 22px sans-serif";
+  ctx.fillText("40x   FakeYeast-001", 40, 56);
 
   watermark(ctx, W, H, "FAKE — AI-styled demo photo");
   return canvas;
@@ -1288,23 +1387,64 @@ generated.push(save(drawColonyPlate({ title: "Patch plate (8 candidate transform
 // Pilot transformation plate: a strain-choice pilot, more colonies than usual
 generated.push(save(drawColonyPlate({ title: "Pilot transformation — strain choice (SD-Ura)", seed: 7, colonies: 75 }), "users/alex/results/task-17/Images/pilot-transformation-plate.png"));
 
-// Telegram inbox bench photo (1)
-const benchPath = save(drawBenchPhoto({ seed: 5 }), "users/alex/inbox/Images/photo-2026-05-12.png");
-generated.push(benchPath);
-
-// Sidecar JSON for the inbox photo
-const sidecar = {
-  caption: "Demo bench notes from 2026-05-12 — pYES transformation summary.",
-  sender: "alex",
-  received_at: "2026-05-12T16:42:00Z",
-  source: "telegram-bot-demo",
-  is_demo: true,
-};
-fs.writeFileSync(
-  path.join(DEMO_DIR, "users/alex/inbox/Images/photo-2026-05-12.png.json"),
-  JSON.stringify(sidecar, null, 2) + "\n",
-  "utf8",
-);
+// ─── Telegram inbox: four DISTINCT bench photos + sidecars ──────────────────
+// The kinds of snapshot a researcher actually fires off from their phone:
+// handwritten bench notes, an agar patch plate, an agarose gel, and a field
+// down the microscope. Each gets a sidecar with `receivedAt` (camelCase — the
+// field InboxPanel renders) so every row shows a timestamp. `source:
+// "telegram"` matches the ImageSidecar union.
+const inboxPhotos = [
+  {
+    name: "photo-2026-05-12.png",
+    canvas: drawBenchPhoto({ seed: 5 }),
+    caption: "Demo bench notes from 2026-05-12 — pYES transformation summary.",
+    receivedAt: "2026-05-12T16:42:00Z",
+  },
+  {
+    name: "photo-2026-05-13a.png",
+    canvas: drawColonyPlate({
+      title: "Patch plate (SD-Ura, 48 h)",
+      seed: 23,
+      colonies: 10,
+    }),
+    caption: "Patch plate from this morning (SD-Ura, 48 h).",
+    receivedAt: "2026-05-13T09:14:00Z",
+  },
+  {
+    name: "photo-2026-05-13b.png",
+    canvas: drawGel({
+      lanes: 12,
+      hits: [2, 3, 6, 7, 9, 10],
+      title: "Colony PCR — DemoCheck primers",
+      seed: 64,
+      ladder: true,
+    }),
+    caption: "Gel image, PCR screen of the 16 transformants.",
+    receivedAt: "2026-05-13T11:42:00Z",
+  },
+  {
+    name: "photo-2026-05-13c.png",
+    canvas: drawMicroscopeField({ seed: 12 }),
+    caption: "FakeYeast under the scope — budding nicely at 40x.",
+    receivedAt: "2026-05-13T15:08:00Z",
+  },
+];
+for (const photo of inboxPhotos) {
+  const rel = `users/alex/inbox/Images/${photo.name}`;
+  generated.push(save(photo.canvas, rel));
+  const sidecar = {
+    caption: photo.caption,
+    sender: "alex",
+    receivedAt: photo.receivedAt,
+    source: "telegram",
+    is_demo: true,
+  };
+  fs.writeFileSync(
+    path.join(DEMO_DIR, `${rel}.json`),
+    JSON.stringify(sidecar, null, 2) + "\n",
+    "utf8",
+  );
+}
 
 console.log(`Generated ${generated.length} PNG images:`);
 for (const p of generated) {
