@@ -786,3 +786,498 @@ The R1 §8 questions are mostly settled by the dispatch brief. These are new, ra
 ---
 
 *R2 sketches are illustrative. No routes, scene props, or components were built. The drag-stage direction and new scenes are design proposals; hand-off to implementation chips happens after Grant locks the R2.9 questions. Authored by the showcase-drag-stage sub-bot per orchestrator manager dispatch.*
+
+---
+---
+
+# Visual Design (R3): Build-Ready Spec + Category Menu
+
+**Author:** showcase-spec sub-bot (dispatched by orchestrator manager)
+**Date:** 2026-05-29
+**Status:** Build-ready spec. Builds on R1 (concept) and R2 (the Drag Main Stage visual direction). Still doc-only: no routes, no scene props, no components built. Every snippet below is illustrative and lives inside this doc. The goal of R3 is that a build sub-bot can scaffold the showcase with zero further design decisions left to make.
+
+## R3.0 What Grant locked after R2, folded in here
+
+Grant reviewed R2 and locked three more decisions. R3 bakes them in:
+
+1. **Dark stage-black takeover EVERYWHERE, including the public `/demo`.** No light "matinee" variant. R2.9 question 5 is answered: the dramatic dark house IS the experience in both the app and the demo. So this spec does not carry a light variant. The one thing it does address is the transition INTO the dark takeover so it does not jar against the light demo chrome: the Curtain Reveal dim handles it (R3.9), dimming the page to stage-black from the edges inward before the curtains ever move, so the light demo never hard-cuts to black.
+2. **Category names come from a fuller menu.** R2.9 question 1 floated five collection-level lines. Grant wants to pick from a wider set, and he wants per-pose category names (not just per-collection), so R3.1 drafts a wide menu: 2 to 4 candidate "THE CATEGORY IS..." names per pose across all 21 poses, in tasteful drag-show voice crossed with lab and science wordplay. A single starred favorite per pose gives Grant a default if he wants to rubber-stamp, but nothing is finalized to one each. He picks.
+3. **One more pass to a build-ready spec.** Every visual from R2 is made concrete enough to implement: exact dimensions, exact keyframes, exact gradient values, the component breakdown with props contracts. R3.2 through R3.11 do this. The R2 collection-level lines are retired in favor of the per-pose menu in R3.1; collection interstitials now draw their header from whichever per-pose names Grant picks (see R3.1's note on collection headers).
+
+Where R3 and R2 conflict, R3 wins, because R3 is the version that ships. Where R3 is silent, R2 (and under it R1) stands.
+
+## R3.1 The Category Menu (THE CATEGORY IS...)
+
+The runway is BeakerBot's drag main stage and every look gets a "THE CATEGORY IS..." card. R2 framed those at the collection level. R3 moves them to the **per-pose** level so each of the 21 looks gets its own announced category, with the five R2 collections (R1 section 6, reused verbatim) as the grouping scaffold.
+
+**Voice rules (non-negotiable, from the dispatch brief and R2's tone section):**
+
+- RuPaul's-Drag-Race runway-category cadence: "THE CATEGORY IS... Executive Realness", "Eleganza Extravaganza", "Night of 1000...". Celebratory, clever, confident.
+- Crossed with lab and science wordplay (eleganza meets the electron microscope).
+- Always loving, never mocking, never a stereotype, never a punchline at drag's expense. The bar from R2: would this read as warmth and respect, or as mockery? Only the first kind is in the menu.
+- No emojis. No em-dashes.
+
+**How to read the menu:** each pose lists 2 to 4 candidate category names. The starred (`*`) one is the spec's recommended default; the rest are the menu Grant picks from. Grant can mix, rename, or write his own. The per-pose `name` and `description` still come from `BEAKERBOT_ANIMATION_CATALOG` and render on the look card underneath the category line (R2's two-tier card: kicker "THE CATEGORY IS...", then the category name big, then the look name from the catalog). The category names below are the middle line.
+
+**Collection headers:** the five collections still punctuate the scroll as interstitials (R2's "category interstitial" frames). Each collection interstitial draws its header from the collection's lead pose's chosen category name, or Grant can write a dedicated five-collection header set (the R2 lines OPENING NUMBER REALNESS / PURE JOY SERVED / SOFT GLAMOUR / EXECUTIVE LAB REALNESS / HIGH DRAMA DARLING are still available for that purpose). The per-pose menu below is the primary deliverable; the collection headers are a thin layer on top.
+
+### Collection 1: The Greetings (idle, waving, bouncing, bow-wink)
+
+| Pose | "THE CATEGORY IS..." candidates |
+|---|---|
+| **idle** | * Resting Reaction Realness / Steady State Eleganza / Equilibrium, Darling / The Control Group |
+| **waving** | * A Warm Welcome, Serotonin-Approved / Hello, Hypothesis / Greetings From The Bench / Salutations Realness |
+| **bouncing** | * Spring In Her Step (And Her Springs) / Kinetic Energy, Served / Bounce Rate: Zero / Buoyancy Eleganza |
+| **bow-wink** | * The Curtsy And The Wink / Charm Offensive, Peer-Reviewed / A Wink Worth Citing / Coquette Catalyst |
+
+### Collection 2: The Big Feelings (cheering, giggle, rolling-laughing, amazed)
+
+| Pose | "THE CATEGORY IS..." candidates |
+|---|---|
+| **cheering** | * Eureka Eleganza / Breakthrough Realness / Hypothesis: Confirmed / Standing Ovation, Statistically Significant |
+| **giggle** | * The Giggles, Catalyzed / Bubbling Over (Effervescence Realness) / A Light Reaction / Mirth In Suspension |
+| **rolling-laughing** | * Dying. Literally. Of Laughter. / Reaction Of The Year / Exothermic Hysterics / ROFL, Replicated |
+| **amazed** | * Gagged At The Microscope / Wonderstruck Realness / Serving Scientific Awe / Astonished, Under Magnification |
+
+### Collection 3: The Quiet Looks (thinking, reading, sleeping, yawn)
+
+| Pose | "THE CATEGORY IS..." candidates |
+|---|---|
+| **thinking** | * Pensive Eleganza / The Hypothesis Brewing / Contemplation, Peer-Reviewed / A Quiet Eureka, Loading |
+| **reading** | * Literature Review Realness / Devouring The Methods Section / Booked And Busy / Citation Eleganza |
+| **sleeping** | * Beauty Sleep, Incubating / Overnight Culture / Dormant Phase Glamour / Resting Beautifully (Cells Pending) |
+| **yawn** | * The Long Incubation / Diauxic Shift Realness / A Well-Earned Stretch / Languid Lab Eleganza |
+
+### Collection 4: The Lab Life (typing, typing-on-laptop, pointing, pointing-up, pointing-down)
+
+| Pose | "THE CATEGORY IS..." candidates |
+|---|---|
+| **typing** | * Executive Lab Realness / Manuscript In Progress / Keystroke Couture / Drafting At The Bench |
+| **typing-on-laptop** | * Working Hypothesis, Mobile Edition / Field Notes Eleganza / Productivity, Portable / Remote Bench Realness |
+| **pointing** | * The Direction Is Clear / Stage Directions, Darling / Serving Sign-Posts / This Way To The Data |
+| **pointing-up** | * Onward And Upward Realness / Aim For The Hypothesis / Reaching For Significance / The Sky-Bound Cite |
+| **pointing-down** | * Down To The Footnotes / The Fine Print, Served / Grounded Eleganza / Right Here, In The Data |
+
+The pointing trio stays de-emphasized per R1 and R2 (a tight three-up "the directors" mini-row inside The Lab Life, not three full hero frames). The three category names above let the mini-row caption each arm with its own tiny placard if Grant wants, or the trio can share one card (lead pose `pointing`, starred "The Direction Is Clear") with the other two un-carded. Either way the menu covers all three.
+
+### Collection 5: The Drama (panicked, embarrassed, hiccup, volcano-eruption)
+
+| Pose | "THE CATEGORY IS..." candidates |
+|---|---|
+| **panicked** | * High Drama, Darling / Catastrophic Reaction Realness / The Lab Is On Fire (Figuratively) / Serving Five-Alarm Eleganza |
+| **embarrassed** | * Contamination, But Make It Fashion / Failed Replicate Realness / Sheepish Sample Glamour / Oops, Peer-Reviewed |
+| **hiccup** | * Effervescent Mishap / The Unexpected Bubble / Carbonation Realness / A Reaction, Uninvited |
+| **volcano-eruption** | * Exothermic Eleganza / Serving Chemical Reaction / The Showstopper, Erupting / Mount Eleganza |
+
+All 21 poses are covered, each with 2 to 4 candidates and one starred favorite. The starred set, gathered for a quick rubber-stamp read:
+
+idle: Resting Reaction Realness / waving: A Warm Welcome, Serotonin-Approved / bouncing: Spring In Her Step (And Her Springs) / bow-wink: The Curtsy And The Wink / cheering: Eureka Eleganza / giggle: The Giggles, Catalyzed / rolling-laughing: Dying. Literally. Of Laughter. / amazed: Gagged At The Microscope / thinking: Pensive Eleganza / reading: Literature Review Realness / sleeping: Beauty Sleep, Incubating / yawn: The Long Incubation / typing: Executive Lab Realness / typing-on-laptop: Working Hypothesis, Mobile Edition / pointing: The Direction Is Clear / pointing-up: Onward And Upward Realness / pointing-down: Down To The Footnotes / panicked: High Drama, Darling / embarrassed: Contamination, But Make It Fashion / hiccup: Effervescent Mishap / volcano-eruption: Exothermic Eleganza.
+
+## R3.2 Catwalk geometry (exact)
+
+All vertical measures are `svh` (small viewport height) so mobile browser chrome never clips the stage; horizontal are `vw` or `%` of the stage frame. The set (backdrop, marquee, curtains, catwalk, pit) is rendered ONCE behind a transparent scroll column (R2's cheaper option), so the marquee stays continuous and the spotlight is the only thing that moves per look.
+
+**The stage frame (per look).** Each look is one scroll-snap frame, `min-height: 100svh`, `width: 100vw`, `scroll-snap-align: center`, inside a column with `scroll-snap-type: y mandatory`.
+
+**Vertical layout inside a 100svh look frame (top to bottom):**
+
+- 0 to 14svh: the `BEAKERBOT` bulb marquee band + rainbow backdrop wash (R3.3). The marquee sits in this band; the rainbow wash bleeds down behind everything.
+- 14 to 30svh: upper dark house (backdrop continues, dim).
+- The bot mark: centered horizontally, vertical center at **38svh from the top** (R2's "head of the runway" figure). The 128px bot is centered on this mark.
+- 30 to 80svh: the catwalk trapezoid recedes from the bot mark down toward the pit (so the lit floor occupies roughly the lower-middle half).
+- ~62svh: the category placard flips up here (R2's clear zone between bot and pit), horizontally centered, never overlapping the bot's 200px clear radius.
+- 80 to 100svh: the photographers' pit band (dark front edge nearest the viewer), camera silhouettes + flashbulbs (R3.6).
+
+**The catwalk trapezoid.** A CSS perspective trapezoid using `clip-path: polygon(...)` on a panel grid container. Concrete shape, foot (front, near viewer, wide) at the bottom narrowing to head (back, where the bot stands) at the top:
+
+- Foot width: 78vw, centered (so `11vw` margin each side).
+- Head width: 26vw, centered (so `37vw` each side).
+- Vertical span: from 30svh (head) to 80svh (foot), a 50svh-tall trapezoid.
+- `clip-path: polygon(37vw 30svh, 63vw 30svh, 89vw 80svh, 11vw 80svh)` on the catwalk container (values relative to the look frame; build uses CSS custom props so the trapezoid scales with the frame).
+- Perspective recede angle: the head-to-foot width ratio 26:78 = 1:3 gives an apparent recede consistent with a ~62 degree floor rake. No literal CSS `perspective`/`rotateX` is needed; the trapezoid clip plus the panel-row scaling below fakes the recede cheaply and predictably across browsers. (If a build wants true 3D, `transform: perspective(1200px) rotateX(58deg)` on the panel grid is the alternative, but the clip-path approach is the spec default because it has no z-fighting or backface surprises.)
+
+**The lit-panel grid.** The trapezoid floor is tiled with light-up panels (R3.5 has the panel CSS):
+
+- **Rows:** 9 panel rows from head to foot.
+- **Columns:** 5 panels per row.
+- **Panel sizing:** rows scale with the trapezoid. The head row (back) panels are ~5.2vw wide; the foot row (front) panels are ~15.6vw wide (3x, matching the 1:3 trapezoid ratio). Row height is uniform in screen space at `~5.5svh` per row (50svh / 9 rows), so the rake reads from the width taper, not row-height taper (cleaner, avoids a fish-eye look).
+- **Lit-vs-dim timing:** the traveling highlight runs head-to-foot (back to front, toward the pit) so the eye is pulled down the runway. Each panel's `--panel-index` is its row index (0 at head, 8 at foot); `animation-delay: calc(var(--panel-index) * -0.12s)` so the glow chases foot-ward on a 2.4s loop (R3.5 keyframe). All 5 panels in a row share a row index so the highlight reads as a horizontal light-bar sweeping down the runway, not a diagonal scatter.
+
+**Where BeakerBot stands.** The 128px scene-size bot (`BEAKERBOT_SCENE_SIZE_PX = 128`, `BEAKERBOT_SCENE_SIZE_CLASS = "w-32 h-32"`, `text-sky-500` tint, hardcoded rainbow liquid) is centered horizontally on the look frame, vertical center at 38svh. Clear zone: at least a 200px radius of empty lit spotlight around him (R2). The spotlight bright core is sized 320px wide so it comfortably clears the 128px bot (R3.4).
+
+**Photographers' pit placement.** A horizontal band at 80 to 100svh, full frame width, stage-black. 5 to 7 camera silhouettes (R3.6) sit along the 88 to 96svh line, evenly spaced with slight random horizontal jitter (`+/- 2vw` per camera, fixed per camera so it does not jump). Flashbulbs fire from points just above each camera (84 to 88svh). The pit is the darkest band on the stage so the flashes read as bright pops.
+
+## R3.3 The marquee (concrete inline-SVG)
+
+The `BEAKERBOT` bulb-light marquee spelled in round bulbs across the back wall, over a slow rainbow gradient sweep using BeakerBot's five liquid stops (heavily darkened so it sets mood without fighting the lit bot). Bulbs chase left to right on a gentle loop so the sign reads "live."
+
+**Geometry:** the marquee is an inline-SVG sitting in the 0 to 14svh band, horizontally centered, max-width 70vw. The word `BEAKERBOT` is 9 letters; each letter is a small bulb cluster. To keep the snippet legible the spec uses a **bulb-outline-per-letter** approach: each letter is traced by evenly spaced bulb circles (think a theater marquee sign). Bulb spacing: bulbs are `r = 5` in a 0-to-720 viewBox, spaced ~18 units center-to-center along each letter stroke. The chase animation lights bulbs in left-to-right index order with a 60ms step.
+
+Illustrative SVG (doc-only, NOT wired in). To keep it compact, the snippet shows the marquee structure with the first two letters fully bulbed and the rest summarized; a build expands the same bulb-placement pattern across all 9 letters (or generates bulb coordinates from a font path at build time):
+
+```tsx
+// ILLUSTRATIVE ONLY. The BEAKERBOT bulb marquee. Bulbs are <circle>s
+// placed along each letter's strokes; they chase left-to-right via a
+// per-bulb animation-delay tied to the bulb's global left-to-right
+// index. Behind the bulbs sits a darkened rainbow wash (R3 palette).
+// A build would generate the bulb coordinates from a chunky display
+// font's letter outlines; the two letters below show the intended
+// density and the rest follow the same pattern.
+function Marquee() {
+  return (
+    <div className="marquee" aria-label="BEAKERBOT">
+      <div className="marquee-rainbow" aria-hidden />   {/* darkened rainbow wash */}
+      <svg className="marquee-bulbs" viewBox="0 0 720 120" aria-hidden>
+        {/* glow filter shared by all bulbs */}
+        <defs>
+          <filter id="bulbGlow" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="3" result="b" />
+            <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+        </defs>
+        {/* Letter B: bulbs traced around the glyph. style sets --i (the
+            global left-to-right bulb index) so the chase delay is
+            calc(var(--i) * -60ms). */}
+        <g filter="url(#bulbGlow)">
+          <circle className="mbulb" cx="20"  cy="20"  r="5" style={{ ['--i' as string]: 0 }} />
+          <circle className="mbulb" cx="20"  cy="40"  r="5" style={{ ['--i' as string]: 1 }} />
+          <circle className="mbulb" cx="20"  cy="60"  r="5" style={{ ['--i' as string]: 2 }} />
+          <circle className="mbulb" cx="20"  cy="80"  r="5" style={{ ['--i' as string]: 3 }} />
+          <circle className="mbulb" cx="20"  cy="100" r="5" style={{ ['--i' as string]: 4 }} />
+          <circle className="mbulb" cx="40"  cy="20"  r="5" style={{ ['--i' as string]: 5 }} />
+          <circle className="mbulb" cx="40"  cy="60"  r="5" style={{ ['--i' as string]: 6 }} />
+          <circle className="mbulb" cx="40"  cy="100" r="5" style={{ ['--i' as string]: 7 }} />
+          {/* E */}
+          <circle className="mbulb" cx="80"  cy="20"  r="5" style={{ ['--i' as string]: 8 }} />
+          <circle className="mbulb" cx="80"  cy="40"  r="5" style={{ ['--i' as string]: 9 }} />
+          <circle className="mbulb" cx="80"  cy="60"  r="5" style={{ ['--i' as string]: 10 }} />
+          <circle className="mbulb" cx="80"  cy="80"  r="5" style={{ ['--i' as string]: 11 }} />
+          <circle className="mbulb" cx="80"  cy="100" r="5" style={{ ['--i' as string]: 12 }} />
+          <circle className="mbulb" cx="100" cy="20"  r="5" style={{ ['--i' as string]: 13 }} />
+          <circle className="mbulb" cx="100" cy="60"  r="5" style={{ ['--i' as string]: 14 }} />
+          <circle className="mbulb" cx="100" cy="100" r="5" style={{ ['--i' as string]: 15 }} />
+          {/* A K E R B O T continue the same bulb-tracing pattern,
+              indices 16..~95, spaced ~80 viewBox units per letter. */}
+        </g>
+      </svg>
+    </div>
+  );
+}
+```
+
+```css
+/* ILLUSTRATIVE ONLY. Marquee bulb chase + darkened rainbow wash. */
+.marquee { position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 70vw; max-width: 980px; height: 14svh; }
+/* The rainbow wash: BeakerBot's five liquid stops, heavily darkened
+   (multiply against stage-black) so it is mood, not glare. */
+.marquee-rainbow {
+  position: absolute; inset: 0; opacity: 0.30; mix-blend-mode: screen;
+  background: linear-gradient(100deg,
+    #FFD2B0 0%, #FFF1A8 25%, #B7EBB1 50%, #A6D2F4 75%, #D6B5F0 100%);
+  filter: brightness(0.45) saturate(0.85);
+  background-size: 220% 100%;
+  animation: rainbowSweep 14s linear infinite;     /* slow sweep */
+}
+@keyframes rainbowSweep { 0% { background-position: 0% 0; } 100% { background-position: 220% 0; } }
+.marquee-bulbs { position: absolute; inset: 0; width: 100%; height: 100%; }
+.mbulb {
+  fill: #fff6d8;                                    /* warm bulb white */
+  animation: bulbChase 1.8s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * -60ms);       /* left-to-right chase */
+}
+@keyframes bulbChase {
+  0%, 100% { fill: #6b5a2e; }                        /* dim amber (bulb "off") */
+  50%      { fill: #fff6d8; }                        /* lit warm white */
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee-rainbow { animation: none; background-position: 50% 0; }
+  .mbulb { animation: none; fill: #fff6d8; }          /* all bulbs lit, static */
+}
+```
+
+Colors: bulbs warm white `#fff6d8` lit / `#6b5a2e` dim. Rainbow wash uses exactly the five liquid stops `#FFD2B0 / #FFF1A8 / #B7EBB1 / #A6D2F4 / #D6B5F0` (R2.6 grounding). The optional accent-rainbow flourish for the marquee underline (the "the category is... everything" kicker) can run the same five stops un-darkened as a thin 2px underline rule.
+
+## R3.4 Curtains + valance (dimensions + keyframes)
+
+The two deep-plum side curtains frame the stage mouth; the gold valance swags across the top. They stay put during look changes (the spotlight does the work) and only sweep during the Curtain Reveal transition (R3.9) and per-act in the Performance Hall (R3.8).
+
+**Dimensions (page-level side curtains, runway):**
+
+- Each side curtain: `width: 16vw`, `height: 100svh`, anchored to the left and right frame edges, `z-index` above the backdrop but below the bot and spotlight.
+- Pleating: `repeating-linear-gradient(90deg, #3a1d3d 0 16px, #4a2750 16px 32px)` (plum / aubergine pleats, 32px pitch). A subtle inner shadow `box-shadow: inset -24px 0 40px rgba(0,0,0,0.5)` on the left curtain (mirror for right) deepens the fold nearest the stage.
+- Valance: full top width, `height: 7svh`, `background: linear-gradient(#E7C873, #b9923f)`, scalloped lower edge via `border-radius` on repeated swag segments or a `clip-path` scallop. `border-bottom: 2px solid #8a6a2c`. A row of the R3.3 bulbs can line the valance lower lip (optional, ties marquee and valance together).
+
+**Part/sweep keyframes (used by the Curtain Reveal and per-act raise):**
+
+```css
+/* ILLUSTRATIVE ONLY. Curtain sweep. Closed = covering the stage mouth;
+   open = swept off to the sides. Easing matches the R2 proscenium
+   curtain (cubic-bezier(0.2, 0.8, 0.2, 1)) so all curtains feel like
+   the same fabric. */
+.stage-curtain { position: absolute; top: 0; bottom: 0; width: 56vw;  /* overlaps at center when closed */
+  background: repeating-linear-gradient(90deg, #3a1d3d 0 16px, #4a2750 16px 32px);
+  box-shadow: inset 0 0 60px rgba(0,0,0,0.55);
+  transition: transform 820ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.stage-curtain.left  { left: 0;  transform: translateX(0); }      /* closed: covers left half */
+.stage-curtain.right { right: 0; transform: translateX(0); }      /* closed: covers right half */
+.stage[data-curtains="open"] .stage-curtain.left  { transform: translateX(-100%); }   /* sweep off-left */
+.stage[data-curtains="open"] .stage-curtain.right { transform: translateX(100%); }    /* sweep off-right */
+/* The dramatic SLAM-CLOSED used in the reveal (faster in, with a
+   tiny overshoot bounce at the meeting point for a theatrical thunk). */
+@keyframes curtainSlamClosed {
+  0%   { transform: translateX(var(--off)); }       /* off-stage */
+  78%  { transform: translateX(var(--in-overshoot)); }  /* meet + slight overlap */
+  100% { transform: translateX(var(--in)); }        /* settle closed */
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage-curtain { transition: none; }              /* curtains snap, no sweep */
+}
+```
+
+Durations: page-side curtains are decorative and static during normal scroll. The reveal sweep-closed is 820ms with the overshoot bounce; the part-open is 820ms. The valance never moves; it frames the top throughout.
+
+## R3.5 The lit catwalk panel (exact)
+
+Reuses the R2.5 panel almost verbatim, now with the R3.2 grid wired in (9 rows x 5 columns, `--panel-index` = row index 0 head to 8 foot):
+
+```css
+/* ILLUSTRATIVE ONLY. One light-up runway panel. The grid container is
+   clipped to the R3.2 trapezoid; each panel gets --panel-index = its
+   ROW index (0 at the head/back, 8 at the foot/front) so the highlight
+   sweeps head-to-foot toward the pit as a horizontal light bar. Cool
+   white-blue so the floor reads as stage light and never fights
+   BeakerBot's rainbow (rainbow lives in the backdrop + confetti). */
+.catwalk-panel {
+  background: linear-gradient(180deg,
+    rgba(180, 210, 255, 0.06) 0%, rgba(180, 210, 255, 0.18) 100%);
+  border: 1px solid rgba(180, 210, 255, 0.14);
+  animation: panelPulse 2.4s ease-in-out infinite;
+  animation-delay: calc(var(--panel-index, 0) * -0.12s);
+}
+@keyframes panelPulse {
+  0%, 100% { background-color: rgba(180, 210, 255, 0.04); }
+  50%      { background-color: rgba(180, 210, 255, 0.28); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .catwalk-panel { animation: none; background-color: rgba(180, 210, 255, 0.12); }
+}
+```
+
+Grid container (illustrative): `display: grid; grid-template-columns: repeat(5, 1fr); grid-auto-rows: 1fr; gap: 3px;` inside the trapezoid `clip-path` wrapper from R3.2. The column widths taper visually because the wrapper is clipped to the trapezoid, so a uniform 5-column grid reads as a receding runway once clipped.
+
+## R3.6 The tracking spotlight (exact)
+
+The R2.5 radial-gradient spotlight, with the tracking behavior pinned down: the spotlight **sweeps in on look entry** (the "find the queen" move), then **settles on the mark** and holds. It does NOT continuously follow anything (the bot is static on the mark); the only motion is the entry sweep. On scroll into a new look, the entry sweep re-fires (driven by the IntersectionObserver flipping the active look).
+
+```css
+/* ILLUSTRATIVE ONLY. Tracking spotlight on BeakerBot's 38svh mark.
+   Warm core falling to stage-black at the edges. Sweeps in on entry,
+   settles, holds. opacity ramps with the sweep. screen blend so it
+   adds light rather than painting over the bot. */
+.runway-spotlight {
+  position: absolute; inset: 0; pointer-events: none;
+  mix-blend-mode: screen;
+  background: radial-gradient(
+    ellipse 320px 420px at 50% 38%,     /* core over the bot mark, 320px wide > 128px bot */
+    rgba(255, 248, 230, 0.92) 0%,       /* warm white core */
+    rgba(255, 244, 214, 0.45) 28%,
+    rgba(20, 18, 30, 0.78) 62%,
+    rgba(11, 11, 18, 0.96) 100%);       /* stage black at the edges */
+}
+.runway-look[data-active="true"] .runway-spotlight { animation: spotWarmUp 700ms ease-out both; }
+@keyframes spotWarmUp {
+  0%   { opacity: 0.35; transform: translateX(-6%); }   /* sweep in from stage-left */
+  60%  { opacity: 0.85; transform: translateX(1.5%); }  /* slight past-mark, theatrical */
+  100% { opacity: 1;    transform: translateX(0); }      /* settle on the mark */
+}
+@media (prefers-reduced-motion: reduce) {
+  .runway-look .runway-spotlight { animation: none; opacity: 1; transform: none; }
+}
+```
+
+Exact values: ellipse `320px x 420px` centered `50% 38%`; stops `rgba(255,248,230,0.92)` at 0%, `rgba(255,244,214,0.45)` at 28%, `rgba(20,18,30,0.78)` at 62%, `rgba(11,11,18,0.96)` at 100%; `mix-blend-mode: screen`; entry sweep 700ms `ease-out` with a slight 1.5% past-mark overshoot. Reduced motion: static lit ellipse, no sweep.
+
+## R3.7 Flashbulb bursts (exact)
+
+The R2.5 FlashBurst SVG + keyframes are the per-flash primitive (kept verbatim, see R2.5). R3 pins the photographers'-pit random-flicker pattern around them:
+
+**Per-look flash flurry.** On look entry (and on click), fire **3 flashes**, staggered by the existing particle stagger `0 / 40 / 80ms` (mirrors `VOLCANO_PARTICLES` delayMs), from 3 of the pit's camera positions chosen pseudo-randomly per entry. Each is a `FlashBurst` (R2.5) at 56px, positioned just above its camera (84 to 88svh).
+
+**Ambient pit flicker (between flurries).** Each camera also runs a low ambient bloom on the R2.5 `pitFlicker` keyframe (`0.10` to `0.22` opacity, slow), with a **per-camera random offset** so the pit shimmers asynchronously and never reads as a synchronized strobe:
+
+```css
+/* ILLUSTRATIVE ONLY. Ambient pit shimmer. Each camera's bloom runs the
+   pitFlicker keyframe (R2.5) on a slightly different duration + delay so
+   the pit twinkles asynchronously, like a crowd of idle cameras. */
+.pit-camera-bloom {
+  position: absolute;
+  width: 40px; height: 28px;
+  background: radial-gradient(ellipse at center, rgba(255,255,255,0.5), transparent 70%);
+  animation: pitFlicker var(--flick-dur, 3.2s) ease-in-out infinite;
+  animation-delay: var(--flick-delay, 0s);          /* per-camera random offset */
+}
+@keyframes pitFlicker { 0%, 100% { opacity: 0.10; } 50% { opacity: 0.22; } }
+@media (prefers-reduced-motion: reduce) {
+  .pit-camera-bloom { animation: none; opacity: 0.18; }   /* constant gentle bloom */
+}
+```
+
+Camera count: 6 cameras (R3.2 said 5 to 7; spec pins **6**). Positions: evenly spaced across the pit band with `+/- 2vw` fixed per-camera jitter. Per-camera `--flick-dur` in `2.6s` to `3.8s` and `--flick-delay` in `0s` to `2s`, assigned once at mount (a small fixed array, not re-randomized per frame, so it is stable). The camera silhouette itself is a simple inline-SVG lens + body (abstract, no faces) sitting under each bloom.
+
+```tsx
+// ILLUSTRATIVE ONLY. An abstract camera silhouette for the pit. No
+// faces, just a body + lens, kept dark so the flash bloom reads.
+function PitCamera() {
+  return (
+    <svg viewBox="0 0 48 32" className="pit-camera" aria-hidden>
+      <rect x="6" y="10" width="36" height="18" rx="3" fill="#0e0e16" stroke="#23202e" />
+      <rect x="16" y="6" width="12" height="6" rx="2" fill="#0e0e16" stroke="#23202e" />  {/* viewfinder hump */}
+      <circle cx="24" cy="19" r="7" fill="#15131f" stroke="#2c2838" />                      {/* lens */}
+      <circle cx="24" cy="19" r="3" fill="#23202e" />                                        {/* inner lens */}
+    </svg>
+  );
+}
+```
+
+## R3.8 The snap-scroll runway + proscenium frames
+
+### Snap-scroll runway container
+
+```css
+/* ILLUSTRATIVE ONLY. The runway scroll column. One look per frame,
+   each self-centering under the spotlight. The set (backdrop, marquee,
+   curtains, catwalk, pit) is rendered ONCE behind this transparent
+   column (position: fixed behind it), so only the spotlight + bot +
+   placard change per frame. */
+.runway-scroll {
+  scroll-snap-type: y mandatory;
+  overflow-y: auto;
+  height: 100svh;
+}
+.runway-look {
+  scroll-snap-align: center;
+  min-height: 100svh;
+  position: relative;
+}
+.runway-interstitial {          /* the 5 collection headers */
+  scroll-snap-align: center;
+  min-height: 60svh;
+  position: relative;
+}
+@media (prefers-reduced-motion: reduce) {
+  .runway-scroll { scroll-snap-type: y proximity; }   /* gentler, no forced snap */
+}
+```
+
+One-look-per-frame height: `100svh` per look, `60svh` per collection interstitial (R2). Vertical budget unchanged from R2 (~2400svh) with the optional "skip to the scenes" corner pin.
+
+### The CategoryPlacard component
+
+The R2.5 placard SVG/CSS is the primitive (kept verbatim). R3 pins its position and animation:
+
+- Position: `left: 50%; top: 62svh; transform: translateX(-50%)` (R2's clear zone between bot and pit). Width auto, max 70vw.
+- Flip-in: `placardFlipUp` 520ms `cubic-bezier(0.2, 0.8, 0.2, 1)`, `transform-origin: center bottom`, fires on look entry (tied to `data-active="true"` on the parent `.runway-look`, same trigger as the spotlight sweep).
+- Typography: kicker `font-size: 0.72rem; letter-spacing: 0.28em; color: #E7C873; text-transform: uppercase`. Category name `font-size: 1.4rem; font-weight: 800; letter-spacing: 0.06em; color: #fff; uppercase`. Look name `font-size: 0.9rem; letter-spacing: 0.14em; color: #A6D2F4` (BeakerBot's sky stop). Geist Sans by default (R2.9 q2's webfont stays optional / Grant's call; the spec ships zero-new-dependency Geist bold + wide tracking unless Grant green-lights a display face).
+
+### Proscenium frames (the 9 existing scenes)
+
+Reuses the R2.5 `ProsceniumFrame` SVG/CSS (kept verbatim) with these pinned values:
+
+- **Frame dimensions:** `aspect-ratio: 16 / 10`, max-width `min(900px, 84vw)`, centered. One per scene, stacked vertically in the Performance Hall with `~24svh` vertical gap so two are never both mid-performance.
+- **Marquee-lit border:** the R2.5 `.proscenium-bulbs` chasing arch (14 bulbs, `animation-delay: i * -0.1s`, `bulbChase` 1.4s). Gold `border: 2px solid #E7C873`, glow `box-shadow: 0 0 36px rgba(231,200,115,0.22)`.
+- **Curtain treatment:** the R2.5 `.curtain-left` / `.curtain-right` plum pleats, parting on `data-active="true"` (`translateX(-100%)` / `translateX(100%)`, 700ms `cubic-bezier(0.2,0.8,0.2,1)`).
+- **Poster / idle state (curtain-down, resting):** curtains drawn closed; a static `idle` BeakerBot (or the scene's signature resting pose) sits behind the closed curtain as a faint silhouette; the placard reads the act name as the drawn-curtain marquee title with a "TAP TO REPLAY" affordance.
+- **"Now performing" caption:** active = `NOW PERFORMING - [name]`, resting = `[name] - TAP TO REPLAY`, name from `BEAKERBOT_ANIMATION_CATALOG`. Placard at `bottom: 8px`, centered, `0.72rem`, `letter-spacing: 0.18em`, gold.
+- **IntersectionObserver sequencer:** one observer per Performance Hall. Threshold array `[0, 0.5, 0.6, 1]`; the act whose intersectionRatio is highest AND `>= 0.6` becomes `active`; all others get `active=false` (curtains close, scene pauses to poster). When two are tied (transitional scroll), the one closer to viewport center wins (compare `boundingClientRect` center to `window.innerHeight/2`). Only one `active` at a time enforces the hard no-overlap rule (R1 section 4 Option 3). `rootMargin: "-20% 0px -20% 0px"` so an act only goes active when it is comfortably centered, not as it is half entering.
+
+**The three special-case scenes (R2.3 treatments, pinned):**
+
+- **MouseWave (in-frame faux cursor):** render a faux cursor inside the frame, a small inline-SVG arrow pointer that drifts in from the frame's right edge to a target at `~60%` width / `~45%` height over ~900ms `ease-out`, then BeakerBot waves at it. The faux cursor is showcase chrome layered into the frame, not a scene change. Caption: "NOW PERFORMING - The Greeting".
+- **Skateboard (wide letterbox frame):** this one act breaks the 16:10 grid for a `aspect-ratio: 21 / 9` letterbox band spanning the full page width (`width: 100vw`, margin-bleed out of the centered column). Caption styled as an "INTERMISSION" band. The skateboard's `bottomY = 85` and full-width translate get room to read.
+- **CoffeeRefill (13s progress shimmer):** a thin rainbow progress bar (the five liquid stops) along the bottom inner lip of the frame, advancing left-to-right over `TOTAL_DURATION_MS = 13000` (linear). Caption: "the wait is the look". The shimmer is chrome layered over the scene, paced against the verified `13000ms` total / `8000ms` brew (R2.6).
+
+## R3.9 The Curtain Reveal unlock transition (frame-by-frame)
+
+The click-unlock escalation composes on top of the existing per-click heart easter egg (`handleClick` to `spawnHeart()`, `HEART_MAX_CONCURRENT = 6`, `HEART_FILL = "#ff5b8a"`, verified in `BeakerBot.tsx`). Clicks 1 to 6 spawn hearts exactly as today. **Click 7** fires the reveal instead of a 7th heart. Trigger instances: the AppShell brand-mark BeakerBot and the `/demo` BeakerBot (R2; settings/tip-card instances stay hearts-only). The counter is per-session and resets so it stays a delight.
+
+Frame-by-frame timing (t = 0 at the 7th click):
+
+- **t = 0 to 600ms - the dim.** Instead of a 7th heart, a stage-black overlay fades IN from the edges of the viewport inward (a radial `rgba(11,11,18,...)` mask growing from the corners to center), reaching full stage-black at 600ms. This is the bit that keeps the dark takeover from jarring against the light app/demo chrome: the page does not hard-cut to black, it dims theatrically from the edges. `ease-in` so it accelerates into darkness. (This dim is the universal entry, in the app AND on the light `/demo`, per Grant's decision 1.)
+- **t = 600 to 1420ms - curtains sweep CLOSED.** The two plum stage curtains sweep IN from off-stage to cover the now-black viewport, `curtainSlamClosed` (R3.4) 820ms with the slight overshoot thunk at the meeting line. They meet center at ~1340ms, settle at 1420ms.
+- **t = 1420 to 1820ms - the held beat.** Curtains closed, full black behind, a 400ms beat of anticipation. The route change to `/showcase` happens during this beat (the closed curtain hides the route swap, so there is no flash of unstyled content). An optional soft "the stage is yours" toast can fade in at the bottom here.
+- **t = 1820 to 2640ms - curtains PART on the marquee.** The curtains sweep open (`translateX(-100%)` / `translateX(100%)`, 820ms, `cubic-bezier(0.2,0.8,0.2,1)`) to reveal the "BeakerBot Live" marquee hero (R2.4) with the `BEAKERBOT` bulbs lighting up and the spotlight warming on a center `waving` (or `cheering`) BeakerBot.
+- **t = 2640ms+ - the spotlight settles, the show begins.** The spotlight `spotWarmUp` (R3.6) finishes settling, flashbulbs fire a welcome flurry (R3.7), and the user is on `/showcase` at the marquee hero, ready to scroll into the runway.
+
+Total reveal: ~2.6s from click to "you are on the stage." Reduced motion (R3.10): the dim is an instant cut to stage-black, the curtains appear already-parted, the route changes immediately, and the user lands on the static marquee hero with no sweep, no flurry.
+
+## R3.10 Reduced-motion fallback (the static-but-glam version)
+
+`prefers-reduced-motion: reduce` collapses all motion to a static, still-glamorous freeze. Every existing scene already honors it (verified, static done-state). The showcase chrome matches, pinned per surface (R2 established this; R3 makes it concrete and complete):
+
+- **Marquee:** all bulbs lit static (`#fff6d8`), rainbow wash static at `background-position: 50%`, no sweep, no chase.
+- **Catwalk panels:** static at `rgba(180,210,255,0.12)`, no chase.
+- **Spotlight:** static lit ellipse on the mark (`opacity: 1`, no sweep).
+- **Flashbulbs:** no bursts; each pit camera shows a constant gentle bloom (`pit-camera-bloom` at `opacity: 0.18`) so the "photographed" mood survives without strobing.
+- **Category placard:** appears instantly (no flip), at its 62svh position.
+- **Runway scroll:** `scroll-snap-type: y proximity` (gentler) instead of `mandatory`.
+- **Proscenium curtains:** drawn open statically (no sweep); active scene shows its static done-state inside.
+- **Curtain Reveal unlock:** instant cut to stage-black, curtains already parted, immediate route change, land on the static marquee hero.
+- **New drag scenes (Strut / Twirl / Death Drop / Dance / etc.):** suppressed motion; replaced by a static "she served" freeze-frame of the scene's end pose (`cheering` / `bow-wink`) under the static spotlight. Confetti and rainbow trails are suppressed entirely.
+
+The fallback is "the show, paused on its best freeze-frame." Still a queen lit on a stage; it just does not move.
+
+## R3.11 Component breakdown (props contracts, so a build can scaffold directly)
+
+The React components a build creates for the showcase. Each lists its props contract. No component is built here; this is the scaffold map. (BeakerBot itself and the 9 scene components already exist and are reused as-is in P1.)
+
+| Component | Props contract | Notes |
+|---|---|---|
+| `ShowcasePage` | none (route component for `/showcase`) | Top-level. Renders `StageBackdrop` (fixed, once) + `MarqueeHero` + `Runway` + `PerformanceHall` + `CurtainCallFooter`. Sets the stage-black theme on this route only. |
+| `StageBackdrop` | none | Rendered once, `position: fixed`, behind the scroll. Composes `Marquee`, `RainbowWash`, the two page `SideCurtain`s, `Valance`, `Catwalk`, `PhotographersPit`. Stage-black base `#0b0b12`. |
+| `Marquee` | `{ word?: string }` (default `"BEAKERBOT"`) | R3.3 bulb-light marquee + darkened rainbow wash. `aria-label` the word. |
+| `MarqueeHero` | `{ tagline?: string }` | R2.4 "BeakerBot Live" show-bill hero: marquee title, "ONE BEAKER. TWENTY-ONE LOOKS. ONE STAGE.", "the category is... everything", a center `waving` BeakerBot, "scroll to begin" cue. |
+| `Catwalk` | none | R3.2 trapezoid clip + R3.5 panel grid (9 rows x 5 cols), `--panel-index` = row index. |
+| `Spotlight` | `{ active: boolean }` | R3.6 radial-gradient; `spotWarmUp` fires when `active` (the centered look). |
+| `Runway` | `{ looks: RunwayLookData[] }` where `RunwayLookData = { pose: BeakerBotPose; category: string; lookName: string; collection: string }` | R3.8 snap-scroll column. Drives the per-look `data-active` via IntersectionObserver. `looks` derived from `BEAKERBOT_ANIMATION_CATALOG` poses + the R3.1 chosen category names. |
+| `RunwayLook` | `{ pose: BeakerBotPose; category: string; lookName: string; active: boolean }` | One 100svh frame. Renders the 128px `<BeakerBot pose={pose} className="w-32 h-32 text-sky-500" />` on the mark, the `Spotlight active={active}`, the `Flashbulbs` flurry on active, and the `CategoryPlacard`. |
+| `CollectionInterstitial` | `{ title: string; collection: string }` | The 60svh collection header frame (5 of them). |
+| `CategoryPlacard` | `{ category: string; look: string }` | R2.5 + R3.8. Two-tier card: "THE CATEGORY IS..." kicker, category name, look name. `role="status" aria-live="polite"`. |
+| `Flashbulbs` | `{ fire: boolean; cameraPositions: PitPosition[] }` | R3.7. On `fire` (look entry / click), 3 staggered `FlashBurst`es from random camera positions. |
+| `FlashBurst` | `{ delayMs?: number }` | R2.5 single-flash SVG primitive. |
+| `PhotographersPit` | `{ cameraCount?: number }` (default 6) | R3.7. 6 `PitCamera` silhouettes + per-camera ambient `pit-camera-bloom` with fixed random `--flick-dur` / `--flick-delay`. |
+| `PitCamera` | none | R3.7 abstract camera silhouette SVG. |
+| `SideCurtain` | `{ side: "left" \| "right" }` | R3.4 page-level plum side curtain (static during scroll). |
+| `Valance` | none | R3.4 gold valance swag across the top. |
+| `RainbowWash` | none | The darkened five-stop rainbow gradient behind the marquee. |
+| `PerformanceHall` | `{ acts: ActData[] }` where `ActData = { id: string; name: string; Component: SceneComponent; special?: "mouse-wave" \| "skateboard" \| "coffee-refill" }` | R3.8. Stacks `ProsceniumFrame`s, runs the IntersectionObserver sequencer (one `active` at a time). |
+| `ProsceniumFrame` | `{ title: string; active: boolean; stageRef: React.Ref<HTMLDivElement>; children: React.ReactNode }` | R2.5 marquee-lit frame. `children` is the scene (active) or the resting poster. `stageRef` is the future Option-1 `bounds` target (P2+). |
+| `FauxCursor` | `{ targetX: number; targetY: number }` | The MouseWave in-frame faux cursor (R3.8). |
+| `ProgressShimmer` | `{ durationMs: number }` | The CoffeeRefill rainbow progress bar (R3.8), paced to `TOTAL_DURATION_MS = 13000`. |
+| `CurtainReveal` | `{ onArrived?: () => void }` | R3.9 unlock transition: dim, sweep closed, hold (route swap), part open. Doubles as the page-entry animation. `onArrived` fires when the curtains finish parting. |
+| `CurtainCallFooter` | none | R2 curtain-call footer: a `bow-wink` BeakerBot, credits-style caption, link back to the app. |
+| `useShowcaseUnlock` (hook) | `(brandMarkRef) => { onBeakerBotClick: () => void }` | Wraps the existing heart click. Counts clicks per session; clicks 1 to 6 spawn hearts (existing behavior), click 7 fires `CurtainReveal` + routes to `/showcase`. Wired into the AppShell brand mark and the `/demo` BeakerBot only. |
+
+New drag scenes from R2.2 (each its own component, P1 = Curtain Reveal already above + these two):
+
+| Component | Props contract | Notes |
+|---|---|---|
+| `RunwayStrutScene` | `{ active: boolean; onComplete?: () => void; bounds?: SceneBounds }` | R2.2 signature strut. Same scene envelope as the 9 existing scenes (so it plugs into the sequencer). |
+| `TwirlScene` | `{ active: boolean; onComplete?: () => void; bounds?: SceneBounds }` | R2.2 twirl/spin + rainbow trail (five liquid stops on a circular path). |
+| `DeathDropScene` (P2) | `{ active: boolean; onComplete?: () => void; bounds?: SceneBounds }` | R2.2 showstopper (needs new safe-drop + liquid-slosh art). |
+| `DanceNumberScene` (P3) | `{ active: boolean; onComplete?: () => void; bounds?: SceneBounds }` | R2.2 choreographed closer + rainbow confetti. |
+
+`SceneBounds` is the R1 section 4 optional-bounds shape (`{ container: HTMLElement; width: number; height: number }`), undefined in P1 (portal-to-body, full-viewport), supplied in P2+ to render in-frame.
+
+## R3.12 Residual open questions
+
+Nearly zero, by design. The only items a build genuinely cannot decide:
+
+1. **Category name picks (R3.1).** A build can ship the starred defaults verbatim with zero further input; this is only "open" in the sense that Grant may want to swap some. The starred set is a complete, shippable default. Not a blocker.
+2. **Display webfont vs. Geist (carried from R2.9 q2).** The spec ships zero-new-dependency Geist bold + wide tracking + uppercase. If Grant wants a theatrical display face, it is a one-line `@font-face` swap on this route; everything else is unchanged. Not a blocker.
+
+Everything else (geometry, keyframes, gradients, timings, component contracts, reduced-motion, the dark-everywhere decision, the per-pose categories) is pinned. A build sub-bot can scaffold P1 from R3.11 + the snippets without making a new design decision.
+
+---
+
+*R3 sketches are illustrative. No routes, scene props, or components were built. R3 is a build-ready specification + a category-name menu; hand-off to the build chip happens at Grant's word. Authored by the showcase-spec sub-bot per orchestrator manager dispatch.*
