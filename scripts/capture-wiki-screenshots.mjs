@@ -58,10 +58,15 @@ const PUBLIC_ROUTES = [
   // lib/landing/landing-gate.ts) so this shot still captures the connect
   // screen. The wiki pages themselves are validated by `next build` and
   // don't need screenshot snapshots in /public.
+  // The picker consolidated to a single "Link a folder" card (the old
+  // two-card Link Existing / Create New layout is gone: Chrome's File
+  // System Access API cannot create a folder from the picker dialog).
+  // waitFor matches the current card heading; highlight rings the
+  // "Link Folder" button text.
   {
     path: "/?connect=1",
     file: "folder-connect.png",
-    waitFor: "text=Connect Folder",
+    waitFor: "text=Link a folder",
     highlight: { text: "Link Folder" },
   },
   // The first-time-visitor landing ("sell") page. Captured from the
