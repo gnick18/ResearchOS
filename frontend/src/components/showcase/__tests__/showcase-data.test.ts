@@ -1,13 +1,16 @@
-// Coverage tests for the showcase runway data (R3.1 category menu +
-// the no-drift-from-inventory guarantee). Asserts all 21 poses are
-// represented, each starred category name matches the proposal verbatim,
-// and the pointing trio is de-emphasized into a single clustered frame.
+// Coverage tests for the showcase runway data (the no-drift-from-
+// inventory guarantee). Asserts all 21 poses are represented, the
+// pointing trio is de-emphasized into a single clustered frame, every
+// look carries a plain understated emotion label, and the dormant
+// (no-longer-rendered) category names still match the proposal verbatim
+// so the provenance never drifts.
 
 import { describe, expect, it } from "vitest";
 import type { BeakerBotPose } from "../../BeakerBot";
 import {
   SHOWCASE_LOOKS,
   SHOWCASE_COLLECTIONS,
+  SHOWCASE_FRAMES,
   POINTING_TRIO,
   SHOWCASE_ALL_POSES,
   SHOWCASE_RUNWAY_FRAME_COUNT,
@@ -47,9 +50,36 @@ describe("showcase runway data", () => {
     }
   });
 
-  it("renders 19 distinct runway frames (18 single looks + 1 clustered trio)", () => {
+  it("cycles 19 distinct runway frames (18 single looks + 1 clustered trio)", () => {
     expect(SHOWCASE_LOOKS).toHaveLength(18);
     expect(SHOWCASE_RUNWAY_FRAME_COUNT).toBe(19);
+    expect(SHOWCASE_FRAMES).toHaveLength(19);
+  });
+
+  it("orders the auto-show frames by collection arc, trio woven into lab-life", () => {
+    // 18 single-pose looks + 1 clustered trio, in collection arc order.
+    const lookFrames = SHOWCASE_FRAMES.filter((f) => f.kind === "look");
+    const trioFrames = SHOWCASE_FRAMES.filter((f) => f.kind === "trio");
+    expect(lookFrames).toHaveLength(18);
+    expect(trioFrames).toHaveLength(1);
+    // The trio is woven into the lab-life run (after the two lab-life
+    // single looks: typing, typing-on-laptop).
+    const ids = SHOWCASE_FRAMES.map((f) => f.id);
+    const trioIdx = ids.indexOf("look:pointing-trio");
+    expect(ids[trioIdx - 1]).toBe("look:typing-on-laptop");
+  });
+
+  it("gives every look a plain understated emotion label (no puns, no category copy)", () => {
+    for (const look of SHOWCASE_LOOKS) {
+      expect(look.emotion).toBeTruthy();
+      // The emotion label is the plain word(s), never the punny category
+      // name or the dropped catchphrase.
+      expect(look.emotion).not.toBe(look.category);
+      expect(look.emotion.toLowerCase()).not.toContain("the category is");
+      expect(look.emotion.toLowerCase()).not.toContain("realness");
+      expect(look.emotion.toLowerCase()).not.toContain("eleganza");
+    }
+    expect(POINTING_TRIO.emotion).toBe("Pointing");
   });
 
   it("de-emphasizes the pointing trio into one clustered frame", () => {

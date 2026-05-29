@@ -274,128 +274,104 @@
   }
 }
 
-/* ── Runway scroll column (R3.8) ───────────────────────────────────── */
+/* ── Runway auto-show (redesigned) ─────────────────────────────────── */
 
-.runwayScroll {
+/* The runway is now a self-contained, hands-free auto-playing show that
+   occupies the first viewport. BeakerBot stands center stage and cycles
+   the 21 looks on a timer; the user does NOT scroll to advance. One look
+   is on stage at a time (the contained-pose, no-overlap guarantee). */
+.runwayShow {
   position: relative;
   z-index: 5;
-}
-.runwayLook {
-  scroll-snap-align: center;
   min-height: 100svh;
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-}
-.runwayInterstitial {
-  scroll-snap-align: center;
-  min-height: 60svh;
-  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  text-align: center;
-  z-index: 5;
-}
-.interstitialKicker {
-  font-size: 0.72rem;
-  letter-spacing: 0.28em;
-  color: #e7c873;
-  text-transform: uppercase;
-}
-.interstitialTitle {
-  font-size: 2rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  color: #fff;
-  text-transform: uppercase;
-}
-.interstitialMood {
-  font-size: 0.9rem;
-  color: #a6d2f4;
-  letter-spacing: 0.08em;
+  cursor: pointer; /* clicking fires the camera flashes */
 }
 
-/* The bot, centered on the 38svh mark. */
+/* The stage area the on-stage look lives in; keyed remount per look so
+   each look's entry animation replays as the show advances. */
+.runwayStage {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: lookEnter 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes lookEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* The bot, centered on stage. */
 .botMark {
-  position: absolute;
-  left: 50%;
-  top: 38svh;
-  transform: translate(-50%, -50%);
-  width: 128px;
-  height: 128px;
+  width: 160px;
+  height: 160px;
   z-index: 6;
 }
 .botTrio {
-  position: absolute;
-  left: 50%;
-  top: 38svh;
-  transform: translate(-50%, -50%);
   display: flex;
   align-items: flex-end;
   gap: 24px;
   z-index: 6;
 }
 .botTrioItem {
-  width: 96px;
-  height: 96px;
+  width: 112px;
+  height: 112px;
 }
 
-/* ── Category placard (R2.5 + R3.8) ────────────────────────────────── */
+/* ── Emotion label (redesigned, replaces the category placard) ─────── */
 
-.placard {
-  position: absolute;
-  left: 50%;
-  top: 62svh;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 12px 28px;
-  max-width: 70vw;
-  text-align: center;
-  background: rgba(11, 11, 18, 0.72);
-  border: 1.5px solid #e7c873;
-  border-radius: 12px;
-  box-shadow: 0 0 24px rgba(231, 200, 115, 0.35);
-  transform-origin: center bottom;
+/* The "THE CATEGORY IS..." placard with punny names was dropped. All
+   that remains is a small, plain, understated emotion label so the
+   viewer knows what they are seeing. Legibility: light small-caps over a
+   subtle dark scrim + text-shadow halo so it never washes out against
+   the bright spotlight on the light catwalk. */
+.emotionLabel {
+  margin-top: 28px;
   z-index: 7;
+  animation: lookEnter 480ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
-.placardActive {
-  animation: placardFlipUp 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+.emotionLabelText {
+  display: inline-block;
+  padding: 6px 18px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: #f3f1f7;
+  background: rgba(11, 11, 18, 0.5);
+  border-radius: 999px;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.85);
 }
-@keyframes placardFlipUp {
-  0% {
-    opacity: 0;
-    transform: translateX(-50%) rotateX(-90deg);
-  }
-  100% {
-    opacity: 1;
-    transform: translateX(-50%) rotateX(0deg);
-  }
-}
-.placardKicker {
+
+/* The reduced-motion manual step (auto-advance is off under reduced
+   motion). */
+.runwayManualNext {
+  margin-top: 22px;
+  z-index: 8;
+  padding: 8px 20px;
   font-size: 0.72rem;
-  letter-spacing: 0.28em;
-  color: #e7c873;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
+  color: #0b0b12;
+  background: #e7c873;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 0 16px rgba(231, 200, 115, 0.4);
 }
-.placardCategory {
-  font-size: 1.4rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  color: #fff;
-  text-transform: uppercase;
-}
-.placardLook {
-  font-size: 0.9rem;
-  letter-spacing: 0.14em;
-  color: #a6d2f4;
-  text-transform: uppercase;
+.runwayManualNext:hover {
+  background: #f0d489;
 }
 
 /* ── Marquee hero (R2.4) ───────────────────────────────────────────── */
@@ -412,32 +388,25 @@
   text-align: center;
   scroll-snap-align: center;
 }
-.heroTitle {
-  font-size: clamp(2.5rem, 9vw, 5rem);
-  font-weight: 900;
-  letter-spacing: 0.12em;
-  color: #fff6d8;
-  text-transform: uppercase;
-  text-shadow: 0 0 24px rgba(255, 246, 216, 0.6);
-}
+/* Hero copy sits over the bright spotlight + light catwalk, so every
+   line carries a text-shadow halo (and the live word a soft glow) to
+   stay legible without re-theming the dark-stage mood. */
 .heroLive {
   font-size: clamp(1.4rem, 5vw, 2.4rem);
   font-weight: 700;
   font-style: italic;
   letter-spacing: 0.04em;
   color: #d6b5f0;
+  text-shadow:
+    0 0 18px rgba(214, 181, 240, 0.55),
+    0 2px 10px rgba(0, 0, 0, 0.8);
 }
 .heroTagline {
   font-size: 0.9rem;
   letter-spacing: 0.2em;
-  color: #e7c873;
+  color: #f0d489;
   text-transform: uppercase;
-}
-.heroKicker {
-  font-size: 0.8rem;
-  letter-spacing: 0.18em;
-  color: #a6d2f4;
-  font-style: italic;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.85);
 }
 .heroScrollCue {
   margin-top: 24px;
@@ -445,7 +414,8 @@
   letter-spacing: 0.24em;
   color: #f3f1f7;
   text-transform: uppercase;
-  opacity: 0.7;
+  opacity: 0.85;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.85);
   animation: scrollCueBob 1.8s ease-in-out infinite;
 }
 @keyframes scrollCueBob {
@@ -500,18 +470,13 @@
   text-align: center;
   margin-bottom: 4svh;
 }
-.hallHeaderKicker {
-  font-size: 0.72rem;
-  letter-spacing: 0.28em;
-  color: #e7c873;
-  text-transform: uppercase;
-}
 .hallHeaderTitle {
   font-size: 2rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   color: #fff;
   text-transform: uppercase;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
 }
 .hallActWrap {
   display: flex;
@@ -633,10 +598,16 @@
   transform: translateX(-50%);
   font-size: 0.72rem;
   letter-spacing: 0.18em;
-  color: #e7c873;
+  color: #f0d489;
   text-transform: uppercase;
   z-index: 6;
   white-space: nowrap;
+  /* The caption sits over the bright footlights glow + scene content, so
+     it carries a dark scrim pill + text-shadow to stay legible. */
+  padding: 4px 12px;
+  background: rgba(11, 11, 18, 0.6);
+  border-radius: 999px;
+  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.9);
 }
 /* The faint resting poster bot behind closed curtains. */
 .posterBot {
@@ -1008,8 +979,8 @@
     opacity: 1;
     transform: none;
   }
-  .placard,
-  .placardActive {
+  .runwayStage,
+  .emotionLabel {
     animation: none;
   }
   .bulb {

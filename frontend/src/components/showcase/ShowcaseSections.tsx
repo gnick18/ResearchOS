@@ -23,7 +23,6 @@ export function MarqueeHero({
       <Marquee word="BEAKERBOT" />
       <span className={styles.heroLive}>live</span>
       <span className={styles.heroTagline}>{tagline}</span>
-      <span className={styles.heroKicker}>the category is... everything</span>
       <div className={styles.heroBot}>
         <BeakerBot
           pose="waving"
@@ -31,7 +30,7 @@ export function MarqueeHero({
           ariaLabel="BeakerBot waves from the stage"
         />
       </div>
-      <span className={styles.heroScrollCue}>Scroll to begin the show</span>
+      <span className={styles.heroScrollCue}>The show is about to begin</span>
     </section>
   );
 }

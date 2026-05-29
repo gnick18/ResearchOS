@@ -72,9 +72,11 @@ describe("ShowcasePage (/showcase)", () => {
     expect(screen.getByTestId("showcase-skip-pin")).toBeTruthy();
   });
 
-  it("renders the runway looks under the hero", () => {
+  it("renders the runway auto-show under the hero (one look on stage)", () => {
     render(<ShowcasePage />);
-    // 19 runway look frames (18 single + 1 clustered trio).
-    expect(screen.getAllByTestId("showcase-look")).toHaveLength(19);
+    // The runway is now a hands-free auto-show: exactly one look is on
+    // stage at a time (not all 19 stacked as scroll frames).
+    expect(screen.getByTestId("showcase-runway")).toBeTruthy();
+    expect(screen.getAllByTestId("showcase-look")).toHaveLength(1);
   });
 });

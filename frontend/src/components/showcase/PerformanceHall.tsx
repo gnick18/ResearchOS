@@ -167,7 +167,6 @@ export default function PerformanceHall() {
   return (
     <section className={styles.hall} data-testid="showcase-performance-hall">
       <header className={styles.hallHeader}>
-        <span className={styles.hallHeaderKicker}>The category is...</span>
         <span className={styles.hallHeaderTitle}>The Performance Hall</span>
       </header>
       {ACTS.map((act, i) => (
