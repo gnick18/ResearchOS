@@ -296,6 +296,60 @@ function ComparisonRow({
   );
 }
 
+/**
+ * Subtle "there is more below" cue pinned to the bottom of the first screen.
+ * A faint gray double-chevron that gently pulses (shrinks and expands) so
+ * visitors, especially less tech-savvy ones, realize the page continues past
+ * the fold. Fades out the moment the visitor scrolls and does not return.
+ * Honors prefers-reduced-motion (static, no pulse) and is pointer-events-none
+ * so it never intercepts a click.
+ */
+function ScrollHint() {
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(true);
+    // capture:true so a scroll on the landing's inner overflow-y-auto
+    // container is caught too: scroll events do not bubble, but they do fire
+    // during the capture phase, so a capturing window listener sees both the
+    // document scroll and any nested-scroller scroll.
+    const opts = { capture: true, passive: true } as const;
+    window.addEventListener("scroll", onScroll, opts);
+    return () => window.removeEventListener("scroll", onScroll, opts);
+  }, []);
+
+  return (
+    <div
+      aria-hidden
+      data-testid="landing-scroll-hint"
+      className={`pointer-events-none fixed inset-x-0 bottom-5 z-30 flex justify-center transition-opacity duration-500 ${
+        scrolled ? "opacity-0" : "opacity-100"
+      }`}
+    >
+      <style>{`
+        @keyframes scrollhint-pulse {
+          0%, 100% { transform: translateY(0) scale(0.9); opacity: 0.4; }
+          50% { transform: translateY(3px) scale(1.12); opacity: 0.8; }
+        }
+        .scrollhint-chevron { animation: scrollhint-pulse 1.9s ease-in-out infinite; }
+        @media (prefers-reduced-motion: reduce) {
+          .scrollhint-chevron { animation: none; opacity: 0.5; }
+        }
+      `}</style>
+      <svg
+        className="scrollhint-chevron h-7 w-7 text-slate-400"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        viewBox="0 0 24 24"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 6l7 6 7-6" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l7 6 7-6" />
+      </svg>
+    </div>
+  );
+}
+
 export default function LandingPage({ onGetStarted }: LandingPageProps) {
   const router = useRouter();
 
@@ -332,6 +386,9 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
         active={waveActive}
         onComplete={() => setWaveActive(false)}
       />
+
+      {/* Subtle "scroll for more" cue at the bottom of the first screen. */}
+      <ScrollHint />
 
       {/* ── Hero ─────────────────────────────────────────────────────── */}
       <header className="relative isolate overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
