@@ -297,12 +297,13 @@ function ComparisonRow({
 }
 
 /**
- * Subtle "there is more below" cue pinned to the bottom of the first screen.
- * A faint gray double-chevron that gently pulses (shrinks and expands) so
- * visitors, especially less tech-savvy ones, realize the page continues past
- * the fold. Fades out the moment the visitor scrolls and does not return.
- * Honors prefers-reduced-motion (static, no pulse) and is pointer-events-none
- * so it never intercepts a click.
+ * Subtle "there is more below" cue on the first screen: two faint gray
+ * down-chevrons tucked into the lower-left and lower-right corners (off
+ * center, clear of the centered hero content) that gently pulse (shrink and
+ * expand) so visitors, especially less tech-savvy ones, realize the page
+ * continues past the fold. Fades out the moment the visitor scrolls and does
+ * not return. Honors prefers-reduced-motion (static, no pulse) and is
+ * pointer-events-none so it never intercepts a click.
  */
 function ScrollHint() {
   const [scrolled, setScrolled] = useState(false);
@@ -318,11 +319,24 @@ function ScrollHint() {
     return () => window.removeEventListener("scroll", onScroll, opts);
   }, []);
 
+  const chevron = (
+    <svg
+      className="scrollhint-chevron h-7 w-7 text-slate-400"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 6l7 6 7-6" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l7 6 7-6" />
+    </svg>
+  );
+
   return (
     <div
       aria-hidden
       data-testid="landing-scroll-hint"
-      className={`pointer-events-none fixed inset-x-0 bottom-5 z-30 flex justify-center transition-opacity duration-500 ${
+      className={`pointer-events-none fixed inset-x-0 bottom-8 z-30 flex justify-between px-[10%] transition-opacity duration-500 md:px-[14%] ${
         scrolled ? "opacity-0" : "opacity-100"
       }`}
     >
@@ -336,16 +350,11 @@ function ScrollHint() {
           .scrollhint-chevron { animation: none; opacity: 0.5; }
         }
       `}</style>
-      <svg
-        className="scrollhint-chevron h-7 w-7 text-slate-400"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        viewBox="0 0 24 24"
-      >
-        <path strokeLinecap="round" strokeLinejoin="round" d="M5 6l7 6 7-6" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l7 6 7-6" />
-      </svg>
+      {/* Two chevrons, one tucked toward each lower corner via justify-between
+          + symmetric horizontal inset. The <style> above is display:none (UA
+          stylesheet), so flex sees exactly the two chevrons. */}
+      {chevron}
+      {chevron}
     </div>
   );
 }
