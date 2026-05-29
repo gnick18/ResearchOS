@@ -1,4 +1,11 @@
 ### Ignore these paths or file types
+# Root-level build / dependency artifacts. The frontend/ patterns below
+# do not cover stray copies committed at the repo root (e.g. a root
+# .next/trace from a Vercel build, or a root node_modules vitest cache).
+/.next/
+/node_modules/
+/out/
+
 # Next.js
 frontend/.next/
 frontend/out/
