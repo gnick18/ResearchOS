@@ -96,11 +96,25 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // 2026-05-27 script rewrite folds the home-page framing into the
   // setup-wrapup body, so an extra narration beat between the modal
   // and the first user-action is redundant.
-  // Home + first project (§6.1). Split into TRIGGER (highlight the
-  // button + advance when the form opens) + FILL (explain name +
-  // color + the seven-day-week toggle + advance on
-  // `projectsApi.create`). See HomeCreateProjectStep.tsx for the
-  // split rationale.
+  // Home + first project (§6.1).
+  //
+  // Dashboard unification follow-up (dashboard-tour-fix bot 2026-05-29):
+  // the unification deleted the hardcoded Home project grid and moved the
+  // §6.1 anchors (`home-new-project`, the create form, name input, submit,
+  // project cards) onto the Projects Overview WIDGET. That widget's New
+  // Project flow lives inside its EXPANDED tile popup, so a new OPEN-WIDGET
+  // beat (`home-open-projects-widget`) leads the cluster: BeakerBot's cursor
+  // clicks the Projects Overview tile to mount the SnapshotTilePopup, putting
+  // the New Project affordance on screen. The popup is controlled by
+  // SnapshotCanvas state (not the tour), so it stays open across the advance
+  // into `home-create-project`. Without this beat the §6.1 arc was stuck: the
+  // cursor reached for a New-Project button that was not on screen.
+  //
+  // Then the existing split: TRIGGER (highlight the button + advance when the
+  // form opens) + FILL (explain name + color + the seven-day-week toggle +
+  // advance on `projectsApi.create`). See HomeOpenProjectsWidgetStep.tsx +
+  // HomeCreateProjectStep.tsx for the rationale.
+  "home-open-projects-widget",
   "home-create-project",
   "home-create-project-fill",
   // Project route Overview prose (§6.2). Split into NAV (cursor clicks

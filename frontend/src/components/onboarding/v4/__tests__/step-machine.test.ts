@@ -61,6 +61,17 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER).toContain("setup-q7");
     expect(TOUR_STEP_ORDER).toContain("links");
     expect(TOUR_STEP_ORDER).toContain("home-create-project");
+    // Dashboard unification follow-up (dashboard-tour-fix bot 2026-05-29):
+    // the new OPEN-WIDGET beat that clicks the Projects Overview tile to open
+    // its popup (so the moved §6.1 New Project anchors are on screen) must be
+    // present AND ordered immediately before home-create-project.
+    expect(TOUR_STEP_ORDER).toContain("home-open-projects-widget");
+    expect(TOUR_STEP_ORDER.indexOf("home-open-projects-widget")).toBeLessThan(
+      TOUR_STEP_ORDER.indexOf("home-create-project"),
+    );
+    expect(TOUR_STEP_ORDER.indexOf("home-open-projects-widget")).toBe(
+      TOUR_STEP_ORDER.indexOf("home-create-project") - 1,
+    );
     // §6.2b Home widgets walkthrough (home widgets §6.2b step bodies
     // manager, 2026-05-25). 5 universal sub-steps between
     // project-overview-exit and notifications-bell.
@@ -451,10 +462,14 @@ describe("TOUR_STEP_ORDER", () => {
     //
     // v4 tour structural manager (Wave 1, 2026-05-27): `home-page-intro`
     // retired. Grant's new script folds the home framing into the
-    // setup-wrapup body, so the first in-product step is back to
-    // `home-create-project` (the user-action open-click on +New Project).
+    // setup-wrapup body.
+    //
+    // Dashboard unification follow-up (dashboard-tour-fix bot 2026-05-29):
+    // the first in-product step is now `home-open-projects-widget` (BeakerBot
+    // opens the Projects Overview widget popup so the moved §6.1 New Project
+    // anchors are on screen), which leads into `home-create-project`.
     const next = getNextStep("setup-wrapup", picks());
-    expect(next).toBe("home-create-project");
+    expect(next).toBe("home-open-projects-widget");
   });
 
   it("every account type (PI, member, solo) walks the same dashboard-canvas phase", () => {
@@ -467,6 +482,9 @@ describe("TOUR_STEP_ORDER", () => {
     const member = picks({ account_type: "lab", lab_head: false });
     const solo = picks();
     const dashboardBlock: TourStepId[] = [
+      // Dashboard unification follow-up (dashboard-tour-fix bot 2026-05-29):
+      // the OPEN-WIDGET beat is universal (not gated for any account type).
+      "home-open-projects-widget",
       "home-create-project",
       "home-create-project-fill",
       "project-overview-nav",
@@ -490,10 +508,11 @@ describe("TOUR_STEP_ORDER", () => {
       expect(isStepGatedOut(id, member)).toBe(false);
       expect(isStepGatedOut(id, solo)).toBe(false);
     }
-    // Every account type now begins the walkthrough at home-create-project.
-    expect(getNextStep("setup-wrapup", pi)).toBe("home-create-project");
-    expect(getNextStep("setup-wrapup", member)).toBe("home-create-project");
-    expect(getNextStep("setup-wrapup", solo)).toBe("home-create-project");
+    // Every account type now begins the walkthrough at the OPEN-WIDGET beat
+    // (dashboard-tour-fix bot 2026-05-29), which leads into home-create-project.
+    expect(getNextStep("setup-wrapup", pi)).toBe("home-open-projects-widget");
+    expect(getNextStep("setup-wrapup", member)).toBe("home-open-projects-widget");
+    expect(getNextStep("setup-wrapup", solo)).toBe("home-open-projects-widget");
   });
 
   it("contains the three §6.3 notification sub-step ids", () => {

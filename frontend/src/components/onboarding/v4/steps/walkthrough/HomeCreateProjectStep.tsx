@@ -1,11 +1,12 @@
 /**
  * §6.1 Home page + first project — TRIGGER sub-step.
  *
- * First of two §6.1 sub-steps. BeakerBot points to the home page's
- * "+ New Project" button and waits for the user to open the
- * create-project form. Advances the moment
- * `tour:home-create-modal-opened` fires (dispatched by `app/page.tsx`
- * on the button's onClick).
+ * Second of three §6.1 sub-steps (after `home-open-projects-widget` opened
+ * the Projects Overview widget popup). BeakerBot points to the New Project
+ * button inside the now-open popup and waits for the user to open the
+ * create-project form. Advances the moment `tour:home-create-modal-opened`
+ * fires (dispatched by `ProjectsOverviewWidget.tsx` on the button's onClick
+ * after the dashboard unification moved the anchor there).
  *
  * Split rationale: Grant's v4 §6.1 walkthrough surfaced that BeakerBot's
  * speech never updated between "click the button" and "the project is
@@ -37,9 +38,16 @@ import { watchHomeCreateModalOpened } from "./lib/tour-events";
 
 export const homeCreateProjectStep = buildWalkthroughStep({
   id: "home-create-project",
+  // Dashboard unification follow-up (dashboard-tour-fix bot 2026-05-29): the
+  // New Project button now lives inside the Projects Overview widget popup
+  // (opened by the preceding `home-open-projects-widget` beat), not at the
+  // top of the page. Speech updated from "the blue plus button up there" to
+  // point at the New Project button in the open popup; pose dropped from
+  // "pointing-up" to "pointing" for the same reason (the target is no longer
+  // above BeakerBot).
   speech:
-    "Projects are the top-level folders for all your work. Let's make your first one. Click the blue plus button up there to get started.",
-  pose: "pointing-up",
+    "Now click the New Project button to get started. Every project starts with just a name and a color.",
+  pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.homeNewProject),
   // Intentionally no cursorScript: BeakerBot tells the user to click;
   // the user clicks. A synthetic click would clash with the speech and

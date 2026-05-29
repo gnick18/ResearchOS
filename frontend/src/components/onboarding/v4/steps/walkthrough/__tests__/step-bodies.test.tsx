@@ -38,6 +38,11 @@ vi.mock("../../../TourController", () => ({
   // behavior outside a provider (the body short-circuits the lock).
   useOptionalTourController: () => null,
 }));
+import {
+  homeOpenProjectsWidgetStep,
+  HOME_OPEN_PROJECTS_WIDGET_TILE_SELECTOR,
+  HOME_OPEN_PROJECTS_WIDGET_MY_SCOPE_SELECTOR,
+} from "../HomeOpenProjectsWidgetStep";
 import { homeCreateProjectStep } from "../HomeCreateProjectStep";
 import { homeCreateProjectFillStep } from "../HomeCreateProjectFillStep";
 import { projectOverviewNavStep } from "../ProjectOverviewNavStep";
@@ -196,6 +201,9 @@ function hasEmDash(text: string): boolean {
 }
 
 const ALL_STEPS: ReadonlyArray<TourStep> = [
+  // Dashboard unification follow-up (dashboard-tour-fix bot 2026-05-29): the
+  // OPEN-WIDGET beat leads the §6.1 cluster.
+  homeOpenProjectsWidgetStep,
   homeCreateProjectStep,
   homeCreateProjectFillStep,
   projectOverviewNavStep,
@@ -307,6 +315,8 @@ describe("P5 step bodies — universal contract", () => {
 
   it("every step body has a stable id matching its file's named export", () => {
     const expectedIds = new Set([
+      // Dashboard unification follow-up (dashboard-tour-fix bot 2026-05-29).
+      "home-open-projects-widget",
       "home-create-project",
       "home-create-project-fill",
       "project-overview-nav",
@@ -463,6 +473,11 @@ describe("P5 step bodies — universal contract", () => {
     // beat actually plays. This is the symmetric guard for the
     // user-action steps that explicitly drop cursorScript.
     const DEMO_STEPS_WITH_CURSOR_SCRIPT = [
+      // Dashboard unification follow-up (dashboard-tour-fix bot 2026-05-29):
+      // the OPEN-WIDGET beat's cursor clicks the Projects Overview tile to
+      // open its popup. BeakerBot-led demo, so it retains a cursorScript and
+      // uses manual completion (universal pacing rule).
+      homeOpenProjectsWidgetStep,
       projectOverviewNavStep,
       // Wave 2A speech rewrite (v4 tour speech manager — A, 2026-05-27):
       // the BEAKERBOT_DEMO typing portion split off project-overview-prose
@@ -569,6 +584,58 @@ describe("P5 step bodies — universal contract", () => {
   });
 });
 
+describe("HomeOpenProjectsWidgetStep (§6.1 open-widget, dashboard-tour-fix 2026-05-29)", () => {
+  it("declares the canonical id", () => {
+    expect(homeOpenProjectsWidgetStep.id).toBe("home-open-projects-widget");
+  });
+  it("spotlights + clicks the Projects Overview widget tile", () => {
+    // The Projects Overview widget is seeded at the top of the unified
+    // dashboard for every account type, so the tile is on canvas when §6.1
+    // fires. Clicking it opens the SnapshotTilePopup that carries the moved
+    // New Project anchors.
+    expect(homeOpenProjectsWidgetStep.targetSelector).toBe(
+      HOME_OPEN_PROJECTS_WIDGET_TILE_SELECTOR,
+    );
+    expect(HOME_OPEN_PROJECTS_WIDGET_TILE_SELECTOR).toBe(
+      "[data-tour-target='home-widget-tile-projects-overview']",
+    );
+  });
+  it("has a cursorScript (BeakerBot demo: click to open the widget)", () => {
+    expect(typeof homeOpenProjectsWidgetStep.cursorScript).toBe("function");
+  });
+  it("uses manual completion (universal pacing rule)", () => {
+    expect(homeOpenProjectsWidgetStep.completion.type).toBe("manual");
+  });
+  it("the my-scope selector targets the projects-overview scope toggle", () => {
+    // PI scope fix: the toggle flips a lab_head's popup from lab to my scope
+    // so the New Project button (gated to my scope) is on screen.
+    expect(HOME_OPEN_PROJECTS_WIDGET_MY_SCOPE_SELECTOR).toBe(
+      "[data-testid='projects-overview-scope-my']",
+    );
+  });
+  it("the cursor script clicks the tile then flips to my scope (no close click)", async () => {
+    // Render a fake Projects Overview tile so the build-time safeClickAction
+    // resolves. The script must produce: a click on the tile, plus a deferred
+    // (callback) action that flips to my scope. No close click (the popup
+    // must stay open for the create beats that follow).
+    document.body.innerHTML =
+      "<button data-tour-target='home-widget-tile-projects-overview'>Projects</button>";
+    const actions = await homeOpenProjectsWidgetStep.cursorScript!();
+    const clicks = actions.filter((a) => a.type === "click");
+    expect(clicks.length).toBeGreaterThanOrEqual(1);
+    // The deferred my-scope flip + the settle pause are both callback actions.
+    const callbacks = actions.filter((a) => a.type === "callback");
+    expect(callbacks.length).toBeGreaterThanOrEqual(2);
+    document.body.innerHTML = "";
+  });
+  it("expectedRoute is '/' (the cluster lives on the dashboard)", () => {
+    expect(homeOpenProjectsWidgetStep.expectedRoute).toBe("/");
+  });
+  it("speech contains no em-dashes (voice rule)", () => {
+    expect(hasEmDash(renderSpeech(homeOpenProjectsWidgetStep))).toBe(false);
+  });
+});
+
 describe("HomeCreateProjectStep (§6.1 trigger)", () => {
   it("declares event-driven completion (modal-opened DOM event)", () => {
     expect(homeCreateProjectStep.completion.type).toBe("event");
@@ -578,12 +645,16 @@ describe("HomeCreateProjectStep (§6.1 trigger)", () => {
       "[data-tour-target=\"home-new-project\"]",
     );
   });
-  it("speech mentions the blue plus button", () => {
-    expect(renderSpeech(homeCreateProjectStep)).toMatch(/blue plus button/);
+  it("speech directs the user to the New Project button", () => {
+    // Dashboard unification follow-up (dashboard-tour-fix bot 2026-05-29):
+    // the New Project button moved into the Projects Overview widget popup,
+    // so the speech no longer says "the blue plus button up there"; it now
+    // points at the New Project button in the open popup.
+    expect(renderSpeech(homeCreateProjectStep)).toMatch(/New Project button/);
   });
   it("has no cursorScript (user-action step, Grant 2026-05-21)", () => {
     // Cursor responsibility audit: BeakerBot tells the user to click
-    // the blue plus button. The cursor must NOT click it for them.
+    // the New Project button. The cursor must NOT click it for them.
     // Spotlight is the visual cue; user owns the action.
     expect(homeCreateProjectStep.cursorScript).toBeUndefined();
   });
