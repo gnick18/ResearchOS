@@ -1535,18 +1535,14 @@ export default function LiveMarkdownEditor({
     focusModeActiveRef.current = focusModeActive;
   }, [focusModeActive]);
 
-  // On enter, collapse the attachment tray so the surface starts calm. The
-  // single "Attachments" toggle in the focus top bar re-shows it on demand.
-  // Only fires on the rising edge so re-opening attachments inside focus
-  // mode sticks. The helper-rail collapse is handled inside the child via
-  // forceHelperCollapsed (edge-triggered there too).
-  const prevFocusModeRef = useRef(false);
-  useEffect(() => {
-    if (focusModeActive && !prevFocusModeRef.current) {
-      setShowAttachmentStrip(false);
-    }
-    prevFocusModeRef.current = focusModeActive;
-  }, [focusModeActive]);
+  // Focus mode keeps ALL the editor's own tools (the Shortcuts / Style Guide
+  // rail and the Images / Files attachment strip) so no editing functionality
+  // is lost (Grant 2026-05-29). Focus mode strips the surrounding host popup
+  // chrome (tabs, header, icon rail), which the full-viewport overlay simply
+  // covers, NOT the editor's own affordances. So the attachment strip stays
+  // visible (its `true` default) on enter, and the rail is not force-collapsed
+  // (see forceHelperCollapsed below). The "Attachments" toggle in the focus
+  // top bar can still collapse the strip on demand for a calmer surface.
 
   // Restore focus to where it was before entering (a11y §10). Runs on the
   // exit transition; the captured element is the toolbar enter button.
@@ -1693,7 +1689,7 @@ export default function LiveMarkdownEditor({
       ref={wrapperRef}
       className={
         focusModeActive
-          ? "flex flex-col w-full max-w-3xl h-full mx-auto"
+          ? "flex flex-col w-full max-w-5xl h-full mx-auto"
           : "flex flex-col h-full"
       }
       onDragEnter={handleWrapperDragEnter}
@@ -2113,7 +2109,7 @@ export default function LiveMarkdownEditor({
               // buffer guard, and collapses its rail on focus-mode enter.
               onToggleFocusMode={handleChildToggleFocusMode}
               commitBufferRef={commitBufferRef}
-              forceHelperCollapsed={focusModeActive}
+              forceHelperCollapsed={false}
               parkedRef={editorParkedRef}
             />
           )}
