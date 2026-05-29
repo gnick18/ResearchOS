@@ -43,6 +43,30 @@ export function allMethodTypeIds(): MethodTypeId[] {
 }
 
 /**
+ * The curated short set of method types a BRAND-NEW account starts with
+ * (u2-curated-default bot, 2026-05-29). Grant's call: new users land on a
+ * tidy picker (Markdown + PDF + PCR), discovering the rest in the store and
+ * enabling them on demand via the existing per-type toggle.
+ *
+ * IMPORTANT scope: this is the value STAMPED into a freshly-created account's
+ * `enabledMethodTypes` at creation time ONLY (see `usersApi.create` in
+ * local-api.ts). It is NOT part of `DEFAULT_SETTINGS` and does NOT change the
+ * resolution contract: an EXISTING account whose settings.json has no
+ * `enabledMethodTypes` field still resolves to ALL types enabled (the absent
+ * => all rule in `resolveEnabledMethodTypes`). Existing users therefore see
+ * zero change; only newly created accounts carry this curated set on disk.
+ *
+ * `compound` is intentionally absent: it is `hiddenFromPicker` /
+ * always-enabled and never persisted into the set (it is implied). The three
+ * ids below are verified against `method-type-registry.ts`.
+ */
+export const CURATED_DEFAULT_METHOD_TYPES: readonly MethodTypeId[] = [
+  "markdown",
+  "pdf",
+  "pcr",
+];
+
+/**
  * Types that are NEVER user-toggleable, so they are always treated as
  * enabled regardless of the persisted set. Today only `compound`, which is
  * `hiddenFromPicker` and reached by extending an existing method rather than

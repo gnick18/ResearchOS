@@ -5850,6 +5850,36 @@ export const usersApi = {
   create: async (username: string): Promise<{ status: string; current_user: string; created: boolean }> => {
     clearCurrentUserCache();
     await storeCurrentUser(username);
+
+    // Curated-default method types (u2-curated-default bot, 2026-05-29).
+    // A BRAND-NEW account starts with the short curated picker set
+    // (Markdown + PDF + PCR); the rest stay discoverable-but-off in the
+    // Extension Store and the user enables them on demand. We stamp the set
+    // ONLY here, at genuine account creation (this API is never hit on
+    // login — see `usersApi.login`), so EXISTING accounts (whose settings
+    // have no `enabledMethodTypes`) keep resolving to all-types-enabled.
+    // `CURATED_DEFAULT_METHOD_TYPES` is NOT in DEFAULT_SETTINGS precisely so
+    // it cannot retroactively curate existing users.
+    //
+    // Best-effort: a failed settings write must not block creation. If the
+    // patch fails (or the file service isn't connected), the account still
+    // resolves to all-enabled, which is a strictly safer fallback than no
+    // account at all.
+    try {
+      const { patchUserSettings } = await import("./settings/user-settings");
+      const { CURATED_DEFAULT_METHOD_TYPES } = await import(
+        "./methods/method-type-enablement"
+      );
+      await patchUserSettings(username, {
+        enabledMethodTypes: [...CURATED_DEFAULT_METHOD_TYPES],
+      });
+    } catch (err) {
+      console.warn(
+        "[usersApi.create] failed to stamp curated method types",
+        err,
+      );
+    }
+
     return { status: "ok", current_user: username, created: true };
   },
   
