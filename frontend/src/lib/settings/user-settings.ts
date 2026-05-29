@@ -287,6 +287,27 @@ export interface UserSettings {
   // Reuses the same v2 shape as `lab_overview_layout` so the
   // SnapshotCanvas-style mechanics can be reused.
   home_layout?: LabOverviewLayout | LabOverviewLayoutV1;
+
+  // Extension Store Phase U2 (extension-store U2 bot, 2026-05-29).
+  // DATA-SHAPE CHANGE: additive + optional. The set of method types the
+  // user has chosen to keep available in their new-method picker + template
+  // library (anti-clutter, METHOD doc §4.3 / EXTENSION doc §1.3).
+  //
+  // ABSENT = all types enabled (existing users see ZERO change; this is the
+  // back-compat default). An empty array is a DELIBERATE "everything off"
+  // choice and is honored as such; do not conflate absent with empty. Each
+  // entry is a `MethodTypeId` string; unknown ids (a type removed in a later
+  // build) are ignored at resolve time.
+  //
+  // Enablement gates CREATION + PICKER/STORE-DEFAULT VISIBILITY ONLY. It
+  // NEVER hides, deletes, or breaks rendering of an already-created or
+  // shared method of a disabled type (otherwise receiving a mass-spec method
+  // into a lab that disabled mass spec would break): the viewer/editor
+  // dispatch always resolves any persisted type regardless of enablement.
+  // See `frontend/src/lib/methods/method-type-enablement.ts` for the
+  // resolution + gating helpers. Per-account / folder-scoped, like every
+  // other field in this file.
+  enabledMethodTypes?: string[];
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {

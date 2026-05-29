@@ -54,6 +54,8 @@ import CodingWorkflowEditor from "@/components/CodingWorkflowEditor";
 import QpcrAnalysisEditor from "@/components/QpcrAnalysisEditor";
 import { type MethodTypeId } from "@/lib/methods/method-type-registry";
 import { MethodTypeCategoryPicker } from "./MethodTypePicker";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useEnabledMethodTypes } from "@/hooks/useEnabledMethodTypes";
 
 const methodsApi = rawMethodsApi;
 
@@ -93,6 +95,21 @@ export function CreateMethodModal({
   onCreated: (extendedCompound?: Method) => void;
 }) {
   const [uploadType, setUploadType] = useState<MethodTypeId>("markdown");
+  // Extension Store Phase U2: respect per-account method-type enablement in
+  // the picker. A disabled type shows muted with an inline "Enable" affordance
+  // (enable-a-disabled-type-on-use) rather than vanishing, so the user can opt
+  // back in without leaving the create flow.
+  const { currentUser } = useCurrentUser();
+  const { raw: enabledMethodTypes, setEnabled: setMethodTypeEnabled } =
+    useEnabledMethodTypes(currentUser);
+  const handleEnableType = useCallback(
+    (id: MethodTypeId) => {
+      void setMethodTypeEnabled(id, true);
+      // Select it immediately so enabling doubles as picking it.
+      setUploadType(id);
+    },
+    [setMethodTypeEnabled],
+  );
   const [name, setName] = useState("");
   const [folder, setFolder] = useState(prefilledFolder || "");
   const [tags, setTags] = useState("");
@@ -751,6 +768,8 @@ export function CreateMethodModal({
             <MethodTypeCategoryPicker
               uploadType={uploadType}
               onSelect={setUploadType}
+              enabledTypes={enabledMethodTypes}
+              onEnableType={handleEnableType}
             />
 
             {/* Name */}
