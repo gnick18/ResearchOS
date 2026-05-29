@@ -2,6 +2,16 @@
 
 Author: focus-writing-mode design bot (for HR), 2026-05-29
 
+## 0. Decisions locked (Grant, 2026-05-29)
+
+All four open questions from §11 are resolved. Build to these:
+1. Escape: GUARDED exit (§5 tertiary). Escape exits focus mode only when parked (no block mid-edit, no block selected, no tour cursor lock active) and early-returns on `isTourSyntheticEscape`. While editing, Escape keeps its existing block-commit behavior and never exits focus mode. When the guard does act, it `stopPropagation()`s so the host popup does not also close.
+2. Shortcut: Cmd/Ctrl+Shift+F toggles focus mode on and off, bound on the editor's existing document-level keydown and scoped to the focused editor (`containerRef.current.contains(document.activeElement)`).
+3. Save: focus mode renders its OWN Save affordance in the overlay (reusing `saveRef` + `onExplicitSave` where the host provides them, otherwise the editor's internal `manualSave`), because the host disk-Save button is covered by the overlay.
+4. Preview: KEEP a compact Hybrid/Preview toggle on the calm surface; hide Add File / Browse / Strip. Attachments stay reachable via a single collapsed toggle.
+
+Open questions §11.5 (Methods in scope) and §11.6 (NoteDetailPopup Escape inconsistency) stand as written: Methods IS in scope for the first cut; the NoteDetailPopup Escape gap is a pre-existing nit to fix separately, moot while focus mode is open.
+
 ## 1. What this is, and what it is not
 
 ResearchOS centers on one rich markdown surface: `HybridMarkdownEditor` (block-level click-to-edit, manual save) wrapped by `LiveMarkdownEditor` (toolbar, attachments, preview toggle). The same wrapper is mounted inside experiment Lab Notes, experiment Results, standalone Notes, and the Methods write-up. In every one of those hosts the actual writing column is squeezed by chrome: the host popup frame (tabs plus a top-right icon rail), the editor toolbar (Hybrid / Preview / Add File / Strip), the left Shortcuts / Style Guide rail, and the bottom Images / Files tray.
