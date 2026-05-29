@@ -401,7 +401,11 @@ export function StageBackdrop({
       <Spotlight active={spotlightActive} />
       <PhotographersPit />
       <Valance />
-      <Marquee />
+      {/* The BEAKERBOT marquee logo is NOT rendered here anymore: it lives
+          on its own page-level layer (rendered by the page) so the runway's
+          overhead spotlight + the valance never paint over it and it always
+          reads fully lit (Grant: the logo must NEVER dim). See <Marquee />
+          in showcase/page.tsx. */}
     </div>
   );
 }

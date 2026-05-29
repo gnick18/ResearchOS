@@ -31,7 +31,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { StageBackdrop } from "@/components/showcase/StageChrome";
+import { StageBackdrop, Marquee } from "@/components/showcase/StageChrome";
 import { StageNav, type ShowcaseView } from "@/components/showcase/ShowcaseSections";
 import Runway from "@/components/showcase/Runway";
 import PerformanceHall from "@/components/showcase/PerformanceHall";
@@ -64,6 +64,13 @@ export default function ShowcasePage() {
       data-view={view}
     >
       <StageBackdrop spotlightActive />
+
+      {/* The BEAKERBOT marquee logo on its OWN page-level layer (above the
+          backdrop AND the runway's dark overhead spotlight, below the
+          StageNav), so it always reads fully lit and is never dimmed by the
+          emotions-stage focus light. Position + design are identical to the
+          old in-backdrop placement. */}
+      <Marquee />
 
       {/* One view mounted at a time. Mounting gates each view's clock: the
           runway autoplay timer only runs while Runway is mounted, and the

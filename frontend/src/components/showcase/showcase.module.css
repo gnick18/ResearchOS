@@ -61,13 +61,32 @@
 /* ── Marquee (R3.3) ────────────────────────────────────────────────── */
 
 .marquee {
-  position: absolute;
+  /* Fixed (was absolute inside the backdrop). The logo is the show's
+     signature: Grant wants it to NEVER dim, not even under the
+     emotions-stage focus light. The runway's own overhead spotlight (a
+     dark-edged radial inside .runwayShow, page z5) used to paint OVER the
+     marquee because the whole backdrop sits below the runway. So the
+     marquee is now its OWN page-level layer (rendered as a direct child of
+     .stageRoot) at z12: above the runway / hall (z5) and the runway's dark
+     overlay, below the StageNav (z30). Position + size are unchanged from
+     the old backdrop placement (top-center), so the design is identical. */
+  position: fixed;
   top: 1svh;
   left: 50%;
   transform: translateX(-50%);
   width: 70vw;
   max-width: 980px;
   height: 12svh;
+  z-index: 12;
+  /* Decorative only: clicks pass through to the runway below (it was
+     pointer-events:none via the backdrop before the move). */
+  pointer-events: none;
+  /* A constant warm halo so the whole marquee reads as self-illuminated
+     regardless of the stage lighting around it (a steady glow that does
+     not pulse off). */
+  filter:
+    drop-shadow(0 0 6px rgba(255, 231, 168, 0.65))
+    drop-shadow(0 0 18px rgba(255, 214, 130, 0.4));
 }
 .marqueeBulbs {
   position: absolute;
@@ -77,16 +96,23 @@
 }
 .mbulb {
   fill: #fff6d8;
+  /* A steady per-bulb glow so every bulb always reads as lit, even at the
+     darker end of the shimmer. */
+  filter: drop-shadow(0 0 2px rgba(255, 246, 216, 0.9));
   animation: bulbChase 1.8s ease-in-out infinite;
   animation-delay: calc(var(--i, 0) * -60ms);
 }
+/* The shimmer now travels between TWO LIT tones (warm white <-> warm
+   gold), so a bulb is NEVER dark or off: the twinkle/flash feel stays,
+   but no bulb ever looks dimmed. (Was #6b5a2e -> #fff6d8, which read as
+   "half the bulbs are off" at any instant.) */
 @keyframes bulbChase {
   0%,
   100% {
-    fill: #6b5a2e; /* dim amber */
+    fill: #ffe7a8; /* warm gold (still fully lit) */
   }
   50% {
-    fill: #fff6d8; /* lit warm white */
+    fill: #fff6d8; /* warm white (lit) */
   }
 }
 
