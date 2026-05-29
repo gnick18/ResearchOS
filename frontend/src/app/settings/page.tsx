@@ -3257,7 +3257,7 @@ function ReconcileRow() {
 // markdown only when the user picks it (don't pull ~50 KB of prompt text
 // for users who never open this section). Provides copy-to-clipboard +
 // one-click "open in your provider" deep links to Claude / ChatGPT /
-// Gemini.
+// Gemini / Copilot.
 //
 // Stale-prompt detection compares `manifest.built_from_commit` against
 // `process.env.NEXT_PUBLIC_RESEARCHOS_COMMIT` (resolved at build time in
@@ -3311,13 +3311,17 @@ const AI_HELPER_SIZE_OPTIONS: ReadonlyArray<{
 ];
 
 const AI_HELPER_PROVIDERS: ReadonlyArray<{
-  key: "claude" | "chatgpt" | "gemini";
+  key: "claude" | "chatgpt" | "gemini" | "copilot";
   label: string;
   url: string;
 }> = [
   { key: "claude", label: "Claude", url: "https://claude.ai/new" },
   { key: "chatgpt", label: "ChatGPT", url: "https://chatgpt.com/" },
   { key: "gemini", label: "Gemini", url: "https://gemini.google.com/app" },
+  // Microsoft Copilot is free with many university / institutional M365
+  // accounts (including UW-Madison), which makes it a no-cost option for
+  // a lot of our users. Same open-and-paste flow as the others.
+  { key: "copilot", label: "Copilot", url: "https://copilot.microsoft.com/" },
 ];
 
 const AI_HELPER_LIVE_BASE = "https://research-os-xi.vercel.app";
@@ -3551,8 +3555,8 @@ function AIHelperSection() {
       id="ai-helper"
       tourTarget="settings-ai-helper-section"
       title="AI Helper"
-      description="Train your own AI chatbot to know ResearchOS inside out. Paste this prompt into Claude, ChatGPT, or Gemini and the chatbot becomes a schema-aware support assistant."
-      searchKeywords="Claude ChatGPT Gemini prompt copy clipboard lean full minimal size tokens schema chatbot LLM"
+      description="Train your own AI chatbot to know ResearchOS inside out. Paste this prompt into Claude, ChatGPT, Gemini, or Microsoft Copilot and the chatbot becomes a schema-aware support assistant."
+      searchKeywords="Claude ChatGPT Gemini Copilot Microsoft prompt copy clipboard lean full minimal size tokens schema chatbot LLM"
     >
       <div className="space-y-4">
         {/* Size picker */}
@@ -3654,10 +3658,11 @@ function AIHelperSection() {
           </p>
           <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mt-2">
             <span className="font-medium">Heads up:</span> this is for the chat interface
-            (claude.ai, chatgpt.com, gemini.google.com). Your Claude Max / ChatGPT Plus /
-            Gemini Advanced subscription works fine. You do <em>not</em> need an Anthropic /
-            OpenAI / Google API key, and your chat-tier subscription does not include API
-            credits.
+            (claude.ai, chatgpt.com, gemini.google.com, copilot.microsoft.com). Your Claude Max
+            / ChatGPT Plus / Gemini Advanced subscription works fine, and Microsoft Copilot is
+            free with many university and institutional accounts (including UW-Madison). You do{" "}
+            <em>not</em> need an Anthropic / OpenAI / Google API key, and your chat-tier
+            subscription does not include API credits.
           </p>
         </div>
 
