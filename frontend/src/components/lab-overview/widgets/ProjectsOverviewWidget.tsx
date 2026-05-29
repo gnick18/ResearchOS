@@ -180,6 +180,43 @@ function projectHref(p: ViewerVisibleProject, currentUser: string | null): strin
   return `/workbench/projects/${p.id}?owner=${encodeURIComponent(p.owner)}`;
 }
 
+/**
+ * One labelled count in the Active / Overdue / Upcoming breakdown row
+ * (projects-overview-richness bot, 2026-05-29). Mirrors the SingleProjectWidget
+ * SnapshotTile CountStat so the multi-project cards read the same as the pinned
+ * single-project tile + the old Home grid. `emphasizeWarn` renders red when the
+ * value is > 0 (used for Overdue).
+ */
+function CardCountStat({
+  label,
+  value,
+  emphasizeWarn,
+}: {
+  label: string;
+  value: number;
+  emphasizeWarn?: boolean;
+}) {
+  const warn = emphasizeWarn && value > 0;
+  return (
+    <div className="min-w-0">
+      <div
+        className={`text-sm font-semibold tabular-nums leading-tight ${
+          warn ? "text-red-600" : "text-gray-900"
+        }`}
+      >
+        {value}
+      </div>
+      <div
+        className={`text-[9px] uppercase tracking-wide leading-tight ${
+          warn ? "text-red-400" : "text-gray-400"
+        }`}
+      >
+        {label}
+      </div>
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Scope toggle (My / Lab). Persists to the instance config on click.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -445,24 +482,41 @@ export default function ProjectsOverviewWidget(props?: ExpandedViewProps) {
                       </Tooltip>
                     )}
                   </div>
-                  <div className="mt-2 h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+                  <div className="mt-2 flex items-baseline gap-1.5">
+                    <span className="text-sm font-semibold tabular-nums text-gray-900">
+                      {pct}%
+                    </span>
+                    <span className="text-[11px] text-gray-500">complete</span>
+                  </div>
+                  <div className="mt-1 h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
                     <div
                       className="h-full rounded-full"
                       style={{ width: `${pct}%`, backgroundColor: p.color }}
                     />
                   </div>
-                  <div className="mt-1.5 flex items-center justify-between text-[11px] text-gray-500">
-                    <span>{pct}% complete</span>
-                    <span
-                      className={
-                        p.taskIncomplete > 0
-                          ? "font-semibold text-gray-700"
-                          : "text-gray-400"
-                      }
-                    >
-                      {p.taskIncomplete} open
-                    </span>
+                  {/* Active / Overdue / Upcoming breakdown (projects-overview-
+                      richness bot, 2026-05-29): mirrors the SingleProjectWidget
+                      SnapshotTile + the old Home grid cards. Reads the
+                      `taskActive` / `taskOverdue` / `taskUpcoming` fields
+                      `getProjectsWithProgress` already populates; the `?? 0`
+                      defaults the (test-only) absent case. Overdue goes red
+                      when > 0. */}
+                  <div className="mt-2 grid grid-cols-3 gap-1">
+                    <CardCountStat label="Active" value={p.taskActive ?? 0} />
+                    <CardCountStat
+                      label="Overdue"
+                      value={p.taskOverdue ?? 0}
+                      emphasizeWarn
+                    />
+                    <CardCountStat
+                      label="Upcoming"
+                      value={p.taskUpcoming ?? 0}
+                    />
                   </div>
+                  <p className="mt-1.5 text-[10px] text-gray-400 tabular-nums">
+                    {p.taskIncomplete} task
+                    {p.taskIncomplete === 1 ? "" : "s"} open
+                  </p>
                 </button>
               </li>
             );

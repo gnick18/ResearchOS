@@ -16,7 +16,7 @@
 // TraineeNotesWidget uses.
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ViewerVisibleProject } from "@/lib/local-api";
 
@@ -35,6 +35,11 @@ const ALL_PROJECTS: ViewerVisibleProject[] = [
     taskTotal: 4,
     taskCompleted: 1,
     taskIncomplete: 3,
+    // Active / Overdue / Upcoming breakdown (richness build): no overdue
+    // here, so the Overdue stat stays neutral on this card.
+    taskActive: 2,
+    taskOverdue: 0,
+    taskUpcoming: 1,
   },
   {
     id: 2,
@@ -79,6 +84,11 @@ const ALL_PROJECTS: ViewerVisibleProject[] = [
     taskTotal: 2,
     taskCompleted: 1,
     taskIncomplete: 1,
+    // Active / Overdue / Upcoming breakdown (richness build): one OVERDUE
+    // task, so the card's Overdue stat renders red.
+    taskActive: 0,
+    taskOverdue: 1,
+    taskUpcoming: 0,
   },
 ];
 
@@ -318,5 +328,47 @@ describe("ProjectsOverviewWidget: New Project + navigation", () => {
     );
     fireEvent.click(screen.getByTestId("projects-overview-card-pat-9"));
     expect(pushMock).toHaveBeenCalledWith("/workbench/projects/9");
+  });
+});
+
+describe("ProjectsOverviewWidget: per-card Active / Overdue / Upcoming breakdown", () => {
+  it("each card renders the Active / Overdue / Upcoming counts + open-task line", async () => {
+    // richness build (projects-overview-richness bot, 2026-05-29): the cards
+    // mirror the SingleProjectWidget tile + the old Home grid, surfacing the
+    // taskActive / taskOverdue / taskUpcoming breakdown the data layer already
+    // carries. Scope the assertion to morgan's whole-lab card.
+    renderExpanded({ surface: "canvas", config: { projectScope: "lab" } }); // pat PI
+    const card = await screen.findByTestId("projects-overview-card-morgan-1");
+    // The three labelled stats render on the card.
+    expect(within(card).getByText("Active")).toBeInTheDocument();
+    expect(within(card).getByText("Overdue")).toBeInTheDocument();
+    expect(within(card).getByText("Upcoming")).toBeInTheDocument();
+    // Values: taskActive 2 / taskOverdue 0 / taskUpcoming 1 on this fixture.
+    expect(within(card).getByText("2")).toBeInTheDocument();
+    expect(within(card).getByText("1")).toBeInTheDocument();
+    // The open-task summary line stays (3 incomplete ⇒ "tasks", plural).
+    expect(within(card).getByText(/3 tasks open/)).toBeInTheDocument();
+  });
+
+  it("renders the Overdue count in red when > 0 (neutral when 0)", async () => {
+    renderExpanded({ surface: "canvas", config: { projectScope: "lab" } }); // pat PI
+    // Pat's own project has 1 OVERDUE task ⇒ the Overdue VALUE renders red.
+    const overdueCard = await screen.findByTestId(
+      "projects-overview-card-pat-9",
+    );
+    const overdueLabel = within(overdueCard).getByText("Overdue");
+    // The label + its sibling value both carry the red class when > 0.
+    expect(overdueLabel.className).toContain("text-red-400");
+    const overdueValue = overdueLabel.previousElementSibling;
+    expect(overdueValue).not.toBeNull();
+    expect(overdueValue?.className).toContain("text-red-600");
+
+    // morgan's whole-lab card has 0 overdue ⇒ NO red on its Overdue stat.
+    const cleanCard = screen.getByTestId("projects-overview-card-morgan-1");
+    const cleanLabel = within(cleanCard).getByText("Overdue");
+    expect(cleanLabel.className).not.toContain("text-red-400");
+    expect(cleanLabel.previousElementSibling?.className).not.toContain(
+      "text-red-600",
+    );
   });
 });
