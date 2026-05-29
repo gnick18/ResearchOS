@@ -353,6 +353,40 @@ interface HybridMarkdownEditorProps {
    *  `value`/onChange round-trip lags the buffer, so disk-diff alone would
    *  keep the parent button disabled mid-edit). */
   onDirtyChange?: (dirty: boolean) => void;
+  /** Writing Focus Mode (FOCUS_WRITING_MODE_DESIGN.md §0 decision 2).
+   *  When provided, the editor's existing document-level keydown listener
+   *  (the same one that owns Cmd/Ctrl+S) also binds Cmd/Ctrl+Shift+F and
+   *  calls this to toggle focus mode on / off. Scoped exactly like Cmd+S
+   *  (only fires when the active element is inside this editor's
+   *  container) so it never leaks to a sibling editor on the page. The
+   *  focus-mode STATE lives in the LiveMarkdownEditor wrapper; this is the
+   *  child's request channel up to it. */
+  onToggleFocusMode?: () => void;
+  /** Writing Focus Mode buffer safety (FOCUS_WRITING_MODE_DESIGN.md §7).
+   *  When provided, the editor publishes a flush-to-PENDING function here
+   *  (NOT a flush-to-disk: it commits the in-flight block buffer into the
+   *  pending document via commitBufferedEdit, it does NOT fire onChange).
+   *  The wrapper calls it on the frame it re-parents this subtree into /
+   *  out of the focus-mode portal, so even if a future refactor breaks
+   *  React element identity across that re-parent, the worst case is "your
+   *  in-flight block is committed to pending," never "your typing is
+   *  gone." Element identity IS preserved today, so this is a
+   *  belt-and-suspenders guard. */
+  commitBufferRef?: React.MutableRefObject<(() => void) | null>;
+  /** Writing Focus Mode chrome (FOCUS_WRITING_MODE_DESIGN.md §6). When this
+   *  flips from false to true (the wrapper sets it on focus-mode enter), the
+   *  Shortcuts / Style Guide rail collapses by default so the writing surface
+   *  stays calm. The user's expand chevron stays interactive afterward, so a
+   *  later true-state render does NOT re-collapse a rail the user re-opened.
+   *  Defaults to false (rail keeps its own state). */
+  forceHelperCollapsed?: boolean;
+  /** Writing Focus Mode guarded Escape (FOCUS_WRITING_MODE_DESIGN.md §0
+   *  decision 1, §5). When provided, the editor keeps this ref in sync with
+   *  whether it is PARKED: no block mid-edit (isEditing false) AND no block
+   *  selected (selectedBlockOffset === null). The wrapper's guarded-Escape
+   *  listener reads it to decide whether an Escape may exit focus mode, so it
+   *  never steals Escape from a block edit or a selected-block deselect. */
+  parkedRef?: React.MutableRefObject<boolean>;
 }
 
 /**
@@ -639,6 +673,10 @@ export default function HybridMarkdownEditor({
   saveRef,
   onExplicitSave,
   onDirtyChange,
+  onToggleFocusMode,
+  commitBufferRef,
+  forceHelperCollapsed = false,
+  parkedRef,
 }: HybridMarkdownEditorProps) {
   // Track which block is currently being edited by its start offset
   // Using startOffset is more stable than block ID because it doesn't
@@ -710,6 +748,29 @@ export default function HybridMarkdownEditor({
   // Helper panel state
   const [helperCollapsed, setHelperCollapsed] = useState(false);
   const [helperTab, setHelperTab] = useState<HelperTab>("shortcuts");
+
+  // Writing Focus Mode (FOCUS_WRITING_MODE_DESIGN.md §6): collapse the
+  // Shortcuts / Style Guide rail on the rising edge of forceHelperCollapsed
+  // (focus-mode enter). Edge-triggered so re-opening the rail inside focus
+  // mode sticks (a steady-true prop must NOT keep slamming it shut).
+  const prevForceHelperCollapsedRef = useRef(forceHelperCollapsed);
+  useEffect(() => {
+    if (forceHelperCollapsed && !prevForceHelperCollapsedRef.current) {
+      setHelperCollapsed(true);
+    }
+    prevForceHelperCollapsedRef.current = forceHelperCollapsed;
+  }, [forceHelperCollapsed]);
+
+  // Writing Focus Mode guarded Escape (FOCUS_WRITING_MODE_DESIGN.md §0
+  // decision 1, §5): publish whether the editor is PARKED so the wrapper's
+  // guarded-Escape listener never steals Escape from a block edit or a
+  // selected-block deselect. Parked = not editing (editingBlockOffset null)
+  // AND no block selected (selectedBlockOffset null).
+  useEffect(() => {
+    if (!parkedRef) return;
+    parkedRef.current =
+      editingBlockOffset === null && selectedBlockOffset === null;
+  }, [parkedRef, editingBlockOffset, selectedBlockOffset]);
   
   // Language selector state
   const [showLanguageSelector, setShowLanguageSelector] = useState(false);
@@ -879,6 +940,15 @@ export default function HybridMarkdownEditor({
   useEffect(() => {
     onExplicitSaveRef.current = onExplicitSave;
   }, [onExplicitSave]);
+
+  // Mirror onToggleFocusMode into a ref so the document-level keydown
+  // listener (registered once with `[]` deps for Cmd+S) can read the
+  // latest callback for the Cmd/Ctrl+Shift+F focus-mode toggle without
+  // re-binding. Same pattern as onExplicitSaveRef above.
+  const onToggleFocusModeRef = useRef(onToggleFocusMode);
+  useEffect(() => {
+    onToggleFocusModeRef.current = onToggleFocusMode;
+  }, [onToggleFocusMode]);
 
   /**
    * Begin a buffered edit session. Captures the current document value
@@ -1095,6 +1165,27 @@ export default function HybridMarkdownEditor({
       if (saveRef) saveRef.current = null;
     };
   }, [saveRef, commitBufferedEdit, clearDirty, onChange]);
+
+  // Writing Focus Mode buffer safety (FOCUS_WRITING_MODE_DESIGN.md §7).
+  // Publish a flush-to-PENDING function on commitBufferRef. Unlike
+  // saveRef (which fires onChange = flush to disk), this only composes
+  // the in-flight block buffer back into pendingDocumentRef via
+  // commitBufferedEdit (it does NOT call onChange). The wrapper calls it
+  // on the frame it re-parents this subtree into / out of the focus-mode
+  // portal. Element identity is preserved across that re-parent, so no
+  // remount happens and the buffer refs already survive; this is the
+  // belt-and-suspenders guard the design doc asks for so even a future
+  // refactor that breaks element identity degrades to "block committed to
+  // pending" rather than "typing lost."
+  useEffect(() => {
+    if (!commitBufferRef) return;
+    commitBufferRef.current = () => {
+      if (editSessionSnapshotRef.current !== null) commitBufferedEdit();
+    };
+    return () => {
+      if (commitBufferRef) commitBufferRef.current = null;
+    };
+  }, [commitBufferRef, commitBufferedEdit]);
 
   // Surface the in-flight buffer-dirty flag to a parent (when one asks).
   // A parent that hides our own Save button gates ITS button on disk-diff,
@@ -2231,18 +2322,39 @@ export default function HybridMarkdownEditor({
         typeof navigator !== "undefined" &&
         navigator.platform.toUpperCase().indexOf("MAC") >= 0;
       const cmd = isMac ? e.metaKey : e.ctrlKey;
-      if (!cmd || e.shiftKey || e.altKey) return;
+      if (!cmd || e.altKey) return;
+      // Helper: did the focus belong to THIS editor? Both shortcuts scope
+      // the same way so neither leaks to a sibling editor on the page.
+      const ownsFocus = () => {
+        const active = document.activeElement as HTMLElement | null;
+        return Boolean(
+          containerRef.current && active && containerRef.current.contains(active),
+        );
+      };
+
+      // Writing Focus Mode toggle (FOCUS_WRITING_MODE_DESIGN.md §0
+      // decision 2): Cmd/Ctrl+Shift+F toggles focus mode on AND off.
+      // Bound on this SAME document-level keydown the editor already owns
+      // for Cmd+S and scoped identically (only when this editor owns
+      // focus), so it never collides with Escape and never leaks to other
+      // editors. The actual state lives in the LiveMarkdownEditor wrapper;
+      // we just request the toggle via onToggleFocusModeRef.
+      if (e.shiftKey && e.key.toLowerCase() === "f") {
+        if (onToggleFocusModeRef.current && ownsFocus()) {
+          e.preventDefault();
+          e.stopPropagation();
+          onToggleFocusModeRef.current();
+        }
+        return;
+      }
+
+      if (e.shiftKey) return;
       if (e.key.toLowerCase() !== "s") return;
       // Only consume the shortcut if the active element is inside
       // our container — multiple editors mounted in the same DOM
       // (e.g. Notes + Methods open side-by-side) should each only
       // respond to Cmd+S when they "own" focus.
-      const active = document.activeElement as HTMLElement | null;
-      if (
-        containerRef.current &&
-        active &&
-        containerRef.current.contains(active)
-      ) {
+      if (ownsFocus()) {
         e.preventDefault();
         e.stopPropagation();
         manualSaveRef.current();

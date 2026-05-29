@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useRef, useState, useEffect } from "react";
+import { useCallback, useRef, useState, useEffect, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
@@ -15,6 +16,8 @@ import { fileService } from "@/lib/file-system/file-service";
 import ImageResizePopover from "./ImageResizePopover";
 import { rewriteImageBySrcAlt, parseWidthPercent } from "@/lib/image-resize-utils";
 import ImageStrip from "./ImageStrip";
+import Tooltip from "./Tooltip";
+import { isTourSyntheticEscape } from "./onboarding/v4/steps/walkthrough/lib/synthetic-escape";
 import FileStrip, { FILE_STRIP_DRAG_MIME } from "./FileStrip";
 import ImageTrashDropZone from "./ImageTrashDropZone";
 import FileTrashDropZone from "./FileTrashDropZone";
@@ -164,6 +167,14 @@ interface LiveMarkdownEditorProps {
    *  buffer-dirty flag flips, so a parent that hides the internal Save button
    *  can enable its own Save button the moment the user starts typing. */
   onDirtyChange?: (dirty: boolean) => void;
+  /** Writing Focus Mode (FOCUS_WRITING_MODE_DESIGN.md §6). Controlled-or-
+   *  internal pair mirroring `mode` / `onModeChange`. When `onFocusModeChange`
+   *  is provided the wrapper treats `focusMode` as a controlled value (the
+   *  tour drives it this way); otherwise it owns the boolean internally and
+   *  the toolbar button / shortcut toggle it. Defaults to off. */
+  focusMode?: boolean;
+  /** Callback when focus mode changes (enables the controlled pattern). */
+  onFocusModeChange?: (focusMode: boolean) => void;
 }
 
 /**
@@ -192,10 +203,112 @@ export default function LiveMarkdownEditor({
   saveRef,
   onExplicitSave,
   onDirtyChange,
+  focusMode = false,
+  onFocusModeChange,
 }: LiveMarkdownEditorProps) {
   // Internal mode state (used if onModeChange is not provided)
   const [internalMode, setInternalMode] = useState<EditorMode>(mode);
-  
+
+  // Writing Focus Mode (FOCUS_WRITING_MODE_DESIGN.md §6). Controlled-or-
+  // internal pattern mirroring `mode` / `onModeChange` above. When the host
+  // (or the tour) supplies `onFocusModeChange`, `focusMode` is the source of
+  // truth; otherwise we own it internally and the toolbar button / shortcut
+  // toggle it.
+  const [internalFocusMode, setInternalFocusMode] = useState<boolean>(focusMode);
+  const focusModeActive = onFocusModeChange ? focusMode : internalFocusMode;
+  const setFocusMode = useCallback(
+    (next: boolean) => {
+      if (onFocusModeChange) {
+        onFocusModeChange(next);
+      } else {
+        setInternalFocusMode(next);
+      }
+    },
+    [onFocusModeChange],
+  );
+
+  // Buffer-safety bridge (FOCUS_WRITING_MODE_DESIGN.md §7). The child
+  // HybridMarkdownEditor publishes a flush-to-PENDING function here; we call
+  // it on the frame we flip the portal target so an in-flight block edit is
+  // committed to the pending document (NOT to disk) across the re-parent.
+  // Element identity is preserved across the portal flip (the SAME
+  // HybridMarkdownEditor element renders in both branches), so no remount
+  // happens and the buffer refs survive untouched. This is the
+  // belt-and-suspenders guard the design doc asks for.
+  const commitBufferRef = useRef<(() => void) | null>(null);
+  // Captured focused element on enter, restored on exit (a11y §10).
+  const focusReturnElRef = useRef<HTMLElement | null>(null);
+  // Overlay root for the focus trap + guarded-Escape scoping.
+  const focusOverlayRef = useRef<HTMLDivElement>(null);
+  // Parked status published by the child editor (no block mid-edit AND no
+  // block selected). The guarded-Escape listener consults this so it never
+  // exits focus mode while a block is being edited or merely selected
+  // (FOCUS_WRITING_MODE_DESIGN.md §0 decision 1). Defaults true so a fresh
+  // editor with nothing selected is parked.
+  const editorParkedRef = useRef(true);
+  // The HybridMarkdownEditor publishes its container-contains check via the
+  // Cmd+Shift+F binding it already owns; here we just need the latest
+  // focusMode value inside listeners with stable deps, so mirror it to a ref.
+  const focusModeActiveRef = useRef(false);
+
+  // Buffer-safe portal container (FOCUS_WRITING_MODE_DESIGN.md §7).
+  //
+  // React UNMOUNTS + remounts a portal's children when the portal CONTAINER
+  // node changes between renders (verified in react-dom 19's reconciler:
+  // updatePortal bails to createFiberFromPortal on a containerInfo mismatch).
+  // A remount would wipe HybridMarkdownEditor's manual-save buffer + undo
+  // refs and silently drop in-flight typing, exactly the failure the design
+  // doc calls the top correctness risk.
+  //
+  // So we create ONE stable container div and ALWAYS portal the editor subtree
+  // into it (the container reference never changes, so React never remounts).
+  // We then move that single node IMPERATIVELY in the DOM: into the in-place
+  // mount slot when not in focus mode, and into document.body (full-viewport
+  // overlay) when in focus mode. Moving a node with `appendChild` does not
+  // change the node's identity, so the portal's containerInfo stays equal and
+  // the component state survives. The belt-and-suspenders flush-to-pending
+  // (commitBufferRef) runs in toggleFocusMode just before the move as a second
+  // line of defense.
+  const portalContainerRef = useRef<HTMLDivElement | null>(null);
+  if (portalContainerRef.current === null && typeof document !== "undefined") {
+    portalContainerRef.current = document.createElement("div");
+  }
+  // The in-place mount slot: a `display: contents` node so it is transparent
+  // to the host's flex layout. The portal container lives inside it when not
+  // in focus mode. Captured via a callback ref so the move effect can react.
+  const [inPlaceMount, setInPlaceMount] = useState<HTMLDivElement | null>(null);
+  const inPlaceMountCallbackRef = useCallback((node: HTMLDivElement | null) => {
+    setInPlaceMount(node);
+  }, []);
+
+  // Toggle handler shared by the toolbar button, the exit button, the
+  // Cmd/Ctrl+Shift+F shortcut, and the guarded Escape. Flush the in-flight
+  // buffer to pending BEFORE flipping the portal target (see commitBufferRef
+  // above), then flip.
+  const toggleFocusMode = useCallback(
+    (next: boolean) => {
+      commitBufferRef.current?.();
+      if (next) {
+        // Capture where focus was so we can restore it on exit (the toolbar
+        // enter button, typically). Done before the overlay mounts.
+        if (typeof document !== "undefined") {
+          focusReturnElRef.current =
+            document.activeElement instanceof HTMLElement
+              ? document.activeElement
+              : null;
+        }
+      }
+      setFocusMode(next);
+    },
+    [setFocusMode],
+  );
+
+  // The child fires this (Cmd/Ctrl+Shift+F) to request a toggle. It reads the
+  // live focusMode value from the ref so the closure stays stable.
+  const handleChildToggleFocusMode = useCallback(() => {
+    toggleFocusMode(!focusModeActiveRef.current);
+  }, [toggleFocusMode]);
+
   // Use controlled mode (from prop) or internal mode
   const currentMode = onModeChange ? mode : internalMode;
   
@@ -1413,10 +1526,176 @@ export default function LiveMarkdownEditor({
     };
   }, [isDraggingFile]);
 
-  return (
+  // ---- Writing Focus Mode (FOCUS_WRITING_MODE_DESIGN.md §5, §6, §10) ----
+
+  // Keep the latest focusMode value on a ref so the child's Cmd+Shift+F
+  // toggle (handleChildToggleFocusMode) reads the live value without
+  // re-binding the editor's document-level keydown listener.
+  useEffect(() => {
+    focusModeActiveRef.current = focusModeActive;
+  }, [focusModeActive]);
+
+  // On enter, collapse the attachment tray so the surface starts calm. The
+  // single "Attachments" toggle in the focus top bar re-shows it on demand.
+  // Only fires on the rising edge so re-opening attachments inside focus
+  // mode sticks. The helper-rail collapse is handled inside the child via
+  // forceHelperCollapsed (edge-triggered there too).
+  const prevFocusModeRef = useRef(false);
+  useEffect(() => {
+    if (focusModeActive && !prevFocusModeRef.current) {
+      setShowAttachmentStrip(false);
+    }
+    prevFocusModeRef.current = focusModeActive;
+  }, [focusModeActive]);
+
+  // Restore focus to where it was before entering (a11y §10). Runs on the
+  // exit transition; the captured element is the toolbar enter button.
+  useEffect(() => {
+    if (!focusModeActive && focusReturnElRef.current) {
+      const el = focusReturnElRef.current;
+      focusReturnElRef.current = null;
+      try {
+        el.focus();
+      } catch {
+        // Some elements throw on focus in test environments; ignore.
+      }
+    }
+  }, [focusModeActive]);
+
+  // Guarded Escape exit (FOCUS_WRITING_MODE_DESIGN.md §0 decision 1, §5).
+  // Document-level listener that exits focus mode ONLY when parked. The
+  // editor's own block-commit Escape (HybridMarkdownEditor handleEditKeyDown)
+  // calls stopPropagation while a block is mid-edit, so this listener never
+  // even receives Escape in the common writing state. When it DOES receive
+  // one we still re-check the guards before acting, and we early-return on a
+  // tour-synthetic Escape so the in-cluster block-commit Escapes the
+  // walkthrough fires never bounce the user out of focus mode mid-demo.
+  useEffect(() => {
+    if (!focusModeActive) return;
+    if (typeof document === "undefined") return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      // CRITICAL tour interplay (§9): the markdown beats fire
+      // dispatchTourSyntheticEscape to commit blocks. Those must keep
+      // committing without exiting focus mode, so bail before anything else.
+      if (isTourSyntheticEscape(e)) return;
+      // Modifier-combo Escape is not our toggle; let it pass through.
+      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      // Only act when PARKED: no block mid-edit, no block selected, and no
+      // tour cursor lock active. The child editor signals "mid-edit" by
+      // keeping a textarea focused (its own handler stopPropagation's that
+      // case before we see it); the belt-and-suspenders checks below cover
+      // the rest.
+      // PARKED guard (decision 1): the child publishes whether no block is
+      // mid-edit AND no block is selected. If it is not parked, decline.
+      if (!editorParkedRef.current) return;
+      // Belt-and-suspenders: also decline if a textarea inside the overlay is
+      // focused (mid-edit). The child's own block-commit Escape owns that
+      // case and stopPropagation's it, so we usually never see it, but this
+      // keeps us safe if the parked ref ever lags a frame.
+      const active = document.activeElement as HTMLElement | null;
+      const isEditingTextarea =
+        active instanceof HTMLTextAreaElement &&
+        Boolean(focusOverlayRef.current?.contains(active));
+      if (isEditingTextarea) return;
+      const tourCursorLocked = Boolean(
+        (window as unknown as { __beakerBotCursorScriptRunning?: boolean })
+          .__beakerBotCursorScriptRunning,
+      );
+      if (tourCursorLocked) return;
+      // We are parked: claim the Escape so the host popup's own
+      // Escape-to-close / shrink never also fires, then exit focus mode.
+      e.preventDefault();
+      e.stopPropagation();
+      toggleFocusMode(false);
+    };
+    // Capture phase so we win over the host popup's window-level Escape
+    // (which would otherwise close / shrink the popup underneath).
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
+  }, [focusModeActive, toggleFocusMode]);
+
+  // Minimal focus trap (a11y §10): keep Tab / Shift+Tab cycling within the
+  // overlay. On enter, move focus to the overlay root so keyboard users
+  // land inside the dialog.
+  useEffect(() => {
+    if (!focusModeActive) return;
+    const root = focusOverlayRef.current;
+    if (!root) return;
+    // Land focus inside the overlay on enter.
+    try {
+      root.focus();
+    } catch {
+      // ignore in test environments
+    }
+    const onTrapKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const focusables = Array.from(
+        root.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), textarea, input:not([disabled]), select, [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((el) => el.offsetParent !== null || el === root);
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const activeEl = document.activeElement as HTMLElement | null;
+      if (e.shiftKey) {
+        if (activeEl === first || activeEl === root) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else if (activeEl === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    root.addEventListener("keydown", onTrapKeyDown);
+    return () => root.removeEventListener("keydown", onTrapKeyDown);
+  }, [focusModeActive]);
+
+  // Move the stable portal container in the DOM (never replace it) so the
+  // editor's React state survives the focus toggle. When focus mode is on the
+  // container lives in document.body (its `fixed inset-0` child becomes the
+  // viewport overlay); otherwise it lives inside the in-place mount slot in
+  // the host's normal flow. The container is `display: contents` so it is
+  // transparent to layout in both homes. useLayoutEffect so the node is
+  // attached before paint (no first-frame flash of an editor-less slot).
+  useLayoutEffect(() => {
+    const container = portalContainerRef.current;
+    if (!container) return;
+    container.style.display = "contents";
+    const desiredParent = focusModeActive ? document.body : inPlaceMount;
+    if (desiredParent && container.parentNode !== desiredParent) {
+      desiredParent.appendChild(container);
+    }
+  }, [focusModeActive, inPlaceMount]);
+
+  // Detach the stable container from the DOM on unmount so it doesn't leak as
+  // an orphan in document.body if we unmount mid-focus-mode.
+  useEffect(() => {
+    return () => {
+      const container = portalContainerRef.current;
+      if (container && container.parentNode) {
+        container.parentNode.removeChild(container);
+      }
+    };
+  }, []);
+
+  // The editor subtree, rendered ONCE. In focus mode it is relocated into a
+  // body-level portal via createPortal below; React preserves component
+  // state (the manual-save buffer + undo refs in HybridMarkdownEditor) when
+  // only the portal container changes and element identity is kept, so no
+  // remount happens and no typing is lost (FOCUS_WRITING_MODE_DESIGN.md §7).
+  // In focus mode the outer wrapper drops `h-full` and centers the body in a
+  // comfortable reading column on the calm overlay surface.
+  const editorTree = (
     <div
       ref={wrapperRef}
-      className="flex flex-col h-full"
+      className={
+        focusModeActive
+          ? "flex flex-col w-full max-w-3xl h-full mx-auto"
+          : "flex flex-col h-full"
+      }
       onDragEnter={handleWrapperDragEnter}
       onDragLeave={handleWrapperDragLeave}
       // Capture phase: the inner drop handler calls stopPropagation on valid
@@ -1424,8 +1703,11 @@ export default function LiveMarkdownEditor({
       // Capture runs top-down before that stop, so we always reset on drop.
       onDropCapture={handleWrapperDrop}
     >
-      {/* Toolbar */}
-      {showToolbar && (
+      {/* Toolbar: the FULL in-place toolbar. Hidden while focus mode is on
+          (the focus overlay renders its own compact top bar instead, see
+          §6: hide Add File / Browse / Strip, keep a compact Hybrid / Preview
+          toggle + Attachments toggle + Save + Exit). */}
+      {showToolbar && !focusModeActive && (
         <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-100 bg-gray-50/50">
           {/* Two-way mode toggle: Hybrid | Preview. Edit mode (raw textarea)
               was removed after hybrid v2 proved iron-clad in real use. */}
@@ -1457,6 +1739,36 @@ export default function LiveMarkdownEditor({
               Preview
             </button>
           </div>
+          {/* Writing Focus Mode enter button (FOCUS_WRITING_MODE_DESIGN.md
+              §6). Sits next to the Hybrid / Preview toggle. Inline SVG
+              "expand" glyph (no emoji), project Tooltip (never native
+              title=), data-tour-target for the walkthrough's enter beat. */}
+          <Tooltip label="Focus mode (Cmd+Shift+F)" placement="bottom">
+            <button
+              type="button"
+              data-tour-target="hybrid-editor-focus-toggle"
+              data-testid="hybrid-editor-focus-toggle"
+              onClick={() => toggleFocusMode(true)}
+              disabled={disabled}
+              aria-label="Enter writing focus mode"
+              className="p-1.5 text-gray-500 rounded hover:bg-gray-200 hover:text-gray-700 transition-colors disabled:opacity-50"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                />
+              </svg>
+            </button>
+          </Tooltip>
           <button
             type="button"
             onClick={handleAddImageClick}
@@ -1795,6 +2107,14 @@ export default function LiveMarkdownEditor({
               saveRef={saveRef}
               onExplicitSave={onExplicitSave}
               onDirtyChange={onDirtyChange}
+              // Writing Focus Mode (FOCUS_WRITING_MODE_DESIGN.md §6, §7):
+              // the child owns the Cmd+Shift+F binding (scoped to its own
+              // focus), publishes a flush-to-pending function for the portal
+              // buffer guard, and collapses its rail on focus-mode enter.
+              onToggleFocusMode={handleChildToggleFocusMode}
+              commitBufferRef={commitBufferRef}
+              forceHelperCollapsed={focusModeActive}
+              parkedRef={editorParkedRef}
             />
           )}
         </div>
@@ -2072,6 +2392,185 @@ export default function LiveMarkdownEditor({
         </div>
       )}
     </div>
+  );
+
+  // ---- Buffer-safe render switch (FOCUS_WRITING_MODE_DESIGN.md §7) ----
+  //
+  // The single most important correctness constraint: toggling focus mode
+  // must NOT remount HybridMarkdownEditor, or its manual-save buffer + undo
+  // refs are wiped and in-flight typing is lost silently.
+  //
+  // We ALWAYS render `editorTree` through a portal at a FIXED position in the
+  // React element tree: it is always the single child of the column div,
+  // which is always the second slot of the outer `frame` div. Only two things
+  // change between the normal and focus renders:
+  //   1. the portal CONTAINER DOM node (the in-place mount node vs
+  //      document.body), and
+  //   2. the chrome classNames + whether the focus top bar slot is filled.
+  // React preserves component state when only the portal container changes
+  // and element identity is kept, so HybridMarkdownEditor never unmounts.
+  //
+  // The in-place mount node is rendered by THIS component (the
+  // `inPlaceMountRef` div with `display: contents` so it is transparent to
+  // the host's flex layout). On the very first render its DOM node does not
+  // exist yet, so we portal into document.body for that one frame and a
+  // layout effect re-renders once the node attaches; in practice focus mode
+  // always starts off, so the in-place node is present before the user can
+  // toggle.
+  const frame = (
+    <div
+      ref={focusModeActive ? focusOverlayRef : undefined}
+      role={focusModeActive ? "dialog" : undefined}
+      aria-modal={focusModeActive ? true : undefined}
+      aria-label={focusModeActive ? "Writing focus mode" : undefined}
+      tabIndex={focusModeActive ? -1 : undefined}
+      className={
+        focusModeActive
+          ? "fixed inset-0 z-50 flex flex-col bg-white outline-none"
+          : "contents"
+      }
+    >
+      {/* Focus top-bar slot (index 0). Stays a falsy slot when not in focus
+          mode so the column div below keeps its index-1 position and the
+          editor subtree inside it is never re-keyed / remounted. */}
+      {focusModeActive && (
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-100 bg-white/80 backdrop-blur-sm">
+          {/* Compact Hybrid / Preview toggle (kept on the calm surface). */}
+          <div className="flex items-center bg-gray-100 rounded-md p-0.5">
+            <button
+              type="button"
+              onClick={() => setMode("hybrid")}
+              disabled={disabled}
+              className={`px-2.5 py-1 text-xs rounded transition-colors ${
+                currentMode === "hybrid"
+                  ? "bg-white text-gray-800 font-medium shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              } disabled:opacity-50`}
+            >
+              Hybrid
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("preview")}
+              disabled={disabled}
+              className={`px-2.5 py-1 text-xs rounded transition-colors ${
+                currentMode === "preview"
+                  ? "bg-white text-gray-800 font-medium shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              } disabled:opacity-50`}
+            >
+              Preview
+            </button>
+          </div>
+
+          {/* Single collapsed Attachments toggle: re-shows the existing
+              Images / Files tray (reuses showAttachmentStrip). */}
+          <button
+            type="button"
+            onClick={() => setShowAttachmentStrip((v) => !v)}
+            className={`px-2.5 py-1 text-xs rounded transition-colors ${
+              showAttachmentStrip
+                ? "bg-blue-100 text-blue-700"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            Attachments
+          </button>
+
+          <div className="flex-1" />
+
+          {/* Focus-mode Save (FOCUS_WRITING_MODE_DESIGN.md §0 decision 3, §7).
+              The host disk-Save button sits outside the editor and is covered
+              by this overlay, so focus mode renders its own, but only when a
+              saveRef is wired (the four primary surfaces + the method create /
+              compound mounts). When the host provides onExplicitSave too we
+              flush via saveRef and call onExplicitSave (the exact wiring the
+              popup's own Save uses, e.g. TaskDetailPopup.tsx:4042-4045);
+              otherwise the saveRef flush IS the editor's internal manual save
+              (it commits the buffer + fires onChange). Surfaces with no
+              saveRef (VariationNotesPanel) keep the editor's own visible Save
+              button inside the overlay as the fallback, so we don't render a
+              second one here. Cmd+S keeps working unchanged in every case. */}
+          {saveRef && (
+            <Tooltip label="Save (Cmd+S)" placement="bottom">
+              <button
+                type="button"
+                data-testid="hybrid-editor-focus-save"
+                onClick={() => {
+                  const flushed = saveRef.current?.();
+                  if (flushed !== undefined && onExplicitSave) {
+                    onExplicitSave(flushed);
+                  }
+                }}
+                disabled={disabled}
+                aria-label="Save"
+                className="px-3 py-1.5 text-xs font-medium rounded-md shadow-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                Save
+              </button>
+            </Tooltip>
+          )}
+
+          {/* Exit control (FOCUS_WRITING_MODE_DESIGN.md §5). Inline SVG
+              "collapse" glyph, project Tooltip, data-tour-target for the
+              walkthrough's exit beat. */}
+          <Tooltip label="Exit focus mode (Esc)" placement="bottom">
+            <button
+              type="button"
+              data-tour-target="hybrid-editor-focus-exit"
+              data-testid="hybrid-editor-focus-exit"
+              onClick={() => toggleFocusMode(false)}
+              aria-label="Exit writing focus mode"
+              className="p-1.5 text-gray-500 rounded hover:bg-gray-200 hover:text-gray-700 transition-colors"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 9V4m0 5H4m5 0L4 4m11 5h5m-5 0V4m0 5l5-5M9 15v5m0-5H4m5 0l-5 5m11-5h5m-5 0v5m0-5l5 5"
+                />
+              </svg>
+            </button>
+          </Tooltip>
+        </div>
+      )}
+
+      {/* Column slot (index 1). `editorTree` is ALWAYS its single child, at a
+          stable React-tree position across the normal <-> focus toggle, so
+          the manual-save buffer survives the portal-container flip. */}
+      <div
+        className={
+          focusModeActive
+            ? "flex-1 min-h-0 overflow-hidden flex justify-center px-4"
+            : "contents"
+        }
+      >
+        {editorTree}
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      {/* In-place mount slot. `display: contents` keeps it transparent to the
+          host's flex layout so the normal render looks identical to before.
+          The stable portal container (moved imperatively by the effect above)
+          lives inside this node when not in focus mode. */}
+      <div ref={inPlaceMountCallbackRef} className="contents" />
+      {/* ALWAYS portal into the SAME stable container so React never remounts
+          the editor subtree (no buffer loss). The container's DOM home is
+          what moves, not the container itself. */}
+      {portalContainerRef.current
+        ? createPortal(frame, portalContainerRef.current)
+        : null}
+    </>
   );
 }
 

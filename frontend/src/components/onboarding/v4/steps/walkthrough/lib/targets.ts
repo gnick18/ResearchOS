@@ -231,6 +231,14 @@ export const TOUR_TARGETS = {
   // TaskDetailPopup.tsx on the existing Fullscreen / Exit fullscreen
   // Tooltip button.
   taskPopupFullscreen: "task-popup-fullscreen",
+  // Writing Focus Mode (FOCUS_WRITING_MODE_DESIGN.md §9). The enter
+  // button lives in the LiveMarkdownEditor toolbar next to the Hybrid /
+  // Preview toggle; the exit button lives in the focus-mode overlay's
+  // top-right. The two universal `hybrid-focus-enter` / `hybrid-focus-exit`
+  // beats glide to and click these so BeakerBot demos clearing the chrome
+  // and bringing it back.
+  hybridEditorFocusToggle: "hybrid-editor-focus-toggle",
+  hybridEditorFocusExit: "hybrid-editor-focus-exit",
 
   // §6.8 Gantt
   ganttTimeline: "gantt-timeline",

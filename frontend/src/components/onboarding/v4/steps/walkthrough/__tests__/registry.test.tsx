@@ -55,6 +55,11 @@ const P5_STEP_IDS = [
   // and HE-1.
   "hybrid-notes-vs-results",
   "hybrid-editor-scope",
+  // Writing Focus Mode (FOCUS_WRITING_MODE_DESIGN.md §9, focus-writing-mode
+  // build bot 2026-05-29). Two universal BEAKERBOT_DEMO beats: enter between
+  // hybrid-editor-scope and hybrid-markdown-intro; exit between
+  // hybrid-save-concept and workbench-notes-intro.
+  "hybrid-focus-enter",
   "hybrid-markdown-intro",
   "hybrid-markdown-familiarity",
   "hybrid-markdown-overview",
@@ -74,6 +79,9 @@ const P5_STEP_IDS = [
   // NEW pure-narration beat between hybrid-file-attach and
   // workbench-notes-intro.
   "hybrid-save-concept",
+  // Writing Focus Mode exit beat (FOCUS_WRITING_MODE_DESIGN.md §9,
+  // focus-writing-mode build bot 2026-05-29).
+  "hybrid-focus-exit",
   // §6.7b Workbench Notes + Lists expansion (Workbench expansion
   // manager 2026-05-22, collapsed to 5 beats by Workbench fix manager
   // R1 2026-05-22). Universal steps between hybrid-file-attach and

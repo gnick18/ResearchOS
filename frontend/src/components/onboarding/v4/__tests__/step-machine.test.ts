@@ -261,6 +261,10 @@ describe("TOUR_STEP_ORDER", () => {
       // hybrid-save-concept manager 2026-05-27: NEW beat between
       // hybrid-file-attach and workbench-notes-intro.
       "hybrid-save-concept",
+      // Writing Focus Mode exit beat (focus-writing-mode build bot
+      // 2026-05-29): inserted between hybrid-save-concept and
+      // workbench-notes-intro.
+      "hybrid-focus-exit",
       "workbench-notes-intro",
       "workbench-notes-create",
       "workbench-lists-intro",
@@ -575,6 +579,10 @@ describe("TOUR_STEP_ORDER", () => {
     const order = [
       "hybrid-notes-vs-results",
       "hybrid-editor-scope",
+      // Writing Focus Mode enter beat (focus-writing-mode build bot
+      // 2026-05-29): inserted between hybrid-editor-scope and
+      // hybrid-markdown-intro.
+      "hybrid-focus-enter",
       "hybrid-markdown-intro",
       "hybrid-markdown-familiarity",
       "hybrid-markdown-overview",
@@ -605,6 +613,43 @@ describe("TOUR_STEP_ORDER", () => {
         ).toBe(indices[i - 1] + 1);
       }
     });
+  });
+
+  it("inserts the two Writing Focus Mode beats at the right positions (focus-writing-mode build bot 2026-05-29)", () => {
+    // FOCUS_WRITING_MODE_DESIGN.md §9: hybrid-focus-enter sits immediately
+    // AFTER hybrid-editor-scope and BEFORE hybrid-markdown-intro;
+    // hybrid-focus-exit sits immediately AFTER hybrid-save-concept and
+    // BEFORE workbench-notes-intro.
+    const scope = TOUR_STEP_ORDER.indexOf("hybrid-editor-scope");
+    const enter = TOUR_STEP_ORDER.indexOf("hybrid-focus-enter");
+    const intro = TOUR_STEP_ORDER.indexOf("hybrid-markdown-intro");
+    expect(enter).toBeGreaterThanOrEqual(0);
+    expect(enter).toBe(scope + 1);
+    expect(intro).toBe(enter + 1);
+
+    const save = TOUR_STEP_ORDER.indexOf("hybrid-save-concept");
+    const exit = TOUR_STEP_ORDER.indexOf("hybrid-focus-exit");
+    const notes = TOUR_STEP_ORDER.indexOf("workbench-notes-intro");
+    expect(exit).toBeGreaterThanOrEqual(0);
+    expect(exit).toBe(save + 1);
+    expect(notes).toBe(exit + 1);
+  });
+
+  it("traverses the focus-mode beats (universal, never gated) on both solo and lab paths", () => {
+    // Both beats are ungated, so getNextStep / firstApplicableStep walk
+    // through them regardless of account type. Verify the forward traversal
+    // lands on each from its predecessor for both a solo and a lab picks.
+    const solo = picks({ account_type: "solo" });
+    const lab = picks({ account_type: "lab" });
+    for (const p of [solo, lab]) {
+      expect(getNextStep("hybrid-editor-scope", p)).toBe("hybrid-focus-enter");
+      expect(getNextStep("hybrid-focus-enter", p)).toBe("hybrid-markdown-intro");
+      expect(getNextStep("hybrid-save-concept", p)).toBe("hybrid-focus-exit");
+      expect(getNextStep("hybrid-focus-exit", p)).toBe("workbench-notes-intro");
+      // Neither beat is gated out.
+      expect(isStepGatedOut("hybrid-focus-enter", p)).toBe(false);
+      expect(isStepGatedOut("hybrid-focus-exit", p)).toBe(false);
+    }
   });
 });
 

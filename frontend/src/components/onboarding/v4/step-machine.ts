@@ -258,6 +258,14 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // the markdown deep-dive starts. See the new tour script's §6.7 for
   // the speech contract.
   "hybrid-editor-scope",
+  // Writing Focus Mode enter beat (FOCUS_WRITING_MODE_DESIGN.md §9,
+  // focus-writing-mode build bot 2026-05-29). Universal (ungated)
+  // BEAKERBOT_DEMO beat between hybrid-editor-scope and hybrid-markdown-intro:
+  // BeakerBot clicks the new Focus Mode toolbar button so the calm writing
+  // surface pops before the markdown deep-dive. Buffer-safe (the editor is
+  // not remounted), so the markdown typing beats that follow keep their
+  // content; the exit beat below peels the overlay back after the cluster.
+  "hybrid-focus-enter",
   "hybrid-markdown-intro",         // HE-1
   "hybrid-markdown-familiarity",   // HE-2 (in-tour branch gate)
   "hybrid-markdown-overview",      // HE-3 (reached only via HE-2 "yes overview" branch)
@@ -279,6 +287,13 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // shows a warning prompt. Closes the §6.7 editor cluster before the
   // §6.7b Notes/Lists cluster opens.
   "hybrid-save-concept",
+  // Writing Focus Mode exit beat (FOCUS_WRITING_MODE_DESIGN.md §9,
+  // focus-writing-mode build bot 2026-05-29). Universal (ungated)
+  // BEAKERBOT_DEMO beat between hybrid-save-concept and workbench-notes-intro:
+  // BeakerBot clicks the Exit focus control so the overlay peels back to
+  // reveal the still-expanded popup. Closes out the focus-mode demo before
+  // the §6.7b Notes / Lists cluster opens.
+  "hybrid-focus-exit",
   // §6.7b Workbench Notes + Lists expansion (Workbench expansion
   // manager 2026-05-22, collapsed to 5 beats by Workbench fix manager
   // R1 2026-05-22). Universal steps inserted between §6.7 (hybrid

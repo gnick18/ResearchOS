@@ -110,6 +110,10 @@ import { hybridImageDragInStep } from "../HybridImageDragInStep";
 import { hybridImageResizeStep } from "../HybridImageResizeStep";
 import { hybridFileAttachStep } from "../HybridFileAttachStep";
 import { hybridSaveConceptStep } from "../HybridSaveConceptStep";
+// Writing Focus Mode (FOCUS_WRITING_MODE_DESIGN.md §9, focus-writing-mode
+// build bot 2026-05-29): enter + exit BEAKERBOT_DEMO beats.
+import { hybridFocusEnterStep } from "../HybridFocusEnterStep";
+import { hybridFocusExitStep } from "../HybridFocusExitStep";
 import { ganttIntroStep } from "../GanttIntroStep";
 import { ganttExistingExperimentStep } from "../GanttExistingExperimentStep";
 import { ganttDragDropStep } from "../GanttDragDropStep";
@@ -224,6 +228,8 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   // v4 tour structural manager (Wave 1, 2026-05-27): new hybrid-editor-scope
   // narration beat between HE-0 and HE-1.
   hybridEditorScopeStep,
+  // Writing Focus Mode enter beat (focus-writing-mode build bot 2026-05-29).
+  hybridFocusEnterStep,
   hybridMarkdownIntroStep,
   hybridMarkdownFamiliarityStep,
   hybridMarkdownOverviewStep,
@@ -242,6 +248,8 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   // hybrid-save-concept manager 2026-05-27: NEW pure-narration beat
   // closing the §6.7 editor cluster before §6.7b opens.
   hybridSaveConceptStep,
+  // Writing Focus Mode exit beat (focus-writing-mode build bot 2026-05-29).
+  hybridFocusExitStep,
   ganttIntroStep,
   ganttExistingExperimentStep,
   ganttDragDropStep,
@@ -325,6 +333,8 @@ describe("P5 step bodies — universal contract", () => {
       // §6.7 hybrid editor redesign (Hybrid editor manager 2026-05-22)
       "hybrid-notes-vs-results",
       "hybrid-editor-scope",
+      // Writing Focus Mode (focus-writing-mode build bot 2026-05-29).
+      "hybrid-focus-enter",
       "hybrid-markdown-intro",
       "hybrid-markdown-familiarity",
       "hybrid-markdown-overview",
@@ -343,6 +353,9 @@ describe("P5 step bodies — universal contract", () => {
       // hybrid-save-concept manager 2026-05-27: NEW pure-narration
       // beat closing the §6.7 editor cluster before §6.7b opens.
       "hybrid-save-concept",
+      // Writing Focus Mode exit beat (focus-writing-mode build bot
+      // 2026-05-29).
+      "hybrid-focus-exit",
       // §6.8 Gantt redesign 2026-05-22 (Gantt manager).
       "gantt-intro",
       "gantt-existing-experiment",

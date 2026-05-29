@@ -204,6 +204,12 @@ import { hybridNotesVsResultsStep } from "./steps/walkthrough/HybridNotesVsResul
 // fix manager, Grant hand-walk) so BeakerBot also demos the popup's
 // fullscreen toggle and expands the popup for more screen real estate.
 import { hybridEditorScopeStep } from "./steps/walkthrough/HybridEditorScopeStep";
+// Writing Focus Mode (FOCUS_WRITING_MODE_DESIGN.md §9, focus-writing-mode
+// build bot 2026-05-29). Two universal BEAKERBOT_DEMO beats: enter sits
+// between hybrid-editor-scope and hybrid-markdown-intro; exit sits between
+// hybrid-save-concept and workbench-notes-intro.
+import { hybridFocusEnterStep } from "./steps/walkthrough/HybridFocusEnterStep";
+import { hybridFocusExitStep } from "./steps/walkthrough/HybridFocusExitStep";
 import { hybridMarkdownIntroStep } from "./steps/walkthrough/HybridMarkdownIntroStep";
 import { hybridMarkdownFamiliarityStep } from "./steps/walkthrough/HybridMarkdownFamiliarityStep";
 import { hybridMarkdownOverviewStep } from "./steps/walkthrough/HybridMarkdownOverviewStep";
@@ -395,6 +401,9 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   // v4 tour structural manager (Wave 1, 2026-05-27): new scope-narration
   // beat between HE-0 and HE-1.
   [hybridEditorScopeStep.id]: hybridEditorScopeStep,
+  // Writing Focus Mode enter beat (between hybrid-editor-scope and
+  // hybrid-markdown-intro). focus-writing-mode build bot 2026-05-29.
+  [hybridFocusEnterStep.id]: hybridFocusEnterStep,
   [hybridMarkdownIntroStep.id]: hybridMarkdownIntroStep,
   [hybridMarkdownFamiliarityStep.id]: hybridMarkdownFamiliarityStep,
   [hybridMarkdownOverviewStep.id]: hybridMarkdownOverviewStep,
@@ -415,6 +424,9 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   // §6.7b Notes/Lists cluster opens. Wires after hybrid-file-attach in
   // TOUR_STEP_ORDER.
   [hybridSaveConceptStep.id]: hybridSaveConceptStep,
+  // Writing Focus Mode exit beat (between hybrid-save-concept and
+  // workbench-notes-intro). focus-writing-mode build bot 2026-05-29.
+  [hybridFocusExitStep.id]: hybridFocusExitStep,
   // §6.7b Workbench Notes + Lists expansion (Workbench expansion
   // manager 2026-05-22, collapsed to 5 beats by Workbench fix manager
   // R1 2026-05-22). Universal steps wired in TOUR_STEP_ORDER between
