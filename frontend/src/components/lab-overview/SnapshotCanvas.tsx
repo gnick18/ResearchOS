@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Widget from "./widgets/Widget";
+import WidgetCard from "./WidgetCard";
 import SnapshotTilePopup from "./SnapshotTilePopup";
 import { WIDGET_CATALOG, getWidget } from "./widgets/registry";
 import {
@@ -175,6 +176,51 @@ const DASHBOARD_ADAPTER: SurfaceAdapter = {
   surfaceKey: dashboardSurfaceFor,
 };
 
+/**
+ * Widget selector redesign (widget-selector bot, 2026-05-29): group the
+ * palette catalog by Tool family (`toolId`) so a flat 12-item scroll
+ * becomes a handful of scannable clusters (the three `purchases` variants
+ * cluster, the `daily-tasks` variants cluster, etc.). Presentation-only:
+ * it reads `toolId` which already exists on every entry and never widens
+ * visibility. Single-entry families render inside an "Other widgets"
+ * catch-all so we don't print a one-card section header per standalone
+ * widget. Group + within-group order follow first-appearance in the
+ * (already account/surface-filtered) catalog so the layout is stable.
+ */
+interface WidgetGroup {
+  toolId: string;
+  label: string;
+  widgets: WidgetDefinition[];
+}
+
+function groupCatalogByTool(catalog: WidgetDefinition[]): WidgetGroup[] {
+  const byTool = new Map<string, WidgetDefinition[]>();
+  for (const w of catalog) {
+    const list = byTool.get(w.toolId);
+    if (list) list.push(w);
+    else byTool.set(w.toolId, [w]);
+  }
+  const multi: WidgetGroup[] = [];
+  const singletons: WidgetDefinition[] = [];
+  for (const [toolId, widgets] of byTool) {
+    if (widgets.length > 1) {
+      // A multi-variant family: header reads off the shared family. Use
+      // the shortest title as the family label so "Lab purchases" labels
+      // the purchases cluster rather than "Pending purchase approvals".
+      const label = widgets
+        .map((w) => w.title)
+        .reduce((a, b) => (b.length < a.length ? b : a));
+      multi.push({ toolId, label, widgets });
+    } else {
+      singletons.push(widgets[0]);
+    }
+  }
+  if (singletons.length > 0) {
+    multi.push({ toolId: "__other__", label: "Other widgets", widgets: singletons });
+  }
+  return multi;
+}
+
 export default function SnapshotCanvas({
   username,
   accountType,
@@ -225,6 +271,25 @@ export default function SnapshotCanvas({
     () => catalog.filter((w) => widgetHasSurface(w, surfaceKey)),
     [catalog, surfaceKey],
   );
+  // Widget selector redesign (widget-selector bot, 2026-05-29): the card
+  // grid is grouped by Tool family. Derived from `canvasCatalog` so the
+  // account/surface gating is inherited verbatim (no separate visibility
+  // path).
+  const catalogGroups = useMemo(
+    () => groupCatalogByTool(canvasCatalog),
+    [canvasCatalog],
+  );
+
+  // Esc closes the palette (SELECTOR_REDESIGN §5 accessibility; the old
+  // palette relied on outside-click only). Only bound while open.
+  useEffect(() => {
+    if (!showPalette) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowPalette(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showPalette]);
 
   // ── Load initial layout ────────────────────────────────────────────────
   useEffect(() => {
@@ -466,6 +531,14 @@ export default function SnapshotCanvas({
         </div>
 
         {showPalette && (
+          // Widget selector redesign (widget-selector bot, 2026-05-29):
+          // the flat title + checkbox dropdown is replaced by a rich card
+          // grid (SELECTOR_REDESIGN §3). Each card carries a live
+          // SnapshotTile preview (lazily mounted, static fallback). The
+          // popover grows from 288px to a wider 2-column grid, anchored to
+          // the button and capped to 70vh scroll, still a popup, not a
+          // route. Account/surface gating is inherited verbatim from
+          // `canvasCatalog`; grouping is presentation-only.
           <div
             // §6.2b Home widgets walkthrough anchor (home widgets
             // surface-prep manager, 2026-05-25). Catalog root stamps
@@ -473,76 +546,70 @@ export default function SnapshotCanvas({
             data-tour-target={
               usesHomeTourAnchors ? "home-widget-catalog" : undefined
             }
-            className="absolute top-full right-0 mt-2 w-72 bg-white border border-gray-200 rounded-lg shadow-lg z-30 p-2 max-h-96 overflow-auto"
+            className="absolute top-full right-0 mt-2 w-[min(40rem,calc(100vw-2rem))] bg-white border border-gray-200 rounded-xl shadow-lg z-30 max-h-[70vh] overflow-auto"
             role="dialog"
             aria-label="Add widget palette"
           >
-            <p className="text-[10px] uppercase tracking-wide text-gray-400 px-2 py-1">
-              Canvas widgets
-            </p>
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-gray-100 bg-white/95 px-3 py-2 backdrop-blur">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                Add a widget
+              </p>
+              <Tooltip label="Close" placement="left">
+                <button
+                  type="button"
+                  aria-label="Close add widget palette"
+                  onClick={() => setShowPalette(false)}
+                  className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-700"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                    <line x1="6" y1="18" x2="18" y2="6" />
+                  </svg>
+                </button>
+              </Tooltip>
+            </div>
+
             {canvasCatalog.length === 0 ? (
-              <p className="text-xs text-gray-400 italic px-2 py-2">
+              <p className="px-3 py-6 text-center text-xs italic text-gray-400">
                 No widgets available for your account type.
               </p>
             ) : (
-              canvasCatalog.map((widget) => {
-                const isMounted = mountedIds.has(widget.id);
-                return (
-                  <button
-                    key={widget.id}
-                    type="button"
-                    onClick={() =>
-                      isMounted
-                        ? handleRemoveWidget(widget.id)
-                        : handleAddWidget(widget.id)
-                    }
-                    // §6.2b Home widgets walkthrough anchor (home
-                    // widgets surface-prep manager, 2026-05-25). Each
-                    // catalog item gets a per-widget-id suffix; the
-                    // step body selects via prefix match or the exact
-                    // id. Stamps only on the /home mount.
-                    data-tour-target={
-                      usesHomeTourAnchors
-                        ? `home-widget-catalog-item-${widget.id}`
-                        : undefined
-                    }
-                    className="w-full text-left px-2 py-2 rounded hover:bg-gray-50 flex items-start gap-2"
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={`mt-0.5 inline-flex items-center justify-center w-4 h-4 rounded border ${
-                        isMounted
-                          ? "bg-blue-600 border-blue-600 text-white"
-                          : "border-gray-300 bg-white"
-                      }`}
-                    >
-                      {isMounted ? (
-                        <svg
-                          width="10"
-                          height="10"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="3"
-                          aria-hidden="true"
-                        >
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                      ) : null}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900">
-                        {widget.title}
+              <div className="space-y-4 bg-gray-50/40 p-3">
+                {catalogGroups.map((group) => (
+                  <section key={group.toolId}>
+                    {catalogGroups.length > 1 && (
+                      <p className="mb-1.5 px-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                        {group.label}
                       </p>
-                      {widget.description && (
-                        <p className="text-xs text-gray-500 truncate">
-                          {widget.description}
-                        </p>
-                      )}
+                    )}
+                    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                      {group.widgets.map((widget) => (
+                        <WidgetCard
+                          key={widget.id}
+                          widget={widget}
+                          isMounted={mountedIds.has(widget.id)}
+                          onToggle={() =>
+                            mountedIds.has(widget.id)
+                              ? handleRemoveWidget(widget.id)
+                              : handleAddWidget(widget.id)
+                          }
+                          // §6.2b Home widgets walkthrough anchor (home
+                          // widgets surface-prep manager, 2026-05-25).
+                          // Stamped on the card root so the step body's
+                          // prefix / exact-id selectors still resolve to
+                          // the equivalent new node. Stamps only on the
+                          // /home (and unified dashboard) mount.
+                          tourTarget={
+                            usesHomeTourAnchors
+                              ? `home-widget-catalog-item-${widget.id}`
+                              : undefined
+                          }
+                        />
+                      ))}
                     </div>
-                  </button>
-                );
-              })
+                  </section>
+                ))}
+              </div>
             )}
           </div>
         )}
