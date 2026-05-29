@@ -28,6 +28,7 @@
 
 import {
   useEffect,
+  useLayoutEffect,
   useState,
   type ComponentType,
   type ReactNode,
@@ -194,24 +195,72 @@ export default function PerformanceHall() {
   // viewport (100vw x 100svh) into the fixed window (its clip parent), so
   // the whole scene fits inside the gold frame, centered and not clipped.
   // A single uniform scale can't match two different aspect ratios, so we
-  // take the smaller of the width-fit and height-fit (a "contain"). Re-run
-  // on mount + window resize. Set as a CSS variable on the viewport so the
-  // transform stays in CSS (the variable defaults to 0.32 until measured).
-  useEffect(() => {
+  // take the smaller of the width-fit and height-fit (a "contain").
+  //
+  // FIX 1a (orchestrator manager): the old effect measured the clip ONCE on
+  // mount and bailed (`return`) whenever the rect had no layout yet. On
+  // first paint the window often has no dimensions, so the scale stayed
+  // stuck at its 0.32 default forever (no resize ever fires to recompute) —
+  // BeakerBot rendered tiny. We now (1) run in a layout effect, (2) retry
+  // across a couple of animation frames until the clip has real size, and
+  // (3) keep a ResizeObserver live so any later layout change (or the
+  // skateboard wide-frame swap) re-measures. Re-runs on activeId + resize.
+  //
+  // FIX 1b (orchestrator manager): even at the true contain-fit, the
+  // full-viewport composition leaves BeakerBot small inside a large window.
+  // Grant wants him to fill the stage like a real performance, so we
+  // multiply the contain-fit by SCENE_ZOOM and anchor transform-origin to
+  // the lower-center band (where the bench scenes act, ~88% down), so the
+  // performer grows toward the audience and is never pushed off the top of
+  // frame. A gentle 1.45x keeps every scene's performer fully visible (an
+  // aggressive zoom cropped the wider scenes), while still reading as the
+  // star of the stage rather than a dot.
+  useLayoutEffect(() => {
     if (!sceneViewport || typeof window === "undefined") return;
     const clip = sceneViewport.parentElement;
     if (!clip) return;
+
+    // Multiply the contain-fit so the performer is large + centered. Kept
+    // gentle so the lower-center scenes (Centrifuge, Eureka) and the wide
+    // Skateboard band all keep their performer fully in frame.
+    const SCENE_ZOOM = 1.45;
+
+    let raf = 0;
+    let attempts = 0;
     const applyScale = () => {
       const rect = clip.getBoundingClientRect();
-      if (rect.width <= 0 || rect.height <= 0) return;
+      if (rect.width <= 0 || rect.height <= 0) {
+        // No layout yet: retry on the next frame (up to a few times) so the
+        // real contain-fit is computed once the window has dimensions,
+        // instead of leaving the default 0.32 baked in.
+        if (attempts < 10) {
+          attempts += 1;
+          raf = window.requestAnimationFrame(applyScale);
+        }
+        return;
+      }
       const vw = window.innerWidth || 1;
       const vh = window.innerHeight || 1;
-      const scale = Math.min(rect.width / vw, rect.height / vh);
+      const containFit = Math.min(rect.width / vw, rect.height / vh);
+      const scale = containFit * SCENE_ZOOM;
       sceneViewport.style.setProperty("--scene-scale", String(scale));
     };
+
     applyScale();
+
+    // Re-measure on any size change to the clip (covers the wide-frame
+    // swap, late layout, font load, devtools, etc.) and on window resize.
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(() => applyScale());
+      ro.observe(clip);
+    }
     window.addEventListener("resize", applyScale, { passive: true });
-    return () => window.removeEventListener("resize", applyScale);
+    return () => {
+      if (raf) window.cancelAnimationFrame(raf);
+      ro?.disconnect();
+      window.removeEventListener("resize", applyScale);
+    };
     // activeId is included so the scale re-measures if a wide act swaps in
     // a different frame aspect (skateboard's 21:9 band).
   }, [sceneViewport, activeId]);

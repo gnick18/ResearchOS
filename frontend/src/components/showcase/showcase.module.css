@@ -762,8 +762,16 @@
   width: 100vw;
   height: 100svh;
   flex: 0 0 auto;
-  transform: scale(var(--scene-scale, 0.32));
-  transform-origin: center center;
+  /* --scene-scale is measured in JS as the contain-fit times a zoom
+     factor so the performer reads large + centered (FIX 1, orchestrator
+     manager). The default is a sensible contain-ish fit, not the old 0.32,
+     so even before the measurement lands BeakerBot is not a tiny dot. */
+  transform: scale(var(--scene-scale, 0.85));
+  /* Anchor the zoom to the lower-center band: the bench scenes plant
+     BeakerBot near the bottom (feet at ~12vh), so growing from 50%/88%
+     keeps the performer in frame and pushes the empty upper sky off-stage
+     instead of cropping the bot. */
+  transform-origin: 50% 88%;
 }
 
 /* Change 2: carry the runway's stage lighting + camera flashes onto the
