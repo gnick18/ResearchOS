@@ -357,6 +357,34 @@ export function Flashbulbs({
   );
 }
 
+/** Frame-scoped flash flurry for a Performance Hall proscenium (Change 2).
+ *  Mirrors the runway pit flashes (3 staggered bursts) but pins them to the
+ *  frame's lower lip across a few horizontal stops, so each scene gets the
+ *  same camera-flash treatment on activation + on click. Keyed by `fireKey`
+ *  so a new value re-mounts the bursts and replays the pop. */
+export function ProsceniumFlashes({ fireKey }: { fireKey: number }) {
+  if (fireKey <= 0) return null;
+  // 3 stops spread across the frame; rotate the starting stop per fire so
+  // repeat clicks do not always pop the same trio.
+  const STOPS = [18, 38, 58, 78];
+  const stagger = [0, 40, 80];
+  const start = (fireKey * 2) % STOPS.length;
+  const chosen = [0, 1, 2].map((k) => STOPS[(start + k) % STOPS.length]!);
+  return (
+    <div className={styles.prosceniumFlashLayer} aria-hidden="true" key={fireKey}>
+      {chosen.map((leftPct, i) => (
+        <div
+          key={i}
+          className={styles.prosceniumFlash}
+          style={{ left: `${leftPct}%` }}
+        >
+          <FlashBurst delayMs={stagger[i] ?? 0} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /* ── StageBackdrop: the whole persistent set, rendered once ────────── */
 
 export function StageBackdrop({

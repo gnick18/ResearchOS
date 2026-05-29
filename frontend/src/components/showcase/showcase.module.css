@@ -655,6 +655,83 @@
   align-items: center;
   justify-content: center;
 }
+
+/* Change 2: carry the runway's stage lighting + camera flashes onto the
+   Performance Hall scenes so BeakerBot is spotlit (and flashing) on every
+   section, not just the runway. The backlight halo + contrast pocket sit
+   BEHIND the scene content (same anti-wash principle as Change 1) so the
+   scene bot is rimmed, not washed. They live inside the proscenium stage
+   (below the scene content, above the dark frame floor). */
+.prosceniumBacklight {
+  position: absolute;
+  inset: 0;
+  z-index: 1; /* behind the scene content in the stage */
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background: radial-gradient(
+    ellipse 46% 58% at 50% 52%,
+    rgba(255, 250, 236, 0.85) 0%,
+    rgba(255, 240, 205, 0.5) 28%,
+    rgba(231, 200, 115, 0.22) 50%,
+    rgba(11, 11, 18, 0) 74%
+  );
+  opacity: 0;
+}
+.prosceniumActive .prosceniumBacklight {
+  animation: prosceniumBacklightUp 700ms ease-out forwards;
+}
+@keyframes prosceniumBacklightUp {
+  0% {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.prosceniumPocket {
+  position: absolute;
+  inset: 0;
+  z-index: 1; /* same plane as the backlight, drawn after it to darken */
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 26% 34% at 50% 52%,
+    rgba(11, 11, 18, 0.5) 0%,
+    rgba(11, 11, 18, 0.28) 46%,
+    rgba(11, 11, 18, 0) 76%
+  );
+  opacity: 0;
+}
+.prosceniumActive .prosceniumPocket {
+  opacity: 1;
+}
+/* Scene content layer: positioned above the backlight rig (z2 > z1) so the
+   scene bot / poster never paints under the glow. */
+.prosceniumContent {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The camera-flash flurry layer for a proscenium scene: a small overlay
+   pinned to the frame's lower lip so the bursts read as photographers
+   firing at the act, mirroring the runway pit flashes. */
+.prosceniumFlashLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 6; /* over the scene + footlights, under the placard pill */
+  pointer-events: none;
+}
+.prosceniumFlash {
+  position: absolute;
+  bottom: 12%;
+  width: 44px;
+  height: 44px;
+}
 .prosceniumFootlights {
   position: absolute;
   left: 0;
@@ -1070,6 +1147,11 @@
   .bulb {
     animation: none;
     opacity: 0.85;
+  }
+  .prosceniumActive .prosceniumBacklight {
+    animation: none;
+    opacity: 1;
+    transform: none;
   }
   .curtain {
     transition: none;
