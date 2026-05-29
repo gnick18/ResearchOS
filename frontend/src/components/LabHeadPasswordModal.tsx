@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   hasLabHeadPassword,
   verifyLabHeadPassword,
+  setLabHeadPassword,
 } from "@/lib/lab/lab-head-auth";
 import { startEditSession } from "@/lib/lab/edit-session";
 
@@ -52,6 +53,13 @@ export default function LabHeadPasswordModal({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [firstUse, setFirstUse] = useState<boolean | null>(null);
+  // "unlock" verifies an existing password; "reset" sets a brand-new one
+  // with NO current-password check. The edit gate is an intentionality
+  // check, not a security control (the raw files are on disk regardless,
+  // as the wiki states), so a forgot/reset path that resets anytime is by
+  // design (Grant 2026-05-29). Reset doubles as first-time setup for a PI
+  // who was never explicitly prompted to make a password.
+  const [mode, setMode] = useState<"unlock" | "reset">("unlock");
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -110,6 +118,30 @@ export default function LabHeadPasswordModal({
     }
   }
 
+  // Reset path: set a brand-new edit password with NO current-password
+  // check, then unlock. Deliberate per the intentionality-not-security
+  // model (the wiki is explicit that the gate does not protect the raw
+  // data). Also the clean first-time-setup path for a PI who was never
+  // prompted to create one.
+  async function handleReset() {
+    setError(null);
+    if (!password) {
+      setError("Enter a new password to set.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await setLabHeadPassword(username, password);
+      startEditSession(username);
+      onUnlocked?.();
+      onClose();
+    } catch (err) {
+      console.warn("[LabHeadPasswordModal] reset failed", err);
+      setError("Could not set the password. Try again.");
+      setBusy(false);
+    }
+  }
+
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40"
@@ -131,7 +163,7 @@ export default function LabHeadPasswordModal({
             id="lab-head-password-modal-title"
             className="text-base font-semibold text-gray-900"
           >
-            Unlock edit mode
+            {mode === "reset" ? "Set a new edit password" : "Unlock edit mode"}
           </h2>
           {targetLabel ? (
             <p className="text-xs text-gray-500 mt-1">
@@ -146,13 +178,25 @@ export default function LabHeadPasswordModal({
           )}
         </div>
 
-        {firstUse === true && (
+        {mode === "unlock" && firstUse === true && (
           <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
             <p className="font-medium">First time unlocking edit mode.</p>
             <p className="mt-1">
               For convenience, your edit-mode password starts out the same as
               your account password. You can change it later in Settings →
-              PI.
+              PI. No account password set? Use Reset password below to make
+              one.
+            </p>
+          </div>
+        )}
+
+        {mode === "reset" && (
+          <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
+            <p className="font-medium">Set a new edit password.</p>
+            <p className="mt-1">
+              This unlock is an intentionality check, not a security lock:
+              your records live as plain files on your disk regardless. So
+              you can reset this password anytime, no old password needed.
             </p>
           </div>
         )}
@@ -162,7 +206,11 @@ export default function LabHeadPasswordModal({
             htmlFor="lab-head-password-modal-input"
             className="block text-xs font-medium text-gray-700 mb-1"
           >
-            {firstUse ? "Account password" : "Lab-head password"}
+            {mode === "reset"
+              ? "New edit password"
+              : firstUse
+                ? "Account password"
+                : "Lab-head password"}
           </label>
           <input
             id="lab-head-password-modal-input"
@@ -173,11 +221,11 @@ export default function LabHeadPasswordModal({
             onKeyDown={(e) => {
               if (e.key === "Enter" && !busy) {
                 e.preventDefault();
-                void handleSubmit();
+                void (mode === "reset" ? handleReset() : handleSubmit());
               }
             }}
             disabled={busy}
-            autoComplete="current-password"
+            autoComplete={mode === "reset" ? "new-password" : "current-password"}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-gray-50 disabled:text-gray-400"
           />
         </div>
@@ -188,23 +236,45 @@ export default function LabHeadPasswordModal({
           </p>
         )}
 
-        <div className="flex items-center justify-end gap-2 pt-2">
+        <div className="flex items-center justify-between gap-2 pt-2">
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => {
+              setError(null);
+              setPassword("");
+              setMode(mode === "reset" ? "unlock" : "reset");
+            }}
             disabled={busy}
-            className="px-3 py-1.5 rounded-md text-xs text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+            className="text-xs text-gray-500 hover:text-gray-700 underline-offset-2 hover:underline disabled:opacity-50"
           >
-            Cancel
+            {mode === "reset" ? "Back to unlock" : "Forgot or reset password?"}
           </button>
-          <button
-            type="button"
-            onClick={() => void handleSubmit()}
-            disabled={busy || !password}
-            className="px-3 py-1.5 rounded-md text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {busy ? "Verifying…" : "Unlock"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={busy}
+              className="px-3 py-1.5 rounded-md text-xs text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                void (mode === "reset" ? handleReset() : handleSubmit())
+              }
+              disabled={busy || !password}
+              className="px-3 py-1.5 rounded-md text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {busy
+                ? mode === "reset"
+                  ? "Saving…"
+                  : "Verifying…"
+                : mode === "reset"
+                  ? "Set password and unlock"
+                  : "Unlock"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
