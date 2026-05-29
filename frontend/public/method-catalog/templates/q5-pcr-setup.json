@@ -1,0 +1,39 @@
+{
+  "slug": "q5-pcr-setup",
+  "title": "Q5 high-fidelity PCR setup",
+  "description": "25 uL Q5 reaction recipe plus a 3-step cycling program with a 60 C anneal.",
+  "category": "Molecular biology",
+  "method_type": "pcr",
+  "tags": ["pcr", "q5", "amplification"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Initial Denaturation", "temperature": 98, "duration": "30 sec" }
+      ],
+      "cycles": [
+        {
+          "repeats": 30,
+          "steps": [
+            { "name": "Denaturation", "temperature": 98, "duration": "10 sec" },
+            { "name": "Annealing", "temperature": 60, "duration": "20 sec" },
+            { "name": "Extension", "temperature": 72, "duration": "30 sec/kb" }
+          ]
+        }
+      ],
+      "final": [
+        { "name": "Final Extension", "temperature": 72, "duration": "2 min" }
+      ],
+      "hold": { "name": "Hold", "temperature": 4, "duration": "Indef." }
+    },
+    "ingredients": [
+      { "id": "1", "name": "5X Q5 Reaction Buffer", "concentration": "5X", "amount_per_reaction": "5" },
+      { "id": "2", "name": "dNTPs", "concentration": "10 mM", "amount_per_reaction": "0.5" },
+      { "id": "3", "name": "Forward Primer", "concentration": "10 uM", "amount_per_reaction": "1.25" },
+      { "id": "4", "name": "Reverse Primer", "concentration": "10 uM", "amount_per_reaction": "1.25" },
+      { "id": "5", "name": "Template DNA", "concentration": "1-10 ng/uL", "amount_per_reaction": "1" },
+      { "id": "6", "name": "Q5 High-Fidelity DNA Polymerase", "concentration": "2 U/uL", "amount_per_reaction": "0.25" },
+      { "id": "7", "name": "Nuclease-free Water", "concentration": "-", "amount_per_reaction": "to 25" }
+    ],
+    "notes": "Annealing temperature is a starting point; use the NEB Tm calculator for Q5 and run a gradient if the band is weak or nonspecific. Extension is 20-30 sec/kb for Q5."
+  }
+}

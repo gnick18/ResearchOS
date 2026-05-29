@@ -1,0 +1,11 @@
+{
+  "slug": "western-blot",
+  "title": "Western blot (SDS-PAGE + transfer)",
+  "description": "SDS-PAGE separation, wet transfer, blocking, and ECL detection steps as editable markdown.",
+  "category": "Protein biochemistry",
+  "method_type": "markdown",
+  "tags": ["western-blot", "sds-page", "transfer", "protein"],
+  "payload": {
+    "body": "## Purpose\n\nSeparate proteins by molecular weight, transfer to a membrane, and detect a target with a specific antibody.\n\n## Materials\n\n| Item | Working concentration |\n| --- | --- |\n| Precast gel (4-12% Bis-Tris) | 1 gel |\n| MOPS or MES running buffer | 1X |\n| Transfer buffer (Tris-glycine + 20% methanol) | 1X |\n| PVDF membrane (0.45 um) | 1 sheet |\n| Blocking buffer (5% nonfat milk in TBST) | 25 mL |\n| Primary antibody | per datasheet, e.g. 1:1000 |\n| HRP secondary antibody | 1:5000 |\n| ECL substrate | 1 mL |\n\n## Steps\n\n1. Mix 20-30 ug lysate with 4X loading buffer + reducing agent. Heat 70 C for 10 min.\n2. Load samples and 5 uL ladder. Run SDS-PAGE at 150 V for 50 min (until dye front reaches the bottom).\n3. Activate PVDF in methanol 30 sec, equilibrate membrane and gel in transfer buffer 10 min.\n4. Wet transfer at 100 V for 60 min at 4 C (or 30 V overnight).\n5. Block in 5% milk/TBST for 1 h at room temperature with rocking.\n6. Incubate primary antibody overnight at 4 C.\n7. Wash 3 x 5 min in TBST. Incubate HRP secondary 1 h at room temperature.\n8. Wash 3 x 5 min in TBST. Apply ECL substrate 1 min and image.\n\n## Expected result\n\nA single band at the predicted molecular weight. Loading-control band (e.g. GAPDH, 37 kDa) present in every lane.\n\n## Notes and troubleshooting\n\n- High background: increase wash time, dilute primary further, swap milk for 5% BSA.\n- No signal: confirm transfer with Ponceau S, check secondary species match.\n\n## Safety\n\nMethanol is flammable and toxic. Acrylamide gels: handle precast only; wear nitrile gloves.\n"
+  }
+}

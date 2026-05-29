@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "generatedAt": "2026-05-29T00:00:00.000Z",
+  "templates": [
+    {
+      "slug": "general-protocol",
+      "title": "General protocol skeleton",
+      "description": "Blank lab-protocol scaffold: materials, steps, notes, and safety sections ready to fill in.",
+      "category": "General",
+      "method_type": "markdown",
+      "tags": ["template", "skeleton", "general"]
+    },
+    {
+      "slug": "q5-pcr-setup",
+      "title": "Q5 high-fidelity PCR setup",
+      "description": "25 uL Q5 reaction recipe plus a 3-step cycling program with a 60 C anneal.",
+      "category": "Molecular biology",
+      "method_type": "pcr",
+      "tags": ["pcr", "q5", "amplification"]
+    },
+    {
+      "slug": "colony-pcr-screen",
+      "title": "Colony PCR screen",
+      "description": "Taq-based 20 uL colony-screen reaction with an extended initial denaturation to lyse cells.",
+      "category": "Molecular biology",
+      "method_type": "pcr",
+      "tags": ["pcr", "colony", "screening", "taq"]
+    },
+    {
+      "slug": "reverse-phase-peptide-lc",
+      "title": "Reverse-phase peptide LC gradient",
+      "description": "C18 5-to-95% acetonitrile gradient with 0.1% formic acid for LC-MS peptide separation.",
+      "category": "Analytical chemistry",
+      "method_type": "lc_gradient",
+      "tags": ["lc", "lc-ms", "peptide", "c18", "reverse-phase"]
+    },
+    {
+      "slug": "96-well-dose-response",
+      "title": "96-well dose-response layout",
+      "description": "Pre-labeled 96-well plate: column 1 blanks, column 2 vehicle controls, columns 3-12 samples.",
+      "category": "Cell biology",
+      "method_type": "plate",
+      "tags": ["plate", "96-well", "dose-response", "screening"]
+    },
+    {
+      "slug": "hek293-passaging",
+      "title": "HEK293 passaging schedule",
+      "description": "Adherent HEK293 maintenance in DMEM + 10% FBS with a 1:6 split every 3 days.",
+      "category": "Cell biology",
+      "method_type": "cell_culture",
+      "tags": ["cell-culture", "hek293", "passaging", "dmem"]
+    },
+    {
+      "slug": "western-blot",
+      "title": "Western blot (SDS-PAGE + transfer)",
+      "description": "SDS-PAGE separation, wet transfer, blocking, and ECL detection steps as editable markdown.",
+      "category": "Protein biochemistry",
+      "method_type": "markdown",
+      "tags": ["western-blot", "sds-page", "transfer", "protein"]
+    }
+  ]
+}

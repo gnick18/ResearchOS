@@ -1,0 +1,11 @@
+{
+  "slug": "general-protocol",
+  "title": "General protocol skeleton",
+  "description": "Blank lab-protocol scaffold: materials, steps, notes, and safety sections ready to fill in.",
+  "category": "General",
+  "method_type": "markdown",
+  "tags": ["template", "skeleton", "general"],
+  "payload": {
+    "body": "## Purpose\n\nOne or two sentences on what this protocol accomplishes and when to run it.\n\n## Materials\n\n| Item | Catalog / source | Amount per run |\n| --- | --- | --- |\n| Reagent A | vendor, cat# | 10 mL |\n| Reagent B | vendor, cat# | 1 g |\n| Consumable | vendor, cat# | 1 each |\n\n## Equipment\n\n- Instrument or setup 1\n- Instrument or setup 2\n\n## Steps\n\n1. Step one. Include the measurement (volume, temperature, time).\n2. Step two. Note the spin/incubation parameters, e.g. 4000 x g for 5 min at 4 C.\n3. Step three.\n4. Step four.\n\n## Expected result\n\nWhat a successful run looks like and how to read it.\n\n## Notes and troubleshooting\n\n- Common failure mode and the fix.\n- Variations for different sample types.\n\n## Safety\n\nHazards, PPE, and disposal notes for the reagents above.\n"
+  }
+}

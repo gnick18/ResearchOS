@@ -1,0 +1,39 @@
+{
+  "slug": "96-well-dose-response",
+  "title": "96-well dose-response layout",
+  "description": "Pre-labeled 96-well plate: column 1 blanks, column 2 vehicle controls, columns 3-12 samples.",
+  "category": "Cell biology",
+  "method_type": "plate",
+  "tags": ["plate", "96-well", "dose-response", "screening"],
+  "payload": {
+    "description": "Dose-response screen layout. Column 1 = media-only blanks, column 2 = vehicle (DMSO) controls, columns 3-12 = ascending compound concentrations across the plate, 8 replicates per condition down the rows.",
+    "plate_size": 96,
+    "region_labels": [
+      {
+        "row_start": 0,
+        "row_end": 7,
+        "col_start": 0,
+        "col_end": 0,
+        "role": "blank",
+        "notes": "Media only, no cells. Background subtraction."
+      },
+      {
+        "row_start": 0,
+        "row_end": 7,
+        "col_start": 1,
+        "col_end": 1,
+        "role": "control",
+        "custom_label": "Vehicle (DMSO)",
+        "notes": "Cells + vehicle at the highest carried solvent concentration."
+      },
+      {
+        "row_start": 0,
+        "row_end": 7,
+        "col_start": 2,
+        "col_end": 11,
+        "role": "sample",
+        "notes": "Ascending compound dose left to right (columns 3-12). Eight technical replicates per dose down the rows."
+      }
+    ]
+  }
+}

@@ -45,6 +45,7 @@ import CodingWorkflowViewer from "@/components/CodingWorkflowViewer";
 import QpcrAnalysisViewer from "@/components/QpcrAnalysisViewer";
 import { getMethodTypeMeta } from "@/lib/methods/method-type-registry";
 import { CreateMethodModal } from "@/components/methods/CreateMethodModal";
+import { MethodTemplateLibraryModal } from "@/components/methods/MethodTemplateLibraryModal";
 import {
   DeleteMethodConfirm,
   findAffectedCompounds,
@@ -98,6 +99,29 @@ function ownerScopedMethodsApi(method: Method) {
 // keyed off the current method instead.
 const methodsApi = rawMethodsApi;
 
+/** Inline SVG for the "Template library" header button (stacked-cards glyph).
+ *  Custom inline SVG per the project's no-emoji / no-lucide icon convention. */
+function TemplateLibraryIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <rect x="3" y="4" width="13" height="16" rx="2" />
+      <path d="M19 7v13a1 1 0 0 1-1 1H8" />
+      <line x1="6.5" y1="8.5" x2="12.5" y2="8.5" />
+      <line x1="6.5" y1="12" x2="12.5" y2="12" />
+    </svg>
+  );
+}
+
 async function pickUniqueImageName(dirPath: string, desired: string): Promise<string> {
   const dot = desired.lastIndexOf(".");
   const stem = dot > 0 ? desired.slice(0, dot) : desired;
@@ -132,6 +156,9 @@ export default function MethodsPage() {
    *  (R1d). Stays false the rest of the time. */
   const [forceWholeLabOnCreate, setForceWholeLabOnCreate] = useState(false);
   const [creatingCategory, setCreatingCategory] = useState(false);
+  // Protocol template library (Extension Store Phase U1). Opens a browse panel
+  // over the static method catalog; "Use template" creates an owned method.
+  const [browsingTemplates, setBrowsingTemplates] = useState(false);
   const [draggedMethod, setDraggedMethod] = useState<Method | null>(null);
   const [dropTargetFolder, setDropTargetFolder] = useState<string | null>(null);
   const [prefilledFolder, setPrefilledFolder] = useState<string>("");
@@ -772,6 +799,14 @@ export default function MethodsPage() {
               + New Category
             </button>
             <button
+              onClick={() => setBrowsingTemplates(true)}
+              data-tour-target="methods-template-library-button"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+            >
+              <TemplateLibraryIcon className="w-4 h-4" />
+              Template library
+            </button>
+            <button
               onClick={() => setCreating(true)}
               data-tour-target="methods-new-method-button"
               className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -970,6 +1005,22 @@ export default function MethodsPage() {
             setForceWholeLabOnCreate(false);
           }}
           onCreated={handleMethodCreated}
+        />
+      )}
+
+      {/* Protocol template library (Extension Store Phase U1). Browsing the
+          static catalog and using a template both happen here; "Use template"
+          creates an owned method, then we refresh the methods query and open
+          the new method in the viewer. */}
+      {browsingTemplates && (
+        <MethodTemplateLibraryModal
+          existingFolders={existingFolders}
+          onClose={() => setBrowsingTemplates(false)}
+          onUsed={async (created) => {
+            await queryClient.refetchQueries({ queryKey: ["methods"] });
+            setBrowsingTemplates(false);
+            setViewingMethod(created);
+          }}
         />
       )}
 

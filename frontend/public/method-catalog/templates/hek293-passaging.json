@@ -1,0 +1,30 @@
+{
+  "slug": "hek293-passaging",
+  "title": "HEK293 passaging schedule",
+  "description": "Adherent HEK293 maintenance in DMEM + 10% FBS with a 1:6 split every 3 days.",
+  "category": "Cell biology",
+  "method_type": "cell_culture",
+  "tags": ["cell-culture", "hek293", "passaging", "dmem"],
+  "payload": {
+    "description": "Routine maintenance of adherent HEK293 cells. Split at ~80-90% confluence, roughly every 3 days. Trypsinize, quench, count, and reseed at the target ratio.",
+    "cell_line": {
+      "name": "HEK293",
+      "species": "Human",
+      "tissue": "Embryonic kidney (adherent)",
+      "notes": "Grow at 37 C, 5% CO2. Do not let exceed 90% confluence between passages."
+    },
+    "media": {
+      "base_medium": "DMEM, high glucose",
+      "serum_percent": 10,
+      "supplements": [
+        { "name": "L-glutamine", "concentration": "2", "units": "mM" },
+        { "name": "Penicillin-Streptomycin", "concentration": "100", "units": "U/mL + ug/mL" }
+      ]
+    },
+    "planned_events": [
+      { "day_offset": 0, "event_type": "split", "split_ratio": "1:6", "notes": "Seed day. Trypsinize with 0.05% trypsin-EDTA 3 min at 37 C, quench with complete medium, reseed 1:6 into a fresh T75." },
+      { "day_offset": 1, "event_type": "observe", "notes": "Confirm even attachment and no contamination." },
+      { "day_offset": 3, "event_type": "split", "split_ratio": "1:6", "notes": "At ~80-90% confluence, repeat the split." }
+    ]
+  }
+}

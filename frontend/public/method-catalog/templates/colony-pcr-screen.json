@@ -1,0 +1,39 @@
+{
+  "slug": "colony-pcr-screen",
+  "title": "Colony PCR screen",
+  "description": "Taq-based 20 uL colony-screen reaction with an extended initial denaturation to lyse cells.",
+  "category": "Molecular biology",
+  "method_type": "pcr",
+  "tags": ["pcr", "colony", "screening", "taq"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Initial Denaturation (cell lysis)", "temperature": 95, "duration": "5 min" }
+      ],
+      "cycles": [
+        {
+          "repeats": 30,
+          "steps": [
+            { "name": "Denaturation", "temperature": 95, "duration": "30 sec" },
+            { "name": "Annealing", "temperature": 55, "duration": "30 sec" },
+            { "name": "Extension", "temperature": 72, "duration": "1 min/kb" }
+          ]
+        }
+      ],
+      "final": [
+        { "name": "Final Extension", "temperature": 72, "duration": "5 min" }
+      ],
+      "hold": { "name": "Hold", "temperature": 4, "duration": "Indef." }
+    },
+    "ingredients": [
+      { "id": "1", "name": "10X Standard Taq Buffer", "concentration": "10X", "amount_per_reaction": "2" },
+      { "id": "2", "name": "dNTPs", "concentration": "10 mM", "amount_per_reaction": "0.4" },
+      { "id": "3", "name": "Forward Primer", "concentration": "10 uM", "amount_per_reaction": "0.4" },
+      { "id": "4", "name": "Reverse Primer", "concentration": "10 uM", "amount_per_reaction": "0.4" },
+      { "id": "5", "name": "Taq DNA Polymerase", "concentration": "5 U/uL", "amount_per_reaction": "0.1" },
+      { "id": "6", "name": "Picked colony (resuspended)", "concentration": "-", "amount_per_reaction": "2" },
+      { "id": "7", "name": "Nuclease-free Water", "concentration": "-", "amount_per_reaction": "to 20" }
+    ],
+    "notes": "Touch a single colony with a tip, streak a patch plate for later recovery, then swirl the tip into the reaction. The 5 min initial denaturation lyses cells and releases template."
+  }
+}

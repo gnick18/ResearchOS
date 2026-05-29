@@ -1,0 +1,32 @@
+{
+  "slug": "reverse-phase-peptide-lc",
+  "title": "Reverse-phase peptide LC gradient",
+  "description": "C18 5-to-95% acetonitrile gradient with 0.1% formic acid for LC-MS peptide separation.",
+  "category": "Analytical chemistry",
+  "method_type": "lc_gradient",
+  "tags": ["lc", "lc-ms", "peptide", "c18", "reverse-phase"],
+  "payload": {
+    "description": "Standard reverse-phase peptide separation on a C18 column for downstream MS. Solvent A is water + 0.1% formic acid, solvent B is acetonitrile + 0.1% formic acid.",
+    "gradient_steps": [
+      { "time_min": 0, "percent_a": 95, "percent_b": 5, "flow_ml_min": 0.3 },
+      { "time_min": 3, "percent_a": 95, "percent_b": 5, "flow_ml_min": 0.3 },
+      { "time_min": 35, "percent_a": 60, "percent_b": 40, "flow_ml_min": 0.3 },
+      { "time_min": 40, "percent_a": 5, "percent_b": 95, "flow_ml_min": 0.3 },
+      { "time_min": 45, "percent_a": 5, "percent_b": 95, "flow_ml_min": 0.3 },
+      { "time_min": 46, "percent_a": 95, "percent_b": 5, "flow_ml_min": 0.3 },
+      { "time_min": 55, "percent_a": 95, "percent_b": 5, "flow_ml_min": 0.3 }
+    ],
+    "column": {
+      "manufacturer": "",
+      "model": "C18, 100 A",
+      "length_mm": 150,
+      "inner_diameter_mm": 2.1,
+      "particle_size_um": 1.7
+    },
+    "detection_wavelength_nm": 214,
+    "ingredients": [
+      { "id": "a", "name": "Water + 0.1% formic acid", "role": "solvent_a", "concentration": "0.1% FA" },
+      { "id": "b", "name": "Acetonitrile + 0.1% formic acid", "role": "solvent_b", "concentration": "0.1% FA" }
+    ]
+  }
+}
