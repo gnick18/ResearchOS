@@ -215,10 +215,10 @@ export const POINTING_TRIO = {
   leadPose: "pointing" as BeakerBotPose,
 } as const;
 
-/** Total distinct runway frames a build renders: 17 single-pose looks +
- *  1 clustered pointing-trio frame = 18 frames, covering all 21 poses
- *  (17 + the 3 pointing poses share 1 frame). Exposed so tests can
- *  assert the runway never drifts from the inventory. */
+/** Total distinct runway frames a build renders: 18 single-pose looks +
+ *  1 clustered pointing-trio frame = 19 frames, covering all 21 poses
+ *  (18 single + the 3 pointing poses share 1 frame). Exposed so tests
+ *  can assert the runway never drifts from the inventory. */
 export const SHOWCASE_RUNWAY_FRAME_COUNT =
   SHOWCASE_LOOKS.length + 1; // +1 for the clustered pointing trio frame
 

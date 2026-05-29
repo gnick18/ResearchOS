@@ -28,6 +28,7 @@ import DataSetupScreen from "./DataSetupScreen";
 import UserLoginScreen from "./UserLoginScreen";
 import FeedbackModal from "./FeedbackModal";
 import BeakerBot from "./BeakerBot";
+import { useShowcaseUnlock } from "./showcase/useShowcaseUnlock";
 import StreakBadge from "./StreakBadge";
 import { installStreakActivityTracking } from "@/lib/streak/streak-activity-bootstrap";
 import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
@@ -95,6 +96,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // when one lands (today only `prefers-reduced-motion` is honored,
   // inside the scene component itself).
   useLateNightCoffeeTrigger();
+
+  // Showcase unlock: counts clicks on the brand-mark BeakerBot. Clicks
+  // 1 to 6 still spawn hearts (the heart easter egg is internal to
+  // BeakerBot and untouched); click 7 fires the Curtain Reveal and
+  // routes to /showcase. This is the ONLY BeakerBot instance wired to
+  // the unlock (settings / tip-card instances stay hearts-only). Also
+  // covers the public /demo, which renders this same AppShell.
+  const { onBeakerBotClick, revealElement } = useShowcaseUnlock();
+
   const {
     showBugReport,
     showErrorToast,
@@ -223,6 +233,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     // paint — the selector must resolve synchronously from the very
     // first render.
     <div data-app-shell-mounted className="h-screen flex flex-col bg-gray-50">
+      {/* Showcase unlock Curtain Reveal overlay (portaled to body when
+          the 7th brand-mark click fires). Null otherwise. */}
+      {revealElement}
       <TelegramRecoveryPrompt />
       <TelegramEncryptedRecoveryPrompt />
       <IdlePasswordWipe />
@@ -238,13 +251,22 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             {/* Small static BeakerBot brand-mark accent. No animation;
                 the idle bob is reserved for the onboarding wizard.
                 Click triggers the heart easter egg (the default since
-                2026-05-25). */}
-            <BeakerBot
-              pose="idle"
-              ariaLabel="ResearchOS BeakerBot logo"
-              className="w-6 h-6 text-sky-500 shrink-0 block"
-              easterEgg="heart"
-            />
+                2026-05-25). The wrapping span counts clicks for the
+                showcase unlock: clicks 1 to 6 still spawn hearts (the
+                heart egg is internal to BeakerBot and unchanged); click
+                7 fires the Curtain Reveal into /showcase. */}
+            <span
+              onClick={onBeakerBotClick}
+              data-testid="appshell-beakerbot-brand"
+              className="inline-flex shrink-0"
+            >
+              <BeakerBot
+                pose="idle"
+                ariaLabel="ResearchOS BeakerBot logo"
+                className="w-6 h-6 text-sky-500 shrink-0 block"
+                easterEgg="heart"
+              />
+            </span>
             {/* Streak badge sits between brand mark and wordmark per
                 proposal §6.1. Hidden when current_count is 0, when the
                 user has disabled streaks in Settings, or pre-login. */}
