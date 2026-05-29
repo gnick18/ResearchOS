@@ -2,55 +2,69 @@
 
 // frontend/src/components/showcase/ShowcaseSections.tsx
 //
-// The bookend sections of the showcase scroll (R2.4): the "BeakerBot
-// Live" show-bill marquee hero up top and the curtain-call footer at the
-// bottom. No emojis (custom inline SVG mascot only); no em-dashes.
+// Change 3 (orchestrator manager): the page is no longer a long scroll
+// between a hero, the runway, the hall, and a footer. StageNav is a
+// persistent marquee-style nav bar that click-switches between the Runway
+// view and the Scenes view (one at a time) and offers a Leave control to
+// exit the show. The old MarqueeHero + CurtainCallFooter (the scroll-era
+// bookends) were retired; the BeakerBot marquee logo lives on in the
+// persistent StageBackdrop, untouched.
+//
+// No emojis (custom inline SVG mascot only); no em-dashes.
 
-import Link from "next/link";
-import BeakerBot from "../BeakerBot";
-import { Marquee } from "./StageChrome";
+import Tooltip from "../Tooltip";
 import styles from "./showcase.module.css";
 
-export function MarqueeHero({
-  tagline = "One beaker. Twenty-one looks. One stage.",
+/** The two click-switched views of the showcase. */
+export type ShowcaseView = "runway" | "scenes";
+
+/** Persistent marquee-style nav: Runway / Scenes (click-switched views)
+ *  plus a Leave control that exits the show. Replaces the old scroll
+ *  model (Change 3). */
+export function StageNav({
+  view,
+  onSelect,
+  onLeave,
 }: {
-  tagline?: string;
+  view: ShowcaseView;
+  onSelect: (view: ShowcaseView) => void;
+  onLeave: () => void;
 }) {
   return (
-    <section className={styles.hero} data-testid="showcase-hero">
-      {/* The bulb marquee title floats in the backdrop band; the hero
-          repeats the word large as the show-bill headline. */}
-      <Marquee word="BEAKERBOT" />
-      <span className={styles.heroLive}>live</span>
-      <span className={styles.heroTagline}>{tagline}</span>
-      <div className={styles.heroBot}>
-        <BeakerBot
-          pose="waving"
-          className="w-full h-full text-sky-500"
-          ariaLabel="BeakerBot waves from the stage"
-        />
-      </div>
-      <span className={styles.heroScrollCue}>The show is about to begin</span>
-    </section>
-  );
-}
-
-export function CurtainCallFooter() {
-  return (
-    <section className={styles.footer} data-testid="showcase-footer">
-      <div className={styles.footerBot}>
-        <BeakerBot
-          pose="bow-wink"
-          className="w-full h-full text-sky-500"
-          ariaLabel="BeakerBot takes a bow"
-        />
-      </div>
-      <span className={styles.footerCredits}>
-        Give him his flowers. That is the whole show.
-      </span>
-      <Link href="/" className={styles.footerLink}>
-        Back to the lab
-      </Link>
-    </section>
+    <nav className={styles.stageNav} aria-label="Showcase navigation" data-testid="showcase-nav">
+      <button
+        type="button"
+        className={`${styles.stageNavBtn} ${
+          view === "runway" ? styles.stageNavBtnActive : ""
+        }`}
+        aria-pressed={view === "runway"}
+        onClick={() => onSelect("runway")}
+        data-testid="showcase-nav-runway"
+      >
+        Runway
+      </button>
+      <button
+        type="button"
+        className={`${styles.stageNavBtn} ${
+          view === "scenes" ? styles.stageNavBtnActive : ""
+        }`}
+        aria-pressed={view === "scenes"}
+        onClick={() => onSelect("scenes")}
+        data-testid="showcase-nav-scenes"
+      >
+        Scenes
+      </button>
+      <span className={styles.stageNavDivider} aria-hidden="true" />
+      <Tooltip label="Leave the show and head back to the lab">
+        <button
+          type="button"
+          className={`${styles.stageNavBtn} ${styles.stageNavLeave}`}
+          onClick={onLeave}
+          data-testid="showcase-nav-leave"
+        >
+          Leave
+        </button>
+      </Tooltip>
+    </nav>
   );
 }

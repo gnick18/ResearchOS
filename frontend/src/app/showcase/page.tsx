@@ -8,39 +8,42 @@
 // Grant's locked decision: no light variant. Audience is members AND the
 // public /demo.
 //
-// Two shows, top to bottom:
-//   - the persistent set (StageBackdrop: marquee, rainbow wash, plum
-//     curtains + gold valance, light-up catwalk, tracking spotlight,
-//     photographers' pit), rendered once behind everything;
-//   - the "BeakerBot Live" marquee hero;
-//   - the Runway: a self-contained AUTO-PLAYING show occupying the first
-//     viewport. BeakerBot cycles all 21 emotions on a timer; the user
-//     does NOT scroll to advance poses. Clicking fires camera flashes.
-//   - scrolling DOWN past the runway reveals the Performance Hall (the
-//     scenes as one-at-a-time prosceniums, still IntersectionObserver
-//     driven);
-//   - the curtain-call footer.
+// Change 3 (orchestrator manager): the page is no longer a long scroll
+// between sections. It is a CLICK-SWITCHED two-view layout:
+//   - the persistent set (StageBackdrop: marquee logo, rainbow wash, plum
+//     curtains + gold valance, light-up catwalk, softened overhead beam,
+//     photographers' pit) renders once behind everything;
+//   - a persistent StageNav (marquee-style buttons) switches between:
+//       * Runway view  - the auto-cycling runway (BeakerBot cycles all
+//         21 looks on a timer; clicking fires camera flashes). The auto
+//         show + its timer run ONLY while this view is mounted.
+//       * Scenes view  - the Performance Hall (the one-scene-at-a-time
+//         IntersectionObserver sequencer). The sequencer runs ONLY while
+//         this view is mounted.
+//   - the Leave control exits the show (routes back to home).
+// Only one view is mounted at a time (Runway XOR Scenes), so each view's
+// clock/sequencer is naturally gated by mount/unmount.
+//
+// The 7-click Curtain Reveal unlock (useShowcaseUnlock) and the BeakerBot
+// marquee logo are untouched.
 //
 // See docs/proposals/BEAKERBOT_SHOWCASE_PROPOSAL.md (R3) for the spec.
-// Redesigned by the showcase-runway-redesign sub-bot per orchestrator
-// manager.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { StageBackdrop } from "@/components/showcase/StageChrome";
-import { MarqueeHero, CurtainCallFooter } from "@/components/showcase/ShowcaseSections";
+import { StageNav, type ShowcaseView } from "@/components/showcase/ShowcaseSections";
 import Runway from "@/components/showcase/Runway";
 import PerformanceHall from "@/components/showcase/PerformanceHall";
 import styles from "@/components/showcase/showcase.module.css";
 
 export default function ShowcasePage() {
-  const hallRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+  const [view, setView] = useState<ShowcaseView>("runway");
 
   // The route is a dark stage takeover: the body goes stage-black for the
-  // duration. The runway is now a hands-free auto-show (no per-pose snap
-  // scrolling), so we no longer force scroll-snap on the document; normal
-  // scrolling carries the viewer from the runway show down to the
-  // Performance Hall (whose own IntersectionObserver sequences the
-  // scenes).
+  // duration. With click nav (no scroll model) we do not touch scroll
+  // behavior; the views fit a single screen each.
   useEffect(() => {
     const body = document.body;
     const prevBodyBg = body.style.backgroundColor;
@@ -50,28 +53,26 @@ export default function ShowcasePage() {
     };
   }, []);
 
-  const skipToScenes = () => {
-    hallRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const leaveShow = () => {
+    router.push("/");
   };
 
   return (
-    <div className={styles.stageRoot} data-testid="showcase-page">
+    <div
+      className={styles.stageRoot}
+      data-testid="showcase-page"
+      data-view={view}
+    >
       <StageBackdrop spotlightActive />
-      {/* "Skip to the scenes" corner pin (R2/R3 optional polish). */}
-      <button
-        type="button"
-        className={styles.skipPin}
-        onClick={skipToScenes}
-        data-testid="showcase-skip-pin"
-      >
-        Skip to the scenes
-      </button>
-      <MarqueeHero />
-      <Runway />
-      <div ref={hallRef}>
-        <PerformanceHall />
-      </div>
-      <CurtainCallFooter />
+
+      {/* One view mounted at a time. Mounting gates each view's clock: the
+          runway autoplay timer only runs while Runway is mounted, and the
+          Performance Hall IntersectionObserver sequencer only runs while
+          Scenes is mounted. */}
+      {view === "runway" ? <Runway /> : <PerformanceHall />}
+
+      {/* Persistent click nav: Runway / Scenes (views) + Leave (exit). */}
+      <StageNav view={view} onSelect={setView} onLeave={leaveShow} />
     </div>
   );
 }

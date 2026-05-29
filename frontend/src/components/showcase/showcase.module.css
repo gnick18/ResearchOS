@@ -356,6 +356,9 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  /* Clear the fixed bottom nav (Change 3) so the emotion label / manual
+     control never tuck under it. */
+  padding-bottom: 96px;
   cursor: pointer; /* clicking fires the camera flashes */
 }
 
@@ -452,85 +455,73 @@
   background: #f0d489;
 }
 
-/* ── Marquee hero (R2.4) ───────────────────────────────────────────── */
+/* ── Stage marquee nav (Change 3: click nav, not scroll) ───────────── */
 
-.hero {
-  position: relative;
-  z-index: 5;
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  text-align: center;
-  scroll-snap-align: center;
-}
-/* Hero copy sits over the bright spotlight + light catwalk, so every
-   line carries a text-shadow halo (and the live word a soft glow) to
-   stay legible without re-theming the dark-stage mood. */
-.heroLive {
-  font-size: clamp(1.4rem, 5vw, 2.4rem);
-  font-weight: 700;
-  font-style: italic;
-  letter-spacing: 0.04em;
-  color: #d6b5f0;
-  text-shadow:
-    0 0 18px rgba(214, 181, 240, 0.55),
-    0 2px 10px rgba(0, 0, 0, 0.8);
-}
-.heroTagline {
-  font-size: 0.9rem;
-  letter-spacing: 0.2em;
-  color: #f0d489;
-  text-transform: uppercase;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.85);
-}
-.heroScrollCue {
-  margin-top: 24px;
-  font-size: 0.72rem;
-  letter-spacing: 0.24em;
-  color: #f3f1f7;
-  text-transform: uppercase;
-  opacity: 0.85;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.85);
-  animation: scrollCueBob 1.8s ease-in-out infinite;
-}
-@keyframes scrollCueBob {
-  0%,
-  100% {
-    transform: translateY(0);
-    opacity: 0.7;
-  }
-  50% {
-    transform: translateY(6px);
-    opacity: 1;
-  }
-}
-.heroBot {
-  width: 160px;
-  height: 160px;
-}
-
-/* The "skip to the scenes" corner pin (R2/R3 optional polish). */
-.skipPin {
+/* The page is no longer a long scroll between sections. A persistent
+   marquee-style nav bar switches between the Runway view and the Scenes
+   view (one at a time) and offers a Leave control to exit the show.
+   Pinned bottom-center so it reads like a theater's act selector + exit. */
+.stageNav {
   position: fixed;
-  top: calc(7svh + 12px);
-  right: 18px;
-  z-index: 20;
-  padding: 6px 14px;
-  font-size: 0.7rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: #0b0b12;
-  background: #e7c873;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  background: rgba(11, 11, 18, 0.82);
+  border: 1.5px solid #e7c873;
+  border-radius: 999px;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 8px 28px rgba(0, 0, 0, 0.55),
+    0 0 24px rgba(231, 200, 115, 0.25);
+  backdrop-filter: blur(6px);
+}
+.stageNavBtn {
+  appearance: none;
   border: none;
+  background: transparent;
+  color: #f3f1f7;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 9px 20px;
   border-radius: 999px;
   cursor: pointer;
-  box-shadow: 0 0 16px rgba(231, 200, 115, 0.4);
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
 }
-.skipPin:hover {
+.stageNavBtn:hover {
+  background: rgba(231, 200, 115, 0.16);
+}
+.stageNavBtnActive {
+  color: #0b0b12;
+  background: #e7c873;
+  box-shadow: 0 0 16px rgba(231, 200, 115, 0.5);
+}
+.stageNavBtnActive:hover {
   background: #f0d489;
+}
+/* The Leave control reads as the exit: a plum-tinted divider + label so it
+   does not look like a third "view" tab. */
+.stageNavDivider {
+  width: 1px;
+  height: 22px;
+  background: rgba(231, 200, 115, 0.35);
+  margin: 0 2px;
+}
+.stageNavLeave {
+  color: #d6b5f0;
+}
+.stageNavLeave:hover {
+  background: rgba(214, 181, 240, 0.16);
+  color: #e9d6f7;
 }
 
 /* ── Performance Hall (R3.8) ───────────────────────────────────────── */
@@ -538,7 +529,8 @@
 .hall {
   position: relative;
   z-index: 5;
-  padding: 12svh 0 6svh 0;
+  /* Extra bottom padding clears the fixed bottom nav (Change 3). */
+  padding: 12svh 0 120px 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -828,43 +820,6 @@
   100% {
     width: 100%;
   }
-}
-
-/* ── Curtain-call footer (R2) ──────────────────────────────────────── */
-
-.footer {
-  position: relative;
-  z-index: 5;
-  min-height: 70svh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  text-align: center;
-}
-.footerBot {
-  width: 128px;
-  height: 128px;
-}
-.footerCredits {
-  font-size: 0.8rem;
-  letter-spacing: 0.16em;
-  color: #a6d2f4;
-  text-transform: uppercase;
-}
-.footerLink {
-  font-size: 0.85rem;
-  letter-spacing: 0.12em;
-  color: #e7c873;
-  text-transform: uppercase;
-  text-decoration: none;
-  border: 1.5px solid #e7c873;
-  border-radius: 999px;
-  padding: 8px 20px;
-}
-.footerLink:hover {
-  background: rgba(231, 200, 115, 0.15);
 }
 
 /* ── Curtain Reveal unlock transition (R3.9) ───────────────────────── */
@@ -1165,10 +1120,6 @@
     left: 60%;
     top: 45%;
     opacity: 1;
-  }
-  .heroScrollCue {
-    animation: none;
-    opacity: 0.8;
   }
   .strutBot {
     animation: none;
