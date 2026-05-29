@@ -70,6 +70,11 @@ import { ExpandedView as DailyTasksExpanded } from "@/components/lab-overview/wi
 // powers the SnapshotTile + SidebarTile of CalendarEventsTodayWidget,
 // it's only the popup ExpandedView that switches.
 import { ExpandedView as CalendarDayPopupExpanded } from "@/components/lab-overview/widgets/CalendarDayPopupView";
+// Trainee notes Tool (PI beta feedback, pi-notes-widget, 2026-05-29):
+// a lab-roster surface where clicking a member surfaces the notes that
+// member has SHARED with the viewer. Read-only; respects the same
+// canRead + shared_only gates LabNotesWidget uses.
+import { ExpandedView as TraineeNotesExpanded } from "@/components/lab-overview/widgets/TraineeNotesWidget";
 
 // ── Small inline icons (no emojis, no lucide-react) ───────────────────────
 // Each tool gets a 16x16 SVG. Pulled from / mirrors the existing widget
@@ -186,6 +191,17 @@ const TODAYS_ANNOUNCEMENTS_ICON = (
   </svg>
 );
 
+const TRAINEE_NOTES_ICON = (
+  // People + document hint. Mirrors the PEOPLE_SVG roster motif from
+  // TraineeNotesWidget (a roster you click into to read shared notes).
+  <svg {...ICON_PROPS}>
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </svg>
+);
+
 const CALENDAR_ICON = (
   // Calendar grid. Mirrors CALENDAR_SVG from CalendarEventsTodayWidget.
   <svg {...ICON_PROPS}>
@@ -266,6 +282,20 @@ export const TOOL_REGISTRY: ToolDefinition[] = [
     description: "Cross-lab Gantt overlay + funding + roadmap rollup.",
     Icon: METRICS_ICON,
     ExpandedView: MetricsExpanded,
+    memberVisible: false,
+  },
+  {
+    // Trainee notes (PI beta feedback, pi-notes-widget, 2026-05-29).
+    // PI-only: a roster where clicking a member surfaces the notes that
+    // member has shared with the PI (1:1 / running-log notes). Read-only
+    // and gated by the same shared_only + canRead checks LabNotesWidget
+    // uses; never exposes a member's private notes.
+    id: "trainee-notes",
+    title: "Trainee notes",
+    description:
+      "Lab roster; click a member to read the notes they've shared with you.",
+    Icon: TRAINEE_NOTES_ICON,
+    ExpandedView: TraineeNotesExpanded,
     memberVisible: false,
   },
   {

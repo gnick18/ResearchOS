@@ -134,6 +134,11 @@ import CalendarEventsTodayWidget, {
   SidebarTile as CalendarEventsTodaySidebar,
   HELP_TEXT as CalendarEventsTodayHelp,
 } from "./CalendarEventsTodayWidget";
+import TraineeNotesWidget, {
+  SnapshotTile as TraineeNotesSnapshot,
+  SidebarTile as TraineeNotesSidebar,
+  HELP_TEXT as TraineeNotesHelp,
+} from "./TraineeNotesWidget";
 
 // Touch the default exports so TypeScript doesn't flag them as unused
 // imports — we intentionally import them for symmetry / side-effect
@@ -152,6 +157,7 @@ void LabExperimentsWidget;
 void LabActivityWidget;
 void LabPurchasesWidget;
 void CalendarEventsTodayWidget;
+void TraineeNotesWidget;
 
 export const WIDGET_CATALOG: WidgetDefinition[] = [
   // ── Canvas widgets ───────────────────────────────────────────────────
@@ -220,6 +226,25 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     // about.
     surfaces: { canvas: true },
     memberVisible: false, // lab_head only
+  },
+
+  // Trainee notes (PI beta feedback, pi-notes-widget, 2026-05-29): a
+  // roster-style tile. Clicking a member in the popup surfaces the notes
+  // that member has shared with the PI. PI-only (memberVisible: false) —
+  // it's a supervision surface. Canvas + sidebar eligible so the PI can
+  // pin it on the lab-overview dashboard or the customizable rail.
+  {
+    id: "trainee-notes",
+    toolId: "trainee-notes",
+    title: "Trainee notes",
+    description:
+      "Lab roster; click a member to read the notes they've shared with you. Lab head only.",
+    helpText: TraineeNotesHelp,
+    SnapshotTile: TraineeNotesSnapshot,
+    SidebarTile: TraineeNotesSidebar,
+    defaultLayout: { w: 4, h: 6, minW: 3, minH: 4 },
+    surfaces: { canvas: true, sidebar: true },
+    memberVisible: false, // lab_head only — a supervision surface
   },
 
   // R3 catalog additions (R3 widget catalog manager, 2026-05-23):
