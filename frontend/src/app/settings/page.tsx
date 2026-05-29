@@ -1279,10 +1279,16 @@ function ChangeLabHeadPasswordPopup({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  // Reset mode: skip the current-password reverify and just set a new one.
+  // The lab-head gate is an intentionality check, not a security control
+  // (the raw files are on disk regardless, as the wiki states), so a
+  // reset-anytime path is by design (Grant 2026-05-29). It also unblocks a
+  // PI whose password silently defaulted to a blank account password.
+  const [forgot, setForgot] = useState(false);
 
   async function handleSubmit() {
     setError(null);
-    if (!current || !next) {
+    if ((!forgot && !current) || !next) {
       setError("Fill out all fields.");
       return;
     }
@@ -1296,11 +1302,13 @@ function ChangeLabHeadPasswordPopup({
     }
     setBusy(true);
     try {
-      const ok = await verifyLabHeadPassword(username, current);
-      if (!ok) {
-        setError("Current password is incorrect.");
-        setBusy(false);
-        return;
+      if (!forgot) {
+        const ok = await verifyLabHeadPassword(username, current);
+        if (!ok) {
+          setError("Current password is incorrect.");
+          setBusy(false);
+          return;
+        }
       }
       await setLabHeadPassword(username, next);
       setDone(true);
@@ -1350,19 +1358,54 @@ function ChangeLabHeadPasswordPopup({
           </div>
         ) : (
           <>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Current password
-              </label>
-              <input
-                type="password"
-                value={current}
-                onChange={(e) => setCurrent(e.target.value)}
-                disabled={busy}
-                autoComplete="current-password"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-              />
-            </div>
+            {!forgot ? (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Current password
+                </label>
+                <input
+                  type="password"
+                  value={current}
+                  onChange={(e) => setCurrent(e.target.value)}
+                  disabled={busy}
+                  autoComplete="current-password"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForgot(true);
+                    setCurrent("");
+                    setError(null);
+                  }}
+                  disabled={busy}
+                  className="mt-1 text-xs text-gray-500 hover:text-gray-700 underline-offset-2 hover:underline disabled:opacity-50"
+                >
+                  Forgot current password? Reset instead
+                </button>
+              </div>
+            ) : (
+              <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
+                <p className="font-medium">
+                  Resetting without the current password.
+                </p>
+                <p className="mt-1">
+                  The edit password is an intentionality check, not a security
+                  lock (your records are on disk regardless), so resetting it
+                  anytime is fine.{" "}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForgot(false);
+                      setError(null);
+                    }}
+                    className="underline underline-offset-2 hover:text-amber-950"
+                  >
+                    Enter current password instead
+                  </button>
+                </p>
+              </div>
+            )}
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">
                 New password
@@ -1412,10 +1455,10 @@ function ChangeLabHeadPasswordPopup({
               <button
                 type="button"
                 onClick={() => void handleSubmit()}
-                disabled={busy || !current || !next || !confirm}
+                disabled={busy || (!forgot && !current) || !next || !confirm}
                 className="px-3 py-1.5 rounded-md text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {busy ? "Updating…" : "Update password"}
+                {busy ? "Updating…" : forgot ? "Reset password" : "Update password"}
               </button>
             </div>
           </>
