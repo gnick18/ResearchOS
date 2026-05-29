@@ -12,6 +12,15 @@ export type CalendarViewMode = "month" | "week" | "day";
 export type DateFormat = "MDY" | "DMY" | "YMD";
 export type TimeFormat = "12h" | "24h";
 
+// Markdown editor writing-surface width (MARKDOWN_EDITOR_TYPORA_DESIGN.md
+// Phase 1, editor-fluid-width bot 2026-05-29). The four presets the Focus
+// Mode width control offers. "comfortable" (~72ch) is the default measure;
+// the others widen progressively, and "full" drops the measure cap so the
+// surface uses the available width. The ch-value -> Tailwind-class mapping
+// lives in `lib/markdown/editor-width-preset.ts` (the single source of truth
+// the editor reads), so this type only enumerates the legal values.
+export type EditorWidthPreset = "narrow" | "comfortable" | "wide" | "full";
+
 // Lab Mode retirement R2 (R2 widget framework manager, 2026-05-23):
 // per-user persistence of the Lab Overview widget canvas + customizable
 // sidebar (proposal §3, §3g). Stored in users/<u>/settings.json under
@@ -258,6 +267,18 @@ export interface UserSettings {
   // user setting, so two accounts on the same browser track independently.
   lastSeenAnnouncementVersion?: string;
 
+  // Markdown editor writing-surface width preset (MARKDOWN_EDITOR_TYPORA_
+  // DESIGN.md Phase 1, editor-fluid-width bot 2026-05-29). DATA-SHAPE CHANGE:
+  // additive + optional. The Focus Mode width control (Narrow / Comfortable /
+  // Wide / Full-bleed) writes the user's choice here so it sticks across
+  // sessions and devices. Absent = "comfortable" (the ~72ch default measure);
+  // no migration needed for existing accounts. The editor also mirrors this
+  // to localStorage for a synchronous first-paint read (the design doc's
+  // per-editor preference pattern); settings.json is the durable per-user
+  // record. Clamped to the legal union in `normalize()` so a hand-edited
+  // garbage value falls back to the default at read time.
+  editorWidthPreset?: EditorWidthPreset;
+
   // LEGACY (dashboard-unification build, 2026-05-29): superseded by
   // `dashboard_layout` above. Kept READABLE for one release so the
   // one-time migration can seed `dashboard_layout` from it for an
@@ -394,6 +415,21 @@ function normalize(raw: Partial<UserSettings> | null | undefined): UserSettings 
   // (the safe default — never accidentally elevate someone to lab_head).
   if (merged.account_type !== "member" && merged.account_type !== "lab_head") {
     merged.account_type = "member";
+  }
+
+  // Editor width preset (Phase 1): drop a hand-edited garbage value so the
+  // field reads as "unset" (= the default measure) rather than a class the
+  // mapping can't resolve. Additive + optional: a genuinely absent field is
+  // left absent (not coerced to a default) so we never write a value the
+  // user didn't pick.
+  if (
+    merged.editorWidthPreset !== undefined &&
+    merged.editorWidthPreset !== "narrow" &&
+    merged.editorWidthPreset !== "comfortable" &&
+    merged.editorWidthPreset !== "wide" &&
+    merged.editorWidthPreset !== "full"
+  ) {
+    delete merged.editorWidthPreset;
   }
 
   return merged;

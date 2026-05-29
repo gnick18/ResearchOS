@@ -33,6 +33,18 @@ import {
   type DroppedFile,
 } from "@/lib/import/imageDropMatcher";
 import type { MissingInlineImage } from "@/lib/import/eln/types";
+import {
+  type EditorWidthPreset,
+  EDITOR_WIDTH_PRESETS,
+  EDITOR_WIDTH_PRESET_LABELS,
+  EDITOR_WIDTH_PRESET_DESCRIPTIONS,
+  editorWidthMeasureClass,
+  coerceEditorWidthPreset,
+  readStoredEditorWidthPreset,
+  writeStoredEditorWidthPreset,
+} from "@/lib/markdown/editor-width-preset";
+import { useOptionalCurrentUser } from "@/lib/file-system/file-system-context";
+import { patchUserSettings, readUserSettings } from "@/lib/settings/user-settings";
 
 // Transparent 1×1 GIF used as the `src` placeholder while the real blob URL
 // is being resolved asynchronously, so the browser never tries to fetch the
@@ -308,6 +320,63 @@ export default function LiveMarkdownEditor({
   const handleChildToggleFocusMode = useCallback(() => {
     toggleFocusMode(!focusModeActiveRef.current);
   }, [toggleFocusMode]);
+
+  // Writing-surface WIDTH preset (MARKDOWN_EDITOR_TYPORA_DESIGN.md Phase 1).
+  // Grant's pain point: the surface (esp. Focus Mode) was a constant box. The
+  // surface now uses a FLUID ch-based measure (default ~72ch centered) that
+  // the user can widen, narrow, or remove (Full-bleed) via the Focus Mode
+  // top-bar control. Seeded synchronously from localStorage for an immediate
+  // first-paint width; the durable per-account record lives in settings.json
+  // (`editorWidthPreset`) and an effect reconciles the two below.
+  const [widthPreset, setWidthPreset] = useState<EditorWidthPreset>(() =>
+    readStoredEditorWidthPreset(),
+  );
+  // Best-effort per-user settings mirror. Null when there is no
+  // FileSystemProvider above (isolated test renders) or nobody is connected;
+  // in that case localStorage is the only persistence, which is fine.
+  const currentUser = useOptionalCurrentUser();
+  // Reconcile from durable settings on connect / user-switch: settings.json
+  // is the cross-device source of truth, so if it disagrees with the local
+  // mirror we adopt it (and refresh the local mirror). Guarded so a fresh
+  // account with no saved preset keeps the local default rather than being
+  // forced back to "comfortable".
+  useEffect(() => {
+    if (!currentUser) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const settings = await readUserSettings(currentUser);
+        if (cancelled || settings.editorWidthPreset === undefined) return;
+        const fromDisk = coerceEditorWidthPreset(settings.editorWidthPreset);
+        setWidthPreset(fromDisk);
+        writeStoredEditorWidthPreset(fromDisk);
+      } catch {
+        // Disk read failed (not connected / transient): keep the local
+        // mirror. No throw, width is cosmetic.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser]);
+  // Apply + persist a new preset: update state, mirror to localStorage
+  // synchronously, and best-effort write the durable settings record.
+  const applyWidthPreset = useCallback(
+    (next: EditorWidthPreset) => {
+      setWidthPreset(next);
+      writeStoredEditorWidthPreset(next);
+      if (currentUser) {
+        void patchUserSettings(currentUser, { editorWidthPreset: next }).catch(
+          () => {
+            // Not connected / write failed: the localStorage mirror still
+            // holds for this browser. Width is cosmetic; never surface this.
+          },
+        );
+      }
+    },
+    [currentUser],
+  );
+  const measureClass = editorWidthMeasureClass(widthPreset);
 
   // Use controlled mode (from prop) or internal mode
   const currentMode = onModeChange ? mode : internalMode;
@@ -1682,14 +1751,18 @@ export default function LiveMarkdownEditor({
   // state (the manual-save buffer + undo refs in HybridMarkdownEditor) when
   // only the portal container changes and element identity is kept, so no
   // remount happens and no typing is lost (FOCUS_WRITING_MODE_DESIGN.md §7).
-  // In focus mode the outer wrapper drops `h-full` and centers the body in a
-  // comfortable reading column on the calm overlay surface.
+  // In focus mode the outer wrapper centers the body in a FLUID, ch-based
+  // readable measure (Phase 1) instead of the old constant `max-w-5xl` box.
+  // The measure follows the user's width preset (Narrow / Comfortable / Wide /
+  // Full-bleed); Full-bleed drops the cap so the surface uses the available
+  // width. `h-full` is kept so the column still fills the overlay height and
+  // scrolls inside itself.
   const editorTree = (
     <div
       ref={wrapperRef}
       className={
         focusModeActive
-          ? "flex flex-col w-full max-w-5xl h-full mx-auto"
+          ? `flex flex-col h-full ${measureClass}`
           : "flex flex-col h-full"
       }
       onDragEnter={handleWrapperDragEnter}
@@ -1991,9 +2064,17 @@ export default function LiveMarkdownEditor({
             instead of bursting out of a small popup. */}
         <div className="flex-1 min-h-0 cursor-text overflow-hidden flex flex-col">
           {currentMode === "preview" ? (
+            // Read-render: center the prose in the same FLUID ch-based measure
+            // (Phase 1) instead of edge-to-edge `max-w-none`, so long lines
+            // don't sprawl on a wide host. `w-full` keeps it 100% fluid below
+            // the cap; Full-bleed drops the cap. The `px-6` gives the measure
+            // breathing room from the scroll edge.
             <div className="p-4 h-full overflow-y-auto">
               {value.trim() ? (
-                <div className="prose prose-sm prose-gray max-w-none" style={{ lineHeight: "1.7" }}>
+                <div
+                  className={`prose prose-sm prose-gray ${measureClass} px-6`}
+                  style={{ lineHeight: "1.7" }}
+                >
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm, remarkUnderline]}
                     rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema], rehypeHighlight]}
@@ -2475,6 +2556,46 @@ export default function LiveMarkdownEditor({
 
           <div className="flex-1" />
 
+          {/* Writing-surface WIDTH control (MARKDOWN_EDITOR_TYPORA_DESIGN.md
+              Phase 1). A small segmented affordance: Narrow / Comfortable /
+              Wide / Full-bleed. Each segment carries an inline-SVG measure
+              glyph (no emoji) inside a project Tooltip (never native title=).
+              The active preset is highlighted; clicking one applies + persists
+              it (localStorage mirror + per-user settings). Lives only on the
+              Focus Mode top bar, which is the dedicated writing surface. */}
+          <div
+            role="group"
+            aria-label="Writing width"
+            data-testid="hybrid-editor-width-control"
+            className="flex items-center bg-gray-100 rounded-md p-0.5"
+          >
+            {EDITOR_WIDTH_PRESETS.map((preset) => {
+              const active = widthPreset === preset;
+              return (
+                <Tooltip
+                  key={preset}
+                  label={EDITOR_WIDTH_PRESET_DESCRIPTIONS[preset]}
+                  placement="bottom"
+                >
+                  <button
+                    type="button"
+                    data-testid={`hybrid-editor-width-${preset}`}
+                    aria-pressed={active}
+                    aria-label={`Set writing width to ${EDITOR_WIDTH_PRESET_LABELS[preset]}`}
+                    onClick={() => applyWidthPreset(preset)}
+                    className={`p-1.5 rounded transition-colors ${
+                      active
+                        ? "bg-white text-gray-800 shadow-sm"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    <WidthPresetGlyph preset={preset} />
+                  </button>
+                </Tooltip>
+              );
+            })}
+          </div>
+
           {/* Focus-mode Save (FOCUS_WRITING_MODE_DESIGN.md §0 decision 3, §7).
               The host disk-Save button sits outside the editor and is covered
               by this overlay, so focus mode renders its own, but only when a
@@ -2567,6 +2688,47 @@ export default function LiveMarkdownEditor({
         ? createPortal(frame, portalContainerRef.current)
         : null}
     </>
+  );
+}
+
+/**
+ * Inline-SVG glyph for one width preset (MARKDOWN_EDITOR_TYPORA_DESIGN.md
+ * Phase 1). Each preset draws a text-measure metaphor: a pair of side rails
+ * with "text" lines between them whose width grows narrow -> comfortable ->
+ * wide, and Full-bleed shows the rails pushed to the edges (no measure cap).
+ * No emoji, no native title= (the wrapping Tooltip owns the label).
+ */
+function WidthPresetGlyph({ preset }: { preset: EditorWidthPreset }) {
+  // x-extent of the "text" lines for each preset (the rails stay at 4..20).
+  // Full-bleed lines run rail-to-rail to signal "use the available width".
+  const span: Record<EditorWidthPreset, { x1: number; x2: number }> = {
+    narrow: { x1: 9, x2: 15 },
+    comfortable: { x1: 7, x2: 17 },
+    wide: { x1: 5, x2: 19 },
+    full: { x1: 4, x2: 20 },
+  };
+  const { x1, x2 } = span[preset];
+  return (
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      {/* Side rails (the viewport edges). */}
+      <path
+        strokeLinecap="round"
+        strokeWidth={2}
+        d="M4 5v14M20 5v14"
+      />
+      {/* Three "text" lines whose width encodes the measure. */}
+      <path
+        strokeLinecap="round"
+        strokeWidth={2}
+        d={`M${x1} 9h${x2 - x1}M${x1} 12h${x2 - x1}M${x1} 15h${x2 - x1}`}
+      />
+    </svg>
   );
 }
 

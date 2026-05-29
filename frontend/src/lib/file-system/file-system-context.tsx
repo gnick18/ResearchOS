@@ -1104,6 +1104,19 @@ export function useFileSystem(): FileSystemContextValue {
   return context;
 }
 
+/**
+ * Non-throwing variant: returns the current username, or null when there is
+ * no FileSystemProvider above (e.g. an isolated component-test render) or no
+ * user is connected. Use this in leaf components that want to best-effort
+ * read/write per-user state but must render fine in a provider-less context.
+ * Added for the markdown editor's width-preset settings mirror
+ * (MARKDOWN_EDITOR_TYPORA_DESIGN.md Phase 1, editor-fluid-width bot).
+ */
+export function useOptionalCurrentUser(): string | null {
+  const context = useContext(FileSystemContext);
+  return context?.currentUser ?? null;
+}
+
 export function isFileSystemAccessSupported(): boolean {
   return typeof window !== "undefined" && "showDirectoryPicker" in window;
 }
