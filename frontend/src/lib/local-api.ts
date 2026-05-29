@@ -85,6 +85,8 @@ import type {
   EventReminderNotification,
   ShiftAlertNotification,
   LabCommentNotification,
+  PurchaseAssignmentNotification,
+  PurchaseOrderedNotification,
   ShiftedAlertEntry,
   ShiftedAlertsFile,
   SeenShiftAlertsFile,
@@ -3237,6 +3239,103 @@ export const purchasesApi = {
       : purchaseItemsStore.update(id, patch);
   },
 
+  /**
+   * Lab-manager ordering workflow (purchases-assignee fix, 2026-05-29):
+   * assign (or unassign) a purchase item to a lab member who will place
+   * the order. Sets `assigned_to` via the same owner-routed `update`
+   * path, then — when assigning to someone OTHER than the requester
+   * (the item owner) — posts a `purchase_assignment` bell to the
+   * assignee.
+   *
+   * `owner` is the item owner's username (the requester). Omit it for the
+   * current user's own items; the caller passes it for shared / lab-mode
+   * edits so the write lands in the owner's folder. `actor` is who is
+   * doing the assigning (defaults to the current user) and is stamped as
+   * the notification's `from_user`. Pass `assignedTo: null` to clear an
+   * assignment (no notification fired).
+   */
+  assign: async (
+    id: number,
+    assignedTo: string | null,
+    options?: { owner?: string; actor?: string },
+  ): Promise<PurchaseItem | null> => {
+    const owner =
+      options?.owner ?? (await getCurrentUserCached()) ?? undefined;
+    const actor = options?.actor ?? (await getCurrentUserCached()) ?? "";
+    const updated = await purchasesApi.update(id, { assigned_to: assignedTo }, options?.owner);
+    if (!updated) return null;
+
+    // Requester = the item owner (the data folder the item lives in).
+    const requester = owner ?? actor;
+    // Notify the assignee only when assigning to a real, different user.
+    if (assignedTo && assignedTo !== requester) {
+      const notif: PurchaseAssignmentNotification = {
+        id: newAlertId(),
+        type: "purchase_assignment",
+        from_user: actor || requester,
+        owner_username: requester,
+        purchase_item_id: id,
+        task_id: updated.task_id,
+        item_name: updated.item_name,
+        created_at: new Date().toISOString(),
+        read: false,
+      };
+      await appendPurchaseNotification(assignedTo, notif);
+    }
+    return updated;
+  },
+
+  /**
+   * Lab-manager ordering workflow (purchases-assignee fix, 2026-05-29):
+   * fire "your supply was ordered" bells when a purchase order is marked
+   * ordered (the parent task flips to complete). For every line item that
+   * carries an `assigned_to` set to a user OTHER than the requester (the
+   * item owner), notify the requester so they know their assignee placed
+   * the order. `actor` is who marked it ordered (the notification's
+   * `from_user`); `owner` routes the read into the item owner's folder
+   * for shared / lab-mode tasks.
+   *
+   * Best-effort and idempotent-ish: re-marking an already-complete order
+   * could re-fire, so callers should only invoke this on the
+   * incomplete -> complete transition. Returns the count of bells sent.
+   */
+  notifyOrdered: async (
+    taskId: number,
+    options?: { owner?: string; actor?: string },
+  ): Promise<{ notified_count: number }> => {
+    const actor = options?.actor ?? (await getCurrentUserCached()) ?? "";
+    const requester =
+      options?.owner ?? (await getCurrentUserCached()) ?? "";
+    if (!requester) return { notified_count: 0 };
+    // The requester marking their own order ordered is silent — they
+    // already know. The bell is for the case where someone else (the
+    // assignee) placed the order on the requester's behalf.
+    if (actor && actor === requester) return { notified_count: 0 };
+
+    const items = await purchasesApi.listByTask(taskId, options?.owner);
+    let notified = 0;
+    for (const item of items) {
+      const assignee = item.assigned_to;
+      // Only items that were actually handed off to someone else trigger
+      // the requester-facing "it was ordered" bell.
+      if (!assignee || assignee === requester) continue;
+      const notif: PurchaseOrderedNotification = {
+        id: newAlertId(),
+        type: "purchase_ordered",
+        from_user: actor || assignee,
+        owner_username: requester,
+        purchase_item_id: item.id,
+        task_id: taskId,
+        item_name: item.item_name,
+        created_at: new Date().toISOString(),
+        read: false,
+      };
+      await appendPurchaseNotification(requester, notif);
+      notified += 1;
+    }
+    return { notified_count: notified };
+  },
+
   // VCP R2 trash everywhere (2026-05-26): soft-delete via
   // `_trash/purchase_items/`. PurchaseItems inherit ownership from the
   // task (`task_id` parent ref) — the owner of the trash entry is the
@@ -3983,6 +4082,39 @@ async function readNotificationsFile(username: string): Promise<NotificationFile
 
 async function writeNotificationsFile(username: string, data: NotificationFile): Promise<void> {
   await fileService.writeJson(`users/${username}/_notifications.json`, data);
+}
+
+/**
+ * Lab-manager ordering workflow (purchases-assignee fix, 2026-05-29):
+ * append a single purchase notification to the receiver's
+ * `_notifications.json`. Best-effort, mirroring the comment / shift-alert
+ * dispatchers — one failed write must never block the underlying purchase
+ * write. Cross-user membership guard: the receiver must be a discovered
+ * lab member (someone with a data folder), so a stray / typo'd username
+ * never spawns an orphan notification file outside the lab. The caller is
+ * responsible for skipping self-notify (requester === receiver).
+ */
+async function appendPurchaseNotification(
+  receiver: string,
+  notif: PurchaseAssignmentNotification | PurchaseOrderedNotification,
+): Promise<void> {
+  if (!receiver) return;
+  try {
+    const members = await discoverUsers();
+    if (!members.includes(receiver)) {
+      // Not a lab-folder member — do not over-expose by minting a
+      // notification in a folder outside the lab.
+      return;
+    }
+    const file = await readNotificationsFile(receiver);
+    file.notifications.push(notif);
+    await writeNotificationsFile(receiver, file);
+  } catch (err) {
+    console.warn(
+      `[purchase-notify] failed to write notification for ${receiver}:`,
+      err,
+    );
+  }
 }
 
 function notificationTypeFor(itemType: ItemType): SharedItemNotification["type"] {

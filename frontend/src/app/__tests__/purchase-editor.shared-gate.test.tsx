@@ -52,6 +52,21 @@ vi.mock("@/hooks/useCurrentUser", () => ({
   useCurrentUser: () => ({ currentUser: "alex" }),
 }));
 
+// Lab-manager ordering workflow (purchases-assignee fix, 2026-05-29): the
+// per-item PurchaseAssigneePicker pulls lab roster + profile + archived
+// data via these hooks (each reads the FileSystemProvider). Stub them so
+// the editor renders without a real provider — the shared-gate assertions
+// here are about write affordances, not the assignee picker.
+vi.mock("@/hooks/useLabData", () => ({
+  useLabData: () => ({ users: [], tasks: [], projects: [], isLoading: false, errorMessage: null, retry: () => {} }),
+}));
+vi.mock("@/hooks/useLabUserProfiles", () => ({
+  useLabUserProfileMap: () => ({}),
+}));
+vi.mock("@/hooks/useArchivedUsers", () => ({
+  useArchivedUsers: () => new Set<string>(),
+}));
+
 import PurchaseEditor from "@/components/PurchaseEditor";
 
 function makeItem(overrides: Partial<PurchaseItem> = {}): PurchaseItem {

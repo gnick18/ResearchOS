@@ -12,6 +12,8 @@ import type {
   LabPurchaseApprovalNotification,
   LabTaskAssignmentNotification,
   Notification,
+  PurchaseAssignmentNotification,
+  PurchaseOrderedNotification,
   ShiftAlertNotification,
 } from "@/lib/types";
 
@@ -288,6 +290,13 @@ export default function NotificationPopup({
                 notification.type === "lab_task_assignment" ||
                 notification.type === "lab_purchase_approval" ||
                 notification.type === "lab_flag_for_review";
+              // Lab-manager ordering workflow (purchases-assignee fix,
+              // 2026-05-29): the trainee -> lab-member ordering handoff
+              // bells. `purchase_assignment` lands on the assignee;
+              // `purchase_ordered` lands on the requester.
+              const isPurchaseFlow =
+                notification.type === "purchase_assignment" ||
+                notification.type === "purchase_ordered";
               // Row click only acknowledges the entry — never navigates and
               // never closes the popup. Navigation lives on an explicit
               // "Open in calendar" link inside reminder rows (or "View task"
@@ -389,7 +398,9 @@ export default function NotificationPopup({
                             ? getLabCommentIcon()
                             : isLabPhase3
                               ? getLabPhase3Icon(notification.type)
-                              : notification.type === "task_shared" ||
+                              : isPurchaseFlow
+                                ? getPurchaseFlowIcon(notification.type)
+                                : notification.type === "task_shared" ||
                                   notification.type === "method_shared" ||
                                   notification.type === "project_shared"
                                 ? getItemTypeIcon(notification.item_type)
@@ -455,6 +466,20 @@ export default function NotificationPopup({
                             | LabPurchaseApprovalNotification
                             | LabFlagForReviewNotification}
                           onMarkRead={() => handleMarkRead(notification.id)}
+                          onNavigate={() => {
+                            if (!notification.read) {
+                              void handleMarkRead(notification.id);
+                            }
+                            onClose();
+                          }}
+                        />
+                      ) : isPurchaseFlow ? (
+                        // Lab-manager ordering workflow (purchases-assignee
+                        // fix, 2026-05-29): assignment / ordered bells.
+                        <PurchaseFlowRow
+                          notification={notification as
+                            | PurchaseAssignmentNotification
+                            | PurchaseOrderedNotification}
                           onNavigate={() => {
                             if (!notification.read) {
                               void handleMarkRead(notification.id);
@@ -849,6 +874,84 @@ function LabPhase3Row({ notification, onMarkRead, onNavigate }: LabPhase3RowProp
         className="mt-1.5 text-[11px] text-blue-600 hover:text-blue-800 font-medium"
       >
         Open record →
+      </button>
+    </>
+  );
+}
+
+// Lab-manager ordering workflow (purchases-assignee fix, 2026-05-29):
+// icon picker for the two ordering-handoff bells. `purchase_assignment`
+// uses a cart glyph ("please order this"); `purchase_ordered` uses a
+// package glyph ("it shipped / was ordered").
+function getPurchaseFlowIcon(type: "purchase_assignment" | "purchase_ordered" | string) {
+  if (type === "purchase_ordered") {
+    // Package box — the supply was ordered.
+    return (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+      </svg>
+    );
+  }
+  // purchase_assignment — shopping cart.
+  return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-8 2a2 2 0 1 1-4 0 2 2 0 0 1 4 0z" />
+    </svg>
+  );
+}
+
+interface PurchaseFlowRowProps {
+  notification: PurchaseAssignmentNotification | PurchaseOrderedNotification;
+  onNavigate: () => void;
+}
+
+function PurchaseFlowRow({ notification, onNavigate }: PurchaseFlowRowProps) {
+  const router = useRouter();
+  const { from_user } = notification;
+
+  if (notification.type === "purchase_assignment") {
+    return (
+      <>
+        <p className="text-sm text-gray-900">
+          <span className="font-medium">{from_user}</span>
+          {" asked you to order: "}
+          <span className="font-medium">{notification.item_name}</span>
+        </p>
+        <button
+          onClick={() => {
+            router.push("/purchases");
+            onNavigate();
+          }}
+          className="mt-1.5 text-[11px] text-blue-600 hover:text-blue-800 font-medium"
+        >
+          View purchase →
+        </button>
+      </>
+    );
+  }
+
+  // purchase_ordered — the requester learns their supply was ordered.
+  return (
+    <>
+      <p className="text-sm text-gray-900">
+        {"Your supply "}
+        <span className="font-medium">{notification.item_name}</span>
+        {" was ordered"}
+        {from_user ? (
+          <>
+            {" by "}
+            <span className="font-medium">{from_user}</span>
+          </>
+        ) : null}
+      </p>
+      <button
+        onClick={() => {
+          router.push("/purchases");
+          onNavigate();
+        }}
+        className="mt-1.5 text-[11px] text-blue-600 hover:text-blue-800 font-medium"
+      >
+        View purchase →
       </button>
     </>
   );

@@ -237,6 +237,55 @@ export interface LabFlagForReviewNotification {
   read: boolean;
 }
 
+/**
+ * Lab-manager ordering workflow (purchases-assignee fix, 2026-05-29):
+ * bell notifications for the trainee -> lab-member ordering handoff. Two
+ * directions:
+ *   - "purchase_assignment" — a requester asked the receiver to place
+ *     an order (the receiver is the assignee).
+ *   - "purchase_ordered"    — a supply the receiver requested was marked
+ *     ordered (the receiver is the original requester / item owner).
+ *
+ * Both carry `from_user` (the other party), `created_at`, `read` like the
+ * existing lab notification types. The receiver is implicit (the file
+ * owner of `_notifications.json`). Cross-user writes are best-effort and
+ * scoped to lab-folder members, mirroring the PI soft-write fan-out.
+ */
+export interface PurchaseAssignmentNotification {
+  id: string;
+  type: "purchase_assignment";
+  /** Username of the requester who assigned the item. */
+  from_user: string;
+  /** Username of the purchase-item owner (the requester's data folder). */
+  owner_username: string;
+  /** Numeric purchase_item id in the owner's namespace. */
+  purchase_item_id: number;
+  /** Numeric parent purchase task id (for deep-linking). */
+  task_id: number;
+  /** Denormalized item name for the bell row. */
+  item_name: string;
+  created_at: string;
+  read: boolean;
+}
+
+export interface PurchaseOrderedNotification {
+  id: string;
+  type: "purchase_ordered";
+  /** Username of the person who marked the order ordered (the assignee
+   *  or whoever flipped the order to complete). */
+  from_user: string;
+  /** Username of the purchase-item owner (= the receiver / requester). */
+  owner_username: string;
+  /** Numeric purchase_item id in the owner's namespace. */
+  purchase_item_id: number;
+  /** Numeric parent purchase task id (for deep-linking). */
+  task_id: number;
+  /** Denormalized item name for the bell row. */
+  item_name: string;
+  created_at: string;
+  read: boolean;
+}
+
 export type Notification =
   | SharedItemNotification
   | EventReminderNotification
@@ -245,7 +294,9 @@ export type Notification =
   | LabAnnouncementNotification
   | LabTaskAssignmentNotification
   | LabPurchaseApprovalNotification
-  | LabFlagForReviewNotification;
+  | LabFlagForReviewNotification
+  | PurchaseAssignmentNotification
+  | PurchaseOrderedNotification;
 
 /**
  * On-disk sidecar at `users/<owner>/_shifted-alerts.json`. Append-only on
@@ -1528,6 +1579,13 @@ export interface PurchaseItem {
   funding_string: string | null;  // New field for funding account
   vendor: string | null;
   category: string | null;
+  // Lab-manager ordering workflow (purchases-assignee fix, 2026-05-29):
+  // username of the lab member who was asked to actually place this order.
+  // null / undefined = unassigned (the item's owner orders it themselves).
+  // Mirrors the Task.assignee pattern: when set and !== the item owner,
+  // lists render a small "assigned to X" chip. Additive — old records
+  // without it normalize as unassigned.
+  assigned_to?: string | null;
   // Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23): PI approval
   // (informational only, NOT a blocking gate per the brief). All three
   // additive — old records without them behave as if unapproved.
@@ -1578,6 +1636,8 @@ export interface PurchaseItemCreate {
   funding_string?: string | null;  // New field for funding account
   vendor?: string | null;
   category?: string | null;
+  // Lab-manager ordering workflow (purchases-assignee fix, 2026-05-29).
+  assigned_to?: string | null;
 }
 
 export interface PurchaseItemUpdate {
@@ -1591,6 +1651,11 @@ export interface PurchaseItemUpdate {
   funding_string?: string | null;  // New field for funding account
   vendor?: string | null;
   category?: string | null;
+  /** Lab-manager ordering workflow (purchases-assignee fix, 2026-05-29):
+   *  username to assign (or `null` to clear). The writer that flips this
+   *  to a non-owner user posts a `purchase_assignment` bell to the
+   *  assignee. */
+  assigned_to?: string | null;
   /** Lab Head Phase 3 — PI approval. The writer that flips this also
    *  stamps `approved_by` + `approved_at`. */
   approved?: boolean;

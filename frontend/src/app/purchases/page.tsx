@@ -578,7 +578,30 @@ export default function PurchasesPage() {
                           onClick={async (e) => {
                             e.stopPropagation();
                             try {
-                              await tasksApi.update(task.id, { is_complete: !task.is_complete });
+                              const willComplete = !task.is_complete;
+                              await tasksApi.update(task.id, { is_complete: willComplete });
+                              // Lab-manager ordering workflow
+                              // (purchases-assignee fix, 2026-05-29):
+                              // marking the order complete IS the
+                              // "ordered" transition. Notify the requester
+                              // of every assigned line item that their
+                              // supply was ordered. Only on the
+                              // incomplete -> complete edge; best-effort so
+                              // a notification hiccup never blocks the
+                              // completion write. The button is disabled for
+                              // shared-into-me tasks, so the order owner is
+                              // always the current user here.
+                              if (willComplete) {
+                                try {
+                                  await purchasesApi.notifyOrdered(task.id, {
+                                    owner: task.owner,
+                                    actor: currentUser,
+                                  });
+                                } catch {
+                                  // Non-fatal: the order is still marked
+                                  // complete; the bell just didn't land.
+                                }
+                              }
                               queryClient.invalidateQueries({ queryKey: ["tasks"] });
                             } catch {
                               alert("Failed to update task");

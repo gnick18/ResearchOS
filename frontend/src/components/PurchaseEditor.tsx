@@ -17,6 +17,7 @@ import {
   PurchaseDeclinedBadge,
 } from "@/components/lab-head/PurchaseApprovalControls";
 import FlagForReviewButton from "@/components/lab-head/FlagForReviewButton";
+import PurchaseAssigneePicker from "@/components/PurchaseAssigneePicker";
 import Tooltip from "@/components/Tooltip";
 import type { CatalogItem, PurchaseItem, Task } from "@/lib/types";
 
@@ -709,6 +710,11 @@ export default function PurchaseEditor({
               <th className="text-left py-2 px-2 text-xs font-semibold text-gray-500 w-32">
                 Notes
               </th>
+              {/* Lab-manager ordering workflow (purchases-assignee fix,
+                  2026-05-29): who was asked to place this order. */}
+              <th className="text-left py-2 px-2 text-xs font-semibold text-gray-500 w-32">
+                Assigned to
+              </th>
               {/* PI Phase 3 (PI Phase 3 manager, 2026-05-23):
                   approval + flag column. Always rendered so list rows
                   line up consistently regardless of view. */}
@@ -859,9 +865,10 @@ export default function PurchaseEditor({
                       className="w-full px-2 py-1 border border-amber-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-amber-400"
                     />
                   </td>
-                  {/* Empty PI-status cell to keep columns aligned in
-                      edit mode — approval/flag actions aren't surfaced
-                      mid-edit. */}
+                  {/* Empty assignee + PI-status cells to keep columns
+                      aligned in edit mode — assign/approve/flag actions
+                      aren't surfaced mid-edit. */}
+                  <td className="py-2 px-2" />
                   <td className="py-2 px-2" />
                   <td className="py-2 px-1 flex items-center gap-1">
                     <Tooltip label="Save changes" placement="bottom">
@@ -932,6 +939,25 @@ export default function PurchaseEditor({
                   </td>
                   <td className="py-2 px-2 text-gray-400 text-xs">
                     {item.notes || "—"}
+                  </td>
+                  {/* Lab-manager ordering workflow (purchases-assignee
+                      fix, 2026-05-29): per-item assignee chip + picker.
+                      readOnly in lab mode (the comment thread is the
+                      ask-the-owner path) and when the task is shared into
+                      the current user (writes are owner-scoped). The
+                      owner is `username` for shared / lab-mode items,
+                      otherwise the current user. */}
+                  <td
+                    className="py-2 px-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <PurchaseAssigneePicker
+                      item={item}
+                      ownerUsername={username ?? currentUser}
+                      currentUser={currentUser}
+                      readOnly={writesDisabled}
+                      onAssigned={() => refetch()}
+                    />
                   </td>
                   {/* PI Phase 3 (PI Phase 3 manager,
                       2026-05-23): approval toggle (PI in unlocked
@@ -1194,8 +1220,10 @@ export default function PurchaseEditor({
                     className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
                   />
                 </td>
-                {/* PI Phase 3 — empty PI-status cell for new-row
-                    alignment; approval lives on the persisted record. */}
+                {/* Assignee + PI-status cells are empty in the new-row:
+                    both act on the persisted record, so assign / approve
+                    happen after the item is added. */}
+                <td className="py-2 px-2" />
                 <td className="py-2 px-2" />
                 <td className="py-2 px-1">
                   <Tooltip label="Add item" placement="left">
@@ -1220,7 +1248,9 @@ export default function PurchaseEditor({
               <td className="py-2 px-2 text-right font-bold text-gray-900">
                 ${taskTotal.toFixed(2)}
               </td>
-              <td colSpan={6}></td>
+              {/* Funding + Vendor + Category + Notes + Assigned to + PI
+                  status + actions = 7 trailing columns. */}
+              <td colSpan={7}></td>
             </tr>
           </tfoot>
         </table>
