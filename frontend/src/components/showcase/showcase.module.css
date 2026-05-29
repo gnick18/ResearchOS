@@ -484,22 +484,25 @@
 /* ── Stage marquee nav (Change 3: click nav, not scroll) ───────────── */
 
 /* The page is no longer a long scroll between sections. A persistent
-   marquee-style nav bar switches between the Runway view and the Scenes
-   view (one at a time) and offers a Leave control to exit the show.
-   Pinned bottom-center so it reads like a theater's act selector + exit. */
+   marquee-style nav switches between the Runway view and the Scenes view
+   (one at a time) and offers a Leave control to exit the show. Pinned to the
+   RIGHT edge, vertically centered, as a vertical stack: the bottom-center
+   spot collided with the Scenes-view scene-picker, so the two controls now
+   live on different edges (nav right, picker bottom). */
 .stageNav {
   position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
+  right: 24px;
+  top: 50%;
+  transform: translateY(-50%);
   z-index: 30;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: 6px;
-  padding: 6px;
+  padding: 8px;
   background: rgba(11, 11, 18, 0.82);
   border: 1.5px solid #e7c873;
-  border-radius: 999px;
+  border-radius: 22px;
   box-shadow:
     0 0 0 1px rgba(0, 0, 0, 0.4),
     0 8px 28px rgba(0, 0, 0, 0.55),
@@ -515,7 +518,8 @@
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  padding: 9px 20px;
+  text-align: center;
+  padding: 10px 22px;
   border-radius: 999px;
   cursor: pointer;
   transition:
@@ -537,10 +541,10 @@
 /* The Leave control reads as the exit: a plum-tinted divider + label so it
    does not look like a third "view" tab. */
 .stageNavDivider {
-  width: 1px;
-  height: 22px;
+  height: 1px;
+  align-self: stretch;
   background: rgba(231, 200, 115, 0.35);
-  margin: 0 2px;
+  margin: 2px 8px;
 }
 .stageNavLeave {
   color: #d6b5f0;

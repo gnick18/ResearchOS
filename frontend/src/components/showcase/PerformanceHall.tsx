@@ -235,9 +235,9 @@ export default function PerformanceHall() {
 
   return (
     <section className={styles.hall} data-testid="showcase-performance-hall">
-      <header className={styles.hallHeader}>
-        <span className={styles.hallHeaderTitle}>The Performance Hall</span>
-      </header>
+      {/* The "Performance Hall" header was removed: it overlapped the
+          BeakerBot bulb marquee at the top of the stage. The marquee logo is
+          the title. */}
 
       {/* ONE fixed, centered window. Does not scroll. */}
       <div className={styles.hallStageWrap}>
