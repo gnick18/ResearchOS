@@ -19,20 +19,10 @@ export default function ConnectingYourFolderPage() {
         for details.
       </Callout>
 
-      {/* RECAPTURE NEEDED (orchestrator manager): folder-connect.png still
-          shows the retired two-card layout. To recapture the single-card
-          "Link a folder" screen, from the repo root run:
-            cd frontend && npm install
-            npx playwright install chromium
-            npm run dev   (in a second terminal, leave running)
-            npm run wiki:screenshots
-          The script's folder-connect route also needed its stale waitFor /
-          highlight fixed (done in scripts/capture-wiki-screenshots.mjs). The
-          shot lands at frontend/public/wiki/screenshots/folder-connect.png. */}
       <Screenshot
         src="/wiki/screenshots/folder-connect.png"
         alt="The folder-link screen with a single Link a folder card in the center, BeakerBot waving from the upper-right with a Take the 3-minute walkthrough button, an Explore demo in browser link below the card, and the RISE credentials stamp in the bottom-right corner."
-        caption="The first screen you see on a fresh install: one centered Link a folder card, BeakerBot's optional walkthrough nudge in the upper-right, and the RISE credentials stamp pinned bottom-right. (Screenshot recapture pending: the current build still serves an older two-card image while the new single-card capture is regenerated. The prose below describes the current single-card screen.)"
+        caption="The first screen you see on a fresh install: one centered Link a folder card, BeakerBot's optional walkthrough nudge in the upper-right, and the RISE credentials stamp pinned bottom-right."
       />
 
       <h2>Why there is one card, not two</h2>
