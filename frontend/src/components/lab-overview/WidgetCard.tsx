@@ -161,6 +161,47 @@ function glyphFor(toolId: string): ReactNode {
   return TOOL_GLYPHS[toolId] ?? GENERIC_GLYPH;
 }
 
+// ── Action affordance copy, per surface ─────────────────────────────────
+// The SAME card is rendered in two places with two different meanings for
+// its one button, so the copy must follow the surface or it lies to a
+// screen reader (widget-card-copy bot, 2026-05-30):
+//   - "canvas": the canvas "+ Add widget" palette (SnapshotCanvas), where
+//     the button genuinely PLACES / REMOVES the widget on the canvas.
+//   - "palette": the widget STORE (WidgetStoreModal), where the button does
+//     NOT touch the canvas. It toggles whether the widget is ENABLED in the
+//     user's "Add widget" palette. The wording mirrors WidgetStoreDetail's
+//     "In your Add widget palette" / "Hidden from your palette" so the card
+//     and the store's detail pane tell one story.
+// `on` = the widget is already present on this surface (mounted on the
+// canvas / enabled in the palette).
+type ActionKind = "canvas" | "palette";
+interface ActionCopy {
+  onLabel: string;
+  offLabel: string;
+  onTooltip: string;
+  offTooltip: string;
+  onAria: (title: string) => string;
+  offAria: (title: string) => string;
+}
+const ACTION_COPY: Record<ActionKind, ActionCopy> = {
+  canvas: {
+    onLabel: "Added",
+    offLabel: "Add",
+    onTooltip: "Remove from canvas",
+    offTooltip: "Add to canvas",
+    onAria: (t) => `Remove ${t} from canvas`,
+    offAria: (t) => `Add ${t} to canvas`,
+  },
+  palette: {
+    onLabel: "In palette",
+    offLabel: "Add to palette",
+    onTooltip: "Remove from your Add widget palette",
+    offTooltip: "Add to your Add widget palette",
+    onAria: (t) => `Remove ${t} from your Add widget palette`,
+    offAria: (t) => `Add ${t} to your Add widget palette`,
+  },
+};
+
 // ── Preview error boundary ──────────────────────────────────────────────
 // A live `SnapshotTile` runs real data hooks; a malformed sidecar, a null
 // profile, or a render bug must not take down the whole palette. This
@@ -271,6 +312,15 @@ export interface WidgetCardProps {
    * (e.g. a not-yet-enabled store widget). Unused in this build.
    */
   disabled?: boolean;
+  /**
+   * Selects the action button's copy (label / Tooltip / aria-label) for the
+   * surface this card lives on. "canvas" (default) = the canvas palette,
+   * where the button places/removes the widget ON the canvas. "palette" =
+   * the widget STORE, where it toggles whether the widget is enabled in the
+   * user's "Add widget" palette. Defaults to "canvas" so existing callers
+   * (SnapshotCanvas) are unchanged. See ACTION_COPY.
+   */
+  actionKind?: ActionKind;
 }
 
 export default function WidgetCard({
@@ -280,11 +330,13 @@ export default function WidgetCard({
   tourTarget,
   badgeSlot,
   disabled = false,
+  actionKind = "canvas",
 }: WidgetCardProps) {
   const heroRef = useRef<HTMLDivElement | null>(null);
   const inView = useInViewport(heroRef);
   const Tile = widget.SnapshotTile;
   const staticHero = <StaticHero widget={widget} />;
+  const copy = ACTION_COPY[actionKind];
 
   return (
     <div
@@ -332,7 +384,7 @@ export default function WidgetCard({
         {/* FOOTER: the one interactive affordance. */}
         <div className="mt-2 flex items-center justify-end">
           <Tooltip
-            label={isMounted ? "Remove from canvas" : "Add to canvas"}
+            label={isMounted ? copy.onTooltip : copy.offTooltip}
             placement="top"
           >
             <button
@@ -341,8 +393,8 @@ export default function WidgetCard({
               aria-pressed={isMounted}
               aria-label={
                 isMounted
-                  ? `Remove ${widget.title} from canvas`
-                  : `Add ${widget.title} to canvas`
+                  ? copy.onAria(widget.title)
+                  : copy.offAria(widget.title)
               }
               onClick={onToggle}
               className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
@@ -356,7 +408,7 @@ export default function WidgetCard({
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
-                  Added
+                  {copy.onLabel}
                 </>
               ) : (
                 <>
@@ -364,7 +416,7 @@ export default function WidgetCard({
                     <line x1="12" y1="5" x2="12" y2="19" />
                     <line x1="5" y1="12" x2="19" y2="12" />
                   </svg>
-                  Add
+                  {copy.offLabel}
                 </>
               )}
             </button>

@@ -48,14 +48,21 @@ vi.mock("./WidgetCard", async (importOriginal) => {
       disabled,
       onToggle,
       badgeSlot,
+      actionKind,
     }: {
       widget: { id: string; title: string };
       isMounted: boolean;
       disabled?: boolean;
       onToggle: () => void;
       badgeSlot?: React.ReactNode;
+      actionKind?: "canvas" | "palette";
     }) => (
-      <div data-widget-card-id={widget.id} data-on={isMounted ? "on" : "off"} data-disabled={disabled ? "yes" : "no"}>
+      <div
+        data-widget-card-id={widget.id}
+        data-on={isMounted ? "on" : "off"}
+        data-disabled={disabled ? "yes" : "no"}
+        data-action-kind={actionKind ?? "canvas"}
+      >
         <span>{widget.title}</span>
         {badgeSlot}
         <button aria-label={`toggle ${widget.title}`} onClick={onToggle}>
@@ -154,6 +161,25 @@ describe("WidgetStoreModal", () => {
     expect(within(card).getByText("Off")).toBeInTheDocument();
     fireEvent.click(within(card).getByRole("button", { name: /toggle/i }));
     expect(setEnabled).toHaveBeenCalledWith("announcements", true);
+  });
+
+  it("drives the card with palette copy, not canvas placement copy", () => {
+    // The store toggles palette ENABLEMENT, not canvas placement, so it must
+    // hand the card actionKind="palette" (button reads "Add to palette" /
+    // "In palette", matching WidgetStoreDetail) rather than the default
+    // canvas "Add / Added" wording.
+    render(
+      <WidgetStoreModal
+        username="mira"
+        accountType="member"
+        surfaceKey="canvas"
+        onClose={() => {}}
+      />,
+    );
+    const card = document.querySelector(
+      '[data-widget-card-id="announcements"]',
+    ) as HTMLElement;
+    expect(card.getAttribute("data-action-kind")).toBe("palette");
   });
 
   it("renders the request-a-widget stub with a valid prefilled GitHub URL", () => {
