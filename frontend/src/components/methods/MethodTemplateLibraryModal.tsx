@@ -8,7 +8,8 @@ import {
   type ReactNode,
 } from "react";
 import Tooltip from "@/components/Tooltip";
-import { StoreShell, type StoreCategory } from "@/components/store/StoreShell";
+import { StoreShell } from "@/components/store/StoreShell";
+import { StoreSegment } from "@/components/store/StoreSegment";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useEnabledMethodTypes } from "@/hooks/useEnabledMethodTypes";
 import {
@@ -25,6 +26,11 @@ import {
   listMethodModules,
   type MethodModuleMeta,
 } from "@/lib/methods/method-module";
+import {
+  filterTemplateView,
+  filterTypeView,
+  type MethodLibrarySegment,
+} from "./method-library-filter";
 import { resolveEnabledMethodTypes } from "@/lib/methods/method-type-enablement";
 import { buildRequestMethodTypeUrl } from "@/lib/methods/request-method-type";
 import type { Method } from "@/lib/types";
@@ -34,17 +40,23 @@ import type { Method } from "@/lib/types";
  * 2026-05-29).
  *
  * Adopts the shared master/detail `StoreShell` so the method library and the
- * widget store read as ONE marketplace. The old two-tab layout (Method types /
- * Protocol templates) is folded into the shell's LEFT-RAIL categories: pick
- * "Method types" to curate which structured types this account uses, or
- * "Protocol templates" to browse + copy prebuilt protocols, or "All" to see
- * both together. The method-specific pieces stay here: the type toggle, the
- * template "Use" / "Enable" actions, and the catalog fetch. The shell owns the
- * wide frame, the rail, the detail pane, and the responsive collapse.
+ * widget store read as ONE marketplace. A Types | Templates SEGMENT sits at
+ * the top of the rail (in the shell's railHeaderSlot) and switches BOTH the
+ * category set and the center kind:
+ *   - TYPES: categories are the registry `category` field (Standard /
+ *     Structured); items are method types you enable/disable here.
+ *   - TEMPLATES: categories are the manifest domain values (Molecular biology,
+ *     Analytical chemistry, ...); items are prebuilt protocols you copy.
+ * The method-specific pieces stay here: the type toggle, the template "Use" /
+ * "Enable" actions, and the catalog fetch. The shell owns the wide frame, the
+ * rail, the detail pane, and the responsive collapse.
  *
- * Phase B is the FRAME only: the detail pane is a minimal placeholder (Phase D
- * fills it), and the search box renders but does not filter yet (Phase C wires
- * search across both stores).
+ * Phase C makes the navigation real: the segment switches kinds, the search
+ * box filters live (type label + description in Types, template title + tags
+ * in Templates), categories narrow with live counts, and "Enabled only"
+ * narrows the types list. A template whose underlying type is disabled stays
+ * listed (discoverable); the gated action is Phase D's job. The detail pane
+ * stays the Phase B placeholder (Phase D fills it).
  *
  * CONTRACT: the external open/close API ({ existingFolders, onClose, onUsed })
  * is unchanged so every caller keeps working.
@@ -56,12 +68,15 @@ import type { Method } from "@/lib/types";
  * build; this shell is curation + a request stub, never a code loader.
  */
 
-const CATEGORY_TYPES = "types";
-const CATEGORY_TEMPLATES = "templates";
+const SEGMENT_OPTIONS = [
+  { id: "types", label: "Types" },
+  { id: "templates", label: "Templates" },
+];
 
-/** Heterogeneous store item: either a method TYPE module or a protocol
- *  TEMPLATE catalog entry. The two share one rail + result column so the
- *  library reads as a single marketplace. */
+/** Store item for the current segment: a method TYPE module in the Types view,
+ *  or a protocol TEMPLATE catalog entry in the Templates view. The segment
+ *  keeps the center list homogeneous; the union lets the shared renderers
+ *  switch on `kind`. */
 type LibraryItem =
   | { kind: "type"; module: MethodModuleMeta }
   | { kind: "template"; entry: MethodCatalogManifestEntry };
@@ -111,14 +126,25 @@ export function MethodTemplateLibraryModal({
   }, []);
 
   // ── Store frame state ──────────────────────────────────────────────────────
-  // Default to the "Method types" view to preserve the old initial tab and to
-  // avoid opening on an async-loading template list.
+  // Default to the Types segment to preserve the old initial view and to avoid
+  // opening on an async-loading template list. The selected category is per
+  // segment, so switching the segment resets it to "All".
+  const [segment, setSegment] = useState<MethodLibrarySegment>("types");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
-    CATEGORY_TYPES,
+    null,
   );
   const [enabledOnly, setEnabledOnly] = useState(false);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<LibraryItem | null>(null);
+
+  // Switching the segment swaps the category set + the item kind, so reset the
+  // category to "All" and clear any selection (the selected item belongs to the
+  // other kind).
+  const handleSegmentChange = useCallback((id: string) => {
+    setSegment(id as MethodLibrarySegment);
+    setSelectedCategoryId(null);
+    setSelected(null);
+  }, []);
 
   // ── Template instantiation ("Use template") ────────────────────────────────
   const [destFolder, setDestFolder] = useState("");
@@ -147,49 +173,48 @@ export function MethodTemplateLibraryModal({
     [usingSlug, destFolder, onUsed],
   );
 
-  // ── Categories + items ─────────────────────────────────────────────────────
-  const typeItems = useMemo<LibraryItem[]>(
-    () => modules.map((m) => ({ kind: "type", module: m })),
-    [modules],
+  // ── Categories + items (per segment) ────────────────────────────────────────
+  // Each segment runs its own pure filter (see method-library-filter.ts):
+  // categories carry live counts reflecting search (+ enabled-only for Types),
+  // and the center items are search + category filtered. Templates ignore
+  // enabled-only so a template on a disabled type stays discoverable.
+  const typeView = useMemo(
+    () =>
+      filterTypeView({
+        modules,
+        query: search,
+        enabledOnly,
+        enabledIds: enabledSet,
+        selectedCategoryId,
+      }),
+    [modules, search, enabledOnly, enabledSet, selectedCategoryId],
   );
-  const templateItems = useMemo<LibraryItem[]>(
-    () => (entries ?? []).map((e) => ({ kind: "template", entry: e })),
-    [entries],
+  const templateView = useMemo(
+    () =>
+      filterTemplateView({
+        entries: entries ?? [],
+        query: search,
+        selectedCategoryId,
+      }),
+    [entries, search, selectedCategoryId],
   );
 
-  const categories: StoreCategory[] = useMemo(
-    () => [
-      { id: CATEGORY_TYPES, label: "Method types", count: typeItems.length },
-      {
-        id: CATEGORY_TEMPLATES,
-        label: "Protocol templates",
-        count: templateItems.length,
-      },
-    ],
-    [typeItems.length, templateItems.length],
+  const isTypes = segment === "types";
+  const categories = isTypes ? typeView.categories : templateView.categories;
+  const items = useMemo<LibraryItem[]>(
+    () =>
+      isTypes
+        ? typeView.items.map((m) => ({ kind: "type", module: m }))
+        : templateView.items.map((e) => ({ kind: "template", entry: e })),
+    [isTypes, typeView.items, templateView.items],
   );
 
-  const items = useMemo<LibraryItem[]>(() => {
-    let base: LibraryItem[];
-    if (selectedCategoryId === CATEGORY_TYPES) base = typeItems;
-    else if (selectedCategoryId === CATEGORY_TEMPLATES) base = templateItems;
-    else base = [...typeItems, ...templateItems];
-
-    if (!enabledOnly) return base;
-    return base.filter((it) =>
-      it.kind === "type"
-        ? enabledSet.has(it.module.id)
-        : enabledSet.has(it.entry.method_type as MethodTypeId),
-    );
-  }, [selectedCategoryId, typeItems, templateItems, enabledOnly, enabledSet]);
-
-  // Empty-state copy: surfaces the template load state when the visible list
+  // Empty-state copy: surfaces the template load state when the Templates view
   // would otherwise be blank.
-  const showsTemplates = selectedCategoryId !== CATEGORY_TYPES;
   const emptyState =
-    showsTemplates && loadState === "loading"
+    !isTypes && loadState === "loading"
       ? "Loading templates..."
-      : showsTemplates && loadState === "error"
+      : !isTypes && loadState === "error"
         ? "The template catalog is unavailable right now. It needs an internet connection. Everything else on this page keeps working offline."
         : "No items match this filter.";
 
@@ -199,9 +224,17 @@ export function MethodTemplateLibraryModal({
       subtitle="Choose which method types you use, and copy prebuilt protocols into your library."
       closeAriaLabel="Close method library"
       categories={categories}
-      allLabel="All"
+      allLabel={isTypes ? "All types" : "All templates"}
       selectedCategoryId={selectedCategoryId}
       onSelectCategory={setSelectedCategoryId}
+      railHeaderSlot={
+        <StoreSegment
+          options={SEGMENT_OPTIONS}
+          value={segment}
+          onChange={handleSegmentChange}
+          ariaLabel="Browse method types or templates"
+        />
+      }
       searchSlot={<MethodSearchInput value={search} onChange={setSearch} />}
       enabledOnly={enabledOnly}
       onToggleEnabledOnly={setEnabledOnly}
@@ -521,8 +554,9 @@ function LibraryDetailPlaceholder({
 
 // ── Search + footer ──────────────────────────────────────────────────────────
 
-/** Search box for the rail. State is owned by the caller; filtering is wired
- *  in Phase C, so for now this is a presentational slot. */
+/** Search box for the rail. State is owned by the caller; the filtering runs
+ *  per segment (type label + description in Types, template title + tags in
+ *  Templates) via method-library-filter.ts. */
 function MethodSearchInput({
   value,
   onChange,

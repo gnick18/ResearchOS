@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Tooltip from "@/components/Tooltip";
-import { StoreShell, type StoreCategory } from "@/components/store/StoreShell";
+import { StoreShell } from "@/components/store/StoreShell";
 import WidgetCard from "./WidgetCard";
 import { WIDGET_CATALOG } from "./widgets/registry";
 import {
@@ -10,6 +10,10 @@ import {
   widgetHasSurface,
   type WidgetDefinition,
 } from "./widgets/types";
+import {
+  filterWidgetStore,
+  groupWidgetsByTool,
+} from "./widget-store-filter";
 import { useEnabledWidgets } from "@/hooks/useEnabledWidgets";
 import { resolveEnabledWidgets } from "@/lib/lab-overview/widget-enablement";
 import { buildRequestWidgetUrl } from "@/lib/lab-overview/request-widget";
@@ -25,9 +29,11 @@ import type { AccountType } from "@/lib/settings/user-settings";
  * by `useEnabledWidgets`). The shell owns the wide three-column frame, the
  * category rail, the detail pane, and the responsive collapse.
  *
- * Phase B is the FRAME only: the detail pane is a minimal placeholder (Phase D
- * fills it with a large live preview + metadata), and the search box renders
- * but does not filter yet (Phase C wires search across both stores).
+ * Phase C makes the navigation real: the search box filters the center list
+ * live (title / description / toolId), the Tool-family categories narrow it
+ * with live per-category counts, and "Enabled only" shows just the enabled
+ * widgets. The detail pane stays the Phase B placeholder (Phase D fills it).
+ * The widget store has a single kind, so it passes NO rail-header segment.
  *
  * Two curation axes, kept distinct (EXTENSION doc): ENABLE / DISABLE (this
  * store's switch, the `enabledWidgets` layer) vs PIN / PLACE (the canvas
@@ -37,9 +43,6 @@ import type { AccountType } from "@/lib/settings/user-settings";
  * ACCOUNT-AWARE: the store lists exactly the widgets the viewer's account type
  * + surface gating already allow; it never widens visibility.
  */
-
-// Sentinel category id for the singletons bucket (mirrors groupByTool).
-const OTHER_CATEGORY_ID = "__other__";
 
 export function WidgetStoreModal({
   username,
@@ -78,30 +81,26 @@ export function WidgetStoreModal({
     return byAccount.filter((w) => widgetHasSurface(w, surfaceKey));
   }, [accountType, surfaceKey]);
 
-  // Group by Tool family, mirroring the palette's grouping so the two surfaces
-  // read the same. Single-variant families fall into an "Other widgets"
-  // catch-all.
-  const groups = useMemo(() => groupByTool(eligible), [eligible]);
+  // Group by Tool family once, from the full eligible catalog, so the category
+  // SET stays stable while the user types. Single-variant families fall into
+  // an "Other widgets" catch-all.
+  const groups = useMemo(() => groupWidgetsByTool(eligible), [eligible]);
 
-  const categories: StoreCategory[] = useMemo(
+  // One pure pass computes the rail categories (with live counts reflecting
+  // search + enabled-only) and the center-column items (search + enabled-only
+  // + selected category). See widget-store-filter.ts.
+  const { categories, items } = useMemo(
     () =>
-      groups.map((g) => ({
-        id: g.toolId,
-        label: g.label,
-        count: g.widgets.length,
-      })),
-    [groups],
+      filterWidgetStore({
+        eligible,
+        groups,
+        query: search,
+        enabledOnly,
+        enabledIds: enabledSet,
+        selectedCategoryId,
+      }),
+    [eligible, groups, search, enabledOnly, enabledSet, selectedCategoryId],
   );
-
-  // Center-column items, filtered by the selected category + the "Enabled
-  // only" rail toggle. Search filtering is intentionally deferred to Phase C.
-  const items = useMemo(() => {
-    const base =
-      selectedCategoryId === null
-        ? eligible
-        : (groups.find((g) => g.toolId === selectedCategoryId)?.widgets ?? []);
-    return enabledOnly ? base.filter((w) => enabledSet.has(w.id)) : base;
-  }, [eligible, groups, selectedCategoryId, enabledOnly, enabledSet]);
 
   return (
     <StoreShell<WidgetDefinition>
@@ -175,8 +174,8 @@ export function WidgetStoreModal({
   );
 }
 
-/** Search box for the rail. State is owned by the caller; filtering is wired
- *  in Phase C, so for now this is a presentational slot. */
+/** Search box for the rail. State is owned by the caller; the filtering runs
+ *  in filterWidgetStore over title / description / toolId. */
 function WidgetSearchInput({
   value,
   onChange,
@@ -316,41 +315,4 @@ function EnablementBadge({ on, curating }: { on: boolean; curating: boolean }) {
       </span>
     </Tooltip>
   );
-}
-
-// ── Tool-family grouping (mirrors SnapshotCanvas.groupCatalogByTool) ─────────
-
-interface WidgetGroup {
-  toolId: string;
-  label: string;
-  widgets: WidgetDefinition[];
-}
-
-function groupByTool(catalog: WidgetDefinition[]): WidgetGroup[] {
-  const byTool = new Map<string, WidgetDefinition[]>();
-  for (const w of catalog) {
-    const list = byTool.get(w.toolId);
-    if (list) list.push(w);
-    else byTool.set(w.toolId, [w]);
-  }
-  const multi: WidgetGroup[] = [];
-  const singletons: WidgetDefinition[] = [];
-  for (const [toolId, widgets] of byTool) {
-    if (widgets.length > 1) {
-      const label = widgets
-        .map((w) => w.title)
-        .reduce((a, b) => (b.length < a.length ? b : a));
-      multi.push({ toolId, label, widgets });
-    } else {
-      singletons.push(widgets[0]);
-    }
-  }
-  if (singletons.length > 0) {
-    multi.push({
-      toolId: OTHER_CATEGORY_ID,
-      label: "Other widgets",
-      widgets: singletons,
-    });
-  }
-  return multi;
 }
