@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import BeakerBotBugStompScene from "@/components/BeakerBotBugStompScene";
 import BeakerBotCoffeeRefillScene from "@/components/BeakerBotCoffeeRefillScene";
+import BeakerBotTwirlScene from "@/components/BeakerBotTwirlScene";
 import {
   useSceneTriggerStore,
   type SceneTriggerId,
@@ -63,6 +64,11 @@ function renderScene(
       // copy is identical today; a future "good morning, brewing up"
       // intro variant for the morning path would slot in via a prop.
       return <BeakerBotCoffeeRefillScene active onComplete={onComplete} />;
+    case "twirlMilestone":
+      // The celebratory twirl, fired once per rare checkpoint milestone
+      // by useMilestoneTwirlTrigger. Portals to body (prop omitted) like
+      // every other global easter-egg scene.
+      return <BeakerBotTwirlScene active onComplete={onComplete} />;
     default: {
       // Exhaustiveness guard: if we add a new SceneTriggerId without a
       // case here, TS will flag this assignment at compile time.

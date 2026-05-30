@@ -29,6 +29,7 @@ import SceneTriggerHost from "@/components/SceneTriggerHost";
 import AutoErrorConfirmHost from "@/components/AutoErrorConfirmHost";
 import V4MountForUser from "@/components/onboarding/v4/V4MountForUser";
 import CelebrationManager from "@/components/onboarding/CelebrationManager";
+import MilestoneTwirlMount from "@/components/onboarding/MilestoneTwirlMount";
 import IdleAnimationManager from "@/components/onboarding/IdleAnimationManager";
 import WhatsNewManager from "@/components/WhatsNewManager";
 import WikiCaptureBodyClass from "@/components/WikiCaptureBodyClass";
@@ -407,6 +408,14 @@ function AppContent({ children }: { children: ReactNode }) {
             active, per proposal §6.7 "don't overlap with the
             bottom-right tour BeakerBot"). */}
         <CelebrationManager username={currentUser} />
+        {/* MilestoneTwirlMount (twirl-milestones bot): peer of
+            CelebrationManager. Fires the celebratory BeakerBot twirl once
+            on the first occurrence of three rare checkpoint moments (tour
+            complete, first experiment complete, first project fully
+            done), deduped per-user in localStorage and gated by the same
+            BeakerBot-animations opt-out. The 7-day-streak twirl is owned
+            by CelebrationManager so it never double-celebrates. */}
+        <MilestoneTwirlMount username={currentUser} />
         {/* IdleAnimationManager: peer of CelebrationManager. Fires a
             random BeakerBot scene from IDLE_POOL after the user has
             been idle for IDLE_THRESHOLD_MS. One per session, gated by

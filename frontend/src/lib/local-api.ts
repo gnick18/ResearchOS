@@ -8,6 +8,7 @@ import { shiftTask } from "./engine/shift";
 import { formatDate, parseDate } from "./engine/dates";
 import { readStreak } from "./streak/streak-sidecar";
 import { canonicalEndDate, computeTaskEndDate } from "./tasks/end-date";
+import { taskCompletionEvents } from "./tasks/task-completion-events";
 import {
   taskResultsBase,
   legacyTaskResultsBase,
@@ -843,6 +844,39 @@ export const tasksApi = {
           task_owner: result.owner,
           task_name: result.name,
         });
+        // Milestone twirl detection (twirl-milestones bot). Emit a
+        // client-side completion event from this single chokepoint so the
+        // milestone hook can fire the celebratory twirl on the FIRST
+        // experiment-complete / FIRST whole-project-done without hooking
+        // every UI surface that can toggle a task complete. Best-effort:
+        // we read the project owner's task list to decide whether the
+        // project is now fully done, and swallow any failure (a missed
+        // event just defers the easter-egg, never blocks the write).
+        void (async () => {
+          try {
+            const activeUser = (await getCurrentUserCached()) ?? "";
+            if (!activeUser) return;
+            const ownerTasks = await tasksStore.listAllForUser(projectOwner);
+            const projectTasks = ownerTasks.filter(
+              (t) => t.project_id === result.project_id,
+            );
+            const projectFullyComplete =
+              projectTasks.length > 0 &&
+              projectTasks.every((t) => t.is_complete);
+            taskCompletionEvents.emitCompleted({
+              username: activeUser,
+              projectOwner,
+              projectId: result.project_id,
+              taskType: result.task_type,
+              projectFullyComplete,
+            });
+          } catch (err) {
+            console.warn(
+              "[local-api] task-completion milestone emit failed",
+              err,
+            );
+          }
+        })();
       }
       if (writePatch.method_attachments !== undefined) {
         const before = new Map(

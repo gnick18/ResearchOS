@@ -305,6 +305,125 @@ describe("CelebrationManager", () => {
     expect(celebrationSceneCount()).toBe(1);
   });
 
+  // ---- 7-day-streak twirl (twirl-milestones bot) -------------------
+  //
+  // The first-ever 7d streak milestone renders the BeakerBot twirl
+  // instead of a random pool scene, so exactly ONE celebration plays for
+  // the streak (no double-fire). The standalone useMilestoneTwirlTrigger
+  // hook deliberately skips the streak; this manager is its sole owner.
+
+  it("first 7-day streak renders the twirl, not a random pool scene", async () => {
+    suppressHelloToday(USER);
+    // count=7 with 3d already seen → 7d is the ONLY pending milestone.
+    memFs.set(
+      PATH,
+      freshSidecar({
+        current_count: 7,
+        celebrations_seen: {
+          account_anniversaries: [],
+          streak_milestones: ["3d"],
+        },
+      }),
+    );
+    render(<CelebrationManager username={USER} />);
+
+    await waitFor(() => {
+      expect(
+        document.querySelector('[data-testid="beakerbot-twirl-scene"]'),
+      ).not.toBeNull();
+    });
+    // And crucially NOT a separate corner pool scene on top of it.
+    expect(celebrationSceneCount()).toBe(0);
+  });
+
+  it("7d twirl persists the seen-tag on complete so it never re-fires", async () => {
+    vi.useFakeTimers();
+    try {
+      suppressHelloToday(USER);
+      memFs.set(
+        PATH,
+        freshSidecar({
+          current_count: 7,
+          celebrations_seen: {
+            account_anniversaries: [],
+            streak_milestones: ["3d"],
+          },
+        }),
+      );
+      render(<CelebrationManager username={USER} />);
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(
+        document.querySelector('[data-testid="beakerbot-twirl-scene"]'),
+      ).not.toBeNull();
+
+      // Twirl hold is ~1.9s; advance past it so onComplete fires.
+      await act(async () => {
+        vi.advanceTimersByTime(2200);
+      });
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      const stored = memFs.get(PATH) as StreakSidecar;
+      expect(stored.celebrations_seen.streak_milestones).toContain("7d");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("higher streak tag (14d) with 7d already seen uses the pool, not the twirl", async () => {
+    suppressHelloToday(USER);
+    // count=14 with 3d + 7d seen → 14d is the only pending milestone.
+    memFs.set(
+      PATH,
+      freshSidecar({
+        current_count: 14,
+        celebrations_seen: {
+          account_anniversaries: [],
+          streak_milestones: ["3d", "7d"],
+        },
+      }),
+    );
+    render(<CelebrationManager username={USER} />);
+
+    await waitFor(() => {
+      expect(celebrationSceneCount()).toBe(1);
+    });
+    // The twirl must NOT render for higher milestones.
+    expect(
+      document.querySelector('[data-testid="beakerbot-twirl-scene"]'),
+    ).toBeNull();
+  });
+
+  it("7d twirl is suppressed when BeakerBot animations are off", async () => {
+    suppressHelloToday(USER);
+    setBeakerBotAnimations(USER, false);
+    memFs.set(
+      PATH,
+      freshSidecar({
+        current_count: 7,
+        celebrations_seen: {
+          account_anniversaries: [],
+          streak_milestones: ["3d"],
+        },
+      }),
+    );
+    render(<CelebrationManager username={USER} />);
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(
+      document.querySelector('[data-testid="beakerbot-twirl-scene"]'),
+    ).toBeNull();
+    expect(celebrationSceneCount()).toBe(0);
+  });
+
   it("live milestone event appends to the queue and fires a scene", async () => {
     // Start with no pending celebrations. Suppress the daily hello so the
     // initial "0 scenes" assertion isolates the live-event path.

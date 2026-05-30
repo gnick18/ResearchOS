@@ -6,6 +6,7 @@ import BeakerBotLadderScene from "@/components/BeakerBotLadderScene";
 import BeakerBotMouseWaveScene from "@/components/BeakerBotMouseWaveScene";
 import BeakerBotSkateboardScene from "@/components/BeakerBotSkateboardScene";
 import BeakerBotTooManyBeakersScene from "@/components/BeakerBotTooManyBeakersScene";
+import BeakerBotTwirlScene from "@/components/BeakerBotTwirlScene";
 import {
   evaluatePendingCelebrations,
   markCelebrationSeen,
@@ -98,6 +99,22 @@ export type CelebrationScene =
   | { type: "pose"; pose: "volcano-eruption" }
   | { type: "pose"; pose: "cheering" }
   | { type: "pose"; pose: "bouncing" };
+
+/**
+ * The streak milestone tag whose FIRST-ever celebration is rendered as
+ * the BeakerBot twirl (twirl-milestones bot) rather than a random pool
+ * scene. The product team wanted the twirl to mark the first 7-day
+ * streak, but that milestone already fires a corner celebration through
+ * this manager. Routing the twirl HERE (as the scene for the `7d`
+ * streak milestone) guarantees exactly ONE celebration plays for the
+ * streak (no double-fire), while the existing `celebrations_seen
+ * .streak_milestones` sidecar provides the once-ever dedup and the
+ * existing opt-out / tour-deferral gates already apply. Higher streak
+ * tags (14d, 30d, ...) keep the random pool. The standalone
+ * useMilestoneTwirlTrigger hook deliberately does NOT handle the streak
+ * for the same reason.
+ */
+export const TWIRL_STREAK_TAG = "7d";
 
 export const CELEBRATION_POOL: ReadonlyArray<CelebrationScene> = [
   { type: "scene", component: "ladder" },
@@ -389,6 +406,19 @@ export default function CelebrationManager({ username }: CelebrationManagerProps
   // from the corner with its default "Hi!" speech bubble).
   if (active.kind === "hello") {
     return <BeakerBotMouseWaveScene active onComplete={onSceneComplete} />;
+  }
+
+  // First-ever 7-day streak: render the celebratory twirl (twirl-
+  // milestones bot) instead of a random pool scene. This is the SINGLE
+  // owner of the streak twirl (the standalone useMilestoneTwirlTrigger
+  // hook deliberately skips the streak), so exactly one celebration
+  // plays. onSceneComplete still persists the `7d` seen-tag, so it never
+  // re-fires; higher streak tags fall through to the random pool below.
+  if (
+    active.celebration.kind === "streak_milestone" &&
+    active.celebration.tag === TWIRL_STREAK_TAG
+  ) {
+    return <BeakerBotTwirlScene active onComplete={onSceneComplete} />;
   }
 
   // Dispatch on scene shape. Each branch renders the appropriate
