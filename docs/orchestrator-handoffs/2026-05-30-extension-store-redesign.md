@@ -7,9 +7,9 @@ Subject: Status of the widget store + method library "marketplace" redesign
 
 ## One-line state
 
-Phases A, B, and C are MERGED to local main. Phase D (store-detail bot) is
-QUEUED. A separate enablement-race fix bot is QUEUED (parallel, disjoint files).
-The arc closes with a 3-verifier loop after D.
+Phases A, B, and C are MERGED to local main. The enablement-race fix is MERGED
+and verified. Phase D (store-detail bot) is QUEUED / running. The arc closes
+with a 3-verifier loop after D.
 
 ## Update log
 
@@ -23,6 +23,16 @@ The arc closes with a 3-verifier loop after D.
   pairs that exist as separate lc + ms entries (not compound-bundled yet).
   OPEN: D's verification must exercise the full 81-template catalog live; the
   store-search bot only browsed the old 7-template manifest.
+- 2026-05-30: enablement-race fix MERGED (a3970478 / bdae7a7d settings-store
+  serialization, 24d2551d setters routed through it). Approach: functional
+  updater (updateUserSettings) PLUS a per-user chained-promise write queue in
+  user-settings.ts, since async read/write can interleave under a functional
+  updater alone. patchUserSettings also routes through it. Verified on main:
+  queue present, both setters route through updateUserSettings, enablement
+  tests 37/37 green. Bot caught and corrected an incomplete first merge (only
+  user-settings.ts landed initially); follow-up confirmed applied via grep.
+  Note: a separate "Method catalog kit Phase 1" (67d91a6d, source_pdf schema)
+  also landed on main from another chat; D branches off main so it inherits it.
 
 ## Why this work exists
 
