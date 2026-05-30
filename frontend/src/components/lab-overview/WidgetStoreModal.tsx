@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Tooltip from "@/components/Tooltip";
 import { StoreShell } from "@/components/store/StoreShell";
 import WidgetCard from "./WidgetCard";
+import { WidgetStoreDetail } from "./WidgetStoreDetail";
 import { WIDGET_CATALOG } from "./widgets/registry";
 import {
   visibleCatalog,
@@ -161,9 +162,14 @@ export function WidgetStoreModal({
         );
       }}
       renderDetail={(widget) => (
-        <WidgetDetailPlaceholder
+        <WidgetStoreDetail
           widget={widget}
           on={enabledSet.has(widget.id)}
+          curating={curating}
+          onToggle={(next) => {
+            if (!curating) return;
+            void setEnabled(widget.id, next);
+          }}
         />
       )}
       footerSlot={
@@ -196,44 +202,6 @@ function WidgetSearchInput({
         aria-label="Search widgets"
         className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30"
       />
-    </div>
-  );
-}
-
-/** Minimal Phase B detail placeholder. Phase D replaces this with a large
- *  live preview, a "what it does" blurb, metadata, and the enable toggle. */
-function WidgetDetailPlaceholder({
-  widget,
-  on,
-}: {
-  widget: WidgetDefinition;
-  on: boolean;
-}) {
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-3">
-        <h4 className="text-base font-semibold text-gray-900">
-          {widget.title}
-        </h4>
-        <span
-          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-            on ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-600"
-          }`}
-        >
-          {on ? "On" : "Off"}
-        </span>
-      </div>
-      {widget.description && (
-        <p className="text-sm text-gray-600 leading-snug">
-          {widget.description}
-        </p>
-      )}
-      {widget.helpText && (
-        <p className="text-xs text-gray-500 leading-snug">{widget.helpText}</p>
-      )}
-      <p className="text-xs text-gray-400 border-t border-gray-100 pt-3">
-        A large live preview and full details arrive in the next update.
-      </p>
     </div>
   );
 }

@@ -174,7 +174,10 @@ interface PreviewBoundaryProps {
 interface PreviewBoundaryState {
   failed: boolean;
 }
-class WidgetPreviewBoundary extends Component<
+// Exported (Extension Store Phase D, store-detail bot, 2026-05-30) so the
+// widget STORE detail pane reuses the SAME error boundary the card uses for
+// its hero preview, instead of forking a second one.
+export class WidgetPreviewBoundary extends Component<
   PreviewBoundaryProps,
   PreviewBoundaryState
 > {
@@ -203,7 +206,7 @@ class WidgetPreviewBoundary extends Component<
 // the cost is already paid and React Query caches the result). Falls back
 // to "mount immediately" when IntersectionObserver is unavailable (older
 // jsdom / SSR), so the static path still shows.
-function useInViewport<T extends Element>(ref: React.RefObject<T | null>) {
+export function useInViewport<T extends Element>(ref: React.RefObject<T | null>) {
   const [seen, setSeen] = useState(false);
   useEffect(() => {
     const node = ref.current;
@@ -231,7 +234,7 @@ function useInViewport<T extends Element>(ref: React.RefObject<T | null>) {
 // Shown (a) before the card scrolls into view, (b) while a throwing tile
 // is replaced by the boundary. Glyph + a clamped description so the card
 // is informative even with no live tile.
-function StaticHero({ widget }: { widget: WidgetDefinition }) {
+export function StaticHero({ widget }: { widget: WidgetDefinition }) {
   return (
     <div className="h-full w-full flex flex-col items-center justify-center gap-2 px-3 text-center">
       <span aria-hidden="true" className="text-gray-400">
