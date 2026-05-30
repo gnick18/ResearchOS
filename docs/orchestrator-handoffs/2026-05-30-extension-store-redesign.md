@@ -7,9 +7,33 @@ Subject: Status of the widget store + method library "marketplace" redesign
 
 ## One-line state
 
-Phases A, B, and C are MERGED to local main. The enablement-race fix is MERGED
-and verified. Phase D (store-detail bot) is QUEUED / running. The arc closes
-with a 3-verifier loop after D.
+Phases A-D are MERGED to local main; the enablement-race fix is MERGED. The
+build arc is COMPLETE. The 3-verifier loop (mechanics + spec + fresh-eyes) is
+DISPATCHED. One follow-up (compound catalog entries) is HELD pending
+coordination with the parallel catalog/kit session (see Compound coordination
+hold below).
+
+## Compound coordination hold (action required by master/catalog owner)
+
+Phase D built and fixture-tested the compound (combination) detail renderer,
+but it is not reachable live: no compound catalog entry exists, and making one
+needs the method-catalog.ts payload union extended to accept method_type
+"compound". Grant directed: confirm the parallel catalog session is not already
+working this before firing any chip.
+
+Findings (2026-05-30):
+- Heavy active catalog/template branch work in flight: kit-method-templates,
+  kit-templates-clean, lc-ms-method-templates, lc-ms-templates-work,
+  method-catalog-integration(-v2), plus per-domain template branches. The live
+  frontier on method-catalog.ts is kit Phase 1 (67d91a6d, source_pdf schema).
+- No branch has `compound` in the catalog union yet, so the exact extension is
+  unstarted.
+- DESIGN CONFLICT, not just a collision: the kit-templates project chose a
+  single-method + attachment model and explicitly NOT compound. Phase D's
+  combination path assumes compound + components. Before any compound catalog
+  work, the catalog owner must agree LC-MS combinations should be compound
+  entries vs their attachment model. Until then, the compound renderer stays
+  fixture-only (correct, harmless).
 
 ## Update log
 
