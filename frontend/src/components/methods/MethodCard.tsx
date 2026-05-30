@@ -17,13 +17,15 @@ import SelectorCard from "@/components/selectors/SelectorCard";
  * a muted last-edited line. Selection is an explicit Attach button (not a
  * whole-row click) that flips to an Attached checkmark + ring.
  *
- * NON-DATA-SHAPE: there is no persisted excerpt / fork_count field (those are
- * deferred pending Grant sign-off). The excerpt hero uses the SAME lazy
- * filesApi.readFile the preview pane already does, and ONLY for the
- * highlighted / hovered card (`active`); every other card shows the method
- * type registry description as its resting state. Forks are derived from an
- * in-memory parent->children map the picker builds at load time, walked
- * recursively so a fork of a fork of a fork still nests.
+ * EXCERPT HERO (Method Picker FLAG B, excerpt-field sub-bot of HR): the card
+ * hero prefers the persisted `method.excerpt` field, stamped at save time so
+ * the card renders without any file read. When the field is absent
+ * (pre-excerpt records, lazy backfill on next save), it falls back to the SAME
+ * lazy filesApi.readFile the preview pane uses, and ONLY for the highlighted /
+ * hovered card (`active`); failing that, the method type registry description
+ * is the resting state. Forks are derived from an in-memory parent->children
+ * map the picker builds at load time, walked recursively so a fork of a fork
+ * of a fork still nests.
  */
 
 /** First ~2 non-empty lines of markdown, stripped of heading / list syntax. */
@@ -167,10 +169,17 @@ export default function MethodCard({
   const hasForks = children.length > 0;
   const forksOpen = expandedForks.has(key);
 
-  // Lazy excerpt — ONLY the highlighted/hovered card fetches, sharing the
-  // ["method-preview", id] cache key with the preview pane so a hover here
-  // warms the deep view rather than double-reading. Markdown / text files
-  // only; structured + PCR-family records keep their resting summary.
+  // Method Picker FLAG B: prefer the persisted excerpt, stamped at save time.
+  // Trim guards against a whitespace-only stamp. When present the card needs
+  // no file read at all.
+  const persistedExcerpt = method.excerpt?.trim() || "";
+  const hasPersistedExcerpt = persistedExcerpt.length > 0;
+
+  // Lazy excerpt fallback — ONLY the highlighted/hovered card fetches, and
+  // only when no persisted excerpt exists (pre-FLAG-B records, lazy backfill).
+  // Shares the ["method-preview", id] cache key with the preview pane so a
+  // hover here warms the deep view rather than double-reading. Markdown / text
+  // files only; structured + PCR-family records keep their resting summary.
   const isMarkdownLike =
     !!method.source_path &&
     method.method_type !== "pdf" &&
@@ -184,17 +193,18 @@ export default function MethodCard({
   const { data: fileData } = useQuery({
     queryKey: ["method-preview", method.id],
     queryFn: () => filesApi.readFile(method.source_path!),
-    enabled: isActive && isMarkdownLike,
+    enabled: isActive && isMarkdownLike && !hasPersistedExcerpt,
     staleTime: 5 * 60_000,
   });
 
   const excerpt = useMemo(() => {
+    if (hasPersistedExcerpt) return persistedExcerpt;
     if (isMarkdownLike && fileData?.content) {
       const fromFile = excerptFromMarkdown(fileData.content);
       if (fromFile) return fromFile;
     }
     return restingSummary(method);
-  }, [isMarkdownLike, fileData?.content, method]);
+  }, [hasPersistedExcerpt, persistedExcerpt, isMarkdownLike, fileData?.content, method]);
 
   const ownerLabel = sharedOwnerLabel(method);
   const showPublicChip = method.is_public || method.owner === "public";

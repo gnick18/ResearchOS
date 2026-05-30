@@ -44,6 +44,7 @@ import MassSpecViewer from "@/components/MassSpecViewer";
 import CodingWorkflowViewer from "@/components/CodingWorkflowViewer";
 import QpcrAnalysisViewer from "@/components/QpcrAnalysisViewer";
 import { getMethodTypeMeta } from "@/lib/methods/method-type-registry";
+import { deriveExcerptFromMarkdown } from "@/lib/methods/excerpt";
 import { CreateMethodModal } from "@/components/methods/CreateMethodModal";
 import { MethodTemplateLibraryModal } from "@/components/methods/MethodTemplateLibraryModal";
 import {
@@ -1594,6 +1595,19 @@ function MarkdownMethodViewer({
         latest,
         `Update method: ${method.name}`
       );
+      // Method Picker FLAG B: re-stamp the picker-card excerpt from the
+      // freshly-saved body so the card hero stays current without a per-card
+      // file read. Only markdown methods carry a body here; structured types
+      // edit their protocol record through their own viewers. Best-effort:
+      // a failed excerpt update never blocks the body save.
+      if (method.method_type === "markdown" || method.method_type == null) {
+        const excerpt = deriveExcerptFromMarkdown(latest);
+        try {
+          await scopedMethodsApi.update(method.id, { excerpt });
+        } catch {
+          // Body already persisted; excerpt is a best-effort denormalization.
+        }
+      }
       // Update the baseline so subsequent unsaved-change checks compare
       // against the just-saved content.
       setContent(latest);
@@ -1604,7 +1618,7 @@ function MarkdownMethodViewer({
     } finally {
       setSaving(false);
     }
-  }, [content, method.source_path, method.name]);
+  }, [content, method.id, method.source_path, method.name, method.method_type, scopedMethodsApi]);
 
   // Cancel discards in-memory edits by reverting `content` to the snapshot
   // captured on read (or last successful save). Without this, clicking Cancel

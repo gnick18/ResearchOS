@@ -807,6 +807,16 @@ export interface Method {
   // `frontend/src/lib/methods/compound-graph.ts` for cycle / depth /
   // orphan validation.
   components?: CompoundComponent[];
+  // Method Picker FLAG B (excerpt-field sub-bot of HR, 2026-05-30): short
+  // plain-text preview (<= 140 chars), stamped at save time so the picker
+  // card hero renders without a per-card file read. Derived from the
+  // markdown body via `deriveExcerptFromMarkdown` (lib/methods/excerpt.ts)
+  // for markdown methods, or the type-registry one-line summary for
+  // structured types; unset for PDF / compound. Optional + additive:
+  // records written before this field load unchanged and render the lazy
+  // file-read / registry-description fallback until their next save (lazy
+  // backfill, no migration). JsonStore writes unknown fields verbatim.
+  excerpt?: string;
   // VCP R3 attribution stamps (VCP R3 attribution stamps, 2026-05-26):
   // most-recent editor + when. `created_by` stays the original author
   // stamp; `last_edited_by` is purely the latest editor. Optional on
@@ -844,6 +854,11 @@ export interface MethodCreate {
    */
   is_public?: boolean;
   components?: CompoundComponent[];
+  // Method Picker FLAG B — stamped excerpt preview (see Method.excerpt).
+  // Spread onto the stored record by `methodsApi.create`. Set by the
+  // markdown create site (derived from the body) and the structured
+  // create branches (the type-registry summary); omitted for PDF / compound.
+  excerpt?: string;
 }
 
 export interface MethodUpdate {
@@ -857,6 +872,11 @@ export interface MethodUpdate {
   tags?: string[];
   is_public?: boolean;
   components?: CompoundComponent[];
+  // Method Picker FLAG B — re-stamped excerpt preview (see Method.excerpt).
+  // Set by the markdown source-body edit/save site so the picker hero stays
+  // current with the latest body. Spread onto the record by
+  // `methodsApi.update` (which only filters `undefined`).
+  excerpt?: string;
   // VCP R3 — optional; auto-stamped by `methodsApi.update`.
   last_edited_by?: string;
   last_edited_at?: string;

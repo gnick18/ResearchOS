@@ -53,6 +53,10 @@ import MassSpecEditor from "@/components/MassSpecEditor";
 import CodingWorkflowEditor from "@/components/CodingWorkflowEditor";
 import QpcrAnalysisEditor from "@/components/QpcrAnalysisEditor";
 import { type MethodTypeId } from "@/lib/methods/method-type-registry";
+import {
+  deriveExcerptFromMarkdown,
+  excerptForStructuredType,
+} from "@/lib/methods/excerpt";
 import { MethodTypeCategoryPicker } from "./MethodTypePicker";
 import { MethodTemplateLibraryModal } from "./MethodTemplateLibraryModal";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -457,6 +461,9 @@ export function CreateMethodModal({
       const md = typeof flushed === "string" ? flushed : mdContent;
       const body = md ? `${stampedScaffold}\n${md}` : stampedScaffold;
       await filesApi.writeFile(sourcePath, body, `Create method: ${name}`);
+      // Method Picker FLAG B: stamp the picker-card excerpt from the body we
+      // already hold, so the card hero renders without a per-card file read.
+      const excerpt = deriveExcerptFromMarkdown(body);
       return await methodsApi.create({
         name: name.trim(),
         source_path: sourcePath,
@@ -467,6 +474,7 @@ export function CreateMethodModal({
           .map((t) => t.trim())
           .filter(Boolean),
         shared_with: methodSharedWith,
+        ...(excerpt ? { excerpt } : {}),
       });
     }
     if (uploadType === "pdf" && pdfFile) {
@@ -512,6 +520,7 @@ export function CreateMethodModal({
           .map((t) => t.trim())
           .filter(Boolean),
         shared_with: methodSharedWith,
+        excerpt: excerptForStructuredType("pcr"),
       });
     }
     if (uploadType === "lc_gradient") {
@@ -535,6 +544,7 @@ export function CreateMethodModal({
           .map((t) => t.trim())
           .filter(Boolean),
         shared_with: methodSharedWith,
+        excerpt: excerptForStructuredType("lc_gradient"),
       });
     }
     if (uploadType === "plate") {
@@ -556,6 +566,7 @@ export function CreateMethodModal({
           .map((t) => t.trim())
           .filter(Boolean),
         shared_with: methodSharedWith,
+        excerpt: excerptForStructuredType("plate"),
       });
     }
     if (uploadType === "cell_culture") {
@@ -578,6 +589,7 @@ export function CreateMethodModal({
           .map((t) => t.trim())
           .filter(Boolean),
         shared_with: methodSharedWith,
+        excerpt: excerptForStructuredType("cell_culture"),
       });
     }
     if (uploadType === "mass_spec") {
@@ -603,6 +615,7 @@ export function CreateMethodModal({
           .map((t) => t.trim())
           .filter(Boolean),
         shared_with: methodSharedWith,
+        excerpt: excerptForStructuredType("mass_spec"),
       });
     }
     if (uploadType === "coding_workflow") {
@@ -627,6 +640,7 @@ export function CreateMethodModal({
           .map((t) => t.trim())
           .filter(Boolean),
         shared_with: methodSharedWith,
+        excerpt: excerptForStructuredType("coding_workflow"),
       });
     }
     if (uploadType === "qpcr_analysis") {
@@ -652,6 +666,7 @@ export function CreateMethodModal({
           .map((t) => t.trim())
           .filter(Boolean),
         shared_with: methodSharedWith,
+        excerpt: excerptForStructuredType("qpcr_analysis"),
       });
     }
     return null;
