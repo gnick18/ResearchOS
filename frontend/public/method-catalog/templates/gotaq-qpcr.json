@@ -5,6 +5,12 @@
   "category": "qPCR",
   "method_type": "pcr",
   "tags": ["qpcr", "sybr", "dye", "promega", "gotaq", "bryt-green", "melt-curve"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "gotaq-qpcr-master-mix-protocol.pdf",
+    "source_url": "https://www.promega.com/-/media/files/resources/protocols/technical-manuals/101/gotaq-qpcr-master-mix-protocol.pdf",
+    "sha256": "1572841930f803580e7abf9b02857382b630e5a3929c8f19cd06d0f9bfbfffd7"
+  },
   "payload": {
     "gradient": {
       "initial": [

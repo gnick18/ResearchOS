@@ -5,6 +5,12 @@
   "category": "qPCR",
   "method_type": "pcr",
   "tags": ["qpcr", "sybr", "dye", "neb", "luna", "melt-curve"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "manualm3003.pdf",
+    "source_url": "https://www.neb.com/en/-/media/nebus/files/manuals/manualm3003.pdf",
+    "sha256": "7b375a0b6849e4204b1c54bb77419d6277dbbb505dc0be65de3b1884b38b275a"
+  },
   "payload": {
     "gradient": {
       "initial": [

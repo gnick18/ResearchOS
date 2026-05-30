@@ -5,6 +5,12 @@
   "category": "Molecular biology",
   "method_type": "pcr",
   "tags": ["pcr", "thermo", "invitrogen", "superfi", "high-fidelity"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "MAN0018859_Platinum_SuperFi_II_DNA_Pol_UG.pdf",
+    "source_url": "https://documents.thermofisher.com/TFS-Assets/LSG/manuals/MAN0018859_Platinum_SuperFi_II_DNA_Pol_UG.pdf",
+    "sha256": "0e74816c4969bbcb54c9335e25b2b37ed4a35bb6e4d5bd4e35b6e349f9c8cbda"
+  },
   "payload": {
     "gradient": {
       "initial": [

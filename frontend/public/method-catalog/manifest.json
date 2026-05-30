@@ -105,7 +105,13 @@
         "thermo-fisher",
         "applied-biosystems",
         "fast"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "MAN0025706_TaqManFastAdvMM_UG.pdf",
+        "source_url": "https://documents.thermofisher.com/TFS-Assets/LSG/manuals/MAN0025706_TaqManFastAdvMM_UG.pdf",
+        "sha256": "e7de4554b89f24d138850678a604707eb04e7a8adb3f70ae50994652f55e8215"
+      }
     },
     {
       "slug": "powerup-sybr-green-qpcr",
@@ -120,7 +126,13 @@
         "applied-biosystems",
         "powerup",
         "melt-curve"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "MAN0028468-PowerUpSYBRGreenMM-QR.pdf",
+        "source_url": "https://documents.thermofisher.com/TFS-Assets/LSG/manuals/MAN0028468-PowerUpSYBRGreenMM-QR.pdf",
+        "sha256": "08208f9fa7e0b30d87a0ef0eb6083235470235814b225f281999dc0f56cc43ca"
+      }
     },
     {
       "slug": "ssoadvanced-sybr-qpcr",
@@ -191,7 +203,13 @@
         "neb",
         "luna",
         "melt-curve"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "manualm3003.pdf",
+        "source_url": "https://www.neb.com/en/-/media/nebus/files/manuals/manualm3003.pdf",
+        "sha256": "7b375a0b6849e4204b1c54bb77419d6277dbbb505dc0be65de3b1884b38b275a"
+      }
     },
     {
       "slug": "luna-universal-probe-qpcr",
@@ -204,7 +222,13 @@
         "probe",
         "neb",
         "luna"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "manualm3004.pdf",
+        "source_url": "https://www.neb.com/en/-/media/nebus/files/manuals/manualm3004.pdf",
+        "sha256": "436217ff8c78f89f38c1083d59363a020faf23778061c56e95ae8cf32b94ef0a"
+      }
     },
     {
       "slug": "lightcycler-480-sybr-qpcr",
@@ -246,7 +270,13 @@
         "quantinova",
         "fast",
         "melt-curve"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "quantinova-sybr-green-pcr-handbook.pdf",
+        "source_url": "https://www.qiagen.com/us/resources/download/KitHandbook/quantinova-sybr-green-pcr-handbook",
+        "sha256": "74b0cee579c8f3019c24105ab38b1651210fc57d0771efcbd43aa187621d68e4"
+      }
     },
     {
       "slug": "quantinova-probe-qpcr",
@@ -260,7 +290,13 @@
         "qiagen",
         "quantinova",
         "fast"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "quantinova-probe-pcr-quick-start-protocol.pdf",
+        "source_url": "https://www.qiagen.com/us/resources/download/Protocols/quantinova-probe-pcr-quick-start-protocol",
+        "sha256": "5235eb6eda45512caf325d8743c04db376db09077b6182f75d1770d97909ea38"
+      }
     },
     {
       "slug": "rotor-gene-sybr-green-qpcr",
@@ -274,7 +310,13 @@
         "qiagen",
         "rotor-gene",
         "melt-curve"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "en-rotor-gene-sybr-green-handbook.pdf",
+        "source_url": "https://www.qiagen.com/us/resources/download/KitHandbook/en-rotor-gene-sybr-green-handbook",
+        "sha256": "91e25d5b0b3106bd95bb174a466f29095d02a61640e4a14e8c310b58ed2eda4a"
+      }
     },
     {
       "slug": "gotaq-qpcr",
@@ -290,7 +332,13 @@
         "gotaq",
         "bryt-green",
         "melt-curve"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "gotaq-qpcr-master-mix-protocol.pdf",
+        "source_url": "https://www.promega.com/-/media/files/resources/protocols/technical-manuals/101/gotaq-qpcr-master-mix-protocol.pdf",
+        "sha256": "1572841930f803580e7abf9b02857382b630e5a3929c8f19cd06d0f9bfbfffd7"
+      }
     },
     {
       "slug": "gotaq-probe-qpcr",
@@ -303,7 +351,13 @@
         "probe",
         "promega",
         "gotaq"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "gotaq-probe-qpcr-master-mix-protocol.pdf",
+        "source_url": "https://www.promega.com/-/media/files/resources/protocols/technical-manuals/101/gotaq-probe-qpcr-master-mix-protocol.pdf",
+        "sha256": "487589cfc7582bbe76ebc0e2ee6cc46fc0fadd538aef780dc8fe499523baa062"
+      }
     },
     {
       "slug": "tb-green-premix-ex-taq-ii-qpcr",
@@ -317,7 +371,13 @@
         "tb-green",
         "takara",
         "melt-curve"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "RR820A_UM.pdf",
+        "source_url": "https://www.takarabio.com/documents/User%20Manual/RR820A/RR820A_UM.pdf",
+        "sha256": "d3b88127e33e5a244f07ef195e5059bdd7fb8ef34f999f7aff46c37a4cdf7d0e"
+      }
     },
     {
       "slug": "premix-ex-taq-probe-qpcr",
@@ -330,7 +390,13 @@
         "probe",
         "takara",
         "premix-ex-taq"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "RR390A_UM.pdf",
+        "source_url": "https://www.takarabio.com/documents/User%20Manual/RR390A/RR390A_UM.pdf",
+        "sha256": "0b91e7e3983ce1f15e4e5075a8ae220eb257b2f5ba1a1b7d540f38f6d3d27cf7"
+      }
     },
     {
       "slug": "gibson-assembly-master-mix",
@@ -344,7 +410,13 @@
         "gibson",
         "dna-assembly",
         "cloning"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "manuale2611_e5510.pdf",
+        "source_url": "https://www.neb.com/en/-/media/nebus/files/manuals/manuale2611_e5510.pdf",
+        "sha256": "de218216d16bce6d4a17f4bc9e9df29d3a3e3a5120b4e59faf1bb60cb87f4e7e"
+      }
     },
     {
       "slug": "nebuilder-hifi-dna-assembly",
@@ -359,7 +431,13 @@
         "hifi",
         "dna-assembly",
         "cloning"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "manuale2621_e5520.pdf",
+        "source_url": "https://www.neb.com/en/-/media/nebus/files/manuals/manuale2621_e5520.pdf",
+        "sha256": "e3d7ee6a5762c63d090cd5bb9c2c2ac96462b38e25f784f3c15dd0faa86d0a9f"
+      }
     },
     {
       "slug": "qiaprep-spin-miniprep",
@@ -374,7 +452,13 @@
         "miniprep",
         "plasmid",
         "dna-purification"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "hb-1206-006-hb-qiaprep-miniprep-0320-ww.pdf",
+        "source_url": "https://www.qiagen.com/en-US/resources/download/KitHandbook/hb-1206-006-hb-qiaprep-miniprep-0320-ww",
+        "sha256": "070d1f71efb4593c9878913d117181fd72c4ec7b6ea296879c17cfbf927f54b4"
+      }
     },
     {
       "slug": "qubit-dsdna-hs-assay",
@@ -560,7 +644,13 @@
         "gotaq",
         "taq",
         "standard"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "gotaq-g2-flexi-dna-polymerase-protocol.pdf",
+        "source_url": "https://www.promega.com/-/media/files/resources/protocols/product-information-sheets/g/gotaq-g2-flexi-dna-polymerase-protocol.pdf",
+        "sha256": "a42e8401972a55b7ccecf4a41ab18e28bc5a27bee5901a3d9afd9474643da466"
+      }
     },
     {
       "slug": "promega-gotaq-green-master-mix",
@@ -574,7 +664,13 @@
         "gotaq",
         "taq",
         "master-mix"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "gotaq-green-master-mix-protocol.pdf",
+        "source_url": "https://www.promega.com/-/media/files/resources/protocols/product-information-sheets/g/gotaq-green-master-mix-protocol.pdf",
+        "sha256": "6549f634505941f9c0e597aff00836d6e0a257aeb7b2086bc5e9cc4663f6a6c7"
+      }
     },
     {
       "slug": "promega-pfu",
@@ -587,7 +683,13 @@
         "promega",
         "pfu",
         "high-fidelity"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "pfu-dna-polymerase-protocol.pdf",
+        "source_url": "https://www.promega.com/-/media/files/resources/protocols/product-information-sheets/g/pfu-dna-polymerase-protocol.pdf",
+        "sha256": "b3e630ada1e4925e567fbcc051efda6b92f41735918f7b08baad2b5824969720"
+      }
     },
     {
       "slug": "qiagen-hotstartaq-plus-master-mix",
@@ -629,7 +731,13 @@
         "qiagen",
         "taq",
         "standard"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "en-taq-pcr-handbook.pdf",
+        "source_url": "https://www.qiagen.com/en-US/resources/download/KitHandbook/en-taq-pcr-handbook",
+        "sha256": "6f302fc8b77e032349f412fb5c7cae1ca2d1c691af397a75a05b92ded92e803f"
+      }
     },
     {
       "slug": "qiagen-toptaq",
@@ -657,7 +765,13 @@
         "ex-taq",
         "taq",
         "standard"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "RR001A_DS.v1902Da.pdf",
+        "source_url": "https://www.takarabio.com/documents/User%20Manual/RR001A/RR001A_DS.v1902Da.pdf",
+        "sha256": "4a46440a896aeba5fd8dc380cebe619bb9e8ad7f6b4c29ef6edb122b052041c8"
+      }
     },
     {
       "slug": "takara-la-taq",
@@ -671,7 +785,13 @@
         "la-taq",
         "taq",
         "long-pcr"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "RR002M_DS.v1312Da.pdf",
+        "source_url": "https://www.takarabio.com/documents/User%20Manual/RR002M/RR002M_DS.v1312Da.pdf",
+        "sha256": "05f1bbb5082c576c14c93f25abca9caccd93c7ffd6af04caae83facdb4bc2ad0"
+      }
     },
     {
       "slug": "takara-primestar-gxl",
@@ -686,7 +806,13 @@
         "gxl",
         "high-fidelity",
         "long-pcr"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "R050A_e.v1906Da-a_117055.pdf",
+        "source_url": "https://www.takarabio.com/documents/User%20Manual/R050A/R050A_e.v1906Da-a_117055.pdf",
+        "sha256": "8797e8297f4d05683a9a3e99b4d487051a5b929e1d7d8577069c971666d6c570"
+      }
     },
     {
       "slug": "takara-primestar-hs",
@@ -699,7 +825,13 @@
         "takara",
         "primestar",
         "high-fidelity"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "R010A_e.v1905Da.pdf",
+        "source_url": "https://www.takarabio.com/documents/User%20Manual/R010A_e.v1905Da.pdf",
+        "sha256": "07113cfb8d595d40741fcd4461317f04610abe89750fb8e28729f9f23f9b20c8"
+      }
     },
     {
       "slug": "takara-primestar-max",
@@ -714,7 +846,13 @@
         "max",
         "high-fidelity",
         "fast"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "R045Q_e.v1108Da.pdf",
+        "source_url": "https://www.takarabio.com/documents/User%20Manual/R045Q/R045Q_e.v1108Da.pdf",
+        "sha256": "6159a9f6dc0295c54b02ed47a6cb3bd60f6bcab3210afac5c11255d489667781"
+      }
     },
     {
       "slug": "thermo-dreamtaq",
@@ -728,7 +866,13 @@
         "dreamtaq",
         "taq",
         "master-mix"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "MAN0012704_DreamTaq_Green_PCR_MasterMix_K1081_UG.pdf",
+        "source_url": "https://documents.thermofisher.com/TFS-Assets/LSG/manuals/MAN0012704_DreamTaq_Green_PCR_MasterMix_K1081_UG.pdf",
+        "sha256": "a609d288e953867bfabfb4989df56bb08dc9f73e0164a1ae271786f727b80b15"
+      }
     },
     {
       "slug": "thermo-platinum-ii-taq",
@@ -743,7 +887,13 @@
         "platinum",
         "taq",
         "hot-start"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "MAN0017534_Platinum_II_Taq_HS_DNA_Pol_UG.pdf",
+        "source_url": "https://documents.thermofisher.com/TFS-Assets/BID/manuals/MAN0017534_Platinum_II_Taq_HS_DNA_Pol_UG.pdf",
+        "sha256": "ea13db431bd700c697bc29ee358613b414e397eae2dd250a2c79e578ccdc6c89"
+      }
     },
     {
       "slug": "thermo-platinum-superfi-ii",
@@ -757,7 +907,13 @@
         "invitrogen",
         "superfi",
         "high-fidelity"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "MAN0018859_Platinum_SuperFi_II_DNA_Pol_UG.pdf",
+        "source_url": "https://documents.thermofisher.com/TFS-Assets/LSG/manuals/MAN0018859_Platinum_SuperFi_II_DNA_Pol_UG.pdf",
+        "sha256": "0e74816c4969bbcb54c9335e25b2b37ed4a35bb6e4d5bd4e35b6e349f9c8cbda"
+      }
     },
     {
       "slug": "thermo-platinum-taq",
@@ -772,7 +928,13 @@
         "platinum",
         "taq",
         "hot-start"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "100004289_PlatinumTaqDNApolymerase_man.pdf",
+        "source_url": "https://documents.thermofisher.com/TFS-Assets/LSG/manuals/100004289_PlatinumTaqDNApolymerase_man.pdf",
+        "sha256": "5f4b27b428493e413ca6c74fabef94306fca8e7c0a903e40e621edc307c9a9ba"
+      }
     },
     {
       "slug": "bca-protein-standard-curve-384",
@@ -787,7 +949,13 @@
         "bradford",
         "protein-quantification",
         "standard-curve"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "MAN0011430_Pierce_BCA_Protein_Asy_UG.pdf",
+        "source_url": "https://documents.thermofisher.com/TFS-Assets/LSG/manuals/MAN0011430_Pierce_BCA_Protein_Asy_UG.pdf",
+        "sha256": "1f6230498284d2c92922100aa37e9cb20b7292951f07b5c197592a020f93da18"
+      }
     },
     {
       "slug": "bca-protein-standard-curve",
@@ -802,7 +970,13 @@
         "bradford",
         "protein-quantification",
         "standard-curve"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "MAN0011430_Pierce_BCA_Protein_Asy_UG.pdf",
+        "source_url": "https://documents.thermofisher.com/TFS-Assets/LSG/manuals/MAN0011430_Pierce_BCA_Protein_Asy_UG.pdf",
+        "sha256": "1f6230498284d2c92922100aa37e9cb20b7292951f07b5c197592a020f93da18"
+      }
     },
     {
       "slug": "ic50-dose-response-8pt-384",
@@ -911,7 +1085,13 @@
         "dna",
         "addgene",
         "thermo-fisher"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "MAN0012614_Gen_Recommend_DNA_Electrophoresis_UG.pdf",
+        "source_url": "https://documents.thermofisher.com/TFS-Assets/LSG/manuals/MAN0012614_Gen_Recommend_DNA_Electrophoresis_UG.pdf",
+        "sha256": "adfc7c3ac4a67576e9e3de7e8edc56f5d6b19347e48bce1a8d08f0f4dbbb7e7d"
+      }
     },
     {
       "slug": "glycerol-stock",
@@ -994,7 +1174,13 @@
         "rna-extraction",
         "thermo-fisher",
         "phase-separation"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "trizol_reagent.pdf",
+        "source_url": "https://documents.thermofisher.com/TFS-Assets/LSG/manuals/trizol_reagent.pdf",
+        "sha256": "bd426cb914f4455408784c6c7dda712254af96ff940030495f218f77c4ba2251"
+      }
     },
     {
       "slug": "lcms-intact-protein-ms-thermo-exploris",
@@ -1198,7 +1384,13 @@
         "gibco",
         "feeder-free",
         "pluripotent"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "feeder_free_PSCs_in_essential8_medium.pdf",
+        "source_url": "https://documents.thermofisher.com/TFS-Assets/LSG/manuals/feeder_free_PSCs_in_essential8_medium.pdf",
+        "sha256": "6daaad1d7860dd0f3f8aee3c2d96660469cc05891cdf644863881703cf5dde20"
+      }
     },
     {
       "slug": "jurkat-maintenance-atcc",

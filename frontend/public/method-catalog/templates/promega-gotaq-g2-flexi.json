@@ -5,6 +5,12 @@
   "category": "Molecular biology",
   "method_type": "pcr",
   "tags": ["pcr", "promega", "gotaq", "taq", "standard"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "gotaq-g2-flexi-dna-polymerase-protocol.pdf",
+    "source_url": "https://www.promega.com/-/media/files/resources/protocols/product-information-sheets/g/gotaq-g2-flexi-dna-polymerase-protocol.pdf",
+    "sha256": "a42e8401972a55b7ccecf4a41ab18e28bc5a27bee5901a3d9afd9474643da466"
+  },
   "payload": {
     "gradient": {
       "initial": [

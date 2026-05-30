@@ -5,6 +5,12 @@
   "category": "qPCR",
   "method_type": "pcr",
   "tags": ["qpcr", "sybr", "qiagen", "quantinova", "fast", "melt-curve"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "quantinova-sybr-green-pcr-handbook.pdf",
+    "source_url": "https://www.qiagen.com/us/resources/download/KitHandbook/quantinova-sybr-green-pcr-handbook",
+    "sha256": "74b0cee579c8f3019c24105ab38b1651210fc57d0771efcbd43aa187621d68e4"
+  },
   "payload": {
     "gradient": {
       "initial": [

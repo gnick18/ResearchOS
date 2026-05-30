@@ -5,6 +5,12 @@
   "category": "Molecular biology",
   "method_type": "pcr",
   "tags": ["pcr", "thermo", "invitrogen", "platinum", "taq", "hot-start"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "MAN0017534_Platinum_II_Taq_HS_DNA_Pol_UG.pdf",
+    "source_url": "https://documents.thermofisher.com/TFS-Assets/BID/manuals/MAN0017534_Platinum_II_Taq_HS_DNA_Pol_UG.pdf",
+    "sha256": "ea13db431bd700c697bc29ee358613b414e397eae2dd250a2c79e578ccdc6c89"
+  },
   "payload": {
     "gradient": {
       "initial": [

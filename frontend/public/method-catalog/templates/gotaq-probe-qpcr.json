@@ -5,6 +5,12 @@
   "category": "qPCR",
   "method_type": "pcr",
   "tags": ["qpcr", "probe", "promega", "gotaq"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "gotaq-probe-qpcr-master-mix-protocol.pdf",
+    "source_url": "https://www.promega.com/-/media/files/resources/protocols/technical-manuals/101/gotaq-probe-qpcr-master-mix-protocol.pdf",
+    "sha256": "487589cfc7582bbe76ebc0e2ee6cc46fc0fadd538aef780dc8fe499523baa062"
+  },
   "payload": {
     "gradient": {
       "initial": [

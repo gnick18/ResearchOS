@@ -5,6 +5,12 @@
   "category": "qPCR",
   "method_type": "pcr",
   "tags": ["qpcr", "sybr", "tb-green", "takara", "melt-curve"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "RR820A_UM.pdf",
+    "source_url": "https://www.takarabio.com/documents/User%20Manual/RR820A/RR820A_UM.pdf",
+    "sha256": "d3b88127e33e5a244f07ef195e5059bdd7fb8ef34f999f7aff46c37a4cdf7d0e"
+  },
   "payload": {
     "gradient": {
       "initial": [

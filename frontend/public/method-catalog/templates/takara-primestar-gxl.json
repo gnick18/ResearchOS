@@ -5,6 +5,12 @@
   "category": "Molecular biology",
   "method_type": "pcr",
   "tags": ["pcr", "takara", "primestar", "gxl", "high-fidelity", "long-pcr"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "R050A_e.v1906Da-a_117055.pdf",
+    "source_url": "https://www.takarabio.com/documents/User%20Manual/R050A/R050A_e.v1906Da-a_117055.pdf",
+    "sha256": "8797e8297f4d05683a9a3e99b4d487051a5b929e1d7d8577069c971666d6c570"
+  },
   "payload": {
     "gradient": {
       "initial": [],

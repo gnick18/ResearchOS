@@ -5,6 +5,12 @@
   "category": "qPCR",
   "method_type": "pcr",
   "tags": ["qpcr", "probe", "neb", "luna"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "manualm3004.pdf",
+    "source_url": "https://www.neb.com/en/-/media/nebus/files/manuals/manualm3004.pdf",
+    "sha256": "436217ff8c78f89f38c1083d59363a020faf23778061c56e95ae8cf32b94ef0a"
+  },
   "payload": {
     "gradient": {
       "initial": [

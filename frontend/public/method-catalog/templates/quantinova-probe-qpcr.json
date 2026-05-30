@@ -5,6 +5,12 @@
   "category": "qPCR",
   "method_type": "pcr",
   "tags": ["qpcr", "probe", "qiagen", "quantinova", "fast"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "quantinova-probe-pcr-quick-start-protocol.pdf",
+    "source_url": "https://www.qiagen.com/us/resources/download/Protocols/quantinova-probe-pcr-quick-start-protocol",
+    "sha256": "5235eb6eda45512caf325d8743c04db376db09077b6182f75d1770d97909ea38"
+  },
   "payload": {
     "gradient": {
       "initial": [

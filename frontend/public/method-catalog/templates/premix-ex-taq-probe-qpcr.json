@@ -5,6 +5,12 @@
   "category": "qPCR",
   "method_type": "pcr",
   "tags": ["qpcr", "probe", "takara", "premix-ex-taq"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "RR390A_UM.pdf",
+    "source_url": "https://www.takarabio.com/documents/User%20Manual/RR390A/RR390A_UM.pdf",
+    "sha256": "0b91e7e3983ce1f15e4e5075a8ae220eb257b2f5ba1a1b7d540f38f6d3d27cf7"
+  },
   "payload": {
     "gradient": {
       "initial": [

@@ -150,11 +150,19 @@ describe("method-catalog source-PDF ledger", () => {
       ].join("\n"),
     );
 
-    // FastStart is the single DONE kit this phase; everything else is PENDING
-    // (no kit yet) or LINK-ONLY (a future link-only reference). No LINK-ONLY
-    // entries exist yet, so PENDING + DONE accounts for the whole catalog.
-    expect(counts.DONE).toBe(1);
+    // FastStart was the pilot kit; Kit Phase 3 bundled 32 more vendor PDFs, so
+    // the catalog now ships multiple DONE kits. Rather than freeze a count that
+    // every future kit addition would break, assert that DONE tracks the
+    // manifest: it equals the number of bundled entries whose file is present.
+    const expectedDone = bundled.filter((t) =>
+      existsSync(`${SOURCES_DIR}/${t.slug}.pdf`),
+    ).length;
+    expect(counts.DONE).toBe(expectedDone);
+    expect(counts.DONE).toBeGreaterThanOrEqual(1);
+    // FastStart remains bundled and present (the original pilot).
     expect(done).toContain("roche-faststart-taq");
+    // Every template is classified exactly once, so the three buckets sum to
+    // the whole catalog.
     expect(counts.DONE + counts["LINK-ONLY"] + counts.PENDING).toBe(
       ledger.length,
     );

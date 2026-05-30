@@ -5,6 +5,12 @@
   "category": "Molecular biology",
   "method_type": "pcr",
   "tags": ["pcr", "takara", "la-taq", "taq", "long-pcr"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "RR002M_DS.v1312Da.pdf",
+    "source_url": "https://www.takarabio.com/documents/User%20Manual/RR002M/RR002M_DS.v1312Da.pdf",
+    "sha256": "05f1bbb5082c576c14c93f25abca9caccd93c7ffd6af04caae83facdb4bc2ad0"
+  },
   "payload": {
     "gradient": {
       "initial": [

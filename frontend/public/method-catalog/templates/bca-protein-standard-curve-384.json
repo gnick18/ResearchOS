@@ -5,6 +5,12 @@
   "category": "Plate layouts",
   "method_type": "plate",
   "tags": ["plate", "384-well", "bca", "bradford", "protein-quantification", "standard-curve"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "MAN0011430_Pierce_BCA_Protein_Asy_UG.pdf",
+    "source_url": "https://documents.thermofisher.com/TFS-Assets/LSG/manuals/MAN0011430_Pierce_BCA_Protein_Asy_UG.pdf",
+    "sha256": "1f6230498284d2c92922100aa37e9cb20b7292951f07b5c197592a020f93da18"
+  },
   "payload": {
     "description": "Protein-quantification standard curve for a 384-well plate (16 rows A-P x 24 columns), scaled from the Thermo Pierce BCA Protein Assay microplate procedure (https://documents.thermofisher.com/TFS-Assets/LSG/manuals/MAN0011430_Pierce_BCA_Protein_Asy_UG.pdf). Rows A-F hold the 9-point diluted-BSA standard set in 6 replicates: columns 1-8 = 2000, 1500, 1000, 750, 500, 250, 125, 25 ug/mL (Pierce vials A-H) and column 9 = 0 ug/mL blank (vial I); columns 10-24 in those rows are spare. Rows G-P hold unknown samples. 384-well microplate procedure: 10 uL sample + 30 uL working reagent (Reagent A:B 50:1), mix, 37 C for 30 min, read at 562 nm; working range 20-2000 ug/mL. The same map works for a Bradford assay (substitute the Bradford standard range).",
     "plate_size": 384,

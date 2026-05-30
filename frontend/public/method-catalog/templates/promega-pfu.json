@@ -5,6 +5,12 @@
   "category": "Molecular biology",
   "method_type": "pcr",
   "tags": ["pcr", "promega", "pfu", "high-fidelity"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "pfu-dna-polymerase-protocol.pdf",
+    "source_url": "https://www.promega.com/-/media/files/resources/protocols/product-information-sheets/g/pfu-dna-polymerase-protocol.pdf",
+    "sha256": "b3e630ada1e4925e567fbcc051efda6b92f41735918f7b08baad2b5824969720"
+  },
   "payload": {
     "gradient": {
       "initial": [

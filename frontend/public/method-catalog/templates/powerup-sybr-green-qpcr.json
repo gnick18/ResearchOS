@@ -5,6 +5,12 @@
   "category": "qPCR",
   "method_type": "pcr",
   "tags": ["qpcr", "sybr", "thermo-fisher", "applied-biosystems", "powerup", "melt-curve"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "MAN0028468-PowerUpSYBRGreenMM-QR.pdf",
+    "source_url": "https://documents.thermofisher.com/TFS-Assets/LSG/manuals/MAN0028468-PowerUpSYBRGreenMM-QR.pdf",
+    "sha256": "08208f9fa7e0b30d87a0ef0eb6083235470235814b225f281999dc0f56cc43ca"
+  },
   "payload": {
     "gradient": {
       "initial": [

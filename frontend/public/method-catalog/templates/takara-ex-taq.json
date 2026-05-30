@@ -5,6 +5,12 @@
   "category": "Molecular biology",
   "method_type": "pcr",
   "tags": ["pcr", "takara", "ex-taq", "taq", "standard"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "RR001A_DS.v1902Da.pdf",
+    "source_url": "https://www.takarabio.com/documents/User%20Manual/RR001A/RR001A_DS.v1902Da.pdf",
+    "sha256": "4a46440a896aeba5fd8dc380cebe619bb9e8ad7f6b4c29ef6edb122b052041c8"
+  },
   "payload": {
     "gradient": {
       "initial": [],

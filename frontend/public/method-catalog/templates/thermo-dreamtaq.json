@@ -5,6 +5,12 @@
   "category": "Molecular biology",
   "method_type": "pcr",
   "tags": ["pcr", "thermo", "dreamtaq", "taq", "master-mix"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "MAN0012704_DreamTaq_Green_PCR_MasterMix_K1081_UG.pdf",
+    "source_url": "https://documents.thermofisher.com/TFS-Assets/LSG/manuals/MAN0012704_DreamTaq_Green_PCR_MasterMix_K1081_UG.pdf",
+    "sha256": "a609d288e953867bfabfb4989df56bb08dc9f73e0164a1ae271786f727b80b15"
+  },
   "payload": {
     "gradient": {
       "initial": [

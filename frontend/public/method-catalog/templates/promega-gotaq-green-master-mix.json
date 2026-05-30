@@ -5,6 +5,12 @@
   "category": "Molecular biology",
   "method_type": "pcr",
   "tags": ["pcr", "promega", "gotaq", "taq", "master-mix"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "gotaq-green-master-mix-protocol.pdf",
+    "source_url": "https://www.promega.com/-/media/files/resources/protocols/product-information-sheets/g/gotaq-green-master-mix-protocol.pdf",
+    "sha256": "6549f634505941f9c0e597aff00836d6e0a257aeb7b2086bc5e9cc4663f6a6c7"
+  },
   "payload": {
     "gradient": {
       "initial": [

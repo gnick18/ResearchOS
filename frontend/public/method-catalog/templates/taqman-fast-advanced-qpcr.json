@@ -5,6 +5,12 @@
   "category": "qPCR",
   "method_type": "pcr",
   "tags": ["qpcr", "taqman", "probe", "thermo-fisher", "applied-biosystems", "fast"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "MAN0025706_TaqManFastAdvMM_UG.pdf",
+    "source_url": "https://documents.thermofisher.com/TFS-Assets/LSG/manuals/MAN0025706_TaqManFastAdvMM_UG.pdf",
+    "sha256": "e7de4554b89f24d138850678a604707eb04e7a8adb3f70ae50994652f55e8215"
+  },
   "payload": {
     "gradient": {
       "initial": [

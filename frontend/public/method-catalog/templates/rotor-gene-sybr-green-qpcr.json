@@ -5,6 +5,12 @@
   "category": "qPCR",
   "method_type": "pcr",
   "tags": ["qpcr", "sybr", "qiagen", "rotor-gene", "melt-curve"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "en-rotor-gene-sybr-green-handbook.pdf",
+    "source_url": "https://www.qiagen.com/us/resources/download/KitHandbook/en-rotor-gene-sybr-green-handbook",
+    "sha256": "91e25d5b0b3106bd95bb174a466f29095d02a61640e4a14e8c310b58ed2eda4a"
+  },
   "payload": {
     "gradient": {
       "initial": [
