@@ -2,11 +2,23 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchAllTasks, fetchAllMethodsIncludingShared, filesApi } from "@/lib/local-api";
+import {
+  fetchAllTasks,
+  fetchAllMethodsIncludingShared,
+  filesApi,
+  usersApi,
+} from "@/lib/local-api";
 import type { Method, Task, TaskMethodAttachment } from "@/lib/types";
 import { getMethodTypeMeta } from "@/lib/methods/method-type-registry";
 import { attachmentKey, methodKey } from "@/lib/methods/lookup";
+import {
+  partitionMethodsByOwnership,
+  groupOwnMethodsByFolder,
+  groupSharedMethodsByOwner,
+  matchesMethodSearch,
+} from "@/lib/methods/library-sections";
 import RenderedMarkdown from "@/components/RenderedMarkdown";
+import MethodCard from "@/components/methods/MethodCard";
 
 interface MethodPickerProps {
   open: boolean;
@@ -29,9 +41,21 @@ interface MethodPickerProps {
    */
   onSelect: (methodId: number, methodOwner: string) => void | Promise<void>;
   onClose: () => void;
+  /**
+   * Keep the modal mounted after an attach instead of letting the caller
+   * close it. MethodTabs (multi-attach) passes `true` so the user can attach
+   * several methods in a row; the just-attached card flips to "Attached" via
+   * the existing `excludeMethods` machinery rather than the modal closing.
+   * TaskModal (single link) omits this and closes on select exactly as
+   * before — no behavior change there.
+   */
+  keepOpenOnSelect?: boolean;
 }
 
 type FlatRow =
+  // A top-level method card. Its forks (if any) render NESTED inside the
+  // card via MethodCard's recursive disclosure, so the flat-row model only
+  // tracks the cards that anchor a section.
   | { kind: "header"; label: string; count: number; sectionKey: string }
   | { kind: "method"; method: Method; sectionKey: string };
 
@@ -91,11 +115,23 @@ export default function MethodPicker({
   excludeMethods,
   onSelect,
   onClose,
+  keepOpenOnSelect = false,
 }: MethodPickerProps) {
   const { data: allMethods = [], isLoading } = useQuery({
     queryKey: ["methods"],
     queryFn: fetchAllMethodsIncludingShared,
   });
+
+  // Current user drives the own-vs-shared partition (same source the methods
+  // page uses). Defensive against a test mock that stubs `@/lib/local-api`
+  // without `usersApi` — the optional chain yields an empty username, which
+  // simply routes every method into "Shared with Lab" rather than throwing.
+  const { data: userData } = useQuery({
+    queryKey: ["users"],
+    queryFn: () =>
+      usersApi?.list?.() ?? Promise.resolve({ users: [], current_user: "" }),
+  });
+  const currentUser = userData?.current_user || "";
 
   // Composite-key excludeSet: `${owner}:${id}`. Callers pre-resolve
   // attachment.owner=null to the task owner, so the picker can match
@@ -108,13 +144,50 @@ export default function MethodPicker({
     return set;
   }, [excludeMethods]);
 
+  // In keep-open (multi-attach) mode the already-attached cards STAY visible
+  // and flip to an "Attached" state; in single-link mode they are hidden, as
+  // before. Either way `excludeSet` is the source of truth for "attached".
   const methods = useMemo(
     () =>
-      excludeSet.size === 0
+      keepOpenOnSelect || excludeSet.size === 0
         ? allMethods
         : allMethods.filter((m) => !excludeSet.has(`${m.owner}:${m.id}`)),
-    [allMethods, excludeSet],
+    [allMethods, excludeSet, keepOpenOnSelect],
   );
+
+  // Read-time fork index: Map<parentId, fork Method[]>, built once from the
+  // FULL method list (not the excluded one) so a fork of an attached parent
+  // still resolves. Walked recursively in MethodCard, so a fork of a fork of
+  // a fork nests fully. No persisted field — this is the cheap one-pass map
+  // the design defers the denormalized `fork_count` to.
+  const forkChildren = useMemo(() => {
+    const map = new Map<number, Method[]>();
+    for (const m of methods) {
+      if (m.parent_method_id != null) {
+        const bucket = map.get(m.parent_method_id);
+        if (bucket) bucket.push(m);
+        else map.set(m.parent_method_id, [m]);
+      }
+    }
+    // Stable order: newest-edited first when timestamps exist, else by name.
+    for (const bucket of map.values()) {
+      bucket.sort((a, b) => {
+        const ax = a.last_edited_at ?? "";
+        const bx = b.last_edited_at ?? "";
+        if (ax !== bx) return bx.localeCompare(ax);
+        return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+      });
+    }
+    return map;
+  }, [methods]);
+
+  // Set of ids that exist in the rendered list, so we can tell an orphan fork
+  // (parent absent) apart from one whose parent is present and nests it.
+  const presentIds = useMemo(() => {
+    const set = new Set<number>();
+    for (const m of methods) set.add(m.id);
+    return set;
+  }, [methods]);
 
   const { data: tasks = [] } = useQuery({
     queryKey: ["tasks"],
@@ -122,10 +195,13 @@ export default function MethodPicker({
   });
 
   const [query, setQuery] = useState("");
-  const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [highlightedKey, setHighlightedKey] = useState<string | null>(null);
+  const [expandedForks, setExpandedForks] = useState<Set<string>>(
+    () => new Set(),
+  );
   const inputRef = useRef<HTMLInputElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
-  const rowRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
+  const cardRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
 
   // Reset internal state when the picker is (re)opened. Uses the "compare to
   // previous prop in render" pattern documented in the React docs as the
@@ -135,7 +211,8 @@ export default function MethodPicker({
     setPrevOpen(open);
     if (open) {
       setQuery("");
-      setHighlightedIndex(0);
+      setHighlightedKey(null);
+      setExpandedForks(new Set());
     }
   }
 
@@ -162,156 +239,277 @@ export default function MethodPicker({
   }, [tasks, methodByKey]);
 
   const flatRows: FlatRow[] = useMemo(() => {
-    const raw = query.trim().toLowerCase();
-    const tagQuery = raw.startsWith("#") ? raw.slice(1) : raw;
+    const raw = query.trim();
+    const searching = raw.length > 0;
 
-    const filtered = methods.filter((m) => {
-      if (!raw) return true;
-      if (m.name.toLowerCase().includes(raw)) return true;
-      if (tagQuery && m.tags?.some((t) => t.toLowerCase().includes(tagQuery))) {
-        return true;
-      }
-      return false;
-    });
+    // `matchesMethodSearch` covers name + tags + source_path + folder_path,
+    // matching the methods page exactly so the two surfaces never diverge.
+    const filtered = searching
+      ? methods.filter((m) => matchesMethodSearch(m, raw))
+      : methods;
+
+    const byName = (a: Method, b: Method) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+
+    // A method nests under another only when its parent is BOTH present in
+    // the rendered list AND in the same section we are placing it into. To
+    // keep the model simple, a fork is rendered nested whenever its parent is
+    // present at all; it is then excluded from top-level placement. An orphan
+    // fork (parent absent) renders top-level with a "forked from ..." caption
+    // inside the card.
+    const isNestedFork = (m: Method) =>
+      m.parent_method_id != null && presentIds.has(m.parent_method_id);
 
     const rows: FlatRow[] = [];
 
-    // Pinned sections — only shown when the user hasn't typed a query.
-    // Search mode prioritises matches; pinned context becomes noise.
-    if (!raw) {
-      if (recentInProject.length > 0) {
-        rows.push({
-          kind: "header",
-          label: "Recently used in this project",
-          count: recentInProject.length,
-          sectionKey: "pinned-project",
-        });
-        for (const m of recentInProject) {
-          rows.push({ kind: "method", method: m, sectionKey: "pinned-project" });
-        }
+    // Search collapses grouping into one flat list, as before. Forks render
+    // flat too in search mode (a matched fork should surface even if its
+    // parent did not match), so nesting is suppressed while searching.
+    if (searching) {
+      const items = filtered.slice().sort(byName);
+      rows.push({
+        kind: "header",
+        label: "Results",
+        count: items.length,
+        sectionKey: "search-results",
+      });
+      for (const method of items) {
+        rows.push({ kind: "method", method, sectionKey: "search-results" });
       }
+      return rows;
+    }
 
-      // Skip "Recently used" if its top entries are the same as the project
-      // section above — avoid an identical pinned block. Dedup on the
-      // composite `(owner, id)` key so two methods that happen to share a
-      // numeric id but live in different owner namespaces both still surface.
-      const projectKeys = new Set(recentInProject.map((m) => methodKey(m)));
-      const recentDeduped = recentAnywhere.filter((m) => !projectKeys.has(methodKey(m)));
-      if (recentDeduped.length > 0) {
-        rows.push({
-          kind: "header",
-          label: "Recently used",
-          count: recentDeduped.length,
-          sectionKey: "pinned-recent",
-        });
-        for (const m of recentDeduped) {
-          rows.push({ kind: "method", method: m, sectionKey: "pinned-recent" });
-        }
+    // Pinned recents stay at the very top — high-value and already working.
+    if (recentInProject.length > 0) {
+      rows.push({
+        kind: "header",
+        label: "Recently used in this project",
+        count: recentInProject.length,
+        sectionKey: "pinned-project",
+      });
+      for (const m of recentInProject) {
+        rows.push({ kind: "method", method: m, sectionKey: "pinned-project" });
       }
     }
 
-    // Regular folder-grouped view of all (filtered) methods.
-    const byFolder = new Map<string, Method[]>();
-    for (const m of filtered) {
-      const folder = m.folder_path || UNCATEGORIZED;
-      const bucket = byFolder.get(folder);
-      if (bucket) bucket.push(m);
-      else byFolder.set(folder, [m]);
+    // Skip "Recently used" if its top entries are the same as the project
+    // section above — avoid an identical pinned block. Dedup on the composite
+    // `(owner, id)` key so two methods that share a numeric id but live in
+    // different owner namespaces both still surface.
+    const projectKeys = new Set(recentInProject.map((m) => methodKey(m)));
+    const recentDeduped = recentAnywhere.filter(
+      (m) => !projectKeys.has(methodKey(m)),
+    );
+    if (recentDeduped.length > 0) {
+      rows.push({
+        kind: "header",
+        label: "Recently used",
+        count: recentDeduped.length,
+        sectionKey: "pinned-recent",
+      });
+      for (const m of recentDeduped) {
+        rows.push({ kind: "method", method: m, sectionKey: "pinned-recent" });
+      }
     }
 
-    const folderNames = Array.from(byFolder.keys()).sort((a, b) => {
+    // Own-vs-shared split, consistent with the methods page. My Methods group
+    // by folder_path; Shared with Lab group by owner (never by the owner's
+    // private folder names). Forks that nest under a present parent are
+    // dropped from the top-level placement here so they appear only inside
+    // the disclosure.
+    const { own, shared } = partitionMethodsByOwnership(filtered, currentUser);
+
+    const ownByFolder = groupOwnMethodsByFolder(
+      own.filter((m) => !isNestedFork(m)),
+    );
+    const ownFolders = Object.keys(ownByFolder).sort((a, b) => {
       if (a === UNCATEGORIZED) return 1;
       if (b === UNCATEGORIZED) return -1;
       return a.localeCompare(b);
     });
-
-    for (const folder of folderNames) {
-      const items = (byFolder.get(folder) ?? []).slice().sort((a, b) =>
-        a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
-      );
+    if (ownFolders.some((f) => ownByFolder[f].length > 0)) {
       rows.push({
         kind: "header",
-        label: folder,
-        count: items.length,
-        sectionKey: `folder:${folder}`,
+        label: "My Methods",
+        count: own.filter((m) => !isNestedFork(m)).length,
+        sectionKey: "own-section",
       });
-      for (const method of items) {
+      for (const folder of ownFolders) {
+        const items = ownByFolder[folder].slice().sort(byName);
+        if (items.length === 0) continue;
         rows.push({
-          kind: "method",
-          method,
-          sectionKey: `folder:${folder}`,
+          kind: "header",
+          label: folder,
+          count: items.length,
+          sectionKey: `own-folder:${folder}`,
         });
+        for (const method of items) {
+          rows.push({
+            kind: "method",
+            method,
+            sectionKey: `own-folder:${folder}`,
+          });
+        }
       }
     }
-    return rows;
-  }, [methods, query, recentInProject, recentAnywhere]);
 
-  const selectableIndices = useMemo(
-    () =>
-      flatRows
-        .map((r, i) => (r.kind === "method" ? i : -1))
-        .filter((i) => i !== -1),
-    [flatRows]
+    const sharedByOwner = groupSharedMethodsByOwner(
+      shared.filter((m) => !isNestedFork(m)),
+    );
+    const ownerLabels = Object.keys(sharedByOwner).sort((a, b) => {
+      // "Lab" (the public namespace) sorts first; named owners follow.
+      if (a === "Lab") return -1;
+      if (b === "Lab") return 1;
+      return a.localeCompare(b);
+    });
+    if (ownerLabels.some((o) => sharedByOwner[o].length > 0)) {
+      rows.push({
+        kind: "header",
+        label: "Shared with Lab",
+        count: shared.filter((m) => !isNestedFork(m)).length,
+        sectionKey: "shared-section",
+      });
+      for (const ownerLabel of ownerLabels) {
+        const items = sharedByOwner[ownerLabel].slice().sort(byName);
+        if (items.length === 0) continue;
+        rows.push({
+          kind: "header",
+          label: ownerLabel,
+          count: items.length,
+          sectionKey: `shared-owner:${ownerLabel}`,
+        });
+        for (const method of items) {
+          rows.push({
+            kind: "method",
+            method,
+            sectionKey: `shared-owner:${ownerLabel}`,
+          });
+        }
+      }
+    }
+
+    return rows;
+  }, [methods, query, currentUser, presentIds, recentInProject, recentAnywhere]);
+
+  // Composite-key set of already-attached methods. In keep-open mode the
+  // cards stay visible and flip to "Attached" from this set; in single-link
+  // mode the methods are filtered out upstream so the set is moot.
+  const attachedKeys = excludeSet;
+
+  // Flat, in-DOM-order list of the method records that have a focusable card,
+  // with EXPANDED forks spliced in right after their parent (the same order
+  // they render). This is the 2-D grid's roving-focus track and the source of
+  // the tour-anchor index. Collapsed forks are absent (not in the tab order).
+  const visibleCards: Method[] = useMemo(() => {
+    const out: Method[] = [];
+    const pushWithForks = (m: Method) => {
+      out.push(m);
+      if (expandedForks.has(methodKey(m))) {
+        for (const child of forkChildren.get(m.id) ?? []) {
+          pushWithForks(child);
+        }
+      }
+    };
+    for (const row of flatRows) {
+      if (row.kind === "method") pushWithForks(row.method);
+    }
+    return out;
+  }, [flatRows, expandedForks, forkChildren]);
+
+  const visibleKeys = useMemo(
+    () => visibleCards.map((m) => methodKey(m)),
+    [visibleCards],
   );
 
   const highlightedMethod: Method | null = useMemo(() => {
-    const row = flatRows[highlightedIndex];
-    return row?.kind === "method" ? row.method : null;
-  }, [flatRows, highlightedIndex]);
+    if (!highlightedKey) return null;
+    return visibleCards.find((m) => methodKey(m) === highlightedKey) ?? null;
+  }, [visibleCards, highlightedKey]);
 
-  // Clamp the highlighted index when the filtered list changes (e.g. the user
-  // types in the search box and the previously-highlighted row is no longer
-  // present). This is a defensive sync that responds to derived state, so it
-  // legitimately needs setState in an effect.
+  // Keep the highlight on a still-present card. When the current highlight
+  // falls out of the list (search, collapse), drop to the first card.
   useEffect(() => {
-    if (selectableIndices.length === 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setHighlightedIndex(-1);
+    if (visibleKeys.length === 0) {
+      if (highlightedKey !== null) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setHighlightedKey(null);
+      }
       return;
     }
-    if (!selectableIndices.includes(highlightedIndex)) {
-      setHighlightedIndex(selectableIndices[0]);
+    if (highlightedKey === null || !visibleKeys.includes(highlightedKey)) {
+      setHighlightedKey(visibleKeys[0]);
     }
-  }, [selectableIndices, highlightedIndex]);
+  }, [visibleKeys, highlightedKey]);
 
   useEffect(() => {
-    if (highlightedIndex < 0) return;
-    const el = rowRefs.current.get(highlightedIndex);
-    el?.scrollIntoView({ block: "nearest" });
-  }, [highlightedIndex]);
+    if (!highlightedKey) return;
+    cardRefs.current.get(highlightedKey)?.scrollIntoView({ block: "nearest" });
+  }, [highlightedKey]);
 
   if (!open) return null;
 
-  const moveHighlight = (direction: 1 | -1) => {
-    if (selectableIndices.length === 0) return;
-    const currentPos = selectableIndices.indexOf(highlightedIndex);
-    const nextPos =
-      currentPos === -1
-        ? 0
-        : Math.min(
-            selectableIndices.length - 1,
-            Math.max(0, currentPos + direction)
-          );
-    setHighlightedIndex(selectableIndices[nextPos]);
+  // The card grid wraps at 2 columns on md+, so Left/Right step by 1 and
+  // Up/Down step by a column count. We treat the list as a 2-col grid for
+  // vertical movement and a 1-D sequence for horizontal, which keeps arrow
+  // reach intuitive whether the list is one or two columns wide.
+  const GRID_COLS = 2;
+  const moveHighlight = (delta: number) => {
+    if (visibleKeys.length === 0) return;
+    const cur = highlightedKey ? visibleKeys.indexOf(highlightedKey) : -1;
+    const base = cur === -1 ? 0 : cur;
+    const next = Math.min(visibleKeys.length - 1, Math.max(0, base + delta));
+    setHighlightedKey(visibleKeys[next]);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+  const attachHighlighted = () => {
+    if (highlightedMethod) {
+      void onSelect(highlightedMethod.id, highlightedMethod.owner);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<Element>) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      moveHighlight(1);
+      moveHighlight(GRID_COLS);
     } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      moveHighlight(-GRID_COLS);
+    } else if (e.key === "ArrowRight") {
+      e.preventDefault();
+      moveHighlight(1);
+    } else if (e.key === "ArrowLeft") {
       e.preventDefault();
       moveHighlight(-1);
     } else if (e.key === "Enter") {
       e.preventDefault();
-      const row = flatRows[highlightedIndex];
-      if (row?.kind === "method") {
-        void onSelect(row.method.id, row.method.owner);
-      }
+      attachHighlighted();
     } else if (e.key === "Escape") {
       e.preventDefault();
       onClose();
     }
+  };
+
+  // Attaching a method. In keep-open mode the modal stays mounted and the
+  // card flips to Attached via `attachedKeys`; the caller (MethodTabs) gates
+  // its own close on `keepOpenOnSelect`. In single-link mode the caller
+  // closes as before.
+  const handleAttach = (m: Method) => {
+    void onSelect(m.id, m.owner);
+  };
+
+  const toggleForks = (m: Method) => {
+    const k = methodKey(m);
+    setExpandedForks((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+  };
+
+  const registerCardRef = (key: string, el: HTMLButtonElement | null) => {
+    if (el) cardRefs.current.set(key, el);
+    else cardRefs.current.delete(key);
   };
 
   return (
@@ -361,7 +559,7 @@ export default function MethodPicker({
         </div>
 
         <div className="flex-1 flex overflow-hidden">
-        <div ref={listRef} className="w-full md:w-[380px] md:shrink-0 overflow-y-auto md:border-r md:border-gray-100">
+        <div ref={listRef} className="w-full md:w-[560px] md:shrink-0 overflow-y-auto bg-gray-50/40 md:border-r md:border-gray-100">
           {isLoading ? (
             <div className="px-4 py-8 text-center text-sm text-gray-400">
               Loading methods…
@@ -380,94 +578,77 @@ export default function MethodPicker({
               clear the input.
             </div>
           ) : (
-            (() => {
-              // Track the running index of method (non-header) rows so the
-              // first method tile in the rendered list gets the canonical
-              // `experiment-attach-method-picker-first-method` anchor. The
-              // §6.6 cursor demo (MethodAttachmentAttachStep) clicks this
-              // anchor to attach the funny markdown method authored in
-              // §6.4d; without it the demo silently no-ops and every
-              // downstream §6.6 + §6.7 step wedges. Each subsequent tile
-              // also gets `experiment-attach-method-picker-method-{idx}`
-              // so future steps can target a specific method by index.
-              let methodIdx = -1;
-              return flatRows.map((row, index) => {
-              if (row.kind === "header") {
-                const isPinned = row.sectionKey.startsWith("pinned-");
-                const headerCls = isPinned
-                  ? "sticky top-0 z-10 bg-blue-50/95 backdrop-blur px-4 py-2 text-[11px] uppercase tracking-wide font-semibold text-blue-700 border-b border-blue-200 border-l-2 border-l-blue-400"
-                  : "sticky top-0 z-10 bg-gray-100/95 backdrop-blur px-4 py-2 text-[11px] uppercase tracking-wide font-semibold text-gray-700 border-b border-gray-200";
-                return (
-                  <div key={`h:${row.sectionKey}`} className={headerCls}>
-                    {row.label}
-                    <span
-                      className={`ml-2 normal-case tracking-normal font-normal ${
-                        isPinned ? "text-blue-400" : "text-gray-400"
-                      }`}
-                    >
-                      {row.count}
-                    </span>
-                  </div>
-                );
-              }
-              const m = row.method;
-              const isCurrent = m.id === currentMethodId;
-              const isHighlighted = index === highlightedIndex;
-              methodIdx += 1;
-              const tourTarget =
-                methodIdx === 0
-                  ? "experiment-attach-method-picker-first-method"
-                  : `experiment-attach-method-picker-method-${methodIdx}`;
-              return (
-                <button
-                  key={`${row.sectionKey}:${methodKey(m)}`}
-                  ref={(el) => {
-                    if (el) rowRefs.current.set(index, el);
-                    else rowRefs.current.delete(index);
-                  }}
-                  data-tour-target={tourTarget}
-                  onMouseEnter={() => setHighlightedIndex(index)}
-                  onClick={() => void onSelect(m.id, m.owner)}
-                  className={`w-full text-left px-4 py-2.5 border-b border-gray-50 transition-colors ${
-                    isHighlighted ? "bg-blue-50" : "bg-white hover:bg-gray-50"
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-sm font-medium text-gray-900 truncate">
-                        {m.name}
-                      </span>
-                      {m.method_type && m.method_type !== "markdown" && (() => {
-                        const meta = getMethodTypeMeta(m.method_type);
-                        return (
-                          <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${meta.color.bg} ${meta.color.text}`}>
-                            {meta.shortLabel}
-                          </span>
-                        );
-                      })()}
-                    </div>
-                    {isCurrent && (
-                      <span className="text-xs text-green-600 shrink-0">
-                        ✓ Current
-                      </span>
-                    )}
-                  </div>
-                  {m.tags && m.tags.length > 0 && (
-                    <div className="flex gap-1 mt-1 flex-wrap">
-                      {m.tags.map((tag) => (
+            <div
+              role="grid"
+              aria-label="Method library"
+              className="grid grid-cols-1 md:grid-cols-2 gap-2 p-3"
+            >
+              {(() => {
+                // Running index of TOP-LEVEL method cards so the first card
+                // gets the canonical
+                // `experiment-attach-method-picker-first-method` anchor and
+                // each subsequent card gets `...-method-{idx}`. The §6.6
+                // attach step + spotlight positioning resolve these exact
+                // attributes on the card <button>; future steps target a
+                // method by index. Forks nest INSIDE their parent card and
+                // are deliberately not given a top-level anchor.
+                let methodIdx = -1;
+                return flatRows.map((row) => {
+                  if (row.kind === "header") {
+                    const isPinned = row.sectionKey.startsWith("pinned-");
+                    const isSection =
+                      row.sectionKey === "own-section" ||
+                      row.sectionKey === "shared-section";
+                    const headerCls = isPinned
+                      ? "col-span-full sticky top-0 z-10 bg-blue-50/95 backdrop-blur px-1 py-2 text-[11px] uppercase tracking-wide font-semibold text-blue-700 border-b border-blue-200"
+                      : isSection
+                        ? "col-span-full px-1 pt-2 pb-1 text-xs uppercase tracking-wide font-bold text-gray-800 border-b border-gray-300"
+                        : "col-span-full px-1 py-1.5 text-[11px] uppercase tracking-wide font-semibold text-gray-500";
+                    return (
+                      <div key={`h:${row.sectionKey}`} className={headerCls}>
+                        {row.label}
                         <span
-                          key={tag}
-                          className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded"
+                          className={`ml-2 normal-case tracking-normal font-normal ${
+                            isPinned ? "text-blue-400" : "text-gray-400"
+                          }`}
                         >
-                          #{tag}
+                          {row.count}
                         </span>
-                      ))}
-                    </div>
-                  )}
-                </button>
-              );
-            });
-            })()
+                      </div>
+                    );
+                  }
+                  const m = row.method;
+                  const key = methodKey(m);
+                  const isOrphanFork =
+                    m.parent_method_id != null &&
+                    !presentIds.has(m.parent_method_id);
+                  methodIdx += 1;
+                  const tourTarget =
+                    methodIdx === 0
+                      ? "experiment-attach-method-picker-first-method"
+                      : `experiment-attach-method-picker-method-${methodIdx}`;
+                  return (
+                    <MethodCard
+                      key={`${row.sectionKey}:${key}`}
+                      method={m}
+                      forkChildren={forkChildren}
+                      attachedKeys={attachedKeys}
+                      isActive={highlightedKey === key}
+                      isHighlighted={highlightedKey === key}
+                      expandedForks={expandedForks}
+                      tabIndex={highlightedKey === key ? 0 : -1}
+                      tourTarget={tourTarget}
+                      orphanFork={isOrphanFork}
+                      onAttach={handleAttach}
+                      onHighlight={(hm) => setHighlightedKey(methodKey(hm))}
+                      onToggleForks={toggleForks}
+                      onKeyDown={handleKeyDown}
+                      registerRef={registerCardRef}
+                    />
+                  );
+                });
+              })()}
+            </div>
           )}
         </div>
         <div className="hidden md:flex md:flex-1 flex-col bg-gray-50/40 overflow-hidden">

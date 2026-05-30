@@ -11,7 +11,7 @@
 // stores both have entries, both surface as rows.
 
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Method, Task } from "@/lib/types";
 
@@ -25,6 +25,15 @@ vi.mock("@/lib/local-api", () => ({
   fetchAllTasks: vi.fn(async () => [] as Task[]),
   fetchAllMethodsIncludingShared: vi.fn(async () => mockMethods()),
   filesApi: { readFile: vi.fn(async () => ({ content: "" })) },
+  // The redesigned picker reads the current user to split My Methods from
+  // Shared with Lab. The §6.4d funny method is authored by Test_Walkthrough,
+  // so that user owns it and it lands in My Methods.
+  usersApi: {
+    list: vi.fn(async () => ({
+      users: ["Test_Walkthrough"],
+      current_user: "Test_Walkthrough",
+    })),
+  },
 }));
 
 import MethodPicker from "../MethodPicker";
@@ -118,18 +127,27 @@ describe("MethodPicker — own + public methods", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders the §6.4d own method first when it sits in its own folder", async () => {
+  it("renders the §6.4d own method above the lab-shared library", async () => {
     renderPicker();
 
-    // The picker groups by folder_path; "Methods" sorts before
-    // "Molecular Biology" alphabetically, so the own-folder header
-    // appears before the public-folder header. The user therefore
-    // sees their own work at the top of the picker, not buried
-    // below the lab-shared library.
-    const ownHeader = await screen.findByText("Methods");
-    const publicHeader = await screen.findByText("Molecular Biology");
-    const ownDocPosition = (ownHeader.compareDocumentPosition(publicHeader) &
-      Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
-    expect(ownDocPosition).toBe(true);
+    // The redesigned picker splits the rail into "My Methods" (own work,
+    // grouped by folder) and "Shared with Lab" (everything public / shared,
+    // grouped by owner). Test_Walkthrough owns the coffee protocol, so it
+    // lands under My Methods; the three public PDFs land under Shared with
+    // Lab. The My Methods section header therefore renders before the
+    // Shared with Lab one, so the user sees their own work at the top.
+    const ownSection = await screen.findByText("My Methods");
+    const sharedSection = await screen.findByText("Shared with Lab");
+    const ownComesFirst =
+      (ownSection.compareDocumentPosition(sharedSection) &
+        Node.DOCUMENT_POSITION_FOLLOWING) !==
+      0;
+    expect(ownComesFirst).toBe(true);
+
+    // The own method's folder header (its category) still appears inside
+    // My Methods. Scope to the card grid so the match is the rail folder
+    // header, not the preview pane's folder_path label for the same method.
+    const grid = await screen.findByRole("grid", { name: "Method library" });
+    expect(within(grid).getByText("Methods")).toBeInTheDocument();
   });
 });

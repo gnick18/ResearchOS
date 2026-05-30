@@ -24,6 +24,13 @@ vi.mock("@/lib/local-api", () => ({
   fetchAllTasks: vi.fn(async () => [] as Task[]),
   fetchAllMethodsIncludingShared: vi.fn(async () => mockMethods()),
   filesApi: { readFile: vi.fn(async () => ({ content: "" })) },
+  // The redesigned picker reads the current user to split My Methods from
+  // Shared with Lab. Neither test method belongs to "casey", so both land in
+  // Shared with Lab grouped by their owner — both still render as cards,
+  // which is all this composite-key regression pins.
+  usersApi: {
+    list: vi.fn(async () => ({ users: ["casey"], current_user: "casey" })),
+  },
 }));
 
 import MethodPicker from "../MethodPicker";

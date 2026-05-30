@@ -84,7 +84,13 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
       setActiveAttachmentKey(
         attachmentKey({ method_id: methodId, owner: methodOwner }, task.owner),
       );
-      setShowMethodSelector(false);
+      // Multi-attach (selector redesign 2026-05-29): the picker now stays
+      // OPEN after each attach so the user can pin several methods in a row.
+      // The just-attached card flips to "Attached" via the picker's
+      // `excludeMethods` machinery (we feed it the live attachment list
+      // below). The user closes the picker via Esc / the close button. The
+      // old force-close on attach was removed — see `keepOpenOnSelect` on the
+      // MethodPicker mount.
       if (updatedTask) onTaskUpdate?.(updatedTask);
     } catch (err) {
       console.error("Failed to add method:", err);
@@ -234,6 +240,10 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
         open={showMethodSelector}
         currentMethodId={null}
         currentProjectId={task.project_id}
+        // Multi-attach context: keep the picker open after each attach so the
+        // user can pin several methods without re-opening it. The attached
+        // cards stay visible and flip to "Attached" rather than vanishing.
+        keepOpenOnSelect
         excludeMethods={methodAttachments.map((a) => ({
           method_id: a.method_id,
           // null = same user as task; resolve to the task's owner so the
