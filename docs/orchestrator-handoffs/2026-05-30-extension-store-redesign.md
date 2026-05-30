@@ -7,9 +7,22 @@ Subject: Status of the widget store + method library "marketplace" redesign
 
 ## One-line state
 
-Phases A and B are MERGED to local main. Phase C (store-search bot) is queued /
-running. Phase D (store-detail bot) is drafted and waits on C. The arc closes
-with a 3-verifier loop after D.
+Phases A, B, and C are MERGED to local main. Phase D (store-detail bot) is
+QUEUED. A separate enablement-race fix bot is QUEUED (parallel, disjoint files).
+The arc closes with a 3-verifier loop after D.
+
+## Update log
+
+- 2026-05-30: Phase C merged (merge fd8c52da). Verified on the integrated tree
+  AFTER a large 81-template catalog integration (3df8fe30) landed from another
+  chat: C's filter modules are pure over passed-in entries with their own
+  fixtures, so they were unaffected; tsc clean, 37/37 targeted tests pass.
+  Queued enablement-race fix bot (lost-update race in setMethodTypeEnabled /
+  setWidgetEnabled, surfaced by store-search bot). Fired Phase D (store-detail
+  bot), reconciled against C and warned about the now-large catalog incl LC-MS
+  pairs that exist as separate lc + ms entries (not compound-bundled yet).
+  OPEN: D's verification must exercise the full 81-template catalog live; the
+  store-search bot only browsed the old 7-template manifest.
 
 ## Why this work exists
 
