@@ -637,11 +637,14 @@ export default function BeakerBotBugStompScene({
             style={{
               position: "absolute",
               left: direction.bugX,
-              top: "16px",
+              // Sized + raised to back the WHOLE bug + splat (they span ~ -8px
+              // to +40px from the ground line), not just the base, so no part
+              // pokes into the black stage (Grant: "doesnt cover enough").
+              top: "-16px",
               transform: "translate(-50%, 0)",
-              width: "96px",
-              height: "30px",
-              borderRadius: "11px",
+              width: "128px",
+              height: "66px",
+              borderRadius: "16px",
               background: "linear-gradient(180deg, #ece5d4 0%, #c5bda5 100%)",
               border: "1px solid #b1a88d",
               boxShadow:
