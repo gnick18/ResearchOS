@@ -47,6 +47,7 @@ vi.mock("@/lib/local-api", () => {
     },
     filesApi: {
       writeFile: vi.fn(async () => ({ path: "p", sha: "s" })),
+      uploadImage: vi.fn(async (path: string) => ({ path, sha: "s" })),
     },
   };
 });
@@ -404,5 +405,127 @@ describe("instantiateMethodFromTemplate", () => {
     expect(methodsApi.create).toHaveBeenCalledWith(
       expect.objectContaining({ name: "Q5 PCR", tags: ["pcr"] }),
     );
+  });
+
+  it("does NOT set source_pdf_path for a template without a bundled PDF", async () => {
+    vi.clearAllMocks();
+    await instantiateMethodFromTemplate(PCR_TEMPLATE);
+    expect(filesApi.uploadImage).not.toHaveBeenCalled();
+    const arg = (methodsApi.create as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as Record<string, unknown>;
+    expect("source_pdf_path" in arg).toBe(false);
+  });
+});
+
+// ── Kit Phase 1: bundled source-PDF copy ──────────────────────────────────────
+//
+// A kit template carries `source_pdf.bundled: true`. On instantiation the loader
+// fetches `sources/<slug>.pdf` BY CONVENTION (not from any caller-supplied path),
+// copies it via filesApi.uploadImage to methods/<methodSlug>/source-<file>.pdf,
+// and threads `source_pdf_path` onto the methodsApi.create call. The copy is a
+// best-effort add-on: a fetch / write failure must NOT fail the structured
+// instantiation.
+
+const KIT_PCR_TEMPLATE: MethodCatalogTemplate = {
+  ...PCR_TEMPLATE,
+  slug: "roche-faststart-taq",
+  title: "Roche FastStart Taq PCR",
+  source_pdf: {
+    bundled: true,
+    filename: "ftaq-ro.pdf",
+    source_url: "https://example.test/ftaq-ro.pdf",
+    sha256: "deadbeef",
+  },
+};
+
+function makePdfFetch(ok: boolean) {
+  return vi.fn(async (input: string) => ({
+    ok,
+    status: ok ? 200 : 404,
+    json: async () => ({}),
+    arrayBuffer: async () => new Uint8Array([0x25, 0x50, 0x44, 0x46]).buffer,
+    __input: input,
+  }));
+}
+
+describe("instantiateMethodFromTemplate — bundled source PDF (kit)", () => {
+  it("fetches sources/<slug>.pdf BY CONVENTION, copies it, and sets source_pdf_path", async () => {
+    vi.clearAllMocks();
+    const pdfFetch = makePdfFetch(true);
+    const created = await instantiateMethodFromTemplate(
+      KIT_PCR_TEMPLATE,
+      { folderPath: "Molecular Biology" },
+      undefined,
+      pdfFetch,
+    );
+
+    // Structured create is unchanged (pcr sidecar still created).
+    expect(pcrApi.create).toHaveBeenCalledTimes(1);
+
+    // The PDF was fetched from the slug-derived convention path, NOT from
+    // source_url / filename.
+    expect(pdfFetch).toHaveBeenCalledWith(
+      "/method-catalog/sources/roche-faststart-taq.pdf",
+    );
+
+    // Copied via the existing pdf-method primitive into the method folder.
+    expect(filesApi.uploadImage).toHaveBeenCalledTimes(1);
+    const [copyPath] = (filesApi.uploadImage as ReturnType<typeof vi.fn>).mock
+      .calls[0];
+    expect(copyPath).toBe(
+      "methods/roche-faststart-taq-pcr/source-ftaq-ro.pdf",
+    );
+
+    // source_pdf_path threaded onto the method row.
+    expect(methodsApi.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method_type: "pcr",
+        source_path: "pcr://protocol/1",
+        source_pdf_path: "methods/roche-faststart-taq-pcr/source-ftaq-ro.pdf",
+      }),
+    );
+    expect(created.owner).toBe("alex");
+  });
+
+  it("a PDF-copy failure does NOT fail the structured instantiation (best-effort)", async () => {
+    vi.clearAllMocks();
+    const failingFetch = makePdfFetch(false); // 404 on the asset
+    const created = await instantiateMethodFromTemplate(
+      KIT_PCR_TEMPLATE,
+      {},
+      undefined,
+      failingFetch,
+    );
+
+    // Structured create still happened and a method was returned.
+    expect(pcrApi.create).toHaveBeenCalledTimes(1);
+    expect(methodsApi.create).toHaveBeenCalledTimes(1);
+    expect(created.owner).toBe("alex");
+
+    // No copy, and source_pdf_path is omitted (not set to a broken path).
+    expect(filesApi.uploadImage).not.toHaveBeenCalled();
+    const arg = (methodsApi.create as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as Record<string, unknown>;
+    expect("source_pdf_path" in arg).toBe(false);
+  });
+
+  it("a thrown uploadImage is swallowed and instantiation still succeeds", async () => {
+    vi.clearAllMocks();
+    (filesApi.uploadImage as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error("disk full"),
+    );
+    const okFetch = makePdfFetch(true);
+    const created = await instantiateMethodFromTemplate(
+      KIT_PCR_TEMPLATE,
+      {},
+      undefined,
+      okFetch,
+    );
+
+    expect(methodsApi.create).toHaveBeenCalledTimes(1);
+    const arg = (methodsApi.create as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as Record<string, unknown>;
+    expect("source_pdf_path" in arg).toBe(false);
+    expect(created.owner).toBe("alex");
   });
 });

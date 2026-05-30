@@ -781,6 +781,13 @@ export interface Method {
   id: number;
   name: string;
   source_path: string | null;
+  // Optional path to a BUNDLED source PDF copied alongside a structured method
+  // when it was instantiated from a "kit" catalog template (Kit Phase 1). The
+  // structured `source_path` is unchanged; this is a best-effort attachment
+  // pointing at `methods/<slug>/source-<vendorFilename>.pdf` under the
+  // connected folder, decoded + rendered by the existing pdf-method viewer.
+  // Null / absent for every method not instantiated from a bundled-PDF kit.
+  source_pdf_path?: string | null;
   method_type: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "mass_spec" | "compound" | "coding_workflow" | "qpcr_analysis" | null;
   folder_path: string | null;
   parent_method_id: number | null;
@@ -811,6 +818,11 @@ export interface Method {
 export interface MethodCreate {
   name: string;
   source_path?: string | null;
+  // Kit Phase 1: optional bundled source-PDF path attached to a structured
+  // method instantiated from a kit template. Threads through
+  // `methodsApi.create` (which spreads the create payload onto the stored
+  // record). Omit / null for non-kit creates.
+  source_pdf_path?: string | null;
   method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "mass_spec" | "compound" | "coding_workflow" | "qpcr_analysis";
   folder_path?: string | null;
   parent_method_id?: number | null;
@@ -837,6 +849,8 @@ export interface MethodCreate {
 export interface MethodUpdate {
   name?: string;
   source_path?: string | null;
+  // Kit Phase 1: optional bundled source-PDF path (see Method.source_pdf_path).
+  source_pdf_path?: string | null;
   method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "mass_spec" | "compound" | "coding_workflow" | "qpcr_analysis" | null;
   folder_path?: string | null;
   parent_method_id?: number | null;

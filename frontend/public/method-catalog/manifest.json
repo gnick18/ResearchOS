@@ -1273,7 +1273,13 @@
         "faststart",
         "taq",
         "hot-start"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "ftaq-ro.pdf",
+        "source_url": "https://www.sigmaaldrich.com/deepweb/assets/sigmaaldrich/product/documents/271/272/ftaq-ro.pdf",
+        "sha256": "8400bd1630940eb1ebd8a817f1a7605ef00ed413058b29608520b9e6e11b11e4"
+      }
     }
   ]
 }

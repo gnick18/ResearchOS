@@ -124,6 +124,31 @@ export type CatalogMethodType =
   | "cell_culture"
   | "mass_spec";
 
+// ── Bundled source PDF ("kit" templates) ─────────────────────────────────────
+//
+// Kit Phase 1: a template MAY declare a BUNDLED source PDF, shipped in the build
+// under `${METHOD_CATALOG_BASE}/sources/<slug>.pdf`. The kit stays ONE
+// structured method (its native pcr / lc_gradient / etc.) with this PDF attached
+// via the existing pdf-method storage + iframe viewer (no compound machinery).
+// The descriptor below is pure provenance metadata: the loader resolves the
+// fetch URL BY CONVENTION from the slug (never from `filename` / `source_url`),
+// so a template cannot point a fetch at an arbitrary file. `bundled: true` means
+// the PDF ships in-build and is copied on instantiation; `source_url` alone
+// (no bundle) is a link-only reference; absent means no PDF at all.
+export interface MethodCatalogSourcePdf {
+  /** Whether the PDF is shipped in-build at `sources/<slug>.pdf` and should be
+   *  copied alongside the method on instantiation. */
+  bundled: boolean;
+  /** The vendor's original filename, used only to name the copied attachment
+   *  (`source-<filename>.pdf`) and for display. Never used to build a fetch URL. */
+  filename: string;
+  /** Optional upstream URL the PDF was sourced from (provenance / link-only). */
+  source_url?: string;
+  /** Optional SHA-256 of the bundled asset, for an integrity check in the
+   *  coverage test. */
+  sha256?: string;
+}
+
 // ── The template + manifest schema ───────────────────────────────────────────
 
 interface MethodCatalogTemplateBase {
@@ -139,6 +164,8 @@ interface MethodCatalogTemplateBase {
   category: string;
   /** Optional searchable keywords. */
   tags?: string[];
+  /** Kit Phase 1: optional bundled / linked source PDF (vendor pack insert). */
+  source_pdf?: MethodCatalogSourcePdf;
 }
 
 export type MethodCatalogTemplate = MethodCatalogTemplateBase &
@@ -160,6 +187,10 @@ export interface MethodCatalogManifestEntry {
   category: string;
   method_type: CatalogMethodType;
   tags?: string[];
+  /** Kit Phase 1: optional bundled / linked source PDF, mirrored from the
+   *  template so the browse surface can show a "kit" badge without fetching the
+   *  full payload. */
+  source_pdf?: MethodCatalogSourcePdf;
 }
 
 export interface MethodCatalogManifest {
@@ -194,6 +225,40 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+/** Shape-check an optional `source_pdf` descriptor. Returns `undefined` when the
+ *  field is absent (the common case), the validated descriptor when present and
+ *  well-formed, and THROWS when present but malformed. `filename` / `source_url`
+ *  are kept only as provenance metadata; they are never used to build a fetch
+ *  URL (the loader resolves bundled assets by slug convention). `label` is the
+ *  caller context for the error message (e.g. a slug or "manifest entry"). */
+function parseSourcePdf(
+  raw: unknown,
+  label: string,
+): MethodCatalogSourcePdf | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  if (!isRecord(raw)) {
+    throw new Error(`${label}: source_pdf is not an object`);
+  }
+  if (typeof raw.bundled !== "boolean") {
+    throw new Error(`${label}: source_pdf.bundled must be a boolean`);
+  }
+  if (typeof raw.filename !== "string" || raw.filename.length === 0) {
+    throw new Error(`${label}: source_pdf.filename must be a non-empty string`);
+  }
+  if (raw.source_url !== undefined && typeof raw.source_url !== "string") {
+    throw new Error(`${label}: source_pdf.source_url must be a string when set`);
+  }
+  if (raw.sha256 !== undefined && typeof raw.sha256 !== "string") {
+    throw new Error(`${label}: source_pdf.sha256 must be a string when set`);
+  }
+  return {
+    bundled: raw.bundled,
+    filename: raw.filename,
+    ...(raw.source_url !== undefined ? { source_url: raw.source_url } : {}),
+    ...(raw.sha256 !== undefined ? { sha256: raw.sha256 } : {}),
+  };
+}
+
 /** Parse + validate the manifest JSON. Throws on a malformed manifest. */
 export function parseMethodCatalogManifest(raw: unknown): MethodCatalogManifest {
   if (!isRecord(raw)) {
@@ -225,6 +290,10 @@ export function parseMethodCatalogManifest(raw: unknown): MethodCatalogManifest 
           `manifest template "${slug}" has an unsupported method_type`,
         );
       }
+      const source_pdf = parseSourcePdf(
+        entry.source_pdf,
+        `manifest template "${slug}"`,
+      );
       return {
         slug,
         title,
@@ -234,6 +303,7 @@ export function parseMethodCatalogManifest(raw: unknown): MethodCatalogManifest 
         tags: Array.isArray(tags)
           ? tags.filter((t): t is string => typeof t === "string")
           : undefined,
+        ...(source_pdf ? { source_pdf } : {}),
       };
     },
   );
@@ -268,6 +338,7 @@ export function parseMethodCatalogTemplate(raw: unknown): MethodCatalogTemplate 
   if (!isRecord(payload)) {
     throw new Error(`template "${slug}" is missing a payload object`);
   }
+  const source_pdf = parseSourcePdf(raw.source_pdf, `template "${slug}"`);
   // The per-type payload is build-shipped data trusted beyond the presence
   // check above (mirrors the demo-data loader). Cast through `unknown` to land
   // on the discriminated union: method_type is already narrowed to a
@@ -282,16 +353,20 @@ export function parseMethodCatalogTemplate(raw: unknown): MethodCatalogTemplate 
     tags: Array.isArray(tags)
       ? tags.filter((t): t is string => typeof t === "string")
       : undefined,
+    ...(source_pdf ? { source_pdf } : {}),
   } as unknown as MethodCatalogTemplate;
 }
 
 // ── Fetching ─────────────────────────────────────────────────────────────────
 
-/** A swappable fetch impl so the loader is testable without a real network. */
+/** A swappable fetch impl so the loader is testable without a real network.
+ *  `arrayBuffer` is optional: only the bundled-source-PDF copy uses it, and
+ *  only when `source_pdf.bundled` is true. */
 type FetchLike = (input: string) => Promise<{
   ok: boolean;
   status: number;
   json: () => Promise<unknown>;
+  arrayBuffer?: () => Promise<ArrayBuffer>;
 }>;
 
 function resolveFetch(custom?: FetchLike): FetchLike {
@@ -352,6 +427,75 @@ function slugifyTitle(title: string): string {
     .replace(/[^a-z0-9-]/g, "");
 }
 
+/** Encode an ArrayBuffer to base64 (the form `filesApi.uploadImage` expects),
+ *  chunked to avoid blowing the call stack on a multi-hundred-KB PDF. */
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  if (typeof btoa === "function") return btoa(binary);
+  // Node fallback (tests / SSR): Buffer is available where btoa is not.
+  return Buffer.from(binary, "binary").toString("base64");
+}
+
+/**
+ * Best-effort copy of a template's BUNDLED source PDF into the new method's
+ * folder, reusing the existing pdf-method storage primitive
+ * (`filesApi.uploadImage`, base64 -> blob, the same call CreateMethodModal makes
+ * for an uploaded PDF). The fetch URL is resolved BY CONVENTION from the slug
+ * (`sources/<templateSlug>.pdf`), NEVER from the template-supplied `filename` /
+ * `source_url`, so a template cannot point the fetch at an arbitrary asset.
+ *
+ * Returns the written `source_pdf_path` on success, or `null` on ANY failure
+ * (no bundle declared, fetch miss, decode error, write error). A null return is
+ * intentionally swallowed by the caller: a PDF-copy failure must NEVER fail the
+ * structured instantiation, which has already succeeded by the time this runs.
+ */
+async function copyBundledSourcePdf(
+  template: MethodCatalogTemplate,
+  methodSlug: string,
+  doFetch: FetchLike,
+  filesApiDep: Pick<typeof filesApi, "uploadImage">,
+): Promise<string | null> {
+  const sourcePdf = template.source_pdf;
+  if (!sourcePdf?.bundled) return null;
+  try {
+    const assetUrl = `${METHOD_CATALOG_BASE}/sources/${template.slug}.pdf`;
+    const res = await doFetch(assetUrl);
+    if (!res.ok || typeof res.arrayBuffer !== "function") {
+      console.warn(
+        `[method-catalog] bundled source PDF for "${template.slug}" not available (status ${res.status}); skipping PDF copy`,
+      );
+      return null;
+    }
+    const base64 = arrayBufferToBase64(await res.arrayBuffer());
+    // Sanitize the vendor filename for the on-disk attachment name; keep a
+    // .pdf extension. Falls back to the slug if sanitization empties it.
+    const safeName =
+      sourcePdf.filename.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/^-+/, "") ||
+      `${template.slug}.pdf`;
+    const withExt = safeName.toLowerCase().endsWith(".pdf")
+      ? safeName
+      : `${safeName}.pdf`;
+    const targetPath = `methods/${methodSlug}/source-${withExt}`;
+    await filesApiDep.uploadImage(
+      targetPath,
+      base64,
+      `Bundle source PDF: ${template.title}`,
+    );
+    return targetPath;
+  } catch (err) {
+    console.warn(
+      `[method-catalog] failed to copy bundled source PDF for "${template.slug}"; instantiation continues without it`,
+      err,
+    );
+    return null;
+  }
+}
+
 export interface InstantiateTemplateOptions {
   /** Destination folder (category) for the new method. Empty = uncategorized. */
   folderPath?: string | null;
@@ -371,7 +515,9 @@ export interface InstantiateTemplateDeps {
   plateApi: Pick<typeof plateApi, "create">;
   cellCultureApi: Pick<typeof cellCultureApi, "create">;
   massSpecApi: Pick<typeof massSpecApi, "create">;
-  filesApi: Pick<typeof filesApi, "writeFile">;
+  // `writeFile` backs the markdown source; `uploadImage` is the existing binary
+  // (base64 -> blob) primitive reused to copy a bundled source PDF (Kit Phase 1).
+  filesApi: Pick<typeof filesApi, "writeFile" | "uploadImage">;
 }
 
 const DEFAULT_DEPS: InstantiateTemplateDeps = {
@@ -394,6 +540,7 @@ export async function instantiateMethodFromTemplate(
   template: MethodCatalogTemplate,
   options: InstantiateTemplateOptions = {},
   deps: InstantiateTemplateDeps = DEFAULT_DEPS,
+  customFetch?: FetchLike,
 ): Promise<Method> {
   const name = (options.name ?? template.title).trim();
   const folderPath =
@@ -402,18 +549,37 @@ export async function instantiateMethodFromTemplate(
       : null;
   const tags = options.tags ?? template.tags ?? [];
 
+  // A stable per-method slug used both for the markdown source folder and the
+  // bundled-PDF attachment folder (`methods/<methodSlug>/...`). Resolving fetch
+  // is deferred so non-kit templates (no source_pdf) never touch fetch.
+  const methodSlug = slugifyTitle(name) || "method";
+  // Best-effort bundled-PDF copy, run AFTER the structured create in each branch
+  // so a PDF failure can never take down the structured instantiation. Returns
+  // `null` when the template declares no bundled PDF or any step fails.
+  const copyPdf = (): Promise<string | null> =>
+    template.source_pdf?.bundled
+      ? copyBundledSourcePdf(
+          template,
+          methodSlug,
+          resolveFetch(customFetch),
+          deps.filesApi,
+        )
+      : Promise.resolve(null);
+
   switch (template.method_type) {
     case "markdown": {
-      const slug = slugifyTitle(name) || "method";
+      const slug = methodSlug;
       const sourcePath = `methods/${slug}/${slug}.md`;
       const stamp = createNewFileContent(name, folderPath || "Methods", "method");
       const body = template.payload.body
         ? `${stamp}\n${template.payload.body}`
         : stamp;
       await deps.filesApi.writeFile(sourcePath, body, `Create method: ${name}`);
+      const sourcePdfPath = await copyPdf();
       return deps.methodsApi.create({
         name,
         source_path: sourcePath,
+        ...(sourcePdfPath ? { source_pdf_path: sourcePdfPath } : {}),
         method_type: "markdown",
         folder_path: folderPath,
         tags,
@@ -429,9 +595,11 @@ export async function instantiateMethodFromTemplate(
         folder_path: folderPath,
         is_public: false,
       });
+      const sourcePdfPath = await copyPdf();
       return deps.methodsApi.create({
         name,
         source_path: `pcr://protocol/${protocol.id}`,
+        ...(sourcePdfPath ? { source_pdf_path: sourcePdfPath } : {}),
         method_type: "pcr",
         folder_path: folderPath,
         tags,
@@ -449,9 +617,11 @@ export async function instantiateMethodFromTemplate(
         folder_path: folderPath,
         is_public: false,
       });
+      const sourcePdfPath = await copyPdf();
       return deps.methodsApi.create({
         name,
         source_path: `lc_gradient://protocol/${protocol.id}`,
+        ...(sourcePdfPath ? { source_pdf_path: sourcePdfPath } : {}),
         method_type: "lc_gradient",
         folder_path: folderPath,
         tags,
@@ -467,9 +637,11 @@ export async function instantiateMethodFromTemplate(
         folder_path: folderPath,
         is_public: false,
       });
+      const sourcePdfPath = await copyPdf();
       return deps.methodsApi.create({
         name,
         source_path: `plate://protocol/${protocol.id}`,
+        ...(sourcePdfPath ? { source_pdf_path: sourcePdfPath } : {}),
         method_type: "plate",
         folder_path: folderPath,
         tags,
@@ -486,9 +658,11 @@ export async function instantiateMethodFromTemplate(
         folder_path: folderPath,
         is_public: false,
       });
+      const sourcePdfPath = await copyPdf();
       return deps.methodsApi.create({
         name,
         source_path: `cell_culture://protocol/${schedule.id}`,
+        ...(sourcePdfPath ? { source_pdf_path: sourcePdfPath } : {}),
         method_type: "cell_culture",
         folder_path: folderPath,
         tags,
@@ -508,9 +682,11 @@ export async function instantiateMethodFromTemplate(
         folder_path: folderPath,
         is_public: false,
       });
+      const sourcePdfPath = await copyPdf();
       return deps.methodsApi.create({
         name,
         source_path: `mass_spec://protocol/${protocol.id}`,
+        ...(sourcePdfPath ? { source_pdf_path: sourcePdfPath } : {}),
         method_type: "mass_spec",
         folder_path: folderPath,
         tags,
