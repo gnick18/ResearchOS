@@ -220,12 +220,15 @@ export default function PerformanceHall() {
     const clip = sceneViewport.parentElement;
     if (!clip) return;
 
-    // Multiply the contain-fit so the performer reads larger than a pure
-    // contain. Kept conservative: at 1.45 with a low (88%) origin the zoom
-    // pushed off-center performers (Centrifuge bot, BlowingBubbles) clean out
-    // of frame. 1.22 with a near-center origin (see .prosceniumSceneViewport)
-    // keeps every scene's performer in view while still reading larger.
-    const SCENE_ZOOM = 1.22;
+    // PURE contain-fit, no zoom (orchestrator manager). Grant: "treat the
+    // stage as a mini computer screen that are his coordinate box limits."
+    // Any zoom > 1 maps the scene's full coordinate space LARGER than the
+    // window, so wherever the bot walks to the edge of his own scene he walks
+    // off the stage. At exactly the contain-fit, the scene's full viewport
+    // maps onto the window 1:1, so the stage edges ARE his coordinate limits
+    // and he can never leave the frame. Size is then governed by the window
+    // dimensions (kept large below), not a zoom.
+    const SCENE_ZOOM = 1.0;
 
     let raf = 0;
     let attempts = 0;
