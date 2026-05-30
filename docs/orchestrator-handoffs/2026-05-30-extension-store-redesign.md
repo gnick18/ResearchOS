@@ -40,10 +40,21 @@ hold below).
   manifest is now 88 templates (catalog session still adding; store is dynamic).
 
 VERIFIER LOOP COMPLETE: spec PASS, mechanics PASS, fresh-eyes triaged. No
-correctness defects. Remaining work is the queued chips (widget-card-copy,
-store-polish, methods-page-width) plus the held compound follow-up. Once those
-land and merge, the arc is fully closed; re-verify the compound path when a
-compound catalog entry exists.
+correctness defects.
+
+Chip status (2026-05-30):
+- widget-card-copy: MERGED (8964d993), verified 18/18 on main.
+- methods-page-width: MERGED. Grids bumped to the app-standard xl:grid-cols-4;
+  the fresh-eyes "narrow column" was below-convention column cap + demo single-
+  method folders. Option 3 (pack sparse bands 2-up) DECLINED as a demo-data
+  artifact (real libraries with many methods/folder do not show it) and because
+  it diverges from the card-grid convention + touches drag-drop. Revisit only
+  if Grant asks.
+- store-polish: QUEUED.
+- compound-wiring (contract step 3): QUEUED. RUN AFTER store-polish (shared
+  files: compound-template-detail.ts, MethodTemplateLibraryModal.tsx).
+Once both land, the build is done; the contract's step-5 verifier loop runs on
+the live compound path after the catalog session adds step-4 entries.
 
 ## Compound coordination: RESOLVED (2026-05-30)
 
