@@ -301,6 +301,8 @@ export function MethodTemplateLibraryModal({
               onEnableType={() =>
                 setEnabled(item.entry.method_type as MethodTypeId, true)
               }
+              isKit={item.entry.method_type === "compound"}
+              onViewKit={onSelect}
             />
           )}
         </SelectableCard>
@@ -463,13 +465,16 @@ function MethodTypeCard({
 
 // ── Protocol-template card ───────────────────────────────────────────────────
 
-function ProtocolTemplateCard({
+/** Exported for unit tests (kit-vs-single-type gating). */
+export function ProtocolTemplateCard({
   entry,
   typeEnabled,
   isUsing,
   anyUsing,
   onUse,
   onEnableType,
+  isKit = false,
+  onViewKit,
 }: {
   entry: MethodCatalogManifestEntry;
   typeEnabled: boolean;
@@ -477,6 +482,21 @@ function ProtocolTemplateCard({
   anyUsing: boolean;
   onUse: () => void;
   onEnableType: () => void;
+  /**
+   * A kit (compound) bundles several component types, and its component-type
+   * gate lives in the DETAIL pane: that gate needs the fetched payload to know
+   * the component types, which this card does NOT have (it holds only the
+   * manifest entry). The card's own per-type gate keys off the "compound"
+   * method type, which is ALWAYS enabled (the ALWAYS_ENABLED carve-out in
+   * method-type-enablement.ts), so an inline Use here would ALWAYS fire and
+   * bypass the real gate. So a kit card offers NO inline Use: it shows a
+   * neutral "View kit" affordance that opens the detail, where Use is correctly
+   * gated on the component types. Single-type cards keep their inline Use +
+   * per-type gate unchanged.
+   */
+  isKit?: boolean;
+  /** Open the detail pane (the kit card's only action). */
+  onViewKit?: () => void;
 }) {
   const typeId = entry.method_type as MethodTypeId;
   const meta = getMethodTypeMeta(typeId);
@@ -506,37 +526,57 @@ function ProtocolTemplateCard({
         </div>
       )}
       <div className="mt-3 flex items-center justify-end gap-2">
-        {!typeEnabled && (
-          <Tooltip
-            label={`${meta.label} is disabled in your library`}
-            placement="top"
-          >
-            <span className="text-[10px] text-amber-600">Type disabled</span>
-          </Tooltip>
-        )}
-        {typeEnabled ? (
+        {isKit ? (
+          // Kit cards cannot gate component types from the manifest alone, so
+          // they route to the (correctly-gated) detail rather than offering a
+          // bypassing inline Use. See the isKit prop doc above.
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              onUse();
-            }}
-            disabled={anyUsing}
-            className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-          >
-            {isUsing ? "Adding..." : "Use template"}
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onEnableType();
+              onViewKit?.();
             }}
             className="px-3 py-1.5 text-xs border border-blue-600 text-blue-700 rounded-lg hover:bg-blue-50"
           >
-            Enable {meta.label}
+            View kit
           </button>
+        ) : (
+          <>
+            {!typeEnabled && (
+              <Tooltip
+                label={`${meta.label} is disabled in your library`}
+                placement="top"
+              >
+                <span className="text-[10px] text-amber-600">
+                  Type disabled
+                </span>
+              </Tooltip>
+            )}
+            {typeEnabled ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUse();
+                }}
+                disabled={anyUsing}
+                className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {isUsing ? "Adding..." : "Use template"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEnableType();
+                }}
+                className="px-3 py-1.5 text-xs border border-blue-600 text-blue-700 rounded-lg hover:bg-blue-50"
+              >
+                Enable {meta.label}
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>
