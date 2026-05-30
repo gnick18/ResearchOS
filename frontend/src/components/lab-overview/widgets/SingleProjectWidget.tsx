@@ -454,6 +454,10 @@ export function SnapshotTile(props: SnapshotTileProps) {
   // Drag-guard: remember where the pointer went down so a click that ends
   // far from its start (a drag-reorder gesture) doesn't fire navigation.
   const downAt = useRef<{ x: number; y: number } | null>(null);
+  // True only between a real `pointerdown` on this tile and the click it
+  // produces. The drag-guard consults this so a SYNTHETIC tour `.click()`
+  // (no pointerdown) is never mistaken for a drag off a stale `downAt`.
+  const pressed = useRef(false);
 
   const pct = pinned ? progressPct(pinned) : 0;
 
@@ -469,7 +473,22 @@ export function SnapshotTile(props: SnapshotTileProps) {
    *       reorder drag, not a click).
    *  On a real navigate click we `stopPropagation` so the wrapper's
    *  popup-open handler doesn't also fire (the popup is now the picker, not
-   *  the primary destination of a pinned-tile click). */
+   *  the primary destination of a pinned-tile click).
+   *
+   *  §6.1 tour NAV fix (newproject-modal-tour-fix bot, 2026-05-29): Grant's
+   *  hand-verify showed the §6.1 `project-overview-nav` beat — where the
+   *  cursor synthetically `.click()`s this tile — "closed right away" instead
+   *  of navigating: the SnapshotCanvas wrapper's popup-open handler fired and
+   *  the SnapshotTilePopup flashed. Root cause: the synthetic `el.click()`
+   *  carries NO preceding `pointerdown`, so `downAt` held STALE coordinates
+   *  from a prior real pointerdown on this tile; the drag-guard then read that
+   *  stale delta as "moved too far" and bailed BEFORE `stopPropagation` +
+   *  `router.push`, letting the click bubble to the wrapper, which opened the
+   *  pin-picker popup. Fix: gate the drag-guard on a `pressed` flag that is
+   *  only true between a real `pointerdown` and the click it produced. A
+   *  synthetic click (pressed === false) can never be mistaken for a drag, so
+   *  it always reaches the navigate path. The flag also clears the stale
+   *  `downAt` read for real clicks that follow a drag on a sibling tile. */
   const onBodyClick = (e: React.MouseEvent) => {
     if (!pinned) return; // unpinned: let it bubble → wrapper opens the picker
     // Clicks on the change affordance bubble up to the wrapper untouched so
@@ -480,14 +499,25 @@ export function SnapshotTile(props: SnapshotTileProps) {
     const editing =
       (e.currentTarget as HTMLElement).closest('[draggable="true"]') !== null;
     if (editing) return; // edit/drag mode: swallow, don't navigate
+    // Drag-guard: only treat the gesture as a drag when a REAL pointerdown
+    // started it on this tile (pressed.current) AND the pointer moved past the
+    // slop threshold. A synthetic tour `.click()` has no pointerdown, so
+    // pressed.current is false and it always falls through to navigation
+    // rather than being read as a drag off a stale `downAt`.
     const start = downAt.current;
+    const wasPressed = pressed.current;
+    pressed.current = false; // consume the press for this click
     if (
+      wasPressed &&
       start &&
       (Math.abs(e.clientX - start.x) > DRAG_SLOP_PX ||
         Math.abs(e.clientY - start.y) > DRAG_SLOP_PX)
     ) {
       return; // moved too far: this was a drag, not a click
     }
+    // Navigate. stopPropagation keeps the SnapshotCanvas wrapper's popup-open
+    // onClick from also firing (the popup is the pin-picker, not the primary
+    // destination of a pinned-tile click).
     e.stopPropagation();
     router.push(projectHref(pinned, currentUser));
   };
@@ -497,6 +527,7 @@ export function SnapshotTile(props: SnapshotTileProps) {
       className="relative h-full overflow-hidden flex flex-col"
       onPointerDown={(e) => {
         downAt.current = { x: e.clientX, y: e.clientY };
+        pressed.current = true;
       }}
       onClick={onBodyClick}
       // §6.1 tour anchor (dashboard-newproject-tour bot, 2026-05-29): when the

@@ -1,0 +1,293 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import Tooltip from "@/components/Tooltip";
+import { createProjectWithDashboardWidget } from "@/lib/lab-overview/create-project-with-widget";
+
+/**
+ * Full project-create modal (newproject-modal-tour-fix bot, 2026-05-29).
+ *
+ * Grant's correction to the §6.1 dashboard rework: the "+ New Project" button
+ * must open the FULL project-create popup the old Home page used, NOT the
+ * cramped inline strip (a color swatch + a name only). This is that popup,
+ * lifted from `02efe403~1:frontend/src/app/page.tsx`'s create form into a
+ * clean, reusable overlay dialog: name + COLOR (swatch row) + TAGS
+ * (comma-separated) + the seven-day-week (WEEKEND_ACTIVE) toggle.
+ *
+ * Reuses `createProjectWithDashboardWidget` so a create from this modal still
+ * auto-pins a Single Project widget to the dashboard in the project color
+ * (the §6.1 NAV beat then clicks that tile). The widget helper is the single
+ * chokepoint, so the modal passes the full field set (color + tags +
+ * weekend_active) through to it.
+ *
+ * Modal chrome mirrors the house pattern (SnapshotTilePopup): fixed inset
+ * overlay, backdrop dim, click-outside + Escape close, focus restore on
+ * unmount. Custom inline SVG, project `<Tooltip>`, no native title=, no
+ * emojis, no em-dashes.
+ *
+ * TOUR (§6.1): the FILL beat spotlights `home-project-create-form` (the modal
+ * panel) and the trigger beat's `tour:home-create-modal-opened` event is
+ * dispatched by the OPENER (DashboardNewProject / the walkthrough step), not
+ * here, so the event fires exactly once on open. The name input carries
+ * `home-project-name-input`, the submit button `home-project-create-submit`,
+ * and the panel `home-project-create-form` so the cursor script + spotlights
+ * still resolve.
+ */
+
+/** The same swatch palette the old Home create form offered. */
+export const PROJECT_COLOR_SWATCHES = [
+  "#3b82f6",
+  "#10b981",
+  "#f59e0b",
+  "#ef4444",
+  "#8b5cf6",
+  "#ec4899",
+  "#06b6d4",
+  "#84cc16",
+  "#f97316",
+  "#6366f1",
+];
+
+const CLOSE_SVG = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
+
+export interface ProjectCreateModalProps {
+  /** The dashboard owner (current user) whose layout receives the auto
+   *  Single Project widget. */
+  username: string;
+  /** Close the modal without creating (backdrop click, Escape, Cancel). */
+  onClose: () => void;
+  /** Called after a successful create so the caller can refresh its view.
+   *  The created project is passed for callers that want to react to it. */
+  onCreated: () => void;
+}
+
+export default function ProjectCreateModal({
+  username,
+  onClose,
+  onCreated,
+}: ProjectCreateModalProps) {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState("");
+  const [tags, setTags] = useState("");
+  const [color, setColor] = useState(PROJECT_COLOR_SWATCHES[0]);
+  const [weekendActive, setWeekendActive] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Restore focus to the opener (the "+ New Project" button) on close, the
+  // same accessibility pattern SnapshotTilePopup uses.
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    restoreFocusRef.current =
+      (document.activeElement as HTMLElement | null) ?? null;
+    return () => {
+      try {
+        restoreFocusRef.current?.focus?.();
+      } catch {
+        // best-effort focus restore — never throw on unmount
+      }
+    };
+  }, []);
+
+  // Escape closes the modal (matches the house popups).
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const submit = async () => {
+    const trimmed = name.trim();
+    if (!trimmed || saving) return;
+    setSaving(true);
+    try {
+      await createProjectWithDashboardWidget({
+        username,
+        name: trimmed,
+        color,
+        tags: tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
+        weekend_active: weekendActive,
+      });
+      // Refresh both the widget reads and any legacy project consumers so the
+      // new project + its auto-widget show everywhere without a reload.
+      await queryClient.invalidateQueries({
+        queryKey: ["lab", "projects-with-progress"],
+      });
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      onCreated();
+      onClose();
+    } catch {
+      // projectsApi.create throws on empty names; the guard above blocks that,
+      // so a throw here is an unexpected write failure.
+      window.alert("Failed to create project");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      // z=440 mirrors SnapshotTilePopup: above InputLockOverlay (420) so the
+      // modal stays interactive inside the v4 tour, below the speech bubble
+      // (450) so a tour spotlight anchored on the panel is not occluded.
+      className="fixed inset-0 z-[440] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label="New Research Project"
+      onClick={onClose}
+    >
+      <div
+        // §6.1 FILL beat anchor: spotlights the whole create-form panel.
+        data-tour-target="home-project-create-form"
+        data-testid="project-create-modal"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col overflow-hidden"
+        style={{
+          boxShadow:
+            "0 1px 3px rgba(0,0,0,0.06), 0 20px 50px -10px rgba(0,0,0,0.25)",
+        }}
+        // Clicks inside the panel must not bubble to the backdrop close.
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="flex items-center gap-2 px-5 py-4 border-b border-gray-100">
+          <h2 className="flex-1 min-w-0 truncate text-base font-semibold text-gray-900">
+            New Research Project
+          </h2>
+          <Tooltip label="Close" placement="bottom">
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"
+            >
+              <span aria-hidden="true">{CLOSE_SVG}</span>
+            </button>
+          </Tooltip>
+        </header>
+
+        <div className="px-5 py-5 space-y-4">
+          <div>
+            <label
+              htmlFor="project-create-name"
+              className="block text-xs font-medium text-gray-500 mb-1"
+            >
+              Project Name
+            </label>
+            <input
+              id="project-create-name"
+              data-tour-target="home-project-name-input"
+              data-testid="project-create-name"
+              type="text"
+              value={name}
+              autoFocus
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") submit();
+              }}
+              placeholder="e.g. CRISPR Gene Editing Study"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="project-create-tags"
+              className="block text-xs font-medium text-gray-500 mb-1"
+            >
+              Tags (comma-separated)
+            </label>
+            <input
+              id="project-create-tags"
+              data-testid="project-create-tags"
+              type="text"
+              value={tags}
+              onChange={(e) => setTags(e.target.value)}
+              placeholder="e.g. sequencing, LC-MS, cell-culture"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <span className="block text-xs font-medium text-gray-500 mb-1">
+              Project Color
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {PROJECT_COLOR_SWATCHES.map((c) => (
+                <Tooltip key={c} label={`Use color ${c}`} placement="bottom">
+                  <button
+                    type="button"
+                    onClick={() => setColor(c)}
+                    aria-label={`Use color ${c}`}
+                    aria-pressed={color === c}
+                    className={`w-7 h-7 rounded-full transition-transform ${
+                      color === c
+                        ? "ring-2 ring-offset-2 ring-gray-400 scale-110"
+                        : ""
+                    }`}
+                    style={{ backgroundColor: c }}
+                  />
+                </Tooltip>
+              ))}
+            </div>
+          </div>
+
+          <label
+            data-tour-target="home-project-weekend-toggle"
+            className="flex items-center gap-2 cursor-pointer"
+          >
+            <input
+              type="checkbox"
+              data-testid="project-create-weekend"
+              checked={weekendActive}
+              onChange={(e) => setWeekendActive(e.target.checked)}
+              className="rounded border-gray-300 text-blue-600"
+            />
+            <span className="text-sm text-gray-600">
+              7-day schedule (weekends active)
+            </span>
+          </label>
+        </div>
+
+        <footer className="flex justify-end gap-3 px-5 py-4 border-t border-gray-100">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            data-tour-target="home-project-create-submit"
+            data-testid="project-create-submit"
+            disabled={!name.trim() || saving}
+            onClick={submit}
+            className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {saving ? "Creating…" : "Create Project"}
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}

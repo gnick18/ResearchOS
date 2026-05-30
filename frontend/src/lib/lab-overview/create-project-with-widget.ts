@@ -32,6 +32,12 @@ export interface CreateProjectWithWidgetInput {
   name: string;
   /** Project color (hex). Optional; projectsApi.create defaults it. */
   color?: string;
+  /** Project tags. Optional; the full create modal collects these
+   *  (comma-separated). Empty / omitted leaves the project untagged. */
+  tags?: string[];
+  /** Seven-day work week toggle (weekends count for scheduling). Optional;
+   *  projectsApi.create defaults it to false (Gantt skips Sat/Sun). */
+  weekend_active?: boolean;
 }
 
 /**
@@ -48,6 +54,10 @@ export async function createProjectWithDashboardWidget(
   const project = await projectsApi.create({
     name: input.name,
     ...(input.color !== undefined ? { color: input.color } : {}),
+    ...(input.tags !== undefined ? { tags: input.tags } : {}),
+    ...(input.weekend_active !== undefined
+      ? { weekend_active: input.weekend_active }
+      : {}),
   });
   let widgetInstanceId: string | null = null;
   try {

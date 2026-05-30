@@ -228,6 +228,56 @@ describe("SingleProjectWidget: SnapshotTile rich card", () => {
     expect(wrapperOnClick).not.toHaveBeenCalled();
   });
 
+  it("a SYNTHETIC tour click (native el.click, no pointerdown) navigates and does NOT open the popup", async () => {
+    // §6.1 `project-overview-nav` regression (newproject-modal-tour-fix bot,
+    // 2026-05-29): the tour's cursor re-resolves
+    // [data-tour-target^='home-single-project-open-'] and calls a NATIVE
+    // `el.click()` with no preceding pointerdown. Before the fix, a stale
+    // `downAt` from a prior real pointerdown made the drag-guard read this as
+    // a drag and bail before stopPropagation + navigate, so the click bubbled
+    // to the wrapper and flashed the pin-picker popup ("closed right away").
+    const wrapperOnClick = vi.fn();
+    renderTile({ pinnedProject: { id: 1, owner: "morgan" } }, wrapperOnClick);
+    await screen.findByText("Aim 1 (whole lab)");
+    const el = document.querySelector(
+      "[data-tour-target^='home-single-project-open-']",
+    ) as HTMLElement;
+    expect(el).toBeTruthy();
+    // Reproduce the real-browser preconditions: an EARLIER real click on the
+    // tile (pointerdown + click both at 200,200) navigates AND leaves a STALE
+    // `downAt` of (200,200) in the ref. `pressed` is consumed (back to false)
+    // by that click. THEN the tour's lone synthetic `el.click()` fires with a
+    // native MouseEvent whose clientX/Y = 0 — a 200px delta from the stale
+    // `downAt`, past the 6px slop. Pre-fix, the drag-guard read that stale
+    // delta as a drag and bailed BEFORE stopPropagation + navigate, so the
+    // click bubbled to the wrapper and flashed the pin-picker popup. The fix
+    // gates the guard on `pressed`, which is false for the lone synthetic
+    // click, so it always navigates.
+    fireEvent.pointerDown(el, { clientX: 200, clientY: 200 });
+    fireEvent.click(el, { clientX: 200, clientY: 200 }); // earlier real click
+    pushMock.mockClear();
+    wrapperOnClick.mockClear();
+    // SYNTHETIC tour click: native .click() (clientX/Y = 0), no fresh
+    // pointerdown — pressed.current is already false, downAt is stale.
+    el.click();
+    expect(pushMock).toHaveBeenCalledWith("/workbench/projects/1?owner=morgan");
+    expect(wrapperOnClick).not.toHaveBeenCalled();
+  });
+
+  it("a real drag gesture (pointerdown far from click) does NOT navigate", async () => {
+    // The drag-guard still suppresses navigation for a genuine reorder drag:
+    // a real pointerdown followed by a click that lands far away.
+    const wrapperOnClick = vi.fn();
+    renderTile({ pinnedProject: { id: 1, owner: "morgan" } }, wrapperOnClick);
+    const root = (await screen.findByText("Aim 1 (whole lab)")).closest(
+      "[data-tour-target^='home-single-project-open-']",
+    ) as HTMLElement;
+    fireEvent.pointerDown(root, { clientX: 0, clientY: 0 });
+    // Click lands 50px away → past the slop threshold → treated as a drag.
+    fireEvent.click(root, { clientX: 50, clientY: 50 });
+    expect(pushMock).not.toHaveBeenCalled();
+  });
+
   it("the Change project affordance opens the picker (popup) and does NOT navigate", async () => {
     const wrapperOnClick = vi.fn();
     renderTile({ pinnedProject: { id: 1, owner: "morgan" } }, wrapperOnClick);
