@@ -31,6 +31,10 @@ import {
   filterTypeView,
   type MethodLibrarySegment,
 } from "./method-library-filter";
+import {
+  MethodTypeDetail,
+  SingleTemplateDetail,
+} from "./MethodLibraryDetail";
 import { resolveEnabledMethodTypes } from "@/lib/methods/method-type-enablement";
 import { buildRequestMethodTypeUrl } from "@/lib/methods/request-method-type";
 import type { Method } from "@/lib/types";
@@ -144,6 +148,15 @@ export function MethodTemplateLibraryModal({
     setSegment(id as MethodLibrarySegment);
     setSelectedCategoryId(null);
     setSelected(null);
+  }, []);
+
+  // Cross-link from a TYPE's detail ("Templates built on this type") to the
+  // Templates segment with that template selected. Switching the segment swaps
+  // the category set, so we drop back to "All" so the target is always visible.
+  const handleOpenTemplate = useCallback((entry: MethodCatalogManifestEntry) => {
+    setSegment("templates");
+    setSelectedCategoryId(null);
+    setSelected({ kind: "template", entry });
   }, []);
 
   // ── Template instantiation ("Use template") ────────────────────────────────
@@ -269,9 +282,31 @@ export function MethodTemplateLibraryModal({
           )}
         </SelectableCard>
       )}
-      renderDetail={(item) => (
-        <LibraryDetailPlaceholder item={item} enabledSet={enabledSet} />
-      )}
+      renderDetail={(item) =>
+        item.kind === "type" ? (
+          <MethodTypeDetail
+            module={item.module}
+            on={enabledSet.has(item.module.id)}
+            curating={curating}
+            onToggle={(next) => setEnabled(item.module.id, next)}
+            templatesOfType={(entries ?? []).filter(
+              (e) => (e.method_type as MethodTypeId) === item.module.id,
+            )}
+            onOpenTemplate={handleOpenTemplate}
+          />
+        ) : (
+          <SingleTemplateDetail
+            entry={item.entry}
+            typeEnabled={enabledSet.has(item.entry.method_type as MethodTypeId)}
+            isUsing={usingSlug === item.entry.slug}
+            anyUsing={usingSlug !== null}
+            onUse={() => handleUse(item.entry)}
+            onEnableType={() =>
+              setEnabled(item.entry.method_type as MethodTypeId, true)
+            }
+          />
+        )
+      }
       footerSlot={
         <LibraryFooter
           useError={useError}
@@ -464,90 +499,6 @@ function ProtocolTemplateCard({
           </button>
         )}
       </div>
-    </div>
-  );
-}
-
-// ── Detail placeholder (Phase D fills this) ──────────────────────────────────
-
-function LibraryDetailPlaceholder({
-  item,
-  enabledSet,
-}: {
-  item: LibraryItem;
-  enabledSet: Set<MethodTypeId>;
-}) {
-  if (item.kind === "type") {
-    const on = enabledSet.has(item.module.id);
-    const Icon = item.module.cosmetic.icon;
-    return (
-      <div className="flex flex-col gap-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <span
-              className={`shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-lg ${item.module.cosmetic.color.bg} ${item.module.cosmetic.color.text}`}
-            >
-              <Icon className="w-4 h-4" />
-            </span>
-            <h4 className="text-base font-semibold text-gray-900 truncate">
-              {item.module.cosmetic.label}
-            </h4>
-          </div>
-          <span
-            className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-              on ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-600"
-            }`}
-          >
-            {on ? "Enabled" : "Disabled"}
-          </span>
-        </div>
-        {item.module.cosmetic.description && (
-          <p className="text-sm text-gray-600 leading-snug">
-            {item.module.cosmetic.description}
-          </p>
-        )}
-        <p className="text-xs text-gray-400 border-t border-gray-100 pt-3">
-          A sample rendering and full details arrive in the next update.
-        </p>
-      </div>
-    );
-  }
-
-  const meta = getMethodTypeMeta(item.entry.method_type as MethodTypeId);
-  const Icon = meta.icon;
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-3">
-        <h4 className="text-base font-semibold text-gray-900">
-          {item.entry.title}
-        </h4>
-        <span
-          className={`shrink-0 inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full ${meta.color.bg} ${meta.color.text}`}
-        >
-          <Icon className="w-3 h-3" />
-          {meta.label}
-        </span>
-      </div>
-      {item.entry.description && (
-        <p className="text-sm text-gray-600 leading-snug">
-          {item.entry.description}
-        </p>
-      )}
-      {item.entry.tags && item.entry.tags.length > 0 && (
-        <div className="flex gap-1 flex-wrap">
-          {item.entry.tags.map((tag) => (
-            <span
-              key={tag}
-              className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded"
-            >
-              #{tag}
-            </span>
-          ))}
-        </div>
-      )}
-      <p className="text-xs text-gray-400 border-t border-gray-100 pt-3">
-        A read-only protocol preview arrives in the next update.
-      </p>
     </div>
   );
 }

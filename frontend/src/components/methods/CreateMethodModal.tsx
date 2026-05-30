@@ -79,6 +79,7 @@ export function CreateMethodModal({
   initialWholeLab = false,
   onClose,
   onCreated,
+  onTemplateUsed,
 }: {
   existingFolders: string[];
   prefilledFolder?: string;
@@ -94,6 +95,14 @@ export function CreateMethodModal({
    *  CompoundMethodBuilder in edit mode. Plain "Create Method" calls back
    *  with no argument (current behavior). */
   onCreated: (extendedCompound?: Method) => void;
+  /** Extension Store Phase D (store-detail bot, 2026-05-30): unifies the
+   *  use-template post-action. When the in-builder library instantiates a
+   *  template, the created method is handed back here so the caller can open it
+   *  in the viewer, matching the standalone /methods library. When omitted, the
+   *  builder falls back to the legacy behavior (close the flow via onCreated).
+   *  This is distinct from `onCreated`'s compound arg, which means "extend into
+   *  kit", a different intent. */
+  onTemplateUsed?: (created: Method) => void;
 }) {
   const [uploadType, setUploadType] = useState<MethodTypeId>("markdown");
   // Extension Store Phase A (store-declutter bot): the builder shows ONLY
@@ -1294,16 +1303,19 @@ export function CreateMethodModal({
       <FileRenamePopup />
       {/* Method template library (the store), opened from the picker footer
           link. Enabling / disabling types happens here. If the user uses a
-          template, a method is created, so we close the whole create flow and
-          let the parent refetch (onCreated with no arg = plain create, not the
-          extend-into-kit compound path). */}
+          template, a method is created. Phase D unify (store-detail bot): when
+          the caller supplies `onTemplateUsed`, hand the created method up so it
+          opens in the viewer (matching the standalone /methods library);
+          otherwise fall back to the legacy close-and-refetch via onCreated
+          (with no arg = plain create, not the extend-into-kit compound path). */}
       {showLibrary && (
         <MethodTemplateLibraryModal
           existingFolders={existingFolders}
           onClose={() => setShowLibrary(false)}
-          onUsed={() => {
+          onUsed={(created) => {
             setShowLibrary(false);
-            onCreated();
+            if (onTemplateUsed) onTemplateUsed(created);
+            else onCreated();
           }}
         />
       )}

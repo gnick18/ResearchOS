@@ -726,6 +726,22 @@ export default function MethodsPage() {
     [queryClient],
   );
 
+  // Extension Store Phase D (store-detail bot, 2026-05-30): the SINGLE
+  // use-template post-action, shared by both entry points so they behave
+  // identically. Whether the library was opened standalone (browsing) or from
+  // inside the New Method builder, using a template refetches, closes whatever
+  // opened it, and opens the freshly-created method in the viewer.
+  const handleTemplateUsed = useCallback(
+    async (created: Method) => {
+      await queryClient.refetchQueries({ queryKey: ["methods"] });
+      setBrowsingTemplates(false);
+      setCreating(false);
+      setPrefilledFolder("");
+      setViewingMethod(created);
+    },
+    [queryClient],
+  );
+
   // Renders a single method card. Shared between the My Methods and
   // Shared with Lab sections so the markup, badges, and click target
   // stay identical. The only behavioral difference is `isDraggable`,
@@ -1061,6 +1077,7 @@ export default function MethodsPage() {
             setForceWholeLabOnCreate(false);
           }}
           onCreated={handleMethodCreated}
+          onTemplateUsed={handleTemplateUsed}
         />
       )}
 
@@ -1072,11 +1089,7 @@ export default function MethodsPage() {
         <MethodTemplateLibraryModal
           existingFolders={existingFolders}
           onClose={() => setBrowsingTemplates(false)}
-          onUsed={async (created) => {
-            await queryClient.refetchQueries({ queryKey: ["methods"] });
-            setBrowsingTemplates(false);
-            setViewingMethod(created);
-          }}
+          onUsed={handleTemplateUsed}
         />
       )}
 
