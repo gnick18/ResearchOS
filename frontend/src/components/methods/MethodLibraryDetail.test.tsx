@@ -11,6 +11,7 @@ import {
   MethodTypeDetail,
   SingleTemplateDetail,
   CompoundTemplateDetail,
+  CompoundTemplateDetailLoader,
 } from "./MethodLibraryDetail";
 import { getMethodModule } from "@/lib/methods/method-module";
 import type { MethodCatalogManifestEntry } from "@/lib/methods/method-catalog";
@@ -208,5 +209,137 @@ describe("CompoundTemplateDetail", () => {
     );
     fireEvent.click(screen.getByText("Use template"));
     expect(onUse).toHaveBeenCalled();
+  });
+});
+
+describe("CompoundTemplateDetailLoader", () => {
+  // A synthetic compound (kit) entry + the child entries it references by slug.
+  // No compound combination entries exist on main yet (the catalog session
+  // lands them in a follow-up), so this is an in-test fixture manifest standing
+  // in for the live catalog. Slugs match the contract's LC-MS peptide pairing.
+  const lcEntry: MethodCatalogManifestEntry = {
+    slug: "lcms-peptide-rp-lc-thermo",
+    title: "Peptide RP LC",
+    description: "",
+    category: "LC-MS",
+    method_type: "lc_gradient",
+  };
+  const msEntry: MethodCatalogManifestEntry = {
+    slug: "lcms-peptide-ms-thermo-orbitrap",
+    title: "Peptide Orbitrap MS",
+    description: "",
+    category: "LC-MS",
+    method_type: "mass_spec",
+  };
+  const comboEntry: MethodCatalogManifestEntry = {
+    slug: "lcms-peptide-combo-thermo",
+    title: "Peptide LC-MS (kit)",
+    description: "Full peptide LC-MS kit.",
+    category: "LC-MS",
+    method_type: "compound",
+  };
+  const manifestEntries = [lcEntry, msEntry, comboEntry];
+
+  // The lazily-fetched compound payload: references the two children by slug,
+  // MS authored before LC to prove the loader sorts by ordering.
+  const comboFetch = () =>
+    Promise.resolve({
+      slug: "lcms-peptide-combo-thermo",
+      title: "Peptide LC-MS (kit)",
+      description: "Full peptide LC-MS kit.",
+      category: "LC-MS",
+      method_type: "compound" as const,
+      payload: {
+        description: "Full peptide LC-MS kit.",
+        components: [
+          {
+            slug: "lcms-peptide-ms-thermo-orbitrap",
+            ordering: 1,
+            label: "MS setup",
+          },
+          { slug: "lcms-peptide-rp-lc-thermo", ordering: 0 },
+        ],
+      },
+    });
+
+  it("resolves component types off the fetched payload and gates Use until ALL are enabled", async () => {
+    const onUse = vi.fn();
+    const onEnableType = vi.fn();
+    const { rerender } = render(
+      <CompoundTemplateDetailLoader
+        entry={comboEntry}
+        manifestEntries={manifestEntries}
+        enabledIds={new Set<MethodTypeId>(["lc_gradient"])}
+        isUsing={false}
+        anyUsing={false}
+        onUse={onUse}
+        onEnableType={onEnableType}
+        fetchTemplate={comboFetch}
+      />,
+    );
+    // Both component types resolve via the manifest once the payload loads.
+    await waitFor(() =>
+      expect(screen.getAllByText("LC Gradient").length).toBeGreaterThan(0),
+    );
+    expect(screen.getAllByText("Mass spec").length).toBeGreaterThan(0);
+    // mass_spec still disabled: gated, the missing type offered, no Use.
+    expect(screen.queryByText("Use template")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("Enable Mass spec"));
+    expect(onEnableType).toHaveBeenCalledWith("mass_spec");
+
+    // Enable both: Use unlocks (payload already cached, no refetch).
+    rerender(
+      <CompoundTemplateDetailLoader
+        entry={comboEntry}
+        manifestEntries={manifestEntries}
+        enabledIds={new Set<MethodTypeId>(["lc_gradient", "mass_spec"])}
+        isUsing={false}
+        anyUsing={false}
+        onUse={onUse}
+        onEnableType={onEnableType}
+        fetchTemplate={comboFetch}
+      />,
+    );
+    fireEvent.click(await screen.findByText("Use template"));
+    expect(onUse).toHaveBeenCalled();
+  });
+
+  it("renders the bundled steps in ordering order with label fallback + override", async () => {
+    render(
+      <CompoundTemplateDetailLoader
+        entry={comboEntry}
+        manifestEntries={manifestEntries}
+        enabledIds={new Set<MethodTypeId>(["lc_gradient", "mass_spec"])}
+        isUsing={false}
+        anyUsing={false}
+        onUse={vi.fn()}
+        onEnableType={vi.fn()}
+        fetchTemplate={comboFetch}
+      />,
+    );
+    // ordering 0 (LC, label falls back to the manifest title) renders; the
+    // ordering 1 component shows its label override.
+    await waitFor(() =>
+      expect(screen.getByText("Peptide RP LC")).toBeInTheDocument(),
+    );
+    expect(screen.getByText("MS setup")).toBeInTheDocument();
+  });
+
+  it("shows a loading state and never a premature Use before the payload resolves", () => {
+    render(
+      <CompoundTemplateDetailLoader
+        entry={comboEntry}
+        manifestEntries={manifestEntries}
+        enabledIds={new Set<MethodTypeId>(["lc_gradient", "mass_spec"])}
+        isUsing={false}
+        anyUsing={false}
+        onUse={vi.fn()}
+        onEnableType={vi.fn()}
+        fetchTemplate={() => new Promise(() => {})}
+      />,
+    );
+    expect(screen.getByText("Loading kit...")).toBeInTheDocument();
+    // Types are unknown while loading, so the gated action must NOT render.
+    expect(screen.queryByText("Use template")).not.toBeInTheDocument();
   });
 });
