@@ -290,6 +290,26 @@ export function StaticHero({ widget }: { widget: WidgetDefinition }) {
   );
 }
 
+// ── Lazy-mount skeleton ─────────────────────────────────────────────────
+// Shown in the preview box BEFORE the live tile mounts (Extension Store
+// polish, store-polish bot, 2026-05-30). Replaces the bland literal
+// "Loading..." flash the store showed on first open with a subtle neutral
+// shimmer: no text, no spinner, just animated gray blocks sized to the box.
+// House style: inline markup only, no emoji. (The error-boundary fallback
+// stays StaticHero, which is informative when a tile actually throws.)
+export function PreviewSkeleton() {
+  return (
+    <div
+      aria-hidden="true"
+      className="h-full w-full animate-pulse p-3 flex flex-col gap-2"
+    >
+      <div className="h-2.5 w-1/2 rounded bg-gray-200" />
+      <div className="h-2 w-3/4 rounded bg-gray-100" />
+      <div className="mt-1 flex-1 rounded-lg bg-gray-100" />
+    </div>
+  );
+}
+
 export interface WidgetCardProps {
   widget: WidgetDefinition;
   /** Is this widget already mounted on the current surface? Drives the
@@ -368,7 +388,7 @@ export default function WidgetCard({
             </div>
           </WidgetPreviewBoundary>
         ) : (
-          staticHero
+          <PreviewSkeleton />
         )}
       </div>
 

@@ -46,7 +46,7 @@ function renderShell(
       { onSelect }: { selected: boolean; onSelect: () => void },
     ) => <button onClick={onSelect}>card-{it.id}</button>,
     renderDetail: (it: Item) => <div>detail-{it.id}</div>,
-    detailEmptyHint: "Pick something to see details",
+    browseHint: "Pick a card to preview",
     footerSlot: <div>footer-stub</div>,
     onClose: vi.fn(),
     ...overrides,
@@ -73,21 +73,18 @@ describe("StoreShell", () => {
     expect(screen.getByText("5")).toBeInTheDocument();
   });
 
-  it("shows the empty-detail hint until an item is selected", () => {
+  it("shows the browse hint and collapses the detail pane until an item is selected", () => {
     renderShell();
-    expect(
-      screen.getByText("Pick something to see details"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Pick a card to preview")).toBeInTheDocument();
     expect(screen.queryByText("detail-x")).not.toBeInTheDocument();
   });
 
-  it("renders the detail pane for the selected item", () => {
+  it("renders the detail pane and drops the browse hint when an item is selected", () => {
     renderShell({ selectedItem: ITEMS[0] });
     // Rendered in both the lg pane and the mobile overlay.
     expect(screen.getAllByText("detail-x").length).toBeGreaterThan(0);
-    expect(
-      screen.queryByText("Pick something to see details"),
-    ).not.toBeInTheDocument();
+    // The orienting hint is only for the no-selection browse state.
+    expect(screen.queryByText("Pick a card to preview")).not.toBeInTheDocument();
   });
 
   it("calls back when a card is selected", () => {

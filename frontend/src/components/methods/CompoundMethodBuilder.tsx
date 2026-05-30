@@ -204,9 +204,9 @@ export function CompoundMethodBuilder({
     if (!validation.ok) {
       setSaveError(
         validation.reason === "cycle"
-          ? "This compound contains a cycle. Remove the offending component first."
+          ? "This kit contains a cycle. Remove the offending component first."
           : validation.reason === "depth_exceeded"
-            ? `Nesting exceeds ${MAX_COMPOUND_DEPTH} levels. Flatten an inner compound and try again.`
+            ? `Nesting exceeds ${MAX_COMPOUND_DEPTH} levels. Flatten an inner kit and try again.`
             : "One of the referenced methods no longer exists. Remove it and try again.",
       );
       return;
@@ -236,7 +236,7 @@ export function CompoundMethodBuilder({
       );
       if (updated) onSaved(updated);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to save compound method.";
+      const msg = err instanceof Error ? err.message : "Failed to save kit.";
       setSaveError(msg);
     } finally {
       setSaving(false);
@@ -264,7 +264,7 @@ export function CompoundMethodBuilder({
       <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full mx-4 max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h3 className="text-base font-semibold text-gray-900">
-            Edit compound method
+            Edit kit
           </h3>
           <Tooltip label="Close" placement="bottom">
             <button
@@ -277,16 +277,16 @@ export function CompoundMethodBuilder({
         </div>
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
           <p className="text-xs text-gray-500">
-            A compound method bundles existing methods into one attachable
+            A kit bundles existing methods into one attachable
             unit. Open it on an experiment and every component renders inline
-            with its own editor — per-task edits are saved against this
-            compound, not the source methods.
+            with its own editor; per-task edits are saved against this
+            kit, not the source methods.
           </p>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">
-                Compound name
+                Kit name
               </label>
               <input
                 type="text"
@@ -332,7 +332,7 @@ export function CompoundMethodBuilder({
 
           {/* Per Q-V1 lock: no public toggle for compounds in v2. */}
           <p className="text-xs text-gray-400 italic">
-            Compound methods are private in v2; cross-user sharing arrives in v2.1.
+            Kits are private in v2; cross-user sharing arrives in v2.1.
           </p>
 
           <div className="border-t border-gray-100 pt-4">
@@ -376,7 +376,7 @@ export function CompoundMethodBuilder({
                 {validation.reason === "cycle" &&
                   `Components form a cycle in the composition graph. Remove the loop before saving.`}
                 {validation.reason === "depth_exceeded" &&
-                  `Compounds can nest up to ${MAX_COMPOUND_DEPTH} levels. Flatten an inner kit before saving.`}
+                  `Kits can nest up to ${MAX_COMPOUND_DEPTH} levels. Flatten an inner kit before saving.`}
                 {validation.reason === "orphan_reference" &&
                   `Component method ${validation.details.orphan?.method_id} (owner ${validation.details.orphan?.owner}) no longer exists. Remove it before saving.`}
               </div>

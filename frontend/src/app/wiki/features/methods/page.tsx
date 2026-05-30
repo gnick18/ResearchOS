@@ -97,8 +97,8 @@ export default function MethodsFeaturePage() {
           (Python, R, SQL) and Jupyter notebooks alongside protocol text.
         </li>
         <li>
-          <strong>Compound method</strong> bundles existing methods into
-          one attachable kit (e.g. plate layout plus assay PDF). Reached
+          <strong>Kit</strong> bundles existing methods into
+          one attachable unit (e.g. plate layout plus assay PDF). Reached
           by extending an existing method, not as a standalone picker tile.
         </li>
       </ul>
@@ -202,8 +202,8 @@ export default function MethodsFeaturePage() {
         the first time it fires for a given viewer. So sharing a task does
         not silently leak the protocol without a paper trail, and a method
         owner can see who has been reading their protocols through
-        someone else&apos;s task. The grant is depth-1 only: compound
-        method children are not transitively included, and only the
+        someone else&apos;s task. The grant is depth-1 only: kit
+        children are not transitively included, and only the
         directly referenced method is unlocked. See{" "}
         <Link href="/wiki/features/sharing-and-permissions">
           Sharing and permissions

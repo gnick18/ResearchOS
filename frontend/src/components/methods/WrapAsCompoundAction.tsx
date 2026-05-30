@@ -72,7 +72,7 @@ export function WrapAsCompoundAction({
       }
       onWrapped?.(compound);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to extend into a compound.";
+      const msg = err instanceof Error ? err.message : "Failed to extend into a kit.";
       alert(msg);
     } finally {
       setBusy(false);
@@ -81,7 +81,7 @@ export function WrapAsCompoundAction({
 
   return (
     <Tooltip
-      label="Wrap this method into a compound (kit) so you can add additional component methods alongside it."
+      label="Wrap this method into a kit so you can add additional component methods alongside it."
       placement="bottom"
     >
       <button

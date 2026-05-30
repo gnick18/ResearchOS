@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -164,6 +165,19 @@ export function MethodTemplateLibraryModal({
   const [usingSlug, setUsingSlug] = useState<string | null>(null);
   const [useError, setUseError] = useState<string | null>(null);
 
+  // The destination-category field lives in the footer, easy to scroll past.
+  // The detail pane surfaces "Will be added to: <category>" next to Use
+  // template; clicking the category scrolls to + focuses this field so it
+  // stays reachable from there (removes the silent-Uncategorized surprise).
+  const destInputRef = useRef<HTMLInputElement | null>(null);
+  const destLabel = destFolder.trim() || "Uncategorized";
+  const handleChooseDestination = useCallback(() => {
+    const el = destInputRef.current;
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.focus();
+  }, []);
+
   const handleUse = useCallback(
     async (entry: MethodCatalogManifestEntry) => {
       if (usingSlug) return;
@@ -241,12 +255,20 @@ export function MethodTemplateLibraryModal({
       selectedCategoryId={selectedCategoryId}
       onSelectCategory={setSelectedCategoryId}
       railHeaderSlot={
-        <StoreSegment
-          options={SEGMENT_OPTIONS}
-          value={segment}
-          onChange={handleSegmentChange}
-          ariaLabel="Browse method types or templates"
-        />
+        <div className="flex flex-col gap-2">
+          <StoreSegment
+            options={SEGMENT_OPTIONS}
+            value={segment}
+            onChange={handleSegmentChange}
+            ariaLabel="Browse method types or templates"
+          />
+          {isTypes && (
+            <p className="text-[11px] leading-snug text-gray-400">
+              Standard: free-form (Markdown, PDF). Structured: typed-field
+              editors.
+            </p>
+          )}
+        </div>
       }
       searchSlot={<MethodSearchInput value={search} onChange={setSearch} />}
       enabledOnly={enabledOnly}
@@ -257,7 +279,7 @@ export function MethodTemplateLibraryModal({
       }
       selectedItem={selected}
       onSelectItem={setSelected}
-      detailEmptyHint="Select a method type or template to see details."
+      browseHint="Click any type or template to preview it and see what it does."
       emptyState={emptyState}
       renderCard={(item, { selected: isSelected, onSelect }) => (
         <SelectableCard selected={isSelected} onSelect={onSelect}>
@@ -304,6 +326,8 @@ export function MethodTemplateLibraryModal({
             onEnableType={() =>
               setEnabled(item.entry.method_type as MethodTypeId, true)
             }
+            destLabel={destLabel}
+            onChooseDestination={handleChooseDestination}
           />
         )
       }
@@ -313,6 +337,7 @@ export function MethodTemplateLibraryModal({
           destFolder={destFolder}
           onDestFolderChange={setDestFolder}
           existingFolders={existingFolders}
+          destInputRef={destInputRef}
         />
       }
       onClose={onClose}
@@ -539,11 +564,14 @@ function LibraryFooter({
   destFolder,
   onDestFolderChange,
   existingFolders,
+  destInputRef,
 }: {
   useError: string | null;
   destFolder: string;
   onDestFolderChange: (v: string) => void;
   existingFolders: string[];
+  /** Focused + scrolled into view from the detail pane's destination line. */
+  destInputRef?: React.Ref<HTMLInputElement>;
 }) {
   const [requestText, setRequestText] = useState("");
   return (
@@ -555,6 +583,7 @@ function LibraryFooter({
           Add used templates to category
         </label>
         <input
+          ref={destInputRef}
           type="text"
           list="template-dest-folders"
           value={destFolder}

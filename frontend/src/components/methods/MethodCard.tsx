@@ -235,7 +235,7 @@ export default function MethodCard({
             <span
               className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${meta.color.bg} ${meta.color.text}`}
             >
-              Compound
+              Kit
             </span>
           );
         })()}

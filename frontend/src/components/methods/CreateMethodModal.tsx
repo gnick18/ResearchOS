@@ -1030,7 +1030,7 @@ export function CreateMethodModal({
             {uploadType === "qpcr_analysis" && (
               <div className="space-y-2">
                 <p className="text-xs text-gray-400">
-                  qPCR analysis protocols store the references list (experimental targets + housekeeping), optional standard-curve dilution points, and the melt-curve sweep. Per-task Cq readouts and ΔΔCq fold-change land on the experiment page. Pair with a PCR method via a compound for the full qPCR workflow.
+                  qPCR analysis protocols store the references list (experimental targets + housekeeping), optional standard-curve dilution points, and the melt-curve sweep. Per-task Cq readouts and ΔΔCq fold-change land on the experiment page. Pair with a PCR method via a kit for the full qPCR workflow.
                 </p>
                 <QpcrAnalysisEditor
                   chemistry={qpcrChemistry}
@@ -1284,7 +1284,7 @@ export function CreateMethodModal({
               from the picker, but defensively gate here too). */}
           {uploadType !== "compound" && (
             <Tooltip
-              label="Create this method, then immediately bundle it into a compound (kit) so you can add additional components alongside it."
+              label="Create this method, then immediately bundle it into a kit so you can add additional components alongside it."
               placement="top"
             >
               <button

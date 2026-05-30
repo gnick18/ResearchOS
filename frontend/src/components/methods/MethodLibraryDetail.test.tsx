@@ -139,6 +139,27 @@ describe("SingleTemplateDetail", () => {
     fireEvent.click(enableBtn);
     expect(onEnableType).toHaveBeenCalled();
   });
+
+  it("surfaces the destination category next to Use template and routes the click", () => {
+    const onChooseDestination = vi.fn();
+    render(
+      <SingleTemplateDetail
+        entry={pcrTemplate}
+        typeEnabled
+        isUsing={false}
+        anyUsing={false}
+        onUse={vi.fn()}
+        onEnableType={vi.fn()}
+        fetchTemplate={okFetch}
+        destLabel="Assays"
+        onChooseDestination={onChooseDestination}
+      />,
+    );
+    expect(screen.getByText(/Will be added to:/)).toBeInTheDocument();
+    const dest = screen.getByText("Assays");
+    fireEvent.click(dest);
+    expect(onChooseDestination).toHaveBeenCalled();
+  });
 });
 
 describe("CompoundTemplateDetail", () => {

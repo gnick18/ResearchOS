@@ -705,7 +705,7 @@ export function CompoundChildCreator({
               />
             </div>
             <p className="text-[11px] text-gray-400 mt-1">
-              Image uploads from inside a compound-child editor land in
+              Image uploads from inside a kit component editor land in
               <code className="px-1">{`methods/${slug || "<slug>"}/Images`}</code>.
             </p>
             {uploadWarning && (
@@ -897,7 +897,7 @@ export function CompoundChildCreator({
           disabled={saveDisabled}
           className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
         >
-          {saving ? "Creating..." : "Create + add to compound"}
+          {saving ? "Creating..." : "Create + add to kit"}
         </button>
       </div>
       <FileRenamePopup />
@@ -979,9 +979,9 @@ function TypeTilePicker({ unsupportedTypes, onPick, onCancel }: TypeTilePickerPr
       <div className="flex-1 overflow-y-auto pt-1 space-y-4">
         <p className="text-[11px] text-gray-400">
           Pick a method type. The new method will be created in your methods
-          library AND added to this compound&apos;s component list when you save.
-          Compound-nested-in-compound isn&apos;t available here — build the
-          child compound separately first, then attach via &ldquo;Pick existing&rdquo;.
+          library AND added to this kit&apos;s component list when you save.
+          A kit nested in a kit isn&apos;t available here, build the
+          child kit separately first, then attach via &ldquo;Pick existing&rdquo;.
         </p>
         {renderSection("Standard methods", standard)}
         {structured.length > 0 && renderSection("Structured methods", structured)}

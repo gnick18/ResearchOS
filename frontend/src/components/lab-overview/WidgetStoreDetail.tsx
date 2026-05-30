@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import Tooltip from "@/components/Tooltip";
 import {
+  PreviewSkeleton,
   StaticHero,
   WidgetPreviewBoundary,
   useInViewport,
@@ -217,7 +218,7 @@ function WidgetLivePreview({ widget }: { widget: WidgetDefinition }) {
           </div>
         </WidgetPreviewBoundary>
       ) : (
-        staticHero
+        <PreviewSkeleton />
       )}
     </div>
   );

@@ -119,7 +119,7 @@ export function WidgetStoreModal({
       getItemKey={(w) => w.id}
       selectedItem={selected}
       onSelectItem={setSelected}
-      detailEmptyHint="Select a widget to see details."
+      browseHint="Click any widget to preview it live and see what it does."
       emptyState={
         eligible.length === 0
           ? "No widgets are available for your account on this surface."
