@@ -17,6 +17,13 @@
   background: #0b0b12; /* stage black */
   color: #f3f1f7;
   min-height: 100svh;
+  /* The whole stage is a click-to-flash surface, so rapid clicking used to
+     trigger the browser's double/triple-click text selection (the emotion
+     label, captions, etc. would highlight). Nothing here is meant to be
+     selected, so disable selection across the showcase. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* The persistent set: rendered ONCE, fixed behind the scroll column
