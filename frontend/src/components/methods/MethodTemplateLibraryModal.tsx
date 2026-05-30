@@ -1,7 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import Tooltip from "@/components/Tooltip";
+import { StoreShell, type StoreCategory } from "@/components/store/StoreShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useEnabledMethodTypes } from "@/hooks/useEnabledMethodTypes";
 import {
@@ -23,29 +30,41 @@ import { buildRequestMethodTypeUrl } from "@/lib/methods/request-method-type";
 import type { Method } from "@/lib/types";
 
 /**
- * Method library / extension store SHELL (Extension Store Phase U2).
+ * Method library / extension store (Extension Store Phase B, store-shell bot,
+ * 2026-05-29).
  *
- * Extends the U1 "Protocol templates" browse surface into a tabbed store with
- * ONE entry point (the /methods header "Template library" button), per the
- * brief's cohesion requirement. Two tabs:
+ * Adopts the shared master/detail `StoreShell` so the method library and the
+ * widget store read as ONE marketplace. The old two-tab layout (Method types /
+ * Protocol templates) is folded into the shell's LEFT-RAIL categories: pick
+ * "Method types" to curate which structured types this account uses, or
+ * "Protocol templates" to browse + copy prebuilt protocols, or "All" to see
+ * both together. The method-specific pieces stay here: the type toggle, the
+ * template "Use" / "Enable" actions, and the catalog fetch. The shell owns the
+ * wide frame, the rail, the detail pane, and the responsive collapse.
  *
- *   1. METHOD TYPES: browse every structured method type the build ships and
- *      enable/disable it for this account (the anti-clutter curation layer,
- *      METHOD doc §4.3). Disabling only hides a type from the new-method
- *      picker + the store-default template view; it never deletes or breaks
- *      an existing/shared method of that type. A "Request a new method type"
- *      affordance opens a prefilled GitHub issue (a STUB, not the U4
- *      contributor pipeline).
- *   2. PROTOCOL TEMPLATES: the U1 data-only catalog. Templates whose method
- *      type is currently DISABLED show an inline "Enable + use" affordance
- *      (enable-a-disabled-type-on-use) instead of being silently unusable.
+ * Phase B is the FRAME only: the detail pane is a minimal placeholder (Phase D
+ * fills it), and the search box renders but does not filter yet (Phase C wires
+ * search across both stores).
  *
- * Method-type curation is account-AGNOSTIC: the docs scope PI-vs-member
- * gating to widgets (U3), not method types. Extensions remain code shipped in
- * the reviewed build; this shell is curation + a request stub, never a code
- * loader.
+ * CONTRACT: the external open/close API ({ existingFolders, onClose, onUsed })
+ * is unchanged so every caller keeps working.
+ *
+ * Method-type curation is account-AGNOSTIC (the docs scope PI-vs-member gating
+ * to widgets, not method types). Disabling a type only hides it from the
+ * new-method picker + the store-default template view; it never deletes or
+ * breaks an existing method. Extensions remain code shipped in the reviewed
+ * build; this shell is curation + a request stub, never a code loader.
  */
-type StoreTab = "types" | "templates";
+
+const CATEGORY_TYPES = "types";
+const CATEGORY_TEMPLATES = "templates";
+
+/** Heterogeneous store item: either a method TYPE module or a protocol
+ *  TEMPLATE catalog entry. The two share one rail + result column so the
+ *  library reads as a single marketplace. */
+type LibraryItem =
+  | { kind: "type"; module: MethodModuleMeta }
+  | { kind: "template"; entry: MethodCatalogManifestEntry };
 
 export function MethodTemplateLibraryModal({
   existingFolders,
@@ -57,223 +76,522 @@ export function MethodTemplateLibraryModal({
   /** Fires after a template is instantiated into a new owned method. */
   onUsed: (created: Method) => void;
 }) {
-  const [tab, setTab] = useState<StoreTab>("types");
   const { currentUser } = useCurrentUser();
   const { raw: enabledRaw, setEnabled } = useEnabledMethodTypes(currentUser);
   const enabledSet = useMemo(
     () => resolveEnabledMethodTypes(enabledRaw),
     [enabledRaw],
   );
+  const curating = currentUser !== null;
 
-  // Close on Escape, matching the project's modal convention.
+  const modules = useMemo(() => listMethodModules(), []);
+
+  // ── Protocol-template catalog (async, data-only) ───────────────────────────
+  const [entries, setEntries] = useState<MethodCatalogManifestEntry[] | null>(
+    null,
+  );
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
+    "loading",
+  );
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+    let cancelled = false;
+    fetchMethodCatalogManifest()
+      .then((manifest) => {
+        if (cancelled) return;
+        setEntries(manifest.templates);
+        setLoadState("ready");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLoadState("error");
+      });
+    return () => {
+      cancelled = true;
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, []);
+
+  // ── Store frame state ──────────────────────────────────────────────────────
+  // Default to the "Method types" view to preserve the old initial tab and to
+  // avoid opening on an async-loading template list.
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
+    CATEGORY_TYPES,
+  );
+  const [enabledOnly, setEnabledOnly] = useState(false);
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<LibraryItem | null>(null);
+
+  // ── Template instantiation ("Use template") ────────────────────────────────
+  const [destFolder, setDestFolder] = useState("");
+  const [usingSlug, setUsingSlug] = useState<string | null>(null);
+  const [useError, setUseError] = useState<string | null>(null);
+
+  const handleUse = useCallback(
+    async (entry: MethodCatalogManifestEntry) => {
+      if (usingSlug) return;
+      setUsingSlug(entry.slug);
+      setUseError(null);
+      try {
+        const template = await fetchMethodCatalogTemplate(entry.slug);
+        const created = await instantiateMethodFromTemplate(template, {
+          folderPath: destFolder.trim() || null,
+        });
+        onUsed(created);
+      } catch {
+        setUseError(
+          `Could not create a method from "${entry.title}". Check your connection and try again.`,
+        );
+      } finally {
+        setUsingSlug(null);
+      }
+    },
+    [usingSlug, destFolder, onUsed],
+  );
+
+  // ── Categories + items ─────────────────────────────────────────────────────
+  const typeItems = useMemo<LibraryItem[]>(
+    () => modules.map((m) => ({ kind: "type", module: m })),
+    [modules],
+  );
+  const templateItems = useMemo<LibraryItem[]>(
+    () => (entries ?? []).map((e) => ({ kind: "template", entry: e })),
+    [entries],
+  );
+
+  const categories: StoreCategory[] = useMemo(
+    () => [
+      { id: CATEGORY_TYPES, label: "Method types", count: typeItems.length },
+      {
+        id: CATEGORY_TEMPLATES,
+        label: "Protocol templates",
+        count: templateItems.length,
+      },
+    ],
+    [typeItems.length, templateItems.length],
+  );
+
+  const items = useMemo<LibraryItem[]>(() => {
+    let base: LibraryItem[];
+    if (selectedCategoryId === CATEGORY_TYPES) base = typeItems;
+    else if (selectedCategoryId === CATEGORY_TEMPLATES) base = templateItems;
+    else base = [...typeItems, ...templateItems];
+
+    if (!enabledOnly) return base;
+    return base.filter((it) =>
+      it.kind === "type"
+        ? enabledSet.has(it.module.id)
+        : enabledSet.has(it.entry.method_type as MethodTypeId),
+    );
+  }, [selectedCategoryId, typeItems, templateItems, enabledOnly, enabledSet]);
+
+  // Empty-state copy: surfaces the template load state when the visible list
+  // would otherwise be blank.
+  const showsTemplates = selectedCategoryId !== CATEGORY_TYPES;
+  const emptyState =
+    showsTemplates && loadState === "loading"
+      ? "Loading templates..."
+      : showsTemplates && loadState === "error"
+        ? "The template catalog is unavailable right now. It needs an internet connection. Everything else on this page keeps working offline."
+        : "No items match this filter.";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[85vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <div>
-            <h3 className="text-base font-semibold text-gray-900">
-              Method library
-            </h3>
-            <p className="text-xs text-gray-400 mt-0.5">
-              Choose which method types you use, and copy prebuilt protocols
-              into your library.
-            </p>
-          </div>
-          <Tooltip label="Close" placement="bottom">
+    <StoreShell<LibraryItem>
+      title="Method library"
+      subtitle="Choose which method types you use, and copy prebuilt protocols into your library."
+      closeAriaLabel="Close method library"
+      categories={categories}
+      allLabel="All"
+      selectedCategoryId={selectedCategoryId}
+      onSelectCategory={setSelectedCategoryId}
+      searchSlot={<MethodSearchInput value={search} onChange={setSearch} />}
+      enabledOnly={enabledOnly}
+      onToggleEnabledOnly={setEnabledOnly}
+      items={items}
+      getItemKey={(it) =>
+        it.kind === "type" ? `type:${it.module.id}` : `tpl:${it.entry.slug}`
+      }
+      selectedItem={selected}
+      onSelectItem={setSelected}
+      detailEmptyHint="Select a method type or template to see details."
+      emptyState={emptyState}
+      renderCard={(item, { selected: isSelected, onSelect }) => (
+        <SelectableCard selected={isSelected} onSelect={onSelect}>
+          {item.kind === "type" ? (
+            <MethodTypeCard
+              module={item.module}
+              on={enabledSet.has(item.module.id)}
+              curating={curating}
+              onToggle={(next) => setEnabled(item.module.id, next)}
+            />
+          ) : (
+            <ProtocolTemplateCard
+              entry={item.entry}
+              typeEnabled={enabledSet.has(item.entry.method_type as MethodTypeId)}
+              isUsing={usingSlug === item.entry.slug}
+              anyUsing={usingSlug !== null}
+              onUse={() => handleUse(item.entry)}
+              onEnableType={() =>
+                setEnabled(item.entry.method_type as MethodTypeId, true)
+              }
+            />
+          )}
+        </SelectableCard>
+      )}
+      renderDetail={(item) => (
+        <LibraryDetailPlaceholder item={item} enabledSet={enabledSet} />
+      )}
+      footerSlot={
+        <LibraryFooter
+          useError={useError}
+          destFolder={destFolder}
+          onDestFolderChange={setDestFolder}
+          existingFolders={existingFolders}
+        />
+      }
+      onClose={onClose}
+    />
+  );
+}
+
+/** Clickable wrapper that selects an item for the detail pane. Interactive
+ *  controls inside (toggle / action buttons) stop propagation so they act
+ *  without ALSO opening the detail. */
+function SelectableCard({
+  selected,
+  onSelect,
+  children,
+}: {
+  selected: boolean;
+  onSelect: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
+      className={`cursor-pointer rounded-lg transition-shadow ${
+        selected ? "ring-2 ring-blue-500 ring-offset-2" : ""
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ── Method-type card (curation) ──────────────────────────────────────────────
+
+function MethodTypeCard({
+  module,
+  on,
+  curating,
+  onToggle,
+}: {
+  module: MethodModuleMeta;
+  on: boolean;
+  /** False when signed out / pre-data-setup: the toggle can't persist. */
+  curating: boolean;
+  onToggle: (next: boolean) => void;
+}) {
+  const Icon = module.cosmetic.icon;
+  return (
+    <div className="h-full border border-gray-200 rounded-lg p-4 flex items-start gap-3 bg-white">
+      <span
+        className={`shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-lg ${module.cosmetic.color.bg} ${module.cosmetic.color.text}`}
+      >
+        <Icon className="w-4 h-4" />
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2">
+          <h5 className="text-sm font-medium text-gray-900">
+            {module.cosmetic.label}
+          </h5>
+          <Tooltip
+            label={
+              curating
+                ? on
+                  ? `Disable ${module.cosmetic.label}`
+                  : `Enable ${module.cosmetic.label}`
+                : "Sign in to change this"
+            }
+            placement="top"
+          >
             <button
-              onClick={onClose}
-              aria-label="Close method library"
-              className="text-gray-400 hover:text-gray-600 text-lg"
+              type="button"
+              role="switch"
+              aria-checked={on}
+              aria-label={`${on ? "Disable" : "Enable"} ${module.cosmetic.label}`}
+              disabled={!curating}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggle(!on);
+              }}
+              className={`relative shrink-0 inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-40 ${
+                on ? "bg-blue-600" : "bg-gray-300"
+              }`}
             >
-              &times;
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  on ? "translate-x-4" : "translate-x-0.5"
+                }`}
+              />
             </button>
           </Tooltip>
         </div>
-
-        {/* Tabs */}
-        <div className="flex items-center gap-1 px-6 pt-3 border-b border-gray-100">
-          <StoreTabButton
-            label="Method types"
-            active={tab === "types"}
-            onClick={() => setTab("types")}
-          />
-          <StoreTabButton
-            label="Protocol templates"
-            active={tab === "templates"}
-            onClick={() => setTab("templates")}
-          />
-        </div>
-
-        {tab === "types" ? (
-          <MethodTypesTab
-            enabledSet={enabledSet}
-            curating={currentUser !== null}
-            onToggle={(id, on) => {
-              void setEnabled(id, on);
-            }}
-          />
-        ) : (
-          <ProtocolTemplatesTab
-            existingFolders={existingFolders}
-            enabledSet={enabledSet}
-            onEnableType={(id) => {
-              void setEnabled(id, true);
-            }}
-            onUsed={onUsed}
-          />
+        {module.cosmetic.description && (
+          <p className="text-xs text-gray-500 mt-1">
+            {module.cosmetic.description}
+          </p>
         )}
       </div>
     </div>
   );
 }
 
-function StoreTabButton({
-  label,
-  active,
-  onClick,
+// ── Protocol-template card ───────────────────────────────────────────────────
+
+function ProtocolTemplateCard({
+  entry,
+  typeEnabled,
+  isUsing,
+  anyUsing,
+  onUse,
+  onEnableType,
 }: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
+  entry: MethodCatalogManifestEntry;
+  typeEnabled: boolean;
+  isUsing: boolean;
+  anyUsing: boolean;
+  onUse: () => void;
+  onEnableType: () => void;
 }) {
+  const typeId = entry.method_type as MethodTypeId;
+  const meta = getMethodTypeMeta(typeId);
+  const Icon = meta.icon;
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-        active
-          ? "border-blue-600 text-blue-700"
-          : "border-transparent text-gray-500 hover:text-gray-700"
-      }`}
-    >
-      {label}
-    </button>
+    <div className="h-full border border-gray-200 rounded-lg p-4 flex flex-col bg-white hover:shadow-sm transition-shadow">
+      <div className="flex items-start justify-between gap-2">
+        <h5 className="text-sm font-medium text-gray-900">{entry.title}</h5>
+        <span
+          className={`shrink-0 inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full ${meta.color.bg} ${meta.color.text}`}
+        >
+          <Icon className="w-3 h-3" />
+          {meta.label}
+        </span>
+      </div>
+      <p className="text-xs text-gray-500 mt-1 flex-1">{entry.description}</p>
+      {entry.tags && entry.tags.length > 0 && (
+        <div className="flex gap-1 mt-2 flex-wrap">
+          {entry.tags.map((tag) => (
+            <span
+              key={tag}
+              className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded"
+            >
+              #{tag}
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="mt-3 flex items-center justify-end gap-2">
+        {!typeEnabled && (
+          <Tooltip
+            label={`${meta.label} is disabled in your library`}
+            placement="top"
+          >
+            <span className="text-[10px] text-amber-600">Type disabled</span>
+          </Tooltip>
+        )}
+        {typeEnabled ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onUse();
+            }}
+            disabled={anyUsing}
+            className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            {isUsing ? "Adding..." : "Use template"}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEnableType();
+            }}
+            className="px-3 py-1.5 text-xs border border-blue-600 text-blue-700 rounded-lg hover:bg-blue-50"
+          >
+            Enable {meta.label}
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
-// ── Tab 1: Method types (curation) ───────────────────────────────────────────
+// ── Detail placeholder (Phase D fills this) ──────────────────────────────────
 
-function MethodTypesTab({
+function LibraryDetailPlaceholder({
+  item,
   enabledSet,
-  curating,
-  onToggle,
 }: {
+  item: LibraryItem;
   enabledSet: Set<MethodTypeId>;
-  /** False when signed out / pre-data-setup: toggles can't persist, so the
-   *  switches render disabled. */
-  curating: boolean;
-  onToggle: (id: MethodTypeId, on: boolean) => void;
 }) {
-  const modules = listMethodModules();
-  const [requestText, setRequestText] = useState("");
-
-  // Group by cosmetic category, preserving registry order within each group.
-  const grouped = useMemo(() => {
-    const order: string[] = [];
-    const byCat = new Map<string, MethodModuleMeta[]>();
-    for (const m of modules) {
-      const cat =
-        m.cosmetic.category === "structured" ? "Structured methods" : "Standard methods";
-      if (!byCat.has(cat)) {
-        byCat.set(cat, []);
-        order.push(cat);
-      }
-      byCat.get(cat)!.push(m);
-    }
-    return order.map((category) => ({ category, items: byCat.get(category)! }));
-  }, [modules]);
-
-  return (
-    <div className="flex-1 overflow-auto p-6">
-      <p className="text-sm text-gray-500 mb-4">
-        Turn off the types you never use to keep the new-method picker short.
-        Disabling a type only hides it from the picker and these templates; it
-        never deletes or hides methods you already have.
-      </p>
-
-      {grouped.map((group) => (
-        <section key={group.category} className="mb-6 last:mb-0">
-          <h4 className="text-sm font-semibold text-gray-700 mb-3">
-            {group.category}
-          </h4>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {group.items.map((m) => {
-              const Icon = m.cosmetic.icon;
-              const on = enabledSet.has(m.id);
-              return (
-                <div
-                  key={m.id}
-                  className="border border-gray-200 rounded-lg p-4 flex items-start gap-3"
-                >
-                  <span
-                    className={`shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-lg ${m.cosmetic.color.bg} ${m.cosmetic.color.text}`}
-                  >
-                    <Icon className="w-4 h-4" />
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <h5 className="text-sm font-medium text-gray-900">
-                        {m.cosmetic.label}
-                      </h5>
-                      <Tooltip
-                        label={
-                          curating
-                            ? on
-                              ? `Disable ${m.cosmetic.label}`
-                              : `Enable ${m.cosmetic.label}`
-                            : "Sign in to change this"
-                        }
-                        placement="top"
-                      >
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={on}
-                          aria-label={`${on ? "Disable" : "Enable"} ${m.cosmetic.label}`}
-                          disabled={!curating}
-                          onClick={() => onToggle(m.id, !on)}
-                          className={`relative shrink-0 inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-40 ${
-                            on ? "bg-blue-600" : "bg-gray-300"
-                          }`}
-                        >
-                          <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                              on ? "translate-x-4" : "translate-x-0.5"
-                            }`}
-                          />
-                        </button>
-                      </Tooltip>
-                    </div>
-                    {m.cosmetic.description && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        {m.cosmetic.description}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+  if (item.kind === "type") {
+    const on = enabledSet.has(item.module.id);
+    const Icon = item.module.cosmetic.icon;
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className={`shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-lg ${item.module.cosmetic.color.bg} ${item.module.cosmetic.color.text}`}
+            >
+              <Icon className="w-4 h-4" />
+            </span>
+            <h4 className="text-base font-semibold text-gray-900 truncate">
+              {item.module.cosmetic.label}
+            </h4>
           </div>
-        </section>
-      ))}
+          <span
+            className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+              on ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-600"
+            }`}
+          >
+            {on ? "Enabled" : "Disabled"}
+          </span>
+        </div>
+        {item.module.cosmetic.description && (
+          <p className="text-sm text-gray-600 leading-snug">
+            {item.module.cosmetic.description}
+          </p>
+        )}
+        <p className="text-xs text-gray-400 border-t border-gray-100 pt-3">
+          A sample rendering and full details arrive in the next update.
+        </p>
+      </div>
+    );
+  }
 
-      {/* Request a new method type (STUB: opens a prefilled GitHub issue) */}
-      <section className="mt-8 border-t border-gray-100 pt-6">
+  const meta = getMethodTypeMeta(item.entry.method_type as MethodTypeId);
+  const Icon = meta.icon;
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-start justify-between gap-3">
+        <h4 className="text-base font-semibold text-gray-900">
+          {item.entry.title}
+        </h4>
+        <span
+          className={`shrink-0 inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full ${meta.color.bg} ${meta.color.text}`}
+        >
+          <Icon className="w-3 h-3" />
+          {meta.label}
+        </span>
+      </div>
+      {item.entry.description && (
+        <p className="text-sm text-gray-600 leading-snug">
+          {item.entry.description}
+        </p>
+      )}
+      {item.entry.tags && item.entry.tags.length > 0 && (
+        <div className="flex gap-1 flex-wrap">
+          {item.entry.tags.map((tag) => (
+            <span
+              key={tag}
+              className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded"
+            >
+              #{tag}
+            </span>
+          ))}
+        </div>
+      )}
+      <p className="text-xs text-gray-400 border-t border-gray-100 pt-3">
+        A read-only protocol preview arrives in the next update.
+      </p>
+    </div>
+  );
+}
+
+// ── Search + footer ──────────────────────────────────────────────────────────
+
+/** Search box for the rail. State is owned by the caller; filtering is wired
+ *  in Phase C, so for now this is a presentational slot. */
+function MethodSearchInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-500 mb-1">
+        Search library
+      </label>
+      <input
+        type="search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Search by name, type, or tag..."
+        aria-label="Search library"
+        className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+      />
+    </div>
+  );
+}
+
+/** Footer slot: the template destination-folder control, any "Use template"
+ *  error, and the request-a-new-type stub. */
+function LibraryFooter({
+  useError,
+  destFolder,
+  onDestFolderChange,
+  existingFolders,
+}: {
+  useError: string | null;
+  destFolder: string;
+  onDestFolderChange: (v: string) => void;
+  existingFolders: string[];
+}) {
+  const [requestText, setRequestText] = useState("");
+  return (
+    <div className="flex flex-col gap-6">
+      {useError && <p className="text-sm text-red-600">{useError}</p>}
+
+      <div className="min-w-[220px] max-w-sm">
+        <label className="block text-xs font-medium text-gray-500 mb-1">
+          Add used templates to category
+        </label>
+        <input
+          type="text"
+          list="template-dest-folders"
+          value={destFolder}
+          onChange={(e) => onDestFolderChange(e.target.value)}
+          placeholder="Uncategorized"
+          aria-label="Destination category"
+          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+        />
+        <datalist id="template-dest-folders">
+          {existingFolders.map((f) => (
+            <option key={f} value={f} />
+          ))}
+        </datalist>
+      </div>
+
+      <div className="border-t border-gray-100 pt-6">
         <h4 className="text-sm font-semibold text-gray-700 mb-1">
           Need a type that isn&apos;t here?
         </h4>
         <p className="text-xs text-gray-400 mb-3">
-          Method types are built and reviewed on GitHub, then ship in an update.
-          Describe what you need and we&apos;ll open an issue for you.
+          Method types are built and reviewed on GitHub, then ship in an
+          update. Describe what you need and we&apos;ll open an issue for you.
         </p>
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex-1 min-w-[220px]">
@@ -298,261 +616,7 @@ function MethodTypesTab({
             Request a method type
           </a>
         </div>
-      </section>
-    </div>
-  );
-}
-
-// ── Tab 2: Protocol templates (the U1 catalog) ───────────────────────────────
-
-function ProtocolTemplatesTab({
-  existingFolders,
-  enabledSet,
-  onEnableType,
-  onUsed,
-}: {
-  existingFolders: string[];
-  enabledSet: Set<MethodTypeId>;
-  onEnableType: (id: MethodTypeId) => void;
-  onUsed: (created: Method) => void;
-}) {
-  const [entries, setEntries] = useState<MethodCatalogManifestEntry[] | null>(
-    null,
-  );
-  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
-    "loading",
-  );
-  const [search, setSearch] = useState("");
-  const [destFolder, setDestFolder] = useState("");
-  const [usingSlug, setUsingSlug] = useState<string | null>(null);
-  const [useError, setUseError] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Initial state is already "loading"; the effect runs once (empty deps),
-    // so there's no need to re-set it here.
-    let cancelled = false;
-    fetchMethodCatalogManifest()
-      .then((manifest) => {
-        if (cancelled) return;
-        setEntries(manifest.templates);
-        setLoadState("ready");
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setLoadState("error");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const filtered = useMemo(() => {
-    if (!entries) return [];
-    const q = search.trim().toLowerCase();
-    if (!q) return entries;
-    return entries.filter((t) => {
-      const haystack = [
-        t.title,
-        t.description,
-        t.category,
-        ...(t.tags ?? []),
-        getMethodTypeMeta(t.method_type as MethodTypeId).label,
-      ]
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(q);
-    });
-  }, [entries, search]);
-
-  // Group filtered templates by category, preserving the manifest's curated
-  // order within each group and ordering groups by first appearance.
-  const grouped = useMemo(() => {
-    const order: string[] = [];
-    const byCategory = new Map<string, MethodCatalogManifestEntry[]>();
-    for (const t of filtered) {
-      if (!byCategory.has(t.category)) {
-        byCategory.set(t.category, []);
-        order.push(t.category);
-      }
-      byCategory.get(t.category)!.push(t);
-    }
-    return order.map((category) => ({
-      category,
-      templates: byCategory.get(category)!,
-    }));
-  }, [filtered]);
-
-  const handleUse = useCallback(
-    async (entry: MethodCatalogManifestEntry) => {
-      if (usingSlug) return;
-      setUsingSlug(entry.slug);
-      setUseError(null);
-      try {
-        const template = await fetchMethodCatalogTemplate(entry.slug);
-        const created = await instantiateMethodFromTemplate(template, {
-          folderPath: destFolder.trim() || null,
-        });
-        onUsed(created);
-      } catch {
-        setUseError(
-          `Could not create a method from "${entry.title}". Check your connection and try again.`,
-        );
-      } finally {
-        setUsingSlug(null);
-      }
-    },
-    [usingSlug, destFolder, onUsed],
-  );
-
-  return (
-    <>
-      {/* Controls: search + destination folder */}
-      {loadState === "ready" && (
-        <div className="flex flex-wrap items-end gap-3 px-6 py-3 border-b border-gray-100">
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-xs font-medium text-gray-500 mb-1">
-              Search templates
-            </label>
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name, type, or tag..."
-              aria-label="Search templates"
-              className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-            />
-          </div>
-          <div className="min-w-[200px]">
-            <label className="block text-xs font-medium text-gray-500 mb-1">
-              Add to category
-            </label>
-            <input
-              type="text"
-              list="template-dest-folders"
-              value={destFolder}
-              onChange={(e) => setDestFolder(e.target.value)}
-              placeholder="Uncategorized"
-              aria-label="Destination category"
-              className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-            />
-            <datalist id="template-dest-folders">
-              {existingFolders.map((f) => (
-                <option key={f} value={f} />
-              ))}
-            </datalist>
-          </div>
-        </div>
-      )}
-
-      {/* Body */}
-      <div className="flex-1 overflow-auto p-6">
-        {loadState === "loading" && (
-          <p className="text-sm text-gray-400 py-10 text-center">
-            Loading templates...
-          </p>
-        )}
-
-        {loadState === "error" && (
-          <div className="border-2 border-dashed border-gray-200 rounded-lg p-10 text-center">
-            <p className="text-sm text-gray-500">
-              The template catalog is unavailable right now.
-            </p>
-            <p className="text-xs text-gray-400 mt-1">
-              It needs an internet connection. Everything else on this page
-              keeps working offline.
-            </p>
-          </div>
-        )}
-
-        {loadState === "ready" && filtered.length === 0 && (
-          <p className="text-sm text-gray-400 py-10 text-center">
-            No templates match this search.
-          </p>
-        )}
-
-        {loadState === "ready" && useError && (
-          <p className="text-sm text-red-600 mb-4">{useError}</p>
-        )}
-
-        {loadState === "ready" &&
-          grouped.map((group) => (
-            <section key={group.category} className="mb-8 last:mb-0">
-              <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                {group.category}
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {group.templates.map((entry) => {
-                  const typeId = entry.method_type as MethodTypeId;
-                  const meta = getMethodTypeMeta(typeId);
-                  const Icon = meta.icon;
-                  const isUsing = usingSlug === entry.slug;
-                  const typeEnabled = enabledSet.has(typeId);
-                  return (
-                    <div
-                      key={entry.slug}
-                      className="border border-gray-200 rounded-lg p-4 flex flex-col hover:shadow-sm transition-shadow"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <h5 className="text-sm font-medium text-gray-900">
-                          {entry.title}
-                        </h5>
-                        <span
-                          className={`shrink-0 inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full ${meta.color.bg} ${meta.color.text}`}
-                        >
-                          <Icon className="w-3 h-3" />
-                          {meta.label}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1 flex-1">
-                        {entry.description}
-                      </p>
-                      {entry.tags && entry.tags.length > 0 && (
-                        <div className="flex gap-1 mt-2 flex-wrap">
-                          {entry.tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded"
-                            >
-                              #{tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      <div className="mt-3 flex items-center justify-end gap-2">
-                        {!typeEnabled && (
-                          <Tooltip
-                            label={`${meta.label} is disabled in your library`}
-                            placement="top"
-                          >
-                            <span className="text-[10px] text-amber-600">
-                              Type disabled
-                            </span>
-                          </Tooltip>
-                        )}
-                        {typeEnabled ? (
-                          <button
-                            onClick={() => handleUse(entry)}
-                            disabled={usingSlug !== null}
-                            className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                          >
-                            {isUsing ? "Adding..." : "Use template"}
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => onEnableType(typeId)}
-                            className="px-3 py-1.5 text-xs border border-blue-600 text-blue-700 rounded-lg hover:bg-blue-50"
-                          >
-                            Enable {meta.label}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
       </div>
-    </>
+    </div>
   );
 }
