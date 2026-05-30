@@ -41,6 +41,7 @@ export default function ProsceniumFrame({
   wide = false,
   posterPose = "idle",
   revealKey,
+  onActiveClick,
 }: {
   title: string;
   active: boolean;
@@ -61,6 +62,11 @@ export default function ProsceniumFrame({
    *  curtain reveal in the window: the plum panels sweep CLOSED across
    *  the scene, then PART to reveal the newly selected scene. */
   revealKey?: string;
+  /** Click rewards (click-rewards sub-bot): fired with the click event when
+   *  the ACTIVE frame is clicked, so the Hall can spawn a Tier-1 cursor burst
+   *  at the pointer + advance the Tier-2 streak. The existing camera-flash
+   *  re-fire is unaffected. */
+  onActiveClick?: (e: React.MouseEvent<HTMLElement>) => void;
 }) {
   // Camera-flash flurry (Change 2). Bumps on activation (so a fresh flurry
   // pops as the curtain parts on a scene) and on click of the active frame
@@ -101,9 +107,10 @@ export default function ProsceniumFrame({
       }`}
       data-active={active ? "true" : "false"}
       data-testid="showcase-proscenium"
-      onClick={() => {
+      onClick={(e) => {
         if (active) {
           setFlashBump((k) => k + 1);
+          onActiveClick?.(e);
         } else {
           onReplay?.();
         }

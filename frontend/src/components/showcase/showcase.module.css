@@ -1221,6 +1221,320 @@
   }
 }
 
+/* ── Click rewards: Tier 1 cursor bursts (click-rewards sub-bot) ────── */
+
+/* The Tier-1 layer fills the positioned stage section and never eats clicks.
+   Sits above the bot (z6) + flashes so the burst pops at the cursor on top of
+   the look, below the StageNav (z30). */
+.clickBurstLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* A single burst, anchored at the click point (left/top set inline). Every
+   child is centered on that point and animates outward. */
+.clickBurst {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+/* Expanding ring at the cursor. */
+.clickBurstRing {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(231, 200, 115, 0.9);
+  box-shadow: 0 0 10px rgba(231, 200, 115, 0.6);
+  opacity: 0;
+  animation: clickBurstRing 520ms cubic-bezier(0.18, 0.7, 0.24, 1) forwards;
+}
+@keyframes clickBurstRing {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.3);
+  }
+  70% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(3.6);
+  }
+}
+
+/* The camera-flash pop at the cursor (reuses the .flashBurst glyph). */
+.clickBurstFlash {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  display: block;
+}
+/* The bundled FlashBurst svg is .flashBurst (translateX(-50%) baked in); pull
+   it up so it centers on the click point and scale it down to a cursor pop. */
+.clickBurstFlash :global(svg) {
+  position: absolute;
+  left: 0;
+  top: -28px;
+  width: 44px;
+  height: 44px;
+}
+
+/* Each radiating sparkle / star. Pushed outward along --angle by --reach. */
+.clickBurstSpray {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: block;
+  transform-origin: center;
+  opacity: 0;
+  animation: clickBurstSpray 560ms ease-out forwards;
+  animation-delay: var(--spray-delay, 0ms);
+}
+.clickBurstSpray :global(svg) {
+  position: absolute;
+  left: -7px;
+  top: -7px;
+}
+@keyframes clickBurstSpray {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--angle, 0deg)) translateX(0) scale(0.4);
+  }
+  30% {
+    opacity: 1;
+    transform: rotate(var(--angle, 0deg)) translateX(calc(var(--reach, 30px) * 0.6))
+      scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--angle, 0deg)) translateX(var(--reach, 30px)) scale(0.7);
+  }
+}
+
+/* ── Click rewards: Tier 2 crowd-goes-wild (click-rewards sub-bot) ──── */
+
+/* The whole celebration layer fills the stage section; never eats clicks.
+   z just under the StageNav so tributes read over the look + Tier 1. */
+.crowdWildLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 22;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Intense flash flurry (Tier 2): pinned across the lower band. */
+.wildFlashRow {
+  position: absolute;
+  inset: 0;
+  bottom: 0;
+}
+.wildFlash {
+  position: absolute;
+  bottom: 14svh;
+}
+.wildFlash :global(svg) {
+  width: 64px;
+  height: 64px;
+}
+
+/* Confetti rain from the top. */
+.confettiLayer {
+  position: absolute;
+  inset: 0;
+}
+.confettiPiece {
+  position: absolute;
+  top: -24px;
+  display: block;
+  opacity: 0;
+  animation: confettiFall var(--c-dur, 1800ms) ease-in forwards;
+  animation-delay: var(--c-delay, 0ms);
+}
+@keyframes confettiFall {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px) translateX(0) rotate(0deg);
+  }
+  10% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(108svh) translateX(var(--c-drift, 0px))
+      rotate(var(--c-spin, 360deg));
+  }
+}
+
+/* Thrown tributes (roses + a cheeky bra): arc IN from an edge to a landing
+   point near center, then settle + fade. Positioned by from/to CSS vars. */
+.tributeLayer {
+  position: absolute;
+  inset: 0;
+}
+.tribute {
+  position: absolute;
+  left: var(--from-x, 0%);
+  top: var(--from-y, 100%);
+  display: block;
+  transform-origin: center;
+  opacity: 0;
+  animation: tributeArc var(--t-dur, 1100ms) cubic-bezier(0.2, 0.7, 0.3, 1)
+    forwards;
+  animation-delay: var(--t-delay, 0ms);
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.45));
+}
+@keyframes tributeArc {
+  0% {
+    opacity: 0;
+    left: var(--from-x, 0%);
+    top: var(--from-y, 100%);
+    transform: rotate(0deg) scale(0.85);
+  }
+  12% {
+    opacity: 1;
+  }
+  /* arc apex: rise above the landing point */
+  55% {
+    left: calc((var(--from-x, 0%) + var(--to-x, 50%)) / 2);
+    top: calc(var(--to-y, 60%) - 16%);
+    transform: rotate(calc(var(--t-rotate, 0deg) * 0.7)) scale(1.05);
+    opacity: 1;
+  }
+  /* land + small bounce settle */
+  78% {
+    left: var(--to-x, 50%);
+    top: var(--to-y, 60%);
+    transform: rotate(var(--t-rotate, 0deg)) scale(1);
+    opacity: 1;
+  }
+  90% {
+    top: calc(var(--to-y, 60%) - 3%);
+  }
+  100% {
+    left: var(--to-x, 50%);
+    top: var(--to-y, 60%);
+    transform: rotate(var(--t-rotate, 0deg)) scale(0.98);
+    opacity: 0;
+  }
+}
+
+/* Edge applause columns (clapping hands). */
+.applauseColumn {
+  position: absolute;
+  top: 30%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.applauseLeft {
+  left: 2.5vw;
+}
+.applauseRight {
+  right: 2.5vw;
+}
+.applauseItem {
+  display: block;
+  transform-origin: bottom center;
+  animation: applauseClap 360ms ease-in-out infinite alternate;
+  animation-delay: var(--a-delay, 0ms);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+@keyframes applauseClap {
+  0% {
+    transform: translateX(0) rotate(-8deg);
+  }
+  100% {
+    transform: translateX(4px) rotate(8deg);
+  }
+}
+/* The right-column hands are mirrored. The clap keyframe rewrites transform,
+   so the mirror is baked into its own flipped keyframe (later rule wins for
+   elements carrying both .applauseItem + .applauseFlip). */
+.applauseFlip {
+  animation: applauseClapFlip 360ms ease-in-out infinite alternate;
+}
+@keyframes applauseClapFlip {
+  0% {
+    transform: scaleX(-1) translateX(0) rotate(-8deg);
+  }
+  100% {
+    transform: scaleX(-1) translateX(4px) rotate(8deg);
+  }
+}
+
+/* The single gold marquee word (BRAVO): genuine, brief, no catchphrase. */
+.bravoBanner {
+  position: absolute;
+  top: 16%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  opacity: 0;
+  animation: bravoPop 1700ms cubic-bezier(0.18, 0.8, 0.24, 1) forwards;
+}
+.bravoWord {
+  font-size: clamp(2.4rem, 7vw, 4.5rem);
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  color: #ffe9a8;
+  text-shadow:
+    0 0 12px rgba(231, 200, 115, 0.85),
+    0 0 30px rgba(231, 200, 115, 0.5),
+    0 3px 0 #8a6a1f;
+  -webkit-text-stroke: 1px rgba(138, 106, 31, 0.6);
+}
+.bravoSparkleLeft,
+.bravoSparkleRight {
+  animation: bravoSparkle 700ms ease-in-out infinite alternate;
+}
+@keyframes bravoPop {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.6);
+  }
+  14% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.12);
+  }
+  26% {
+    transform: translateX(-50%) scale(1);
+  }
+  82% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) scale(1.04);
+  }
+}
+@keyframes bravoSparkle {
+  0% {
+    transform: scale(0.85) rotate(-12deg);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.15) rotate(12deg);
+    opacity: 1;
+  }
+}
+
 /* ── Reduced-motion: static-but-glam (R3.10) ───────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
@@ -1330,5 +1644,45 @@
     animation: none;
     opacity: 1;
     transform: translateX(-50%);
+  }
+  /* Click rewards (click-rewards sub-bot): no strobing, no thrown-item
+     motion. Tier 1 holds a brief, static pop at the cursor (ring + spray are
+     shown at rest, no expansion). Tier 2 tributes / confetti do not fly: they
+     are suppressed so nothing arcs or rains, and the flash flurry holds a
+     single soft pop. The BRAVO word and applause hold static. */
+  .clickBurstRing {
+    animation: none;
+    opacity: 0.5;
+    transform: scale(1.4);
+  }
+  .clickBurstSpray {
+    animation: none;
+    opacity: 0.7;
+    transform: rotate(var(--angle, 0deg)) translateX(calc(var(--reach, 30px) * 0.7))
+      scale(0.9);
+  }
+  .clickBurstFlash :global(svg) {
+    opacity: 0.6;
+  }
+  .confettiPiece,
+  .tribute {
+    animation: none;
+    opacity: 0;
+  }
+  .wildFlash :global(svg) {
+    animation: none;
+    opacity: 0.5;
+  }
+  .applauseItem,
+  .applauseFlip {
+    animation: none;
+  }
+  .bravoBanner {
+    animation: none;
+    opacity: 1;
+  }
+  .bravoSparkleLeft,
+  .bravoSparkleRight {
+    animation: none;
   }
 }

@@ -23,10 +23,12 @@
 // and surfaces a manual "next look" control so the viewer can walk the
 // looks at their own pace.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import BeakerBot from "../BeakerBot";
 import EmotionLabel from "./EmotionLabel";
 import { Spotlight, StageBacklightRig, Flashbulbs } from "./StageChrome";
+import ClickRewards from "./ClickRewards";
+import { useClickStreak } from "./useClickStreak";
 import { useRunwayAutoplay } from "./useRunwayAutoplay";
 import { SHOWCASE_FRAMES } from "./showcase-data";
 import styles from "./showcase.module.css";
@@ -43,16 +45,32 @@ export default function Runway() {
   const [clickBump, setClickBump] = useState(0);
   const flashKey = (bumpKey + 1) * 1000 + clickBump;
 
+  // Click rewards (click-rewards sub-bot): Tier 1 cursor bursts + Tier 2
+  // crowd-goes-wild. We capture the click point relative to the stage section
+  // so the burst pops at the cursor.
+  const sectionRef = useRef<HTMLElement | null>(null);
+  const { bursts, wild, wildWaveKey, wildEscalateKey, registerClick } =
+    useClickStreak();
+
+  const handleStageClick = (e: React.MouseEvent<HTMLElement>) => {
+    // Keep the existing ambient pit-flash re-fire on every click.
+    setClickBump((k) => k + 1);
+    // Spawn the cursor burst at the pointer position relative to the section.
+    const rect = sectionRef.current?.getBoundingClientRect();
+    if (rect) registerClick(e.clientX - rect.left, e.clientY - rect.top);
+  };
+
   const frame = SHOWCASE_FRAMES[activeIndex];
   if (!frame) return null;
 
   return (
     <section
+      ref={sectionRef}
       className={styles.runwayShow}
       data-testid="showcase-runway"
       data-look={frame.kind === "trio" ? "pointing-trio" : frame.pose}
       aria-label="BeakerBot runway show"
-      onClick={() => setClickBump((k) => k + 1)}
+      onClick={handleStageClick}
     >
       {/* Overhead beam ambiance (hot white up high, not over the bot). */}
       <Spotlight active />
@@ -109,6 +127,15 @@ export default function Runway() {
           Next look
         </button>
       )}
+
+      {/* Click rewards overlay (Tier 1 cursor bursts + Tier 2 crowd-wild).
+          pointer-events: none, so it never blocks the stage click. */}
+      <ClickRewards
+        bursts={bursts}
+        wild={wild}
+        wildWaveKey={wildWaveKey}
+        wildEscalateKey={wildEscalateKey}
+      />
     </section>
   );
 }

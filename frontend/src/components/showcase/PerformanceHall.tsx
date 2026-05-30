@@ -47,6 +47,8 @@ import BeakerBotTwirlScene from "../BeakerBotTwirlScene";
 import { TOTAL_DURATION_MS as COFFEE_TOTAL_DURATION_MS } from "../BeakerBotCoffeeRefillScene";
 import ProsceniumFrame from "./ProsceniumFrame";
 import { ProgressShimmer } from "./SpecialCaseChrome";
+import ClickRewards from "./ClickRewards";
+import { useClickStreak } from "./useClickStreak";
 import styles from "./showcase.module.css";
 
 // Every scene now accepts an optional portalTarget (defaults to
@@ -277,6 +279,18 @@ export default function PerformanceHall() {
   const [replayKey, setReplayKey] = useState(0);
   const replayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Click rewards (click-rewards sub-bot): Tier 1 cursor bursts + Tier 2
+  // crowd-goes-wild, shared with the Runway via the same hook. We capture the
+  // click point relative to the hall section so the burst pops at the cursor;
+  // the overlay fills the (position: relative) hall section.
+  const hallRef = useRef<HTMLElement | null>(null);
+  const { bursts, wild, wildWaveKey, wildEscalateKey, registerClick } =
+    useClickStreak();
+  const handleActiveFrameClick = (e: React.MouseEvent<HTMLElement>) => {
+    const rect = hallRef.current?.getBoundingClientRect();
+    if (rect) registerClick(e.clientX - rect.left, e.clientY - rect.top);
+  };
+
   const act = ACTS.find((a) => a.id === activeId) ?? ACTS[0]!;
   const Component = act.Component;
   // SAFE GLOBAL FRAMING (orchestrator manager). The per-act `focus` values
@@ -412,7 +426,11 @@ export default function PerformanceHall() {
   );
 
   return (
-    <section className={styles.hall} data-testid="showcase-performance-hall">
+    <section
+      ref={hallRef}
+      className={styles.hall}
+      data-testid="showcase-performance-hall"
+    >
       {/* The "Performance Hall" header was removed: it overlapped the
           BeakerBot bulb marquee at the top of the stage. The marquee logo is
           the title. */}
@@ -426,6 +444,7 @@ export default function PerformanceHall() {
           sceneViewportRef={setSceneViewport}
           wide={act.special === "skateboard"}
           revealKey={activeId}
+          onActiveClick={handleActiveFrameClick}
         >
           {sceneChrome}
         </ProsceniumFrame>
@@ -443,6 +462,16 @@ export default function PerformanceHall() {
 
       {/* The professional scene-picker. */}
       <ScenePicker activeId={activeId} onSelect={setActiveId} />
+
+      {/* Click rewards overlay (Tier 1 cursor bursts + Tier 2 crowd-wild),
+          shared with the Runway. pointer-events: none, so it never blocks the
+          scene-picker pills or the frame click. */}
+      <ClickRewards
+        bursts={bursts}
+        wild={wild}
+        wildWaveKey={wildWaveKey}
+        wildEscalateKey={wildEscalateKey}
+      />
     </section>
   );
 }
