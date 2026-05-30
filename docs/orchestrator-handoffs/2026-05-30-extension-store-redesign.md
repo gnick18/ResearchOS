@@ -31,10 +31,19 @@ hold below).
     #6 (Loading skeleton) into QUEUED store-polish bot.
   - #7 (My Methods page wastes ~60% desktop width): out of scope; flagged as
     methods-page-width bot follow-up (design proposal first).
-- MECHANICS: not yet reported as of this update.
+- MECHANICS: PASS, no bugs. Both stores' interactive paths verified end to end
+  (search/categories/enabled-only/detail/live-preview/footer-toggle, the two
+  segments, read-only template renders, Use-template gating + viewer from both
+  entry points, builder declutter, responsive + two-stage Escape). Non-bug
+  flags: no compound templates in the live manifest yet (CompoundTemplateDetail
+  fixture-only until lc-ms-templates-work lands -> targeted re-verify then);
+  manifest is now 88 templates (catalog session still adding; store is dynamic).
 
-Open chips: widget-card-copy bot, store-polish bot, methods-page-width bot
-(plus the held compound follow-up). Loop until clean, then arc fully closed.
+VERIFIER LOOP COMPLETE: spec PASS, mechanics PASS, fresh-eyes triaged. No
+correctness defects. Remaining work is the queued chips (widget-card-copy,
+store-polish, methods-page-width) plus the held compound follow-up. Once those
+land and merge, the arc is fully closed; re-verify the compound path when a
+compound catalog entry exists.
 
 ## Compound coordination hold (action required by master/catalog owner)
 
