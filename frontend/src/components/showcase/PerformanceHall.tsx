@@ -60,13 +60,39 @@ type SceneComponent = ComponentType<SceneEnvelopeProps>;
 
 type SpecialCase = "skateboard" | "coffee-refill";
 
+/** Per-act framing region (scene-framing sub-bot, orchestrator manager).
+ *  Each scene is authored as a FULL-viewport composition (100vw x 100svh)
+ *  but its action (BeakerBot + the key props) usually lives in one region
+ *  of that viewport, not the whole thing. `focus` declares WHERE the action
+ *  sits so the stage maps THAT region onto the window instead of the whole
+ *  viewport, which keeps the performer large + centered instead of a dot in
+ *  a mostly-empty stage.
+ *
+ *  - cx / cy: the action-center as fractions of the viewport (0..1). This
+ *    point is mapped to the CENTER of the window.
+ *  - zoom: how much to magnify BEYOND the no-clip contain-fit. 1 = today's
+ *    pure contain-fit (whole viewport mapped onto the window). The final
+ *    scale is containFit * zoom.
+ *
+ *  Omitted => { cx: 0.5, cy: 0.5, zoom: 1 } (today's centered contain-fit),
+ *  so any act with no focus renders exactly as before and never smaller. */
+interface ActFocus {
+  cx: number;
+  cy: number;
+  zoom: number;
+}
+
 interface ActData {
   id: string;
   /** Marquee placard title + scene-picker label. */
   name: string;
   Component: SceneComponent;
   special?: SpecialCase;
+  /** Optional per-scene framing (see ActFocus). */
+  focus?: ActFocus;
 }
+
+const DEFAULT_FOCUS: ActFocus = { cx: 0.5, cy: 0.5, zoom: 1 };
 
 /** The show bill. Order paces energy: a greeting, the physical gags, the
  *  long lab-life beats, the interactive closer, then the new drag-stage
@@ -76,53 +102,110 @@ const ACTS: readonly ActData[] = [
     id: "ladder",
     name: "The Ladder",
     Component: BeakerBotLadderScene as unknown as SceneComponent,
+    // BeakerBot climbs a 50vh-tall ladder whose base sits on the 12vh
+    // ground line, so the action is a TALL vertical column spanning roughly
+    // 38vh (ladder top) to 88vh (his feet at the base). The ladder hugs one
+    // edge but enterFrom can be either side, so keep cx centered. Center of
+    // the column is ~0.63 down. Gentle zoom: the column is already tall, so
+    // a little magnification fills the window without cropping the climb.
+    focus: { cx: 0.5, cy: 0.62, zoom: 1.5 },
   },
   {
     id: "bug-stomp",
     name: "The Bug Stomp",
     Component: BeakerBotBugStompScene as unknown as SceneComponent,
+    // Bot is anchored at left:50% and sneaks ~50vw across the floor toward a
+    // bug near 32/68vw, so the action is a WIDE lower band. Keep cx centered
+    // and frame the lower-floor band (~0.78). Modest zoom so the long sneak
+    // traverse stays on stage.
+    focus: { cx: 0.5, cy: 0.78, zoom: 1.55 },
   },
   {
     id: "skateboard",
     name: "Intermission",
     Component: BeakerBotSkateboardScene as unknown as SceneComponent,
     special: "skateboard",
+    // SPECIAL: wide 21:9 frame. The bot + board cruise the FULL width
+    // (left edge to right edge) with a loop arc, so any zoom > ~1 would crop
+    // the traverse. Keep focus near contain-fit (the wide frame already
+    // crops the empty top/bottom), only nudging the vertical center to the
+    // 85% cruise line and a hair of zoom.
+    focus: { cx: 0.5, cy: 0.78, zoom: 1.08 },
   },
   {
     id: "too-many-beakers",
     name: "Too Many Beakers",
     Component: BeakerBotTooManyBeakersScene as unknown as SceneComponent,
+    // Grant's example ("90% of the stage is empty"). Bot is anchored
+    // bottom-center (left:50%, feet at 12vh) carrying a TALL stack of beakers
+    // (a 180px wrapper rising well above his head). The live action (bot +
+    // stack) is a compact lower-center column; falling shards arc out to
+    // ~60vh but are secondary. Frame the bot+stack column: cy biased up to
+    // ~0.66 to keep the stack top in frame, healthy zoom to fill the empty
+    // margins Grant called out.
+    focus: { cx: 0.5, cy: 0.66, zoom: 2.0 },
   },
   {
     id: "centrifuge",
     name: "The Centrifuge",
     Component: BeakerBotCentrifugeScene as unknown as SceneComponent,
+    // Bot (scene-local 80px, smaller than the 128px norm) sits bottom-center
+    // holding the centrifuge; sample tubes fly out ±28vw and arc up ~45-55vh.
+    // Frame the bot + held centrifuge (lower-center, cy ~0.74); a strong zoom
+    // grows the small bot, accepting that the wide tube arcs may pass near
+    // the frame edges (they are secondary motion, not the performer).
+    focus: { cx: 0.5, cy: 0.74, zoom: 1.75 },
   },
   {
     id: "eureka",
     name: "Eureka",
     Component: BeakerBotEurekaScene as unknown as SceneComponent,
+    // Bot sits at the bench center (50vw) at the canonical 128px size with
+    // the idea-bulb popping above his head (top:-60px). Grant called this
+    // scene's scale the baseline. Frame bot + bulb (cy ~0.72 to keep the
+    // bulb in frame); modest zoom since he is already full-size and centered.
+    focus: { cx: 0.5, cy: 0.72, zoom: 1.4 },
   },
   {
     id: "coffee-refill",
     name: "The Wait Is The Look",
     Component: BeakerBotCoffeeRefillScene as unknown as SceneComponent,
     special: "coffee-refill",
+    // Bot walks to the bench center (50vw) beside the coffee machine + pot;
+    // the action is a lower-center cluster (bot + machine). cy biased down to
+    // ~0.74. The ProgressShimmer chrome renders at FRAME scale (outside this
+    // viewport transform), so it is unaffected. Moderate zoom.
+    focus: { cx: 0.5, cy: 0.74, zoom: 1.5 },
   },
   {
     id: "blowing-bubbles",
     name: "Blowing Bubbles",
     Component: BeakerBotBlowingBubblesScene as unknown as SceneComponent,
+    // Bot settles LEFT (body center at 12vw = cx 0.12) and blows bubbles that
+    // drift up and to the right. Frame between the bot and the near bubble
+    // field: cx ~0.30 keeps both the off-left bot and his bubbles in view.
+    // cy ~0.72 (bot + bubbles rising above). Moderate zoom.
+    focus: { cx: 0.3, cy: 0.72, zoom: 1.5 },
   },
   {
     id: "runway-strut",
     name: "The Runway Strut",
     Component: BeakerBotRunwayStrutScene as unknown as SceneComponent,
+    // Bot struts in from stage-left and HITS HIS MARK at ~46vw / top 70%
+    // (final center ~cx 0.5, cy 0.70), scaling 0.7 -> 1 along the walk. Frame
+    // the mark; keep zoom modest so the entry walk from the left edge stays
+    // mostly on stage rather than starting off-frame.
+    focus: { cx: 0.5, cy: 0.7, zoom: 1.45 },
   },
   {
     id: "twirl",
     name: "The Twirl",
     Component: BeakerBotTwirlScene as unknown as SceneComponent,
+    // Bot is planted DEAD CENTER (top:50%, left:50%) at full 128px doing a
+    // spin, with a decorative rainbow trail radiating around him. Already
+    // centered, so keep cx/cy at 0.5; a moderate zoom grows him while the
+    // trail (decorative) is free to reach toward the edges.
+    focus: { cx: 0.5, cy: 0.5, zoom: 1.4 },
   },
 ];
 
@@ -184,44 +267,46 @@ export default function PerformanceHall() {
     null,
   );
 
-  // Compute the contain-fit scale that maps the real-viewport-sized scene
-  // viewport (100vw x 100svh) into the fixed window (its clip parent), so
-  // the whole scene fits inside the gold frame, centered and not clipped.
-  // A single uniform scale can't match two different aspect ratios, so we
-  // take the smaller of the width-fit and height-fit (a "contain").
+  const act = ACTS.find((a) => a.id === activeId) ?? ACTS[0]!;
+  const Component = act.Component;
+  const focus = act.focus ?? DEFAULT_FOCUS;
+
+  // PER-SCENE FRAMING (scene-framing sub-bot, orchestrator manager).
   //
-  // FIX 1a (orchestrator manager): the old effect measured the clip ONCE on
-  // mount and bailed (`return`) whenever the rect had no layout yet. On
-  // first paint the window often has no dimensions, so the scale stayed
-  // stuck at its 0.32 default forever (no resize ever fires to recompute) —
-  // BeakerBot rendered tiny. We now (1) run in a layout effect, (2) retry
-  // across a couple of animation frames until the clip has real size, and
-  // (3) keep a ResizeObserver live so any later layout change (or the
-  // skateboard wide-frame swap) re-measures. Re-runs on activeId + resize.
+  // Background: each scene is authored as a full-viewport composition
+  // (100vw x 100svh) but its action usually fills only one region of that
+  // viewport, so mapping the WHOLE viewport into the window left BeakerBot
+  // tiny with most of the stage empty (Grant: "90% of the stage is empty").
   //
-  // FIX 1b (orchestrator manager): even at the true contain-fit, the
-  // full-viewport composition leaves BeakerBot small inside a large window.
-  // Grant wants him to fill the stage like a real performance, so we
-  // multiply the contain-fit by SCENE_ZOOM and anchor transform-origin to
-  // the lower-center band (where the bench scenes act, ~88% down), so the
-  // performer grows toward the audience and is never pushed off the top of
-  // frame. A gentle 1.45x keeps every scene's performer fully visible (an
-  // aggressive zoom cropped the wider scenes), while still reading as the
-  // star of the stage rather than a dot.
+  // The new model maps the act's declared action region onto the window:
+  //
+  //  1. containFit = min(window.w / vw, window.h / vh) — the no-clip base
+  //     that fits the whole viewport into the window. This is the FLOOR: a
+  //     scene with focus.zoom 1 renders exactly as before, never smaller.
+  //  2. scale S = containFit * focus.zoom. zoom magnifies BEYOND contain-fit
+  //     so the performer fills the stage.
+  //  3. translate so the action point (focus.cx * vw, focus.cy * vh) lands
+  //     at the WINDOW CENTER. The viewport is flex-centered in the clip and
+  //     scaled about its own center (transform-origin 50% 50%), so the action
+  //     point's offset from the viewport center, ((cx - 0.5) * vw, (cy - 0.5)
+  //     * vh), becomes S times that after scaling. We translate by the
+  //     negative of that scaled offset to bring the action point back to the
+  //     window center: Tx = -S * (cx - 0.5) * vw, Ty = -S * (cy - 0.5) * vh.
+  //     (transform: translate(Tx, Ty) scale(S) — translate distances are
+  //     literal post-scale px, so this composes correctly with origin 50%.)
+  //
+  // NO-CLIP GUARANTEE: at zoom 1 + cx/cy 0.5 (the default) the whole viewport
+  // maps onto the window 1:1, so the bot is bounded by the stage edges and
+  // can never leave the frame (the prior contract). For zoom > 1 the action
+  // box (centered on cx/cy, sized so the performer + immediate props fit with
+  // margin) maps onto the window; the per-act zooms were tuned conservatively
+  // (gentler beats clipped) so the resting performer stays fully inside the
+  // window and his motion range stays in frame. Re-measures on resize +
+  // activeId (kept the ResizeObserver + rAF retry for first-paint sizing).
   useLayoutEffect(() => {
     if (!sceneViewport || typeof window === "undefined") return;
     const clip = sceneViewport.parentElement;
     if (!clip) return;
-
-    // PURE contain-fit, no zoom (orchestrator manager). Grant: "treat the
-    // stage as a mini computer screen that are his coordinate box limits."
-    // Any zoom > 1 maps the scene's full coordinate space LARGER than the
-    // window, so wherever the bot walks to the edge of his own scene he walks
-    // off the stage. At exactly the contain-fit, the scene's full viewport
-    // maps onto the window 1:1, so the stage edges ARE his coordinate limits
-    // and he can never leave the frame. Size is then governed by the window
-    // dimensions (kept large below), not a zoom.
-    const SCENE_ZOOM = 1.0;
 
     let raf = 0;
     let attempts = 0;
@@ -240,8 +325,14 @@ export default function PerformanceHall() {
       const vw = window.innerWidth || 1;
       const vh = window.innerHeight || 1;
       const containFit = Math.min(rect.width / vw, rect.height / vh);
-      const scale = containFit * SCENE_ZOOM;
+      const scale = containFit * focus.zoom;
+      // Map the action point (cx, cy) to the window center: translate by the
+      // negative of the scaled offset from the viewport's own center.
+      const tx = -scale * (focus.cx - 0.5) * vw;
+      const ty = -scale * (focus.cy - 0.5) * vh;
       sceneViewport.style.setProperty("--scene-scale", String(scale));
+      sceneViewport.style.setProperty("--scene-tx", `${tx}px`);
+      sceneViewport.style.setProperty("--scene-ty", `${ty}px`);
     };
 
     applyScale();
@@ -259,12 +350,10 @@ export default function PerformanceHall() {
       ro?.disconnect();
       window.removeEventListener("resize", applyScale);
     };
-    // activeId is included so the scale re-measures if a wide act swaps in
-    // a different frame aspect (skateboard's 21:9 band).
-  }, [sceneViewport, activeId]);
-
-  const act = ACTS.find((a) => a.id === activeId) ?? ACTS[0]!;
-  const Component = act.Component;
+    // activeId/focus are included so the scale + translate re-measure when a
+    // new act (with its own focus) swaps in, including the skateboard wide
+    // frame's 21:9 aspect.
+  }, [sceneViewport, activeId, focus.cx, focus.cy, focus.zoom]);
 
   // The active scene plays inside the window. Keyed by act id so switching
   // acts (or re-picking the same one is a no-op) replays the timeline from

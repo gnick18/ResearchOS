@@ -789,14 +789,17 @@
   width: 100vw;
   height: 100svh;
   flex: 0 0 auto;
-  /* --scene-scale is measured in JS as the contain-fit times a zoom
-     factor so the performer reads large + centered (FIX 1, orchestrator
-     manager). The default is a sensible contain-ish fit, not the old 0.32,
-     so even before the measurement lands BeakerBot is not a tiny dot. */
-  transform: scale(var(--scene-scale, 0.7));
-  /* Pure contain-fit (zoom 1.0), centered: the scene's whole coordinate box
-     maps onto the window, so the bot is bounded by the stage edges and can
-     never walk off. Dead-center origin keeps the fit centered in the frame. */
+  /* PER-SCENE FRAMING (scene-framing sub-bot, orchestrator manager).
+     --scene-scale is measured in JS as the contain-fit times the act's
+     focus.zoom, and --scene-tx / --scene-ty translate the viewport so the
+     act's declared action point (focus.cx, focus.cy) lands at the window
+     center. Order is translate(...) scale(...): with origin 50% 50% the
+     scale keeps the viewport center fixed, then the translate (literal
+     post-scale px from JS) re-centers the action point in the window.
+     Defaults (scale fit-ish, no translate) keep the old pure contain-fit
+     before the measurement lands, so BeakerBot is never a tiny dot. */
+  transform: translate(var(--scene-tx, 0px), var(--scene-ty, 0px))
+    scale(var(--scene-scale, 0.7));
   transform-origin: 50% 50%;
 }
 
