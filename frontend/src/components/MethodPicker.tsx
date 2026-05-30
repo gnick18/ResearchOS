@@ -485,6 +485,10 @@ export default function MethodPicker({
       attachHighlighted();
     } else if (e.key === "Escape") {
       e.preventDefault();
+      // Stop the Escape from bubbling to the parent popup (TaskDetailPopup has a
+      // window-level Escape listener); without this, one Escape closes both the
+      // picker and the whole experiment popup.
+      e.stopPropagation();
       onClose();
     }
   };
