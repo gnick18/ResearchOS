@@ -37,7 +37,6 @@ import BeakerBotLadderScene from "../BeakerBotLadderScene";
 import BeakerBotBugStompScene from "../BeakerBotBugStompScene";
 import BeakerBotSkateboardScene from "../BeakerBotSkateboardScene";
 import BeakerBotTooManyBeakersScene from "../BeakerBotTooManyBeakersScene";
-import BeakerBotMouseWaveScene from "../BeakerBotMouseWaveScene";
 import BeakerBotCentrifugeScene from "../BeakerBotCentrifugeScene";
 import BeakerBotEurekaScene from "../BeakerBotEurekaScene";
 import BeakerBotCoffeeRefillScene from "../BeakerBotCoffeeRefillScene";
@@ -46,7 +45,7 @@ import BeakerBotRunwayStrutScene from "../BeakerBotRunwayStrutScene";
 import BeakerBotTwirlScene from "../BeakerBotTwirlScene";
 import { TOTAL_DURATION_MS as COFFEE_TOTAL_DURATION_MS } from "../BeakerBotCoffeeRefillScene";
 import ProsceniumFrame from "./ProsceniumFrame";
-import { FauxCursor, ProgressShimmer } from "./SpecialCaseChrome";
+import { ProgressShimmer } from "./SpecialCaseChrome";
 import styles from "./showcase.module.css";
 
 // Every scene now accepts an optional portalTarget (defaults to
@@ -59,7 +58,7 @@ type SceneEnvelopeProps = {
 };
 type SceneComponent = ComponentType<SceneEnvelopeProps>;
 
-type SpecialCase = "mouse-wave" | "skateboard" | "coffee-refill";
+type SpecialCase = "skateboard" | "coffee-refill";
 
 interface ActData {
   id: string;
@@ -73,12 +72,6 @@ interface ActData {
  *  long lab-life beats, the interactive closer, then the new drag-stage
  *  scenes as the encore. */
 const ACTS: readonly ActData[] = [
-  {
-    id: "mouse-wave",
-    name: "The Greeting",
-    Component: BeakerBotMouseWaveScene as unknown as SceneComponent,
-    special: "mouse-wave",
-  },
   {
     id: "ladder",
     name: "The Ladder",
@@ -276,11 +269,10 @@ export default function PerformanceHall() {
   // The active scene plays inside the window. Keyed by act id so switching
   // acts (or re-picking the same one is a no-op) replays the timeline from
   // frame zero. onComplete is a no-op: the picker, not scene completion,
-  // governs which scene is on stage. Special-case chrome (FauxCursor /
-  // ProgressShimmer) renders at frame scale via ProsceniumFrame children.
+  // governs which scene is on stage. Special-case chrome (ProgressShimmer)
+  // renders at frame scale via ProsceniumFrame children.
   const sceneChrome: ReactNode = (
     <>
-      {act.special === "mouse-wave" && <FauxCursor />}
       {act.special === "coffee-refill" && (
         <ProgressShimmer durationMs={COFFEE_TOTAL_DURATION_MS} />
       )}

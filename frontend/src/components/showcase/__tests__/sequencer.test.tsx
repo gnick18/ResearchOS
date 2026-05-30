@@ -153,15 +153,15 @@ describe("PerformanceHall (picker model)", () => {
     const picker = screen.getByTestId("showcase-scene-picker");
     const buttons = within(picker).getAllByRole("tab");
     expect(buttons).toHaveLength(PERFORMANCE_HALL_ACT_COUNT);
-    // 9 original scenes + 2 new P1 scenes = 11 acts.
-    expect(PERFORMANCE_HALL_ACT_COUNT).toBe(11);
+    // 8 original scenes (The Greeting removed) + 2 new P1 scenes = 10 acts.
+    expect(PERFORMANCE_HALL_ACT_COUNT).toBe(10);
   });
 
-  it("defaults to the first act (The Greeting) selected", () => {
+  it("defaults to the first act (The Ladder) selected", () => {
     render(<PerformanceHall />);
-    const greeting = screen.getByTestId("showcase-scene-pick-mouse-wave");
-    expect(greeting.getAttribute("aria-selected")).toBe("true");
-    expect(greeting.getAttribute("data-selected")).toBe("true");
+    const ladder = screen.getByTestId("showcase-scene-pick-ladder");
+    expect(ladder.getAttribute("aria-selected")).toBe("true");
+    expect(ladder.getAttribute("data-selected")).toBe("true");
     // Every other pill is unselected: exactly one selected at a time.
     const picker = screen.getByTestId("showcase-scene-picker");
     const selected = within(picker)
@@ -178,8 +178,8 @@ describe("PerformanceHall (picker model)", () => {
     });
     expect(eureka.getAttribute("aria-selected")).toBe("true");
     // The previous default is no longer selected.
-    const greeting = screen.getByTestId("showcase-scene-pick-mouse-wave");
-    expect(greeting.getAttribute("aria-selected")).toBe("false");
+    const ladder = screen.getByTestId("showcase-scene-pick-ladder");
+    expect(ladder.getAttribute("aria-selected")).toBe("false");
     // Still exactly one selected.
     const picker = screen.getByTestId("showcase-scene-picker");
     const selected = within(picker)
@@ -190,10 +190,10 @@ describe("PerformanceHall (picker model)", () => {
 
   it("the placard caption reflects the selected act", () => {
     render(<PerformanceHall />);
-    // Default placard names The Greeting.
+    // Default placard names The Ladder.
     expect(
       screen.getByTestId("showcase-proscenium").textContent,
-    ).toContain("The Greeting");
+    ).toContain("The Ladder");
     act(() => {
       fireEvent.click(screen.getByTestId("showcase-scene-pick-twirl"));
     });
