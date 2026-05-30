@@ -32,29 +32,39 @@ vi.mock("@/hooks/useEnabledWidgets", () => ({
 // Stub WidgetCard to a minimal, deterministic row that surfaces the props the
 // store drives: the title, the on/off via `isMounted`, the `disabled` flag,
 // the badge, and a single toggle button.
-vi.mock("./WidgetCard", () => ({
-  default: ({
-    widget,
-    isMounted,
-    disabled,
-    onToggle,
-    badgeSlot,
-  }: {
-    widget: { id: string; title: string };
-    isMounted: boolean;
-    disabled?: boolean;
-    onToggle: () => void;
-    badgeSlot?: React.ReactNode;
-  }) => (
-    <div data-widget-card-id={widget.id} data-on={isMounted ? "on" : "off"} data-disabled={disabled ? "yes" : "no"}>
-      <span>{widget.title}</span>
-      {badgeSlot}
-      <button aria-label={`toggle ${widget.title}`} onClick={onToggle}>
-        toggle
-      </button>
-    </div>
-  ),
-}));
+// Partial mock: keep the real named exports the detail pane pulls from this
+// module (WidgetPreviewBoundary, StaticHero, etc.) so it renders, but override
+// the heavy default card with a deterministic row, and force useInViewport to
+// report out-of-view so the live SnapshotTile is never mounted (and jsdom's
+// missing IntersectionObserver is never touched). These are store-logic tests.
+vi.mock("./WidgetCard", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./WidgetCard")>();
+  return {
+    ...actual,
+    useInViewport: () => false,
+    default: ({
+      widget,
+      isMounted,
+      disabled,
+      onToggle,
+      badgeSlot,
+    }: {
+      widget: { id: string; title: string };
+      isMounted: boolean;
+      disabled?: boolean;
+      onToggle: () => void;
+      badgeSlot?: React.ReactNode;
+    }) => (
+      <div data-widget-card-id={widget.id} data-on={isMounted ? "on" : "off"} data-disabled={disabled ? "yes" : "no"}>
+        <span>{widget.title}</span>
+        {badgeSlot}
+        <button aria-label={`toggle ${widget.title}`} onClick={onToggle}>
+          toggle
+        </button>
+      </div>
+    ),
+  };
+});
 
 beforeEach(() => {
   setEnabled.mockClear();
