@@ -89,10 +89,18 @@ compound-wiring, kit-card-gate. Verifier loop was clean. Only optional deferred
 item on our side: the residual in-tile "Loading..." polish (fade-on-ready
 overlay), not queued unless Grant asks.
 
-REMAINING (not store-session work): catalog session does contract step 4 (3 LC-MS
-kit templates + 3 manifest entries). Then the contract's step-5 3-verifier loop
-runs on the LIVE compound path (also exercises kit-card-gate). Re-verify the
-compound detail + gating end to end at that point.
+REMAINING: contract steps 4 + 5, REASSIGNED to the store session by Grant
+(2026-05-30).
+- STEP 4: QUEUED as lcms-kit-entries bot. 3 LC-MS compound (kit) combination
+  templates + manifest entries (pairings/orderings per the contract; titles use
+  "(kit)"). Prereqs verified: all 6 leaf templates exist on disk + in manifest;
+  no combo entries yet; no in-flight combo branch. Manifest-race precaution:
+  isolated worktree, append-only to manifest, prompt merge. The files coverage
+  test requires manifest title/category/method_type to match each template file.
+- STEP 5: HELD until step 4 merges (needs live compound entries). Then run the
+  3-verifier loop on the LIVE compound path: kit detail shows both component
+  badges, Use gates until lc_gradient AND mass_spec enabled, kit card shows
+  "View kit". Closes the arc.
 Once both land, the build is done; the contract's step-5 verifier loop runs on
 the live compound path after the catalog session adds step-4 entries.
 
