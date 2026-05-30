@@ -1,0 +1,35 @@
+{
+  "slug": "takara-primestar-hs",
+  "title": "Takara PrimeSTAR HS PCR",
+  "description": "Takara Bio PrimeSTAR HS DNA Polymerase: 50 uL high-fidelity reaction, no long initial denaturation, 72 C / 1 min per kb.",
+  "category": "Molecular biology",
+  "method_type": "pcr",
+  "tags": ["pcr", "takara", "primestar", "high-fidelity"],
+  "payload": {
+    "gradient": {
+      "initial": [],
+      "cycles": [
+        {
+          "repeats": 30,
+          "steps": [
+            { "name": "Denaturation", "temperature": 98, "duration": "10 sec" },
+            { "name": "Annealing", "temperature": 55, "duration": "15 sec" },
+            { "name": "Extension", "temperature": 72, "duration": "1 min/kb" }
+          ]
+        }
+      ],
+      "final": [],
+      "hold": null
+    },
+    "ingredients": [
+      { "id": "1", "name": "5X PrimeSTAR Buffer (Mg2+ Plus)", "concentration": "5X (1X final, 1 mM Mg2+)", "amount_per_reaction": "10" },
+      { "id": "2", "name": "dNTP Mixture", "concentration": "2.5 mM each (200 uM each final)", "amount_per_reaction": "4" },
+      { "id": "3", "name": "Forward Primer", "concentration": "10 uM (0.3 uM final, 15 pmol)", "amount_per_reaction": "1.5" },
+      { "id": "4", "name": "Reverse Primer", "concentration": "10 uM (0.3 uM final, 15 pmol)", "amount_per_reaction": "1.5" },
+      { "id": "5", "name": "Template DNA", "concentration": "< 200 ng", "amount_per_reaction": "variable" },
+      { "id": "6", "name": "PrimeSTAR HS DNA Polymerase", "concentration": "2.5 U/uL (1.25 U/50 uL final)", "amount_per_reaction": "0.5" },
+      { "id": "7", "name": "Sterile Water", "concentration": "-", "amount_per_reaction": "to 50" }
+    ],
+    "notes": "Vendor: Takara Bio, PrimeSTAR HS DNA Polymerase (Cat. R010A). Takara recommends NO long initial denaturation step (cycling begins directly at 98 C/10 sec); for denaturation below 94 C use 10-15 sec. Annealing default 55 C; annealing TIME should be only 5 sec (primer Tm >= 55 C) or 15 sec (Tm < 55 C), since high priming efficiency causes smearing with longer times. The 55 C shown is the default starting point. Extension 72 C, 1 min/kb (use 68 C for a 2-step protocol with high-Tm primers). 30 cycles. Primers 10-15 pmol (0.2-0.3 uM) per 50 uL. The manual publishes no separate final-extension or hold step. Source: https://www.takarabio.com/documents/User%20Manual/R010A_e.v1905Da.pdf"
+  }
+}

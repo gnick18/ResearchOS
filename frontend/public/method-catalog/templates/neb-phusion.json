@@ -1,0 +1,39 @@
+{
+  "slug": "neb-phusion",
+  "title": "NEB Phusion High-Fidelity PCR",
+  "description": "New England Biolabs Phusion High-Fidelity DNA Polymerase (M0530): 50 uL high-fidelity reaction with 5X HF buffer and a 72 C extension.",
+  "category": "Molecular biology",
+  "method_type": "pcr",
+  "tags": ["pcr", "neb", "phusion", "high-fidelity"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Initial Denaturation", "temperature": 98, "duration": "30 sec" }
+      ],
+      "cycles": [
+        {
+          "repeats": 30,
+          "steps": [
+            { "name": "Denaturation", "temperature": 98, "duration": "8 sec" },
+            { "name": "Annealing", "temperature": 60, "duration": "20 sec" },
+            { "name": "Extension", "temperature": 72, "duration": "15-30 sec/kb" }
+          ]
+        }
+      ],
+      "final": [
+        { "name": "Final Extension", "temperature": 72, "duration": "5-10 min" }
+      ],
+      "hold": { "name": "Hold", "temperature": 4, "duration": "Indef." }
+    },
+    "ingredients": [
+      { "id": "1", "name": "5X Phusion HF Buffer", "concentration": "5X (1X final, 1.5 mM MgCl2)", "amount_per_reaction": "10" },
+      { "id": "2", "name": "dNTPs", "concentration": "10 mM (200 uM final)", "amount_per_reaction": "1" },
+      { "id": "3", "name": "Forward Primer", "concentration": "10 uM (0.5 uM final)", "amount_per_reaction": "2.5" },
+      { "id": "4", "name": "Reverse Primer", "concentration": "10 uM (0.5 uM final)", "amount_per_reaction": "2.5" },
+      { "id": "5", "name": "Template DNA", "concentration": "< 250 ng", "amount_per_reaction": "variable" },
+      { "id": "6", "name": "Phusion High-Fidelity DNA Polymerase", "concentration": "2 U/uL (1 U/50 uL final)", "amount_per_reaction": "0.5" },
+      { "id": "7", "name": "Nuclease-free Water", "concentration": "-", "amount_per_reaction": "to 50" }
+    ],
+    "notes": "Vendor: New England Biolabs (NEB), Phusion High-Fidelity DNA Polymerase #M0530. Add Phusion last (its 3'->5' exonuclease degrades primers without dNTPs). Use 5X Phusion HF Buffer by default; switch to 5X GC Buffer for GC-rich or structured templates. Annealing: use the NEB Tm Calculator; for primers >20 nt anneal ~3 C above the lower-Tm primer, for primers <= 20 nt anneal at the lower primer Tm. The 60 C shown is a placeholder starting point. Cycles 25-35. Extension 15 sec/kb (low-complexity) to 30 sec/kb (genomic), do not exceed 1 min/kb. For GC-rich add 3% DMSO. Phusion produces blunt ends. A 2-step protocol works for primers with Ta > 72 C. Source: https://www.neb.com/en-us/protocols/pcr-protocol-m0530"
+  }
+}

@@ -8,7 +8,11 @@
       "description": "Blank lab-protocol scaffold: materials, steps, notes, and safety sections ready to fill in.",
       "category": "General",
       "method_type": "markdown",
-      "tags": ["template", "skeleton", "general"]
+      "tags": [
+        "template",
+        "skeleton",
+        "general"
+      ]
     },
     {
       "slug": "q5-pcr-setup",
@@ -16,7 +20,11 @@
       "description": "25 uL Q5 reaction recipe plus a 3-step cycling program with a 60 C anneal.",
       "category": "Molecular biology",
       "method_type": "pcr",
-      "tags": ["pcr", "q5", "amplification"]
+      "tags": [
+        "pcr",
+        "q5",
+        "amplification"
+      ]
     },
     {
       "slug": "colony-pcr-screen",
@@ -24,7 +32,351 @@
       "description": "Taq-based 20 uL colony-screen reaction with an extended initial denaturation to lyse cells.",
       "category": "Molecular biology",
       "method_type": "pcr",
-      "tags": ["pcr", "colony", "screening", "taq"]
+      "tags": [
+        "pcr",
+        "colony",
+        "screening",
+        "taq"
+      ]
+    },
+    {
+      "slug": "neb-q5-master-mix",
+      "title": "NEB Q5 High-Fidelity 2X Master Mix PCR",
+      "description": "New England Biolabs Q5 High-Fidelity 2X Master Mix (M0492): 50 uL high-fidelity reaction with a 98 C denaturation and 72 C extension.",
+      "category": "Molecular biology",
+      "method_type": "pcr",
+      "tags": [
+        "pcr",
+        "neb",
+        "q5",
+        "high-fidelity",
+        "master-mix"
+      ]
+    },
+    {
+      "slug": "neb-phusion",
+      "title": "NEB Phusion High-Fidelity PCR",
+      "description": "New England Biolabs Phusion High-Fidelity DNA Polymerase (M0530): 50 uL high-fidelity reaction with 5X HF buffer and a 72 C extension.",
+      "category": "Molecular biology",
+      "method_type": "pcr",
+      "tags": [
+        "pcr",
+        "neb",
+        "phusion",
+        "high-fidelity"
+      ]
+    },
+    {
+      "slug": "neb-onetaq",
+      "title": "NEB OneTaq PCR",
+      "description": "New England Biolabs OneTaq DNA Polymerase (M0480): 50 uL robust standard reaction with a 94 C denaturation and 68 C extension.",
+      "category": "Molecular biology",
+      "method_type": "pcr",
+      "tags": [
+        "pcr",
+        "neb",
+        "onetaq",
+        "taq",
+        "standard"
+      ]
+    },
+    {
+      "slug": "neb-onetaq-master-mix",
+      "title": "NEB OneTaq 2X Master Mix PCR",
+      "description": "New England Biolabs OneTaq 2X Master Mix with Standard Buffer (M0482): 50 uL robust reaction with a 94 C denaturation and 68 C extension.",
+      "category": "Molecular biology",
+      "method_type": "pcr",
+      "tags": [
+        "pcr",
+        "neb",
+        "onetaq",
+        "taq",
+        "master-mix"
+      ]
+    },
+    {
+      "slug": "neb-taq",
+      "title": "NEB Taq DNA Polymerase PCR",
+      "description": "New England Biolabs Taq DNA Polymerase with Standard Taq Buffer (M0273): 50 uL standard reaction with a 95 C denaturation.",
+      "category": "Molecular biology",
+      "method_type": "pcr",
+      "tags": [
+        "pcr",
+        "neb",
+        "taq",
+        "standard"
+      ]
+    },
+    {
+      "slug": "thermo-platinum-superfi-ii",
+      "title": "Invitrogen Platinum SuperFi II PCR",
+      "description": "Thermo Fisher Platinum SuperFi II DNA Polymerase: 50 uL high-fidelity reaction with a universal 60 C anneal and 72 C extension.",
+      "category": "Molecular biology",
+      "method_type": "pcr",
+      "tags": [
+        "pcr",
+        "thermo",
+        "invitrogen",
+        "superfi",
+        "high-fidelity"
+      ]
+    },
+    {
+      "slug": "thermo-platinum-ii-taq",
+      "title": "Invitrogen Platinum II Taq Hot-Start PCR",
+      "description": "Thermo Fisher Platinum II Taq Hot-Start DNA Polymerase: 50 uL reaction with a universal 60 C anneal and fast 68 C extension.",
+      "category": "Molecular biology",
+      "method_type": "pcr",
+      "tags": [
+        "pcr",
+        "thermo",
+        "invitrogen",
+        "platinum",
+        "taq",
+        "hot-start"
+      ]
+    },
+    {
+      "slug": "thermo-dreamtaq",
+      "title": "Thermo DreamTaq Green Master Mix PCR",
+      "description": "Thermo Fisher DreamTaq Green PCR Master Mix (2X): 50 uL standard reaction, direct-to-gel, with a 95 C denaturation.",
+      "category": "Molecular biology",
+      "method_type": "pcr",
+      "tags": [
+        "pcr",
+        "thermo",
+        "dreamtaq",
+        "taq",
+        "master-mix"
+      ]
+    },
+    {
+      "slug": "thermo-platinum-taq",
+      "title": "Invitrogen Platinum Taq PCR",
+      "description": "Thermo Fisher Platinum Taq DNA Polymerase: 50 uL antibody hot-start reaction with a 94 C denaturation.",
+      "category": "Molecular biology",
+      "method_type": "pcr",
+      "tags": [
+        "pcr",
+        "thermo",
+        "invitrogen",
+        "platinum",
+        "taq",
+        "hot-start"
+      ]
+    },
+    {
+      "slug": "takara-primestar-hs",
+      "title": "Takara PrimeSTAR HS PCR",
+      "description": "Takara Bio PrimeSTAR HS DNA Polymerase: 50 uL high-fidelity reaction, no long initial denaturation, 72 C / 1 min per kb.",
+      "category": "Molecular biology",
+      "method_type": "pcr",
+      "tags": [
+        "pcr",
+        "takara",
+        "primestar",
+        "high-fidelity"
+      ]
+    },
+    {
+      "slug": "takara-primestar-gxl",
+      "title": "Takara PrimeSTAR GXL PCR",
+      "description": "Takara Bio PrimeSTAR GXL DNA Polymerase: 50 uL robust high-fidelity reaction with a 68 C extension, for long and difficult templates.",
+      "category": "Molecular biology",
+      "method_type": "pcr",
+      "tags": [
+        "pcr",
+        "takara",
+        "primestar",
+        "gxl",
+        "high-fidelity",
+        "long-pcr"
+      ]
+    },
+    {
+      "slug": "takara-primestar-max",
+      "title": "Takara PrimeSTAR Max PCR",
+      "description": "Takara Bio PrimeSTAR Max DNA Polymerase 2X premix: 50 uL fast high-fidelity reaction at 5 sec/kb extension.",
+      "category": "Molecular biology",
+      "method_type": "pcr",
+      "tags": [
+        "pcr",
+        "takara",
+        "primestar",
+        "max",
+        "high-fidelity",
+        "fast"
+      ]
+    },
+    {
+      "slug": "takara-ex-taq",
+      "title": "Takara Ex Taq PCR",
+      "description": "Takara Bio TaKaRa Ex Taq DNA Polymerase: 50 uL high-yield standard reaction (worked example shown for a 1 kb target).",
+      "category": "Molecular biology",
+      "method_type": "pcr",
+      "tags": [
+        "pcr",
+        "takara",
+        "ex-taq",
+        "taq",
+        "standard"
+      ]
+    },
+    {
+      "slug": "takara-la-taq",
+      "title": "Takara LA Taq Long PCR",
+      "description": "Takara Bio TaKaRa LA Taq DNA Polymerase: 50 uL long-and-accurate 2-step reaction (worked example shown for a 17.5 kb target).",
+      "category": "Molecular biology",
+      "method_type": "pcr",
+      "tags": [
+        "pcr",
+        "takara",
+        "la-taq",
+        "taq",
+        "long-pcr"
+      ]
+    },
+    {
+      "slug": "promega-gotaq-g2-flexi",
+      "title": "Promega GoTaq G2 Flexi PCR",
+      "description": "Promega GoTaq G2 Flexi DNA Polymerase: 50 uL standard reaction with a separately added, tunable MgCl2.",
+      "category": "Molecular biology",
+      "method_type": "pcr",
+      "tags": [
+        "pcr",
+        "promega",
+        "gotaq",
+        "taq",
+        "standard"
+      ]
+    },
+    {
+      "slug": "promega-gotaq-green-master-mix",
+      "title": "Promega GoTaq Green Master Mix PCR",
+      "description": "Promega GoTaq Green Master Mix (2X): 50 uL standard reaction, direct-to-gel, with a 95 C denaturation.",
+      "category": "Molecular biology",
+      "method_type": "pcr",
+      "tags": [
+        "pcr",
+        "promega",
+        "gotaq",
+        "taq",
+        "master-mix"
+      ]
+    },
+    {
+      "slug": "promega-pfu",
+      "title": "Promega Pfu High-Fidelity PCR",
+      "description": "Promega Pfu DNA Polymerase: 50 uL high-fidelity reaction with a slow ~2 min/kb extension.",
+      "category": "Molecular biology",
+      "method_type": "pcr",
+      "tags": [
+        "pcr",
+        "promega",
+        "pfu",
+        "high-fidelity"
+      ]
+    },
+    {
+      "slug": "biorad-iproof",
+      "title": "Bio-Rad iProof High-Fidelity PCR",
+      "description": "Bio-Rad iProof High-Fidelity DNA Polymerase: 50 uL high-fidelity reaction with a 98 C denaturation and 72 C extension.",
+      "category": "Molecular biology",
+      "method_type": "pcr",
+      "tags": [
+        "pcr",
+        "bio-rad",
+        "iproof",
+        "high-fidelity"
+      ]
+    },
+    {
+      "slug": "biorad-itaq",
+      "title": "Bio-Rad iTaq PCR",
+      "description": "Bio-Rad iTaq DNA Polymerase: 50 uL antibody hot-start reaction requiring a 95 C / 3 min activation.",
+      "category": "Molecular biology",
+      "method_type": "pcr",
+      "tags": [
+        "pcr",
+        "bio-rad",
+        "itaq",
+        "taq",
+        "hot-start"
+      ]
+    },
+    {
+      "slug": "qiagen-hotstartaq",
+      "title": "QIAGEN HotStarTaq PCR",
+      "description": "QIAGEN HotStarTaq DNA Polymerase: 50 uL hot-start reaction requiring a 95 C / 15 min activation.",
+      "category": "Molecular biology",
+      "method_type": "pcr",
+      "tags": [
+        "pcr",
+        "qiagen",
+        "hotstartaq",
+        "taq",
+        "hot-start"
+      ]
+    },
+    {
+      "slug": "qiagen-hotstartaq-plus-master-mix",
+      "title": "QIAGEN HotStarTaq Plus Master Mix PCR",
+      "description": "QIAGEN HotStarTaq Plus Master Mix (2X): 50 uL hot-start reaction with a shorter 95 C / 5 min activation.",
+      "category": "Molecular biology",
+      "method_type": "pcr",
+      "tags": [
+        "pcr",
+        "qiagen",
+        "hotstartaq",
+        "taq",
+        "master-mix",
+        "hot-start"
+      ]
+    },
+    {
+      "slug": "qiagen-taq",
+      "title": "QIAGEN Taq PCR",
+      "description": "QIAGEN Taq DNA Polymerase (Taq PCR Core Kit): 50 uL standard reaction with a 94 C denaturation.",
+      "category": "Molecular biology",
+      "method_type": "pcr",
+      "tags": [
+        "pcr",
+        "qiagen",
+        "taq",
+        "standard"
+      ]
+    },
+    {
+      "slug": "kapa-hifi-hotstart",
+      "title": "KAPA HiFi HotStart PCR",
+      "description": "Roche KAPA HiFi HotStart ReadyMix (2X): 25 uL high-fidelity reaction with a 98 C cycle denaturation and 60-75 C anneal.",
+      "category": "Molecular biology",
+      "method_type": "pcr",
+      "tags": [
+        "pcr",
+        "kapa",
+        "roche",
+        "hifi",
+        "high-fidelity",
+        "master-mix",
+        "hot-start"
+      ]
+    },
+    {
+      "slug": "kapa2g-fast",
+      "title": "KAPA2G Fast PCR",
+      "description": "Roche KAPA2G Fast ReadyMix (2X): 25 uL fast standard-Taq reaction, optimized for amplicons under 1 kb.",
+      "category": "Molecular biology",
+      "method_type": "pcr",
+      "tags": [
+        "pcr",
+        "kapa",
+        "roche",
+        "kapa2g",
+        "taq",
+        "master-mix",
+        "fast"
+      ]
     },
     {
       "slug": "reverse-phase-peptide-lc",
@@ -32,7 +384,13 @@
       "description": "C18 5-to-95% acetonitrile gradient with 0.1% formic acid for LC-MS peptide separation.",
       "category": "Analytical chemistry",
       "method_type": "lc_gradient",
-      "tags": ["lc", "lc-ms", "peptide", "c18", "reverse-phase"]
+      "tags": [
+        "lc",
+        "lc-ms",
+        "peptide",
+        "c18",
+        "reverse-phase"
+      ]
     },
     {
       "slug": "96-well-dose-response",
@@ -40,7 +398,12 @@
       "description": "Pre-labeled 96-well plate: column 1 blanks, column 2 vehicle controls, columns 3-12 samples.",
       "category": "Cell biology",
       "method_type": "plate",
-      "tags": ["plate", "96-well", "dose-response", "screening"]
+      "tags": [
+        "plate",
+        "96-well",
+        "dose-response",
+        "screening"
+      ]
     },
     {
       "slug": "hek293-passaging",
@@ -48,7 +411,12 @@
       "description": "Adherent HEK293 maintenance in DMEM + 10% FBS with a 1:6 split every 3 days.",
       "category": "Cell biology",
       "method_type": "cell_culture",
-      "tags": ["cell-culture", "hek293", "passaging", "dmem"]
+      "tags": [
+        "cell-culture",
+        "hek293",
+        "passaging",
+        "dmem"
+      ]
     },
     {
       "slug": "western-blot",
@@ -56,7 +424,379 @@
       "description": "SDS-PAGE separation, wet transfer, blocking, and ECL detection steps as editable markdown.",
       "category": "Protein biochemistry",
       "method_type": "markdown",
-      "tags": ["western-blot", "sds-page", "transfer", "protein"]
+      "tags": [
+        "western-blot",
+        "sds-page",
+        "transfer",
+        "protein"
+      ]
+    },
+    {
+      "slug": "plasmid-miniprep-qiagen",
+      "title": "Plasmid miniprep (QIAGEN)",
+      "description": "Spin-column alkaline-lysis plasmid prep following the QIAGEN QIAprep Spin Miniprep Kit handbook.",
+      "category": "Molecular biology",
+      "method_type": "markdown",
+      "tags": [
+        "miniprep",
+        "plasmid",
+        "dna-purification",
+        "qiagen",
+        "alkaline-lysis"
+      ]
+    },
+    {
+      "slug": "total-rna-trizol",
+      "title": "Total RNA extraction (TRIzol)",
+      "description": "Single-step TRIzol total RNA extraction with chloroform phase separation, per the Thermo Fisher TRIzol Reagent user guide.",
+      "category": "Molecular biology",
+      "method_type": "markdown",
+      "tags": [
+        "rna",
+        "trizol",
+        "rna-extraction",
+        "thermo-fisher",
+        "phase-separation"
+      ]
+    },
+    {
+      "slug": "agarose-gel-electrophoresis",
+      "title": "Agarose gel electrophoresis (DNA)",
+      "description": "Cast, load, run, and image a DNA agarose gel, with the Thermo Fisher agarose-vs-size table and Addgene bench steps.",
+      "category": "Molecular biology",
+      "method_type": "markdown",
+      "tags": [
+        "agarose",
+        "gel",
+        "electrophoresis",
+        "dna",
+        "addgene",
+        "thermo-fisher"
+      ]
+    },
+    {
+      "slug": "sds-page-coomassie",
+      "title": "SDS-PAGE protein gel + Coomassie stain",
+      "description": "Run an SDS-PAGE protein gel and Coomassie stain it, following Bio-Rad Mini-PROTEAN and Bio-Safe Coomassie protocols.",
+      "category": "Protein biochemistry",
+      "method_type": "markdown",
+      "tags": [
+        "sds-page",
+        "protein",
+        "electrophoresis",
+        "coomassie",
+        "bio-rad"
+      ]
+    },
+    {
+      "slug": "heat-shock-transformation",
+      "title": "Bacterial heat-shock transformation (NEB)",
+      "description": "Chemical heat-shock transformation of competent E. coli (42 C / 30 sec) per the NEB high-efficiency protocol, with an electroporation note.",
+      "category": "Molecular biology",
+      "method_type": "markdown",
+      "tags": [
+        "transformation",
+        "heat-shock",
+        "competent-cells",
+        "e-coli",
+        "neb"
+      ]
+    },
+    {
+      "slug": "nebuilder-hifi-assembly",
+      "title": "Gibson / NEBuilder HiFi assembly (NEB)",
+      "description": "Single-tube isothermal assembly of overlapping fragments at 50 C, per the NEB NEBuilder HiFi and Gibson Assembly Master Mix protocols.",
+      "category": "Molecular biology",
+      "method_type": "markdown",
+      "tags": [
+        "gibson",
+        "nebuilder",
+        "hifi",
+        "assembly",
+        "cloning",
+        "neb"
+      ]
+    },
+    {
+      "slug": "restriction-digest",
+      "title": "Restriction enzyme digest (single + double)",
+      "description": "Single and double restriction digests in 50 uL, with NEB unit and glycerol rules and Double Digest Finder buffer selection.",
+      "category": "Molecular biology",
+      "method_type": "markdown",
+      "tags": [
+        "restriction-digest",
+        "restriction-enzyme",
+        "cloning",
+        "neb",
+        "double-digest"
+      ]
+    },
+    {
+      "slug": "t4-dna-ligation",
+      "title": "Ligation with T4 DNA ligase (NEB)",
+      "description": "T4 DNA ligase reaction setup and incubation (sticky vs blunt) per the NEB M0202 protocol.",
+      "category": "Molecular biology",
+      "method_type": "markdown",
+      "tags": [
+        "ligation",
+        "t4-dna-ligase",
+        "cloning",
+        "neb"
+      ]
+    },
+    {
+      "slug": "glycerol-stock",
+      "title": "Glycerol stock preparation + storage",
+      "description": "Make and store a long-term bacterial glycerol stock at -80 C, following the Addgene protocol.",
+      "category": "Molecular biology",
+      "method_type": "markdown",
+      "tags": [
+        "glycerol-stock",
+        "storage",
+        "bacteria",
+        "addgene",
+        "cryopreservation"
+      ]
+    },
+    {
+      "slug": "taqman-fast-advanced-qpcr",
+      "title": "TaqMan Fast Advanced qPCR",
+      "description": "Applied Biosystems probe-based (TaqMan) fast 20 uL qPCR: optional UNG hold, fast polymerase activation, 40 cycles, no melt curve.",
+      "category": "qPCR",
+      "method_type": "pcr",
+      "tags": [
+        "qpcr",
+        "taqman",
+        "probe",
+        "thermo-fisher",
+        "applied-biosystems",
+        "fast"
+      ]
+    },
+    {
+      "slug": "powerup-sybr-green-qpcr",
+      "title": "PowerUp SYBR Green qPCR",
+      "description": "Applied Biosystems SYBR Green 20 uL qPCR: UDG + Dual-Lock activation, standard 2-step cycling, with a melt-curve (dissociation) stage.",
+      "category": "qPCR",
+      "method_type": "pcr",
+      "tags": [
+        "qpcr",
+        "sybr",
+        "thermo-fisher",
+        "applied-biosystems",
+        "powerup",
+        "melt-curve"
+      ]
+    },
+    {
+      "slug": "ssoadvanced-sybr-qpcr",
+      "title": "SsoAdvanced Universal SYBR Green qPCR",
+      "description": "Bio-Rad SYBR Green 20 uL qPCR: fast Sso7d polymerase activation, 40 cycles, with a 65-95 C melt curve.",
+      "category": "qPCR",
+      "method_type": "pcr",
+      "tags": [
+        "qpcr",
+        "sybr",
+        "bio-rad",
+        "ssoadvanced",
+        "melt-curve"
+      ]
+    },
+    {
+      "slug": "ssoadvanced-probes-qpcr",
+      "title": "SsoAdvanced Universal Probes qPCR",
+      "description": "Bio-Rad probe-based (hydrolysis probe) 20 uL qPCR: fast Sso7d activation, 40 cycles, no melt curve.",
+      "category": "qPCR",
+      "method_type": "pcr",
+      "tags": [
+        "qpcr",
+        "probe",
+        "bio-rad",
+        "ssoadvanced"
+      ]
+    },
+    {
+      "slug": "itaq-sybr-qpcr",
+      "title": "iTaq Universal SYBR Green qPCR",
+      "description": "Bio-Rad SYBR Green 20 uL qPCR with iTaq hot-start polymerase: activation, 40 cycles, and a 65-95 C melt curve.",
+      "category": "qPCR",
+      "method_type": "pcr",
+      "tags": [
+        "qpcr",
+        "sybr",
+        "bio-rad",
+        "itaq",
+        "melt-curve"
+      ]
+    },
+    {
+      "slug": "ssofast-evagreen-qpcr",
+      "title": "SsoFast EvaGreen qPCR",
+      "description": "Bio-Rad EvaGreen dye fast 20 uL qPCR: 30 sec Sso7d activation, ultrafast 1-5 sec cycling, 65-95 C melt curve.",
+      "category": "qPCR",
+      "method_type": "pcr",
+      "tags": [
+        "qpcr",
+        "evagreen",
+        "bio-rad",
+        "ssofast",
+        "fast",
+        "melt-curve"
+      ]
+    },
+    {
+      "slug": "luna-universal-qpcr",
+      "title": "Luna Universal qPCR (NEB)",
+      "description": "New England Biolabs dye-based 20 uL qPCR (M3003): 95 C activation, 40-45 cycles, with a 60-95 C melt curve.",
+      "category": "qPCR",
+      "method_type": "pcr",
+      "tags": [
+        "qpcr",
+        "sybr",
+        "dye",
+        "neb",
+        "luna",
+        "melt-curve"
+      ]
+    },
+    {
+      "slug": "luna-universal-probe-qpcr",
+      "title": "Luna Universal Probe qPCR (NEB)",
+      "description": "New England Biolabs probe-based 20 uL qPCR (M3004): 95 C activation, 40-45 cycles, no melt curve.",
+      "category": "qPCR",
+      "method_type": "pcr",
+      "tags": [
+        "qpcr",
+        "probe",
+        "neb",
+        "luna"
+      ]
+    },
+    {
+      "slug": "lightcycler-480-sybr-qpcr",
+      "title": "LightCycler 480 SYBR Green I qPCR",
+      "description": "Roche SYBR Green I 20 uL qPCR: 95 C pre-incubation, 45 cycles, full melt-curve and cooling program.",
+      "category": "qPCR",
+      "method_type": "pcr",
+      "tags": [
+        "qpcr",
+        "sybr",
+        "roche",
+        "lightcycler",
+        "melt-curve"
+      ]
+    },
+    {
+      "slug": "lightcycler-480-probes-qpcr",
+      "title": "LightCycler 480 Probes qPCR",
+      "description": "Roche probe-based 20 uL qPCR: 95 C pre-incubation, 45 cycles, short 72 C extension, no melt curve.",
+      "category": "qPCR",
+      "method_type": "pcr",
+      "tags": [
+        "qpcr",
+        "probe",
+        "roche",
+        "lightcycler"
+      ]
+    },
+    {
+      "slug": "quantinova-sybr-green-qpcr",
+      "title": "QuantiNova SYBR Green qPCR",
+      "description": "QIAGEN SYBR Green fast 20 uL qPCR: 2 min 95 C activation, ultrafast 2-step cycling, melt-curve analysis.",
+      "category": "qPCR",
+      "method_type": "pcr",
+      "tags": [
+        "qpcr",
+        "sybr",
+        "qiagen",
+        "quantinova",
+        "fast",
+        "melt-curve"
+      ]
+    },
+    {
+      "slug": "quantinova-probe-qpcr",
+      "title": "QuantiNova Probe qPCR",
+      "description": "QIAGEN probe-based fast 20 uL qPCR: 2 min 95 C activation, ultrafast 2-step cycling, no melt curve.",
+      "category": "qPCR",
+      "method_type": "pcr",
+      "tags": [
+        "qpcr",
+        "probe",
+        "qiagen",
+        "quantinova",
+        "fast"
+      ]
+    },
+    {
+      "slug": "rotor-gene-sybr-green-qpcr",
+      "title": "Rotor-Gene SYBR Green qPCR",
+      "description": "QIAGEN SYBR Green 25 uL qPCR for the Rotor-Gene Q: 5 min 95 C activation, fast 2-step cycling, 60-95 C melt curve.",
+      "category": "qPCR",
+      "method_type": "pcr",
+      "tags": [
+        "qpcr",
+        "sybr",
+        "qiagen",
+        "rotor-gene",
+        "melt-curve"
+      ]
+    },
+    {
+      "slug": "gotaq-qpcr",
+      "title": "GoTaq qPCR (Promega)",
+      "description": "Promega BRYT Green dye 20 uL qPCR: 2 min 95 C hot-start activation, 40 cycles, melt-curve analysis.",
+      "category": "qPCR",
+      "method_type": "pcr",
+      "tags": [
+        "qpcr",
+        "sybr",
+        "dye",
+        "promega",
+        "gotaq",
+        "bryt-green",
+        "melt-curve"
+      ]
+    },
+    {
+      "slug": "gotaq-probe-qpcr",
+      "title": "GoTaq Probe qPCR (Promega)",
+      "description": "Promega probe-based 20 uL qPCR: 2 min 95 C hot-start activation, 40 cycles, no melt curve.",
+      "category": "qPCR",
+      "method_type": "pcr",
+      "tags": [
+        "qpcr",
+        "probe",
+        "promega",
+        "gotaq"
+      ]
+    },
+    {
+      "slug": "tb-green-premix-ex-taq-ii-qpcr",
+      "title": "TB Green Premix Ex Taq II qPCR",
+      "description": "Takara TB Green (SYBR-type) 25 uL qPCR (RR820): 30 sec 95 C hot-start, fast 2-step cycling, dissociation/melt curve.",
+      "category": "qPCR",
+      "method_type": "pcr",
+      "tags": [
+        "qpcr",
+        "sybr",
+        "tb-green",
+        "takara",
+        "melt-curve"
+      ]
+    },
+    {
+      "slug": "premix-ex-taq-probe-qpcr",
+      "title": "Takara Premix Ex Taq Probe qPCR",
+      "description": "Takara probe-based 25 uL qPCR (RR390): 30 sec 95 C hot-start, fast 2-step cycling, no melt curve.",
+      "category": "qPCR",
+      "method_type": "pcr",
+      "tags": [
+        "qpcr",
+        "probe",
+        "takara",
+        "premix-ex-taq"
+      ]
     }
   ]
 }

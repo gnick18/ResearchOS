@@ -1,0 +1,38 @@
+{
+  "slug": "takara-la-taq",
+  "title": "Takara LA Taq Long PCR",
+  "description": "Takara Bio TaKaRa LA Taq DNA Polymerase: 50 uL long-and-accurate 2-step reaction (worked example shown for a 17.5 kb target).",
+  "category": "Molecular biology",
+  "method_type": "pcr",
+  "tags": ["pcr", "takara", "la-taq", "taq", "long-pcr"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Initial Denaturation", "temperature": 94, "duration": "1 min" }
+      ],
+      "cycles": [
+        {
+          "repeats": 30,
+          "steps": [
+            { "name": "Denaturation", "temperature": 98, "duration": "10 sec" },
+            { "name": "Annealing / Extension", "temperature": 68, "duration": "1 min/kb" }
+          ]
+        }
+      ],
+      "final": [
+        { "name": "Final Extension", "temperature": 72, "duration": "10 min" }
+      ],
+      "hold": null
+    },
+    "ingredients": [
+      { "id": "1", "name": "10X LA PCR Buffer II (Mg2+ plus)", "concentration": "10X (1X final, 2.5 mM Mg2+)", "amount_per_reaction": "5" },
+      { "id": "2", "name": "dNTP Mixture", "concentration": "2.5 mM each (400 uM each final)", "amount_per_reaction": "8" },
+      { "id": "3", "name": "Forward Primer", "concentration": "10 uM (0.2 uM final)", "amount_per_reaction": "1" },
+      { "id": "4", "name": "Reverse Primer", "concentration": "10 uM (0.2 uM final)", "amount_per_reaction": "1" },
+      { "id": "5", "name": "Template DNA", "concentration": "< 1 ug", "amount_per_reaction": "variable" },
+      { "id": "6", "name": "TaKaRa LA Taq", "concentration": "5 U/uL (2.5 U/50 uL final)", "amount_per_reaction": "0.5" },
+      { "id": "7", "name": "Sterile Water", "concentration": "-", "amount_per_reaction": "to 50" }
+    ],
+    "notes": "Vendor: Takara Bio, TaKaRa LA Taq DNA Polymerase (Cat. RR002M), for long and accurate amplification up to ~48 kb. The datasheet worked example (17.5 kb fragment) is a 2-step long-PCR protocol: 94 C/1 min initial denaturation, then 30 cycles of 98 C/10 sec denaturation and 68 C combined anneal/extend (15 min for 17.5 kb, about 1 min/kb), with a 72 C/10 min final extension. 25-35 cycles. Primers 0.2-1.0 uM. Note the higher dNTP (400 uM each) and Mg2+ (2.5 mM) than Ex Taq. The 1 min/kb extension shown is derived from the example, scale to your amplicon length. Source: https://www.takarabio.com/documents/User%20Manual/RR002M/RR002M_DS.v1312Da.pdf"
+  }
+}

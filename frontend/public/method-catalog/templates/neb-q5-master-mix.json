@@ -1,0 +1,37 @@
+{
+  "slug": "neb-q5-master-mix",
+  "title": "NEB Q5 High-Fidelity 2X Master Mix PCR",
+  "description": "New England Biolabs Q5 High-Fidelity 2X Master Mix (M0492): 50 uL high-fidelity reaction with a 98 C denaturation and 72 C extension.",
+  "category": "Molecular biology",
+  "method_type": "pcr",
+  "tags": ["pcr", "neb", "q5", "high-fidelity", "master-mix"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Initial Denaturation", "temperature": 98, "duration": "30 sec" }
+      ],
+      "cycles": [
+        {
+          "repeats": 30,
+          "steps": [
+            { "name": "Denaturation", "temperature": 98, "duration": "10 sec" },
+            { "name": "Annealing", "temperature": 60, "duration": "20 sec" },
+            { "name": "Extension", "temperature": 72, "duration": "20-30 sec/kb" }
+          ]
+        }
+      ],
+      "final": [
+        { "name": "Final Extension", "temperature": 72, "duration": "2 min" }
+      ],
+      "hold": { "name": "Hold", "temperature": 4, "duration": "Indef." }
+    },
+    "ingredients": [
+      { "id": "1", "name": "Q5 High-Fidelity 2X Master Mix", "concentration": "2X (1X final)", "amount_per_reaction": "25" },
+      { "id": "2", "name": "Forward Primer", "concentration": "10 uM (0.5 uM final)", "amount_per_reaction": "2.5" },
+      { "id": "3", "name": "Reverse Primer", "concentration": "10 uM (0.5 uM final)", "amount_per_reaction": "2.5" },
+      { "id": "4", "name": "Template DNA", "concentration": "< 1,000 ng", "amount_per_reaction": "variable" },
+      { "id": "5", "name": "Nuclease-free Water", "concentration": "-", "amount_per_reaction": "to 50" }
+    ],
+    "notes": "Vendor: New England Biolabs (NEB), Q5 High-Fidelity 2X Master Mix #M0492. Annealing: use the NEB Tm Calculator (tmcalculator.neb.com); typically anneal 10-30 sec at ~3 C above the Tm of the lower-Tm primer. The 60 C shown is a placeholder starting point, set it from your primers. Run a 50-72 C gradient if the band is weak or nonspecific; a 2-step protocol (combine anneal+extend at 72 C) works for primer pairs with Ta >= 72 C. Cycles 25-35 (30-35 for genomic). Extension 20-30 sec/kb (10 sec/kb for simple templates, up to 40-50 sec/kb for products >6 kb). Add 1X Q5 High GC Enhancer for GC-rich or failed reactions. Source: https://www.neb.com/en-us/protocols/protocol-for-q5-high-fidelity-2x-master-mix-m0492"
+  }
+}

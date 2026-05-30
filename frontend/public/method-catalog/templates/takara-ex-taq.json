@@ -1,0 +1,35 @@
+{
+  "slug": "takara-ex-taq",
+  "title": "Takara Ex Taq PCR",
+  "description": "Takara Bio TaKaRa Ex Taq DNA Polymerase: 50 uL high-yield standard reaction (worked example shown for a 1 kb target).",
+  "category": "Molecular biology",
+  "method_type": "pcr",
+  "tags": ["pcr", "takara", "ex-taq", "taq", "standard"],
+  "payload": {
+    "gradient": {
+      "initial": [],
+      "cycles": [
+        {
+          "repeats": 30,
+          "steps": [
+            { "name": "Denaturation", "temperature": 98, "duration": "10 sec" },
+            { "name": "Annealing", "temperature": 55, "duration": "30 sec" },
+            { "name": "Extension", "temperature": 72, "duration": "1 min/kb" }
+          ]
+        }
+      ],
+      "final": [],
+      "hold": null
+    },
+    "ingredients": [
+      { "id": "1", "name": "10X Ex Taq Buffer (Mg2+ plus)", "concentration": "10X (1X final, 2 mM Mg2+)", "amount_per_reaction": "5" },
+      { "id": "2", "name": "dNTP Mixture", "concentration": "2.5 mM each (200 uM each final)", "amount_per_reaction": "4" },
+      { "id": "3", "name": "Forward Primer", "concentration": "10 uM (0.2 uM final)", "amount_per_reaction": "1" },
+      { "id": "4", "name": "Reverse Primer", "concentration": "10 uM (0.2 uM final)", "amount_per_reaction": "1" },
+      { "id": "5", "name": "Template DNA", "concentration": "< 500 ng", "amount_per_reaction": "variable" },
+      { "id": "6", "name": "TaKaRa Ex Taq", "concentration": "5 U/uL (1.25 U/50 uL final)", "amount_per_reaction": "0.25" },
+      { "id": "7", "name": "Sterile Water", "concentration": "-", "amount_per_reaction": "to 50" }
+    ],
+    "notes": "Vendor: Takara Bio, TaKaRa Ex Taq DNA Polymerase (Cat. RR001A). The datasheet gives a single worked example (1 kb fragment): 98 C/10 sec denaturation, 55 C/30 sec annealing, 72 C/1 min extension, 30 cycles, with no separate initial-denaturation or final-extension step. For denaturation, Takara recommends 98 C for 5-10 sec or 94 C for 20-30 sec depending on the cycler/tubes. Primers 0.2-1.0 uM. 1X buffer = 2 mM Mg2+. The 55 C annealing is from the example, optimize to your primer Tm. Source: https://www.takarabio.com/documents/User%20Manual/RR001A/RR001A_DS.v1902Da.pdf"
+  }
+}

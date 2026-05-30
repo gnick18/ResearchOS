@@ -1,0 +1,37 @@
+{
+  "slug": "thermo-platinum-ii-taq",
+  "title": "Invitrogen Platinum II Taq Hot-Start PCR",
+  "description": "Thermo Fisher Platinum II Taq Hot-Start DNA Polymerase: 50 uL reaction with a universal 60 C anneal and fast 68 C extension.",
+  "category": "Molecular biology",
+  "method_type": "pcr",
+  "tags": ["pcr", "thermo", "invitrogen", "platinum", "taq", "hot-start"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Initial Denaturation / Activation", "temperature": 94, "duration": "2 min" }
+      ],
+      "cycles": [
+        {
+          "repeats": 30,
+          "steps": [
+            { "name": "Denaturation", "temperature": 94, "duration": "15 sec" },
+            { "name": "Annealing", "temperature": 60, "duration": "15 sec" },
+            { "name": "Extension", "temperature": 68, "duration": "15 sec/kb" }
+          ]
+        }
+      ],
+      "final": [],
+      "hold": { "name": "Hold", "temperature": 4, "duration": "Indef." }
+    },
+    "ingredients": [
+      { "id": "1", "name": "5X Platinum II PCR Buffer", "concentration": "5X (1X final, 1.5 mM MgCl2)", "amount_per_reaction": "10" },
+      { "id": "2", "name": "dNTPs", "concentration": "10 mM (0.2 mM final)", "amount_per_reaction": "1" },
+      { "id": "3", "name": "Forward Primer", "concentration": "10 uM (0.2 uM final)", "amount_per_reaction": "1" },
+      { "id": "4", "name": "Reverse Primer", "concentration": "10 uM (0.2 uM final)", "amount_per_reaction": "1" },
+      { "id": "5", "name": "Template DNA", "concentration": "< 500 ng", "amount_per_reaction": "variable" },
+      { "id": "6", "name": "Platinum II Taq Hot-Start DNA Polymerase", "concentration": "(0.04 U/uL final)", "amount_per_reaction": "0.4" },
+      { "id": "7", "name": "Nuclease-free Water", "concentration": "-", "amount_per_reaction": "to 50" }
+    ],
+    "notes": "Vendor: Thermo Fisher Scientific (Invitrogen), Platinum II Taq Hot-Start DNA Polymerase (Cat. 14966001). Universal 60 C annealing works for most primers (recommended primer Tm ~60 C; the Platinum II buffer iso-stabilizes primer-template duplexes). The user guide cycling table has no separate final-extension step (goes straight to hold), so none is included here. Cycles 25-35. Extension 1 kb per 15 sec at 68 C. For >65% GC targets add Platinum GC Enhancer (10 uL/50 uL). A 2-step protocol (combined anneal/extend 60 C, 15 sec) suits simple amplicons up to 1 kb. AT-rich targets: anneal 44-60 C and add MgCl2 to ~2.5 mM. Reactions can be assembled at room temperature. Source: https://documents.thermofisher.com/TFS-Assets/BID/manuals/MAN0017534_Platinum_II_Taq_HS_DNA_Pol_UG.pdf"
+  }
+}

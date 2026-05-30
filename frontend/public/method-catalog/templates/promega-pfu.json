@@ -1,0 +1,39 @@
+{
+  "slug": "promega-pfu",
+  "title": "Promega Pfu High-Fidelity PCR",
+  "description": "Promega Pfu DNA Polymerase: 50 uL high-fidelity reaction with a slow ~2 min/kb extension.",
+  "category": "Molecular biology",
+  "method_type": "pcr",
+  "tags": ["pcr", "promega", "pfu", "high-fidelity"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Initial Denaturation", "temperature": 95, "duration": "1-2 min" }
+      ],
+      "cycles": [
+        {
+          "repeats": 30,
+          "steps": [
+            { "name": "Denaturation", "temperature": 95, "duration": "45 sec" },
+            { "name": "Annealing", "temperature": 55, "duration": "30 sec" },
+            { "name": "Extension", "temperature": 72, "duration": "2 min/kb" }
+          ]
+        }
+      ],
+      "final": [
+        { "name": "Final Extension", "temperature": 72, "duration": "5 min" }
+      ],
+      "hold": { "name": "Hold", "temperature": 4, "duration": "Indef." }
+    },
+    "ingredients": [
+      { "id": "1", "name": "Pfu 10X Reaction Buffer with MgSO4", "concentration": "10X (1X final, 2 mM Mg2+)", "amount_per_reaction": "5" },
+      { "id": "2", "name": "dNTP Mix", "concentration": "10 mM (200 uM each final)", "amount_per_reaction": "1" },
+      { "id": "3", "name": "Forward Primer", "concentration": "10 uM (0.5 uM final)", "amount_per_reaction": "2.5" },
+      { "id": "4", "name": "Reverse Primer", "concentration": "10 uM (0.5 uM final)", "amount_per_reaction": "2.5" },
+      { "id": "5", "name": "Template DNA", "concentration": "< 0.5 ug", "amount_per_reaction": "variable" },
+      { "id": "6", "name": "Pfu DNA Polymerase", "concentration": "2-3 U/uL (1.25 U/50 uL final)", "amount_per_reaction": "0.5" },
+      { "id": "7", "name": "Nuclease-free Water", "concentration": "-", "amount_per_reaction": "to 50" }
+    ],
+    "notes": "Vendor: Promega, Pfu DNA Polymerase (Cat. M7741). Add Pfu LAST, after the dNTPs (its 3'->5' exonuclease degrades primers otherwise). Pfu extends slowly: ~2 min/kb at 72 C (minimum 1 min). Do not exceed 2 min at 95 C for the initial denaturation. Annealing 42-65 C depending on the primers; raise it for high-Tm primers to cut primer-dimer. The 55 C shown is a placeholder starting point. Primers 0.1-1.0 uM (5-50 pmol). Cycles 25-35. 1X buffer = 2 mM Mg2+ (as MgSO4). Preheat the cycler to 95 C before loading. Source: https://www.promega.com/-/media/files/resources/protocols/product-information-sheets/g/pfu-dna-polymerase-protocol.pdf"
+  }
+}

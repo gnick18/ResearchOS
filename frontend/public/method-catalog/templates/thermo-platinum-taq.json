@@ -1,0 +1,38 @@
+{
+  "slug": "thermo-platinum-taq",
+  "title": "Invitrogen Platinum Taq PCR",
+  "description": "Thermo Fisher Platinum Taq DNA Polymerase: 50 uL antibody hot-start reaction with a 94 C denaturation.",
+  "category": "Molecular biology",
+  "method_type": "pcr",
+  "tags": ["pcr", "thermo", "invitrogen", "platinum", "taq", "hot-start"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Initial Denaturation / Activation", "temperature": 94, "duration": "30 sec - 2 min" }
+      ],
+      "cycles": [
+        {
+          "repeats": 30,
+          "steps": [
+            { "name": "Denaturation", "temperature": 94, "duration": "30 sec" },
+            { "name": "Annealing", "temperature": 55, "duration": "30 sec" },
+            { "name": "Extension", "temperature": 72, "duration": "1 min/kb" }
+          ]
+        }
+      ],
+      "final": [],
+      "hold": { "name": "Hold", "temperature": 4, "duration": "Indef." }
+    },
+    "ingredients": [
+      { "id": "1", "name": "10X PCR Buffer, Minus Mg", "concentration": "10X (1X final)", "amount_per_reaction": "5" },
+      { "id": "2", "name": "MgCl2", "concentration": "50 mM (1.5 mM final)", "amount_per_reaction": "1.5" },
+      { "id": "3", "name": "dNTPs", "concentration": "10 mM (0.2 mM final)", "amount_per_reaction": "1" },
+      { "id": "4", "name": "Forward Primer", "concentration": "10 uM (0.2 uM final)", "amount_per_reaction": "1" },
+      { "id": "5", "name": "Reverse Primer", "concentration": "10 uM (0.2 uM final)", "amount_per_reaction": "1" },
+      { "id": "6", "name": "Template DNA", "concentration": "as required", "amount_per_reaction": "variable" },
+      { "id": "7", "name": "Platinum Taq DNA Polymerase", "concentration": "5 U/uL (1.0 U/50 uL final)", "amount_per_reaction": "0.2" },
+      { "id": "8", "name": "Nuclease-free Water", "concentration": "-", "amount_per_reaction": "to 50" }
+    ],
+    "notes": "Vendor: Thermo Fisher Scientific (Invitrogen), Platinum Taq DNA Polymerase (Cat. 10966). Antibody-mediated hot start: the enzyme is activated at 94 C, so an initial 94 C incubation (30 sec to 2 min) is required. The manual cycling table has no separate final-extension step, so none is included here. Annealing 55 C is the manual's starting point, optimize to your primer Tm. Cycles 25-35. Extension 1 min/kb at 72 C. Optimize MgCl2 1.5-3.0 mM in 0.25 mM steps; use 2-2.5 U enzyme for longer/genomic targets. Source: https://documents.thermofisher.com/TFS-Assets/LSG/manuals/100004289_PlatinumTaqDNApolymerase_man.pdf"
+  }
+}
