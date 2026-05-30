@@ -29,6 +29,7 @@
 import {
   useEffect,
   useLayoutEffect,
+  useRef,
   useState,
   type ComponentType,
   type ReactNode,
@@ -267,6 +268,15 @@ export default function PerformanceHall() {
     null,
   );
 
+  // Scenes are one-shot timelines: they play once (e.g. The Ladder runs ~8.3s)
+  // then call onComplete and rest on their final frame, which for several
+  // scenes is EMPTY. In the showcase the stage should always be performing, so
+  // we LOOP: on completion, replay the scene after a short beat (a fresh
+  // key remount restarts the timeline from frame zero). This is why the old
+  // default (The Greeting, which looped on its own) never went blank.
+  const [replayKey, setReplayKey] = useState(0);
+  const replayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const act = ACTS.find((a) => a.id === activeId) ?? ACTS[0]!;
   const Component = act.Component;
   const focus = act.focus ?? DEFAULT_FOCUS;
@@ -355,11 +365,34 @@ export default function PerformanceHall() {
     // frame's 21:9 aspect.
   }, [sceneViewport, activeId, focus.cx, focus.cy, focus.zoom]);
 
-  // The active scene plays inside the window. Keyed by act id so switching
-  // acts (or re-picking the same one is a no-op) replays the timeline from
-  // frame zero. onComplete is a no-op: the picker, not scene completion,
-  // governs which scene is on stage. Special-case chrome (ProgressShimmer)
-  // renders at frame scale via ProsceniumFrame children.
+  // Cancel any pending replay when the act changes (so a finishing scene does
+  // not loop on top of the newly picked one) and on unmount.
+  useEffect(() => {
+    return () => {
+      if (replayTimerRef.current) clearTimeout(replayTimerRef.current);
+    };
+  }, [activeId]);
+
+  // Loop the selected scene: when its one-shot timeline finishes, replay it
+  // after a short beat so the stage is never empty. Honor reduced motion: rest
+  // on the scene's static glam-freeze frame instead of looping motion.
+  const handleSceneComplete = () => {
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return;
+    }
+    if (replayTimerRef.current) clearTimeout(replayTimerRef.current);
+    replayTimerRef.current = setTimeout(() => {
+      setReplayKey((k) => k + 1);
+    }, 700);
+  };
+
+  // The active scene plays inside the window, keyed by act id + replay count so
+  // switching acts (or a completed scene looping) remounts it and replays the
+  // timeline from frame zero. Special-case chrome (ProgressShimmer) renders at
+  // frame scale via ProsceniumFrame children.
   const sceneChrome: ReactNode = (
     <>
       {act.special === "coffee-refill" && (
@@ -391,9 +424,9 @@ export default function PerformanceHall() {
             (the selected one), so two portal scenes never overlap. The
             scene self-guards SSR + waits for portalTarget to be live. */}
         <Component
-          key={act.id}
+          key={`${act.id}-${replayKey}`}
           active
-          onComplete={() => {}}
+          onComplete={handleSceneComplete}
           portalTarget={sceneViewport}
         />
       </div>
