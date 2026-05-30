@@ -688,7 +688,7 @@ export function CompoundTemplateDetailLoader({
         )}
         <p className="text-sm text-gray-400">
           {state === "error"
-            ? "The kit details are unavailable right now. They need an internet connection. You can still use the kit."
+            ? "The kit details are unavailable right now. They need an internet connection. Reconnect and reopen this kit to use it."
             : "Loading kit..."}
         </p>
       </div>
