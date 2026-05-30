@@ -114,15 +114,43 @@ export interface MassSpecTemplatePayload {
   calibration: MassSpecCalibration;
 }
 
+/** A single child reference inside a COMPOUND combination template. The child
+ *  is itself a catalog template, named here by its `slug` (no method ids exist
+ *  at browse time). On instantiation the loader fetches the child template by
+ *  slug, instantiates it (recursing the per-type branch), and records the
+ *  resulting method id in the compound parent's `components` array. */
+export interface CompoundTemplateComponent {
+  /** Another catalog template slug (the child to instantiate). */
+  slug: string;
+  /** 0-based position; the loader sorts components by this before creating the
+   *  children, so a kit instantiates its children in a stable order
+   *  (e.g. LC at 0, MS at 1: sample flows LC -> MS). */
+  ordering: number;
+  /** Optional label override carried onto the created `CompoundComponent`.
+   *  When unset, the compound renderer falls back to the child method's name. */
+  label?: string;
+}
+
+/** Payload for a COMPOUND combination template. A combination bundles multiple
+ *  leaf templates (each a normal single-type template that keeps its own
+ *  `source_pdf`); the combination parent itself has no structured sidecar and no
+ *  PDF (`source_path: null`). `components` must be non-empty. */
+export interface CompoundTemplatePayload {
+  description?: string | null;
+  components: CompoundTemplateComponent[];
+}
+
 /** The method types a template can instantiate. A subset of `MethodTypeId`:
- *  only the pure-data create shapes. */
+ *  only the pure-data create shapes, plus the `compound` combination type whose
+ *  payload references other catalog templates by slug. */
 export type CatalogMethodType =
   | "markdown"
   | "pcr"
   | "lc_gradient"
   | "plate"
   | "cell_culture"
-  | "mass_spec";
+  | "mass_spec"
+  | "compound";
 
 // ── Bundled source PDF ("kit" templates) ─────────────────────────────────────
 //
@@ -176,6 +204,7 @@ export type MethodCatalogTemplate = MethodCatalogTemplateBase &
     | { method_type: "plate"; payload: PlateTemplatePayload }
     | { method_type: "cell_culture"; payload: CellCultureTemplatePayload }
     | { method_type: "mass_spec"; payload: MassSpecTemplatePayload }
+    | { method_type: "compound"; payload: CompoundTemplatePayload }
   );
 
 /** Lightweight per-entry metadata in `manifest.json` (the browse list). The
@@ -215,6 +244,7 @@ const CATALOG_METHOD_TYPES: ReadonlySet<string> = new Set<CatalogMethodType>([
   "plate",
   "cell_culture",
   "mass_spec",
+  "compound",
 ]);
 
 export function isCatalogMethodType(value: unknown): value is CatalogMethodType {
@@ -256,6 +286,63 @@ function parseSourcePdf(
     filename: raw.filename,
     ...(raw.source_url !== undefined ? { source_url: raw.source_url } : {}),
     ...(raw.sha256 !== undefined ? { sha256: raw.sha256 } : {}),
+  };
+}
+
+/** Shape-check a COMPOUND template payload: a `components` array that is
+ *  NON-EMPTY and whose every entry is `{ slug: string, ordering: number,
+ *  label?: string }`. Throws on any malformed entry. `description` is optional
+ *  (a string or null). `label` is the caller context for the error message. */
+function parseCompoundPayload(
+  raw: unknown,
+  label: string,
+): CompoundTemplatePayload {
+  if (!isRecord(raw)) {
+    throw new Error(`${label}: compound payload is not an object`);
+  }
+  if (!Array.isArray(raw.components) || raw.components.length === 0) {
+    throw new Error(
+      `${label}: compound payload.components must be a non-empty array`,
+    );
+  }
+  const components: CompoundTemplateComponent[] = raw.components.map(
+    (entry, index) => {
+      if (!isRecord(entry)) {
+        throw new Error(`${label}: component #${index} is not an object`);
+      }
+      if (typeof entry.slug !== "string" || entry.slug.length === 0) {
+        throw new Error(
+          `${label}: component #${index} is missing a string slug`,
+        );
+      }
+      if (typeof entry.ordering !== "number") {
+        throw new Error(
+          `${label}: component #${index} is missing a numeric ordering`,
+        );
+      }
+      if (entry.label !== undefined && typeof entry.label !== "string") {
+        throw new Error(
+          `${label}: component #${index} label must be a string when set`,
+        );
+      }
+      return {
+        slug: entry.slug,
+        ordering: entry.ordering,
+        ...(entry.label !== undefined ? { label: entry.label } : {}),
+      };
+    },
+  );
+  const description = raw.description;
+  return {
+    components,
+    ...(description === undefined
+      ? {}
+      : {
+          description:
+            typeof description === "string" || description === null
+              ? description
+              : null,
+        }),
   };
 }
 
@@ -339,17 +426,24 @@ export function parseMethodCatalogTemplate(raw: unknown): MethodCatalogTemplate 
     throw new Error(`template "${slug}" is missing a payload object`);
   }
   const source_pdf = parseSourcePdf(raw.source_pdf, `template "${slug}"`);
-  // The per-type payload is build-shipped data trusted beyond the presence
-  // check above (mirrors the demo-data loader). Cast through `unknown` to land
-  // on the discriminated union: method_type is already narrowed to a
-  // CatalogMethodType and payload is confirmed an object.
+  // A compound combination template references its children by slug, so its
+  // payload is validated structurally (a non-empty components array) before the
+  // loader fans out the recursive instantiation. Every other per-type payload is
+  // build-shipped data trusted beyond the presence check above (mirrors the
+  // demo-data loader). Cast through `unknown` to land on the discriminated
+  // union: method_type is already narrowed to a CatalogMethodType and payload is
+  // confirmed an object.
+  const checkedPayload =
+    method_type === "compound"
+      ? parseCompoundPayload(payload, `template "${slug}"`)
+      : payload;
   return {
     slug,
     title,
     description,
     category,
     method_type,
-    payload,
+    payload: checkedPayload,
     tags: Array.isArray(tags)
       ? tags.filter((t): t is string => typeof t === "string")
       : undefined,
@@ -509,7 +603,10 @@ export interface InstantiateTemplateOptions {
  *  in-memory fakes (mirrors the methodsApi mock pattern in
  *  methods-api-create.test.ts). Defaults to the real local APIs. */
 export interface InstantiateTemplateDeps {
-  methodsApi: Pick<typeof methodsApi, "create">;
+  // `create` builds every method row; `update` is used ONLY by the compound
+  // partial-failure path to stamp the `incomplete-kit` marker on orphaned
+  // children (see the compound branch).
+  methodsApi: Pick<typeof methodsApi, "create" | "update">;
   pcrApi: Pick<typeof pcrApi, "create">;
   lcGradientApi: Pick<typeof lcGradientApi, "create">;
   plateApi: Pick<typeof plateApi, "create">;
@@ -518,6 +615,10 @@ export interface InstantiateTemplateDeps {
   // `writeFile` backs the markdown source; `uploadImage` is the existing binary
   // (base64 -> blob) primitive reused to copy a bundled source PDF (Kit Phase 1).
   filesApi: Pick<typeof filesApi, "writeFile" | "uploadImage">;
+  /** Fetch a child catalog template by slug. Threaded as a seam so the COMPOUND
+   *  branch can fetch + recurse its children against in-memory fixtures in a
+   *  unit test. Defaults to the module `fetchMethodCatalogTemplate`. */
+  fetchTemplate?: (slug: string) => Promise<MethodCatalogTemplate>;
 }
 
 const DEFAULT_DEPS: InstantiateTemplateDeps = {
@@ -529,6 +630,12 @@ const DEFAULT_DEPS: InstantiateTemplateDeps = {
   massSpecApi,
   filesApi,
 };
+
+/** Marker tag stamped on an orphaned child when a COMPOUND combination fails
+ *  partway: by Grant-locked decision the loader does NOT roll back the children
+ *  already created, but tags them so a half-built kit is discoverable as
+ *  incomplete (the modal also surfaces the thrown error). */
+export const INCOMPLETE_KIT_TAG = "incomplete-kit";
 
 /**
  * Create a new, user-owned method from a catalog template. Returns the created
@@ -691,6 +798,87 @@ export async function instantiateMethodFromTemplate(
         folder_path: folderPath,
         tags,
         shared_with: [],
+      });
+    }
+    case "compound": {
+      // A COMPOUND combination is a parent method that bundles already-created
+      // child methods. The compound branch never copies a bundled PDF: it has no
+      // structured sidecar to hang one on (source_path is null), and each child
+      // copies its OWN source_pdf through its per-type branch when it recurses.
+      const fetchChild =
+        deps.fetchTemplate ??
+        ((slug: string) => fetchMethodCatalogTemplate(slug, customFetch));
+
+      // Instantiate children in `ordering` order (sample-flow order, e.g.
+      // LC -> MS) so the kit reads predictably. Copy before sorting so the
+      // template payload is never mutated in place.
+      const ordered = [...template.payload.components].sort(
+        (a, b) => a.ordering - b.ordering,
+      );
+
+      const createdChildren: Array<{ method: Method; ordering: number; label?: string }> =
+        [];
+      for (const component of ordered) {
+        try {
+          const childTemplate = await fetchChild(component.slug);
+          // Recurse: each child runs its own per-type branch (and copies its own
+          // bundled PDF). Children land in the same folder as the kit parent.
+          const childMethod = await instantiateMethodFromTemplate(
+            childTemplate,
+            { folderPath },
+            deps,
+            customFetch,
+          );
+          createdChildren.push({
+            method: childMethod,
+            ordering: component.ordering,
+            ...(component.label ? { label: component.label } : {}),
+          });
+        } catch (err) {
+          // PARTIAL FAILURE (Grant-locked): do NOT roll back the children created
+          // before this point. Instead mark each orphan with the `incomplete-kit`
+          // tag so the half-built kit is DISCOVERABLE (the user / a future sweep
+          // can find and clean it up), then re-throw a descriptive error so the
+          // modal surfaces the failure. Tagging is best-effort: an update failure
+          // must not mask the original error.
+          for (const orphan of createdChildren) {
+            try {
+              const existingTags = orphan.method.tags ?? [];
+              if (!existingTags.includes(INCOMPLETE_KIT_TAG)) {
+                await deps.methodsApi.update(orphan.method.id, {
+                  tags: [...existingTags, INCOMPLETE_KIT_TAG],
+                });
+              }
+            } catch {
+              // Swallow: marking is a discoverability aid, not a correctness gate.
+            }
+          }
+          const reason = err instanceof Error ? err.message : String(err);
+          throw new Error(
+            `compound kit "${template.slug}" failed on component "${component.slug}": ${reason}. ` +
+              `${createdChildren.length} child method(s) were left in place and tagged "${INCOMPLETE_KIT_TAG}" for follow-up.`,
+          );
+        }
+      }
+
+      // All children created: build the compound parent. It has no structured
+      // sidecar and no PDF (source_path: null); its components reference the
+      // created child method ids. `owner: null` on each component means "same
+      // user as the compound" (the child was just created in the current user's
+      // namespace).
+      return deps.methodsApi.create({
+        name,
+        source_path: null,
+        method_type: "compound",
+        folder_path: folderPath,
+        tags,
+        shared_with: [],
+        components: createdChildren.map((c) => ({
+          method_id: c.method.id,
+          owner: null,
+          ordering: c.ordering,
+          ...(c.label ? { label: c.label } : {}),
+        })),
       });
     }
     default: {

@@ -33,6 +33,12 @@ vi.mock("@/lib/local-api", () => {
           ...data,
         };
       }),
+      // Used only by the compound partial-failure path to stamp the
+      // incomplete-kit marker on orphaned children.
+      update: vi.fn(async (id: number, data: Record<string, unknown>) => ({
+        id,
+        ...data,
+      })),
     },
     pcrApi: { create: vi.fn(async (d: Record<string, unknown>) => ({ id: 1, ...d })) },
     lcGradientApi: {
@@ -63,12 +69,16 @@ import {
   fetchMethodCatalogTemplate,
   instantiateMethodFromTemplate,
   isCatalogMethodType,
+  INCOMPLETE_KIT_TAG,
   type MethodCatalogTemplate,
+  type InstantiateTemplateDeps,
 } from "./method-catalog";
 import {
   methodsApi,
   pcrApi,
+  lcGradientApi,
   plateApi,
+  cellCultureApi,
   massSpecApi,
   filesApi,
 } from "@/lib/local-api";
@@ -144,7 +154,8 @@ describe("method-catalog parsing", () => {
     expect(isCatalogMethodType("markdown")).toBe(true);
     expect(isCatalogMethodType("cell_culture")).toBe(true);
     expect(isCatalogMethodType("mass_spec")).toBe(true);
-    expect(isCatalogMethodType("compound")).toBe(false);
+    // compound is now a catalog method_type (the combination/kit arm).
+    expect(isCatalogMethodType("compound")).toBe(true);
     expect(isCatalogMethodType("pdf")).toBe(false);
     expect(isCatalogMethodType(42)).toBe(false);
   });
@@ -527,5 +538,294 @@ describe("instantiateMethodFromTemplate — bundled source PDF (kit)", () => {
       .calls[0][0] as Record<string, unknown>;
     expect("source_pdf_path" in arg).toBe(false);
     expect(created.owner).toBe("alex");
+  });
+});
+
+// ── Compound combinations ("kit") ─────────────────────────────────────────────
+//
+// A compound combination template (method_type "compound") bundles other
+// catalog templates by slug. On instantiation the loader fetches each child by
+// slug (via the fetchTemplate seam), instantiates it (recursing the per-type
+// branch), then creates the compound PARENT with source_path: null and a
+// components array mapping each created child id. Partial-failure is a
+// Grant-locked behavior: leave the orphaned children, tag them "incomplete-kit",
+// and throw a descriptive error.
+
+const LC_CHILD_TEMPLATE: MethodCatalogTemplate = {
+  slug: "lcms-peptide-rp-lc-thermo",
+  title: "Peptide RP-LC (Thermo)",
+  description: "LC half",
+  category: "LC-MS",
+  method_type: "lc_gradient",
+  payload: {
+    description: "RP gradient",
+    gradient_steps: [
+      { time_min: 0, percent_a: 95, percent_b: 5, flow_ml_min: 0.3 },
+    ],
+    column: {
+      manufacturer: "Thermo",
+      model: "EASY-Spray",
+      length_mm: 250,
+      inner_diameter_mm: 0.075,
+      particle_size_um: 2,
+    },
+    detection_wavelength_nm: null,
+    ingredients: [
+      { id: "a", name: "Water + 0.1% FA", role: "solvent_a" },
+      { id: "b", name: "ACN + 0.1% FA", role: "solvent_b" },
+    ],
+  },
+};
+
+const MS_CHILD_TEMPLATE: MethodCatalogTemplate = {
+  slug: "lcms-peptide-ms-thermo-orbitrap",
+  title: "Peptide MS (Thermo Orbitrap)",
+  description: "MS half",
+  category: "LC-MS",
+  method_type: "mass_spec",
+  payload: {
+    instrument: "Q Exactive HF",
+    ionization_mode: "esi_pos",
+    source: {
+      source_temp_c: 320,
+      capillary_kv: 2.1,
+      nebulizer_gas_lpm: null,
+      drying_gas_lpm: null,
+      drying_gas_temp_c: null,
+      ei_energy_ev: null,
+      maldi_laser_nm: null,
+      maldi_laser_energy: null,
+      maldi_matrix: null,
+      other_notes: null,
+    },
+    scan: {
+      scan_mz_low: 375,
+      scan_mz_high: 1500,
+      scan_rate_hz: null,
+      resolution_r: 60000,
+      is_msms: true,
+      msms_isolation_window_mz: 1.4,
+      msms_collision_energy_ev: null,
+    },
+    calibration: {
+      reference_standard: null,
+      calibration_date: null,
+      expected_accuracy_ppm: null,
+      notes: null,
+    },
+  },
+};
+
+const COMPOUND_TEMPLATE: MethodCatalogTemplate = {
+  slug: "lcms-peptide-combo-thermo",
+  title: "Thermo peptide LC-MS/MS (kit)",
+  description: "A full LC-MS kit",
+  category: "LC-MS",
+  method_type: "compound",
+  tags: ["lc-ms", "kit"],
+  payload: {
+    description: "LC then MS",
+    // Intentionally out of order to prove the loader sorts by `ordering`.
+    components: [
+      { slug: "lcms-peptide-ms-thermo-orbitrap", ordering: 1 },
+      { slug: "lcms-peptide-rp-lc-thermo", ordering: 0, label: "LC inlet" },
+    ],
+  },
+};
+
+/** Build a deps object over the mocked local-api plus a fetchTemplate seam that
+ *  resolves children from an in-memory map of slug -> template. */
+function makeCompoundDeps(
+  childrenBySlug: Record<string, MethodCatalogTemplate>,
+): InstantiateTemplateDeps {
+  return {
+    methodsApi,
+    pcrApi,
+    lcGradientApi,
+    plateApi,
+    cellCultureApi,
+    massSpecApi,
+    filesApi,
+    fetchTemplate: vi.fn(async (slug: string) => {
+      const t = childrenBySlug[slug];
+      if (!t) throw new Error(`no fixture template for slug "${slug}"`);
+      return t;
+    }),
+  };
+}
+
+describe("compound parsing", () => {
+  it("parses a well-formed compound template payload", () => {
+    const t = parseMethodCatalogTemplate(COMPOUND_TEMPLATE);
+    expect(t.method_type).toBe("compound");
+    expect(t.payload).toMatchObject({
+      components: [
+        { slug: "lcms-peptide-ms-thermo-orbitrap", ordering: 1 },
+        { slug: "lcms-peptide-rp-lc-thermo", ordering: 0, label: "LC inlet" },
+      ],
+    });
+  });
+
+  it("rejects a compound template whose components array is empty", () => {
+    expect(() =>
+      parseMethodCatalogTemplate({
+        slug: "empty-combo",
+        title: "x",
+        description: "x",
+        category: "LC-MS",
+        method_type: "compound",
+        payload: { components: [] },
+      }),
+    ).toThrow(/non-empty array/);
+  });
+
+  it("rejects a compound component missing its slug", () => {
+    expect(() =>
+      parseMethodCatalogTemplate({
+        slug: "bad-combo",
+        title: "x",
+        description: "x",
+        category: "LC-MS",
+        method_type: "compound",
+        payload: { components: [{ ordering: 0 }] },
+      }),
+    ).toThrow(/slug/);
+  });
+
+  it("rejects a compound component whose ordering is not a number", () => {
+    expect(() =>
+      parseMethodCatalogTemplate({
+        slug: "bad-combo-2",
+        title: "x",
+        description: "x",
+        category: "LC-MS",
+        method_type: "compound",
+        payload: { components: [{ slug: "child", ordering: "first" }] },
+      }),
+    ).toThrow(/ordering/);
+  });
+});
+
+describe("instantiateMethodFromTemplate: compound (kit)", () => {
+  it("creates both children in ordering order, then the compound parent", async () => {
+    vi.clearAllMocks();
+    const deps = makeCompoundDeps({
+      "lcms-peptide-rp-lc-thermo": LC_CHILD_TEMPLATE,
+      "lcms-peptide-ms-thermo-orbitrap": MS_CHILD_TEMPLATE,
+    });
+    const created = await instantiateMethodFromTemplate(
+      COMPOUND_TEMPLATE,
+      { folderPath: "LC-MS" },
+      deps,
+    );
+
+    // Three create calls: child LC (ordering 0), child MS (ordering 1), then
+    // the compound parent. methodsApi.create is invoked in that exact order.
+    expect(methodsApi.create).toHaveBeenCalledTimes(3);
+    const calls = (methodsApi.create as ReturnType<typeof vi.fn>).mock.calls;
+
+    // First child created is the LC (ordering 0), even though it is listed
+    // second in the payload: the loader sorts by `ordering`.
+    expect(calls[0][0]).toMatchObject({
+      method_type: "lc_gradient",
+      name: "Peptide RP-LC (Thermo)",
+      folder_path: "LC-MS",
+    });
+    // Second child is the MS (ordering 1).
+    expect(calls[1][0]).toMatchObject({
+      method_type: "mass_spec",
+      name: "Peptide MS (Thermo Orbitrap)",
+      folder_path: "LC-MS",
+    });
+
+    // The created child ids come from the mock's resolved return values (the
+    // module-level `created` counter persists across tests, so the absolute id
+    // is derived dynamically rather than hardcoded).
+    // The mock is async, so `mock.results[i].value` is the returned Promise:
+    // await it to read the resolved child id.
+    const results = (methodsApi.create as ReturnType<typeof vi.fn>).mock.results;
+    const lcChildId = ((await results[0].value) as { id: number }).id;
+    const msChildId = ((await results[1].value) as { id: number }).id;
+
+    // The compound PARENT: source_path null, no PDF, components mapped to the
+    // created child ids in ordering order.
+    const parentArg = calls[2][0] as Record<string, unknown>;
+    expect(parentArg).toMatchObject({
+      name: "Thermo peptide LC-MS/MS (kit)",
+      method_type: "compound",
+      source_path: null,
+      folder_path: "LC-MS",
+      tags: ["lc-ms", "kit"],
+      shared_with: [],
+    });
+    expect(parentArg.components).toEqual([
+      // LC child: ordering 0, label override carried through.
+      { method_id: lcChildId, owner: null, ordering: 0, label: "LC inlet" },
+      // MS child: ordering 1, no label.
+      { method_id: msChildId, owner: null, ordering: 1 },
+    ]);
+
+    // The returned compound parent is owned by the current user.
+    expect(created.method_type).toBe("compound");
+    expect(created.owner).toBe("alex");
+
+    // The compound parent never copies a bundled PDF.
+    expect("source_pdf_path" in parentArg).toBe(false);
+
+    // Each child fetched by slug via the seam.
+    expect(deps.fetchTemplate).toHaveBeenCalledWith("lcms-peptide-rp-lc-thermo");
+    expect(deps.fetchTemplate).toHaveBeenCalledWith(
+      "lcms-peptide-ms-thermo-orbitrap",
+    );
+  });
+
+  it("partial failure: leaves the first child as an orphan tagged incomplete-kit and throws", async () => {
+    vi.clearAllMocks();
+    // The MS child fetch throws, AFTER the LC child has already been created.
+    const deps = makeCompoundDeps({
+      "lcms-peptide-rp-lc-thermo": LC_CHILD_TEMPLATE,
+      // MS slug intentionally absent -> fetchTemplate throws on the 2nd child.
+    });
+
+    await expect(
+      instantiateMethodFromTemplate(COMPOUND_TEMPLATE, { folderPath: "LC-MS" }, deps),
+    ).rejects.toThrow(/lcms-peptide-ms-thermo-orbitrap/);
+
+    // The first (LC) child WAS created (not rolled back).
+    const createMock = methodsApi.create as ReturnType<typeof vi.fn>;
+    const createCalls = createMock.mock.calls;
+    expect(createCalls).toHaveLength(1);
+    expect(createCalls[0][0]).toMatchObject({ method_type: "lc_gradient" });
+    // Async mock: await the returned Promise to read the resolved orphan id.
+    const orphanId = ((await createMock.mock.results[0].value) as { id: number })
+      .id;
+
+    // The compound parent was NEVER created (instantiation aborted).
+    expect(
+      createCalls.some(
+        (c) => (c[0] as Record<string, unknown>).method_type === "compound",
+      ),
+    ).toBe(false);
+
+    // The orphaned LC child was tagged "incomplete-kit" for follow-up via update.
+    expect(methodsApi.update).toHaveBeenCalledTimes(1);
+    const [updatedId, updateData] = (
+      methodsApi.update as ReturnType<typeof vi.fn>
+    ).mock.calls[0];
+    expect(updatedId).toBe(orphanId);
+    expect((updateData as { tags: string[] }).tags).toContain(INCOMPLETE_KIT_TAG);
+  });
+
+  it("partial-failure error names the kit and counts the orphans left behind", async () => {
+    vi.clearAllMocks();
+    const deps = makeCompoundDeps({
+      "lcms-peptide-rp-lc-thermo": LC_CHILD_TEMPLATE,
+    });
+    await expect(
+      instantiateMethodFromTemplate(COMPOUND_TEMPLATE, {}, deps),
+    ).rejects.toThrow(/lcms-peptide-combo-thermo/);
+    await expect(
+      instantiateMethodFromTemplate(COMPOUND_TEMPLATE, {}, deps),
+    ).rejects.toThrow(new RegExp(INCOMPLETE_KIT_TAG));
   });
 });
