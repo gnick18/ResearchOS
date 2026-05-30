@@ -50,9 +50,27 @@ Chip status (2026-05-30):
   artifact (real libraries with many methods/folder do not show it) and because
   it diverges from the card-grid convention + touches drag-drop. Revisit only
   if Grant asks.
-- store-polish: QUEUED.
-- compound-wiring (contract step 3): QUEUED. RUN AFTER store-polish (shared
-  files: compound-template-detail.ts, MethodTemplateLibraryModal.tsx).
+- store-polish: MERGED. Kit rename (registry label "Kit" + sweep), store
+  empty-state (3-up + collapsed detail), Standard/Structured caption,
+  use-template destination line, lazy-mount skeletons. Merge had 3 overlapping
+  files vs widget-card-copy + methods-page-width (stale base 2d8396ce); verified
+  all invariants survived (actionKind + skeleton coexist, palette copy, 4-col
+  grid). 133 tests green.
+  - PROCESS NOTE: the catalog session's compound loader (090a35bc) had left main
+    tsc-RED since it merged: it added the "compound" union arm but
+    MethodLibraryDetail's payload switch was non-exhaustive (TS2322). Undetected
+    because 090a35bc came from another chat between my merges. FIXED with a
+    compound case returning null (the modal renderDetail branch, contract step 3,
+    does the real rendering). Lesson: run tsc after sibling-session merges land,
+    not only after my own.
+  - RESIDUAL (store-polish flag): some in-view widget tiles still show their OWN
+    React-Query "Loading..." text (AnnouncementsWidget, LabComments, etc.), not
+    the store fallback. Masking needs either a preview-mode skeleton threaded
+    into every tile or a fade-on-ready overlay in the preview boundary. Deferred
+    as minor cosmetic; queue a contained overlay-fix chip only if Grant wants it.
+- compound-wiring (contract step 3): QUEUED, NOW UNBLOCKED (store-polish merged).
+  The compound stub comment in MethodLibraryDetail guides it. Branches off
+  current main.
 Once both land, the build is done; the contract's step-5 verifier loop runs on
 the live compound path after the catalog session adds step-4 entries.
 
