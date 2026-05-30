@@ -6,17 +6,25 @@ Status: DRAFT, ready to fire once Phase B (store-shell bot) reports.
 These are the spawn_task prompt drafts for Phase C (search + navigation) and
 Phase D (detail pane) of docs/proposals/EXTENSION_STORE_REDESIGN_PROPOSAL.md.
 
-IMPORTANT reconcile step before firing: Phase B introduces
-`frontend/src/components/store/StoreShell.tsx` with a concrete prop API. These
-drafts assume the prop names from the B brief (categories, selectedCategoryId,
-onSelectCategory, searchSlot, enabledOnly, onToggleEnabledOnly, items,
-selectedItem, onSelectItem, renderCard, renderDetail, footerSlot, onClose). If
-B's reported API differs, update the prop references in these briefs before
-queuing the chips. Everything else stands.
+RECONCILED against B's merged API (orchestrator, 2026-05-29):
 
-Dependency: C depends on B (needs the shell). D depends on C (needs the
-segment + real list so a selected item exists to render). Run C then D, not in
-parallel.
+Phase B is MERGED to main (commit be90201d). C and D branch off main, no branch
+stacking. The actual `StoreShell` prop API (frontend/src/components/store/
+StoreShell.tsx) matches the draft prop names, PLUS:
+  - `getItemKey(item): string` is required (React keys + selection compare).
+  - Optional polish props exist: `allLabel`, `detailEmptyHint`, `emptyState`,
+    `cardGridClassName`, `closeAriaLabel`.
+  - There is NO built-in Types | Templates segment. B folded the method kinds
+    into FLAT rail categories ("All / Method types / Protocol templates") over
+    one heterogeneous item list. The locked IA wants a real SEGMENT that
+    switches the category SET (Types view: Standard/Structured; Templates view:
+    domain categories). C must add a small optional `railHeaderSlot?: ReactNode`
+    prop to StoreShell (rendered above the search slot in both the rail and the
+    mobile chip row) and pass the segment control there from the method library
+    only; the widget store passes nothing (single kind, no segment).
+
+Dependency: C depends on B (merged). D depends on C (needs the segment + real
+list so a selected item exists to render). Run C then D, not in parallel.
 
 ---
 
