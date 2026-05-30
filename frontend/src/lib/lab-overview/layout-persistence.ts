@@ -1123,6 +1123,18 @@ export async function resetDashboardLayout(username: string): Promise<void> {
  * widget for the same project. (A user who manually removes the widget and then
  * the project is re-created with the same id would re-add it; that is fine.)
  *
+ * EMPTY-WIDGET REUSE (single-project-tour-collision fix bot, 2026-05-29): if the
+ * dashboard already carries an UNPINNED bare `single-project` widget (no
+ * resolvable `pinnedProject`, e.g. one added from the palette or a prior tour
+ * run), we PIN THAT INSTANCE IN PLACE rather than appending a second widget. We
+ * rename its canvas entry to the deterministic `single-project#<owner>:<id>` id
+ * and move its `widgetConfig` over, so the dashboard shows exactly ONE Single
+ * Project widget for the new project with no stray empty leftover. The renamed,
+ * now-pinned tile resolves `pinned`, so it carries the §6.1 tour target the
+ * `project-overview-nav` beat clicks. An empty tile never carried that target
+ * (the widget only stamps it when pinned), so the prefix selector can no longer
+ * resolve to a picker-opening empty tile.
+ *
  * LIFECYCLE (chosen, see report FLAG): if the project is later deleted, this
  * instance stays on the dashboard and the widget falls back to its empty
  * "pick a project" state (its `findPinned` gate returns undefined for a project
@@ -1130,11 +1142,13 @@ export async function resetDashboardLayout(username: string): Promise<void> {
  * a project-delete hook reaching into every user's layout, out of scope here.
  *
  * Returns the instance id (the same value the tour uses to find + click the
- * tile), or the existing one when the widget was already present.
+ * tile): the deterministic pinned id whether we appended fresh or reused an
+ * empty instance, or the existing one when the widget was already present.
  *
- * DATA-SHAPE: additive + migration-safe. It only ever appends to the v2
- * `widgetOrder.canvas` + writes one `widgetConfig` entry; old layouts that
- * never had instance ids or a `widgetConfig` map upgrade cleanly via
+ * DATA-SHAPE: additive + migration-safe. It either appends one v2
+ * `widgetOrder.canvas` entry + one `widgetConfig` entry, OR renames an existing
+ * bare `single-project` entry to the pinned id in place; old layouts that never
+ * had instance ids or a `widgetConfig` map upgrade cleanly via
  * `readDashboardLayoutRaw` -> `seedDashboardLayout`.
  */
 export async function addSingleProjectWidgetForProject(
@@ -1142,14 +1156,50 @@ export async function addSingleProjectWidgetForProject(
   project: { id: number; owner: string },
 ): Promise<string> {
   const instanceId = singleProjectInstanceId(project.owner, project.id);
+  const base = baseWidgetId(instanceId);
   const existing = await readDashboardLayoutRaw(username);
   if (existing.widgetOrder.canvas.includes(instanceId)) {
     // Already present: de-dup no-op. Still ensure the pin config is set in
     // case a prior write dropped it (belt-and-suspenders; cheap).
     return instanceId;
   }
+  const config = existing.widgetConfig ?? {};
+  // Reuse an EMPTY bare single-project instance if one exists: a canvas entry
+  // whose base id is `single-project` AND that carries no resolvable
+  // `pinnedProject`. We pin the FIRST such instance in place. (Other pinned
+  // `single-project#…` instances are skipped because their config has a
+  // pinnedProject; the bare `single-project` id is the empty/picker tile.)
+  const emptyIndex = existing.widgetOrder.canvas.findIndex((id) => {
+    if (baseWidgetId(id) !== base) return false;
+    const pinned = config[id]?.pinnedProject;
+    return !(pinned && typeof pinned.id === "number");
+  });
+  if (emptyIndex !== -1) {
+    const reusedId = existing.widgetOrder.canvas[emptyIndex];
+    const nextCanvas = [...existing.widgetOrder.canvas];
+    nextCanvas[emptyIndex] = instanceId;
+    // Move the config entry from the old (bare) id to the pinned id and set
+    // the pin. Drop the old key so no stale empty-instance config lingers.
+    const nextConfig: Record<string, WidgetInstanceConfig> = { ...config };
+    delete nextConfig[reusedId];
+    nextConfig[instanceId] = {
+      ...(config[reusedId] ?? {}),
+      pinnedProject: { id: project.id, owner: project.owner },
+    };
+    await patchUserSettings(username, {
+      dashboard_layout: {
+        version: LAB_OVERVIEW_LAYOUT_VERSION,
+        widgetOrder: {
+          canvas: nextCanvas,
+          sidebar: existing.widgetOrder.sidebar,
+        },
+        widgetConfig: nextConfig,
+      },
+    });
+    return instanceId;
+  }
   const nextConfig: Record<string, WidgetInstanceConfig> = {
-    ...(existing.widgetConfig ?? {}),
+    ...config,
     [instanceId]: { pinnedProject: { id: project.id, owner: project.owner } },
   };
   await patchUserSettings(username, {

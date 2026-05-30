@@ -299,6 +299,35 @@ describe("SingleProjectWidget: SnapshotTile rich card", () => {
     // No Change-project affordance when there is nothing pinned.
     expect(screen.queryByTestId("single-project-change")).toBeNull();
   });
+
+  it("a PINNED tile carries the §6.1 home-single-project-open- tour target", async () => {
+    // The §6.1 `project-overview-nav` beat re-resolves
+    // [data-tour-target^='home-single-project-open-'] and clicks it. A pinned
+    // tile must carry the per-project target so the beat lands on a tile whose
+    // onClick navigates straight to the project page.
+    renderTile({ pinnedProject: { id: 1, owner: "morgan" } });
+    await screen.findByText("Aim 1 (whole lab)");
+    const el = document.querySelector(
+      "[data-tour-target^='home-single-project-open-']",
+    );
+    expect(el).toBeTruthy();
+    expect(el?.getAttribute("data-tour-target")).toBe(
+      "home-single-project-open-morgan-1",
+    );
+  });
+
+  it("an UNPINNED tile carries NO home-single-project-open- tour target (avoids the §6.1 picker collision)", async () => {
+    // Root cause of "closes right away": if an empty/unpinned single-project
+    // tile ALSO matched the prefix selector, the §6.1 beat could resolve to it
+    // (first in DOM) and click it, opening the pick-a-project PICKER (which
+    // flashes shut) instead of navigating. The target is stamped ONLY when
+    // pinned, so the empty tile never matches the nav selector.
+    renderTile({});
+    await screen.findByText("No project pinned");
+    expect(
+      document.querySelector("[data-tour-target^='home-single-project-open-']"),
+    ).toBeNull();
+  });
 });
 
 describe("SingleProjectWidget: PRIVACY gate (picker + stale pin)", () => {
