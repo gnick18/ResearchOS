@@ -3,6 +3,7 @@ import { fileService } from "./file-system/file-service";
 import { trashNote, restoreTrashedNote } from "./notes/notes-trash";
 import { trashEntity, type TrashEntityType } from "./trash";
 import { recordProjectActivity } from "./project-activity/event-log";
+import { HISTORY_ENGINE_ENABLED, recordNoteHistory } from "./history";
 import { getCurrentUser, getMainUser, storeCurrentUser, storeMainUser, clearCurrentUser, clearMainUser } from "./file-system/indexeddb-store";
 import { shiftTask } from "./engine/shift";
 import { formatDate, parseDate } from "./engine/dates";
@@ -3747,14 +3748,39 @@ export const notesApi = {
   // `updated_at` (write-time) before R3; we keep both, the new fields
   // are additive.
   update: async (id: number, data: NoteUpdate, owner?: string): Promise<Note | null> => {
+    const stamp = await buildAttributionStamp(data.last_edited_by);
     const patch = {
       ...data,
       updated_at: new Date().toISOString(),
-      ...(await buildAttributionStamp(data.last_edited_by)),
+      ...stamp,
     };
-    return owner
-      ? notesStore.updateForUser(id, patch, owner)
-      : notesStore.update(id, patch);
+    // VCP Phase 0: capture the pre-edit state for the delta store BEFORE the
+    // write. Only read when the history engine is enabled so the default-off
+    // path adds zero extra disk reads (recordNoteHistory also short-circuits on
+    // the flag; this guard avoids the prevState fetch entirely).
+    const prevState = HISTORY_ENGINE_ENABLED
+      ? owner
+        ? await notesStore.getForUser(id, owner)
+        : await notesStore.get(id)
+      : null;
+    const updated = owner
+      ? await notesStore.updateForUser(id, patch, owner)
+      : await notesStore.update(id, patch);
+    // Best-effort history append AFTER the live record is persisted. Failures
+    // never throw into the save path (recordNoteHistory swallows). No-op when
+    // the flag is off, so Phase 0 cherry-picks inertly (no _history/ writes).
+    if (HISTORY_ENGINE_ENABLED && updated) {
+      const effectiveOwner = owner ?? (await getCurrentUserCached()) ?? "";
+      await recordNoteHistory({
+        type: "update",
+        id,
+        owner: effectiveOwner,
+        actor: stamp.last_edited_by,
+        prevState,
+        nextState: updated,
+      });
+    }
+    return updated;
   },
 
   // Soft-delete: move the note's JSON to `users/<owner>/_trash/notes/<id>-<slug>.json`
