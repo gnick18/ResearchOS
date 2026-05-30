@@ -455,13 +455,19 @@ describe("existing-user invisibility invariant (L1/L22)", () => {
 });
 
 describe("clearWizardCompletion (v4 Re-run-tour bypass)", () => {
-  it("on a v4 sidecar: null-s both wizard timestamps, arms wizard_force_show, and clears the lab-tour deferral fields (P3b master-locked)", async () => {
+  it("on a v4 sidecar: null-s both wizard timestamps, arms wizard_force_show, clears feature_picks + wizard_resume_state, and clears the lab-tour deferral fields (P3b master-locked)", async () => {
     // P3b master-lock: re-running the welcome tour is a fresh start
     // across all wizard surfaces. lab_tour_pending and
     // lab_tour_dismissed_at both clear so the re-run lab-prompt can
-    // re-offer the tour cleanly. Everything outside the wizard-state
-    // tuple (feature_picks, first_seen_at, active_seconds, etc.)
-    // stays untouched.
+    // re-offer the tour cleanly.
+    //
+    // dev-walkthrough-launch fix bot 2026-05-29: feature_picks AND
+    // wizard_resume_state ALSO clear now — re-run means Phase 1 setup
+    // (Q1-Q7) runs again from the top and the bootstrap fresh-user gate
+    // (no completion + no skip + no resume) fires controller.start()
+    // instead of the resume branch. Identity/accounting fields outside
+    // the wizard-state tuple (first_seen_at, active_seconds) stay
+    // untouched.
     const initial: OnboardingSidecar = {
       version: 4,
       first_seen_at: "2026-05-14T08:00:00.000Z",
@@ -488,20 +494,81 @@ describe("clearWizardCompletion (v4 Re-run-tour bypass)", () => {
     expect(sc.wizard_completed_at).toBeNull();
     expect(sc.wizard_skipped_at).toBeNull();
     expect(sc.wizard_force_show).toBe(true);
+    // dev-walkthrough-launch fix: fresh-start fields clear.
+    expect(sc.feature_picks).toBeNull();
+    expect(sc.wizard_resume_state).toBeNull();
     // P3b master-lock: both lab-tour deferral fields clear too.
     expect(sc.lab_tour_pending).toBe(false);
     expect(sc.lab_tour_dismissed_at).toBeNull();
-    // Everything outside the wizard-state tuple preserved.
-    expect(sc.feature_picks).toEqual(initial.feature_picks);
+    // Accounting fields outside the wizard-state tuple preserved.
     expect(sc.first_seen_at).toBe(initial.first_seen_at);
     expect(sc.active_seconds).toBe(initial.active_seconds);
 
     // Re-read confirms the disk write committed the same shape.
     const sc2 = await readOnboarding(USER);
     expect(sc2.wizard_force_show).toBe(true);
-    expect(sc2.feature_picks).toEqual(initial.feature_picks);
+    expect(sc2.feature_picks).toBeNull();
+    expect(sc2.wizard_resume_state).toBeNull();
     expect(sc2.lab_tour_pending).toBe(false);
     expect(sc2.lab_tour_dismissed_at).toBeNull();
+  });
+
+  it("clears a lingering non-welcome wizard_resume_state so the fresh-user gate fires (dev User-setup-walkthrough RCA)", async () => {
+    // dev-walkthrough-launch fix bot 2026-05-29 regression guard.
+    // Root cause for the dev "User setup walkthrough" silently not
+    // starting the v4 tour: nextTestUserName can RE-USE a Test-N name
+    // once its _user_metadata entry is GC'd while its _onboarding.json
+    // sidecar lingers. createUser never resets the sidecar, so the
+    // re-used user can carry a mid-tour wizard_resume_state from the
+    // prior run. The v4 TourBootstrap fresh-user gate only fires
+    // controller.start() when there is NO completion AND NO skip AND
+    // NO wizard_resume_state; a lingering resume state makes it take
+    // the V4ResumePrompt / force-restart branch instead, which reads
+    // as "the walkthrough did nothing". clearWizardCompletion must
+    // null the resume state (and the paired feature_picks) so the gate
+    // sees a genuinely fresh user.
+    const lingering: OnboardingSidecar = {
+      version: 4,
+      first_seen_at: "2026-05-29T08:00:00.000Z",
+      active_seconds: 120,
+      feature_picks: {
+        account_type: "solo",
+        lab_storage: "local",
+        purchases: "no",
+        calendar: "no",
+        goals: "no",
+        telegram: "no",
+        ai_helper: "no",
+      },
+      wizard_completed_at: null,
+      wizard_skipped_at: null,
+      wizard_force_show: false,
+      // The load-bearing field: a non-welcome mid-tour resume step that
+      // would otherwise defeat the fresh-user gate.
+      wizard_resume_state: {
+        current_step: "home-create-project",
+        skipped_steps: [],
+        artifacts_created: [],
+      },
+      lab_tour_pending: false,
+      lab_tour_dismissed_at: null,
+    };
+    await writeOnboarding(USER, lingering);
+
+    const sc = await clearWizardCompletion(USER);
+    // The fresh-user gate's three conditions are now all satisfied:
+    expect(sc.wizard_completed_at).toBeNull();
+    expect(sc.wizard_skipped_at).toBeNull();
+    expect(sc.wizard_resume_state).toBeNull();
+    // Paired clear so a re-run replays Phase 1 setup from the top.
+    expect(sc.feature_picks).toBeNull();
+    // force_show armed as the explicit belt-and-suspenders bypass.
+    expect(sc.wizard_force_show).toBe(true);
+
+    // Disk re-read confirms the clean shape committed.
+    const sc2 = await readOnboarding(USER);
+    expect(sc2.wizard_resume_state).toBeNull();
+    expect(sc2.feature_picks).toBeNull();
   });
 
   it("on a previously-dismissed lab-tour: null-s lab_tour_dismissed_at so the re-run lab-prompt can re-offer the tour", async () => {

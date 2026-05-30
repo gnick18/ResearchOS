@@ -796,9 +796,10 @@ export async function patchOnboarding(
   }
 }
 
-/** Reset the wizard's "user has been through it" state so the v3
- *  wizard mounts again on the next orchestrator read. Used by the
- *  Settings "Re-run welcome tour" button.
+/** Reset the wizard's "user has been through it" state so the welcome
+ *  tour mounts again from a clean slate on the next bootstrap read. Used
+ *  by the Settings "Re-run welcome tour" button AND the dev "User setup
+ *  walkthrough" menu (DevForceWalkthroughButton).
  *
  *  Sets:
  *    - wizard_completed_at = null
@@ -806,6 +807,31 @@ export async function patchOnboarding(
  *    - wizard_force_show   = true  (the gate-bypass flag; the wizard
  *      mounts even for an existing user whose fresh-folder probe
  *      would otherwise return false)
+ *    - wizard_resume_state = null  (dev-walkthrough-launch fix bot,
+ *      2026-05-29). Root cause for the dev "User setup walkthrough"
+ *      silently not starting the v4 tour: the v4 `TourBootstrap`
+ *      fresh-user gate fires `controller.start()` only when there is
+ *      NO completion AND NO skip AND NO `wizard_resume_state`. The dev
+ *      button mints a `Test-N` user whose name `nextTestUserName` may
+ *      RE-USE once an older Test-N's `_user_metadata` entry has been
+ *      GC'd while its `_onboarding.json` sidecar still lingers on disk
+ *      (createUser never resets the sidecar). That lingering sidecar
+ *      can carry a non-welcome `wizard_resume_state` from the prior
+ *      run, so on the hard-nav reload TourBootstrap took the RESUME
+ *      branch (V4ResumePrompt / force-restart) instead of the fresh
+ *      `start()` -> welcome modal. To Grant that reads as "nothing
+ *      happened / the walkthrough did not start". Nulling resume_state
+ *      here makes the gate see a genuinely fresh user. (The Settings
+ *      re-run handler already nulled this itself via a direct
+ *      patchOnboarding; folding it in here means the single
+ *      `clearWizardCompletion` semantic is honored for every caller.)
+ *    - feature_picks = null        (dev-walkthrough-launch fix bot,
+ *      2026-05-29). Paired with the resume_state clear: a mid-tour
+ *      resume step with non-null picks would otherwise resume mid-walk,
+ *      and the bootstrap's defensive guard force-restarts a mid-tour
+ *      step whose picks is null. Wiping picks guarantees Phase 1 setup
+ *      (Q1-Q7) runs again from the top, which is what "re-run the
+ *      welcome tour" means. Matches the Settings re-run contract.
  *    - lab_tour_pending = false       (P3b, master-locked: a stale
  *      Later flag from a prior run is wiped so the re-run lab-prompt
  *      starts clean. The user re-picks Now / Later / Dismiss as part
@@ -828,6 +854,12 @@ export async function clearWizardCompletion(
     wizard_completed_at: null,
     wizard_skipped_at: null,
     wizard_force_show: true,
+    // dev-walkthrough-launch fix bot 2026-05-29: clear the v4 resume
+    // state + feature picks so the TourBootstrap fresh-user gate fires
+    // `controller.start()` (welcome modal) instead of taking the resume
+    // branch. See the docstring above for the full re-used-Test-N RCA.
+    wizard_resume_state: null,
+    feature_picks: null,
     lab_tour_pending: false,
     lab_tour_dismissed_at: null,
     // Lab Mode redesign 2026-05-22: re-run clears the new

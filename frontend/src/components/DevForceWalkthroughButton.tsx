@@ -150,13 +150,20 @@ export default function DevForceWalkthroughButton({
         return;
       }
 
-      // wizard_force_show: true on the new sidecar so the v4 TourBootstrap
-      // mounts the tour on first render. clearWizardCompletion does this
-      // along with clearing wizard_completed_at / wizard_skipped_at (the
-      // shape the v3 dev sandbox used). The v4 bootstrap's fresh-user gate
-      // (no completion + no skip + no resume) already fires the tour for
-      // a brand-new user, but force_show is the explicit bypass that
-      // protects against any future gate change.
+      // Reset the new user's onboarding sidecar to a genuinely-fresh
+      // shape so the v4 TourBootstrap fires the welcome tour on first
+      // render. clearWizardCompletion clears wizard_completed_at /
+      // wizard_skipped_at AND (dev-walkthrough-launch fix bot 2026-05-29)
+      // wizard_resume_state + feature_picks. The resume_state clear is
+      // load-bearing: nextTestUserName can RE-USE a Test-N name once an
+      // older one's _user_metadata entry is GC'd while its _onboarding
+      // .json sidecar still lingers on disk (createUser never resets the
+      // sidecar). A lingering non-welcome wizard_resume_state would make
+      // the bootstrap take the RESUME branch (V4ResumePrompt) instead of
+      // the fresh-user start() -> welcome modal, which read as "the
+      // walkthrough did nothing". Clearing it here guarantees the
+      // fresh-user gate (no completion + no skip + no resume) fires. The
+      // wizard_force_show: true is an additional explicit bypass.
       await clearWizardCompletion(testUserName);
 
       // wikiCapture vs real-folder split (dev-button fix, 2026-05-28).
