@@ -77,11 +77,17 @@ Chip status (2026-05-30):
   Verified post-merge: no markers, tsc clean, 148 tests green, and all invariants
   coexist (compound resolver + modal branch + store-polish destination line + both
   helper resolvers). STORE-SIDE BUILD IS COMPLETE.
-- kit-card-gate: QUEUED (out-of-scope bug from compound-wiring). ProtocolTemplate-
-  Card's compound "Use" bypasses gating (gates on always-enabled "compound", not
-  the component types). Card lacks the payload, so the fix routes kit Use through
-  the detail pane rather than replicating gating on the card. Reachable only after
-  step 4; fix it before step-5 verifies.
+- kit-card-gate: MERGED (5d6b7942, on top of compound-wiring). Kit cards now show
+  a neutral "View kit" affordance (no inline Use) that opens the detail pane,
+  where Use is correctly gated on the resolved component types. Single-type cards
+  unchanged. Verified: wiring present, compound renderDetail branch intact, tsc
+  clean, tests green. Browser-exercisable only after step 4 (unit-tested now).
+
+STORE-SESSION ARC FULLY COMPLETE (2026-05-30). All store-owned chips merged:
+A, B, C, D, enablement-race, widget-card-copy, methods-page-width, store-polish,
+compound-wiring, kit-card-gate. Verifier loop was clean. Only optional deferred
+item on our side: the residual in-tile "Loading..." polish (fade-on-ready
+overlay), not queued unless Grant asks.
 
 REMAINING (not store-session work): catalog session does contract step 4 (3 LC-MS
 kit templates + 3 manifest entries). Then the contract's step-5 3-verifier loop
