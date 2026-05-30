@@ -56,6 +56,13 @@ export interface StoreShellProps<T> {
   /** Label for the synthetic "All" rail entry. Defaults to "All". */
   allLabel?: string;
 
+  /** Optional node rendered ABOVE the search slot in both the lg rail and the
+   *  mobile chip row. The shell stays generic and only places it: callers use
+   *  it for a segment control that switches the category set + item kind (the
+   *  method library's Types | Templates segment). The widget store passes
+   *  nothing (single kind, no segment). */
+  railHeaderSlot?: ReactNode;
+
   /** The search input node. The caller owns its state; the shell only places
    *  it at the top of the rail / chip row. */
   searchSlot: ReactNode;
@@ -109,6 +116,7 @@ export function StoreShell<T>({
   selectedCategoryId,
   onSelectCategory,
   allLabel = "All",
+  railHeaderSlot,
   searchSlot,
   enabledOnly,
   onToggleEnabledOnly,
@@ -177,7 +185,10 @@ export function StoreShell<T>({
         <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
           {/* LEFT RAIL (lg and up) */}
           <aside className="hidden lg:flex lg:flex-col lg:w-[260px] lg:shrink-0 border-r border-gray-100">
-            <div className="p-4 border-b border-gray-100">{searchSlot}</div>
+            <div className="p-4 border-b border-gray-100 flex flex-col gap-3">
+              {railHeaderSlot}
+              {searchSlot}
+            </div>
             <nav className="flex-1 overflow-auto p-2">
               <CategoryButton
                 label={allLabel}
@@ -205,6 +216,7 @@ export function StoreShell<T>({
 
           {/* MOBILE FILTER ROW (below lg) */}
           <div className="lg:hidden border-b border-gray-100">
+            {railHeaderSlot && <div className="px-4 pt-3">{railHeaderSlot}</div>}
             <div className="px-4 pt-3">{searchSlot}</div>
             <div className="flex items-center gap-2 overflow-x-auto px-4 py-3">
               <FilterChip
