@@ -1781,32 +1781,34 @@ export default function LiveMarkdownEditor({
           {/* Two-way mode toggle: Hybrid | Preview. Edit mode (raw textarea)
               was removed after hybrid v2 proved iron-clad in real use. */}
           <div className="flex items-center bg-gray-100 rounded-md p-0.5">
-            <button
-              type="button"
-              onClick={() => setMode("hybrid")}
-              disabled={disabled}
-              className={`px-2.5 py-1 text-xs rounded transition-colors ${
-                currentMode === "hybrid"
-                  ? "bg-white text-gray-800 font-medium shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
-              } disabled:opacity-50`}
-              title="Click on any block to edit it, everything else stays rendered"
-            >
-              Hybrid
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("preview")}
-              disabled={disabled}
-              className={`px-2.5 py-1 text-xs rounded transition-colors ${
-                currentMode === "preview"
-                  ? "bg-white text-gray-800 font-medium shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
-              } disabled:opacity-50`}
-              title="Read-only rendered preview"
-            >
-              Preview
-            </button>
+            <Tooltip label="Click on any block to edit it, everything else stays rendered" placement="bottom">
+              <button
+                type="button"
+                onClick={() => setMode("hybrid")}
+                disabled={disabled}
+                className={`px-2.5 py-1 text-xs rounded transition-colors ${
+                  currentMode === "hybrid"
+                    ? "bg-white text-gray-800 font-medium shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                } disabled:opacity-50`}
+              >
+                Hybrid
+              </button>
+            </Tooltip>
+            <Tooltip label="Read-only rendered preview" placement="bottom">
+              <button
+                type="button"
+                onClick={() => setMode("preview")}
+                disabled={disabled}
+                className={`px-2.5 py-1 text-xs rounded transition-colors ${
+                  currentMode === "preview"
+                    ? "bg-white text-gray-800 font-medium shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                } disabled:opacity-50`}
+              >
+                Preview
+              </button>
+            </Tooltip>
           </div>
           {/* Writing Focus Mode enter button (FOCUS_WRITING_MODE_DESIGN.md
               §6). Sits next to the Hybrid / Preview toggle. Inline SVG
@@ -1838,27 +1840,32 @@ export default function LiveMarkdownEditor({
               </svg>
             </button>
           </Tooltip>
-          <button
-            type="button"
-            onClick={handleAddImageClick}
-            disabled={disabled}
-            className="px-2.5 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors disabled:opacity-50"
-            title={allowAnyFileType ? "Click to upload any file from your computer" : "Click to upload an image file from your computer"}
+          <Tooltip
+            label={allowAnyFileType ? "Click to upload any file from your computer" : "Click to upload an image file from your computer"}
+            placement="bottom"
           >
-            {allowAnyFileType ? "Add File" : "Add Image"}
-          </button>
+            <button
+              type="button"
+              onClick={handleAddImageClick}
+              disabled={disabled}
+              className="px-2.5 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors disabled:opacity-50"
+            >
+              {allowAnyFileType ? "Add File" : "Add Image"}
+            </button>
+          </Tooltip>
           
           {/* Browse Images Button */}
           {onBrowseImages && (
-            <button
-              type="button"
-              onClick={onBrowseImages}
-              disabled={disabled}
-              className="px-2.5 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors disabled:opacity-50"
-              title={`Browse images already attached to this ${recordType}`}
-            >
-              Browse
-            </button>
+            <Tooltip label={`Browse images already attached to this ${recordType}`} placement="bottom">
+              <button
+                type="button"
+                onClick={onBrowseImages}
+                disabled={disabled}
+                className="px-2.5 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors disabled:opacity-50"
+              >
+                Browse
+              </button>
+            </Tooltip>
           )}
 
           {/* Attachment Strip Toggle — shows a scrollable strip of every
@@ -1866,22 +1873,26 @@ export default function LiveMarkdownEditor({
               bottom. A small Images / Files tab bar above the strip switches
               between the two. Drag a thumbnail into the body to insert a
               reference at the drop point. */}
-          <button
-            type="button"
-            onClick={() => setShowAttachmentStrip((v) => !v)}
-            className={`px-2.5 py-1 text-xs rounded transition-colors ${
-              showAttachmentStrip
-                ? "bg-blue-100 text-blue-700"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
-            title={
+          <Tooltip
+            label={
               showAttachmentStrip
                 ? "Hide the attachments strip"
-                : "Show every image and file attached to this experiment along the bottom — drag a tile into the body to insert it"
+                : "Show every image and file attached to this experiment along the bottom - drag a tile into the body to insert it"
             }
+            placement="bottom"
           >
-            Strip
-          </button>
+            <button
+              type="button"
+              onClick={() => setShowAttachmentStrip((v) => !v)}
+              className={`px-2.5 py-1 text-xs rounded transition-colors ${
+                showAttachmentStrip
+                  ? "bg-blue-100 text-blue-700"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              Strip
+            </button>
+          </Tooltip>
           
           <input
             ref={fileInputRef}
@@ -2322,18 +2333,18 @@ export default function LiveMarkdownEditor({
                 </p>
                 <div className="space-y-1 max-h-48 overflow-y-auto">
                   {imageSearchResults.map((result, index) => (
-                    <button
-                      key={index}
-                      type="button"
-                      onClick={() => applyImageCorrection(result.path)}
-                      className="w-full px-2 py-2 text-left text-xs bg-gray-50 hover:bg-blue-50 hover:text-blue-700 rounded border border-gray-200 hover:border-blue-300 transition-colors"
-                      title={result.path}
-                    >
-                      <div className="font-medium truncate">{result.filename}</div>
-                      <div className="text-gray-400 truncate text-[10px] mt-0.5">
-                        {result.match_type === 'exact' ? '✓ Exact match' : '○ Similar name'}
-                      </div>
-                    </button>
+                    <Tooltip key={index} label={result.path} placement="bottom">
+                      <button
+                        type="button"
+                        onClick={() => applyImageCorrection(result.path)}
+                        className="w-full px-2 py-2 text-left text-xs bg-gray-50 hover:bg-blue-50 hover:text-blue-700 rounded border border-gray-200 hover:border-blue-300 transition-colors"
+                      >
+                        <div className="font-medium truncate">{result.filename}</div>
+                        <div className="text-gray-400 truncate text-[10px] mt-0.5">
+                          {result.match_type === 'exact' ? '✓ Exact match' : '○ Similar name'}
+                        </div>
+                      </button>
+                    </Tooltip>
                   ))}
                 </div>
               </>
@@ -2433,14 +2444,15 @@ export default function LiveMarkdownEditor({
             )}
             <div className="flex items-center gap-3">
               {imageSearchResults.length > 0 && (
-                <button
-                  type="button"
-                  onClick={removeBrokenReference}
-                  className="text-xs text-red-600 hover:text-red-800 transition-colors"
-                  title="Strip this reference from the markdown body"
-                >
-                  Remove reference
-                </button>
+                <Tooltip label="Strip this reference from the markdown body" placement="bottom">
+                  <button
+                    type="button"
+                    onClick={removeBrokenReference}
+                    className="text-xs text-red-600 hover:text-red-800 transition-colors"
+                  >
+                    Remove reference
+                  </button>
+                </Tooltip>
               )}
               <button
                 type="button"
