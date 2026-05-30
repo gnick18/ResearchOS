@@ -1,0 +1,48 @@
+{
+  "slug": "sandwich-elisa-plate-map",
+  "title": "Sandwich ELISA plate map (96-well)",
+  "description": "Sandwich ELISA layout per the R&D Systems DuoSet protocol: 7-point standard curve in duplicate (columns 1-2), samples in duplicate (columns 3-6), remaining wells as blanks.",
+  "category": "Plate layouts",
+  "method_type": "plate",
+  "tags": ["plate", "96-well", "elisa", "sandwich-elisa", "standard-curve", "immunoassay"],
+  "payload": {
+    "description": "Sandwich ELISA plate map following the R&D Systems DuoSet recommended setup (https://www.rndsystems.com/resources/protocols/how-run-rd-systems-duoset-elisa). Columns 1-2 hold a 7-point, 2-fold serial-dilution standard curve in duplicate (highest standard in row A, descending to row G) with the zero standard at row H. Columns 3-6 hold unknown samples in duplicate (up to 16 samples). Remaining columns are left as blanks per the kit example and can take additional samples. Assay all standards and samples in duplicate.",
+    "plate_size": 96,
+    "region_labels": [
+      {
+        "row_start": 0,
+        "row_end": 6,
+        "col_start": 0,
+        "col_end": 1,
+        "role": "custom",
+        "custom_label": "Standard curve (7-point)",
+        "notes": "7-point 2-fold serial-dilution standard curve in duplicate down columns 1-2. Highest standard in row A, descending to row G. Per R&D Systems DuoSet."
+      },
+      {
+        "row_start": 7,
+        "row_end": 7,
+        "col_start": 0,
+        "col_end": 1,
+        "role": "blank",
+        "custom_label": "Zero standard",
+        "notes": "Reagent diluent only: the standard curve's zero point and the background reference for subtraction."
+      },
+      {
+        "row_start": 0,
+        "row_end": 7,
+        "col_start": 2,
+        "col_end": 5,
+        "role": "sample",
+        "notes": "Unknown samples in duplicate across adjacent column pairs (columns 3-6): up to 16 samples. Assay every sample in duplicate."
+      },
+      {
+        "row_start": 0,
+        "row_end": 7,
+        "col_start": 6,
+        "col_end": 11,
+        "role": "blank",
+        "notes": "Remaining wells left as blanks per the DuoSet layout. Use for additional unknown samples in duplicate as needed."
+      }
+    ]
+  }
+}

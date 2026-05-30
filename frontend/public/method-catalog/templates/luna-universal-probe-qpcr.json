@@ -1,0 +1,35 @@
+{
+  "slug": "luna-universal-probe-qpcr",
+  "title": "Luna Universal Probe qPCR (NEB)",
+  "description": "New England Biolabs probe-based 20 uL qPCR (M3004): 95 C activation, 40-45 cycles, no melt curve.",
+  "category": "qPCR",
+  "method_type": "pcr",
+  "tags": ["qpcr", "probe", "neb", "luna"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Initial denaturation", "temperature": 95, "duration": "60 sec" }
+      ],
+      "cycles": [
+        {
+          "repeats": 40,
+          "steps": [
+            { "name": "Denaturation", "temperature": 95, "duration": "15 sec" },
+            { "name": "Extension + plate read", "temperature": 60, "duration": "30 sec" }
+          ]
+        }
+      ],
+      "final": [],
+      "hold": null
+    },
+    "ingredients": [
+      { "id": "1", "name": "Luna Universal Probe qPCR Master Mix", "concentration": "2X", "amount_per_reaction": "10" },
+      { "id": "2", "name": "Forward primer", "concentration": "10 uM", "amount_per_reaction": "0.8" },
+      { "id": "3", "name": "Reverse primer", "concentration": "10 uM", "amount_per_reaction": "0.8" },
+      { "id": "4", "name": "Probe", "concentration": "10 uM", "amount_per_reaction": "0.4" },
+      { "id": "5", "name": "Template DNA (up to 100 ng)", "concentration": "-", "amount_per_reaction": "variable" },
+      { "id": "6", "name": "Nuclease-free water", "concentration": "-", "amount_per_reaction": "to 20" }
+    ],
+    "notes": "Probe-based (hydrolysis probe) chemistry, so there is no melt curve. Primers 0.4 uM (400 nM) each final from a 10 uM stock (optimize 200-900 nM); probe 0.2 uM (200 nM) final from a 10 uM stock (optimize 100-500 nM). Up to 100 ng template. 40 cycles for most targets; 45 for very low input. Read on the probe fluorophore channel (e.g. FAM). For 384-well plates use a 10 uL reaction (halve all volumes). Source: NEB Luna Universal Probe qPCR Master Mix manual (M3004), https://www.neb.com/en/-/media/nebus/files/manuals/manualm3004.pdf"
+  }
+}

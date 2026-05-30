@@ -1,0 +1,35 @@
+{
+  "slug": "premix-ex-taq-probe-qpcr",
+  "title": "Takara Premix Ex Taq Probe qPCR",
+  "description": "Takara probe-based 25 uL qPCR (RR390): 30 sec 95 C hot-start, fast 2-step cycling, no melt curve.",
+  "category": "qPCR",
+  "method_type": "pcr",
+  "tags": ["qpcr", "probe", "takara", "premix-ex-taq"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Initial denaturation (hot-start)", "temperature": 95, "duration": "30 sec" }
+      ],
+      "cycles": [
+        {
+          "repeats": 40,
+          "steps": [
+            { "name": "Denaturation", "temperature": 95, "duration": "5 sec" },
+            { "name": "Annealing/extension + read", "temperature": 60, "duration": "30 sec" }
+          ]
+        }
+      ],
+      "final": [],
+      "hold": null
+    },
+    "ingredients": [
+      { "id": "1", "name": "Premix Ex Taq (Probe qPCR)", "concentration": "2X", "amount_per_reaction": "12.5" },
+      { "id": "2", "name": "Forward primer", "concentration": "10 uM", "amount_per_reaction": "0.5" },
+      { "id": "3", "name": "Reverse primer", "concentration": "10 uM", "amount_per_reaction": "0.5" },
+      { "id": "4", "name": "Probe (0.1-0.5 uM final)", "concentration": "-", "amount_per_reaction": "1.0" },
+      { "id": "5", "name": "Template DNA (< 100 ng)", "concentration": "-", "amount_per_reaction": "2.0" },
+      { "id": "6", "name": "Sterile purified water", "concentration": "-", "amount_per_reaction": "8.5" }
+    ],
+    "notes": "Probe-based (5' nuclease hydrolysis probe) chemistry, so there is no melt curve. Fast 2-step protocol. Primers 0.2 uM each final (optimize 0.1-1.0 uM); probe final 0.1-0.5 uM (refer to your probe data sheet). Keep the initial denaturation at 95 C 30 sec. Values shown are for the Thermal Cycler Dice 25 uL setup (no ROX). On Applied Biosystems cyclers use a 20 uL reaction (10 uL premix, 0.4 uL each primer, 0.8 uL probe, 2 uL template, water to 20) plus ROX Reference Dye (1X) on the 7300/StepOnePlus, or ROX Reference Dye II (0.5X) on the 7500/7500 Fast. 30-45 cycles. Source: Takara Premix Ex Taq (Probe qPCR) (RR390A) product manual, https://www.takarabio.com/documents/User%20Manual/RR390A/RR390A_UM.pdf"
+  }
+}

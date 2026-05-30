@@ -1,0 +1,27 @@
+{
+  "slug": "mycoplasma-testing",
+  "title": "Mycoplasma testing",
+  "description": "Universal QC routine: antibiotic-free culture to 50 to 70%, then PCR / Hoechst / luminescence test. Source: ATCC kit 30-1012K.",
+  "category": "Cell culture",
+  "method_type": "cell_culture",
+  "tags": ["cell-culture", "mycoplasma", "contamination", "pcr", "qc", "atcc"],
+  "payload": {
+    "description": "Universal mycoplasma screening for cell cultures. Grow cells WITHOUT antibiotics (antibiotics mask low-level mycoplasma; ATCC uses none routinely). Sample at 50 to 70% confluence; do not over-grow or trypsinize the sample. Adherent cells: scrape into the existing spent medium, do NOT use trypsin or EDTA (they disrupt mycoplasma). Use no more than 10^6 cells (10^4 to 10^5 are needed for the assay). Detection options: PCR (ATCC Universal Mycoplasma Detection Kit 30-1012K; a positive sample shows a band at 434 to 468 bp, the positive control 464 bp, the negative control none), Hoechst 33258 DNA stain, MycoAlert or LookOut luminescence, or direct agar culture (4 to 5 weeks). Test routinely: on receipt, about every 4 to 6 weeks, and before banking. Sources: ATCC kit 30-1012K https://www.atcc.org/products/30-1012k ; ATCC mycoplasma contamination https://www.atcc.org/the-science/authentication/mycoplasma-contamination",
+    "cell_line": {
+      "name": "Any cell line",
+      "species": null,
+      "tissue": "Universal QC routine",
+      "notes": "Culture WITHOUT antibiotics before testing. Sample at 50 to 70% confluence. Sources: ATCC (see description)."
+    },
+    "media": {
+      "base_medium": "Complete growth medium, ANTIBIOTIC-FREE (antibiotics mask low-level mycoplasma)",
+      "serum_percent": null,
+      "supplements": []
+    },
+    "planned_events": [
+      { "day_offset": 0, "event_type": "feed", "notes": "Passage cells into ANTIBIOTIC-FREE complete medium and grow toward 50 to 70% confluence. Antibiotics mask low-level mycoplasma." },
+      { "day_offset": 3, "event_type": "harvest", "notes": "At 50 to 70% confluence, collect the sample. Adherent: scrape into the existing spent medium (no trypsin or EDTA). Use no more than 10^6 cells. For PCR, spin debris at 13,000 rpm for 5 min at 4 C, keep the supernatant, and run the ATCC Universal Mycoplasma Detection Kit (30-1012K). A positive sample shows a band at 434 to 468 bp." },
+      { "day_offset": 3, "event_type": "observe", "notes": "Interpret the result. If positive, discard or decontaminate the culture and re-test. Repeat testing about every 4 to 6 weeks and before banking." }
+    ]
+  }
+}

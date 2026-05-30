@@ -1,0 +1,17 @@
+{
+  "slug": "sds-page-coomassie",
+  "title": "SDS-PAGE protein gel + Coomassie stain",
+  "description": "Run an SDS-PAGE protein gel and Coomassie stain it, following Bio-Rad Mini-PROTEAN and Bio-Safe Coomassie protocols.",
+  "category": "Protein biochemistry",
+  "method_type": "markdown",
+  "tags": [
+    "sds-page",
+    "protein",
+    "electrophoresis",
+    "coomassie",
+    "bio-rad"
+  ],
+  "payload": {
+    "body": "## Purpose\n\nSeparate denatured proteins by molecular weight on an SDS-PAGE gel and stain the gel directly with Coomassie. This is a standalone protein gel (no transfer, no antibodies).\n\n## Materials\n\n| Item | Amount |\n| --- | --- |\n| SDS-PAGE gel (e.g. Mini-PROTEAN TGX, 7.5-12% or 4-20% gradient) | 1 gel |\n| 4X Laemmli sample buffer + reducing agent (2-mercaptoethanol or DTT) | per sample |\n| 1X Tris/glycine/SDS (TGS) running buffer | about 750 mL |\n| Protein MW ladder | 1 lane |\n| Bio-Safe Coomassie G-250 stain | about 50 mL per gel |\n| Deionized water (ddH2O) | for washes and destain |\n\n## Gel percentage vs protein size (Bio-Rad TGX)\n\n| Gel | Range (kDa) |\n| --- | --- |\n| 7.5% | 40-200 |\n| 10% | 30-150 |\n| 12% | 20-120 |\n| 4-20% gradient | about 10-200 |\n\n## Steps\n\n1. Optional: clarify the lysate by centrifuging 10-15 min at over 12,000 x g, 20 C.\n2. Mix each sample with 4X Laemmli buffer plus reducing agent.\n3. Heat at 95 C for 5 min (or 70 C for 10 min).\n4. Prepare 1X TGS (100 mL 10X TGS plus 900 mL water). Fill the inner chamber with about 200 mL and the outer chamber to the 2-gel line.\n5. Load 15-20 ug total protein per lane plus a ladder.\n6. Run 50 V for 10 min, then 200 V until the bromophenol blue front reaches the bottom (about 35 min total for the run).\n7. Wash the gel 3 x 5 min in about 200 mL ddH2O to remove SDS.\n8. Add about 50 mL Bio-Safe Coomassie (enough to cover) and shake gently 1 h. Bands appear within 20 min.\n9. Destain in about 200 mL ddH2O for at least 30 min. The gel can be stored in water.\n\n## Expected result\n\nBlue protein bands at the expected molecular weights, with detection down to about 8 ng per band.\n\n## Notes and troubleshooting\n\n- Choose a percentage where the target protein lands in the lower half of the gel.\n- Set the reducing agent amount (2-mercaptoethanol or DTT) per your sample-buffer recipe.\n- Faint bands: load more protein and avoid over-destaining, which fades weak bands.\n\n## Safety\n\nUnpolymerized acrylamide is a neurotoxin; prefer precast gels and wear gloves. 2-mercaptoethanol is toxic and malodorous; work in a fume hood.\n\n## Source\n\nGel run adapted from Bio-Rad Mini-PROTEAN protein electrophoresis guidance; staining from the Bio-Rad Bio-Safe Coomassie Stain bulletin.\nhttps://www.bio-rad.com/en-us/applications-technologies/performing-protein-electrophoresis?ID=LUSPFBNEL\nhttps://www.bio-rad.com/webroot/web/pdf/lsr/literature/Bulletin_2423.pdf\n"
+  }
+}

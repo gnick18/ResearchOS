@@ -1,0 +1,39 @@
+{
+  "slug": "biorad-iproof",
+  "title": "Bio-Rad iProof High-Fidelity PCR",
+  "description": "Bio-Rad iProof High-Fidelity DNA Polymerase: 50 uL high-fidelity reaction with a 98 C denaturation and 72 C extension.",
+  "category": "Molecular biology",
+  "method_type": "pcr",
+  "tags": ["pcr", "bio-rad", "iproof", "high-fidelity"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Initial Denaturation", "temperature": 98, "duration": "30 sec" }
+      ],
+      "cycles": [
+        {
+          "repeats": 30,
+          "steps": [
+            { "name": "Denaturation", "temperature": 98, "duration": "8 sec" },
+            { "name": "Annealing", "temperature": 60, "duration": "20 sec" },
+            { "name": "Extension", "temperature": 72, "duration": "15-30 sec/kb" }
+          ]
+        }
+      ],
+      "final": [
+        { "name": "Final Extension", "temperature": 72, "duration": "5-10 min" }
+      ],
+      "hold": null
+    },
+    "ingredients": [
+      { "id": "1", "name": "5X iProof HF Buffer", "concentration": "5X (1X final, 1.5 mM MgCl2)", "amount_per_reaction": "10" },
+      { "id": "2", "name": "dNTPs", "concentration": "10 mM (200 uM final)", "amount_per_reaction": "1" },
+      { "id": "3", "name": "Forward Primer", "concentration": "10 uM (0.5 uM final)", "amount_per_reaction": "2.5" },
+      { "id": "4", "name": "Reverse Primer", "concentration": "10 uM (0.5 uM final)", "amount_per_reaction": "2.5" },
+      { "id": "5", "name": "Template DNA", "concentration": "1 pg-10 ng low-complexity / 50-500 ng genomic", "amount_per_reaction": "variable" },
+      { "id": "6", "name": "iProof DNA Polymerase", "concentration": "2 U/uL (1 U/50 uL final)", "amount_per_reaction": "0.5" },
+      { "id": "7", "name": "Nuclease-free Water", "concentration": "-", "amount_per_reaction": "to 50" }
+    ],
+    "notes": "Vendor: Bio-Rad, iProof High-Fidelity DNA Polymerase (Cat. 172-5300). Set up on ice and add iProof last. Use 5X iProof HF Buffer by default (lower error rate); switch to 5X GC Buffer for GC-rich or difficult templates. Annealing: for primers >20 nt anneal ~3 C above the lower-Tm primer (nearest-neighbor Tm); for primers <20 nt anneal at the lower primer Tm. The 60 C shown is a placeholder starting point. Cycles 25-35. Extension 15 sec/kb (low-complexity) to 30 sec/kb (genomic); do not exceed 1 min/kb for amplicons >5 kb. For GC-rich add 3% DMSO. iProof produces blunt ends. The cycling table does not list a hold step. Source: https://www.bio-rad.com/webroot/web/pdf/lsr/literature/10002298B.pdf"
+  }
+}

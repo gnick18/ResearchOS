@@ -30,6 +30,7 @@ import {
   lcGradientApi,
   plateApi,
   cellCultureApi,
+  massSpecApi,
 } from "@/lib/local-api";
 import { filesApi } from "@/lib/local-api";
 import { createNewFileContent } from "@/lib/stamp-utils";
@@ -45,6 +46,10 @@ import type {
   CellCultureCellLine,
   CellCultureMedia,
   CellCulturePlannedEvent,
+  IonizationMode,
+  MassSpecSourceParams,
+  MassSpecScanParams,
+  MassSpecCalibration,
 } from "@/lib/types";
 import type { MethodTypeId } from "@/lib/methods/method-type-registry";
 
@@ -94,14 +99,30 @@ export interface CellCultureTemplatePayload {
   planned_events: CellCulturePlannedEvent[];
 }
 
-/** The method types a Phase U1 template can instantiate. A subset of
- *  `MethodTypeId`: only the pure-data create shapes. */
+/** Mirrors the structured part of `MassSpecProtocolCreate` (name + folder +
+ *  is_public are supplied at instantiation, not in the template). Pairs with an
+ *  `lc_gradient` template to describe a full LC-MS kit. */
+export interface MassSpecTemplatePayload {
+  description?: string | null;
+  /** Instrument model, e.g. "Q Exactive HF". */
+  instrument?: string | null;
+  /** Required, mirroring `MassSpecProtocolCreate.ionization_mode` (non-null). */
+  ionization_mode: IonizationMode;
+  ionization_label?: string | null;
+  source: MassSpecSourceParams;
+  scan: MassSpecScanParams;
+  calibration: MassSpecCalibration;
+}
+
+/** The method types a template can instantiate. A subset of `MethodTypeId`:
+ *  only the pure-data create shapes. */
 export type CatalogMethodType =
   | "markdown"
   | "pcr"
   | "lc_gradient"
   | "plate"
-  | "cell_culture";
+  | "cell_culture"
+  | "mass_spec";
 
 // ── The template + manifest schema ───────────────────────────────────────────
 
@@ -127,6 +148,7 @@ export type MethodCatalogTemplate = MethodCatalogTemplateBase &
     | { method_type: "lc_gradient"; payload: LcGradientTemplatePayload }
     | { method_type: "plate"; payload: PlateTemplatePayload }
     | { method_type: "cell_culture"; payload: CellCultureTemplatePayload }
+    | { method_type: "mass_spec"; payload: MassSpecTemplatePayload }
   );
 
 /** Lightweight per-entry metadata in `manifest.json` (the browse list). The
@@ -161,6 +183,7 @@ const CATALOG_METHOD_TYPES: ReadonlySet<string> = new Set<CatalogMethodType>([
   "lc_gradient",
   "plate",
   "cell_culture",
+  "mass_spec",
 ]);
 
 export function isCatalogMethodType(value: unknown): value is CatalogMethodType {
@@ -347,6 +370,7 @@ export interface InstantiateTemplateDeps {
   lcGradientApi: Pick<typeof lcGradientApi, "create">;
   plateApi: Pick<typeof plateApi, "create">;
   cellCultureApi: Pick<typeof cellCultureApi, "create">;
+  massSpecApi: Pick<typeof massSpecApi, "create">;
   filesApi: Pick<typeof filesApi, "writeFile">;
 }
 
@@ -356,6 +380,7 @@ const DEFAULT_DEPS: InstantiateTemplateDeps = {
   lcGradientApi,
   plateApi,
   cellCultureApi,
+  massSpecApi,
   filesApi,
 };
 
@@ -465,6 +490,28 @@ export async function instantiateMethodFromTemplate(
         name,
         source_path: `cell_culture://protocol/${schedule.id}`,
         method_type: "cell_culture",
+        folder_path: folderPath,
+        tags,
+        shared_with: [],
+      });
+    }
+    case "mass_spec": {
+      const protocol = await deps.massSpecApi.create({
+        name,
+        instrument: template.payload.instrument ?? null,
+        description: template.payload.description ?? null,
+        ionization_mode: template.payload.ionization_mode,
+        ionization_label: template.payload.ionization_label ?? null,
+        source: template.payload.source,
+        scan: template.payload.scan,
+        calibration: template.payload.calibration,
+        folder_path: folderPath,
+        is_public: false,
+      });
+      return deps.methodsApi.create({
+        name,
+        source_path: `mass_spec://protocol/${protocol.id}`,
+        method_type: "mass_spec",
         folder_path: folderPath,
         tags,
         shared_with: [],

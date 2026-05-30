@@ -1,0 +1,17 @@
+{
+  "slug": "heat-shock-transformation",
+  "title": "Bacterial heat-shock transformation (NEB)",
+  "description": "Chemical heat-shock transformation of competent E. coli (42 C / 30 sec) per the NEB high-efficiency protocol, with an electroporation note.",
+  "category": "Molecular biology",
+  "method_type": "markdown",
+  "tags": [
+    "transformation",
+    "heat-shock",
+    "competent-cells",
+    "e-coli",
+    "neb"
+  ],
+  "payload": {
+    "body": "## Purpose\n\nIntroduce plasmid DNA into chemically competent E. coli by a 42 C heat shock, then recover and plate on selective medium.\n\n## Materials\n\n| Item | Amount per reaction |\n| --- | --- |\n| Chemically competent E. coli (e.g. NEB 5-alpha or DH5alpha) | 50 uL |\n| Plasmid DNA (1 pg-100 ng) | 1-5 uL |\n| SOC outgrowth medium (room temperature) | 950 uL |\n| Selection plates (antibiotic), pre-warmed to 37 C | 1-2 |\n\n## Steps\n\n1. Thaw competent cells on ice until the last ice crystals disappear. Pipette 50 uL into a tube on ice.\n2. Add 1-5 uL DNA (1 pg-100 ng). Flick to mix 4-5 times. Do not vortex.\n3. Place on ice 30 min. Do not mix.\n4. Heat shock at exactly 42 C for exactly 30 sec. Do not mix.\n5. Place on ice 5 min.\n6. Add 950 uL room-temperature SOC.\n7. Recover at 37 C for 60 min, shaking at 250 rpm.\n8. Warm selection plates to 37 C. Spread 50-100 uL per plate (do 10-fold serial dilutions in SOC for high-efficiency DNA). Incubate overnight at 37 C.\n\n## Electroporation variant\n\nFor electrocompetent cells (e.g. NEB 5-alpha Electrocompetent, C2989): thaw on ice about 10 min, add 1 uL DNA to 25 uL cells in a chilled cuvette, pulse on your electroporator (NEB cites 1.7 kV, 200 ohm, 25 uF), immediately add 975 uL of 37 C SOC, then recover at 37 C for 60 min at 250 rpm. Salt in the DNA causes arcing, so use desalted or diluted DNA.\n\n## Expected result\n\nColonies on the selective plates. NEB 5-alpha gives about 1-3 x 10^9 cfu/ug with pUC19. The no-DNA control plate should be blank.\n\n## Notes and troubleshooting\n\n- Heat-shock timing is critical; longer than 30 sec lowers efficiency.\n- Highest efficiency is in the 100 pg-1 ng range; use less DNA, not more.\n- Store competent cells at -80 C. Storage at -20 C significantly lowers efficiency.\n\n## Safety\n\nBSL-1 E. coli. Use sterile technique and autoclave cultures and plates before disposal.\n\n## Source\n\nAdapted from the NEB High Efficiency Transformation Protocol (C2987); electroporation note from NEB 5-alpha Electrocompetent E. coli (C2989).\nhttps://www.neb.com/en-us/protocols/high-efficiency-transformation-protocol-c2987\n"
+  }
+}

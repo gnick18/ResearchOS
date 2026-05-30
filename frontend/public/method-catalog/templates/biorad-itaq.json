@@ -1,0 +1,38 @@
+{
+  "slug": "biorad-itaq",
+  "title": "Bio-Rad iTaq PCR",
+  "description": "Bio-Rad iTaq DNA Polymerase: 50 uL antibody hot-start reaction requiring a 95 C / 3 min activation.",
+  "category": "Molecular biology",
+  "method_type": "pcr",
+  "tags": ["pcr", "bio-rad", "itaq", "taq", "hot-start"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Polymerase Activation", "temperature": 95, "duration": "3 min" }
+      ],
+      "cycles": [
+        {
+          "repeats": 30,
+          "steps": [
+            { "name": "Denaturation", "temperature": 95, "duration": "30 sec" },
+            { "name": "Annealing", "temperature": 55, "duration": "30 sec" },
+            { "name": "Extension", "temperature": 72, "duration": "30 sec to several min (scale to amplicon)" }
+          ]
+        }
+      ],
+      "final": [],
+      "hold": { "name": "Hold", "temperature": 4, "duration": "Indef." }
+    },
+    "ingredients": [
+      { "id": "1", "name": "10X iTaq Buffer", "concentration": "10X (1X final, no Mg)", "amount_per_reaction": "5" },
+      { "id": "2", "name": "MgCl2", "concentration": "50 mM (1.5 mM final)", "amount_per_reaction": "1.5" },
+      { "id": "3", "name": "dNTPs", "concentration": "10 mM (200 uM final)", "amount_per_reaction": "1" },
+      { "id": "4", "name": "Forward Primer", "concentration": "10 uM (0.2 uM final)", "amount_per_reaction": "1" },
+      { "id": "5", "name": "Reverse Primer", "concentration": "10 uM (0.2 uM final)", "amount_per_reaction": "1" },
+      { "id": "6", "name": "Template DNA", "concentration": "as required", "amount_per_reaction": "variable" },
+      { "id": "7", "name": "iTaq DNA Polymerase", "concentration": "5 U/uL (1.25 U/50 uL final)", "amount_per_reaction": "0.25" },
+      { "id": "8", "name": "Nuclease-free Water", "concentration": "-", "amount_per_reaction": "to 50" }
+    ],
+    "notes": "Vendor: Bio-Rad, iTaq DNA Polymerase (Cat. 170-8870). Antibody-mediated hot start: the 95 C / 3 min activation step is mandatory to release active Taq. Extension time is scaled to product length (the manual gives 30 sec to several minutes; no per-kb rate is published, so set it from your amplicon). The manual cycling table has no separate final-extension step. Annealing 55 C is the manual's example, optimize to your primer Tm. Cycles 25-40. Primers 100-500 nM. MgCl2 1.5 mM (separate 50 mM stock supplied for optimization). Source: https://www.bio-rad.com/webroot/web/pdf/lsr/literature/4106202B.pdf"
+  }
+}

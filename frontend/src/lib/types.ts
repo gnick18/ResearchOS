@@ -986,8 +986,9 @@ export type LCGradientProtocolUpdate = Partial<{
 // labeled zones; the per-task `plate_annotation` snapshot carries the actual
 // well-by-well annotations.
 
-/** Plate sizes supported in v1. 384 deferred to v2. */
-export type PlateSize = 12 | 24 | 48 | 96;
+/** Plate sizes supported. 12/24/48/96-well plus high-density 384-well
+ *  (16 rows A-P x 24 columns). */
+export type PlateSize = 12 | 24 | 48 | 96 | 384;
 
 /** Role of a well or region. "custom" pairs with `custom_label` for free-text
  *  brushes (e.g. "Strain ΔADE2"). */

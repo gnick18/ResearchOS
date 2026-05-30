@@ -1,0 +1,39 @@
+{
+  "slug": "neb-onetaq",
+  "title": "NEB OneTaq PCR",
+  "description": "New England Biolabs OneTaq DNA Polymerase (M0480): 50 uL robust standard reaction with a 94 C denaturation and 68 C extension.",
+  "category": "Molecular biology",
+  "method_type": "pcr",
+  "tags": ["pcr", "neb", "onetaq", "taq", "standard"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Initial Denaturation", "temperature": 94, "duration": "30 sec" }
+      ],
+      "cycles": [
+        {
+          "repeats": 30,
+          "steps": [
+            { "name": "Denaturation", "temperature": 94, "duration": "20 sec" },
+            { "name": "Annealing", "temperature": 55, "duration": "30 sec" },
+            { "name": "Extension", "temperature": 68, "duration": "1 min/kb" }
+          ]
+        }
+      ],
+      "final": [
+        { "name": "Final Extension", "temperature": 68, "duration": "5 min" }
+      ],
+      "hold": { "name": "Hold", "temperature": 4, "duration": "Indef." }
+    },
+    "ingredients": [
+      { "id": "1", "name": "5X OneTaq Standard Reaction Buffer", "concentration": "5X (1X final, 1.8 mM MgCl2)", "amount_per_reaction": "10" },
+      { "id": "2", "name": "dNTPs", "concentration": "10 mM (200 uM final)", "amount_per_reaction": "1" },
+      { "id": "3", "name": "Forward Primer", "concentration": "10 uM (0.2 uM final)", "amount_per_reaction": "1" },
+      { "id": "4", "name": "Reverse Primer", "concentration": "10 uM (0.2 uM final)", "amount_per_reaction": "1" },
+      { "id": "5", "name": "Template DNA", "concentration": "< 1,000 ng", "amount_per_reaction": "variable" },
+      { "id": "6", "name": "OneTaq DNA Polymerase", "concentration": "5 U/uL (1.25 U/50 uL final)", "amount_per_reaction": "0.25" },
+      { "id": "7", "name": "Nuclease-free Water", "concentration": "-", "amount_per_reaction": "to 50" }
+    ],
+    "notes": "Vendor: New England Biolabs (NEB), OneTaq DNA Polymerase #M0480. Note OneTaq extends at 68 C (not 72 C). Buffer choice by GC content: <50% GC use Standard buffer (default); >65% GC use OneTaq GC Reaction Buffer plus 10-20% OneTaq High GC Enhancer. Annealing: 45-68 C based on the primer-pair Tm (NEB Tm Calculator, OneTaq setting; ~5 C below the lowest primer Tm). The 55 C shown is a placeholder starting point. Cycles 25-35. Initial denaturation up to 2-4 min for high-GC templates. Source: https://www.neb.com/en-us/protocols/onetaqdnapolymerasem0480"
+  }
+}

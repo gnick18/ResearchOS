@@ -1,0 +1,37 @@
+{
+  "slug": "neb-onetaq-master-mix",
+  "title": "NEB OneTaq 2X Master Mix PCR",
+  "description": "New England Biolabs OneTaq 2X Master Mix with Standard Buffer (M0482): 50 uL robust reaction with a 94 C denaturation and 68 C extension.",
+  "category": "Molecular biology",
+  "method_type": "pcr",
+  "tags": ["pcr", "neb", "onetaq", "taq", "master-mix"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Initial Denaturation", "temperature": 94, "duration": "30 sec" }
+      ],
+      "cycles": [
+        {
+          "repeats": 30,
+          "steps": [
+            { "name": "Denaturation", "temperature": 94, "duration": "20 sec" },
+            { "name": "Annealing", "temperature": 55, "duration": "30 sec" },
+            { "name": "Extension", "temperature": 68, "duration": "1 min/kb" }
+          ]
+        }
+      ],
+      "final": [
+        { "name": "Final Extension", "temperature": 68, "duration": "5 min" }
+      ],
+      "hold": { "name": "Hold", "temperature": 4, "duration": "Indef." }
+    },
+    "ingredients": [
+      { "id": "1", "name": "OneTaq 2X Master Mix (Standard Buffer)", "concentration": "2X (1X final, 1.8 mM MgCl2)", "amount_per_reaction": "25" },
+      { "id": "2", "name": "Forward Primer", "concentration": "10 uM (0.2 uM final)", "amount_per_reaction": "1" },
+      { "id": "3", "name": "Reverse Primer", "concentration": "10 uM (0.2 uM final)", "amount_per_reaction": "1" },
+      { "id": "4", "name": "Template DNA", "concentration": "< 1,000 ng", "amount_per_reaction": "variable" },
+      { "id": "5", "name": "Nuclease-free Water", "concentration": "-", "amount_per_reaction": "to 50" }
+    ],
+    "notes": "Vendor: New England Biolabs (NEB), OneTaq 2X Master Mix with Standard Buffer #M0482 (a GC-buffer version, M0483, also exists). OneTaq extends at 68 C (not 72 C). Annealing: 45-68 C based on primer-pair Tm (NEB Tm Calculator, OneTaq setting). The 55 C shown is a placeholder starting point. Cycles 25-35. 1X master mix provides 1.8 mM MgCl2 and 200 uM each dNTP. Source: https://www.neb.com/en-us/protocols/protocol-for-onetaq-2x-master-mix-with-standard-buffer-m0482"
+  }
+}

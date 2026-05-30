@@ -1,0 +1,41 @@
+{
+  "slug": "lcms-intact-protein-ms-thermo-exploris",
+  "title": "Thermo Vanquish + Orbitrap Exploris: intact-protein LC-MS (MS setup)",
+  "description": "Thermo Orbitrap Exploris (BioPharma) Full MS intact-protein setup: HESI positive, R 30k, 1800 to 4000 m/z, in-source CID 110 V (Thermo app note 73885).",
+  "category": "LC-MS",
+  "method_type": "mass_spec",
+  "tags": ["lc-ms", "intact-protein", "intact-mass", "monoclonal-antibody", "orbitrap", "exploris", "mass-spec", "thermo"],
+  "payload": {
+    "description": "Full MS setup for denaturing intact-protein / intact-mass analysis (demonstrated on trastuzumab) on a Thermo Orbitrap Exploris 480 with the BioPharma Option, Intact Protein application mode, fed by the matching intact-protein LC gradient. HESI source, positive polarity. Spray voltage 3800 V, capillary temperature 320 C, vaporizer temperature 150 C. Sheath gas 25, aux gas 5, sweep gas 0 (arbitrary units). Resolution 30000, scan range 1800 to 4000 m/z, RF lens 200%, AGC target 300, max injection time 200 ms, 10 microscans. In-source fragmentation (in-source CID) 110 V (requires optimization per the note). Pressure mode Low; runtime 20 min. Pair with the matching LC gradient template. Source: Thermo Fisher Application Note 73885, https://documents.thermofisher.com/TFS-Assets/CMD/Application-Notes/an-73885-lc-ms-characterization-mabs-native-denaturing-an73885-en.pdf . Representative starting-point method (denaturing intact conditions, Intact denatured column of the note), verify against the source and tune per instrument and sample.",
+    "instrument": "Thermo Orbitrap Exploris 480 (BioPharma Option)",
+    "ionization_mode": "esi_pos",
+    "ionization_label": "HESI (positive)",
+    "source": {
+      "source_temp_c": 320,
+      "capillary_kv": 3.8,
+      "nebulizer_gas_lpm": null,
+      "drying_gas_lpm": null,
+      "drying_gas_temp_c": null,
+      "ei_energy_ev": null,
+      "maldi_laser_nm": null,
+      "maldi_laser_energy": null,
+      "maldi_matrix": null,
+      "other_notes": "Thermo labels: spray voltage (+) 3800 V; capillary temperature 320 C; vaporizer temperature 150 C. Sheath gas 25, aux gas 5, sweep gas 0 (arbitrary units). RF lens 200%. In-source fragmentation (in-source CID) 110 V (requires optimization). Pressure mode Low; Application mode Intact Protein; Full MS; runtime 20 min. AGC target 300; max injection time 200 ms; 10 microscans."
+    },
+    "scan": {
+      "scan_mz_low": 1800,
+      "scan_mz_high": 4000,
+      "scan_rate_hz": null,
+      "resolution_r": 30000,
+      "is_msms": false,
+      "msms_isolation_window_mz": null,
+      "msms_collision_energy_ev": null
+    },
+    "calibration": {
+      "reference_standard": null,
+      "calibration_date": null,
+      "expected_accuracy_ppm": null,
+      "notes": null
+    }
+  }
+}

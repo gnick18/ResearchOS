@@ -1,0 +1,32 @@
+{
+  "slug": "lcms-intact-protein-rp-lc-thermo",
+  "title": "Thermo Vanquish + Orbitrap Exploris: intact-protein LC-MS (LC gradient)",
+  "description": "Thermo reversed-phase gradient (25 to 80% B) for denaturing intact-protein / intact-mass LC-MS on MAbPac RP at 80 C (Thermo app note 73885).",
+  "category": "LC-MS",
+  "method_type": "lc_gradient",
+  "tags": ["lc-ms", "intact-protein", "intact-mass", "monoclonal-antibody", "reverse-phase", "thermo"],
+  "payload": {
+    "description": "Reversed-phase UHPLC gradient for denaturing intact-protein / intact-mass LC-MS (demonstrated on trastuzumab, a monoclonal antibody) on a Thermo Vanquish Horizon, feeding an Orbitrap Exploris 480. Solvent A is water with 0.1% formic acid (v/v); solvent B is acetonitrile with 0.1% formic acid (v/v). Column: Thermo MAbPac RP, 4 um, 2.1 x 50 mm, at 80 C. Flow 250 uL/min (0.250 mL/min), constant. Injection 1 uL (1 ug trastuzumab). Linear gradient: 25% B held to 1 min, to 32% B at 9 min, to 80% B at 10 min, held to 11 min, back to 25% B at 12 min, re-equilibrate to 25 min. Pair with the matching MS setup template. Source: Thermo Fisher Application Note 73885, https://documents.thermofisher.com/TFS-Assets/CMD/Application-Notes/an-73885-lc-ms-characterization-mabs-native-denaturing-an73885-en.pdf . Representative starting-point method (denaturing intact conditions), verify against the source and tune per instrument and sample.",
+    "gradient_steps": [
+      { "time_min": 0, "percent_a": 75, "percent_b": 25, "flow_ml_min": 0.25 },
+      { "time_min": 1, "percent_a": 75, "percent_b": 25, "flow_ml_min": 0.25 },
+      { "time_min": 9, "percent_a": 68, "percent_b": 32, "flow_ml_min": 0.25 },
+      { "time_min": 10, "percent_a": 20, "percent_b": 80, "flow_ml_min": 0.25 },
+      { "time_min": 11, "percent_a": 20, "percent_b": 80, "flow_ml_min": 0.25 },
+      { "time_min": 12, "percent_a": 75, "percent_b": 25, "flow_ml_min": 0.25 },
+      { "time_min": 25, "percent_a": 75, "percent_b": 25, "flow_ml_min": 0.25 }
+    ],
+    "column": {
+      "manufacturer": "Thermo Fisher",
+      "model": "MAbPac RP",
+      "length_mm": 50,
+      "inner_diameter_mm": 2.1,
+      "particle_size_um": 4
+    },
+    "detection_wavelength_nm": null,
+    "ingredients": [
+      { "id": "a", "name": "Water + 0.1% formic acid", "role": "solvent_a", "concentration": "0.1% FA" },
+      { "id": "b", "name": "Acetonitrile + 0.1% formic acid", "role": "solvent_b", "concentration": "0.1% FA" }
+    ]
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "slug": "nih-3t3-maintenance-atcc",
+  "title": "NIH/3T3 maintenance (ATCC)",
+  "description": "Adherent NIH/3T3 (ATCC CRL-1658) in DMEM + 10% CALF bovine serum (not FBS); subculture at 80% confluence or less. Source: ATCC https://www.atcc.org/products/crl-1658",
+  "category": "Cell culture",
+  "method_type": "cell_culture",
+  "tags": ["cell-culture", "nih-3t3", "3t3", "atcc", "dmem", "fibroblast", "maintenance"],
+  "payload": {
+    "description": "Routine maintenance of adherent NIH/3T3 mouse embryonic fibroblasts per the ATCC CRL-1658 product sheet. Base medium: DMEM (ATCC 30-2002). IMPORTANT: ATCC recommends 10% CALF bovine serum (ATCC 30-2031), not fetal bovine serum, because fetal serum promotes spontaneous transformation and loss of contact inhibition (the product sheet's complete-medium line lists 10% FBS, but calf serum is the depositor-recommended practice). Subculture at least twice per week at 80% confluence or less and never let the cells become confluent. Reseed at 3 to 5 x 10^3 cells/cm^2. Rinse with D-PBS, then dissociate with 0.25% (w/v) trypsin / 0.53 mM EDTA, 5 to 15 min. 37 C, 5% CO2. Doubling time is not published, so it is omitted. Source: ATCC CRL-1658 https://www.atcc.org/products/crl-1658",
+    "cell_line": {
+      "name": "NIH/3T3",
+      "species": "Mus musculus (mouse)",
+      "tissue": "Embryo (NIH/Swiss); fibroblast, adherent",
+      "notes": "ATCC CRL-1658. Grow at 37 C, 5% CO2. Serum is 10% CALF bovine serum (ATCC 30-2031), NOT FBS, to preserve contact inhibition. Do not let cells reach confluence. Source: https://www.atcc.org/products/crl-1658"
+    },
+    "media": {
+      "base_medium": "Dulbecco's Modified Eagle's Medium (DMEM), ATCC 30-2002; serum is calf bovine serum (ATCC 30-2031), not FBS",
+      "serum_percent": 10,
+      "supplements": []
+    },
+    "planned_events": [
+      { "day_offset": 0, "event_type": "split", "split_ratio": "to 3 to 5 x 10^3 cells/cm^2", "notes": "Seed day. Rinse with D-PBS, briefly rinse with 0.25% trypsin / 0.53 mM EDTA, add 2 to 3 mL Trypsin-EDTA, disperse 5 to 15 min, quench, count, and reseed at 3 to 5 x 10^3 cells/cm^2. Do not shake or knock the flask." },
+      { "day_offset": 2, "event_type": "observe", "notes": "Check that cells are still sub-confluent. Subculture before they reach confluence." },
+      { "day_offset": 3, "event_type": "split", "split_ratio": "to 3 to 5 x 10^3 cells/cm^2", "notes": "Subculture at 80% confluence or less, at least twice per week. Never let the cells become confluent." }
+    ]
+  }
+}

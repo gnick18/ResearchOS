@@ -1,0 +1,31 @@
+{
+  "slug": "lcms-metabolite-hilic-lc-thermo",
+  "title": "Thermo UltiMate + Q Exactive: HILIC metabolomics LC-MS (LC gradient)",
+  "description": "Thermo HILIC metabolomics gradient (0 to 100% B) on Atlantis HILIC, 300 uL/min, 10 mM ammonium formate eluents (Thermo app note 656).",
+  "category": "LC-MS",
+  "method_type": "lc_gradient",
+  "tags": ["lc-ms", "metabolomics", "small-molecule", "hilic", "thermo"],
+  "payload": {
+    "description": "HILIC gradient for small-molecule / metabolite LC-MS on a Thermo UltiMate 3000, feeding a Q Exactive Orbitrap. This is a HILIC (hydrophilic interaction) method, not C18 reversed-phase: it retains polar metabolites. Solvent A is 10 mM ammonium formate in 95:5 acetonitrile/water with 0.1% formic acid; solvent B is 10 mM ammonium formate in 50:50 acetonitrile/water with 0.1% formic acid. Column: Waters Atlantis HILIC, 2.1 x 100 mm, 3 um, at 40 C. Flow 300 uL/min (0.300 mL/min), constant. Injection 5 uL. Gradient holds 0% B to 1 min, ramps to 100% B by 20 min, holds to 24.9 min, returns to 0% B at 25 min, re-equilibrate to 30 min. Pair with the matching MS setup template. Source: Thermo Fisher Application Note 656, https://assets.thermofisher.com/TFS-Assets/CMD/Application-Notes/AN-656-LC-MSn-Metabolomics-AN64832-EN.pdf . Representative starting-point method, verify against the source and tune per instrument and sample.",
+    "gradient_steps": [
+      { "time_min": 0, "percent_a": 100, "percent_b": 0, "flow_ml_min": 0.3 },
+      { "time_min": 1.0, "percent_a": 100, "percent_b": 0, "flow_ml_min": 0.3 },
+      { "time_min": 20.0, "percent_a": 0, "percent_b": 100, "flow_ml_min": 0.3 },
+      { "time_min": 24.9, "percent_a": 0, "percent_b": 100, "flow_ml_min": 0.3 },
+      { "time_min": 25.0, "percent_a": 100, "percent_b": 0, "flow_ml_min": 0.3 },
+      { "time_min": 30.0, "percent_a": 100, "percent_b": 0, "flow_ml_min": 0.3 }
+    ],
+    "column": {
+      "manufacturer": "Waters",
+      "model": "Atlantis HILIC",
+      "length_mm": 100,
+      "inner_diameter_mm": 2.1,
+      "particle_size_um": 3
+    },
+    "detection_wavelength_nm": null,
+    "ingredients": [
+      { "id": "a", "name": "10 mM ammonium formate in 95:5 acetonitrile/water + 0.1% formic acid", "role": "solvent_a", "concentration": "10 mM ammonium formate, 0.1% FA" },
+      { "id": "b", "name": "10 mM ammonium formate in 50:50 acetonitrile/water + 0.1% formic acid", "role": "solvent_b", "concentration": "10 mM ammonium formate, 0.1% FA" }
+    ]
+  }
+}

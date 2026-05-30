@@ -1,0 +1,40 @@
+{
+  "slug": "promega-gotaq-g2-flexi",
+  "title": "Promega GoTaq G2 Flexi PCR",
+  "description": "Promega GoTaq G2 Flexi DNA Polymerase: 50 uL standard reaction with a separately added, tunable MgCl2.",
+  "category": "Molecular biology",
+  "method_type": "pcr",
+  "tags": ["pcr", "promega", "gotaq", "taq", "standard"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Initial Denaturation", "temperature": 95, "duration": "2 min" }
+      ],
+      "cycles": [
+        {
+          "repeats": 30,
+          "steps": [
+            { "name": "Denaturation", "temperature": 95, "duration": "30 sec" },
+            { "name": "Annealing", "temperature": 55, "duration": "30 sec" },
+            { "name": "Extension", "temperature": 72, "duration": "1 min/kb" }
+          ]
+        }
+      ],
+      "final": [
+        { "name": "Final Extension", "temperature": 72, "duration": "5 min" }
+      ],
+      "hold": { "name": "Hold", "temperature": 4, "duration": "Indef." }
+    },
+    "ingredients": [
+      { "id": "1", "name": "5X Green GoTaq Flexi Buffer", "concentration": "5X (1X final, no Mg)", "amount_per_reaction": "10" },
+      { "id": "2", "name": "MgCl2 Solution", "concentration": "25 mM (1.5 mM final)", "amount_per_reaction": "3" },
+      { "id": "3", "name": "PCR Nucleotide Mix (dNTPs)", "concentration": "10 mM each (200 uM each final)", "amount_per_reaction": "1" },
+      { "id": "4", "name": "Forward Primer", "concentration": "10 uM (0.5 uM final)", "amount_per_reaction": "2.5" },
+      { "id": "5", "name": "Reverse Primer", "concentration": "10 uM (0.5 uM final)", "amount_per_reaction": "2.5" },
+      { "id": "6", "name": "GoTaq G2 Flexi DNA Polymerase", "concentration": "5 U/uL (1.25 U/50 uL final)", "amount_per_reaction": "0.25" },
+      { "id": "7", "name": "Template DNA", "concentration": "< 0.5 ug", "amount_per_reaction": "variable" },
+      { "id": "8", "name": "Nuclease-free Water", "concentration": "-", "amount_per_reaction": "to 50" }
+    ],
+    "notes": "Vendor: Promega, GoTaq G2 Flexi DNA Polymerase (Cat. M7801). The Flexi (Green or Colorless) buffer contains NO magnesium, so MgCl2 is added separately and is tunable: optimize 1.0-4.0 mM in 0.5 mM steps (3 uL of 25 mM = 1.5 mM in 50 uL). Annealing: start ~5 C below the lower-Tm primer and raise in 1 C steps (Promega BioMath calculator). The 55 C shown is a placeholder starting point. Primers 0.1-1.0 uM. Cycles 25-30 (up to 40 for low-copy targets). Extension ~1 min/kb at 72-74 C. Preheat the cycler to 95 C before loading. Source: https://www.promega.com/-/media/files/resources/protocols/product-information-sheets/g/gotaq-g2-flexi-dna-polymerase-protocol.pdf"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "slug": "qiagen-toptaq",
+  "title": "QIAGEN TopTaq PCR",
+  "description": "QIAGEN TopTaq DNA Polymerase: 50 uL standard reaction with a pre-optimized 60 C anneal and a 94 C denaturation.",
+  "category": "Molecular biology",
+  "method_type": "pcr",
+  "tags": ["pcr", "qiagen", "toptaq", "taq", "standard"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Initial Denaturation", "temperature": 94, "duration": "3 min" }
+      ],
+      "cycles": [
+        {
+          "repeats": 30,
+          "steps": [
+            { "name": "Denaturation", "temperature": 94, "duration": "30 sec" },
+            { "name": "Annealing", "temperature": 60, "duration": "30 sec" },
+            { "name": "Extension", "temperature": 72, "duration": "1 min/kb" }
+          ]
+        }
+      ],
+      "final": [
+        { "name": "Final Extension", "temperature": 72, "duration": "10 min" }
+      ],
+      "hold": null
+    },
+    "ingredients": [
+      { "id": "1", "name": "10X TopTaq PCR Buffer", "concentration": "10X (1X final, 1.5 mM MgCl2)", "amount_per_reaction": "5" },
+      { "id": "2", "name": "dNTP Mix", "concentration": "10 mM each (200 uM each final)", "amount_per_reaction": "1" },
+      { "id": "3", "name": "Forward Primer", "concentration": "10 uM (0.2 uM final)", "amount_per_reaction": "1" },
+      { "id": "4", "name": "Reverse Primer", "concentration": "10 uM (0.2 uM final)", "amount_per_reaction": "1" },
+      { "id": "5", "name": "TopTaq DNA Polymerase", "concentration": "(1.25 U/reaction)", "amount_per_reaction": "0.25" },
+      { "id": "6", "name": "Template DNA", "concentration": "<= 1 ug", "amount_per_reaction": "variable" },
+      { "id": "7", "name": "RNase-free Water", "concentration": "-", "amount_per_reaction": "to 50" }
+    ],
+    "notes": "Vendor: QIAGEN, TopTaq DNA Polymerase (Cat. 200203). The 10X TopTaq PCR Buffer supplies 15 mM MgCl2 (1.5 mM at 1X). The 60 C annealing is QIAGEN's pre-optimized temperature suitable for most systems; if optimizing, start ~5 C below the lower primer Tm and run a 50-68 C gradient. Cycles 25-35. Extension 1 min/kb at 72 C. Primers 0.1-0.5 uM (0.2 uM typical). Template <= 1 ug. Optional 10X CoralLoad Concentrate (5 uL/50 uL) adds gel-loading dye. The handbook cycling table lists no hold (store products at 2-8 C). Source: QIAGEN TopTaq PCR Handbook 06/2010 (reaction Table 1 + cycling Table 2, read directly from the handbook PDF)."
+  }
+}

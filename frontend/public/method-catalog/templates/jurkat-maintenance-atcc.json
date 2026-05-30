@@ -1,0 +1,27 @@
+{
+  "slug": "jurkat-maintenance-atcc",
+  "title": "Jurkat maintenance (ATCC)",
+  "description": "Suspension Jurkat E6-1 (ATCC TIB-152) in RPMI-1640 + 10% FBS; reseed 2 to 4 x 10^5 cells/mL, do not exceed 3 x 10^6. Source: ATCC https://www.atcc.org/products/tib-152",
+  "category": "Cell culture",
+  "method_type": "cell_culture",
+  "tags": ["cell-culture", "jurkat", "atcc", "rpmi", "suspension", "maintenance"],
+  "payload": {
+    "description": "Routine maintenance of suspension Jurkat Clone E6-1 T-lymphoblast cells per the ATCC TIB-152 product sheet. Complete growth medium: ATCC-formulated RPMI-1640 Medium (ATCC 30-2001) + 10% FBS. Suspension culture, so there is no trypsinization: subculture by dilution into fresh medium. Recommended seeding density 2 to 4 x 10^5 viable cells/mL; add fresh medium or split every 2 to 3 days depending on density; do not let the density exceed 3 x 10^6 cells/mL. 37 C, 5% CO2. Doubling time is not published on the ATCC product sheet, so it is omitted. Source: ATCC TIB-152 https://www.atcc.org/products/tib-152",
+    "cell_line": {
+      "name": "Jurkat, Clone E6-1",
+      "species": "Homo sapiens (human)",
+      "tissue": "Peripheral blood, acute T-cell leukemia; T lymphoblast, suspension",
+      "notes": "ATCC TIB-152. Grow at 37 C, 5% CO2. Serum is fetal bovine serum (ATCC 30-2020) at 10%. Suspension line: dilute into fresh medium, do not trypsinize. Source: https://www.atcc.org/products/tib-152"
+    },
+    "media": {
+      "base_medium": "RPMI-1640 Medium, ATCC 30-2001",
+      "serum_percent": 10,
+      "supplements": []
+    },
+    "planned_events": [
+      { "day_offset": 0, "event_type": "split", "split_ratio": "to 2 to 4 x 10^5 cells/mL", "notes": "Seed day. Dilute into fresh complete RPMI-1640 to 2 to 4 x 10^5 viable cells/mL. Suspension culture: no trypsin." },
+      { "day_offset": 2, "event_type": "observe", "notes": "Check density and viability. Keep cells below 3 x 10^6 cells/mL." },
+      { "day_offset": 3, "event_type": "split", "split_ratio": "to 2 to 4 x 10^5 cells/mL", "notes": "Add fresh medium or dilute back to 2 to 4 x 10^5 cells/mL. Do not exceed 3 x 10^6 cells/mL." }
+    ]
+  }
+}

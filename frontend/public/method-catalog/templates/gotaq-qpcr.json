@@ -1,0 +1,37 @@
+{
+  "slug": "gotaq-qpcr",
+  "title": "GoTaq qPCR (Promega)",
+  "description": "Promega BRYT Green dye 20 uL qPCR: 2 min 95 C hot-start activation, 40 cycles, melt-curve analysis.",
+  "category": "qPCR",
+  "method_type": "pcr",
+  "tags": ["qpcr", "sybr", "dye", "promega", "gotaq", "bryt-green", "melt-curve"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "GoTaq Hot Start polymerase activation", "temperature": 95, "duration": "2 min" }
+      ],
+      "cycles": [
+        {
+          "repeats": 40,
+          "steps": [
+            { "name": "Denaturation", "temperature": 95, "duration": "15 sec" },
+            { "name": "Annealing/extension + read", "temperature": 60, "duration": "1 min" }
+          ]
+        }
+      ],
+      "final": [
+        { "name": "Melt-curve analysis (instrument default)", "temperature": 95, "duration": "instrument default" }
+      ],
+      "hold": null
+    },
+    "ingredients": [
+      { "id": "1", "name": "GoTaq qPCR Master Mix", "concentration": "2X", "amount_per_reaction": "10" },
+      { "id": "2", "name": "Forward primer (200 nM-1 uM final)", "concentration": "200 nM-1 uM final", "amount_per_reaction": "variable" },
+      { "id": "3", "name": "Reverse primer (200 nM-1 uM final)", "concentration": "200 nM-1 uM final", "amount_per_reaction": "variable" },
+      { "id": "4", "name": "CXR Reference Dye (high-dye instruments only)", "concentration": "30 uM", "amount_per_reaction": "0.2" },
+      { "id": "5", "name": "Template DNA", "concentration": "-", "amount_per_reaction": "variable" },
+      { "id": "6", "name": "Nuclease-free water", "concentration": "-", "amount_per_reaction": "to 20" }
+    ],
+    "notes": "BRYT Green dye chemistry (spectrally similar to SYBR Green I; use SYBR Green I optical settings). Run a melt curve to verify specificity (Promega does not publish numeric melt settings, so use your cycler's default melt program). Standard cycling shown (95 C 15 sec, 60 C 1 min); for fast cycling use 95 C 3 sec, 60 C 30 sec. Primers 200 nM-1 uM each (0.2-0.9 uM is a good starting range). The 2X mix already contains a low level of CXR (ROX-equivalent) reference dye; on high-reference-dye instruments add 0.2 uL of the supplied 30 uM CXR Reference Dye per reaction (300 nM final). 40 cycles. Source: Promega GoTaq qPCR Master Mix Technical Manual TM318, https://www.promega.com/-/media/files/resources/protocols/technical-manuals/101/gotaq-qpcr-master-mix-protocol.pdf"
+  }
+}

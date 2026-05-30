@@ -1,0 +1,27 @@
+{
+  "slug": "cell-counting-viability",
+  "title": "Cell counting + viability (trypan blue)",
+  "description": "Universal routine: 1:1 with 0.4% trypan blue, hemocytometer count, viability %. Source: Gibco Cell Culture Basics.",
+  "category": "Cell culture",
+  "method_type": "cell_culture",
+  "tags": ["cell-culture", "cell-counting", "viability", "trypan-blue", "hemocytometer", "gibco"],
+  "payload": {
+    "description": "Universal cell counting and viability by trypan blue exclusion (Gibco Cell Culture Basics). Mix 1:1 (10 uL cell suspension + 10 uL 0.4% trypan blue), a 2-fold dilution. Load 10 uL onto a hemocytometer and examine immediately (dead cells take up trypan blue over time). Count viable (unstained, refractile) cells in the central 1 mm^2 square in a zig-zag; dead cells stain blue. cells/mL = (viable cells in the central square) x dilution factor x 10^4. Viability % = [1 - (blue cells / total cells)] x 100; healthy log-phase cultures should be at least 95% viable. Automated alternative: the Countess counter uses the same 1:1 trypan blue mix. Sources: Gibco trypan blue exclusion https://www.thermofisher.com/us/en/home/references/gibco-cell-culture-basics/cell-culture-protocols/trypan-blue-exclusion.html ; Gibco hemocytometer https://www.thermofisher.com/us/en/home/references/gibco-cell-culture-basics/cell-culture-protocols/counting-cells-in-a-hemacytometer.html",
+    "cell_line": {
+      "name": "Any cell line",
+      "species": null,
+      "tissue": "Universal routine",
+      "notes": "Count promptly after mixing with trypan blue. Aim for at least 95% viability in healthy cultures. Source: Gibco (see description)."
+    },
+    "media": {
+      "base_medium": null,
+      "serum_percent": null,
+      "supplements": [
+        { "name": "Trypan Blue, 0.4% (Gibco 15250061)", "concentration": "0.4", "units": "%" }
+      ]
+    },
+    "planned_events": [
+      { "day_offset": 0, "event_type": "observe", "notes": "Mix 10 uL cell suspension + 10 uL 0.4% trypan blue (1:1, a 2-fold dilution). Load 10 uL on a hemocytometer and examine immediately. Count viable (unstained) cells in the central 1 mm^2 square in a zig-zag. cells/mL = count x dilution factor x 10^4. Viability % = [1 - (blue / total)] x 100. Aim for at least 95% in healthy log-phase cultures. The Countess automated counter uses the same 1:1 mix." }
+    ]
+  }
+}

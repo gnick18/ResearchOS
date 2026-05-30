@@ -1,0 +1,17 @@
+{
+  "slug": "glycerol-stock",
+  "title": "Glycerol stock preparation + storage",
+  "description": "Make and store a long-term bacterial glycerol stock at -80 C, following the Addgene protocol.",
+  "category": "Molecular biology",
+  "method_type": "markdown",
+  "tags": [
+    "glycerol-stock",
+    "storage",
+    "bacteria",
+    "addgene",
+    "cryopreservation"
+  ],
+  "payload": {
+    "body": "## Purpose\n\nPreserve a bacterial strain (and its plasmid) for years by freezing an overnight culture in glycerol at -80 C.\n\n## Materials\n\n| Item | Amount |\n| --- | --- |\n| Overnight liquid culture (single colony, selective medium) | 500 uL |\n| 50% glycerol, sterile (glycerol diluted in dH2O) | 500 uL |\n| 2 mL screw-top tube or cryovial | 1 |\n\n## Steps\n\n1. Grow an overnight liquid culture from a single isolated colony in selective medium.\n2. Add 500 uL of the culture to 500 uL of 50% glycerol in a 2 mL screw-top tube or cryovial. The final glycerol concentration is about 25% (most labs use 15-25%).\n3. Mix gently by shaking the tube 5-6 times.\n4. Cap with a screw top. Snap-top tubes can pop open at -80 C and are not recommended.\n5. Store at -80 C. The stock is stable for years.\n\n## Expected result\n\nA frozen stock that revives by scraping a sliver of the frozen surface onto a selective plate or into fresh medium.\n\n## Notes and troubleshooting\n\n- Minimize freeze-thaw cycles; each one shortens shelf life.\n- When recovering, keep the vial on dry ice while you scrape so it does not thaw completely.\n\n## Safety\n\nBSL-1 E. coli. Use sterile technique and autoclave cultures before disposal.\n\n## Source\n\nAdapted from the Addgene protocol \"Creating a Bacterial Glycerol Stock for Long-term Storage of Plasmids\".\nhttps://www.addgene.org/protocols/create-glycerol-stock/\n"
+  }
+}

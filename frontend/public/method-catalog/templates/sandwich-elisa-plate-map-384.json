@@ -1,0 +1,56 @@
+{
+  "slug": "sandwich-elisa-plate-map-384",
+  "title": "Sandwich ELISA plate map (384-well)",
+  "description": "384-well sandwich ELISA layout scaled from the R&D Systems DuoSet protocol: a 7-point standard curve in quadruplicate (columns 1-4), a zero standard, and the rest of the plate as samples in duplicate.",
+  "category": "Plate layouts",
+  "method_type": "plate",
+  "tags": ["plate", "384-well", "elisa", "sandwich-elisa", "standard-curve", "immunoassay"],
+  "payload": {
+    "description": "Sandwich ELISA plate map for a 384-well plate (16 rows A-P x 24 columns), scaled from the R&D Systems DuoSet recommended setup (https://www.rndsystems.com/resources/protocols/how-run-rd-systems-duoset-elisa). Columns 1-4 hold a 7-point, 2-fold serial-dilution standard curve in quadruplicate (highest standard in row A, descending to row G) with the zero standard at row H. The remaining wells hold unknown samples in duplicate (columns 5-22 across all rows, plus the block below the standards in columns 1-4). Columns 23-24 are left as a blank border to limit edge effects. Assay all standards and samples in duplicate.",
+    "plate_size": 384,
+    "region_labels": [
+      {
+        "row_start": 0,
+        "row_end": 6,
+        "col_start": 0,
+        "col_end": 3,
+        "role": "custom",
+        "custom_label": "Standard curve (7-point)",
+        "notes": "7-point 2-fold serial-dilution standard curve in quadruplicate down columns 1-4. Highest standard in row A, descending to row G. Per R&D Systems DuoSet."
+      },
+      {
+        "row_start": 7,
+        "row_end": 7,
+        "col_start": 0,
+        "col_end": 3,
+        "role": "blank",
+        "custom_label": "Zero standard",
+        "notes": "Reagent diluent only: the standard curve's zero point and the background reference for subtraction."
+      },
+      {
+        "row_start": 8,
+        "row_end": 15,
+        "col_start": 0,
+        "col_end": 3,
+        "role": "sample",
+        "notes": "Additional unknown samples in the block below the standard curve (columns 1-4, rows I-P)."
+      },
+      {
+        "row_start": 0,
+        "row_end": 15,
+        "col_start": 4,
+        "col_end": 21,
+        "role": "sample",
+        "notes": "Unknown samples in duplicate across adjacent column pairs (columns 5-22): up to 144 samples. Assay every sample in duplicate."
+      },
+      {
+        "row_start": 0,
+        "row_end": 15,
+        "col_start": 22,
+        "col_end": 23,
+        "role": "blank",
+        "notes": "Blank border (columns 23-24) to limit evaporation and edge effects. Use for additional samples in duplicate if needed."
+      }
+    ]
+  }
+}

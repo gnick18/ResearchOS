@@ -659,6 +659,7 @@ function plateDims(size: number): { rows: number; cols: number } {
   if (size === 12) return { rows: 3, cols: 4 };
   if (size === 24) return { rows: 4, cols: 6 };
   if (size === 48) return { rows: 6, cols: 8 };
+  if (size === 384) return { rows: 16, cols: 24 };
   return { rows: 8, cols: 12 };
 }
 

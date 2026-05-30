@@ -1,0 +1,37 @@
+{
+  "slug": "thermo-dreamtaq",
+  "title": "Thermo DreamTaq Green Master Mix PCR",
+  "description": "Thermo Fisher DreamTaq Green PCR Master Mix (2X): 50 uL standard reaction, direct-to-gel, with a 95 C denaturation.",
+  "category": "Molecular biology",
+  "method_type": "pcr",
+  "tags": ["pcr", "thermo", "dreamtaq", "taq", "master-mix"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Initial Denaturation", "temperature": 95, "duration": "1-3 min" }
+      ],
+      "cycles": [
+        {
+          "repeats": 30,
+          "steps": [
+            { "name": "Denaturation", "temperature": 95, "duration": "30 sec" },
+            { "name": "Annealing", "temperature": 55, "duration": "30 sec" },
+            { "name": "Extension", "temperature": 72, "duration": "1 min/kb" }
+          ]
+        }
+      ],
+      "final": [
+        { "name": "Final Extension", "temperature": 72, "duration": "5-15 min" }
+      ],
+      "hold": null
+    },
+    "ingredients": [
+      { "id": "1", "name": "DreamTaq Green PCR Master Mix", "concentration": "2X (1X final, 2 mM MgCl2)", "amount_per_reaction": "25" },
+      { "id": "2", "name": "Forward Primer", "concentration": "10 uM (0.5 uM final)", "amount_per_reaction": "2.5" },
+      { "id": "3", "name": "Reverse Primer", "concentration": "10 uM (0.5 uM final)", "amount_per_reaction": "2.5" },
+      { "id": "4", "name": "Template DNA", "concentration": "10 pg - 1 ug", "amount_per_reaction": "variable" },
+      { "id": "5", "name": "Nuclease-free Water", "concentration": "-", "amount_per_reaction": "to 50" }
+    ],
+    "notes": "Vendor: Thermo Fisher Scientific, DreamTaq Green PCR Master Mix 2X (Cat. K1081; colorless equivalent K1071). Contains DreamTaq DNA Polymerase, 2X DreamTaq Green buffer, dNTPs and MgCl2 (1X gives ~0.2 mM each dNTP and 2 mM MgCl2). Green dyes allow loading the mix directly on a gel. Annealing: Tm minus 5 C (primer Tm difference should not exceed 5 C). The 55 C shown is a placeholder starting point. Primers 0.1-1.0 uM. Cycles 25-40 (40 only for <10 template copies). Extension 1 min/kb (1 min for products up to 2 kb, add 1 min per extra kb); drop extension to 68 C for products >6 kb. Source: https://documents.thermofisher.com/TFS-Assets/LSG/manuals/MAN0012704_DreamTaq_Green_PCR_MasterMix_K1081_UG.pdf"
+  }
+}

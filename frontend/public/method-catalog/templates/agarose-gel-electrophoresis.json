@@ -1,0 +1,18 @@
+{
+  "slug": "agarose-gel-electrophoresis",
+  "title": "Agarose gel electrophoresis (DNA)",
+  "description": "Cast, load, run, and image a DNA agarose gel, with the Thermo Fisher agarose-vs-size table and Addgene bench steps.",
+  "category": "Molecular biology",
+  "method_type": "markdown",
+  "tags": [
+    "agarose",
+    "gel",
+    "electrophoresis",
+    "dna",
+    "addgene",
+    "thermo-fisher"
+  ],
+  "payload": {
+    "body": "## Purpose\n\nSeparate DNA fragments by size in an agarose gel and visualize them against a ladder. Pick the agarose percentage from the size range you need to resolve.\n\n## Materials\n\n| Item | Amount |\n| --- | --- |\n| Agarose | 0.7-2% (w/v) by fragment size |\n| 1X TAE or 1X TBE running buffer | enough to cover the gel |\n| DNA stain (ethidium bromide 0.5 ug/mL, or SYBR Safe) | per stain |\n| 6X DNA loading dye | 5 uL per 25 uL sample |\n| DNA ladder | 1 lane |\n| Casting tray, comb, gel box, power supply, transilluminator | 1 set |\n\n## Agarose percentage vs fragment size (Thermo Fisher)\n\n| Agarose (%) | Effective range (bp) |\n| --- | --- |\n| 0.5 | 2,000-50,000 |\n| 0.7 | 800-12,000 |\n| 1.0 | 400-8,000 |\n| 1.5 | 200-3,000 |\n| 2.0 | 100-2,000 |\n\n## Steps\n\n1. Add agarose to 1X TAE (commonly 0.7-2% by fragment size). Microwave 1-3 min until fully dissolved.\n2. Cool to about 50 C (comfortable to hold the flask).\n3. Add stain to about 0.5 ug/mL final (about 2-3 uL of lab stock per 100 mL gel), or use a SYBR-type alternative.\n4. Pour into the tray with the comb in place and let it solidify.\n5. Place the gel in the box and cover with 1X TAE.\n6. Mix each sample with loading dye (5 uL dye per 25 uL sample).\n7. Load a DNA ladder in the first lane, then the samples.\n8. Run at 80-150 V (about 5-10 V/cm) until the dye front is about 75-80% down the gel, roughly 1-1.5 h.\n9. Visualize on a UV or blue-light transilluminator. Use long-wavelength UV and minimal exposure to limit DNA damage.\n\n## Expected result\n\nDiscrete bands at the expected sizes, sized against the ladder.\n\n## Notes and troubleshooting\n\n- Voltage by size (Thermo Fisher): under 1 kb, 5-10 V/cm in TBE; 1-5 kb, 4-10 V/cm; over 5 kb, 1-3 V/cm in TAE.\n- Smeared or fuzzy bands: lower the voltage, use fresh buffer, or pick the correct agarose percentage.\n- Small fragments (under 1 kb): TBE gives sharper bands than TAE.\n\n## Safety\n\nEthidium bromide is a mutagen. Wear gloves and collect EtBr waste separately. UV light damages skin and eyes. Use a shield or face protection at the transilluminator.\n\n## Source\n\nStep procedure adapted from Addgene \"How to Run an Agarose Gel\"; percentage and voltage tables from the Thermo Fisher General Recommendations for DNA Electrophoresis guide (MAN0012614).\nhttps://www.addgene.org/protocols/gel-electrophoresis/\nhttps://documents.thermofisher.com/TFS-Assets/LSG/manuals/MAN0012614_Gen_Recommend_DNA_Electrophoresis_UG.pdf\n"
+  }
+}

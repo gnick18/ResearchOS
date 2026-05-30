@@ -1,0 +1,38 @@
+{
+  "slug": "lightcycler-480-sybr-qpcr",
+  "title": "LightCycler 480 SYBR Green I qPCR",
+  "description": "Roche SYBR Green I 20 uL qPCR: 95 C pre-incubation, 45 cycles, full melt-curve and cooling program.",
+  "category": "qPCR",
+  "method_type": "pcr",
+  "tags": ["qpcr", "sybr", "roche", "lightcycler", "melt-curve"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Pre-incubation (polymerase activation)", "temperature": 95, "duration": "5 min" }
+      ],
+      "cycles": [
+        {
+          "repeats": 45,
+          "steps": [
+            { "name": "Denaturation", "temperature": 95, "duration": "10 sec" },
+            { "name": "Annealing (set ~5 C below primer Tm; 60 C typical)", "temperature": 60, "duration": "5-20 sec" },
+            { "name": "Extension (single acquisition)", "temperature": 72, "duration": "5-30 sec" }
+          ]
+        }
+      ],
+      "final": [
+        { "name": "Melting denaturation", "temperature": 95, "duration": "5 sec" },
+        { "name": "Melting renaturation", "temperature": 65, "duration": "1 min" },
+        { "name": "Melt acquisition (continuous, 5-10 per C)", "temperature": 97, "duration": "ramp 0.11 C/sec" }
+      ],
+      "hold": { "name": "Cooling", "temperature": 40, "duration": "10 sec" }
+    },
+    "ingredients": [
+      { "id": "1", "name": "LightCycler 480 SYBR Green I Master", "concentration": "2X", "amount_per_reaction": "10" },
+      { "id": "2", "name": "PCR primer mix (forward + reverse)", "concentration": "10X", "amount_per_reaction": "2" },
+      { "id": "3", "name": "PCR-grade water", "concentration": "-", "amount_per_reaction": "3" },
+      { "id": "4", "name": "DNA template (up to 50-100 ng gDNA)", "concentration": "-", "amount_per_reaction": "5" }
+    ],
+    "notes": "SYBR Green I chemistry; run the melt-curve program above (95 C 5 sec, 65 C 1 min, then a continuous-acquisition ramp to 97 C at ~0.11 C/sec, 5-10 acquisitions per C) to confirm specificity, then cool to 40 C. Roche pools the forward and reverse primers into a single 10X mix; primers 0.2-1 uM final each (recommended start 0.5 uM each). Annealing temperature is primer-dependent (set ~5 C below the calculated Tm; 60 C is a common starting point). The extension hold equals amplicon length / 25 (for example ~20 sec for a 500 bp product). Up to 50-100 ng genomic DNA per reaction. 45 cycles suit most assays; 40 suffice for optimized assays. Values shown are for the 96-well block. Source: Roche LightCycler 480 SYBR Green I Master pack insert (Cat. 04707516001), https://lifescience.roche.com/global/en/products/others/lightcycler-480-sybr-green-i-master-358112.html"
+  }
+}

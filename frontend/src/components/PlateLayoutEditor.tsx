@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Tooltip from "@/components/Tooltip";
 import {
   ADDED_ROW_CLASSES,
@@ -59,7 +59,7 @@ export interface PlateLayoutEditorProps {
   lockPlateSize?: boolean;
 }
 
-const PLATE_SIZE_OPTIONS: PlateSize[] = [12, 24, 48, 96];
+const PLATE_SIZE_OPTIONS: PlateSize[] = [12, 24, 48, 96, 384];
 
 const ROLE_LABELS: Record<PlateWellRole, string> = {
   blank: "Blank",
@@ -94,6 +94,7 @@ export function dimsForSize(size: PlateSize): { rows: number; cols: number } {
     case 24: return { rows: 4, cols: 6 };
     case 48: return { rows: 6, cols: 8 };
     case 96: return { rows: 8, cols: 12 };
+    case 384: return { rows: 16, cols: 24 };
   }
 }
 
@@ -106,7 +107,8 @@ export function wellId(row: number, col: number): string {
 }
 
 export function parseWellId(id: string): { row: number; col: number } | null {
-  const m = id.match(/^([A-H])(\d+)$/);
+  // Rows run A-P (up to 16 rows for 384-well plates). Columns are 1-indexed.
+  const m = id.match(/^([A-P])(\d+)$/);
   if (!m) return null;
   return { row: m[1].charCodeAt(0) - 65, col: Number(m[2]) - 1 };
 }
@@ -244,6 +246,20 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
   const [replicateInput, setReplicateInput] = useState("");
   const paintingRef = useRef(false);
 
+  // Per-row sample-label quick entry: one input per row that paints the whole
+  // row as role "sample" with the typed sample_label (mirrors fillRow). Earns
+  // its keep on 384-well plates where labeling 16 rows by hand is tedious.
+  const [rowSampleInputs, setRowSampleInputs] = useState<Record<number, string>>({});
+  const [showRowLabels, setShowRowLabels] = useState(plateSize === 384);
+  // 384-well (24 columns) needs a denser grid; "compact" also drops the
+  // per-well letters so the wells stay legible at this size.
+  const dense = cols >= 24;
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    // Auto-reveal the per-row labeler when the user switches to 384-well.
+    if (plateSize === 384) setShowRowLabels(true);
+  }, [plateSize]);
+
   const paintWell = useCallback(
     (id: string) => {
       if (!editable || !onWellsChange) return;
@@ -319,6 +335,30 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
     [editable, paintWell, rows],
   );
 
+  // Paint an entire row as role "sample" with the given label. Sourced from
+  // the row's own quick-entry input rather than the global brush, but writes
+  // the same per-well annotations the brush path does (round-trips into the
+  // PlateAnnotationSnapshot.wells map on save).
+  const applyRowSample = useCallback(
+    (row: number, label: string) => {
+      if (!editable || !onWellsChange) return;
+      const trimmed = label.trim();
+      if (!trimmed) return;
+      const next = { ...wells };
+      for (let col = 0; col < cols; col += 1) {
+        next[wellId(row, col)] = { role: "sample", sample_label: trimmed };
+      }
+      onWellsChange(next);
+    },
+    [cols, editable, onWellsChange, wells],
+  );
+  const commitRowSample = useCallback(
+    (row: number) => {
+      applyRowSample(row, rowSampleInputs[row] ?? "");
+    },
+    [applyRowSample, rowSampleInputs],
+  );
+
   const handleClearAll = useCallback(() => {
     if (!editable || !onWellsChange) return;
     if (!confirm("Clear all well annotations?")) return;
@@ -364,6 +404,17 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
     [diffMode, originalWells, wells],
   );
 
+  // Cell + header sizing scales down for the 16x24 (384-well) grid so it stays
+  // usable; 12/24/48/96 keep their original sizing untouched.
+  const wellSizeClass = !dense
+    ? "w-8 h-8 text-[10px]"
+    : compact
+      ? "w-4 h-4"
+      : "w-6 h-6 text-[8px]";
+  const colHeaderClass = !dense ? "w-8" : compact ? "w-4" : "w-6";
+  const rowHeaderClass = !dense ? "w-6" : compact ? "w-4" : "w-6";
+  const showWellLabels = !compact;
+
   return (
     <div className="space-y-4" onMouseUp={stopPainting} onMouseLeave={stopPainting}>
       {isModified && (
@@ -398,12 +449,34 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
           )}
         </div>
         {editable && (
-          <button
-            onClick={handleClearAll}
-            className="px-2 py-1 text-xs text-red-500 hover:bg-red-50 rounded"
-          >
-            Clear all wells
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {dense && (
+              <button
+                type="button"
+                onClick={() => setCompact((v) => !v)}
+                className="px-2 py-1 text-xs rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
+              >
+                {compact ? "Comfortable cells" : "Compact cells"}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowRowLabels((v) => !v)}
+              className={`px-2 py-1 text-xs rounded border ${
+                showRowLabels
+                  ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                  : "border-gray-200 text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              {showRowLabels ? "Hide row sample labels" : "Per-row sample labels"}
+            </button>
+            <button
+              onClick={handleClearAll}
+              className="px-2 py-1 text-xs text-red-500 hover:bg-red-50 rounded"
+            >
+              Clear all wells
+            </button>
+          </div>
         )}
       </div>
 
@@ -476,13 +549,20 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
           <thead>
             <tr>
               <th className="p-0.5 w-7"></th>
+              {editable && showRowLabels && (
+                <th className="p-0.5 text-left">
+                  <span className="text-[10px] font-medium text-gray-500 pl-1">
+                    Row sample id
+                  </span>
+                </th>
+              )}
               {Array.from({ length: cols }).map((_, c) => (
                 <th key={c} className="p-0.5 text-center">
                   {editable ? (
                     <Tooltip label={`Fill column ${c + 1}`} placement="top">
                       <button
                         onClick={() => fillColumn(c)}
-                        className="w-8 text-[10px] font-medium text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded px-0.5 py-0.5"
+                        className={`${colHeaderClass} ${dense ? "text-[8px]" : "text-[10px]"} font-medium text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded px-0.5 py-0.5`}
                       >
                         {c + 1}
                       </button>
@@ -499,10 +579,10 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
               <tr key={r}>
                 <th className="p-0.5 align-middle">
                   {editable ? (
-                    <Tooltip label={`Fill row ${rowLabel(r)}`} placement="right">
+                    <Tooltip label={`Fill row ${rowLabel(r)} with the current brush`} placement="right">
                       <button
                         onClick={() => fillRow(r)}
-                        className="w-6 text-[10px] font-medium text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded px-0.5 py-0.5"
+                        className={`${rowHeaderClass} text-[10px] font-medium text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded px-0.5 py-0.5`}
                       >
                         {rowLabel(r)}
                       </button>
@@ -511,6 +591,50 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
                     <span className="text-[10px] font-medium text-gray-500">{rowLabel(r)}</span>
                   )}
                 </th>
+                {editable && showRowLabels && (
+                  <td className="p-0.5 align-middle">
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="text"
+                        value={rowSampleInputs[r] ?? ""}
+                        onChange={(e) =>
+                          setRowSampleInputs((prev) => ({ ...prev, [r]: e.target.value }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            commitRowSample(r);
+                          }
+                        }}
+                        placeholder={`Row ${rowLabel(r)}`}
+                        aria-label={`Sample id for row ${rowLabel(r)}`}
+                        className="w-28 px-1.5 py-0.5 border border-gray-200 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      />
+                      <Tooltip label={`Label all of row ${rowLabel(r)} as this sample`} placement="right">
+                        <button
+                          type="button"
+                          onClick={() => commitRowSample(r)}
+                          className="p-1 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded"
+                          aria-label={`Apply sample to row ${rowLabel(r)}`}
+                        >
+                          <svg
+                            viewBox="0 0 16 16"
+                            width="12"
+                            height="12"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                          >
+                            <path d="M3 8.5l3.5 3.5L13 5" />
+                          </svg>
+                        </button>
+                      </Tooltip>
+                    </div>
+                  </td>
+                )}
                 {Array.from({ length: cols }).map((_, c) => {
                   const id = wellId(r, c);
                   const ann = wells[id];
@@ -528,12 +652,12 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
                         onMouseDown={(e) => handleWellMouseDown(id, e)}
                         onMouseEnter={(e) => handleWellMouseEnter(id, e)}
                         title={ttip}
-                        className={`w-8 h-8 rounded-full border border-gray-200 ${baseClasses} ${diffClass} text-[10px] flex items-center justify-center ${
+                        className={`${wellSizeClass} rounded-full border border-gray-200 ${baseClasses} ${diffClass} flex items-center justify-center ${
                           editable ? "cursor-pointer hover:ring-2 hover:ring-emerald-300" : "cursor-default"
                         }`}
                         aria-label={`Well ${id}`}
                       >
-                        {ann ? shortLabelFor(ann) : ""}
+                        {showWellLabels && ann ? shortLabelFor(ann) : ""}
                       </button>
                     </td>
                   );

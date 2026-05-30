@@ -1,0 +1,37 @@
+{
+  "slug": "kapa-hifi-hotstart",
+  "title": "KAPA HiFi HotStart PCR",
+  "description": "Roche KAPA HiFi HotStart ReadyMix (2X): 25 uL high-fidelity reaction with a 98 C cycle denaturation and 60-75 C anneal.",
+  "category": "Molecular biology",
+  "method_type": "pcr",
+  "tags": ["pcr", "kapa", "roche", "hifi", "high-fidelity", "master-mix", "hot-start"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Initial Denaturation", "temperature": 95, "duration": "3 min" }
+      ],
+      "cycles": [
+        {
+          "repeats": 30,
+          "steps": [
+            { "name": "Denaturation", "temperature": 98, "duration": "20 sec" },
+            { "name": "Annealing", "temperature": 65, "duration": "15 sec" },
+            { "name": "Extension", "temperature": 72, "duration": "15-60 sec/kb" }
+          ]
+        }
+      ],
+      "final": [
+        { "name": "Final Extension", "temperature": 72, "duration": "1 min/kb" }
+      ],
+      "hold": null
+    },
+    "ingredients": [
+      { "id": "1", "name": "KAPA HiFi HotStart ReadyMix", "concentration": "2X (1X final, 2.5 mM MgCl2, 0.3 mM dNTPs)", "amount_per_reaction": "12.5" },
+      { "id": "2", "name": "Forward Primer", "concentration": "10 uM (0.3 uM final)", "amount_per_reaction": "0.75" },
+      { "id": "3", "name": "Reverse Primer", "concentration": "10 uM (0.3 uM final)", "amount_per_reaction": "0.75" },
+      { "id": "4", "name": "Template DNA", "concentration": "10-100 ng genomic / 0.1-1 ng low-complexity", "amount_per_reaction": "variable" },
+      { "id": "5", "name": "PCR-grade Water", "concentration": "-", "amount_per_reaction": "to 25" }
+    ],
+    "notes": "Vendor: Roche / KAPA Biosystems, KAPA HiFi HotStart ReadyMix 2X (Cat. KK2601). Set up on ice (the proofreading enzyme degrades primers at room temperature). The high-salt buffer requires a 98 C cycle denaturation. Use 5 min at 95 C for the initial denaturation with >70% GC templates. Annealing: run a 60-75 C gradient; if no gradient, start at 65 C. The 65 C shown is the recommended starting point. Cycles 15-35 (use <= 25 for highest fidelity; 30-35 only for low yield/template). Extension 15 sec/cycle for targets <= 1 kb, 30-60 sec/kb for longer (max 1 min/kb). A 2-step protocol (68-75 C combined anneal/extend, 30 sec/kb) works for high-Tm primers. Source: https://rochesequencingstore.com/wp-content/uploads/2023/02/KAPA-HiFi-HotStart-ReadyMix-PCR-Kit-Technical-Data-Sheet_v14-22.pdf"
+  }
+}

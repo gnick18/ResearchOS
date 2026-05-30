@@ -1,0 +1,27 @@
+{
+  "slug": "cho-k1-maintenance-atcc",
+  "title": "CHO-K1 maintenance (ATCC)",
+  "description": "Adherent CHO-K1 (ATCC CCL-61) in F-12K + 10% FBS, split 1:4 to 1:8. Source: ATCC https://www.atcc.org/products/ccl-61",
+  "category": "Cell culture",
+  "method_type": "cell_culture",
+  "tags": ["cell-culture", "cho-k1", "cho", "atcc", "f-12k", "passaging", "maintenance"],
+  "payload": {
+    "description": "Routine maintenance of adherent CHO-K1 Chinese hamster ovary cells per the ATCC CCL-61 product sheet. Complete growth medium: ATCC-formulated F-12K Medium (ATCC 30-2004) + 10% FBS. Subcultivation ratio 1:4 to 1:8. Rinse with D-PBS, then dissociate with Trypsin-EDTA (ATCC 30-2101), 5 to 15 min. 37 C, 5% CO2. ECACC additionally advises passaging sub-confluent (70 to 80%) and seeding at 1 to 2 x 10^4 cells/cm^2. Doubling time is not published on these sheets, so it is omitted. Sources: ATCC https://www.atcc.org/products/ccl-61 ; ECACC https://www.culturecollections.org.uk/nop/product/cho-k1?refId=85051005&collection=ecacc_gc",
+    "cell_line": {
+      "name": "CHO-K1",
+      "species": "Cricetulus griseus (Chinese hamster)",
+      "tissue": "Ovary; epithelial, adherent",
+      "notes": "ATCC CCL-61. Grow at 37 C, 5% CO2. Serum is fetal bovine serum (ATCC 30-2020) at 10%. Source: https://www.atcc.org/products/ccl-61"
+    },
+    "media": {
+      "base_medium": "F-12K Medium (Kaighn's modification of Ham's F-12), ATCC 30-2004",
+      "serum_percent": 10,
+      "supplements": []
+    },
+    "planned_events": [
+      { "day_offset": 0, "event_type": "split", "split_ratio": "1:4 to 1:8", "notes": "Seed day. Rinse with D-PBS, add 2 to 3 mL Trypsin-EDTA (ATCC 30-2101), disperse 5 to 15 min, quench, count, and reseed (ECACC: 1 to 2 x 10^4 cells/cm^2)." },
+      { "day_offset": 2, "event_type": "observe", "notes": "Check confluence and morphology." },
+      { "day_offset": 3, "event_type": "split", "split_ratio": "1:4 to 1:8", "notes": "Subculture sub-confluent (ECACC: 70 to 80%). Repeat the trypsinize and reseed." }
+    ]
+  }
+}

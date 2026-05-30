@@ -1,0 +1,58 @@
+{
+  "slug": "mtt-cell-viability-plate-384",
+  "title": "MTT / CellTiter cell-viability plate (384-well)",
+  "description": "384-well cell-viability dose-response layout (MTT / MTS / CellTiter): no-cell blanks, untreated vehicle (100% viability), max-kill positive control (0% viability), and a 20-point treatment dose series.",
+  "category": "Plate layouts",
+  "method_type": "plate",
+  "tags": ["plate", "384-well", "mtt", "mts", "cell-viability", "cytotoxicity", "dose-response"],
+  "payload": {
+    "description": "MTT / MTS / CellTiter cell-viability plate for a 384-well plate (16 rows A-P x 24 columns), following standard tetrazolium-assay practice and the NCBI Assay Guidance Manual cell-viability chapter (https://www.ncbi.nlm.nih.gov/books/NBK144065/). Column 1 = no-cell blanks (medium + reagent, no cells) for background subtraction. Column 2 = untreated/vehicle controls (maximum-viability 100% reference). Column 3 = max-kill positive control (minimum-viability 0% reference). Columns 4-23 = a 20-point compound dose series (highest dose column 4, descending to column 23); each row A-P is an independent treatment, compound, or replicate. Column 24 = medium border to limit edge effects. Normalize each treated well as (well - blank) / (vehicle mean - blank). Read MTT formazan at 570 nm (or per kit). Run >= 3 replicates per condition.",
+    "plate_size": 384,
+    "region_labels": [
+      {
+        "row_start": 0,
+        "row_end": 15,
+        "col_start": 0,
+        "col_end": 0,
+        "role": "blank",
+        "custom_label": "No-cell blank",
+        "notes": "Medium + MTT/MTS reagent, no cells. Background absorbance subtracted from all other wells."
+      },
+      {
+        "row_start": 0,
+        "row_end": 15,
+        "col_start": 1,
+        "col_end": 1,
+        "role": "control",
+        "custom_label": "Untreated / vehicle (100%)",
+        "notes": "Cells + vehicle only. Maximum-viability reference; normalize treated wells to the mean of this column."
+      },
+      {
+        "row_start": 0,
+        "row_end": 15,
+        "col_start": 2,
+        "col_end": 2,
+        "role": "control",
+        "custom_label": "Max-kill (0%)",
+        "notes": "Cells + a cytotoxic agent (e.g. 10% DMSO, 0.1% Triton X-100, or staurosporine). Minimum-viability / fully-killed reference. Standard practice, not part of the basic kit protocol."
+      },
+      {
+        "row_start": 0,
+        "row_end": 15,
+        "col_start": 3,
+        "col_end": 22,
+        "role": "sample",
+        "notes": "Test-compound 20-point dose series, highest dose in column 4 descending to column 23. Each row A-P is an independent treatment (compound or cell line) or a replicate; aim for >= 3 replicates per condition."
+      },
+      {
+        "row_start": 0,
+        "row_end": 15,
+        "col_start": 23,
+        "col_end": 23,
+        "role": "na",
+        "custom_label": "Edge border",
+        "notes": "Medium-only column to limit evaporation and edge effects, or use for a second compound. Outer wells are prone to edge effects (NCBI Assay Guidance Manual)."
+      }
+    ]
+  }
+}

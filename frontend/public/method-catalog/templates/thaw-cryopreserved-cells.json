@@ -1,0 +1,27 @@
+{
+  "slug": "thaw-cryopreserved-cells",
+  "title": "Thaw cryopreserved cells",
+  "description": "Universal routine: rapid 37 C thaw, dilute into prewarmed medium, recover. Sources: Gibco + ATCC.",
+  "category": "Cell culture",
+  "method_type": "cell_culture",
+  "tags": ["cell-culture", "thawing", "cryorecovery", "universal", "gibco", "atcc"],
+  "payload": {
+    "description": "Universal protocol for recovering cryopreserved mammalian cells from liquid nitrogen, for adherent or suspension lines. Work quickly; thawing is stressful to frozen cells. Sources: Gibco Cell Culture Basics https://www.thermofisher.com/us/en/home/references/gibco-cell-culture-basics/cell-culture-protocols/thawing-cells.html ; ATCC Animal Cell Culture Guide https://www.atcc.org/-/media/resources/culture-guides/animal-cell-culture-guide.pdf",
+    "cell_line": {
+      "name": "Any mammalian cell line",
+      "species": null,
+      "tissue": "Universal routine (adherent or suspension)",
+      "notes": "Use the complete growth medium specific to your cell line, prewarmed to 37 C. Sources: Gibco and ATCC (see description)."
+    },
+    "media": {
+      "base_medium": "Complete growth medium for your cell line, prewarmed to 37 C",
+      "serum_percent": null,
+      "supplements": []
+    },
+    "planned_events": [
+      { "day_offset": 0, "event_type": "feed", "notes": "Thaw: remove the vial from liquid nitrogen and swirl in a 37 C water bath until just a sliver of ice remains (Gibco: under 1 min; ATCC: about 2 min). Wipe the vial with 70% ethanol. Transfer cells dropwise into 9 to 10 mL prewarmed complete medium. To remove cryoprotectant, centrifuge gently (Gibco: about 200 x g, 5 to 10 min; ATCC: 125 x g, 10 min), discard the supernatant, resuspend, and seed at high density. Lines that tolerate it can be diluted directly into a large volume of medium instead." },
+      { "day_offset": 1, "event_type": "observe", "notes": "Examine cultures after 24 h (ATCC). For adherent cells, replace the medium once cells attach to remove residual DMSO. Subculture as needed." },
+      { "day_offset": 3, "event_type": "split", "split_ratio": "per cell line", "notes": "First passage once cells are growing well and near the target confluence or density for your line." }
+    ]
+  }
+}

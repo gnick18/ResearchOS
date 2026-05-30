@@ -1,0 +1,48 @@
+{
+  "slug": "bca-protein-standard-curve",
+  "title": "BCA protein standard curve (96-well)",
+  "description": "Thermo Pierce BCA microplate layout: the 9-point BSA standard set (2000-0 ug/mL, vials A-I) in triplicate across the top rows, unknown protein samples below. Also works for Bradford.",
+  "category": "Plate layouts",
+  "method_type": "plate",
+  "tags": ["plate", "96-well", "bca", "bradford", "protein-quantification", "standard-curve"],
+  "payload": {
+    "description": "Protein-quantification standard curve following the Thermo Pierce BCA Protein Assay microplate procedure (https://documents.thermofisher.com/TFS-Assets/LSG/manuals/MAN0011430_Pierce_BCA_Protein_Asy_UG.pdf). Rows A-C hold the 9-point diluted-BSA standard set in triplicate: columns 1-8 = 2000, 1500, 1000, 750, 500, 250, 125, 25 ug/mL (Pierce vials A-H) and column 9 = 0 ug/mL blank (vial I). Rows D-H hold unknown samples. Microplate procedure: 25 uL sample + 200 uL working reagent (Reagent A:B 50:1), mix, 37 C for 30 min, read at 562 nm; working range 20-2000 ug/mL. The same map works for a Bradford assay (substitute the Bradford standard range).",
+    "plate_size": 96,
+    "region_labels": [
+      {
+        "row_start": 0,
+        "row_end": 2,
+        "col_start": 0,
+        "col_end": 7,
+        "role": "custom",
+        "custom_label": "BSA standards (A-H)",
+        "notes": "Columns 1-8 = 2000, 1500, 1000, 750, 500, 250, 125, 25 ug/mL BSA (Pierce vials A-H), in triplicate down rows A-C. 25 uL per well + 200 uL working reagent, 37 C 30 min, read 562 nm."
+      },
+      {
+        "row_start": 0,
+        "row_end": 2,
+        "col_start": 8,
+        "col_end": 8,
+        "role": "blank",
+        "custom_label": "Blank (0 ug/mL)",
+        "notes": "Pierce vial I, diluent only. Subtract the mean A562 of these wells from every standard and sample reading."
+      },
+      {
+        "row_start": 0,
+        "row_end": 2,
+        "col_start": 9,
+        "col_end": 11,
+        "role": "na",
+        "notes": "Spare wells (columns 10-12, rows A-C). Use for extra standard or sample replicates."
+      },
+      {
+        "row_start": 3,
+        "row_end": 7,
+        "col_start": 0,
+        "col_end": 11,
+        "role": "sample",
+        "notes": "Unknown protein samples, 25 uL each, in duplicate or triplicate. Keep readings within the 20-2000 ug/mL working range; dilute over-range samples and re-assay."
+      }
+    ]
+  }
+}

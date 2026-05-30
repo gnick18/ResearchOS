@@ -1,0 +1,39 @@
+{
+  "slug": "kapa2g-robust",
+  "title": "KAPA2G Robust PCR",
+  "description": "Roche KAPA2G Robust DNA Polymerase: 25 uL fast, inhibitor-tolerant Taq reaction with a 95 C / 15 sec denaturation.",
+  "category": "Molecular biology",
+  "method_type": "pcr",
+  "tags": ["pcr", "kapa", "roche", "kapa2g", "taq", "fast", "robust"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Initial Denaturation", "temperature": 95, "duration": "3 min" }
+      ],
+      "cycles": [
+        {
+          "repeats": 35,
+          "steps": [
+            { "name": "Denaturation", "temperature": 95, "duration": "15 sec" },
+            { "name": "Annealing", "temperature": 60, "duration": "15 sec" },
+            { "name": "Extension", "temperature": 72, "duration": "15-60 sec/kb" }
+          ]
+        }
+      ],
+      "final": [
+        { "name": "Final Extension", "temperature": 72, "duration": "1 min/kb" }
+      ],
+      "hold": null
+    },
+    "ingredients": [
+      { "id": "1", "name": "5X KAPA2G Buffer A", "concentration": "5X (1X final, 1.5 mM MgCl2)", "amount_per_reaction": "5.0" },
+      { "id": "2", "name": "KAPA dNTP Mix", "concentration": "10 mM each (0.2 mM each final)", "amount_per_reaction": "0.5" },
+      { "id": "3", "name": "Forward Primer", "concentration": "10 uM (0.5 uM final)", "amount_per_reaction": "1.25" },
+      { "id": "4", "name": "Reverse Primer", "concentration": "10 uM (0.5 uM final)", "amount_per_reaction": "1.25" },
+      { "id": "5", "name": "KAPA2G Robust DNA Polymerase", "concentration": "5 U/uL (0.5 U/25 uL final)", "amount_per_reaction": "0.1" },
+      { "id": "6", "name": "Template DNA", "concentration": "10-100 ng genomic", "amount_per_reaction": "variable" },
+      { "id": "7", "name": "PCR-grade Water", "concentration": "-", "amount_per_reaction": "to 25" }
+    ],
+    "notes": "Vendor: Roche / KAPA Biosystems, KAPA2G Robust DNA Polymerase / PCR Kit (Cat. KK5004 / KK5005; TDS KR0379). Fast, inhibitor-tolerant Taq. Annealing ~60 C for most assays (55 C if Tm < 55 C, 65 C if Tm > 65 C; the 60 C shown is a starting point). 1X Buffer A = 1.5 mM MgCl2. Extension 15 sec/kb (15 sec/cycle for <= 1 kb), increase to 30-60 sec/kb in 15 sec steps for longer/difficult amplicons. Cycle count 30-40 (35 typical). Use up to 1 U per 25 uL for GC-rich/crude templates; optional 1X KAPA Enhancer 1 or DMSO for GC-rich. Use 5 min at 95 C for the initial denaturation with >70% GC templates. The KR0379 cycling table lists no explicit hold step. Source: Roche/KAPA KAPA2G Robust PCR Kit Technical Data Sheet (KR0379)."
+  }
+}

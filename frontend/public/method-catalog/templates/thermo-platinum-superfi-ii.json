@@ -1,0 +1,39 @@
+{
+  "slug": "thermo-platinum-superfi-ii",
+  "title": "Invitrogen Platinum SuperFi II PCR",
+  "description": "Thermo Fisher Platinum SuperFi II DNA Polymerase: 50 uL high-fidelity reaction with a universal 60 C anneal and 72 C extension.",
+  "category": "Molecular biology",
+  "method_type": "pcr",
+  "tags": ["pcr", "thermo", "invitrogen", "superfi", "high-fidelity"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Initial Denaturation", "temperature": 98, "duration": "30 sec" }
+      ],
+      "cycles": [
+        {
+          "repeats": 30,
+          "steps": [
+            { "name": "Denaturation", "temperature": 98, "duration": "8 sec" },
+            { "name": "Annealing", "temperature": 60, "duration": "10 sec" },
+            { "name": "Extension", "temperature": 72, "duration": "15-30 sec/kb" }
+          ]
+        }
+      ],
+      "final": [
+        { "name": "Final Extension", "temperature": 72, "duration": "5 min" }
+      ],
+      "hold": { "name": "Hold", "temperature": 4, "duration": "Indef." }
+    },
+    "ingredients": [
+      { "id": "1", "name": "5X SuperFi II Buffer", "concentration": "5X (1X final, 1.75 mM MgCl2)", "amount_per_reaction": "10" },
+      { "id": "2", "name": "dNTPs", "concentration": "10 mM (200 uM final)", "amount_per_reaction": "1" },
+      { "id": "3", "name": "Forward Primer", "concentration": "10 uM (0.5 uM final)", "amount_per_reaction": "2.5" },
+      { "id": "4", "name": "Reverse Primer", "concentration": "10 uM (0.5 uM final)", "amount_per_reaction": "2.5" },
+      { "id": "5", "name": "Template DNA", "concentration": "0.1-10 ng plasmid / 5-100 ng genomic", "amount_per_reaction": "variable" },
+      { "id": "6", "name": "Platinum SuperFi II DNA Polymerase", "concentration": "(1 U/50 uL)", "amount_per_reaction": "1" },
+      { "id": "7", "name": "Nuclease-free Water", "concentration": "-", "amount_per_reaction": "to 50" }
+    ],
+    "notes": "Vendor: Thermo Fisher Scientific (Invitrogen), Platinum SuperFi II DNA Polymerase (Cat. 12361010). Recommended universal 60 C annealing works for most primers (the iso-stabilizing buffer removes the need for per-primer optimization). Cycles 25-35. Extension 15-30 sec/kb at 72 C. A 2-step protocol (combine anneal+extend at 72 C) works for primers >30 nt. Reduce primers to 0.2 uM for targets >5 kb and multiplex. Efficient up to 75% GC without added melting agents. Source: https://documents.thermofisher.com/TFS-Assets/LSG/manuals/MAN0018859_Platinum_SuperFi_II_DNA_Pol_UG.pdf"
+  }
+}

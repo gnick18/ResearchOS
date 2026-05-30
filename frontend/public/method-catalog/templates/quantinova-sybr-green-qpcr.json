@@ -1,0 +1,37 @@
+{
+  "slug": "quantinova-sybr-green-qpcr",
+  "title": "QuantiNova SYBR Green qPCR",
+  "description": "QIAGEN SYBR Green fast 20 uL qPCR: 2 min 95 C activation, ultrafast 2-step cycling, melt-curve analysis.",
+  "category": "qPCR",
+  "method_type": "pcr",
+  "tags": ["qpcr", "sybr", "qiagen", "quantinova", "fast", "melt-curve"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "PCR initial heat activation", "temperature": 95, "duration": "2 min" }
+      ],
+      "cycles": [
+        {
+          "repeats": 40,
+          "steps": [
+            { "name": "Denaturation", "temperature": 95, "duration": "5 sec" },
+            { "name": "Combined annealing/extension + read", "temperature": 60, "duration": "10 sec" }
+          ]
+        }
+      ],
+      "final": [
+        { "name": "Melt-curve analysis (instrument default)", "temperature": 95, "duration": "instrument default" }
+      ],
+      "hold": null
+    },
+    "ingredients": [
+      { "id": "1", "name": "QuantiNova SYBR Green PCR Master Mix", "concentration": "2X", "amount_per_reaction": "10" },
+      { "id": "2", "name": "ROX Reference Dye (Applied Biosystems cyclers only)", "concentration": "1X", "amount_per_reaction": "2 / 0.1" },
+      { "id": "3", "name": "Forward primer (0.7 uM final)", "concentration": "0.7 uM final", "amount_per_reaction": "variable" },
+      { "id": "4", "name": "Reverse primer (0.7 uM final)", "concentration": "0.7 uM final", "amount_per_reaction": "variable" },
+      { "id": "5", "name": "Template DNA or cDNA (<= 100 ng)", "concentration": "-", "amount_per_reaction": "variable" },
+      { "id": "6", "name": "RNase-free water", "concentration": "-", "amount_per_reaction": "to 20" }
+    ],
+    "notes": "SYBR Green chemistry; QIAGEN strongly recommends running the melt-curve analysis to verify product specificity (use your cycler's built-in melt program, which typically ramps to ~95 C; QIAGEN does not publish numeric melt ramp settings). Fast 2-step protocol: primers 0.7 uM each final; amplicon 60-200 bp (use a 30 sec combined annealing/extension for amplicons over 200 bp). 35-40 cycles depending on template amount. ROX Reference Dye is added only on Applied Biosystems cyclers (2 uL of a 1:10 dilution for high-ROX instruments, or 0.1 uL of a 1:200 dilution for low-ROX); no ROX on Rotor-Gene, Bio-Rad CFX, or Roche LightCycler. For 384-well plates use a 10 uL reaction (halve all volumes). Source: QIAGEN QuantiNova SYBR Green PCR Kit Handbook (04/2024), https://www.qiagen.com/us/resources/download/KitHandbook/quantinova-sybr-green-pcr-handbook"
+  }
+}

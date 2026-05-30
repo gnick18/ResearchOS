@@ -1244,6 +1244,7 @@ export function buildExperimentParts(
         case 24: return { rows: 4, cols: 6 };
         case 48: return { rows: 6, cols: 8 };
         case 96: return { rows: 8, cols: 12 };
+        case 384: return { rows: 16, cols: 24 };
       }
     })();
 

@@ -1,0 +1,41 @@
+{
+  "slug": "lcms-peptide-ms-thermo-orbitrap",
+  "title": "Thermo EASY-nLC + Q Exactive: peptide LC-MS/MS (MS setup)",
+  "description": "Thermo Q Exactive data-dependent MS/MS for bottom-up peptides: nanoESI positive, MS1 R 60k / MS2 R 15k, 350 to 1200 m/z (Thermo app note 21550).",
+  "category": "LC-MS",
+  "method_type": "mass_spec",
+  "tags": ["lc-ms", "peptide", "proteomics", "orbitrap", "q-exactive", "dda", "mass-spec", "thermo"],
+  "payload": {
+    "description": "Data-dependent MS/MS setup for bottom-up peptides on a Thermo Q Exactive Hybrid Quadrupole-Orbitrap, fed by the matching peptide nano-LC gradient (EASY-Spray nanoESI source). Polarity is positive (standard for this workflow; the source note does not state polarity literally). Spray voltage 1.9 kV, capillary (ion transfer tube) temperature 320 C. MS1 resolution 60000, MS2 resolution 15000, scan range 350 to 1200 m/z. Data-dependent acquisition with HCD: MS1 AGC target 3e6, max injection time 50 ms; MS2 AGC target 2e5, max injection time 80 ms; isolation window 1.4 m/z; dynamic exclusion 20 s. The source note does not publish a numeric Top-N or normalized collision energy (NCE); leave those to tune per instrument. Pair with the matching LC gradient template. Source: Thermo Fisher Application Note 21550, https://assets.thermofisher.com/TFS-Assets/CMD/Application-Notes/AN-21550-LC-EASY-Spray-Acclaim-PepMap-C18-75cm-Column-AN21550-EN.pdf . Representative starting-point method, verify against the source and tune per instrument and sample.",
+    "instrument": "Thermo Q Exactive Hybrid Quadrupole-Orbitrap",
+    "ionization_mode": "esi_pos",
+    "ionization_label": "EASY-Spray nanoESI (positive)",
+    "source": {
+      "source_temp_c": 320,
+      "capillary_kv": 1.9,
+      "nebulizer_gas_lpm": null,
+      "drying_gas_lpm": null,
+      "drying_gas_temp_c": null,
+      "ei_energy_ev": null,
+      "maldi_laser_nm": null,
+      "maldi_laser_energy": null,
+      "maldi_matrix": null,
+      "other_notes": "Thermo labels: spray voltage 1.9 kV; capillary (ion transfer tube) temperature 320 C. EASY-Spray nanospray source (no sheath/aux/sweep gas)."
+    },
+    "scan": {
+      "scan_mz_low": 350,
+      "scan_mz_high": 1200,
+      "scan_rate_hz": null,
+      "resolution_r": 60000,
+      "is_msms": true,
+      "msms_isolation_window_mz": 1.4,
+      "msms_collision_energy_ev": null
+    },
+    "calibration": {
+      "reference_standard": null,
+      "calibration_date": null,
+      "expected_accuracy_ppm": null,
+      "notes": null
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "slug": "rotor-gene-sybr-green-qpcr",
+  "title": "Rotor-Gene SYBR Green qPCR",
+  "description": "QIAGEN SYBR Green 25 uL qPCR for the Rotor-Gene Q: 5 min 95 C activation, fast 2-step cycling, 60-95 C melt curve.",
+  "category": "qPCR",
+  "method_type": "pcr",
+  "tags": ["qpcr", "sybr", "qiagen", "rotor-gene", "melt-curve"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "PCR initial activation (HotStarTaq Plus)", "temperature": 95, "duration": "5 min" }
+      ],
+      "cycles": [
+        {
+          "repeats": 40,
+          "steps": [
+            { "name": "Denaturation", "temperature": 95, "duration": "5 sec" },
+            { "name": "Combined annealing/extension + read", "temperature": 60, "duration": "10 sec" }
+          ]
+        }
+      ],
+      "final": [
+        { "name": "Melt curve: 60 to 95 C, 1 C/step (90 sec pre-melt, then 5 sec/step)", "temperature": 95, "duration": "5 sec/step" }
+      ],
+      "hold": null
+    },
+    "ingredients": [
+      { "id": "1", "name": "Rotor-Gene SYBR Green PCR Master Mix", "concentration": "2X", "amount_per_reaction": "12.5" },
+      { "id": "2", "name": "Forward primer (1 uM final)", "concentration": "1 uM final", "amount_per_reaction": "variable" },
+      { "id": "3", "name": "Reverse primer (1 uM final)", "concentration": "1 uM final", "amount_per_reaction": "variable" },
+      { "id": "4", "name": "Template DNA or cDNA (<= 100 ng)", "concentration": "-", "amount_per_reaction": "variable" },
+      { "id": "5", "name": "RNase-free water", "concentration": "-", "amount_per_reaction": "to 25" }
+    ],
+    "notes": "SYBR Green chemistry for the Rotor-Gene Q / 3000 / 6000 rotary cyclers; run the melt curve (ramp 60 to 95 C, rising 1 C per step, 90 sec pre-melt hold then 5 sec per step, acquire on Green) to confirm specificity. The fast 2-step protocol is enabled by the Q-Bond additive. Primers 1 uM each final; amplicon 60-200 bp; up to 100 ng template. 35-40 cycles depending on template amount. No ROX needed (rotary optics). Source: QIAGEN Rotor-Gene SYBR Green PCR Kit Handbook (01/2014), https://www.qiagen.com/us/resources/download/KitHandbook/en-rotor-gene-sybr-green-handbook"
+  }
+}

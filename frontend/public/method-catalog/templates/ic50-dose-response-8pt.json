@@ -1,0 +1,58 @@
+{
+  "slug": "ic50-dose-response-8pt",
+  "title": "8-point IC50 dose-response (96-well)",
+  "description": "Biochemical / enzyme-inhibition IC50 layout: background blank, vehicle (0% inhibition anchor), reference inhibitor (100% inhibition anchor), and an 8-point test-compound serial dilution for a 4-parameter curve fit.",
+  "category": "Plate layouts",
+  "method_type": "plate",
+  "tags": ["plate", "96-well", "ic50", "dose-response", "inhibition", "serial-dilution", "screening"],
+  "payload": {
+    "description": "8-point IC50 dose-response plate for an enzyme-inhibition, receptor-binding, or other target-activity assay. Adds the two anchor controls a curve fit needs, which the basic 96-well dose-response layout lacks. Column 1 = background blank (no enzyme/substrate, or no cells). Column 2 = vehicle control (full activity, 0% inhibition anchor / top of the curve). Column 3 = reference inhibitor at a saturating dose (100% inhibition anchor / bottom of the curve). Columns 4-11 = an 8-point serial dilution of the test compound (typically 1:3), highest dose column 4 descending to column 11; each row A-H is an independent compound or a replicate. Compute % inhibition between the two anchor controls and fit % inhibition vs log[dose] with a 4-parameter logistic to read IC50.",
+    "plate_size": 96,
+    "region_labels": [
+      {
+        "row_start": 0,
+        "row_end": 7,
+        "col_start": 0,
+        "col_end": 0,
+        "role": "blank",
+        "custom_label": "Blank (background)",
+        "notes": "No-enzyme / no-substrate (or no-cell) background. Subtract from every other well before normalizing."
+      },
+      {
+        "row_start": 0,
+        "row_end": 7,
+        "col_start": 1,
+        "col_end": 1,
+        "role": "control",
+        "custom_label": "Vehicle (0% inhibition)",
+        "notes": "Full assay + vehicle, no inhibitor. Maximum-signal / 0% inhibition anchor (top of the 4-parameter curve)."
+      },
+      {
+        "row_start": 0,
+        "row_end": 7,
+        "col_start": 2,
+        "col_end": 2,
+        "role": "control",
+        "custom_label": "Reference inhibitor (100% inhibition)",
+        "notes": "Saturating dose of a known inhibitor. Minimum-signal / 100% inhibition anchor (bottom of the curve)."
+      },
+      {
+        "row_start": 0,
+        "row_end": 7,
+        "col_start": 3,
+        "col_end": 10,
+        "role": "sample",
+        "notes": "Test-compound 8-point serial dilution (typically 1:3), highest dose in column 4 descending to column 11. Each row A-H is an independent compound or a replicate. Fit % inhibition vs log[dose] for IC50."
+      },
+      {
+        "row_start": 0,
+        "row_end": 7,
+        "col_start": 11,
+        "col_end": 11,
+        "role": "na",
+        "custom_label": "Spare",
+        "notes": "Spare column: a second compound, an extra replicate, or a medium border to limit edge effects."
+      }
+    ]
+  }
+}

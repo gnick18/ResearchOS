@@ -1,0 +1,27 @@
+{
+  "slug": "hela-maintenance-atcc",
+  "title": "HeLa maintenance (ATCC)",
+  "description": "Adherent HeLa (ATCC CCL-2) in EMEM + 10% FBS, split 1:2 to 1:6. Source: ATCC https://www.atcc.org/products/ccl-2",
+  "category": "Cell culture",
+  "method_type": "cell_culture",
+  "tags": ["cell-culture", "hela", "atcc", "emem", "passaging", "maintenance"],
+  "payload": {
+    "description": "Routine maintenance of adherent HeLa cervical adenocarcinoma cells per the ATCC CCL-2 product sheet. Complete growth medium: EMEM (ATCC 30-2003) + 10% FBS. Subcultivation ratio 1:2 to 1:6. Dissociate with 0.25% (w/v) trypsin / 0.53 mM EDTA, 5 to 15 min. 37 C, 5% CO2. Seeding density and doubling time are not stated on the ATCC product sheet, so they are omitted. The day cadence below is an editable starting point. Source: ATCC CCL-2 https://www.atcc.org/products/ccl-2",
+    "cell_line": {
+      "name": "HeLa",
+      "species": "Homo sapiens (human)",
+      "tissue": "Cervix, adenocarcinoma; epithelial, adherent",
+      "notes": "ATCC CCL-2. Grow at 37 C, 5% CO2. Serum is fetal bovine serum (ATCC 30-2020) at 10%. Source: https://www.atcc.org/products/ccl-2"
+    },
+    "media": {
+      "base_medium": "Eagle's Minimum Essential Medium (EMEM), ATCC 30-2003",
+      "serum_percent": 10,
+      "supplements": []
+    },
+    "planned_events": [
+      { "day_offset": 0, "event_type": "split", "split_ratio": "1:2 to 1:6", "notes": "Seed day. Briefly rinse with 0.25% trypsin / 0.53 mM EDTA to remove serum, add 2 to 3 mL Trypsin-EDTA, disperse 5 to 15 min, quench with 6 to 8 mL complete medium, count, and reseed." },
+      { "day_offset": 2, "event_type": "observe", "notes": "Check morphology, confluence, and contamination." },
+      { "day_offset": 3, "event_type": "split", "split_ratio": "1:2 to 1:6", "notes": "Subculture at roughly 80 to 90% confluence. Repeat the trypsinize and reseed." }
+    ]
+  }
+}

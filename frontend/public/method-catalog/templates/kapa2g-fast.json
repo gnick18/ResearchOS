@@ -1,0 +1,37 @@
+{
+  "slug": "kapa2g-fast",
+  "title": "KAPA2G Fast PCR",
+  "description": "Roche KAPA2G Fast ReadyMix (2X): 25 uL fast standard-Taq reaction, optimized for amplicons under 1 kb.",
+  "category": "Molecular biology",
+  "method_type": "pcr",
+  "tags": ["pcr", "kapa", "roche", "kapa2g", "taq", "master-mix", "fast"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Initial Denaturation", "temperature": 95, "duration": "3 min" }
+      ],
+      "cycles": [
+        {
+          "repeats": 35,
+          "steps": [
+            { "name": "Denaturation", "temperature": 95, "duration": "15 sec" },
+            { "name": "Annealing", "temperature": 60, "duration": "15 sec" },
+            { "name": "Extension", "temperature": 72, "duration": "15 sec/kb" }
+          ]
+        }
+      ],
+      "final": [
+        { "name": "Final Extension", "temperature": 72, "duration": "1 min/kb" }
+      ],
+      "hold": null
+    },
+    "ingredients": [
+      { "id": "1", "name": "KAPA2G Fast ReadyMix", "concentration": "2X (1X final, 1.5 mM MgCl2, 0.2 mM dNTPs)", "amount_per_reaction": "12.5" },
+      { "id": "2", "name": "Forward Primer", "concentration": "10 uM (0.5 uM final)", "amount_per_reaction": "1.25" },
+      { "id": "3", "name": "Reverse Primer", "concentration": "10 uM (0.5 uM final)", "amount_per_reaction": "1.25" },
+      { "id": "4", "name": "Template DNA", "concentration": "10-100 ng genomic / 0.1-1 ng low-complexity", "amount_per_reaction": "variable" },
+      { "id": "5", "name": "PCR-grade Water", "concentration": "-", "amount_per_reaction": "to 25" }
+    ],
+    "notes": "Vendor: Roche / KAPA Biosystems, KAPA2G Fast ReadyMix 2X (Cat. KK5101 / KR0374), a fast Taq replacement best for amplicons <1 kb (GC 35-65%). Set up on ice. Annealing: 60 C works for most assays (adjust in 2 C steps); excessive anneal times cause nonspecific products. Use 5 min at 95 C for the initial denaturation with >70% GC templates. Cycles 25-40. Extension: as little as 1 sec/cycle for amplicons <= 1 kb on fast cyclers; 15 sec/kb for >1 kb (increase to max 1 min/kb in 15 sec steps). The 15 sec/kb shown is a safe default. Official ramp-tuned hold times: fast cyclers (>3 C/sec) 15/15/5 sec; slow cyclers (1-3 C/sec) 10/10/1 sec; max-yield (all cyclers) 15/15/15 sec (denature/anneal/extend). Source: Roche / KAPA Biosystems KAPA2G Fast ReadyMix PCR Kit (cat. KK5101 / KR0374); official KR0374 Technical Data Sheet, distributor-hosted copy at https://digitalassets.avantorsciences.com/adaptivemedia/rendition?id=fe79ca3bbd699e661afb07b4988f65a9c328582e"
+  }
+}

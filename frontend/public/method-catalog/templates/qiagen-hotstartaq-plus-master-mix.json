@@ -1,0 +1,37 @@
+{
+  "slug": "qiagen-hotstartaq-plus-master-mix",
+  "title": "QIAGEN HotStarTaq Plus Master Mix PCR",
+  "description": "QIAGEN HotStarTaq Plus Master Mix (2X): 50 uL hot-start reaction with a shorter 95 C / 5 min activation.",
+  "category": "Molecular biology",
+  "method_type": "pcr",
+  "tags": ["pcr", "qiagen", "hotstartaq", "taq", "master-mix", "hot-start"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Initial Activation (required)", "temperature": 95, "duration": "5 min" }
+      ],
+      "cycles": [
+        {
+          "repeats": 35,
+          "steps": [
+            { "name": "Denaturation", "temperature": 94, "duration": "45 sec" },
+            { "name": "Annealing", "temperature": 55, "duration": "45 sec" },
+            { "name": "Extension", "temperature": 72, "duration": "1 min/kb" }
+          ]
+        }
+      ],
+      "final": [
+        { "name": "Final Extension", "temperature": 72, "duration": "10 min" }
+      ],
+      "hold": null
+    },
+    "ingredients": [
+      { "id": "1", "name": "HotStarTaq Plus Master Mix", "concentration": "2X (1X final, 1.5 mM MgCl2, 200 uM dNTPs)", "amount_per_reaction": "25" },
+      { "id": "2", "name": "Forward Primer", "concentration": "10 uM (0.5 uM final)", "amount_per_reaction": "2.5" },
+      { "id": "3", "name": "Reverse Primer", "concentration": "10 uM (0.5 uM final)", "amount_per_reaction": "2.5" },
+      { "id": "4", "name": "Template DNA", "concentration": "<= 200 ng (per 20 uL reaction)", "amount_per_reaction": "variable" },
+      { "id": "5", "name": "RNase-free Water", "concentration": "-", "amount_per_reaction": "to 50" }
+    ],
+    "notes": "Vendor: QIAGEN, HotStarTaq Plus Master Mix Kit (Cat. 203643). REQUIRED initial activation: 95 C for 5 min (the shorter activation is the key difference from standard HotStarTaq; do not exceed 5 min). Setup here is scaled to 50 uL from QIAGEN's 20 uL handbook table (the 2X master mix gives 1.5 mM MgCl2 and 200 uM each dNTP at 1X). Annealing: ~5 C below the primer Tm, 50-68 C range. The 55 C shown is a placeholder starting point. Cycles 25-35. Extension 1 min/kb at 72 C. Optional 10X CoralLoad Concentrate adds a gel-loading dye (do not use in capillary sequencers). Source: QIAGEN HotStarTaq Plus PCR Master Mix Kit Quick-Start Protocol and HotStarTaq Plus PCR Handbook (https://www.qiagen.com/HB-0450)"
+  }
+}

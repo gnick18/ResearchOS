@@ -1,0 +1,17 @@
+{
+  "slug": "total-rna-trizol",
+  "title": "Total RNA extraction (TRIzol)",
+  "description": "Single-step TRIzol total RNA extraction with chloroform phase separation, per the Thermo Fisher TRIzol Reagent user guide.",
+  "category": "Molecular biology",
+  "method_type": "markdown",
+  "tags": [
+    "rna",
+    "trizol",
+    "rna-extraction",
+    "thermo-fisher",
+    "phase-separation"
+  ],
+  "payload": {
+    "body": "## Purpose\n\nIsolate total RNA from cells or tissue in one tube using TRIzol (phenol/guanidine) lysis, chloroform phase separation, and isopropanol precipitation. Work RNase-free throughout.\n\n## Materials\n\n| Item | Amount |\n| --- | --- |\n| TRIzol Reagent | 1 mL per 50-100 mg tissue, or per 1x10^5 to 1x10^7 cells |\n| Chloroform | 0.2 mL per 1 mL TRIzol |\n| Isopropanol | 0.5 mL per 1 mL TRIzol |\n| 75% ethanol (in RNase-free water) | 1 mL per 1 mL TRIzol |\n| RNase-free water | 20-50 uL |\n| RNase-free glycogen carrier (optional, small samples) | 5-10 ug |\n\n## Steps\n\n1. Lyse the sample in TRIzol (1 mL per 50-100 mg tissue, or 1 mL per 1x10^5 to 1x10^7 cells). Homogenize or pipette to fully lyse.\n2. Incubate 5 min to let nucleoprotein complexes dissociate.\n3. Add 0.2 mL chloroform per 1 mL TRIzol. Cap and shake.\n4. Incubate 2-3 min.\n5. Centrifuge 15 min at 12,000 x g, 4 C. Transfer the upper colorless aqueous phase (RNA) to a fresh tube, angling the tube at 45 degrees. Do not disturb the interphase.\n6. Optional (small samples): add 5-10 ug RNase-free glycogen as a carrier.\n7. Add 0.5 mL isopropanol per 1 mL TRIzol used. Incubate 10 min at room temperature (15-30 C).\n8. Centrifuge 10 min at 12,000 x g, 4 C. RNA forms a white gel-like pellet.\n9. Discard the supernatant. Resuspend the pellet in 1 mL 75% ethanol per 1 mL TRIzol. Vortex briefly.\n10. Centrifuge 5 min at 7,500 x g, 4 C. Discard the wash.\n11. Air-dry the pellet 5-10 min. Do not let it dry completely.\n12. Resuspend in 20-50 uL RNase-free water. Incubate at 55-60 C for 10-15 min.\n\n## Expected result\n\nTotal RNA with A260/A280 about 2.0. Check 28S and 18S rRNA integrity on a denaturing or quick agarose gel.\n\n## Notes and troubleshooting\n\n- Use RNase-free tubes and tips and decontaminate surfaces (e.g. RNaseZap).\n- The user guide specifies a single 75% ethanol wash. Do not over-dry the pellet or it will not redissolve.\n- Low A260/A230 (phenol/salt carryover): repeat the 75% ethanol wash.\n\n## Safety\n\nTRIzol contains phenol and guanidine and is corrosive and toxic. Chloroform is toxic and volatile. Work in a fume hood with nitrile gloves. Dispose of as phenolic/halogenated waste. Do not combine guanidine waste with bleach.\n\n## Source\n\nAdapted from the Thermo Fisher / Invitrogen TRIzol Reagent User Guide (Pub. No. MAN0001271).\nhttps://documents.thermofisher.com/TFS-Assets/LSG/manuals/trizol_reagent.pdf\n"
+  }
+}

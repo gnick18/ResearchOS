@@ -1,0 +1,16 @@
+{
+  "slug": "t4-dna-ligation",
+  "title": "Ligation with T4 DNA ligase (NEB)",
+  "description": "T4 DNA ligase reaction setup and incubation (sticky vs blunt) per the NEB M0202 protocol.",
+  "category": "Molecular biology",
+  "method_type": "markdown",
+  "tags": [
+    "ligation",
+    "t4-dna-ligase",
+    "cloning",
+    "neb"
+  ],
+  "payload": {
+    "body": "## Purpose\n\nJoin a vector and insert (or any compatible DNA ends) with T4 DNA ligase, then transform. The example reaction uses a 1:3 vector:insert molar ratio.\n\n## Materials\n\n| Item | Amount (20 uL reaction) |\n| --- | --- |\n| T4 DNA Ligase Buffer, 10X (thaw at room temperature; contains ATP) | 2 uL |\n| Vector DNA (4 kb) | 50 ng (0.020 pmol) |\n| Insert DNA (1 kb) | 37.5 ng (0.060 pmol) |\n| Nuclease-free water | to 20 uL |\n| T4 DNA Ligase | 1 uL |\n\n## Steps\n\n1. Set up the reaction on ice in the order above. Add the T4 DNA Ligase last. Use NEBioCalculator to set the molar ratio (the table shows 1:3 vector:insert).\n2. Mix gently by pipetting up and down and spin down briefly.\n3. Cohesive (sticky) ends: incubate at 16 C overnight, or at room temperature for 10 min.\n4. Blunt ends or single-base overhangs: incubate at 16 C overnight, or at room temperature for 2 h.\n5. Heat-inactivate at 65 C for 10 min.\n6. Chill on ice and transform 1-5 uL into 50 uL competent cells.\n\n## Expected result\n\nLigated product that yields colonies after transformation. Run a vector-only (no insert) control to gauge background self-ligation.\n\n## Notes and troubleshooting\n\n- A 1:3 vector:insert molar ratio is typical; 1:1 to 1:10 works for single insertions. For blunt ends, NEB recommends an insert:vector ratio of 2-6.\n- Thaw the 10X buffer at room temperature; its ATP is labile and degrades with repeated freeze-thaw.\n- High background: dephosphorylate the vector or add a no-insert control to quantify it.\n\n## Safety\n\nBSL-1. Standard molecular-biology reagents.\n\n## Source\n\nAdapted from the NEB T4 DNA Ligase ligation protocol (M0202).\nhttps://www.neb.com/en-us/protocols/dna-ligation-with-t4-dna-ligase-m0202\n"
+  }
+}

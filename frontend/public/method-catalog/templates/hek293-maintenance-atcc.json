@@ -1,0 +1,27 @@
+{
+  "slug": "hek293-maintenance-atcc",
+  "title": "HEK293 maintenance (ATCC)",
+  "description": "Adherent HEK293 (ATCC CRL-1573) in EMEM + 10% FBS, split 1:6 to 1:10. Source: ATCC https://www.atcc.org/products/crl-1573",
+  "category": "Cell culture",
+  "method_type": "cell_culture",
+  "tags": ["cell-culture", "hek293", "atcc", "emem", "passaging", "maintenance"],
+  "payload": {
+    "description": "Routine maintenance of adherent HEK293 cells per the ATCC CRL-1573 product sheet. ATCC complete growth medium is EMEM (ATCC 30-2003) + 10% FBS (many labs substitute DMEM, but EMEM is the ATCC-recommended base). Subcultivation ratio 1:6 to 1:10. Seed at 1 x 10^4 to 4 x 10^4 viable cells/cm^2 and subculture before cells exceed 6 to 7 x 10^4 cells/cm^2. Doubling time is not published on the ATCC product sheet, so it is omitted. The day cadence below is an editable starting point; adjust it so the next passage lands near confluence. Source: ATCC CRL-1573 https://www.atcc.org/products/crl-1573",
+    "cell_line": {
+      "name": "HEK293",
+      "species": "Homo sapiens (human)",
+      "tissue": "Embryonic kidney; epithelial, adherent",
+      "notes": "ATCC CRL-1573. Grow at 37 C, 5% CO2. Serum is fetal bovine serum (ATCC 30-2020) at 10%. Source: https://www.atcc.org/products/crl-1573"
+    },
+    "media": {
+      "base_medium": "Eagle's Minimum Essential Medium (EMEM), ATCC 30-2003",
+      "serum_percent": 10,
+      "supplements": []
+    },
+    "planned_events": [
+      { "day_offset": 0, "event_type": "split", "split_ratio": "1:6 to 1:10", "notes": "Seed day. Rinse the monolayer, add 2 to 3 mL Trypsin-EDTA (ATCC 30-2101), disperse 5 to 15 min at 37 C, quench with complete medium, count, and reseed at 1 x 10^4 to 4 x 10^4 cells/cm^2 into a fresh T75." },
+      { "day_offset": 2, "event_type": "observe", "notes": "Confirm even attachment, healthy morphology, and no contamination." },
+      { "day_offset": 4, "event_type": "split", "split_ratio": "1:6 to 1:10", "notes": "Subculture near confluence (ATCC: before 6 to 7 x 10^4 cells/cm^2). Repeat the trypsinize, quench, and reseed." }
+    ]
+  }
+}

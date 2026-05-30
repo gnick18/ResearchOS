@@ -56,14 +56,16 @@ describe("derived curation facts", () => {
     expect(getMethodModule("compound").sourcePathScheme).toBe(null);
   });
 
-  it("reports which types the U1 template catalog can instantiate", () => {
-    // The pure-data create shapes (U1 catalog method types).
+  it("reports which types the template catalog can instantiate", () => {
+    // The pure-data create shapes (catalog method types).
     expect(getMethodModule("markdown").hasTemplates).toBe(true);
     expect(getMethodModule("pcr").hasTemplates).toBe(true);
     expect(getMethodModule("plate").hasTemplates).toBe(true);
-    // pdf needs a binary asset; mass_spec etc. aren't in the U1 catalog set.
+    // lc_gradient + mass_spec back the LC-MS kit templates.
+    expect(getMethodModule("lc_gradient").hasTemplates).toBe(true);
+    expect(getMethodModule("mass_spec").hasTemplates).toBe(true);
+    // pdf needs a binary asset, so it has no pure-data template.
     expect(getMethodModule("pdf").hasTemplates).toBe(false);
-    expect(getMethodModule("mass_spec").hasTemplates).toBe(false);
   });
 
   it("surfaces hiddenFromPicker (compound only today)", () => {

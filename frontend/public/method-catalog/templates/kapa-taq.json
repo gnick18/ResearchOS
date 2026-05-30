@@ -1,0 +1,39 @@
+{
+  "slug": "kapa-taq",
+  "title": "KAPA Taq PCR",
+  "description": "Roche KAPA Taq DNA Polymerase: 25 uL standard Taq reaction with a Tm-5 anneal and 1 min/kb extension.",
+  "category": "Molecular biology",
+  "method_type": "pcr",
+  "tags": ["pcr", "kapa", "roche", "taq", "standard"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Initial Denaturation", "temperature": 95, "duration": "3 min" }
+      ],
+      "cycles": [
+        {
+          "repeats": 35,
+          "steps": [
+            { "name": "Denaturation", "temperature": 95, "duration": "30 sec" },
+            { "name": "Annealing", "temperature": 55, "duration": "30 sec" },
+            { "name": "Extension", "temperature": 72, "duration": "1 min/kb" }
+          ]
+        }
+      ],
+      "final": [
+        { "name": "Final Extension", "temperature": 72, "duration": "1 min/kb" }
+      ],
+      "hold": { "name": "Hold", "temperature": 4, "duration": "Indef." }
+    },
+    "ingredients": [
+      { "id": "1", "name": "10X KAPA Taq Buffer", "concentration": "10X (1X final, 1.5 mM MgCl2)", "amount_per_reaction": "2.5" },
+      { "id": "2", "name": "KAPA dNTP Mix", "concentration": "10 mM each (0.2 mM each final)", "amount_per_reaction": "0.5" },
+      { "id": "3", "name": "Forward Primer", "concentration": "10 uM (0.4 uM final)", "amount_per_reaction": "1.0" },
+      { "id": "4", "name": "Reverse Primer", "concentration": "10 uM (0.4 uM final)", "amount_per_reaction": "1.0" },
+      { "id": "5", "name": "KAPA Taq DNA Polymerase", "concentration": "5 U/uL (0.5 U/25 uL final)", "amount_per_reaction": "0.1" },
+      { "id": "6", "name": "Template DNA", "concentration": "<= 250 ng genomic", "amount_per_reaction": "variable" },
+      { "id": "7", "name": "PCR-grade Water", "concentration": "-", "amount_per_reaction": "to 25" }
+    ],
+    "notes": "Vendor: Roche / KAPA Biosystems, KAPA Taq DNA Polymerase / KAPA Taq PCR Kit (TDS KR0352). Annealing: Tm minus 5 C as a starting point (the 55 C shown is a placeholder; optimize by gradient). 1X buffer = 1.5 mM MgCl2. Use up to 2.5 U per 25 uL for GC-rich/difficult templates; add 5% DMSO for GC-rich. Use 5 min at 95 C for the initial denaturation with >65% GC templates. The optional final extension (72 C, 1 min/kb) helps when TA-cloning. 35 cycles. Amplifies up to ~3.5 kb genomic / 5 kb less-complex. Cycling and 1X concentrations were cross-confirmed firsthand against the KAPA Taq ReadyMix TDS (KR0354). Source: Roche/KAPA KAPA Taq PCR Kit Technical Data Sheet (KR0352)."
+  }
+}

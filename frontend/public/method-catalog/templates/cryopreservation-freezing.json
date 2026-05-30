@@ -1,0 +1,29 @@
+{
+  "slug": "cryopreservation-freezing",
+  "title": "Cryopreservation / freezing",
+  "description": "Universal routine: complete medium + 5 to 10% DMSO, cool about 1 C/min, store in LN2 vapor. Sources: ATCC + Gibco.",
+  "category": "Cell culture",
+  "method_type": "cell_culture",
+  "tags": ["cell-culture", "cryopreservation", "freezing", "dmso", "universal", "atcc", "gibco"],
+  "payload": {
+    "description": "Universal protocol for cryopreserving mammalian cells. Freeze medium: complete growth medium (with serum) plus DMSO at 5% (ATCC) to 10% (Gibco). Freeze cells in log phase, at least 90% viable, and at the lowest passage possible, at 1 x 10^6 to 5 x 10^6 viable cells/mL. Add DMSO diluted, never neat (dissolution is exothermic). Cool slowly at about 1 C per minute (controlled-rate freezer, or a Mr. Frosty / isopropanol chamber at -70 to -80 C overnight, at least 24 h), then transfer to liquid nitrogen vapor phase below -130 to -135 C. Store in the gas phase, not submerged in liquid (explosion risk). Sources: ATCC Animal Cell Culture Guide https://www.atcc.org/-/media/resources/culture-guides/animal-cell-culture-guide.pdf ; Gibco https://www.thermofisher.com/us/en/home/references/gibco-cell-culture-basics/cell-culture-protocols/freezing-cells.html",
+    "cell_line": {
+      "name": "Any mammalian cell line",
+      "species": null,
+      "tissue": "Universal routine",
+      "notes": "Freeze cells in log / exponential phase, at least 90% viable, low passage. Sources: ATCC and Gibco (see description)."
+    },
+    "media": {
+      "base_medium": "Freeze medium: complete growth medium (with serum) + DMSO",
+      "serum_percent": null,
+      "supplements": [
+        { "name": "DMSO (cryoprotectant)", "concentration": "5 to 10", "units": "%" }
+      ]
+    },
+    "planned_events": [
+      { "day_offset": 0, "event_type": "observe", "notes": "Confirm cells are in log phase, at least 90% viable, and low passage. Count the cells." },
+      { "day_offset": 0, "event_type": "harvest", "notes": "Collect cells (trypsinize adherent, pellet suspension), centrifuge about 125 x g for 10 min, and resuspend in COLD freeze medium at 1 x 10^6 to 5 x 10^6 viable cells/mL. Aliquot 1.0 to 1.8 mL per labeled cryovial. Equilibrate at room temperature 15 to 40 min (no longer; DMSO is toxic). Cool at about 1 C/min in a controlled-rate freezer or a Mr. Frosty / isopropanol chamber at -70 to -80 C overnight (at least 24 h)." },
+      { "day_offset": 1, "event_type": "observe", "notes": "Transfer cryovials to liquid nitrogen vapor phase (below -130 to -135 C) for long-term storage. Store in the gas phase above the liquid, not submerged." }
+    ]
+  }
+}

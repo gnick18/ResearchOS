@@ -42,6 +42,9 @@ vi.mock("@/lib/local-api", () => {
     cellCultureApi: {
       create: vi.fn(async (d: Record<string, unknown>) => ({ id: 4, ...d })),
     },
+    massSpecApi: {
+      create: vi.fn(async (d: Record<string, unknown>) => ({ id: 5, ...d })),
+    },
     filesApi: {
       writeFile: vi.fn(async () => ({ path: "p", sha: "s" })),
     },
@@ -65,6 +68,7 @@ import {
   methodsApi,
   pcrApi,
   plateApi,
+  massSpecApi,
   filesApi,
 } from "@/lib/local-api";
 
@@ -138,6 +142,7 @@ describe("method-catalog parsing", () => {
     expect(isCatalogMethodType("pcr")).toBe(true);
     expect(isCatalogMethodType("markdown")).toBe(true);
     expect(isCatalogMethodType("cell_culture")).toBe(true);
+    expect(isCatalogMethodType("mass_spec")).toBe(true);
     expect(isCatalogMethodType("compound")).toBe(false);
     expect(isCatalogMethodType("pdf")).toBe(false);
     expect(isCatalogMethodType(42)).toBe(false);
@@ -325,6 +330,72 @@ describe("instantiateMethodFromTemplate", () => {
         source_path: "plate://protocol/3",
       }),
     );
+  });
+
+  it("mass_spec template: creates the protocol via massSpecApi then a mass_spec method", async () => {
+    vi.clearAllMocks();
+    const massSpecTemplate: MethodCatalogTemplate = {
+      slug: "peptide-ms",
+      title: "Peptide LC-MS/MS",
+      description: "x",
+      category: "LC-MS",
+      method_type: "mass_spec",
+      payload: {
+        instrument: "Q Exactive HF",
+        ionization_mode: "esi_pos",
+        source: {
+          source_temp_c: 320,
+          capillary_kv: 2.1,
+          nebulizer_gas_lpm: null,
+          drying_gas_lpm: null,
+          drying_gas_temp_c: null,
+          ei_energy_ev: null,
+          maldi_laser_nm: null,
+          maldi_laser_energy: null,
+          maldi_matrix: null,
+          other_notes: "Sheath gas 35 au; aux gas 10 au",
+        },
+        scan: {
+          scan_mz_low: 375,
+          scan_mz_high: 1500,
+          scan_rate_hz: null,
+          resolution_r: 60000,
+          is_msms: true,
+          msms_isolation_window_mz: 1.4,
+          msms_collision_energy_ev: null,
+        },
+        calibration: {
+          reference_standard: null,
+          calibration_date: null,
+          expected_accuracy_ppm: null,
+          notes: null,
+        },
+      },
+    };
+    const created = await instantiateMethodFromTemplate(massSpecTemplate, {
+      folderPath: "LC-MS",
+    });
+
+    expect(massSpecApi.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Peptide LC-MS/MS",
+        instrument: "Q Exactive HF",
+        ionization_mode: "esi_pos",
+        source: massSpecTemplate.payload.source,
+        scan: massSpecTemplate.payload.scan,
+        folder_path: "LC-MS",
+        is_public: false,
+      }),
+    );
+    expect(methodsApi.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method_type: "mass_spec",
+        source_path: "mass_spec://protocol/5",
+        folder_path: "LC-MS",
+        shared_with: [],
+      }),
+    );
+    expect(created.owner).toBe("alex");
   });
 
   it("defaults the method name to the template title and tags to the template tags", async () => {

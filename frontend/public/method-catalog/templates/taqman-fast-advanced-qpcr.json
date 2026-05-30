@@ -1,0 +1,34 @@
+{
+  "slug": "taqman-fast-advanced-qpcr",
+  "title": "TaqMan Fast Advanced qPCR",
+  "description": "Applied Biosystems probe-based (TaqMan) fast 20 uL qPCR: optional UNG hold, fast polymerase activation, 40 cycles, no melt curve.",
+  "category": "qPCR",
+  "method_type": "pcr",
+  "tags": ["qpcr", "taqman", "probe", "thermo-fisher", "applied-biosystems", "fast"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "UNG incubation (optional)", "temperature": 50, "duration": "2 min" },
+        { "name": "Polymerase activation", "temperature": 95, "duration": "20 sec" }
+      ],
+      "cycles": [
+        {
+          "repeats": 40,
+          "steps": [
+            { "name": "Denaturation", "temperature": 95, "duration": "1 sec" },
+            { "name": "Anneal/extend", "temperature": 60, "duration": "20 sec" }
+          ]
+        }
+      ],
+      "final": [],
+      "hold": null
+    },
+    "ingredients": [
+      { "id": "1", "name": "TaqMan Fast Advanced Master Mix", "concentration": "2X", "amount_per_reaction": "10" },
+      { "id": "2", "name": "TaqMan Assay (forward + reverse primers + FAM/VIC probe)", "concentration": "20X", "amount_per_reaction": "1" },
+      { "id": "3", "name": "cDNA template (1 pg to 100 ng)", "concentration": "-", "amount_per_reaction": "2" },
+      { "id": "4", "name": "Nuclease-free water", "concentration": "-", "amount_per_reaction": "to 20" }
+    ],
+    "notes": "Probe-based (TaqMan) fast chemistry, so there is no melt curve. The setup is built around the pre-formulated 20X TaqMan Assay (forward + reverse primers plus a FAM- or VIC-labeled MGB probe); that assay delivers 900 nM final per primer and 250 nM final probe, which are the values to use for custom primer/probe designs. Denature and anneal/extend times shown are for fast-block instruments (QuantStudio, ViiA 7, StepOnePlus); on the 7500 / 7500 Fast use 95 C for 3 sec and 60 C for 30 sec. The optional 50 C UNG hold prevents carryover contamination, and activation can run from 20 sec up to 2 min (longer helps denature genomic DNA). Source: Applied Biosystems TaqMan Fast Advanced Master Mix User Guide (MAN0025706), https://documents.thermofisher.com/TFS-Assets/LSG/manuals/MAN0025706_TaqManFastAdvMM_UG.pdf"
+  }
+}

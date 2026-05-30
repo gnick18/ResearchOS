@@ -1,0 +1,33 @@
+{
+  "slug": "takara-primestar-max",
+  "title": "Takara PrimeSTAR Max PCR",
+  "description": "Takara Bio PrimeSTAR Max DNA Polymerase 2X premix: 50 uL fast high-fidelity reaction at 5 sec/kb extension.",
+  "category": "Molecular biology",
+  "method_type": "pcr",
+  "tags": ["pcr", "takara", "primestar", "max", "high-fidelity", "fast"],
+  "payload": {
+    "gradient": {
+      "initial": [],
+      "cycles": [
+        {
+          "repeats": 30,
+          "steps": [
+            { "name": "Denaturation", "temperature": 98, "duration": "10 sec" },
+            { "name": "Annealing", "temperature": 55, "duration": "15 sec" },
+            { "name": "Extension", "temperature": 72, "duration": "5 sec/kb" }
+          ]
+        }
+      ],
+      "final": [],
+      "hold": null
+    },
+    "ingredients": [
+      { "id": "1", "name": "PrimeSTAR Max Premix", "concentration": "2X (1X final, 1 mM Mg2+)", "amount_per_reaction": "25" },
+      { "id": "2", "name": "Forward Primer", "concentration": "10 uM (0.3 uM final, 15 pmol)", "amount_per_reaction": "1.5" },
+      { "id": "3", "name": "Reverse Primer", "concentration": "10 uM (0.3 uM final, 15 pmol)", "amount_per_reaction": "1.5" },
+      { "id": "4", "name": "Template DNA", "concentration": "< 200 ng", "amount_per_reaction": "variable" },
+      { "id": "5", "name": "Sterile Water", "concentration": "-", "amount_per_reaction": "to 50" }
+    ],
+    "notes": "Vendor: Takara Bio, PrimeSTAR Max DNA Polymerase (Cat. R045A), a 2X premix. Very fast: 5 sec/kb extension at 72 C when template <= 200 ng/50 uL (range 5-10 sec/kb). For template >200 ng/50 uL use 30-60 sec/kb. Annealing default 55 C; annealing TIME 5 sec (primer Tm >= 55 C) or 15 sec (Tm < 55 C). The 55 C shown is the default starting point. Takara publishes no long initial-denaturation, final-extension, or hold step (cycling begins at 98 C/10 sec). 30-35 cycles. Do not use uracil- or inosine-containing templates/primers. Source: https://www.takarabio.com/documents/User%20Manual/R045Q/R045Q_e.v1108Da.pdf"
+  }
+}

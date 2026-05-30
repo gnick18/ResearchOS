@@ -1,0 +1,36 @@
+{
+  "slug": "luna-universal-qpcr",
+  "title": "Luna Universal qPCR (NEB)",
+  "description": "New England Biolabs dye-based 20 uL qPCR (M3003): 95 C activation, 40-45 cycles, with a 60-95 C melt curve.",
+  "category": "qPCR",
+  "method_type": "pcr",
+  "tags": ["qpcr", "sybr", "dye", "neb", "luna", "melt-curve"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Initial denaturation", "temperature": 95, "duration": "60 sec" }
+      ],
+      "cycles": [
+        {
+          "repeats": 40,
+          "steps": [
+            { "name": "Denaturation", "temperature": 95, "duration": "15 sec" },
+            { "name": "Extension + plate read", "temperature": 60, "duration": "30 sec" }
+          ]
+        }
+      ],
+      "final": [
+        { "name": "Melt curve: 60 to 95 C (per instrument)", "temperature": 95, "duration": "per instrument" }
+      ],
+      "hold": null
+    },
+    "ingredients": [
+      { "id": "1", "name": "Luna Universal qPCR Master Mix", "concentration": "2X", "amount_per_reaction": "10" },
+      { "id": "2", "name": "Forward primer", "concentration": "10 uM", "amount_per_reaction": "0.5" },
+      { "id": "3", "name": "Reverse primer", "concentration": "10 uM", "amount_per_reaction": "0.5" },
+      { "id": "4", "name": "Template DNA (up to 100 ng)", "concentration": "-", "amount_per_reaction": "variable" },
+      { "id": "5", "name": "Nuclease-free water", "concentration": "-", "amount_per_reaction": "to 20" }
+    ],
+    "notes": "Dye-based (intercalating) chemistry; run the melt curve (60 to 95 C; follow your instrument's melt recommendations) to confirm specificity. Primers 0.25 uM (250 nM) each final from a 10 uM stock; optimize between 100-500 nM if needed. Up to 100 ng template. 40 cycles for most targets; 45 cycles for very low-input samples. Read on the SYBR/FAM scan channel. Hot-start polymerase, so there is no need to keep reactions on ice or preheat the cycler. For 384-well plates use a 10 uL reaction (halve all volumes). Source: NEB Luna Universal qPCR Master Mix manual (M3003), https://www.neb.com/en/-/media/nebus/files/manuals/manualm3003.pdf"
+  }
+}

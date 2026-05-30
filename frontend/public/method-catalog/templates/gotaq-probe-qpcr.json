@@ -1,0 +1,35 @@
+{
+  "slug": "gotaq-probe-qpcr",
+  "title": "GoTaq Probe qPCR (Promega)",
+  "description": "Promega probe-based 20 uL qPCR: 2 min 95 C hot-start activation, 40 cycles, no melt curve.",
+  "category": "qPCR",
+  "method_type": "pcr",
+  "tags": ["qpcr", "probe", "promega", "gotaq"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "GoTaq polymerase activation", "temperature": 95, "duration": "2 min" }
+      ],
+      "cycles": [
+        {
+          "repeats": 40,
+          "steps": [
+            { "name": "Denaturation", "temperature": 95, "duration": "15 sec" },
+            { "name": "Annealing/extension + read", "temperature": 60, "duration": "1 min" }
+          ]
+        }
+      ],
+      "final": [],
+      "hold": null
+    },
+    "ingredients": [
+      { "id": "1", "name": "GoTaq Probe qPCR Master Mix", "concentration": "2X", "amount_per_reaction": "10" },
+      { "id": "2", "name": "Forward primer (200 nM-1 uM final; start 900 nM)", "concentration": "20X", "amount_per_reaction": "1" },
+      { "id": "3", "name": "Reverse primer (200 nM-1 uM final; start 900 nM)", "concentration": "20X", "amount_per_reaction": "1" },
+      { "id": "4", "name": "Hydrolysis probe (100-300 nM final; start 250 nM)", "concentration": "20X", "amount_per_reaction": "1" },
+      { "id": "5", "name": "Template DNA (<= 250 ng)", "concentration": "-", "amount_per_reaction": "2-5" },
+      { "id": "6", "name": "Nuclease-free water", "concentration": "-", "amount_per_reaction": "to 20" }
+    ],
+    "notes": "Probe-based (hydrolysis probe) chemistry, so there is no melt curve. Standard cycling shown (95 C 15 sec, 60 C 1 min); for fast cycling use 95 C 3 sec, 60 C 30 sec. Recommended starting point: primers 900 nM each (range 200 nM-1 uM), probe 250 nM (range 100-300 nM); primers and probe are added as 20X stocks (1 uL each per 20 uL). Up to 250 ng template (2-5 uL). The master mix contains no reference dye; if your instrument needs one, add the supplied CXR (ROX-equivalent) dye in bulk to the master-mix tube (2 uL of 30 uM per 1 mL for low-dye, or 33.4 uL per 1 mL for high-dye instruments). 40 cycles. Source: Promega GoTaq Probe qPCR Master Mix Technical Manual TM378, https://www.promega.com/-/media/files/resources/protocols/technical-manuals/101/gotaq-probe-qpcr-master-mix-protocol.pdf"
+  }
+}

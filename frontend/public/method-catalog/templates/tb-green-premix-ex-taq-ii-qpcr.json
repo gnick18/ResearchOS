@@ -1,0 +1,36 @@
+{
+  "slug": "tb-green-premix-ex-taq-ii-qpcr",
+  "title": "TB Green Premix Ex Taq II qPCR",
+  "description": "Takara TB Green (SYBR-type) 25 uL qPCR (RR820): 30 sec 95 C hot-start, fast 2-step cycling, dissociation/melt curve.",
+  "category": "qPCR",
+  "method_type": "pcr",
+  "tags": ["qpcr", "sybr", "tb-green", "takara", "melt-curve"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Initial denaturation (hot-start)", "temperature": 95, "duration": "30 sec" }
+      ],
+      "cycles": [
+        {
+          "repeats": 40,
+          "steps": [
+            { "name": "Denaturation", "temperature": 95, "duration": "5 sec" },
+            { "name": "Annealing/extension + read", "temperature": 60, "duration": "30 sec" }
+          ]
+        }
+      ],
+      "final": [
+        { "name": "Dissociation / melt curve (instrument default)", "temperature": 95, "duration": "instrument default" }
+      ],
+      "hold": null
+    },
+    "ingredients": [
+      { "id": "1", "name": "TB Green Premix Ex Taq II (Tli RNaseH Plus)", "concentration": "2X", "amount_per_reaction": "12.5" },
+      { "id": "2", "name": "Forward primer", "concentration": "10 uM", "amount_per_reaction": "1.0" },
+      { "id": "3", "name": "Reverse primer", "concentration": "10 uM", "amount_per_reaction": "1.0" },
+      { "id": "4", "name": "Template DNA (< 100 ng)", "concentration": "-", "amount_per_reaction": "2.0" },
+      { "id": "5", "name": "Sterile purified water", "concentration": "-", "amount_per_reaction": "8.5" }
+    ],
+    "notes": "TB Green dye chemistry (Takara's SYBR-equivalent intercalator); run the dissociation/melt-curve stage to verify specificity (for example, on the LightCycler 480: 95 C 5 sec, 60 C 1 min, then ramp to 95 C at 0.11 C/sec with continuous acquisition). Fast 2-step protocol. Primers 0.4 uM each final (optimize 0.2-1.0 uM); keep the initial denaturation at 95 C 30 sec (longer heat treatment can reduce enzyme activity). Values shown are for the Bio-Rad CFX96 / Thermal Cycler Dice 25 uL setup (no ROX). On Applied Biosystems cyclers use a 20 uL reaction (10 uL premix, 0.8 uL each primer, 2 uL template, 6 uL water) plus ROX Reference Dye (0.4 uL of 50X): ROX Reference Dye II for QuantStudio 3/5 and 7500/7500 Fast, or ROX Reference Dye for StepOnePlus and 7300. The related TB Green Premix Ex Taq (RR420) uses an identical cycling profile but a 0.2 uM primer final concentration. Source: Takara TB Green Premix Ex Taq II (RR820A) product manual, https://www.takarabio.com/documents/User%20Manual/RR820A/RR820A_UM.pdf"
+  }
+}

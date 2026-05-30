@@ -1,0 +1,36 @@
+{
+  "slug": "ssofast-evagreen-qpcr",
+  "title": "SsoFast EvaGreen qPCR",
+  "description": "Bio-Rad EvaGreen dye fast 20 uL qPCR: 30 sec Sso7d activation, ultrafast 1-5 sec cycling, 65-95 C melt curve.",
+  "category": "qPCR",
+  "method_type": "pcr",
+  "tags": ["qpcr", "evagreen", "bio-rad", "ssofast", "fast", "melt-curve"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Enzyme activation", "temperature": 95, "duration": "30 sec" }
+      ],
+      "cycles": [
+        {
+          "repeats": 40,
+          "steps": [
+            { "name": "Denaturation", "temperature": 95, "duration": "1-5 sec" },
+            { "name": "Anneal/extend + plate read", "temperature": 60, "duration": "1-5 sec" }
+          ]
+        }
+      ],
+      "final": [
+        { "name": "Melt curve: 65 to 95 C, 0.5 C increments", "temperature": 95, "duration": "2-5 sec/step" }
+      ],
+      "hold": null
+    },
+    "ingredients": [
+      { "id": "1", "name": "SsoFast EvaGreen Supermix", "concentration": "2X", "amount_per_reaction": "10" },
+      { "id": "2", "name": "Forward primer (500 nM final)", "concentration": "500 nM final", "amount_per_reaction": "variable" },
+      { "id": "3", "name": "Reverse primer (500 nM final)", "concentration": "500 nM final", "amount_per_reaction": "variable" },
+      { "id": "4", "name": "DNA template", "concentration": "-", "amount_per_reaction": "variable" },
+      { "id": "5", "name": "RNase/DNase-free water", "concentration": "-", "amount_per_reaction": "to 20" }
+    ],
+    "notes": "EvaGreen dsDNA-binding dye chemistry (fast); run the melt curve (65 to 95 C in 0.5 C increments, 2-5 sec/step) to confirm specificity. Recommended primer concentration is 500 nM each (final). The Sso7d-fusion polymerase fully activates within 30 sec at 95 C; for genomic DNA use a 98 C 2 min activation and 98 C denaturation. Anneal/extend at 60-65 C. 30-40 cycles. The base supermix contains no ROX; on the ABI 7500 Fast add ROX to 0.75x final. Source: SsoFast EvaGreen Supermix instruction manual (Bio-Rad 10014647), https://www.bio-rad.com/webroot/web/pdf/lsr/literature/10014647A.pdf"
+  }
+}

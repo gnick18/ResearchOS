@@ -1,0 +1,40 @@
+{
+  "slug": "roche-faststart-taq",
+  "title": "Roche FastStart Taq PCR",
+  "description": "Roche FastStart Taq DNA Polymerase (5 U/uL): hot-start 50 uL reaction with a 95 C / 4 min activation step and 2 mM MgCl2 standard.",
+  "category": "Molecular biology",
+  "method_type": "pcr",
+  "tags": ["pcr", "roche", "faststart", "taq", "hot-start"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Activation / Initial Denaturation", "temperature": 95, "duration": "4 min" }
+      ],
+      "cycles": [
+        {
+          "repeats": 30,
+          "steps": [
+            { "name": "Denaturation", "temperature": 95, "duration": "30 sec" },
+            { "name": "Annealing", "temperature": 55, "duration": "30 sec" },
+            { "name": "Extension", "temperature": 72, "duration": "1 min/kb" }
+          ]
+        }
+      ],
+      "final": [
+        { "name": "Final Extension", "temperature": 72, "duration": "7 min" }
+      ],
+      "hold": null
+    },
+    "ingredients": [
+      { "id": "1", "name": "10X PCR Buffer with MgCl2 (Vial 2)", "concentration": "10X (1X final, 2 mM MgCl2)", "amount_per_reaction": "5" },
+      { "id": "2", "name": "dNTP mix (dATP/dCTP/dGTP/dTTP)", "concentration": "10 mM each (200 uM each final)", "amount_per_reaction": "4" },
+      { "id": "3", "name": "Forward Primer", "concentration": "0.2 to 1 uM final (0.2 uM standard)", "amount_per_reaction": "5" },
+      { "id": "4", "name": "Reverse Primer", "concentration": "0.2 to 1 uM final (0.2 uM standard)", "amount_per_reaction": "5" },
+      { "id": "5", "name": "FastStart Taq DNA Polymerase (Vial 1, 5 U/uL)", "concentration": "5 U/uL (2 U/reaction)", "amount_per_reaction": "0.4" },
+      { "id": "6", "name": "MgCl2 25 mM Stock (Vial 4, optional)", "concentration": "for Mg titration to 1.5-4 mM final", "amount_per_reaction": "variable" },
+      { "id": "7", "name": "Template DNA", "concentration": "up to 500 ng/reaction", "amount_per_reaction": "variable" },
+      { "id": "8", "name": "Water, PCR Grade", "concentration": "-", "amount_per_reaction": "to 50" }
+    ],
+    "notes": "Vendor: Roche FastStart Taq DNA Polymerase, 5 U/uL (Cat. 12 032 902 001 / 929 / 937 / 945 / 953). Hot-start enzyme: inactive during setup, activated by the 95 C step. Reaction table read directly from the pack insert (Version 15, Content Version December 2021). Activation: 95 C for about 4 min (range 2 to 6 min). Per-cycle denaturation: minimum 30 sec at 95 C. Annealing temperature is primer-dependent and is NOT specified by the insert; the 55 C / 30 sec shown here is an editable starting point (set about 5 C below the lower primer Tm). Extension at 72 C, 1 min/kb for fragments up to 3 kb; for fragments over 3 kb use 68 C. Cycle number is template-dependent (insert Results used 30 to 40 cycles). Final extension is conventional and not separately specified by the insert. Mg2+ optimal 1 to 4 mM (2 mM standard); titrate with Vial 4 if needed, or use the without-MgCl2 buffer (Vial 3). dNTP 100 to 500 uM each (200 uM standard); alternatively use 1 uL of 10 mM PCR Nucleotide Mix. Primers 0.2 to 0.5 uM (0.2 uM standard). Template 10 pg to 500 ng genomic, 10 pg to 100 ng plasmid or cDNA. For GC-rich or difficult templates add 10 uL GC-RICH solution (Vial 5) per 50 uL assay. For carryover prevention substitute 200 uM dTTP with 600 uM dUTP plus heat-labile Uracil-DNA Glycosylase. Source: Roche / Sigma-Aldrich FastStart Taq DNA Polymerase pack insert (ftaq-ro.pdf), transcribed directly from the PDF."
+  }
+}

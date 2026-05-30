@@ -1,0 +1,39 @@
+{
+  "slug": "powerup-sybr-green-qpcr",
+  "title": "PowerUp SYBR Green qPCR",
+  "description": "Applied Biosystems SYBR Green 20 uL qPCR: UDG + Dual-Lock activation, standard 2-step cycling, with a melt-curve (dissociation) stage.",
+  "category": "qPCR",
+  "method_type": "pcr",
+  "tags": ["qpcr", "sybr", "thermo-fisher", "applied-biosystems", "powerup", "melt-curve"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "UDG activation", "temperature": 50, "duration": "2 min" },
+        { "name": "Dual-Lock polymerase activation", "temperature": 95, "duration": "2 min" }
+      ],
+      "cycles": [
+        {
+          "repeats": 40,
+          "steps": [
+            { "name": "Denaturation", "temperature": 95, "duration": "15 sec" },
+            { "name": "Anneal/extend", "temperature": 60, "duration": "1 min" }
+          ]
+        }
+      ],
+      "final": [
+        { "name": "Melt curve step 1 (ramp 1.6 C/sec)", "temperature": 95, "duration": "15 sec" },
+        { "name": "Melt curve step 2 (ramp 1.6 C/sec)", "temperature": 60, "duration": "1 min" },
+        { "name": "Melt curve step 3 (ramp 0.15 C/sec)", "temperature": 95, "duration": "15 sec" }
+      ],
+      "hold": null
+    },
+    "ingredients": [
+      { "id": "1", "name": "PowerUp SYBR Green Master Mix", "concentration": "2X", "amount_per_reaction": "10" },
+      { "id": "2", "name": "Forward primer (300-800 nM final)", "concentration": "300-800 nM final", "amount_per_reaction": "variable" },
+      { "id": "3", "name": "Reverse primer (300-800 nM final)", "concentration": "300-800 nM final", "amount_per_reaction": "variable" },
+      { "id": "4", "name": "DNA template (1-10 ng cDNA or 10-100 ng gDNA)", "concentration": "-", "amount_per_reaction": "variable" },
+      { "id": "5", "name": "Nuclease-free water", "concentration": "-", "amount_per_reaction": "to 20" }
+    ],
+    "notes": "SYBR Green chemistry (intercalating dye), so include the melt-curve / dissociation stage above to verify amplicon specificity. Cycling shown is Standard mode (primer Tm >= 60 C); for Fast mode use 95 C for 1-3 sec denature and 60 C for 30 sec anneal/extend. Use Standard cycling for genomic DNA templates and on the 7900HT and 7500 instruments. Primers 300-800 nM each (final); 1-10 ng cDNA or 10-100 ng gDNA per reaction. For primer Tm < 60 C use a 3-step protocol (95 C 15 sec, anneal 55-60 C 15 sec, 72 C 1 min). Passive reference dye: ROX. Source: PowerUp SYBR Green Master Mix Quick Reference (MAN0028468), https://documents.thermofisher.com/TFS-Assets/LSG/manuals/MAN0028468-PowerUpSYBRGreenMM-QR.pdf"
+  }
+}

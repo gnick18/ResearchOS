@@ -19,7 +19,7 @@ export interface PlateRepairReport {
   details: Array<{ id: number; name: string; scope: "private" | "public"; fixes: string[] }>;
 }
 
-const VALID_SIZES: ReadonlyArray<PlateSize> = [12, 24, 48, 96];
+const VALID_SIZES: ReadonlyArray<PlateSize> = [12, 24, 48, 96, 384];
 const VALID_ROLES: ReadonlyArray<PlateWellRole> = [
   "blank",
   "sample",
@@ -82,6 +82,7 @@ function dimsForSize(size: PlateSize): { rows: number; cols: number } {
     case 24: return { rows: 4, cols: 6 };
     case 48: return { rows: 6, cols: 8 };
     case 96: return { rows: 8, cols: 12 };
+    case 384: return { rows: 16, cols: 24 };
   }
 }
 

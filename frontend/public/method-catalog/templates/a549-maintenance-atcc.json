@@ -1,0 +1,27 @@
+{
+  "slug": "a549-maintenance-atcc",
+  "title": "A549 maintenance (ATCC)",
+  "description": "Adherent A549 (ATCC CCL-185) in F-12K + 10% FBS, split 1:3 to 1:8, feed 2 to 3x per week. Source: ATCC https://www.atcc.org/products/ccl-185",
+  "category": "Cell culture",
+  "method_type": "cell_culture",
+  "tags": ["cell-culture", "a549", "atcc", "f-12k", "lung", "passaging", "maintenance"],
+  "payload": {
+    "description": "Routine maintenance of adherent A549 lung carcinoma cells per the ATCC CCL-185 product sheet. Complete growth medium: ATCC-formulated F-12K Medium (ATCC 30-2004) + 10% FBS. Subcultivation ratio 1:3 to 1:8; medium renewal 2 to 3 times per week; maintain between 6 x 10^3 and 6 x 10^4 cells/cm^2. Rinse with D-PBS, then dissociate with Trypsin-EDTA (ATCC 30-2101), 5 to 15 min. 37 C, 5% CO2. ECACC advises seeding at 2 to 4 x 10^4 cells/cm^2 and passaging sub-confluent (70 to 80%). Doubling time is not published, so it is omitted. Sources: ATCC https://www.atcc.org/products/ccl-185 ; ECACC https://www.culturecollections.org.uk/products/celllines/generalcell/detail.jsp?refId=86012804&collection=ecacc_gc",
+    "cell_line": {
+      "name": "A549",
+      "species": "Homo sapiens (human)",
+      "tissue": "Lung, carcinoma; epithelial, adherent",
+      "notes": "ATCC CCL-185. Grow at 37 C, 5% CO2. Serum is fetal bovine serum (ATCC 30-2020) at 10%. Source: https://www.atcc.org/products/ccl-185"
+    },
+    "media": {
+      "base_medium": "F-12K Medium (Kaighn's modification of Ham's F-12), ATCC 30-2004",
+      "serum_percent": 10,
+      "supplements": []
+    },
+    "planned_events": [
+      { "day_offset": 0, "event_type": "split", "split_ratio": "1:3 to 1:8", "notes": "Seed day. Rinse with D-PBS, add 2 to 3 mL Trypsin-EDTA (ATCC 30-2101), disperse 5 to 15 min, quench, count, and reseed (ECACC: 2 to 4 x 10^4 cells/cm^2)." },
+      { "day_offset": 2, "event_type": "feed", "notes": "Renew medium (ATCC: 2 to 3 times per week)." },
+      { "day_offset": 4, "event_type": "split", "split_ratio": "1:3 to 1:8", "notes": "Subculture sub-confluent. Maintain between 6 x 10^3 and 6 x 10^4 cells/cm^2." }
+    ]
+  }
+}

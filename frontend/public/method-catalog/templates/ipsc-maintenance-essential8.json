@@ -1,0 +1,31 @@
+{
+  "slug": "ipsc-maintenance-essential8",
+  "title": "Human iPSC maintenance (Gibco Essential 8)",
+  "description": "Feeder-free human iPSC/PSC in Gibco Essential 8 on vitronectin, daily feed, EDTA clump-passage every 4 to 5 days. Source: Gibco MAN0007035.",
+  "category": "Cell culture",
+  "method_type": "cell_culture",
+  "tags": ["cell-culture", "ipsc", "stem-cells", "essential-8", "gibco", "feeder-free", "pluripotent"],
+  "payload": {
+    "description": "Feeder-free maintenance of human pluripotent stem cells (iPSC or ESC) in Gibco Essential 8 Medium per the Gibco user guide (Pub. No. MAN0007035). Coat the vessel with Vitronectin (VTN-N, A14700) at 0.5 ug/cm^2 (dilute the 0.5 mg/mL stock 1:100 to 5 ug/mL in DPBS, incubate 1 h at room temperature, no rinse). Feed daily with complete Essential 8; the Essential 8 Flex variant allows up to 2 consecutive skipped feeding days. Passage as clumps with 0.5 mM EDTA in DPBS or Versene (5 to 8 min at room temperature, or 4 to 5 min at 37 C); do NOT use collagenase or dispase. Split when about 85% confluent, every 4 to 5 days, at a ratio of 1:3 to 1:12 (1:2 to 1:4 for early passages). Seed at 20,000 to 40,000 cells/cm^2. Add RevitaCell Supplement (A2644501) at 1X on thaw (first 18 to 24 h) and for single-cell passaging; it is not needed for routine clump passaging. 37 C, 5% CO2. Sources: Gibco user guide https://documents.thermofisher.com/TFS-Assets/LSG/manuals/feeder_free_PSCs_in_essential8_medium.pdf ; Essential 8 (A1517001) https://www.thermofisher.com/order/catalog/product/A1517001",
+    "cell_line": {
+      "name": "Human iPSC (pluripotent stem cell)",
+      "species": "Homo sapiens (human)",
+      "tissue": "Induced pluripotent stem cells; colony-forming, feeder-free on vitronectin",
+      "notes": "Maintain on Vitronectin (VTN-N, Gibco A14700) at 0.5 ug/cm^2. 37 C, 5% CO2. Passage as small clumps with 0.5 mM EDTA or Versene; do not routinely passage as single cells. Source: Gibco MAN0007035."
+    },
+    "media": {
+      "base_medium": "Essential 8 Medium (Gibco A1517001), feeder-free defined medium",
+      "serum_percent": 0,
+      "supplements": [
+        { "name": "RevitaCell Supplement (A2644501), on thaw and single-cell passage only", "concentration": "1", "units": "X" }
+      ]
+    },
+    "planned_events": [
+      { "day_offset": 0, "event_type": "split", "split_ratio": "1:3 to 1:12", "notes": "Passage day. Aspirate medium, add 0.5 mM EDTA in DPBS (or Versene), incubate 5 to 8 min at room temperature until colonies loosen, aspirate the EDTA, dislodge cells as small clumps in Essential 8, and seed onto a vitronectin-coated vessel at 20,000 to 40,000 cells/cm^2. Add RevitaCell at 1X only if plating single cells." },
+      { "day_offset": 1, "event_type": "feed", "notes": "Replace with fresh Essential 8. Daily feeding begins the day after passage." },
+      { "day_offset": 2, "event_type": "feed", "notes": "Daily Essential 8 feed (skip allowed on Essential 8 Flex)." },
+      { "day_offset": 3, "event_type": "feed", "notes": "Daily Essential 8 feed." },
+      { "day_offset": 4, "event_type": "split", "split_ratio": "1:3 to 1:12", "notes": "At about 85% confluence (every 4 to 5 days), repeat the EDTA clump passage." }
+    ]
+  }
+}

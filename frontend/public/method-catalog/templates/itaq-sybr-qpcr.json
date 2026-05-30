@@ -1,0 +1,36 @@
+{
+  "slug": "itaq-sybr-qpcr",
+  "title": "iTaq Universal SYBR Green qPCR",
+  "description": "Bio-Rad SYBR Green 20 uL qPCR with iTaq hot-start polymerase: activation, 40 cycles, and a 65-95 C melt curve.",
+  "category": "qPCR",
+  "method_type": "pcr",
+  "tags": ["qpcr", "sybr", "bio-rad", "itaq", "melt-curve"],
+  "payload": {
+    "gradient": {
+      "initial": [
+        { "name": "Polymerase activation / initial denaturation", "temperature": 95, "duration": "30 sec" }
+      ],
+      "cycles": [
+        {
+          "repeats": 40,
+          "steps": [
+            { "name": "Denaturation", "temperature": 95, "duration": "15 sec" },
+            { "name": "Anneal/extend + plate read", "temperature": 60, "duration": "30 sec" }
+          ]
+        }
+      ],
+      "final": [
+        { "name": "Melt curve: 65 to 95 C, 0.5 C increments", "temperature": 95, "duration": "2-5 sec/step" }
+      ],
+      "hold": null
+    },
+    "ingredients": [
+      { "id": "1", "name": "iTaq Universal SYBR Green Supermix", "concentration": "2X", "amount_per_reaction": "10" },
+      { "id": "2", "name": "Forward primer (300-500 nM final)", "concentration": "300-500 nM final", "amount_per_reaction": "variable" },
+      { "id": "3", "name": "Reverse primer (300-500 nM final)", "concentration": "300-500 nM final", "amount_per_reaction": "variable" },
+      { "id": "4", "name": "DNA template (cDNA 100 ng-100 fg; gDNA 50 ng-5 pg)", "concentration": "-", "amount_per_reaction": "variable" },
+      { "id": "5", "name": "Nuclease-free water", "concentration": "-", "amount_per_reaction": "to 20" }
+    ],
+    "notes": "SYBR Green chemistry; run the melt curve (65 to 95 C in 0.5 C increments, 2-5 sec/step) to confirm specificity. Polymerase activation 95 C 30 sec (20-30 sec for cDNA, 2-5 min for genomic DNA). Primers 300-500 nM each (final). On the Bio-Rad CFX the denature step can be as short as 2-5 sec; on standard-mode ABI or Roche cyclers use 95 C 15 sec and 60 C 60 sec. 35-40 cycles. Source: iTaq Universal SYBR Green Supermix product insert (Bio-Rad 10000068167), https://www.bio-rad.com/webroot/web/pdf/lsr/literature/10000068167.pdf"
+  }
+}

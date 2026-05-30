@@ -1,0 +1,17 @@
+{
+  "slug": "restriction-digest",
+  "title": "Restriction enzyme digest (single + double)",
+  "description": "Single and double restriction digests in 50 uL, with NEB unit and glycerol rules and Double Digest Finder buffer selection.",
+  "category": "Molecular biology",
+  "method_type": "markdown",
+  "tags": [
+    "restriction-digest",
+    "restriction-enzyme",
+    "cloning",
+    "neb",
+    "double-digest"
+  ],
+  "payload": {
+    "body": "## Purpose\n\nCut DNA at defined recognition sites with one or two restriction enzymes, for cloning, screening, or mapping.\n\n## Materials\n\n| Item | Amount (50 uL reaction) |\n| --- | --- |\n| DNA substrate (plasmid, genomic, or PCR product) | 1 ug |\n| 10X NEBuffer (rCutSmart or enzyme-specific) | 5 uL |\n| Restriction enzyme | 1 uL (10 units) |\n| Nuclease-free water | to 50 uL |\n\n## Single digest (50 uL)\n\n| Component | Amount |\n| --- | --- |\n| DNA | 1 ug |\n| 10X NEBuffer | 5 uL |\n| Enzyme | 1 uL (10 units) |\n| Nuclease-free water | to 50 uL |\n\n1. On ice, combine the DNA, 5 uL 10X NEBuffer, and water to about 43 uL. Add 1 uL (10 units) of enzyme last. Mix gently and spin down.\n2. Incubate at the enzyme's optimal temperature (commonly 37 C) for 1 h. Time-Saver qualified enzymes digest in 5-15 min.\n3. Heat-inactivate or column-purify if needed (per the enzyme's page, typically 65 C or 80 C for 20 min).\n\n## Double digest (two enzymes, one tube)\n\nBoth enzymes must share a compatible buffer and incubation temperature. Use the NEB Double Digest Finder to pick the buffer giving the highest combined activity.\n\n| Component | Amount |\n| --- | --- |\n| DNA | 1 ug |\n| 10X NEBuffer (compatible) | 5 uL |\n| Enzyme 1 | about 1 uL (10 units) |\n| Enzyme 2 | about 1 uL (10 units) |\n| Nuclease-free water | to 50 uL |\n\n1. Combine on ice as above with both enzymes, keeping total enzyme volume under 10% of the reaction.\n2. Incubate at the shared temperature for 1 h (5-15 min if both are Time-Saver qualified).\n3. If no buffer gives both enzymes over 50% activity, or they need different temperatures, run a sequential digest: enzyme 1, then heat-inactivate or purify, then add enzyme 2.\n\n## Expected result\n\nDNA cut to the predicted fragment sizes. Confirm on an agarose gel against an undigested control.\n\n## Notes and troubleshooting\n\n- Unit definition: 1 unit fully digests 1 ug of substrate in 50 uL in 60 min at 37 C.\n- Keep total enzyme volume under 10% of the reaction. Enzyme is supplied in 50% glycerol, and over 5% glycerol in the reaction can cause star activity. For 50 uL, cap enzyme at 5 uL.\n- Incomplete cutting: add more units, extend the time, or check for buffer and temperature mismatch.\n\n## Safety\n\nBSL-1. Standard molecular-biology reagents.\n\n## Source\n\nAdapted from the NEB restriction digest and double-digest protocols, the unit and glycerol guidance in Optimizing Restriction Endonuclease Reactions, and the NEB Double Digest Finder.\nhttps://www.neb.com/en-us/protocols/restriction-digest-protocol\nhttps://www.neb.com/en-us/protocols/double-digest-protocol-with-standard-restriction-enzymes\nhttps://www.neb.com/tools-and-resources/interactive-tools/double-digest-finder\n"
+  }
+}
