@@ -54,6 +54,7 @@ import CodingWorkflowEditor from "@/components/CodingWorkflowEditor";
 import QpcrAnalysisEditor from "@/components/QpcrAnalysisEditor";
 import { type MethodTypeId } from "@/lib/methods/method-type-registry";
 import { MethodTypeCategoryPicker } from "./MethodTypePicker";
+import { MethodTemplateLibraryModal } from "./MethodTemplateLibraryModal";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useEnabledMethodTypes } from "@/hooks/useEnabledMethodTypes";
 
@@ -95,21 +96,17 @@ export function CreateMethodModal({
   onCreated: (extendedCompound?: Method) => void;
 }) {
   const [uploadType, setUploadType] = useState<MethodTypeId>("markdown");
-  // Extension Store Phase U2: respect per-account method-type enablement in
-  // the picker. A disabled type shows muted with an inline "Enable" affordance
-  // (enable-a-disabled-type-on-use) rather than vanishing, so the user can opt
-  // back in without leaving the create flow.
+  // Extension Store Phase A (store-declutter bot): the builder shows ONLY
+  // method types the account has enabled in its library. Passing
+  // `enabledMethodTypes` without an `onEnableType` affordance makes the picker
+  // filter disabled types out entirely (no more muted "Enable" tiles cluttering
+  // the grid). Enabling a type now lives solely in the library, reachable from
+  // the quiet "Manage method types" footer link below the picker.
   const { currentUser } = useCurrentUser();
-  const { raw: enabledMethodTypes, setEnabled: setMethodTypeEnabled } =
-    useEnabledMethodTypes(currentUser);
-  const handleEnableType = useCallback(
-    (id: MethodTypeId) => {
-      void setMethodTypeEnabled(id, true);
-      // Select it immediately so enabling doubles as picking it.
-      setUploadType(id);
-    },
-    [setMethodTypeEnabled],
-  );
+  const { raw: enabledMethodTypes } = useEnabledMethodTypes(currentUser);
+  // Opens the method template library (the store) in place so the user can
+  // enable / disable types without leaving the create flow.
+  const [showLibrary, setShowLibrary] = useState(false);
   const [name, setName] = useState("");
   const [folder, setFolder] = useState(prefilledFolder || "");
   const [tags, setTags] = useState("");
@@ -769,8 +766,18 @@ export function CreateMethodModal({
               uploadType={uploadType}
               onSelect={setUploadType}
               enabledTypes={enabledMethodTypes}
-              onEnableType={handleEnableType}
             />
+            {/* Quiet path back to the store. With disabled types now hidden
+                from the picker (Phase A), enabling a type lives in the
+                library; this link opens it in place so the affordance stays
+                discoverable without cluttering the grid. */}
+            <button
+              type="button"
+              onClick={() => setShowLibrary(true)}
+              className="text-xs text-gray-400 hover:text-gray-600 underline underline-offset-2"
+            >
+              Manage method types in your library
+            </button>
 
             {/* Name */}
             <div>
@@ -1285,6 +1292,21 @@ export function CreateMethodModal({
         </div>
       </div>
       <FileRenamePopup />
+      {/* Method template library (the store), opened from the picker footer
+          link. Enabling / disabling types happens here. If the user uses a
+          template, a method is created, so we close the whole create flow and
+          let the parent refetch (onCreated with no arg = plain create, not the
+          extend-into-kit compound path). */}
+      {showLibrary && (
+        <MethodTemplateLibraryModal
+          existingFolders={existingFolders}
+          onClose={() => setShowLibrary(false)}
+          onUsed={() => {
+            setShowLibrary(false);
+            onCreated();
+          }}
+        />
+      )}
     </div>
   );
 }
