@@ -161,6 +161,12 @@ information-architecture section):
   off the `components` graph, render the bundled steps, and gate "Use template"
   until ALL component types are enabled.
 
+Unify the use-template post-action (interim inconsistency from Phase A): the
+standalone library on /methods opens the new method in the viewer, but the
+library opened from inside the New Method builder currently just closes the
+create flow and refetches. Phase D should make "Use template" behave the same
+from both entry points (open the created method in the viewer).
+
 After Phase D lands, run the standard 3-verifier loop (mechanics +
 spec-compliance + fresh-eyes) against this doc.
 
