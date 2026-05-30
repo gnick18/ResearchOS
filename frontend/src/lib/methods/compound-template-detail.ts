@@ -17,7 +17,7 @@
  *
  * NOTE on scope: shipping a compound entry in the static catalog would require
  * extending the catalog payload union in method-catalog.ts to accept a compound
- * entry — a DATA-SHAPE touch flagged in the brief, NOT done here. These helpers
+ * entry (a DATA-SHAPE touch flagged in the brief), NOT done here. These helpers
  * + the renderer cover the rendering path against a compound METHOD fixture so
  * the surface is ready when a compound catalog entry lands (aligned with the
  * unmerged lc-ms-method-templates branch shape).
