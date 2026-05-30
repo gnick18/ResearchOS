@@ -857,6 +857,10 @@ export default function BeakerBotBlowingBubblesScene({
                   pointerEvents: popping ? "none" : "auto",
                   cursor: popping ? "default" : "pointer",
                 }}
+                // Pop the instant the cursor runs over the bubble (no click
+                // needed). onClick is kept so a tap still pops on touch, where
+                // there is no hover.
+                onMouseEnter={() => popBubble(bubble.id)}
                 onClick={() => popBubble(bubble.id)}
               >
                 <g

@@ -626,6 +626,29 @@ export default function BeakerBotBugStompScene({
             height: 0,
           }}
         >
+          {/* A pale floor tile the bug sits ON. The bug + splat are dark
+              glyphs (neutral-800 / dark brown), so against the dark stage
+              they vanished (Grant: "too dark to see"). This light surface
+              under them, at the bug's ground position, gives the bug
+              something to sit on and makes the dark glyphs read clearly.
+              Rendered first so the bug + splat paint on top of it. */}
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              left: direction.bugX,
+              top: "16px",
+              transform: "translate(-50%, 0)",
+              width: "96px",
+              height: "30px",
+              borderRadius: "11px",
+              background: "linear-gradient(180deg, #ece5d4 0%, #c5bda5 100%)",
+              border: "1px solid #b1a88d",
+              boxShadow:
+                "0 7px 16px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.65)",
+            }}
+          />
+
           {/* Single bug — sits at `direction.bugX` (opposite side from
               BeakerBot's entry). Wiggles its legs in place from mount
               until the whack impact, then poofs into nothing. The
