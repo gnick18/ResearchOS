@@ -673,7 +673,9 @@
   display: flex;
   justify-content: space-around;
   padding: 6px 10px;
-  z-index: 4;
+  /* Above the valance (z5) so the bulb border crowns the top of the
+     window even mid-reveal (FIX 2, orchestrator manager). */
+  z-index: 6;
 }
 .bulb {
   width: 8px;
@@ -700,35 +702,51 @@
   height: 26px;
   background: linear-gradient(#e7c873, #b9923f);
   border-bottom: 2px solid #8a6a2c;
-  z-index: 3;
+  /* Above the reveal curtains (z3) so the gold valance always frames the
+     top of the window, even mid-reveal (FIX 2, orchestrator manager). */
+  z-index: 5;
 }
+/* FIX 2 reveal curtains (orchestrator manager): two plum panels covering
+   the window's scene area. They start below the gold valance (top: 26px,
+   matching the stage) so the valance still frames the top, sit ABOVE the
+   scene content (z3 > stage z2) so they cover it when closed, and BELOW
+   the valance (z5), bulb border, and placard caption. pointer-events:
+   none so they never intercept clicks (the picker is outside the frame).
+   Each panel covers slightly past center when CLOSED (54% wide, so the
+   two meet with a small overlap and no seam of scene shows through), then
+   translates fully off its own side when OPEN to pull apart and reveal. */
 .curtain {
   position: absolute;
-  top: 0;
+  top: 26px;
   bottom: 0;
-  width: 52%;
+  width: 54%;
   background: repeating-linear-gradient(
     90deg,
     #3a1d3d 0 14px,
     #4a2750 14px 28px
   );
   box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.5);
-  transition: transform 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  z-index: 5;
+  /* Snappy theatrical part: the open transition runs ~520ms; closing is
+     near-instant (the JS snaps data-closed=true, holds, then opens). */
+  transition: transform 520ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  z-index: 3;
+  pointer-events: none;
 }
+/* OPEN (default): pulled fully off-frame so the scene is revealed. */
 .curtainLeft {
   left: 0;
-  transform: translateX(0);
+  transform: translateX(-100%);
 }
 .curtainRight {
   right: 0;
+  transform: translateX(100%);
+}
+/* CLOSED: panels slide in to meet at center and cover the scene. */
+.curtainLeft[data-closed="true"] {
   transform: translateX(0);
 }
-.prosceniumActive .curtainLeft {
-  transform: translateX(-100%);
-}
-.prosceniumActive .curtainRight {
-  transform: translateX(100%);
+.curtainRight[data-closed="true"] {
+  transform: translateX(0);
 }
 .prosceniumStage {
   position: absolute;
@@ -1234,8 +1252,20 @@
     opacity: 1;
     transform: none;
   }
+  /* FIX 2 (orchestrator manager): under reduced motion the reveal
+     curtains rest OPEN (pulled off-frame) and never animate, so the
+     selected scene is always visible. The data-closed="true" closed
+     state is overridden back to the open transform here. */
   .curtain {
     transition: none;
+  }
+  .curtainLeft,
+  .curtainLeft[data-closed="true"] {
+    transform: translateX(-100%);
+  }
+  .curtainRight,
+  .curtainRight[data-closed="true"] {
+    transform: translateX(100%);
   }
   .progressShimmerFill {
     animation: none;

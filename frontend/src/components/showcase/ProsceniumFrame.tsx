@@ -40,6 +40,7 @@ export default function ProsceniumFrame({
   onReplay,
   wide = false,
   posterPose = "idle",
+  revealKey,
 }: {
   title: string;
   active: boolean;
@@ -55,6 +56,11 @@ export default function ProsceniumFrame({
   wide?: boolean;
   /** Resting poster pose shown faintly behind the closed curtain. */
   posterPose?: BeakerBotPose;
+  /** FIX 2 (orchestrator manager): a value that changes on every
+   *  scene-pick (the active act id). Each change plays a theatrical
+   *  curtain reveal in the window: the plum panels sweep CLOSED across
+   *  the scene, then PART to reveal the newly selected scene. */
+  revealKey?: string;
 }) {
   // Camera-flash flurry (Change 2). Bumps on activation (so a fresh flurry
   // pops as the curtain parts on a scene) and on click of the active frame
@@ -63,6 +69,30 @@ export default function ProsceniumFrame({
   useEffect(() => {
     if (active) setFlashBump((k) => k + 1);
   }, [active]);
+
+  // FIX 2 curtain reveal (orchestrator manager). On entering the Scenes
+  // view and on every scene-pick (revealKey change), the curtains close
+  // across the window then pull apart to reveal the freshly selected
+  // scene, so each pick feels like a theatrical scene-change. Snappy:
+  // close ~280ms, then open ~520ms (~800ms total). Under reduced motion
+  // the panels rest OPEN (the CSS @media block parks the transform), so
+  // the scene is always visible and this state just no-ops visually.
+  const [curtainsClosed, setCurtainsClosed] = useState(true);
+  useEffect(() => {
+    // Snap closed (instant), then on the next frame release to open so the
+    // CSS transition plays the part. requestAnimationFrame guarantees the
+    // browser paints the closed state before the open transition starts.
+    setCurtainsClosed(true);
+    let openTimer: ReturnType<typeof setTimeout> | undefined;
+    const raf = requestAnimationFrame(() => {
+      // Hold closed briefly so the sweep-shut reads, then part.
+      openTimer = setTimeout(() => setCurtainsClosed(false), 280);
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      if (openTimer) clearTimeout(openTimer);
+    };
+  }, [revealKey]);
 
   return (
     <figure
@@ -134,8 +164,24 @@ export default function ProsceniumFrame({
       </div>
       {/* Change 2 camera flashes: fire on activation + on click. */}
       <ProsceniumFlashes fireKey={flashBump} />
-      <div className={styles.curtain + " " + styles.curtainLeft} aria-hidden="true" />
-      <div className={styles.curtain + " " + styles.curtainRight} aria-hidden="true" />
+      {/* FIX 2 reveal curtains (orchestrator manager): two plum panels that
+          cover the window CLOSED then PULL APART to reveal the scene on
+          each pick. They sit above the scene content but BELOW the valance,
+          bulb border, and the placard caption (z below those), and are
+          pointer-events: none so they never block the picker (which lives
+          outside the frame anyway). data-closed drives the part. */}
+      <div
+        className={`${styles.curtain} ${styles.curtainLeft}`}
+        data-closed={curtainsClosed ? "true" : "false"}
+        data-testid="showcase-reveal-curtain-left"
+        aria-hidden="true"
+      />
+      <div
+        className={`${styles.curtain} ${styles.curtainRight}`}
+        data-closed={curtainsClosed ? "true" : "false"}
+        data-testid="showcase-reveal-curtain-right"
+        aria-hidden="true"
+      />
       <div className={styles.prosceniumFootlights} aria-hidden="true" />
       <figcaption className={styles.prosceniumPlacard}>
         {active ? "Now performing" : "Tap to replay"} &middot; {title}

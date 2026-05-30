@@ -296,6 +296,7 @@ export default function PerformanceHall() {
           stageRef={null}
           sceneViewportRef={setSceneViewport}
           wide={act.special === "skateboard"}
+          revealKey={activeId}
         >
           {sceneChrome}
         </ProsceniumFrame>

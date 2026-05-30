@@ -208,4 +208,49 @@ describe("PerformanceHall (picker model)", () => {
     const viewports = screen.getAllByTestId("showcase-scene-viewport");
     expect(viewports).toHaveLength(1);
   });
+
+  it("renders the two reveal curtains inside the window", () => {
+    render(<PerformanceHall />);
+    expect(
+      screen.getByTestId("showcase-reveal-curtain-left"),
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId("showcase-reveal-curtain-right"),
+    ).toBeTruthy();
+  });
+
+  it("plays a curtain reveal: closed on enter, then parts open", () => {
+    render(<PerformanceHall />);
+    const left = () => screen.getByTestId("showcase-reveal-curtain-left");
+    const right = () => screen.getByTestId("showcase-reveal-curtain-right");
+    // On enter the curtains start CLOSED (covering the scene).
+    expect(left().getAttribute("data-closed")).toBe("true");
+    expect(right().getAttribute("data-closed")).toBe("true");
+    // After the rAF + hold, the panels part to reveal the scene.
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    expect(left().getAttribute("data-closed")).toBe("false");
+    expect(right().getAttribute("data-closed")).toBe("false");
+  });
+
+  it("re-plays the reveal on each scene-pick (snap closed, then part)", () => {
+    render(<PerformanceHall />);
+    const left = () => screen.getByTestId("showcase-reveal-curtain-left");
+    // Open after the initial reveal settles.
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    expect(left().getAttribute("data-closed")).toBe("false");
+    // Pick a new act: curtains snap CLOSED again for the reveal.
+    act(() => {
+      fireEvent.click(screen.getByTestId("showcase-scene-pick-eureka"));
+    });
+    expect(left().getAttribute("data-closed")).toBe("true");
+    // Then part open again.
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    expect(left().getAttribute("data-closed")).toBe("false");
+  });
 });
