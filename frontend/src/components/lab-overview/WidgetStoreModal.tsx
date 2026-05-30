@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Tooltip from "@/components/Tooltip";
+import { StoreShell, type StoreCategory } from "@/components/store/StoreShell";
 import WidgetCard from "./WidgetCard";
 import { WIDGET_CATALOG } from "./widgets/registry";
 import {
@@ -10,40 +11,36 @@ import {
   type WidgetDefinition,
 } from "./widgets/types";
 import { useEnabledWidgets } from "@/hooks/useEnabledWidgets";
-import {
-  resolveEnabledWidgets,
-} from "@/lib/lab-overview/widget-enablement";
+import { resolveEnabledWidgets } from "@/lib/lab-overview/widget-enablement";
 import { buildRequestWidgetUrl } from "@/lib/lab-overview/request-widget";
 import type { AccountType } from "@/lib/settings/user-settings";
 
 /**
- * Widget store / library SHELL (Extension Store Phase U3, extension-store U3
- * bot, 2026-05-29).
+ * Widget store (Extension Store Phase B, store-shell bot, 2026-05-29).
  *
- * The widget companion to the U2 method library store
- * (`MethodTemplateLibraryModal`): mirror its modal shape (centered dialog,
- * intro copy, grouped grid, a request-a-new-one stub) so methods + widgets
- * feel like ONE store. The difference is the tile: this store renders the
- * rich `WidgetCard` (live `SnapshotTile` preview) so a PI browses widgets the
- * way they appear on the canvas, not as a flat checkbox list.
+ * Adopts the shared master/detail `StoreShell` so the widget store and the
+ * method library read as ONE marketplace. The widget-specific pieces stay
+ * here: the rich `WidgetCard` (live `SnapshotTile` preview), the Tool-family
+ * categories, and the enable/disable curation (unchanged from before, driven
+ * by `useEnabledWidgets`). The shell owns the wide three-column frame, the
+ * category rail, the detail pane, and the responsive collapse.
  *
- * Two curation axes, kept distinct (EXTENSION doc §3.5):
- *   - ENABLE / DISABLE (this store's switch): whether a widget is even OFFERED
- *     in this account's "+ Add widget" palette + store-default view. The new
- *     `enabledWidgets` curation layer. A DISABLED widget greys out here (the
- *     `WidgetCard` `disabled` prop) with an "Off" badge (`badgeSlot`) and its
- *     enable toggle; it is hidden from the palette entirely.
- *   - PIN / PLACE (the inline palette + drag): which enabled widgets are on
- *     the canvas, in what order. NOT this store's concern, the canvas owns it.
+ * Phase B is the FRAME only: the detail pane is a minimal placeholder (Phase D
+ * fills it with a large live preview + metadata), and the search box renders
+ * but does not filter yet (Phase C wires search across both stores).
+ *
+ * Two curation axes, kept distinct (EXTENSION doc): ENABLE / DISABLE (this
+ * store's switch, the `enabledWidgets` layer) vs PIN / PLACE (the canvas
+ * palette + drag, NOT this store's concern). A disabled widget greys out here
+ * with an "Off" badge and is hidden from the palette entirely.
  *
  * ACCOUNT-AWARE: the store lists exactly the widgets the viewer's account type
- * + surface gating already allow (`visibleCatalog` + `widgetHasSurface` on the
- * supplied `surfaceKey`). It NEVER widens visibility, a member never sees a
- * PI-only widget in the store, enabled or not.
- *
- * Extensions remain code shipped in the reviewed build; this shell is curation
- * + a request stub, never a code loader (EXTENSION doc §1.5).
+ * + surface gating already allow; it never widens visibility.
  */
+
+// Sentinel category id for the singletons bucket (mirrors groupByTool).
+const OTHER_CATEGORY_ID = "__other__";
+
 export function WidgetStoreModal({
   username,
   accountType,
@@ -63,7 +60,16 @@ export function WidgetStoreModal({
     () => resolveEnabledWidgets(enabledRaw),
     [enabledRaw],
   );
+
   const [requestText, setRequestText] = useState("");
+  const [search, setSearch] = useState("");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
+    null,
+  );
+  const [enabledOnly, setEnabledOnly] = useState(false);
+  const [selected, setSelected] = useState<WidgetDefinition | null>(null);
+
+  const curating = username !== null;
 
   // Account + surface gating, identical to the palette in SnapshotCanvas, so
   // the store never offers a widget the canvas would not.
@@ -77,128 +83,202 @@ export function WidgetStoreModal({
   // catch-all.
   const groups = useMemo(() => groupByTool(eligible), [eligible]);
 
-  // Close on Escape, matching the project's modal convention.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  const categories: StoreCategory[] = useMemo(
+    () =>
+      groups.map((g) => ({
+        id: g.toolId,
+        label: g.label,
+        count: g.widgets.length,
+      })),
+    [groups],
+  );
 
-  const curating = username !== null;
+  // Center-column items, filtered by the selected category + the "Enabled
+  // only" rail toggle. Search filtering is intentionally deferred to Phase C.
+  const items = useMemo(() => {
+    const base =
+      selectedCategoryId === null
+        ? eligible
+        : (groups.find((g) => g.toolId === selectedCategoryId)?.widgets ?? []);
+    return enabledOnly ? base.filter((w) => enabledSet.has(w.id)) : base;
+  }, [eligible, groups, selectedCategoryId, enabledOnly, enabledSet]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[85vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <div>
-            <h3 className="text-base font-semibold text-gray-900">
-              Widget store
-            </h3>
-            <p className="text-xs text-gray-400 mt-0.5">
-              Browse every widget for your dashboard and choose which ones to
-              keep in your Add widget palette.
-            </p>
+    <StoreShell<WidgetDefinition>
+      title="Widget store"
+      subtitle="Browse every widget for your dashboard and choose which ones to keep in your Add widget palette."
+      closeAriaLabel="Close widget store"
+      categories={categories}
+      allLabel="All widgets"
+      selectedCategoryId={selectedCategoryId}
+      onSelectCategory={setSelectedCategoryId}
+      searchSlot={<WidgetSearchInput value={search} onChange={setSearch} />}
+      enabledOnly={enabledOnly}
+      onToggleEnabledOnly={setEnabledOnly}
+      items={items}
+      getItemKey={(w) => w.id}
+      selectedItem={selected}
+      onSelectItem={setSelected}
+      detailEmptyHint="Select a widget to see details."
+      emptyState={
+        eligible.length === 0
+          ? "No widgets are available for your account on this surface."
+          : "No widgets match this filter."
+      }
+      renderCard={(widget, { selected: isSelected, onSelect }) => {
+        const on = enabledSet.has(widget.id);
+        return (
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={onSelect}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelect();
+              }
+            }}
+            className={`cursor-pointer rounded-xl transition-shadow ${
+              isSelected ? "ring-2 ring-blue-500 ring-offset-2" : ""
+            }`}
+          >
+            <WidgetCard
+              widget={widget}
+              // The store is a CURATION surface, not a placement one:
+              // "Add to canvas" is the palette's job. We repurpose the card's
+              // single affordance as the enable/disable toggle by driving
+              // `isMounted` from the enabled state and `onToggle` from the
+              // enablement setter. `disabled` greys a turned-off widget's
+              // preview footer; `badgeSlot` shows the On/Off pill.
+              isMounted={on}
+              disabled={!curating}
+              onToggle={() => {
+                if (!curating) return;
+                void setEnabled(widget.id, !on);
+              }}
+              badgeSlot={<EnablementBadge on={on} curating={curating} />}
+            />
           </div>
-          <Tooltip label="Close" placement="bottom">
-            <button
-              onClick={onClose}
-              aria-label="Close widget store"
-              className="text-gray-400 hover:text-gray-600 text-lg"
-            >
-              &times;
-            </button>
-          </Tooltip>
+        );
+      }}
+      renderDetail={(widget) => (
+        <WidgetDetailPlaceholder
+          widget={widget}
+          on={enabledSet.has(widget.id)}
+        />
+      )}
+      footerSlot={
+        <RequestWidgetStub value={requestText} onChange={setRequestText} />
+      }
+      onClose={onClose}
+    />
+  );
+}
+
+/** Search box for the rail. State is owned by the caller; filtering is wired
+ *  in Phase C, so for now this is a presentational slot. */
+function WidgetSearchInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-500 mb-1">
+        Search widgets
+      </label>
+      <input
+        type="search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Search by name or tool..."
+        aria-label="Search widgets"
+        className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+      />
+    </div>
+  );
+}
+
+/** Minimal Phase B detail placeholder. Phase D replaces this with a large
+ *  live preview, a "what it does" blurb, metadata, and the enable toggle. */
+function WidgetDetailPlaceholder({
+  widget,
+  on,
+}: {
+  widget: WidgetDefinition;
+  on: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-start justify-between gap-3">
+        <h4 className="text-base font-semibold text-gray-900">
+          {widget.title}
+        </h4>
+        <span
+          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+            on ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-600"
+          }`}
+        >
+          {on ? "On" : "Off"}
+        </span>
+      </div>
+      {widget.description && (
+        <p className="text-sm text-gray-600 leading-snug">
+          {widget.description}
+        </p>
+      )}
+      {widget.helpText && (
+        <p className="text-xs text-gray-500 leading-snug">{widget.helpText}</p>
+      )}
+      <p className="text-xs text-gray-400 border-t border-gray-100 pt-3">
+        A large live preview and full details arrive in the next update.
+      </p>
+    </div>
+  );
+}
+
+/** Request-a-new-widget stub (opens a prefilled GitHub issue). Lives in the
+ *  shell's footer slot. */
+function RequestWidgetStub({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div>
+      <h4 className="text-sm font-semibold text-gray-700 mb-1">
+        Need a widget that isn&apos;t here?
+      </h4>
+      <p className="text-xs text-gray-400 mb-3">
+        Widgets are built and reviewed on GitHub, then ship in an update.
+        Describe what you need and we&apos;ll open an issue for you.
+      </p>
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="flex-1 min-w-[220px]">
+          <label className="block text-xs font-medium text-gray-500 mb-1">
+            What widget do you want?
+          </label>
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="e.g. Freezer inventory low-stock alert"
+            aria-label="Describe the widget you want"
+            className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+          />
         </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-auto p-6">
-          <p className="text-sm text-gray-500 mb-4">
-            Turn off the widgets you never use to keep the Add widget palette
-            short. Turning a widget off only stops it being offered here and in
-            the palette; a widget already on your canvas keeps working until you
-            remove it.
-          </p>
-
-          {eligible.length === 0 ? (
-            <p className="text-sm text-gray-400 py-10 text-center">
-              No widgets are available for your account on this surface.
-            </p>
-          ) : (
-            groups.map((group) => (
-              <section key={group.toolId} className="mb-8 last:mb-0">
-                {groups.length > 1 && (
-                  <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                    {group.label}
-                  </h4>
-                )}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {group.widgets.map((widget) => {
-                    const on = enabledSet.has(widget.id);
-                    return (
-                      <WidgetCard
-                        key={widget.id}
-                        widget={widget}
-                        // The store is a CURATION surface, not a placement
-                        // one: "Add to canvas" is the palette's job. We
-                        // repurpose the card's single affordance as the
-                        // enable/disable toggle by driving `isMounted` from
-                        // the enabled state and `onToggle` from the enablement
-                        // setter. `disabled` greys a turned-off widget's
-                        // preview footer; `badgeSlot` shows the On/Off pill.
-                        isMounted={on}
-                        disabled={!curating}
-                        onToggle={() => {
-                          if (!curating) return;
-                          void setEnabled(widget.id, !on);
-                        }}
-                        badgeSlot={
-                          <EnablementBadge on={on} curating={curating} />
-                        }
-                      />
-                    );
-                  })}
-                </div>
-              </section>
-            ))
-          )}
-
-          {/* Request a new widget (STUB: opens a prefilled GitHub issue) */}
-          <section className="mt-8 border-t border-gray-100 pt-6">
-            <h4 className="text-sm font-semibold text-gray-700 mb-1">
-              Need a widget that isn&apos;t here?
-            </h4>
-            <p className="text-xs text-gray-400 mb-3">
-              Widgets are built and reviewed on GitHub, then ship in an update.
-              Describe what you need and we&apos;ll open an issue for you.
-            </p>
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="flex-1 min-w-[220px]">
-                <label className="block text-xs font-medium text-gray-500 mb-1">
-                  What widget do you want?
-                </label>
-                <input
-                  type="text"
-                  value={requestText}
-                  onChange={(e) => setRequestText(e.target.value)}
-                  placeholder="e.g. Freezer inventory low-stock alert"
-                  aria-label="Describe the widget you want"
-                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                />
-              </div>
-              <a
-                href={buildRequestWidgetUrl({ description: requestText })}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-1.5 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800"
-              >
-                Request a widget
-              </a>
-            </div>
-          </section>
-        </div>
+        <a
+          href={buildRequestWidgetUrl({ description: value })}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="px-3 py-1.5 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800"
+        >
+          Request a widget
+        </a>
       </div>
     </div>
   );
@@ -206,13 +286,7 @@ export function WidgetStoreModal({
 
 /** The On / Off curation pill rendered in the card's `badgeSlot`. Custom
  *  inline SVG dot, no emoji. */
-function EnablementBadge({
-  on,
-  curating,
-}: {
-  on: boolean;
-  curating: boolean;
-}) {
+function EnablementBadge({ on, curating }: { on: boolean; curating: boolean }) {
   return (
     <Tooltip
       label={
@@ -226,9 +300,7 @@ function EnablementBadge({
     >
       <span
         className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium shadow-sm ${
-          on
-            ? "bg-blue-600 text-white"
-            : "bg-gray-200 text-gray-600"
+          on ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-600"
         }`}
       >
         <svg
@@ -275,7 +347,7 @@ function groupByTool(catalog: WidgetDefinition[]): WidgetGroup[] {
   }
   if (singletons.length > 0) {
     multi.push({
-      toolId: "__other__",
+      toolId: OTHER_CATEGORY_ID,
       label: "Other widgets",
       widgets: singletons,
     });
