@@ -26,6 +26,10 @@ import FlagForReviewButton from "./lab-head/FlagForReviewButton";
 import FlagBanner from "./lab-head/FlagBanner";
 import SharingChips from "@/components/sharing/SharingChips";
 import { StampsRow } from "@/components/AttributionChip";
+import NoteVersionHistorySidebar, {
+  type VersionPreview,
+} from "@/components/history/NoteVersionHistorySidebar";
+import VersionDiffView from "@/components/history/VersionDiffView";
 
 interface NoteDetailPopupProps {
   note: Note;
@@ -58,7 +62,25 @@ export default function NoteDetailPopup({
     readOnly: propReadOnly,
     recordOwner: note.username ?? null,
   });
-  const readOnly = labHeadGate.effectiveReadOnly;
+  // Version-history viewer (VCP Phase 1, version-history viewer bot for HR,
+  // 2026-05-29). Opening the right-sidebar version list puts the document
+  // column into a READ-ONLY preview: `historyOpen` forces the editor read-only
+  // alongside the existing lab-head gate, and `versionPreview` carries the
+  // selected version's {before, after} diff into the document column. Closing
+  // the sidebar ("Exit history") clears both and returns to the live record.
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [versionPreview, setVersionPreview] = useState<VersionPreview | null>(
+    null,
+  );
+  // The history entry button, so closing the sidebar (Esc / Exit history)
+  // returns focus to the trigger per the accessibility contract.
+  const historyTriggerRef = useRef<HTMLButtonElement>(null);
+  const closeHistory = useCallback(() => {
+    setHistoryOpen(false);
+    setVersionPreview(null);
+    historyTriggerRef.current?.focus();
+  }, []);
+  const readOnly = labHeadGate.effectiveReadOnly || historyOpen;
   const notesApi = useMemo(
     () =>
       ownerScopedNotesApi({
@@ -365,20 +387,26 @@ export default function NoteDetailPopup({
     onClose();
   }, [note.id, note.username, onClose, notesApi, currentUser]);
 
-  // Handle escape key to close or exit fullscreen
+  // Handle escape key to close or exit fullscreen. Precedence (VCP Phase 1):
+  // when the version-history sidebar is open, Esc exits HISTORY first and
+  // returns to the live record, rather than closing the whole popup, so the
+  // sidebar's focus-trap Esc and this window handler agree on one action.
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (isExpanded) {
-          setIsExpanded(false);
-        } else {
-          handleClose();
-        }
+      if (e.key !== "Escape") return;
+      if (historyOpen) {
+        setHistoryOpen(false);
+        setVersionPreview(null);
+        historyTriggerRef.current?.focus();
+      } else if (isExpanded) {
+        setIsExpanded(false);
+      } else {
+        handleClose();
       }
     };
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
-  }, [isExpanded, handleClose]);
+  }, [isExpanded, handleClose, historyOpen]);
 
   // Save title
   const saveTitle = async () => {
@@ -927,6 +955,48 @@ export default function NoteDetailPopup({
                   </button>
                 </Tooltip>
               )}
+              {/* VCP Phase 1 (version-history viewer bot for HR,
+                  2026-05-29): version-history entry button. Shown to anyone
+                  with read access (the popup only opens on notes the viewer
+                  can read). Icon-only history glyph (clock + counter-arrow),
+                  inline SVG, wrapped in Tooltip per house rule. Toggles the
+                  right-sidebar version viewer; opening flips the document
+                  column to read-only preview. No data-tour-target here so it
+                  never collides with the v4 tour anchors. */}
+              <Tooltip label="Version history" placement="bottom">
+                <button
+                  ref={historyTriggerRef}
+                  onClick={() => {
+                    if (historyOpen) {
+                      closeHistory();
+                    } else {
+                      setHistoryOpen(true);
+                    }
+                  }}
+                  data-testid="note-history-button"
+                  aria-pressed={historyOpen}
+                  className={`p-2 rounded-lg transition-colors ${
+                    historyOpen
+                      ? "text-emerald-600 bg-emerald-50"
+                      : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                  }`}
+                >
+                  <svg
+                    className="w-5 h-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M3 3v5h5" />
+                    <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
+                    <path d="M12 7v5l3 2" />
+                  </svg>
+                </button>
+              </Tooltip>
               <Tooltip label={isExpanded ? "Exit fullscreen" : "Fullscreen"} placement="bottom">
                 <button
                   onClick={() => setIsExpanded(!isExpanded)}
@@ -1064,8 +1134,13 @@ export default function NoteDetailPopup({
           )}
         </div>
 
-        {/* Content area */}
-        <div className="flex-1 overflow-hidden flex flex-col">
+        {/* Content + version-history split. When the history sidebar is open
+            the document column (left) renders read-only and the version list
+            docks on the right (VCP Phase 1, version-history viewer bot for HR,
+            2026-05-29). */}
+        <div className="flex-1 overflow-hidden flex flex-row">
+        {/* Content area (document column) */}
+        <div className="flex-1 min-w-0 overflow-hidden flex flex-col">
           {/* Tabs for running logs */}
           {note.is_running_log && (
             <div className="border-b border-gray-200 px-4 py-2 flex-shrink-0">
@@ -1239,9 +1314,23 @@ export default function NoteDetailPopup({
             </div>
           )}
 
-          {/* Editor */}
+          {/* Editor (or, when the history sidebar is open with a selected
+              version, the in-place read-only diff for that version). */}
           <div className="flex-1 overflow-y-auto">
-            {note.is_running_log ? (
+            {historyOpen && versionPreview ? (
+              <div className="p-6" data-testid="note-version-diff-column">
+                <VersionDiffView
+                  before={versionPreview.before}
+                  after={versionPreview.after}
+                  editor={versionPreview.editor}
+                  editorLabel={versionPreview.editorLabel}
+                />
+              </div>
+            ) : historyOpen ? (
+              <div className="flex items-center justify-center h-full text-gray-400 text-sm p-6">
+                <p>Select a version to preview it here.</p>
+              </div>
+            ) : note.is_running_log ? (
               currentEntry ? (
                 <LiveMarkdownEditor
                   value={currentEntry.content}
@@ -1294,6 +1383,21 @@ export default function NoteDetailPopup({
               )
             )}
           </div>
+        </div>
+
+        {/* Version-history sidebar (docked right). Mounts only while open so
+            the history file read happens on demand. The owner folder is the
+            note's `username` (the history file lives under
+            users/<owner>/_history/notes/<id>.jsonl); fall back to the signed-in
+            user when a legacy note carries an empty username. */}
+        {historyOpen && (
+          <NoteVersionHistorySidebar
+            noteId={note.id}
+            owner={note.username || currentUser || ""}
+            onClose={closeHistory}
+            onPreviewChange={setVersionPreview}
+          />
+        )}
         </div>
 
         {/* Comments thread (#13): visible in both lab mode (readOnly=true)

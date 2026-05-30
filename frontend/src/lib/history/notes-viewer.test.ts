@@ -1,0 +1,338 @@
+// Version Control Phase 1: unit tests for the read-only viewer data-prep.
+//
+// notes-viewer.ts is the pure backbone of the version-history sidebar: it turns
+// engine HistoryRow[] + reconstructed canonical states into the grouped,
+// paginated, summarized view model the component renders. These tests pin the
+// projection, the one-line change summaries, the day -> session grouping, the
+// pagination cutover, and the folded-rows ("summarized") group.
+//
+// Deterministic: ids + timestamps are injected synthetic values, `now` is a
+// fixed Date, and we never assert on Date.now-derived relative strings here
+// (those are exercised in the component test against absolute output).
+
+import { describe, it, expect } from "vitest";
+import { canonicalize } from "./canonicalize";
+import type {
+  BoundarySnapshotRow,
+  DeltaRow,
+  GenesisRow,
+  HistoryRow,
+} from "./types";
+import {
+  buildVersionList,
+  dayKeyOf,
+  dayLabelOf,
+  projectNoteState,
+  sessionRangeLabel,
+  summarizeChange,
+  VERSION_PAGE_SIZE,
+} from "./notes-viewer";
+
+// A fixed "now" so day labels are deterministic.
+const NOW = new Date("2026-05-29T12:00:00.000Z");
+
+function note(fields: {
+  title?: string;
+  description?: string;
+  entries?: { title: string; content: string }[];
+}): string {
+  return canonicalize({
+    id: 7,
+    title: fields.title ?? "Untitled",
+    description: fields.description ?? "",
+    entries: (fields.entries ?? []).map((e, i) => ({
+      id: `e${i}`,
+      title: e.title,
+      date: "2026-05-29",
+      content: e.content,
+    })),
+  });
+}
+
+function genesis(): GenesisRow {
+  return {
+    id: "g0",
+    ts: "2026-05-27T08:00:00.000Z",
+    v: 1,
+    actor: "mira",
+    owner: "mira",
+    kind: "genesis",
+    post_hash: "h",
+  };
+}
+
+function delta(opts: {
+  id: string;
+  ts: string;
+  actor?: string;
+}): DeltaRow {
+  return {
+    id: opts.id,
+    ts: opts.ts,
+    v: 1,
+    actor: opts.actor ?? "mira",
+    owner: "mira",
+    kind: "update",
+    delta: "@@ stub @@",
+    post_hash: "h",
+  };
+}
+
+describe("projectNoteState", () => {
+  it("projects title, description and joined entry bodies", () => {
+    const state = note({
+      title: "PCR run",
+      description: "Tuesday batch",
+      entries: [
+        { title: "Setup", content: "mix master mix" },
+        { title: "Run", content: "cycle 35x" },
+      ],
+    });
+    const p = projectNoteState(state);
+    expect(p.title).toBe("PCR run");
+    expect(p.description).toBe("Tuesday batch");
+    expect(p.entries).toHaveLength(2);
+    expect(p.body).toBe("mix master mix\n\ncycle 35x");
+  });
+
+  it("degrades gracefully on empty / malformed input", () => {
+    expect(projectNoteState(null)).toEqual({
+      title: "",
+      description: "",
+      body: "",
+      entries: [],
+    });
+    expect(projectNoteState("not json")).toEqual({
+      title: "",
+      description: "",
+      body: "",
+      entries: [],
+    });
+  });
+});
+
+describe("summarizeChange", () => {
+  const base = projectNoteState(
+    note({ title: "T", description: "D", entries: [{ title: "Notes", content: "a" }] }),
+  );
+
+  it("reports 'created note' for the first version", () => {
+    expect(summarizeChange(null, base)).toBe("created note");
+  });
+
+  it("detects a title change", () => {
+    const after = projectNoteState(
+      note({ title: "T2", description: "D", entries: [{ title: "Notes", content: "a" }] }),
+    );
+    expect(summarizeChange(base, after)).toBe("changed title");
+  });
+
+  it("detects a description change", () => {
+    const after = projectNoteState(
+      note({ title: "T", description: "D2", entries: [{ title: "Notes", content: "a" }] }),
+    );
+    expect(summarizeChange(base, after)).toBe("changed description");
+  });
+
+  it("names the edited entry on a body change", () => {
+    const after = projectNoteState(
+      note({ title: "T", description: "D", entries: [{ title: "Notes", content: "a b c" }] }),
+    );
+    expect(summarizeChange(base, after)).toBe("edited Notes");
+  });
+
+  it("detects an added entry", () => {
+    const after = projectNoteState(
+      note({
+        title: "T",
+        description: "D",
+        entries: [
+          { title: "Notes", content: "a" },
+          { title: "Day 2", content: "x" },
+        ],
+      }),
+    );
+    expect(summarizeChange(base, after)).toBe("added entry");
+  });
+
+  it("detects a removed entry", () => {
+    const two = projectNoteState(
+      note({
+        title: "T",
+        description: "D",
+        entries: [
+          { title: "Notes", content: "a" },
+          { title: "Day 2", content: "x" },
+        ],
+      }),
+    );
+    const one = projectNoteState(
+      note({ title: "T", description: "D", entries: [{ title: "Notes", content: "a" }] }),
+    );
+    expect(summarizeChange(two, one)).toBe("removed entry");
+  });
+});
+
+describe("dayKeyOf / dayLabelOf", () => {
+  it("labels today, yesterday, and older days", () => {
+    expect(dayLabelOf("2026-05-29T09:00:00.000Z", NOW)).toBe("Today");
+    expect(dayLabelOf("2026-05-28T09:00:00.000Z", NOW)).toBe("Yesterday");
+    // Older day renders a month/day label, not Today/Yesterday.
+    const older = dayLabelOf("2026-05-20T09:00:00.000Z", NOW);
+    expect(older).not.toBe("Today");
+    expect(older).not.toBe("Yesterday");
+    expect(older.length).toBeGreaterThan(0);
+  });
+
+  it("derives a stable YYYY-MM-DD key", () => {
+    expect(dayKeyOf("2026-05-27T23:30:00.000Z")).toMatch(/^2026-05-2[78]$/);
+  });
+});
+
+describe("buildVersionList — grouping + HEAD", () => {
+  it("lists delta rows newest-first and marks the newest as HEAD", () => {
+    const rows: HistoryRow[] = [
+      genesis(),
+      delta({ id: "r1", ts: "2026-05-29T09:00:00.000Z" }),
+      delta({ id: "r2", ts: "2026-05-29T09:05:00.000Z" }),
+      delta({ id: "r3", ts: "2026-05-29T09:10:00.000Z" }),
+    ];
+    const model = buildVersionList(rows, NOW, {
+      r1: "created note",
+      r2: "edited notes",
+      r3: "changed title",
+    });
+    expect(model.totalVersions).toBe(3);
+    const flat = model.days.flatMap((d) => d.sessions.flatMap((s) => s.versions));
+    // Newest-first.
+    expect(flat.map((v) => v.rowId)).toEqual(["r3", "r2", "r1"]);
+    expect(flat[0].isHead).toBe(true);
+    expect(flat[1].isHead).toBe(false);
+    // versionIndex is the file index (so reconstructState can be called).
+    expect(flat[0].versionIndex).toBe(3);
+    expect(flat[2].versionIndex).toBe(1);
+  });
+
+  it("groups by day, newest day first", () => {
+    const rows: HistoryRow[] = [
+      genesis(),
+      delta({ id: "r1", ts: "2026-05-27T09:00:00.000Z" }),
+      delta({ id: "r2", ts: "2026-05-28T09:00:00.000Z" }),
+      delta({ id: "r3", ts: "2026-05-29T09:00:00.000Z" }),
+    ];
+    const model = buildVersionList(rows, NOW, {});
+    expect(model.days.map((d) => d.label)).toEqual([
+      "Today",
+      "Yesterday",
+      // the 27th renders an absolute label
+      model.days[2].label,
+    ]);
+    expect(model.days[2].label).not.toBe("Today");
+    expect(model.days[2].label).not.toBe("Yesterday");
+  });
+
+  it("collapses a contiguous same-editor run into one expandable session", () => {
+    const rows: HistoryRow[] = [genesis()];
+    for (let k = 1; k <= 5; k++) {
+      rows.push(
+        delta({
+          id: `r${k}`,
+          ts: `2026-05-29T09:0${k}:00.000Z`,
+          actor: "morgan",
+        }),
+      );
+    }
+    const model = buildVersionList(rows, NOW, {});
+    expect(model.days).toHaveLength(1);
+    const sessions = model.days[0].sessions;
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].collapsible).toBe(true);
+    expect(sessions[0].versions).toHaveLength(5);
+    expect(sessionRangeLabel(sessions[0], "Morgan")).toMatch(/^Morgan, .*, 5 versions$/);
+  });
+
+  it("splits a day into separate sessions when the editor changes", () => {
+    const rows: HistoryRow[] = [
+      genesis(),
+      delta({ id: "r1", ts: "2026-05-29T09:00:00.000Z", actor: "mira" }),
+      delta({ id: "r2", ts: "2026-05-29T09:05:00.000Z", actor: "morgan" }),
+      delta({ id: "r3", ts: "2026-05-29T09:10:00.000Z", actor: "morgan" }),
+    ];
+    const model = buildVersionList(rows, NOW, {});
+    const sessions = model.days[0].sessions;
+    // Newest-first: morgan run (r3,r2), then mira (r1).
+    expect(sessions).toHaveLength(2);
+    expect(sessions[0].actor).toBe("morgan");
+    expect(sessions[0].versions.map((v) => v.rowId)).toEqual(["r3", "r2"]);
+    expect(sessions[1].actor).toBe("mira");
+    expect(sessions[1].versions.map((v) => v.rowId)).toEqual(["r1"]);
+  });
+});
+
+describe("buildVersionList — pagination", () => {
+  it("shows the first PAGE_SIZE newest and flags hasMore", () => {
+    const rows: HistoryRow[] = [genesis()];
+    const total = VERSION_PAGE_SIZE + 10;
+    for (let k = 1; k <= total; k++) {
+      // Spread across one day so grouping does not change the count.
+      rows.push(delta({ id: `r${k}`, ts: `2026-05-29T00:00:${String(k).padStart(2, "0")}.000Z` }));
+    }
+    const page1 = buildVersionList(rows, NOW, {}, 1);
+    const shown1 = page1.days.flatMap((d) => d.sessions.flatMap((s) => s.versions));
+    expect(shown1).toHaveLength(VERSION_PAGE_SIZE);
+    expect(page1.hasMore).toBe(true);
+    expect(page1.totalVersions).toBe(total);
+    // Newest row is shown on page 1.
+    expect(shown1[0].rowId).toBe(`r${total}`);
+
+    const page2 = buildVersionList(rows, NOW, {}, 2);
+    const shown2 = page2.days.flatMap((d) => d.sessions.flatMap((s) => s.versions));
+    expect(shown2).toHaveLength(total);
+    expect(page2.hasMore).toBe(false);
+  });
+});
+
+describe("buildVersionList — folded-rows summary", () => {
+  function boundary(): BoundarySnapshotRow {
+    return {
+      id: "b0",
+      ts: "2026-05-20T08:00:00.000Z",
+      v: 1,
+      actor: "compaction",
+      owner: "mira",
+      kind: "boundary_snapshot",
+      state: note({ title: "old" }),
+      state_hash: "h",
+      compacted_row_count: 401,
+      compacted_range: {
+        from_id: "g0",
+        to_id: "r400",
+        from_ts: "2026-05-01T00:00:00.000Z",
+        to_ts: "2026-05-20T08:00:00.000Z",
+      },
+    };
+  }
+
+  it("surfaces a summarized group when a boundary snapshot is the anchor", () => {
+    const rows: HistoryRow[] = [
+      boundary(),
+      delta({ id: "r401", ts: "2026-05-29T09:00:00.000Z" }),
+    ];
+    const model = buildVersionList(rows, NOW, { r401: "edited notes" });
+    expect(model.summarized).not.toBeNull();
+    expect(model.summarized?.compactedRowCount).toBe(401);
+    // The boundary itself is NOT a selectable version row.
+    expect(model.totalVersions).toBe(1);
+    const flat = model.days.flatMap((d) => d.sessions.flatMap((s) => s.versions));
+    expect(flat.map((v) => v.rowId)).toEqual(["r401"]);
+  });
+
+  it("has no summarized group for an un-compacted file", () => {
+    const rows: HistoryRow[] = [
+      genesis(),
+      delta({ id: "r1", ts: "2026-05-29T09:00:00.000Z" }),
+    ];
+    const model = buildVersionList(rows, NOW, {});
+    expect(model.summarized).toBeNull();
+  });
+});

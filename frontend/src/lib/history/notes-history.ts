@@ -21,11 +21,17 @@ import type { HistoryEditKind } from "./types";
 /**
  * Master switch for the Phase 0 history engine on the Notes save path.
  *
- * DEFAULT: false. Cherry-picking Phase 0 onto main must NOT write any history
- * files. Phase 1 flips this (or replaces it with a persisted setting) to start
- * the Notes pilot.
+ * Phase 1 (Notes version-history viewer pilot, 2026-05-29): FLIPPED TO TRUE.
+ * Grant approved the pilot going live, so Note saves now write an append-only
+ * history row under users/<owner>/_history/notes/<id>.jsonl. This never mutates
+ * the live note: recordNoteHistory runs AFTER the live record is persisted and
+ * swallows any failure (PROPOSAL.md 3j), so the save path is unaffected. The
+ * read-only viewer (NoteVersionHistorySidebar) consumes these rows.
+ *
+ * Was DEFAULT false through Phase 0 so the on-disk v:1 row schema could be
+ * frozen before any user data was written against it. The schema is now frozen.
  */
-export const HISTORY_ENGINE_ENABLED = false;
+export const HISTORY_ENGINE_ENABLED = true;
 
 const NOTES_ENTITY_TYPE = "notes";
 
