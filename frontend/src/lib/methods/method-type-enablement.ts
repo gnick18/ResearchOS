@@ -30,8 +30,8 @@ import {
   type MethodTypeMeta,
 } from "./method-type-registry";
 import {
-  patchUserSettings,
   readUserSettings,
+  updateUserSettings,
   type UserSettings,
 } from "@/lib/settings/user-settings";
 
@@ -186,19 +186,24 @@ export async function readEnabledMethodTypes(
 
 /**
  * Persist a single type's enabled/disabled state for the user, returning the
- * updated settings. Reads the current value, computes the next array via
- * `toggleMethodTypeEnabled`, and patches settings.json.
+ * updated settings. Computes the next array via `toggleMethodTypeEnabled` from
+ * the LATEST persisted value and writes it back.
+ *
+ * The read-modify-write runs inside `updateUserSettings`, which serializes
+ * writes per user (enablement-race bot, 2026-05-30). Two toggles fired in the
+ * same tick therefore compose instead of clobber: the second reads the first's
+ * result, so both changes survive.
  */
 export async function setMethodTypeEnabled(
   username: string,
   id: MethodTypeId,
   enabled: boolean,
 ): Promise<UserSettings> {
-  const current = await readUserSettings(username);
-  const next = toggleMethodTypeEnabled(
-    id,
-    enabled,
-    current.enabledMethodTypes,
-  );
-  return patchUserSettings(username, { enabledMethodTypes: next });
+  return updateUserSettings(username, (current) => ({
+    enabledMethodTypes: toggleMethodTypeEnabled(
+      id,
+      enabled,
+      current.enabledMethodTypes,
+    ),
+  }));
 }

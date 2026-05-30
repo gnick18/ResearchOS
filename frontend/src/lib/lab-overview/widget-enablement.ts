@@ -36,8 +36,8 @@
 import { WIDGET_CATALOG, baseWidgetId } from "@/components/lab-overview/widgets/registry";
 import type { WidgetDefinition } from "@/components/lab-overview/widgets/types";
 import {
-  patchUserSettings,
   readUserSettings,
+  updateUserSettings,
   type UserSettings,
 } from "@/lib/settings/user-settings";
 
@@ -146,15 +146,20 @@ export async function readEnabledWidgets(
 
 /**
  * Persist a single widget's enabled/disabled state for the user, returning the
- * updated settings. Reads the current value, computes the next array via
- * `toggleWidgetEnabled`, and patches settings.json.
+ * updated settings. Computes the next array via `toggleWidgetEnabled` from the
+ * LATEST persisted value and writes it back.
+ *
+ * The read-modify-write runs inside `updateUserSettings`, which serializes
+ * writes per user (enablement-race bot, 2026-05-30). Two toggles fired in the
+ * same tick therefore compose instead of clobber: the second reads the first's
+ * result, so both changes survive.
  */
 export async function setWidgetEnabled(
   username: string,
   id: string,
   enabled: boolean,
 ): Promise<UserSettings> {
-  const current = await readUserSettings(username);
-  const next = toggleWidgetEnabled(id, enabled, current.enabledWidgets);
-  return patchUserSettings(username, { enabledWidgets: next });
+  return updateUserSettings(username, (current) => ({
+    enabledWidgets: toggleWidgetEnabled(id, enabled, current.enabledWidgets),
+  }));
 }

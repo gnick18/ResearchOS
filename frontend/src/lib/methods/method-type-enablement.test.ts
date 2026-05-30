@@ -177,3 +177,52 @@ describe("settings round-trip", () => {
     expect(miraSet.has("pcr")).toBe(true);
   });
 });
+
+// Regression: enablement writes are a read-modify-write. Before the per-user
+// write serialization (enablement-race bot, 2026-05-30), two toggles fired in
+// the same synchronous tick both read the same pre-update snapshot and the
+// second write clobbered the first (a lost update). These assert that
+// concurrent toggles COMPOSE: both changes must survive.
+describe("concurrent writes (lost-update race)", () => {
+  it("two disables fired in the same tick BOTH persist", async () => {
+    // Same-tick: kick off both without awaiting between them.
+    await Promise.all([
+      setMethodTypeEnabled("alex", "mass_spec", false),
+      setMethodTypeEnabled("alex", "pcr", false),
+    ]);
+    const set = await readEnabledMethodTypes("alex");
+    // Neither write may clobber the other.
+    expect(set.has("mass_spec")).toBe(false);
+    expect(set.has("pcr")).toBe(false);
+    // An untouched type is still enabled (the writes are surgical).
+    expect(set.has("markdown")).toBe(true);
+  });
+
+  it("a rapid enable + disable in the same tick persists BOTH", async () => {
+    // Seed disk: mass_spec already disabled so re-enabling it is a real change.
+    await setMethodTypeEnabled("alex", "mass_spec", false);
+
+    // A-on (mass_spec) + B-off (pcr), same tick.
+    await Promise.all([
+      setMethodTypeEnabled("alex", "mass_spec", true),
+      setMethodTypeEnabled("alex", "pcr", false),
+    ]);
+
+    const set = await readEnabledMethodTypes("alex");
+    expect(set.has("mass_spec")).toBe(true); // the enable survived
+    expect(set.has("pcr")).toBe(false); // the disable survived
+  });
+
+  it("a burst of toggles on distinct types all land", async () => {
+    const targets: Array<Parameters<typeof setMethodTypeEnabled>[1]> = [
+      "mass_spec",
+      "pcr",
+      "lc_gradient",
+    ];
+    await Promise.all(
+      targets.map((id) => setMethodTypeEnabled("alex", id, false)),
+    );
+    const set = await readEnabledMethodTypes("alex");
+    for (const id of targets) expect(set.has(id)).toBe(false);
+  });
+});

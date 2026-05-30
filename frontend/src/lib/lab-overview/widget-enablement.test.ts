@@ -187,3 +187,37 @@ describe("settings round-trip", () => {
     expect(miraSet.has("announcements")).toBe(true);
   });
 });
+
+// Regression: widget enablement writes are a read-modify-write. Before the
+// per-user write serialization (enablement-race bot, 2026-05-30), two toggles
+// fired in the same synchronous tick both read the same pre-update snapshot and
+// the second write clobbered the first (a lost update). These assert that
+// concurrent toggles COMPOSE: both changes must survive.
+describe("concurrent writes (lost-update race)", () => {
+  it("two disables fired in the same tick BOTH persist", async () => {
+    // Same-tick: kick off both without awaiting between them.
+    await Promise.all([
+      setWidgetEnabled("alex", "metrics", false),
+      setWidgetEnabled("alex", "announcements", false),
+    ]);
+    const set = await readEnabledWidgets("alex");
+    // Neither write may clobber the other.
+    expect(set.has("metrics")).toBe(false);
+    expect(set.has("announcements")).toBe(false);
+  });
+
+  it("a rapid enable + disable in the same tick persists BOTH", async () => {
+    // Seed disk: metrics already disabled so re-enabling it is a real change.
+    await setWidgetEnabled("alex", "metrics", false);
+
+    // A-on (metrics) + B-off (announcements), same tick.
+    await Promise.all([
+      setWidgetEnabled("alex", "metrics", true),
+      setWidgetEnabled("alex", "announcements", false),
+    ]);
+
+    const set = await readEnabledWidgets("alex");
+    expect(set.has("metrics")).toBe(true); // the enable survived
+    expect(set.has("announcements")).toBe(false); // the disable survived
+  });
+});
