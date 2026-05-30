@@ -91,16 +91,24 @@ overlay), not queued unless Grant asks.
 
 REMAINING: contract steps 4 + 5, REASSIGNED to the store session by Grant
 (2026-05-30).
-- STEP 4: QUEUED as lcms-kit-entries bot. 3 LC-MS compound (kit) combination
-  templates + manifest entries (pairings/orderings per the contract; titles use
-  "(kit)"). Prereqs verified: all 6 leaf templates exist on disk + in manifest;
-  no combo entries yet; no in-flight combo branch. Manifest-race precaution:
-  isolated worktree, append-only to manifest, prompt merge. The files coverage
-  test requires manifest title/category/method_type to match each template file.
-- STEP 5: HELD until step 4 merges (needs live compound entries). Then run the
-  3-verifier loop on the LIVE compound path: kit detail shows both component
-  badges, Use gates until lc_gradient AND mass_spec enabled, kit card shows
-  "View kit". Closes the arc.
+- STEP 4: DONE on main, by the CATALOG session (the contract's original owner).
+  3 LC-MS combo templates + manifest entries (88->91, append-only). Validated on
+  main: 158 tests green (files-coverage + compound + modal), 3 combo entries live.
+  PROCESS NOTE / DUPLICATE WORK: Grant reassigned step 4 to the store session, so
+  our lcms-kit-entries bot ALSO built it; when I went to merge, main already had
+  the 3 identical combo entries (catalog session landed them concurrently) ->
+  add/add conflict on all 3 files + manifest. I aborted the merge and DISCARDED
+  our bot's branch (worktree + branch pruned); the two independent versions were
+  identical (same slugs/titles/pairings/orderings), which cross-validates the
+  result. Lesson: should have confirmed with the catalog session BEFORE firing,
+  per Grant's earlier "confirm they aren't working on it" rule; "no in-flight
+  combo branch" at check time missed their in-progress work.
+- STEP 5: DISPATCHED (3 focused verifiers on the live compound path on main):
+  compound-verify-mechanics (full journey incl actual instantiation, the gap none
+  of the prior work exercised), compound-verify-spec (contract compliance),
+  compound-verify-fresh (new-user comprehension). Scoped to compound/kit only
+  since the surrounding store already passed its full loop. Loop until clean ->
+  arc fully closed.
 Once both land, the build is done; the contract's step-5 verifier loop runs on
 the live compound path after the catalog session adds step-4 entries.
 
