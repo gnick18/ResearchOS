@@ -33,6 +33,7 @@ import {
   type MethodLibrarySegment,
 } from "./method-library-filter";
 import {
+  CompoundTemplateDetailLoader,
   MethodTypeDetail,
   SingleTemplateDetail,
 } from "./MethodLibraryDetail";
@@ -315,6 +316,20 @@ export function MethodTemplateLibraryModal({
               (e) => (e.method_type as MethodTypeId) === item.module.id,
             )}
             onOpenTemplate={handleOpenTemplate}
+          />
+        ) : item.entry.method_type === "compound" ? (
+          // A compound (kit) bundles multiple component types; its detail reads
+          // the component types off the fetched payload and gates "Use" until
+          // ALL of them are enabled (not the single-type gate above). handleUse
+          // already dispatches on the fetched template's method_type.
+          <CompoundTemplateDetailLoader
+            entry={item.entry}
+            manifestEntries={entries ?? []}
+            enabledIds={enabledSet}
+            isUsing={usingSlug === item.entry.slug}
+            anyUsing={usingSlug !== null}
+            onUse={() => handleUse(item.entry)}
+            onEnableType={(typeId) => setEnabled(typeId, true)}
           />
         ) : (
           <SingleTemplateDetail

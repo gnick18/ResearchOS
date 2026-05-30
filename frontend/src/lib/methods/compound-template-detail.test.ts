@@ -1,11 +1,16 @@
 import { describe, it, expect } from "vitest";
 import {
   resolveCompoundComponents,
+  resolveCatalogCompoundComponents,
   distinctComponentTypes,
   missingComponentTypes,
 } from "./compound-template-detail";
 import type { Method } from "@/lib/types";
 import type { MethodTypeId } from "./method-type-registry";
+import type {
+  CompoundTemplateComponent,
+  MethodCatalogManifestEntry,
+} from "./method-catalog";
 
 /**
  * Compound (combination) template resolver tests (Extension Store Phase D).
@@ -79,6 +84,84 @@ describe("distinctComponentTypes", () => {
   it("dedupes and drops orphan (null) types, preserving first-seen order", () => {
     const resolved = resolveCompoundComponents(compound, [lcChild, msChild, compound]);
     expect(distinctComponentTypes(resolved)).toEqual(["lc_gradient", "mass_spec"]);
+  });
+});
+
+describe("resolveCatalogCompoundComponents", () => {
+  // A small in-test manifest standing in for the live catalog (no compound
+  // combination entries exist on main yet; the catalog session lands them in a
+  // follow-up). Slugs match the real LC-MS pairings from the contract.
+  function manifestEntry(
+    partial: Partial<MethodCatalogManifestEntry> & { slug: string },
+  ): MethodCatalogManifestEntry {
+    return {
+      title: partial.slug,
+      description: "",
+      category: "LC-MS",
+      method_type: "lc_gradient",
+      ...partial,
+    };
+  }
+
+  const lcEntry = manifestEntry({
+    slug: "lcms-peptide-rp-lc-thermo",
+    title: "Peptide RP LC (Thermo)",
+    method_type: "lc_gradient",
+  });
+  const msEntry = manifestEntry({
+    slug: "lcms-peptide-ms-thermo-orbitrap",
+    title: "Peptide MS (Orbitrap)",
+    method_type: "mass_spec",
+  });
+  const manifestBySlug = new Map<string, MethodCatalogManifestEntry>([
+    [lcEntry.slug, lcEntry],
+    [msEntry.slug, msEntry],
+  ]);
+
+  const components: CompoundTemplateComponent[] = [
+    { slug: "lcms-peptide-ms-thermo-orbitrap", ordering: 1, label: "MS setup" },
+    { slug: "lcms-peptide-rp-lc-thermo", ordering: 0 },
+  ];
+
+  it("resolves by slug in ordering order, mapping method_type off the manifest", () => {
+    const resolved = resolveCatalogCompoundComponents(components, manifestBySlug);
+    // Sorted by ordering: LC (0) then MS (1), regardless of input order.
+    expect(resolved.map((c) => c.ordering)).toEqual([0, 1]);
+    expect(resolved[0].method_type).toBe("lc_gradient");
+    expect(resolved[1].method_type).toBe("mass_spec");
+  });
+
+  it("uses synthetic method_id (= ordering) and empty owner", () => {
+    const resolved = resolveCatalogCompoundComponents(components, manifestBySlug);
+    expect(resolved[0].method_id).toBe(0);
+    expect(resolved[0].owner).toBe("");
+    expect(resolved[1].method_id).toBe(1);
+  });
+
+  it("falls back to the manifest title when no label override is set", () => {
+    const resolved = resolveCatalogCompoundComponents(components, manifestBySlug);
+    expect(resolved[0].label).toBe("Peptide RP LC (Thermo)"); // no override -> title
+    expect(resolved[1].label).toBe("MS setup"); // override wins
+  });
+
+  it("marks an unknown slug as an orphan (null type) with a slug fallback label", () => {
+    const orphan: CompoundTemplateComponent[] = [
+      { slug: "does-not-exist", ordering: 0 },
+    ];
+    const resolved = resolveCatalogCompoundComponents(orphan, manifestBySlug);
+    expect(resolved).toHaveLength(1);
+    expect(resolved[0].method_type).toBeNull();
+    expect(resolved[0].label).toBe("does-not-exist");
+  });
+
+  it("feeds distinct/missing helpers unchanged (the gating set)", () => {
+    const resolved = resolveCatalogCompoundComponents(components, manifestBySlug);
+    const types = distinctComponentTypes(resolved);
+    expect(types).toEqual(["lc_gradient", "mass_spec"]);
+    // lc enabled, ms disabled => still gated on mass_spec.
+    expect(
+      missingComponentTypes(types, new Set<MethodTypeId>(["lc_gradient"])),
+    ).toEqual(["mass_spec"]);
   });
 });
 

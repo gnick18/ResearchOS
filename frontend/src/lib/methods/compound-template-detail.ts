@@ -25,6 +25,10 @@
 
 import type { CompoundComponent, Method } from "@/lib/types";
 import type { MethodTypeId } from "@/lib/methods/method-type-registry";
+import type {
+  CompoundTemplateComponent,
+  MethodCatalogManifestEntry,
+} from "@/lib/methods/method-catalog";
 
 /** One resolved component of a compound, ready to render as a bundled step. */
 export interface ResolvedCompoundComponent {
@@ -110,4 +114,42 @@ export function missingComponentTypes(
   enabledIds: Set<MethodTypeId>,
 ): MethodTypeId[] {
   return componentTypes.filter((t) => !enabledIds.has(t));
+}
+
+/**
+ * Resolve a CATALOG compound template's `components` (each a `{slug, ordering,
+ * label?}` reference to another catalog template) into the same render-ready
+ * shape `resolveCompoundComponents` produces for a live compound Method, so the
+ * `CompoundTemplateDetail` renderer is fed identically whether it is showing a
+ * browsed catalog kit or an instantiated one.
+ *
+ * At browse time no method ids exist (the children have not been instantiated),
+ * so each component carries only its catalog slug. We look the child up in the
+ * manifest by slug to read its `method_type` (the gating set) and a display
+ * title. The `method_id` is SYNTHETIC: we use `ordering` purely so the
+ * renderer's `key` and step numbering stay stable; it is never persisted and
+ * never points at a real method. `owner` is empty for the same reason.
+ *
+ * Sorted by `ordering` (sample-flow order, e.g. LC -> MS) to match both the
+ * live resolver and the loader's instantiation order. An unknown slug (no
+ * manifest entry) resolves with `method_type: null` so the renderer surfaces it
+ * as a missing component rather than crashing, mirroring the orphan handling in
+ * `resolveCompoundComponents`.
+ */
+export function resolveCatalogCompoundComponents(
+  components: CompoundTemplateComponent[],
+  manifestBySlug: Map<string, MethodCatalogManifestEntry>,
+): ResolvedCompoundComponent[] {
+  return [...components]
+    .sort((a, b) => a.ordering - b.ordering)
+    .map((c) => {
+      const entry = manifestBySlug.get(c.slug);
+      return {
+        method_id: c.ordering,
+        owner: "",
+        ordering: c.ordering,
+        label: c.label ?? entry?.title ?? c.slug,
+        method_type: (entry?.method_type as MethodTypeId | undefined) ?? null,
+      };
+    });
 }

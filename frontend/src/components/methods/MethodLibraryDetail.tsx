@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
@@ -19,7 +19,11 @@ import {
   type MethodTypeMeta,
 } from "@/lib/methods/method-type-registry";
 import type { MethodModuleMeta } from "@/lib/methods/method-module";
-import { missingComponentTypes } from "@/lib/methods/compound-template-detail";
+import {
+  distinctComponentTypes,
+  missingComponentTypes,
+  resolveCatalogCompoundComponents,
+} from "@/lib/methods/compound-template-detail";
 import type { ResolvedCompoundComponent } from "@/lib/methods/compound-template-detail";
 import type {
   CellCultureMedia,
@@ -592,6 +596,120 @@ export function CompoundTemplateDetail({
   );
 }
 
+/**
+ * Lazy-loading wrapper that adapts a CATALOG compound (kit) entry to the
+ * `CompoundTemplateDetail` renderer. The manifest entry carries only metadata,
+ * so this fetches the full payload on selection (the same lazy pattern
+ * `SingleTemplateDetail` uses), resolves the `{slug, ordering, label?}`
+ * components against the manifest by slug into the render-ready shape, derives
+ * the distinct component types (the gating set), and hands them to the renderer.
+ *
+ * The renderer itself owns the all-types gate (it calls `missingComponentTypes`
+ * on `componentTypes` + `enabledIds`), so we deliberately render it ONLY once
+ * the payload is ready: an empty `componentTypes` while loading would read as
+ * "nothing missing" and prematurely unlock the action. Until then we show the
+ * title + a status line, mirroring the single-template loading state.
+ */
+export function CompoundTemplateDetailLoader({
+  entry,
+  manifestEntries,
+  enabledIds,
+  isUsing,
+  anyUsing,
+  onUse,
+  onEnableType,
+  fetchTemplate = fetchMethodCatalogTemplate,
+}: {
+  entry: MethodCatalogManifestEntry;
+  /** The full manifest list, used to resolve each child component by slug. */
+  manifestEntries: MethodCatalogManifestEntry[];
+  enabledIds: Set<MethodTypeId>;
+  isUsing: boolean;
+  anyUsing: boolean;
+  onUse: () => void;
+  onEnableType: (typeId: MethodTypeId) => void;
+  /** Swappable for tests; defaults to the real catalog loader. */
+  fetchTemplate?: (slug: string) => Promise<MethodCatalogTemplate>;
+}) {
+  const [template, setTemplate] = useState<MethodCatalogTemplate | null>(null);
+  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+
+  useEffect(() => {
+    let cancelled = false;
+    setState("loading");
+    setTemplate(null);
+    fetchTemplate(entry.slug)
+      .then((t) => {
+        if (cancelled) return;
+        setTemplate(t);
+        setState("ready");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setState("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [entry.slug, fetchTemplate]);
+
+  const manifestBySlug = useMemo(() => {
+    const map = new Map<string, MethodCatalogManifestEntry>();
+    for (const e of manifestEntries) map.set(e.slug, e);
+    return map;
+  }, [manifestEntries]);
+
+  const components = useMemo<ResolvedCompoundComponent[]>(() => {
+    if (!template || template.method_type !== "compound") return [];
+    return resolveCatalogCompoundComponents(
+      template.payload.components,
+      manifestBySlug,
+    );
+  }, [template, manifestBySlug]);
+
+  const componentTypes = useMemo(
+    () => distinctComponentTypes(components),
+    [components],
+  );
+
+  if (state !== "ready" || !template || template.method_type !== "compound") {
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="flex items-start justify-between gap-3">
+          <h4 className="text-base font-semibold text-gray-900">
+            {entry.title}
+          </h4>
+          <TypeBadge meta={getMethodTypeMeta("compound")} />
+        </div>
+        {entry.description && (
+          <p className="text-sm text-gray-700 leading-snug">
+            {entry.description}
+          </p>
+        )}
+        <p className="text-sm text-gray-400">
+          {state === "error"
+            ? "The kit details are unavailable right now. They need an internet connection. You can still use the kit."
+            : "Loading kit..."}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <CompoundTemplateDetail
+      title={entry.title}
+      description={template.payload.description ?? entry.description}
+      components={components}
+      componentTypes={componentTypes}
+      enabledIds={enabledIds}
+      isUsing={isUsing}
+      anyUsing={anyUsing}
+      onUse={onUse}
+      onEnableType={onEnableType}
+    />
+  );
+}
+
 // ── Read-only payload renderers ──────────────────────────────────────────────
 
 /** Render a fetched template payload read-only, switching on method_type. */
@@ -686,12 +804,12 @@ function StructuredPayloadView({
         </div>
       );
     case "compound":
-      // Compound (kit) templates are rendered by CompoundTemplateDetail via the
-      // modal's renderDetail branch (compound combinations contract step 3),
-      // not by this single-template payload switch. No live compound catalog
-      // entries exist until the catalog session lands the manifest entries, so
-      // this branch is unreachable today; it keeps the switch exhaustive after
-      // the loader added the "compound" union arm.
+      // A compound (kit) has no flat structured payload to preview here: its
+      // bundled steps are rendered by CompoundTemplateDetail, and the modal
+      // routes compound entries to CompoundTemplateDetailLoader, never to
+      // SingleTemplateDetail. This case is unreachable at runtime; it exists so
+      // the switch stays exhaustive over the (now compound-bearing) catalog
+      // template union.
       return null;
     default: {
       const _exhaustive: never = template;
