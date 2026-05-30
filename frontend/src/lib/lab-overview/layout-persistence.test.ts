@@ -629,18 +629,17 @@ describe("resolveHomeLayout + defaultHomeLayoutFor", () => {
     );
   });
 
-  it("default seed leads with Projects Overview, then upcoming-tasks, then today's-events", () => {
-    // Dashboard unification (dashboard-unification build, 2026-05-29):
-    // Projects Overview is now seeded at the TOP of every account type's
-    // default so the unified dashboard replaces the deleted hardcoded
-    // Home grid 1:1. The remaining order stays load-bearing for the
-    // §6.2b walkthrough — Upcoming tasks demonstrates a project-aware
-    // tile, Today's events a calendar-aware tile.
+  it("default seed leads with upcoming-tasks, then today's-events (no Projects Overview)", () => {
+    // New-account default-set change (dashboard-newproject-tour bot,
+    // 2026-05-29, FLAG): Projects Overview is no longer seeded by default;
+    // the top-level New Project button + auto Single Project widgets are the
+    // project surface. The remaining order stays load-bearing for the §6.2b
+    // walkthrough — Upcoming tasks demonstrates a project-aware tile, Today's
+    // events a calendar-aware tile.
     const def = defaultHomeLayoutFor("member");
-    expect(def.widgetOrder.canvas).toHaveLength(3);
-    expect(def.widgetOrder.canvas[0]).toBe("projects-overview");
-    expect(def.widgetOrder.canvas[1]).toBe("sidebar-upcoming");
-    expect(def.widgetOrder.canvas[2]).toBe("calendar-events-today");
+    expect(def.widgetOrder.canvas).toHaveLength(2);
+    expect(def.widgetOrder.canvas[0]).toBe("sidebar-upcoming");
+    expect(def.widgetOrder.canvas[1]).toBe("calendar-events-today");
   });
 
   it("the new default seed only applies to accounts WITHOUT a saved layout", () => {
@@ -888,6 +887,19 @@ const dashboardCatalog: WidgetDefinition[] = [
     surfaces: { canvas: true, home: true },
     memberVisible: true,
   },
+  {
+    // The auto Single Project widget's base catalog entry. Pinned instances
+    // carry a `#<owner>:<id>` suffix; eligibility is checked against this
+    // base id (dashboard-newproject-tour bot, 2026-05-29).
+    id: "single-project",
+    toolId: "single-project",
+    title: "Single project",
+    SnapshotTile: NullSnapshot,
+    SidebarTile: NullSidebar,
+    defaultLayout: { w: 4, h: 5 },
+    surfaces: { canvas: true, home: true },
+    memberVisible: true,
+  },
 ];
 
 describe("dashboard surface key", () => {
@@ -1004,13 +1016,17 @@ describe("seedDashboardLayout — one-time legacy migration", () => {
     expect(seeded.widgetOrder.canvas).toEqual(["announcements"]);
   });
 
-  it("falls back to the account default (with Projects Overview) when nothing exists", () => {
+  it("falls back to the account default (WITHOUT Projects Overview) when nothing exists", () => {
+    // New-account default-set change (dashboard-newproject-tour bot,
+    // 2026-05-29, FLAG): Projects Overview is no longer seeded by default;
+    // the top-level New Project button + auto Single Project widgets are the
+    // project surface. A brand-new account's default must NOT contain it.
     const seeded = seedDashboardLayout(undefined, undefined, undefined, "member");
-    expect(seeded.widgetOrder.canvas).toContain(PROJECTS_OVERVIEW_WIDGET_ID);
-    expect(defaultDashboardLayoutFor("member").widgetOrder.canvas[0]).toBe(
+    expect(seeded.widgetOrder.canvas).not.toContain(PROJECTS_OVERVIEW_WIDGET_ID);
+    expect(defaultDashboardLayoutFor("member").widgetOrder.canvas).not.toContain(
       PROJECTS_OVERVIEW_WIDGET_ID,
     );
-    expect(defaultDashboardLayoutFor("lab_head").widgetOrder.canvas[0]).toBe(
+    expect(defaultDashboardLayoutFor("lab_head").widgetOrder.canvas).not.toContain(
       PROJECTS_OVERVIEW_WIDGET_ID,
     );
   });
@@ -1091,5 +1107,79 @@ describe("resolveDashboardLayout — surface-aware normalization", () => {
       visibleCatalog(dashboardCatalog, "member", "home"),
     );
     expect(resolved.widgetOrder.canvas[0]).toBe(PROJECTS_OVERVIEW_WIDGET_ID);
+  });
+
+  it("keeps a pinned Single Project widget INSTANCE (instance-id eligibility)", () => {
+    // Auto Single Project widget (dashboard-newproject-tour bot, 2026-05-29):
+    // pinned instances carry a `#<owner>:<id>` suffix. Eligibility is checked
+    // against the BASE `single-project` id, so the instance must survive
+    // normalization, AND its widgetConfig pin (keyed by the full instance id)
+    // must be preserved.
+    const dashboard: LabOverviewLayout = {
+      version: 2,
+      widgetOrder: {
+        canvas: ["calendar-events-today", "single-project#mira:7"],
+        sidebar: [],
+      },
+      widgetConfig: {
+        "single-project#mira:7": { pinnedProject: { id: 7, owner: "mira" } },
+      },
+    };
+    const resolved = resolveDashboardLayout(
+      dashboard,
+      undefined,
+      undefined,
+      "member",
+      visibleCatalog(dashboardCatalog, "member", "home"),
+    );
+    expect(resolved.widgetOrder.canvas).toContain("single-project#mira:7");
+    expect(resolved.widgetConfig?.["single-project#mira:7"]).toEqual({
+      pinnedProject: { id: 7, owner: "mira" },
+    });
+  });
+
+  it("drops a pinned instance whose BASE id is not catalog-eligible", () => {
+    // Defensive: an instance suffix never smuggles an unknown base widget
+    // past the eligibility filter.
+    const dashboard: LabOverviewLayout = {
+      version: 2,
+      widgetOrder: {
+        canvas: ["calendar-events-today", "made-up-widget#mira:7"],
+        sidebar: [],
+      },
+    };
+    const resolved = resolveDashboardLayout(
+      dashboard,
+      undefined,
+      undefined,
+      "member",
+      visibleCatalog(dashboardCatalog, "member", "home"),
+    );
+    expect(resolved.widgetOrder.canvas).not.toContain("made-up-widget#mira:7");
+  });
+});
+
+describe("new-account default set — Projects Overview OFF by default (FLAG)", () => {
+  // New-account default-set change (dashboard-newproject-tour bot,
+  // 2026-05-29): the multi-project Projects Overview widget is removed from
+  // every account-type default. Existing accounts are untouched (their saved
+  // layout / the migration injection above is unchanged).
+  it("the member dashboard default omits Projects Overview", () => {
+    expect(defaultDashboardLayoutFor("member").widgetOrder.canvas).not.toContain(
+      PROJECTS_OVERVIEW_WIDGET_ID,
+    );
+  });
+  it("the lab_head dashboard default omits Projects Overview", () => {
+    expect(
+      defaultDashboardLayoutFor("lab_head").widgetOrder.canvas,
+    ).not.toContain(PROJECTS_OVERVIEW_WIDGET_ID);
+  });
+  it("the home defaults (legacy seed path) also omit Projects Overview", () => {
+    expect(defaultHomeLayoutFor("member").widgetOrder.canvas).not.toContain(
+      PROJECTS_OVERVIEW_WIDGET_ID,
+    );
+    expect(defaultHomeLayoutFor("lab_head").widgetOrder.canvas).not.toContain(
+      PROJECTS_OVERVIEW_WIDGET_ID,
+    );
   });
 });

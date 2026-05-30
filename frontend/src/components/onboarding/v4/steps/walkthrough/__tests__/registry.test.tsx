@@ -14,9 +14,9 @@ const P5_STEP_IDS = [
   // workbench-page-intro / workbench-create-experiment) were retired
   // per Grant's 2026-05-27 script rewrite. 7 new skeleton ids land in
   // their place; Wave 2 fills speech / cursor scripts.
-  // Dashboard unification follow-up (dashboard-tour-fix bot 2026-05-29): new
-  // OPEN-WIDGET beat leading the §6.1 cluster.
-  "home-open-projects-widget",
+  // Top-level New Project rework (dashboard-newproject-tour bot, 2026-05-29):
+  // the §6.1 OPEN-WIDGET beat (`home-open-projects-widget`) is retired now
+  // that the create affordance is a persistent top-level toolbar button.
   "home-create-project",
   "home-create-project-fill",
   "project-overview-nav",

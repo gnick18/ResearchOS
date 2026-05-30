@@ -118,10 +118,10 @@ function placeholderStep(id: TourStepId): TourStep {
 // surrounding step's speech, so the standalone intros are redundant.
 // `settings-page-intro` is replaced by `settings-intro` (different id,
 // different position) and lives below alongside other Wave 1 skeletons.
-// Dashboard unification follow-up (dashboard-tour-fix bot 2026-05-29): new
-// §6.1 OPEN-WIDGET beat that clicks the Projects Overview tile so its New
-// Project flow (the moved §6.1 anchors) is on screen before the create beats.
-import { homeOpenProjectsWidgetStep } from "./steps/walkthrough/HomeOpenProjectsWidgetStep";
+// Top-level New Project rework (dashboard-newproject-tour bot, 2026-05-29):
+// the §6.1 cluster now opens on the TRIGGER beat directly (the create
+// affordance is a persistent top-level toolbar button). The prior OPEN-WIDGET
+// beat import (`homeOpenProjectsWidgetStep`) is removed with that retired step.
 import { homeCreateProjectStep } from "./steps/walkthrough/HomeCreateProjectStep";
 import { homeCreateProjectFillStep } from "./steps/walkthrough/HomeCreateProjectFillStep";
 import { projectOverviewNavStep } from "./steps/walkthrough/ProjectOverviewNavStep";
@@ -350,10 +350,11 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   // Their framing is folded into surrounding step speech in Grant's new
   // script. `settings-intro` is the renamed replacement for the settings
   // beat and lives in its new position lower in this map.
-  // Dashboard unification follow-up (dashboard-tour-fix bot 2026-05-29): the
-  // OPEN-WIDGET beat leads the §6.1 cluster so the Projects Overview popup
-  // (carrying the moved New Project anchors) is open before the create beats.
-  [homeOpenProjectsWidgetStep.id]: homeOpenProjectsWidgetStep,
+  // Top-level New Project rework (dashboard-newproject-tour bot, 2026-05-29):
+  // the §6.1 cluster opens directly on the TRIGGER beat (spotlight the
+  // top-level "+ New Project" toolbar button). The prior OPEN-WIDGET beat
+  // (`home-open-projects-widget`) is retired now that the create affordance
+  // is a persistent toolbar button, not a widget popup.
   [homeCreateProjectStep.id]: homeCreateProjectStep,
   [homeCreateProjectFillStep.id]: homeCreateProjectFillStep,
   [projectOverviewNavStep.id]: projectOverviewNavStep,

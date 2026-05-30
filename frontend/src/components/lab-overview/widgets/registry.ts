@@ -669,7 +669,48 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
   },
 ];
 
-/** Look up a widget definition by id. Returns undefined for unknown ids. */
+/**
+ * Widget INSTANCE ids (dashboard-newproject-tour bot, 2026-05-29).
+ *
+ * Most widgets are singletons: the layout's `widgetOrder.canvas` carries the
+ * bare catalog id (`"projects-overview"`) and the per-instance `widgetConfig`
+ * map is keyed by that same id, so a surface holds at most one instance per
+ * catalog id. The auto-created Single Project widgets break that assumption:
+ * every project creation appends ITS OWN Single Project widget, pinned to that
+ * project, so a dashboard can hold many `single-project` instances at once.
+ *
+ * To keep those instances distinct without a layout-shape rewrite, an instance
+ * id is the base catalog id plus a per-instance suffix after `INSTANCE_SEP`:
+ *
+ *     single-project#<owner>:<projectId>
+ *
+ * `baseWidgetId(id)` strips the suffix so every catalog lookup / eligibility
+ * check resolves to the base definition; the FULL instance id is what the
+ * order list + `widgetConfig` key on, so each pinned instance keeps its own
+ * `pinnedProject`. A bare `single-project` (no suffix, added from the palette)
+ * stays a valid singleton instance alongside the pinned ones.
+ */
+export const WIDGET_INSTANCE_SEP = "#";
+
+/** Strip any `#…` instance suffix, returning the base catalog id. Bare ids
+ *  (no separator) pass through unchanged. */
+export function baseWidgetId(id: string): string {
+  const i = id.indexOf(WIDGET_INSTANCE_SEP);
+  return i === -1 ? id : id.slice(0, i);
+}
+
+/** Build the deterministic instance id for a project-pinned Single Project
+ *  widget. Deterministic so the auto-create de-dup can test membership by
+ *  exact id (a project that already has its widget is never added twice). */
+export function singleProjectInstanceId(owner: string, projectId: number): string {
+  return `single-project${WIDGET_INSTANCE_SEP}${owner}:${projectId}`;
+}
+
+/** Look up a widget definition by id. Tolerant of instance ids: strips any
+ *  `#…` instance suffix before matching, so `single-project#alex:5` resolves
+ *  to the base `single-project` definition. Returns undefined for unknown
+ *  ids. */
 export function getWidget(id: string): WidgetDefinition | undefined {
-  return WIDGET_CATALOG.find((w) => w.id === id);
+  const base = baseWidgetId(id);
+  return WIDGET_CATALOG.find((w) => w.id === base);
 }

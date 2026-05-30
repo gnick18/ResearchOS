@@ -499,6 +499,18 @@ export function SnapshotTile(props: SnapshotTileProps) {
         downAt.current = { x: e.clientX, y: e.clientY };
       }}
       onClick={onBodyClick}
+      // §6.1 tour anchor (dashboard-newproject-tour bot, 2026-05-29): when the
+      // tile is pinned, the auto-created Single Project widget for the tour's
+      // freshly made project carries a stable per-project tour target on the
+      // navigable tile body. The `project-overview-nav` beat re-resolves
+      // `[data-tour-target^='home-single-project-open-']` at playback and
+      // clicks it; this element's onClick navigates straight to the project
+      // page (matching Grant's "click the widget, land on the project" model).
+      // Stamped only when pinned so the unpinned/empty tile (which opens the
+      // pin picker, not a project) never matches the nav selector.
+      data-tour-target={
+        pinned ? `home-single-project-open-${pinned.owner}-${pinned.id}` : undefined
+      }
     >
       <div className="flex items-center gap-1.5 text-gray-500">
         <span

@@ -38,11 +38,6 @@ vi.mock("../../../TourController", () => ({
   // behavior outside a provider (the body short-circuits the lock).
   useOptionalTourController: () => null,
 }));
-import {
-  homeOpenProjectsWidgetStep,
-  HOME_OPEN_PROJECTS_WIDGET_TILE_SELECTOR,
-  HOME_OPEN_PROJECTS_WIDGET_MY_SCOPE_SELECTOR,
-} from "../HomeOpenProjectsWidgetStep";
 import { homeCreateProjectStep } from "../HomeCreateProjectStep";
 import { homeCreateProjectFillStep } from "../HomeCreateProjectFillStep";
 import { projectOverviewNavStep } from "../ProjectOverviewNavStep";
@@ -201,9 +196,9 @@ function hasEmDash(text: string): boolean {
 }
 
 const ALL_STEPS: ReadonlyArray<TourStep> = [
-  // Dashboard unification follow-up (dashboard-tour-fix bot 2026-05-29): the
-  // OPEN-WIDGET beat leads the §6.1 cluster.
-  homeOpenProjectsWidgetStep,
+  // Top-level New Project rework (dashboard-newproject-tour bot, 2026-05-29):
+  // the §6.1 cluster opens on the TRIGGER beat (the prior OPEN-WIDGET beat is
+  // retired now that the create affordance is a persistent toolbar button).
   homeCreateProjectStep,
   homeCreateProjectFillStep,
   projectOverviewNavStep,
@@ -315,8 +310,8 @@ describe("P5 step bodies — universal contract", () => {
 
   it("every step body has a stable id matching its file's named export", () => {
     const expectedIds = new Set([
-      // Dashboard unification follow-up (dashboard-tour-fix bot 2026-05-29).
-      "home-open-projects-widget",
+      // Top-level New Project rework (dashboard-newproject-tour bot,
+      // 2026-05-29): `home-open-projects-widget` retired.
       "home-create-project",
       "home-create-project-fill",
       "project-overview-nav",
@@ -473,11 +468,10 @@ describe("P5 step bodies — universal contract", () => {
     // beat actually plays. This is the symmetric guard for the
     // user-action steps that explicitly drop cursorScript.
     const DEMO_STEPS_WITH_CURSOR_SCRIPT = [
-      // Dashboard unification follow-up (dashboard-tour-fix bot 2026-05-29):
-      // the OPEN-WIDGET beat's cursor clicks the Projects Overview tile to
-      // open its popup. BeakerBot-led demo, so it retains a cursorScript and
-      // uses manual completion (universal pacing rule).
-      homeOpenProjectsWidgetStep,
+      // Top-level New Project rework (dashboard-newproject-tour bot,
+      // 2026-05-29): the §6.2 NAV beat's cursor clicks the auto-created Single
+      // Project widget tile to navigate. BeakerBot-led demo, so it retains a
+      // cursorScript and uses manual completion (universal pacing rule).
       projectOverviewNavStep,
       // Wave 2A speech rewrite (v4 tour speech manager — A, 2026-05-27):
       // the BEAKERBOT_DEMO typing portion split off project-overview-prose
@@ -584,73 +578,25 @@ describe("P5 step bodies — universal contract", () => {
   });
 });
 
-describe("HomeOpenProjectsWidgetStep (§6.1 open-widget, dashboard-tour-fix 2026-05-29)", () => {
-  it("declares the canonical id", () => {
-    expect(homeOpenProjectsWidgetStep.id).toBe("home-open-projects-widget");
-  });
-  it("spotlights + clicks the Projects Overview widget tile", () => {
-    // The Projects Overview widget is seeded at the top of the unified
-    // dashboard for every account type, so the tile is on canvas when §6.1
-    // fires. Clicking it opens the SnapshotTilePopup that carries the moved
-    // New Project anchors.
-    expect(homeOpenProjectsWidgetStep.targetSelector).toBe(
-      HOME_OPEN_PROJECTS_WIDGET_TILE_SELECTOR,
-    );
-    expect(HOME_OPEN_PROJECTS_WIDGET_TILE_SELECTOR).toBe(
-      "[data-tour-target='home-widget-tile-projects-overview']",
-    );
-  });
-  it("has a cursorScript (BeakerBot demo: click to open the widget)", () => {
-    expect(typeof homeOpenProjectsWidgetStep.cursorScript).toBe("function");
-  });
-  it("uses manual completion (universal pacing rule)", () => {
-    expect(homeOpenProjectsWidgetStep.completion.type).toBe("manual");
-  });
-  it("the my-scope selector targets the projects-overview scope toggle", () => {
-    // PI scope fix: the toggle flips a lab_head's popup from lab to my scope
-    // so the New Project button (gated to my scope) is on screen.
-    expect(HOME_OPEN_PROJECTS_WIDGET_MY_SCOPE_SELECTOR).toBe(
-      "[data-testid='projects-overview-scope-my']",
-    );
-  });
-  it("the cursor script clicks the tile then flips to my scope (no close click)", async () => {
-    // Render a fake Projects Overview tile so the build-time safeClickAction
-    // resolves. The script must produce: a click on the tile, plus a deferred
-    // (callback) action that flips to my scope. No close click (the popup
-    // must stay open for the create beats that follow).
-    document.body.innerHTML =
-      "<button data-tour-target='home-widget-tile-projects-overview'>Projects</button>";
-    const actions = await homeOpenProjectsWidgetStep.cursorScript!();
-    const clicks = actions.filter((a) => a.type === "click");
-    expect(clicks.length).toBeGreaterThanOrEqual(1);
-    // The deferred my-scope flip + the settle pause are both callback actions.
-    const callbacks = actions.filter((a) => a.type === "callback");
-    expect(callbacks.length).toBeGreaterThanOrEqual(2);
-    document.body.innerHTML = "";
-  });
-  it("expectedRoute is '/' (the cluster lives on the dashboard)", () => {
-    expect(homeOpenProjectsWidgetStep.expectedRoute).toBe("/");
-  });
-  it("speech contains no em-dashes (voice rule)", () => {
-    expect(hasEmDash(renderSpeech(homeOpenProjectsWidgetStep))).toBe(false);
-  });
-});
-
 describe("HomeCreateProjectStep (§6.1 trigger)", () => {
   it("declares event-driven completion (modal-opened DOM event)", () => {
     expect(homeCreateProjectStep.completion.type).toBe("event");
   });
   it("targets the home new-project button selector", () => {
+    // Top-level New Project rework (dashboard-newproject-tour bot,
+    // 2026-05-29): the `home-new-project` anchor moved onto the persistent
+    // top-level toolbar button (DashboardNewProject.tsx).
     expect(homeCreateProjectStep.targetSelector).toBe(
       "[data-tour-target=\"home-new-project\"]",
     );
   });
-  it("speech directs the user to the New Project button", () => {
-    // Dashboard unification follow-up (dashboard-tour-fix bot 2026-05-29):
-    // the New Project button moved into the Projects Overview widget popup,
-    // so the speech no longer says "the blue plus button up there"; it now
-    // points at the New Project button in the open popup.
-    expect(renderSpeech(homeCreateProjectStep)).toMatch(/New Project button/);
+  it("speech directs the user to the top-level New Project button", () => {
+    // Top-level New Project rework (dashboard-newproject-tour bot,
+    // 2026-05-29): speech points at the persistent New Project button at the
+    // top of the dashboard, not a widget popup button.
+    const text = renderSpeech(homeCreateProjectStep);
+    expect(text).toMatch(/New Project button/);
+    expect(text).toMatch(/top of your dashboard/);
   });
   it("has no cursorScript (user-action step, Grant 2026-05-21)", () => {
     // Cursor responsibility audit: BeakerBot tells the user to click
@@ -736,9 +682,10 @@ describe("ProjectOverviewNavStep (§6.2 nav)", () => {
     // `tour:project-route-entered`.
     expect(projectOverviewNavStep.completion.type).toBe("manual");
   });
-  it("has no targetSelector (the cursor click on the card is the cue)", () => {
-    // A spotlight would dim the rest of home and steal focus from the
-    // cursor's click animation. Card is anchored via `data-tour-target`.
+  it("has no targetSelector (the cursor click on the tile is the cue)", () => {
+    // A spotlight would dim the rest of the dashboard and steal focus from
+    // the cursor's click animation. The Single Project widget tile is
+    // anchored via `data-tour-target`.
     expect(projectOverviewNavStep.targetSelector).toBeUndefined();
   });
   it("uses pose: pointing (click-affordance pose)", () => {
@@ -764,20 +711,19 @@ describe("ProjectOverviewNavStep (§6.2 nav)", () => {
     }
     expect(projectOverviewNavStep.completion.buttonLabel).toBe("Got it, next");
   });
-  it("cursor script issues a glide-then-playback-resolved click against the project card", async () => {
-    // §6.2 NAV root cause manager 2026-05-23: the script was migrated
-    // from `safeClickAction` (build-time el ref → stale on re-render →
-    // wedged tour) to `safeNavClickAction` which expands to a glide
-    // action (visual cue to where the card sits) PLUS a callback
-    // action that re-resolves the selector at PLAYBACK time and
-    // calls `.click()` on the fresh node. So the action list is
-    // now [glide, callback], not [click]. The callback's effect
-    // is exercised by the watchdog-adjacent runtime tests; here we
-    // just confirm the shape so a future refactor doesn't quietly
-    // regress back to the stale-ref form.
-    const card = document.createElement("button");
-    card.setAttribute("data-tour-target", "home-project-card-42");
-    document.body.appendChild(card);
+  it("cursor script issues a glide-then-playback-resolved click against the Single Project tile", async () => {
+    // §6.2 NAV root cause manager 2026-05-23: the script uses
+    // `safeNavClickAction` which expands to a glide action (visual cue to
+    // where the tile sits) PLUS a callback action that re-resolves the
+    // selector at PLAYBACK time and calls `.click()` on the fresh node. So
+    // the action list is [glide, callback], not [click].
+    //
+    // Top-level New Project rework (dashboard-newproject-tour bot,
+    // 2026-05-29): the target is now the auto-created Single Project widget
+    // tile (`home-single-project-open-<owner>-<id>`), not a project card.
+    const tile = document.createElement("button");
+    tile.setAttribute("data-tour-target", "home-single-project-open-alex-42");
+    document.body.appendChild(tile);
     try {
       expect(projectOverviewNavStep.cursorScript).toBeDefined();
       const actions = await projectOverviewNavStep.cursorScript!();
@@ -785,18 +731,18 @@ describe("ProjectOverviewNavStep (§6.2 nav)", () => {
       expect(actions[0]).toMatchObject({ type: "glide" });
       expect(actions[1]).toMatchObject({ type: "callback" });
 
-      // Exercise the playback-time callback: clicking it should
-      // route through `.click()` on the re-resolved card. We
-      // attach a click listener on the card to verify.
+      // Exercise the playback-time callback: clicking it should route
+      // through `.click()` on the re-resolved tile. Attach a click listener
+      // to verify.
       let clicked = false;
-      card.addEventListener("click", () => {
+      tile.addEventListener("click", () => {
         clicked = true;
       });
       const cbAction = actions[1] as { type: "callback"; fn: () => void | Promise<void> };
       await cbAction.fn();
       expect(clicked).toBe(true);
     } finally {
-      card.remove();
+      tile.remove();
     }
   });
 });

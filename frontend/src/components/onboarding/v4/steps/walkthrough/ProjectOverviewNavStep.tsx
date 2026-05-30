@@ -1,10 +1,11 @@
 /**
  * §6.2 Project route Overview (NAV sub-step).
  *
- * First of two §6.2 sub-steps. BeakerBot glides the cursor to the freshly
- * created project card on the home page, clicks it, and advances the
- * moment `tour:project-route-entered` fires (dispatched by
- * `ProjectRoute.tsx` on mount). The follow-up PROSE sub-step
+ * First of two §6.2 sub-steps. BeakerBot glides the cursor to the auto-created
+ * Single Project widget tile (the one pinned to the project the user just made
+ * in §6.1) on the dashboard, clicks it, and advances the moment
+ * `tour:project-route-entered` fires (dispatched by `ProjectRoute.tsx` on
+ * mount). The follow-up PROSE sub-step
  * (`project-overview-prose`) then types the placeholder hypothesis into
  * the Overview textarea with a fresh `InProductWalkthroughOverlay` mount
  * plus a fresh cursor ref.
@@ -36,32 +37,34 @@ export const projectOverviewNavStep = buildWalkthroughStep({
   speech:
     "Every experiment, method, and task you create gets attached to a project. The project page is where all of that comes back together in one view. Let's open the one you just made.",
   pose: "pointing",
-  // No targetSelector: the cursor click on the project card is the
-  // visual cue. A spotlight on the card would dim the rest of the home
-  // page and steal focus from the click animation. The card is anchored
-  // by its `data-tour-target="home-project-card-<id>"` attribute set in
-  // `app/page.tsx`.
+  // No targetSelector: the cursor click on the Single Project widget tile is
+  // the visual cue. A spotlight on the tile would dim the rest of the
+  // dashboard and steal focus from the click animation. The tile body is
+  // anchored by its `data-tour-target="home-single-project-open-<owner>-<id>"`
+  // attribute set in `SingleProjectWidget.tsx` (stamped only when pinned).
   cursorScript: cursorScript(async () => {
-    // §6.2 NAV root cause (manager 2026-05-23): the home page's
-    // projects useQuery refetches around the time the tour arrives
-    // here (the §6.1 create just landed). The refetch re-renders
-    // the active-projects grid, swapping out the card's DOM node.
-    // `safeClickAction` resolves the el at BUILD time and stores
-    // `target: el` on a `click` action; by the time runScript
-    // replays it, our `el` ref is detached and `el.click()` fires
-    // a click on a node not in the tree (React's delegated
-    // handler at the root never sees it, `router.push` never
-    // runs). The InputLockOverlay then stays mounted for the
-    // remainder of the runScript window and absorbs every
-    // subsequent user click.
+    // Top-level New Project rework (dashboard-newproject-tour bot,
+    // 2026-05-29): the §6.1 create auto-pins the new project to a Single
+    // Project widget on the dashboard, so the NAV beat clicks THAT tile
+    // instead of the (now-deleted) hardcoded project card. The tile body's
+    // onClick navigates straight to the project page.
     //
-    // Fix: `safeNavClickAction` glides to the card visually at
-    // build-time coords, but re-resolves the selector at PLAYBACK
-    // time inside a callback action and calls `.click()` on the
-    // FRESH node. Routes through React's delegation at the live
-    // root container, so `router.push` lands as intended.
+    // §6.2 NAV root cause (manager 2026-05-23, still applies): the
+    // dashboard's `projects-with-progress` useQuery refetches around the
+    // time the tour arrives here (the §6.1 create just landed + invalidated
+    // it). The refetch re-renders the tile, swapping out its DOM node.
+    // `safeClickAction` resolves the el at BUILD time; by playback that ref
+    // is detached and `el.click()` fires on a node not in the tree, so
+    // navigation never runs.
+    //
+    // Fix: `safeNavClickAction` glides to the tile visually at build-time
+    // coords, but RE-RESOLVES the selector at PLAYBACK time inside a callback
+    // action and calls `.click()` on the FRESH node, routing through React's
+    // delegation so the tile's `router.push` lands as intended. The prefix
+    // selector matches whichever single-project instance the §6.1 project
+    // produced (the instance id carries the project's owner + id).
     return safeNavClickAction(
-      "[data-tour-target^='home-project-card-']",
+      "[data-tour-target^='home-single-project-open-']",
       2000,
     );
   }),

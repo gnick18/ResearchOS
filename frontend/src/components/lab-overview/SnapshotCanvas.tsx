@@ -42,6 +42,7 @@ import {
 } from "@/lib/settings/user-settings";
 import type { AccountType } from "@/lib/settings/user-settings";
 import Tooltip from "@/components/Tooltip";
+import DashboardNewProject from "./DashboardNewProject";
 
 /**
  * Widget canvas Phase A (Phase A redispatch manager, 2026-05-23):
@@ -380,6 +381,16 @@ export default function SnapshotCanvas({
     setDragOverId(null);
   }, []);
 
+  // Re-read the persisted layout into local state. Shared by add / remove /
+  // reset and by the top-level New Project button (dashboard-newproject-tour
+  // bot, 2026-05-29): after a create auto-appends a Single Project widget the
+  // canvas re-reads so the new tile appears without a reload.
+  const refreshLayout = useCallback(async () => {
+    const resolved = await adapter.readResolvedLayout(username, catalog);
+    setOrder(resolved.widgetOrder.canvas);
+    setWidgetConfig(resolved.widgetConfig ?? {});
+  }, [username, catalog, adapter]);
+
   // ── Add / remove from palette ──────────────────────────────────────────
   const handleAddWidget = useCallback(
     async (widgetId: string) => {
@@ -465,6 +476,13 @@ export default function SnapshotCanvas({
       <div className="flex items-center justify-between gap-2 relative flex-wrap">
         <div className="flex items-center gap-2 min-w-0">{toolbarLeft}</div>
         <div className="flex items-center gap-2 flex-wrap">
+        {/* Top-level New Project button (dashboard-newproject-tour bot,
+            2026-05-29): persistent + widget-independent so a zero-widget
+            dashboard can still create a project. Dashboard surface only — the
+            legacy /lab-overview + /home mounts keep their prior toolbar. */}
+        {surface === "dashboard" && (
+          <DashboardNewProject username={username} onCreated={refreshLayout} />
+        )}
         {toolbarExtras}
         <Tooltip label="Add a widget to the canvas" placement="bottom">
           <button

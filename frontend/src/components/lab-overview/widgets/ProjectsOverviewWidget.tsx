@@ -3,8 +3,9 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { labApi, projectsApi } from "@/lib/local-api";
+import { labApi } from "@/lib/local-api";
 import type { ViewerVisibleProject } from "@/lib/local-api";
+import { createProjectWithDashboardWidget } from "@/lib/lab-overview/create-project-with-widget";
 import UserAvatar from "@/components/UserAvatar";
 import Tooltip from "@/components/Tooltip";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -312,7 +313,18 @@ export default function ProjectsOverviewWidget(props?: ExpandedViewProps) {
     if (!name || saving) return;
     setSaving(true);
     try {
-      await projectsApi.create({ name, color: newColor });
+      // Auto Single Project widget (dashboard-newproject-tour bot,
+      // 2026-05-29): creating from this widget's inline form also pins the
+      // new project to its own Single Project widget on the dashboard, the
+      // same as the top-level New Project button, so the two surfaces behave
+      // identically. De-dup is handled by `addSingleProjectWidgetForProject`.
+      if (currentUser) {
+        await createProjectWithDashboardWidget({
+          username: currentUser,
+          name,
+          color: newColor,
+        });
+      }
       await queryClient.invalidateQueries({
         queryKey: ["lab", "projects-with-progress"],
       });
@@ -320,8 +332,9 @@ export default function ProjectsOverviewWidget(props?: ExpandedViewProps) {
       setNewName("");
       setCreating(false);
     } catch {
-      // projectsApi.create throws on empty names; the guard above already
-      // blocks that, so a throw here is an unexpected write failure.
+      // createProjectWithDashboardWidget -> projectsApi.create throws on
+      // empty names; the guard above already blocks that, so a throw here is
+      // an unexpected write failure.
       window.alert("Failed to create project");
     } finally {
       setSaving(false);
@@ -347,25 +360,15 @@ export default function ProjectsOverviewWidget(props?: ExpandedViewProps) {
           <button
             type="button"
             data-testid="projects-overview-new-project"
-            // Dashboard unification (dashboard-unification build,
-            // 2026-05-29): the §6.1 walkthrough "create your first project"
-            // step targets `home-new-project` and watches for the
-            // `tour:home-create-modal-opened` event. The hardcoded Home
-            // grid that previously owned those anchors is gone; the
-            // Projects Overview widget is its 1:1 replacement, so the
-            // anchor + event move here. NOTE: this widget's New Project
-            // flow lives inside the tile popup, so the tour must open the
-            // widget before this anchor resolves (see the build report's
-            // FLAG on the §6.1/§6.2 tour-flow follow-up).
-            data-tour-target="home-new-project"
-            onClick={() => {
-              setCreating(true);
-              if (typeof window !== "undefined") {
-                window.dispatchEvent(
-                  new CustomEvent("tour:home-create-modal-opened"),
-                );
-              }
-            }}
+            // Top-level New Project rework (dashboard-newproject-tour bot,
+            // 2026-05-29): the §6.1 walkthrough now drives the persistent
+            // top-level "+ New Project" toolbar button (DashboardNewProject.tsx),
+            // which owns the `home-new-project` anchor + the
+            // `tour:home-create-modal-opened` dispatch. This in-widget create
+            // button stays a real product affordance but is NO LONGER a tour
+            // target (no `data-tour-target`, no event dispatch) so there is
+            // exactly one `home-new-project` anchor on the dashboard.
+            onClick={() => setCreating(true)}
             className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors"
           >
             <span aria-hidden="true">{PLUS_SVG}</span>
@@ -378,10 +381,6 @@ export default function ProjectsOverviewWidget(props?: ExpandedViewProps) {
         <div
           className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 p-2"
           data-testid="projects-overview-new-project-form"
-          // §6.1 walkthrough FILL step anchor (dashboard-unification
-          // build, 2026-05-29): spotlights the create-project form, the
-          // role the deleted Home grid form used to fill.
-          data-tour-target="home-project-create-form"
         >
           <Tooltip label="Project color" placement="top">
             <input
@@ -398,7 +397,6 @@ export default function ProjectsOverviewWidget(props?: ExpandedViewProps) {
             value={newName}
             placeholder="New project name"
             data-testid="projects-overview-new-project-name"
-            data-tour-target="home-project-name-input"
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") submitNewProject();
@@ -414,7 +412,6 @@ export default function ProjectsOverviewWidget(props?: ExpandedViewProps) {
             disabled={!newName.trim() || saving}
             onClick={submitNewProject}
             data-testid="projects-overview-new-project-save"
-            data-tour-target="home-project-create-submit"
             className="rounded-md bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
           >
             {saving ? "Creating…" : "Create"}
@@ -456,11 +453,12 @@ export default function ProjectsOverviewWidget(props?: ExpandedViewProps) {
                 <button
                   type="button"
                   data-testid={`projects-overview-card-${p.owner}-${p.id}`}
-                  // §6.2 walkthrough NAV step anchor (dashboard-unification
-                  // build, 2026-05-29): the step clicks
-                  // `[data-tour-target^='home-project-card-']` to open the
-                  // freshly created project. The deleted Home grid carried
-                  // this prefix; the widget cards now do.
+                  // Card anchor retained for back-compat (dashboard-newproject-
+                  // tour bot, 2026-05-29). The §6.2 NAV beat NO LONGER clicks
+                  // this: it clicks the auto-created Single Project widget tile
+                  // (`home-single-project-open-<owner>-<id>`) instead. The
+                  // prefix is kept so any deep link / external selector that
+                  // still references a project card keeps resolving.
                   data-tour-target={`home-project-card-${p.owner}-${p.id}`}
                   onClick={() => router.push(projectHref(p, currentUser))}
                   className="w-full text-left rounded-lg border border-gray-200 p-3 hover:border-gray-300 hover:bg-gray-50 transition-colors"

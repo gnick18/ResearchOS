@@ -1167,7 +1167,12 @@ describe("TourController — cursor-script invocation", () => {
     for (const target of [
       "home-new-project",
       "project-overview-textarea",
-      "home-project-card-test",
+      // Top-level New Project rework (dashboard-newproject-tour bot,
+      // 2026-05-29): the §6.2 NAV step now resolves the auto-created Single
+      // Project widget tile (`home-single-project-open-<owner>-<id>`), not a
+      // project card. Mount the equivalent fixture so the nav cursorScript's
+      // safeNavClickAction selector resolves.
+      "home-single-project-open-test",
       "notifications-bell",
     ]) {
       const el = document.createElement("button");
@@ -1278,8 +1283,8 @@ describe("TourController — cursor-script invocation", () => {
     });
     cursorRunScriptMock.mockClear();
     // Use project-overview-nav (has cursorScript and its target —
-    // `[data-tour-target^='home-project-card-']` — is mounted in this
-    // suite's beforeEach as `home-project-card-test`). Previously this
+    // `[data-tour-target^='home-single-project-open-']` — is mounted in this
+    // suite's beforeEach as `home-single-project-open-test`). Previously this
     // used `notifications`, but the 2026-05-21 §6.3 split dropped the
     // cursor script from every notifications sub-step (all three are
     // user-action now). Picking project-overview-nav keeps the test
@@ -1320,7 +1325,12 @@ describe("TourController — cursor-lock watchdog (§6.2 escape hatch)", () => {
     for (const target of [
       "home-new-project",
       "project-overview-textarea",
-      "home-project-card-test",
+      // Top-level New Project rework (dashboard-newproject-tour bot,
+      // 2026-05-29): the §6.2 NAV step now resolves the auto-created Single
+      // Project widget tile (`home-single-project-open-<owner>-<id>`), not a
+      // project card. Mount the equivalent fixture so the nav cursorScript's
+      // safeNavClickAction selector resolves.
+      "home-single-project-open-test",
       "notifications-bell",
     ]) {
       const el = document.createElement("button");

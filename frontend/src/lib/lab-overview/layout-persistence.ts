@@ -44,6 +44,10 @@ import {
   widgetHasSurface,
   type WidgetDefinition,
 } from "@/components/lab-overview/widgets/types";
+import {
+  baseWidgetId,
+  singleProjectInstanceId,
+} from "@/components/lab-overview/widgets/registry";
 
 /** Current shape version. v1 = R2 free-grid; v2 = Phase A snapshot
  *  canvas order list. Bumped only on schema-changing shape
@@ -95,13 +99,15 @@ function defaultLabHeadLayout(): LabOverviewLayout {
   return {
     version: LAB_OVERVIEW_LAYOUT_VERSION,
     widgetOrder: {
+      // New-account default-set change (dashboard-newproject-tour bot,
+      // 2026-05-29, FLAG): the multi-project "Projects Overview" widget is
+      // NO LONGER seeded by default. Grant's decided model makes the
+      // top-level "+ New Project" toolbar button + the auto-created Single
+      // Project widgets the dashboard's project surface, so a fresh PI does
+      // not get the Projects Overview tile pre-pinned. It stays available via
+      // "+ Add widget". EXISTING accounts are untouched: their saved layout
+      // (or the migration injection in `seedDashboardLayout`) is unchanged.
       canvas: [
-        // Dashboard unification (dashboard-unification build, 2026-05-29):
-        // Projects Overview is seeded at the TOP for every account type so
-        // the unified dashboard opens to a project view 1:1 with the
-        // deleted hardcoded Home grid. A lab_head's instance defaults to
-        // "lab" scope (the widget's surface default for the canvas surface).
-        "projects-overview",
         "announcements",
         "lab-purchases",
         "lab-purchases-burn-rate",
@@ -126,10 +132,11 @@ function defaultMemberLayout(): LabOverviewLayout {
   return {
     version: LAB_OVERVIEW_LAYOUT_VERSION,
     widgetOrder: {
-      // Dashboard unification (dashboard-unification build, 2026-05-29):
-      // Projects Overview seeded at the top (defaults to "my" scope on the
-      // home surface).
-      canvas: ["projects-overview", "announcements", "comment-feed"],
+      // New-account default-set change (dashboard-newproject-tour bot,
+      // 2026-05-29, FLAG): Projects Overview removed from the default; the
+      // top-level New Project button + auto Single Project widgets are the
+      // project surface now. Still addable via "+ Add widget".
+      canvas: ["announcements", "comment-feed"],
       sidebar: ["sidebar-overdue", "sidebar-today", "sidebar-upcoming"],
     },
   };
@@ -231,7 +238,12 @@ export function resolveLayout(
     const seen = new Set<string>();
     const next: string[] = [];
     for (const id of renamed) {
-      if (!eligible.has(id)) {
+      // Instance-id tolerant (dashboard-newproject-tour bot, 2026-05-29):
+      // eligibility is checked against the BASE catalog id so a pinned
+      // instance like `single-project#alex:5` survives as long as its base
+      // `single-project` is catalog-eligible. The full instance id is what
+      // de-dups + keys widgetConfig.
+      if (!eligible.has(baseWidgetId(id))) {
         if (process.env.NODE_ENV !== "production") {
           console.warn(
             `[lab-overview/layout] Dropping unknown widget id "${id}" from saved layout.`,
@@ -581,10 +593,12 @@ function defaultMemberHomeLayout(): LabOverviewLayout {
   return {
     version: LAB_OVERVIEW_LAYOUT_VERSION,
     widgetOrder: {
-      // Dashboard unification (dashboard-unification build, 2026-05-29):
-      // Projects Overview seeded at the top so the unified dashboard
-      // replaces the deleted hardcoded Home grid 1:1.
-      canvas: ["projects-overview", "sidebar-upcoming", "calendar-events-today"],
+      // New-account default-set change (dashboard-newproject-tour bot,
+      // 2026-05-29, FLAG): Projects Overview removed from the default member
+      // dashboard. The top-level New Project button + auto Single Project
+      // widgets are the project surface; Projects Overview stays addable via
+      // "+ Add widget".
+      canvas: ["sidebar-upcoming", "calendar-events-today"],
       // Home sidebar is unused today (see note above). Leave empty so
       // the home canvas reader has a stable shape to read.
       sidebar: [],
@@ -607,13 +621,13 @@ function defaultLabHeadHomeLayout(): LabOverviewLayout {
   return {
     version: LAB_OVERVIEW_LAYOUT_VERSION,
     widgetOrder: {
-      // Dashboard unification (dashboard-unification build, 2026-05-29):
-      // Projects Overview seeded at the top, matching the member home
-      // default. (Lab heads resolve their dashboard from
-      // `defaultLabHeadLayout` via the canvas surface; this home default
-      // is retained for back-compat with the legacy `home_layout`
-      // read/seed path.)
-      canvas: ["projects-overview", "sidebar-upcoming", "calendar-events-today"],
+      // New-account default-set change (dashboard-newproject-tour bot,
+      // 2026-05-29, FLAG): Projects Overview removed from the default,
+      // matching the member home default. (Lab heads resolve their dashboard
+      // from `defaultLabHeadLayout` via the canvas surface; this home default
+      // is retained for back-compat with the legacy `home_layout` read/seed
+      // path.)
+      canvas: ["sidebar-upcoming", "calendar-events-today"],
       sidebar: [],
     },
   };
@@ -655,7 +669,10 @@ export function resolveHomeLayout(
     const seen = new Set<string>();
     const next: string[] = [];
     for (const id of renamed) {
-      if (!eligible.has(id)) {
+      // Instance-id tolerant (dashboard-newproject-tour bot, 2026-05-29):
+      // see resolveLayout. Check base catalog id so pinned single-project
+      // instances survive the home-surface eligibility filter.
+      if (!eligible.has(baseWidgetId(id))) {
         if (process.env.NODE_ENV !== "production") {
           console.warn(
             `[home-canvas/layout] Dropping unknown widget id "${id}" from saved home layout.`,
@@ -917,7 +934,11 @@ export function resolveDashboardLayout(
   const seen = new Set<string>();
   const canvas: string[] = [];
   for (const id of renamed) {
-    if (!eligible.has(id)) {
+    // Instance-id tolerant (dashboard-newproject-tour bot, 2026-05-29):
+    // a pinned `single-project#owner:id` instance survives as long as its
+    // base `single-project` is eligible on the account's dashboard surface
+    // (both canvas + home opt it in). The full instance id keys widgetConfig.
+    if (!eligible.has(baseWidgetId(id))) {
       if (process.env.NODE_ENV !== "production") {
         console.warn(
           `[dashboard/layout] Dropping unknown widget id "${id}" from saved dashboard layout.`,
@@ -1084,4 +1105,62 @@ export async function resetDashboardLayout(username: string): Promise<void> {
   await patchUserSettings(username, {
     dashboard_layout: defaultDashboardLayoutFor(current.account_type),
   });
+}
+
+/**
+ * Auto-add a Single Project widget pinned to a freshly created project
+ * (dashboard-newproject-tour bot, 2026-05-29).
+ *
+ * Grant's decided model: every project creation appends a `single-project`
+ * widget instance to the user's dashboard, pinned to the new project, so the
+ * dashboard always SHOWS the project (and the §6.1 tour can click through to
+ * it). The widget renders the project's color + progress live from
+ * `getProjectsWithProgress`, so we only persist the pin (id + owner); no color
+ * is stored on the layout.
+ *
+ * DE-DUP: the instance id is deterministic (`single-project#<owner>:<id>`), so
+ * a project that already has its auto-widget is a no-op — we never add a second
+ * widget for the same project. (A user who manually removes the widget and then
+ * the project is re-created with the same id would re-add it; that is fine.)
+ *
+ * LIFECYCLE (chosen, see report FLAG): if the project is later deleted, this
+ * instance stays on the dashboard and the widget falls back to its empty
+ * "pick a project" state (its `findPinned` gate returns undefined for a project
+ * the viewer can no longer read). We do NOT auto-remove it; that would require
+ * a project-delete hook reaching into every user's layout, out of scope here.
+ *
+ * Returns the instance id (the same value the tour uses to find + click the
+ * tile), or the existing one when the widget was already present.
+ *
+ * DATA-SHAPE: additive + migration-safe. It only ever appends to the v2
+ * `widgetOrder.canvas` + writes one `widgetConfig` entry; old layouts that
+ * never had instance ids or a `widgetConfig` map upgrade cleanly via
+ * `readDashboardLayoutRaw` -> `seedDashboardLayout`.
+ */
+export async function addSingleProjectWidgetForProject(
+  username: string,
+  project: { id: number; owner: string },
+): Promise<string> {
+  const instanceId = singleProjectInstanceId(project.owner, project.id);
+  const existing = await readDashboardLayoutRaw(username);
+  if (existing.widgetOrder.canvas.includes(instanceId)) {
+    // Already present: de-dup no-op. Still ensure the pin config is set in
+    // case a prior write dropped it (belt-and-suspenders; cheap).
+    return instanceId;
+  }
+  const nextConfig: Record<string, WidgetInstanceConfig> = {
+    ...(existing.widgetConfig ?? {}),
+    [instanceId]: { pinnedProject: { id: project.id, owner: project.owner } },
+  };
+  await patchUserSettings(username, {
+    dashboard_layout: {
+      version: LAB_OVERVIEW_LAYOUT_VERSION,
+      widgetOrder: {
+        canvas: [...existing.widgetOrder.canvas, instanceId],
+        sidebar: existing.widgetOrder.sidebar,
+      },
+      widgetConfig: nextConfig,
+    },
+  });
+  return instanceId;
 }

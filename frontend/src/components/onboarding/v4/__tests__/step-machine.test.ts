@@ -61,16 +61,14 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER).toContain("setup-q7");
     expect(TOUR_STEP_ORDER).toContain("links");
     expect(TOUR_STEP_ORDER).toContain("home-create-project");
-    // Dashboard unification follow-up (dashboard-tour-fix bot 2026-05-29):
-    // the new OPEN-WIDGET beat that clicks the Projects Overview tile to open
-    // its popup (so the moved §6.1 New Project anchors are on screen) must be
-    // present AND ordered immediately before home-create-project.
-    expect(TOUR_STEP_ORDER).toContain("home-open-projects-widget");
-    expect(TOUR_STEP_ORDER.indexOf("home-open-projects-widget")).toBeLessThan(
-      TOUR_STEP_ORDER.indexOf("home-create-project"),
-    );
-    expect(TOUR_STEP_ORDER.indexOf("home-open-projects-widget")).toBe(
-      TOUR_STEP_ORDER.indexOf("home-create-project") - 1,
+    // Top-level New Project rework (dashboard-newproject-tour bot,
+    // 2026-05-29): the OPEN-WIDGET beat (`home-open-projects-widget`) is
+    // retired now that the create affordance is a persistent top-level
+    // toolbar button, so the §6.1 cluster opens directly on the TRIGGER beat.
+    expect(TOUR_STEP_ORDER).not.toContain("home-open-projects-widget");
+    expect(TOUR_STEP_ORDER).toContain("home-create-project-fill");
+    expect(TOUR_STEP_ORDER.indexOf("home-create-project-fill")).toBe(
+      TOUR_STEP_ORDER.indexOf("home-create-project") + 1,
     );
     // §6.2b Home widgets walkthrough (home widgets §6.2b step bodies
     // manager, 2026-05-25). 5 universal sub-steps between
@@ -464,12 +462,12 @@ describe("TOUR_STEP_ORDER", () => {
     // retired. Grant's new script folds the home framing into the
     // setup-wrapup body.
     //
-    // Dashboard unification follow-up (dashboard-tour-fix bot 2026-05-29):
-    // the first in-product step is now `home-open-projects-widget` (BeakerBot
-    // opens the Projects Overview widget popup so the moved §6.1 New Project
-    // anchors are on screen), which leads into `home-create-project`.
+    // Top-level New Project rework (dashboard-newproject-tour bot,
+    // 2026-05-29): the first in-product step is now `home-create-project`
+    // (the TRIGGER beat spotlighting the persistent top-level New Project
+    // button). The prior OPEN-WIDGET beat is retired.
     const next = getNextStep("setup-wrapup", picks());
-    expect(next).toBe("home-open-projects-widget");
+    expect(next).toBe("home-create-project");
   });
 
   it("every account type (PI, member, solo) walks the same dashboard-canvas phase", () => {
@@ -482,9 +480,9 @@ describe("TOUR_STEP_ORDER", () => {
     const member = picks({ account_type: "lab", lab_head: false });
     const solo = picks();
     const dashboardBlock: TourStepId[] = [
-      // Dashboard unification follow-up (dashboard-tour-fix bot 2026-05-29):
-      // the OPEN-WIDGET beat is universal (not gated for any account type).
-      "home-open-projects-widget",
+      // Top-level New Project rework (dashboard-newproject-tour bot,
+      // 2026-05-29): the §6.1 cluster opens on the TRIGGER beat (the
+      // OPEN-WIDGET beat is retired).
       "home-create-project",
       "home-create-project-fill",
       "project-overview-nav",
@@ -508,11 +506,12 @@ describe("TOUR_STEP_ORDER", () => {
       expect(isStepGatedOut(id, member)).toBe(false);
       expect(isStepGatedOut(id, solo)).toBe(false);
     }
-    // Every account type now begins the walkthrough at the OPEN-WIDGET beat
-    // (dashboard-tour-fix bot 2026-05-29), which leads into home-create-project.
-    expect(getNextStep("setup-wrapup", pi)).toBe("home-open-projects-widget");
-    expect(getNextStep("setup-wrapup", member)).toBe("home-open-projects-widget");
-    expect(getNextStep("setup-wrapup", solo)).toBe("home-open-projects-widget");
+    // Every account type now begins the walkthrough at the TRIGGER beat
+    // (dashboard-newproject-tour bot, 2026-05-29): the persistent top-level
+    // New Project button is the first in-product affordance.
+    expect(getNextStep("setup-wrapup", pi)).toBe("home-create-project");
+    expect(getNextStep("setup-wrapup", member)).toBe("home-create-project");
+    expect(getNextStep("setup-wrapup", solo)).toBe("home-create-project");
   });
 
   it("contains the three §6.3 notification sub-step ids", () => {

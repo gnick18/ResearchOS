@@ -71,7 +71,7 @@ export const homeCreateProjectFillStep = buildWalkthroughStep({
   // referent (the last button was the tour's own Next). Anchor the
   // recovery copy to the real re-entry button on Home.
   recoveryHint: {
-    buttonLabel: "the + New Project button at the top of Home",
+    buttonLabel: "the + New Project button at the top of your dashboard",
   },
   // Intentionally no cursorScript — BeakerBot speaks; the user fills.
   // A typed-name cursor demo would be wrong here because the user is
