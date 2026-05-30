@@ -525,14 +525,83 @@ export async function writeUserSettings(username: string, settings: UserSettings
   dispatchUserSettingsWritten({ username, next: normalized });
 }
 
+// ---------------------------------------------------------------------------
+// Per-user write serialization (enablement-race bot, 2026-05-30)
+//
+// readUserSettings -> mutate -> writeUserSettings is a read-modify-write. Two
+// mutations fired in the same synchronous tick (e.g. toggling two method types
+// or two widgets back to back) both read the SAME pre-update snapshot, so the
+// second write clobbers the first (a lost update). The store had no
+// serialization, so concurrent curation writes silently dropped changes.
+//
+// We serialize all mutating writes per user through a chained-promise queue: a
+// module-level Map<username, Promise> whose value is the tail of that user's
+// write chain. Each new update awaits the prior one before it reads, so every
+// updater observes the result of the update before it instead of a stale
+// snapshot. Reads (readUserSettings) are NOT queued; only the read-modify-write
+// mutators below go through `updateUserSettings`.
+// ---------------------------------------------------------------------------
+
+const userSettingsWriteQueues = new Map<string, Promise<unknown>>();
+
+function enqueueUserSettingsWrite<T>(
+  username: string,
+  task: () => Promise<T>,
+): Promise<T> {
+  const prior = userSettingsWriteQueues.get(username) ?? Promise.resolve();
+  // Continue regardless of whether the prior write fulfilled or rejected, so a
+  // single failed write does not poison the chain for every later write to the
+  // same user. `task` ignores its argument, so passing it as both handlers is
+  // safe.
+  const run = prior.then(task, task);
+  userSettingsWriteQueues.set(username, run);
+  // Drop the tail once it settles, but only if no newer task has replaced it,
+  // so the Map does not grow without bound across many users.
+  void run.then(
+    () => {
+      if (userSettingsWriteQueues.get(username) === run) {
+        userSettingsWriteQueues.delete(username);
+      }
+    },
+    () => {
+      if (userSettingsWriteQueues.get(username) === run) {
+        userSettingsWriteQueues.delete(username);
+      }
+    },
+  );
+  return run;
+}
+
+/**
+ * Atomically mutate a user's settings with a functional updater. The updater
+ * receives the LATEST settings (re-read inside the serialized step, after any
+ * prior queued write has landed) and returns a partial patch; the patch is
+ * merged, normalized, written, and the resulting settings returned.
+ *
+ * Use this (not a bare read + patchUserSettings) whenever the new value depends
+ * on the current one, so concurrent updaters compose instead of clobber. The
+ * per-user queue guarantees ordering: a rapid A-then-B in the same tick applies
+ * A, then B reads A's result, so BOTH changes survive.
+ */
+export async function updateUserSettings(
+  username: string,
+  updater: (current: UserSettings) => Partial<UserSettings>,
+): Promise<UserSettings> {
+  return enqueueUserSettingsWrite(username, async () => {
+    const current = await readUserSettings(username);
+    const next = normalize({ ...current, ...updater(current) });
+    await writeUserSettings(username, next);
+    return next;
+  });
+}
+
 export async function patchUserSettings(
   username: string,
   patch: Partial<UserSettings>,
 ): Promise<UserSettings> {
-  const current = await readUserSettings(username);
-  const next = normalize({ ...current, ...patch });
-  await writeUserSettings(username, next);
-  return next;
+  // Route through the serialized updater so a patch never races with another
+  // concurrent write to the same user.
+  return updateUserSettings(username, () => patch);
 }
 
 // ---------------------------------------------------------------------------
