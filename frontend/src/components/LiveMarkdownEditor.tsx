@@ -11,6 +11,7 @@ import { markdownSanitizeSchema } from "@/lib/markdown/sanitize-schema";
 import remarkUnderline from "@/lib/markdown/remark-underline";
 import { attachmentsApi } from "@/lib/local-api";
 import HybridMarkdownEditor from "./HybridMarkdownEditor";
+import InlineMarkdownEditor from "./InlineMarkdownEditor";
 import { blobUrlResolver, encodeAttachmentRefPath } from "@/lib/utils/blob-url-resolver";
 import { fileService } from "@/lib/file-system/file-service";
 import ImageResizePopover from "./ImageResizePopover";
@@ -65,8 +66,11 @@ function canonicalizeRefSrc(raw: string): string {
   return src;
 }
 
-// Type for editor mode
-export type EditorMode = "hybrid" | "preview";
+// Type for editor mode. "inline" is the opt-in CodeMirror 6 Typora-style
+// surface (Typora editor chip 1): it renders ONLY when `enableInlineMode` is
+// true (Notes pilot), so other surfaces keep the two-way Hybrid / Preview
+// toggle untouched.
+export type EditorMode = "hybrid" | "preview" | "inline";
 
 /**
  * Pre-process markdown to preserve blank line spacing.
@@ -187,6 +191,14 @@ interface LiveMarkdownEditorProps {
   focusMode?: boolean;
   /** Callback when focus mode changes (enables the controlled pattern). */
   onFocusModeChange?: (focusMode: boolean) => void;
+  /** OPT-IN gate for the CodeMirror 6 Typora-style "inline" EditorMode
+   *  (Typora editor chip 1). When true the toolbar surfaces a third "Inline"
+   *  pill and the body can render <InlineMarkdownEditor>. When false (the
+   *  default) the pill is absent and "inline" is unreachable, so every other
+   *  surface (Methods write-up, experiment Lab Notes / Results, method create
+   *  modal) keeps the untouched two-way Hybrid / Preview toggle. Passed by
+   *  NoteDetailPopup ONLY (the standalone Notes pilot). */
+  enableInlineMode?: boolean;
 }
 
 /**
@@ -217,6 +229,7 @@ export default function LiveMarkdownEditor({
   onDirtyChange,
   focusMode = false,
   onFocusModeChange,
+  enableInlineMode = false,
 }: LiveMarkdownEditorProps) {
   // Internal mode state (used if onModeChange is not provided)
   const [internalMode, setInternalMode] = useState<EditorMode>(mode);
@@ -1795,6 +1808,30 @@ export default function LiveMarkdownEditor({
                 Hybrid
               </button>
             </Tooltip>
+            {/* Inline (Typora-style) pill — opt-in third surface, rendered
+                ONLY when `enableInlineMode` is true (the Notes pilot). The
+                CodeMirror 6 document is the markdown text, so it round-trips
+                the dialect byte-for-byte. */}
+            {enableInlineMode && (
+              <Tooltip
+                label="Inline editing: write in a single live surface (CodeMirror)"
+                placement="bottom"
+              >
+                <button
+                  type="button"
+                  data-testid="editor-mode-inline"
+                  onClick={() => setMode("inline")}
+                  disabled={disabled}
+                  className={`px-2.5 py-1 text-xs rounded transition-colors ${
+                    currentMode === "inline"
+                      ? "bg-white text-gray-800 font-medium shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  } disabled:opacity-50`}
+                >
+                  Inline
+                </button>
+              </Tooltip>
+            )}
             <Tooltip label="Read-only rendered preview" placement="bottom">
               <button
                 type="button"
@@ -2178,6 +2215,25 @@ export default function LiveMarkdownEditor({
                 </p>
               )}
             </div>
+          ) : enableInlineMode && currentMode === "inline" ? (
+            // Inline (CodeMirror 6 Typora-style) surface — Typora editor chip 1.
+            // Mounts inside the SAME editorContentRef subtree as the hybrid
+            // child, so the wrapper-level blob-URL image resolver, broken-ref
+            // scan, Form-B rehydration, and native drag-drop machinery keep
+            // firing. It owns its OWN undo stack and never autosaves; the
+            // manual-save contract (saveRef / onExplicitSave / onDirtyChange)
+            // is the same interface the hybrid child exposes. The fluid
+            // ch-based measure (Phase 1) centers the writing column.
+            <InlineMarkdownEditor
+              value={value}
+              onChange={onChange}
+              placeholder={placeholder}
+              disabled={disabled}
+              saveRef={saveRef}
+              onExplicitSave={onExplicitSave}
+              onDirtyChange={onDirtyChange}
+              measureClass={measureClass}
+            />
           ) : (
             <HybridMarkdownEditor
               value={value}

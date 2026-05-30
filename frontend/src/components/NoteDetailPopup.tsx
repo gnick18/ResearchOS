@@ -1351,6 +1351,10 @@ export default function NoteDetailPopup({
                   saveRef={editorSaveRef}
                   onExplicitSave={(v) => { if (activeTab) void saveEntryContent(activeTab, v); }}
                   onDirtyChange={setEditorDirty}
+                  // Typora editor chip 1: standalone Notes is the pilot
+                  // surface, so surface the opt-in CodeMirror 6 "Inline" mode
+                  // pill. No other surface passes this.
+                  enableInlineMode
                 />
               ) : (
                 <div className="flex items-center justify-center h-full text-gray-400">
@@ -1379,6 +1383,9 @@ export default function NoteDetailPopup({
                   saveRef={editorSaveRef}
                   onExplicitSave={(v) => { if (activeTab) void saveEntryContent(activeTab, v); }}
                   onDirtyChange={setEditorDirty}
+                  // Typora editor chip 1: Notes pilot opt-in (see running-log
+                  // branch). No other surface passes this.
+                  enableInlineMode
                 />
               )
             )}
