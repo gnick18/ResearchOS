@@ -184,9 +184,29 @@ async function switchEditorMode(page, label) {
  *  open a modal). */
 const FIXTURE_ROUTES = [
   {
+    // The unified per-user widget dashboard at "/" (Home for members/solo,
+    // "Lab Overview" for a PI; the fixture signs in as alex, a PI, so the
+    // toolbar heading reads "Lab Overview"). The old hardcoded "Research
+    // Project Overview" grid is gone, so its text can no longer be a wait
+    // target. Wait on the canvas <section> instead: HomeCanvas always
+    // renders `aria-label="Dashboard widgets"` (with a stable
+    // data-tour-target="home-widget-canvas") once the account type
+    // resolves, independent of which widgets are pinned or the
+    // account-aware heading text. "+ Add widget" (the always-present
+    // toolbar button from SnapshotCanvas) is the fallback marker. This is
+    // the screenshot the /wiki/features/home page embeds.
+    path: "/",
+    file: "home-dashboard.png",
+    waitFor:
+      '[aria-label="Dashboard widgets"], [data-tour-target="home-widget-canvas"], text=+ Add widget',
+    settleMs: 1200,
+    highlight: { text: "+ Add widget" },
+  },
+  {
     path: "/",
     file: "home-projects.png",
-    waitFor: "text=Research Project Overview",
+    waitFor:
+      '[aria-label="Dashboard widgets"], [data-tour-target="home-widget-canvas"], text=+ Add widget',
     highlight: { text: "New Project" },
   },
   {

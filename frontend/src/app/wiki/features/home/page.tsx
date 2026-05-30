@@ -1,6 +1,7 @@
 import Link from "next/link";
 import WikiPage from "@/components/wiki/WikiPage";
 import Callout from "@/components/wiki/Callout";
+import Screenshot from "@/components/wiki/Screenshot";
 import { Steps, Step } from "@/components/wiki/Steps";
 
 export default function HomeFeaturePage() {
@@ -8,13 +9,11 @@ export default function HomeFeaturePage() {
     <WikiPage
       intro="Your landing page at / is one customizable widget dashboard. You pin the summaries you care about, drag them into the order you want, and click any tile to open its full story. There is no fixed layout to fight: the dashboard is whatever you make it."
     >
-      {/* SCREENSHOT PENDING (HR, 2026-05-29): the prior assets (home-projects.png,
-          home-project-popup.png, home-widget-canvas.png) all show the OLD Home
-          (the hardcoded Research Project Overview grid), which is gone, and the
-          capture script still waits on that removed text. Rather than ship a
-          broken (missing home-dashboard.png) OR a misleading (stale) image, this
-          page renders no dashboard screenshot until a correct one is captured in
-          fixture mode (?wikiCapture=1) at /. Tracked as a follow-up. */}
+      <Screenshot
+        src="/wiki/screenshots/home-dashboard.png"
+        alt="The unified dashboard at /, showing the account-aware widget canvas with the Add widget, Edit layout, Reset, and Tools toolbar above the pinned snapshot tiles (Projects Overview seeded at the top)."
+        caption="The unified dashboard at /. One account-aware widget canvas: pin the snapshot tiles you care about, drag them into order, and click any tile to open its full view."
+      />
 
       <h2>One page, two names</h2>
       <p>
