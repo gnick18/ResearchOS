@@ -150,6 +150,11 @@ export function WidgetStoreModal({
               // `isMounted` from the enabled state and `onToggle` from the
               // enablement setter. `disabled` greys a turned-off widget's
               // preview footer; `badgeSlot` shows the On/Off pill.
+              // `actionKind="palette"` swaps the button copy from the canvas
+              // "Add / Added" to the palette "Add to palette / In palette" so
+              // the card matches its own detail pane (WidgetStoreDetail's
+              // "In your Add widget palette" / "Hidden from your palette").
+              actionKind="palette"
               isMounted={on}
               disabled={!curating}
               onToggle={() => {

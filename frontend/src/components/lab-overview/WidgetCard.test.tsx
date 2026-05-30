@@ -160,6 +160,66 @@ describe("WidgetCard", () => {
     expect(hero).not.toBeNull();
   });
 
+  it("uses palette copy when actionKind='palette' (widget store surface)", () => {
+    // In the widget STORE the button does not touch the canvas: it toggles
+    // whether the widget is enabled in the user's "Add widget" palette. The
+    // copy must say so, matching WidgetStoreDetail's "In your Add widget
+    // palette" / "Hidden from your palette".
+    const LiveTile = () => <div>tile</div>;
+    const widget = makeWidget(LiveTile);
+    const { rerender } = render(
+      <WidgetCard
+        widget={widget}
+        isMounted={false}
+        onToggle={() => {}}
+        actionKind="palette"
+      />,
+    );
+    // OFF: not yet in the palette.
+    const addBtn = screen.getByRole("button", {
+      name: /add lab comments to your add widget palette/i,
+    });
+    expect(addBtn).toHaveTextContent("Add to palette");
+    // No canvas wording anywhere on this surface.
+    expect(
+      screen.queryByRole("button", { name: /add lab comments to canvas/i }),
+    ).toBeNull();
+
+    // ON: already in the palette.
+    rerender(
+      <WidgetCard
+        widget={widget}
+        isMounted={true}
+        onToggle={() => {}}
+        actionKind="palette"
+      />,
+    );
+    const inBtn = screen.getByRole("button", {
+      name: /remove lab comments from your add widget palette/i,
+    });
+    expect(inBtn).toHaveTextContent("In palette");
+  });
+
+  it("defaults to canvas copy when actionKind is omitted", () => {
+    // The canvas palette (SnapshotCanvas) passes no actionKind; it must keep
+    // the placement wording so screen readers hear the correct action.
+    const LiveTile = () => <div>tile</div>;
+    const widget = makeWidget(LiveTile);
+    render(
+      <WidgetCard widget={widget} isMounted={false} onToggle={() => {}} />,
+    );
+    const addBtn = screen.getByRole("button", {
+      name: /add lab comments to canvas/i,
+    });
+    expect(addBtn).toHaveTextContent("Add");
+    // The palette wording must NOT leak into the canvas surface.
+    expect(
+      screen.queryByRole("button", {
+        name: /add lab comments to your add widget palette/i,
+      }),
+    ).toBeNull();
+  });
+
   it("disables the Add affordance when disabled (forward-compat store gate)", () => {
     const LiveTile = () => <div>tile</div>;
     const onToggle = vi.fn();
