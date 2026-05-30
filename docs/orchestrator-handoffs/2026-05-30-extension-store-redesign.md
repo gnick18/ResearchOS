@@ -68,9 +68,25 @@ Chip status (2026-05-30):
     the store fallback. Masking needs either a preview-mode skeleton threaded
     into every tile or a fade-on-ready overlay in the preview boundary. Deferred
     as minor cosmetic; queue a contained overlay-fix chip only if Grant wants it.
-- compound-wiring (contract step 3): QUEUED, NOW UNBLOCKED (store-polish merged).
-  The compound stub comment in MethodLibraryDetail guides it. Branches off
-  current main.
+- compound-wiring (contract step 3): MERGED (merge a5c4b3ca). resolveCatalog-
+  CompoundComponents + CompoundTemplateDetailLoader + modal renderDetail compound
+  branch with all-types gating. The bot branched off cf92434c (BEFORE store-polish
+  + my stub), so the merge overlapped MethodLibraryDetail.tsx / MethodTemplate-
+  LibraryModal.tsx / the test. ONE conflict (the duplicate compound case in the
+  payload switch, my stub vs the bot's); resolved keeping the bot's comment.
+  Verified post-merge: no markers, tsc clean, 148 tests green, and all invariants
+  coexist (compound resolver + modal branch + store-polish destination line + both
+  helper resolvers). STORE-SIDE BUILD IS COMPLETE.
+- kit-card-gate: QUEUED (out-of-scope bug from compound-wiring). ProtocolTemplate-
+  Card's compound "Use" bypasses gating (gates on always-enabled "compound", not
+  the component types). Card lacks the payload, so the fix routes kit Use through
+  the detail pane rather than replicating gating on the card. Reachable only after
+  step 4; fix it before step-5 verifies.
+
+REMAINING (not store-session work): catalog session does contract step 4 (3 LC-MS
+kit templates + 3 manifest entries). Then the contract's step-5 3-verifier loop
+runs on the LIVE compound path (also exercises kit-card-gate). Re-verify the
+compound detail + gating end to end at that point.
 Once both land, the build is done; the contract's step-5 verifier loop runs on
 the live compound path after the catalog session adds step-4 entries.
 
