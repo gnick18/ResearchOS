@@ -68,15 +68,15 @@ export function ConvertCompoundToSingleAction({
   if (components.length > 1) return null;
 
   const isEmpty = components.length === 0;
-  const label = isEmpty ? "Delete empty compound" : "Convert back to single method";
+  const label = isEmpty ? "Delete empty kit" : "Convert back to single method";
   const childName = child?.name ?? `Method ${childRef?.method_id ?? "?"}`;
   const tooltip = isEmpty
-    ? "This compound has no components. Delete the empty wrapper — any tasks attached to it will lose that attachment."
-    : `Delete the compound wrapper and keep "${childName}" as a standalone method. Any tasks attached to this compound will lose that attachment.`;
+    ? "This kit has no components. Delete the empty wrapper, and any tasks attached to it will lose that attachment."
+    : `Delete the kit wrapper and keep "${childName}" as a standalone method. Any tasks attached to this kit will lose that attachment.`;
 
   const confirmMessage = isEmpty
-    ? "This will delete the empty compound. Any tasks attached to this compound will lose that attachment. Continue?"
-    : `This will delete the compound wrapper and keep "${childName}" as a standalone method. Any tasks attached to this compound will lose that attachment. Continue?`;
+    ? "This will delete the empty kit. Any tasks attached to this kit will lose that attachment. Continue?"
+    : `This will delete the kit wrapper and keep "${childName}" as a standalone method. Any tasks attached to this kit will lose that attachment. Continue?`;
 
   const handleClick = async () => {
     if (busy || disabled) return;
@@ -102,7 +102,7 @@ export function ConvertCompoundToSingleAction({
       }
       onConverted(isEmpty ? null : (child?.id ?? null));
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to convert compound.";
+      const msg = err instanceof Error ? err.message : "Failed to convert kit.";
       alert(msg);
     } finally {
       setBusy(false);

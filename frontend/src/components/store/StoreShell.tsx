@@ -21,9 +21,11 @@ import Tooltip from "@/components/Tooltip";
  *     filter toggle. Selecting a category calls back; the caller decides what
  *     `items` to pass.
  *   - CENTER (flex-1, scrollable): the result list/grid via `renderCard`.
- *   - RIGHT DETAIL (~40%): an empty-state placeholder until a card is
- *     selected, then `renderDetail(selectedItem)`. The pane stays visible
- *     while browsing.
+ *     While nothing is selected the grid widens to a 3-up browse layout and a
+ *     slim orienting hint sits above it.
+ *   - RIGHT DETAIL (~40%): collapsed entirely until a card is selected, then
+ *     it opens and renders `renderDetail(selectedItem)` while the center grid
+ *     drops back to a 2-up layout.
  *
  * Below lg the rail collapses to a horizontal filter-chip row above the
  * results, and the detail pane opens as a full-screen overlay on tap (a back
@@ -89,8 +91,10 @@ export interface StoreShellProps<T> {
   /** Render the detail pane for the selected item. */
   renderDetail: (item: T) => ReactNode;
 
-  /** Hint shown in the empty detail pane. Defaults to a generic line. */
-  detailEmptyHint?: string;
+  /** Slim one-line orienting hint shown over the browse grid (lg) while
+   *  nothing is selected. With no selection the detail pane collapses and the
+   *  grid reclaims its width, so this points the user at what to do next. */
+  browseHint?: string;
   /** Shown in the center column when `items` is empty. */
   emptyState?: ReactNode;
 
@@ -98,8 +102,13 @@ export interface StoreShellProps<T> {
    *  wants pinned under the result column. */
   footerSlot?: ReactNode;
 
-  /** Tailwind classes for the center card container. Defaults to a 2-up grid. */
+  /** Tailwind classes for the center card container when an item is selected
+   *  (the detail pane is open). Defaults to a 2-up grid. */
   cardGridClassName?: string;
+  /** Tailwind classes for the center card container while nothing is selected
+   *  (the detail pane is collapsed, so the grid is wider). Defaults to a 3-up
+   *  grid at lg. */
+  browseCardGridClassName?: string;
 
   /** Accessible label for the close button (e.g. "Close widget store"). */
   closeAriaLabel?: string;
@@ -108,6 +117,10 @@ export interface StoreShellProps<T> {
 }
 
 const DEFAULT_GRID = "grid grid-cols-1 sm:grid-cols-2 gap-3";
+// Wider grid used while nothing is selected: the detail pane is collapsed, so
+// the center column reclaims that ~40% width and fits a third column at lg.
+const DEFAULT_BROWSE_GRID =
+  "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3";
 
 export function StoreShell<T>({
   title,
@@ -126,10 +139,11 @@ export function StoreShell<T>({
   onSelectItem,
   renderCard,
   renderDetail,
-  detailEmptyHint = "Select an item to see details",
+  browseHint = "Click any card to preview it live and see what it does.",
   emptyState,
   footerSlot,
   cardGridClassName = DEFAULT_GRID,
+  browseCardGridClassName = DEFAULT_BROWSE_GRID,
   closeAriaLabel = "Close",
   onClose,
 }: StoreShellProps<T>) {
@@ -155,6 +169,12 @@ export function StoreShell<T>({
 
   const selectedKey = selectedItem !== null ? getItemKey(selectedItem) : null;
   const allCount = categories.reduce((sum, c) => sum + c.count, 0);
+
+  // With nothing selected the detail aside collapses (below) and the center
+  // grid widens to reclaim that space; selecting an item reverts to the 2-up
+  // grid + the persistent detail pane.
+  const noSelection = selectedItem === null;
+  const gridClass = noSelection ? browseCardGridClassName : cardGridClassName;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
@@ -244,12 +264,35 @@ export function StoreShell<T>({
 
           {/* CENTER: result column */}
           <div className="flex-1 min-w-0 overflow-auto p-6">
+            {/* Orienting hint over the browse grid while nothing is selected.
+                lg-only: that is where the collapsed detail pane frees the
+                width, and the mobile browse view has no pane to reclaim. */}
+            {noSelection && items.length > 0 && (
+              <div className="hidden lg:flex items-center gap-2 mb-4 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-xs text-gray-500">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                  className="shrink-0 text-gray-400"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 16v-4M12 8h.01" />
+                </svg>
+                <span>{browseHint}</span>
+              </div>
+            )}
             {items.length === 0 ? (
               <div className="py-10 text-center text-sm text-gray-400">
                 {emptyState ?? "No results."}
               </div>
             ) : (
-              <div className={cardGridClassName}>
+              <div className={gridClass}>
                 {items.map((item) => {
                   const key = getItemKey(item);
                   return (
@@ -271,14 +314,14 @@ export function StoreShell<T>({
             )}
           </div>
 
-          {/* RIGHT DETAIL PANE (lg and up) */}
-          <aside className="hidden lg:flex lg:flex-col lg:w-[40%] lg:shrink-0 border-l border-gray-100 overflow-auto">
-            {selectedItem !== null ? (
+          {/* RIGHT DETAIL PANE (lg and up). Collapsed entirely when nothing is
+              selected so the center grid reclaims the width (the orienting
+              hint over the grid covers the empty state instead). */}
+          {selectedItem !== null && (
+            <aside className="hidden lg:flex lg:flex-col lg:w-[40%] lg:shrink-0 border-l border-gray-100 overflow-auto">
               <div className="p-6">{renderDetail(selectedItem)}</div>
-            ) : (
-              <DetailEmptyState hint={detailEmptyHint} />
-            )}
-          </aside>
+            </aside>
+          )}
         </div>
 
         {/* MOBILE DETAIL OVERLAY (below lg): full-screen over the modal body
@@ -414,32 +457,6 @@ function EnabledOnlyToggle({
         {!compact && <span>Enabled only</span>}
       </button>
     </Tooltip>
-  );
-}
-
-/** Placeholder shown in the detail pane before anything is selected. */
-function DetailEmptyState({ hint }: { hint: string }) {
-  return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-3 p-8 text-center">
-      <span aria-hidden="true" className="text-gray-300">
-        <svg
-          width="40"
-          height="40"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <rect x="3" y="3" width="7" height="7" rx="1" />
-          <rect x="14" y="3" width="7" height="7" rx="1" />
-          <rect x="3" y="14" width="7" height="7" rx="1" />
-          <rect x="14" y="14" width="7" height="7" rx="1" />
-        </svg>
-      </span>
-      <p className="text-sm text-gray-400 max-w-[220px]">{hint}</p>
-    </div>
   );
 }
 

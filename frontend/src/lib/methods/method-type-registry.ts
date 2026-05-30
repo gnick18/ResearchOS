@@ -145,8 +145,8 @@ export const METHOD_TYPE_REGISTRY: Record<MethodTypeId, MethodTypeMeta> = {
   },
   compound: {
     id: "compound",
-    label: "Compound method (kit)",
-    shortLabel: "Compound",
+    label: "Kit",
+    shortLabel: "Kit",
     color: { bg: "bg-indigo-100", text: "text-indigo-600" },
     icon: CompoundIcon,
     description: "Bundle existing methods into one attachable kit (e.g. plate + assay PDF).",
@@ -176,7 +176,7 @@ export const METHOD_TYPE_REGISTRY: Record<MethodTypeId, MethodTypeMeta> = {
     color: { bg: "bg-amber-100", text: "text-amber-700" },
     icon: QpcrAnalysisIcon,
     description:
-      "Cq readouts, melt-curve Tm, standard-curve efficiency, and ΔΔCq fold-change. Pairs with a PCR cycling method via a compound for a full qPCR workflow.",
+      "Cq readouts, melt-curve Tm, standard-curve efficiency, and ΔΔCq fold-change. Pairs with a PCR cycling method via a kit for a full qPCR workflow.",
     hasStructuredProtocol: true,
     category: "structured",
   },

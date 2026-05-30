@@ -69,7 +69,7 @@ export function DeleteMethodConfirm({
 }: DeleteMethodConfirmProps) {
   const compoundCount = affectedCompounds.length;
   const compoundsLabel = useMemo(
-    () => (compoundCount === 1 ? "1 compound method" : `${compoundCount} compound methods`),
+    () => (compoundCount === 1 ? "1 kit" : `${compoundCount} kits`),
     [compoundCount],
   );
 
@@ -132,7 +132,7 @@ export function DeleteMethodConfirm({
               <div className="text-xs text-gray-500 mt-1">
                 Keeps the {compoundsLabel}; they will show
                 &ldquo;Component deleted&rdquo; placeholders where it used to render.
-                Existing experiments stay attached to the compounds.
+                Existing experiments stay attached to the kits.
               </div>
             </button>
             <button
@@ -144,7 +144,7 @@ export function DeleteMethodConfirm({
               </div>
               <div className="text-xs text-red-700 mt-1">
                 Removes all {compoundCount + 1} method records. Experiments
-                attached to any of those compounds lose those attachments.
+                attached to any of those kits lose those attachments.
               </div>
             </button>
           </div>

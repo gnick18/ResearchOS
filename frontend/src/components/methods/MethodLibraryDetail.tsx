@@ -94,6 +94,41 @@ function num(v: number | null | undefined): string | null {
   return v === null || v === undefined ? null : String(v);
 }
 
+/**
+ * "Will be added to: <category>" line shown directly under the Use template
+ * action (Extension Store polish, store-polish bot, 2026-05-30). The
+ * destination category lives in the footer field, easy to scroll past, so
+ * clicking Use template could silently file the method under Uncategorized.
+ * This surfaces the destination next to the action; the category itself is a
+ * button that scrolls to + focuses the footer field, so it stays reachable
+ * from here. Renders nothing until a destLabel is supplied (e.g. in tests).
+ */
+function DestinationLine({
+  destLabel,
+  onChooseDestination,
+}: {
+  destLabel?: string;
+  onChooseDestination?: () => void;
+}) {
+  if (!destLabel) return null;
+  return (
+    <p className="mt-2 text-center text-xs text-gray-500">
+      Will be added to:{" "}
+      {onChooseDestination ? (
+        <button
+          type="button"
+          onClick={onChooseDestination}
+          className="font-medium text-blue-600 hover:underline"
+        >
+          {destLabel}
+        </button>
+      ) : (
+        <span className="font-medium text-gray-700">{destLabel}</span>
+      )}
+    </p>
+  );
+}
+
 // ── 1. Method TYPE detail ────────────────────────────────────────────────────
 
 export function MethodTypeDetail({
@@ -272,6 +307,8 @@ export function SingleTemplateDetail({
   anyUsing,
   onUse,
   onEnableType,
+  destLabel,
+  onChooseDestination,
   fetchTemplate = fetchMethodCatalogTemplate,
 }: {
   entry: MethodCatalogManifestEntry;
@@ -280,6 +317,11 @@ export function SingleTemplateDetail({
   anyUsing: boolean;
   onUse: () => void;
   onEnableType: () => void;
+  /** Category the new method will land in (the footer destination field).
+   *  Shown under Use template so the destination is never a silent default. */
+  destLabel?: string;
+  /** Focus the footer destination field so the category is reachable here. */
+  onChooseDestination?: () => void;
   /** Swappable for tests; defaults to the real catalog loader. */
   fetchTemplate?: (slug: string) => Promise<MethodCatalogTemplate>;
 }) {
@@ -344,7 +386,14 @@ export function SingleTemplateDetail({
       <section className="flex flex-col gap-2 border-t border-gray-100 pt-3">
         <SectionLabel>Preview</SectionLabel>
         {state === "loading" && (
-          <p className="text-sm text-gray-400">Loading preview...</p>
+          <div
+            aria-hidden="true"
+            className="flex animate-pulse flex-col gap-2 rounded-lg border border-gray-100 bg-gray-50/60 p-3"
+          >
+            <div className="h-2.5 w-1/2 rounded bg-gray-200" />
+            <div className="h-2 w-3/4 rounded bg-gray-100" />
+            <div className="h-2 w-2/3 rounded bg-gray-100" />
+          </div>
         )}
         {state === "error" && (
           <p className="text-sm text-gray-400">
@@ -362,14 +411,20 @@ export function SingleTemplateDetail({
       {/* Footer action: Use template, gated behind Enable <type> first */}
       <section className="border-t border-gray-100 pt-4">
         {typeEnabled ? (
-          <button
-            type="button"
-            onClick={onUse}
-            disabled={anyUsing}
-            className="w-full px-4 py-2.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-          >
-            {isUsing ? "Adding..." : "Use template"}
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={onUse}
+              disabled={anyUsing}
+              className="w-full px-4 py-2.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {isUsing ? "Adding..." : "Use template"}
+            </button>
+            <DestinationLine
+              destLabel={destLabel}
+              onChooseDestination={onChooseDestination}
+            />
+          </>
         ) : (
           <div className="flex flex-col gap-2">
             <p className="text-xs text-amber-600">
@@ -402,6 +457,8 @@ export function CompoundTemplateDetail({
   anyUsing = false,
   onUse,
   onEnableType,
+  destLabel,
+  onChooseDestination,
 }: {
   title: string;
   description?: string;
@@ -415,6 +472,10 @@ export function CompoundTemplateDetail({
   onUse?: () => void;
   /** Enable one missing component type. */
   onEnableType?: (typeId: MethodTypeId) => void;
+  /** Category the new kit will land in (the footer destination field). */
+  destLabel?: string;
+  /** Focus the footer destination field so the category is reachable here. */
+  onChooseDestination?: () => void;
 }) {
   const missing = missingComponentTypes(componentTypes, enabledIds);
   const allEnabled = missing.length === 0;
@@ -490,14 +551,20 @@ export function CompoundTemplateDetail({
       {/* Footer: gated until ALL component types are enabled */}
       <section className="border-t border-gray-100 pt-4">
         {allEnabled ? (
-          <button
-            type="button"
-            onClick={onUse}
-            disabled={anyUsing}
-            className="w-full px-4 py-2.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-          >
-            {isUsing ? "Adding..." : "Use template"}
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={onUse}
+              disabled={anyUsing}
+              className="w-full px-4 py-2.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {isUsing ? "Adding..." : "Use template"}
+            </button>
+            <DestinationLine
+              destLabel={destLabel}
+              onChooseDestination={onChooseDestination}
+            />
+          </>
         ) : (
           <div className="flex flex-col gap-2">
             <p className="text-xs text-amber-600">

@@ -2375,7 +2375,7 @@ function CompoundViewer({
         <div>
           <h3 className="text-sm font-semibold text-gray-900">{method.name}</h3>
           <p className="text-xs text-gray-400 mt-0.5">
-            Compound method — {method.components?.length ?? 0} component
+            Kit, {method.components?.length ?? 0} component
             {(method.components?.length ?? 0) === 1 ? "" : "s"}
           </p>
         </div>
