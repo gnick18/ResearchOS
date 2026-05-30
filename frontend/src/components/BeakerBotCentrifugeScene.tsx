@@ -12,22 +12,46 @@ import {
   SCENE_GROUND_BOTTOM_CSS,
 } from "./beakerbot/scene-constants";
 
-/** SCENE-LOCAL OVERRIDE of the canonical BEAKERBOT_SCENE_SIZE_PX (128px,
- *  see beakerbot/scene-constants.ts). The Centrifuge scene's bot is
- *  geometrically tied to the centrifuge prop (positioned at
- *  `bottom: 60px` relative to the bot wrapper — calibrated to land on
- *  the bot's hands at 80px). Bumping to 128 would push the centrifuge
- *  prop above the head and require re-tuning all bench coordinations.
- *  Until that retune happens this scene stays at 80px (0.625 *
- *  canonical). */
-const BOT_SIZE_PX = Math.round(BEAKERBOT_SCENE_SIZE_PX * 0.625);
+/** Scene-local BeakerBot size. Previously this scene rendered the bot
+ *  small (0.625 * canonical = 80px) because the sample tubes shot
+ *  STRAIGHT UP very high, forcing a tall-and-narrow action footprint
+ *  that wasted the wide showcase stage. Now that the tubes scatter in a
+ *  WIDE FAN with a much lower peak (see buildTubeTrajectory), the bot is
+ *  no longer fighting a tall column, so he comes up to full canonical
+ *  size (128px) and reads as a prominent performer.
+ *
+ *  Every prop coordinate that used to be hand-calibrated against the
+ *  old 80px bot (the centrifuge rest height, the tube launch anchor,
+ *  the speech-bubble height) is derived from BOT_SIZE_PX via the scale
+ *  factor below, so they stay proportional and keep landing on the
+ *  bot's hands / disc / above his head. */
+const BOT_SIZE_PX = BEAKERBOT_SCENE_SIZE_PX;
+/** Ratio of the new bot size to the original 80px calibration. Used to
+ *  rescale the prop anchors that were tuned against 80px so they track
+ *  the bigger bot instead of snapping to the wrong height. */
+const PROP_SCALE = BOT_SIZE_PX / 80;
+/** Centrifuge rests on the bot's hands. Calibrated at 60px for the old
+ *  80px bot; scaled with the bot so it still meets the hands. */
+const CENTRIFUGE_HANDS_BOTTOM_PX = Math.round(60 * PROP_SCALE);
+/** Tube launch anchor (centrifuge disc center) above the ground line.
+ *  Calibrated at 125px for the old bot; scaled to track the disc. */
+const TUBE_LAUNCH_BOTTOM_PX = Math.round(125 * PROP_SCALE);
+/** Speech-bubble height above the bot. Calibrated at 95px; scaled so
+ *  the bubble clears the now-taller bot's head. */
+const BUBBLE_BOTTOM_PX = Math.round(95 * PROP_SCALE);
+/** Rendered centrifuge glyph size. Calibrated at 68px against the old
+ *  80px bot; scaled with the bot so the prop he holds stays in the same
+ *  visual proportion (it should not shrink relative to the bigger bot). */
+const CENTRIFUGE_GLYPH_PX = Math.round(68 * PROP_SCALE);
 
 /**
  * Side easter-egg slapstick scene: BeakerBot walks in carrying a small
  * centrifuge, sets it on the bench, starts it spinning. It ramps up
  * smoothly, then immediately gets the wobbles, then violently shakes
- * and jumps on the bench. The lid pops off, sample tubes fly out on
- * independent gravity trajectories, liquid splatters everywhere.
+ * and jumps on the bench. The lid pops off, sample tubes scatter out
+ * in a WIDE FAN (left, right, up-left, up-right, shallow-sideways, only
+ * one going high) on independent gravity trajectories rather than a
+ * single tall column, liquid splatters everywhere.
  * BeakerBot freezes wide-eyed ("!"), then does a sheepish shrug
  * (sweat-bead) and slinks off the other side. Dented centrifuge stays.
  *
@@ -150,36 +174,61 @@ function readsPrefersReducedMotion(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-/** Per-tube fall trajectory. Each tube launches outward + upward then
- *  arcs down on its own path with independent rotation. Deterministic
+/** Per-tube launch direction template. The tubes scatter OUTWARD from
+ *  the spinning centrifuge in a WIDE FAN: a deliberate mix of left,
+ *  right, up-left, up-right and shallow-sideways throws, with only one
+ *  or two going high. This trades the old tall-and-narrow column (every
+ *  tube shot straight up ~55vh) for a wide-and-short footprint that
+ *  fills the 16:10 showcase stage horizontally, freeing the vertical
+ *  room that was forcing BeakerBot to render small.
+ *
+ *  Each entry is hand-authored per launch slot:
+ *    dirVw   — horizontal launch bias in vw (negative = left). The fan
+ *              reaches farther sideways (+/- ~34vw) than it does up.
+ *    peakVh  — apex height of the arc in vh. Most are shallow (10-22vh);
+ *              one slot goes higher (~30vh) so the burst still has a
+ *              lively pop, but nothing approaches the old ~55vh column.
+ *  Authored for TUBE_COLORS.length (4) slots; buildTubeTrajectory wraps
+ *  the index so adding a color degrades gracefully. */
+const TUBE_FAN: ReadonlyArray<{ dirVw: number; peakVh: number }> = [
+  { dirVw: -34, peakVh: 12 }, // far left, shallow skim
+  { dirVw: -12, peakVh: 30 }, // up-left, the one that pops highest
+  { dirVw: 16, peakVh: 18 }, // up-right, medium arc
+  { dirVw: 33, peakVh: 10 }, // far right, shallow skim
+] as const;
+
+/** Per-tube fall trajectory. Each tube launches outward in its fan
+ *  direction, arcs over a LOW peak, then falls and tumbles. Deterministic
  *  per-index so tests + SSR stay stable (no Math.random).
  *  All distances are VIEWPORT-RELATIVE so the burst is never clipped
  *  by a parent container — the trajectory genuinely uses the full
- *  screen. */
+ *  width of the screen. */
 function buildTubeTrajectory(index: number, count: number) {
   const seed = (index * 7919 + 104729) % 233280;
   const r1 = seed / 233280;
   const r2 = ((seed * 11) % 233280) / 233280;
   const r3 = ((seed * 17) % 233280) / 233280;
 
-  // Spread tubes left + right of the centrifuge using viewport-width
-  // units so the fan-out scales with the screen, not a parent box.
-  // Center tubes go mostly straight up, outer tubes fan out further
-  // sideways. Range about plus or minus 28vw horizontally.
-  const horizontalVw =
-    ((index - (count - 1) / 2) / Math.max(1, count - 1)) * 32 + (r1 - 0.5) * 6;
-  // Rotation: alternating direction, magnitude jitter so they spin
+  // Pull the authored fan slot for this tube (wrap so extra colors
+  // still get a direction). A touch of per-tube jitter keeps the fan
+  // from looking mechanically symmetric.
+  const slot = TUBE_FAN[index % TUBE_FAN.length];
+  // Horizontal launch: the authored fan direction plus a small jitter.
+  // This is what spreads the action across the WIDE stage instead of
+  // stacking every tube into one vertical column.
+  const horizontalVw = slot.dirVw + (r1 - 0.5) * 6;
+  // Rotation: alternating direction, magnitude jitter so they tumble
   // chaotically not in lockstep.
-  const rotateTo = (index % 2 === 0 ? 1 : -1) * (270 + r2 * 360);
+  const rotateTo = (index % 2 === 0 ? 1 : -1) * (220 + r2 * 320);
   // Stagger start delay slightly so they don't fire in perfect sync.
   const delayMs = index * 25 + r3 * 40;
-  // Vertical drop target after the arc — viewport-scale so tubes
-  // actually traverse the screen.
-  const fallYVh = 40 + r3 * 12; // vh
-  // Per-tube peak height during the arc (viewport-scale, opposite of
-  // fallY). The biggest spread happens here — middle tubes go highest
-  // (~55vh), outer tubes still hit a respectable 45vh upward.
-  const peakYVh = 45 + r2 * 12; // vh upward
+  // Vertical drop target after the arc — viewport-scale so the tubes
+  // still travel down to the floor and out of frame.
+  const fallYVh = 34 + r3 * 10; // vh below origin
+  // Per-tube peak height during the arc: the authored LOW apex plus a
+  // little jitter. Far shorter than the old ~55vh so the burst spreads
+  // wide rather than tall, and the bigger BeakerBot has room overhead.
+  const peakYVh = slot.peakVh + r2 * 6; // vh upward
   return { horizontalVw, rotateTo, delayMs, fallYVh, peakYVh };
 }
 
@@ -492,7 +541,7 @@ export default function BeakerBotCentrifugeScene({
             <div
               className="absolute left-1/2"
               style={{
-                bottom: "60px", // sit on top of BeakerBot's hands / bench surface relative to body
+                bottom: `${CENTRIFUGE_HANDS_BOTTOM_PX}px`, // sit on top of BeakerBot's hands / bench surface relative to body (scales with BOT_SIZE_PX)
                 transform: `translateX(-50%) translateY(${centrifugeTranslateYPx}px) rotate(${centrifugeRotateDeg}deg)`,
                 transformOrigin: "center bottom",
                 transition: `transform ${centrifugeTransitionMs}ms ease-out`,
@@ -513,6 +562,7 @@ export default function BeakerBotCentrifugeScene({
                 }}
               >
                 <CentrifugeGlyph
+                  sizePx={CENTRIFUGE_GLYPH_PX}
                   discSpinSpeedSec={discSpinSpeedSec}
                   lidPopped={lidPopped}
                   panelLit={panelLit}
@@ -576,7 +626,7 @@ export default function BeakerBotCentrifugeScene({
               data-testid="alarm-bubble"
               tone="alarm"
               direction="down"
-              position={{ bottom: 95, left: "50%" }}
+              position={{ bottom: BUBBLE_BOTTOM_PX, left: "50%" }}
               style={{
                 transform: "translateX(-50%)",
                 animation: "bb-centrifuge-bubble 500ms ease-out",
@@ -596,7 +646,7 @@ export default function BeakerBotCentrifugeScene({
               tone="sweat"
               direction="down"
               withSweatBead
-              position={{ bottom: 95, left: "50%" }}
+              position={{ bottom: BUBBLE_BOTTOM_PX, left: "50%" }}
               style={{
                 transform: "translateX(-50%)",
                 animation: "bb-centrifuge-bubble 600ms ease-out",
@@ -617,9 +667,11 @@ export default function BeakerBotCentrifugeScene({
           className="absolute"
           style={{
             left: "50%",
-            // Anchor near the centrifuge disc: bench bottom +
-            // body wrapper offset (~125px to reach the disc center).
-            bottom: `calc(${SCENE_GROUND_BOTTOM_CSS} + 125px)`,
+            // Anchor near the centrifuge disc: bench bottom + body
+            // wrapper offset to reach the disc center. Scales with
+            // BOT_SIZE_PX so the launch point tracks the bigger bot's
+            // raised centrifuge.
+            bottom: `calc(${SCENE_GROUND_BOTTOM_CSS} + ${TUBE_LAUNCH_BOTTOM_PX}px)`,
             width: 0,
             height: 0,
             overflow: "visible",
@@ -716,28 +768,32 @@ export default function BeakerBotCentrifugeScene({
           0%   { transform: translateX(calc(-50% + 23vw)) translateY(-2px) rotate(0deg); }
           100% { transform: translateX(calc(-50% + 2vw)) translateY(-2px) rotate(0deg); }
         }
-        /* Tube flight — viewport-scale trajectory. Peak at ~30% of
-           keyframe time at -var(--bb-peak-y) (around -55vh upward),
-           settling at +var(--bb-fall-y) (~40vh below origin) by 85%,
-           then fading out. The trajectory uses vw/vh so the burst
-           covers the whole screen, no parent bounding box. */
+        /* Tube flight — viewport-scale WIDE-FAN trajectory. Each tube
+           launches outward in its authored fan direction (var(--bb-fall-x),
+           up to ~+/-34vw), arcs over a LOW peak (-var(--bb-peak-y), now
+           only ~10-30vh instead of the old ~55vh column), then keeps
+           travelling sideways as it falls to +var(--bb-fall-y) (~34vh
+           below origin) by 85% and fades. The tube is already ~70% of
+           the way out horizontally at the peak so the sideways scatter
+           reads immediately. Uses vw/vh so the burst covers the full
+           width of the screen, no parent bounding box. */
         @keyframes bb-centrifuge-tube-fly {
           0% {
             transform: translate(0, 0) rotate(0deg);
             opacity: 1;
           }
           30% {
-            transform: translate(calc(var(--bb-fall-x, 0vw) * 0.55), calc(var(--bb-peak-y, 55vh) * -1))
+            transform: translate(calc(var(--bb-fall-x, 0vw) * 0.7), calc(var(--bb-peak-y, 20vh) * -1))
               rotate(calc(var(--bb-fall-rot, 360deg) * 0.4));
             opacity: 1;
           }
           85% {
-            transform: translate(var(--bb-fall-x, 0vw), var(--bb-fall-y, 40vh))
+            transform: translate(var(--bb-fall-x, 0vw), var(--bb-fall-y, 34vh))
               rotate(var(--bb-fall-rot, 360deg));
             opacity: 1;
           }
           100% {
-            transform: translate(var(--bb-fall-x, 0vw), var(--bb-fall-y, 40vh))
+            transform: translate(var(--bb-fall-x, 0vw), var(--bb-fall-y, 34vh))
               rotate(var(--bb-fall-rot, 360deg)) scale(0.7);
             opacity: 0;
           }
@@ -766,6 +822,10 @@ export default function BeakerBotCentrifugeScene({
 // --------------------------------------------------------------------
 
 interface CentrifugeGlyphProps {
+  /** Rendered px size of the (square) glyph. Defaults to the original
+   *  68px calibration; the scene passes a bot-scaled value so the prop
+   *  stays proportional to the bigger BeakerBot. */
+  sizePx?: number;
   discSpinSpeedSec: number;
   lidPopped: boolean;
   panelLit: boolean;
@@ -775,8 +835,10 @@ interface CentrifugeGlyphProps {
 /** Centrifuge SVG: gray/silver base (50x35 rect), rounded lid (40x10
  *  ellipse on top), inner disc (24x24 with 4 tube-slot dots at 0/90/
  *  180/270 degrees), control panel band with 2 dots that "light up"
- *  when running. Lid pops upward when `lidPopped`. */
+ *  when running. Lid pops upward when `lidPopped`. The viewBox is fixed
+ *  (0 0 60 60) so the whole glyph scales uniformly with `sizePx`. */
 function CentrifugeGlyph({
+  sizePx = 68,
   discSpinSpeedSec,
   lidPopped,
   panelLit,
@@ -785,8 +847,8 @@ function CentrifugeGlyph({
   return (
     <svg
       viewBox="0 0 60 60"
-      width="68"
-      height="68"
+      width={sizePx}
+      height={sizePx}
       fill="none"
       aria-hidden="true"
       data-testid="centrifuge-svg"
