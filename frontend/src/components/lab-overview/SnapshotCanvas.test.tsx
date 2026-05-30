@@ -73,9 +73,31 @@ const { TEST_CATALOG } = vi.hoisted(() => {
   return { TEST_CATALOG: catalog };
 });
 
+// Instance-id helpers (Extension Store Phase U3, extension-store U3 bot):
+// the canvas's enablement filter (`filterEnabledWidgets`) normalizes ids via
+// `baseWidgetId`, so the registry mock must export it (and its companions)
+// alongside the catalog. The bare-id case is the only one these tests hit, so
+// `baseWidgetId` is identity for ids without the `#` separator. The factory
+// is hoisted, so the separator is inlined rather than referenced from a
+// top-level const.
 vi.mock("./widgets/registry", () => ({
   WIDGET_CATALOG: TEST_CATALOG,
   getWidget: (id: string) => TEST_CATALOG.find((w) => w.id === id),
+  WIDGET_INSTANCE_SEP: "#",
+  baseWidgetId: (id: string) => {
+    const i = id.indexOf("#");
+    return i === -1 ? id : id.slice(0, i);
+  },
+  singleProjectInstanceId: (owner: string, projectId: number) =>
+    `single-project#${owner}:${projectId}`,
+}));
+
+// Extension Store Phase U3: the canvas reads the per-account enabled-widget
+// set to filter the palette. Default to "absent" (=> all widgets enabled) so
+// these palette-gating tests see the full account/surface-gated catalog,
+// unchanged from before U3.
+vi.mock("@/hooks/useEnabledWidgets", () => ({
+  useEnabledWidgets: () => ({ raw: null, setEnabled: vi.fn(async () => {}) }),
 }));
 
 // ── Persistence layer: an in-memory canvas order ────────────────────────

@@ -329,6 +329,29 @@ export interface UserSettings {
   // resolution + gating helpers. Per-account / folder-scoped, like every
   // other field in this file.
   enabledMethodTypes?: string[];
+
+  // Extension Store Phase U3 (extension-store U3 bot, 2026-05-29).
+  // DATA-SHAPE CHANGE: additive + optional. The set of dashboard / home
+  // WIDGETS the user has chosen to keep available in their "+ Add widget"
+  // palette + the Widget store (the widget analogue of
+  // `enabledMethodTypes`, EXTENSION doc §3.5).
+  //
+  // ABSENT = all widgets enabled (existing users see ZERO change; this is
+  // the back-compat default). An empty array is a DELIBERATE "everything
+  // off" choice and is honored as such; do not conflate absent with empty.
+  // Each entry is a widget `id` from the registry; unknown ids (a widget
+  // removed in a later build) are ignored at resolve time.
+  //
+  // Enablement gates PALETTE / STORE-DEFAULT OFFERING ONLY, and ONLY ON TOP
+  // OF the existing account-type + surface gating (it NEVER widens
+  // visibility: a member still never sees a PI-only widget). It NEVER
+  // hides, deletes, or breaks an ALREADY-PLACED widget instance: a disabled
+  // widget already on a saved layout keeps rendering, it just stops being
+  // offered in the Add palette. See
+  // `frontend/src/lib/lab-overview/widget-enablement.ts` for the resolution
+  // + gating helpers. Per-account / folder-scoped, like every other field
+  // in this file.
+  enabledWidgets?: string[];
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {

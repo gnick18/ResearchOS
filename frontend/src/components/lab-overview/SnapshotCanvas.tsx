@@ -43,6 +43,9 @@ import {
 import type { AccountType } from "@/lib/settings/user-settings";
 import Tooltip from "@/components/Tooltip";
 import DashboardNewProject from "./DashboardNewProject";
+import { WidgetStoreModal } from "./WidgetStoreModal";
+import { useEnabledWidgets } from "@/hooks/useEnabledWidgets";
+import { filterEnabledWidgets } from "@/lib/lab-overview/widget-enablement";
 
 /**
  * Widget canvas Phase A (Phase A redispatch manager, 2026-05-23):
@@ -255,7 +258,16 @@ export default function SnapshotCanvas({
     Record<string, WidgetInstanceConfig>
   >({});
   const [showPalette, setShowPalette] = useState(false);
+  const [showStore, setShowStore] = useState(false);
   const [openWidgetId, setOpenWidgetId] = useState<string | null>(null);
+
+  // Extension Store Phase U3 (extension-store U3 bot, 2026-05-29): the
+  // per-account widget ENABLE/DISABLE curation set, layered ON TOP OF the
+  // account/surface gating below. A disabled widget is hidden from the Add
+  // palette (offering only); it never affects an already-placed instance,
+  // so the layout READER (`adapter.readResolvedLayout`) deliberately does
+  // NOT consult this. Live-updates when the Widget store toggles a widget.
+  const { raw: enabledWidgetsRaw } = useEnabledWidgets(username);
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
@@ -268,21 +280,33 @@ export default function SnapshotCanvas({
     () => visibleCatalog(WIDGET_CATALOG, accountType, surfaceKey),
     [accountType, surfaceKey],
   );
-  const canvasCatalog = useMemo(
+  const surfaceCatalog = useMemo(
     () => catalog.filter((w) => widgetHasSurface(w, surfaceKey)),
     [catalog, surfaceKey],
   );
+  // Extension Store Phase U3 (extension-store U3 bot, 2026-05-29): the Add
+  // palette offers only ENABLED widgets, layered on top of the account/
+  // surface gating in `surfaceCatalog`. This is the OFFERING filter — it
+  // never touches `catalog` (the layout reader's source), so a widget the
+  // user disabled but already placed keeps rendering on the canvas; it just
+  // disappears from the palette. Toggle a widget back on in the Widget store
+  // and it returns here (the hook live-updates).
+  const canvasCatalog = useMemo(
+    () => filterEnabledWidgets(surfaceCatalog, enabledWidgetsRaw),
+    [surfaceCatalog, enabledWidgetsRaw],
+  );
   // Widget selector redesign (widget-selector bot, 2026-05-29): the card
   // grid is grouped by Tool family. Derived from `canvasCatalog` so the
-  // account/surface gating is inherited verbatim (no separate visibility
-  // path).
+  // account/surface gating + enablement filter are inherited verbatim (no
+  // separate visibility path).
   const catalogGroups = useMemo(
     () => groupCatalogByTool(canvasCatalog),
     [canvasCatalog],
   );
 
   // Esc closes the palette (SELECTOR_REDESIGN §5 accessibility; the old
-  // palette relied on outside-click only). Only bound while open.
+  // palette relied on outside-click only). Only bound while open. The Widget
+  // store (U3) owns its own Esc handler inside the modal.
   useEffect(() => {
     if (!showPalette) return;
     const onKey = (e: KeyboardEvent) => {
@@ -484,6 +508,27 @@ export default function SnapshotCanvas({
           <DashboardNewProject username={username} onCreated={refreshLayout} />
         )}
         {toolbarExtras}
+        {/* Widget store entry point (Extension Store Phase U3, extension-
+            store U3 bot, 2026-05-29): the browse-and-curate surface that sits
+            ABOVE the inline Add palette. The palette pins enabled widgets on
+            THIS canvas; the store curates which widgets are even offered (the
+            `enabledWidgets` layer) and hosts the request-a-widget stub. Same
+            spot in the toolbar so the two read as related affordances. */}
+        <Tooltip label="Browse every widget and choose which to show" placement="bottom">
+          <button
+            type="button"
+            onClick={() => setShowStore(true)}
+            className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors inline-flex items-center gap-1.5"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="7" height="7" rx="1" />
+              <rect x="14" y="3" width="7" height="7" rx="1" />
+              <rect x="3" y="14" width="7" height="7" rx="1" />
+              <rect x="14" y="14" width="7" height="7" rx="1" />
+            </svg>
+            Widget store
+          </button>
+        </Tooltip>
         <Tooltip label="Add a widget to the canvas" placement="bottom">
           <button
             type="button"
@@ -762,6 +807,19 @@ export default function SnapshotCanvas({
             </SnapshotTilePopup>
           );
         })()}
+
+      {/* Widget store (Extension Store Phase U3, extension-store U3 bot,
+          2026-05-29): the browse-and-curate modal. Account- + surface-aware
+          (it browses exactly this canvas's eligible widgets) so it never
+          offers a widget the palette would not. */}
+      {showStore && (
+        <WidgetStoreModal
+          username={username}
+          accountType={accountType}
+          surfaceKey={surfaceKey}
+          onClose={() => setShowStore(false)}
+        />
+      )}
     </div>
   );
 }
