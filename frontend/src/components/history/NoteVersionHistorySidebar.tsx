@@ -668,7 +668,7 @@ function VersionRow({
         <span className="block text-[11px] text-gray-500 truncate">
           {entry.summary}
         </span>
-        <Tooltip label={`${formatFullDate(entry.ts)} — ${entry.ts}`} placement="bottom">
+        <Tooltip label={`${formatFullDate(entry.ts)} · ${entry.ts}`} placement="bottom">
           <span className="block text-[11px] text-gray-400 w-fit">
             {formatRelative(entry.ts)}
           </span>
