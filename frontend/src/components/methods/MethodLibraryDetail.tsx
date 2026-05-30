@@ -685,6 +685,14 @@ function StructuredPayloadView({
           />
         </div>
       );
+    case "compound":
+      // Compound (kit) templates are rendered by CompoundTemplateDetail via the
+      // modal's renderDetail branch (compound combinations contract step 3),
+      // not by this single-template payload switch. No live compound catalog
+      // entries exist until the catalog session lands the manifest entries, so
+      // this branch is unreachable today; it keeps the switch exhaustive after
+      // the loader added the "compound" union arm.
+      return null;
     default: {
       const _exhaustive: never = template;
       void _exhaustive;
