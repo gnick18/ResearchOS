@@ -13,6 +13,29 @@ DISPATCHED. One follow-up (compound catalog entries) is HELD pending
 coordination with the parallel catalog/kit session (see Compound coordination
 hold below).
 
+## Verifier loop results (2026-05-30)
+
+- SPEC: PASS on all 8 locked decisions (cited file:line). Two house-style nits:
+  em-dash in compound-template-detail.ts:20 (FIXED inline, commit on main) and
+  6 pre-existing emoji in CreateMethodModal.tsx (predate the redesign) FIXED
+  via modal-emoji-cleanup bot (merged 9a797d5d).
+- FRESH-EYES: 7 findings. Triage:
+  - #1 HIGH bug: widget store card button copy/Tooltip/aria say "Add/Remove
+    from canvas" but actually toggle palette enablement, contradicting the
+    detail pane and misleading screen readers. Dual-context: same WidgetCard is
+    used in the canvas palette where the copy IS correct. QUEUED widget-card-copy
+    bot (context-aware fix, do not break the canvas palette).
+  - #4 naming + #2 empty-state: Grant decided "Kit" as the user-facing word and
+    "orienting copy + 3-column grid" for the empty store. Folded with #3
+    (Standard/Structured jargon), #5 (use-template destination visibility), and
+    #6 (Loading skeleton) into QUEUED store-polish bot.
+  - #7 (My Methods page wastes ~60% desktop width): out of scope; flagged as
+    methods-page-width bot follow-up (design proposal first).
+- MECHANICS: not yet reported as of this update.
+
+Open chips: widget-card-copy bot, store-polish bot, methods-page-width bot
+(plus the held compound follow-up). Loop until clean, then arc fully closed.
+
 ## Compound coordination hold (action required by master/catalog owner)
 
 Phase D built and fixture-tested the compound (combination) detail renderer,
