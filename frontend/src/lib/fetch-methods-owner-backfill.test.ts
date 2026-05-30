@@ -143,6 +143,66 @@ describe("fetchAllMethodsIncludingShared — owner provenance backfill (guards 1
     expect(isOwnMethod(own!, "alex")).toBe(true);
   });
 
+  it("excludes a shared-in method whose owner was deleted (tombstoned deleted_at)", async () => {
+    // delete-affordances bot, 2026-05-29 — CASE A guard. A shared-in
+    // manifest entry can point at an owner who was since deleted (their
+    // `_user_metadata.json` row carries `deleted_at`). That method used to
+    // slip into "Shared with Lab" with no way to remove it. The tombstone
+    // gate in fetchAllMethodsIncludingShared must drop it.
+    seedMethod("alex", { id: 1, name: "legacy western blot" });
+    // ghost-user authored method 9 and shared it with alex, then ghost-user
+    // was deleted. The method file still lingers on disk.
+    seedMethod("ghost-user", { id: 9, name: "ghost's qPCR", owner: "ghost-user" });
+    memFs.set("users/alex/_shared_with_me.json", {
+      version: 1,
+      projects: [],
+      tasks: [],
+      methods: [{ id: 9, owner: "ghost-user", permission: "view" }],
+    });
+    // Tombstone ghost-user.
+    memFs.set("users/_user_metadata.json", {
+      users: {
+        alex: { color: "#111111", created_at: "2026-01-01T00:00:00Z" },
+        "ghost-user": {
+          color: "#222222",
+          created_at: "2026-01-01T00:00:00Z",
+          deleted_at: "2026-05-20T00:00:00Z",
+        },
+      },
+    });
+
+    const all = await fetchAllMethodsIncludingShared();
+
+    // Alex's own method is still there.
+    expect(all.some((m) => m.id === 1 && !m.is_shared_with_me)).toBe(true);
+    // The tombstoned owner's shared-in method must NOT render.
+    expect(all.some((m) => m.id === 9)).toBe(false);
+  });
+
+  it("keeps a shared-in method whose owner is still active", async () => {
+    // delete-affordances bot, 2026-05-29 — the tombstone gate must NOT
+    // over-filter: an active owner's shared-in method still shows.
+    seedMethod("morgan", { id: 9, name: "morgan's qPCR", owner: "morgan" });
+    memFs.set("users/alex/_shared_with_me.json", {
+      version: 1,
+      projects: [],
+      tasks: [],
+      methods: [{ id: 9, owner: "morgan", permission: "view" }],
+    });
+    memFs.set("users/_user_metadata.json", {
+      users: {
+        alex: { color: "#111111", created_at: "2026-01-01T00:00:00Z" },
+        morgan: { color: "#222222", created_at: "2026-01-01T00:00:00Z" },
+      },
+    });
+
+    const all = await fetchAllMethodsIncludingShared();
+    const shared = all.find((m) => m.id === 9);
+    expect(shared).toBeDefined();
+    expect(shared!.is_shared_with_me).toBe(true);
+    expect(shared!.owner).toBe("morgan");
+  });
+
   it("keeps a shared-in method as Shared with Lab (owner = sharer, is_shared_with_me true)", async () => {
     // Alex owns a pre-migration method. Morgan has shared method 9 with Alex
     // via Alex's _shared_with_me manifest; the file lives in Morgan's folder.

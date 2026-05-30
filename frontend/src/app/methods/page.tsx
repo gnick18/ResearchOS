@@ -651,6 +651,38 @@ export default function MethodsPage() {
     }
   }, [pendingDelete, methods, deleteOneMethod, queryClient]);
 
+  // Retire a PUBLIC (lab-wide) method (delete-affordances bot, 2026-05-29).
+  // Public methods are ownerless once published (owner === "public",
+  // shared_with carries "*" at level "read"), so the unified canWrite gate
+  // returns false for EVERY viewer — there was no way to remove an unwanted
+  // public method (e.g. one whose creator was a since-deleted user, which is
+  // exactly the ghost Grant hit). This reuses the existing delete path
+  // (deleteOneMethod -> methodsApi.delete, which hard-deletes the public
+  // record via publicMethodsStore.delete) and gates the lab-wide action
+  // behind an explicit confirm naming the impact. PERMISSION CHOICE (FLAG
+  // for Grant): any lab member may retire a public method; the friction is a
+  // strong confirm rather than a lab_head/PI restriction, since any member
+  // can publish one in the first place. Restricting to lab_head/PI is a
+  // one-line change here if Grant prefers it.
+  const handleRetirePublicMethod = useCallback(
+    async (method: Method) => {
+      const ok = confirm(
+        `Retire "${method.name}" from the lab?\n\n` +
+          "This is a public, lab-wide method. Retiring it removes it for " +
+          "everyone in the lab, not just you. This cannot be undone.",
+      );
+      if (!ok) return;
+      try {
+        await deleteOneMethod(method);
+        await queryClient.refetchQueries({ queryKey: ["methods"] });
+        setViewingMethod(null);
+      } catch {
+        alert("Failed to retire method");
+      }
+    },
+    [deleteOneMethod, queryClient],
+  );
+
   const handleCategoryCreated = useCallback((categoryName: string, addMethodNow: boolean) => {
     setCreatingCategory(false);
     // Add to empty categories
@@ -715,7 +747,31 @@ export default function MethodsPage() {
             ⋮⋮
           </span>
         ) : null}
-        <h4 className="text-sm font-medium text-gray-900">{m.name}</h4>
+        <h4 className="text-sm font-medium text-gray-900 flex-1">{m.name}</h4>
+        {/* Retire-from-lab control for PUBLIC methods (delete-affordances
+            bot, 2026-05-29). Public methods are ownerless, so the unified
+            write gate hides every per-viewer Delete button — leaving a stale
+            public method (e.g. one authored by a since-deleted user) with no
+            way to remove it. This card-level control routes through the
+            confirm-gated handleRetirePublicMethod. stopPropagation keeps the
+            card's open-on-click from also firing. */}
+        {m.is_public && (
+          <Tooltip label="Retire from lab" placement="left">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                void handleRetirePublicMethod(m);
+              }}
+              className="flex-shrink-0 p-1 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+              aria-label={`Retire ${m.name} from the lab`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+              </svg>
+            </button>
+          </Tooltip>
+        )}
       </div>
       <p className="text-xs text-gray-400 mt-1 truncate">{m.source_path}</p>
       <div className="flex items-center gap-2 mt-2">

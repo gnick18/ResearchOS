@@ -5481,10 +5481,17 @@ export const labApi = {
     const { usernames, metadata } = await loadLabUsers();
     const methods: LabMethod[] = [];
 
+    // loadLabUsers() (via discoverUsers) already excludes tombstoned users,
+    // so we never read a deleted user's own folder. This extra guard
+    // (delete-affordances bot, 2026-05-29) covers the rarer case of a method
+    // physically stored in a LIVE user's folder but stamped with an explicit
+    // `owner` that is itself a tombstoned (deleted) user — that method's
+    // owner no longer exists, so it must not render in the lab-wide list.
     for (const username of usernames) {
       const userMethods = await methodsStore.listAllForUser(username);
       const userColor = colorFor(metadata, username);
       for (const m of userMethods) {
+        if (m.owner && metadata[m.owner]?.deleted_at) continue;
         methods.push({
           id: m.id,
           name: m.name,
@@ -6639,6 +6646,17 @@ export const fetchAllMethodsIncludingShared = async (): Promise<Method[]> => {
     is_shared_with_me: false,
   }));
 
+  // Tombstone gate (delete-affordances bot, 2026-05-29): a shared-in
+  // manifest entry can point at an owner who was since deleted (their
+  // `_user_metadata.json` row carries `deleted_at`). discoverUsers() already
+  // hides those users everywhere else, but the shared-in path below reads
+  // `users/<owner>/methods/...` straight from the manifest without that
+  // filter, so a method owned by a tombstoned user used to slip into the
+  // list with no way to remove it. Skip any entry whose owner is tombstoned.
+  const allUserMeta = await readAllUserMetadata();
+  const isTombstonedOwner = (owner: string | undefined | null): boolean =>
+    !!owner && !!allUserMeta[owner]?.deleted_at;
+
   const sharedMethods: Method[] = [];
   try {
     const manifest = await fileService.readJson<SharedManifest>(
@@ -6646,6 +6664,7 @@ export const fetchAllMethodsIncludingShared = async (): Promise<Method[]> => {
     );
     const entries = manifest?.methods ?? [];
     for (const entry of entries) {
+      if (isTombstonedOwner(entry.owner)) continue;
       const method = await fileService.readJson<Method>(
         `users/${entry.owner}/methods/${entry.id}.json`
       );
