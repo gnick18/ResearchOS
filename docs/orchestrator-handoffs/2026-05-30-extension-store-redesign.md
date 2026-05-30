@@ -45,7 +45,32 @@ store-polish, methods-page-width) plus the held compound follow-up. Once those
 land and merge, the arc is fully closed; re-verify the compound path when a
 compound catalog entry exists.
 
-## Compound coordination hold (action required by master/catalog owner)
+## Compound coordination: RESOLVED (2026-05-30)
+
+The catalog session authored plans/COMPOUND_COMBINATIONS_CONTRACT.md (Grant-
+locked) and landed the compound union LOADER (commit 090a35bc): union + parser
++ instantiation branch, no manifest entries. The contract resolves the apparent
+model conflict: single-method + PDF attachment is the LEAF model; compound +
+components is the COMBINATION model; they are LAYERS, not alternatives. LC-MS =
+lc_gradient + mass_spec. User-facing word is "kit" (matches our store-polish
+rename). The contract splits ownership: catalog session owns the loader (done)
+and the 3 LC-MS combination templates + manifest entries (step 4, AFTER our
+wiring); the STORE session owns step 3 (the Phase D files). Per the contract,
+CompoundTemplateDetail needs no change; Phase D built the right shape.
+
+QUEUED compound-wiring bot (contract step 3): resolveCatalogCompoundComponents
+adapter (slug -> ResolvedCompoundComponent) in compound-template-detail.ts +
+MethodTemplateLibraryModal renderDetail branch for method_type "compound" with
+all-types-enabled gating. Fixture-tested (no live compound entry until catalog
+step 4).
+
+SEQUENCING: compound-wiring and store-polish both edit compound-template-detail.ts
+and MethodTemplateLibraryModal.tsx. RUN store-polish FIRST, then compound-wiring
+off the updated main, never concurrent. After compound-wiring merges and the
+catalog session lands step 4 entries, run the contract's step-5 verifier loop on
+the live compound path.
+
+## Superseded: original compound hold (kept for history)
 
 Phase D built and fixture-tested the compound (combination) detail renderer,
 but it is not reachable live: no compound catalog entry exists, and making one
