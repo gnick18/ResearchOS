@@ -123,7 +123,7 @@ const ACTS: readonly ActData[] = [
   },
   {
     id: "skateboard",
-    name: "Intermission",
+    name: "Sk8ter Boy",
     Component: BeakerBotSkateboardScene as unknown as SceneComponent,
     special: "skateboard",
     // SPECIAL: wide 21:9 frame. The bot + board cruise the FULL width
@@ -279,7 +279,17 @@ export default function PerformanceHall() {
 
   const act = ACTS.find((a) => a.id === activeId) ?? ACTS[0]!;
   const Component = act.Component;
-  const focus = act.focus ?? DEFAULT_FOCUS;
+  // SAFE GLOBAL FRAMING (orchestrator manager). The per-act `focus` values
+  // were estimated from each scene's code with no live view of this build (the
+  // preview tool serves a different checkout), and at least one guessed wrong:
+  // The Ladder rendered EMPTY because its translate centered the stage on a
+  // region with no bot. A wrong action-center can eject the performer entirely.
+  // Until each scene's framing is verified live, frame CENTERED (cx/cy 0.5, so
+  // there is NO translate and a wrong guess can never push the bot off-stage)
+  // with a gentle uniform zoom so he reads a bit larger than pure contain-fit
+  // while the whole scene stays in view. The per-act focus data is retained in
+  // ACTS for a future verified, per-scene pass.
+  const focus: ActFocus = { ...DEFAULT_FOCUS, zoom: 1.15 };
 
   // PER-SCENE FRAMING (scene-framing sub-bot, orchestrator manager).
   //
