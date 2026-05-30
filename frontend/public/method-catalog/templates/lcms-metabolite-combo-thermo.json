@@ -1,0 +1,15 @@
+{
+  "slug": "lcms-metabolite-combo-thermo",
+  "title": "Thermo UltiMate + Q Exactive: HILIC metabolomics LC-MS (kit)",
+  "description": "Paired HILIC gradient and Q Exactive MS setup for small-molecule metabolomics LC-MS (Thermo app note 656). Instantiates both leaf methods together.",
+  "category": "LC-MS",
+  "method_type": "compound",
+  "tags": ["lc-ms", "kit", "metabolomics", "small-molecule", "hilic", "orbitrap", "q-exactive", "thermo"],
+  "payload": {
+    "description": "A combination kit that bundles the matching LC gradient and MS setup for HILIC small-molecule metabolomics LC-MS on a Thermo UltiMate feeding a Q Exactive Orbitrap. Sample flows LC then MS: component 0 is the HILIC metabolomics gradient, component 1 is the Full MS plus ddMS2 acquisition setup. Each component keeps its own source provenance. Representative starting-point methods, verify against the source and tune per instrument and sample.",
+    "components": [
+      { "slug": "lcms-metabolite-hilic-lc-thermo", "ordering": 0, "label": "LC gradient" },
+      { "slug": "lcms-metabolite-ms-thermo-qexactive", "ordering": 1, "label": "MS setup" }
+    ]
+  }
+}

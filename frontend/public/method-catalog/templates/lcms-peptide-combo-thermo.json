@@ -1,0 +1,15 @@
+{
+  "slug": "lcms-peptide-combo-thermo",
+  "title": "Thermo EASY-nLC + Q Exactive: peptide LC-MS/MS (kit)",
+  "description": "Paired nano-LC gradient and Q Exactive MS/MS setup for bottom-up peptide LC-MS/MS (Thermo app note 21550). Instantiates both leaf methods together.",
+  "category": "LC-MS",
+  "method_type": "compound",
+  "tags": ["lc-ms", "kit", "peptide", "proteomics", "nano-lc", "orbitrap", "q-exactive", "thermo"],
+  "payload": {
+    "description": "A combination kit that bundles the matching LC gradient and MS setup for bottom-up peptide LC-MS/MS on a Thermo EASY-nLC 1200 feeding a Q Exactive Orbitrap. Sample flows LC then MS: component 0 is the reversed-phase nano-LC gradient, component 1 is the data-dependent MS/MS acquisition setup. Each component keeps its own source provenance. Representative starting-point methods, verify against the source and tune per instrument and sample.",
+    "components": [
+      { "slug": "lcms-peptide-rp-lc-thermo", "ordering": 0, "label": "LC gradient" },
+      { "slug": "lcms-peptide-ms-thermo-orbitrap", "ordering": 1, "label": "MS setup" }
+    ]
+  }
+}

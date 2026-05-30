@@ -1472,6 +1472,58 @@
         "source_url": "https://www.sigmaaldrich.com/deepweb/assets/sigmaaldrich/product/documents/271/272/ftaq-ro.pdf",
         "sha256": "8400bd1630940eb1ebd8a817f1a7605ef00ed413058b29608520b9e6e11b11e4"
       }
+    },
+    {
+      "slug": "lcms-peptide-combo-thermo",
+      "title": "Thermo EASY-nLC + Q Exactive: peptide LC-MS/MS (kit)",
+      "description": "Paired nano-LC gradient and Q Exactive MS/MS setup for bottom-up peptide LC-MS/MS (Thermo app note 21550). Instantiates both leaf methods together.",
+      "category": "LC-MS",
+      "method_type": "compound",
+      "tags": [
+        "lc-ms",
+        "kit",
+        "peptide",
+        "proteomics",
+        "nano-lc",
+        "orbitrap",
+        "q-exactive",
+        "thermo"
+      ]
+    },
+    {
+      "slug": "lcms-metabolite-combo-thermo",
+      "title": "Thermo UltiMate + Q Exactive: HILIC metabolomics LC-MS (kit)",
+      "description": "Paired HILIC gradient and Q Exactive MS setup for small-molecule metabolomics LC-MS (Thermo app note 656). Instantiates both leaf methods together.",
+      "category": "LC-MS",
+      "method_type": "compound",
+      "tags": [
+        "lc-ms",
+        "kit",
+        "metabolomics",
+        "small-molecule",
+        "hilic",
+        "orbitrap",
+        "q-exactive",
+        "thermo"
+      ]
+    },
+    {
+      "slug": "lcms-intact-protein-combo-thermo",
+      "title": "Thermo Vanquish + Orbitrap Exploris: intact-protein LC-MS (kit)",
+      "description": "Paired reversed-phase gradient and Orbitrap Exploris MS setup for denaturing intact-protein / intact-mass LC-MS (Thermo app note 73885). Instantiates both leaf methods together.",
+      "category": "LC-MS",
+      "method_type": "compound",
+      "tags": [
+        "lc-ms",
+        "kit",
+        "intact-protein",
+        "intact-mass",
+        "monoclonal-antibody",
+        "reverse-phase",
+        "orbitrap",
+        "exploris",
+        "thermo"
+      ]
     }
   ]
 }
