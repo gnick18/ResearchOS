@@ -89,6 +89,12 @@ export interface AppendEditArgs {
   prevState: unknown;
   /** Tracked state AFTER the edit. */
   nextState: unknown;
+  /**
+   * VC Phase 2 (FLAG-4): for a "revert" / "undo-revert" edit, the version index
+   * the edit reverted TO. Stamped onto the DeltaRow so the viewer can label it.
+   * Omitted (and not written) for ordinary edits.
+   */
+  revertTargetVersion?: number;
 }
 
 // ── The engine ──────────────────────────────────────────────────────────────
@@ -123,7 +129,16 @@ export class HistoryEngine {
    * before returning.
    */
   async appendEdit(args: AppendEditArgs): Promise<void> {
-    const { type, entityType, id, owner, actor, prevState, nextState } = args;
+    const {
+      type,
+      entityType,
+      id,
+      owner,
+      actor,
+      prevState,
+      nextState,
+      revertTargetVersion,
+    } = args;
     const path = this.path(entityType, owner, id);
 
     const rows = await this.readHistory(entityType, owner, id);
@@ -160,6 +175,11 @@ export class HistoryEngine {
       kind: type,
       delta,
       post_hash: postHash,
+      // VC Phase 2 (FLAG-4): only stamp the target version on revert rows; an
+      // ordinary edit leaves the field absent so the row shape is unchanged.
+      ...(revertTargetVersion !== undefined
+        ? { revert_target_version: revertTargetVersion }
+        : {}),
     };
     await this.storage.appendLine(path, JSON.stringify(row));
 

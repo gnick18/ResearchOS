@@ -39,5 +39,6 @@ export {
 
 export {
   HISTORY_ENGINE_ENABLED,
+  RESTORE_ENABLED,
   recordNoteHistory,
 } from "./notes-history";

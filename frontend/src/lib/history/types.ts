@@ -20,6 +20,12 @@ export type HistoryEditKind =
   | "delete"
   | "restore"
   | "revert"
+  // VC Phase 2 (FLAG-3): the kind stamped on the HEAD row written when a user
+  // UNDOES a restore inside the 24h window. The undo is itself a forward edit
+  // (it writes the pre-restore state back), so it appears as its own row; the
+  // distinct kind lets the viewer + analytics tell a revert apart from an
+  // undo-of-revert.
+  | "undo-revert"
   | "rename";
 
 /**
@@ -69,6 +75,13 @@ export interface DeltaRow {
   /** sha256 of canonical(nextState). Lets a reader verify the live record
    *  matches the latest row and lets revert detect interleaved edits. */
   post_hash: string;
+  /**
+   * VC Phase 2 (FLAG-4): when kind is "revert" (restore-a-version) or
+   * "undo-revert", the version index the row reverted TO. Lets the viewer
+   * label a row "Restored version N" without re-deriving it from the diff.
+   * Absent on ordinary create/update/delete/rename rows.
+   */
+  revert_target_version?: number;
 }
 
 /**
@@ -123,6 +136,7 @@ export function isDeltaRow(row: HistoryRow): row is DeltaRow {
     row.kind === "delete" ||
     row.kind === "restore" ||
     row.kind === "revert" ||
+    row.kind === "undo-revert" ||
     row.kind === "rename"
   );
 }

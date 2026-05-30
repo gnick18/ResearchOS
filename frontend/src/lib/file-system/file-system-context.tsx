@@ -29,6 +29,7 @@ import {
   migrateLegacyNotesTrashAllUsers,
   runAutoCleanupPass,
 } from "../trash";
+import { runRevertWindowSweep } from "../notes/revert-window-sweep";
 
 /** Coarse-grained phase of the startup connect flow. Used by the loading
  *  screen so the user sees something change while OneDrive is being slow.
@@ -291,6 +292,35 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         } catch (err) {
           console.warn(
             "[FileSystemProvider] trash auto-cleanup loop failed:",
+            err,
+          );
+        }
+
+        // VC Phase 2 (restore-a-version sub-bot of HR, 2026-05-30): strip
+        // expired `revert_undo_window` sidecars from every user's notes. Rides
+        // the same connect-time cleanup loop as the trash sweep above. The
+        // render-gate already hides an expired Undo button, so this is pure
+        // disk hygiene: best-effort + idempotent, and a failure never blocks
+        // the folder connect.
+        try {
+          for (const username of users) {
+            try {
+              const summary = await runRevertWindowSweep(username);
+              if (summary.stripped > 0) {
+                console.info(
+                  `[revert-window-sweep] ${username}: scanned=${summary.scanned} stripped=${summary.stripped} kept=${summary.kept} errors=${summary.errors}`,
+                );
+              }
+            } catch (err) {
+              console.warn(
+                `[FileSystemProvider] runRevertWindowSweep failed for ${username}:`,
+                err,
+              );
+            }
+          }
+        } catch (err) {
+          console.warn(
+            "[FileSystemProvider] revert-window sweep loop failed:",
             err,
           );
         }

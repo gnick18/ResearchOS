@@ -35,6 +35,13 @@ const VOLATILE_STAMP_DENYLIST = new Set<string>([
   // recomputed on read and must not pollute diffs.
   "_dirty",
   "_local_only",
+  // VC Phase 2 (FLAG-2, CRITICAL): the restore-undo window sidecar. Its value
+  // is a timestamp bundle (reverted_at / expires_at), so without this denylist
+  // entry it would (a) be diffed into EVERY delta after a restore and (b) make
+  // the restore row's own delta non-deterministic. It is a UI-affordance stamp,
+  // not tracked content, so dropping it from the canonical state loses no
+  // history. Must stay in lockstep with the `revert_undo_window` field on Note.
+  "revert_undo_window",
 ]);
 
 /**

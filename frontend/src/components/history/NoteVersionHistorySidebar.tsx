@@ -67,6 +67,18 @@ interface NoteVersionHistorySidebarProps {
   onPreviewChange: (preview: VersionPreview | null) => void;
   /** Injected clock for deterministic relative labels (tests). Defaults to now. */
   now?: Date;
+  /**
+   * VC Phase 2: gates the sticky-footer "Restore this version" affordance. The
+   * popup computes it (= not read-only AND owner-or-PI-unlocked) and passes it
+   * down. When false the footer never renders, whatever is selected.
+   */
+  canRestore?: boolean;
+  /**
+   * VC Phase 2: invoked with the selected NON-HEAD version index when the user
+   * confirms a restore. The popup owns the actual reverse-walk + write + the
+   * after-restore exit, so the sidebar only surfaces the intent.
+   */
+  onRestore?: (versionIndex: number) => void | Promise<void>;
 }
 
 export default function NoteVersionHistorySidebar({
@@ -75,6 +87,8 @@ export default function NoteVersionHistorySidebar({
   onClose,
   onPreviewChange,
   now,
+  canRestore = false,
+  onRestore,
 }: NoteVersionHistorySidebarProps) {
   const profileMap = useLabUserProfileMap();
   const [rows, setRows] = useState<HistoryRow[] | null>(null);
@@ -90,6 +104,11 @@ export default function NoteVersionHistorySidebar({
   /** Bumps once reconstruction finishes so the preview effect re-runs against
    *  the now-populated projection cache (avoids a first-paint empty diff). */
   const [reconstructTick, setReconstructTick] = useState(0);
+  /** VC Phase 2: inline restore-confirm state (NOT native confirm()). When
+   *  true the footer swaps the "Restore this version" button for a confirm /
+   *  cancel pair. Reset on selection change so it can never confirm a stale row. */
+  const [confirmingRestore, setConfirmingRestore] = useState(false);
+  const [restoring, setRestoring] = useState(false);
 
   const listRef = useRef<HTMLDivElement>(null);
   const nowRef = useMemo(() => now ?? new Date(), [now]);
@@ -187,6 +206,17 @@ export default function NoteVersionHistorySidebar({
     return out;
   }, [model]);
 
+  // The currently-selected version entry (for the restore-footer gate). The
+  // summarized/boundary group is NOT in flatVersions, so a selected entry is
+  // always a real, restorable delta row (HEAD excepted, gated below).
+  const selectedEntry = useMemo(
+    () =>
+      selectedIndex === null
+        ? null
+        : flatVersions.find((v) => v.versionIndex === selectedIndex) ?? null,
+    [flatVersions, selectedIndex],
+  );
+
   // ── Selection + diff preview ─────────────────────────────────────────────
   // Auto-select the HEAD version once the list is built.
   useEffect(() => {
@@ -194,6 +224,13 @@ export default function NoteVersionHistorySidebar({
       setSelectedIndex(flatVersions[0].versionIndex);
     }
   }, [flatVersions, selectedIndex]);
+
+  // VC Phase 2: any selection change cancels an in-flight inline confirm so the
+  // footer can never confirm a restore for a row the user has navigated away
+  // from. Cheap and defensive.
+  useEffect(() => {
+    setConfirmingRestore(false);
+  }, [selectedIndex]);
 
   const selectVersion = useCallback((entry: VersionEntry) => {
     setSelectedIndex(entry.versionIndex);
@@ -271,6 +308,20 @@ export default function NoteVersionHistorySidebar({
     },
     [flatVersions, selectedIndex, selectVersion, onClose],
   );
+
+  // VC Phase 2: confirm + fire the restore. The popup does the reverse-walk +
+  // write; we keep a local `restoring` flag so the button can't double-fire.
+  const handleConfirmRestore = useCallback(async () => {
+    if (selectedEntry === null || selectedEntry.isHead) return;
+    if (!onRestore) return;
+    setRestoring(true);
+    try {
+      await onRestore(selectedEntry.versionIndex);
+    } finally {
+      setRestoring(false);
+      setConfirmingRestore(false);
+    }
+  }, [selectedEntry, onRestore]);
 
   const toggleSession = useCallback((key: string) => {
     setExpandedSessions((prev) => {
@@ -508,6 +559,72 @@ export default function NoteVersionHistorySidebar({
           </div>
         )}
       </div>
+
+      {/* VC Phase 2: sticky restore footer. Renders ONLY when the popup granted
+          restore rights AND a NON-HEAD version is selected. HEAD is the live
+          record (nothing to restore TO), and the summarized/boundary group is
+          structurally non-selectable, so it can never appear here. The confirm
+          is inline (NOT native confirm()): the button swaps to a confirm/cancel
+          pair so a misclick is a no-op, matching the house "no native dialogs"
+          rule. */}
+      {canRestore && onRestore && selectedEntry && !selectedEntry.isHead && (
+        <div
+          className="border-t border-gray-200 bg-white px-4 py-3 flex-shrink-0"
+          data-testid="restore-footer"
+        >
+          {!confirmingRestore ? (
+            <button
+              type="button"
+              onClick={() => setConfirmingRestore(true)}
+              data-testid="restore-button"
+              className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
+            >
+              <svg
+                className="w-4 h-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 3v5h5" />
+                <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
+                <path d="M12 7v5l3 2" />
+              </svg>
+              Restore this version
+            </button>
+          ) : (
+            <div className="space-y-2" data-testid="restore-confirm">
+              <p className="text-xs text-gray-600 leading-snug">
+                Make this version the current note? Your current version stays in
+                history, and you can undo this for 24 hours.
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleConfirmRestore}
+                  disabled={restoring}
+                  data-testid="restore-confirm-button"
+                  className="flex-1 px-3 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 rounded-lg transition-colors"
+                >
+                  {restoring ? "Restoring..." : "Restore"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingRestore(false)}
+                  disabled={restoring}
+                  data-testid="restore-cancel-button"
+                  className="px-3 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:opacity-60 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -19,6 +19,7 @@
 
 import { notesApi as rawNotesApi } from "@/lib/local-api";
 import type { NoteUpdate } from "@/lib/local-api";
+import type { HistoryEditKind } from "@/lib/history";
 import {
   appendAuditEntries,
   buildFieldDiffEntries,
@@ -62,6 +63,21 @@ export function ownerScopedNotesApi(args: OwnerScopedNotesArgs) {
   if (!active) {
     return {
       ...rawNotesApi,
+      // VC Phase 2 (FLAG-5): give the inactive wrapper the SAME 3-arg
+      // (id, data, historyMeta) update shape as the active branch below, so
+      // NoteDetailPopup can call `notesApi.update(id, payload, historyMeta)`
+      // unconditionally. The raw API takes (id, data, owner, historyMeta); here
+      // `owner` is undefined (current-user folder), and historyMeta forwards
+      // through. Without this shim a 3-arg call would bind historyMeta to the
+      // raw `owner` param and silently misroute the write.
+      update: (
+        id: number,
+        data: NoteUpdate,
+        historyMeta: {
+          kind: HistoryEditKind;
+          revert_target_version?: number;
+        } = { kind: "update" },
+      ) => rawNotesApi.update(id, data, undefined, historyMeta),
     };
   }
 
@@ -112,11 +128,22 @@ export function ownerScopedNotesApi(args: OwnerScopedNotesArgs) {
     // get is the only read we override — so consumers that read-via-the-
     // wrapper see the target owner's record, not the PI's.
     get: (id: number) => rawNotesApi.get(id, owner),
-    update: async (id: number, data: NoteUpdate) => {
+    // VC Phase 2 (FLAG-5): `historyMeta` threads through to the raw
+    // notesApi.update so a PI-initiated restore / undo-restore stamps the
+    // history row with the right kind ("revert" / "undo-revert") AND the PI
+    // cross-owner audit + owner routing ride the existing path. Defaults to
+    // { kind: "update" } so non-restore PI edits are unchanged.
+    update: async (
+      id: number,
+      data: NoteUpdate,
+      historyMeta: { kind: HistoryEditKind; revert_target_version?: number } = {
+        kind: "update",
+      },
+    ) => {
       // Top-level note fields: title / description / is_shared / etc.
       // One audit entry per touched field that actually moved.
       const before = await rawNotesApi.get(id, owner);
-      const updated = await rawNotesApi.update(id, data, owner);
+      const updated = await rawNotesApi.update(id, data, owner, historyMeta);
       if (before && updated) {
         const entries = buildFieldDiffEntries({
           actor: writer,
@@ -126,7 +153,11 @@ export function ownerScopedNotesApi(args: OwnerScopedNotesArgs) {
           record_id: id,
           oldRecord: before as unknown as Record<string, unknown>,
           newRecord: updated as unknown as Record<string, unknown>,
-          fieldPaths: Object.keys(data).filter((k) => k !== "updated_at"),
+          // `revert_undo_window` is a transient UI affordance (denylisted from
+          // history), so it must not generate per-field audit churn either.
+          fieldPaths: Object.keys(data).filter(
+            (k) => k !== "updated_at" && k !== "revert_undo_window",
+          ),
         });
         await writeAuditEntries(entries);
       }

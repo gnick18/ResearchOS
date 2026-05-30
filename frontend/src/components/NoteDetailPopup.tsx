@@ -1,10 +1,18 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import type { Note, NoteEntry } from "@/lib/types";
+import type { Note, NoteEntry, NoteRestorePayload } from "@/lib/types";
 import { ownerScopedNotesApi } from "@/lib/notes/owner-scoped-api";
 import { emitNoteDeleted } from "@/lib/notes/delete-toast-bus";
 import { canDeleteNoteFromPopup } from "@/lib/notes/delete-permission";
+import { canRestoreNoteVersion } from "@/lib/notes/restore-permission";
+import {
+  historyEngine,
+  canonicalize,
+  HistoryCompactedTargetError,
+  RESTORE_ENABLED,
+  type HistoryRow,
+} from "@/lib/history";
 import { useAppStore } from "@/lib/store";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import NoteCommentsThread from "./NoteCommentsThread";
@@ -803,6 +811,208 @@ export default function NoteDetailPopup({
     labHeadUnlocked: labHeadGate.unlocked,
   });
 
+  // ── VC Phase 2: restore-a-version + 24h undo-restore ─────────────────────
+  // The history file lives under the OWNER's folder; mirror the sidebar mount's
+  // owner resolution exactly so reads/writes hit the same path.
+  const historyOwner = note.username || currentUser || "";
+
+  // Three-way PI gate (canRestoreNoteVersion). Computed once here, passed to
+  // BOTH the sidebar footer (Restore) and the header (Undo). `effectiveReadOnly`
+  // is the lab-head gate's own read-only (NOT `readOnly`, which also flips true
+  // while the history sidebar is open). Restoring is the whole point of having
+  // the sidebar open, so we must not let `historyOpen` suppress the affordance.
+  const canRestore = canRestoreNoteVersion({
+    readOnly: labHeadGate.effectiveReadOnly,
+    currentUser,
+    noteOwner: note.username,
+    labHeadUnlocked: labHeadGate.unlocked,
+  });
+
+  // A PI who is VIEWING another member's note but has NOT unlocked an edit
+  // session: the affordance renders DISABLED with an unlock tooltip (vs hidden
+  // for a plain read-only shared viewer). `canRequestEdit` is true exactly for
+  // that PI-could-unlock case.
+  const restoreNeedsUnlock =
+    !canRestore && labHeadGate.canRequestEdit && !labHeadGate.unlocked;
+
+  // Reverse-walk from HEAD to `targetVersion`, returning the canonical state
+  // string AT the target. Throws HistoryCompactedTargetError (Case C) when the
+  // target was folded into a boundary snapshot.
+  //
+  // HEAD canonical comes from the LIVE note on disk, NOT reconstructState: a
+  // note that existed BEFORE its first tracked edit has a bare genesis anchored
+  // at a non-empty pre-image, which reconstructState cannot resolve without HEAD
+  // (the very thing we are deriving). The live record IS the HEAD, so we
+  // canonicalize it directly. This also matches the post_hash on the latest
+  // history row by construction (recordNoteHistory canonicalizes the same way).
+  const reconstructTarget = useCallback(
+    async (rows: HistoryRow[], targetVersion: number): Promise<string> => {
+      const liveHead = await notesApi.get(note.id, historyOwner || undefined);
+      const headCanonical = canonicalize(liveHead ?? note);
+      return historyEngine.reverseWalkTo(rows, targetVersion, headCanonical);
+    },
+    [historyOwner, note, notesApi],
+  );
+
+  // Parse a reconstructed canonical string into a full-state restore payload.
+  // The canonical is the TRACKED state (denylist-stripped), so it carries every
+  // structural field we restore (title/description/entries/comments/...). We
+  // explicitly drop `id` (never overwritten) and never include `revert_undo_window`
+  // (denylisted, so it is not in the canonical anyway).
+  const canonicalToPayload = useCallback((canonical: string): NoteRestorePayload => {
+    const parsed = JSON.parse(canonical) as Record<string, unknown>;
+    const {
+      id: _id,
+      created_at: _createdAt,
+      username: _username,
+      ...rest
+    } = parsed;
+    return rest as NoteRestorePayload;
+  }, []);
+
+  const [restoreError, setRestoreError] = useState<string | null>(null);
+
+  // Restore: write the target version back as the live note + open a 24h undo
+  // window. Stamps the resulting history row kind "revert". After the write,
+  // EXIT the history sidebar so the restored live note is visible with the
+  // header "Undo restore" surfaced.
+  const handleRestore = useCallback(
+    async (targetVersion: number) => {
+      setRestoreError(null);
+      try {
+        const rows = await historyEngine.readHistory("notes", historyOwner, note.id);
+        if (rows.length === 0) return;
+        const headVersion = rows.length - 1;
+        let targetCanonical: string;
+        try {
+          targetCanonical = await reconstructTarget(rows, targetVersion);
+        } catch (err) {
+          if (err instanceof HistoryCompactedTargetError) {
+            // Case C: the target was folded away. Offer the boundary fallback
+            // (the closest reachable saved point, reverseWalkTo(rows, 0)).
+            setRestoreError(
+              "That version was summarized to keep history fast and can no longer be restored exactly. The earliest saved point is still available from the summarized group.",
+            );
+            return;
+          }
+          throw err;
+        }
+        const payload = canonicalToPayload(targetCanonical);
+        const nowIso = new Date().toISOString();
+        const expiresIso = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        payload.revert_undo_window = {
+          from_version: headVersion,
+          to_version: targetVersion,
+          reverted_at: nowIso,
+          expires_at: expiresIso,
+          reverted_by: currentUser ?? note.username ?? "",
+        };
+        const updated = await notesApi.update(note.id, payload, {
+          kind: "revert",
+          revert_target_version: targetVersion,
+        });
+        if (updated) {
+          onUpdate(updated);
+          // Reflect the restored state in the popup's local editor fields.
+          setTitle(updated.title);
+          setDescription(updated.description);
+          setEntries(updated.entries);
+          setIsShared(updated.is_shared);
+        }
+        // Exit history: surface the live restored note + the Undo button.
+        closeHistory();
+      } catch (err) {
+        console.error("[NoteDetailPopup] restore failed:", err);
+        setRestoreError("Could not restore that version. Please try again.");
+      }
+    },
+    [
+      historyOwner,
+      note.id,
+      note.username,
+      currentUser,
+      reconstructTarget,
+      canonicalToPayload,
+      notesApi,
+      onUpdate,
+      closeHistory,
+    ],
+  );
+
+  // The live undo window, if present + unexpired. `now` is read at render; the
+  // render gate (and this) drops an expired window without a background timer.
+  const undoWindow = note.revert_undo_window ?? null;
+  const undoWindowActive =
+    !!undoWindow && Date.now() < new Date(undoWindow.expires_at).getTime();
+
+  // Undo restore: reverse-walk to the PRE-restore version (from_version), write
+  // it back, clear the window, stamp the row kind "undo-revert". Confirms first
+  // if edits landed since the restore. Case C on the undo walk clears the window
+  // (the pre-restore point was folded away) + messages.
+  const handleUndoRestore = useCallback(async () => {
+    if (!undoWindow) return;
+    setRestoreError(null);
+    try {
+      const rows = await historyEngine.readHistory("notes", historyOwner, note.id);
+      if (rows.length === 0) return;
+      // Edits-since guard: the restore wrote a row at from_version+1, so the
+      // undo target (from_version) is the second-to-last row if nothing has
+      // been edited since the restore. If MORE rows exist past the restore row,
+      // the user kept editing; confirm before discarding that work.
+      const restoreRowIndex = undoWindow.from_version + 1;
+      const editsSince = rows.length - 1 - restoreRowIndex;
+      if (
+        editsSince > 0 &&
+        !confirm(
+          "You have edited this note since the restore. Undoing will discard those edits and return the note to its pre-restore state. Continue?",
+        )
+      ) {
+        return;
+      }
+      let preRestoreCanonical: string;
+      try {
+        preRestoreCanonical = await reconstructTarget(rows, undoWindow.from_version);
+      } catch (err) {
+        if (err instanceof HistoryCompactedTargetError) {
+          // Case C: the pre-restore version was folded away. We cannot undo
+          // exactly; clear the window so the stale button disappears + message.
+          await notesApi.update(note.id, { revert_undo_window: null });
+          const cleared = await notesApi.get(note.id, historyOwner || undefined);
+          if (cleared) onUpdate(cleared);
+          setRestoreError(
+            "The pre-restore version was summarized and can no longer be undone automatically. The undo window has been closed.",
+          );
+          return;
+        }
+        throw err;
+      }
+      const payload = canonicalToPayload(preRestoreCanonical);
+      payload.revert_undo_window = null; // clear the window
+      const updated = await notesApi.update(note.id, payload, {
+        kind: "undo-revert",
+        revert_target_version: undoWindow.from_version,
+      });
+      if (updated) {
+        onUpdate(updated);
+        setTitle(updated.title);
+        setDescription(updated.description);
+        setEntries(updated.entries);
+        setIsShared(updated.is_shared);
+      }
+    } catch (err) {
+      console.error("[NoteDetailPopup] undo-restore failed:", err);
+      setRestoreError("Could not undo the restore. Please try again.");
+    }
+  }, [
+    undoWindow,
+    historyOwner,
+    note.id,
+    reconstructTarget,
+    canonicalToPayload,
+    notesApi,
+    onUpdate,
+  ]);
+
   // Format date for display
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "";
@@ -907,6 +1117,16 @@ export default function NoteDetailPopup({
                   recordId={note.id}
                 />
               )}
+              {/* VC Phase 2: restore / undo-restore error + Case-C fallback
+                  message. Inline, non-blocking; clears on the next attempt. */}
+              {restoreError && (
+                <p
+                  data-testid="note-restore-error"
+                  className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug"
+                >
+                  {restoreError}
+                </p>
+              )}
             </div>
 
             {/* Fullscreen and Close buttons */}
@@ -955,6 +1175,54 @@ export default function NoteDetailPopup({
                   </button>
                 </Tooltip>
               )}
+              {/* VC Phase 2 (restore-a-version sub-bot of HR, 2026-05-30):
+                  "Undo restore" header button. Visible (flag ON) while a
+                  24h undo window is live for this note. The button is the
+                  prominent surface that appears after a restore exits the
+                  sidebar. Enabled for the owner / PI-with-unlock; DISABLED with
+                  an unlock Tooltip for a PI who could unlock but has not; HIDDEN
+                  for a read-only shared viewer (both canRestore and
+                  restoreNeedsUnlock are false). Render-gated on expiry: once
+                  `expires_at` passes, undoWindowActive is false and the button
+                  drops with no background timer. */}
+              {RESTORE_ENABLED &&
+                undoWindowActive &&
+                (canRestore || restoreNeedsUnlock) && (
+                  <Tooltip
+                    label={
+                      restoreNeedsUnlock
+                        ? "Unlock edit mode (PI passcode) to undo the restore"
+                        : "Undo the restore (returns the note to its pre-restore version)"
+                    }
+                    placement="bottom"
+                  >
+                    <button
+                      onClick={canRestore ? handleUndoRestore : undefined}
+                      disabled={!canRestore}
+                      data-testid="note-undo-restore-button"
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                        canRestore
+                          ? "text-amber-700 bg-amber-50 hover:bg-amber-100"
+                          : "text-gray-400 bg-gray-50 cursor-not-allowed"
+                      }`}
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M9 14L4 9l5-5" />
+                        <path d="M4 9h11a4 4 0 0 1 0 8h-1" />
+                      </svg>
+                      Undo restore
+                    </button>
+                  </Tooltip>
+                )}
               {/* VCP Phase 1 (version-history viewer bot for HR,
                   2026-05-29): version-history entry button. Shown to anyone
                   with read access (the popup only opens on notes the viewer
@@ -1403,6 +1671,11 @@ export default function NoteDetailPopup({
             owner={note.username || currentUser || ""}
             onClose={closeHistory}
             onPreviewChange={setVersionPreview}
+            // VC Phase 2: the Restore footer only appears when the feature flag
+            // is ON, the three-way PI gate grants restore rights, AND a non-HEAD
+            // version is selected (the sidebar enforces the last condition).
+            canRestore={RESTORE_ENABLED && canRestore}
+            onRestore={handleRestore}
           />
         )}
         </div>

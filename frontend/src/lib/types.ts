@@ -2091,6 +2091,29 @@ export interface NoteEntryUpdate {
   content?: string;
 }
 
+/**
+ * VC Phase 2 (FLAG-1): the 24h undo-restore window sidecar. Written atomically
+ * onto the live Note by the restore update, cleared by the undo update, and
+ * stripped by the folder-connect expiry sweep once `expires_at` has passed.
+ *
+ * CRITICAL: this field is in the canonicalize VOLATILE_STAMP_DENYLIST
+ * (FLAG-2), so it never appears in a history delta. It is a transient UI
+ * affordance, not tracked content.
+ */
+export interface RevertUndoWindow {
+  /** The version index (history row index) the note was at BEFORE the restore.
+   *  Undo reverse-walks back to this. */
+  from_version: number;
+  /** The version index the restore reverted TO. */
+  to_version: number;
+  /** ISO 8601 timestamp the restore happened. */
+  reverted_at: string;
+  /** ISO 8601 timestamp the undo affordance expires (reverted_at + 24h). */
+  expires_at: string;
+  /** Username of whoever performed the restore. */
+  reverted_by: string;
+}
+
 export interface NoteComment {
   id: string;
   author: string;       // username of the commenter (the real user, not "lab")
@@ -2142,6 +2165,11 @@ export interface Note {
   // on read for pre-R3 records; back-fills on next write.
   last_edited_by?: string;
   last_edited_at?: string;
+  // VC Phase 2 (FLAG-1): the 24h undo-restore window. Present only between a
+  // restore and either its undo or the window's expiry. Denylisted from the
+  // history canonical (FLAG-2) so it never pollutes a delta. Absent on every
+  // note that was never restored.
+  revert_undo_window?: RevertUndoWindow;
 }
 
 export interface NoteCreate {
@@ -2162,6 +2190,37 @@ export interface NoteUpdate {
   // path also stamps `updated_at`; both fields land together.
   last_edited_by?: string;
   last_edited_at?: string;
+  // VC Phase 2 (FLAG-1): the undo-restore window. Set (object) on a restore;
+  // CLEARED (`null`) on an undo. `notesApi.update` deletes the key on `null`
+  // so the live note carries no lingering field. Denylisted (FLAG-2).
+  revert_undo_window?: RevertUndoWindow | null;
+  // VC Phase 2 (FLAG-1): a restore writes the FULL tracked state back, which
+  // for a note spans the structural fields below, not just title/description.
+  // They live in a dedicated payload type (NoteRestorePayload) rather than
+  // widening NoteUpdate's core fields, because NoteUpdate is structurally
+  // compatible with `Partial<NoteCreate>` at several call sites and adding
+  // `entries: NoteEntry[]` here would break that overlap (NoteCreate carries
+  // NoteEntryCreate[]). The restore handler assembles a NoteRestorePayload and
+  // passes it through notesApi.update; the partial-merge store keys on the
+  // object at runtime, so the structural fields persist.
+}
+
+/**
+ * VC Phase 2 (FLAG-1): the full-tracked-state payload a restore / undo writes.
+ * Superset of NoteUpdate with every structural field the canonical tracks, so
+ * `notesApi.update` overwrites the live note to exactly the target version.
+ * Distinct type (not a NoteUpdate widening) to avoid colliding with the
+ * `Partial<NoteCreate>` flows that also feed notesApi.update.
+ */
+export interface NoteRestorePayload extends NoteUpdate {
+  title?: string;
+  description?: string;
+  is_shared?: boolean;
+  is_running_log?: boolean;
+  entries?: NoteEntry[];
+  comments?: NoteComment[];
+  shared_with?: SharedUser[];
+  flagged?: PiFlag | null;
 }
 
 export interface NoteEntriesReorderRequest {

@@ -33,6 +33,21 @@ import type { HistoryEditKind } from "./types";
  */
 export const HISTORY_ENGINE_ENABLED = true;
 
+/**
+ * VC Phase 2 master switch for the RESTORE-A-VERSION + 24h undo affordances on
+ * the Notes pilot. DEFAULT-OFF: Phase 2 is DATA-MUTATING (it writes the live
+ * note + a history row), so it ships behind this flag and the cherry-pick to
+ * main is inert at runtime until verification clears.
+ *
+ * To enable after the verifier loop passes: flip to `true`. That reveals the
+ * sidebar "Restore this version" footer + the popup-header "Undo restore"
+ * button. Nothing else reads this flag, so it is a single source of truth.
+ *
+ * Note: with the flag OFF, the read-only Phase 1 viewer is unaffected (it never
+ * checks RESTORE_ENABLED). Only the new write affordances are gated.
+ */
+export const RESTORE_ENABLED = false;
+
 const NOTES_ENTITY_TYPE = "notes";
 
 /**
@@ -51,6 +66,8 @@ export async function recordNoteHistory(args: {
   actor: string;
   prevState: unknown;
   nextState: unknown;
+  /** VC Phase 2 (FLAG-4): target version for a "revert" / "undo-revert" row. */
+  revertTargetVersion?: number;
 }): Promise<void> {
   if (!HISTORY_ENGINE_ENABLED) return;
   try {
@@ -62,6 +79,7 @@ export async function recordNoteHistory(args: {
       actor: args.actor,
       prevState: args.prevState,
       nextState: args.nextState,
+      revertTargetVersion: args.revertTargetVersion,
     });
   } catch (err) {
     // Swallow: the live record saved fine; history is best-effort.

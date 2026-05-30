@@ -4,6 +4,7 @@ import { trashNote, restoreTrashedNote } from "./notes/notes-trash";
 import { trashEntity, type TrashEntityType } from "./trash";
 import { recordProjectActivity } from "./project-activity/event-log";
 import { HISTORY_ENGINE_ENABLED, recordNoteHistory } from "./history";
+import type { HistoryEditKind } from "./history";
 import { getCurrentUser, getMainUser, storeCurrentUser, storeMainUser, clearCurrentUser, clearMainUser } from "./file-system/indexeddb-store";
 import { shiftTask } from "./engine/shift";
 import { formatDate, parseDate } from "./engine/dates";
@@ -3747,10 +3748,33 @@ export const notesApi = {
   // entity types. FLAG: notes already had `username` (creator) +
   // `updated_at` (write-time) before R3; we keep both, the new fields
   // are additive.
-  update: async (id: number, data: NoteUpdate, owner?: string): Promise<Note | null> => {
+  // VC Phase 2 (FLAG-5): `historyMeta` lets the restore / undo-restore flows
+  // stamp the resulting history row with a non-"update" kind ("revert" /
+  // "undo-revert") and the version index it reverted TO. It DEFAULTS to
+  // { kind: "update" }, so every existing caller is byte-for-byte unchanged.
+  update: async (
+    id: number,
+    data: NoteUpdate,
+    owner?: string,
+    historyMeta: { kind: HistoryEditKind; revert_target_version?: number } = {
+      kind: "update",
+    },
+  ): Promise<Note | null> => {
     const stamp = await buildAttributionStamp(data.last_edited_by);
+    // VC Phase 2 (FLAG-1): `revert_undo_window: null` is the explicit CLEAR
+    // signal from the undo flow. The store's partial-merge skips `undefined`
+    // but would otherwise write `null` into the live note, so we strip the key
+    // from the patch and delete it from the persisted record below. A genuine
+    // window object passes straight through. Denylisted (FLAG-2) either way, so
+    // it never touches the history delta.
+    const clearUndoWindow = data.revert_undo_window === null;
+    const { revert_undo_window: rawWindow, ...rest } = data;
+    // Coalesce null -> undefined so the patch type is `RevertUndoWindow |
+    // undefined` (matches Partial<Note>); the null clear is handled separately.
+    const windowToWrite = rawWindow ?? undefined;
     const patch = {
-      ...data,
+      ...rest,
+      ...(clearUndoWindow ? {} : { revert_undo_window: windowToWrite }),
       updated_at: new Date().toISOString(),
       ...stamp,
     };
@@ -3763,21 +3787,31 @@ export const notesApi = {
         ? await notesStore.getForUser(id, owner)
         : await notesStore.get(id)
       : null;
-    const updated = owner
+    let updated = owner
       ? await notesStore.updateForUser(id, patch, owner)
       : await notesStore.update(id, patch);
+    // VC Phase 2 (FLAG-1): finalize the window CLEAR. The partial-merge store
+    // cannot delete a key, so when the undo flow asked to clear we write the
+    // record once more with the field removed. Cheap (only on undo).
+    if (clearUndoWindow && updated && updated.revert_undo_window !== undefined) {
+      const { revert_undo_window: _drop, ...withoutWindow } = updated;
+      updated = owner
+        ? await notesStore.saveForUser(id, withoutWindow as Note, owner)
+        : await notesStore.save(id, withoutWindow as Note);
+    }
     // Best-effort history append AFTER the live record is persisted. Failures
     // never throw into the save path (recordNoteHistory swallows). No-op when
     // the flag is off, so Phase 0 cherry-picks inertly (no _history/ writes).
     if (HISTORY_ENGINE_ENABLED && updated) {
       const effectiveOwner = owner ?? (await getCurrentUserCached()) ?? "";
       await recordNoteHistory({
-        type: "update",
+        type: historyMeta.kind,
         id,
         owner: effectiveOwner,
         actor: stamp.last_edited_by,
         prevState,
         nextState: updated,
+        revertTargetVersion: historyMeta.revert_target_version,
       });
     }
     return updated;
