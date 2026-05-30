@@ -220,10 +220,12 @@ export default function PerformanceHall() {
     const clip = sceneViewport.parentElement;
     if (!clip) return;
 
-    // Multiply the contain-fit so the performer is large + centered. Kept
-    // gentle so the lower-center scenes (Centrifuge, Eureka) and the wide
-    // Skateboard band all keep their performer fully in frame.
-    const SCENE_ZOOM = 1.45;
+    // Multiply the contain-fit so the performer reads larger than a pure
+    // contain. Kept conservative: at 1.45 with a low (88%) origin the zoom
+    // pushed off-center performers (Centrifuge bot, BlowingBubbles) clean out
+    // of frame. 1.22 with a near-center origin (see .prosceniumSceneViewport)
+    // keeps every scene's performer in view while still reading larger.
+    const SCENE_ZOOM = 1.22;
 
     let raf = 0;
     let attempts = 0;

@@ -562,13 +562,16 @@
   position: relative;
   z-index: 5;
   min-height: 100svh;
-  /* Bottom padding clears the fixed bottom nav (StageNav). */
-  padding: 4svh 0 120px 0;
+  /* Top padding pushes the whole stage DOWN so the window clears the fixed
+     bulb marquee + gold valance at the top (it used to overlap them). Bottom
+     padding is slim now (the StageNav moved to the right edge), so the stage
+     sits lower and tighter in the page. */
+  padding: 13svh 0 3svh 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3svh;
+  gap: 2svh;
 }
 .hallHeader {
   text-align: center;
@@ -650,7 +653,7 @@
 .proscenium {
   position: relative;
   aspect-ratio: 16 / 10;
-  width: min(900px, 84vw);
+  width: min(1060px, 90vw);
   background: #0b0b12;
   border: 2px solid #e7c873;
   border-radius: 14px;
@@ -785,11 +788,11 @@
      manager). The default is a sensible contain-ish fit, not the old 0.32,
      so even before the measurement lands BeakerBot is not a tiny dot. */
   transform: scale(var(--scene-scale, 0.85));
-  /* Anchor the zoom to the lower-center band: the bench scenes plant
-     BeakerBot near the bottom (feet at ~12vh), so growing from 50%/88%
-     keeps the performer in frame and pushes the empty upper sky off-stage
-     instead of cropping the bot. */
-  transform-origin: 50% 88%;
+  /* Anchor the zoom near center (slightly low). The old 50%/88% pivot
+     pushed any performer not parked at the bottom-center clean off frame
+     (Centrifuge bot lower-left, BlowingBubbles). 50%/60% with the gentler
+     1.22 zoom keeps every scene's performer visible while still enlarging. */
+  transform-origin: 50% 60%;
 }
 
 /* Change 2: carry the runway's stage lighting + camera flashes onto the
