@@ -19,7 +19,9 @@ import {
 import FlagForReviewButton from "@/components/lab-head/FlagForReviewButton";
 import PurchaseAssigneePicker from "@/components/PurchaseAssigneePicker";
 import PurchaseOrderStatusControl from "@/components/PurchaseOrderStatusControl";
+import BuyAgainButton from "@/components/BuyAgainButton";
 import Tooltip from "@/components/Tooltip";
+import { normalizeOrderStatus } from "@/lib/types";
 import type { CatalogItem, PurchaseItem, Task } from "@/lib/types";
 
 interface PurchaseEditorProps {
@@ -1047,6 +1049,32 @@ export default function PurchaseEditor({
                     </div>
                   </td>
                   <td className="py-2 px-1">
+                    <div className="flex items-center gap-1.5">
+                    {/* Buy again (reorder-loop sub-bot, 2026-05-31):
+                        one-click reorder of a RECEIVED item. Creates a fresh
+                        needs-ordering line item copying name / vendor / cas /
+                        link / price / quantity into the CURRENT user's data
+                        (the reorder is yours, even when viewing a shared
+                        item). Own items route to the source task's project;
+                        shared items route to the current user's Misc bucket
+                        (the owner's project_id is meaningless in our space).
+                        Hidden in lab read-only mode (the comment thread is
+                        the canonical path there). */}
+                    {!readOnly &&
+                      normalizeOrderStatus(item.order_status) === "received" && (
+                        <BuyAgainButton
+                          item={item}
+                          projectId={
+                            isSharedWithMe ? undefined : parentTask?.project_id ?? undefined
+                          }
+                          onDone={() => {
+                            refetch();
+                            void queryClient.refetchQueries({
+                              queryKey: ["purchases-all"],
+                            });
+                          }}
+                        />
+                      )}
                     {/* Lab-mode (readOnly) hides the affordance entirely
                         because the comment thread / mascot is the canonical
                         ask-the-owner path. Shared-into-me mode keeps the
@@ -1094,6 +1122,7 @@ export default function PurchaseEditor({
                         </button>
                       </Tooltip>
                     )}
+                    </div>
                   </td>
                 </tr>
               )

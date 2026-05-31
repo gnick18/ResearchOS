@@ -157,6 +157,14 @@ import SingleProjectWidget, {
   SidebarTile as SingleProjectSidebar,
   HELP_TEXT as SingleProjectHelp,
 } from "./SingleProjectWidget";
+// Reorder suggestions (reorder-loop sub-bot, 2026-05-31): a derived
+// reorder-cadence nudge. Member-visible; computed from the viewer's own
+// purchase history, nothing stored.
+import ReorderSuggestionsWidget, {
+  SnapshotTile as ReorderSuggestionsSnapshot,
+  SidebarTile as ReorderSuggestionsSidebar,
+  HELP_TEXT as ReorderSuggestionsHelp,
+} from "./ReorderSuggestionsWidget";
 
 // Touch the default exports so TypeScript doesn't flag them as unused
 // imports — we intentionally import them for symmetry / side-effect
@@ -179,6 +187,7 @@ void TraineeNotesWidget;
 void WeeklyGoalsWidget;
 void ProjectsOverviewWidget;
 void SingleProjectWidget;
+void ReorderSuggestionsWidget;
 
 export const WIDGET_CATALOG: WidgetDefinition[] = [
   // ── Canvas widgets ───────────────────────────────────────────────────
@@ -665,6 +674,26 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     SidebarTile: SingleProjectSidebar,
     defaultLayout: { w: 4, h: 5, minW: 3, minH: 3 },
     surfaces: { canvas: true, home: true },
+    memberVisible: true,
+  },
+
+  // ── Reorder suggestions (reorder-loop sub-bot, 2026-05-31) ───────────
+  // A derived reorder-cadence nudge: items the viewer reorders on a
+  // regular rhythm, flagged when they are coming due. Member-visible
+  // (the nudge is personal). Computed at load from the viewer's own
+  // purchase history; nothing is stored. Opt-in via the Add widget
+  // palette on canvas + home + sidebar.
+  {
+    id: "reorder-suggestions",
+    toolId: "reorder-suggestions",
+    title: "Reorder suggestions",
+    description:
+      "Items you reorder on a regular rhythm, flagged when they are coming due. One click adds a fresh needs-ordering line item. Computed from your history.",
+    helpText: ReorderSuggestionsHelp,
+    SnapshotTile: ReorderSuggestionsSnapshot,
+    SidebarTile: ReorderSuggestionsSidebar,
+    defaultLayout: { w: 4, h: 6, minW: 3, minH: 4 },
+    surfaces: { canvas: true, home: true, sidebar: true },
     memberVisible: true,
   },
 ];

@@ -87,6 +87,9 @@ import { ExpandedView as WeeklyGoalsExpanded } from "@/components/lab-overview/w
 // pinned-status popup.
 import { ExpandedView as ProjectsOverviewExpanded } from "@/components/lab-overview/widgets/ProjectsOverviewWidget";
 import { ExpandedView as SingleProjectExpanded } from "@/components/lab-overview/widgets/SingleProjectWidget";
+// Reorder suggestions Tool (reorder-loop sub-bot, 2026-05-31): the derived
+// reorder-cadence nudge list with one-click Buy again. Member-visible.
+import { ExpandedView as ReorderSuggestionsExpanded } from "@/components/lab-overview/widgets/ReorderSuggestionsWidget";
 
 // ── Small inline icons (no emojis, no lucide-react) ───────────────────────
 // Each tool gets a 16x16 SVG. Pulled from / mirrors the existing widget
@@ -239,6 +242,15 @@ const PROJECTS_ICON = (
   // project Tools (Projects overview + Single project).
   <svg {...ICON_PROPS}>
     <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+  </svg>
+);
+
+const REORDER_ICON = (
+  // Cyclical refresh arrows — the recurring-purchase semantic. Mirrors the
+  // REORDER_ICON in ReorderSuggestionsWidget.
+  <svg {...ICON_PROPS}>
+    <path d="M3 2v6h6" />
+    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L3 8" />
   </svg>
 );
 
@@ -430,6 +442,21 @@ export const TOOL_REGISTRY: ToolDefinition[] = [
       "Track one pinned project's progress and open-task count.",
     Icon: PROJECTS_ICON,
     ExpandedView: SingleProjectExpanded,
+    memberVisible: true,
+  },
+  {
+    // Reorder suggestions (reorder-loop sub-bot, 2026-05-31). A derived
+    // reorder-cadence nudge: items the viewer reorders on a regular rhythm,
+    // flagged when coming due, with a one-click Buy again that drops a
+    // fresh needs-ordering line item into the normal pipeline.
+    // Member-visible; computed from the viewer's own purchase history,
+    // nothing stored.
+    id: "reorder-suggestions",
+    title: "Reorder suggestions",
+    description:
+      "Items you reorder regularly, flagged when they are coming due. One click reorders.",
+    Icon: REORDER_ICON,
+    ExpandedView: ReorderSuggestionsExpanded,
     memberVisible: true,
   },
 ];
