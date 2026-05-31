@@ -455,6 +455,25 @@ const fixtureFiles = new Map<string, unknown>();
 const fixtureDirs = new Set<string>();
 const fixtureBlobs = new Map<string, Blob>();
 
+/** In-memory backing store for raw-TEXT files (`readText` / `writeText` /
+ *  `atomicWrite`). Separate from `fixtureFiles` (which holds parsed JSON
+ *  objects keyed by path) because the version-history engine speaks raw
+ *  jsonl strings, not JSON-decoded objects: its storage layer
+ *  (lib/history/storage.ts) reads the whole `_history/<type>/<id>.jsonl`
+ *  body as a string, appends a line, and writes the string back.
+ *
+ *  Without this store the engine's `appendLine` would route through the
+ *  real `fileService.writeText -> atomicWrite`, which reads the private
+ *  `directoryHandle` field (never set in fixture mode, since
+ *  `setDirectoryHandle` is overridden to a no-op) and throws
+ *  "No directory handle set". The note still saved (recordNoteHistory
+ *  swallows the throw, PROPOSAL.md 3j), but ZERO history rows landed, so
+ *  in `?wikiCapture=1` / `/demo` editing a note never produced a version
+ *  to view. Mirroring `readText` / `writeText` against this map makes
+ *  history accumulate in-session, unblocking both browser-based VC testing
+ *  and the wiki version-history screenshots. */
+const fixtureTextFiles = new Map<string, string>();
+
 /** Read-only snapshot of the fixture's in-memory storage. Returned by
  *  reference (not a clone) so the demo ZIP exporter sees live state,
  *  including the user's in-session edits. Only meaningful after
@@ -495,6 +514,7 @@ export async function installWikiCaptureFixture(
   const files = fixtureFiles;
   const dirs = fixtureDirs;
   const blobs = fixtureBlobs;
+  const textFiles = fixtureTextFiles;
 
   for (const [path, content] of fixtures) {
     const norm = normalizePath(path);
@@ -530,6 +550,44 @@ export async function installWikiCaptureFixture(
     addParentDirs(key, dirs);
   };
 
+  // Raw-TEXT methods, mirroring the real fileService string semantics so the
+  // version-history engine works in fixture mode. `readText` returns `null`
+  // for a missing path (the engine's jsonlToRows treats null as an empty
+  // history); `writeText` / `atomicWrite` set the key. The history storage
+  // layer (lib/history/storage.ts) uses these EXCLUSIVELY for the
+  // `users/<owner>/_history/<type>/<id>.jsonl` files, so before this override
+  // they hit the real File System Access path with no directory handle and
+  // threw "No directory handle set" (swallowed best-effort, so the note saved
+  // but zero history rows were written).
+  svc.readText = async (path: string): Promise<string | null> => {
+    const key = normalizePath(path);
+    return textFiles.has(key) ? (textFiles.get(key) as string) : null;
+  };
+
+  svc.writeText = async (path: string, content: string): Promise<void> => {
+    const key = normalizePath(path);
+    textFiles.set(key, content);
+    addParentDirs(key, dirs);
+  };
+
+  // The real `atomicWrite` is a private write-then-rename helper that
+  // `writeText` / `writeJson` / `writeFileFromBlob` route through. In fixture
+  // mode those three public methods are overridden directly, but mirror
+  // `atomicWrite` too (string -> textFiles, Blob -> blobs) so any caller that
+  // somehow reaches it does not fall through to the real FSA path and throw.
+  svc.atomicWrite = async (
+    path: string,
+    payload: string | Blob,
+  ): Promise<void> => {
+    const key = normalizePath(path);
+    if (typeof payload === "string") {
+      textFiles.set(key, payload);
+    } else {
+      blobs.set(key, payload);
+    }
+    addParentDirs(key, dirs);
+  };
+
   svc.fileExists = async (path: string): Promise<boolean> => {
     const key = normalizePath(path);
     // Blobs are real files too (seeded PNGs, markdown bodies). Without
@@ -537,7 +595,10 @@ export async function installWikiCaptureFixture(
     // `Images/foo.png` refs, sees `false`, and queues a bogus "Image Not
     // Found" popup even though `readFileAsBlob` would resolve. Matches
     // the symmetry already in `listFiles` / `listDirectories` below.
-    return files.has(key) || blobs.has(key);
+    // Text files (the `_history/*.jsonl` store) count too, mirroring the
+    // real fileService where any on-disk file resolves regardless of how
+    // it was written.
+    return files.has(key) || blobs.has(key) || textFiles.has(key);
   };
 
   svc.ensureDir = async (path: string) => {
@@ -559,6 +620,9 @@ export async function installWikiCaptureFixture(
     // call this to count attachments). Without this loop, the Results page
     // shows "No results yet" for tasks whose only attachments are blobs.
     for (const key of blobs.keys()) collect(key);
+    // Text files too (the `_history/*.jsonl` store) so a directory listing of
+    // `_history/<type>/` enumerates the per-record history files.
+    for (const key of textFiles.keys()) collect(key);
     return Array.from(out).sort();
   };
 
@@ -582,11 +646,20 @@ export async function installWikiCaptureFixture(
     };
     for (const key of files.keys()) collectFromKey(key);
     for (const key of blobs.keys()) collectFromKey(key);
+    for (const key of textFiles.keys()) collectFromKey(key);
     return Array.from(out).sort();
   };
 
   svc.deleteFile = async (path: string): Promise<boolean> => {
-    return files.delete(normalizePath(path));
+    // Mirror the real fileService: delete whatever file lives at the path,
+    // regardless of which backing store holds it (JSON sidecar, blob, or the
+    // raw-text `_history/*.jsonl` store). `||` short-circuits but we want all
+    // three checked, so OR the results explicitly.
+    const key = normalizePath(path);
+    const deletedJson = files.delete(key);
+    const deletedBlob = blobs.delete(key);
+    const deletedText = textFiles.delete(key);
+    return deletedJson || deletedBlob || deletedText;
   };
 
   svc.readFileAsBlob = async (path: string): Promise<Blob | null> => {
