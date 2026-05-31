@@ -866,6 +866,7 @@ export default function NoteDetailPopup({
     handleUndoRestore,
     undoWindow,
     undoWindowActive,
+    isBusy: restoreBusy,
     restoreError,
     setRestoreError,
   } = useVersionRestore<Note>({
@@ -1060,16 +1061,24 @@ export default function NoteDetailPopup({
                     label={
                       restoreNeedsUnlock
                         ? "Unlock edit mode (PI passcode) to undo the restore"
-                        : "Undo the restore (returns the note to its pre-restore version)"
+                        : restoreBusy
+                          ? "Undoing the restore..."
+                          : "Undo the restore (returns the note to its pre-restore version)"
                     }
                     placement="bottom"
                   >
                     <button
-                      onClick={canRestore ? handleUndoRestore : undefined}
-                      disabled={!canRestore}
+                      onClick={
+                        canRestore && !restoreBusy ? handleUndoRestore : undefined
+                      }
+                      // Disable while a restore / undo is in flight so a
+                      // distracted double click cannot fire two concurrent
+                      // undo-revert writes. The hook also early-returns when
+                      // busy; this is the UX layer over that guard.
+                      disabled={!canRestore || restoreBusy}
                       data-testid="note-undo-restore-button"
                       className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                        canRestore
+                        canRestore && !restoreBusy
                           ? "text-amber-700 bg-amber-50 hover:bg-amber-100"
                           : "text-gray-400 bg-gray-50 cursor-not-allowed"
                       }`}
@@ -1087,7 +1096,7 @@ export default function NoteDetailPopup({
                         <path d="M9 14L4 9l5-5" />
                         <path d="M4 9h11a4 4 0 0 1 0 8h-1" />
                       </svg>
-                      Undo restore
+                      {restoreBusy ? "Undoing..." : "Undo restore"}
                     </button>
                   </Tooltip>
                 )}

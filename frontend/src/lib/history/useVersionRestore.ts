@@ -20,7 +20,7 @@
 // fields. The hook hands the updated record to `onUpdate`; the popup's onUpdate
 // does the local-state reflection. The hook never touches editor state.
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   historyEngine,
   canonicalize,
@@ -93,6 +93,14 @@ export interface UseVersionRestoreResult {
   undoWindow: RevertUndoWindow | null;
   /** True while the undo window is present + unexpired. */
   undoWindowActive: boolean;
+  /**
+   * True while a restore OR undo-restore is in flight. The UI disables the
+   * restore footer + the undo header button on this so a distracted double
+   * click cannot fire two concurrent writes (two "revert" rows + overlapping
+   * windows). The handlers themselves also early-return when busy, so the guard
+   * holds even without the button-disable.
+   */
+  isBusy: boolean;
   /** User-facing restore error string (null = none). */
   restoreError: string | null;
   /** Imperatively clear the restore error (e.g. on close). */
@@ -111,6 +119,16 @@ export function useVersionRestore<T extends RestorableRecord>({
   onAfterRestore,
 }: UseVersionRestoreArgs<T>): UseVersionRestoreResult {
   const [restoreError, setRestoreError] = useState<string | null>(null);
+
+  // In-flight guard. handleRestore + handleUndoRestore are async and write
+  // history; a distracted double click (the VC persona testing found this)
+  // could fire two concurrent restores -> two "revert" rows + overlapping
+  // revert_undo_window state. The ref is the load-bearing synchronous latch
+  // (state updates do not settle within the same tick, so a second click in
+  // the same event loop turn would otherwise slip through); the state mirror
+  // drives the button-disable UX layer.
+  const busyRef = useRef(false);
+  const [isBusy, setIsBusy] = useState(false);
 
   // Reverse-walk from HEAD to `targetVersion`, returning the canonical state
   // string AT the target. Throws HistoryCompactedTargetError (Case C) when the
@@ -155,6 +173,11 @@ export function useVersionRestore<T extends RestorableRecord>({
   // record is visible with the header "Undo restore" surfaced).
   const handleRestore = useCallback(
     async (targetVersion: number) => {
+      // In-flight guard: a second invocation while a restore (or undo) is
+      // running is a no-op. Latch synchronously via the ref before any await.
+      if (busyRef.current) return;
+      busyRef.current = true;
+      setIsBusy(true);
       setRestoreError(null);
       try {
         const rows = await historyEngine.readHistory(entityType, owner, id);
@@ -196,6 +219,9 @@ export function useVersionRestore<T extends RestorableRecord>({
       } catch (err) {
         console.error("[useVersionRestore] restore failed:", err);
         setRestoreError("Could not restore that version. Please try again.");
+      } finally {
+        busyRef.current = false;
+        setIsBusy(false);
       }
     },
     [
@@ -224,6 +250,12 @@ export function useVersionRestore<T extends RestorableRecord>({
   // (the pre-restore point was folded away) + messages.
   const handleUndoRestore = useCallback(async () => {
     if (!undoWindow) return;
+    // In-flight guard: a second undo (or an undo racing a restore) is a no-op.
+    // Latch synchronously before any await so a same-tick double click cannot
+    // produce two "undo-revert" rows.
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setIsBusy(true);
     setRestoreError(null);
     try {
       const rows = await historyEngine.readHistory(entityType, owner, id);
@@ -271,6 +303,9 @@ export function useVersionRestore<T extends RestorableRecord>({
     } catch (err) {
       console.error("[useVersionRestore] undo-restore failed:", err);
       setRestoreError("Could not undo the restore. Please try again.");
+    } finally {
+      busyRef.current = false;
+      setIsBusy(false);
     }
   }, [
     undoWindow,
@@ -289,6 +324,7 @@ export function useVersionRestore<T extends RestorableRecord>({
       handleUndoRestore,
       undoWindow,
       undoWindowActive,
+      isBusy,
       restoreError,
       setRestoreError,
     }),
@@ -297,6 +333,7 @@ export function useVersionRestore<T extends RestorableRecord>({
       handleUndoRestore,
       undoWindow,
       undoWindowActive,
+      isBusy,
       restoreError,
     ],
   );
