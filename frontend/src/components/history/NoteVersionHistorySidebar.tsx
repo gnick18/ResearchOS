@@ -35,6 +35,13 @@ interface NoteVersionHistorySidebarProps {
   /** Injected clock for deterministic relative labels (tests). Defaults to now. */
   now?: Date;
   /**
+   * Canonical tracked state of the LIVE note record (canonicalize(liveNote)),
+   * forwarded to the generic viewer so the engine can resolve a bare-genesis
+   * anchor (the create-note-then-edit case). Without it every version
+   * reconstructs to "" and the diffs render empty.
+   */
+  headCanonical?: string;
+  /**
    * VC Phase 2: gates the sticky-footer "Restore this version" affordance. The
    * popup computes it (= not read-only AND owner-or-PI-unlocked) and passes it
    * down. When false the footer never renders, whatever is selected.
@@ -54,6 +61,7 @@ export default function NoteVersionHistorySidebar({
   onClose,
   onPreviewChange,
   now,
+  headCanonical,
   canRestore = false,
   onRestore,
 }: NoteVersionHistorySidebarProps) {
@@ -66,6 +74,7 @@ export default function NoteVersionHistorySidebar({
       onClose={onClose}
       onPreviewChange={onPreviewChange}
       now={now}
+      headCanonical={headCanonical}
       canRestore={canRestore}
       onRestore={onRestore}
     />

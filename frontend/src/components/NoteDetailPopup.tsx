@@ -6,7 +6,7 @@ import { ownerScopedNotesApi } from "@/lib/notes/owner-scoped-api";
 import { emitNoteDeleted } from "@/lib/notes/delete-toast-bus";
 import { canDeleteNoteFromPopup } from "@/lib/notes/delete-permission";
 import { canRestoreNoteVersion } from "@/lib/notes/restore-permission";
-import { RESTORE_ENABLED } from "@/lib/history";
+import { RESTORE_ENABLED, canonicalize } from "@/lib/history";
 import {
   useVersionRestore,
   type VersionRestoreApi,
@@ -861,6 +861,15 @@ export default function NoteDetailPopup({
     [onUpdate],
   );
 
+  // Canonical tracked state of the LIVE note (HEAD). Threaded into the history
+  // sidebar so the engine can resolve a BARE-GENESIS anchor: a note created and
+  // then saved (the common pilot flow) anchors genesis at a non-empty pre-image,
+  // so reconstructState needs HEAD to reverse-walk and lazily backfill
+  // genesis_state (R4-prep 2c). This is the same HEAD source useVersionRestore
+  // uses (canonicalize of the live record) so the viewer + the restore path
+  // agree byte-for-byte.
+  const liveNoteCanonical = useMemo(() => canonicalize(note), [note]);
+
   const {
     handleRestore,
     handleUndoRestore,
@@ -1548,6 +1557,10 @@ export default function NoteDetailPopup({
             owner={note.username || currentUser || ""}
             onClose={closeHistory}
             onPreviewChange={setVersionPreview}
+            // Live HEAD canonical: lets the engine resolve a bare-genesis anchor
+            // (create-note-then-edit) so every version reconstructs + the diffs
+            // are non-empty. Without it reconstructState throws and diffs are "".
+            headCanonical={liveNoteCanonical}
             // VC Phase 2: the Restore footer only appears when the feature flag
             // is ON, the three-way PI gate grants restore rights, AND a non-HEAD
             // version is selected (the sidebar enforces the last condition).

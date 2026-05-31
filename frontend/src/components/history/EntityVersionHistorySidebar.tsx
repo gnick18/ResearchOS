@@ -78,6 +78,19 @@ interface EntityVersionHistorySidebarProps<P extends EntityProjection> {
   /** Injected clock for deterministic relative labels (tests). Defaults to now. */
   now?: Date;
   /**
+   * Canonical tracked state of the LIVE HEAD record (canonicalize(liveRecord)),
+   * threaded down from the mount point that holds it. The engine needs this to
+   * resolve the anchor of a BARE-GENESIS history file: the "create a record,
+   * then make a first tracked save" flow anchors genesis at a NON-EMPTY
+   * pre-image, so the empty-doc hash no longer matches the genesis post_hash and
+   * the engine must reverse-walk from HEAD to lazily backfill genesis_state
+   * (R4-prep 2c). Without it, reconstructState throws "cannot resolve anchor"
+   * for every version, the canonical stays "", and every diff renders empty.
+   * Optional: a fresh-record history (genesis anchored at the empty doc)
+   * resolves without it, so legacy / test call sites that omit it still work.
+   */
+  headCanonical?: string;
+  /**
    * VC Phase 2: gates the sticky-footer "Restore this version" affordance. The
    * popup computes it (= not read-only AND owner-or-PI-unlocked) and passes it
    * down. When false the footer never renders, whatever is selected.
@@ -99,6 +112,7 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
   onClose,
   onPreviewChange,
   now,
+  headCanonical,
   canRestore = false,
   onRestore,
 }: EntityVersionHistorySidebarProps<P>) {
@@ -167,11 +181,16 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
       for (let i = 0; i < rows.length; i++) {
         let canonical = "";
         try {
+          // Pass the live HEAD canonical so the engine can resolve a
+          // bare-genesis anchor (the create-then-edit case). It is harmless for
+          // a fresh-record history, which resolves its anchor from the empty-doc
+          // pre-image and never consults headCanonical.
           canonical = await historyEngine.reconstructState(
             entityType,
             owner,
             id,
             i,
+            headCanonical,
           );
         } catch (err) {
           console.warn(
@@ -199,7 +218,7 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
     return () => {
       cancelled = true;
     };
-  }, [rows, entityType, id, owner, adapter]);
+  }, [rows, entityType, id, owner, adapter, headCanonical]);
 
   const model: VersionListModel | null = useMemo(() => {
     if (!rows) return null;

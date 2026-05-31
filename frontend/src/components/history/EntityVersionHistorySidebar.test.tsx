@@ -12,8 +12,9 @@
 // reconstructed STATES (never diff text). Profile + color hooks are mocked.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor, within, fireEvent } from "@testing-library/react";
 import { HistoryEngine } from "@/lib/history/engine";
+import { canonicalize } from "@/lib/history/canonicalize";
 import { MemoryStorage, makeClock } from "@/lib/history/test-utils";
 
 let storage: MemoryStorage;
@@ -89,6 +90,41 @@ async function seed(
     });
     prev = next;
   }
+}
+
+/**
+ * Seed the BARE-GENESIS case (the create-note-then-edit P0): a note that
+ * already exists (non-empty) gets its FIRST tracked save, so genesis is anchored
+ * at a non-empty pre-image (no genesis_state, hash != empty doc). Returns the
+ * live HEAD record so the test can pass headCanonical the way the popup does.
+ */
+async function seedBareGenesis(): Promise<ReturnType<typeof noteRecord>> {
+  // The note as it existed on disk BEFORE history tracking turned on.
+  const created = noteRecord({ title: "Draft", entries: [{ title: "Notes", content: "alpha" }] });
+  const editedOnce = noteRecord({ title: "Draft", entries: [{ title: "Notes", content: "alpha\nbeta" }] });
+  const editedTwice = noteRecord({ title: "Final", entries: [{ title: "Notes", content: "alpha\nbeta" }] });
+  // Distinct actors so the two saves do not collapse into one session group
+  // (SESSION_MIN_RUN = 2 folds a same-actor run); the bug itself is
+  // actor-agnostic. Each save renders as its own selectable version-row.
+  await engine.appendEdit({
+    type: "update",
+    entityType: "notes",
+    id: ID,
+    owner: OWNER,
+    actor: "mira",
+    prevState: created, // non-empty pre-image -> bare non-empty genesis
+    nextState: editedOnce,
+  });
+  await engine.appendEdit({
+    type: "update",
+    entityType: "notes",
+    id: ID,
+    owner: OWNER,
+    actor: "morgan",
+    prevState: editedOnce,
+    nextState: editedTwice,
+  });
+  return editedTwice; // the live HEAD record the popup holds
 }
 
 beforeEach(() => {
@@ -175,5 +211,108 @@ describe("EntityVersionHistorySidebar (Notes adapter)", () => {
       expect(screen.getByTestId("version-empty")).toBeInTheDocument();
     });
     expect(screen.getByText("No earlier versions yet")).toBeInTheDocument();
+  });
+});
+
+// ── P0 regression: bare-genesis viewer flow (create-note-then-edit) ──────────
+// A note created BEFORE history tracking, then edited, anchors genesis at a
+// non-empty pre-image. The viewer MUST pass headCanonical = canonicalize(live
+// note) or every reconstructState throws "cannot resolve anchor", the canonical
+// stays "", and every diff renders empty. These tests reproduce that flow the
+// way the popup does.
+describe("EntityVersionHistorySidebar bare-genesis viewer flow (P0)", () => {
+  it("renders EMPTY diffs without headCanonical (reproduces the bug)", async () => {
+    await seedBareGenesis();
+    const previews: Array<{ before: string; after: string }> = [];
+    render(
+      <EntityVersionHistorySidebar
+        entityType="notes"
+        id={ID}
+        owner={OWNER}
+        adapter={notesAdapter}
+        onClose={() => {}}
+        onPreviewChange={(p) => {
+          if (p) previews.push({ before: p.before, after: p.after });
+        }}
+        now={NOW}
+      />,
+    );
+    // The list still builds from the rows, but reconstruction fails so the diff
+    // bodies come back empty.
+    await waitFor(() => {
+      expect(screen.getAllByTestId("version-row").length).toBe(2);
+    });
+    await waitFor(() => {
+      expect(previews.length).toBeGreaterThan(0);
+    });
+    const latest = previews[previews.length - 1];
+    expect(latest.after).toBe("");
+    expect(latest.before).toBe("");
+  });
+
+  it("renders NON-EMPTY diffs with headCanonical (the fix)", async () => {
+    const liveHead = await seedBareGenesis();
+    const previews: Array<{ before: string; after: string }> = [];
+    render(
+      <EntityVersionHistorySidebar
+        entityType="notes"
+        id={ID}
+        owner={OWNER}
+        adapter={notesAdapter}
+        onClose={() => {}}
+        onPreviewChange={(p) => {
+          if (p) previews.push({ before: p.before, after: p.after });
+        }}
+        now={NOW}
+        headCanonical={canonicalize(liveHead)}
+      />,
+    );
+    await waitFor(() => {
+      expect(previews.length).toBeGreaterThan(0);
+    });
+    // HEAD is auto-selected: its body is the live note, predecessor is the
+    // first-save state. Both non-empty, and they differ (title change).
+    const latest = previews[previews.length - 1];
+    expect(latest.after).toBe("alpha\nbeta");
+    expect(latest.before).toBe("alpha\nbeta");
+    // The HEAD row summary is a real change, not "No tracked content changed".
+    const rows = screen.getAllByTestId("version-row");
+    expect(rows.length).toBe(2);
+    expect(within(rows[0]).getByText("Current version")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("changed title")).toBeInTheDocument();
+  });
+
+  it("surfaces the restore footer on a selected non-HEAD version", async () => {
+    const liveHead = await seedBareGenesis();
+    render(
+      <EntityVersionHistorySidebar
+        entityType="notes"
+        id={ID}
+        owner={OWNER}
+        adapter={notesAdapter}
+        onClose={() => {}}
+        onPreviewChange={() => {}}
+        now={NOW}
+        headCanonical={canonicalize(liveHead)}
+        canRestore
+        onRestore={() => {}}
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.getAllByTestId("version-row").length).toBe(2);
+    });
+    const rows = screen.getAllByTestId("version-row");
+    // HEAD (rows[0]) is selected by default: no footer (nothing to restore TO).
+    expect(screen.queryByTestId("restore-footer")).not.toBeInTheDocument();
+    // Select the older (non-HEAD) version -> the footer appears.
+    const olderRow = rows.find(
+      (r) => r.getAttribute("data-version-index") === "1",
+    );
+    expect(olderRow).toBeTruthy();
+    fireEvent.click(olderRow!);
+    await waitFor(() => {
+      expect(screen.getByTestId("restore-footer")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("restore-button")).toBeInTheDocument();
   });
 });
