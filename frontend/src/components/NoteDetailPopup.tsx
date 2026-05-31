@@ -1347,7 +1347,7 @@ export default function NoteDetailPopup({
             the document column (left) renders read-only and the version list
             docks on the right (VCP Phase 1, version-history viewer bot for HR,
             2026-05-29). */}
-        <div className="flex-1 overflow-hidden flex flex-row">
+        <div className="flex-1 overflow-hidden flex flex-row min-h-0">
         {/* Content area (document column) */}
         <div className="flex-1 min-w-0 overflow-hidden flex flex-col">
           {/* Tabs for running logs */}

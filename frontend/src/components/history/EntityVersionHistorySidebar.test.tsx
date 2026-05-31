@@ -162,6 +162,48 @@ describe("EntityVersionHistorySidebar (Notes adapter)", () => {
     expect(within(rows[0]).getByText("changed title")).toBeInTheDocument();
   });
 
+  // ── Overflow guard (vc-sidebar-overflow-fix sub-bot of HR, 2026-05-31) ─────
+  // The sidebar self-clamps so a LONG, fully-expanded version list scrolls
+  // INSIDE the list region instead of pushing the sticky restore footer / the
+  // header below the popup card. This is a flex-column contract: the root fills
+  // its host (h-full flex flex-col), the version-list region is the only growing
+  // child (flex-1 overflow-y-auto), and the header + compare toggle + footer are
+  // pinned (flex-shrink-0). The HOST still has to give the chain a bounded height
+  // (min-h-0 on the popup body row), which is what NoteDetailPopup / TaskDetail
+  // Popup carry; this asserts the half of the contract the shared component owns.
+  it("clamps the version-list region so the sidebar scrolls internally", async () => {
+    await seed([
+      { title: "Draft", content: "alpha", actor: "mira" },
+      { title: "Draft", content: "alpha\nbeta", actor: "morgan" },
+    ]);
+
+    render(
+      <EntityVersionHistorySidebar
+        entityType="notes"
+        id={ID}
+        owner={OWNER}
+        adapter={notesAdapter}
+        onClose={() => {}}
+        onPreviewChange={() => {}}
+        now={NOW}
+      />,
+    );
+
+    const sidebar = await screen.findByTestId("note-version-history-sidebar");
+    // Root: a full-height flex column. Without h-full it cannot inherit the
+    // host card height; without flex-col the children do not stack.
+    expect(sidebar.className).toContain("h-full");
+    expect(sidebar.className).toContain("flex");
+    expect(sidebar.className).toContain("flex-col");
+
+    // The version list is the single scrollable, growing child. flex-1 lets it
+    // take the leftover height; overflow-y-auto engages the internal scroll once
+    // the host bounds the column.
+    const list = await screen.findByTestId("version-list");
+    expect(list.className).toContain("flex-1");
+    expect(list.className).toContain("overflow-y-auto");
+  });
+
   it("renders the predecessor diff in the document column via the adapter", async () => {
     const previews: Array<{ before: string; after: string; editor: string }> = [];
     await seed([
