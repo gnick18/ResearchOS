@@ -16,6 +16,7 @@
 // deterministic and unit-testable with injected ts/ids (no Date.now).
 
 import type { EntityViewerAdapter } from "./entity-viewer";
+import type { HistoryEditKind } from "./types";
 
 // Re-export the generic backbone so existing imports from "./notes-viewer"
 // (incl. notes-viewer.test.ts, the canary) keep resolving unchanged.
@@ -88,9 +89,20 @@ export function projectNoteState(canonical: string | null | undefined): NoteProj
     title: asString(e?.title),
     content: asString(e?.content),
   }));
-  // The diff body is the entry bodies joined. For a single-entry note this is
-  // just that entry's markdown; for a running log it is all entries in order.
-  const body = entries.map((e) => e.content).join("\n\n");
+  // The diff body is the entry HEADINGS + bodies joined. A heading line per
+  // entry anchors each entry in the line-diff so a running-log edit (the user
+  // edits ONE dated entry among several) renders as a localized change rather
+  // than a whole-body churn, and a heading-only edit still surfaces a diff
+  // (vc-persona-fixes sub-bot of HR, 2026-05-30: running-log entry edits were
+  // rendering "No tracked content changed" because the projected body dropped
+  // the entry headings, so the LCS could not anchor the changed entry). The
+  // heading line is prefixed so it cannot be confused with body content.
+  const body = entries
+    .map((e) => {
+      const heading = e.title.trim();
+      return heading ? `## ${heading}\n${e.content}` : e.content;
+    })
+    .join("\n\n");
   return {
     title: asString(parsed.title),
     description: asString(parsed.description),
@@ -105,17 +117,30 @@ export function projectNoteState(canonical: string | null | undefined): NoteProj
  * reconstructed states (no Date.now, no engine calls).
  *
  * Summary precedence (most specific first):
- *   - first version of a record -> "created note"
- *   - title changed             -> "changed title"
- *   - description changed       -> "changed description"
- *   - entry body changed        -> "edited <entry title>" / "edited notes"
- *   - entry added / removed     -> "added entry" / "removed entry"
- *   - nothing detectable        -> "edited note"
+ *   - restore row (kind "revert")        -> "Restored an earlier version"
+ *   - undo row (kind "undo-revert")      -> "Undid a restore"
+ *   - first version of a record          -> "created note"
+ *   - title changed                      -> "changed title"
+ *   - description changed                -> "changed description"
+ *   - entry body changed                 -> "edited <entry title>" / "edited notes"
+ *   - entry added / removed              -> "added entry" / "removed entry"
+ *   - nothing detectable                 -> "edited note"
+ *
+ * The restore / undo special-cases come FIRST (vc-persona-fixes sub-bot of HR,
+ * 2026-05-30): a restore + an undo both look like a plain content edit by diff
+ * alone, so without the row kind they read identically ("edited note") and the
+ * timeline cannot tell a restore from a real edit. The kind makes the action
+ * legible. Restores still happen even on the very first comparison, so the kind
+ * check precedes the `before === null` create branch.
  */
 export function summarizeChange(
   before: NoteProjection | null,
   after: NoteProjection,
+  kind?: HistoryEditKind,
 ): string {
+  if (kind === "revert") return "Restored an earlier version";
+  if (kind === "undo-revert") return "Undid a restore";
+
   if (before === null) return "created note";
 
   if (before.title !== after.title) return "changed title";

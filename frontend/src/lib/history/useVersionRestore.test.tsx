@@ -222,3 +222,151 @@ describe("useVersionRestore double-fire guard (handleUndoRestore)", () => {
     expect(result.current.isBusy).toBe(false);
   });
 });
+
+// vc-persona-fixes sub-bot of HR (2026-05-30): the edits-since guard must count
+// ONLY real content edits (kind "update") past the restore row. The restore
+// itself appends a "revert" row, and a later undo appends "undo-revert"; none of
+// those are the user editing their note, so they must NOT trip the in-app
+// confirm. The live testing saw the prompt fire after a clean restore because
+// the old math counted every row past the restore row, including the restore's
+// own companion / revert rows. The hook NEVER calls native confirm() (that can
+// freeze the Electron renderer); it raises `undoConfirmPending` instead.
+describe("useVersionRestore edits-since confirm (kind-aware, in-app)", () => {
+  // The restore wrote a row at from_version + 1. With from_version = 1, that is
+  // index 2. Rows at index > 2 are candidate edits-since.
+  const RESTORED_RECORD: TestRecord = {
+    id: 47,
+    username: "mira",
+    n: 1,
+    revert_undo_window: {
+      from_version: 1,
+      to_version: 0,
+      reverted_at: "2026-05-30T12:00:00.000Z",
+      expires_at: "2099-01-01T00:00:00.000Z",
+      reverted_by: "mira",
+    },
+  };
+
+  it("a clean restore (no real edits since) undoes immediately, no in-app confirm", async () => {
+    // rows: [genesis(0), update(1), revert(2)], the restore row is the HEAD.
+    // Nothing past it, so editsSince === 0 -> undo proceeds, no confirm.
+    engineMock.readHistory.mockResolvedValue([
+      { id: "g0", kind: "genesis" },
+      { id: "r1", kind: "update" },
+      { id: "r2", kind: "revert" },
+    ]);
+    const api = makeApi();
+    const { result } = renderRestore(api, RESTORED_RECORD);
+
+    await act(async () => {
+      await result.current.handleUndoRestore();
+    });
+
+    expect(result.current.undoConfirmPending).toBe(false);
+    expect(api.update).toHaveBeenCalledTimes(1);
+    expect(api.update).toHaveBeenCalledWith(
+      47,
+      expect.objectContaining({ revert_undo_window: null }),
+      expect.objectContaining({ kind: "undo-revert" }),
+    );
+  });
+
+  it("a 'revert'/'undo-revert' row past the restore does NOT count as an edit-since", async () => {
+    // rows past the restore row (index 2) are revert/undo-revert, NOT user
+    // edits. editsSince must be 0 -> undo proceeds without a confirm.
+    engineMock.readHistory.mockResolvedValue([
+      { id: "g0", kind: "genesis" },
+      { id: "r1", kind: "update" },
+      { id: "r2", kind: "revert" }, // the restore row (from_version + 1)
+      { id: "r3", kind: "undo-revert" },
+      { id: "r4", kind: "revert" },
+    ]);
+    const api = makeApi();
+    const { result } = renderRestore(api, RESTORED_RECORD);
+
+    await act(async () => {
+      await result.current.handleUndoRestore();
+    });
+
+    expect(result.current.undoConfirmPending).toBe(false);
+    expect(api.update).toHaveBeenCalledTimes(1);
+  });
+
+  it("a real 'update' edit since the restore raises the in-app confirm (no native confirm, no write yet)", async () => {
+    // rows: [genesis, update, revert(restore), update(real edit since)].
+    engineMock.readHistory.mockResolvedValue([
+      { id: "g0", kind: "genesis" },
+      { id: "r1", kind: "update" },
+      { id: "r2", kind: "revert" }, // restore row
+      { id: "r3", kind: "update" }, // the user actually edited since
+    ]);
+    const api = makeApi();
+    const { result } = renderRestore(api, RESTORED_RECORD);
+
+    await act(async () => {
+      await result.current.handleUndoRestore();
+    });
+
+    // Raised the in-app confirm; NO write happened yet.
+    expect(result.current.undoConfirmPending).toBe(true);
+    expect(api.update).not.toHaveBeenCalled();
+
+    // Confirming proceeds with the undo write.
+    await act(async () => {
+      await result.current.confirmUndoRestore();
+    });
+    expect(result.current.undoConfirmPending).toBe(false);
+    expect(api.update).toHaveBeenCalledTimes(1);
+    expect(api.update).toHaveBeenCalledWith(
+      47,
+      expect.objectContaining({ revert_undo_window: null }),
+      expect.objectContaining({ kind: "undo-revert" }),
+    );
+  });
+
+  it("dismissing the in-app confirm leaves the note untouched", async () => {
+    engineMock.readHistory.mockResolvedValue([
+      { id: "g0", kind: "genesis" },
+      { id: "r1", kind: "update" },
+      { id: "r2", kind: "revert" },
+      { id: "r3", kind: "update" },
+    ]);
+    const api = makeApi();
+    const { result } = renderRestore(api, RESTORED_RECORD);
+
+    await act(async () => {
+      await result.current.handleUndoRestore();
+    });
+    expect(result.current.undoConfirmPending).toBe(true);
+
+    act(() => {
+      result.current.dismissUndoConfirm();
+    });
+    expect(result.current.undoConfirmPending).toBe(false);
+    expect(api.update).not.toHaveBeenCalled();
+  });
+});
+
+// Guard the house rule directly: the undo path must not reference native
+// confirm() in source (it can wedge the Electron renderer). The old code called
+// window.confirm in handleUndoRestore; this pins that it stays gone.
+describe("useVersionRestore source: no native confirm()", () => {
+  it("the hook source contains no native confirm( call", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const src = fs.readFileSync(
+      path.resolve(__dirname, "useVersionRestore.ts"),
+      "utf8",
+    );
+    // Strip block comments (/* ... */, incl. JSDoc) and line comments first so
+    // the explanatory "no native confirm()" notes do not false-positive; then
+    // assert no native confirm() call survives in real code.
+    const code = src
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\/\/.*$/gm, "");
+    expect(code).not.toMatch(/\bwindow\.confirm\b/);
+    // A bare `confirm(` (not preceded by a letter / dot, so not a method name
+    // like confirmUndoRestore or setUndoConfirmPending). Word-boundary anchored.
+    expect(code).not.toMatch(/(?<![\w.])confirm\s*\(/);
+  });
+});

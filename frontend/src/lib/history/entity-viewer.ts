@@ -18,6 +18,7 @@
 import {
   isBoundarySnapshotRow,
   isGenesisRow,
+  type HistoryEditKind,
   type HistoryRow,
 } from "./types";
 
@@ -57,9 +58,13 @@ export interface EntityViewerAdapter<P extends EntityProjection = EntityProjecti
   /**
    * Derive a one-line change summary by comparing a version's projection
    * against its predecessor's. `before === null` means the first version of the
-   * record. Pure (no Date.now, no engine calls).
+   * record. `kind` is the history row's edit kind (when known) so the adapter
+   * can special-case restore / undo rows ("Restored an earlier version") rather
+   * than reading them as a plain content edit (vc-persona-fixes sub-bot of HR,
+   * 2026-05-30: restore + undo rows were indistinguishable in the timeline).
+   * Pure (no Date.now, no engine calls).
    */
-  summarize(before: P | null, after: P): string;
+  summarize(before: P | null, after: P, kind?: HistoryEditKind): string;
 }
 
 // ── View models (entity-agnostic) ────────────────────────────────────────────

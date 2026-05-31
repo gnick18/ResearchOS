@@ -393,6 +393,19 @@ export default function NoteDetailPopup({
     onClose();
   }, [note.id, note.username, onClose, notesApi, currentUser]);
 
+  // The explicit "X" is a ONE-CLICK FULL DISMISS, even when the history sidebar
+  // is open (vc-persona-fixes sub-bot of HR, 2026-05-30: the old X dismissed only
+  // the sidebar, a surprising two-stage close). It resets the history view state
+  // first so no stale sidebar / diff preview lingers if the parent keeps the
+  // popup mounted, then runs the normal close (which flushes pending edits). Esc
+  // keeps its history-first precedence (the keydown handler below); only the
+  // explicit X is a full dismiss.
+  const handleCloseAll = useCallback(() => {
+    setHistoryOpen(false);
+    setVersionPreview(null);
+    void handleClose();
+  }, [handleClose]);
+
   // Handle escape key to close or exit fullscreen. Precedence (VCP Phase 1):
   // when the version-history sidebar is open, Esc exits HISTORY first and
   // returns to the live record, rather than closing the whole popup, so the
@@ -873,6 +886,9 @@ export default function NoteDetailPopup({
   const {
     handleRestore,
     handleUndoRestore,
+    undoConfirmPending,
+    confirmUndoRestore,
+    dismissUndoConfirm,
     undoWindow,
     undoWindowActive,
     isBusy: restoreBusy,
@@ -1004,6 +1020,45 @@ export default function NoteDetailPopup({
                 >
                   {restoreError}
                 </p>
+              )}
+              {/* IN-APP undo confirm (vc-persona-fixes sub-bot of HR,
+                  2026-05-30). The undo USED to call native confirm(), which can
+                  FREEZE the Electron renderer (house rule: no native dialogs).
+                  When real content edits landed since the restore, the hook
+                  raises `undoConfirmPending` and we render this inline confirm /
+                  cancel pair instead, mirroring the sidebar restore-confirm
+                  pattern. */}
+              {undoConfirmPending && (
+                <div
+                  data-testid="note-undo-confirm"
+                  className="mt-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug"
+                >
+                  <p>
+                    You have edited this note since the restore. Undoing will
+                    discard those edits and return the note to its pre-restore
+                    state.
+                  </p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void confirmUndoRestore()}
+                      disabled={restoreBusy}
+                      data-testid="note-undo-confirm-button"
+                      className="px-2.5 py-1 text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-60 rounded-md transition-colors"
+                    >
+                      {restoreBusy ? "Undoing..." : "Discard edits and undo"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={dismissUndoConfirm}
+                      disabled={restoreBusy}
+                      data-testid="note-undo-cancel-button"
+                      className="px-2.5 py-1 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:opacity-60 rounded-md transition-colors"
+                    >
+                      Keep editing
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
 
@@ -1169,7 +1224,7 @@ export default function NoteDetailPopup({
               </Tooltip>
               <Tooltip label="Close" placement="bottom">
                 <button
-                  onClick={handleClose}
+                  onClick={handleCloseAll}
                   data-tour-target="lab-mode-note-popup-close"
                   className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                 >

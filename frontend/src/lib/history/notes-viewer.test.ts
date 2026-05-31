@@ -92,7 +92,39 @@ describe("projectNoteState", () => {
     expect(p.title).toBe("PCR run");
     expect(p.description).toBe("Tuesday batch");
     expect(p.entries).toHaveLength(2);
-    expect(p.body).toBe("mix master mix\n\ncycle 35x");
+    // The body anchors each entry with its heading so a running-log edit reads
+    // as a localized diff (vc-persona-fixes sub-bot of HR, 2026-05-30).
+    expect(p.body).toBe(
+      "## Setup\nmix master mix\n\n## Run\ncycle 35x",
+    );
+    expect(p.entries[0]).toEqual({ title: "Setup", content: "mix master mix" });
+  });
+
+  it("surfaces entry content in the body so a running-log entry edit diffs", () => {
+    // A running log: two dated entries. Editing ONE entry's content must change
+    // the projected body (it used to render empty for entry-only edits).
+    const before = projectNoteState(
+      note({
+        title: "Lab log",
+        entries: [
+          { title: "May 28", content: "seeded plates" },
+          { title: "May 29", content: "no growth yet" },
+        ],
+      }),
+    );
+    const after = projectNoteState(
+      note({
+        title: "Lab log",
+        entries: [
+          { title: "May 28", content: "seeded plates" },
+          { title: "May 29", content: "colonies on plate 3" },
+        ],
+      }),
+    );
+    expect(after.body).not.toBe(before.body);
+    expect(after.body).toContain("colonies on plate 3");
+    // The unchanged entry's content is still anchored in the body.
+    expect(after.body).toContain("seeded plates");
   });
 
   it("degrades gracefully on empty / malformed input", () => {
@@ -170,6 +202,37 @@ describe("summarizeChange", () => {
       note({ title: "T", description: "D", entries: [{ title: "Notes", content: "a" }] }),
     );
     expect(summarizeChange(two, one)).toBe("removed entry");
+  });
+
+  it("labels a restore row distinctly from a plain content edit", () => {
+    // A restore writes the reverted content back, so by diff alone it looks like
+    // a normal edit. The row KIND ("revert") makes it legible in the timeline
+    // (vc-persona-fixes sub-bot of HR, 2026-05-30).
+    const after = projectNoteState(
+      note({ title: "T", description: "D", entries: [{ title: "Notes", content: "older" }] }),
+    );
+    expect(summarizeChange(base, after, "revert")).toBe(
+      "Restored an earlier version",
+    );
+    // The kind takes precedence even on the first comparison (before === null).
+    expect(summarizeChange(null, after, "revert")).toBe(
+      "Restored an earlier version",
+    );
+  });
+
+  it("labels an undo-restore row as undoing a restore", () => {
+    const after = projectNoteState(
+      note({ title: "T", description: "D", entries: [{ title: "Notes", content: "back" }] }),
+    );
+    expect(summarizeChange(base, after, "undo-revert")).toBe("Undid a restore");
+  });
+
+  it("falls back to content-diff labels when no kind / a plain update kind", () => {
+    const after = projectNoteState(
+      note({ title: "T2", description: "D", entries: [{ title: "Notes", content: "a" }] }),
+    );
+    expect(summarizeChange(base, after)).toBe("changed title");
+    expect(summarizeChange(base, after, "update")).toBe("changed title");
   });
 });
 

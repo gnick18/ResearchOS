@@ -200,10 +200,17 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
         }
         cache.set(i, canonical);
         const row = rows[i];
-        // Only delta rows produce a list entry that needs a summary.
+        // Only delta rows produce a list entry that needs a summary. Pass the
+        // row's edit kind so the adapter can label restore / undo rows distinctly
+        // (vc-persona-fixes sub-bot of HR, 2026-05-30) rather than as a plain
+        // content edit indistinguishable from a real save.
         if (row.kind !== "genesis" && row.kind !== "boundary_snapshot") {
           const projection = adapter.projectBody(canonical);
-          nextSummaries[row.id] = adapter.summarize(prevProjection, projection);
+          nextSummaries[row.id] = adapter.summarize(
+            prevProjection,
+            projection,
+            row.kind,
+          );
           prevProjection = projection;
         } else if (row.kind === "boundary_snapshot") {
           prevProjection = adapter.projectBody(canonical);

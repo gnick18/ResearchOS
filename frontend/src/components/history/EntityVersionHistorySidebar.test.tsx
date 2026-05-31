@@ -188,9 +188,11 @@ describe("EntityVersionHistorySidebar (Notes adapter)", () => {
     });
     const latest = previews[previews.length - 1];
     // The adapter (projectNoteState) drives the body projection: HEAD body vs
-    // its predecessor body, never raw diff text.
-    expect(latest.after).toBe("alpha\nbeta");
-    expect(latest.before).toBe("alpha");
+    // its predecessor body, never raw diff text. The body anchors each entry
+    // with its "## <heading>" line (vc-persona-fixes sub-bot of HR, 2026-05-30)
+    // so running-log entry edits diff as a localized change.
+    expect(latest.after).toBe("## Notes\nalpha\nbeta");
+    expect(latest.before).toBe("## Notes\nalpha");
     expect(latest.editor).toBe("mira");
   });
 
@@ -273,8 +275,8 @@ describe("EntityVersionHistorySidebar bare-genesis viewer flow (P0)", () => {
     // HEAD is auto-selected: its body is the live note, predecessor is the
     // first-save state. Both non-empty, and they differ (title change).
     const latest = previews[previews.length - 1];
-    expect(latest.after).toBe("alpha\nbeta");
-    expect(latest.before).toBe("alpha\nbeta");
+    expect(latest.after).toBe("## Notes\nalpha\nbeta");
+    expect(latest.before).toBe("## Notes\nalpha\nbeta");
     // The HEAD row summary is a real change, not "No tracked content changed".
     const rows = screen.getAllByTestId("version-row");
     expect(rows.length).toBe(2);

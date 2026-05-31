@@ -100,6 +100,90 @@ describe("HistoryEngine.appendEdit", () => {
     // But the row records the actor from save context.
     expect(rows[1].actor).toBe("alex");
   });
+
+  // vc-persona-fixes sub-bot of HR (2026-05-30): a SUBSEQUENT save whose tracked
+  // (canonical) state did not move must NOT append a phantom delta row. This is
+  // the root fix for the live-tested "one restore = TWO timeline rows" bug: a
+  // restore wrote one real content row PLUS a content-less companion row that
+  // rendered "No tracked content changed". An empty canonical delta now no-ops.
+  it("does NOT append a row when the canonical state did not change", async () => {
+    const { engine, storage } = makeEngine();
+    // First real edit lays genesis + delta (2 rows).
+    await engine.appendEdit({
+      type: "create",
+      entityType: ENTITY,
+      id: ID,
+      owner: OWNER,
+      actor: "mira",
+      prevState: null,
+      nextState: { id: ID, n: 1 },
+    });
+    expect(readRows(storage)).toHaveLength(2);
+
+    // A second save that changes ONLY a denylisted stamp (no tracked content
+    // movement) appends NOTHING: prevCanonical === nextCanonical.
+    await engine.appendEdit({
+      type: "update",
+      entityType: ENTITY,
+      id: ID,
+      owner: OWNER,
+      actor: "alex",
+      prevState: { id: ID, n: 1, updated_at: "t1" },
+      nextState: { id: ID, n: 1, updated_at: "t2" },
+    });
+    expect(readRows(storage)).toHaveLength(2); // unchanged: no phantom row.
+  });
+
+  it("one restore produces exactly ONE new row (content delta, no empty companion)", async () => {
+    const { engine, storage } = makeEngine();
+    // Build a small history: create -> update -> update (genesis + 3 deltas).
+    await engine.appendEdit({
+      type: "create",
+      entityType: ENTITY,
+      id: ID,
+      owner: OWNER,
+      actor: "mira",
+      prevState: null,
+      nextState: { id: ID, title: "v1" },
+    });
+    await engine.appendEdit({
+      type: "update",
+      entityType: ENTITY,
+      id: ID,
+      owner: OWNER,
+      actor: "mira",
+      prevState: { id: ID, title: "v1" },
+      nextState: { id: ID, title: "v2" },
+    });
+    const beforeRestore = readRows(storage).length;
+
+    // Restore writes the reverted content back as ONE "revert" delta. The
+    // revert_undo_window rides along but is denylisted, so it produces no
+    // content change of its own and must not mint a second row.
+    await engine.appendEdit({
+      type: "revert",
+      entityType: ENTITY,
+      id: ID,
+      owner: OWNER,
+      actor: "mira",
+      prevState: { id: ID, title: "v2" },
+      nextState: {
+        id: ID,
+        title: "v1",
+        revert_undo_window: {
+          from_version: 2,
+          to_version: 1,
+          reverted_at: "t",
+          expires_at: "t2",
+          reverted_by: "mira",
+        },
+      },
+      revertTargetVersion: 1,
+    });
+    const after = readRows(storage);
+    expect(after.length).toBe(beforeRestore + 1); // exactly ONE new row.
+    expect(after[after.length - 1].kind).toBe("revert");
+  });
 });
 
 describe("HistoryEngine.reconstructState", () => {

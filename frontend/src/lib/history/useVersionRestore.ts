@@ -87,8 +87,23 @@ export interface UseVersionRestoreArgs<T extends RestorableRecord> {
 export interface UseVersionRestoreResult {
   /** Fire a restore to `targetVersion` (the sidebar onRestore handler). */
   handleRestore: (targetVersion: number) => Promise<void>;
-  /** Undo the active restore (returns the record to its pre-restore version). */
+  /**
+   * Undo the active restore. If REAL content edits landed since the restore,
+   * this does NOT write: it raises `undoConfirmPending` so the UI can show an
+   * IN-APP confirm (no native confirm(), which wedges the Electron renderer).
+   * The caller then drives `confirmUndoRestore` / `dismissUndoConfirm`. With no
+   * edits-since, it performs the undo immediately.
+   */
   handleUndoRestore: () => Promise<void>;
+  /**
+   * True while an undo is waiting on the user's in-app confirm (edits landed
+   * since the restore). The popup renders a confirm / cancel pair off this.
+   */
+  undoConfirmPending: boolean;
+  /** Proceed with the undo after the in-app confirm (discards edits-since). */
+  confirmUndoRestore: () => Promise<void>;
+  /** Dismiss the in-app undo confirm without undoing. */
+  dismissUndoConfirm: () => void;
   /** The live undo window, or null. */
   undoWindow: RevertUndoWindow | null;
   /** True while the undo window is present + unexpired. */
@@ -129,6 +144,14 @@ export function useVersionRestore<T extends RestorableRecord>({
   // drives the button-disable UX layer.
   const busyRef = useRef(false);
   const [isBusy, setIsBusy] = useState(false);
+
+  // In-app undo confirm (vc-persona-fixes sub-bot of HR, 2026-05-30). The undo
+  // path USED to call native window.confirm, which can FREEZE the Electron
+  // renderer (house rule: no native dialogs). When real content edits landed
+  // since the restore, handleUndoRestore raises this flag instead of prompting;
+  // the popup renders an in-app confirm / cancel pair and drives
+  // confirmUndoRestore / dismissUndoConfirm.
+  const [undoConfirmPending, setUndoConfirmPending] = useState(false);
 
   // Reverse-walk from HEAD to `targetVersion`, returning the canonical state
   // string AT the target. Throws HistoryCompactedTargetError (Case C) when the
@@ -244,10 +267,76 @@ export function useVersionRestore<T extends RestorableRecord>({
   const undoWindowActive =
     !!undoWindow && Date.now() < new Date(undoWindow.expires_at).getTime();
 
-  // Undo restore: reverse-walk to the PRE-restore version (from_version), write
-  // it back, clear the window, stamp the row kind "undo-revert". Confirms first
-  // if edits landed since the restore. Case C on the undo walk clears the window
-  // (the pre-restore point was folded away) + messages.
+  // Count REAL content edits made since the restore. The restore wrote a row at
+  // from_version+1; every row AFTER that is a candidate "edit since". But ONLY
+  // genuine content edits ("update" rows) should count: a "revert" / "undo-
+  // revert" row past the restore (or any empty-delta companion the old save
+  // path appended) is NOT the user editing their note, so it must not trip the
+  // edits-since confirm (vc-persona-fixes sub-bot of HR, 2026-05-30: the live
+  // testing saw the prompt fire even when the user made no manual edit, because
+  // a restore appended an extra row the old math counted as an edit-since).
+  const countEditsSince = useCallback(
+    (rows: HistoryRow[], fromVersion: number): number => {
+      const restoreRowIndex = fromVersion + 1;
+      let count = 0;
+      for (let i = restoreRowIndex + 1; i < rows.length; i++) {
+        if (rows[i].kind === "update") count += 1;
+      }
+      return count;
+    },
+    [],
+  );
+
+  // The write half of an undo: reverse-walk to the PRE-restore version
+  // (from_version), write it back, clear the window, stamp the row kind
+  // "undo-revert". Case C on the undo walk clears the window (the pre-restore
+  // point was folded away) + messages. Assumes the in-flight latch + the
+  // edits-since decision were already handled by the caller.
+  const performUndoRestore = useCallback(
+    async (rows: HistoryRow[]) => {
+      if (!undoWindow) return;
+      try {
+        let preRestoreCanonical: string;
+        try {
+          preRestoreCanonical = await reconstructTarget(
+            rows,
+            undoWindow.from_version,
+          );
+        } catch (err) {
+          if (err instanceof HistoryCompactedTargetError) {
+            // Case C: the pre-restore version was folded away. We cannot undo
+            // exactly; clear the window so the stale button disappears + message.
+            await api.update(id, { revert_undo_window: null });
+            const cleared = await api.get(id, owner || undefined);
+            if (cleared) onUpdate(cleared);
+            setRestoreError(
+              "The pre-restore version was summarized and can no longer be undone automatically. The undo window has been closed.",
+            );
+            return;
+          }
+          throw err;
+        }
+        const payload = canonicalToPayload(preRestoreCanonical);
+        payload.revert_undo_window = null; // clear the window
+        const updated = await api.update(id, payload, {
+          kind: "undo-revert",
+          revert_target_version: undoWindow.from_version,
+        });
+        if (updated) {
+          onUpdate(updated);
+        }
+      } catch (err) {
+        console.error("[useVersionRestore] undo-restore failed:", err);
+        setRestoreError("Could not undo the restore. Please try again.");
+      }
+    },
+    [undoWindow, id, owner, reconstructTarget, canonicalToPayload, api, onUpdate],
+  );
+
+  // Undo restore entry point. Reads history, counts REAL edits-since, and either
+  // performs the undo immediately (no edits-since) OR raises the in-app confirm
+  // (edits landed; an in-app panel asks before discarding them). NEVER calls a
+  // native confirm(), which can wedge the Electron renderer (house rule).
   const handleUndoRestore = useCallback(async () => {
     if (!undoWindow) return;
     // In-flight guard: a second undo (or an undo racing a restore) is a no-op.
@@ -260,46 +349,13 @@ export function useVersionRestore<T extends RestorableRecord>({
     try {
       const rows = await historyEngine.readHistory(entityType, owner, id);
       if (rows.length === 0) return;
-      // Edits-since guard: the restore wrote a row at from_version+1, so the
-      // undo target (from_version) is the second-to-last row if nothing has
-      // been edited since the restore. If MORE rows exist past the restore row,
-      // the user kept editing; confirm before discarding that work.
-      const restoreRowIndex = undoWindow.from_version + 1;
-      const editsSince = rows.length - 1 - restoreRowIndex;
-      if (
-        editsSince > 0 &&
-        !confirm(
-          "You have edited this note since the restore. Undoing will discard those edits and return the note to its pre-restore state. Continue?",
-        )
-      ) {
+      if (countEditsSince(rows, undoWindow.from_version) > 0) {
+        // Real edits landed since the restore. Defer to the in-app confirm so
+        // the user can decide; the actual write runs in confirmUndoRestore.
+        setUndoConfirmPending(true);
         return;
       }
-      let preRestoreCanonical: string;
-      try {
-        preRestoreCanonical = await reconstructTarget(rows, undoWindow.from_version);
-      } catch (err) {
-        if (err instanceof HistoryCompactedTargetError) {
-          // Case C: the pre-restore version was folded away. We cannot undo
-          // exactly; clear the window so the stale button disappears + message.
-          await api.update(id, { revert_undo_window: null });
-          const cleared = await api.get(id, owner || undefined);
-          if (cleared) onUpdate(cleared);
-          setRestoreError(
-            "The pre-restore version was summarized and can no longer be undone automatically. The undo window has been closed.",
-          );
-          return;
-        }
-        throw err;
-      }
-      const payload = canonicalToPayload(preRestoreCanonical);
-      payload.revert_undo_window = null; // clear the window
-      const updated = await api.update(id, payload, {
-        kind: "undo-revert",
-        revert_target_version: undoWindow.from_version,
-      });
-      if (updated) {
-        onUpdate(updated);
-      }
+      await performUndoRestore(rows);
     } catch (err) {
       console.error("[useVersionRestore] undo-restore failed:", err);
       setRestoreError("Could not undo the restore. Please try again.");
@@ -312,16 +368,44 @@ export function useVersionRestore<T extends RestorableRecord>({
     entityType,
     owner,
     id,
-    reconstructTarget,
-    canonicalToPayload,
-    api,
-    onUpdate,
+    countEditsSince,
+    performUndoRestore,
   ]);
+
+  // The user confirmed the in-app "discard edits-since and undo" prompt. Re-read
+  // history (it may have moved) and perform the undo unconditionally.
+  const confirmUndoRestore = useCallback(async () => {
+    setUndoConfirmPending(false);
+    if (!undoWindow) return;
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setIsBusy(true);
+    setRestoreError(null);
+    try {
+      const rows = await historyEngine.readHistory(entityType, owner, id);
+      if (rows.length === 0) return;
+      await performUndoRestore(rows);
+    } catch (err) {
+      console.error("[useVersionRestore] undo-restore failed:", err);
+      setRestoreError("Could not undo the restore. Please try again.");
+    } finally {
+      busyRef.current = false;
+      setIsBusy(false);
+    }
+  }, [undoWindow, entityType, owner, id, performUndoRestore]);
+
+  // Dismiss the in-app undo confirm without undoing.
+  const dismissUndoConfirm = useCallback(() => {
+    setUndoConfirmPending(false);
+  }, []);
 
   return useMemo(
     () => ({
       handleRestore,
       handleUndoRestore,
+      undoConfirmPending,
+      confirmUndoRestore,
+      dismissUndoConfirm,
       undoWindow,
       undoWindowActive,
       isBusy,
@@ -331,6 +415,9 @@ export function useVersionRestore<T extends RestorableRecord>({
     [
       handleRestore,
       handleUndoRestore,
+      undoConfirmPending,
+      confirmUndoRestore,
+      dismissUndoConfirm,
       undoWindow,
       undoWindowActive,
       isBusy,

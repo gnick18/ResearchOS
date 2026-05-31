@@ -147,6 +147,24 @@ export class HistoryEngine {
     const nextCanonical = canonicalize(nextState);
     const postHash = await sha256Hex(nextCanonical);
 
+    // Empty-delta short-circuit (vc-persona-fixes sub-bot of HR, 2026-05-30).
+    // When the tracked (canonical) state did not move, this save changed only
+    // denylisted noise (a write stamp, the revert_undo_window sidecar, ...).
+    // Appending a delta row here would write a phantom "No tracked content
+    // changed" version. Two real symptoms it kills:
+    //   - the live-tested "one restore = TWO timeline rows" bug (the restore
+    //     content delta is real, but any companion empty-delta write added a
+    //     second, content-less row), and
+    //   - an ordinary no-op save (re-saving an unchanged note) minting a
+    //     version. A no-op should never create a version.
+    // We short-circuit only when the file already has history (rows.length > 0):
+    // the FIRST edit of a record must still lay the genesis + first delta even
+    // when prevCanonical === nextCanonical (e.g. a create that equals the empty
+    // pre-image edge case), so the anchor exists for every later reconstruct.
+    if (rows.length > 0 && prevCanonical === nextCanonical) {
+      return;
+    }
+
     // Genesis: first edit of a record with no history file. Write a genesis
     // row anchored at the PRE-edit state, then the first delta on top. If the
     // record is brand-new (prevState null), the genesis anchors the empty

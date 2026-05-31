@@ -171,8 +171,10 @@ describe("NoteVersionHistorySidebar", () => {
     // predecessor ("alpha"). The reconstructed states drive the diff, never
     // raw diff text.
     const latest = previews[previews.length - 1];
-    expect(latest.after).toBe("alpha\nbeta");
-    expect(latest.before).toBe("alpha");
+    // The body anchors each entry with its "## <heading>" line
+    // (vc-persona-fixes sub-bot of HR, 2026-05-30).
+    expect(latest.after).toBe("## Notes\nalpha\nbeta");
+    expect(latest.before).toBe("## Notes\nalpha");
     expect(latest.editor).toBe("mira");
   });
 
@@ -206,16 +208,16 @@ describe("NoteVersionHistorySidebar", () => {
     fireEvent.click(rows[1]);
     await waitFor(() => {
       const last = previews[previews.length - 1];
-      expect(last.after).toBe("alpha\nbeta");
-      expect(last.before).toBe("alpha"); // predecessor
+      expect(last.after).toBe("## Notes\nalpha\nbeta");
+      expect(last.before).toBe("## Notes\nalpha"); // predecessor
     });
 
     // Flip to "compare against current". Now before === the HEAD body.
     fireEvent.click(screen.getByTestId("compare-current"));
     await waitFor(() => {
       const last = previews[previews.length - 1];
-      expect(last.after).toBe("alpha\nbeta");
-      expect(last.before).toBe("alpha\nbeta\ngamma"); // current HEAD
+      expect(last.after).toBe("## Notes\nalpha\nbeta");
+      expect(last.before).toBe("## Notes\nalpha\nbeta\ngamma"); // current HEAD
     });
   });
 
