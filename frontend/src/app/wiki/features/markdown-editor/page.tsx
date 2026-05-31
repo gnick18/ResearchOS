@@ -10,7 +10,7 @@ export default function MarkdownEditorPage() {
   return (
     <WikiPage
       title="The Markdown Editor"
-      intro="Wherever you write prose in ResearchOS (experiment notes, task descriptions, results write-ups, methods bodies, free-form notes), you're using the same markdown editor. Learning its two modes and shortcut set pays off fast."
+      intro="Wherever you write prose in ResearchOS (experiment notes, task descriptions, results write-ups, methods bodies, free-form notes), you're using the same markdown editor. Learning its modes and shortcut set pays off fast."
     >
       <Screenshot
         src="/wiki/screenshots/experiments-editor.png"
@@ -57,11 +57,13 @@ export default function MarkdownEditorPage() {
         same content.
       </p>
 
-      <h2>The two modes</h2>
+      <h2>The three modes</h2>
       <p>
-        The toolbar in the top-right of every editor has a two-way mode
-        toggle. The choice of mode is purely a viewing preference, it
-        doesn&apos;t change what gets saved.
+        The toolbar in the top-right of every editor has a mode toggle. The
+        choice of mode is purely a viewing preference, it doesn&apos;t change
+        what gets saved. Two modes show everywhere; a third, <strong>Inline</strong>,
+        is an opt-in pilot that currently appears only on free-form Notes (see{" "}
+        <a href="#inline-mode">Inline mode</a> below).
       </p>
       <ul>
         <li>
@@ -70,6 +72,12 @@ export default function MarkdownEditorPage() {
           it, double-click (or <Kbd>Enter</Kbd>) to edit just that block, and{" "}
           <Kbd>Esc</Kbd> to commit and deselect. This is the right mode for
           most prose work.
+        </li>
+        <li>
+          <strong>Inline</strong> (opt-in, Notes pilot): one continuous live
+          surface where you type markdown and watch it render as you go, instead
+          of selecting a block at a time. Available today only on free-form
+          Notes. Covered in detail under <a href="#inline-mode">Inline mode</a>.
         </li>
         <li>
           <strong>Preview</strong>: read-only rendered output. Click any image
@@ -144,6 +152,53 @@ export default function MarkdownEditorPage() {
         Text. Anything else still works, it just renders monospace without
         coloring.
       </Callout>
+
+      <h2 id="inline-mode">Inline mode (opt-in, Notes pilot)</h2>
+      <Callout variant="info" title="An opt-in pilot on Notes">
+        Inline mode is a rolling-out pilot. The third <strong>Inline</strong>{" "}
+        pill appears today only on free-form <strong>Notes</strong>; every other
+        surface (experiment Lab Notes, Results, methods, task descriptions) shows
+        the usual Hybrid and Preview toggle. Hybrid stays the default everywhere,
+        including on Notes, so nothing changes unless you reach for the Inline
+        pill yourself.
+      </Callout>
+      <p>
+        Hybrid edits one block at a time: you click a paragraph, edit it in an
+        inline textarea, and commit. <strong>Inline mode</strong> takes a
+        different approach. It is a single, continuous writing surface, more like
+        a normal document, where you type plain markdown and the editor renders
+        it live around your cursor. Headings look like headings, bold looks bold,
+        and images show as images, all in one flowing column, without the
+        block-select-then-edit step.
+      </p>
+      <Screenshot
+        src="/wiki/screenshots/editor-inline-mode.png"
+        alt="A free-form note open in Inline mode mid-edit: a single continuous writing column where headings, bold text, and an inline image render live, with the markdown markers on the current line revealed next to the caret."
+        caption="Inline mode on a Note. One continuous surface renders your markdown live; the raw markers reveal only on the line your cursor is on."
+      />
+      <p>
+        The key to inline mode is what happens at your cursor. Markdown markers
+        (the <code>**</code> around bold, the <code>#</code> on a heading, a link
+        target) stay hidden while you read, so the line looks finished. Move your
+        caret onto that line and the markers reveal themselves, ready to edit;
+        move away and they tuck back behind the rendered output. You are always
+        editing the real markdown, never a separate rich-text copy.
+      </p>
+      <Callout variant="info" title="What stays exactly the same">
+        Inline mode is a third way to <em>view and type</em> the same document,
+        not a different document. It writes the same plain markdown to the same
+        file, takes the same dragged-and-pasted images into the same{" "}
+        <code>Images/</code> folder, and saves through the same parent-driven
+        flow described under <a href="#saving">Saving</a>. The familiar editing
+        shortcuts (bold, italic, headings, and the rest) work here too. Switching
+        between Hybrid, Inline, and Preview never changes what gets stored, so you
+        can move between them freely.
+      </Callout>
+      <Screenshot
+        src="/wiki/screenshots/editor-mode-toggle-three.png"
+        alt="The editor toolbar mode toggle on a Note, a segmented control with three options reading Hybrid, Inline, and Preview, with Inline selected."
+        caption="On Notes, the mode toggle gains a third Inline pill. Everywhere else it stays a two-way Hybrid / Preview control."
+      />
 
       <h2>Keyboard shortcuts</h2>
       <p>
@@ -507,7 +562,7 @@ A3 looks suspect, repeat tomorrow morning.`}</code>
         </li>
       </ul>
 
-      <h2>Saving</h2>
+      <h2 id="saving">Saving</h2>
       <p>
         The editor doesn&apos;t autosave on every keystroke. The parent
         surface (the experiment popup, the task popup, the results page)
@@ -543,6 +598,14 @@ A3 looks suspect, repeat tomorrow morning.`}</code>
         URL-encoded file links (<code>Files/READ%20ME.md</code>) protect
         their on-disk counterparts correctly.
       </p>
+      <Callout variant="info" title="Every save is recorded">
+        On the surfaces where{" "}
+        <Link href="/wiki/features/version-history">Version History</Link> is on
+        (free-form Notes today, rolling out further), each of these saves also
+        appends one entry to the note&apos;s history timeline, so you can scroll
+        back through past states and, in the restore pilot, roll the note back to
+        an earlier one. Saving is unchanged; the history is recorded alongside it.
+      </Callout>
 
       <h2>Things people miss</h2>
       <ul>

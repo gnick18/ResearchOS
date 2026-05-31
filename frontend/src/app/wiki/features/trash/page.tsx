@@ -16,6 +16,14 @@ export default function TrashFeaturePage() {
         button used to be irrecoverable; the new trash flow gives you a safety
         net without changing how you delete.
       </p>
+      <Callout variant="info" title="Deleted vs edited: two different safety nets">
+        Trash recovers a record you <strong>deleted</strong>. It does not help
+        with a record you <strong>edited</strong>: a paragraph you overwrote
+        three saves ago is not in the trash, because the note itself was never
+        deleted. For that, ResearchOS keeps a separate per-save timeline you can
+        scroll back through and (in the restore pilot) roll back. See{" "}
+        <Link href="/wiki/features/version-history">Version History</Link>.
+      </Callout>
 
       <h2>How it works</h2>
       <p>
@@ -168,8 +176,11 @@ export default function TrashFeaturePage() {
 
       <h2>What R2 does not yet do</h2>
       <p>
-        Edit history (a per-record audit log + revert button on every popup)
-        lands later in R4 / R5 / R6. The settings panel also surfaces an
+        Per-record edit history (the per-save timeline plus a revert button) is
+        now shipping on a separate track. It is live today on free-form Notes as
+        a rolling-out pilot; see{" "}
+        <Link href="/wiki/features/version-history">Version History</Link> for
+        what is on and where it goes next. The settings panel also surfaces an
         &ldquo;Orphaned files&rdquo; row as a placeholder. Image attachments
         referenced only by deleted notes stay on disk for now; a cleanup tool
         that finds and removes unreferenced images ships in a later phase.

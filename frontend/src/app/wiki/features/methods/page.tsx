@@ -125,6 +125,21 @@ export default function MethodsFeaturePage() {
         </Step>
       </Steps>
 
+      <h2>Start from a template</h2>
+      <p>
+        You do not have to start from a blank protocol. ResearchOS ships a{" "}
+        <Link href="/wiki/features/method-catalog">Template Library</Link> of
+        pre-built, ready-to-use protocols, from a Q5 PCR recipe to a 384-well
+        viability plate to an LC-MS run. Browse the catalog, preview a template,
+        and copy it into your own library as a fully editable method you own.
+        Many templates bundle the vendor PDF they were transcribed from, so you
+        can verify any value against the original insert before you run the
+        bench. See the{" "}
+        <Link href="/wiki/features/method-catalog">Template Library</Link> page
+        for the full catalog, the source-PDF model, and the LC-MS combination
+        templates.
+      </p>
+
       <h2>Categories and drag-to-organize</h2>
       <p>
         Categories are flat (no sub-folders). To move a method into a
