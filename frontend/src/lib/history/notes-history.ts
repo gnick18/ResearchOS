@@ -46,7 +46,7 @@ export const HISTORY_ENGINE_ENABLED = true;
  * Note: with the flag OFF, the read-only Phase 1 viewer is unaffected (it never
  * checks RESTORE_ENABLED). Only the new write affordances are gated.
  */
-export const RESTORE_ENABLED = false;
+export const RESTORE_ENABLED = true;
 
 const NOTES_ENTITY_TYPE = "notes";
 
