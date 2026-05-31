@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "author": "Grant R. Nickles <gnickles@wisc.edu>",
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "funding": {
     "type": "grant",
     "url": "https://rise.wisc.edu/"

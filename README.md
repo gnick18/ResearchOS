@@ -380,7 +380,11 @@ See `AGENTS.md` for repo conventions, known traps, and the development audit tra
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+ResearchOS is free software, licensed under the GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later). See [LICENSE](LICENSE) for the full text.
+
+Copyright (C) 2026 Grant R. Nickles.
+
+In plain terms: you are free to use, study, share, and modify ResearchOS, and you can run it yourself at no cost, forever. If you run a modified version as a network service, the AGPL requires you to make your source available to that service's users. This keeps ResearchOS genuinely open while letting the hosted version stay sustainable.
 
 ---
 
