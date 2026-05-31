@@ -213,11 +213,11 @@ describe("CompoundTemplateDetail", () => {
         onEnableType={vi.fn()}
       />,
     );
-    // One type still disabled: no Use template, the missing one is offered.
-    expect(screen.queryByText("Use template")).not.toBeInTheDocument();
+    // One type still disabled: no Use kit, the missing one is offered.
+    expect(screen.queryByText("Use kit")).not.toBeInTheDocument();
     expect(screen.getByText("Enable Mass spec")).toBeInTheDocument();
 
-    // All enabled: Use template unlocks.
+    // All enabled: Use kit unlocks.
     rerender(
       <CompoundTemplateDetail
         title="Peptide LC-MS kit"
@@ -228,7 +228,7 @@ describe("CompoundTemplateDetail", () => {
         onEnableType={vi.fn()}
       />,
     );
-    fireEvent.click(screen.getByText("Use template"));
+    fireEvent.click(screen.getByText("Use kit"));
     expect(onUse).toHaveBeenCalled();
   });
 });
@@ -304,11 +304,13 @@ describe("CompoundTemplateDetailLoader", () => {
     );
     expect(screen.getAllByText("Mass spec").length).toBeGreaterThan(0);
     // mass_spec still disabled: gated, the missing type offered, no Use.
-    expect(screen.queryByText("Use template")).not.toBeInTheDocument();
+    expect(screen.queryByText("Use kit")).not.toBeInTheDocument();
     fireEvent.click(screen.getByText("Enable Mass spec"));
     expect(onEnableType).toHaveBeenCalledWith("mass_spec");
 
-    // Enable both: Use unlocks (payload already cached, no refetch).
+    // Enable both: Use unlocks (payload already cached, no refetch). The loader
+    // must forward destLabel so the kit detail shows the destination line too
+    // (regression: it previously dropped it, unlike single-type templates).
     rerender(
       <CompoundTemplateDetailLoader
         entry={comboEntry}
@@ -318,11 +320,15 @@ describe("CompoundTemplateDetailLoader", () => {
         anyUsing={false}
         onUse={onUse}
         onEnableType={onEnableType}
+        destLabel="Mol bio"
+        onChooseDestination={vi.fn()}
         fetchTemplate={comboFetch}
       />,
     );
-    fireEvent.click(await screen.findByText("Use template"));
+    fireEvent.click(await screen.findByText("Use kit"));
     expect(onUse).toHaveBeenCalled();
+    expect(screen.getByText(/Will be added to/)).toBeInTheDocument();
+    expect(screen.getByText("Mol bio")).toBeInTheDocument();
   });
 
   it("renders the bundled steps in ordering order with label fallback + override", async () => {
@@ -361,6 +367,6 @@ describe("CompoundTemplateDetailLoader", () => {
     );
     expect(screen.getByText("Loading kit...")).toBeInTheDocument();
     // Types are unknown while loading, so the gated action must NOT render.
-    expect(screen.queryByText("Use template")).not.toBeInTheDocument();
+    expect(screen.queryByText("Use kit")).not.toBeInTheDocument();
   });
 });

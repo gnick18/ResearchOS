@@ -562,7 +562,7 @@ export function CompoundTemplateDetail({
               disabled={anyUsing}
               className="w-full px-4 py-2.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
-              {isUsing ? "Adding..." : "Use template"}
+              {isUsing ? "Adding..." : "Use kit"}
             </button>
             <DestinationLine
               destLabel={destLabel}
@@ -573,6 +573,10 @@ export function CompoundTemplateDetail({
           <div className="flex flex-col gap-2">
             <p className="text-xs text-amber-600">
               Enable all required types to use this kit:
+            </p>
+            <p className="text-xs text-gray-500">
+              These types are turned off in your library. Enabling one turns it
+              on for every method, not just this kit.
             </p>
             <div className="flex flex-col gap-1.5">
               {missing.map((t) => {
@@ -618,6 +622,8 @@ export function CompoundTemplateDetailLoader({
   anyUsing,
   onUse,
   onEnableType,
+  destLabel,
+  onChooseDestination,
   fetchTemplate = fetchMethodCatalogTemplate,
 }: {
   entry: MethodCatalogManifestEntry;
@@ -628,6 +634,10 @@ export function CompoundTemplateDetailLoader({
   anyUsing: boolean;
   onUse: () => void;
   onEnableType: (typeId: MethodTypeId) => void;
+  /** Category the new kit will land in (forwarded to the destination line). */
+  destLabel?: string;
+  /** Focus the footer destination field so the category is reachable here. */
+  onChooseDestination?: () => void;
   /** Swappable for tests; defaults to the real catalog loader. */
   fetchTemplate?: (slug: string) => Promise<MethodCatalogTemplate>;
 }) {
@@ -706,6 +716,8 @@ export function CompoundTemplateDetailLoader({
       anyUsing={anyUsing}
       onUse={onUse}
       onEnableType={onEnableType}
+      destLabel={destLabel}
+      onChooseDestination={onChooseDestination}
     />
   );
 }

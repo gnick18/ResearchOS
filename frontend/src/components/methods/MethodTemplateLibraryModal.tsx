@@ -332,6 +332,8 @@ export function MethodTemplateLibraryModal({
             anyUsing={usingSlug !== null}
             onUse={() => handleUse(item.entry)}
             onEnableType={(typeId) => setEnabled(typeId, true)}
+            destLabel={destLabel}
+            onChooseDestination={handleChooseDestination}
           />
         ) : (
           <SingleTemplateDetail
