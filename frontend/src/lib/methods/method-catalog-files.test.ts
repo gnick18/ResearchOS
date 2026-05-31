@@ -9,7 +9,7 @@
 // field, a wrong method_type, a manifest/file mismatch, a malformed pcr
 // gradient) before the catalog ever reaches the browse surface.
 
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -39,6 +39,7 @@ const CATALOG_DIR = fileURLToPath(
   new URL("../../../public/method-catalog", import.meta.url),
 );
 const TEMPLATES_DIR = `${CATALOG_DIR}/templates`;
+const SOURCES_DIR = `${CATALOG_DIR}/sources`;
 
 function readJson(path: string): unknown {
   return JSON.parse(readFileSync(path, "utf8"));
@@ -166,6 +167,50 @@ describe("method-catalog pcr payload shape", () => {
       if (template.payload.notes != null) {
         expect(typeof template.payload.notes).toBe("string");
       }
+    });
+  }
+});
+
+// ── Bundled source-PDF coverage ──────────────────────────────────────────────
+//
+// Kit templates may declare a bundled source PDF (`source_pdf.bundled === true`).
+// The loader resolves that asset BY SLUG CONVENTION (`sources/<slug>.pdf`), never
+// from the `filename` field (see copyBundledSourcePdf in method-catalog.ts), so
+// the on-disk file MUST be named after the slug. This suite asserts that every
+// such template has its `sources/<slug>.pdf` present and that the file is a real
+// PDF (starts with the `%PDF-` magic bytes). It catches a forgotten PDF, a
+// mis-named file, or a git-LFS pointer that was committed without being smudged.
+
+const PDF_MAGIC = "%PDF-";
+
+function isPdfFile(path: string): boolean {
+  // Read just the leading bytes; a real PDF begins with `%PDF-`. A committed but
+  // un-smudged git-LFS pointer would instead start with `version https://...`.
+  const head = readFileSync(path).subarray(0, PDF_MAGIC.length).toString("latin1");
+  return head === PDF_MAGIC;
+}
+
+describe("method-catalog bundled source PDFs", () => {
+  const bundledTemplates = templateFiles
+    .map((f) => parseMethodCatalogTemplate(readJson(`${TEMPLATES_DIR}/${f}`)))
+    .filter((t) => t.source_pdf?.bundled === true);
+
+  it("there are bundled-PDF templates to validate", () => {
+    expect(bundledTemplates.length).toBeGreaterThan(0);
+  });
+
+  for (const template of bundledTemplates) {
+    it(`${template.slug}: bundled source PDF exists at sources/${template.slug}.pdf and is a valid PDF`, () => {
+      const pdfPath = `${SOURCES_DIR}/${template.slug}.pdf`;
+      expect(existsSync(pdfPath)).toBe(true);
+      expect(isPdfFile(pdfPath)).toBe(true);
+    });
+
+    it(`${template.slug}: its manifest entry mirrors the source_pdf descriptor`, () => {
+      const manifestEntry = manifest.templates.find(
+        (t) => t.slug === template.slug,
+      );
+      expect(manifestEntry?.source_pdf).toEqual(template.source_pdf);
     });
   }
 });

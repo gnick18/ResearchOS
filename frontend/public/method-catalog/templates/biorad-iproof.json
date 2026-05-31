@@ -5,6 +5,12 @@
   "category": "Molecular biology",
   "method_type": "pcr",
   "tags": ["pcr", "bio-rad", "iproof", "high-fidelity"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "10002298B.pdf",
+    "source_url": "https://www.bio-rad.com/webroot/web/pdf/lsr/literature/10002298B.pdf",
+    "sha256": "8f72bbf08bc2b6749d9d338bf8ddfc4e9b335b42d458002ebf27f172520d589d"
+  },
   "payload": {
     "gradient": {
       "initial": [

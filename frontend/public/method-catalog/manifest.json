@@ -146,7 +146,13 @@
         "bio-rad",
         "ssoadvanced",
         "melt-curve"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "10031339.pdf",
+        "source_url": "https://www.bio-rad.com/webroot/web/pdf/lsr/literature/10031339.pdf",
+        "sha256": "8c5f8f71bcf361609033b919fb0624528fd77924b0ee7e8d873b6ce0d565be28"
+      }
     },
     {
       "slug": "ssoadvanced-probes-qpcr",
@@ -159,7 +165,13 @@
         "probe",
         "bio-rad",
         "ssoadvanced"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "bulletin-10031340.pdf",
+        "source_url": "https://www.bio-rad.com/webroot/web/pdf/lsr/literature/bulletin-10031340.pdf",
+        "sha256": "2e00414420fd7ae2f93a5b107e4f0a501eb9e034ee7d4279a5466e426a3e76cf"
+      }
     },
     {
       "slug": "itaq-sybr-qpcr",
@@ -173,7 +185,13 @@
         "bio-rad",
         "itaq",
         "melt-curve"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "10000068167.pdf",
+        "source_url": "https://www.bio-rad.com/webroot/web/pdf/lsr/literature/10000068167.pdf",
+        "sha256": "5ca1bef47121592b6eff99c85d433d170d7a82ba0000e0810fcb27a34a739b7e"
+      }
     },
     {
       "slug": "ssofast-evagreen-qpcr",
@@ -188,7 +206,13 @@
         "ssofast",
         "fast",
         "melt-curve"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "10014647A.pdf",
+        "source_url": "https://www.bio-rad.com/webroot/web/pdf/lsr/literature/10014647A.pdf",
+        "sha256": "12bb488b9cec492fbb66d0fe85168ef3ab766df65fcfc1b787f80fca27300a3a"
+      }
     },
     {
       "slug": "luna-universal-qpcr",
@@ -473,7 +497,13 @@
         "dsdna",
         "quantitation",
         "fluorometric"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "Qubit_dsDNA_HS_Assay_UG.pdf",
+        "source_url": "https://documents.thermofisher.com/TFS-Assets/LSG/manuals/Qubit_dsDNA_HS_Assay_UG.pdf",
+        "sha256": "0506ece12b3c499ae369564500af38fa280d49f65ff105a3d17b5705a597c3b5"
+      }
     },
     {
       "slug": "biorad-iproof",
@@ -486,7 +516,13 @@
         "bio-rad",
         "iproof",
         "high-fidelity"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "10002298B.pdf",
+        "source_url": "https://www.bio-rad.com/webroot/web/pdf/lsr/literature/10002298B.pdf",
+        "sha256": "8f72bbf08bc2b6749d9d338bf8ddfc4e9b335b42d458002ebf27f172520d589d"
+      }
     },
     {
       "slug": "biorad-itaq",
@@ -500,7 +536,13 @@
         "itaq",
         "taq",
         "hot-start"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "4106202B.pdf",
+        "source_url": "https://www.bio-rad.com/webroot/web/pdf/lsr/literature/4106202B.pdf",
+        "sha256": "11318bfd7366b1b9915fd14a0e157ba391b851a00b041989eb870302687aaee9"
+      }
     },
     {
       "slug": "kapa-hifi-hotstart",
@@ -530,7 +572,13 @@
         "roche",
         "taq",
         "standard"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "taqkb.pdf",
+        "source_url": "https://www.sigmaaldrich.com/deepweb/assets/sigmaaldrich/product/documents/272/232/taqkb.pdf",
+        "sha256": "2d9065b054039ab8ca2ac7dc98260bf6ae6be54de78340ff658d402c4187ef40"
+      }
     },
     {
       "slug": "kapa2g-fast",
@@ -562,7 +610,13 @@
         "taq",
         "fast",
         "robust"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "2grkb.pdf",
+        "source_url": "https://www.sigmaaldrich.com/deepweb/assets/sigmaaldrich/product/documents/150/359/2grkb.pdf",
+        "sha256": "bdda2b2261d4a536f5e79313eb4ec210bf0651101d2822ab814b09493c1574b8"
+      }
     },
     {
       "slug": "neb-onetaq-master-mix",
@@ -751,7 +805,13 @@
         "toptaq",
         "taq",
         "standard"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "TopTaq-PCR-Handbook.pdf",
+        "source_url": "https://www.qiagen.com/en-US/resources/download/KitHandbook/en-toptaq-pcr-handbook",
+        "sha256": "369b7cd1a3c570e03f6e67867d3b3059666741288a7e06cca1c9988bb0c69fd4"
+      }
     },
     {
       "slug": "takara-ex-taq",
@@ -1147,7 +1207,13 @@
         "electrophoresis",
         "coomassie",
         "bio-rad"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "Bulletin_2423.pdf",
+        "source_url": "https://www.bio-rad.com/webroot/web/pdf/lsr/literature/Bulletin_2423.pdf",
+        "sha256": "b8e30a2e99d29eea2326803c4a4a6d90475129ff0e1cd7378d505c2fbac9ace2"
+      }
     },
     {
       "slug": "t4-dna-ligation",
@@ -1197,7 +1263,13 @@
         "exploris",
         "mass-spec",
         "thermo"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "an-73885-lc-ms-characterization-mabs-native-denaturing-an73885-en.pdf",
+        "source_url": "https://documents.thermofisher.com/TFS-Assets/CMD/Application-Notes/an-73885-lc-ms-characterization-mabs-native-denaturing-an73885-en.pdf",
+        "sha256": "4ed6a97a206ed9d64ea0e09f9842d98db756fb8e89ca5bc3442fa428defc04b5"
+      }
     },
     {
       "slug": "lcms-intact-protein-rp-lc-thermo",
@@ -1212,7 +1284,13 @@
         "monoclonal-antibody",
         "reverse-phase",
         "thermo"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "an-73885-lc-ms-characterization-mabs-native-denaturing-an73885-en.pdf",
+        "source_url": "https://documents.thermofisher.com/TFS-Assets/CMD/Application-Notes/an-73885-lc-ms-characterization-mabs-native-denaturing-an73885-en.pdf",
+        "sha256": "4ed6a97a206ed9d64ea0e09f9842d98db756fb8e89ca5bc3442fa428defc04b5"
+      }
     },
     {
       "slug": "lcms-metabolite-hilic-lc-thermo",
@@ -1226,7 +1304,13 @@
         "small-molecule",
         "hilic",
         "thermo"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "AN-656-LC-MSn-Metabolomics-AN64832-EN.pdf",
+        "source_url": "https://assets.thermofisher.com/TFS-Assets/CMD/Application-Notes/AN-656-LC-MSn-Metabolomics-AN64832-EN.pdf",
+        "sha256": "2368b038abc0af047ef22005c79ab1b585ec0d92c060661ac65d70cab73e30ae"
+      }
     },
     {
       "slug": "lcms-metabolite-ms-thermo-qexactive",
@@ -1242,7 +1326,13 @@
         "q-exactive",
         "mass-spec",
         "thermo"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "AN-656-LC-MSn-Metabolomics-AN64832-EN.pdf",
+        "source_url": "https://assets.thermofisher.com/TFS-Assets/CMD/Application-Notes/AN-656-LC-MSn-Metabolomics-AN64832-EN.pdf",
+        "sha256": "2368b038abc0af047ef22005c79ab1b585ec0d92c060661ac65d70cab73e30ae"
+      }
     },
     {
       "slug": "lcms-peptide-ms-thermo-orbitrap",
@@ -1259,7 +1349,13 @@
         "dda",
         "mass-spec",
         "thermo"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "AN-21550-LC-EASY-Spray-Acclaim-PepMap-C18-75cm-Column-AN21550-EN.pdf",
+        "source_url": "https://assets.thermofisher.com/TFS-Assets/CMD/Application-Notes/AN-21550-LC-EASY-Spray-Acclaim-PepMap-C18-75cm-Column-AN21550-EN.pdf",
+        "sha256": "02bbbab89973efa4d6e80f5b98129289b5d5705320c752c815fdcae7ed0c2532"
+      }
     },
     {
       "slug": "lcms-peptide-rp-lc-thermo",
@@ -1275,7 +1371,13 @@
         "c18",
         "nano-lc",
         "thermo"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "AN-21550-LC-EASY-Spray-Acclaim-PepMap-C18-75cm-Column-AN21550-EN.pdf",
+        "source_url": "https://assets.thermofisher.com/TFS-Assets/CMD/Application-Notes/AN-21550-LC-EASY-Spray-Acclaim-PepMap-C18-75cm-Column-AN21550-EN.pdf",
+        "sha256": "02bbbab89973efa4d6e80f5b98129289b5d5705320c752c815fdcae7ed0c2532"
+      }
     },
     {
       "slug": "a549-maintenance-atcc",
@@ -1338,7 +1440,13 @@
         "universal",
         "atcc",
         "gibco"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "animal-cell-culture-guide.pdf",
+        "source_url": "https://www.atcc.org/-/media/resources/culture-guides/animal-cell-culture-guide.pdf",
+        "sha256": "a813ffa904816577e27e0c820f3bd2b397017e5af8d50b31d719f31ed323eddd"
+      }
     },
     {
       "slug": "hek293-maintenance-atcc",
@@ -1451,7 +1559,13 @@
         "universal",
         "gibco",
         "atcc"
-      ]
+      ],
+      "source_pdf": {
+        "bundled": true,
+        "filename": "animal-cell-culture-guide.pdf",
+        "source_url": "https://www.atcc.org/-/media/resources/culture-guides/animal-cell-culture-guide.pdf",
+        "sha256": "a813ffa904816577e27e0c820f3bd2b397017e5af8d50b31d719f31ed323eddd"
+      }
     },
     {
       "slug": "roche-faststart-taq",

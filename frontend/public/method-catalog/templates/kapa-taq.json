@@ -5,6 +5,12 @@
   "category": "Molecular biology",
   "method_type": "pcr",
   "tags": ["pcr", "kapa", "roche", "taq", "standard"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "taqkb.pdf",
+    "source_url": "https://www.sigmaaldrich.com/deepweb/assets/sigmaaldrich/product/documents/272/232/taqkb.pdf",
+    "sha256": "2d9065b054039ab8ca2ac7dc98260bf6ae6be54de78340ff658d402c4187ef40"
+  },
   "payload": {
     "gradient": {
       "initial": [

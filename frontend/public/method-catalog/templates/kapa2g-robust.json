@@ -5,6 +5,12 @@
   "category": "Molecular biology",
   "method_type": "pcr",
   "tags": ["pcr", "kapa", "roche", "kapa2g", "taq", "fast", "robust"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "2grkb.pdf",
+    "source_url": "https://www.sigmaaldrich.com/deepweb/assets/sigmaaldrich/product/documents/150/359/2grkb.pdf",
+    "sha256": "bdda2b2261d4a536f5e79313eb4ec210bf0651101d2822ab814b09493c1574b8"
+  },
   "payload": {
     "gradient": {
       "initial": [

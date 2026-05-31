@@ -5,6 +5,12 @@
   "category": "LC-MS",
   "method_type": "mass_spec",
   "tags": ["lc-ms", "peptide", "proteomics", "orbitrap", "q-exactive", "dda", "mass-spec", "thermo"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "AN-21550-LC-EASY-Spray-Acclaim-PepMap-C18-75cm-Column-AN21550-EN.pdf",
+    "source_url": "https://assets.thermofisher.com/TFS-Assets/CMD/Application-Notes/AN-21550-LC-EASY-Spray-Acclaim-PepMap-C18-75cm-Column-AN21550-EN.pdf",
+    "sha256": "02bbbab89973efa4d6e80f5b98129289b5d5705320c752c815fdcae7ed0c2532"
+  },
   "payload": {
     "description": "Data-dependent MS/MS setup for bottom-up peptides on a Thermo Q Exactive Hybrid Quadrupole-Orbitrap, fed by the matching peptide nano-LC gradient (EASY-Spray nanoESI source). Polarity is positive (standard for this workflow; the source note does not state polarity literally). Spray voltage 1.9 kV, capillary (ion transfer tube) temperature 320 C. MS1 resolution 60000, MS2 resolution 15000, scan range 350 to 1200 m/z. Data-dependent acquisition with HCD: MS1 AGC target 3e6, max injection time 50 ms; MS2 AGC target 2e5, max injection time 80 ms; isolation window 1.4 m/z; dynamic exclusion 20 s. The source note does not publish a numeric Top-N or normalized collision energy (NCE); leave those to tune per instrument. Pair with the matching LC gradient template. Source: Thermo Fisher Application Note 21550, https://assets.thermofisher.com/TFS-Assets/CMD/Application-Notes/AN-21550-LC-EASY-Spray-Acclaim-PepMap-C18-75cm-Column-AN21550-EN.pdf . Representative starting-point method, verify against the source and tune per instrument and sample.",
     "instrument": "Thermo Q Exactive Hybrid Quadrupole-Orbitrap",

@@ -5,6 +5,12 @@
   "category": "Molecular biology",
   "method_type": "pcr",
   "tags": ["pcr", "bio-rad", "itaq", "taq", "hot-start"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "4106202B.pdf",
+    "source_url": "https://www.bio-rad.com/webroot/web/pdf/lsr/literature/4106202B.pdf",
+    "sha256": "11318bfd7366b1b9915fd14a0e157ba391b851a00b041989eb870302687aaee9"
+  },
   "payload": {
     "gradient": {
       "initial": [

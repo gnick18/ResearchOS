@@ -5,6 +5,12 @@
   "category": "LC-MS",
   "method_type": "mass_spec",
   "tags": ["lc-ms", "metabolomics", "small-molecule", "orbitrap", "q-exactive", "mass-spec", "thermo"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "AN-656-LC-MSn-Metabolomics-AN64832-EN.pdf",
+    "source_url": "https://assets.thermofisher.com/TFS-Assets/CMD/Application-Notes/AN-656-LC-MSn-Metabolomics-AN64832-EN.pdf",
+    "sha256": "2368b038abc0af047ef22005c79ab1b585ec0d92c060661ac65d70cab73e30ae"
+  },
   "payload": {
     "description": "Full MS plus data-dependent MS2 setup for small-molecule / metabolite LC-MS on a Thermo Q Exactive (Orbitrap), fed by the matching HILIC metabolomics LC gradient. HESI-II source, positive polarity. Spray voltage 3.5 kV, capillary temperature 275 C, aux gas heater temperature 350 C. Sheath gas 35, aux gas 8 (arbitrary units); sweep gas not stated. S-lens RF level 50. MS1 resolution 70000, scan range 80 to 900 m/z; MS1 AGC target 1e6, max injection time 250 ms, 1 microscan. Data-dependent MS2: resolution 17500, AGC target 2e5, max injection time 60 ms, isolation window 2.0 Da, normalized collision energy 30 (stepped 50%), dynamic exclusion 6 s. Pair with the matching LC gradient template. Source: Thermo Fisher Application Note 656, https://assets.thermofisher.com/TFS-Assets/CMD/Application-Notes/AN-656-LC-MSn-Metabolomics-AN64832-EN.pdf . Representative starting-point method, verify against the source and tune per instrument and sample.",
     "instrument": "Thermo Q Exactive (Orbitrap)",

@@ -5,6 +5,12 @@
   "category": "qPCR",
   "method_type": "pcr",
   "tags": ["qpcr", "probe", "bio-rad", "ssoadvanced"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "bulletin-10031340.pdf",
+    "source_url": "https://www.bio-rad.com/webroot/web/pdf/lsr/literature/bulletin-10031340.pdf",
+    "sha256": "2e00414420fd7ae2f93a5b107e4f0a501eb9e034ee7d4279a5466e426a3e76cf"
+  },
   "payload": {
     "gradient": {
       "initial": [

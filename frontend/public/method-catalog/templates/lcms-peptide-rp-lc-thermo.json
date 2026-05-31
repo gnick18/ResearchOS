@@ -5,6 +5,12 @@
   "category": "LC-MS",
   "method_type": "lc_gradient",
   "tags": ["lc-ms", "peptide", "proteomics", "reverse-phase", "c18", "nano-lc", "thermo"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "AN-21550-LC-EASY-Spray-Acclaim-PepMap-C18-75cm-Column-AN21550-EN.pdf",
+    "source_url": "https://assets.thermofisher.com/TFS-Assets/CMD/Application-Notes/AN-21550-LC-EASY-Spray-Acclaim-PepMap-C18-75cm-Column-AN21550-EN.pdf",
+    "sha256": "02bbbab89973efa4d6e80f5b98129289b5d5705320c752c815fdcae7ed0c2532"
+  },
   "payload": {
     "description": "Reversed-phase nano-LC gradient for tryptic peptides (bottom-up proteomics) on a Thermo EASY-nLC 1200, feeding a Q Exactive Orbitrap. Solvent A is 100% water with 0.1% formic acid; solvent B is 80:20 acetonitrile/water with 0.1% formic acid. Column: EASY-Spray Acclaim PepMap C18, 2 um, 100 A, 75 um i.d. x 75 cm, at 35 C. Flow 200 nL/min (0.0002 mL/min), constant. Injection 1 uL (1 ug HeLa digest plus 100 fmol PRTC on column). Note: this app note showcases an extended gradient on a 75 cm column (5% B held to 420 min at 28% B, then up to 40% and a 95% wash, total 545 min); scale the gradient down proportionally for routine shorter runs. Pair with the matching MS setup template. Source: Thermo Fisher Application Note 21550, https://assets.thermofisher.com/TFS-Assets/CMD/Application-Notes/AN-21550-LC-EASY-Spray-Acclaim-PepMap-C18-75cm-Column-AN21550-EN.pdf . Representative starting-point method, verify against the source and tune per instrument and sample.",
     "gradient_steps": [

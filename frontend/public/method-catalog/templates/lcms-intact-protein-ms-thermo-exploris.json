@@ -5,6 +5,12 @@
   "category": "LC-MS",
   "method_type": "mass_spec",
   "tags": ["lc-ms", "intact-protein", "intact-mass", "monoclonal-antibody", "orbitrap", "exploris", "mass-spec", "thermo"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "an-73885-lc-ms-characterization-mabs-native-denaturing-an73885-en.pdf",
+    "source_url": "https://documents.thermofisher.com/TFS-Assets/CMD/Application-Notes/an-73885-lc-ms-characterization-mabs-native-denaturing-an73885-en.pdf",
+    "sha256": "4ed6a97a206ed9d64ea0e09f9842d98db756fb8e89ca5bc3442fa428defc04b5"
+  },
   "payload": {
     "description": "Full MS setup for denaturing intact-protein / intact-mass analysis (demonstrated on trastuzumab) on a Thermo Orbitrap Exploris 480 with the BioPharma Option, Intact Protein application mode, fed by the matching intact-protein LC gradient. HESI source, positive polarity. Spray voltage 3800 V, capillary temperature 320 C, vaporizer temperature 150 C. Sheath gas 25, aux gas 5, sweep gas 0 (arbitrary units). Resolution 30000, scan range 1800 to 4000 m/z, RF lens 200%, AGC target 300, max injection time 200 ms, 10 microscans. In-source fragmentation (in-source CID) 110 V (requires optimization per the note). Pressure mode Low; runtime 20 min. Pair with the matching LC gradient template. Source: Thermo Fisher Application Note 73885, https://documents.thermofisher.com/TFS-Assets/CMD/Application-Notes/an-73885-lc-ms-characterization-mabs-native-denaturing-an73885-en.pdf . Representative starting-point method (denaturing intact conditions, Intact denatured column of the note), verify against the source and tune per instrument and sample.",
     "instrument": "Thermo Orbitrap Exploris 480 (BioPharma Option)",

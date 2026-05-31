@@ -5,6 +5,12 @@
   "category": "qPCR",
   "method_type": "pcr",
   "tags": ["qpcr", "evagreen", "bio-rad", "ssofast", "fast", "melt-curve"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "10014647A.pdf",
+    "source_url": "https://www.bio-rad.com/webroot/web/pdf/lsr/literature/10014647A.pdf",
+    "sha256": "12bb488b9cec492fbb66d0fe85168ef3ab766df65fcfc1b787f80fca27300a3a"
+  },
   "payload": {
     "gradient": {
       "initial": [

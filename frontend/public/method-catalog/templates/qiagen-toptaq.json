@@ -5,6 +5,12 @@
   "category": "Molecular biology",
   "method_type": "pcr",
   "tags": ["pcr", "qiagen", "toptaq", "taq", "standard"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "TopTaq-PCR-Handbook.pdf",
+    "source_url": "https://www.qiagen.com/en-US/resources/download/KitHandbook/en-toptaq-pcr-handbook",
+    "sha256": "369b7cd1a3c570e03f6e67867d3b3059666741288a7e06cca1c9988bb0c69fd4"
+  },
   "payload": {
     "gradient": {
       "initial": [

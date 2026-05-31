@@ -5,6 +5,12 @@
   "category": "qPCR",
   "method_type": "pcr",
   "tags": ["qpcr", "sybr", "bio-rad", "itaq", "melt-curve"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "10000068167.pdf",
+    "source_url": "https://www.bio-rad.com/webroot/web/pdf/lsr/literature/10000068167.pdf",
+    "sha256": "5ca1bef47121592b6eff99c85d433d170d7a82ba0000e0810fcb27a34a739b7e"
+  },
   "payload": {
     "gradient": {
       "initial": [

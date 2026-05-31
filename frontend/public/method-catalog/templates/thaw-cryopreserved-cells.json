@@ -5,6 +5,12 @@
   "category": "Cell culture",
   "method_type": "cell_culture",
   "tags": ["cell-culture", "thawing", "cryorecovery", "universal", "gibco", "atcc"],
+  "source_pdf": {
+    "bundled": true,
+    "filename": "animal-cell-culture-guide.pdf",
+    "source_url": "https://www.atcc.org/-/media/resources/culture-guides/animal-cell-culture-guide.pdf",
+    "sha256": "a813ffa904816577e27e0c820f3bd2b397017e5af8d50b31d719f31ed323eddd"
+  },
   "payload": {
     "description": "Universal protocol for recovering cryopreserved mammalian cells from liquid nitrogen, for adherent or suspension lines. Work quickly; thawing is stressful to frozen cells. Sources: Gibco Cell Culture Basics https://www.thermofisher.com/us/en/home/references/gibco-cell-culture-basics/cell-culture-protocols/thawing-cells.html ; ATCC Animal Cell Culture Guide https://www.atcc.org/-/media/resources/culture-guides/animal-cell-culture-guide.pdf",
     "cell_line": {
