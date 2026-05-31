@@ -924,6 +924,110 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
         </ol>
       </section>
 
+      {/* ── Roadmap (what we are building) ───────────────────────────── */}
+      <section className="bg-slate-50 py-20">
+        <div className="mx-auto max-w-5xl px-6">
+          <div className="mx-auto mb-12 max-w-2xl text-center">
+            <span className="text-sm font-semibold uppercase tracking-wide text-sky-600">
+              Built in the open
+            </span>
+            <h2 className="mt-2 text-3xl font-bold tracking-tight text-gray-900">
+              What we are building
+            </h2>
+            <p className="mt-3 text-base leading-relaxed text-gray-600">
+              ResearchOS is shaped by what real labs ask for. Here is what has
+              landed recently and what we are working on next. A roadmap is not
+              a promise, but this is honestly where the effort is going.
+            </p>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+              <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+                <svg
+                  aria-hidden
+                  className="h-5 w-5 text-emerald-500"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 12.5l2 2 4-4.5M12 21a9 9 0 100-18 9 9 0 000 18z"
+                  />
+                </svg>
+                Recently shipped
+              </h3>
+              <ul className="space-y-3 text-sm leading-relaxed text-gray-700">
+                <li>
+                  <span className="font-semibold text-gray-900">
+                    Version history
+                  </span>{" "}
+                  on every record, with one-click restore and a 24-hour undo.
+                </li>
+                <li>
+                  <span className="font-semibold text-gray-900">
+                    Bulletproof templates
+                  </span>{" "}
+                  that travel with the original vendor PDF, so you can check any
+                  value against the source it came from.
+                </li>
+                <li>
+                  <span className="font-semibold text-gray-900">
+                    Built-in calculators
+                  </span>{" "}
+                  for molarity, dilutions, primer Tm, DNA and RNA, and buffers.
+                </li>
+              </ul>
+            </div>
+
+            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+              <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+                <svg
+                  aria-hidden
+                  className="h-5 w-5 text-sky-500"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M13 9l3 3-3 3M8 12h8M12 21a9 9 0 100-18 9 9 0 000 18z"
+                  />
+                </svg>
+                Coming next
+              </h3>
+              <ul className="space-y-3 text-sm leading-relaxed text-gray-700">
+                <li>
+                  <span className="font-semibold text-gray-900">
+                    More structured protocols
+                  </span>{" "}
+                  like Western blot and Nanodrop readings, beyond today&apos;s
+                  method types.
+                </li>
+                <li>
+                  <span className="font-semibold text-gray-900">
+                    A bigger template library
+                  </span>{" "}
+                  across immunology, microbiology, and protein work.
+                </li>
+                <li>
+                  <span className="font-semibold text-gray-900">
+                    Smarter reordering
+                  </span>{" "}
+                  in Purchases: one-click buy-again and a shared reorder list,
+                  with no extra logging.
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── Final CTA ────────────────────────────────────────────────── */}
       <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-20">
         <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-6 text-center">
