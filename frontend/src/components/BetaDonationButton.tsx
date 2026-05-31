@@ -123,56 +123,53 @@ function DonationModal({ onClose }: { onClose: () => void }) {
             </button>
           </div>
 
-          <p className="text-gray-600 text-sm mb-6">
+          <p className="text-gray-600 text-sm mb-5">
             {DONATION_CONFIG.message}
           </p>
 
-          <div className="space-y-3">
-            {DONATION_CONFIG.paypalLink && (
-              <a
-                href={DONATION_CONFIG.paypalLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 p-4 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl transition-colors"
-              >
-                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">PP</span>
-                </div>
-                <div>
-                  <p className="font-semibold text-gray-900">PayPal</p>
-                  <p className="text-xs text-gray-500">Quick and secure</p>
-                </div>
-                <svg aria-hidden className="w-5 h-5 text-gray-400 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-              </a>
-            )}
-
-            {DONATION_CONFIG.venmoHandle && (
-              <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">V</span>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900">Venmo</p>
-                    <p className="text-xs text-gray-500">Direct payment</p>
-                  </div>
-                </div>
-                <div className="text-sm">
-                  <p className="text-gray-700">
-                    <span className="text-gray-500">Handle:</span>{" "}
-                    <code className="bg-white px-2 py-0.5 rounded text-purple-700">
-                      {DONATION_CONFIG.venmoHandle}
-                    </code>
-                  </p>
-                </div>
-              </div>
-            )}
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 mb-5">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+              How ResearchOS stays sustainable
+            </p>
+            <ul className="space-y-2.5 text-sm text-gray-700">
+              <li>
+                <span className="font-semibold text-gray-900">Free in beta.</span>{" "}
+                Right now the hosted app is free for everyone, and we are grateful
+                to the early labs helping us build it.
+              </li>
+              <li>
+                <span className="font-semibold text-gray-900">
+                  Free to self-host, forever.
+                </span>{" "}
+                ResearchOS is open source, so you can always run it yourself at no
+                cost from the public repo.
+              </li>
+              <li>
+                <span className="font-semibold text-gray-900">
+                  Individuals stay free.
+                </span>{" "}
+                Solo researchers stay free on the hosted version for good.
+              </li>
+              <li>
+                <span className="font-semibold text-gray-900">
+                  Labs, down the line.
+                </span>{" "}
+                After beta, labs that want us to host for them can support the
+                project with a one-time founding-lab price to help cover hosting
+                and maintenance. No per-seat fees, ever.
+              </li>
+            </ul>
           </div>
 
-          <p className="text-center text-gray-400 text-xs mt-6">
-            Thank you for your support!
+          <p className="mb-4 text-sm text-gray-600">
+            Anything we collect goes to hosting, maintenance, and helping labs get
+            set up, so the tool can grow without coming out of one person&apos;s
+            pocket.
+          </p>
+
+          <p className="text-sm text-gray-600">
+            There is nothing to pay yet. For now, the best way to support
+            ResearchOS is to use it, tell another lab about it, and send feedback.
           </p>
         </div>
       </div>
