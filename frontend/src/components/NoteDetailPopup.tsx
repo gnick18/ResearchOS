@@ -6,13 +6,11 @@ import { ownerScopedNotesApi } from "@/lib/notes/owner-scoped-api";
 import { emitNoteDeleted } from "@/lib/notes/delete-toast-bus";
 import { canDeleteNoteFromPopup } from "@/lib/notes/delete-permission";
 import { canRestoreNoteVersion } from "@/lib/notes/restore-permission";
+import { RESTORE_ENABLED } from "@/lib/history";
 import {
-  historyEngine,
-  canonicalize,
-  HistoryCompactedTargetError,
-  RESTORE_ENABLED,
-  type HistoryRow,
-} from "@/lib/history";
+  useVersionRestore,
+  type VersionRestoreApi,
+} from "@/lib/history/useVersionRestore";
 import { useAppStore } from "@/lib/store";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import NoteCommentsThread from "./NoteCommentsThread";
@@ -835,183 +833,53 @@ export default function NoteDetailPopup({
   const restoreNeedsUnlock =
     !canRestore && labHeadGate.canRequestEdit && !labHeadGate.unlocked;
 
-  // Reverse-walk from HEAD to `targetVersion`, returning the canonical state
-  // string AT the target. Throws HistoryCompactedTargetError (Case C) when the
-  // target was folded into a boundary snapshot.
-  //
-  // HEAD canonical comes from the LIVE note on disk, NOT reconstructState: a
-  // note that existed BEFORE its first tracked edit has a bare genesis anchored
-  // at a non-empty pre-image, which reconstructState cannot resolve without HEAD
-  // (the very thing we are deriving). The live record IS the HEAD, so we
-  // canonicalize it directly. This also matches the post_hash on the latest
-  // history row by construction (recordNoteHistory canonicalizes the same way).
-  const reconstructTarget = useCallback(
-    async (rows: HistoryRow[], targetVersion: number): Promise<string> => {
-      const liveHead = await notesApi.get(note.id, historyOwner || undefined);
-      const headCanonical = canonicalize(liveHead ?? note);
-      return historyEngine.reverseWalkTo(rows, targetVersion, headCanonical);
-    },
-    [historyOwner, note, notesApi],
+  // VC Phase 3 (shared-generalization): the restore controller now lives in the
+  // entity-agnostic useVersionRestore hook. Notes binds it with the notes api +
+  // the Notes immutable keys; behavior is byte-for-byte the Phase 2 controller.
+  // The hook hands the freshly-written record to onUpdate; the popup's onUpdate
+  // is where the local-editor reflection (setTitle/etc.) STAYS (per the design).
+  const restoreApi = useMemo<VersionRestoreApi<Note>>(
+    () => ({
+      get: (id, owner) => notesApi.get(id, owner),
+      update: (id, payload, historyMeta) =>
+        notesApi.update(id, payload as NoteRestorePayload, historyMeta),
+    }),
+    [notesApi],
   );
 
-  // Parse a reconstructed canonical string into a full-state restore payload.
-  // The canonical is the TRACKED state (denylist-stripped), so it carries every
-  // structural field we restore (title/description/entries/comments/...). We
-  // explicitly drop `id` (never overwritten) and never include `revert_undo_window`
-  // (denylisted, so it is not in the canonical anyway).
-  const canonicalToPayload = useCallback((canonical: string): NoteRestorePayload => {
-    const parsed = JSON.parse(canonical) as Record<string, unknown>;
-    const {
-      id: _id,
-      created_at: _createdAt,
-      username: _username,
-      ...rest
-    } = parsed;
-    return rest as NoteRestorePayload;
-  }, []);
-
-  const [restoreError, setRestoreError] = useState<string | null>(null);
-
-  // Restore: write the target version back as the live note + open a 24h undo
-  // window. Stamps the resulting history row kind "revert". After the write,
-  // EXIT the history sidebar so the restored live note is visible with the
-  // header "Undo restore" surfaced.
-  const handleRestore = useCallback(
-    async (targetVersion: number) => {
-      setRestoreError(null);
-      try {
-        const rows = await historyEngine.readHistory("notes", historyOwner, note.id);
-        if (rows.length === 0) return;
-        const headVersion = rows.length - 1;
-        let targetCanonical: string;
-        try {
-          targetCanonical = await reconstructTarget(rows, targetVersion);
-        } catch (err) {
-          if (err instanceof HistoryCompactedTargetError) {
-            // Case C: the target was folded away. Offer the boundary fallback
-            // (the closest reachable saved point, reverseWalkTo(rows, 0)).
-            setRestoreError(
-              "That version was summarized to keep history fast and can no longer be restored exactly. The earliest saved point is still available from the summarized group.",
-            );
-            return;
-          }
-          throw err;
-        }
-        const payload = canonicalToPayload(targetCanonical);
-        const nowIso = new Date().toISOString();
-        const expiresIso = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-        payload.revert_undo_window = {
-          from_version: headVersion,
-          to_version: targetVersion,
-          reverted_at: nowIso,
-          expires_at: expiresIso,
-          reverted_by: currentUser ?? note.username ?? "",
-        };
-        const updated = await notesApi.update(note.id, payload, {
-          kind: "revert",
-          revert_target_version: targetVersion,
-        });
-        if (updated) {
-          onUpdate(updated);
-          // Reflect the restored state in the popup's local editor fields.
-          setTitle(updated.title);
-          setDescription(updated.description);
-          setEntries(updated.entries);
-          setIsShared(updated.is_shared);
-        }
-        // Exit history: surface the live restored note + the Undo button.
-        closeHistory();
-      } catch (err) {
-        console.error("[NoteDetailPopup] restore failed:", err);
-        setRestoreError("Could not restore that version. Please try again.");
-      }
+  // Reflect the restored record into the popup's local editor fields AND bubble
+  // it up via the prop onUpdate. This is the only restore step that stays in the
+  // popup (the hook is editor-state agnostic).
+  const reflectRestoredNote = useCallback(
+    (updated: Note) => {
+      onUpdate(updated);
+      setTitle(updated.title);
+      setDescription(updated.description);
+      setEntries(updated.entries);
+      setIsShared(updated.is_shared);
     },
-    [
-      historyOwner,
-      note.id,
-      note.username,
-      currentUser,
-      reconstructTarget,
-      canonicalToPayload,
-      notesApi,
-      onUpdate,
-      closeHistory,
-    ],
+    [onUpdate],
   );
 
-  // The live undo window, if present + unexpired. `now` is read at render; the
-  // render gate (and this) drops an expired window without a background timer.
-  const undoWindow = note.revert_undo_window ?? null;
-  const undoWindowActive =
-    !!undoWindow && Date.now() < new Date(undoWindow.expires_at).getTime();
-
-  // Undo restore: reverse-walk to the PRE-restore version (from_version), write
-  // it back, clear the window, stamp the row kind "undo-revert". Confirms first
-  // if edits landed since the restore. Case C on the undo walk clears the window
-  // (the pre-restore point was folded away) + messages.
-  const handleUndoRestore = useCallback(async () => {
-    if (!undoWindow) return;
-    setRestoreError(null);
-    try {
-      const rows = await historyEngine.readHistory("notes", historyOwner, note.id);
-      if (rows.length === 0) return;
-      // Edits-since guard: the restore wrote a row at from_version+1, so the
-      // undo target (from_version) is the second-to-last row if nothing has
-      // been edited since the restore. If MORE rows exist past the restore row,
-      // the user kept editing; confirm before discarding that work.
-      const restoreRowIndex = undoWindow.from_version + 1;
-      const editsSince = rows.length - 1 - restoreRowIndex;
-      if (
-        editsSince > 0 &&
-        !confirm(
-          "You have edited this note since the restore. Undoing will discard those edits and return the note to its pre-restore state. Continue?",
-        )
-      ) {
-        return;
-      }
-      let preRestoreCanonical: string;
-      try {
-        preRestoreCanonical = await reconstructTarget(rows, undoWindow.from_version);
-      } catch (err) {
-        if (err instanceof HistoryCompactedTargetError) {
-          // Case C: the pre-restore version was folded away. We cannot undo
-          // exactly; clear the window so the stale button disappears + message.
-          await notesApi.update(note.id, { revert_undo_window: null });
-          const cleared = await notesApi.get(note.id, historyOwner || undefined);
-          if (cleared) onUpdate(cleared);
-          setRestoreError(
-            "The pre-restore version was summarized and can no longer be undone automatically. The undo window has been closed.",
-          );
-          return;
-        }
-        throw err;
-      }
-      const payload = canonicalToPayload(preRestoreCanonical);
-      payload.revert_undo_window = null; // clear the window
-      const updated = await notesApi.update(note.id, payload, {
-        kind: "undo-revert",
-        revert_target_version: undoWindow.from_version,
-      });
-      if (updated) {
-        onUpdate(updated);
-        setTitle(updated.title);
-        setDescription(updated.description);
-        setEntries(updated.entries);
-        setIsShared(updated.is_shared);
-      }
-    } catch (err) {
-      console.error("[NoteDetailPopup] undo-restore failed:", err);
-      setRestoreError("Could not undo the restore. Please try again.");
-    }
-  }, [
+  const {
+    handleRestore,
+    handleUndoRestore,
     undoWindow,
-    historyOwner,
-    note.id,
-    reconstructTarget,
-    canonicalToPayload,
-    notesApi,
-    onUpdate,
-  ]);
+    undoWindowActive,
+    restoreError,
+    setRestoreError,
+  } = useVersionRestore<Note>({
+    entityType: "notes",
+    record: note,
+    id: note.id,
+    owner: historyOwner,
+    api: restoreApi,
+    currentUser,
+    onUpdate: reflectRestoredNote,
+    // Notes immutable keys: never overwritten by a restore payload.
+    immutableKeys: ["id", "created_at", "username"],
+    onAfterRestore: closeHistory,
+  });
 
   // Format date for display
   const formatDate = (dateStr: string) => {
