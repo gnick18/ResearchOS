@@ -119,7 +119,28 @@ REMAINING: contract steps 4 + 5, REASSIGNED to the store session by Grant
       L: "(off)"/"type disabled" jargon -> "Mass spec is off".
       L: count-label drift ("Kit . 2 steps" vs "Kit, 2 components"; step names vs
          type names) -> pick one wording consistently.
-  - compound-verify-mechanics: STILL RUNNING (the instantiation gap).
+  - compound-verify-mechanics: PASS on criteria 1-4 incl the critical
+    instantiation path (click Use -> compound method created with BOTH children
+    -> viewer "Kit, 2 components"). One real minor bug (criterion 5): kit detail
+    dropped the "Will be added to:" line (Loader + modal didn't forward
+    destLabel/onChooseDestination). FIXED.
+
+  STEP 5 RESOLUTION (commit c7744aab + the earlier inline copy fix): destination
+  line forwarded to the kit detail (+ regression test); kit CTA "Use template"
+  -> "Use kit"; gating warning gained a "library-wide toggle" why-subtext;
+  error-state copy corrected. Suites green (35). Two LOW cosmetic items
+  ACCEPTED, not fixed (proportionality): the "(off)" badge term, and the
+  count-label drift "Kit . 2 steps" (MethodCard) vs "Kit, 2 components"
+  (viewer), which live outside the store detail pane.
+
+  ===========================================================================
+  EXTENSION STORE ARC FULLY CLOSED (2026-05-30). All build phases (A-D), the
+  cross-session compound contract (steps 1-5), and every verifier loop are
+  done and on local main. The compound/kit path is live and verified end to
+  end (browse -> View kit -> badges -> both-direction gating -> instantiate ->
+  viewer). Nothing outstanding except the two accepted LOW cosmetics above and
+  the optional residual in-tile "Loading..." polish (not queued unless asked).
+  ===========================================================================
   Operational note (not a bug): enabled-type state is GLOBAL to the workspace; a
   concurrent session toggling it flipped gating mid-verification. Relevant for
   future multi-session verification.
