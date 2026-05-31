@@ -3,7 +3,7 @@ import { fileService } from "./file-system/file-service";
 import { trashNote, restoreTrashedNote } from "./notes/notes-trash";
 import { trashEntity, type TrashEntityType } from "./trash";
 import { recordProjectActivity } from "./project-activity/event-log";
-import { HISTORY_ENGINE_ENABLED, recordNoteHistory, recordTaskHistory } from "./history";
+import { HISTORY_ENGINE_ENABLED, recordNoteHistory, recordTaskHistory, recordProjectHistory } from "./history";
 import type { HistoryEditKind } from "./history";
 import { getCurrentUser, getMainUser, storeCurrentUser, storeMainUser, clearCurrentUser, clearMainUser } from "./file-system/indexeddb-store";
 import { shiftTask } from "./engine/shift";
@@ -348,9 +348,79 @@ export const projectsApi = {
   // VCP R3 attribution stamps: stamp last_edited_by + last_edited_at on
   // every patch. For PI cross-owner edits `last_edited_by` is the PI's
   // username; the "(PI)" badge is a UI render concern.
-  update: async (id: number, data: ProjectUpdate, owner?: string): Promise<Project | null> => {
-    const patch = { ...data, ...(await buildAttributionStamp(data.last_edited_by)) };
-    return owner ? projectsStore.updateForUser(id, patch, owner) : projectsStore.update(id, patch);
+  //
+  // VC Phase 3 (FLAG-5, Project): `historyMeta` lets the restore / undo-restore
+  // flows stamp the resulting history row with a non-"update" kind ("revert" /
+  // "undo-revert") and the version index it reverted TO. It DEFAULTS to
+  // { kind: "update" }, so every existing caller is BYTE-FOR-BYTE unchanged.
+  // Mirrors tasksApi.update's signature.
+  update: async (
+    id: number,
+    data: ProjectUpdate,
+    owner?: string,
+    historyMeta: { kind: HistoryEditKind; revert_target_version?: number } = {
+      kind: "update",
+    },
+  ): Promise<Project | null> => {
+    // VC Phase 3 (Project): capture the pre-edit state for the delta store
+    // BEFORE the write. Only read when the engine is enabled (recordProjectHistory
+    // also short-circuits on the flag), so the no-history path adds zero disk
+    // reads. Owner-routed read mirrors the write routing below.
+    const prevState = HISTORY_ENGINE_ENABLED
+      ? owner
+        ? await projectsStore.getForUser(id, owner)
+        : await projectsStore.get(id)
+      : null;
+
+    // VC Phase 3 (FLAG-revert_undo_window, Project): `revert_undo_window: null`
+    // is the explicit CLEAR signal from the undo flow. The store's partial-merge
+    // skips `undefined` but would otherwise write `null` into the live project,
+    // so we strip the key from the patch and delete it from the persisted record
+    // below. A genuine window object passes straight through. Denylisted in
+    // canonicalize (revert_undo_window), so it never touches the history delta.
+    // Mirrors tasksApi.update's clear handling.
+    const clearUndoWindow = data.revert_undo_window === null;
+    const { revert_undo_window: rawWindow, ...restData } = data;
+    const windowToWrite = rawWindow ?? undefined;
+
+    const patch = {
+      ...restData,
+      ...(clearUndoWindow ? {} : { revert_undo_window: windowToWrite }),
+      ...(await buildAttributionStamp(data.last_edited_by)),
+    };
+    let result = owner
+      ? await projectsStore.updateForUser(id, patch, owner)
+      : await projectsStore.update(id, patch);
+
+    // VC Phase 3 (Project): finalize the window CLEAR. The partial-merge store
+    // cannot delete a key, so when the undo flow asked to clear we rewrite the
+    // record once more with the field removed. Cheap (only on undo). Mirrors
+    // tasksApi.update's clear finalization.
+    if (clearUndoWindow && result && result.revert_undo_window !== undefined) {
+      const { revert_undo_window: _drop, ...withoutWindow } = result;
+      result = owner
+        ? await projectsStore.saveForUser(id, withoutWindow as Project, owner)
+        : await projectsStore.save(id, withoutWindow as Project);
+    }
+
+    // Best-effort history append AFTER the live record is persisted. Failures
+    // never throw into the save path (recordProjectHistory swallows). No-op when
+    // the flag is off. The history file lives under the PROJECT OWNER's folder:
+    // the owner arg when routed cross-owner, else the signed-in user.
+    if (HISTORY_ENGINE_ENABLED && result) {
+      const effectiveOwner = owner ?? (await getCurrentUserCached()) ?? "";
+      await recordProjectHistory({
+        type: historyMeta.kind,
+        id,
+        owner: effectiveOwner,
+        actor: result.last_edited_by ?? effectiveOwner,
+        prevState,
+        nextState: result,
+        revertTargetVersion: historyMeta.revert_target_version,
+      });
+    }
+
+    return result;
   },
 
   // VCP R2 trash everywhere (2026-05-26): soft-delete via `_trash/projects/`.

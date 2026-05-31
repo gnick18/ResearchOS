@@ -47,3 +47,7 @@ export {
 // the SHARED pair task-history.ts re-exports, so they stay a single source of
 // truth (no per-entity flag).
 export { recordTaskHistory } from "./task-history";
+
+// VC Phase 3 (Project, sequencing step 2): the Project recorder. Same shared
+// flags re-exported from project-history.ts, single source of truth.
+export { recordProjectHistory } from "./project-history";

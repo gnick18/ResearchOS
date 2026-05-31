@@ -377,6 +377,11 @@ export interface Project {
   // written before this slice load unchanged, and `projectsStore.update`'s
   // spread-merge filters `undefined` so partial updates preserve it.
   funding_account_id?: number | null;
+  // VC Phase 3 (FLAG-revert_undo_window, Project): the 24h undo-restore window.
+  // Present only between a restore and either its undo or the window's expiry.
+  // Globally denylisted in canonicalize.ts (FLAG-2) so it never pollutes a
+  // delta. Absent on every project that was never restored. Mirrors Task / Note.
+  revert_undo_window?: RevertUndoWindow;
 }
 
 export interface ProjectCreate {
@@ -407,6 +412,36 @@ export interface ProjectUpdate {
   last_edited_at?: string;
   // Project -> grant link — see Project.funding_account_id. `null` clears
   // the link; a number sets it.
+  funding_account_id?: number | null;
+  // VC Phase 3 (FLAG-revert_undo_window, Project): the undo-restore window. Set
+  // (object) on a restore; CLEARED (`null`) on an undo. `projectsApi.update`
+  // deletes the key on `null` so the live project carries no lingering field.
+  // Denylisted (FLAG-2). Mirrors TaskUpdate / NoteUpdate exactly.
+  revert_undo_window?: RevertUndoWindow | null;
+}
+
+/**
+ * VC Phase 3 (FLAG-revert_undo_window, Project): the full-tracked-state payload
+ * a restore / undo writes. Superset of ProjectUpdate with every structural field
+ * the canonical tracks, so `projectsApi.update` overwrites the live project to
+ * exactly the target version. Distinct type (not a ProjectUpdate widening)
+ * mirroring TaskRestorePayload / NoteRestorePayload: the restore handler
+ * assembles this from the reconstructed canonical and passes it through
+ * projectsApi.update; the partial-merge store keys on the runtime object so the
+ * structural fields persist. Field types match ProjectUpdate (no widening) so
+ * the override is assignable; the actual runtime values flow in through the
+ * generic `Record<string, unknown>` restore payload, which may carry the on-disk
+ * `tags: null` / `color: null` shapes the partial-merge store accepts verbatim.
+ */
+export interface ProjectRestorePayload extends ProjectUpdate {
+  name?: string;
+  weekend_active?: boolean;
+  tags?: string[];
+  color?: string;
+  sort_order?: number;
+  is_archived?: boolean;
+  archived_at?: string | null;
+  is_hidden?: boolean;
   funding_account_id?: number | null;
 }
 

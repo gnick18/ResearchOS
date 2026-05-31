@@ -18,7 +18,21 @@ import ActivityFeed from "@/components/project-surface/ActivityFeed";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useFeaturePicks } from "@/hooks/useFeaturePicks";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
-import type { Project } from "@/lib/types";
+import { useLabHeadEditGate } from "@/hooks/useLabHeadEditGate";
+import type { Project, ProjectRestorePayload } from "@/lib/types";
+// VC Phase 3 (VC-Phase3-Project sub-bot of HR, 2026-05-31): version-history +
+// restore wiring for the Project surface. Mirrors TaskDetailPopup.
+import { RESTORE_ENABLED, canonicalize } from "@/lib/history";
+import {
+  useVersionRestore,
+  type VersionRestoreApi,
+} from "@/lib/history/useVersionRestore";
+import { canRead, canWrite } from "@/lib/sharing/unified";
+import { projectAdapter } from "@/lib/history/project-viewer";
+import EntityVersionHistorySidebar, {
+  type VersionPreview,
+} from "@/components/history/EntityVersionHistorySidebar";
+import VersionDiffView from "@/components/history/VersionDiffView";
 
 const DEFAULT_COLOR = "#3b82f6";
 const DEFAULT_COLORS = [
@@ -140,6 +154,160 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
     }
   }, [project, projectsApi, queryClient, router]);
 
+  // ── VC Phase 3 (Project): version-history viewer + restore-a-version + 24h
+  // undo-restore. Mirrors TaskDetailPopup. ALL hooks below run unconditionally
+  // and BEFORE the loading / not-found early returns (React rules-of-hooks); the
+  // handlers no-op while `project` is null. The history file lives under the
+  // PROJECT OWNER's folder (users/<owner>/_history/project/<id>.jsonl).
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [versionPreview, setVersionPreview] = useState<VersionPreview | null>(
+    null,
+  );
+  const historyTriggerRef = useRef<HTMLButtonElement>(null);
+  const closeHistory = useCallback(() => {
+    setHistoryOpen(false);
+    setVersionPreview(null);
+    historyTriggerRef.current?.focus();
+  }, []);
+
+  // Lab-head PI-passcode cross-owner gate, mirroring TaskDetailPopup. `readOnly`
+  // for the gate = "this is a lab-mode view of another member's project" (the PI
+  // is not the owner and is not a shared-edit receiver). The owner + shared-edit
+  // receiver paths reach restore through the normal canWrite branch below.
+  const ownsOrCanEditProject =
+    !!project &&
+    (project.owner === currentUser ||
+      (project.is_shared_with_me === true &&
+        project.shared_permission === "edit"));
+  const labHeadGate = useLabHeadEditGate({
+    readOnly: !!project && !ownsOrCanEditProject,
+    recordOwner: project?.owner ?? null,
+  });
+
+  // canRestore: can the current viewer write this project (and thus restore a
+  // version)? Honors the brief's "use canRead/canWrite from lib/sharing/unified".
+  // Owner writes; a shared-edit receiver writes; a lab head writes only when an
+  // edit session is unlocked for this project's owner (the PI-passcode unlock).
+  const restoreViewer = useMemo(
+    () => ({
+      username: currentUser ?? "",
+      account_type: (labHeadGate.isLabHead ? "lab_head" : "lab") as
+        | "solo"
+        | "lab"
+        | "lab_head",
+    }),
+    [currentUser, labHeadGate.isLabHead],
+  );
+  const restoreEditSession = useMemo(
+    () => ({
+      isUnlockedFor: (targetOwner: string) =>
+        labHeadGate.unlocked && targetOwner === (project?.owner ?? ""),
+    }),
+    [labHeadGate.unlocked, project?.owner],
+  );
+  const canRestore =
+    !!project &&
+    canRead(project, restoreViewer) &&
+    canWrite(project, restoreViewer, restoreEditSession);
+
+  // A PI VIEWING another member's project but who has NOT unlocked an edit
+  // session: the affordance renders DISABLED with an unlock tooltip (vs hidden
+  // for a plain read-only shared viewer). Mirrors TaskDetailPopup.
+  const restoreNeedsUnlock =
+    !canRestore && labHeadGate.canRequestEdit && !labHeadGate.unlocked;
+
+  // The owner folder the history file lives under + the cross-owner write route.
+  const historyOwner = project?.owner || currentUser || "";
+  const restoreOwnerArg =
+    project?.is_shared_with_me && project?.shared_permission === "edit"
+      ? project.owner
+      : undefined;
+
+  // The entity API the restore hook binds. Routes get/update to the project
+  // OWNER's folder when this is a shared-with-edit view, and threads the
+  // historyMeta stamp so the restore / undo rows are marked "revert" /
+  // "undo-revert". Mirrors TaskDetailPopup.restoreApi.
+  const restoreApi = useMemo<VersionRestoreApi<Project>>(
+    () => ({
+      get: (id, owner) => rawProjectsApi.get(id, owner ?? restoreOwnerArg),
+      update: (id, payload, historyMeta) =>
+        rawProjectsApi.update(
+          id,
+          payload as ProjectRestorePayload,
+          restoreOwnerArg,
+          historyMeta,
+        ),
+    }),
+    [restoreOwnerArg],
+  );
+
+  // Reflect the restored record by refetching the project surface query (the
+  // query is the source of truth here; there is no local project state to set).
+  // The hook hands the freshly-written record up; we ignore it and refetch so
+  // the overview prose query + the activity feed also re-resolve.
+  const reflectRestoredProject = useCallback(
+    (_updated: Project) => {
+      void queryClient.refetchQueries({
+        queryKey: ["projects", ownerHint ?? "self", projectId, "surface"],
+      });
+      void queryClient.refetchQueries({ queryKey: ["projects"] });
+    },
+    [queryClient, ownerHint, projectId],
+  );
+
+  // Canonical tracked state of the LIVE project (HEAD). Threaded into the
+  // sidebar so the engine can resolve a BARE-GENESIS anchor (a project that
+  // existed before its first tracked save). Same HEAD source useVersionRestore
+  // uses, so the viewer + restore path agree byte-for-byte. A null project
+  // canonicalizes to "null"; the sidebar only mounts when project is present.
+  const liveProjectCanonical = useMemo(
+    () => (project ? canonicalize(project) : ""),
+    [project],
+  );
+
+  // A stable record for the hook (it requires a non-null record even though the
+  // handlers no-op until the project loads). Cast id to number for the hook's
+  // RestorableRecord shape.
+  const restoreRecord = (project ?? { id: projectId, owner: "" }) as Project;
+
+  const {
+    handleRestore,
+    handleUndoRestore,
+    undoConfirmPending,
+    confirmUndoRestore,
+    dismissUndoConfirm,
+    undoWindowActive,
+    isBusy: restoreBusy,
+    restoreError,
+  } = useVersionRestore<Project>({
+    entityType: "project",
+    record: restoreRecord,
+    id: projectId,
+    owner: historyOwner,
+    api: restoreApi,
+    currentUser,
+    onUpdate: reflectRestoredProject,
+    // Project immutable keys: never overwritten by a restore payload. `owner` is
+    // the routing/sharing field; `created_at` is the genesis stamp; `id` is the
+    // identity. Everything else (name, tags, color, schedule, funding, archive
+    // state) is restored.
+    immutableKeys: ["id", "owner", "created_at"],
+    onAfterRestore: closeHistory,
+  });
+
+  // Esc exits the version-history sidebar first (before any route-level close).
+  useEffect(() => {
+    if (!historyOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        closeHistory();
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [historyOpen, closeHistory]);
+
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center p-6">
@@ -232,20 +400,111 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
                 View timeline →
               </Link>
               <div className="flex items-center gap-1">
+              {/* VC Phase 3 (Project): "Undo restore" button. Visible (flag ON)
+                  while a 24h undo window is live for this project. Enabled for
+                  the owner / PI-with-unlock; DISABLED with an unlock Tooltip for
+                  a PI who could unlock but has not; HIDDEN for a read-only shared
+                  viewer. Render-gated on expiry. Mirrors TaskDetailPopup. */}
+              {!isMiscellaneousProject &&
+                RESTORE_ENABLED &&
+                undoWindowActive &&
+                (canRestore || restoreNeedsUnlock) && (
+                  <Tooltip
+                    label={
+                      restoreNeedsUnlock
+                        ? "Unlock edit mode (PI passcode) to undo the restore"
+                        : restoreBusy
+                          ? "Undoing the restore..."
+                          : "Undo the restore (returns the project to its pre-restore version)"
+                    }
+                    placement="bottom"
+                  >
+                    <button
+                      onClick={
+                        canRestore && !restoreBusy ? handleUndoRestore : undefined
+                      }
+                      disabled={!canRestore || restoreBusy}
+                      data-testid="project-undo-restore-button"
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                        canRestore && !restoreBusy
+                          ? "text-amber-700 bg-amber-50 hover:bg-amber-100"
+                          : "text-gray-400 bg-gray-50 cursor-not-allowed"
+                      }`}
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M9 14L4 9l5-5" />
+                        <path d="M4 9h11a4 4 0 0 1 0 8h-1" />
+                      </svg>
+                      {restoreBusy ? "Undoing..." : "Undo restore"}
+                    </button>
+                  </Tooltip>
+                )}
+              {/* VC Phase 3 (Project): version-history entry button. Shown to
+                  anyone with read access (the route only renders on readable
+                  projects). Toggles the version viewer; opening flips the body to
+                  a read-only diff preview. Mirrors TaskDetailPopup. */}
+              {!isMiscellaneousProject && (
+                <Tooltip label="Version history" placement="bottom">
+                  <button
+                    ref={historyTriggerRef}
+                    onClick={() => {
+                      if (historyOpen) {
+                        closeHistory();
+                      } else {
+                        setHistoryOpen(true);
+                      }
+                    }}
+                    data-testid="project-history-button"
+                    aria-pressed={historyOpen}
+                    className={`p-2 rounded-lg transition-colors ${
+                      historyOpen
+                        ? "text-emerald-600 bg-emerald-50"
+                        : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                    }`}
+                    aria-label="Version history"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M3 3v5h5" />
+                      <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
+                      <path d="M12 7v5l3 2" />
+                    </svg>
+                  </button>
+                </Tooltip>
+              )}
               {!isMiscellaneousProject && (
                 <Tooltip
                   label={
-                    isViewOnlyReceiver
-                      ? `Only the owner (${project.owner}) and edit-permission collaborators can edit this project`
-                      : "Edit project"
+                    historyOpen
+                      ? "Close version history to edit this project"
+                      : isViewOnlyReceiver
+                        ? `Only the owner (${project.owner}) and edit-permission collaborators can edit this project`
+                        : "Edit project"
                   }
                   placement="bottom"
                 >
                   <button
                     onClick={() => setShowEditModal(true)}
-                    disabled={isViewOnlyReceiver}
+                    disabled={isViewOnlyReceiver || historyOpen}
                     className={`p-2 rounded-lg transition-colors ${
-                      isViewOnlyReceiver
+                      isViewOnlyReceiver || historyOpen
                         ? "text-gray-300 cursor-not-allowed"
                         : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
                     }`}
@@ -383,6 +642,45 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
         </div>
       </div>
 
+      {/* VC Phase 3 (Project): the in-app undo-restore confirm (real edits
+          landed since the restore). Inline, non-blocking; NEVER a native
+          confirm() (house rule). Shown regardless of whether the history
+          sidebar is open, since the "Undo restore" button lives in the topbar.
+          Mirrors TaskDetailPopup. */}
+      {undoConfirmPending && (
+        <div className="px-6 pt-3">
+          <div
+            data-testid="project-undo-confirm"
+            className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug max-w-4xl"
+          >
+            <p>
+              You have edited this project since the restore. Undoing will
+              discard those edits and return it to its pre-restore state.
+            </p>
+            <div className="mt-2 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void confirmUndoRestore()}
+                disabled={restoreBusy}
+                data-testid="project-undo-confirm-button"
+                className="px-2.5 py-1 text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-60 rounded-md transition-colors"
+              >
+                {restoreBusy ? "Undoing..." : "Discard edits and undo"}
+              </button>
+              <button
+                type="button"
+                onClick={dismissUndoConfirm}
+                disabled={restoreBusy}
+                data-testid="project-undo-cancel-button"
+                className="px-2.5 py-1 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:opacity-60 rounded-md transition-colors"
+              >
+                Keep editing
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {project.tags && project.tags.length > 0 && (
         <div className="px-6 pt-4 flex gap-1 flex-wrap">
           {project.tags.map((tag) => (
@@ -396,37 +694,92 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
         </div>
       )}
 
-      <div className="px-6 py-6 flex flex-col gap-10 max-w-4xl">
-        <OverviewSection
-          project={project}
-          ownerHint={ownerHint}
-          editOwner={effectiveOwnerOf(project)}
-          readOnly={isViewOnlyReceiver}
-        />
-        {/* Project funding (funding-niceties bot, 2026-05-28): the stored
-            primary grant link plus the DERIVED set of grants actually charged
-            in this project. Self-hides when the project has no funding. */}
-        <ProjectFundingSection project={project} />
-        {/**
-          * Onboarding v4 §6.2 spotlight anchor for the new
-          * `project-overview-rollup` narration beat (v4 tour structural
-          * manager, Wave 1, 2026-05-27). Wraps the auto-filling
-          * Results / Methods / Activity sections (plus the optional
-          * Goals section) so BeakerBot can spotlight the whole
-          * roll-up region in one rect. The wrapper preserves the
-          * parent flex-col gap-10 layout by inheriting the same flex
-          * shape inline. See targets.ts → projectOverviewRollupSections.
-          */}
-        <div
-          data-tour-target="project-overview-rollup-sections"
-          className="flex flex-col gap-10"
-        >
-          <ResultsGallery project={project} />
-          <MethodsInventory project={project} />
-          {goalsEnabled && <GoalsSection project={project} />}
-          <ActivityFeed project={project} />
+      {/* Body. When the version-history sidebar is open the whole content
+          region flips to a READ-ONLY diff column + the docked sidebar (mirrors
+          TaskDetailPopup's editor-column + sidebar layout). Closing returns to
+          the live sections. */}
+      {historyOpen ? (
+        <div className="flex-1 flex flex-row min-h-0">
+          <div className="flex-1 min-w-0 overflow-y-auto">
+            {versionPreview ? (
+              <div className="px-6 py-6 max-w-4xl" data-testid="project-version-diff-column">
+                <VersionDiffView
+                  before={versionPreview.before}
+                  after={versionPreview.after}
+                  editor={versionPreview.editor}
+                  editorLabel={versionPreview.editorLabel}
+                />
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-400 text-sm p-6">
+                <p>Select a version to preview it here.</p>
+              </div>
+            )}
+            {restoreError && (
+              <div className="px-6 pb-6 max-w-4xl">
+                <p
+                  data-testid="project-restore-error"
+                  className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug"
+                  role="alert"
+                >
+                  {restoreError}
+                </p>
+              </div>
+            )}
+          </div>
+          {/* Version-history sidebar (docked right). Mounts only while open so
+              the history file read happens on demand. The owner folder is the
+              project's `owner` (the history file lives under
+              users/<owner>/_history/project/<id>.jsonl); fall back to the
+              signed-in user for a legacy project with an empty owner. */}
+          <EntityVersionHistorySidebar
+            entityType="project"
+            id={project.id}
+            owner={historyOwner}
+            adapter={projectAdapter}
+            onClose={closeHistory}
+            onPreviewChange={setVersionPreview}
+            headCanonical={liveProjectCanonical}
+            // The Restore footer only appears when the flag is ON, the viewer
+            // can write the project, AND a non-HEAD version is selected (the
+            // sidebar enforces the last condition).
+            canRestore={RESTORE_ENABLED && canRestore}
+            onRestore={handleRestore}
+          />
         </div>
-      </div>
+      ) : (
+        <div className="px-6 py-6 flex flex-col gap-10 max-w-4xl">
+          <OverviewSection
+            project={project}
+            ownerHint={ownerHint}
+            editOwner={effectiveOwnerOf(project)}
+            readOnly={isViewOnlyReceiver}
+          />
+          {/* Project funding (funding-niceties bot, 2026-05-28): the stored
+              primary grant link plus the DERIVED set of grants actually charged
+              in this project. Self-hides when the project has no funding. */}
+          <ProjectFundingSection project={project} />
+          {/**
+            * Onboarding v4 §6.2 spotlight anchor for the new
+            * `project-overview-rollup` narration beat (v4 tour structural
+            * manager, Wave 1, 2026-05-27). Wraps the auto-filling
+            * Results / Methods / Activity sections (plus the optional
+            * Goals section) so BeakerBot can spotlight the whole
+            * roll-up region in one rect. The wrapper preserves the
+            * parent flex-col gap-10 layout by inheriting the same flex
+            * shape inline. See targets.ts → projectOverviewRollupSections.
+            */}
+          <div
+            data-tour-target="project-overview-rollup-sections"
+            className="flex flex-col gap-10"
+          >
+            <ResultsGallery project={project} />
+            <MethodsInventory project={project} />
+            {goalsEnabled && <GoalsSection project={project} />}
+            <ActivityFeed project={project} />
+          </div>
+        </div>
+      )}
 
       {showSharePopup && (
         <ShareDialogAdapter
