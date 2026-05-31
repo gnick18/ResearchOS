@@ -415,7 +415,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             <p className="max-w-2xl text-base leading-relaxed text-slate-300 md:text-lg">
               ResearchOS is a free electronic lab notebook that lives as a plain
               folder on your own computer. No account, no cloud lock-in, no
-              subscription. Just your data, version-controlled and private, with
+              per-seat fees. Just your data, version-controlled and private, with
               a friendly guide to walk you through all of it.
             </p>
           </div>
@@ -472,12 +472,13 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
           <p className="mt-3 text-base leading-relaxed text-gray-600">
             Most electronic lab notebooks rent you space on their servers.
             ResearchOS flips that. You pick where your data lives, which is why
-            we can keep it free and why your privacy isn&apos;t ours to leak.
+            you can always run it for free and why your privacy isn&apos;t ours
+            to leak.
           </p>
         </div>
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           <Pillar
-            title="Free, forever"
+            title="Free and open source"
             icon={
               <svg
                 className="h-6 w-6"
@@ -494,9 +495,10 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               </svg>
             }
           >
-            Grant-funded by the UW-Madison RISE Initiative, not a startup
-            chasing a subscription. There is no pricing page, and there never
-            will be one.
+            Built by a researcher with support from the UW-Madison RISE
+            Initiative, not a venture-backed company. ResearchOS is open source,
+            so you can run it yourself for free, forever, and the hosted version
+            is free for everyone while we are in beta.
           </Pillar>
           <Pillar
             title="Local-first"
@@ -700,7 +702,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
         <div className="mx-auto max-w-5xl px-6">
           <div className="mx-auto mb-12 max-w-2xl text-center">
             <span className="text-sm font-semibold uppercase tracking-wide text-sky-600">
-              Free vs per-seat
+              Open source vs per-seat
             </span>
             <h2 className="mt-2 text-3xl font-bold tracking-tight text-gray-900">
               How we compare to LabArchives
@@ -730,7 +732,10 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                 <tbody>
                   <ComparisonRow
                     label="Price"
-                    us={{ mark: "win", text: "Free and open source, forever" }}
+                    us={{
+                      mark: "win",
+                      text: "Free and open source; hosted free in beta",
+                    }}
                     them={{
                       mark: "none",
                       text: "$330+ per user, per year; limited free tier",
@@ -738,7 +743,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                   />
                   <ComparisonRow
                     label="Per-seat fees"
-                    us={{ mark: "win", text: "None: the whole lab, free" }}
+                    us={{ mark: "win", text: "No per-seat fees, ever" }}
                     them={{ mark: "none", text: "Charged per user, every year" }}
                   />
                   <ComparisonRow
@@ -856,7 +861,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             such thing), and the big cloud vendors charge enterprise prices for
             security badges a grantee lab does not need. ResearchOS gives you
             what the policy actually asks for: organized records you own, real
-            version history, and clean exports. For free.
+            version history, and clean exports, without the enterprise price tag.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
@@ -926,8 +931,8 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             Ready when you are
           </h2>
           <p className="max-w-xl text-base leading-relaxed text-slate-300">
-            It is free, it is yours, and you can leave any time. Pick a folder
-            and BeakerBot will take it from there.
+            It is free to use, it is yours, and you can leave any time. Pick a
+            folder and BeakerBot will take it from there.
           </p>
           <div className="flex flex-col items-center gap-3 sm:flex-row">
             <button
