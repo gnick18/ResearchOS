@@ -980,6 +980,13 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                   </span>{" "}
                   for molarity, dilutions, primer Tm, DNA and RNA, and buffers.
                 </li>
+                <li>
+                  <span className="font-semibold text-gray-900">
+                    Smarter reordering
+                  </span>{" "}
+                  in Purchases: one-tap quick-reorder, one-click buy-again, and
+                  reminders that learn your cadence. No extra logging.
+                </li>
               </ul>
             </div>
 
@@ -1014,13 +1021,6 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                     A bigger template library
                   </span>{" "}
                   across immunology, microbiology, and protein work.
-                </li>
-                <li>
-                  <span className="font-semibold text-gray-900">
-                    Smarter reordering
-                  </span>{" "}
-                  in Purchases: one-click buy-again and a shared reorder list,
-                  with no extra logging.
                 </li>
               </ul>
             </div>
