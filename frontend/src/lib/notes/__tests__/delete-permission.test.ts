@@ -87,4 +87,19 @@ describe("canDeleteNoteFromPopup", () => {
       }),
     ).toBe(false);
   });
+
+  // VC Phase 2 (vc-entry-history sub-bot of HR, 2026-05-30): the delete gate
+  // shares isNoteOwnedByCurrentUser with restore, so a legacy own-note carrying
+  // an empty username now shows Delete to its owner (and still hides it from a
+  // PI viewing a member note, which carries the member's non-empty username).
+  it("shows Delete on an OWN note whose owner is an empty string (legacy create)", () => {
+    expect(
+      canDeleteNoteFromPopup({
+        readOnly: false,
+        currentUser: "alex",
+        noteOwner: "",
+        labHeadUnlocked: false,
+      }),
+    ).toBe(true);
+  });
 });

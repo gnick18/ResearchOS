@@ -12,6 +12,16 @@
 // A shared-edit receiver (who is not the owner and has no PI unlock) never
 // sees Delete — their writes go through the unwrapped notesApi.update but
 // they cannot destroy another member's note.
+//
+// VC Phase 2 (vc-entry-history sub-bot of HR, 2026-05-30): the owner check
+// shares `isNoteOwnedByCurrentUser` with the restore gate so the two write
+// gates read identically (the project invariant) and both handle legacy
+// empty-username own-notes. An empty / null `noteOwner` resolves to the
+// current user (the popup only ever reaches this for the viewer's own note);
+// a PI cross-owner view carries the member's non-empty username so it still
+// requires the PI unlock.
+
+import { isNoteOwnedByCurrentUser } from "./restore-permission";
 
 export function canDeleteNoteFromPopup(params: {
   readOnly: boolean;
@@ -21,6 +31,6 @@ export function canDeleteNoteFromPopup(params: {
 }): boolean {
   const { readOnly, currentUser, noteOwner, labHeadUnlocked } = params;
   if (readOnly) return false;
-  const isOwner = !!currentUser && currentUser === noteOwner;
+  const isOwner = isNoteOwnedByCurrentUser(currentUser, noteOwner);
   return isOwner || labHeadUnlocked;
 }

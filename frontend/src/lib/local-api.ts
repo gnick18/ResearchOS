@@ -3706,6 +3706,46 @@ export const labLinksApi = {
   },
 };
 
+// VC Phase 2 (vc-entry-history sub-bot of HR, 2026-05-30): the note BODY lives
+// in `entries[]`, which is edited via addEntry / updateEntry / deleteEntry, NOT
+// via notesApi.update (the title/description path that already records history).
+// Without this helper a user typing + saving note content saw only "created
+// note" in their history; the actual writing was never versioned. This wires
+// the SAME contract notesApi.update uses into the entry paths:
+//   - no-op when the flag is off (mirrors recordNoteHistory's own guard, but we
+//     also short-circuit here to skip the owner resolution),
+//   - records AFTER the live record is persisted,
+//   - best-effort: recordNoteHistory swallows every error, so a history-write
+//     failure never throws into the save path.
+// `prevState` is the pre-edit note the caller already read (the entry methods
+// must read it to compute the new entries array), so this adds NO extra disk
+// read. Because each editor save fires EXACTLY ONE of update / addEntry /
+// updateEntry / deleteEntry (the body persists through updateEntry, the
+// title/description through update; the popup never calls both for one logical
+// save), this produces exactly one history row per save: no double-record.
+async function recordEntryHistory(
+  noteId: number,
+  owner: string | undefined,
+  prevState: Note,
+  nextState: Note | null,
+): Promise<void> {
+  if (!HISTORY_ENGINE_ENABLED || !nextState) return;
+  // `owner` is the note OWNER's folder (the history file lives there); for a
+  // self-edit it falls back to the signed-in user. `actor` is WHO made the edit
+  // (the signed-in user), mirroring notesApi.update's actor resolution so a PI
+  // cross-owner entry edit records the PI as the actor, not the note owner.
+  const actor = await resolveAttributionActor(null);
+  const effectiveOwner = owner ?? actor;
+  await recordNoteHistory({
+    type: "update",
+    id: noteId,
+    owner: effectiveOwner,
+    actor,
+    prevState,
+    nextState,
+  });
+}
+
 export const notesApi = {
   list: async (): Promise<Note[]> => {
     return notesStore.listAll();
@@ -3726,6 +3766,21 @@ export const notesApi = {
       updated_at: now,
     }));
     
+    // VC Phase 2 (vc-entry-history sub-bot of HR, 2026-05-30): stamp the
+    // ORIGINAL AUTHOR onto the note. `username` is the creator-attribution
+    // field (per the version-control proposal), NOT the owner-folder routing
+    // (the store writes to `users/<currentUser>/notes/...` independent of this
+    // field). It was previously left "" on create, which made
+    // canRestoreNoteVersion compute isOwner=false for a user's OWN freshly
+    // created note (the popup passes noteOwner = note.username), so the
+    // "Restore this version" footer never rendered even for the owner. We stamp
+    // the signed-in user here so author == owner-folder for newly created notes.
+    // Callers that route to a different owner folder (none today) would still
+    // record THIS user as the author, which matches the existing semantics of
+    // every other create path. Empty-username legacy notes are handled
+    // defensively in the popup's owner resolution.
+    const author = (await getCurrentUserCached()) ?? "";
+
     return notesStore.create({
       title: data.title,
       description: data.description ?? "",
@@ -3735,7 +3790,7 @@ export const notesApi = {
       comments: [],
       created_at: now,
       updated_at: now,
-      username: "",
+      username: author,
     });
   },
   
@@ -3880,9 +3935,16 @@ export const notesApi = {
     };
 
     const entries = [...(note.entries || []), newEntry];
-    return owner
-      ? notesStore.updateForUser(noteId, { entries, updated_at: now }, owner)
-      : notesStore.update(noteId, { entries, updated_at: now });
+    const updated = owner
+      ? await notesStore.updateForUser(noteId, { entries, updated_at: now }, owner)
+      : await notesStore.update(noteId, { entries, updated_at: now });
+    // VC Phase 2 (vc-entry-history sub-bot of HR): the note BODY lives in
+    // entries[], so an entry mutation is a real content edit and MUST be
+    // versioned. recordNoteHistory is best-effort (swallows errors, never
+    // throws into the save path) and a no-op when the flag is off; `note` is
+    // the pre-edit state we already read above, so no extra disk read.
+    await recordEntryHistory(noteId, owner, note, updated);
+    return updated;
   },
 
   updateEntry: async (
@@ -3904,9 +3966,13 @@ export const notesApi = {
       return e;
     });
 
-    return owner
-      ? notesStore.updateForUser(noteId, { entries, updated_at: now }, owner)
-      : notesStore.update(noteId, { entries, updated_at: now });
+    const updated = owner
+      ? await notesStore.updateForUser(noteId, { entries, updated_at: now }, owner)
+      : await notesStore.update(noteId, { entries, updated_at: now });
+    // VC Phase 2: this is the PRIMARY note-content save path (the editor body
+    // persists through here). Version it. See addEntry for the contract.
+    await recordEntryHistory(noteId, owner, note, updated);
+    return updated;
   },
 
   deleteEntry: async (
@@ -3921,9 +3987,12 @@ export const notesApi = {
 
     const entries = (note.entries || []).filter((e) => e.id !== entryId);
     const patch = { entries, updated_at: new Date().toISOString() };
-    return owner
-      ? notesStore.updateForUser(noteId, patch, owner)
-      : notesStore.update(noteId, patch);
+    const updated = owner
+      ? await notesStore.updateForUser(noteId, patch, owner)
+      : await notesStore.update(noteId, patch);
+    // VC Phase 2: removing an entry deletes note content; version it.
+    await recordEntryHistory(noteId, owner, note, updated);
+    return updated;
   },
   
   reorderEntries: async (noteId: number, entryIds: string[]): Promise<Note | null> => {
