@@ -69,6 +69,20 @@ import {
   buildFieldDiffEntries,
   writeWithAudit,
 } from "@/lib/lab/pi-audit";
+// VC Phase 3 (VC-Phase3-Task sub-bot of HR, 2026-05-31): version history +
+// restore for the Task / Experiment entity. Mirrors NoteDetailPopup's wiring.
+import { RESTORE_ENABLED, canonicalize } from "@/lib/history";
+import {
+  useVersionRestore,
+  type VersionRestoreApi,
+} from "@/lib/history/useVersionRestore";
+import { canRead, canWrite } from "@/lib/sharing/unified";
+import { taskAdapter } from "@/lib/history/task-viewer";
+import EntityVersionHistorySidebar, {
+  type VersionPreview,
+} from "@/components/history/EntityVersionHistorySidebar";
+import VersionDiffView from "@/components/history/VersionDiffView";
+import type { TaskRestorePayload } from "@/lib/types";
 
 interface TaskDetailPopupProps {
   task: Task;
@@ -162,6 +176,22 @@ export default function TaskDetailPopup({
   const [pendingEnterEdit, setPendingEnterEdit] = useState(false);
   const { currentUser } = useCurrentUser();
 
+  // VC Phase 3 (VC-Phase3-Task sub-bot of HR, 2026-05-31): version-history
+  // viewer state, mirroring NoteDetailPopup. Opening the right-sidebar version
+  // list flips the body into a READ-ONLY diff preview; `versionPreview` carries
+  // the selected version's {before, after} diff. Closing returns to the live
+  // tabbed view.
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [versionPreview, setVersionPreview] = useState<VersionPreview | null>(
+    null,
+  );
+  const historyTriggerRef = useRef<HTMLButtonElement>(null);
+  const closeHistory = useCallback(() => {
+    setHistoryOpen(false);
+    setVersionPreview(null);
+    historyTriggerRef.current?.focus();
+  }, []);
+
   // Owner-aware view of tasksApi: when this popup is showing a task that was
   // shared to the current user with edit permission, every mutating call
   // routes through the owner's directory instead of the current user's.
@@ -253,6 +283,109 @@ export default function TaskDetailPopup({
     labHeadSessionId,
     labHeadActor,
   ]);
+
+  // ── VC Phase 3 (Task): restore-a-version + 24h undo-restore ───────────────
+  // The history file lives under the TASK OWNER's folder
+  // (users/<owner>/_history/task/<id>.jsonl); fall back to the signed-in user
+  // for legacy tasks with an empty owner. Mirrors NoteDetailPopup.historyOwner.
+  const historyOwner = task.owner || currentUser || "";
+
+  // canRestore: can the current viewer write this task (and thus restore a
+  // version)? Honors the design brief's "use canRead/canWrite from
+  // lib/sharing/unified for cross-user". Owner writes; a shared-edit receiver
+  // writes; a lab head writes only when their edit session is unlocked for this
+  // task's owner (the PI-passcode cross-owner unlock). `effectiveReadOnly` (NOT
+  // `readOnly`) is irrelevant here because canWrite is computed from the share
+  // graph, not the history-open flag.
+  const restoreViewer = useMemo(
+    () => ({
+      username: currentUser ?? "",
+      account_type: (labHeadGate.isLabHead ? "lab_head" : "lab") as
+        | "solo"
+        | "lab"
+        | "lab_head",
+    }),
+    [currentUser, labHeadGate.isLabHead],
+  );
+  const restoreEditSession = useMemo(
+    () => ({
+      isUnlockedFor: (targetOwner: string) =>
+        labHeadGate.unlocked && targetOwner === task.owner,
+    }),
+    [labHeadGate.unlocked, task.owner],
+  );
+  const canRestore =
+    canRead(task, restoreViewer) && canWrite(task, restoreViewer, restoreEditSession);
+
+  // A PI VIEWING another member's task but who has NOT unlocked an edit session:
+  // the affordance renders DISABLED with an unlock tooltip (vs hidden for a
+  // plain read-only shared viewer). Mirrors NoteDetailPopup.restoreNeedsUnlock.
+  const restoreNeedsUnlock =
+    !canRestore && labHeadGate.canRequestEdit && !labHeadGate.unlocked;
+
+  // The entity API the restore hook binds. Routes get/update to the task
+  // OWNER's folder when this is a shared-with-edit view (mirrors
+  // ownerScopedTasksApi), and threads the historyMeta stamp so the restore /
+  // undo rows are marked "revert" / "undo-revert".
+  const restoreOwnerArg =
+    task.is_shared_with_me && task.shared_permission === "edit"
+      ? task.owner
+      : undefined;
+  const restoreApi = useMemo<VersionRestoreApi<Task>>(
+    () => ({
+      get: (id, owner) => rawTasksApi.get(id, owner ?? restoreOwnerArg),
+      update: (id, payload, historyMeta) =>
+        rawTasksApi.update(
+          id,
+          payload as TaskRestorePayload,
+          restoreOwnerArg,
+          historyMeta,
+        ),
+    }),
+    [restoreOwnerArg],
+  );
+
+  // Reflect the restored record into the popup's local task state AND bubble it
+  // up. This is the only restore step that stays in the popup (the hook is
+  // editor-state agnostic). Mirrors NoteDetailPopup.reflectRestoredNote.
+  const reflectRestoredTask = useCallback(
+    (updated: Task) => {
+      setTask(updated);
+      void queryClient.refetchQueries({ queryKey: ["tasks"] });
+      void queryClient.refetchQueries({ queryKey: ["task", taskKey(updated)] });
+    },
+    [queryClient],
+  );
+
+  // Canonical tracked state of the LIVE task (HEAD). Threaded into the sidebar
+  // so the engine can resolve a BARE-GENESIS anchor (a task that existed before
+  // its first tracked save). Same HEAD source useVersionRestore uses, so the
+  // viewer + restore path agree byte-for-byte.
+  const liveTaskCanonical = useMemo(() => canonicalize(task), [task]);
+
+  const {
+    handleRestore,
+    handleUndoRestore,
+    undoConfirmPending,
+    confirmUndoRestore,
+    dismissUndoConfirm,
+    undoWindowActive,
+    isBusy: restoreBusy,
+    restoreError,
+  } = useVersionRestore<Task>({
+    entityType: "task",
+    record: task,
+    id: task.id,
+    owner: historyOwner,
+    api: restoreApi,
+    currentUser,
+    onUpdate: reflectRestoredTask,
+    // Task immutable keys: never overwritten by a restore payload. `owner` is
+    // the routing/sharing field (analogous to Note's `username`); `created_at`
+    // is not stored on tasks today but is denylisted defensively.
+    immutableKeys: ["id", "owner", "created_at"],
+    onAfterRestore: closeHistory,
+  });
 
   // Cross-owner unshare: clears `external_project` on the task AND removes
   // the manifest entry on the destination project's side. Available on the
@@ -587,6 +720,15 @@ export default function TaskDetailPopup({
         // enough, and Grant's tour scripts rely on the popup surviving.
         return;
       }
+      if (historyOpen) {
+        // Branch 1.5 (VC Phase 3): when the version-history sidebar is open,
+        // Esc exits HISTORY first and returns to the live record, rather than
+        // closing the whole popup. Mirrors NoteDetailPopup's precedence.
+        setHistoryOpen(false);
+        setVersionPreview(null);
+        historyTriggerRef.current?.focus();
+        return;
+      }
       if (isExpanded) {
         // Branch 2: shrink before closing so the fullscreen state can
         // persist across multi-step demos. A second Esc closes.
@@ -598,7 +740,7 @@ export default function TaskDetailPopup({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isExpanded, onClose]);
+  }, [isExpanded, onClose, historyOpen]);
 
   // Orphan-items probe: non-purchase tasks can still have purchase_items
   // attached (the "Items on non-purchase tasks" surface on the spending
@@ -1138,6 +1280,91 @@ export default function TaskDetailPopup({
               )}
               {isExperiment && <TaskExportButton task={task} />}
               {isExperiment && <TaskDepositButton task={task} />}
+              {/* VC Phase 3 (Task): "Undo restore" header button. Visible (flag
+                  ON) while a 24h undo window is live for this task. Enabled for
+                  the owner / PI-with-unlock; DISABLED with an unlock Tooltip for
+                  a PI who could unlock but has not; HIDDEN for a read-only shared
+                  viewer. Render-gated on expiry. Mirrors NoteDetailPopup. */}
+              {RESTORE_ENABLED &&
+                undoWindowActive &&
+                (canRestore || restoreNeedsUnlock) && (
+                  <Tooltip
+                    label={
+                      restoreNeedsUnlock
+                        ? "Unlock edit mode (PI passcode) to undo the restore"
+                        : restoreBusy
+                          ? "Undoing the restore..."
+                          : "Undo the restore (returns the experiment to its pre-restore version)"
+                    }
+                    placement="bottom"
+                  >
+                    <button
+                      onClick={
+                        canRestore && !restoreBusy ? handleUndoRestore : undefined
+                      }
+                      disabled={!canRestore || restoreBusy}
+                      data-testid="task-undo-restore-button"
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                        canRestore && !restoreBusy
+                          ? "text-amber-700 bg-amber-50 hover:bg-amber-100"
+                          : "text-gray-400 bg-gray-50 cursor-not-allowed"
+                      }`}
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M9 14L4 9l5-5" />
+                        <path d="M4 9h11a4 4 0 0 1 0 8h-1" />
+                      </svg>
+                      {restoreBusy ? "Undoing..." : "Undo restore"}
+                    </button>
+                  </Tooltip>
+                )}
+              {/* VC Phase 3 (Task): version-history entry button. Shown to
+                  anyone with read access (the popup only opens on readable
+                  tasks). Toggles the right-sidebar version viewer; opening flips
+                  the body to a read-only diff preview. Mirrors NoteDetailPopup. */}
+              <Tooltip label="Version history" placement="bottom">
+                <button
+                  ref={historyTriggerRef}
+                  onClick={() => {
+                    if (historyOpen) {
+                      closeHistory();
+                    } else {
+                      setHistoryOpen(true);
+                    }
+                  }}
+                  data-testid="task-history-button"
+                  aria-pressed={historyOpen}
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    historyOpen
+                      ? "text-emerald-600 bg-emerald-50"
+                      : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                  }`}
+                >
+                  <svg
+                    className="w-4 h-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M3 3v5h5" />
+                    <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
+                    <path d="M12 7v5l3 2" />
+                  </svg>
+                </button>
+              </Tooltip>
               {!readOnly && !task.is_shared_with_me && (
                 <Tooltip label="Share task" placement="bottom">
                   <button
@@ -1348,45 +1575,141 @@ export default function TaskDetailPopup({
           })}
         </div>
 
-        {/* Tab content */}
-        <div className="flex-1 overflow-y-auto">
-          {activeTab === "details" && (
-            <DetailsTab
-              task={task}
-              project={project}
-              onClose={onClose}
-              onAnimationTrigger={(pos) => setAnimationPosition(pos)}
-              onNavigateToTask={onNavigateToTask}
-              readOnly={readOnly}
-              pendingEnterEdit={pendingEnterEdit}
-              onConsumePendingEnterEdit={() => setPendingEnterEdit(false)}
-            />
-          )}
-          {activeTab === "notes" && <LabNotesTab task={task} readOnly={readOnly} ownerUsername={username} />}
-          {activeTab === "method" && (
-            <MethodTabs 
-              task={task} 
-              onTaskUpdate={(updatedTask) => setTask(updatedTask)} 
-              readOnly={readOnly}
-            />
-          )}
-          {activeTab === "results" && <ResultsTab task={task} readOnly={readOnly} ownerUsername={username} />}
-          {activeTab === "purchases" && (
-            <PurchaseEditor
-              taskId={task.id}
-              readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")}
-              username={username ?? (task.is_shared_with_me ? task.owner : undefined)}
-              taskType={task.task_type}
-              // Existing readOnly gate only covers shared+VIEW. For
-              // shared+EDIT the editor is mounted writable, but
-              // purchasesApi.create/update/delete are current-user scoped
-              // (no owner arg), so writes would land items under the
-              // receiver's data dir at the shared task's numeric id —
-              // clobbering or orphaning items. isSharedWithMe disables the
-              // write affordances with an owner-aware Tooltip, mirroring
-              // the destructive-button gate at a87dfeb0.
-              isSharedWithMe={task.is_shared_with_me ?? false}
-              ownerLabel={task.is_shared_with_me ? task.owner : undefined}
+        {/* VC Phase 3 (Task): restore / undo-restore error + Case-C fallback
+            message + the in-app undo confirm. Inline, non-blocking; clears on
+            the next attempt. Mirrors NoteDetailPopup. */}
+        {(restoreError || undoConfirmPending) && (
+          <div className="px-6 pt-2">
+            {restoreError && (
+              <p
+                data-testid="task-restore-error"
+                className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug"
+              >
+                {restoreError}
+              </p>
+            )}
+            {undoConfirmPending && (
+              <div
+                data-testid="task-undo-confirm"
+                className="mt-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug"
+              >
+                <p>
+                  You have edited this experiment since the restore. Undoing will
+                  discard those edits and return it to its pre-restore state.
+                </p>
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void confirmUndoRestore()}
+                    disabled={restoreBusy}
+                    data-testid="task-undo-confirm-button"
+                    className="px-2.5 py-1 text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-60 rounded-md transition-colors"
+                  >
+                    {restoreBusy ? "Undoing..." : "Discard edits and undo"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={dismissUndoConfirm}
+                    disabled={restoreBusy}
+                    data-testid="task-undo-cancel-button"
+                    className="px-2.5 py-1 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:opacity-60 rounded-md transition-colors"
+                  >
+                    Keep editing
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab content (or, when the history sidebar is open, the in-place
+            read-only diff for the selected version + the docked version
+            sidebar). Wrapped in a flex-row so the sidebar docks right, mirroring
+            NoteDetailPopup's editor-column + sidebar layout. */}
+        <div className="flex-1 overflow-hidden flex flex-row min-h-0">
+          <div className="flex-1 min-w-0 overflow-y-auto">
+            {historyOpen ? (
+              versionPreview ? (
+                <div className="p-6" data-testid="task-version-diff-column">
+                  <VersionDiffView
+                    before={versionPreview.before}
+                    after={versionPreview.after}
+                    editor={versionPreview.editor}
+                    editorLabel={versionPreview.editorLabel}
+                  />
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-full text-gray-400 text-sm p-6">
+                  <p>Select a version to preview it here.</p>
+                </div>
+              )
+            ) : (
+              <>
+                {activeTab === "details" && (
+                  <DetailsTab
+                    task={task}
+                    project={project}
+                    onClose={onClose}
+                    onAnimationTrigger={(pos) => setAnimationPosition(pos)}
+                    onNavigateToTask={onNavigateToTask}
+                    readOnly={readOnly}
+                    pendingEnterEdit={pendingEnterEdit}
+                    onConsumePendingEnterEdit={() => setPendingEnterEdit(false)}
+                  />
+                )}
+                {activeTab === "notes" && <LabNotesTab task={task} readOnly={readOnly} ownerUsername={username} />}
+                {activeTab === "method" && (
+                  <MethodTabs
+                    task={task}
+                    onTaskUpdate={(updatedTask) => setTask(updatedTask)}
+                    readOnly={readOnly}
+                  />
+                )}
+                {activeTab === "results" && <ResultsTab task={task} readOnly={readOnly} ownerUsername={username} />}
+                {activeTab === "purchases" && (
+                  <PurchaseEditor
+                    taskId={task.id}
+                    readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")}
+                    username={username ?? (task.is_shared_with_me ? task.owner : undefined)}
+                    taskType={task.task_type}
+                    // Existing readOnly gate only covers shared+VIEW. For
+                    // shared+EDIT the editor is mounted writable, but
+                    // purchasesApi.create/update/delete are current-user scoped
+                    // (no owner arg), so writes would land items under the
+                    // receiver's data dir at the shared task's numeric id —
+                    // clobbering or orphaning items. isSharedWithMe disables the
+                    // write affordances with an owner-aware Tooltip, mirroring
+                    // the destructive-button gate at a87dfeb0.
+                    isSharedWithMe={task.is_shared_with_me ?? false}
+                    ownerLabel={task.is_shared_with_me ? task.owner : undefined}
+                  />
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Version-history sidebar (docked right). Mounts only while open so
+              the history file read happens on demand. The owner folder is the
+              task's `owner` (the history file lives under
+              users/<owner>/_history/task/<id>.jsonl); fall back to the signed-in
+              user for a legacy task with an empty owner. */}
+          {historyOpen && (
+            <EntityVersionHistorySidebar
+              entityType="task"
+              id={task.id}
+              owner={historyOwner}
+              adapter={taskAdapter}
+              onClose={closeHistory}
+              onPreviewChange={setVersionPreview}
+              // Live HEAD canonical: lets the engine resolve a bare-genesis
+              // anchor (existing task -> first tracked edit) so every version
+              // reconstructs + the diffs are non-empty.
+              headCanonical={liveTaskCanonical}
+              // The Restore footer only appears when the flag is ON, the viewer
+              // can write the task, AND a non-HEAD version is selected (the
+              // sidebar enforces the last condition).
+              canRestore={RESTORE_ENABLED && canRestore}
+              onRestore={handleRestore}
             />
           )}
         </div>

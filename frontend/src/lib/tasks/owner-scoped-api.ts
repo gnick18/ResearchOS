@@ -13,6 +13,7 @@
 import { tasksApi as rawTasksApi } from "@/lib/local-api";
 import type { TaskUpdate, TaskMoveRequest } from "@/lib/local-api";
 import type { Task } from "@/lib/types";
+import type { HistoryEditKind } from "@/lib/history";
 
 function effectiveOwnerOf(task: Task): string | undefined {
   return task.is_shared_with_me && task.shared_permission === "edit"
@@ -25,7 +26,15 @@ export function ownerScopedTasksApi(task: Task) {
   return {
     ...rawTasksApi,
     get: (id: number) => rawTasksApi.get(id, owner),
-    update: (id: number, data: TaskUpdate) => rawTasksApi.update(id, data, owner),
+    // VC Phase 3 (FLAG-5, Task): forward the optional `historyMeta` stamp so the
+    // restore / undo-restore flows can mark the resulting history row a
+    // "revert" / "undo-revert" kind. Defaults to {kind:"update"} inside
+    // rawTasksApi.update, so existing 2-arg callers are byte-for-byte unchanged.
+    update: (
+      id: number,
+      data: TaskUpdate,
+      historyMeta?: { kind: HistoryEditKind; revert_target_version?: number },
+    ) => rawTasksApi.update(id, data, owner, historyMeta),
     move: (id: number, data: TaskMoveRequest) => rawTasksApi.move(id, data, owner),
     convertType: (id: number, type: "experiment" | "purchase" | "list") =>
       rawTasksApi.convertType(id, type, owner),

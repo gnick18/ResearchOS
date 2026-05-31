@@ -42,6 +42,14 @@ const VOLATILE_STAMP_DENYLIST = new Set<string>([
   // not tracked content, so dropping it from the canonical state loses no
   // history. Must stay in lockstep with the `revert_undo_window` field on Note.
   "revert_undo_window",
+  // VC Phase 3 (FLAG-derived-cache, Task): `end_date` is DERIVED from
+  // (start_date, duration_days) and recomputed on EVERY tasksApi.update (even
+  // edits that touch neither input), so without this entry every Task save would
+  // diff a meaningless recompute and the timeline would show a spurious change.
+  // The two real inputs (start_date, duration_days) ARE tracked, so dropping the
+  // derived cache loses no history. See the design doc FLAG-derived-cache list
+  // (Task end_date, PurchaseItem total_price, Method excerpt).
+  "end_date",
 ]);
 
 /**

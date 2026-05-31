@@ -42,3 +42,8 @@ export {
   RESTORE_ENABLED,
   recordNoteHistory,
 } from "./notes-history";
+
+// VC Phase 3 (Task pilot): the Task / Experiment recorder. The flags above are
+// the SHARED pair task-history.ts re-exports, so they stay a single source of
+// truth (no per-entity flag).
+export { recordTaskHistory } from "./task-history";

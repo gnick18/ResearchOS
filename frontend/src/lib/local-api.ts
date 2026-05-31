@@ -3,7 +3,7 @@ import { fileService } from "./file-system/file-service";
 import { trashNote, restoreTrashedNote } from "./notes/notes-trash";
 import { trashEntity, type TrashEntityType } from "./trash";
 import { recordProjectActivity } from "./project-activity/event-log";
-import { HISTORY_ENGINE_ENABLED, recordNoteHistory } from "./history";
+import { HISTORY_ENGINE_ENABLED, recordNoteHistory, recordTaskHistory } from "./history";
 import type { HistoryEditKind } from "./history";
 import { getCurrentUser, getMainUser, storeCurrentUser, storeMainUser, clearCurrentUser, clearMainUser } from "./file-system/indexeddb-store";
 import { shiftTask } from "./engine/shift";
@@ -781,7 +781,19 @@ export const tasksApi = {
     return task;
   },
 
-  update: async (id: number, data: TaskUpdate, owner?: string): Promise<Task | null> => {
+  // VC Phase 3 (FLAG-5, Task): `historyMeta` lets the restore / undo-restore
+  // flows stamp the resulting history row with a non-"update" kind ("revert" /
+  // "undo-revert") and the version index it reverted TO. It DEFAULTS to
+  // { kind: "update" }, so every existing caller is BYTE-FOR-BYTE unchanged.
+  // Mirrors notesApi.update's signature.
+  update: async (
+    id: number,
+    data: TaskUpdate,
+    owner?: string,
+    historyMeta: { kind: HistoryEditKind; revert_target_version?: number } = {
+      kind: "update",
+    },
+  ): Promise<Task | null> => {
     const existing = await getTaskForCaller(id, owner);
     if (!existing) return null;
 
@@ -794,6 +806,15 @@ export const tasksApi = {
       duration_days: data.duration_days ?? existing.duration_days,
     });
 
+    // VC Phase 3 (FLAG-revert_undo_window, Task): `revert_undo_window: null` is
+    // the explicit CLEAR signal from the undo flow. The store's partial-merge
+    // skips `undefined` but would otherwise write `null` into the live task, so
+    // we strip the key from the patch and delete it from the persisted record
+    // below. A genuine window object passes straight through. Denylisted either
+    // way (canonicalize end_date + revert_undo_window), so it never touches the
+    // history delta. Mirrors notesApi.update's clear handling.
+    const clearUndoWindow = data.revert_undo_window === null;
+
     // Normalize `project_id: null` → `0`. The persisted Task shape (see
     // types.ts) has `project_id: number`, and the canonical "no project"
     // sentinel on disk is `0` — this is how `tasksApi.create` records it
@@ -802,9 +823,12 @@ export const tasksApi = {
     // BulkSortScreen) pass `null` to mean "unassign"; normalize here so a
     // single boundary owns the convention and downstream reads can rely on
     // `task.project_id` being a number.
-    const { project_id: rawProjectId, ...restData } = data;
+    const { project_id: rawProjectId, revert_undo_window: rawWindow, ...restData } = data;
     const normalizedProjectId =
       rawProjectId === null ? 0 : rawProjectId;
+    // Coalesce null -> undefined so the patch type stays `RevertUndoWindow |
+    // undefined` (matches Partial<Task>); the null clear is handled separately.
+    const windowToWrite = rawWindow ?? undefined;
 
     // Invariant: ∀ a ∈ method_attachments: a.method_id ∈ method_ids. Whenever
     // a write touches either side of the method relationship, prune the
@@ -815,6 +839,7 @@ export const tasksApi = {
     const writePatch: Partial<Task> = {
       ...restData,
       ...(normalizedProjectId !== undefined ? { project_id: normalizedProjectId } : {}),
+      ...(clearUndoWindow ? {} : { revert_undo_window: windowToWrite }),
       end_date: endDate,
       // VCP R3 attribution stamps: actor + timestamp. The data.last_edited_by
       // override path is for PI cross-owner edits — callers pass the PI's
@@ -830,7 +855,42 @@ export const tasksApi = {
       );
     }
 
-    const result = await updateTaskForCaller(id, writePatch, owner);
+    // VC Phase 3 (Task): capture the pre-edit state for the delta store BEFORE
+    // the write. `existing` is already the pre-edit record (read at the top), so
+    // we reuse it rather than a second disk read; only meaningful when the
+    // engine is enabled (recordTaskHistory also short-circuits on the flag).
+    const prevState = HISTORY_ENGINE_ENABLED ? existing : null;
+
+    let result = await updateTaskForCaller(id, writePatch, owner);
+
+    // VC Phase 3 (Task): finalize the window CLEAR. The partial-merge store
+    // cannot delete a key, so when the undo flow asked to clear we rewrite the
+    // record once more with the field removed. Cheap (only on undo). Mirrors
+    // notesApi.update's clear finalization.
+    if (clearUndoWindow && result && result.revert_undo_window !== undefined) {
+      const { revert_undo_window: _drop, ...withoutWindow } = result;
+      result = owner
+        ? await tasksStore.saveForUser(id, withoutWindow as Task, owner)
+        : await tasksStore.save(id, withoutWindow as Task);
+    }
+
+    // Best-effort history append AFTER the live record is persisted. Failures
+    // never throw into the save path (recordTaskHistory swallows). No-op when
+    // the flag is off. The history file lives under the TASK OWNER's folder
+    // (mirror notesApi.update's effectiveOwner resolution): the owner arg when
+    // routed cross-owner, else the signed-in user.
+    if (HISTORY_ENGINE_ENABLED && result) {
+      const effectiveOwner = owner ?? (await getCurrentUserCached()) ?? "";
+      await recordTaskHistory({
+        type: historyMeta.kind,
+        id,
+        owner: effectiveOwner,
+        actor: result.last_edited_by ?? effectiveOwner,
+        prevState,
+        nextState: result,
+        revertTargetVersion: historyMeta.revert_target_version,
+      });
+    }
 
     // Project activity emissions (best-effort). For tasks hosted INTO a
     // foreign project (Option C), the activity log lives in the foreign

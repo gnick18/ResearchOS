@@ -532,6 +532,11 @@ export interface Task {
   // back-fills on next write.
   last_edited_by?: string;
   last_edited_at?: string;
+  // VC Phase 3 (FLAG-revert_undo_window, Task): the 24h undo-restore window.
+  // Present only between a restore and either its undo or the window's expiry.
+  // Globally denylisted in canonicalize.ts (FLAG-2) so it never pollutes a
+  // delta. Absent on every task that was never restored. Mirrors Note's field.
+  revert_undo_window?: RevertUndoWindow;
 }
 
 /**
@@ -678,6 +683,40 @@ export interface TaskUpdate {
   // usually omit; the write path overwrites whatever is supplied.
   last_edited_by?: string;
   last_edited_at?: string;
+  // VC Phase 3 (FLAG-revert_undo_window, Task): the undo-restore window. Set
+  // (object) on a restore; CLEARED (`null`) on an undo. `tasksApi.update`
+  // deletes the key on `null` so the live task carries no lingering field.
+  // Denylisted (FLAG-2). Mirrors NoteUpdate's field exactly.
+  revert_undo_window?: RevertUndoWindow | null;
+}
+
+/**
+ * VC Phase 3 (FLAG-revert_undo_window, Task): the full-tracked-state payload a
+ * restore / undo writes. Superset of TaskUpdate with every structural field the
+ * canonical tracks, so `tasksApi.update` overwrites the live task to exactly the
+ * target version. Distinct type (not a TaskUpdate widening) mirroring
+ * NoteRestorePayload: the restore handler assembles this from the reconstructed
+ * canonical and passes it through tasksApi.update; the partial-merge store keys
+ * on the runtime object so the structural fields persist.
+ */
+export interface TaskRestorePayload extends TaskUpdate {
+  name?: string;
+  start_date?: string;
+  duration_days?: number;
+  is_high_level?: boolean;
+  is_complete?: boolean;
+  task_type?: "experiment" | "purchase" | "list";
+  weekend_override?: boolean | null;
+  method_ids?: number[];
+  deviation_log?: string | null;
+  tags?: string[];
+  sort_order?: number;
+  experiment_color?: string | null;
+  sub_tasks?: SubTask[];
+  method_attachments?: TaskMethodAttachment[];
+  external_project?: ExternalProjectRef | null;
+  assignee?: string | null;
+  flagged?: PiFlag | null;
 }
 
 export interface TaskMoveRequest {
