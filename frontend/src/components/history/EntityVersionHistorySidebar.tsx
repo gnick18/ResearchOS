@@ -165,7 +165,16 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
     return () => {
       cancelled = true;
     };
-  }, [entityType, id, owner]);
+    // headCanonical is in the deps so the OPEN sidebar live-refreshes after a
+    // restore / undo writes a new history row (vc-final-polish sub-bot of HR,
+    // 2026-05-31). A restore / undo updates the live note, which changes
+    // headCanonical (canonicalize of the live record), so this effect re-runs,
+    // re-reads history, and the new "Restored an earlier version" / "Undid a
+    // restore" row appears immediately instead of only after a close + reopen.
+    // While history is open the note is otherwise read-only, so headCanonical
+    // does not churn during normal viewing, and the read only sets `rows` (which
+    // does not feed headCanonical), so this cannot loop.
+  }, [entityType, id, owner, headCanonical]);
 
   // ── Reconstruct every version's state once, derive summaries ─────────────
   // Reconstruction is needed both for the change summaries and for the diff

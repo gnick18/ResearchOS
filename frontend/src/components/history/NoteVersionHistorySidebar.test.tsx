@@ -171,10 +171,10 @@ describe("NoteVersionHistorySidebar", () => {
     // predecessor ("alpha"). The reconstructed states drive the diff, never
     // raw diff text.
     const latest = previews[previews.length - 1];
-    // The body anchors each entry with its "## <heading>" line
-    // (vc-persona-fixes sub-bot of HR, 2026-05-30).
-    expect(latest.after).toBe("## Notes\nalpha\nbeta");
-    expect(latest.before).toBe("## Notes\nalpha");
+    // The body leads with the note title ("# Draft") and anchors each entry with
+    // its "## <heading>" line (vc-final-polish sub-bot of HR, 2026-05-31).
+    expect(latest.after).toBe("# Draft\n\n## Notes\nalpha\nbeta");
+    expect(latest.before).toBe("# Draft\n\n## Notes\nalpha");
     expect(latest.editor).toBe("mira");
   });
 
@@ -208,16 +208,16 @@ describe("NoteVersionHistorySidebar", () => {
     fireEvent.click(rows[1]);
     await waitFor(() => {
       const last = previews[previews.length - 1];
-      expect(last.after).toBe("## Notes\nalpha\nbeta");
-      expect(last.before).toBe("## Notes\nalpha"); // predecessor
+      expect(last.after).toBe("# Draft\n\n## Notes\nalpha\nbeta");
+      expect(last.before).toBe("# Draft\n\n## Notes\nalpha"); // predecessor
     });
 
     // Flip to "compare against current". Now before === the HEAD body.
     fireEvent.click(screen.getByTestId("compare-current"));
     await waitFor(() => {
       const last = previews[previews.length - 1];
-      expect(last.after).toBe("## Notes\nalpha\nbeta");
-      expect(last.before).toBe("## Notes\nalpha\nbeta\ngamma"); // current HEAD
+      expect(last.after).toBe("# Draft\n\n## Notes\nalpha\nbeta");
+      expect(last.before).toBe("# Draft\n\n## Notes\nalpha\nbeta\ngamma"); // current HEAD
     });
   });
 

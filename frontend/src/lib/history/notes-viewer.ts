@@ -89,23 +89,38 @@ export function projectNoteState(canonical: string | null | undefined): NoteProj
     title: asString(e?.title),
     content: asString(e?.content),
   }));
-  // The diff body is the entry HEADINGS + bodies joined. A heading line per
-  // entry anchors each entry in the line-diff so a running-log edit (the user
-  // edits ONE dated entry among several) renders as a localized change rather
-  // than a whole-body churn, and a heading-only edit still surfaces a diff
-  // (vc-persona-fixes sub-bot of HR, 2026-05-30: running-log entry edits were
-  // rendering "No tracked content changed" because the projected body dropped
-  // the entry headings, so the LCS could not anchor the changed entry). The
-  // heading line is prefixed so it cannot be confused with body content.
-  const body = entries
+  const title = asString(parsed.title);
+  const description = asString(parsed.description);
+  // The diff body is the note TITLE + DESCRIPTION + the entry HEADINGS + bodies,
+  // joined so the in-place diff covers every tracked field.
+  //
+  // The leading "# <title>" line and the description block let a title-only or
+  // description-only edit render a real diff (vc-final-polish sub-bot of HR,
+  // 2026-05-31: those edits used to project an empty body and so showed the
+  // misleading "No tracked content changed in this version" even though the note
+  // clearly changed). The title is a single "#" heading so it cannot be confused
+  // with an entry "##" heading.
+  //
+  // A heading line per entry anchors each entry in the line-diff so a running-log
+  // edit (the user edits ONE dated entry among several) renders as a localized
+  // change rather than a whole-body churn, and a heading-only edit still surfaces
+  // a diff (running-log entry edits were rendering "No tracked content changed"
+  // because the projected body dropped the entry headings, so the LCS could not
+  // anchor the changed entry).
+  const entriesBlock = entries
     .map((e) => {
       const heading = e.title.trim();
       return heading ? `## ${heading}\n${e.content}` : e.content;
     })
     .join("\n\n");
+  const parts: string[] = [];
+  if (title.trim()) parts.push(`# ${title.trim()}`);
+  if (description.trim()) parts.push(description);
+  if (entriesBlock) parts.push(entriesBlock);
+  const body = parts.join("\n\n");
   return {
-    title: asString(parsed.title),
-    description: asString(parsed.description),
+    title,
+    description,
     body,
     entries,
   };

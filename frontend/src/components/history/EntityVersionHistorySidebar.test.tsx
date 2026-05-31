@@ -188,11 +188,12 @@ describe("EntityVersionHistorySidebar (Notes adapter)", () => {
     });
     const latest = previews[previews.length - 1];
     // The adapter (projectNoteState) drives the body projection: HEAD body vs
-    // its predecessor body, never raw diff text. The body anchors each entry
-    // with its "## <heading>" line (vc-persona-fixes sub-bot of HR, 2026-05-30)
-    // so running-log entry edits diff as a localized change.
-    expect(latest.after).toBe("## Notes\nalpha\nbeta");
-    expect(latest.before).toBe("## Notes\nalpha");
+    // its predecessor body, never raw diff text. The body leads with the note
+    // title ("# Draft") and anchors each entry with its "## <heading>" line
+    // (vc-final-polish sub-bot of HR, 2026-05-31) so title / running-log entry
+    // edits diff as a localized change.
+    expect(latest.after).toBe("# Draft\n\n## Notes\nalpha\nbeta");
+    expect(latest.before).toBe("# Draft\n\n## Notes\nalpha");
     expect(latest.editor).toBe("mira");
   });
 
@@ -213,6 +214,82 @@ describe("EntityVersionHistorySidebar (Notes adapter)", () => {
       expect(screen.getByTestId("version-empty")).toBeInTheDocument();
     });
     expect(screen.getByText("No earlier versions yet")).toBeInTheDocument();
+  });
+
+  // ── P1: live-refresh after a restore / undo ────────────────────────────────
+  // A restore / undo updates the live note, which changes headCanonical. The
+  // OPEN sidebar must re-read history so the new "Restored..." / "Undid a
+  // restore" row appears immediately, not only after a close + reopen
+  // (vc-final-polish sub-bot of HR, 2026-05-31).
+  it("re-reads history when headCanonical changes (live-refresh after restore)", async () => {
+    // Alternate actors so every save renders as its own inline row (a same-actor
+    // run of 2+ collapses into one session group, hiding the row count).
+    await seed([
+      { title: "Draft", content: "alpha", actor: "mira" },
+      { title: "Draft", content: "alpha\nbeta", actor: "morgan" },
+    ]);
+    const readSpy = vi.spyOn(engine, "readHistory");
+
+    const { rerender } = render(
+      <EntityVersionHistorySidebar
+        entityType="notes"
+        id={ID}
+        owner={OWNER}
+        adapter={notesAdapter}
+        onClose={() => {}}
+        onPreviewChange={() => {}}
+        now={NOW}
+        headCanonical="state-before-restore"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId("version-row").length).toBe(2);
+    });
+    const callsAfterMount = readSpy.mock.calls.length;
+    expect(callsAfterMount).toBeGreaterThan(0);
+
+    // A restore writes a new row AND changes the live note -> headCanonical
+    // changes. Append a row so the re-read returns the longer history, then
+    // rerender with the new headCanonical the way the popup does.
+    await engine.appendEdit({
+      type: "revert",
+      entityType: "notes",
+      id: ID,
+      owner: OWNER,
+      actor: "mira",
+      prevState: noteRecord({ title: "Draft", entries: [{ title: "Notes", content: "alpha\nbeta" }] }),
+      nextState: noteRecord({ title: "Draft", entries: [{ title: "Notes", content: "alpha" }] }),
+    });
+
+    rerender(
+      <EntityVersionHistorySidebar
+        entityType="notes"
+        id={ID}
+        owner={OWNER}
+        adapter={notesAdapter}
+        onClose={() => {}}
+        onPreviewChange={() => {}}
+        now={NOW}
+        headCanonical="state-after-restore"
+      />,
+    );
+
+    // The changed headCanonical re-runs the read effect: readHistory is called
+    // again and the new (third) restore row appears in the open timeline.
+    await waitFor(() => {
+      expect(readSpy.mock.calls.length).toBeGreaterThan(callsAfterMount);
+    });
+    await waitFor(() => {
+      expect(screen.getAllByTestId("version-row").length).toBe(3);
+    });
+    // The new restore row carries the "Restored an earlier version" summary once
+    // reconstruction repopulates the summary map (a tick after the rows render).
+    await waitFor(() => {
+      expect(
+        screen.getByText("Restored an earlier version"),
+      ).toBeInTheDocument();
+    });
   });
 });
 
@@ -273,10 +350,12 @@ describe("EntityVersionHistorySidebar bare-genesis viewer flow (P0)", () => {
       expect(previews.length).toBeGreaterThan(0);
     });
     // HEAD is auto-selected: its body is the live note, predecessor is the
-    // first-save state. Both non-empty, and they differ (title change).
+    // first-save state. Both non-empty, and they differ by the note title (HEAD
+    // is "Final", predecessor is "Draft"), which the title-in-body projection now
+    // surfaces directly in the diff (vc-final-polish sub-bot of HR, 2026-05-31).
     const latest = previews[previews.length - 1];
-    expect(latest.after).toBe("## Notes\nalpha\nbeta");
-    expect(latest.before).toBe("## Notes\nalpha\nbeta");
+    expect(latest.after).toBe("# Final\n\n## Notes\nalpha\nbeta");
+    expect(latest.before).toBe("# Draft\n\n## Notes\nalpha\nbeta");
     // The HEAD row summary is a real change, not "No tracked content changed".
     const rows = screen.getAllByTestId("version-row");
     expect(rows.length).toBe(2);

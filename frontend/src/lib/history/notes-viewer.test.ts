@@ -92,10 +92,11 @@ describe("projectNoteState", () => {
     expect(p.title).toBe("PCR run");
     expect(p.description).toBe("Tuesday batch");
     expect(p.entries).toHaveLength(2);
-    // The body anchors each entry with its heading so a running-log edit reads
-    // as a localized diff (vc-persona-fixes sub-bot of HR, 2026-05-30).
+    // The body leads with the note title ("# ...") and description, then anchors
+    // each entry with its heading so a title / description / running-log edit all
+    // read as a localized diff (vc-final-polish sub-bot of HR, 2026-05-31).
     expect(p.body).toBe(
-      "## Setup\nmix master mix\n\n## Run\ncycle 35x",
+      "# PCR run\n\nTuesday batch\n\n## Setup\nmix master mix\n\n## Run\ncycle 35x",
     );
     expect(p.entries[0]).toEqual({ title: "Setup", content: "mix master mix" });
   });
@@ -125,6 +126,53 @@ describe("projectNoteState", () => {
     expect(after.body).toContain("colonies on plate 3");
     // The unchanged entry's content is still anchored in the body.
     expect(after.body).toContain("seeded plates");
+  });
+
+  it("surfaces a title-only change in the body so it diffs (vc-final-polish)", () => {
+    // A title-only edit (entries + description identical) must still change the
+    // projected body, otherwise the diff renders the misleading "No tracked
+    // content changed in this version" (vc-final-polish sub-bot of HR).
+    const before = projectNoteState(
+      note({
+        title: "Old title",
+        entries: [{ title: "Notes", content: "same content" }],
+      }),
+    );
+    const after = projectNoteState(
+      note({
+        title: "New title",
+        entries: [{ title: "Notes", content: "same content" }],
+      }),
+    );
+    expect(after.body).not.toBe(before.body);
+    expect(after.body).toContain("# New title");
+    expect(before.body).toContain("# Old title");
+    // Entries are still anchored in the body alongside the title.
+    expect(after.body).toContain("## Notes");
+    expect(after.body).toContain("same content");
+  });
+
+  it("surfaces a description-only change in the body so it diffs (vc-final-polish)", () => {
+    const before = projectNoteState(
+      note({
+        title: "Lab log",
+        description: "old summary",
+        entries: [{ title: "Notes", content: "same content" }],
+      }),
+    );
+    const after = projectNoteState(
+      note({
+        title: "Lab log",
+        description: "new summary",
+        entries: [{ title: "Notes", content: "same content" }],
+      }),
+    );
+    expect(after.body).not.toBe(before.body);
+    expect(after.body).toContain("new summary");
+    expect(before.body).toContain("old summary");
+    // The title heading and entries still anchor the body.
+    expect(after.body).toContain("# Lab log");
+    expect(after.body).toContain("## Notes");
   });
 
   it("degrades gracefully on empty / malformed input", () => {
