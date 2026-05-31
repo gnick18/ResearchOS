@@ -41,9 +41,15 @@ type CMModules = {
   defaultKeymap: typeof import("@codemirror/commands").defaultKeymap;
   indentWithTab: typeof import("@codemirror/commands").indentWithTab;
   markdown: typeof import("@codemirror/lang-markdown").markdown;
+  // GFM-enabled base parser so Strikethrough / Table nodes exist for the
+  // inline-reveal walk. Bare markdown() is commonmark-only.
+  markdownLanguage: typeof import("@codemirror/lang-markdown").markdownLanguage;
   syntaxHighlighting: typeof import("@codemirror/language").syntaxHighlighting;
   HighlightStyle: typeof import("@codemirror/language").HighlightStyle;
   tags: typeof import("@lezer/highlight").tags;
+  // Chip 2a: the caret-aware inline-reveal layer (plugin + theme). View-only,
+  // so the chip 1 round-trip + save contract are untouched.
+  inlineRevealExtension: typeof import("@/lib/markdown/cm-inline-reveal/inline-reveal").inlineRevealExtension;
 };
 
 interface InlineMarkdownEditorProps {
@@ -75,8 +81,9 @@ interface InlineMarkdownEditorProps {
 
 /**
  * Build the markdown highlight style. Static colors (no theme dependency) so
- * the editor reads as basic-but-clear markdown source. Chip 2 layers the
- * caret-aware reveal on top of this; chip 1 only needs legible syntax color.
+ * the editor reads as basic-but-clear markdown source. Chip 2a layers the
+ * caret-aware reveal (inlineRevealExtension) on top of this; the underlying
+ * syntax highlight remains as the source-mode color for revealed tokens.
  */
 function buildExtensions(mods: CMModules, editable: boolean) {
   const {
@@ -90,9 +97,11 @@ function buildExtensions(mods: CMModules, editable: boolean) {
     defaultKeymap,
     indentWithTab,
     markdown,
+    markdownLanguage,
     syntaxHighlighting,
     HighlightStyle,
     tags,
+    inlineRevealExtension,
   } = mods;
 
   const highlightStyle = HighlightStyle.define([
@@ -137,8 +146,13 @@ function buildExtensions(mods: CMModules, editable: boolean) {
     history(),
     drawSelection(),
     highlightActiveLine(),
-    markdown(),
+    // GFM base so the inline-reveal walk sees Strikethrough / Table nodes.
+    // markdown() never rewrites the doc, so the round-trip stays byte-exact.
+    markdown({ base: markdownLanguage }),
     syntaxHighlighting(highlightStyle),
+    // Chip 2a: caret-aware marker hide/reveal (decorations + atomicRanges +
+    // theme). Purely a view layer over the same document.
+    inlineRevealExtension,
     EditorView.lineWrapping,
     theme,
     EditorState.readOnly.of(!editable),
@@ -250,15 +264,23 @@ export default function InlineMarkdownEditor({
     let cancelled = false;
 
     void (async () => {
-      const [stateMod, viewMod, commandsMod, langMod, languageMod, highlightMod] =
-        await Promise.all([
-          import("@codemirror/state"),
-          import("@codemirror/view"),
-          import("@codemirror/commands"),
-          import("@codemirror/lang-markdown"),
-          import("@codemirror/language"),
-          import("@lezer/highlight"),
-        ]);
+      const [
+        stateMod,
+        viewMod,
+        commandsMod,
+        langMod,
+        languageMod,
+        highlightMod,
+        inlineRevealMod,
+      ] = await Promise.all([
+        import("@codemirror/state"),
+        import("@codemirror/view"),
+        import("@codemirror/commands"),
+        import("@codemirror/lang-markdown"),
+        import("@codemirror/language"),
+        import("@lezer/highlight"),
+        import("@/lib/markdown/cm-inline-reveal/inline-reveal"),
+      ]);
       if (cancelled) return;
 
       const mods: CMModules = {
@@ -272,9 +294,11 @@ export default function InlineMarkdownEditor({
         defaultKeymap: commandsMod.defaultKeymap,
         indentWithTab: commandsMod.indentWithTab,
         markdown: langMod.markdown,
+        markdownLanguage: langMod.markdownLanguage,
         syntaxHighlighting: languageMod.syntaxHighlighting,
         HighlightStyle: languageMod.HighlightStyle,
         tags: highlightMod.tags,
+        inlineRevealExtension: inlineRevealMod.inlineRevealExtension,
       };
       modsRef.current = mods;
 
