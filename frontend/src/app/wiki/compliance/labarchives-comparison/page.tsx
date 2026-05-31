@@ -277,7 +277,8 @@ export default function LabArchivesComparisonPage() {
         <li>
           <strong>No per-seat fees.</strong> A ten-person lab on LabArchives
           Professional is several thousand dollars a year, every year.
-          ResearchOS is free.
+          ResearchOS has no per-seat fees: it is free to run yourself, and free
+          while we are in beta.
         </li>
         <li>
           <strong>Unpublished research never leaves your control.</strong> No
