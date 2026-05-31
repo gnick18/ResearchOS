@@ -192,6 +192,11 @@ export const WIKI_NAV: WikiNode[] = [
         blurb: "Three modes, keyboard shortcuts, image strip, code blocks.",
       },
       {
+        href: "/wiki/features/version-history",
+        label: "Version History",
+        blurb: "A timeline of every save, an in-place per-editor diff, and a default-off restore pilot. Notes pilot, rolling out.",
+      },
+      {
         href: "/wiki/features/methods",
         label: "Methods Library",
         blurb: "Reusable protocols, with PCR programs as a specialized form.",
@@ -200,6 +205,11 @@ export const WIKI_NAV: WikiNode[] = [
             href: "/wiki/features/pcr",
             label: "PCR Protocols",
             blurb: "Visual thermal gradient editor and reagent table.",
+          },
+          {
+            href: "/wiki/features/method-catalog",
+            label: "Template Library",
+            blurb: "91 ready-to-use protocol templates by lab task; 33 bundle the verifiable source PDF (rolling out).",
           },
         ],
       },
