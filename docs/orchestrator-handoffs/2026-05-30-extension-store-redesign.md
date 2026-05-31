@@ -103,7 +103,27 @@ REMAINING: contract steps 4 + 5, REASSIGNED to the store session by Grant
   result. Lesson: should have confirmed with the catalog session BEFORE firing,
   per Grant's earlier "confirm they aren't working on it" rule; "no in-flight
   combo branch" at check time missed their in-progress work.
-- STEP 5: DISPATCHED (3 focused verifiers on the live compound path on main):
+- STEP 5 RESULTS so far:
+  - compound-verify-spec: PASS (all contract points cited file:line, 168 tests).
+    One low copy nit (error-state "you can still use the kit" with no Use button)
+    FIXED inline + committed.
+  - compound-verify-fresh: PASS. Kit concept clear, flow works, result matches
+    (using a kit adds 3 library rows: the kit + its 2 reusable leaves, by design).
+    Copy/clarity findings to fold into ONE consolidated polish chip (HELD until
+    mechanics reports, since same files):
+      M: gating explains WHAT not WHY -> add subtext that the type is a
+         library-wide toggle ("Mass spec is off in your library; enabling turns
+         it on for all methods").
+      LM: action verb inconsistent (card "View kit", ungated CTA "Use template",
+         gated "Use kit") -> standardize the kit CTA to "Use kit".
+      L: "(off)"/"type disabled" jargon -> "Mass spec is off".
+      L: count-label drift ("Kit . 2 steps" vs "Kit, 2 components"; step names vs
+         type names) -> pick one wording consistently.
+  - compound-verify-mechanics: STILL RUNNING (the instantiation gap).
+  Operational note (not a bug): enabled-type state is GLOBAL to the workspace; a
+  concurrent session toggling it flipped gating mid-verification. Relevant for
+  future multi-session verification.
+- STEP 5 dispatch detail (3 focused verifiers on the live compound path on main):
   compound-verify-mechanics (full journey incl actual instantiation, the gap none
   of the prior work exercised), compound-verify-spec (contract compliance),
   compound-verify-fresh (new-user comprehension). Scoped to compound/kit only
