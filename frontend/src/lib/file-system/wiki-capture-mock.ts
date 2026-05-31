@@ -25,6 +25,13 @@ import {
   backupRealHandleForDemo,
 } from "./indexeddb-store";
 import { buildWikiFixtures } from "./wiki-capture-fixture";
+import {
+  VC_SEED_HISTORY_PATH,
+  VC_SEED_NOTE_OWNER,
+  VC_SEED_NOTE_ID,
+  buildSeedHistoryJsonl,
+  buildSeedUndoWindow,
+} from "./wiki-capture-vc-seed";
 import { rebaseDemoDates, isDemoLab } from "../demo/rebase";
 
 /** Watermarked fake PNGs that ship inside `frontend/public/demo-data/`.
@@ -520,6 +527,35 @@ export async function installWikiCaptureFixture(
     const norm = normalizePath(path);
     files.set(norm, content);
     addParentDirs(norm, dirs);
+  }
+
+  // ── Wiki version-history screenshot seed (wiki-vc-screenshots sub-bot of HR,
+  //    2026-05-31) ──────────────────────────────────────────────────────────
+  // The wiki version-history page needs screenshots of a populated Notes
+  // history sidebar (multi-version, multi-editor, multi-day) + the restore /
+  // undo affordances. ?wikiCapture=1 is READ-ONLY, so the history cannot be
+  // typed into existence; we pre-seed a real-engine-produced jsonl (see
+  // wiki-capture-vc-seed.ts) for note 5 into the in-memory _history text store,
+  // re-anchoring its timestamps to "now" so the day/session grouping is fresh,
+  // and stamp a live 24h revert_undo_window on note 5 so the "Undo restore"
+  // header renders. Both are screenshot-only and dev/localhost-gated by the
+  // wikiCapture flag itself.
+  try {
+    const now = new Date();
+    textFiles.set(
+      normalizePath(VC_SEED_HISTORY_PATH),
+      buildSeedHistoryJsonl(now),
+    );
+    addParentDirs(normalizePath(VC_SEED_HISTORY_PATH), dirs);
+    const noteKey = normalizePath(
+      `users/${VC_SEED_NOTE_OWNER}/notes/${VC_SEED_NOTE_ID}.json`,
+    );
+    const note = files.get(noteKey) as Record<string, unknown> | undefined;
+    if (note) {
+      files.set(noteKey, { ...note, revert_undo_window: buildSeedUndoWindow(now) });
+    }
+  } catch (err) {
+    console.warn("[wiki-capture-mock] VC history seed failed:", err);
   }
 
   // A truthy stand-in so methods that bail when `directoryHandle` is null

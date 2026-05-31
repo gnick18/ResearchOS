@@ -179,6 +179,248 @@ async function switchEditorMode(page, label) {
   } catch {}
 }
 
+// ── Version-history helpers (wiki-vc-screenshots sub-bot of HR, 2026-05-31) ──
+//
+// The Notes pilot version-history sidebar + restore/undo affordances are
+// captured off the seeded note 5 ("qPCR optimization log") on /workbench.
+// installWikiCaptureFixture pre-seeds a real-engine-produced multi-version /
+// multi-editor / multi-day history (wiki-capture-vc-seed.ts) for this note plus
+// a live 24h revert_undo_window, so the sidebar, the per-editor-tinted diff, the
+// compare toggle, the restore footer, and the "Undo restore" header all render.
+
+/** Switch the Workbench to the Notes sub-tab and open note 5's popup. Returns
+ *  true once the NoteDetailPopup is mounted. */
+async function openSeededNote(page) {
+  try {
+    // Notes sub-tab button (data-tour-target is stable across copy edits).
+    const notesTab = page
+      .locator('[data-tour-target="workbench-notes-tab"]')
+      .first();
+    if (await notesTab.count()) {
+      await notesTab.click({ timeout: 3000 });
+      await page.waitForTimeout(700);
+    }
+  } catch (err) {
+    console.warn(`  ⚠ openSeededNote notes tab: ${err.message}`);
+  }
+  // The NoteCard root carries the onClick; match the card whose <h3> is the
+  // qPCR optimization log title and click it.
+  try {
+    const card = page
+      .locator("h3")
+      .filter({ hasText: /^qPCR optimization log \(fakeGFP vs ACT1\)$/ })
+      .first();
+    if (await card.count()) {
+      await card.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+      await card.click({ timeout: 3000 });
+      await page.waitForTimeout(900);
+    }
+  } catch (err) {
+    console.warn(`  ⚠ openSeededNote open card: ${err.message}`);
+  }
+  // Confirm the popup mounted (history button is popup-scoped).
+  try {
+    await page.waitForSelector('[data-testid="note-history-button"]', {
+      timeout: 5000,
+    });
+    return true;
+  } catch {
+    console.warn("  ⚠ openSeededNote: note popup never mounted");
+    return false;
+  }
+}
+
+/** Open the version-history sidebar inside an already-open note popup. Returns
+ *  true once the sidebar is mounted and the timeline has rendered (either a
+ *  selectable version row OR a collapsed editing-session group — runs of
+ *  same-editor saves start collapsed, so a freshly-opened sidebar may show only
+ *  session summaries until expanded). */
+async function openHistorySidebar(page) {
+  try {
+    const btn = page.locator('[data-testid="note-history-button"]').first();
+    if (await btn.count()) {
+      await btn.click({ timeout: 3000 });
+      await page.waitForSelector(
+        '[data-testid="note-version-history-sidebar"]',
+        { timeout: 5000 },
+      );
+      // Either a version row or a collapsed session means the list is built.
+      await Promise.race([
+        page
+          .waitForSelector('[data-testid="version-row"]', { timeout: 6000 })
+          .catch(() => null),
+        page
+          .waitForSelector('[data-testid="session-collapsed"]', { timeout: 6000 })
+          .catch(() => null),
+      ]);
+      await page.waitForTimeout(700); // let reconstruction + the diff settle
+      return true;
+    }
+  } catch (err) {
+    console.warn(`  ⚠ openHistorySidebar: ${err.message}`);
+  }
+  return false;
+}
+
+/** Expand every collapsed editing-session group so the individual version rows
+ *  (avatar + summary + relative time, with the Current pin on HEAD) are all
+ *  visible. Clicking a collapsed group toggles it, so we snapshot the set of
+ *  collapsed elements ONCE and click each exactly once (a re-query loop would
+ *  re-toggle the same group). */
+async function expandSessions(page) {
+  try {
+    // Click every collapsed group in ONE synchronous pass over a static
+    // snapshot. Each collapsed group is a distinct element, and toggling is a
+    // React state set per group, so a single synchronous forEach expands them
+    // all without the re-toggle a re-resolving async loop hits (where the list
+    // shrinks between awaits and the same group gets clicked twice).
+    await page.evaluate(() => {
+      document
+        .querySelectorAll('[data-testid="session-collapsed"]')
+        .forEach((el) => el.click());
+    });
+    await page.waitForTimeout(400);
+  } catch {}
+}
+
+/** Select a non-head version row by its zero-based version index so the
+ *  diff + (when restore is on) the restore footer render. The seeded history
+ *  has 9 rows (0=genesis); the newest delta is the HEAD row. Passing an index
+ *  of an earlier delta selects a restorable, diffable version. Expands any
+ *  collapsed sessions first so the target row exists. */
+async function selectVersionByIndex(page, versionIndex) {
+  await expandSessions(page);
+  try {
+    const row = page
+      .locator(`[data-testid="version-row"][data-version-index="${versionIndex}"]`)
+      .first();
+    if (await row.count()) {
+      await row.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+      await row.click({ timeout: 3000 });
+      await page.waitForTimeout(700);
+      return true;
+    }
+    console.warn(`  ⚠ selectVersionByIndex(${versionIndex}): row not found`);
+  } catch (err) {
+    console.warn(`  ⚠ selectVersionByIndex(${versionIndex}): ${err.message}`);
+  }
+  return false;
+}
+
+/** Hide the note popup's comments thread (the "Lab comments" block that docks
+ *  below the document/sidebar row) for the duration of a capture. It eats ~230px
+ *  of popup height, which squeezes the document column so only a sliver of the
+ *  in-place diff shows. It is the body-row's next sibling inside the card. */
+async function hideNoteComments(page) {
+  try {
+    await page.evaluate(() => {
+      const row = Array.from(document.querySelectorAll("div")).find(
+        (d) =>
+          /flex-1/.test(d.className || "") &&
+          /overflow-hidden/.test(d.className || "") &&
+          /flex-row/.test(d.className || ""),
+      );
+      const comments = row?.nextElementSibling;
+      if (comments && /Lab comments/.test(comments.textContent || "")) {
+        comments.style.display = "none";
+      }
+    });
+    await page.waitForTimeout(200);
+  } catch {}
+}
+
+/** Scroll the note's document column so the in-place diff for the selected
+ *  version is in frame. The changed runs carry border-l-2 + an inline
+ *  borderLeftColor (the editor tint); we bring the FIRST changed run to near the
+ *  top of its scroll parent, leaving a little unchanged context above it, so the
+ *  green-added + red-removed blocks read in context rather than below the fold.
+ *  Returns the scrolled run count for logging. */
+async function scrollDiffIntoView(page) {
+  try {
+    await page.evaluate(() => {
+      const runs = Array.from(
+        document.querySelectorAll("div.border-l-2"),
+      ).filter((e) => e.style && e.style.borderLeftColor);
+      if (!runs.length) return;
+      const first = runs[0];
+      const scroller =
+        first.closest(".overflow-y-auto") ||
+        first.closest('[class*="overflow"]');
+      if (scroller) {
+        const sRect = scroller.getBoundingClientRect();
+        const rRect = first.getBoundingClientRect();
+        scroller.scrollTop += rRect.top - sRect.top - 56;
+      } else {
+        first.scrollIntoView({ block: "start", behavior: "instant" });
+      }
+    });
+    await page.waitForTimeout(350);
+  } catch {}
+}
+
+/** Cap the version-history sidebar's height to fit inside the popup card so its
+ *  internal version list scrolls and the sticky restore footer pins at the
+ *  card's bottom edge. The note popup body row lacks a min-h-0 clamp, so a long
+ *  sidebar (expanded list + footer) renders taller than the max-h-[90vh] card
+ *  and the footer overflows below the visible card. Capping the sidebar height
+ *  restores the intended "list scrolls, footer pinned" layout for capture. */
+async function capSidebarToCard(page) {
+  try {
+    await page.evaluate(() => {
+      const sidebar = document.querySelector(
+        '[data-testid="note-version-history-sidebar"]',
+      );
+      const occluder = document.querySelector(
+        '[data-tour-popup-occluding="note-detail"]',
+      );
+      const card =
+        occluder?.querySelector('div[class*="rounded-2xl"]') ??
+        occluder?.firstElementChild;
+      if (!sidebar || !card) return;
+      const cardR = card.getBoundingClientRect();
+      const sR = sidebar.getBoundingClientRect();
+      const capH = cardR.bottom - 16 - sR.top;
+      if (capH > 200) {
+        sidebar.style.maxHeight = capH + "px";
+        sidebar.style.height = capH + "px";
+      }
+    });
+    await page.waitForTimeout(250);
+  } catch {}
+}
+
+/** Tight clip around the note popup card (the rounded-2xl modal), excluding the
+ *  dimmed page behind it. */
+async function notePopupClip(page) {
+  try {
+    return await page.evaluate(() => {
+      const occluder = document.querySelector(
+        '[data-tour-popup-occluding="note-detail"]',
+      );
+      if (!occluder) return null;
+      // The white card is the occluder's child with rounded-2xl + shadow.
+      const card =
+        occluder.querySelector('div[class*="rounded-2xl"]') ?? occluder.firstElementChild;
+      if (!card) return null;
+      const r = card.getBoundingClientRect();
+      const pad = 16;
+      const x = Math.max(0, Math.floor(r.left - pad));
+      const y = Math.max(0, Math.floor(r.top - pad));
+      const width = Math.min(
+        Math.max(0, window.innerWidth - x),
+        Math.ceil(r.width + pad * 2),
+      );
+      const height = Math.min(
+        Math.max(0, window.innerHeight - y),
+        Math.ceil(r.height + pad * 2),
+      );
+      return { x, y, width, height };
+    });
+  } catch {
+    return null;
+  }
+}
+
 /** Routes that need the fixture mode (?wikiCapture=1) so realistic data
  *  renders. Each can specify a post-load action (e.g. click a button to
  *  open a modal). */
@@ -2190,6 +2432,231 @@ const FIXTURE_ROUTES = [
           `  ⚠ onboarding-resume-modal clip calc: ${err.message}`,
         );
       }
+    },
+  },
+  // ── Version history (Notes pilot) — wiki/features/version-history ──────────
+  // All five shots open the seeded note 5 ("qPCR optimization log") on
+  // /workbench and drive the version-history sidebar. The history is pre-seeded
+  // (real-engine jsonl) in installWikiCaptureFixture, so the sidebar populates
+  // with a multi-day, multi-editor (alex + morgan) timeline plus a live restore
+  // window.
+  {
+    // version-history-sidebar.png — the populated sidebar beside the note body.
+    // HEAD is auto-selected; expand the editing-session groups so the day
+    // headers + per-session rows + Current pin all read. Clip to the popup card.
+    path: "/workbench",
+    file: "version-history-sidebar.png",
+    waitFor: "text=Workbench, text=Notes",
+    settleMs: 700,
+    action: async (page) => {
+      if (!(await openSeededNote(page))) return;
+      if (!(await openHistorySidebar(page))) return;
+      await hideNoteComments(page);
+      // Expand the editing-session groups so the individual rows (avatar +
+      // one-line summary + relative time) show. HEAD stays auto-selected so the
+      // list stays scrolled to the top with the Current-version pin in frame and
+      // Today / Yesterday / dated day headers reading down the timeline.
+      await expandSessions(page);
+      // Scroll the version list back to the top (expanding can shift it).
+      try {
+        await page.evaluate(() => {
+          const list = document.querySelector('[data-testid="version-list"]');
+          if (list) list.scrollTop = 0;
+        });
+        await page.waitForTimeout(200);
+      } catch {}
+      const clip = await notePopupClip(page);
+      if (clip && clip.width > 100 && clip.height > 100) return { clip };
+    },
+  },
+  {
+    // version-history-diff.png — the in-place diff. Select morgan's draft-entry
+    // save (row 4) so the added run carries morgan's per-editor tint + avatar,
+    // visibly distinct from the alex-authored context around it.
+    path: "/workbench",
+    file: "version-history-diff.png",
+    waitFor: "text=Workbench, text=Notes",
+    settleMs: 700,
+    action: async (page) => {
+      if (!(await openSeededNote(page))) return;
+      if (!(await openHistorySidebar(page))) return;
+      // Hide the comments thread so the document column gets the full popup
+      // height and the diff block is not squeezed to a sliver.
+      await hideNoteComments(page);
+      // Select morgan's "edited entry 1 numbers" save (row 3): the change lands
+      // in the first running-log entry, so the in-place diff (green added + red
+      // strike-through removed, morgan's left-border tint + M avatar on each run)
+      // fills the document column. Scroll the changed block into frame so both
+      // the green-added and red-removed runs are visible together, with the full
+      // timeline on the right showing the alex + morgan editors.
+      await selectVersionByIndex(page, 3);
+      await scrollDiffIntoView(page);
+      const clip = await notePopupClip(page);
+      if (clip && clip.width > 100 && clip.height > 100) return { clip };
+    },
+  },
+  {
+    // version-history-compare-toggle.png — the Previous/Current segmented
+    // control with Previous selected (the default). Tight-clip the compare-base
+    // row at the top of the sidebar.
+    path: "/workbench",
+    file: "version-history-compare-toggle.png",
+    waitFor: "text=Workbench, text=Notes",
+    settleMs: 700,
+    action: async (page) => {
+      if (!(await openSeededNote(page))) return;
+      if (!(await openHistorySidebar(page))) return;
+      await selectVersionByIndex(page, 4);
+      // Ensure Previous is the active base (it is by default; click to be sure).
+      try {
+        const prev = page.locator('[data-testid="compare-previous"]').first();
+        if (await prev.count()) {
+          await prev.click({ timeout: 2000 }).catch(() => {});
+          await page.waitForTimeout(300);
+        }
+      } catch {}
+      // Clip a band around the compare toggle: from the sidebar's left edge
+      // (which is the toggle row) across the toggle and a little below.
+      const clip = await page.evaluate(() => {
+        const prev = document.querySelector('[data-testid="compare-previous"]');
+        if (!prev) return null;
+        // Walk up to the toggle row (the flex container holding the label +
+        // the segmented control).
+        let row = prev.parentElement;
+        while (row && !/Compare against/i.test(row.textContent || "")) {
+          row = row.parentElement;
+        }
+        if (!row) row = prev.closest("div");
+        const r = (row || prev).getBoundingClientRect();
+        const padX = 14;
+        const padY = 12;
+        const x = Math.max(0, Math.floor(r.left - padX));
+        const y = Math.max(0, Math.floor(r.top - padY));
+        const width = Math.min(
+          Math.max(0, window.innerWidth - x),
+          Math.ceil(r.width + padX * 2),
+        );
+        const height = Math.min(
+          Math.max(0, window.innerHeight - y),
+          Math.ceil(r.height + padY * 2),
+        );
+        return { x, y, width, height };
+      });
+      if (clip && clip.width > 80 && clip.height > 40) return { clip };
+    },
+  },
+  {
+    // version-history-restore.png — an earlier (non-current) version selected,
+    // the green "Restore this version" sticky footer shown WITH its inline
+    // confirm prompt. Select row 2 (an early alex save), then click the
+    // restore button so the inline confirm/cancel pair renders.
+    path: "/workbench",
+    file: "version-history-restore.png",
+    waitFor: "text=Workbench, text=Notes",
+    settleMs: 700,
+    action: async (page) => {
+      if (!(await openSeededNote(page))) return;
+      if (!(await openHistorySidebar(page))) return;
+      await hideNoteComments(page);
+      // Expand ONLY the oldest editing-session group (the MAY 29 "alex, 2
+      // versions" run) and select its "added entry" save (row 2). Keeping the
+      // other groups collapsed keeps the version list short so the sticky footer
+      // stays inside the popup card (a fully-expanded list overflows the card
+      // and pushes the footer below the fold). With a NON-HEAD version selected
+      // and restore enabled, the green "Restore this version" button renders in
+      // the footer. We leave it in its default (pre-confirm) state since the
+      // wiki caption foregrounds the Restore affordance; the inline
+      // confirm/cancel pair is its next step.
+      try {
+        const lastCollapsed = await page.evaluate(() => {
+          const groups = document.querySelectorAll(
+            '[data-testid="session-collapsed"]',
+          );
+          if (!groups.length) return false;
+          groups[groups.length - 1].click(); // oldest group = MAY 29
+          return true;
+        });
+        if (lastCollapsed) await page.waitForTimeout(400);
+      } catch {}
+      try {
+        const row = page
+          .locator('[data-testid="version-row"][data-version-index="2"]')
+          .first();
+        if (await row.count()) {
+          await row.click({ timeout: 3000 });
+          await page.waitForTimeout(600);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ version-history-restore select row: ${err.message}`);
+      }
+      try {
+        await page.waitForSelector('[data-testid="restore-button"]', {
+          timeout: 4000,
+        });
+      } catch {
+        console.warn("  ⚠ version-history-restore: restore button never rendered");
+      }
+      // Cap the sidebar so the sticky footer (green Restore button) pins inside
+      // the card instead of overflowing below the fold.
+      await capSidebarToCard(page);
+      const clip = await notePopupClip(page);
+      if (clip && clip.width > 100 && clip.height > 100) return { clip };
+    },
+  },
+  {
+    // version-history-undo.png — the popup header "Undo restore" affordance,
+    // live because note 5 carries a fresh 24h revert_undo_window. Open the note
+    // (the button is header-scoped, no sidebar needed) and tight-clip the
+    // popup header band so the Undo restore button is the focus.
+    path: "/workbench",
+    file: "version-history-undo.png",
+    waitFor: "text=Workbench, text=Notes",
+    settleMs: 700,
+    action: async (page) => {
+      if (!(await openSeededNote(page))) return;
+      // Confirm the undo button is present before clipping.
+      try {
+        await page.waitForSelector('[data-testid="note-undo-restore-button"]', {
+          timeout: 4000,
+        });
+      } catch {
+        console.warn("  ⚠ version-history-undo: undo button never rendered");
+      }
+      // Clip the popup header region (title row through the action buttons) so
+      // the Undo restore button reads clearly without the whole note body.
+      const clip = await page.evaluate(() => {
+        const undo = document.querySelector(
+          '[data-testid="note-undo-restore-button"]',
+        );
+        const occluder = document.querySelector(
+          '[data-tour-popup-occluding="note-detail"]',
+        );
+        const card =
+          occluder?.querySelector('div[class*="rounded-2xl"]') ??
+          occluder?.firstElementChild;
+        if (!card) return null;
+        const cardR = card.getBoundingClientRect();
+        const pad = 16;
+        const x = Math.max(0, Math.floor(cardR.left - pad));
+        const y = Math.max(0, Math.floor(cardR.top - pad));
+        const width = Math.min(
+          Math.max(0, window.innerWidth - x),
+          Math.ceil(cardR.width + pad * 2),
+        );
+        // Height: from the card top down to a bit below the undo button (or a
+        // sensible default header band if the button query missed).
+        let bottom = cardR.top + 150;
+        if (undo) {
+          const uR = undo.getBoundingClientRect();
+          bottom = Math.max(bottom, uR.bottom + 24);
+        }
+        const height = Math.min(
+          Math.max(0, window.innerHeight - y),
+          Math.ceil(bottom - cardR.top + pad),
+        );
+        return { x, y, width, height };
+      });
+      if (clip && clip.width > 100 && clip.height > 60) return { clip };
     },
   },
 ];
