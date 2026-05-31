@@ -47,9 +47,15 @@ type CMModules = {
   syntaxHighlighting: typeof import("@codemirror/language").syntaxHighlighting;
   HighlightStyle: typeof import("@codemirror/language").HighlightStyle;
   tags: typeof import("@lezer/highlight").tags;
-  // Chip 2a: the caret-aware inline-reveal layer (plugin + theme). View-only,
-  // so the chip 1 round-trip + save contract are untouched.
+  // Chip 2a: the caret-aware inline-reveal layer (plugin + theme). Chip 2b
+  // extends the same extension with the block + image widgets and the
+  // hybrid-parity markdown keymap; the plugin stays view-only (the keymap is the
+  // only doc-dispatching member, on a user keypress), so the chip 1 round-trip +
+  // save contract are untouched.
   inlineRevealExtension: typeof import("@/lib/markdown/cm-inline-reveal/inline-reveal").inlineRevealExtension;
+  // Chip 2b: configures the image widget's relative-src -> blob-URL resolution
+  // with the editor base path, matching the LiveMarkdownEditor preview.
+  imageBasePathExt: typeof import("@/lib/markdown/cm-inline-reveal/inline-reveal").imageBasePathExt;
 };
 
 interface InlineMarkdownEditorProps {
@@ -77,6 +83,10 @@ interface InlineMarkdownEditorProps {
   /** Fluid ch-based measure class (Narrow / Comfortable / Wide / Full-bleed),
    *  mirroring how LiveMarkdownEditor centers the preview + focus surfaces. */
   measureClass?: string;
+  /** Chip 2b: the directory a relative image src (Images/...) resolves against,
+   *  so the inline image widget mints the same blob URL the preview does. When
+   *  unset the blobUrlResolver falls back to the data root (wrapper parity). */
+  imageBasePath?: string;
 }
 
 /**
@@ -85,7 +95,11 @@ interface InlineMarkdownEditorProps {
  * caret-aware reveal (inlineRevealExtension) on top of this; the underlying
  * syntax highlight remains as the source-mode color for revealed tokens.
  */
-function buildExtensions(mods: CMModules, editable: boolean) {
+function buildExtensions(
+  mods: CMModules,
+  editable: boolean,
+  imageBasePath: string | undefined,
+) {
   const {
     EditorState,
     EditorView,
@@ -102,6 +116,7 @@ function buildExtensions(mods: CMModules, editable: boolean) {
     HighlightStyle,
     tags,
     inlineRevealExtension,
+    imageBasePathExt,
   } = mods;
 
   const highlightStyle = HighlightStyle.define([
@@ -150,8 +165,11 @@ function buildExtensions(mods: CMModules, editable: boolean) {
     // markdown() never rewrites the doc, so the round-trip stays byte-exact.
     markdown({ base: markdownLanguage }),
     syntaxHighlighting(highlightStyle),
-    // Chip 2a: caret-aware marker hide/reveal (decorations + atomicRanges +
-    // theme). Purely a view layer over the same document.
+    // Chip 2a + 2b: caret-aware marker hide/reveal (decorations + atomicRanges +
+    // theme) plus the block / image widgets and the hybrid-parity markdown
+    // keymap. Spread AFTER the markdown language so the keymap (Prec.high) wins.
+    // The image-base-path facet configures the image widget's blob resolution.
+    imageBasePathExt(imageBasePath),
     inlineRevealExtension,
     EditorView.lineWrapping,
     theme,
@@ -170,6 +188,7 @@ export default function InlineMarkdownEditor({
   onExplicitSave,
   onDirtyChange,
   measureClass,
+  imageBasePath,
 }: InlineMarkdownEditorProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<import("@codemirror/view").EditorView | null>(null);
@@ -182,6 +201,10 @@ export default function InlineMarkdownEditor({
   const onChangeRef = useRef(onChange);
   const onExplicitSaveRef = useRef(onExplicitSave);
   const onDirtyChangeRef = useRef(onDirtyChange);
+  // Chip 2b: mirror imageBasePath into a ref so the once-at-mount makeState can
+  // read the current value (and the disabled-reconfigure picks up a later swap)
+  // without re-binding the whole editor or destabilizing makeState.
+  const imageBasePathRef = useRef(imageBasePath);
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
@@ -191,6 +214,9 @@ export default function InlineMarkdownEditor({
   useEffect(() => {
     onDirtyChangeRef.current = onDirtyChange;
   }, [onDirtyChange]);
+  useEffect(() => {
+    imageBasePathRef.current = imageBasePath;
+  }, [imageBasePath]);
 
   // Dirty flag (this editor owns it; NOT shared with the hybrid buffer). Flips
   // true on the first user edit after a mount / external value swap / save.
@@ -250,7 +276,11 @@ export default function InlineMarkdownEditor({
       ]);
       return mods.EditorState.create({
         doc,
-        extensions: [saveKeymap, updateListener, ...buildExtensions(mods, editable)],
+        extensions: [
+          saveKeymap,
+          updateListener,
+          ...buildExtensions(mods, editable, imageBasePathRef.current),
+        ],
       });
     },
     [setDirty],
@@ -299,6 +329,7 @@ export default function InlineMarkdownEditor({
         HighlightStyle: languageMod.HighlightStyle,
         tags: highlightMod.tags,
         inlineRevealExtension: inlineRevealMod.inlineRevealExtension,
+        imageBasePathExt: inlineRevealMod.imageBasePathExt,
       };
       modsRef.current = mods;
 

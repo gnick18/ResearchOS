@@ -44,4 +44,44 @@ export const inlineRevealTheme = EditorView.baseTheme({
   ".cm-h4": { fontWeight: "700" },
   ".cm-h5": { fontWeight: "700" },
   ".cm-h6": { fontWeight: "700" },
+
+  // Block-widget chrome (chip 2b). A Table or FencedCode block that the caret is
+  // not inside collapses into a rendered widget; these styles give the rendered
+  // table / code block readable spacing inside the editor flow. The widget DOM is
+  // sanitized markdown HTML, so we style by element under the wrapper class.
+  ".cm-inline-block": {
+    margin: "0.5em 0",
+  },
+  ".cm-inline-table table": {
+    borderCollapse: "collapse",
+    width: "auto",
+    fontSize: "0.95em",
+  },
+  ".cm-inline-table th, .cm-inline-table td": {
+    border: "1px solid #d1d5db",
+    padding: "0.25em 0.6em",
+    textAlign: "left",
+  },
+  ".cm-inline-table th": {
+    backgroundColor: "rgba(0, 0, 0, 0.03)",
+    fontWeight: "600",
+  },
+  ".cm-inline-fenced pre": {
+    margin: "0",
+    padding: "0.6em 0.8em",
+    borderRadius: "6px",
+    backgroundColor: "rgba(0, 0, 0, 0.04)",
+    overflowX: "auto",
+  },
+  ".cm-inline-fenced code": {
+    fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+    fontSize: "0.9em",
+  },
+  // Inline image widget (chip 2b): the resolved <img> for an untouched Image
+  // node. Constrained so a large figure does not blow out the writing column.
+  ".cm-inline-image img": {
+    maxWidth: "100%",
+    borderRadius: "6px",
+    verticalAlign: "middle",
+  },
 });

@@ -25,8 +25,8 @@
  * reuse markdownSanitizeSchema (allowComments:true); this chip renders no HTML.
  */
 
-import { RangeSetBuilder } from "@codemirror/state";
-import type { EditorState } from "@codemirror/state";
+import { Facet, RangeSetBuilder, StateField } from "@codemirror/state";
+import type { EditorState, Extension } from "@codemirror/state";
 import {
   Decoration,
   EditorView,
@@ -43,6 +43,25 @@ import {
 } from "./marker-taxonomy";
 import { selectionTouchesNode } from "./selection-touches";
 import { inlineRevealTheme } from "./theme";
+import { TableWidget, FencedCodeWidget } from "./block-widgets";
+import { ImageWidget } from "./image-widget";
+import { markdownKeymap } from "./markdown-keymap";
+
+/**
+ * The image base path used by the inline image widget to resolve relative srcs
+ * (Images/...) to blob URLs, matching the LiveMarkdownEditor preview. The editor
+ * supplies it via imageBasePathExt(basePath); when unset, the resolver falls
+ * back to the data root (the same fallback the wrapper uses). Facet.combine
+ * takes the first configured value (single producer in practice).
+ */
+export const imageBasePathFacet = Facet.define<string | undefined, string | undefined>({
+  combine: (values) => (values.length > 0 ? values[0] : undefined),
+});
+
+/** Wrap a base path as the extension the editor spreads in to configure it. */
+export function imageBasePathExt(basePath: string | undefined) {
+  return imageBasePathFacet.of(basePath);
+}
 
 /**
  * A single decoration range collected during the walk. We collect into plain
@@ -104,6 +123,7 @@ export function buildDeco(view: EditorView): InlineRevealDecorations {
   const { state } = view;
   const sel = state.selection;
   const tree = syntaxTree(state);
+  const imageBasePath = state.facet(imageBasePathFacet);
 
   const combinedRanges: CollectedRange[] = [];
   const atomicRanges: CollectedRange[] = [];
@@ -117,6 +137,36 @@ export function buildDeco(view: EditorView): InlineRevealDecorations {
       to: visTo,
       enter: (node) => {
         const name = node.name;
+
+        // BLOCK WIDGETS (Table / FencedCode) are NOT emitted here. CM6 forbids
+        // block decorations from a ViewPlugin.decorations provider ("Block
+        // decorations may not be specified via plugins"), so they live in a
+        // StateField (buildBlockDeco / blockWidgetField below). We still skip
+        // descending into an UNTOUCHED block here, so this walk never emits inner
+        // marker decorations that would sit underneath the block widget; a
+        // TOUCHED block is descended so its (rare) inline children still style.
+        if (name === "Table" || name === "FencedCode") {
+          const touched = selectionTouchesNode(sel, node.from, node.to);
+          return touched ? undefined : false;
+        }
+
+        // IMAGE inline widget. An untouched Image renders as the resolved <img>
+        // (inline replace + atomic); a touched Image falls through to the normal
+        // container path so the raw ![alt](src) source shows. Skip children when
+        // we emit the widget so the LinkMark / URL collapse does not also fire.
+        if (name === "Image") {
+          const touched = selectionTouchesNode(sel, node.from, node.to);
+          if (!touched && node.to > node.from) {
+            const source = state.sliceDoc(node.from, node.to);
+            const deco = Decoration.replace({
+              widget: new ImageWidget(source, imageBasePath),
+            });
+            combinedRanges.push({ from: node.from, to: node.to, deco });
+            atomicRanges.push({ from: node.from, to: node.to, deco });
+            return false;
+          }
+          // Touched: fall through to container handling below (source shows).
+        }
 
         if (isContainerNode(name)) {
           const revealed = selectionTouchesNode(sel, node.from, node.to);
@@ -195,6 +245,50 @@ function toSet(ranges: CollectedRange[]): DecorationSet {
 }
 
 /**
+ * buildBlockDeco: the BLOCK-widget pass (Table / FencedCode), kept separate from
+ * the inline buildDeco walk because CM6 only accepts block decorations from a
+ * StateField, not a ViewPlugin. This walks the whole document (a StateField has
+ * no viewport), but the walk only enters top-level blocks and returns false from
+ * every Table / FencedCode so it never descends into their (large) bodies, so it
+ * stays cheap. A block the selection does NOT touch becomes a single block:true
+ * Decoration.replace({ widget }) over its full range, fed into BOTH the combined
+ * set (so it renders) and the atomic set (so the caret cannot land inside the
+ * collapsed source). A block the selection touches emits no widget, so the raw
+ * source shows as editable text, on the same selectionSet trigger as the inline
+ * markers.
+ */
+export function buildBlockDeco(state: EditorState): InlineRevealDecorations {
+  const sel = state.selection;
+  const tree = syntaxTree(state);
+  const blockRanges: CollectedRange[] = [];
+  const atomicRanges: CollectedRange[] = [];
+
+  tree.iterate({
+    enter: (node) => {
+      const name = node.name;
+      if (name !== "Table" && name !== "FencedCode") return undefined;
+      // Do not descend into the block body either way (return false below).
+      const touched = selectionTouchesNode(sel, node.from, node.to);
+      if (touched || node.to <= node.from) return false;
+      const source = state.sliceDoc(node.from, node.to);
+      const widget =
+        name === "Table"
+          ? new TableWidget(source)
+          : new FencedCodeWidget(source);
+      const deco = Decoration.replace({ widget, block: true });
+      blockRanges.push({ from: node.from, to: node.to, deco });
+      atomicRanges.push({ from: node.from, to: node.to, deco });
+      return false;
+    },
+  });
+
+  return {
+    combined: toSet(blockRanges),
+    atomic: toSet(atomicRanges),
+  };
+}
+
+/**
  * The inline-reveal ViewPlugin. Holds the combined decoration set and the
  * replace-only atomic set, rebuilding on any of the four triggers:
  *   - docChanged: edits change token ranges.
@@ -246,7 +340,57 @@ export const inlineReveal = ViewPlugin.fromClass(InlineRevealPlugin, {
     }),
 });
 
+/** The block-widget field value: the render set + the atomic (replace) set. */
+interface BlockDecoState {
+  decorations: DecorationSet;
+  atomic: DecorationSet;
+}
+
 /**
- * The single extension to spread into the editor: the plugin plus its theme.
+ * blockWidgetField: a StateField holding the Table / FencedCode block widgets.
+ * Block decorations MUST come from a StateField (CM6 rejects them from a
+ * ViewPlugin), so this is the block counterpart to the inlineReveal plugin. It
+ * recomputes when the document changes, the selection changes (the reveal
+ * trigger), or the parsed tree identity changes (lezer finished an incremental /
+ * async parse a tick after an edit). It provides BOTH EditorView.decorations
+ * (the block widgets) and EditorView.atomicRanges (so the caret skips the
+ * collapsed block source).
  */
-export const inlineRevealExtension = [inlineReveal, inlineRevealTheme];
+const blockWidgetField = StateField.define<BlockDecoState>({
+  create(state) {
+    const built = buildBlockDeco(state);
+    return { decorations: built.combined, atomic: built.atomic };
+  },
+  update(value, tr) {
+    const treeMoved = syntaxTree(tr.startState) !== syntaxTree(tr.state);
+    if (!tr.docChanged && !tr.selection && !treeMoved) return value;
+    const built = buildBlockDeco(tr.state);
+    return { decorations: built.combined, atomic: built.atomic };
+  },
+  provide: (field) => [
+    EditorView.decorations.from(field, (v) => v.decorations),
+    EditorView.atomicRanges.of((view) => view.state.field(field).atomic),
+  ],
+});
+
+/**
+ * The single extension to spread into the editor:
+ *   - inlineReveal: the ViewPlugin for inline marks + inline replaces + the
+ *     inline image widget (viewport-scoped, selection-driven).
+ *   - blockWidgetField: the StateField for the Table / FencedCode block widgets
+ *     (block decorations cannot come from a plugin).
+ *   - inlineRevealTheme: inline-mark + block-widget + image styling.
+ *   - markdownKeymap: the hybrid-parity shortcuts at Prec.high, so they win over
+ *     the markdown language + default keymaps regardless of order; the editor
+ *     still spreads this AFTER the language extension.
+ *
+ * The reveal plugin + block field stay VIEW-ONLY (decorations + widgets, no doc
+ * mutation); markdownKeymap is the ONLY member that dispatches doc changes, and
+ * only on a user keypress. The byte-for-byte round-trip is therefore preserved.
+ */
+export const inlineRevealExtension: Extension = [
+  inlineReveal,
+  blockWidgetField,
+  inlineRevealTheme,
+  markdownKeymap,
+];
