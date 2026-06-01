@@ -137,6 +137,120 @@ function FeatureCard({
   );
 }
 
+/** A large image-plus-text "hero" band for a flagship feature: a big
+ *  expandable screenshot on one side, an eyebrow + headline + prose + a short
+ *  proof list on the other. Bands alternate which side the image sits on via
+ *  `imageSide`; on mobile the image always stacks above the text. The
+ *  screenshot reuses the same lightbox-expand affordance as FeatureCard so a
+ *  reader can open it full size. */
+function HeroBand({
+  eyebrow,
+  title,
+  src,
+  alt,
+  imageSide,
+  points,
+  onExpand,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  src: string;
+  alt: string;
+  imageSide: "left" | "right";
+  points: string[];
+  onExpand: (image: LightboxImage) => void;
+  children: ReactNode;
+}) {
+  const image = (
+    <button
+      type="button"
+      onClick={() => onExpand({ src, alt })}
+      aria-label={`Expand image: ${alt}`}
+      className="group relative block aspect-[16/10] w-full cursor-zoom-in overflow-hidden rounded-2xl border border-gray-200 bg-slate-100 shadow-sm"
+    >
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        unoptimized
+        sizes="(max-width: 768px) 100vw, 50vw"
+        className="object-cover object-top transition-transform duration-300 group-hover:scale-[1.03]"
+      />
+      {/* Same hover veil + zoom chip as FeatureCard so it reads as clickable. */}
+      <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-slate-900/0 transition-colors duration-200 group-hover:bg-slate-900/20">
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-gray-800 opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100">
+          <svg
+            className="h-5 w-5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+            aria-hidden
+          >
+            <circle cx="11" cy="11" r="7" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M21 21l-3.5-3.5M11 8.5v5M8.5 11h5"
+            />
+          </svg>
+        </span>
+      </span>
+    </button>
+  );
+
+  const text = (
+    <div className="flex flex-col justify-center">
+      <span className="text-sm font-semibold uppercase tracking-wide text-sky-600">
+        {eyebrow}
+      </span>
+      <h3 className="mt-2 text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+        {title}
+      </h3>
+      <p className="mt-3 text-base leading-relaxed text-gray-600">{children}</p>
+      <ul className="mt-5 flex flex-col gap-2.5">
+        {points.map((point) => (
+          <li key={point} className="flex items-start gap-2.5">
+            <svg
+              className="mt-0.5 h-5 w-5 flex-shrink-0 text-sky-600"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+            <span className="text-sm leading-relaxed text-gray-700">
+              {point}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+
+  return (
+    <div className="grid items-center gap-8 md:grid-cols-2 md:gap-12">
+      {/* Mobile: image always first (stacked above the text). On md+ the
+          order flips so alternating bands sit the image left or right. The
+          text column carries an explicit order so it pairs with its image
+          regardless of source order. */}
+      <div className={imageSide === "left" ? "md:order-1" : "md:order-2"}>
+        {image}
+      </div>
+      <div className={imageSide === "left" ? "md:order-2" : "md:order-1"}>
+        {text}
+      </div>
+    </div>
+  );
+}
+
 /**
  * Modal lightbox for expanding a feature screenshot. Opens centered with a
  * margin (never full-bleed), dims and blurs the page behind it, and closes on
@@ -553,6 +667,69 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
         </div>
       </section>
 
+      {/* ── Flagship feature heroes ──────────────────────────────────────
+          Two large image-plus-text bands for the two features that most set
+          ResearchOS apart from a cloud ELN: full version history on your own
+          machine, and a structured template library that ships the original
+          vendor source PDF bundled with each protocol. They lead the feature
+          story; the FeatureCard grid below fills in the rest. */}
+      <section className="bg-white py-20">
+        <div className="mx-auto max-w-6xl px-6">
+          <div className="mx-auto mb-14 max-w-2xl text-center">
+            <span className="text-sm font-semibold uppercase tracking-wide text-sky-600">
+              The features that set us apart
+            </span>
+            <h2 className="mt-2 text-3xl font-bold tracking-tight text-gray-900">
+              Two things a cloud notebook makes you wait for
+            </h2>
+            <p className="mt-3 text-base leading-relaxed text-gray-600">
+              These are not on a roadmap or behind a paywall. They are built in,
+              free, and running on your own machine.
+            </p>
+          </div>
+          <div className="flex flex-col gap-16 md:gap-24">
+            <HeroBand
+              eyebrow="Version history"
+              title="Every change is kept, and you can roll it back"
+              src="/wiki/screenshots/version-history-diff.png"
+              alt="The per-editor version-history diff on a note in ResearchOS"
+              imageSide="left"
+              onExpand={setLightbox}
+              points={[
+                "A full, restorable edit history on your notes, tasks, and projects",
+                "Per-editor diffs show exactly who changed what, and when",
+                "A 24-hour undo window if a restore was the wrong call",
+              ]}
+            >
+              On your records, every save is kept. Open the timeline beside a
+              note, task, or project, see a per-editor diff of what changed, and
+              restore any earlier version in a click. This is the thing most
+              cloud notebooks gate behind a paid tier or leave on a roadmap.
+              Here it is built in, free, and on your own machine.
+            </HeroBand>
+            <HeroBand
+              eyebrow="Bulletproof templates"
+              title="Protocols you can check against the original insert"
+              src="/wiki/screenshots/method-catalog-source-pdf.png"
+              alt="A structured catalog template beside its bundled source PDF in ResearchOS"
+              imageSide="right"
+              onExpand={setLightbox}
+              points={[
+                "Each template starts from a structured, vendor-grounded protocol",
+                "The original source PDF travels bundled with the template",
+                "Verify any concentration or cycling step against the exact insert",
+              ]}
+            >
+              Start from a structured, vendor-grounded protocol template instead
+              of a blank page. The original source PDF travels bundled with it,
+              so any reagent concentration or cycling parameter can be checked
+              against the exact insert it came from. No other electronic lab
+              notebook ships its protocols this way.
+            </HeroBand>
+          </div>
+        </div>
+      </section>
+
       {/* ── Feature showcase ─────────────────────────────────────────── */}
       <section className="bg-slate-50 py-20">
         <div className="mx-auto max-w-6xl px-6">
@@ -586,10 +763,10 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               onExpand={setLightbox}
               src="/wiki/screenshots/methods-library.png"
               alt="The protocol and methods library in ResearchOS"
-              title="Protocols that do the math"
+              title="Recipes that do the math"
             >
-              Build a reusable library of methods. PCR and qPCR recipes even
-              calculate your reaction volumes for you.
+              PCR and qPCR protocols scale your reaction mix for you, so the
+              per-tube volumes are worked out before you reach for a pipette.
             </FeatureCard>
             <FeatureCard
               onExpand={setLightbox}

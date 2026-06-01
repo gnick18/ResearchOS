@@ -2659,6 +2659,113 @@ const FIXTURE_ROUTES = [
       if (clip && clip.width > 100 && clip.height > 60) return { clip };
     },
   },
+  // ── Template library money shot — landing hero band 2 ──────────────────────
+  // method-catalog-source-pdf.png (landing-hero-cards sub-bot of HR,
+  // 2026-06-01). Opens the Template library modal on /methods, narrows to the
+  // Kits category, and selects the bundled-PDF "Qubit dsDNA HS assay" template
+  // so the detail pane shows the structured, vendor-grounded preview PLUS the
+  // "Includes a bundled source PDF (Qubit_dsDNA_HS_Assay_UG.pdf)" line — the
+  // differentiator that the original source insert travels with the template.
+  // Clips to the modal's white card so the dimmed page + floating dev cluster
+  // stay out of frame.
+  {
+    path: "/methods",
+    file: "method-catalog-source-pdf.png",
+    waitFor: "text=Methods",
+    settleMs: 1000,
+    action: async (page) => {
+      // Open the Template library modal.
+      try {
+        const btn = page
+          .locator('[data-tour-target="methods-template-library-button"]')
+          .first();
+        if (!(await btn.count())) {
+          console.warn("  ⚠ method-catalog-source-pdf: library button missing");
+          return;
+        }
+        await btn.click({ timeout: 4000 });
+        await page.waitForTimeout(1000);
+      } catch (err) {
+        console.warn(`  ⚠ method-catalog-source-pdf open modal: ${err.message}`);
+        return;
+      }
+      // Ensure the Templates segment is active (it is by default in some builds;
+      // click to be sure so the catalog cards render).
+      try {
+        const tplSeg = page
+          .locator("button")
+          .filter({ hasText: /^Templates$/ })
+          .first();
+        if (await tplSeg.count()) {
+          await tplSeg.click({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(800);
+        }
+      } catch {}
+      // Narrow to the Kits category so the bundled-PDF Qubit assay is in the
+      // first column of cards (it lives under Kits, below the fold otherwise).
+      try {
+        const kits = page
+          .locator("button")
+          .filter({ hasText: /^Kits\b/ })
+          .first();
+        if (await kits.count()) {
+          await kits.click({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(800);
+        }
+      } catch {}
+      // Select the Qubit dsDNA HS assay template so the detail pane renders the
+      // structured preview + the bundled-source-PDF line.
+      try {
+        const qubit = page.getByText(/Qubit dsDNA HS/i).first();
+        if (!(await qubit.count())) {
+          console.warn("  ⚠ method-catalog-source-pdf: qubit card not found");
+          return;
+        }
+        await qubit.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+        await qubit.click({ timeout: 3000 });
+        await page.waitForTimeout(1500);
+      } catch (err) {
+        console.warn(`  ⚠ method-catalog-source-pdf select card: ${err.message}`);
+        return;
+      }
+      // Confirm the bundled-PDF line rendered (the differentiator we are after)
+      // before clipping; warn but still capture if the text query misses.
+      try {
+        await page.waitForFunction(
+          () => /bundled source PDF/i.test(document.body.innerText),
+          { timeout: 4000 },
+        );
+      } catch {
+        console.warn(
+          "  ⚠ method-catalog-source-pdf: bundled-PDF line never rendered",
+        );
+      }
+      // Clip to the modal's white card (the rounded-xl shadow-2xl wrapper inside
+      // the fixed-inset-0 z-50 backdrop), excluding the dimmed page behind it.
+      const clip = await page.evaluate(() => {
+        const backdrop = document.querySelector(".fixed.inset-0.z-50");
+        if (!backdrop) return null;
+        const card =
+          backdrop.querySelector('div[class*="rounded-xl"][class*="shadow-2xl"]') ??
+          backdrop.firstElementChild;
+        if (!card) return null;
+        const r = card.getBoundingClientRect();
+        const pad = 12;
+        const x = Math.max(0, Math.floor(r.left - pad));
+        const y = Math.max(0, Math.floor(r.top - pad));
+        const width = Math.min(
+          Math.max(0, window.innerWidth - x),
+          Math.ceil(r.width + pad * 2),
+        );
+        const height = Math.min(
+          Math.max(0, window.innerHeight - y),
+          Math.ceil(r.height + pad * 2),
+        );
+        return { x, y, width, height };
+      });
+      if (clip && clip.width > 200 && clip.height > 200) return { clip };
+    },
+  },
 ];
 
 /** Hide dev/beta UI that distracts from docs. Re-applied per page.
