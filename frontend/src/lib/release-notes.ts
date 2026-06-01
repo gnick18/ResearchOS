@@ -50,6 +50,17 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: ReadonlyArray<ReleaseNote> = [
   {
+    version: "0.2.0",
+    date: "2026-06-01",
+    highlights: [
+      "Version history on your notes, tasks, and projects: every save is kept, with per-editor diffs, one-click restore, and a 24-hour undo",
+      "A prebuilt template library for the major PCR, qPCR, cloning, and prep kits, each bundled with the original vendor insert so you can check any value against the source",
+      "Built-in lab calculators for molarity, dilutions, serial dilutions, primer Tm, DNA and RNA, and buffers, reachable from anywhere",
+      "Smarter reordering in Purchases: one-tap quick reorder, one-click buy again, and reorder reminders that learn your cadence",
+      "Polish: a wider, easier-to-scan widget picker, and long task lists that scroll cleanly instead of overflowing",
+    ],
+  },
+  {
     version: "0.1.0",
     date: "2026-05-29",
     highlights: [
