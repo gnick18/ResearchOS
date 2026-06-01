@@ -609,12 +609,12 @@ export default function SnapshotCanvas({
             data-tour-target={
               usesHomeTourAnchors ? "home-widget-catalog" : undefined
             }
-            className="absolute top-full right-0 mt-2 w-[min(40rem,calc(100vw-2rem))] bg-white border border-gray-200 rounded-xl shadow-lg z-30 max-h-[70vh] overflow-auto"
+            className="absolute top-full right-0 mt-2 w-[min(52rem,calc(100vw-2rem))] bg-white border border-gray-200 rounded-xl shadow-lg z-30 max-h-[70vh] overflow-auto"
             role="dialog"
             aria-label="Add widget palette"
           >
             <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-gray-100 bg-white/95 px-3 py-2 backdrop-blur">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">
                 Add a widget
               </p>
               <Tooltip label="Close" placement="left">
@@ -637,15 +637,15 @@ export default function SnapshotCanvas({
                 No widgets available for your account type.
               </p>
             ) : (
-              <div className="space-y-4 bg-gray-50/40 p-3">
+              <div className="space-y-6 bg-gray-50/40 p-3">
                 {catalogGroups.map((group) => (
                   <section key={group.toolId}>
                     {catalogGroups.length > 1 && (
-                      <p className="mb-1.5 px-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                      <p className="mb-2 px-0.5 text-sm font-bold uppercase tracking-wider text-gray-700">
                         {group.label}
                       </p>
                     )}
-                    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
                       {group.widgets.map((widget) => (
                         <WidgetCard
                           key={widget.id}
