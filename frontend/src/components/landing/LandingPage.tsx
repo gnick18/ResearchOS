@@ -716,14 +716,15 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               onExpand={setLightbox}
               points={[
                 "Templates for the major PCR, qPCR, cloning, and prep kits",
-                "From NEB, Thermo Fisher, Bio-Rad, QIAGEN, Promega, and Takara",
+                "From NEB, Thermo Fisher, Bio-Rad, QIAGEN, Promega, Takara, and Roche/KAPA",
                 "The original vendor insert is bundled with every one",
               ]}
             >
               We have built a structured template library for the major
               molecular biology kits: the PCR and qPCR master mixes,
               polymerases, and cloning and prep kits from NEB, Thermo Fisher,
-              Bio-Rad, QIAGEN, Promega, and Takara. Drop one into your protocol
+              Bio-Rad, QIAGEN, Promega, Takara, and Roche/KAPA. Drop one into
+              your protocol
               and the reaction setup is already filled in, with the original
               vendor insert bundled alongside it so any value can be checked
               against the source it came from.
