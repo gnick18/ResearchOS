@@ -2,6 +2,10 @@
 
 Author: HR orchestrator, 2026-05-31, from a strategy discussion with Grant. This is a BRIEF, not the page. The landing page (`frontend/src/components/landing/LandingPage.tsx`) is owned by the parallel chat; this doc hands it precise replacement copy + the strategy behind it. HR drafts, the parallel chat executes the actual edits.
 
+## SUPERSEDED 2026-06-01: the model changed to free + voluntary donations
+
+Grant changed direction. There is NO paid hosted tier, NO founding-lab price, and NO LLC. The model is now: ResearchOS is free and open source for every lab, funded by a UW-Madison RISE fellowship for roughly the next 18 months, and sustained later by VOLUNTARY contributions from labs that come to rely on it and can afford to chip in (which keeps it free for the labs that cannot). License is AGPLv3 and the relicense is unblocked (at UW-Madison, WARF does not auto-own IP, so a solo author keeps it). The CLA was dropped. The "open-core / founding-lab paid tier" framing below is OBSOLETE. Keep only the honesty discipline: never promise "free forever, we will never charge"; say "free and open, supported by a fellowship and voluntary contributions." The Support modal, landing copy, and README were already realigned to this model on 2026-06-01.
+
 ## Why this exists (the liability)
 
 The landing page currently makes an absolute "free forever, no pricing page ever" promise. We are about to build a paid hosted tier, so that copy would become a walk-back that damages trust. The fix is not to hide the money story. It is to tell the HONEST open-core version, where the promise we keep is real and the revenue path is clear.
