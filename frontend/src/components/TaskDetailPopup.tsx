@@ -787,7 +787,7 @@ export default function TaskDetailPopup({
           />
         )}
         <div
-          className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 flex flex-col overflow-hidden"
+          className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 flex flex-col overflow-hidden max-h-[90vh]"
           style={{
             boxShadow:
               "0 1px 3px rgba(0,0,0,0.06), 0 16px 40px -8px rgba(0,0,0,0.22)",
@@ -810,7 +810,7 @@ export default function TaskDetailPopup({
             />
           )}
           {/* Minimal Header */}
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 flex-shrink-0">
             <div className="flex items-center gap-2 flex-1 mr-2 min-w-0">
               {/* PI Phase 5 — Request edit button (simple-task header). */}
               {labHeadGate.canRequestEdit && !labHeadGate.unlocked && labHeadGate.activeUser && (
@@ -1876,9 +1876,9 @@ function SimpleTaskChecklist({
   }, [subTasks, task, tasksApi, queryClient]);
 
   return (
-    <div className="p-3">
+    <div className="p-3 flex-1 min-h-0 flex flex-col">
       {/* Sub-tasks list */}
-      <div className="space-y-1 mb-2.5">
+      <div className="space-y-1 mb-2.5 flex-1 min-h-0 overflow-y-auto">
         {subTasks.map((st, idx) => (
           <div
             key={st.id}
@@ -1933,7 +1933,7 @@ function SimpleTaskChecklist({
 
       {/* Add new sub-task - hidden in readOnly mode */}
       {!readOnly && (
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-shrink-0 pt-1">
           <input
             type="text"
             value={newSubTaskText}
