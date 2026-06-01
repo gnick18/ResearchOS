@@ -680,7 +680,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               The features that set us apart
             </span>
             <h2 className="mt-2 text-3xl font-bold tracking-tight text-gray-900">
-              Two things a cloud notebook makes you wait for
+              Two features you would expect to pay for
             </h2>
             <p className="mt-3 text-base leading-relaxed text-gray-600">
               These are not on a roadmap or behind a paywall. They are built in,
@@ -708,23 +708,25 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               Here it is built in, free, and on your own machine.
             </HeroBand>
             <HeroBand
-              eyebrow="Bulletproof templates"
-              title="Protocols you can check against the original insert"
+              eyebrow="Prebuilt kit library"
+              title="A prebuilt library of the major lab kits"
               src="/wiki/screenshots/method-catalog-source-pdf.png"
-              alt="A structured catalog template beside its bundled source PDF in ResearchOS"
+              alt="The ResearchOS prebuilt library of molecular biology kit templates"
               imageSide="right"
               onExpand={setLightbox}
               points={[
-                "Each template starts from a structured, vendor-grounded protocol",
-                "The original source PDF travels bundled with the template",
-                "Verify any concentration or cycling step against the exact insert",
+                "Templates for the major PCR, qPCR, cloning, and prep kits",
+                "From NEB, Thermo Fisher, Bio-Rad, QIAGEN, Promega, and Takara",
+                "The original vendor insert is bundled with every one",
               ]}
             >
-              Start from a structured, vendor-grounded protocol template instead
-              of a blank page. The original source PDF travels bundled with it,
-              so any reagent concentration or cycling parameter can be checked
-              against the exact insert it came from. No other electronic lab
-              notebook ships its protocols this way.
+              We have built a structured template library for the major
+              molecular biology kits: the PCR and qPCR master mixes,
+              polymerases, and cloning and prep kits from NEB, Thermo Fisher,
+              Bio-Rad, QIAGEN, Promega, and Takara. Drop one into your protocol
+              and the reaction setup is already filled in, with the original
+              vendor insert bundled alongside it so any value can be checked
+              against the source it came from.
             </HeroBand>
           </div>
         </div>
