@@ -612,7 +612,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             Built by a researcher with support from the UW-Madison RISE
             Initiative, not a venture-backed company. ResearchOS is open source,
             so you can run it yourself for free, forever, and the hosted version
-            is free for everyone while we are in beta.
+            is free for every lab, with no paid tiers and no per-seat fees.
           </Pillar>
           <Pillar
             title="Local-first"
@@ -914,7 +914,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                     label="Price"
                     us={{
                       mark: "win",
-                      text: "Free and open source; hosted free in beta",
+                      text: "Free and open source; hosted free too",
                     }}
                     them={{
                       mark: "none",

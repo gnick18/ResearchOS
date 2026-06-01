@@ -384,7 +384,7 @@ ResearchOS is free software, licensed under the GNU Affero General Public Licens
 
 Copyright (C) 2026 Grant R. Nickles.
 
-In plain terms: you are free to use, study, share, and modify ResearchOS, and you can run it yourself at no cost, forever. If you run a modified version as a network service, the AGPL requires you to make your source available to that service's users. This keeps ResearchOS genuinely open while letting the hosted version stay sustainable.
+In plain terms: you are free to use, study, share, and modify ResearchOS, and you can run it yourself at no cost, forever. If you run a modified version as a network service, the AGPL requires you to make your source available to that service's users. This keeps ResearchOS genuinely open and free for every lab.
 
 ---
 

@@ -129,47 +129,45 @@ function DonationModal({ onClose }: { onClose: () => void }) {
 
           <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 mb-5">
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-              How ResearchOS stays sustainable
+              How ResearchOS stays free
             </p>
             <ul className="space-y-2.5 text-sm text-gray-700">
               <li>
-                <span className="font-semibold text-gray-900">Free in beta.</span>{" "}
-                Right now the hosted app is free for everyone, and we are grateful
-                to the early labs helping us build it.
+                <span className="font-semibold text-gray-900">
+                  Free for every lab.
+                </span>{" "}
+                The hosted app and self-hosting are both free, with no paid tiers
+                and no per-seat fees.
               </li>
               <li>
                 <span className="font-semibold text-gray-900">
-                  Free to self-host, forever.
+                  Funded by a fellowship.
                 </span>{" "}
-                ResearchOS is open source, so you can always run it yourself at no
-                cost from the public repo.
+                A UW-Madison RISE fellowship supports ResearchOS, so there is
+                nothing to pay to use it.
               </li>
               <li>
                 <span className="font-semibold text-gray-900">
-                  Individuals stay free.
+                  Voluntary support, later.
                 </span>{" "}
-                Solo researchers stay free on the hosted version for good.
+                Down the road, labs that come to rely on it and can afford to
+                chip in keep it running, which is what keeps it free for the labs
+                that cannot.
               </li>
               <li>
                 <span className="font-semibold text-gray-900">
-                  Labs, down the line.
+                  Open source, yours to keep.
                 </span>{" "}
-                After beta, labs that want us to host for them can support the
-                project with a one-time founding-lab price to help cover hosting
-                and maintenance. No per-seat fees, ever.
+                You can always run ResearchOS yourself from the public repo, even
+                if the hosted version ever goes away.
               </li>
             </ul>
           </div>
 
-          <p className="mb-4 text-sm text-gray-600">
-            Anything we collect goes to hosting, maintenance, and helping labs get
-            set up, so the tool can grow without coming out of one person&apos;s
-            pocket.
-          </p>
-
           <p className="text-sm text-gray-600">
-            There is nothing to pay yet. For now, the best way to support
-            ResearchOS is to use it, tell another lab about it, and send feedback.
+            There is nothing to pay, not now and never as a requirement. The best
+            way to support ResearchOS today is to use it, tell another lab about
+            it, and send us feedback.
           </p>
         </div>
       </div>

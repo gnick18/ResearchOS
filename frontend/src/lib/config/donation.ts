@@ -1,13 +1,14 @@
-// Beta-phase sustainability notice shown by BetaDonationButton.
+// Sustainability notice shown by BetaDonationButton.
 //
-// No personal payment handles here. ResearchOS is becoming a Wisconsin LLC and
-// the hosted pricing is not live yet, so this panel EXPLAINS the open-core model
-// rather than collecting money. When the LLC + a real payment path exist
-// (Phase 2), add a checkout link here and wire it into the modal.
+// ResearchOS is free and open source, supported now by a UW-Madison RISE
+// fellowship and, later, by voluntary contributions from labs that can afford
+// it. No paid tiers, no per-seat fees, no LLC. This panel explains that model;
+// there is nothing to buy. If a voluntary-donation path is set up later (a
+// university gift fund or an Open Collective, say), add the link here.
 export const DONATION_CONFIG = {
   enabled: true,
   message:
-    "ResearchOS is free and open source. The whole site is free for everyone while we are in beta, and you can always run it yourself for free from the public repo, even if the hosted version ever goes away.",
+    "ResearchOS is free and open source, for every lab. You can always run it yourself for free from the public repo, and the hosted version is free too. There are no paid tiers and no per-seat fees.",
 };
 
 export function isDonationConfigured(): boolean {
