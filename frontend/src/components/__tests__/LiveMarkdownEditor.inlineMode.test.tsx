@@ -53,10 +53,11 @@ describe("LiveMarkdownEditor: inline (CM6) opt-in mode + Option-A tour lock", ()
     expect(screen.getByText("Preview")).toBeInTheDocument();
   });
 
-  it("does NOT surface the Inline pill on a non-Notes surface (no enableInlineMode)", () => {
-    render(<LiveMarkdownEditor value="hello" onChange={vi.fn()} />);
-    // No inline pill: hybrid + preview only, exactly as Methods / experiment
-    // editors render today.
+  it("hides the Inline pill when enableInlineMode is explicitly false (opt-out)", () => {
+    render(
+      <LiveMarkdownEditor value="hello" onChange={vi.fn()} enableInlineMode={false} />,
+    );
+    // Opt-out: a surface can still force the two-way hybrid + preview toggle.
     expect(screen.queryByTestId("editor-mode-inline")).toBeNull();
     expect(screen.getByText("Hybrid")).toBeInTheDocument();
     expect(screen.getByText("Preview")).toBeInTheDocument();
@@ -107,9 +108,9 @@ describe("LiveMarkdownEditor: inline (CM6) opt-in mode + Option-A tour lock", ()
     expect(hybridSurface).not.toBeNull();
     expect(hybridSurface?.querySelector("textarea")).not.toBeNull();
 
-    // The inline CM6 surface is NOT mounted, and there is no inline pill to
-    // reach it. The tour can never land on inline.
+    // The default mode is hybrid, so the inline CM6 surface is NOT mounted; the
+    // tour types in the hybrid textarea. (Inline is on by default now, so the
+    // pill IS present, but it does not change the default mode the tour uses.)
     expect(screen.queryByTestId("inline-markdown-editor")).toBeNull();
-    expect(screen.queryByTestId("editor-mode-inline")).toBeNull();
   });
 });

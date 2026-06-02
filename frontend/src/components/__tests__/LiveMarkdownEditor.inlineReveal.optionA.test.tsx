@@ -21,7 +21,7 @@ import LiveMarkdownEditor from "../LiveMarkdownEditor";
  */
 
 describe("Option-A lock: inline-reveal layer stays off the tour surface", () => {
-  it("a default-mounted editor is HYBRID, with no inline pill and no inline CM6 surface", () => {
+  it("a default-mounted editor is in HYBRID mode (no inline CM6 surface mounted)", () => {
     render(
       <LiveMarkdownEditor value="some **markdown**" onChange={vi.fn()} autoStartEditing />,
     );
@@ -33,24 +33,25 @@ describe("Option-A lock: inline-reveal layer stays off the tour surface", () => 
     );
     expect(hybridSurface).not.toBeNull();
 
-    // The inline CM6 surface (which now carries the chip 2a reveal extension) is
-    // NOT mounted, and there is no pill to reach it. The tour can never land on
-    // inline, so the reveal layer is unreachable from the tour.
+    // The inline CM6 surface (which carries the chip 2a reveal extension) is NOT
+    // mounted in the default hybrid mode, so the tour types in the hybrid
+    // textarea and the reveal layer never activates during the tour. (The Inline
+    // pill is present now that inline is default-on, but the default mode is
+    // still hybrid.)
     expect(screen.queryByTestId("inline-markdown-editor")).toBeNull();
-    expect(screen.queryByTestId("editor-mode-inline")).toBeNull();
   });
 
-  it("the inline pill (hence the reveal layer) appears ONLY behind enableInlineMode", () => {
+  it("the inline pill is on by default and can be opted out with enableInlineMode false", () => {
     const { rerender } = render(
       <LiveMarkdownEditor value="x" onChange={vi.fn()} />,
     );
-    // Off by default: tour surfaces and every non-Notes editor.
-    expect(screen.queryByTestId("editor-mode-inline")).toBeNull();
-
-    // On only for the explicit Notes pilot opt-in.
-    rerender(
-      <LiveMarkdownEditor value="x" onChange={vi.fn()} enableInlineMode />,
-    );
+    // On by default now: every LiveMarkdownEditor surface gets the pill.
     expect(screen.getByTestId("editor-mode-inline")).toBeInTheDocument();
+
+    // A surface can still opt out to the two-way hybrid + preview toggle.
+    rerender(
+      <LiveMarkdownEditor value="x" onChange={vi.fn()} enableInlineMode={false} />,
+    );
+    expect(screen.queryByTestId("editor-mode-inline")).toBeNull();
   });
 });
