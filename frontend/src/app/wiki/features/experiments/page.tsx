@@ -31,9 +31,8 @@ export default function ExperimentsFeaturePage() {
         text buttons.
       </p>
       <p>
-        Each tab uses a different organizing principle, which is the
-        whole point of keeping them apart. The Experiments tab groups
-        protocols by where they sit in the run cycle (ready, blocked,
+        Each tab uses a different organizing principle. The Experiments
+        tab groups protocols by where they sit in the run cycle (ready, blocked,
         running, awaiting writeup, recent results, archive). The Lists
         tab groups list tasks by how close their dates are to right now
         (overdue, doing, upcoming, recently done, earlier). The Notes
@@ -57,10 +56,8 @@ export default function ExperimentsFeaturePage() {
       </p>
       <Callout variant="info" title="Notes intentionally skips the project filter">
         Notes aren&apos;t tied to any single project, so the pill strip
-        hides on this tab by design. A filter that can&apos;t actually
-        narrow anything would just be visual noise. To scope the note
-        grid, use the search box at the top of the tab and filter by
-        content instead.
+        hides on this tab. To scope the note grid, use the search box at
+        the top of the tab and filter by content instead.
       </Callout>
 
       <h3>Standalone tasks with no project</h3>
@@ -119,7 +116,7 @@ export default function ExperimentsFeaturePage() {
         work is done, the writeup is still owed. The header stays put
         even when the section is empty, with a bordered emerald chip
         reading &quot;All recent experiments have results logged&quot; in
-        its place, so the absence of a queue is itself useful feedback.
+        its place.
       </p>
 
       <h3>5. Recent results</h3>
@@ -300,10 +297,8 @@ export default function ExperimentsFeaturePage() {
         Clicking any experiment card opens a centered modal. The popup
         always opens on the <strong>Details</strong> tab, regardless of
         whether the experiment is ready, running, awaiting writeup, or
-        completed. A consistent entry point matters more than a smart
-        guess at where you&apos;re heading next: you land on the same
-        view every time, and you pick the tab that fits the task at
-        hand.
+        completed. You land on the same view every time, then pick the
+        tab that fits the task at hand.
       </p>
       <p>The popup carries four tabs across the header:</p>
       <ul>

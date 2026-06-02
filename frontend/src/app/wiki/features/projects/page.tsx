@@ -206,17 +206,9 @@ export default function ProjectsFeaturePage() {
         Click a row to open the goal editor. The section heading reads{" "}
         <strong>Goals</strong> with a sibling count badge to its right showing
         the total number of goals on the project. If you skipped Goals during
-        the wizard, the section is hidden entirely (no empty placeholder, no
-        marketing CTA). You can opt in later from{" "}
+        the wizard, the section is hidden entirely. You can opt in later from{" "}
         <Link href="/wiki/features/settings">Settings</Link>.
       </p>
-      <Callout variant="info" title="Why this is conditional">
-        Goals are a deliberate workflow, not a default. The wizard&apos;s
-        fourth question asks whether you want to commit to multi-week outcomes.
-        If you answered no, the rest of the app respects that and the project
-        route doesn&apos;t litter the anchor strip with a feature you opted
-        out of.
-      </Callout>
 
       <h3>Activity</h3>
       <Screenshot
@@ -298,10 +290,10 @@ export default function ProjectsFeaturePage() {
           protocol inventory worth deduplicating.
         </li>
       </ul>
-      <Callout variant="warning" title="This isn&rsquo;t a missing feature">
-        Miscellaneous is a permanent catch-all for ad-hoc tasks. The card is
-        non-actionable from the kebab by design. The project route still works
-        as a read-only progress view.
+      <Callout variant="info" title="Miscellaneous is a permanent catch-all">
+        Miscellaneous holds ad-hoc tasks and can&apos;t be edited, shared,
+        archived, or deleted. The project route still works as a read-only
+        progress view.
       </Callout>
 
       <h2>Getting around the Surface</h2>

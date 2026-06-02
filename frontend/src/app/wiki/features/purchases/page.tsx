@@ -22,8 +22,7 @@ export default function PurchasesFeaturePage() {
         and inside each row is a small spreadsheet of line items (the actual things
         you bought). The page is built around lookup, not data entry. Lab purchase
         lifecycles are short, often only a few days from order to arrival, so the
-        dominant interaction is &ldquo;did we already buy that primer?&rdquo; rather
-        than tracking long-lived projects.
+        common question is &ldquo;did we already buy that primer?&rdquo;
       </p>
       <p>
         The header at the top reads{" "}
@@ -120,9 +119,8 @@ export default function PurchasesFeaturePage() {
         active vs earlier split. A completed order looks almost identical to an
         in-flight one: same row, same colors, with a small green dot and the text{" "}
         <code>· Complete</code> appended to the metadata line. The row itself is
-        not tinted. This keeps the page scannable when most of your purchases
-        eventually finish, so the &ldquo;done&rdquo; rows do not dominate the
-        visual weight.
+        not tinted, so completed orders don&apos;t dominate the page once most
+        of your purchases have landed.
       </p>
       <p>
         Click any row to expand it into a line-item table. Each row is one thing
@@ -183,9 +181,8 @@ export default function PurchasesFeaturePage() {
         useful for analytics, every line item now carries a{" "}
         <strong>vendor</strong> and a <strong>category</strong>, both stored as
         nullable free-text strings on{" "}
-        <code>PurchaseItem</code>. They are deliberately not enums. Lab
-        conventions vary too much, and a forced taxonomy would either be wrong
-        for most labs or so generic it would not differentiate anything.
+        <code>PurchaseItem</code>. They are free text, not enums, since lab
+        conventions vary too much for a fixed taxonomy.
       </p>
       <p>
         Each input is wired to a <code>&lt;datalist&gt;</code> sourced from{" "}
@@ -197,33 +194,21 @@ export default function PurchasesFeaturePage() {
         catalog to maintain. The data you enter is the catalog.
       </p>
 
-      <Callout variant="tip" title="Why not an enum?">
-        This applies to the free-text <strong>vendor</strong> and{" "}
-        <strong>category</strong> columns on individual <code>PurchaseItem</code>{" "}
-        rows inside PurchaseEditor, not to the top-level project routing. A
-        free-text field with autocomplete keeps the surface low-friction for
-        researchers who already know what vendor they mean, while still letting
-        the dashboard group <code>Sigma Aldrich</code> and{" "}
-        <code>Sigma-Aldrich</code> together once someone fixes the spelling. An
-        enum would force every lab to either use one of our buckets or carry a{" "}
-        <em>misc.</em> tail forever.
-        <br /><br />
-        Note that the top-level purchase routing (which project a purchase task
-        belongs to) does have one reserved bucket: <strong>Miscellaneous</strong>{" "}
-        routes to the hidden <code>_misc_purchases</code> project. That routing
-        is effectively enum-like. The two concepts are distinct: one is the
-        project the order lives in, the other is a per-line-item annotation
-        inside an order.
+      <Callout variant="info" title="Free-text fields vs. project routing">
+        The free-text <strong>vendor</strong> and <strong>category</strong>{" "}
+        columns on individual <code>PurchaseItem</code> rows are distinct from
+        the top-level project routing. The top-level routing has one reserved
+        bucket: <strong>Miscellaneous</strong> routes to the hidden{" "}
+        <code>_misc_purchases</code> project. One is the project the order lives
+        in, the other is a per-line-item annotation inside an order.
       </Callout>
 
       <h2>The loose model and the soft warning</h2>
       <p>
         ResearchOS does not block you from attaching a purchase item to a task
         whose type is not <code>purchase</code>. That is on purpose. Reagents
-        legitimately get tied to a specific experiment task, and forcing a
-        rigid type boundary would push researchers into either making
-        every-experiment-also-a-purchase or losing the experiment-to-spend link
-        entirely.
+        often tie to a specific experiment task, and you don&apos;t want to lose
+        that experiment-to-spend link.
       </p>
       <p>
         Opening a purchase editor against a non-purchase task surfaces a soft
@@ -472,22 +457,6 @@ export default function PurchasesFeaturePage() {
         That is the point. One person in the lab can manage the list of grants
         and everyone gets to pick from it.
       </Callout>
-
-      <h2>Why this works</h2>
-      <p>
-        The dashboard uses{" "}
-        <a
-          href="https://recharts.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Recharts
-        </a>{" "}
-        (<code>recharts@^3.8.1</code> in <code>frontend/package.json</code>),
-        lazy-loaded on the <code>/purchases</code> route. It is code-split out
-        of the shared root bundle, so adding the charts here did not slow down
-        the rest of the app. Around 104 KB gzipped on this one route.
-      </p>
 
       <h2>Future considerations</h2>
       <p>

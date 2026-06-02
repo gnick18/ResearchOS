@@ -173,12 +173,11 @@ export default function SecurityPage() {
         </p>
         <p>
           The cache is symmetric in risk with the disk sidecar: both are
-          DevTools-readable on the local machine, and the cache is NOT
-          exposed via cloud-folder share (browser-scoped, not
-          file-scoped). This is actually a small win over disk-only
-          storage for the multi-user-folder case, Alice&apos;s cached
-          token is invisible to Bob even when they share a OneDrive
-          folder.
+          DevTools-readable on the local machine, and the cache is{" "}
+          <em>not</em> exposed via cloud-folder share (browser-scoped, not
+          file-scoped). That&apos;s a small win over disk-only storage for
+          the multi-user-folder case: Alice&apos;s cached token is invisible
+          to Bob even when they share a OneDrive folder.
         </p>
         <p>
           The only network call adjacent to the cache is a{" "}
@@ -283,8 +282,8 @@ export default function SecurityPage() {
 
       <h2>Honest limits worth knowing about</h2>
       <p>
-        The above claims are real. They have implications you should make
-        peace with before you trust ResearchOS with anything sensitive.
+        These claims hold, but they have implications worth understanding
+        before you trust ResearchOS with anything sensitive.
       </p>
       <Callout variant="warning" title="Folder sharing means folder trust">
         If you share your data folder with a lab-mate over OneDrive,
@@ -307,8 +306,9 @@ export default function SecurityPage() {
         anyone who reads the file can post and read messages on your
         bot&apos;s chats. Treat it like any other API key. The optional
         encrypted backup at <code>_telegram-encrypted.json</code>{" "}
-        (described above) is the one place the token is NOT in plaintext
-        on disk, but it inherits the security of your account password.
+        (described above) is the one place the token is <em>not</em> in
+        plaintext on disk, but it inherits the security of your account
+        password.
       </Callout>
       <Callout variant="warning" title="Public hosting is opt-in, and the proxies are open">
         If you self-host ResearchOS on a public Vercel deploy with no auth

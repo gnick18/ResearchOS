@@ -27,13 +27,12 @@ export default function WikiLandingPage() {
       <TryInDemo href="/">Explore the demo</TryInDemo>
 
       <Callout variant="tip" title="First time here? Read this first.">
-        The wiki is big because the app is big. If you only have time for one
-        page,{" "}
+        The wiki is big because the app is big.{" "}
         <Link href="/wiki/start-here">
           <strong>Start Here</strong>
         </Link>{" "}
         covers the 7 things worth knowing up front and how to navigate the
-        rest of the wiki when you actually need it.
+        rest of the wiki.
       </Callout>
 
       <h2>60-second tour</h2>
@@ -52,12 +51,10 @@ export default function WikiLandingPage() {
           on your disk. It can be an existing ResearchOS folder or a brand-new
           empty one you made first (Chrome cannot create a folder from the
           picker, so starting fresh means making an empty folder in your file
-          manager, then linking it). This is your ResearchOS folder. If you
-          want a quick intro to the app first, BeakerBot waves at you from the
-          upper-right of this screen with an optional{" "}
-          <strong>3-minute walkthrough</strong> button. The walkthrough is a
-          4-beat modal that explains data security and folder choice; it does
-          not link a folder for you. See{" "}
+          manager, then linking it). For a quick intro first, BeakerBot offers
+          an optional <strong>3-minute walkthrough</strong> button in the
+          upper-right of this screen. It's a 4-beat modal that explains data
+          security and folder choice. It does not link a folder for you. See{" "}
           <Link href="/wiki/getting-started/connecting-your-folder">
             Connecting Your Folder
           </Link>{" "}

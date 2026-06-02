@@ -43,8 +43,8 @@ export default function StartHerePage() {
 
       <h2>The 7 things worth knowing up front</h2>
       <p>
-        These are the highest-leverage facts about ResearchOS. If you absorb
-        these and nothing else, you will be in good shape.
+        The facts that matter most. Absorb these and you can pick up the rest
+        as you go.
       </p>
 
       <Callout variant="tip" title="1. Your data is yours, on your machine">
@@ -61,10 +61,9 @@ export default function StartHerePage() {
         title="2. The “?” button is your shortcut into this wiki"
       >
         Top-right of every page in the app. Click it and it opens the wiki
-        page for whatever surface you were just looking at. Looking at the
-        Gantt and confused about a colored bar? Hit &quot;?&quot; and you
-        land on the Gantt wiki page. Use it liberally. That is what it is
-        there for.
+        page for whatever surface you were just looking at. Confused about a
+        colored bar on the Gantt? Hit &quot;?&quot; and you land on the Gantt
+        wiki page.
       </Callout>
 
       <Callout
@@ -74,8 +73,7 @@ export default function StartHerePage() {
         A guided tour auto-starts the first time you sign in. It is roughly
         20 minutes, hands-on, in your actual account. You can skip it any
         time and re-run it later from <strong>Settings → Walkthrough</strong>.
-        Most users who skip end up running it eventually because the app has
-        enough surface area that the tour pays for itself. (Separate thing:
+        (Separate thing:
         the folder-picker screen also has a small <strong>Take the 3-minute
         walkthrough</strong> button next to BeakerBot in the upper-right.
         That one is a 4-beat intro modal that runs <em>before</em> you link a
@@ -121,8 +119,8 @@ export default function StartHerePage() {
         unlock <Link href="/wiki/features/lab-overview">Lab Overview</Link>,
         a customizable dashboard with cross-member widgets (member workload,
         recent activity, purchase queue, audit log). It is not visible to
-        regular members. If you are a PI running a lab, set this on your
-        account and you get the bird&apos;s-eye view. See{" "}
+        regular members. Set the PI flag on your account to get the
+        bird&apos;s-eye view. See{" "}
         <Link href="/wiki/features/lab-head">PI</Link>.
       </Callout>
 
@@ -136,8 +134,7 @@ export default function StartHerePage() {
         <Link href="/wiki/integrations/calendar-feeds">calendar feeds</Link>{" "}
         (subscribe to a Google / Outlook / iCloud calendar), and the AI
         Helper are all in Settings, all off by default, and all separately
-        switchable. Connect them when you actually want them, not because
-        you feel like you have to.
+        switchable. Connect them when you want them.
       </Callout>
 
       <h2>How to use this wiki</h2>
@@ -223,12 +220,12 @@ export default function StartHerePage() {
 
       <h2>One last thing</h2>
       <p>
-        This app is local-first, single-developer, and the wiki tries to be
+        This app is local-first and single-developer, and the wiki tries to be
         honest about what works and what does not yet. If something is
         broken or confusing, the{" "}
         <Link href="/wiki/features/feedback">Feedback</Link> page in the app
-        files a GitHub issue with the context pre-filled. Use it. It is the
-        fastest way to get things fixed.
+        files a GitHub issue with the context pre-filled. It's the fastest way
+        to get things fixed.
       </p>
     </WikiPage>
   );

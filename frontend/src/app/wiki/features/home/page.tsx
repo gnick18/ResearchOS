@@ -39,8 +39,8 @@ export default function HomeFeaturePage() {
         longer exists as a fixed block. Your projects live in the{" "}
         <strong>Projects Overview</strong> widget instead, which ships
         pinned at the top of a fresh dashboard. Nothing is lost: that widget
-        carries the same at-a-glance project cards <em>and</em> the inline
-        New Project button the grid used to own.
+        carries the same at-a-glance project cards and the inline New Project
+        button the grid used to own.
       </Callout>
 
       <h2>The dashboard is a canvas of tiles</h2>
@@ -185,9 +185,7 @@ export default function HomeFeaturePage() {
       <Callout variant="info" title="New widgets do not auto-pin">
         The dashboard is user-curated. If a new widget variant ships, it
         appears in the palette but does not automatically land on your canvas.
-        Add it from <strong>+ Add widget</strong> when you want it. So if a
-        newly-shipped widget does not show up on its own, that is why: pin it
-        yourself.
+        Add it from <strong>+ Add widget</strong> when you want it.
       </Callout>
 
       <h2>Shared projects appear here too</h2>

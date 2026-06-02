@@ -187,10 +187,6 @@ export default function GanttFeaturePage() {
           day before the target starts. This is a strict gap: the predecessor
           clears the calendar entirely before the successor begins, so the two
           never share a day even when the predecessor is a single-day task.
-          That keeps &quot;finish before&quot; reading as a real before, not a
-          same-day overlap, and it renders at a visibly different level from
-          &quot;start at same time&quot; in both the chart and the chain
-          viewer.
         </li>
       </ul>
       <p>
@@ -226,9 +222,7 @@ export default function GanttFeaturePage() {
         every bar in that chain stays at full strength and picks up a ring in
         the chain&apos;s color, while every bar outside the chain dims back so
         the group reads as one unit. Move off and the chart returns to normal.
-        Solo tasks (a chain of one, with no peers) do not trigger the effect,
-        since there would be nothing to group and dimming the rest of the
-        timeline for a lone task would only confuse.
+        Solo tasks (a chain of one, with no peers) do not trigger the effect.
       </p>
 
       <h2>Filter with the multi-select project dropdown</h2>
