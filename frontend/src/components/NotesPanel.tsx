@@ -3,10 +3,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { notesApi, labApi } from "@/lib/local-api";
-import type { Note, NoteCreate, LabNote } from "@/lib/types";
+import type { Note, NoteCreate, LabNote, SharedNotebook } from "@/lib/types";
 import NoteCard from "./NoteCard";
 import NoteDetailPopup from "./NoteDetailPopup";
 import { emitNoteDeleted } from "@/lib/notes/delete-toast-bus";
+import SharedNotebookView from "./notebooks/SharedNotebookView";
+import StartSharedNotebookDialog from "./notebooks/StartSharedNotebookDialog";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 interface NotesPanelProps {
   // If true, this is in Lab Mode and should show all users' shared notes
@@ -22,18 +25,45 @@ export default function NotesPanel({
   selectedUsernames,
 }: NotesPanelProps) {
   const queryClient = useQueryClient();
+  const { currentUser } = useCurrentUser();
   const [selectedNote, setSelectedNote] = useState<Note | LabNote | null>(null);
   const [showNewNoteDropdown, setShowNewNoteDropdown] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<"all" | "single" | "running">("all");
 
+  // Shared Notebooks Phase 2 (notebooks-phase2 sub-bot, 2026-06-02). The Notes
+  // tab becomes NOTEBOOK-AWARE: a switcher section lists "Personal" (today's
+  // notes, unchanged) plus every shared 1:1 notebook the viewer is in. The
+  // switcher + the shared-notebook view are PERSONAL-mode only; Lab Mode keeps
+  // the existing shared-notes browser untouched.
+  // `null` = the Personal section (default); a notebook id = that notebook's
+  // shared view.
+  const [activeNotebookId, setActiveNotebookId] = useState<string | null>(null);
+  const [showStartDialog, setShowStartDialog] = useState(false);
+
+  const { data: sharedNotebooks = [] } = useQuery<SharedNotebook[]>({
+    queryKey: ["shared-notebooks", "mine"],
+    queryFn: () => labApi.getSharedNotebooks(),
+    enabled: !isLabMode,
+  });
+
+  // Resolve the selected notebook from the LIVE list. If the stored id no
+  // longer matches a notebook the viewer is in (e.g. the other member deleted
+  // it, or the list has not loaded yet), this is simply `null`, so the view
+  // falls back to Personal without any setState-in-effect churn. The stale id
+  // stays in state harmlessly and re-resolves if the notebook reappears.
+  const activeNotebook =
+    activeNotebookId !== null
+      ? (sharedNotebooks.find((n) => n.id === activeNotebookId) ?? null)
+      : null;
+
   // Fetch notes based on mode
   const { data: notes = [], isLoading, error } = useQuery({
     queryKey: isLabMode ? ["lab-notes", selectedUsernames] : ["notes"],
     queryFn: isLabMode
-      ? () => labApi.getNotes({ 
+      ? () => labApi.getNotes({
           usernames: selectedUsernames ? Array.from(selectedUsernames).join(",") : undefined,
-          shared_only: true 
+          shared_only: true
         })
       : () => notesApi.list(),
   });
@@ -199,8 +229,102 @@ export default function NotesPanel({
     );
   }
 
+  // The notebook switcher: "Personal" + one chip per shared notebook + a
+  // "Start a shared notebook" action. Personal-mode only (Lab Mode renders the
+  // existing shared-notes browser, no switcher).
+  const notebookSwitcher = !isLabMode ? (
+    <div
+      className="flex flex-wrap items-center gap-2 mb-4"
+      data-testid="notebook-switcher"
+    >
+      <button
+        type="button"
+        onClick={() => setActiveNotebookId(null)}
+        aria-pressed={activeNotebook === null}
+        data-testid="notebook-switch-personal"
+        className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+          activeNotebook === null
+            ? "bg-emerald-100 text-emerald-700"
+            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+        }`}
+      >
+        Personal
+      </button>
+      {sharedNotebooks.map((nb) => {
+        const partner =
+          nb.members.find((m) => m !== currentUser) ?? nb.members[1];
+        const label = nb.title?.trim() ? nb.title : `1:1 with ${partner}`;
+        const isActive = activeNotebook?.id === nb.id;
+        return (
+          <button
+            key={nb.id}
+            type="button"
+            onClick={() => setActiveNotebookId(nb.id)}
+            aria-pressed={isActive}
+            data-testid={`notebook-switch-${nb.id}`}
+            className={`px-3 py-1.5 text-sm rounded-lg transition-colors max-w-[220px] truncate ${
+              isActive
+                ? "bg-sky-100 text-sky-700"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            {label}
+          </button>
+        );
+      })}
+      <button
+        type="button"
+        onClick={() => setShowStartDialog(true)}
+        data-testid="notebook-start-button"
+        className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-dashed border-gray-300 text-gray-600 hover:border-sky-400 hover:text-sky-600 transition-colors"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+        </svg>
+        Start a shared notebook
+      </button>
+    </div>
+  ) : null;
+
+  const startDialog =
+    !isLabMode && showStartDialog ? (
+      <StartSharedNotebookDialog
+        existingPartners={
+          new Set(
+            sharedNotebooks
+              .map((nb) => nb.members.find((m) => m !== currentUser))
+              .filter((m): m is string => Boolean(m)),
+          )
+        }
+        onClose={() => setShowStartDialog(false)}
+        onCreated={(nb) => {
+          setShowStartDialog(false);
+          queryClient.invalidateQueries({
+            queryKey: ["shared-notebooks", "mine"],
+          });
+          setActiveNotebookId(nb.id);
+        }}
+      />
+    ) : null;
+
+  // When a shared notebook is selected, render the switcher + its dedicated
+  // view in place of the personal notes list. Personal stays byte-for-byte
+  // unchanged.
+  if (!isLabMode && activeNotebook) {
+    return (
+      <div className="h-full flex flex-col">
+        {notebookSwitcher}
+        <div className="flex-1 min-h-0">
+          <SharedNotebookView notebook={activeNotebook} />
+        </div>
+        {startDialog}
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col">
+      {notebookSwitcher}
       {/* Header with search and filters */}
       <div className="flex items-center justify-between mb-4 gap-4">
         {/* Search */}
@@ -366,6 +490,8 @@ export default function NotesPanel({
           readOnly={isLabMode}
         />
       )}
+
+      {startDialog}
     </div>
   );
 }

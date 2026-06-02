@@ -74,7 +74,12 @@ vi.mock("./file-system/user-discovery", () => ({
 }));
 
 // Imports must come after the mocks.
-import { sharedNotebooksApi, notesApi, labApi } from "./local-api";
+import {
+  sharedNotebooksApi,
+  notesApi,
+  labApi,
+  weeklyGoalsApi,
+} from "./local-api";
 import { clearCurrentUserCache } from "./storage/json-store";
 
 function setCurrentUser(name: string) {
@@ -322,6 +327,132 @@ describe("weekly tasks reuse WeeklyGoal", () => {
     setCurrentUser("pi");
     const piTasks = await labApi.getNotebookWeeklyTasks(nb.id);
     expect(piTasks.map((t) => t.text)).toEqual(["Run the gel by Friday"]);
+  });
+});
+
+// Shared Notebooks Phase 2 (notebooks-phase2 sub-bot, 2026-06-02): the
+// owner-routed weekly-task update. The student creates a task (it lives in the
+// student's folder); the PI must be able to check it off, edit it, and re-week
+// it even though the record is not in the PI's own folder. This is the data
+// layer behind the PI-assign / student-complete workflow working both ways.
+describe("owner-routed weekly-task update (updateWeeklyTask)", () => {
+  it("the OTHER member can check off a task they did not create", async () => {
+    setCurrentUser("student");
+    const nb = await sharedNotebooksApi.create({ otherMember: "pi" });
+    const task = await sharedNotebooksApi.createWeeklyTask({
+      notebookId: nb.id,
+      text: "Run the gel by Friday",
+    });
+    expect(task.owner).toBe("student");
+    expect(task.is_complete).toBe(false);
+
+    // PI (the other member) marks it done. The record lives in the STUDENT's
+    // folder, so this must route to that folder, not the PI's.
+    setCurrentUser("pi");
+    const toggled = await sharedNotebooksApi.updateWeeklyTask({
+      notebookId: nb.id,
+      taskId: task.id,
+      data: { is_complete: true },
+    });
+    expect(toggled?.is_complete).toBe(true);
+    expect(toggled?.owner).toBe("student");
+
+    // It is persisted in the student's folder (the owner), not the PI's.
+    const inStudentFolder = memFs.get(
+      `users/student/weekly_goals/${task.id}.json`,
+    ) as WeeklyGoal;
+    expect(inStudentFolder.is_complete).toBe(true);
+    expect(
+      memFs.get(`users/pi/weekly_goals/${task.id}.json`),
+    ).toBeUndefined();
+
+    // Both members read the now-complete task back.
+    setCurrentUser("student");
+    const studentView = await labApi.getNotebookWeeklyTasks(nb.id);
+    expect(studentView[0].is_complete).toBe(true);
+  });
+
+  it("the owner can also edit text + re-week their own task through the routed path", async () => {
+    setCurrentUser("pi");
+    const nb = await sharedNotebooksApi.create({ otherMember: "student" });
+    const task = await sharedNotebooksApi.createWeeklyTask({
+      notebookId: nb.id,
+      text: "draft",
+      week_of: "2026-06-01",
+    });
+
+    const updated = await sharedNotebooksApi.updateWeeklyTask({
+      notebookId: nb.id,
+      taskId: task.id,
+      data: { text: "Finalize the figure", week_of: "2026-06-08" },
+    });
+    expect(updated?.text).toBe("Finalize the figure");
+    expect(updated?.week_of).toBe("2026-06-08");
+    // Sharing + notebook_id are preserved (never rewritten by this path).
+    expect(updated?.notebook_id).toBe(nb.id);
+    expect(updated?.shared_with).toEqual([
+      { username: "pi", level: "edit" },
+      { username: "student", level: "edit" },
+    ]);
+  });
+
+  it("plain weeklyGoalsApi.update can NOT reach the other member's task (the gap this closes)", async () => {
+    setCurrentUser("student");
+    const nb = await sharedNotebooksApi.create({ otherMember: "pi" });
+    const task = await sharedNotebooksApi.createWeeklyTask({
+      notebookId: nb.id,
+      text: "owned by student",
+    });
+
+    // The PI's current-user-scoped update looks only in the PI's folder, where
+    // this task does not exist, so it no-ops (null) and the task stays open.
+    setCurrentUser("pi");
+    const viaPlain = await weeklyGoalsApi.update(task.id, {
+      is_complete: true,
+    });
+    expect(viaPlain).toBeNull();
+    const stillOpen = memFs.get(
+      `users/student/weekly_goals/${task.id}.json`,
+    ) as WeeklyGoal;
+    expect(stillOpen.is_complete).toBe(false);
+  });
+
+  it("rejects a non-member and a missing notebook, and returns null for a foreign task id", async () => {
+    setCurrentUser("student");
+    const nb = await sharedNotebooksApi.create({ otherMember: "pi" });
+    const task = await sharedNotebooksApi.createWeeklyTask({
+      notebookId: nb.id,
+      text: "real task",
+    });
+
+    // Non-member cannot route an update into the pair's notebook.
+    setCurrentUser("other");
+    await expect(
+      sharedNotebooksApi.updateWeeklyTask({
+        notebookId: nb.id,
+        taskId: task.id,
+        data: { is_complete: true },
+      }),
+    ).rejects.toThrow(/not a member/);
+
+    // Missing notebook throws.
+    setCurrentUser("student");
+    await expect(
+      sharedNotebooksApi.updateWeeklyTask({
+        notebookId: "nope",
+        taskId: task.id,
+        data: { is_complete: true },
+      }),
+    ).rejects.toThrow(/not found/);
+
+    // A task id that is not in THIS notebook returns null (no cross-notebook
+    // write). 999999 is not a real task in nb.
+    const miss = await sharedNotebooksApi.updateWeeklyTask({
+      notebookId: nb.id,
+      taskId: 999999,
+      data: { is_complete: true },
+    });
+    expect(miss).toBeNull();
   });
 });
 
