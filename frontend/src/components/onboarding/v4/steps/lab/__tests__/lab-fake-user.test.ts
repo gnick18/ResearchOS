@@ -13,6 +13,7 @@
  * Mocks every external surface so the test doesn't read the FS.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import type { UserMetadataEntry } from "@/lib/file-system/user-metadata";
 
 const {
   ensureUserFolderStructure,
@@ -26,7 +27,9 @@ const {
 } = vi.hoisted(() => ({
   ensureUserFolderStructure: vi.fn(async () => true),
   setUserMetadataField: vi.fn(async () => null),
-  getUserMetadata: vi.fn(async () => null),
+  getUserMetadata: vi.fn(
+    async (): Promise<UserMetadataEntry | null> => null,
+  ),
   listAllForUserMock: vi.fn(),
   saveForUserMock: vi.fn(),
   shareTaskAs: vi.fn(async () => ({
@@ -237,7 +240,11 @@ describe("spawnBeakerBotLabUser", () => {
 
 describe("cleanupBeakerBotLabUser", () => {
   it("revokes shares + tombstones the user via usersApi.delete(2, true)", async () => {
-    getUserMetadata.mockResolvedValue({ is_tutorial: true });
+    getUserMetadata.mockResolvedValue({
+      color: "#38bdf8",
+      created_at: "2026-01-01T00:00:00.000Z",
+      is_tutorial: true,
+    });
     listAllForUserMock.mockResolvedValue([
       { id: 11, owner: BEAKERBOT_LAB_USERNAME, name: "Edit task" },
       { id: 12, owner: BEAKERBOT_LAB_USERNAME, name: "View task" },
@@ -273,6 +280,8 @@ describe("cleanupBeakerBotLabUser", () => {
 
   it("is a no-op when the BeakerBot user is already tombstoned", async () => {
     getUserMetadata.mockResolvedValue({
+      color: "#38bdf8",
+      created_at: "2026-01-01T00:00:00.000Z",
       is_tutorial: true,
       deleted_at: "2026-01-01T00:00:00.000Z",
     });
@@ -284,7 +293,11 @@ describe("cleanupBeakerBotLabUser", () => {
   });
 
   it("swallows usersApi.delete failures and never throws", async () => {
-    getUserMetadata.mockResolvedValue({ is_tutorial: true });
+    getUserMetadata.mockResolvedValue({
+      color: "#38bdf8",
+      created_at: "2026-01-01T00:00:00.000Z",
+      is_tutorial: true,
+    });
     listAllForUserMock.mockResolvedValue([]);
     usersApiDelete.mockRejectedValueOnce(new Error("FS locked"));
 
@@ -300,7 +313,11 @@ describe("cleanupBeakerBotLabUser", () => {
 
   it("calling cleanup twice is idempotent (second call no-ops)", async () => {
     // First call: user exists, gets tombstoned.
-    getUserMetadata.mockResolvedValueOnce({ is_tutorial: true });
+    getUserMetadata.mockResolvedValueOnce({
+      color: "#38bdf8",
+      created_at: "2026-01-01T00:00:00.000Z",
+      is_tutorial: true,
+    });
     listAllForUserMock.mockResolvedValueOnce([]);
 
     await cleanupBeakerBotLabUser("alex");

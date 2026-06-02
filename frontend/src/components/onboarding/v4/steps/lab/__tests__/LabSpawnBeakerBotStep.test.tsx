@@ -59,15 +59,15 @@ beforeEach(() => {
 
 describe("LabSpawnBeakerBotStep (v4 P7)", () => {
   it("renders the §6.16a speech copy with no em-dashes", async () => {
-    const spawnFn = vi.fn<[
-      string,
-    ], Promise<LabFakeUserHandle>>(async () => ({
-      recipient: "alex",
-      actor: "beakerbot",
-      editTaskId: 1,
-      viewTaskId: 2,
-      projectId: 1,
-    }));
+    const spawnFn = vi.fn<(recipient: string) => Promise<LabFakeUserHandle>>(
+      async () => ({
+        recipient: "alex",
+        actor: "beakerbot",
+        editTaskId: 1,
+        viewTaskId: 2,
+        projectId: 1,
+      }),
+    );
 
     render(
       <TourControllerProvider initialFeaturePicks={picks()}>

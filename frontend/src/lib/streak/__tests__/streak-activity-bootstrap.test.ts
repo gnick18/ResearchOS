@@ -36,7 +36,7 @@ vi.mock("@/lib/storage/json-store", () => ({
 // Mock the tracker so we can observe notify calls (we already test
 // the tracker's internal logic in the sibling file).
 const notifyMock = vi.fn();
-const flushMock = vi.fn(async () => undefined);
+const flushMock = vi.fn(async (_username?: string) => undefined);
 vi.mock("../streak-activity-tracker", () => ({
   notifyStreakActivity: (...args: unknown[]) => notifyMock(...args as [string]),
   flushStreakActivity: (...args: unknown[]) =>

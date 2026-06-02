@@ -42,7 +42,13 @@ const {
     update: vi.fn(),
     delete: vi.fn(),
   },
-  syncEventPtoChangeMock: vi.fn(async () => {}),
+  syncEventPtoChangeMock: vi.fn(
+    async (
+      _username: string,
+      _prev: { isPto: boolean; dates: readonly string[] } | null,
+      _next: { isPto: boolean; dates: readonly string[] } | null,
+    ) => {},
+  ),
   expandDateRangeMock: vi.fn((start: string, end: string | null | undefined) => {
     if (!end || end === start) return [start];
     return [start, end];

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { unified } from "unified";
+import { unified, type Plugin } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
 import remarkRehype from "remark-rehype";
@@ -19,7 +19,11 @@ async function render(markdown: string): Promise<string> {
   const file = await unified()
     .use(remarkParse)
     .use(remarkGfm)
-    .use(remarkUnderline)
+    // remarkUnderline declares minimal local mdast interfaces (see its
+    // header note) rather than importing unified's Node types, so its
+    // transformer signature doesn't line up structurally with the strict
+    // Plugin contract. Cast at the boundary; runtime behavior is unchanged.
+    .use(remarkUnderline as unknown as Plugin<[]>)
     .use(remarkRehype, { allowDangerousHtml: true })
     .use(rehypeRaw)
     .use(rehypeSanitize, markdownSanitizeSchema)

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, type Mock } from "vitest";
 import { useState } from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -74,7 +74,9 @@ vi.mock("@/lib/settings/user-settings", () => ({
   patchUserSettings,
 }));
 
-import Phase4CleanupStep from "../Phase4CleanupStep";
+import Phase4CleanupStep, {
+  type Phase4CleanupStepProps,
+} from "../Phase4CleanupStep";
 
 function baseSidecar(
   patch: Partial<OnboardingSidecar> = {},
@@ -116,8 +118,8 @@ function withArtifacts(
 }
 
 interface HarnessHandlers {
-  onComplete: ReturnType<typeof vi.fn>;
-  onSkip: ReturnType<typeof vi.fn>;
+  onComplete: Mock<Phase4CleanupStepProps["onComplete"]>;
+  onSkip: Mock<Phase4CleanupStepProps["onSkip"]>;
 }
 
 function Harness({
@@ -150,8 +152,8 @@ function renderHarness(
   enteredViaSkip: boolean = false,
 ): HarnessHandlers {
   const handlers: HarnessHandlers = {
-    onComplete: vi.fn(async () => {}),
-    onSkip: vi.fn(async () => {}),
+    onComplete: vi.fn<Phase4CleanupStepProps["onComplete"]>(async () => {}),
+    onSkip: vi.fn<Phase4CleanupStepProps["onSkip"]>(async () => {}),
   };
   render(
     <Harness

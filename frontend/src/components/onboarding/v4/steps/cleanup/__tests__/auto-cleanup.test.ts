@@ -14,7 +14,10 @@
  *   - `wizard_resume_state` is cleared to null.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import type { WizardArtifact } from "@/lib/onboarding/sidecar";
+import type {
+  OnboardingSidecar,
+  WizardArtifact,
+} from "@/lib/onboarding/sidecar";
 
 const {
   projectDelete,
@@ -55,19 +58,21 @@ const {
     notification_id: _id,
   })),
   cleanupBeakerBotLabUser: vi.fn(async (_username: string) => {}),
-  readOnboarding: vi.fn(async (_username: string) => ({
-    version: 4,
-    first_seen_at: "",
-    active_seconds: 0,
-    feature_picks: null,
-    wizard_completed_at: null,
-    wizard_skipped_at: null,
-    wizard_force_show: false,
-    wizard_resume_state: null,
-    lab_tour_pending: false,
-    lab_tour_dismissed_at: null,
-    lab_mode_tour_choice: null,
-  })),
+  readOnboarding: vi.fn(
+    async (_username: string): Promise<OnboardingSidecar> => ({
+      version: 4,
+      first_seen_at: "",
+      active_seconds: 0,
+      feature_picks: null,
+      wizard_completed_at: null,
+      wizard_skipped_at: null,
+      wizard_force_show: false,
+      wizard_resume_state: null,
+      lab_tour_pending: false,
+      lab_tour_dismissed_at: null,
+      lab_mode_tour_choice: null,
+    }),
+  ),
   patchOnboarding: vi.fn(async (_username: string, patch: any) =>
     patch({
       version: 4,

@@ -65,10 +65,16 @@ function seedProject(weekendActive: boolean): Project {
   const project: Project = {
     id: 1,
     name: "test project",
-    description: null,
-    created_at: "2026-01-01T00:00:00Z",
     weekend_active: weekendActive,
-  } as Project;
+    tags: null,
+    color: null,
+    created_at: "2026-01-01T00:00:00Z",
+    sort_order: 0,
+    is_archived: false,
+    archived_at: null,
+    owner: currentUser,
+    shared_with: [],
+  };
   memFs.set(`users/${currentUser}/projects/1.json`, project);
   return project;
 }
@@ -77,8 +83,6 @@ function seedTask(overrides: Partial<Task> & { id: number; start_date: string; d
   const task: Task = {
     project_id: 1,
     name: `task ${overrides.id}`,
-    start_date: overrides.start_date,
-    duration_days: overrides.duration_days,
     end_date: overrides.start_date, // will be recomputed by the engine on shift
     is_high_level: false,
     is_complete: false,
