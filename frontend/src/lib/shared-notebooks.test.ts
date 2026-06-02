@@ -37,6 +37,10 @@ import {
 
 const memFs = new Map<string, unknown>();
 let currentUserMock = "student";
+// The set of users `discoverUsers()` returns. Mutable so a test can simulate
+// removing (tombstoning) a member: discoverUsers FILTERS OUT removed users, so
+// dropping a name here models the creator being removed from the lab.
+let discoverableUsersMock = ["pi", "student", "other"];
 
 vi.mock("./file-system/file-service", () => ({
   fileService: {
@@ -70,7 +74,7 @@ vi.mock("./file-system/indexeddb-store", () => ({
 }));
 
 vi.mock("./file-system/user-discovery", () => ({
-  discoverUsers: vi.fn(async () => ["pi", "student", "other"]),
+  discoverUsers: vi.fn(async () => discoverableUsersMock),
 }));
 
 // Imports must come after the mocks.
@@ -96,8 +100,21 @@ const viewer = (username: string, lab_head = false): Viewer => ({
   account_type: lab_head ? "lab_head" : "lab",
 });
 
+/** Simulate removing a member from the lab: discoverUsers() filters out
+ *  tombstoned users, so a removed name no longer appears in discovery (its
+ *  on-disk folder may still hold files, but they are unreachable). */
+function setDiscoverableUsers(...names: string[]) {
+  discoverableUsersMock = names;
+}
+
+/** Direct path to a member's mirror copy of a notebook (test introspection). */
+function notebookCopyPath(member: string, id: string) {
+  return `users/${member}/shared_notebooks/${id}.json`;
+}
+
 beforeEach(() => {
   memFs.clear();
+  discoverableUsersMock = ["pi", "student", "other"];
   setSettings("pi", "lab_head");
   setSettings("student", "member");
   setSettings("other", "member");
@@ -594,5 +611,189 @@ describe("personal notes are unchanged", () => {
     // The personal note is invisible to the notebook item query.
     const inNotebook = await labApi.getNotebookNotes(nb.id);
     expect(inNotebook.map((n) => n.title)).not.toContain("my private note");
+  });
+});
+
+// Survive-removal (notebook-survive-removal sub-bot, 2026-06-02): the record is
+// MIRRORED into BOTH members' folders so the notebook outlives either member
+// being removed from the lab. The notes / tasks already survive (each author's
+// items live in their own folder); this closes the single-copy-RECORD gap.
+describe("record is mirrored into BOTH members' folders", () => {
+  it("create writes the same id/created_by/members/title/shared_with to each member, owner per folder", async () => {
+    setCurrentUser("student");
+    const nb = await sharedNotebooksApi.create({
+      otherMember: "pi",
+      title: "Thesis 1:1",
+    });
+
+    const studentCopy = memFs.get(
+      notebookCopyPath("student", nb.id),
+    ) as typeof nb;
+    const piCopy = memFs.get(notebookCopyPath("pi", nb.id)) as typeof nb;
+
+    // Both copies exist, share the same id / created_by / members / title /
+    // shared_with, and each is owned by the folder it lives in.
+    expect(studentCopy?.id).toBe(nb.id);
+    expect(piCopy?.id).toBe(nb.id);
+    expect(studentCopy.created_by).toBe("student");
+    expect(piCopy.created_by).toBe("student");
+    expect(studentCopy.members).toEqual(["student", "pi"]);
+    expect(piCopy.members).toEqual(["student", "pi"]);
+    expect(studentCopy.title).toBe("Thesis 1:1");
+    expect(piCopy.title).toBe("Thesis 1:1");
+    expect(studentCopy.shared_with).toEqual(piCopy.shared_with);
+    expect(studentCopy.owner).toBe("student");
+    expect(piCopy.owner).toBe("pi");
+  });
+});
+
+describe("the notebook survives the creator being removed", () => {
+  it("creator A is tombstoned -> the surviving member B still sees the record AND its items", async () => {
+    // Student (A) creates the notebook with pi (B), and each adds an item.
+    setCurrentUser("student");
+    const nb = await sharedNotebooksApi.create({
+      otherMember: "pi",
+      title: "Thesis 1:1",
+    });
+    await sharedNotebooksApi.createNote({
+      notebookId: nb.id,
+      title: "student note",
+    });
+    await sharedNotebooksApi.createWeeklyTask({
+      notebookId: nb.id,
+      text: "student task",
+    });
+
+    setCurrentUser("pi");
+    await sharedNotebooksApi.createNote({ notebookId: nb.id, title: "pi note" });
+
+    // The creator (student) is removed from the lab: discoverUsers no longer
+    // returns them. WITHOUT the mirror, the only record copy was in student's
+    // folder and would now be undiscoverable, losing the notebook for pi.
+    setDiscoverableUsers("pi", "other");
+
+    setCurrentUser("pi");
+    const survivors = await labApi.getSharedNotebooks();
+    expect(survivors.map((n) => n.id)).toEqual([nb.id]);
+    expect(survivors[0].title).toBe("Thesis 1:1");
+    // The surviving member sees their own copy stamped owner = themselves.
+    expect(survivors[0].owner).toBe("pi");
+
+    // pi's own item still surfaces; the removed creator's items are no longer
+    // discoverable (their folder is filtered out), which is expected. The
+    // RECORD survival is the fix; item discovery follows discoverUsers as before.
+    const piNotes = await labApi.getNotebookNotes(nb.id);
+    expect(piNotes.map((n) => n.title)).toEqual(["pi note"]);
+  });
+
+  it("the surviving member can rename and delete the orphaned notebook", async () => {
+    setCurrentUser("student");
+    const nb = await sharedNotebooksApi.create({ otherMember: "pi" });
+
+    // Creator removed; only pi's copy remains discoverable.
+    setDiscoverableUsers("pi", "other");
+    setCurrentUser("pi");
+
+    const renamed = await sharedNotebooksApi.updateTitle(nb.id, "Renamed solo");
+    expect(renamed?.title).toBe("Renamed solo");
+    expect(
+      (memFs.get(notebookCopyPath("pi", nb.id)) as typeof nb).title,
+    ).toBe("Renamed solo");
+
+    await sharedNotebooksApi.delete(nb.id);
+    expect(memFs.get(notebookCopyPath("pi", nb.id))).toBeUndefined();
+    expect(await labApi.getSharedNotebooks()).toEqual([]);
+  });
+});
+
+describe("getSharedNotebooks dedupes the mirrored copies", () => {
+  it("with a copy in BOTH folders, the notebook is listed ONCE per uuid", async () => {
+    setCurrentUser("student");
+    const nb = await sharedNotebooksApi.create({
+      otherMember: "pi",
+      title: "once only",
+    });
+
+    // Sanity: both copies are on disk.
+    expect(memFs.get(notebookCopyPath("student", nb.id))).toBeDefined();
+    expect(memFs.get(notebookCopyPath("pi", nb.id))).toBeDefined();
+
+    // From either member's view the notebook appears exactly once.
+    setCurrentUser("student");
+    const fromStudent = await labApi.getSharedNotebooks();
+    expect(fromStudent.map((n) => n.id)).toEqual([nb.id]);
+
+    setCurrentUser("pi");
+    const fromPi = await labApi.getSharedNotebooks();
+    expect(fromPi.map((n) => n.id)).toEqual([nb.id]);
+  });
+});
+
+describe("updateTitle / delete affect BOTH copies", () => {
+  it("renaming updates the title in each member's folder", async () => {
+    setCurrentUser("student");
+    const nb = await sharedNotebooksApi.create({
+      otherMember: "pi",
+      title: "old",
+    });
+
+    const renamed = await sharedNotebooksApi.updateTitle(nb.id, "new title");
+    expect(renamed?.title).toBe("new title");
+
+    expect(
+      (memFs.get(notebookCopyPath("student", nb.id)) as typeof nb).title,
+    ).toBe("new title");
+    expect(
+      (memFs.get(notebookCopyPath("pi", nb.id)) as typeof nb).title,
+    ).toBe("new title");
+  });
+
+  it("deleting removes the record from each member's folder", async () => {
+    setCurrentUser("student");
+    const nb = await sharedNotebooksApi.create({ otherMember: "pi" });
+    expect(memFs.get(notebookCopyPath("student", nb.id))).toBeDefined();
+    expect(memFs.get(notebookCopyPath("pi", nb.id))).toBeDefined();
+
+    await sharedNotebooksApi.delete(nb.id);
+    expect(memFs.get(notebookCopyPath("student", nb.id))).toBeUndefined();
+    expect(memFs.get(notebookCopyPath("pi", nb.id))).toBeUndefined();
+  });
+});
+
+describe("lazy backfill heals a single-copy notebook", () => {
+  it("a notebook with a copy in only ONE member's folder gains the missing copy when the other member reads", async () => {
+    setCurrentUser("student");
+    const nb = await sharedNotebooksApi.create({ otherMember: "pi" });
+
+    // Simulate a legacy single-copy record (pre-mirror data, or drift): remove
+    // pi's copy so only the student's folder holds the record.
+    memFs.delete(notebookCopyPath("pi", nb.id));
+    expect(memFs.get(notebookCopyPath("pi", nb.id))).toBeUndefined();
+
+    // pi (a member missing their copy, not tombstoned) reads their notebooks.
+    setCurrentUser("pi");
+    const piView = await labApi.getSharedNotebooks();
+    expect(piView.map((n) => n.id)).toEqual([nb.id]);
+
+    // The missing copy was lazily backfilled into pi's folder, owner = pi.
+    const healed = memFs.get(notebookCopyPath("pi", nb.id)) as typeof nb;
+    expect(healed?.id).toBe(nb.id);
+    expect(healed.owner).toBe("pi");
+    expect(healed.members).toEqual(["student", "pi"]);
+    expect(healed.created_by).toBe("student");
+
+    // Idempotent: still listed exactly once on a second read.
+    const again = await labApi.getSharedNotebooks();
+    expect(again.map((n) => n.id)).toEqual([nb.id]);
+  });
+
+  it("does NOT backfill a non-member who merely reads (membership gate holds)", async () => {
+    setCurrentUser("student");
+    const nb = await sharedNotebooksApi.create({ otherMember: "pi" });
+
+    // `other` is not a member; reading surfaces nothing and writes no copy.
+    setCurrentUser("other");
+    expect(await labApi.getSharedNotebooks()).toEqual([]);
+    expect(memFs.get(notebookCopyPath("other", nb.id))).toBeUndefined();
   });
 });

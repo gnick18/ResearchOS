@@ -4347,17 +4347,30 @@ export const sharedNotebooksApi = {
     return sharedNotebooksStore.listAll();
   },
 
-  /** Rename a notebook the current user created. */
+  /** Rename a shared notebook, updating BOTH members' mirror copies so the
+   *  rename survives either member being removed from the lab. Falls back to a
+   *  single-folder update if the notebook can no longer be discovered. */
   updateTitle: async (
     id: string,
     title: string,
   ): Promise<SharedNotebook | null> => {
-    return sharedNotebooksStore.update(id, { title });
+    const notebook = await findSharedNotebook(id);
+    if (!notebook) return sharedNotebooksStore.update(id, { title });
+    return sharedNotebooksStore.updateForMembers(id, notebook.members, {
+      title,
+    });
   },
 
-  /** Delete a notebook the current user created. */
+  /** Delete a shared notebook from BOTH members' folders (it is a shared
+   *  entity owned equally by both). Falls back to a single-folder delete if
+   *  the notebook can no longer be discovered. */
   delete: async (id: string): Promise<void> => {
-    await sharedNotebooksStore.delete(id);
+    const notebook = await findSharedNotebook(id);
+    if (!notebook) {
+      await sharedNotebooksStore.delete(id);
+      return;
+    }
+    await sharedNotebooksStore.deleteForMembers(id, notebook.members);
   },
 
   /**
@@ -6367,21 +6380,45 @@ export const labApi = {
   getSharedNotebooks: async (): Promise<SharedNotebook[]> => {
     const viewer = await buildCurrentViewer();
     const usernames = await discoverUsers();
-    const out: SharedNotebook[] = [];
+    // The record is mirrored into BOTH members' folders under the same UUID, so
+    // a naive walk would surface each notebook twice. DEDUPE by `id`. The
+    // notebook survives as long as EITHER member's folder still holds a copy,
+    // so a member whose partner was removed still finds it via their own copy.
+    const byId = new Map<string, SharedNotebook>();
+    const viewerHasOwnCopy = new Set<string>();
     for (const username of usernames) {
       const records = await sharedNotebooksStore.listAllForUser(username);
       for (const nb of records) {
         const rec: SharedNotebook = { ...nb, owner: nb.owner || username };
         if (
-          Array.isArray(rec.members) &&
-          rec.members.includes(viewer.username) &&
-          canRead(rec, viewer)
+          !Array.isArray(rec.members) ||
+          !rec.members.includes(viewer.username) ||
+          !canRead(rec, viewer)
         ) {
-          out.push(rec);
+          continue;
+        }
+        if (username === viewer.username) viewerHasOwnCopy.add(rec.id);
+        if (!byId.has(rec.id)) {
+          // Stamp the surfaced copy's `owner` to the viewer so the per-user
+          // routing the UI expects (owner === viewer) holds regardless of
+          // which member folder we read it from.
+          byId.set(rec.id, { ...rec, owner: viewer.username });
         }
       }
     }
-    return out;
+    // LAZY BACKFILL: heal existing single-copy notebooks (and any drift) by
+    // writing the viewer's missing mirror copy. The viewer is the logged-in
+    // user (never tombstoned), so this only ever ADDS a copy for a live member.
+    // Best-effort and idempotent: a write failure must never break the read.
+    for (const [id, rec] of byId) {
+      if (viewerHasOwnCopy.has(id)) continue;
+      try {
+        await sharedNotebooksStore.writeMirror(rec, viewer.username);
+      } catch {
+        // Backfill is best-effort; the notebook is already surfaced above.
+      }
+    }
+    return Array.from(byId.values());
   },
 
   /**
