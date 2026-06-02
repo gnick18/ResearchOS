@@ -1,7 +1,9 @@
 # Shared 1:1 Notebooks (PI <-> student) Proposal
 
 Author: orchestrator (master bot), 2026-06-02
-Status: design locked via clickable Qs; data model needs Grant sign-off before build
+Status: design locked + data model APPROVED by Grant (2026-06-02). Phase 1
+(data + API) DISPATCHED as notebooks-data bot (verify before merge). Phases 2-5
+follow after Phase 1 lands.
 
 ## Motivation
 
