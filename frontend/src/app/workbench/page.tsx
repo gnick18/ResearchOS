@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   fetchAllProjectsIncludingShared,
@@ -34,6 +34,25 @@ export default function WorkbenchPage() {
   // onboarding system — the planned Lists-tab redesign can route
   // however it wants and this gate keeps working.
   const [activeTab, setActiveTab] = useState<TabType>("experiments");
+
+  // Shared Notebooks Phase 4 (notebooks-phase4-widget sub-bot, 2026-06-02):
+  // the Shared Notebook home/dashboard widget deep-links here with
+  // `?tab=notes&notebook=<id>` to open the full Phase 2 SharedNotebookView for
+  // a chosen 1:1 notebook. Read the query string ONCE on mount (window, not
+  // useSearchParams, to avoid a CSR-bailout Suspense boundary): if `tab=notes`,
+  // land on the Notes tab; the `notebook` id is handed to NotesPanel as its
+  // initial selection. Absent params leave the default Experiments tab + the
+  // Personal notes section untouched.
+  const [initialNotebookId, setInitialNotebookId] = useState<string | null>(
+    null,
+  );
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("tab") === "notes") setActiveTab("notes");
+    const nb = params.get("notebook");
+    if (nb) setInitialNotebookId(nb);
+  }, []);
 
   const selectedProjectIds = useAppStore((s) => s.selectedProjectIds);
 
@@ -151,7 +170,9 @@ export default function WorkbenchPage() {
           />
         )}
 
-        {activeTab === "notes" && <NotesPanel />}
+        {activeTab === "notes" && (
+          <NotesPanel initialNotebookId={initialNotebookId} />
+        )}
         {activeTab === "experiments" && (
           <WorkbenchExperimentsPanel projects={projects} />
         )}

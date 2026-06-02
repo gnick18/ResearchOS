@@ -165,6 +165,15 @@ import ReorderSuggestionsWidget, {
   SidebarTile as ReorderSuggestionsSidebar,
   HELP_TEXT as ReorderSuggestionsHelp,
 } from "./ReorderSuggestionsWidget";
+// Shared Notebook (Shared 1:1 Notebooks Phase 4, notebooks-phase4-widget
+// sub-bot, 2026-06-02): a glanceable view of one chosen shared 1:1 notebook
+// (open tasks + recent notes). Member-visible; computed from the existing
+// notebook reads, nothing stored.
+import SharedNotebookWidget, {
+  SnapshotTile as SharedNotebookSnapshot,
+  SidebarTile as SharedNotebookSidebar,
+  HELP_TEXT as SharedNotebookHelp,
+} from "./SharedNotebookWidget";
 
 // Touch the default exports so TypeScript doesn't flag them as unused
 // imports — we intentionally import them for symmetry / side-effect
@@ -188,6 +197,7 @@ void WeeklyGoalsWidget;
 void ProjectsOverviewWidget;
 void SingleProjectWidget;
 void ReorderSuggestionsWidget;
+void SharedNotebookWidget;
 
 export const WIDGET_CATALOG: WidgetDefinition[] = [
   // ── Canvas widgets ───────────────────────────────────────────────────
@@ -692,6 +702,29 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     helpText: ReorderSuggestionsHelp,
     SnapshotTile: ReorderSuggestionsSnapshot,
     SidebarTile: ReorderSuggestionsSidebar,
+    defaultLayout: { w: 4, h: 6, minW: 3, minH: 4 },
+    surfaces: { canvas: true, home: true, sidebar: true },
+    memberVisible: true,
+  },
+
+  // ── Shared Notebook (Shared 1:1 Notebooks Phase 4, 2026-06-02) ───────────
+  // OPTIONAL HOME WIDGET surfacing one chosen shared 1:1 notebook (open
+  // weekly tasks + recent notes), with an "Open in Notes" deep-link into the
+  // full Phase 2 SharedNotebookView. Member-visible so BOTH a PI and a
+  // student can add it. The per-instance `pinnedMember` config selects WHICH
+  // notebook (by partner) when the viewer is in more than one; unset surfaces
+  // the first. Opt-in via the Add widget palette on canvas + home + sidebar;
+  // not in any default layout. Computed at load from the existing notebook
+  // reads (React Query dedupes with the Notes tab); nothing stored.
+  {
+    id: "shared-notebook",
+    toolId: "shared-notebook",
+    title: "Shared notebook",
+    description:
+      "A glanceable view of one shared 1:1 notebook: open tasks and recent notes, shared with your partner. Click to open the full notebook on the Notes tab.",
+    helpText: SharedNotebookHelp,
+    SnapshotTile: SharedNotebookSnapshot,
+    SidebarTile: SharedNotebookSidebar,
     defaultLayout: { w: 4, h: 6, minW: 3, minH: 4 },
     surfaces: { canvas: true, home: true, sidebar: true },
     memberVisible: true,

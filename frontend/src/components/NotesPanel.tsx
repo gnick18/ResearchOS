@@ -18,11 +18,18 @@ interface NotesPanelProps {
   selectedUsernames?: Set<string>;
   // For Lab Mode: user colors for display
   userColors?: Record<string, string>;
+  // Shared Notebooks Phase 4 (notebooks-phase4-widget sub-bot, 2026-06-02):
+  // a notebook id to pre-select on mount, used when the Shared Notebook home/
+  // dashboard widget deep-links here (`/workbench?tab=notes&notebook=<id>`).
+  // Absent / null = the default Personal section. The id only seeds the INITIAL
+  // selection; the user can switch away freely afterward.
+  initialNotebookId?: string | null;
 }
 
 export default function NotesPanel({
   isLabMode = false,
   selectedUsernames,
+  initialNotebookId = null,
 }: NotesPanelProps) {
   const queryClient = useQueryClient();
   const { currentUser } = useCurrentUser();
@@ -37,8 +44,13 @@ export default function NotesPanel({
   // switcher + the shared-notebook view are PERSONAL-mode only; Lab Mode keeps
   // the existing shared-notes browser untouched.
   // `null` = the Personal section (default); a notebook id = that notebook's
-  // shared view.
-  const [activeNotebookId, setActiveNotebookId] = useState<string | null>(null);
+  // shared view. Phase 4: seed from `initialNotebookId` so a deep-link from the
+  // Shared Notebook widget lands on the chosen notebook. The id is resolved
+  // against the LIVE list below, so a stale / no-longer-shared id harmlessly
+  // falls back to Personal.
+  const [activeNotebookId, setActiveNotebookId] = useState<string | null>(
+    initialNotebookId,
+  );
   const [showStartDialog, setShowStartDialog] = useState(false);
 
   const { data: sharedNotebooks = [] } = useQuery<SharedNotebook[]>({

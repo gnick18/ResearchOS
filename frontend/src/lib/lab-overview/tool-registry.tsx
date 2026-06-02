@@ -90,6 +90,13 @@ import { ExpandedView as SingleProjectExpanded } from "@/components/lab-overview
 // Reorder suggestions Tool (reorder-loop sub-bot, 2026-05-31): the derived
 // reorder-cadence nudge list with one-click Buy again. Member-visible.
 import { ExpandedView as ReorderSuggestionsExpanded } from "@/components/lab-overview/widgets/ReorderSuggestionsWidget";
+// Shared Notebook Tool (Shared 1:1 Notebooks Phase 4, notebooks-phase4-widget
+// sub-bot, 2026-06-02): a glanceable view of ONE chosen shared 1:1 notebook
+// (open weekly tasks + recent notes) under the "shared with <partner>" banner,
+// with an "Open in Notes" deep-link into the full Phase 2 SharedNotebookView.
+// Member-visible (both a PI and a student can add it). Computed at load from
+// the existing notebook reads; nothing stored.
+import { ExpandedView as SharedNotebookExpanded } from "@/components/lab-overview/widgets/SharedNotebookWidget";
 
 // ── Small inline icons (no emojis, no lucide-react) ───────────────────────
 // Each tool gets a 16x16 SVG. Pulled from / mirrors the existing widget
@@ -251,6 +258,15 @@ const REORDER_ICON = (
   <svg {...ICON_PROPS}>
     <path d="M3 2v6h6" />
     <path d="M3.51 15a9 9 0 1 0 2.13-9.36L3 8" />
+  </svg>
+);
+
+const SHARED_NOTEBOOK_ICON = (
+  // Open book — the shared-notebook motif. Mirrors NOTEBOOK_ICON in
+  // SharedNotebookWidget.
+  <svg {...ICON_PROPS}>
+    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
   </svg>
 );
 
@@ -457,6 +473,23 @@ export const TOOL_REGISTRY: ToolDefinition[] = [
       "Items you reorder regularly, flagged when they are coming due. One click reorders.",
     Icon: REORDER_ICON,
     ExpandedView: ReorderSuggestionsExpanded,
+    memberVisible: true,
+  },
+  {
+    // Shared Notebook (Shared 1:1 Notebooks Phase 4, notebooks-phase4-widget
+    // sub-bot, 2026-06-02). A glanceable view of ONE chosen shared 1:1
+    // notebook: its open weekly tasks + recent notes under the "shared with
+    // <partner>" banner, with an "Open in Notes" deep-link into the full
+    // Phase 2 SharedNotebookView. Member-visible (both a PI and a student can
+    // add it). The per-instance `pinnedMember` config selects WHICH notebook
+    // when the viewer is in more than one; unset surfaces the first. Computed
+    // at load from the existing notebook reads; nothing stored.
+    id: "shared-notebook",
+    title: "Shared notebook",
+    description:
+      "A glanceable view of one shared 1:1 notebook: open tasks and recent notes, shared with your partner.",
+    Icon: SHARED_NOTEBOOK_ICON,
+    ExpandedView: SharedNotebookExpanded,
     memberVisible: true,
   },
 ];
