@@ -242,6 +242,13 @@ export default function ImageAnnotatorModal({
         }
         return;
       }
+      // Enter locks in the current selection (deselect), the same as
+      // clicking an empty part of the canvas. Does not close the modal.
+      if (e.key === "Enter" && selectedId) {
+        e.preventDefault();
+        setSelectedId(null);
+        return;
+      }
       if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
         e.preventDefault();
         deleteSelected();
@@ -443,6 +450,42 @@ export default function ImageAnnotatorModal({
     ? [...shapes, drawingRef.current]
     : shapes;
 
+  // The size controls reflect and edit the SELECTED shape when one is
+  // selected, otherwise they set the default for the next shape drawn. Text
+  // size is driven only by this control (the transformer does not resize
+  // text), so a label has a single source of truth for its size.
+  const selectedShape = selectedId
+    ? shapes.find((s) => s.id === selectedId) ?? null
+    : null;
+  const textSelected = selectedShape?.type === "text";
+  const effFontSize =
+    selectedShape && selectedShape.type === "text" ? selectedShape.fontSize : fontSize;
+  const effStroke =
+    selectedShape && selectedShape.type !== "text"
+      ? selectedShape.strokeWidth
+      : strokeWidth;
+  const applyFontSize = (v: number) => {
+    const c = Math.min(200, Math.max(8, Math.round(v) || effFontSize));
+    setFontSize(c);
+    if (selectedShape && selectedShape.type === "text")
+      applyShape(selectedShape.id, { fontSize: c });
+  };
+  const applyStrokeWidth = (v: number) => {
+    const c = Math.min(40, Math.max(1, Math.round(v) || effStroke));
+    setStrokeWidth(c);
+    if (selectedShape && selectedShape.type !== "text")
+      applyShape(selectedShape.id, { strokeWidth: c });
+  };
+  // The inline text editor matches the size and color of the label being
+  // edited so editing does not visually jump.
+  const editingShape = editingText
+    ? shapes.find((s) => s.id === editingText.id) ?? null
+    : null;
+  const editFontSize =
+    editingShape && editingShape.type === "text" ? editingShape.fontSize : fontSize;
+  const editColor =
+    editingShape && editingShape.type === "text" ? editingShape.color : color;
+
   return (
     <div
       className="fixed inset-0 z-[200] flex flex-col bg-gray-900/95 backdrop-blur-sm"
@@ -540,12 +583,9 @@ export default function ImageAnnotatorModal({
             <button
               key={w}
               type="button"
-              onClick={() => {
-                setStrokeWidth(w);
-                if (selectedId) applyShape(selectedId, { strokeWidth: w });
-              }}
+              onClick={() => applyStrokeWidth(w)}
               className={`px-2 py-1 text-xs rounded transition-colors ${
-                strokeWidth === w
+                effStroke === w
                   ? "bg-sky-600 text-white"
                   : "text-gray-300 hover:bg-gray-700"
               }`}
@@ -553,6 +593,15 @@ export default function ImageAnnotatorModal({
               {w}
             </button>
           ))}
+          <input
+            type="number"
+            min={1}
+            max={40}
+            value={effStroke}
+            onChange={(e) => applyStrokeWidth(Number(e.target.value))}
+            className="w-12 px-1 py-1 text-xs rounded bg-gray-700 text-gray-100 text-center outline-none focus:ring-1 focus:ring-sky-500"
+            aria-label="Custom stroke width"
+          />
         </div>
 
         <div className="w-px h-6 bg-gray-600" />
@@ -564,12 +613,9 @@ export default function ImageAnnotatorModal({
             <button
               key={f}
               type="button"
-              onClick={() => {
-                setFontSize(f);
-                if (selectedId) applyShape(selectedId, { fontSize: f });
-              }}
+              onClick={() => applyFontSize(f)}
               className={`px-2 py-1 text-xs rounded transition-colors ${
-                fontSize === f
+                effFontSize === f
                   ? "bg-sky-600 text-white"
                   : "text-gray-300 hover:bg-gray-700"
               }`}
@@ -577,6 +623,15 @@ export default function ImageAnnotatorModal({
               {f}
             </button>
           ))}
+          <input
+            type="number"
+            min={8}
+            max={200}
+            value={effFontSize}
+            onChange={(e) => applyFontSize(Number(e.target.value))}
+            className="w-12 px-1 py-1 text-xs rounded bg-gray-700 text-gray-100 text-center outline-none focus:ring-1 focus:ring-sky-500"
+            aria-label="Custom text size"
+          />
         </div>
 
         <div className="w-px h-6 bg-gray-600" />
@@ -640,6 +695,10 @@ export default function ImageAnnotatorModal({
                 <Transformer
                   ref={transformerRef}
                   rotateEnabled={false}
+                  // Text size is controlled only by the toolbar control, so the
+                  // transformer just shows the selection box for text (drag to
+                  // move) without resize handles. Other shapes resize normally.
+                  resizeEnabled={!textSelected}
                   ignoreStroke
                   boundBoxFunc={(oldBox, newBox) =>
                     newBox.width < 5 || newBox.height < 5 ? oldBox : newBox
@@ -677,8 +736,8 @@ export default function ImageAnnotatorModal({
             left: editingText.screenX,
             zIndex: 210,
             minWidth: 120,
-            fontSize: Math.max(12, fontSize * scale),
-            color,
+            fontSize: Math.max(12, editFontSize * scale),
+            color: editColor,
             background: "rgba(255,255,255,0.95)",
             border: "1px solid #38bdf8",
             borderRadius: 4,
