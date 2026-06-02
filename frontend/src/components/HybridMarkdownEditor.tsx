@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState, useEffect, useMemo } from "react";
+import dynamic from "next/dynamic";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
@@ -17,7 +18,15 @@ import { fileService } from "@/lib/file-system/file-service";
 import { rewriteImageBySrcAlt, parseWidthPercent } from "@/lib/image-resize-utils";
 import { ValueHistory, type PushKind } from "@/lib/undo/value-history";
 import ImageResizePopover from "./ImageResizePopover";
+import AnnotatedImage from "./AnnotatedImage";
+import { filenameFromMarkdownSrc } from "@/lib/attachments/annotations";
 import FileViewerModal, { classifyFileLink, type FileViewerKind } from "./FileViewerModal";
+
+// Konva-based annotation editor: client-only (SSR-unsafe), loaded only when
+// the user opens it from the resize popover's Annotate action.
+const ImageAnnotatorModal = dynamic(() => import("./ImageAnnotatorModal"), {
+  ssr: false,
+});
 import Tooltip from "./Tooltip";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 
@@ -787,6 +796,10 @@ export default function HybridMarkdownEditor({
     y: number;
     currentWidth: number | null;
   } | null>(null);
+
+  // Active annotation-editor target (filename within imageBasePath/Images),
+  // opened from the resize popover's Annotate action.
+  const [annotatingFilename, setAnnotatingFilename] = useState<string | null>(null);
 
   // Active file-link click prompt — same shape and component as in
   // LiveMarkdownEditor's preview mode so a Files/ link clicked in either
@@ -2768,12 +2781,17 @@ export default function HybridMarkdownEditor({
                     const resolvedSrc = needsResolution
                       ? IMAGE_PLACEHOLDER
                       : (cachedBlob ?? originalSrc);
+                    // Derive the on-disk filename so AnnotatedImage can load the
+                    // `.annot.json` overlay. Null for remote/data refs; those
+                    // render as a bare img with no overlay.
+                    const annotFilename = filenameFromMarkdownSrc(originalSrc);
                     return (
-                      // eslint-disable-next-line @next/next/no-img-element -- src is a blob URL resolved from a local FSA file (or a transparent data: placeholder while resolving); next/image cannot optimize blob URLs and intrinsic dimensions are unknown for arbitrary user content
-                      <img
+                      <AnnotatedImage
                         src={resolvedSrc}
                         alt={originalAlt}
                         width={width}
+                        basePath={imageBasePath}
+                        filename={annotFilename ?? undefined}
                         data-tour-target="hybrid-editor-embedded-image"
                         className="max-w-full rounded-lg cursor-pointer"
                         // Chrome's "drop on <img>" default behavior
@@ -3387,6 +3405,24 @@ export default function HybridMarkdownEditor({
           currentWidth={imageResize.currentWidth}
           onSelect={handleImageResizeSelect}
           onClose={() => setImageResize(null)}
+          onAnnotate={
+            imageBasePath && filenameFromMarkdownSrc(imageResize.imageSrc)
+              ? () => {
+                  const fn = filenameFromMarkdownSrc(imageResize.imageSrc);
+                  if (fn) setAnnotatingFilename(fn);
+                  setImageResize(null);
+                }
+              : undefined
+          }
+        />
+      )}
+
+      {/* Photo annotation editor (opened from the resize popover). */}
+      {annotatingFilename && imageBasePath && (
+        <ImageAnnotatorModal
+          basePath={imageBasePath}
+          filename={annotatingFilename}
+          onClose={() => setAnnotatingFilename(null)}
         />
       )}
 

@@ -5,6 +5,7 @@ import { blobUrlResolver, encodeAttachmentRefPath } from "@/lib/utils/blob-url-r
 import { imageEvents } from "@/lib/attachments/image-events";
 import { listImagesInFolder, type FolderImageEntry } from "@/lib/attachments/image-folder";
 import ImageMetadataPopup from "./ImageMetadataPopup";
+import AnnotatedImage from "./AnnotatedImage";
 
 /** MIME-style key for drag-and-drop. Defined here so the editor can pick it
  *  out without coupling. */
@@ -234,8 +235,13 @@ export default function ImageStrip({
               title={tooltip}
             >
               {url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={url} alt={entry.filename} className="w-full h-full object-cover pointer-events-none" />
+                <AnnotatedImage
+                  src={url}
+                  alt={entry.filename}
+                  basePath={basePath ?? undefined}
+                  filename={entry.filename}
+                  className="w-full h-full object-cover pointer-events-none"
+                />
               ) : (
                 <div className="w-full h-full bg-gray-100" />
               )}
