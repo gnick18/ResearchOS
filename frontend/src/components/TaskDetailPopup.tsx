@@ -3746,7 +3746,6 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
   const { resolve: resolveDuplicates, DialogComponent: DuplicateDialog } =
     useDuplicateResolver();
@@ -4159,98 +4158,81 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
     }
   }, [content, ensureAttachmentsSplit, notesPath, task.name, clearNotesDraft]);
 
+  // Compact Markdown | Files sub-tab switcher. Folded into the editor's single
+  // unified toolbar (markdown tab) and shown standalone above the files panel.
+  const subTabSwitcher = (
+    <div className="inline-flex items-center p-0.5 bg-gray-100 rounded-lg">
+      <button
+        onClick={() => setActiveSubTab("markdown")}
+        className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+          activeSubTab === "markdown"
+            ? "bg-white text-gray-900 shadow-sm"
+            : "text-gray-500 hover:text-gray-700"
+        }`}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+          <line x1="16" y1="17" x2="8" y2="17" />
+        </svg>
+        Markdown
+      </button>
+      <button
+        onClick={() => setActiveSubTab("pdfs")}
+        className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+          activeSubTab === "pdfs"
+            ? "bg-white text-gray-900 shadow-sm"
+            : "text-gray-500 hover:text-gray-700"
+        }`}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+        </svg>
+        Files
+      </button>
+    </div>
+  );
+
+  // Right-side controls for the editor's unified toolbar: the sub-tab switcher
+  // plus the Save button. The "Unsaved changes" cue is folded into the Save
+  // button's amber-dot + enabled state (no separate text bar). Hidden in
+  // readOnly mode (lab view) where there is nothing to save.
+  const editorToolbarTrailing = !readOnly ? (
+    <>
+      {subTabSwitcher}
+      <button
+        data-tour-target="task-popup-notes-save"
+        onClick={() => {
+          // Flush the editor's in-flight block buffer first so the
+          // last in-progress edit lands on disk, then persist.
+          const latest = editorSaveRef.current?.() ?? content;
+          void handleSave(latest);
+        }}
+        disabled={saving || (!hasUnsavedChanges && !editorDirty)}
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+          (hasUnsavedChanges || editorDirty) && !saving
+            ? "text-white bg-blue-600 hover:bg-blue-700"
+            : "text-gray-400 bg-gray-100 cursor-not-allowed"
+        }`}
+      >
+        {(hasUnsavedChanges || editorDirty) && !saving && (
+          <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-300" />
+        )}
+        {saving ? "Saving..." : "Save notes"}
+      </button>
+    </>
+  ) : (
+    subTabSwitcher
+  );
+
   return (
     <>
       <FileRenamePopup />
       <DuplicateDialog />
       <div className="flex flex-col h-full">
-        {/* Sub-tabs for Markdown and PDFs — segmented control matches the
-            recent purchases / settings polish bar (compact, contained). */}
-        <div className="flex items-center gap-1 px-6 py-2 border-b border-gray-100">
-          <div className="inline-flex items-center p-0.5 bg-gray-100 rounded-lg">
-            <button
-              onClick={() => setActiveSubTab("markdown")}
-              className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                activeSubTab === "markdown"
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="16" y1="13" x2="8" y2="13" />
-                <line x1="16" y1="17" x2="8" y2="17" />
-              </svg>
-              Markdown
-            </button>
-            <button
-              onClick={() => setActiveSubTab("pdfs")}
-              className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                activeSubTab === "pdfs"
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-              </svg>
-              Files
-            </button>
-          </div>
-        </div>
-
         {activeSubTab === "markdown" ? (
           <>
-            {/* Toolbar - hidden in readOnly mode */}
-            {!readOnly && (
-              <div className="flex items-center gap-2 px-6 py-2.5 border-b border-gray-100">
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                  </svg>
-                  {uploading ? "Uploading..." : "Add file"}
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files) handleFileUpload(Array.from(e.target.files));
-                    e.target.value = "";
-                  }}
-                />
-                <div className="flex-1" />
-                {(hasUnsavedChanges || editorDirty) && (
-                  <span className="inline-flex items-center gap-1 text-xs text-amber-700 font-medium">
-                    <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                    Unsaved changes
-                  </span>
-                )}
-                <button
-                  data-tour-target="task-popup-notes-save"
-                  onClick={() => {
-                    // Flush the editor's in-flight block buffer first so the
-                    // last in-progress edit lands on disk, then persist.
-                    const latest = editorSaveRef.current?.() ?? content;
-                    void handleSave(latest);
-                  }}
-                  disabled={saving || (!hasUnsavedChanges && !editorDirty)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                    (hasUnsavedChanges || editorDirty) && !saving
-                      ? "text-white bg-blue-600 hover:bg-blue-700"
-                      : "text-gray-400 bg-gray-100 cursor-not-allowed"
-                  }`}
-                >
-                  {saving ? "Saving..." : "Save notes"}
-                </button>
-              </div>
-            )}
 
             {/* File size warning */}
             {uploadWarning && (
@@ -4366,17 +4348,29 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                   saveRef={editorSaveRef}
                   onExplicitSave={(v) => { void handleSave(v); }}
                   onDirtyChange={setEditorDirty}
+                  // Fold the Markdown | Files sub-tab switcher and the
+                  // "Save notes" button into the editor's single unified
+                  // toolbar instead of stacking parent bars above it.
+                  toolbarTrailing={editorToolbarTrailing}
                 />
               )}
             </div>
           </>
         ) : (
-          <PdfAttachmentsPanel
-            pdfsDir={pdfsDir}
-            label="Lab Notes"
-            body={content}
-            onBodyChange={setContent}
-          />
+          <>
+            {/* Files sub-tab: the editor (and its unified toolbar) is not
+                mounted here, so surface the same compact sub-tab switcher
+                in a thin standalone bar above the attachments panel. */}
+            <div className="flex items-center px-6 py-2 border-b border-gray-100">
+              {subTabSwitcher}
+            </div>
+            <PdfAttachmentsPanel
+              pdfsDir={pdfsDir}
+              label="Lab Notes"
+              body={content}
+              onBodyChange={setContent}
+            />
+          </>
         )}
       </div>
 
@@ -4408,7 +4402,6 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
   const { resolve: resolveDuplicates, DialogComponent: DuplicateDialog } =
     useDuplicateResolver();
@@ -4740,99 +4733,81 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
     }
   }, [content, ensureAttachmentsSplit, resultsPath, task.name, clearResultsDraft]);
 
+  // Compact Markdown | Files sub-tab switcher. Folded into the editor's single
+  // unified toolbar (markdown tab) and shown standalone above the files panel.
+  const subTabSwitcher = (
+    <div className="inline-flex items-center p-0.5 bg-gray-100 rounded-lg">
+      <button
+        onClick={() => setActiveSubTab("markdown")}
+        className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+          activeSubTab === "markdown"
+            ? "bg-white text-gray-900 shadow-sm"
+            : "text-gray-500 hover:text-gray-700"
+        }`}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+          <line x1="16" y1="17" x2="8" y2="17" />
+        </svg>
+        Markdown
+      </button>
+      <button
+        onClick={() => setActiveSubTab("pdfs")}
+        className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+          activeSubTab === "pdfs"
+            ? "bg-white text-gray-900 shadow-sm"
+            : "text-gray-500 hover:text-gray-700"
+        }`}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+        </svg>
+        Files
+      </button>
+    </div>
+  );
+
+  // Right-side controls for the editor's unified toolbar: the sub-tab switcher
+  // plus the Save button. The "Unsaved changes" cue is folded into the Save
+  // button's amber-dot + enabled state (no separate text bar). Hidden in
+  // readOnly mode (lab view) where there is nothing to save.
+  const editorToolbarTrailing = !readOnly ? (
+    <>
+      {subTabSwitcher}
+      <button
+        data-tour-target="task-popup-results-save"
+        onClick={() => {
+          // Flush the editor's in-flight block buffer first so the
+          // last in-progress edit lands on disk, then persist.
+          const latest = editorSaveRef.current?.() ?? content;
+          void handleSave(latest);
+        }}
+        disabled={saving || (!hasUnsavedChanges && !editorDirty)}
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+          (hasUnsavedChanges || editorDirty) && !saving
+            ? "text-white bg-blue-600 hover:bg-blue-700"
+            : "text-gray-400 bg-gray-100 cursor-not-allowed"
+        }`}
+      >
+        {(hasUnsavedChanges || editorDirty) && !saving && (
+          <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-300" />
+        )}
+        {saving ? "Saving..." : "Save results"}
+      </button>
+    </>
+  ) : (
+    subTabSwitcher
+  );
+
   return (
     <>
       <FileRenamePopup />
       <DuplicateDialog />
       <div className="flex flex-col h-full">
-        {/* Sub-tabs for Markdown and PDFs — segmented control matches the
-            recent purchases / settings polish bar (compact, contained). */}
-        <div className="flex items-center gap-1 px-6 py-2 border-b border-gray-100">
-          <div className="inline-flex items-center p-0.5 bg-gray-100 rounded-lg">
-            <button
-              onClick={() => setActiveSubTab("markdown")}
-              className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                activeSubTab === "markdown"
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="16" y1="13" x2="8" y2="13" />
-                <line x1="16" y1="17" x2="8" y2="17" />
-              </svg>
-              Markdown
-            </button>
-            <button
-              onClick={() => setActiveSubTab("pdfs")}
-              className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                activeSubTab === "pdfs"
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-              </svg>
-              Files
-            </button>
-          </div>
-        </div>
-
         {activeSubTab === "markdown" ? (
         <>
-          {/* Toolbar - hidden in readOnly mode */}
-          {!readOnly && (
-            <div className="flex items-center gap-2 px-6 py-2.5 border-b border-gray-100">
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                </svg>
-                {uploading ? "Uploading..." : "Add file"}
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  if (e.target.files) handleFileUpload(Array.from(e.target.files));
-                  e.target.value = "";
-                }}
-              />
-              <div className="flex-1" />
-              {(hasUnsavedChanges || editorDirty) && (
-                <span className="inline-flex items-center gap-1 text-xs text-amber-700 font-medium">
-                  <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                  Unsaved changes
-                </span>
-              )}
-              <button
-                data-tour-target="task-popup-results-save"
-                onClick={() => {
-                  // Flush the editor's in-flight block buffer first so the
-                  // last in-progress edit lands on disk, then persist.
-                  const latest = editorSaveRef.current?.() ?? content;
-                  void handleSave(latest);
-                }}
-                disabled={saving || (!hasUnsavedChanges && !editorDirty)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                  (hasUnsavedChanges || editorDirty) && !saving
-                    ? "text-white bg-blue-600 hover:bg-blue-700"
-                    : "text-gray-400 bg-gray-100 cursor-not-allowed"
-                }`}
-              >
-                {saving ? "Saving..." : "Save results"}
-              </button>
-            </div>
-          )}
-
           {/* File size warning */}
           {uploadWarning && (
             <div className="px-6 py-3 bg-amber-50 border-b border-amber-200">
@@ -4889,17 +4864,29 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
                 saveRef={editorSaveRef}
                 onExplicitSave={(v) => { void handleSave(v); }}
                 onDirtyChange={setEditorDirty}
+                // Fold the Markdown | Files sub-tab switcher and the
+                // "Save results" button into the editor's single unified
+                // toolbar instead of stacking parent bars above it.
+                toolbarTrailing={editorToolbarTrailing}
               />
             )}
           </div>
         </>
       ) : (
-        <PdfAttachmentsPanel
-          pdfsDir={pdfsDir}
-          label="Results"
-          body={content}
-          onBodyChange={setContent}
-        />
+        <>
+          {/* Files sub-tab: the editor (and its unified toolbar) is not
+              mounted here, so surface the same compact sub-tab switcher
+              in a thin standalone bar above the attachments panel. */}
+          <div className="flex items-center px-6 py-2 border-b border-gray-100">
+            {subTabSwitcher}
+          </div>
+          <PdfAttachmentsPanel
+            pdfsDir={pdfsDir}
+            label="Results"
+            body={content}
+            onBodyChange={setContent}
+          />
+        </>
       )}
     </div>
     </>

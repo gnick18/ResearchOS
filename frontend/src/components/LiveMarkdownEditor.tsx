@@ -209,6 +209,13 @@ interface LiveMarkdownEditorProps {
    *  single switch. Pass `enableInlineMode={false}` to force the two-way
    *  Hybrid / Preview toggle on a specific surface. */
   enableInlineMode?: boolean;
+  /** Optional parent-supplied content rendered on the RIGHT side of the
+   *  single unified toolbar (after a flex spacer). Surfaces that own their
+   *  own Save action or sub-tab switcher (the experiment popup's Lab Notes /
+   *  Results tabs) inject those controls here so they share this one ~50px
+   *  toolbar instead of stacking their own bars above the editor. Rendered
+   *  only when `showToolbar` is true and focus mode is off. */
+  toolbarTrailing?: React.ReactNode;
 }
 
 /**
@@ -240,6 +247,7 @@ export default function LiveMarkdownEditor({
   focusMode = false,
   onFocusModeChange,
   enableInlineMode = true,
+  toolbarTrailing,
 }: LiveMarkdownEditorProps) {
   // Internal mode state (used if onModeChange is not provided)
   const [internalMode, setInternalMode] = useState<EditorMode>(mode);
@@ -1958,6 +1966,16 @@ export default function LiveMarkdownEditor({
             className="hidden"
             onChange={handleFileChange}
           />
+
+          {/* Trailing slot — parent-owned controls (sub-tab switcher + Save)
+              share this single toolbar instead of stacking their own bars.
+              The flex spacer pushes them to the right edge. */}
+          {toolbarTrailing && (
+            <>
+              <div className="flex-1" />
+              {toolbarTrailing}
+            </>
+          )}
         </div>
       )}
 
