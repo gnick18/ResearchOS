@@ -594,8 +594,7 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
             <p className="text-sm text-gray-500 text-center py-8">Loading…</p>
           ) : entries.length === 0 ? (
             <p className="text-sm text-gray-400 italic text-center py-8">
-              Inbox is empty. Photos sent via Telegram while no experiment is open will
-              appear here.
+              Inbox is empty. Telegram photos sent with no experiment open land here.
             </p>
           ) : (
             <ul className="space-y-2">

@@ -201,9 +201,9 @@ export default function CalendarRemindersModal({ onClose }: Props) {
 
               {/* Status / heads-up */}
               <p className="text-[11px] text-gray-400 italic border-t border-gray-100 pt-3">
-                Reminders fire only while a ResearchOS tab is open. If the tab
-                is closed, in-app notifications still show up once you reopen
-                the app — they just won&apos;t pop a real-time alert.
+                Reminders fire only while a ResearchOS tab is open. If it&apos;s
+                closed, you&apos;ll still see in-app notifications when you
+                return, just not a real-time alert.
               </p>
             </>
           )}

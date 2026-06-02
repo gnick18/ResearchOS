@@ -1393,9 +1393,9 @@ export default function GanttChart({
   if (filteredTasks.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
-        {isLabMode 
-          ? "No tasks to display. Tasks will appear here when users create them."
-          : "No tasks to display. Create a project and add tasks to get started."}
+        {isLabMode
+          ? "No tasks yet. They appear here once people create them."
+          : "No tasks yet. Create a project and add tasks to see them here."}
       </div>
     );
   }

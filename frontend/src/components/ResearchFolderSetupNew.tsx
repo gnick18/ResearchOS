@@ -346,7 +346,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                 <>
                   <h2 className="text-xl font-bold text-white mb-4">Create Your First Account</h2>
                   <p className="text-slate-400 mb-6">
-                    This folder doesn&apos;t have any accounts yet. Create one to get started.
+                    This folder has no accounts yet. Create one to continue.
                   </p>
                 </>
               )}

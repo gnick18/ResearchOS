@@ -900,7 +900,7 @@ export default function MethodsPage() {
           <div className="flex items-baseline justify-between mb-3">
             <h3 className="text-lg font-semibold text-gray-900">My Methods</h3>
             <p className="text-xs text-gray-400">
-              Methods you created, organized into your own categories.
+              Methods you created, in your own categories.
             </p>
           </div>
 
@@ -1006,8 +1006,8 @@ export default function MethodsPage() {
               Shared with Lab
             </h3>
             <p className="text-xs text-gray-400">
-              These methods are shared with everyone in your lab. You can
-              use them and copy them, but only the owner can edit.
+              Shared across your lab. Anyone can use or copy them; only the
+              owner can edit.
             </p>
           </div>
 

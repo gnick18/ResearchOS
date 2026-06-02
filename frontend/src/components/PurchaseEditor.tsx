@@ -646,8 +646,7 @@ export default function PurchaseEditor({
             {overwriteDialog.catalogItem.item_name}&rdquo;.
           </p>
           <p className="text-xs text-amber-600 mb-3">
-            Would you like to update the existing catalog entry or save as a new
-            item?
+            Update the existing catalog entry, or save as a new item?
           </p>
           <div className="flex gap-2">
             <button

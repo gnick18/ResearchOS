@@ -102,7 +102,7 @@ export default function WorkbenchPage() {
     activeTab === "experiments"
       ? `${upcomingCount} experiment${upcomingCount !== 1 ? "s" : ""} in flight`
       : activeTab === "lists"
-        ? `${openListCount} list task${openListCount !== 1 ? "s" : ""} on your plate`
+        ? `${openListCount} open list task${openListCount !== 1 ? "s" : ""}`
         : "Meeting notes and running logs";
 
   return (

@@ -240,9 +240,8 @@ export default function ExportFormatDialog({
                     Combined PDF
                   </div>
                   <div className="text-xs text-gray-500 mt-1 leading-relaxed">
-                    Merge every selected experiment into one navigable PDF with
-                    a cover page, a clickable index, and bookmarks. One file
-                    instead of a zip of separate PDFs.
+                    One PDF for all selected experiments, with a cover page,
+                    clickable index, and bookmarks.
                   </div>
                 </button>
               ) : null}
@@ -253,9 +252,8 @@ export default function ExportFormatDialog({
                     Save as ZIP to a folder on your disk
                   </div>
                   <div className="text-xs text-gray-500 mt-1 leading-relaxed">
-                    Streams the archive directly to a file you pick — keeps
-                    browser memory low for very large exports (Chrome / Edge
-                    only).
+                    Streams straight to a file you pick, keeping memory low for
+                    large exports (Chrome / Edge only).
                   </div>
                   <div className="mt-2 flex items-center gap-2">
                     <label className="text-xs text-gray-600">Format:</label>

@@ -81,7 +81,7 @@ export function WrapAsCompoundAction({
 
   return (
     <Tooltip
-      label="Wrap this method into a kit so you can add additional component methods alongside it."
+      label="Wrap this method into a kit to add more component methods alongside it."
       placement="bottom"
     >
       <button

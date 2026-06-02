@@ -525,7 +525,7 @@ export default function SpendingDashboard({
         <section className="mb-8">
           <div className="p-8 bg-white border border-dashed border-gray-300 rounded-lg text-center">
             <p className="text-sm text-gray-500">
-              Add your first purchase to see spend breakdowns here.
+              Add a purchase to see spend breakdowns here.
             </p>
           </div>
         </section>

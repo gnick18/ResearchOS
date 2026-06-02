@@ -577,8 +577,7 @@ export default function NewPurchaseModal({
             </datalist>
             {priorItems.length > 0 && (
               <p className="text-xs text-gray-400 mt-1">
-                Picks an item you&apos;ve ordered before, vendor and price
-                fill in automatically.
+                Pick a past item to fill in vendor and price automatically.
               </p>
             )}
           </div>
@@ -679,9 +678,8 @@ export default function NewPurchaseModal({
               ))}
             </datalist>
             <p className="text-xs text-gray-400 mt-1">
-              Picks from your existing funding lines, or types a new
-              one. New strings register as a budget-zero account you can
-              configure later.
+              Pick an existing funding line or type a new one. New ones start
+              at zero budget; configure them later.
             </p>
           </div>
         </div>

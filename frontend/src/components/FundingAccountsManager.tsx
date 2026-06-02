@@ -274,10 +274,9 @@ function GrantDetailsGroup({
           </div>
 
           <p className="text-xs text-gray-400">
-            The account name above stays your own label (what purchases match
-            on). The award number is the separate, official grant identifier.
-            These fields map directly to DataCite funding metadata for a later
-            DOI deposit.
+            The account name is your own label (what purchases match on); the
+            award number is the official grant identifier. Both map to DataCite
+            funding metadata for a later DOI deposit.
           </p>
         </div>
       )}

@@ -1299,7 +1299,7 @@ export function CreateMethodModal({
               from the picker, but defensively gate here too). */}
           {uploadType !== "compound" && (
             <Tooltip
-              label="Create this method, then immediately bundle it into a kit so you can add additional components alongside it."
+              label="Create this method and bundle it into a kit, ready for more components."
               placement="top"
             >
               <button

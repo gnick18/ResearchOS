@@ -489,7 +489,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
             Cannot Create Task
           </h3>
           <p className="text-sm text-gray-600 mb-4">
-            There are no active projects available. Please create a new project or unarchive an existing one before creating tasks.
+            You need an active project first. Create one or unarchive an existing project, then add tasks.
           </p>
           <div className="flex justify-end">
             <button
@@ -539,7 +539,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
               ))}
             </div>
             <p className="text-sm text-gray-600 mb-4">
-              Would you like to change the name of your new task, or proceed with creating it anyway?
+              Rename it, or create it anyway?
             </p>
             <div className="flex gap-3 justify-end">
               <button
@@ -652,12 +652,12 @@ export default function TaskModal({ projects }: TaskModalProps) {
             </select>
             {projectId === 0 && (
               <p className="text-xs text-gray-400 mt-1">
-                Standalone tasks are perfect for daily lists, quick notes, or small items that don&apos;t belong to a specific research project.
+                Standalone tasks are for daily lists, quick notes, or anything not tied to a research project.
               </p>
             )}
             {hasSharedProjects && (
               <p className="text-xs text-gray-400 mt-1">
-                Shared projects aren&apos;t listed here. To add a task to one, open that project&apos;s page and create the task from there.
+                Shared projects aren&apos;t listed here. Open the project&apos;s page to add a task to it.
               </p>
             )}
           </div>
@@ -740,7 +740,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
                 
                 {subTasks.length === 0 && (
                   <p className="text-xs text-gray-400 mt-1">
-                    Add items to your list. You can also add items after creating the task.
+                    Add items now or after creating the task.
                   </p>
                 )}
               </div>
@@ -974,8 +974,8 @@ export default function TaskModal({ projects }: TaskModalProps) {
                 );
               })()}
               <p className="text-xs text-gray-400 mt-1">
-                Link a protocol from the Methods library. You can edit it later
-                and choose to save changes as notes or fork a new method.
+                Link a protocol from the Methods library. Edits can be saved as
+                notes or forked into a new method.
               </p>
               <MethodPicker
                 open={showMethodPicker}
@@ -996,8 +996,8 @@ export default function TaskModal({ projects }: TaskModalProps) {
             <div className="bg-green-50 border border-green-200 rounded-lg p-3">
               <p className="text-xs text-green-700">
                 <strong>Experiment tasks</strong> include lab notes (Markdown
-                with image support), results tracking, and method deviation
-                workflows. You can add notes and results after creating the task.
+                with images), results tracking, and method deviations. Add notes
+                and results after creating the task.
               </p>
             </div>
           )}
@@ -1006,10 +1006,9 @@ export default function TaskModal({ projects }: TaskModalProps) {
           {taskType === "purchase" && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
               <p className="text-xs text-amber-700">
-                <strong>Purchase tasks</strong> let you track items to buy.
-                After creating, open the task to add items with quantities,
-                prices, and links. Previously purchased items will be suggested
-                as you type.
+                <strong>Purchase tasks</strong> track items to buy. Open the
+                task to add quantities, prices, and links. Past purchases are
+                suggested as you type.
               </p>
             </div>
           )}

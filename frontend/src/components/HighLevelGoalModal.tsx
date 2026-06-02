@@ -240,7 +240,7 @@ export default function HighLevelGoalModal({
             </select>
             {hasSharedProjects && (
               <p className="text-xs text-gray-400 mt-1">
-                Shared projects aren&apos;t listed here. Goals always belong to you; open the shared project to track work there.
+                Shared projects aren&apos;t listed here. Goals are always your own; open the shared project to track work there.
               </p>
             )}
           </div>

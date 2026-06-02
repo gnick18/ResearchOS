@@ -1707,7 +1707,7 @@ export function InteractiveGradientEditor({
               Add Empty Cycle
             </h3>
             <p className="text-xs text-gray-500 mb-4">
-              Create a new empty thermal cycle? You can add steps to it by adding new steps and moving them into the cycle.
+              Adds an empty thermal cycle. Move steps into it once it&apos;s created.
             </p>
             <div className="flex gap-2">
               <button

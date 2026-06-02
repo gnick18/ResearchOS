@@ -465,7 +465,7 @@ export default function NotesPanel({
             </p>
             {!isLabMode && !searchQuery && filterType === "all" && (
               <p className="text-sm text-gray-400 mb-4">
-                Create your first note to get started
+                Add a note to see it here
               </p>
             )}
           </div>

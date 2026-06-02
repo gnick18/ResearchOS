@@ -696,7 +696,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
               <div className="space-y-2 mb-4">
                 {sortedUsers.length === 0 ? (
                   <p className="text-center text-slate-400 py-4">
-                    No users found. Create a new user to get started.
+                    No users yet. Create one to continue.
                   </p>
                 ) : (
                   sortedUsers.map((user) => (

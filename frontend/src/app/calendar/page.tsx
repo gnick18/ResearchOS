@@ -1187,8 +1187,8 @@ function ExternalEventModal({
           )}
           <p className="text-[11px] text-gray-400 pt-2 border-t border-gray-100">
             {feed
-              ? `From "${feed.label}" (linked iCal subscription). Edit this event in its source app — your change will sync back within 15 minutes.`
-              : "From a linked iCal subscription. Edit this event in its source app — your change will sync back within 15 minutes."}
+              ? `From "${feed.label}" (linked iCal subscription). Edit it in the source app; changes sync back within 15 minutes.`
+              : "From a linked iCal subscription. Edit it in the source app; changes sync back within 15 minutes."}
           </p>
         </div>
 

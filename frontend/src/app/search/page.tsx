@@ -687,7 +687,7 @@ export default function SearchPage() {
 
             {searchResults.length === 0 ? (
               <div className="text-center py-12 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-400">No results match your search criteria</p>
+                <p className="text-sm text-gray-400">No matches found</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -807,9 +807,9 @@ export default function SearchPage() {
         {/* Initial state */}
         {!hasSearched && (
           <div className="text-center py-16 bg-gray-50 rounded-lg">
-            <p className="text-lg text-gray-400 mb-2">Enter search criteria above</p>
+            <p className="text-lg text-gray-400 mb-2">Search to get started</p>
             <p className="text-sm text-gray-300">
-              Use keywords, dates, and filters to find tasks across all projects
+              Enter keywords, dates, or filters above
             </p>
           </div>
         )}

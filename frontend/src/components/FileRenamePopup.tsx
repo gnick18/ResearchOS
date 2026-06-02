@@ -82,7 +82,7 @@ export default function FileRenamePopup({
                 Rename {isImage ? "Image" : "File"}?
               </h3>
               <p className="text-xs text-gray-500 mt-0.5">
-                Would you like to rename this file before uploading?
+                Give it a clearer name before uploading.
               </p>
             </div>
           </div>

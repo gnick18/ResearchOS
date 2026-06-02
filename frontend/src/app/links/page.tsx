@@ -470,7 +470,7 @@ export default function LabLinksPage() {
             </div>
             <p className="text-lg text-gray-400 mb-2">No links saved yet</p>
             <p className="text-sm text-gray-300">
-              Click &ldquo;Add Link&rdquo; to save your first hyperlink
+              Add a link to save it here
             </p>
           </div>
         ) : (
