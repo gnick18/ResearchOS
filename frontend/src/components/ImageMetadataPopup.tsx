@@ -7,6 +7,7 @@ import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 import { imageEvents } from "@/lib/attachments/image-events";
 import { sidecarPath, type ImageSidecar } from "@/lib/attachments/image-folder";
 import { useAppStore, type ActiveTask } from "@/lib/store";
+import AnnotatedImage from "@/components/AnnotatedImage";
 
 // Konva touches window/canvas and breaks SSR, so the annotator is loaded
 // client-only. It mounts lazily only when the user clicks "Annotate".
@@ -211,8 +212,16 @@ export default function ImageMetadataPopup({
           {/* Preview */}
           <div className="w-1/2 bg-gray-100 flex items-center justify-center min-h-[280px] max-h-[60vh] overflow-hidden">
             {previewUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={previewUrl} alt={filename} className="max-w-full max-h-[60vh] object-contain" />
+              // AnnotatedImage (not a bare <img>) so the annotation overlay
+              // renders in the preview too, and updates live via imageEvents
+              // when the user annotates from this same popup.
+              <AnnotatedImage
+                src={previewUrl}
+                basePath={basePath}
+                filename={filename}
+                alt={filename}
+                className="max-w-full max-h-[60vh] object-contain"
+              />
             ) : (
               <span className="text-xs text-gray-400">Loading preview…</span>
             )}
