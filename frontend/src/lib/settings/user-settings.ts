@@ -197,6 +197,13 @@ export interface UserSettings {
    *  the v4 onboarding tour's guided BeakerBot cursor, neither of which
    *  this flag touches. Read by CelebrationManager. */
   beakerBotAnimations: boolean;
+  /** Master "professional mode" switch. This flag itself gates nothing at
+   *  read time: it is purely a one-shot convenience. When the Settings UI
+   *  flips it ON it quiets all three playful surfaces at once (streak
+   *  sidecar enabled=false, animationType="none", beakerBotAnimations=false).
+   *  Turning it OFF does nothing automatic; the user re-enables each surface
+   *  individually. Default false. */
+  professionalMode: boolean;
 
   // Formatting
   dateFormat: DateFormat;
@@ -367,6 +374,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   coloredHeader: true,
   animationType: "rock",
   beakerBotAnimations: true,
+  professionalMode: false,
   dateFormat: "MDY",
   timeFormat: "12h",
   telegramNotifications: true,

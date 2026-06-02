@@ -22,7 +22,13 @@ export { default as AnimalsAnimation } from "./AnimalsAnimation";
 export { default as FungiAnimation } from "./FungiAnimation";
 export { default as ScaryAnimation } from "./ScaryAnimation";
 
-// Animation type definitions
+// Animation type definitions.
+//
+// "none" is the explicit opt-out: the user has turned off the per-task
+// celebration entirely. It is NOT a real animation, so it has no
+// ANIMATION_METADATA entry (see the Exclude below) and DynamicAnimation
+// renders nothing for it. The Settings picker surfaces it as a dedicated
+// "None / off" tile.
 export type AnimationType =
   | "celebration"
   | "rock"
@@ -33,7 +39,13 @@ export type AnimationType =
   | "plants"
   | "animals"
   | "fungi"
-  | "scary";
+  | "scary"
+  | "none";
+
+/** The real animations the user can pick (everything except the "none"
+ *  opt-out). ANIMATION_METADATA is keyed by this so "none" needs no tile
+ *  metadata. */
+export type RealAnimationType = Exclude<AnimationType, "none">;
 
 /**
  * Icon shape for the animation metadata. Either a plain emoji string
@@ -44,8 +56,9 @@ export type AnimationType =
  */
 export type AnimationIcon = string | ComponentType<{ className?: string }>;
 
-// Animation metadata for UI display
-export const ANIMATION_METADATA: Record<AnimationType, {
+// Animation metadata for UI display. Keyed by RealAnimationType so the
+// "none" opt-out (which has no tile of its own) is intentionally absent.
+export const ANIMATION_METADATA: Record<RealAnimationType, {
   name: string;
   icon: AnimationIcon;
   description: string;
@@ -123,6 +136,9 @@ export function coerceAnimationType(
   fallback: AnimationType = "rock",
 ): AnimationType {
   if (typeof candidate !== "string") return fallback;
+  // "none" is a valid stored choice (the opt-out) but has no metadata
+  // entry, so accept it explicitly before the metadata lookup.
+  if (candidate === "none") return "none";
   return candidate in ANIMATION_METADATA
     ? (candidate as AnimationType)
     : fallback;

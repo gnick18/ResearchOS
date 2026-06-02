@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { AnimationType } from "./animations";
 import {
   CelebrationAnimation,
@@ -27,6 +28,17 @@ export default function DynamicAnimation({
   y,
   onComplete,
 }: DynamicAnimationProps) {
+  // "none" = the user opted out of the per-task celebration. Render
+  // nothing, but still fire onComplete on mount so callers that gate on a
+  // transient `animationPosition` clear it (otherwise the trigger state
+  // would never reset). The effect runs once per mount; the parent uses a
+  // fresh `key` per trigger so each opt-out trigger gets its own clear.
+  const isNone = type === "none";
+  useEffect(() => {
+    if (isNone) onComplete();
+  }, [isNone, onComplete]);
+  if (isNone) return null;
+
   // Render the appropriate animation based on type
   switch (type) {
     case "celebration":

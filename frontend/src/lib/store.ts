@@ -12,7 +12,10 @@ export type AnimationType =
   | "plants"
   | "animals"
   | "fungi"
-  | "scary";
+  | "scary"
+  // "none" = the user opted out of the per-task celebration entirely.
+  // DynamicAnimation renders nothing for it.
+  | "none";
 
 export type CalendarViewMode = "month" | "week" | "day";
 

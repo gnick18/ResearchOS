@@ -47,7 +47,7 @@ import {
   type TimeFormat,
 } from "@/lib/settings/user-settings";
 import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
-import { ANIMATION_METADATA, renderAnimationIcon, type AnimationType } from "@/components/animations";
+import { ANIMATION_METADATA, renderAnimationIcon, type AnimationType, type RealAnimationType } from "@/components/animations";
 import DynamicAnimation from "@/components/DynamicAnimation";
 import { hasPassword, verifyPassword } from "@/lib/auth/password";
 import {
@@ -90,6 +90,8 @@ import { useOptionalTourController } from "@/components/onboarding/v4/TourContro
 import { useFeaturePicks } from "@/hooks/useFeaturePicks";
 import { forgetAllTelegramTokenCache } from "@/lib/telegram/telegram-token-cache";
 import StreaksSection from "./StreaksSection";
+import { patchStreak } from "@/lib/streak/streak-sidecar";
+import { repairAllPCRProtocols } from "@/lib/repair/pcr-protocols";
 import {
   TRASH_CLEANUP_OPTIONS,
   getUserTrashCleanupDays,
@@ -1880,8 +1882,54 @@ interface AnimationPreviewState {
   nonce: number;
 }
 
+/** Inline glyph for the "None / off" animation tile. A circle with a
+ *  slash (the universal "disabled" mark). Inline SVG to match the
+ *  project's no-emoji icon idiom. */
+function NoAnimationIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <line x1="5.6" y1="5.6" x2="18.4" y2="18.4" />
+    </svg>
+  );
+}
+
 function AnimationSection({ settings, update }: SectionProps) {
-  const types = Object.keys(ANIMATION_METADATA) as AnimationType[];
+  const { currentUser } = useFileSystem();
+  // Real animations only (ANIMATION_METADATA excludes the "none" opt-out,
+  // which gets its own dedicated tile below).
+  const types = Object.keys(ANIMATION_METADATA) as RealAnimationType[];
+
+  // Professional-mode master switch. Flipping ON quiets all three playful
+  // surfaces at once: streak sidecar enabled=false, the per-task animation
+  // to "none", and BeakerBot animations off. Flipping OFF does nothing
+  // automatic (the user re-enables each surface individually). The streak
+  // sidecar lives outside UserSettings, so it is patched separately via the
+  // streak lib.
+  const handleProfessionalMode = (on: boolean) => {
+    if (on) {
+      void update({
+        professionalMode: true,
+        animationType: "none",
+        beakerBotAnimations: false,
+      });
+      if (currentUser) {
+        void patchStreak(currentUser, (cur) => ({ ...cur, enabled: false }));
+      }
+    } else {
+      void update({ professionalMode: false });
+    }
+  };
   // Concatenate every animation's name + description into the section's
   // search-keyword blob. Lets a query like "confetti" or "explosion"
   // surface the Animation section even though the section title is
@@ -1918,8 +1966,18 @@ function AnimationSection({ settings, update }: SectionProps) {
       tourTarget="settings-animation-picker"
       title="Animation"
       description="Plays when you complete a task. Pick the one that suits your vibe."
-      searchKeywords={animationKeywords}
+      searchKeywords={`${animationKeywords} professional mode quiet focus minimal`}
     >
+      {/* Professional-mode master switch. One toggle that quiets the streak
+          badge, the per-task animation, and BeakerBot all at once. */}
+      <div className="mb-4 pb-4 border-b border-gray-100">
+        <ToggleRow
+          label="Professional mode"
+          description="Turn off the streak badge, task-completion animation, and BeakerBot all at once. Turning it back off lets you re-enable each one individually."
+          checked={settings.professionalMode}
+          onChange={handleProfessionalMode}
+        />
+      </div>
       <div className="grid grid-cols-2 gap-2">
         {types.map((type) => {
           const meta = ANIMATION_METADATA[type];
@@ -1944,6 +2002,39 @@ function AnimationSection({ settings, update }: SectionProps) {
             </button>
           );
         })}
+        {/* "None / off" tile: fully disables the per-task celebration. It
+            has no ANIMATION_METADATA entry (it is not a real animation), so
+            it is rendered as a dedicated tile rather than via the map above.
+            Picking it persists animationType "none"; DynamicAnimation then
+            renders nothing on task completion. */}
+        <button
+          key="none"
+          type="button"
+          data-animation-theme="none"
+          onClick={() => void update({ animationType: "none" })}
+          className={`flex items-center gap-2 p-3 rounded-lg border-2 text-left transition-colors ${
+            settings.animationType === "none"
+              ? "border-purple-400 bg-purple-50"
+              : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+          }`}
+        >
+          <span
+            className="inline-flex items-center justify-center text-gray-400"
+            aria-hidden="true"
+          >
+            <NoAnimationIcon className="w-7 h-7" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p
+              className={`text-sm font-medium ${
+                settings.animationType === "none" ? "text-purple-700" : "text-gray-700"
+              }`}
+            >
+              None / off
+            </p>
+            <p className="text-xs text-gray-400 truncate">No animation on task completion</p>
+          </div>
+        </button>
       </div>
       {/* Preview overlay. The `key={preview.nonce}` swap on each click
        *  forces React to unmount the previous DynamicAnimation (running
@@ -2835,6 +2926,33 @@ function MaintenanceSection() {
         }
         run={repairStampFormats}
         invalidateKey={["tasks"]}
+      />
+      <RepairRow
+        title="Repair PCR protocols"
+        searchDesc="Walks every PCR protocol (private and public) and normalises malformed gradient steps, cycles, ingredients, and missing fields back to a valid shape so they open and run cleanly."
+        description={
+          <>
+            Walks every PCR protocol (private and public) and normalises
+            malformed gradient steps, cycles, and ingredient rows, plus any
+            missing <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">name</code>, <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">notes</code>, or <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">is_public</code> fields, back to a valid shape.
+            Records missing a numeric <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">id</code> can&rsquo;t be recovered and are reported under failed.
+          </>
+        }
+        run={async () => {
+          // The repair lib returns its own RepairReport shape; map it onto
+          // the RepairRow RepairSummary tally without touching the lib.
+          const report = await repairAllPCRProtocols();
+          return {
+            scanned: report.total,
+            repaired: report.repaired,
+            alreadyCorrect: Math.max(
+              0,
+              report.total - report.repaired - report.unrecoverable,
+            ),
+            failed: report.unrecoverable,
+          };
+        }}
+        invalidateKey={["pcr_protocols"]}
       />
       <ReconcileRow />
       <LabArchivesOrphanCleanupRow />
