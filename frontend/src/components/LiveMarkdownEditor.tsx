@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
+import dynamic from "next/dynamic";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
@@ -16,7 +17,15 @@ import MarkdownShortcutsSidebar from "./MarkdownShortcutsSidebar";
 import { blobUrlResolver, encodeAttachmentRefPath } from "@/lib/utils/blob-url-resolver";
 import { fileService } from "@/lib/file-system/file-service";
 import ImageResizePopover from "./ImageResizePopover";
+import AnnotatedImage from "./AnnotatedImage";
+import { filenameFromMarkdownSrc } from "@/lib/attachments/annotations";
 import { rewriteImageBySrcAlt, parseWidthPercent } from "@/lib/image-resize-utils";
+
+// Konva-based annotation editor: loaded client-only (SSR-unsafe) and only when
+// the user opens it from the resize popover's Annotate action.
+const ImageAnnotatorModal = dynamic(() => import("./ImageAnnotatorModal"), {
+  ssr: false,
+});
 import ImageStrip from "./ImageStrip";
 import Tooltip from "./Tooltip";
 import { isTourSyntheticEscape } from "./onboarding/v4/steps/walkthrough/lib/synthetic-escape";
@@ -578,6 +587,10 @@ export default function LiveMarkdownEditor({
     y: number;
     currentWidth: number | null;
   } | null>(null);
+
+  // Active annotation-editor target (filename within imageBasePath/Images),
+  // opened from the resize popover's Annotate action.
+  const [annotatingFilename, setAnnotatingFilename] = useState<string | null>(null);
 
   // Resolve relative image references to blob URLs whenever the markdown or
   // the active mode changes. The mode dependency is a safety net: if a child
@@ -2178,11 +2191,17 @@ export default function LiveMarkdownEditor({
                         const resolvedSrc = needsResolution
                           ? IMAGE_PLACEHOLDER
                           : (cachedBlob ?? originalSrc);
+                        // Derive the on-disk filename so AnnotatedImage can load
+                        // the `.annot.json` overlay. Null for remote/data refs;
+                        // those render as a bare img with no overlay.
+                        const annotFilename = filenameFromMarkdownSrc(originalSrc);
                         return (
-                          <img
+                          <AnnotatedImage
                             src={resolvedSrc}
                             alt={originalAlt}
                             width={width}
+                            basePath={imageBasePath}
+                            filename={annotFilename ?? undefined}
                             className="max-w-full rounded-lg cursor-pointer"
                             // See HybridMarkdownEditor's matching <img> handler
                             // for why these three props are mandatory: without
@@ -2344,6 +2363,24 @@ export default function LiveMarkdownEditor({
           currentWidth={imageResize.currentWidth}
           onSelect={handleImageResizeSelect}
           onClose={() => setImageResize(null)}
+          onAnnotate={
+            imageBasePath && filenameFromMarkdownSrc(imageResize.imageSrc)
+              ? () => {
+                  const fn = filenameFromMarkdownSrc(imageResize.imageSrc);
+                  if (fn) setAnnotatingFilename(fn);
+                  setImageResize(null);
+                }
+              : undefined
+          }
+        />
+      )}
+
+      {/* Photo annotation editor (opened from the resize popover). */}
+      {annotatingFilename && imageBasePath && (
+        <ImageAnnotatorModal
+          basePath={imageBasePath}
+          filename={annotatingFilename}
+          onClose={() => setAnnotatingFilename(null)}
         />
       )}
 

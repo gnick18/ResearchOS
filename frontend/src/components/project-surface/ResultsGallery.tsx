@@ -13,6 +13,7 @@ import {
 } from "@/lib/attachments/image-folder";
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 import ImageMetadataPopup from "@/components/ImageMetadataPopup";
+import AnnotatedImage from "@/components/AnnotatedImage";
 import type { Project, Task } from "@/lib/types";
 
 interface ResultsGalleryProps {
@@ -245,10 +246,11 @@ export default function ResultsGallery({ project }: ResultsGalleryProps) {
                           title={tooltip}
                         >
                           {url ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
+                            <AnnotatedImage
                               src={url}
                               alt={img.sidecar?.caption ?? img.name}
+                              basePath={g.basePath}
+                              filename={img.name}
                               className="w-full h-full object-cover pointer-events-none"
                             />
                           ) : (

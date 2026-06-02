@@ -1,11 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { fileService } from "@/lib/file-system/file-service";
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 import { imageEvents } from "@/lib/attachments/image-events";
 import { sidecarPath, type ImageSidecar } from "@/lib/attachments/image-folder";
 import { useAppStore, type ActiveTask } from "@/lib/store";
+
+// Konva touches window/canvas and breaks SSR, so the annotator is loaded
+// client-only. It mounts lazily only when the user clicks "Annotate".
+const ImageAnnotatorModal = dynamic(() => import("@/components/ImageAnnotatorModal"), {
+  ssr: false,
+});
 
 interface ImageMetadataPopupProps {
   basePath: string;
@@ -62,6 +69,7 @@ export default function ImageMetadataPopup({
   const [moving, setMoving] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [annotating, setAnnotating] = useState(false);
 
   const sidecarFsPath = sidecarPath(basePath, filename);
 
@@ -311,6 +319,29 @@ export default function ImageMetadataPopup({
             >
               ↪ Jump to occurrence in note
             </button>
+            <button
+              type="button"
+              onClick={() => setAnnotating(true)}
+              disabled={!loaded || !previewUrl}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs text-blue-700 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-40"
+            >
+              {/* Pencil icon (custom inline SVG, no icon library). */}
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+              </svg>
+              Annotate
+            </button>
             {onDelete && (
               <button
                 type="button"
@@ -352,6 +383,15 @@ export default function ImageMetadataPopup({
           </div>
         </div>
       </div>
+
+      {annotating && (
+        <ImageAnnotatorModal
+          basePath={basePath}
+          filename={filename}
+          resolvedSrc={previewUrl ?? undefined}
+          onClose={() => setAnnotating(false)}
+        />
+      )}
     </div>
   );
 }

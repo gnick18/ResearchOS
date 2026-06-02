@@ -25,6 +25,13 @@ interface ImageResizePopoverProps {
   currentWidth: number | null;
   onSelect: (width: number | null) => void;
   onClose: () => void;
+  /**
+   * When provided, the popover shows an "Annotate" action that opens the photo
+   * annotation editor for the clicked image. The caller (an editor surface
+   * that knows the basePath + filename) owns mounting the modal. Omitted when
+   * the surface cannot address the image on disk.
+   */
+  onAnnotate?: () => void;
 }
 
 export default function ImageResizePopover({
@@ -33,6 +40,7 @@ export default function ImageResizePopover({
   currentWidth,
   onSelect,
   onClose,
+  onAnnotate,
 }: ImageResizePopoverProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x, y });
@@ -219,6 +227,30 @@ export default function ImageResizePopover({
           >
             <span className="w-3 h-3 inline-flex items-center justify-center rounded-full border border-gray-300" />
             <span>Remove width</span>
+          </button>
+        )}
+        {onAnnotate && (
+          <button
+            type="button"
+            onClick={onAnnotate}
+            className="flex items-center gap-2 px-2 py-1.5 mt-1 pt-1.5 rounded text-left text-xs font-medium text-blue-700 hover:bg-blue-50 border-t border-gray-100 transition-colors"
+          >
+            {/* Pencil icon (custom inline SVG, no icon library). */}
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+            </svg>
+            <span>Annotate</span>
           </button>
         )}
       </div>

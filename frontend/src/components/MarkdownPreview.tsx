@@ -10,6 +10,8 @@ import { markdownSanitizeSchema } from "@/lib/markdown/sanitize-schema";
 import remarkUnderline from "@/lib/markdown/remark-underline";
 import { filesApi } from "@/lib/local-api";
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
+import AnnotatedImage from "./AnnotatedImage";
+import { filenameFromMarkdownSrc } from "@/lib/attachments/annotations";
 import Tooltip from "./Tooltip";
 
 interface MarkdownPreviewProps {
@@ -123,10 +125,13 @@ export default function MarkdownPreview({
                   img: ({ src, alt, ...props }) => {
                     const originalSrc = String(src || "");
                     const resolvedSrc = resolvedBlobUrls.get(originalSrc) ?? originalSrc;
+                    const annotFilename = filenameFromMarkdownSrc(originalSrc);
                     return (
-                      <img
+                      <AnnotatedImage
                         src={resolvedSrc}
                         alt={alt || ""}
+                        basePath={basePath}
+                        filename={annotFilename ?? undefined}
                         className="max-w-full rounded-lg"
                         {...props}
                       />
