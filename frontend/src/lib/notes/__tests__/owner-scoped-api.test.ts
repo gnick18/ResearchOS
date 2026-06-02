@@ -265,4 +265,108 @@ describe("ownerScopedNotesApi", () => {
       expect(fakeFiles["users/alex/_pi_audit.json"]).toBeUndefined();
     });
   });
+
+  // Shared 1:1 notebooks (notebook-note-edit sub-bot of HR, 2026-06-02): a
+  // notebook PEER edit (no PI session) routes the write to the note OWNER's
+  // folder so it lands where the owner reads it, WITHOUT emitting PI audit.
+  // The current user is mocked as "mira"; the note is owned by "alex".
+  describe("notebook peer (no PI session: owner-routed, NO audit)", () => {
+    it("update routes the OTHER member's notebook note to the owner's folder", async () => {
+      seedNote("alex");
+      const api = ownerScopedNotesApi({
+        // No PI session: this is plain peer editing inside a shared notebook.
+        targetOwner: undefined,
+        actor: undefined,
+        sessionId: undefined,
+        notebookPeerOwner: "alex",
+      });
+      await api.update(11, { title: "Peer-edited Title" });
+
+      // Wrote to the OWNER's (alex's) folder, not the editor's (mira's).
+      expect(fakeFiles["users/alex/notes/11.json"]).toMatchObject({
+        title: "Peer-edited Title",
+      });
+      expect(fakeFiles["users/mira/notes/11.json"]).toBeUndefined();
+      // Peer editing is NOT a PI override: no audit entries for either user.
+      expect(fakeFiles["users/alex/_pi_audit.json"]).toBeUndefined();
+      expect(fakeFiles["users/mira/_pi_audit.json"]).toBeUndefined();
+    });
+
+    it("updateEntry (the note body) also routes to the owner's folder", async () => {
+      seedNote("alex");
+      const api = ownerScopedNotesApi({
+        targetOwner: undefined,
+        actor: undefined,
+        sessionId: undefined,
+        notebookPeerOwner: "alex",
+      });
+      await api.updateEntry(11, "entry-a", { content: "peer body edit" });
+
+      const alexNote = fakeFiles["users/alex/notes/11.json"] as Note;
+      expect(alexNote.entries[0].content).toBe("peer body edit");
+      expect(fakeFiles["users/mira/notes/11.json"]).toBeUndefined();
+      expect(fakeFiles["users/alex/_pi_audit.json"]).toBeUndefined();
+    });
+
+    it("addEntry / deleteEntry route to the owner's folder too", async () => {
+      seedNote("alex");
+      const api = ownerScopedNotesApi({
+        targetOwner: undefined,
+        actor: undefined,
+        sessionId: undefined,
+        notebookPeerOwner: "alex",
+      });
+      await api.addEntry(11, { title: "Peer Entry", date: "2026-06-02" });
+      let alexNote = fakeFiles["users/alex/notes/11.json"] as Note;
+      expect(alexNote.entries.map((e) => e.title)).toContain("Peer Entry");
+      expect(fakeFiles["users/mira/notes/11.json"]).toBeUndefined();
+
+      await api.deleteEntry(11, "entry-a");
+      alexNote = fakeFiles["users/alex/notes/11.json"] as Note;
+      expect(alexNote.entries.find((e) => e.id === "entry-a")).toBeUndefined();
+      // Still owner-routed, still no audit.
+      expect(fakeFiles["users/alex/_pi_audit.json"]).toBeUndefined();
+    });
+
+    it("an empty notebookPeerOwner falls through to the current-user folder (own note)", async () => {
+      // The popup leaves notebookPeerOwner undefined for an OWN notebook note;
+      // an empty string is defensively treated the same way.
+      seedNote("mira");
+      const api = ownerScopedNotesApi({
+        targetOwner: undefined,
+        actor: undefined,
+        sessionId: undefined,
+        notebookPeerOwner: "",
+      });
+      await api.update(11, { title: "Own Notebook Note" });
+
+      expect(fakeFiles["users/mira/notes/11.json"]).toMatchObject({
+        title: "Own Notebook Note",
+      });
+    });
+
+    it("a PI session takes precedence over notebookPeerOwner (audit still emitted)", async () => {
+      // If a PI both is a notebook member AND has an active unlock, the PI
+      // override owns the audit trail; the peer-owner arg must not suppress it.
+      seedNote("alex");
+      const api = ownerScopedNotesApi({
+        targetOwner: "alex",
+        actor: "mira",
+        sessionId: "session-9",
+        notebookPeerOwner: "alex",
+      });
+      await api.update(11, { title: "PI-and-member edit" });
+
+      expect(fakeFiles["users/alex/notes/11.json"]).toMatchObject({
+        title: "PI-and-member edit",
+      });
+      const audit = fakeFiles["users/alex/_pi_audit.json"] as {
+        entries: Array<{ field_path: string; session_id: string }>;
+      };
+      expect(audit).toBeDefined();
+      expect(audit.entries).toHaveLength(1);
+      expect(audit.entries[0].field_path).toBe("title");
+      expect(audit.entries[0].session_id).toBe("session-9");
+    });
+  });
 });

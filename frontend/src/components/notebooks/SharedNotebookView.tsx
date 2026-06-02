@@ -22,11 +22,17 @@ import type { Note, SharedNotebook, WeeklyGoal } from "@/lib/types";
 // any task (the owner-routed `sharedNotebooksApi.updateWeeklyTask` makes the
 // PI-assign / student-complete workflow bidirectional).
 //
-// NOTE EDITING: a member's OWN notebook notes open fully editable (writes route
-// to their own folder, unchanged). The OTHER member's notes open READ-ONLY
-// (same posture as lab mode), because cross-owner note-body editing rides the
-// existing lab-head edit-session gate and is out of scope for this phase. Both
-// members can always ADD notes, which is the locked-decision requirement.
+// NOTE EDITING (notebook-note-edit sub-bot of HR, 2026-06-02): BOTH members can
+// add AND edit any note in the notebook (Grant locked "both can add and edit").
+// A member's OWN notebook notes open fully editable (writes route to their own
+// folder). The OTHER member's notebook notes ALSO open editable: NoteDetailPopup
+// carves notebook notes out of the lab-head edit-session read-only gate via
+// `canEditNotebookNote` (the pair-shared-at-edit grant IS the authorization),
+// and routes the save to the OWNER's folder (`ownerScopedNotesApi`'s
+// notebookPeerOwner). We still pass `readOnly={!noteIsMine}` here as the
+// lab-mode posture for the NON-notebook case; the popup relaxes it for notebook
+// notes the viewer can write. Ordinary (non-notebook) shared notes are
+// untouched and keep the PI-unlock posture.
 
 const notebookKeys = {
   notes: (id: string) => ["notebook", id, "notes"] as const,

@@ -41,6 +41,18 @@ export interface OwnerScopedNotesArgs {
   /** Session id from `edit-session.startEditSession`. Ties all entries from
    *  one 5-min unlock window together. */
   sessionId: string | null | undefined;
+  /**
+   * Shared 1:1 notebooks (notebook-note-edit sub-bot of HR, 2026-06-02): the
+   * note-owner folder for a PEER edit inside a shared notebook. Both notebook
+   * members hold an explicit edit-level share (via `pairingSharedWith`), so
+   * either member may edit the other's notebook note. When set (and the PI
+   * edit-session args are NOT active), mutations route to THIS owner's folder
+   * so the change lands where the owner reads it, WITHOUT emitting PI audit
+   * entries (peer editing is not a lab-head override). Absent / unset = the
+   * unchanged current-user-folder behavior. Ignored when the PI edit-session
+   * branch is active (the PI override takes precedence + owns the audit trail).
+   */
+  notebookPeerOwner?: string | null | undefined;
 }
 
 /**
@@ -55,21 +67,32 @@ export interface OwnerScopedNotesArgs {
  * touched entry.
  */
 export function ownerScopedNotesApi(args: OwnerScopedNotesArgs) {
-  const { targetOwner, actor, sessionId } = args;
+  const { targetOwner, actor, sessionId, notebookPeerOwner } = args;
   // If any of the session args is missing, route everything through the
   // unwrapped API. This matches the Phase 5 TaskDetailPopup pattern.
   const active = !!targetOwner && !!actor && !!sessionId;
 
   if (!active) {
+    // Shared 1:1 notebooks (notebook-note-edit sub-bot of HR, 2026-06-02):
+    // a notebook PEER edit (no PI session, but the viewer holds an explicit
+    // edit-level share on the other member's notebook note) routes to the
+    // owner's folder via the raw API's `owner` param so the write lands where
+    // the owner reads it. No PI audit: peer editing is not a lab-head override.
+    // Empty string is treated as "no peer owner" so an own-note (peerOwner ===
+    // currentUser falls out at the caller) or a missing owner never misroutes.
+    const peerOwner =
+      typeof notebookPeerOwner === "string" && notebookPeerOwner.length > 0
+        ? notebookPeerOwner
+        : undefined;
     return {
       ...rawNotesApi,
       // VC Phase 2 (FLAG-5): give the inactive wrapper the SAME 3-arg
       // (id, data, historyMeta) update shape as the active branch below, so
       // NoteDetailPopup can call `notesApi.update(id, payload, historyMeta)`
       // unconditionally. The raw API takes (id, data, owner, historyMeta); here
-      // `owner` is undefined (current-user folder), and historyMeta forwards
-      // through. Without this shim a 3-arg call would bind historyMeta to the
-      // raw `owner` param and silently misroute the write.
+      // `owner` is the notebook peer owner (or undefined = current-user folder),
+      // and historyMeta forwards through. Without this shim a 3-arg call would
+      // bind historyMeta to the raw `owner` param and silently misroute.
       update: (
         id: number,
         data: NoteUpdate,
@@ -77,7 +100,27 @@ export function ownerScopedNotesApi(args: OwnerScopedNotesArgs) {
           kind: HistoryEditKind;
           revert_target_version?: number;
         } = { kind: "update" },
-      ) => rawNotesApi.update(id, data, undefined, historyMeta),
+      ) => rawNotesApi.update(id, data, peerOwner, historyMeta),
+      get: peerOwner
+        ? (id: number, owner?: string) => rawNotesApi.get(id, owner ?? peerOwner)
+        : rawNotesApi.get,
+      addEntry: peerOwner
+        ? (
+            noteId: number,
+            data: { title: string; date: string; content?: string },
+          ) => rawNotesApi.addEntry(noteId, data, peerOwner)
+        : rawNotesApi.addEntry,
+      updateEntry: peerOwner
+        ? (
+            noteId: number,
+            entryId: string,
+            data: { title?: string; date?: string; content?: string },
+          ) => rawNotesApi.updateEntry(noteId, entryId, data, peerOwner)
+        : rawNotesApi.updateEntry,
+      deleteEntry: peerOwner
+        ? (noteId: number, entryId: string) =>
+            rawNotesApi.deleteEntry(noteId, entryId, peerOwner)
+        : rawNotesApi.deleteEntry,
     };
   }
 

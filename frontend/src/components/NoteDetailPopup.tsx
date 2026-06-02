@@ -6,6 +6,7 @@ import { ownerScopedNotesApi } from "@/lib/notes/owner-scoped-api";
 import { emitNoteDeleted } from "@/lib/notes/delete-toast-bus";
 import { canDeleteNoteFromPopup } from "@/lib/notes/delete-permission";
 import { canRestoreNoteVersion } from "@/lib/notes/restore-permission";
+import { canEditNotebookNote } from "@/lib/notes/notebook-edit-permission";
 import { RESTORE_ENABLED, canonicalize } from "@/lib/history";
 import {
   useVersionRestore,
@@ -86,19 +87,48 @@ export default function NoteDetailPopup({
     setVersionPreview(null);
     historyTriggerRef.current?.focus();
   }, []);
-  const readOnly = labHeadGate.effectiveReadOnly || historyOpen;
+  // Shared 1:1 notebooks (notebook-note-edit sub-bot of HR, 2026-06-02):
+  // carve a NOTEBOOK note out of the lab-head edit-session read-only gate.
+  // A note carrying a `notebook_id` is always shared with BOTH members at
+  // level "edit" (via `pairingSharedWith`), so either member edits any note
+  // in the notebook freely. The explicit pair-shared-at-edit grant IS the
+  // authorization; it does NOT ride the PI passcode unlock. The predicate
+  // returns false for any non-notebook note, so ordinary shared notes keep
+  // the existing PI-unlock posture (the carve-out cannot leak). We use
+  // `labHeadGate.activeUser` as the viewer here (it equals `currentUser`)
+  // because `useCurrentUser` is destructured further down; reading it via the
+  // gate avoids reordering hooks.
+  const notebookEditAllowed = canEditNotebookNote({
+    notebookId: note.notebook_id,
+    noteOwner: note.username,
+    currentUser: labHeadGate.activeUser,
+    sharedWith: note.shared_with,
+  });
+  // The other member's notebook note is owned by them; route the peer write
+  // to the owner's folder so it lands where they read it. An OWN notebook note
+  // (owner === viewer) needs no routing: leave it on the current-user path.
+  const notebookPeerOwner =
+    notebookEditAllowed &&
+    !!note.username &&
+    note.username !== labHeadGate.activeUser
+      ? note.username
+      : undefined;
+  const readOnly =
+    (labHeadGate.effectiveReadOnly && !notebookEditAllowed) || historyOpen;
   const notesApi = useMemo(
     () =>
       ownerScopedNotesApi({
         targetOwner: labHeadGate.unlocked ? note.username : undefined,
         actor: labHeadGate.unlocked ? labHeadGate.activeUser : undefined,
         sessionId: labHeadGate.unlocked ? labHeadGate.sessionId : undefined,
+        notebookPeerOwner,
       }),
     [
       labHeadGate.unlocked,
       labHeadGate.activeUser,
       labHeadGate.sessionId,
       note.username,
+      notebookPeerOwner,
     ],
   );
   const [activeTab, setActiveTab] = useState<string | null>(null);
