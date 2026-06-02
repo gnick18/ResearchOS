@@ -41,6 +41,7 @@ const EXCLUDED_PREFIXES = [
   "/demo", // alternate entry, documented under /wiki/getting-started/demo-mode
   "/results", // redirect-only transitional route → /workbench (page killed per RESULTS_PAGE_PROPOSAL.md)
   "/experiments", // redirect-only stub → /workbench (no AppShell, so the ? icon never renders here)
+  "/pcr", // redirect-only stub → /methods (PCR fully managed under /methods; repair button moved to Settings)
   "/lab-inbox", // redirect-only stub → /lab-overview (legacy bookmark target after the 2026-05-23 rename)
   "/welcome", // first-time-visitor landing ("sell") page, not a documented app feature; captured as landing.png
   "/showcase", // hidden, unlinked BeakerBot showcase Easter egg (URL / brand-mark unlock only, never in nav); not a documented feature
