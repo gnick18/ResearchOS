@@ -3,7 +3,6 @@ import WikiPage from "@/components/wiki/WikiPage";
 import Callout from "@/components/wiki/Callout";
 import Screenshot from "@/components/wiki/Screenshot";
 import { Steps, Step } from "@/components/wiki/Steps";
-import Kbd from "@/components/wiki/Kbd";
 
 export default function WelcomeWizardPage() {
   return (
@@ -415,55 +414,58 @@ export default function WelcomeWizardPage() {
         </Step>
       </Steps>
 
-      <h4>Hybrid editor (13-step cluster)</h4>
+      <h4>Inline editor (6-step cluster)</h4>
       <p>
-        The hybrid editor cluster walks you through the experiment note
-        editor in thirteen beats. The arc starts with a framing pair
-        (notes-vs-results split, then a one-beat scope note that the
-        editor is the same one used everywhere in the app), then drops
-        into the markdown deep-dive (HE-1 through HE-7) and the image
-        and file attachment beats (HE-8 through HE-11):
+        The inline editor cluster walks you through the experiment note
+        editor in six beats. It opens with a framing pair (the notes-vs-results
+        split, then a scope note that this is the same editor used everywhere
+        in the app), steps into Focus Mode, spotlights the live editor surface,
+        then closes on the save concept and steps back out of Focus Mode. The
+        markdown deep-dive that used to live here (the old HE-1 through HE-11
+        beats: a markdown primer, a source/preview mechanic, and cursor demos
+        for bold, italics, headings, shortcuts, and image and file attachment)
+        collapsed into the single inline-editor beat once the editor became
+        inline-only. There is no longer a separate edit mode to teach, so the
+        beat just spotlights the live surface and explains it:
       </p>
       <Steps>
-        <Step><strong>HE-0 (hybrid-notes-vs-results).</strong> BeakerBot explains the notes/results split in the editor.</Step>
+        <Step><strong>hybrid-notes-vs-results.</strong> BeakerBot explains the notes/results split in the editor.</Step>
         <Step>
           <strong>hybrid-editor-scope.</strong> BeakerBot calls out that the
           editor you are about to learn is the same one used in project
-          overviews, standalone notes, and method writeups, then demos the
-          experiment popup&apos;s fullscreen toggle and expands it so the
-          upcoming markdown demos have more room. Manual advance.
+          overviews, standalone notes, and method writeups. Manual advance.
         </Step>
-        <Step><strong>HE-1 (hybrid-markdown-intro).</strong> Introduces markdown support.</Step>
         <Step>
-          <strong>HE-2 (hybrid-markdown-familiarity).</strong> Branch gate: BeakerBot asks
-          whether you want a markdown overview or want to jump straight to the hands-on
-          mechanic. Your pick routes either to HE-3 (overview) or directly to HE-4
-          (mechanic). This choice is not persisted to your sidecar.
+          <strong>hybrid-focus-enter.</strong> BeakerBot clicks the Focus Mode
+          toolbar button so the calm writing surface opens before the editor
+          beat. The same editor subtree carries over, so nothing you have
+          typed is lost.
         </Step>
-        <Step><strong>HE-3 (hybrid-markdown-overview).</strong> Conditional on the overview branch. General markdown primer. Skipped entirely if you picked Jump in.</Step>
-        <Step><strong>HE-4 (hybrid-editor-mechanic).</strong> BeakerBot explains the source/preview split mechanic.</Step>
-        <Step><strong>HE-5a (hybrid-bold).</strong> Cursor demos <Kbd>Cmd+B</Kbd> bold.</Step>
-        <Step><strong>HE-5b (hybrid-italic).</strong> Cursor demos <Kbd>Cmd+I</Kbd> italic.</Step>
-        <Step><strong>HE-5c (hybrid-underline).</strong> Cursor demos underline shortcut.</Step>
-        <Step><strong>HE-6a (hybrid-h1).</strong> Cursor demos Heading 1.</Step>
-        <Step><strong>HE-6b (hybrid-h2).</strong> Cursor demos Heading 2.</Step>
-        <Step><strong>HE-6c (hybrid-h3).</strong> Cursor demos Heading 3.</Step>
-        <Step><strong>HE-7 (hybrid-shortcuts).</strong> User-action: you try a shortcut yourself. Page lock active while the input is waiting.</Step>
-        <Step><strong>HE-8 (hybrid-image-attach).</strong> User-action: you drag an image file from your computer into the editor. Page lock active while the input is waiting.</Step>
-        <Step><strong>HE-9 (hybrid-image-drag-in).</strong> Cursor drags an image into the editor.</Step>
-        <Step><strong>HE-10 (hybrid-image-resize).</strong> Cursor demos resizing the inserted image.</Step>
-        <Step><strong>HE-11 (hybrid-file-attach).</strong> Terminal hybrid editor beat: file attachment demo.</Step>
+        <Step>
+          <strong>inline-editor.</strong> BeakerBot spotlights the live editor
+          surface and teaches the one thing that matters now: it is a live
+          document where you just type and your markdown renders as you go. A{" "}
+          <code># </code> starts a heading, <code>**stars**</code> make text
+          bold, and a <code>- </code> begins a list. No edit mode to toggle and
+          no buttons to hunt for. A closing line points at Save checkpoint as
+          the way to drop a version you can revert to later. Pure narration with
+          a spotlight, manual advance.
+        </Step>
+        <Step>
+          <strong>hybrid-save-concept.</strong> Narration beat: ResearchOS does
+          not auto-save, every save is version-controlled, and leaving with
+          unsaved changes warns you first.
+        </Step>
+        <Step>
+          <strong>hybrid-focus-exit.</strong> BeakerBot clicks Exit focus to
+          peel the overlay back and reveal the still-expanded popup, closing the
+          cluster before the Notes and Lists panels.
+        </Step>
       </Steps>
-
-      <Screenshot
-        src="/wiki/screenshots/onboarding-hybrid-bold.png"
-        alt="BeakerBot's speech bubble narrates the bold-typing demo from the bottom-right anchor, with a page-lock pill at the bottom telling the user BeakerBot is demonstrating."
-        caption="A typing beat in the hybrid editor cluster (HE-5a). The bubble explains the inline-render mechanic: markdown stars disappear when the cursor clicks out and the block renders."
-      />
 
       <h4>Workbench notes and lists (5 steps)</h4>
       <p>
-        After the hybrid editor cluster, BeakerBot introduces the standalone
+        After the inline editor cluster, BeakerBot introduces the standalone
         Notes and Lists panels on the Workbench:
       </p>
       <Steps>

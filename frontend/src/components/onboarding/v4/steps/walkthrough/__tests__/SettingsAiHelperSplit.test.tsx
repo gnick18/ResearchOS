@@ -199,11 +199,13 @@ describe("ai-helper-use-case-agentic (narration-only)", () => {
     expect(gate(picks({ ai_helper: "minimal" }))).toBe(true);
     expect(gate(picks({ ai_helper: "no" }))).toBe(false);
   });
-  it("speech mentions agentic models + writing + collaborator", () => {
+  it("speech mentions agentic models + writing + collaborating with you", () => {
     const text = renderSpeech(settingsAiHelperUseCaseAgenticStep);
     expect(text).toMatch(/[Aa]gentic/);
     expect(text).toMatch(/WRITE|write/);
-    expect(text).toMatch(/collaborator/i);
+    // Copy-trim pass (2026-06): the "research collaborator" line was cut;
+    // the collaborative framing now reads "help write your notebook with you."
+    expect(text).toMatch(/with you/i);
   });
   it("speech is em-dash free", () => {
     expect(renderSpeech(settingsAiHelperUseCaseAgenticStep)).not.toContain("—");
