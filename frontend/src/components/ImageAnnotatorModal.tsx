@@ -302,6 +302,12 @@ export default function ImageAnnotatorModal({
           fontSize,
         };
         commit([...shapesRef.current, shape]);
+        // Leave text-placement mode and select the new label so it is
+        // immediately draggable (move) and re-editable (double-click). Without
+        // this the tool stays "text", so the label can't be moved and clicking
+        // it just drops another "Text" instead of editing it.
+        setTool("select");
+        setSelectedId(id);
         // Immediately open the inline editor for the new label.
         openTextEditor(id, "Text", pos.x, pos.y);
         return;
@@ -649,6 +655,9 @@ export default function ImageAnnotatorModal({
       {editingText && (
         <textarea
           autoFocus
+          // Select the existing text on focus so typing replaces the "Text"
+          // placeholder instead of appending to it.
+          onFocus={(e) => e.currentTarget.select()}
           value={editingText.value}
           onChange={(e) => setEditingText((c) => (c ? { ...c, value: e.target.value } : c))}
           onBlur={commitTextEdit}
