@@ -73,6 +73,12 @@ interface InlineMarkdownEditorProps {
    *  saveRef.current returns the latest doc string synchronously so a parent
    *  Save button can flush + persist. */
   saveRef?: React.MutableRefObject<(() => string) | null>;
+  /** Imperative insert API (mirrors saveRef). When set we point it at a
+   *  function that splices the given markdown syntax in at the current CM6
+   *  selection (replacing any selected text), then refocuses the editor. The
+   *  Style Guide rail in MarkdownShortcutsSidebar calls this to make its
+   *  click-to-insert entries land in the inline editor. Cleared on unmount. */
+  insertRef?: React.MutableRefObject<((syntax: string) => void) | null>;
   /** Fired on an explicit save (Cmd/Ctrl+S) with the committed document so the
    *  parent can persist it to disk. NO autosave: this is the only push. */
   onExplicitSave?: (value: string) => void;
@@ -185,6 +191,7 @@ export default function InlineMarkdownEditor({
   placeholder,
   disabled = false,
   saveRef,
+  insertRef,
   onExplicitSave,
   onDirtyChange,
   measureClass,
@@ -377,6 +384,26 @@ export default function InlineMarkdownEditor({
     // from viewRef, so we don't want to re-run on every keystroke.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saveRef]);
+
+  // Publish the imperative insert on insertRef (mirrors saveRef above). Splices
+  // the given syntax in at the current selection via a single CM6 dispatch:
+  // replaceSelection inserts the text (overwriting any selection) and moves the
+  // caret to the end of the insert, so the change flows through the same
+  // updateListener that drives onChange + dirty (no echo guard needed: this IS
+  // a real user-initiated edit). Refocuses so the user keeps typing inline.
+  // Null-safe: no-op until the view has mounted. Cleared on unmount.
+  useEffect(() => {
+    if (!insertRef) return;
+    insertRef.current = (syntax: string) => {
+      const view = viewRef.current;
+      if (!view) return;
+      view.dispatch(view.state.replaceSelection(syntax));
+      view.focus();
+    };
+    return () => {
+      if (insertRef) insertRef.current = null;
+    };
+  }, [insertRef]);
 
   // Value-in reconciliation: when the parent swaps `value` to something that
   // differs from what the editor last accepted (an EXTERNAL change, e.g. the

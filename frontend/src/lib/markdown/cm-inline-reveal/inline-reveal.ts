@@ -39,7 +39,9 @@ import {
   contentClassFor,
   emphasisContentClass,
   isContainerNode,
+  isCloseUnderlineTag,
   isMarkerNode,
+  isOpenUnderlineTag,
 } from "./marker-taxonomy";
 import { selectionTouchesNode } from "./selection-touches";
 import { inlineRevealTheme } from "./theme";
@@ -131,6 +133,13 @@ export function buildDeco(view: EditorView): InlineRevealDecorations {
   // Stack of container reveal states, innermost last.
   const revealStack: boolean[] = [];
 
+  // Open `<u>` HTMLTag nodes awaiting their matching `</u>`. The @lezer/markdown
+  // grammar emits `<u>` and `</u>` as two independent HTMLTag LEAF nodes (NOT a
+  // container wrapping the text), so the literal-underline span has to be paired
+  // here instead of riding the container/marker path above. Innermost open tag
+  // last (LIFO) so nested `<u>` pairs match correctly.
+  const openUnderlineTags: Array<{ from: number; to: number }> = [];
+
   for (const { from: visFrom, to: visTo } of view.visibleRanges) {
     tree.iterate({
       from: visFrom,
@@ -166,6 +175,65 @@ export function buildDeco(view: EditorView): InlineRevealDecorations {
             return false;
           }
           // Touched: fall through to container handling below (source shows).
+        }
+
+        // LITERAL `<u>...</u>` underline. The grammar gives us two HTMLTag leaf
+        // nodes; pair them here. On an opening `<u>` push its range. On the
+        // matching `</u>`, pop the innermost open tag and, if the selection does
+        // NOT touch the whole `[openFrom, closeTo]` span, collapse both tag
+        // ranges (Decoration.replace, mirroring the bold/italic marker hide) and
+        // mark the enclosed content with cm-underline. When the caret IS on the
+        // span the tags stay as raw source, exactly like the `**` delimiters of
+        // a touched bold token. An unclosed `<u>` (no matching close) simply
+        // stays on the stack and is dropped at walk end, so it renders as plain
+        // source text. Other HTMLTag nodes (<img>, <br>, ...) are left untouched
+        // and continue to render as raw source in inline mode.
+        if (name === "HTMLTag" && node.to > node.from) {
+          const tagSource = state.sliceDoc(node.from, node.to);
+          if (isOpenUnderlineTag(tagSource)) {
+            openUnderlineTags.push({ from: node.from, to: node.to });
+            return;
+          }
+          if (isCloseUnderlineTag(tagSource)) {
+            const open = openUnderlineTags.pop();
+            if (open) {
+              const revealed = selectionTouchesNode(sel, open.from, node.to);
+              if (!revealed) {
+                // Collapse the opening + closing tags (replace + atomic) so the
+                // caret skips them, and underline the content between them.
+                combinedRanges.push({
+                  from: open.from,
+                  to: open.to,
+                  deco: REPLACE_MARKER,
+                });
+                atomicRanges.push({
+                  from: open.from,
+                  to: open.to,
+                  deco: REPLACE_MARKER,
+                });
+                combinedRanges.push({
+                  from: node.from,
+                  to: node.to,
+                  deco: REPLACE_MARKER,
+                });
+                atomicRanges.push({
+                  from: node.from,
+                  to: node.to,
+                  deco: REPLACE_MARKER,
+                });
+                if (node.from > open.to) {
+                  combinedRanges.push({
+                    from: open.to,
+                    to: node.from,
+                    deco: markFor("cm-underline"),
+                  });
+                }
+              }
+            }
+            return;
+          }
+          // A non-underline HTMLTag (e.g. <img>, <br>): leave as source.
+          return;
         }
 
         if (isContainerNode(name)) {

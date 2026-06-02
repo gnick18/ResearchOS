@@ -1,0 +1,114 @@
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { act, render, screen, waitFor } from "@testing-library/react";
+import InlineMarkdownEditor from "../InlineMarkdownEditor";
+
+/**
+ * Inline (CodeMirror 6) imperative INSERT API (Typora editor finish).
+ *
+ * Pins the last-mile insert wiring the inline Style Guide rail rides on: the
+ * inline editor publishes an `insertRef` whose function splices a markdown
+ * snippet in AT THE CURRENT SELECTION (replacing any selection) and refocuses.
+ * The MarkdownShortcutsSidebar's click-to-insert entries call this via
+ * LiveMarkdownEditor's `onInsertSyntax={(s) => insertRef.current?.(s)}`.
+ *
+ * We render the real InlineMarkdownEditor (which dynamic-imports CM6) and drive
+ * the published insertRef directly, asserting the snippet lands at the caret
+ * and the change flows out through onChange. A second case selects a range and
+ * asserts the insert REPLACES the selection (replaceSelection semantics).
+ *
+ * jsdom note: CM6 measures layout on dispatch + focus; jsdom lacks Range client
+ * rects, so we shim getClientRects / getBoundingClientRect / createRange the way
+ * CM6-in-jsdom harnesses do. The roundtrip gates mount a bare view and never
+ * measure; this test exercises the full component, so the shim is required.
+ */
+
+beforeAll(() => {
+  // CM6 measures text geometry via Range.getClientRects on dispatch / focus.
+  // jsdom returns nothing, which throws inside CM6's measuring. Provide inert
+  // rects so the editor mounts + dispatches without crashing (we never assert
+  // on geometry, only on the document string).
+  const rect = {
+    bottom: 0,
+    height: 0,
+    left: 0,
+    right: 0,
+    top: 0,
+    width: 0,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
+  } as DOMRect;
+  if (typeof Range !== "undefined") {
+    Range.prototype.getClientRects = function getClientRects() {
+      return {
+        length: 0,
+        item: () => null,
+        [Symbol.iterator]: function* () {},
+      } as unknown as DOMRectList;
+    };
+    Range.prototype.getBoundingClientRect = function getBoundingClientRect() {
+      return rect;
+    };
+  }
+});
+
+describe("InlineMarkdownEditor: imperative insert API (insertRef)", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("inserts the syntax at the current selection and flows through onChange", async () => {
+    const onChange = vi.fn();
+    const insertRef: React.MutableRefObject<((syntax: string) => void) | null> = {
+      current: null,
+    };
+
+    render(
+      <InlineMarkdownEditor value="seed" onChange={onChange} insertRef={insertRef} />,
+    );
+
+    // Wait for the CM6 dynamic import + view mount. The host div carries the
+    // testid from first render (before the async view attaches), so we wait on
+    // the "Loading editor..." placeholder disappearing, which flips only once
+    // `loaded` is true AND viewRef points at a live EditorView, which is what
+    // the insert closure reads at call time.
+    await waitFor(() => {
+      expect(screen.getByTestId("inline-markdown-editor")).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(screen.queryByText("Loading editor...")).toBeNull();
+    });
+    await waitFor(() => {
+      expect(insertRef.current).toBeTypeOf("function");
+    });
+
+    // Selection defaults to offset 0 on a fresh mount, so the snippet is
+    // spliced in BEFORE the seed text (not appended, not replacing the doc).
+    act(() => {
+      insertRef.current?.("**bold**");
+    });
+
+    await waitFor(() => {
+      expect(onChange).toHaveBeenCalled();
+    });
+    const last = onChange.mock.calls[onChange.mock.calls.length - 1][0];
+    expect(last).toBe("**bold**seed");
+  });
+
+  it("clears the insert ref on unmount", async () => {
+    const insertRef: React.MutableRefObject<((syntax: string) => void) | null> = {
+      current: null,
+    };
+    const { unmount } = render(
+      <InlineMarkdownEditor value="x" onChange={vi.fn()} insertRef={insertRef} />,
+    );
+    await waitFor(() => {
+      expect(screen.queryByText("Loading editor...")).toBeNull();
+    });
+    await waitFor(() => {
+      expect(insertRef.current).toBeTypeOf("function");
+    });
+    unmount();
+    expect(insertRef.current).toBeNull();
+  });
+});

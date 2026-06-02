@@ -12,6 +12,7 @@ import remarkUnderline from "@/lib/markdown/remark-underline";
 import { attachmentsApi } from "@/lib/local-api";
 import HybridMarkdownEditor from "./HybridMarkdownEditor";
 import InlineMarkdownEditor from "./InlineMarkdownEditor";
+import MarkdownShortcutsSidebar from "./MarkdownShortcutsSidebar";
 import { blobUrlResolver, encodeAttachmentRefPath } from "@/lib/utils/blob-url-resolver";
 import { fileService } from "@/lib/file-system/file-service";
 import ImageResizePopover from "./ImageResizePopover";
@@ -261,6 +262,11 @@ export default function LiveMarkdownEditor({
   // happens and the buffer refs survive untouched. This is the
   // belt-and-suspenders guard the design doc asks for.
   const commitBufferRef = useRef<(() => void) | null>(null);
+  // Imperative insert published by the inline (CodeMirror 6) child. The inline
+  // Style Guide rail (MarkdownShortcutsSidebar) calls this to splice a markdown
+  // snippet in at the editor's current selection. Null until the inline editor
+  // mounts; only the inline branch wires it.
+  const insertRef = useRef<((syntax: string) => void) | null>(null);
   // Captured focused element on enter, restored on exit (a11y §10).
   const focusReturnElRef = useRef<HTMLElement | null>(null);
   // Overlay root for the focus trap + guarded-Escape scoping.
@@ -2224,16 +2230,35 @@ export default function LiveMarkdownEditor({
             // manual-save contract (saveRef / onExplicitSave / onDirtyChange)
             // is the same interface the hybrid child exposes. The fluid
             // ch-based measure (Phase 1) centers the writing column.
-            <InlineMarkdownEditor
-              value={value}
-              onChange={onChange}
-              placeholder={placeholder}
-              disabled={disabled}
-              saveRef={saveRef}
-              onExplicitSave={onExplicitSave}
-              onDirtyChange={onDirtyChange}
-              measureClass={measureClass}
-            />
+            //
+            // Layout mirrors the hybrid editor (HybridMarkdownEditor): the
+            // Shortcuts / Style Guide rail is a fixed-width column on the LEFT
+            // (it owns its own collapse state) and the editor fills the rest as
+            // flex-1. `min-h-0` + `h-full` keep the editor scrolling inside its
+            // own column instead of bursting the flex row. The rail is hidden
+            // in focus mode to match the calm focus surface (the hybrid editor
+            // collapses its own rail on focus enter via forceHelperCollapsed);
+            // the keyboard shortcuts keep working there via the CM6 keymap.
+            <div className="flex h-full min-h-0">
+              {!focusModeActive && (
+                <MarkdownShortcutsSidebar
+                  onInsertSyntax={(s) => insertRef.current?.(s)}
+                />
+              )}
+              <div className="relative flex-1 flex flex-col min-h-0 h-full">
+                <InlineMarkdownEditor
+                  value={value}
+                  onChange={onChange}
+                  placeholder={placeholder}
+                  disabled={disabled}
+                  saveRef={saveRef}
+                  insertRef={insertRef}
+                  onExplicitSave={onExplicitSave}
+                  onDirtyChange={onDirtyChange}
+                  measureClass={measureClass}
+                />
+              </div>
+            </div>
           ) : (
             <HybridMarkdownEditor
               value={value}

@@ -140,3 +140,30 @@ export function contentClassFor(name: string): string | null {
 export function emphasisContentClass(firstDelimiterChar: string): string {
   return firstDelimiterChar === "_" ? "cm-underline" : "cm-em";
 }
+
+/**
+ * Literal-`<u>` underline support.
+ *
+ * The @lezer/markdown grammar does NOT emit a container node for the literal
+ * `<u>...</u>` tag the way it does for `**bold**`: the opening `<u>` and closing
+ * `</u>` parse as two independent `HTMLTag` leaf nodes inside the surrounding
+ * Paragraph, with the enclosed text sitting between them as plain inline content
+ * (no wrapping node). So the inline-reveal walk can NOT treat `<u>` like the
+ * bold/italic containers; instead it pairs the open/close `HTMLTag` nodes
+ * itself, collapses the two tag ranges (Decoration.replace) when the caret is
+ * away, and marks the content between them with `cm-underline`.
+ *
+ * These two predicates classify an `HTMLTag` node's source text as an opening or
+ * closing `<u>` tag. The grammar slices the tag verbatim (e.g. `"<u>"`,
+ * `"</u>"`), so a trimmed, case-insensitive exact match is enough. We do NOT try
+ * to handle attributes (`<u class="x">`) because the Cmd+U shortcut and the
+ * remark-underline convention only ever emit the bare tag, and a bare match
+ * keeps the pairing unambiguous.
+ */
+export function isOpenUnderlineTag(tagSource: string): boolean {
+  return tagSource.trim().toLowerCase() === "<u>";
+}
+
+export function isCloseUnderlineTag(tagSource: string): boolean {
+  return tagSource.trim().toLowerCase() === "</u>";
+}

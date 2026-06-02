@@ -131,3 +131,66 @@ describe("buildDeco replace ranges (markers hide when caret is OUT)", () => {
     view = null;
   });
 });
+
+/** Collect every cm-underline mark range in a decoration set as [from,to]. */
+function underlineRanges(
+  set: ReturnType<typeof buildDeco>["combined"],
+): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  set.between(0, Number.MAX_SAFE_INTEGER, (from, to, value) => {
+    const cls = (value.spec as { class?: string } | undefined)?.class;
+    if (cls === "cm-underline") out.push([from, to]);
+  });
+  return out;
+}
+
+describe("buildDeco literal <u>...</u> underline (inline reveal)", () => {
+  // doc: "x <u>boo</u> y"
+  //  positions: <u> at [2,5), "boo" at [5,8), </u> at [8,12).
+  it("collapses both <u> tags and underlines the content when caret is OUT", () => {
+    const doc = "x <u>boo</u> y";
+    const v = mount(doc, 0); // caret at the very start, outside the <u> span
+    const { combined, atomic } = buildDeco(v);
+
+    // Both tag ranges are collapsed (replace) and atomic so the caret skips
+    // them, mirroring how the ** marks of bold collapse.
+    const atomicPairs = ranges(atomic);
+    expect(atomicPairs).toContainEqual([2, 5]); // <u>
+    expect(atomicPairs).toContainEqual([8, 12]); // </u>
+
+    // The enclosed text gets a cm-underline content mark.
+    expect(underlineRanges(combined)).toContainEqual([5, 8]);
+  });
+
+  it("reveals (no collapse) when the caret is inside the <u> span", () => {
+    const doc = "x <u>boo</u> y";
+    const v = mount(doc, 6); // caret inside "boo" -> reveal, tags show as source
+    const { atomic } = buildDeco(v);
+    // Reveal: nothing collapsed.
+    expect(ranges(atomic)).toHaveLength(0);
+  });
+
+  it("reveals at the boundary (caret exactly after the closing </u>)", () => {
+    const doc = "x <u>boo</u> y";
+    const v = mount(doc, 12); // right after </u>
+    const { atomic } = buildDeco(v);
+    expect(ranges(atomic)).toHaveLength(0);
+  });
+
+  it("leaves an UNCLOSED <u> as plain source (no collapse, no underline)", () => {
+    const doc = "x <u>boo y"; // no closing tag
+    const v = mount(doc, 0);
+    const { combined, atomic } = buildDeco(v);
+    expect(ranges(atomic)).toHaveLength(0);
+    expect(underlineRanges(combined)).toHaveLength(0);
+  });
+
+  it("does NOT touch other raw HTML tags like <br> (left as source)", () => {
+    const doc = "line<br>more";
+    const v = mount(doc, 0);
+    const { combined, atomic } = buildDeco(v);
+    // <br> is an HTMLTag but not an underline tag: no replace, no underline.
+    expect(ranges(atomic)).toHaveLength(0);
+    expect(underlineRanges(combined)).toHaveLength(0);
+  });
+});

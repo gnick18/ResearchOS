@@ -144,6 +144,55 @@ function headingCommand(level: number): StateCommand {
 }
 
 /**
+ * Step the heading level of every caret line up or down by one, mirroring the
+ * hybrid editor's adjustHeadingLevelInBlock semantics so the rail's
+ * "Heading Up" (Cmd/Ctrl+Alt++) and "Heading Down" (Cmd/Ctrl+Alt+-) shortcuts
+ * behave identically in the inline editor:
+ *
+ *   - "up" (fewer hashes, larger heading): `### ` -> `## ` -> `# ` -> no heading.
+ *     A non-heading line gains `# `.
+ *   - "down" (more hashes, smaller heading): `# ` -> `## ` -> ... up to `###### `,
+ *     which is the floor (level 6 stays). A non-heading line gains `## `.
+ *
+ * Family-aware (replaces any existing `#{1,6} ` prefix) so it never stacks
+ * markers. One change per distinct caret line (multi-cursor safe).
+ */
+function headingStepCommand(up: boolean): StateCommand {
+  return ({ state, dispatch }) => {
+    const changes: ChangeSpec[] = [];
+    const seenLines = new Set<number>();
+    for (const range of state.selection.ranges) {
+      const line = state.doc.lineAt(range.head);
+      if (seenLines.has(line.from)) continue;
+      seenLines.add(line.from);
+      const existing = line.text.match(HEADING_FAMILY);
+      const existingLen = existing ? existing[0].length : 0;
+      const currentLevel = existing ? existing[0].trimEnd().length : 0;
+
+      let nextMarker: string;
+      if (up) {
+        // Fewer hashes; at level 1 (or no heading) clear to plain text.
+        nextMarker = currentLevel <= 1 ? "" : "#".repeat(currentLevel - 1) + " ";
+        if (currentLevel === 0) nextMarker = "# ";
+      } else {
+        // More hashes; non-heading line becomes level 2 (hybrid parity), and
+        // level 6 is the floor.
+        if (currentLevel === 0) nextMarker = "## ";
+        else if (currentLevel >= 6) nextMarker = "###### ";
+        else nextMarker = "#".repeat(currentLevel + 1) + " ";
+      }
+      if (nextMarker === existing?.[0]) continue; // no-op (e.g. level-6 down)
+      changes.push({ from: line.from, to: line.from + existingLen, insert: nextMarker });
+    }
+    if (changes.length === 0) return false;
+    dispatch(
+      state.update({ changes, scrollIntoView: true, userEvent: "input.prefix" }),
+    );
+    return true;
+  };
+}
+
+/**
  * The named StateCommands behind the keymap, exported so they can be unit-tested
  * directly (invoking { state, dispatch }) without simulating a keydown, which is
  * brittle under jsdom. The keymap binds these at Prec.high.
@@ -159,10 +208,19 @@ export function headingCommandFor(level: number): StateCommand {
   return headingCommand(level);
 }
 export const blockquoteCommand: StateCommand = linePrefixCommand("> ", QUOTE_FAMILY);
+// Heading-step commands behind the rail's "Heading Up" / "Heading Down" rows.
+export const headingUpCommand: StateCommand = headingStepCommand(true);
+export const headingDownCommand: StateCommand = headingStepCommand(false);
 
 /**
  * The raw key bindings (key + run), exported so a test can assert the registered
  * key families without simulating a keydown.
+ *
+ * Heading Up / Down use the Cmd/Ctrl+Alt+ +/- combo the hybrid editor advertises.
+ * CM6 normalizes the keypad / shifted forms, so we bind every glyph the platform
+ * may report for "+" (Shift+=) and "-" so the shortcut fires regardless of layout:
+ *   - Up:   Mod-Alt-=, Mod-Alt-Shift-=, Mod-Alt-+
+ *   - Down: Mod-Alt--
  */
 export const markdownKeyBindings: KeyBinding[] = [
   { key: "Mod-b", run: viewBinding(boldCommand) },
@@ -178,6 +236,10 @@ export const markdownKeyBindings: KeyBinding[] = [
   { key: "Mod-5", run: viewBinding(headingCommand(5)) },
   { key: "Mod-6", run: viewBinding(headingCommand(6)) },
   { key: "Ctrl-q", run: viewBinding(blockquoteCommand) },
+  { key: "Mod-Alt-=", run: viewBinding(headingUpCommand) },
+  { key: "Mod-Alt-+", run: viewBinding(headingUpCommand) },
+  { key: "Mod-Alt-Shift-=", run: viewBinding(headingUpCommand) },
+  { key: "Mod-Alt--", run: viewBinding(headingDownCommand) },
 ];
 
 /**
