@@ -2594,6 +2594,23 @@ export default function LiveMarkdownEditor({
             >
               Hybrid
             </button>
+            {/* Inline (Typora-style) pill, opt-in. Mirrors the full toolbar so
+                the third mode does not vanish when entering focus mode. */}
+            {enableInlineMode && (
+              <button
+                type="button"
+                data-testid="editor-mode-inline-focus"
+                onClick={() => setMode("inline")}
+                disabled={disabled}
+                className={`px-2.5 py-1 text-xs rounded transition-colors ${
+                  currentMode === "inline"
+                    ? "bg-white text-gray-800 font-medium shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                } disabled:opacity-50`}
+              >
+                Inline
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setMode("preview")}
