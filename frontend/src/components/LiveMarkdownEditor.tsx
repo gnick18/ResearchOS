@@ -163,7 +163,10 @@ interface LiveMarkdownEditorProps {
   showShortcutsHelper?: boolean;
   /** Whether to allow any file type uploads (not just images) */
   allowAnyFileType?: boolean;
-  /** Editor mode: 'hybrid' (click-to-edit) or 'preview' (read-only rendered) */
+  /** Editor mode. Defaults to 'inline' (the CodeMirror 6 surface, now the sole
+   *  editor) and toggles to 'preview' (read-only rendered) from the toolbar.
+   *  'hybrid' (click-to-edit) is retained as a dormant fallback EditorMode but
+   *  no UI control selects it anymore. */
   mode?: EditorMode;
   /** Callback when mode changes */
   onModeChange?: (mode: EditorMode) => void;
@@ -236,7 +239,7 @@ export default function LiveMarkdownEditor({
   disabled = false,
   showShortcutsHelper = true,
   allowAnyFileType = false,
-  mode = "hybrid",
+  mode = "inline",
   onModeChange,
   autoStartEditing = false,
   recordType = "experiment",
@@ -1720,6 +1723,45 @@ export default function LiveMarkdownEditor({
     return () => document.removeEventListener("keydown", onKeyDown, true);
   }, [focusModeActive, toggleFocusMode]);
 
+  // Cmd/Ctrl+Shift+F focus-mode toggle for the INLINE branch. The hybrid child
+  // owns this binding on its own document-level keydown (HybridMarkdownEditor),
+  // but the inline (CodeMirror 6) child does not, so when inline is the mounted
+  // editor (the default now) the wrapper owns the shortcut here. Mirrors the
+  // hybrid logic verbatim: fire when this editor owns focus OR when nothing
+  // editable anywhere owns focus (so a freshly opened editor with focus on the
+  // host chrome still toggles), and yield when a DIFFERENT editor's field is
+  // focused. Gated to the inline branch so it never double-fires with the
+  // hybrid child's own handler.
+  const inlineBranchActive =
+    enableInlineMode && currentMode === "inline";
+  useEffect(() => {
+    if (!inlineBranchActive) return;
+    if (typeof document === "undefined") return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const isMac =
+        typeof navigator !== "undefined" &&
+        navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+      const cmd = isMac ? e.metaKey : e.ctrlKey;
+      if (!cmd || e.altKey || !e.shiftKey) return;
+      if (e.key.toLowerCase() !== "f") return;
+      const active = document.activeElement as HTMLElement | null;
+      const ownsFocus = Boolean(
+        wrapperRef.current && active && wrapperRef.current.contains(active),
+      );
+      const editableFocused =
+        !!active &&
+        (active.tagName === "TEXTAREA" ||
+          active.tagName === "INPUT" ||
+          active.isContentEditable);
+      if (!ownsFocus && editableFocused) return;
+      e.preventDefault();
+      e.stopPropagation();
+      toggleFocusMode(!focusModeActiveRef.current);
+    };
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
+  }, [inlineBranchActive, toggleFocusMode]);
+
   // Minimal focus trap (a11y §10): keep Tab / Shift+Tab cycling within the
   // overlay. On enter, move focus to the overlay root so keyboard users
   // land inside the dialog.
@@ -1818,47 +1860,29 @@ export default function LiveMarkdownEditor({
           toggle + Attachments toggle + Save + Exit). */}
       {showToolbar && !focusModeActive && (
         <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-100 bg-gray-50/50">
-          {/* Two-way mode toggle: Hybrid | Preview. Edit mode (raw textarea)
-              was removed after hybrid v2 proved iron-clad in real use. */}
+          {/* Two-way mode toggle: Edit | Preview. The inline CodeMirror 6
+              surface is now the sole editor ("Edit"); Hybrid was retired from
+              the UI (its code stays as a dormant fallback). The Edit pill maps
+              to the "inline" EditorMode. */}
           <div className="flex items-center bg-gray-100 rounded-md p-0.5">
-            <Tooltip label="Click on any block to edit it, everything else stays rendered" placement="bottom">
+            <Tooltip
+              label="Write in a single live editing surface"
+              placement="bottom"
+            >
               <button
                 type="button"
-                onClick={() => setMode("hybrid")}
+                data-testid="editor-mode-inline"
+                onClick={() => setMode("inline")}
                 disabled={disabled}
                 className={`px-2.5 py-1 text-xs rounded transition-colors ${
-                  currentMode === "hybrid"
+                  currentMode !== "preview"
                     ? "bg-white text-gray-800 font-medium shadow-sm"
                     : "text-gray-500 hover:text-gray-700"
                 } disabled:opacity-50`}
               >
-                Hybrid
+                Edit
               </button>
             </Tooltip>
-            {/* Inline (Typora-style) pill — opt-in third surface, rendered
-                ONLY when `enableInlineMode` is true (the Notes pilot). The
-                CodeMirror 6 document is the markdown text, so it round-trips
-                the dialect byte-for-byte. */}
-            {enableInlineMode && (
-              <Tooltip
-                label="Inline editing: write in a single live surface (CodeMirror)"
-                placement="bottom"
-              >
-                <button
-                  type="button"
-                  data-testid="editor-mode-inline"
-                  onClick={() => setMode("inline")}
-                  disabled={disabled}
-                  className={`px-2.5 py-1 text-xs rounded transition-colors ${
-                    currentMode === "inline"
-                      ? "bg-white text-gray-800 font-medium shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
-                  } disabled:opacity-50`}
-                >
-                  Inline
-                </button>
-              </Tooltip>
-            )}
             <Tooltip label="Read-only rendered preview" placement="bottom">
               <button
                 type="button"
@@ -2141,7 +2165,7 @@ export default function LiveMarkdownEditor({
 
           const trailing = value.endsWith("\n") ? "" : "\n";
           onChange(`${value}${trailing}${snippet}\n`);
-          if (currentMode === "preview") setMode("hybrid");
+          if (currentMode === "preview") setMode("inline");
         }}
       >
         {/* Editor / Preview — `min-h-0` lets the flex slot shrink below
@@ -2660,37 +2684,23 @@ export default function LiveMarkdownEditor({
           editor subtree inside it is never re-keyed / remounted. */}
       {focusModeActive && (
         <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-100 bg-white/80 backdrop-blur-sm">
-          {/* Compact Hybrid / Preview toggle (kept on the calm surface). */}
+          {/* Compact Edit / Preview toggle (kept on the calm surface). The
+              Edit pill maps to the inline CodeMirror 6 surface (sole editor);
+              Hybrid was retired from the UI. */}
           <div className="flex items-center bg-gray-100 rounded-md p-0.5">
             <button
               type="button"
-              onClick={() => setMode("hybrid")}
+              data-testid="editor-mode-inline-focus"
+              onClick={() => setMode("inline")}
               disabled={disabled}
               className={`px-2.5 py-1 text-xs rounded transition-colors ${
-                currentMode === "hybrid"
+                currentMode !== "preview"
                   ? "bg-white text-gray-800 font-medium shadow-sm"
                   : "text-gray-500 hover:text-gray-700"
               } disabled:opacity-50`}
             >
-              Hybrid
+              Edit
             </button>
-            {/* Inline (Typora-style) pill, opt-in. Mirrors the full toolbar so
-                the third mode does not vanish when entering focus mode. */}
-            {enableInlineMode && (
-              <button
-                type="button"
-                data-testid="editor-mode-inline-focus"
-                onClick={() => setMode("inline")}
-                disabled={disabled}
-                className={`px-2.5 py-1 text-xs rounded transition-colors ${
-                  currentMode === "inline"
-                    ? "bg-white text-gray-800 font-medium shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
-                } disabled:opacity-50`}
-              >
-                Inline
-              </button>
-            )}
             <button
               type="button"
               onClick={() => setMode("preview")}

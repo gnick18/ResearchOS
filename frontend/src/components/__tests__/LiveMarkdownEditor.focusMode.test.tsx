@@ -13,7 +13,7 @@ import { buildTourSyntheticKeyboardEvent } from "../onboarding/v4/steps/walkthro
  *      never bounce the user out of focus mode mid-demo.
  *   2. Cmd/Ctrl+Shift+F toggles focus mode on AND off.
  *   3. Focus-mode's OWN Save flushes via saveRef + calls onExplicitSave.
- *   4. Compact Hybrid / Preview + a single Attachments toggle on the calm
+ *   4. Compact Edit / Preview + a single Attachments toggle on the calm
  *      surface; Add File / Browse / Strip absent.
  *   + BUFFER SAFETY: typing into a block, toggling focus mode on then off,
  *     then saving preserves the typed content (no remount, no loss).
@@ -50,7 +50,7 @@ describe("LiveMarkdownEditor: Writing Focus Mode", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("hides Add File / Browse / Strip on the calm surface but keeps a compact Hybrid / Preview toggle + Attachments toggle (decision 4)", () => {
+  it("hides Add File / Browse / Strip on the calm surface but keeps a compact Edit / Preview toggle + Attachments toggle (decision 4)", () => {
     render(
       <LiveMarkdownEditor
         value="hello"
@@ -71,13 +71,19 @@ describe("LiveMarkdownEditor: Writing Focus Mode", () => {
     expect(dialog.textContent).not.toContain("Browse");
     expect(dialog.textContent).not.toContain("Strip");
     // Kept on the calm surface.
-    expect(dialog.textContent).toContain("Hybrid");
+    expect(dialog.textContent).toContain("Edit");
     expect(dialog.textContent).toContain("Preview");
     expect(dialog.textContent).toContain("Attachments");
   });
 
   it("Cmd/Ctrl+Shift+F toggles focus mode on AND off (decision 2)", () => {
-    render(<LiveMarkdownEditor value="" autoStartEditing onChange={vi.fn()} />);
+    // The Cmd+Shift+F buffer-coupled mechanics live in the hybrid surface
+    // (now a dormant fallback EditorMode); mount it explicitly so the textarea
+    // the test drives is present. The inline default carries the same shortcut
+    // via the wrapper (covered in LiveMarkdownEditor.inlineMode.test.tsx).
+    render(
+      <LiveMarkdownEditor value="" mode="hybrid" autoStartEditing onChange={vi.fn()} />,
+    );
 
     // Move focus inside the editor so the document-level shortcut is scoped
     // to this editor (Cmd+S precedent: containerRef.contains(active)).
@@ -184,7 +190,10 @@ describe("LiveMarkdownEditor: Writing Focus Mode", () => {
   });
 
   it("guarded Escape does NOT exit while a block is mid-edit (textarea focused inside the overlay)", () => {
-    render(<LiveMarkdownEditor value="" autoStartEditing onChange={vi.fn()} />);
+    // Block mid-edit is a hybrid-surface concept (the dormant fallback mode).
+    render(
+      <LiveMarkdownEditor value="" mode="hybrid" autoStartEditing onChange={vi.fn()} />,
+    );
     act(() => {
       fireEvent.click(screen.getByTestId("hybrid-editor-focus-toggle"));
     });
@@ -222,6 +231,7 @@ describe("LiveMarkdownEditor: Writing Focus Mode", () => {
     render(
       <LiveMarkdownEditor
         value=""
+        mode="hybrid"
         autoStartEditing
         onChange={onChange}
         hideSaveButton
@@ -258,6 +268,7 @@ describe("LiveMarkdownEditor: Writing Focus Mode", () => {
     render(
       <LiveMarkdownEditor
         value=""
+        mode="hybrid"
         autoStartEditing
         onChange={onChange}
         hideSaveButton
