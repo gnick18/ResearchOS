@@ -203,6 +203,29 @@ export function removeSharedEntry(
   );
 }
 
+/**
+ * Shared Notebooks Phase 1 (notebooks-data bot, 2026-06-02): the canonical
+ * `shared_with` for a 1:1 pairing. Both usernames at level "edit", so each
+ * member can read AND write. Used for the `SharedNotebook` record itself AND
+ * for every note / weekly task created inside it, which is what makes a
+ * notebook "always shared between exactly these two people."
+ *
+ * Returns a NEW array. Deduplicates by username (last level wins) so a
+ * degenerate `pairingSharedWith(x, x)` yields a single entry rather than two
+ * identical ones; in normal use a !== b.
+ */
+export function pairingSharedWith(a: string, b: string): SharedUser[] {
+  const byUser = new Map<string, "read" | "edit">();
+  for (const username of [a, b]) {
+    if (typeof username !== "string" || username.length === 0) continue;
+    byUser.set(username, "edit");
+  }
+  return Array.from(byUser.entries()).map(([username, level]) => ({
+    username,
+    level,
+  }));
+}
+
 /** True iff the shared_with list contains the "*" sentinel. */
 export function isWholeLabShared(shared_with: SharedUser[]): boolean {
   return normalizeSharedWith(shared_with).some(

@@ -78,6 +78,7 @@ import type {
   WeeklyGoal,
   WeeklyGoalCreate,
   WeeklyGoalUpdate,
+  SharedNotebook,
   NoteComment,
   TaskComment,
   ImageMetadata,
@@ -109,9 +110,11 @@ import {
   isWholeLabShared,
   normalizeSharedWith,
   canRead,
+  pairingSharedWith,
   type Viewer,
 } from "./sharing/unified";
 import { mondayOf } from "./weekly-goals/week";
+import { SharedNotebookStore } from "./shared-notebooks/store";
 
 const projectsStore = new JsonStore<Project>("projects");
 const tasksStore = new JsonStore<Task>("tasks");
@@ -146,6 +149,12 @@ const notesStore = new JsonStore<Note>("notes");
 // types.ts) is DISTINCT from the Gantt `goalsStore` (`HighLevelGoal`); it
 // is never placed on the Gantt.
 const weeklyGoalsStore = new JsonStore<WeeklyGoal>("weekly_goals");
+// Shared Notebooks Phase 1 (notebooks-data bot, 2026-06-02). A string-keyed
+// per-user store at `users/<owner>/shared_notebooks/<uuid>.json` (NOT a
+// JsonStore — notebook ids are UUIDs, not numeric counters; see
+// `lib/shared-notebooks/store.ts` for why). Reuses the same per-user file
+// layout so `labApi.getSharedNotebooks` walks notebooks like notes / goals.
+const sharedNotebooksStore = new SharedNotebookStore();
 const fundingAccountsStore = getLabStore<FundingAccount>("funding_accounts");
 
 async function loadLabUsers(): Promise<{
@@ -4269,6 +4278,178 @@ export const weeklyGoalsApi = {
   },
 };
 
+// ── Shared 1:1 Notebooks (notebooks-data bot, 2026-06-02) ────────────────────
+//
+// See docs/proposals/SHARED_NOTEBOOKS_PROPOSAL.md. A SharedNotebook is a
+// shared workspace between EXACTLY two members. Everything inside it (notes +
+// weekly tasks) is ALWAYS shared between exactly those two people at "edit"
+// (via `pairingSharedWith`), so both read AND write. EITHER role can create
+// one (no role gate). Records live in the creator's folder; the other member
+// discovers + reads them through the sharing-respecting aggregations on
+// `labApi` below (mirroring how notes / weekly goals cross the lab).
+//
+// CRUD here is creator-scoped (create / list-own / updateTitle / delete write
+// to the current user's folder). In-notebook ITEM creation routes through
+// `createNote` / `createWeeklyTask` so the item lands with the correct
+// `notebook_id` + `pairingSharedWith` share list; the personal notes / weekly
+// goals create paths are left completely untouched.
+
+/**
+ * Resolve a notebook by its (globally-unique) id across the lab. The record
+ * lives in its creator's folder, which may not be the current viewer, so we
+ * walk `discoverUsers()` and return the first hit. The id is a UUID, so at
+ * most one user's folder holds it. Stamps `owner` defensively from the folder
+ * for any pre-stamp record. Returns null if no such notebook exists.
+ */
+async function findSharedNotebook(id: string): Promise<SharedNotebook | null> {
+  const usernames = await discoverUsers();
+  for (const username of usernames) {
+    const rec = await sharedNotebooksStore.getForUser(id, username);
+    if (rec) return { ...rec, owner: rec.owner || username };
+  }
+  return null;
+}
+
+export const sharedNotebooksApi = {
+  /**
+   * Create a shared notebook between the current user and `otherMember`. The
+   * creator becomes `members[0]` / `created_by` / `owner`; both members are
+   * written into `shared_with` at "edit". No role gate: a PI or a student may
+   * create one.
+   */
+  create: async (params: {
+    otherMember: string;
+    title?: string;
+  }): Promise<SharedNotebook> => {
+    const creator = await getCurrentUserCached();
+    const now = new Date().toISOString();
+    const data: Omit<SharedNotebook, "id"> = {
+      members: [creator, params.otherMember],
+      created_by: creator,
+      created_at: now,
+      owner: creator,
+      shared_with: pairingSharedWith(creator, params.otherMember),
+    };
+    if (params.title !== undefined) data.title = params.title;
+    return sharedNotebooksStore.create(data);
+  },
+
+  /** Read a notebook from the current user's folder (creator-scoped). For a
+   *  cross-member read, use `labApi.getSharedNotebooks`. */
+  get: async (id: string): Promise<SharedNotebook | null> => {
+    return sharedNotebooksStore.get(id);
+  },
+
+  /** List the current user's OWN notebooks (the ones they created). The
+   *  full set the viewer participates in (including those the OTHER member
+   *  created) comes from `labApi.getSharedNotebooks`. */
+  list: async (): Promise<SharedNotebook[]> => {
+    return sharedNotebooksStore.listAll();
+  },
+
+  /** Rename a notebook the current user created. */
+  updateTitle: async (
+    id: string,
+    title: string,
+  ): Promise<SharedNotebook | null> => {
+    return sharedNotebooksStore.update(id, { title });
+  },
+
+  /** Delete a notebook the current user created. */
+  delete: async (id: string): Promise<void> => {
+    await sharedNotebooksStore.delete(id);
+  },
+
+  /**
+   * Create a NOTE inside a shared notebook. The note lands in the current
+   * user's notes folder (any member can add), stamped with the `notebook_id`
+   * and `shared_with` = both members at "edit", so the other member reads +
+   * edits it. Throws if the notebook does not exist or the current user is not
+   * a member.
+   */
+  createNote: async (params: {
+    notebookId: string;
+    title: string;
+    description?: string;
+    is_running_log?: boolean;
+    entries?: Array<{ title: string; date: string; content?: string }>;
+  }): Promise<Note> => {
+    const notebook = await findSharedNotebook(params.notebookId);
+    if (!notebook) {
+      throw new Error(`Shared notebook ${params.notebookId} not found`);
+    }
+    const author = (await getCurrentUserCached()) ?? "";
+    if (!notebook.members.includes(author)) {
+      throw new Error(
+        `User ${author} is not a member of notebook ${params.notebookId}`,
+      );
+    }
+    const now = new Date().toISOString();
+    const entries: NoteEntry[] = (params.entries ?? []).map((e) => ({
+      id: crypto.randomUUID(),
+      title: e.title,
+      date: e.date,
+      content: e.content ?? "",
+      created_at: now,
+      updated_at: now,
+    }));
+    return notesStore.create({
+      title: params.title,
+      description: params.description ?? "",
+      is_running_log: params.is_running_log ?? false,
+      // Coarse "shared at all" flag, kept in lockstep with the explicit
+      // share list (notebook items are genuinely shared). The real gate is
+      // still `canRead` over `shared_with`; this only keeps the item visible
+      // to existing `shared_only` aggregations.
+      is_shared: true,
+      entries,
+      comments: [],
+      created_at: now,
+      updated_at: now,
+      username: author,
+      notebook_id: params.notebookId,
+      shared_with: pairingSharedWith(notebook.members[0], notebook.members[1]),
+    });
+  },
+
+  /**
+   * Create a WEEKLY TASK inside a shared notebook. Reuses the `WeeklyGoal`
+   * record verbatim (the locked decision's preferred path): `text` is the
+   * task, `is_complete` the done toggle. Lands in the current user's
+   * weekly_goals folder, stamped with `notebook_id` + `shared_with` = both
+   * members at "edit", so either member can add a task and either can complete
+   * it. Throws if the notebook does not exist or the user is not a member.
+   */
+  createWeeklyTask: async (params: {
+    notebookId: string;
+    text: string;
+    week_of?: string;
+  }): Promise<WeeklyGoal> => {
+    const notebook = await findSharedNotebook(params.notebookId);
+    if (!notebook) {
+      throw new Error(`Shared notebook ${params.notebookId} not found`);
+    }
+    const author = await getCurrentUserCached();
+    if (!notebook.members.includes(author)) {
+      throw new Error(
+        `User ${author} is not a member of notebook ${params.notebookId}`,
+      );
+    }
+    const now = new Date().toISOString();
+    return weeklyGoalsStore.create({
+      owner: author,
+      text: params.text,
+      week_of: params.week_of ?? mondayOf(),
+      is_complete: false,
+      created_at: now,
+      created_by: author,
+      is_shared: true,
+      shared_with: pairingSharedWith(notebook.members[0], notebook.members[1]),
+      notebook_id: params.notebookId,
+    });
+  },
+};
+
 export const attachmentsApi = {
   /**
    * Search the data folder for image files whose name contains the given
@@ -6088,6 +6269,95 @@ export const labApi = {
   getUserWeeklyGoals: async (username: string): Promise<WeeklyGoal[]> => {
     const goals = await weeklyGoalsStore.listAllForUser(username);
     return goals.map((g) => ({ ...g, owner: g.owner || username }));
+  },
+
+  // ── Shared 1:1 Notebooks (notebooks-data bot, 2026-06-02) ──────────────────
+  //
+  // The cross-lab, sharing-respecting reads for shared notebooks. They MIRROR
+  // `getNotes` / `getWeeklyGoals`: walk every user's folder, stamp `owner`
+  // defensively, then gate per record. Items created by EITHER member live in
+  // that member's own folder, so each of these must aggregate across the whole
+  // lab to surface what the other member added.
+
+  /**
+   * Every shared notebook the CURRENT viewer participates in (a PI gets one
+   * per student; a student gets the one(s) they are in). Membership is the
+   * hard gate: a notebook is returned only if the viewer is one of its two
+   * `members`. We also pass it through `canRead` (belt-and-suspenders; a
+   * member is always in `shared_with` at "edit"). A lab_head who is NOT a
+   * member does NOT get the notebook here even though canRead would allow it,
+   * because "my notebooks" means the ones I am IN.
+   */
+  getSharedNotebooks: async (): Promise<SharedNotebook[]> => {
+    const viewer = await buildCurrentViewer();
+    const usernames = await discoverUsers();
+    const out: SharedNotebook[] = [];
+    for (const username of usernames) {
+      const records = await sharedNotebooksStore.listAllForUser(username);
+      for (const nb of records) {
+        const rec: SharedNotebook = { ...nb, owner: nb.owner || username };
+        if (
+          Array.isArray(rec.members) &&
+          rec.members.includes(viewer.username) &&
+          canRead(rec, viewer)
+        ) {
+          out.push(rec);
+        }
+      }
+    }
+    return out;
+  },
+
+  /**
+   * Every NOTE in a given notebook, across BOTH members' folders, that the
+   * viewer can read. Gated by `notebook_id` match + the unified `canRead`
+   * (owner = the note's `username` creator, same mapping the lab note widgets
+   * use). A non-member, non-lab_head third user reads nothing here; a lab_head
+   * non-member still reads via implicit view-all (expected, documented).
+   */
+  getNotebookNotes: async (notebookId: string): Promise<Note[]> => {
+    const viewer = await buildCurrentViewer();
+    const usernames = await discoverUsers();
+    const out: Note[] = [];
+    for (const username of usernames) {
+      const userNotes = await notesStore.listAllForUser(username);
+      for (const note of userNotes) {
+        if (note.notebook_id !== notebookId) continue;
+        const stamped = { ...note, username: note.username || username };
+        const shareable = {
+          owner: stamped.username,
+          shared_with: stamped.shared_with ?? [],
+        };
+        if (canRead(shareable, viewer)) out.push(stamped);
+      }
+    }
+    return out;
+  },
+
+  /**
+   * Every WEEKLY TASK in a given notebook, across BOTH members' folders, that
+   * the viewer can read. Same gate as `getNotebookNotes`; WeeklyGoal carries a
+   * real `owner` field, so `canRead` consumes the record directly.
+   */
+  getNotebookWeeklyTasks: async (
+    notebookId: string,
+  ): Promise<WeeklyGoal[]> => {
+    const viewer = await buildCurrentViewer();
+    const usernames = await discoverUsers();
+    const out: WeeklyGoal[] = [];
+    for (const username of usernames) {
+      const userGoals = await weeklyGoalsStore.listAllForUser(username);
+      for (const goal of userGoals) {
+        if (goal.notebook_id !== notebookId) continue;
+        const stamped = { ...goal, owner: goal.owner || username };
+        const shareable = {
+          owner: stamped.owner,
+          shared_with: stamped.shared_with ?? [],
+        };
+        if (canRead(shareable, viewer)) out.push(stamped);
+      }
+    }
+    return out;
   },
 };
 

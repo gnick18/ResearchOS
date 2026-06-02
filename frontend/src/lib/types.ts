@@ -2244,6 +2244,15 @@ export interface Note {
   // history canonical (FLAG-2) so it never pollutes a delta. Absent on every
   // note that was never restored.
   revert_undo_window?: RevertUndoWindow;
+  // Shared Notebooks Phase 1 (notebooks-data bot, 2026-06-02): when set, this
+  // note belongs to a shared 1:1 notebook (see `SharedNotebook`). The value is
+  // the notebook's globally-unique id. ABSENT = a personal note (unchanged
+  // behavior; the personal-notes path never sets this). A note carrying a
+  // `notebook_id` is always created with `shared_with` = both notebook members
+  // at level "edit" (via `pairingSharedWith`), so both members read AND edit
+  // it. Additive / back-compat: old notes read as `undefined` and stay
+  // personal.
+  notebook_id?: string;
 }
 
 export interface NoteCreate {
@@ -2352,6 +2361,16 @@ export interface WeeklyGoal {
    *  Optional on read so a record written before this field normalizes to
    *  owner-only (same back-compat shape as notes). */
   shared_with?: SharedUser[];
+  // Shared Notebooks Phase 1 (notebooks-data bot, 2026-06-02): when set, this
+  // weekly goal is a SHARED WEEKLY TASK inside a shared 1:1 notebook (see
+  // `SharedNotebook`). The value is the notebook's globally-unique id. We
+  // REUSE WeeklyGoal verbatim for in-notebook tasks (the locked decision's
+  // preferred path): `text` is the task, `is_complete` the done toggle,
+  // `week_of` the grouping. A task carrying a `notebook_id` is always created
+  // with `shared_with` = both notebook members at level "edit" (via
+  // `pairingSharedWith`), so either member can add a task and either can check
+  // it off. ABSENT = a personal / whole-lab weekly goal (unchanged behavior).
+  notebook_id?: string;
 }
 
 export interface WeeklyGoalCreate {
@@ -2367,6 +2386,53 @@ export interface WeeklyGoalUpdate {
   week_of?: string;
   is_complete?: boolean;
   is_shared?: boolean;
+}
+
+// ── Shared 1:1 Notebooks ─────────────────────────────────────────────────────
+//
+// Shared Notebooks Phase 1 (notebooks-data bot, 2026-06-02). See
+// docs/proposals/SHARED_NOTEBOOKS_PROPOSAL.md. A SharedNotebook is a dedicated
+// shared workspace between EXACTLY two people (typically a PI and a student).
+// Everything inside it (notes + weekly tasks) is ALWAYS shared between exactly
+// those two members at level "edit" - no per-item toggle, never whole-lab.
+//
+// The sharing itself reuses the unified primitive unchanged: the record (and
+// every item created inside it) carries `shared_with = pairingSharedWith(a, b)`
+// (both members at "edit"), and `canRead` / `canWrite` honor that explicit
+// list. No new sharing engine, no migration.
+//
+// ID SHAPE (data-shape decision, notebooks-data bot, 2026-06-02): `id` is a
+// GLOBALLY-UNIQUE string (crypto.randomUUID), NOT a JsonStore numeric counter.
+// The approved proposal specified `id: string`, and global uniqueness is
+// REQUIRED because `notebook_id` is a cross-user query key: items live in each
+// member's own folder, so a per-user numeric counter (the PI's notebook #1 and
+// a student's notebook #1) would collide when aggregating a notebook's items
+// across both members. A UUID has no such collision. The record is stored via
+// a thin string-keyed per-user store (lib/shared-notebooks/store.ts) that
+// mirrors JsonStore's `users/<owner>/<entity>/<id>.json` layout; JsonStore
+// itself is `<T extends { id: number }>` and cannot hold a string id.
+export interface SharedNotebook {
+  /** Globally-unique id (crypto.randomUUID). Referenced by `Note.notebook_id`
+   *  and `WeeklyGoal.notebook_id` across BOTH members' folders. */
+  id: string;
+  /** The two members, exactly. members[0] is the creator (=== created_by ===
+   *  owner); members[1] is the other person. Both are real usernames. */
+  members: [string, string];
+  /** Username that created the notebook (either a PI or a student; no role
+   *  gate on creation). Equals `owner` and `members[0]`. */
+  created_by: string;
+  /** ISO timestamp of creation. */
+  created_at: string;
+  /** Optional human title. Absent = the UI falls back to "<other member>".
+   *  Editable by the creator via `sharedNotebooksApi.updateTitle`. */
+  title?: string;
+  /** Sharing owner — drives `canRead`/`canWrite`'s owner branch and the
+   *  per-user folder the record lives in. Equals `created_by`. Kept as its
+   *  own field so the record satisfies the unified `ShareableRecord` shape
+   *  (owner + shared_with), exactly like WeeklyGoal carries `owner`. */
+  owner: string;
+  /** Always `pairingSharedWith(members[0], members[1])` - both at "edit". */
+  shared_with: SharedUser[];
 }
 
 // ── Lab Mode Notes ─────────────────────────────────────────────────────────────
