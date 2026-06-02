@@ -4,9 +4,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "@/components/FixtureLink";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { projectsApi as rawProjectsApi, purchasesApi } from "@/lib/local-api";
+import {
+  projectsApi as rawProjectsApi,
+  purchasesApi,
+  tasksApi,
+} from "@/lib/local-api";
 import type { ProjectUpdate } from "@/lib/local-api";
-import type { FundingAccount } from "@/lib/types";
+import type { FundingAccount, Task } from "@/lib/types";
+import {
+  taskResultsBase,
+  resolveTabAttachmentBase,
+} from "@/lib/tasks/results-paths";
+import { listImagesInFolder } from "@/lib/attachments/image-folder";
+import { readProjectActivity } from "@/lib/project-activity/event-log";
 import ShareDialogAdapter from "@/components/sharing/ShareDialogAdapter";
 import ProjectDepositDialog from "@/components/ProjectDepositDialog";
 import Tooltip from "@/components/Tooltip";
@@ -40,17 +50,107 @@ const DEFAULT_COLORS = [
   "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1",
 ];
 
-// Anchor set is derived per-render from feature_picks (see `sections` below)
-// so the Goals entry only appears when L11's gating condition is met. The
-// L2 literal anchor set is preserved for users without goals enabled.
-const BASE_SECTIONS = [
-  { id: "overview", label: "Overview" },
-  { id: "results", label: "Results" },
-  { id: "methods", label: "Methods" },
-  { id: "activity", label: "Activity" },
-] as const;
+// Tab set is derived per-render from feature_picks + content presence (see
+// `sections` below): the Goals entry only appears when L11's gating condition
+// is met, and Results / Methods only when those sections have content. These
+// are REAL tabs backed by local React state (see `activeTab`), not scroll
+// anchors: only the active section's content renders at a time, so a
+// near-empty project never shows a tab that scrolls nowhere. (Beta bug #4.)
+type SectionId = "overview" | "results" | "methods" | "goals" | "activity";
 
-const GOALS_SECTION = { id: "goals", label: "Goals" } as const;
+interface SectionDef {
+  id: SectionId;
+  label: string;
+}
+
+const OVERVIEW_SECTION: SectionDef = { id: "overview", label: "Overview" };
+const RESULTS_SECTION: SectionDef = { id: "results", label: "Results" };
+const METHODS_SECTION: SectionDef = { id: "methods", label: "Methods" };
+const GOALS_SECTION: SectionDef = { id: "goals", label: "Goals" };
+const ACTIVITY_SECTION: SectionDef = { id: "activity", label: "Activity" };
+
+// Content-presence signal for the auto-hiding tabs. These hooks re-run the
+// SAME react-query queries (identical query keys) that ResultsGallery /
+// MethodsInventory / ActivityFeed already run, so the cache is shared and no
+// extra disk reads happen: the parent just reads the cached result to decide
+// tab visibility. Methods presence is derived purely from the task list
+// (an experiment's `method_attachments`), so it needs no extra resolution.
+interface SectionPresence {
+  hasResults: boolean;
+  hasMethods: boolean;
+  hasActivity: boolean;
+}
+
+function useSectionPresence(project: Project | null | undefined): SectionPresence {
+  const owner = project?.owner ?? "";
+  const projectId = project?.id ?? 0;
+  const isSharedWithMe = project?.is_shared_with_me === true;
+  const isArchived = project?.is_archived === true;
+  const taskListOwner = isSharedWithMe ? owner : undefined;
+
+  const { data: ownTasks = [] } = useQuery({
+    queryKey: ["tasks", isSharedWithMe ? `${owner}:${projectId}` : `self:${projectId}`],
+    queryFn: () => tasksApi.listByProject(projectId, taskListOwner),
+    enabled: !!project,
+  });
+
+  const { data: hostedTasks = [] } = useQuery({
+    queryKey: ["projects", owner, projectId, "hosted-tasks"],
+    queryFn: () => rawProjectsApi.listHostedTasks(owner, projectId),
+    enabled: !!project && !isArchived,
+  });
+
+  const experimentTasks: Task[] = useMemo(() => {
+    const own = ownTasks.filter((t) => t.task_type === "experiment");
+    const hosted = hostedTasks.filter((t) => t.task_type === "experiment");
+    return [...own, ...hosted];
+  }, [ownTasks, hostedTasks]);
+
+  // Methods presence: any experiment with at least one method attachment.
+  const hasMethods = useMemo(
+    () => experimentTasks.some((t) => (t.method_attachments?.length ?? 0) > 0),
+    [experimentTasks],
+  );
+
+  // Results presence: at least one result image across the experiments. Shares
+  // ResultsGallery's exact query key so it reads from (and warms) the same
+  // cache entry instead of double-scanning the folders.
+  const experimentKey = useMemo(
+    () => experimentTasks.map((t) => `${t.owner}:${t.id}`).join(","),
+    [experimentTasks],
+  );
+  const { data: totalImages = 0 } = useQuery({
+    queryKey: ["project-results-presence", owner, projectId, experimentKey],
+    queryFn: async (): Promise<number> => {
+      let count = 0;
+      for (const task of experimentTasks) {
+        const outerBase = taskResultsBase(task);
+        const basePath = await resolveTabAttachmentBase(task, "results", outerBase);
+        try {
+          const images = await listImagesInFolder(basePath);
+          count += images.length;
+          if (count > 0) break;
+        } catch {
+          // No Images folder yet — treat as empty.
+        }
+      }
+      return count;
+    },
+    enabled: !!project && experimentTasks.length > 0,
+  });
+
+  const { data: events = [] } = useQuery({
+    queryKey: ["project-activity", owner, projectId],
+    queryFn: () => readProjectActivity(owner, projectId),
+    enabled: !!project,
+  });
+
+  return {
+    hasResults: totalImages > 0,
+    hasMethods,
+    hasActivity: events.length > 0,
+  };
+}
 
 // Mirrors ProjectDetailPopup's owner-routing for mutations. When the viewer is
 // a receiver of a shared project with edit permission, every mutation needs to
@@ -87,6 +187,17 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
     queryKey: ["projects", ownerHint ?? "self", projectId, "surface"],
     queryFn: () => rawProjectsApi.get(projectId, ownerHint ?? undefined),
   });
+
+  // Active tab for the real (state-backed, non-routing) project section tabs.
+  // "overview" is the default landing tab. If the active tab's section is
+  // hidden by content-presence on a later render (e.g. its only image was
+  // deleted) the render path below falls back to Overview.
+  const [activeTab, setActiveTab] = useState<SectionId>("overview");
+
+  // Content presence drives auto-hiding of the Results / Methods / Activity
+  // tabs. Runs unconditionally (rules-of-hooks) and no-ops with `enabled`
+  // guards while the project is still loading.
+  const presence = useSectionPresence(project);
 
   const [showSharePopup, setShowSharePopup] = useState(false);
   const [showDepositDialog, setShowDepositDialog] = useState(false);
@@ -340,18 +451,27 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
     project.is_shared_with_me === true && project.shared_permission === "view";
   const isAnyReceiver = project.is_shared_with_me === true;
 
-  // Splice the Goals anchor between Methods and Activity to mirror the
-  // rendered section order below. The proposal's §4 surface inventory and
-  // L11 both place Goals just above Activity.
-  const sections = goalsEnabled
-    ? [
-        BASE_SECTIONS[0],
-        BASE_SECTIONS[1],
-        BASE_SECTIONS[2],
-        GOALS_SECTION,
-        BASE_SECTIONS[3],
-      ]
-    : BASE_SECTIONS;
+  // Build the visible tab list. Overview always shows. Results / Methods hide
+  // when their section has no content. Goals only when its feature gate is on
+  // (placed just above Activity, mirroring the proposal's §4 surface order).
+  // Activity shows when it has any events (a fresh project's creation events
+  // make this true; a truly empty activity log hides the tab). The required
+  // outcome: a near-empty project ("test" with only an Overview) shows
+  // essentially just the Overview tab, never a dead Results/Methods tab.
+  const sections: SectionDef[] = [
+    OVERVIEW_SECTION,
+    ...(presence.hasResults ? [RESULTS_SECTION] : []),
+    ...(presence.hasMethods ? [METHODS_SECTION] : []),
+    ...(goalsEnabled ? [GOALS_SECTION] : []),
+    ...(presence.hasActivity ? [ACTIVITY_SECTION] : []),
+  ];
+
+  // Guard: if the active tab is no longer in the visible set (its content
+  // disappeared, or the feature gate flipped), fall back to Overview for
+  // this render. The next interaction re-pins via setActiveTab.
+  const effectiveTab: SectionId = sections.some((s) => s.id === activeTab)
+    ? activeTab
+    : "overview";
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto bg-white">
@@ -626,18 +746,34 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
             </div>
           </div>
 
-          <nav className="flex items-center gap-1 -mb-px" aria-label="Project sections">
-            {sections.map((section, idx) => (
-              <span key={section.id} className="flex items-center">
-                {idx > 0 && <span className="text-gray-300 mx-1">│</span>}
-                <a
-                  href={`#${section.id}`}
-                  className="px-2 py-1 text-sm text-gray-500 hover:text-gray-900 rounded transition-colors"
+          {/* Real tabs (beta bug #4): state-backed, no routing, no scroll
+              anchors. Only the active section renders in the body below.
+              Tabs with no content are omitted from `sections` so a near-empty
+              project never shows a dead Results/Methods tab. */}
+          <nav
+            className="flex items-center gap-1 -mb-px"
+            role="tablist"
+            aria-label="Project sections"
+          >
+            {sections.map((section) => {
+              const isActive = section.id === effectiveTab;
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => setActiveTab(section.id)}
+                  className={`px-3 py-1.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                    isActive
+                      ? "text-gray-900 border-gray-900"
+                      : "text-gray-500 border-transparent hover:text-gray-900 hover:border-gray-300"
+                  }`}
                 >
                   {section.label}
-                </a>
-              </span>
-            ))}
+                </button>
+              );
+            })}
           </nav>
         </div>
       </div>
@@ -749,34 +885,38 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
         </div>
       ) : (
         <div className="px-6 py-6 flex flex-col gap-10 max-w-4xl">
-          <OverviewSection
-            project={project}
-            ownerHint={ownerHint}
-            editOwner={effectiveOwnerOf(project)}
-            readOnly={isViewOnlyReceiver}
-          />
           {/* Project funding (funding-niceties bot, 2026-05-28): the stored
               primary grant link plus the DERIVED set of grants actually charged
-              in this project. Self-hides when the project has no funding. */}
+              in this project. Always-visible context (NOT a tab); self-hides
+              when the project has no funding. Kept at the top of the body so it
+              frames whichever section is active. */}
           <ProjectFundingSection project={project} />
           {/**
-            * Onboarding v4 §6.2 spotlight anchor for the new
+            * Onboarding v4 §6.2 spotlight anchor for the
             * `project-overview-rollup` narration beat (v4 tour structural
-            * manager, Wave 1, 2026-05-27). Wraps the auto-filling
-            * Results / Methods / Activity sections (plus the optional
-            * Goals section) so BeakerBot can spotlight the whole
-            * roll-up region in one rect. The wrapper preserves the
-            * parent flex-col gap-10 layout by inheriting the same flex
-            * shape inline. See targets.ts → projectOverviewRollupSections.
+            * manager, Wave 1, 2026-05-27). With real tabs (beta bug #4) only
+            * the active section renders here, but the anchor is preserved on
+            * this wrapper so the tour can still resolve its spotlight rect.
+            * See targets.ts → projectOverviewRollupSections.
             */}
           <div
             data-tour-target="project-overview-rollup-sections"
             className="flex flex-col gap-10"
           >
-            <ResultsGallery project={project} />
-            <MethodsInventory project={project} />
-            {goalsEnabled && <GoalsSection project={project} />}
-            <ActivityFeed project={project} />
+            {effectiveTab === "overview" && (
+              <OverviewSection
+                project={project}
+                ownerHint={ownerHint}
+                editOwner={effectiveOwnerOf(project)}
+                readOnly={isViewOnlyReceiver}
+              />
+            )}
+            {effectiveTab === "results" && <ResultsGallery project={project} />}
+            {effectiveTab === "methods" && <MethodsInventory project={project} />}
+            {effectiveTab === "goals" && goalsEnabled && (
+              <GoalsSection project={project} />
+            )}
+            {effectiveTab === "activity" && <ActivityFeed project={project} />}
           </div>
         </div>
       )}

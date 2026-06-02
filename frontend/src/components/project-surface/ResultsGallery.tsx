@@ -185,11 +185,17 @@ export default function ResultsGallery({ project }: ResultsGalleryProps) {
         )}
       </div>
 
+      {/* Read-only aggregation: Project Results rolls up images from child
+          experiments. You add results on each experiment, not here. */}
+      <p className="text-xs text-gray-400 mb-3">
+        A read-only roll-up of images from this project&apos;s experiments. Add results on each experiment.
+      </p>
+
       {stillLoading ? (
         <p className="text-sm text-gray-400 italic">Loading results…</p>
       ) : groups.length === 0 ? (
         <p className="text-sm text-gray-400 italic">
-          No results yet. Images dropped on an experiment&apos;s Results tab will appear here.
+          No results yet. Add images on an experiment.
         </p>
       ) : (
         <div className="flex flex-col gap-4">
