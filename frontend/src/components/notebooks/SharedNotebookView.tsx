@@ -237,9 +237,13 @@ export default function SharedNotebookView({ notebook }: SharedNotebookViewProps
   const handleToggleTask = useCallback(
     async (task: WeeklyGoal) => {
       // OWNER-ROUTED: either member can flip any task, even the OTHER member's.
+      // We MUST pass `task.owner` so the write lands on the intended task. Ids
+      // are per-user counters, so both members own a task with id 1, 2, 3, ...;
+      // routing by id alone could flip the OTHER member's same-id task.
       await sharedNotebooksApi.updateWeeklyTask({
         notebookId: notebook.id,
         taskId: task.id,
+        owner: task.owner,
         data: { is_complete: !task.is_complete },
       });
       await refreshTasks();

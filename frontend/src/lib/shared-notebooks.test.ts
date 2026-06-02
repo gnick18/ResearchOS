@@ -352,6 +352,7 @@ describe("owner-routed weekly-task update (updateWeeklyTask)", () => {
     const toggled = await sharedNotebooksApi.updateWeeklyTask({
       notebookId: nb.id,
       taskId: task.id,
+      owner: "student",
       data: { is_complete: true },
     });
     expect(toggled?.is_complete).toBe(true);
@@ -384,6 +385,7 @@ describe("owner-routed weekly-task update (updateWeeklyTask)", () => {
     const updated = await sharedNotebooksApi.updateWeeklyTask({
       notebookId: nb.id,
       taskId: task.id,
+      owner: "pi",
       data: { text: "Finalize the figure", week_of: "2026-06-08" },
     });
     expect(updated?.text).toBe("Finalize the figure");
@@ -431,6 +433,7 @@ describe("owner-routed weekly-task update (updateWeeklyTask)", () => {
       sharedNotebooksApi.updateWeeklyTask({
         notebookId: nb.id,
         taskId: task.id,
+        owner: "student",
         data: { is_complete: true },
       }),
     ).rejects.toThrow(/not a member/);
@@ -441,6 +444,7 @@ describe("owner-routed weekly-task update (updateWeeklyTask)", () => {
       sharedNotebooksApi.updateWeeklyTask({
         notebookId: "nope",
         taskId: task.id,
+        owner: "student",
         data: { is_complete: true },
       }),
     ).rejects.toThrow(/not found/);
@@ -450,9 +454,107 @@ describe("owner-routed weekly-task update (updateWeeklyTask)", () => {
     const miss = await sharedNotebooksApi.updateWeeklyTask({
       notebookId: nb.id,
       taskId: 999999,
+      owner: "student",
       data: { is_complete: true },
     });
     expect(miss).toBeNull();
+  });
+
+  it("returns null (no write) when the owner's same-id goal belongs to a DIFFERENT notebook", async () => {
+    // Guard (b): the owner folder route is gated on the notebook_id of the
+    // goal we actually land on. A personal (non-notebook) goal, or a goal in a
+    // different notebook, that happens to share an id must never be reachable.
+    setCurrentUser("student");
+    const nb = await sharedNotebooksApi.create({ otherMember: "pi" });
+    // A personal goal the student owns (no notebook_id). Give it the same id a
+    // notebook task could have; route an update at nb.id and assert no write.
+    const personal = await weeklyGoalsApi.create({
+      text: "personal goal, not in any notebook",
+      week_of: "2026-06-01",
+    });
+    expect(personal.notebook_id).toBeUndefined();
+
+    const miss = await sharedNotebooksApi.updateWeeklyTask({
+      notebookId: nb.id,
+      taskId: personal.id,
+      owner: "student",
+      data: { is_complete: true },
+    });
+    expect(miss).toBeNull();
+    // The personal goal is untouched (the notebook_id guard refused the write).
+    const stored = memFs.get(
+      `users/student/weekly_goals/${personal.id}.json`,
+    ) as WeeklyGoal;
+    expect(stored.is_complete).toBe(false);
+  });
+
+  // The P1 bug this fix closes (verifier-flagged): weekly-goal ids are PER-USER
+  // counters, so BOTH members own a task with id 1, 2, 3, ... When both members
+  // have a same-id task in the SAME notebook, an id-only members-walk would land
+  // the update on whichever member sorts first in `members[]`, NOT the intended
+  // owner. Routing by explicit `owner` is the only safe key.
+  it("with two same-id tasks in one notebook, only the owner-targeted task changes", async () => {
+    // Student creates the first notebook task. Per-user counter -> this is the
+    // student's task id 1 (a fresh student folder).
+    setCurrentUser("student");
+    const nb = await sharedNotebooksApi.create({ otherMember: "pi" });
+    const studentTask = await sharedNotebooksApi.createWeeklyTask({
+      notebookId: nb.id,
+      text: "student task one",
+    });
+
+    // PI creates the first notebook task in their own (fresh) folder -> also
+    // id 1, same notebook. The id collides; only the owner disambiguates.
+    setCurrentUser("pi");
+    const piTask = await sharedNotebooksApi.createWeeklyTask({
+      notebookId: nb.id,
+      text: "pi task one",
+    });
+
+    expect(studentTask.id).toBe(piTask.id); // both id 1 -> the collision
+    expect(studentTask.owner).toBe("student");
+    expect(piTask.owner).toBe("pi");
+    expect(studentTask.notebook_id).toBe(nb.id);
+    expect(piTask.notebook_id).toBe(nb.id);
+
+    // The PI (the other member) checks off the STUDENT's task, addressing it by
+    // the colliding id but the EXPLICIT student owner.
+    const toggled = await sharedNotebooksApi.updateWeeklyTask({
+      notebookId: nb.id,
+      taskId: studentTask.id,
+      owner: "student",
+      data: { is_complete: true },
+    });
+    expect(toggled?.owner).toBe("student");
+    expect(toggled?.is_complete).toBe(true);
+
+    // ONLY the student's task flipped. The PI's same-id task is untouched: the
+    // pre-fix members-walk would have written the PI's task (pi sorts after
+    // student here, but the bug is the id-only match landing on the wrong
+    // folder regardless of sort order).
+    const studentStored = memFs.get(
+      `users/student/weekly_goals/${studentTask.id}.json`,
+    ) as WeeklyGoal;
+    const piStored = memFs.get(
+      `users/pi/weekly_goals/${piTask.id}.json`,
+    ) as WeeklyGoal;
+    expect(studentStored.is_complete).toBe(true);
+    expect(piStored.is_complete).toBe(false);
+
+    // And the inverse: toggling the PI's task by owner = pi leaves the student's
+    // task (now complete) untouched.
+    const toggledPi = await sharedNotebooksApi.updateWeeklyTask({
+      notebookId: nb.id,
+      taskId: piTask.id,
+      owner: "pi",
+      data: { is_complete: true },
+    });
+    expect(toggledPi?.owner).toBe("pi");
+    expect(toggledPi?.is_complete).toBe(true);
+    const studentStillComplete = memFs.get(
+      `users/student/weekly_goals/${studentTask.id}.json`,
+    ) as WeeklyGoal;
+    expect(studentStillComplete.is_complete).toBe(true);
   });
 });
 

@@ -4450,26 +4450,42 @@ export const sharedNotebooksApi = {
   },
 
   /**
-   * OWNER-ROUTED weekly-task update (notebooks-phase2 sub-bot, 2026-06-02).
+   * OWNER-ROUTED weekly-task update (notebooks-phase2 sub-bot, 2026-06-02;
+   * owner param added by the notebook-task-routing-fix sub-bot, 2026-06-02).
    *
    * A shared-notebook task lives in the folder of whichever member created it
    * (`weeklyGoalsStore` keys records per-user). `weeklyGoalsApi.update` only
    * writes the CURRENT user's folder, so a member could not check off / edit
    * the OTHER member's task. This mirrors how `notesApi.update` accepts an
-   * `owner` and routes through `updateForUser`: we locate the task across BOTH
-   * members' folders, confirm it actually carries the given `notebookId` (so a
-   * caller can never reach a non-notebook goal through this path), confirm the
-   * current user is a notebook member (canWrite is true for both via
-   * `pairingSharedWith`), then route the partial-merge update to the OWNER's
-   * folder. This makes the PI-assign / student-complete workflow bidirectional:
+   * `owner` and routes through `updateForUser`.
+   *
+   * The caller MUST pass the task `owner` (its `owner` username, decorated by
+   * `labApi.getNotebookWeeklyTasks`). We route the read + the write DIRECTLY to
+   * that owner's folder. We do NOT walk `notebook.members` looking for the first
+   * folder that holds a goal with this id: weekly-goal ids are PER-USER counters
+   * (`users/<user>/_counters.json`), so both members own a task with id 1, 2, 3,
+   * etc. A members-walk + first-by-id match would land an update on whichever
+   * member sorts first in `members[]`, NOT the intended owner, so checking off
+   * one member's task could flip the OTHER member's same-id task in the same
+   * notebook.
+   *
+   * Two guards stay in place:
+   *   (a) the actor must be a member of the notebook (the membership gate), and
+   *   (b) the targeted goal in the OWNER's folder must carry the matching
+   *       `notebook_id`, so a caller can never reach a non-notebook goal (or a
+   *       goal belonging to a different notebook) through this path.
+   *
+   * The partial-merge update then routes to the owner's folder via
+   * `weeklyGoalsStore.updateForUser`, keeping the no-PI-audit peer semantics:
    * either member can toggle done, rename, or re-week any task in the notebook.
    *
-   * Returns null if no such task exists in the notebook. Throws if the notebook
+   * Returns null if the owner has no such notebook task. Throws if the notebook
    * is missing or the current user is not one of its two members.
    */
   updateWeeklyTask: async (params: {
     notebookId: string;
     taskId: number;
+    owner: string;
     data: WeeklyGoalUpdate;
   }): Promise<WeeklyGoal | null> => {
     const notebook = await findSharedNotebook(params.notebookId);
@@ -4482,28 +4498,31 @@ export const sharedNotebooksApi = {
         `User ${actor} is not a member of notebook ${params.notebookId}`,
       );
     }
-    // Find the task in whichever member's folder owns it. Both member folders
-    // are checked; the id is per-user, so we also gate on the notebook_id match
-    // to be sure this is genuinely a task in THIS notebook.
-    for (const member of notebook.members) {
-      const existing = await weeklyGoalsStore.getForUser(params.taskId, member);
-      if (existing && existing.notebook_id === params.notebookId) {
-        // Notebook tasks are always shared between both members at "edit"; we
-        // never rewrite that share list from here (unlike the personal weekly
-        // goal path, which keeps `is_shared` + the "*" sentinel in lockstep).
-        // Only the editable fields (text / week_of / is_complete) flow through.
-        const patch: Partial<WeeklyGoal> = {};
-        if (params.data.text !== undefined) patch.text = params.data.text;
-        if (params.data.week_of !== undefined) {
-          patch.week_of = params.data.week_of;
-        }
-        if (params.data.is_complete !== undefined) {
-          patch.is_complete = params.data.is_complete;
-        }
-        return weeklyGoalsStore.updateForUser(params.taskId, patch, member);
-      }
+    // Route DIRECTLY to the owner's folder. The id alone is ambiguous across
+    // members (per-user counters), so the explicit owner is the only safe key.
+    const existing = await weeklyGoalsStore.getForUser(
+      params.taskId,
+      params.owner,
+    );
+    // Guard (b): confirm the targeted goal genuinely belongs to THIS notebook
+    // before writing, so a caller can never reach a non-notebook goal (or a
+    // goal in a different notebook) through this peer-edit path.
+    if (!existing || existing.notebook_id !== params.notebookId) {
+      return null;
     }
-    return null;
+    // Notebook tasks are always shared between both members at "edit"; we never
+    // rewrite that share list from here (unlike the personal weekly goal path,
+    // which keeps `is_shared` + the "*" sentinel in lockstep). Only the
+    // editable fields (text / week_of / is_complete) flow through.
+    const patch: Partial<WeeklyGoal> = {};
+    if (params.data.text !== undefined) patch.text = params.data.text;
+    if (params.data.week_of !== undefined) {
+      patch.week_of = params.data.week_of;
+    }
+    if (params.data.is_complete !== undefined) {
+      patch.is_complete = params.data.is_complete;
+    }
+    return weeklyGoalsStore.updateForUser(params.taskId, patch, params.owner);
   },
 };
 

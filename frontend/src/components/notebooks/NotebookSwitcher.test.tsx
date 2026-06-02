@@ -236,6 +236,10 @@ describe("Notes tab notebook switcher", () => {
       expect(nbUpdateWeeklyTask).toHaveBeenCalledWith({
         notebookId: "nb-1",
         taskId: 50,
+        // The task fixture is owned by "pi"; the owner MUST be routed through
+        // so the write lands on the intended task, not a same-id task the
+        // current user happens to own.
+        owner: "pi",
         data: { is_complete: true },
       }),
     );
