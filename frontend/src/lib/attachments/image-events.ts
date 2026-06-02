@@ -23,10 +23,15 @@
 type AttachedDetail = { basePath: string; relativePath: string };
 type MetadataDetail = { basePath: string; filename: string };
 type DeletedDetail = { basePath: string; filename: string };
+type AnnotatedDetail = { basePath: string; filename: string };
 type DragStartDetail = { basePath: string; filename: string; caption?: string };
 
-type CrossTabType = "image-attached" | "image-metadata" | "image-deleted";
-type CrossTabDetail = AttachedDetail | MetadataDetail | DeletedDetail;
+type CrossTabType =
+  | "image-attached"
+  | "image-metadata"
+  | "image-deleted"
+  | "image-annotated";
+type CrossTabDetail = AttachedDetail | MetadataDetail | DeletedDetail | AnnotatedDetail;
 
 interface Envelope {
   type: CrossTabType;
@@ -165,6 +170,19 @@ export const imageEvents = {
   },
   onDeleted(handler: (detail: DeletedDetail) => void): () => void {
     return subscribe<DeletedDetail>("image-deleted", handler);
+  },
+
+  /**
+   * Fired after the annotation editor writes (or clears) a `.annot.json`
+   * layer for an image, so every mounted `<AnnotatedImage>` for that file
+   * re-reads and re-renders its SVG overlay live. Cross-tab so a save in one
+   * tab refreshes the overlay in the others.
+   */
+  emitAnnotated(detail: AnnotatedDetail): void {
+    emitCrossTab("image-annotated", detail);
+  },
+  onAnnotated(handler: (detail: AnnotatedDetail) => void): () => void {
+    return subscribe<AnnotatedDetail>("image-annotated", handler);
   },
 
   emitDragStart(detail: DragStartDetail): void {
