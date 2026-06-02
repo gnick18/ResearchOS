@@ -191,13 +191,13 @@ interface LiveMarkdownEditorProps {
   focusMode?: boolean;
   /** Callback when focus mode changes (enables the controlled pattern). */
   onFocusModeChange?: (focusMode: boolean) => void;
-  /** OPT-IN gate for the CodeMirror 6 Typora-style "inline" EditorMode
-   *  (Typora editor chip 1). When true the toolbar surfaces a third "Inline"
-   *  pill and the body can render <InlineMarkdownEditor>. When false (the
-   *  default) the pill is absent and "inline" is unreachable, so every other
-   *  surface (Methods write-up, experiment Lab Notes / Results, method create
-   *  modal) keeps the untouched two-way Hybrid / Preview toggle. Passed by
-   *  NoteDetailPopup ONLY (the standalone Notes pilot). */
+  /** Gate for the CodeMirror 6 Typora-style "inline" EditorMode (Typora
+   *  editor chip 1). When true the toolbar surfaces a third "Inline" pill and
+   *  the body can render <InlineMarkdownEditor>. DEFAULTS TO TRUE (2026-06-01):
+   *  the inline editor proved out on the Notes pilot and is now on for every
+   *  LiveMarkdownEditor surface, which also makes deprecating Hybrid later a
+   *  single switch. Pass `enableInlineMode={false}` to force the two-way
+   *  Hybrid / Preview toggle on a specific surface. */
   enableInlineMode?: boolean;
 }
 
@@ -229,7 +229,7 @@ export default function LiveMarkdownEditor({
   onDirtyChange,
   focusMode = false,
   onFocusModeChange,
-  enableInlineMode = false,
+  enableInlineMode = true,
 }: LiveMarkdownEditorProps) {
   // Internal mode state (used if onModeChange is not provided)
   const [internalMode, setInternalMode] = useState<EditorMode>(mode);
