@@ -91,24 +91,16 @@ import { notificationsIntroStep } from "../NotificationsIntroStep";
 import { hybridEditorScopeStep } from "../HybridEditorScopeStep";
 import { settingsIntroStep } from "../SettingsIntroStep";
 import { aiHelperSizeOptionsStep } from "../AiHelperSizeOptionsStep";
-// §6.7 hybrid editor redesign (Hybrid editor manager 2026-05-22): the
-// prior 4 step bodies are retired; new shape is 12 sub-steps.
+// §6.7 hybrid editor cluster. Inline-editor collapse (onboarding-inline
+// bot 2026-06-02): the HE-1..HE-11 markdown deep-dive (markdown-intro /
+// familiarity / overview / mechanic / bold / italic / underline / h1 / h2
+// / h3 / shortcuts / image-attach / image-drag-in / image-resize /
+// file-attach) collapsed into the single `inlineEditorStep` beat now that
+// the editor is inline-only. Those step files were deleted; the surviving
+// cluster beats (notes-vs-results, scope, focus enter/exit, save-concept)
+// keep their tests below.
 import { hybridNotesVsResultsStep } from "../HybridNotesVsResultsStep";
-import { hybridMarkdownIntroStep } from "../HybridMarkdownIntroStep";
-import { hybridMarkdownFamiliarityStep } from "../HybridMarkdownFamiliarityStep";
-import { hybridMarkdownOverviewStep } from "../HybridMarkdownOverviewStep";
-import { hybridEditorMechanicStep } from "../HybridEditorMechanicStep";
-import { hybridBoldStep } from "../HybridBoldStep";
-import { hybridItalicStep } from "../HybridItalicStep";
-import { hybridUnderlineStep } from "../HybridUnderlineStep";
-import { hybridH1Step } from "../HybridH1Step";
-import { hybridH2Step } from "../HybridH2Step";
-import { hybridH3Step } from "../HybridH3Step";
-import { hybridShortcutsStep } from "../HybridShortcutsStep";
-import { hybridImageAttachStep } from "../HybridImageAttachStep";
-import { hybridImageDragInStep } from "../HybridImageDragInStep";
-import { hybridImageResizeStep } from "../HybridImageResizeStep";
-import { hybridFileAttachStep } from "../HybridFileAttachStep";
+import { inlineEditorStep } from "../InlineEditorStep";
 import { hybridSaveConceptStep } from "../HybridSaveConceptStep";
 // Writing Focus Mode (FOCUS_WRITING_MODE_DESIGN.md §9, focus-writing-mode
 // build bot 2026-05-29): enter + exit BEAKERBOT_DEMO beats.
@@ -233,21 +225,9 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   hybridEditorScopeStep,
   // Writing Focus Mode enter beat (focus-writing-mode build bot 2026-05-29).
   hybridFocusEnterStep,
-  hybridMarkdownIntroStep,
-  hybridMarkdownFamiliarityStep,
-  hybridMarkdownOverviewStep,
-  hybridEditorMechanicStep,
-  hybridBoldStep,
-  hybridItalicStep,
-  hybridUnderlineStep,
-  hybridH1Step,
-  hybridH2Step,
-  hybridH3Step,
-  hybridShortcutsStep,
-  hybridImageAttachStep,
-  hybridImageDragInStep,
-  hybridImageResizeStep,
-  hybridFileAttachStep,
+  // Inline-editor collapse (onboarding-inline bot 2026-06-02): the single
+  // beat replacing HE-1..HE-11.
+  inlineEditorStep,
   // hybrid-save-concept manager 2026-05-27: NEW pure-narration beat
   // closing the §6.7 editor cluster before §6.7b opens.
   hybridSaveConceptStep,
@@ -340,21 +320,9 @@ describe("P5 step bodies — universal contract", () => {
       "hybrid-editor-scope",
       // Writing Focus Mode (focus-writing-mode build bot 2026-05-29).
       "hybrid-focus-enter",
-      "hybrid-markdown-intro",
-      "hybrid-markdown-familiarity",
-      "hybrid-markdown-overview",
-      "hybrid-editor-mechanic",
-      "hybrid-bold",
-      "hybrid-italic",
-      "hybrid-underline",
-      "hybrid-h1",
-      "hybrid-h2",
-      "hybrid-h3",
-      "hybrid-shortcuts",
-      "hybrid-image-attach",
-      "hybrid-image-drag-in",
-      "hybrid-image-resize",
-      "hybrid-file-attach",
+      // Inline-editor collapse (onboarding-inline bot 2026-06-02): the
+      // single beat replacing the HE-1..HE-11 markdown deep-dive.
+      "inline-editor",
       // hybrid-save-concept manager 2026-05-27: NEW pure-narration
       // beat closing the §6.7 editor cluster before §6.7b opens.
       "hybrid-save-concept",
@@ -504,27 +472,14 @@ describe("P5 step bodies — universal contract", () => {
       // now NARRATION + SPOTLIGHT and is intentionally excluded from
       // this demo-list. The methodAttachmentNotes assertion that used
       // to be here lives in its own describe block below.
-      // §6.7 hybrid editor redesign (Hybrid editor manager 2026-05-22):
-      // every BeakerBot-led demo sub-step retains a cursorScript. HE-7
-      // (`hybridShortcutsStep`) is user-action and is intentionally
-      // EXCLUDED from this list. HE-1 / HE-2 / HE-3 / HE-4 are
-      // narration-only and also excluded.
+      // §6.7 hybrid editor cluster. Inline-editor collapse (onboarding-inline
+      // bot 2026-06-02): the HE-1..HE-11 markdown deep-dive (which carried
+      // the bold / italic / header / file-attach cursor demos) collapsed
+      // into the single `inline-editor` beat, which is pure narration +
+      // spotlight (no cursorScript), so it is intentionally EXCLUDED from
+      // this demo-with-cursor list. `hybridNotesVsResultsStep` keeps its
+      // notes-vs-results glide demo.
       hybridNotesVsResultsStep,
-      hybridBoldStep,
-      hybridItalicStep,
-      hybridUnderlineStep,
-      hybridH1Step,
-      hybridH2Step,
-      hybridH3Step,
-      // v4 tour structural manager (Wave 1, 2026-05-27): hybrid-image-attach
-      // reclassified as USER ACTION per Grant's new script. The user drags
-      // any image file from their computer into the editor themselves;
-      // no BeakerBot cursor demo. Intentionally excluded from this list.
-      // HE-9 hybridImageDragInStep + HE-10 hybridImageResizeStep:
-      // converted to USER-ACTION per Grant 2026-05-26 — the user does
-      // the drag-in and the resize themselves now. Intentionally
-      // excluded from this BeakerBot-demo list.
-      hybridFileAttachStep,
       // §6.8 Gantt redesign 2026-05-22. `ganttShareProfileSwitchStep` is
       // intentionally EXCLUDED: per Gantt fix manager R1 (P1 #6) it now
       // drives the demo entirely via the speech body's faked-switch
@@ -1364,7 +1319,7 @@ describe("MethodAttachment split sub-steps (§6.6 popup-mount split, 2026-05-21)
   });
 });
 
-describe("Hybrid editor steps (§6.7 redesign, Hybrid editor manager 2026-05-22)", () => {
+describe("Hybrid editor cluster (§6.7) — inline-editor collapse 2026-06-02", () => {
   it("HE-0 hybrid-notes-vs-results explains the two-store mental model", () => {
     const text = renderSpeech(hybridNotesVsResultsStep);
     // Wave 2C speech rewrite (2026-05-27): "two separate places to
@@ -1385,107 +1340,31 @@ describe("Hybrid editor steps (§6.7 redesign, Hybrid editor manager 2026-05-22)
       '[data-tour-target="experiment-notes-tab"]',
     );
   });
-  it("HE-1 markdown intro is narration-only (no cursor, no spotlight)", () => {
-    expect(hybridMarkdownIntroStep.cursorScript).toBeUndefined();
-    expect(hybridMarkdownIntroStep.targetSelector).toBeUndefined();
-    expect(renderSpeech(hybridMarkdownIntroStep)).toMatch(/markdown/);
-  });
-  it("HE-2 markdown-familiarity uses branchOn completion (R1 fix-pass P1 #6)", () => {
-    // Was `manual` with hand-rolled picker UI; now uses the declarative
-    // `branchOn` primitive so the controller renders the buttons.
-    expect(hybridMarkdownFamiliarityStep.completion.type).toBe("branch");
-    expect(hybridMarkdownFamiliarityStep.pose).toBe("thinking");
-  });
-  it("HE-3 markdown-overview spotlights the shortcut bar", () => {
-    expect(hybridMarkdownOverviewStep.targetSelector).toBe(
-      '[data-tour-target="hybrid-editor-shortcut-bar"]',
+  // Inline-editor collapse (onboarding-inline bot 2026-06-02): the old
+  // HE-1..HE-11 markdown deep-dive (markdown-intro / familiarity /
+  // overview / mechanic / bold / italic / underline / h1 / h2 / h3 /
+  // shortcuts / image-attach / image-drag-in / image-resize / file-attach)
+  // taught the retired hybrid click-to-edit-blocks interaction and typed
+  // into the now-dormant hybrid editor, so those ~15 step bodies were
+  // deleted and replaced by the single `inline-editor` beat below.
+  it("inline-editor beat spotlights the live inline editor surface", () => {
+    expect(inlineEditorStep.id).toBe("inline-editor");
+    expect(inlineEditorStep.targetSelector).toBe(
+      '[data-tour-target="inline-editor-surface"]',
     );
   });
-  it("HE-4 hybrid-editor-mechanic narrates the click-out-to-render mechanic", () => {
-    const text = renderSpeech(hybridEditorMechanicStep);
-    expect(text).toMatch(/click out/i);
+  it("inline-editor beat is pure narration (no cursor, manual advance)", () => {
+    // It's a live document: nothing to click through, so no cursorScript.
+    expect(inlineEditorStep.cursorScript).toBeUndefined();
+    expect(inlineEditorStep.completion.type).toBe("manual");
+  });
+  it("inline-editor beat teaches live-typing markdown + the Save checkpoint revert", () => {
+    const text = renderSpeech(inlineEditorStep);
+    expect(text).toMatch(/live document/i);
+    expect(text).toMatch(/markdown/);
     expect(text).toMatch(/renders/);
-  });
-  it("HE-5 + HE-6 typing beats all declare manual completion + page lock", () => {
-    const steps = [
-      hybridBoldStep,
-      hybridItalicStep,
-      hybridUnderlineStep,
-      hybridH1Step,
-      hybridH2Step,
-      hybridH3Step,
-    ];
-    for (const s of steps) {
-      expect(s.completion.type).toBe("manual");
-      expect(s.pageLock, `${s.id} needs a pageLock`).toBeDefined();
-    }
-  });
-  it("HE-5 + HE-6 typing beats have ids matching the brief", () => {
-    expect(hybridBoldStep.id).toBe("hybrid-bold");
-    expect(hybridItalicStep.id).toBe("hybrid-italic");
-    expect(hybridUnderlineStep.id).toBe("hybrid-underline");
-    expect(hybridH1Step.id).toBe("hybrid-h1");
-    expect(hybridH2Step.id).toBe("hybrid-h2");
-    expect(hybridH3Step.id).toBe("hybrid-h3");
-  });
-  it("HE-7 hybrid-shortcuts is user-action (no cursor) with an allow-listed page lock", () => {
-    expect(hybridShortcutsStep.cursorScript).toBeUndefined();
-    expect(hybridShortcutsStep.completion.type).toBe("manual");
-    expect(hybridShortcutsStep.pageLock?.allowList?.length).toBeGreaterThan(0);
-  });
-  it("HE-8 hybrid-image-attach is USER ACTION (no cursor) per v4 tour structural manager Wave 1 2026-05-27", () => {
-    // Voice change: BEAKERBOT_DEMO → USER_ACTION. The user drags any
-    // image file from their computer into the editor themselves; no
-    // cursor demo, no off-screen entry, no held image. Spotlight stays
-    // on hybridEditorImageStrip; completion stays manual.
-    expect(hybridImageAttachStep.cursorScript).toBeUndefined();
-    expect(hybridImageAttachStep.cursorEntry).toBeUndefined();
-    expect(hybridImageAttachStep.cursorHeldImage).toBeUndefined();
-    expect(hybridImageAttachStep.completion.type).toBe("manual");
-    expect(hybridImageAttachStep.targetSelector).toBe(
-      "[data-tour-target=\"hybrid-editor-image-strip\"]",
-    );
-  });
-  it("HE-9 hybrid-image-drag-in is USER-ACTION (no cursor) per Grant 2026-05-26", () => {
-    // Converted from BeakerBot demo: the user now performs the
-    // drag-in themselves. Grant: "let's change it to get the user to
-    // drag and drop the image into the markdown file as opposed to
-    // having feature bot do it for them. I think this would teach
-    // them better."
-    expect(hybridImageDragInStep.cursorScript).toBeUndefined();
-    expect(hybridImageDragInStep.completion.type).toBe("manual");
-  });
-  it("HE-10 hybrid-image-resize is USER-ACTION (no cursor) per Grant 2026-05-26", () => {
-    // Converted from BeakerBot demo: the user clicks the image and
-    // picks 50% themselves. Grant: "we can have them try to do it.
-    // We can tell them to try to resize the image to fifty percent.
-    // And to click on it next when they're ready to move on."
-    expect(hybridImageResizeStep.cursorScript).toBeUndefined();
-    expect(hybridImageResizeStep.completion.type).toBe("manual");
-    const text = renderSpeech(hybridImageResizeStep);
-    // The notes/results coda lives on HE-0 (`hybrid-notes-vs-results`)
-    // since the 2026-05-22 redesign; the resize step should not
-    // duplicate it.
-    expect(text).not.toMatch(/notes-tab images and results-tab images/);
-    // Wave 2C speech rewrite (2026-05-27): the explicit "50%" instruction
-    // was dropped in favor of one tight sentence describing the
-    // click-to-resize affordance (matches both BEAKERBOT_TOUR_SCRIPT
-    // FINAL + REWRITE source docs). Speech still points the user at the
-    // resize affordance in the pop-up menu.
-    expect(text).toMatch(/resize it/i);
-    expect(text).toMatch(/pop-up menu/i);
-  });
-  it("HE-11 hybrid-file-attach narrates the file-vs-image difference", () => {
-    const text = renderSpeech(hybridFileAttachStep);
-    // R2 fix-pass P1: speech restored to spec compliance — the
-    // teaching beats are "files attach the same way as images, render
-    // as download chip" + the spec-mandated PDF/text disclosure
-    // (spec line 168-170: "ResearchOS can open PDFs and text files
-    // directly. Other formats just download to your computer.").
-    expect(text).toMatch(/(CSVs|PDFs|protocol docs|files)/i);
-    expect(text).toMatch(/download chip/i);
-    expect(text).toMatch(/PDFs/);
-    expect(text).toMatch(/text files/i);
+    expect(text).toMatch(/Save checkpoint/);
+    expect(text).toMatch(/revert/i);
   });
 });
 

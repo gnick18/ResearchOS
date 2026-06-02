@@ -631,18 +631,18 @@ export function TourControllerProvider({
 
   const branchTo = useCallback((nextStep: TourStepId) => {
     // Honor the branch's nextStep verbatim — no gating recheck. The
-    // branch author already decided the destination (e.g. §6.7 HE-2
-    // jumps to hybrid-editor-mechanic when the user already knows
-    // markdown, OR to hybrid-markdown-overview when they want a
-    // refresher). Treating it as `advance` so the back-step grace
-    // marker stays consistent (a branch click reads as forward
-    // progress, not a back-step).
+    // branch author already decided the destination. Treating it as
+    // `advance` so the back-step grace marker stays consistent (a branch
+    // click reads as forward progress, not a back-step).
+    //
+    // Inline-editor collapse (onboarding-inline bot 2026-06-02): the §6.7
+    // HE-2 `hybrid-markdown-familiarity` branch (the prior example here)
+    // was removed with the markdown deep-dive collapse, but `branchTo` +
+    // `recordBranchChoice` stay generic and are still used by other
+    // branch steps.
     setLastTourTransition("advance");
-    // Record the branch choice so the step-machine's gate predicates
-    // can read it (R1 fix-pass P1 #7). The HE-3 markdown overview gate
-    // checks `lastBranchChoice("hybrid-markdown-familiarity")` and
-    // gates OUT when the user picked anything other than
-    // `hybrid-markdown-overview` as the next step.
+    // Record the branch choice so the step-machine's gate predicates can
+    // read it for branch-gated steps.
     const cur = stateRef.current;
     if (cur.currentStep) {
       recordBranchChoice(cur.currentStep, nextStep);

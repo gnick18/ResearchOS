@@ -80,12 +80,16 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER).toContain("home-widgets-exit");
     expect(TOUR_STEP_ORDER).toContain("methods-open-picker");
     expect(TOUR_STEP_ORDER).toContain("methods-create");
-    // §6.7 hybrid editor redesign (Hybrid editor manager 2026-05-22):
-    // the old "hybrid-editor" id is gone; the new shape uses HE-0 → HE-11
-    // ids starting with hybrid-notes-vs-results.
+    // §6.7 hybrid editor cluster. Inline-editor collapse (onboarding-inline
+    // bot 2026-06-02): the HE-1..HE-11 markdown deep-dive collapsed into the
+    // single `inline-editor` beat now that the editor is inline-only. The
+    // surviving cluster beats keep their ids; the removed markdown ids are
+    // gone.
     expect(TOUR_STEP_ORDER).toContain("hybrid-notes-vs-results");
-    expect(TOUR_STEP_ORDER).toContain("hybrid-markdown-familiarity");
-    expect(TOUR_STEP_ORDER).toContain("hybrid-file-attach");
+    expect(TOUR_STEP_ORDER).toContain("inline-editor");
+    expect(TOUR_STEP_ORDER).toContain("hybrid-save-concept");
+    expect(TOUR_STEP_ORDER).not.toContain("hybrid-markdown-familiarity");
+    expect(TOUR_STEP_ORDER).not.toContain("hybrid-file-attach");
     expect(TOUR_STEP_ORDER).not.toContain("hybrid-editor");
     expect(TOUR_STEP_ORDER).not.toContain("hybrid-editor-paragraphs");
     expect(TOUR_STEP_ORDER).not.toContain("hybrid-editor-image-drop");
@@ -251,10 +255,10 @@ describe("TOUR_STEP_ORDER", () => {
     }
   });
 
-  it("inserts the §6.7b Workbench Notes + Lists cluster between hybrid-file-attach and the methods cluster (FINAL reorder manager 2026-05-27)", () => {
+  it("inserts the §6.7b Workbench Notes + Lists cluster between the §6.7 editor cluster and the methods cluster (FINAL reorder manager 2026-05-27)", () => {
     // Workbench expansion manager 2026-05-22, collapsed to 5 beats by
     // Workbench fix manager R1 2026-05-22: universal steps sit BETWEEN
-    // the §6.7 terminal beat (hybrid-file-attach) and the §6.8 first
+    // the §6.7 editor cluster's terminal beats and the §6.8 first
     // beat (gantt-intro). Order matters because each step builds on
     // the prior one's DOM state. R1 folded `workbench-list-add-items`
     // into `workbench-list-create-shell` so add-items is no longer a
@@ -265,10 +269,14 @@ describe("TOUR_STEP_ORDER", () => {
     // now asserts the workbench-list-mark-done → methods-category-prompt
     // adjacency instead of the prior workbench-list-mark-done →
     // gantt-intro adjacency.
+    //
+    // Inline-editor collapse (onboarding-inline bot 2026-06-02): the §6.7
+    // editor cluster's terminal beat before hybrid-save-concept is now the
+    // single `inline-editor` beat (was hybrid-file-attach).
     const order = [
-      "hybrid-file-attach",
-      // hybrid-save-concept manager 2026-05-27: NEW beat between
-      // hybrid-file-attach and workbench-notes-intro.
+      "inline-editor",
+      // hybrid-save-concept manager 2026-05-27: beat between the inline
+      // editor beat and workbench-notes-intro.
       "hybrid-save-concept",
       // Writing Focus Mode exit beat (focus-writing-mode build bot
       // 2026-05-29): inserted between hybrid-save-concept and
@@ -588,33 +596,23 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER).not.toContain("methods-file-vs-markdown");
   });
 
-  it("orders the §6.7 hybrid-editor redesign cluster HE-0 through HE-11 (Hybrid editor manager 2026-05-22; hybrid-editor-scope inserted by Wave 1 2026-05-27)", () => {
-    // v4 tour structural manager (Wave 1, 2026-05-27): new
-    // `hybrid-editor-scope` narration beat sits between HE-0 (notes-vs-
-    // results) and HE-1 (markdown-intro).
+  it("orders the §6.7 hybrid-editor cluster after the inline-editor collapse (onboarding-inline bot 2026-06-02)", () => {
+    // Inline-editor collapse (onboarding-inline bot 2026-06-02): the
+    // HE-1..HE-11 markdown deep-dive (markdown-intro / familiarity /
+    // overview / mechanic / bold / italic / underline / h1 / h2 / h3 /
+    // shortcuts / image-attach / image-drag-in / image-resize /
+    // file-attach) collapsed into the single `inline-editor` beat. The
+    // cluster is now: notes-vs-results → editor-scope → focus-enter →
+    // inline-editor → save-concept → focus-exit.
     const order = [
       "hybrid-notes-vs-results",
       "hybrid-editor-scope",
       // Writing Focus Mode enter beat (focus-writing-mode build bot
-      // 2026-05-29): inserted between hybrid-editor-scope and
-      // hybrid-markdown-intro.
+      // 2026-05-29): inserted between hybrid-editor-scope and the inline
+      // editor beat.
       "hybrid-focus-enter",
-      "hybrid-markdown-intro",
-      "hybrid-markdown-familiarity",
-      "hybrid-markdown-overview",
-      "hybrid-editor-mechanic",
-      "hybrid-bold",
-      "hybrid-italic",
-      "hybrid-underline",
-      "hybrid-h1",
-      "hybrid-h2",
-      "hybrid-h3",
-      "hybrid-shortcuts",
-      "hybrid-image-attach",
-      "hybrid-image-drag-in",
-      "hybrid-image-resize",
-      "hybrid-file-attach",
-      // hybrid-save-concept manager 2026-05-27: NEW terminal beat of the
+      "inline-editor",
+      // hybrid-save-concept manager 2026-05-27: terminal beat of the
       // §6.7 editor cluster (manual save / version control / unsaved-
       // changes warning) before §6.7b workbench-notes-intro opens.
       "hybrid-save-concept",
@@ -633,15 +631,16 @@ describe("TOUR_STEP_ORDER", () => {
 
   it("inserts the two Writing Focus Mode beats at the right positions (focus-writing-mode build bot 2026-05-29)", () => {
     // FOCUS_WRITING_MODE_DESIGN.md §9: hybrid-focus-enter sits immediately
-    // AFTER hybrid-editor-scope and BEFORE hybrid-markdown-intro;
+    // AFTER hybrid-editor-scope and BEFORE the inline-editor beat (was
+    // hybrid-markdown-intro before the inline-editor collapse 2026-06-02);
     // hybrid-focus-exit sits immediately AFTER hybrid-save-concept and
     // BEFORE workbench-notes-intro.
     const scope = TOUR_STEP_ORDER.indexOf("hybrid-editor-scope");
     const enter = TOUR_STEP_ORDER.indexOf("hybrid-focus-enter");
-    const intro = TOUR_STEP_ORDER.indexOf("hybrid-markdown-intro");
+    const inlineEditor = TOUR_STEP_ORDER.indexOf("inline-editor");
     expect(enter).toBeGreaterThanOrEqual(0);
     expect(enter).toBe(scope + 1);
-    expect(intro).toBe(enter + 1);
+    expect(inlineEditor).toBe(enter + 1);
 
     const save = TOUR_STEP_ORDER.indexOf("hybrid-save-concept");
     const exit = TOUR_STEP_ORDER.indexOf("hybrid-focus-exit");
@@ -659,7 +658,7 @@ describe("TOUR_STEP_ORDER", () => {
     const lab = picks({ account_type: "lab" });
     for (const p of [solo, lab]) {
       expect(getNextStep("hybrid-editor-scope", p)).toBe("hybrid-focus-enter");
-      expect(getNextStep("hybrid-focus-enter", p)).toBe("hybrid-markdown-intro");
+      expect(getNextStep("hybrid-focus-enter", p)).toBe("inline-editor");
       expect(getNextStep("hybrid-save-concept", p)).toBe("hybrid-focus-exit");
       expect(getNextStep("hybrid-focus-exit", p)).toBe("workbench-notes-intro");
       // Neither beat is gated out.
@@ -1019,11 +1018,12 @@ describe("getNextStep — forward traversal", () => {
     expect(visited).toContain("home-widgets-exit");
     expect(visited).toContain("methods-open-picker");
     expect(visited).toContain("methods-create");
-    // §6.7 hybrid editor redesign (Hybrid editor manager 2026-05-22):
-    // first id of the new cluster is hybrid-notes-vs-results (HE-0).
+    // §6.7 hybrid editor cluster. Inline-editor collapse (onboarding-inline
+    // bot 2026-06-02): first id of the cluster is hybrid-notes-vs-results;
+    // the markdown deep-dive collapsed into the single `inline-editor` beat.
     expect(visited).toContain("hybrid-notes-vs-results");
-    expect(visited).toContain("hybrid-shortcuts");
-    expect(visited).toContain("hybrid-file-attach");
+    expect(visited).toContain("inline-editor");
+    expect(visited).toContain("hybrid-save-concept");
     expect(visited).toContain("gantt-drag-drop");
     // Terminates at tour-goodbye (Cleanup retirement 2026-05-22).
     expect(visited[visited.length - 1]).toBe("tour-goodbye");
@@ -1278,10 +1278,10 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
     // Purchases manager: single `purchases` id grew into an 8-step
     // cluster (purchases-intro through purchases-back-to-real).
     //
-    // Hybrid fix R1 (P1 #7): HE-3 (`hybrid-markdown-overview`) is
-    // gated by the in-tour branchOn choice at HE-2. The choice cache
-    // is empty at module load (no branch click fired), so the gate
-    // evaluates to "gated out" — applies to both solo and lab paths.
+    // Inline-editor collapse (onboarding-inline bot 2026-06-02): the prior
+    // HE-3 (`hybrid-markdown-overview`) branch-gated step was removed with
+    // the markdown deep-dive collapse, so it no longer contributes a
+    // gated-out step to either path. The solo constant drops from 30 to 29.
     //
     // R4 lab-overview placeholder nuker 2026-05-23: the 6 placeholder
     // lab-overview-* bodies R4 shipped were throwaway and have been
@@ -1305,25 +1305,24 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
     // links, gantt-goals-overview) + 4 ai-helper-* (Wave 1 2026-05-27
     // added ai-helper-size-options to the trio, all 4 share the same
     // gate) + 8 purchases cluster + 1 lab-cleanup + 10 Gantt share
-    // cluster + 1 HE-3 (branch-gated) + 1 settings-tour-* conditional
-    // (telegram; calendar's settings beat retired 2026-05-27,
-    // account-type-toggle FIRES for solo) + 1 setup-q1c (lab-only) =
-    // 30 gated out for solo. Constant dropped from 28 to 27 on
-    // 2026-05-27 when the settings-tour-calendar step was retired (the
-    // retirement removed a step from BOTH TOUR_STEP_ORDER and the gating
-    // cohort), then rose from 27 to 29 on 2026-05-28 when
+    // cluster + 1 settings-tour-* conditional (telegram; calendar's
+    // settings beat retired 2026-05-27, account-type-toggle FIRES for
+    // solo) + 1 setup-q1c (lab-only) = 29 gated out for solo. Constant
+    // dropped from 28 to 27 on 2026-05-27 when the settings-tour-calendar
+    // step was retired, then rose from 27 to 29 on 2026-05-28 when
     // share-back user-action manager split gantt-share-user-shares-back
-    // into 3 lab-only beats (2 net-new lab-only steps, both gated out
-    // for solo, added to BOTH TOUR_STEP_ORDER and the share cluster),
-    // then rose from 29 to 30 on 2026-05-28 when share-dialog manager
-    // split gantt-share-user-fills-dialog into Add + Save beats (1
-    // net-new lab-only step, gated out for solo, added to BOTH
-    // TOUR_STEP_ORDER and the share cluster).
-    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 30);
-    // Lab+max only has HE-3 (branch-gated, choice cache empty) +
+    // into 3 lab-only beats, then rose from 29 to 30 on 2026-05-28 when
+    // share-dialog manager split gantt-share-user-fills-dialog into Add +
+    // Save beats, then dropped from 30 to 29 on 2026-06-02 when the
+    // inline-editor collapse removed the branch-gated HE-3
+    // (hybrid-markdown-overview) from TOUR_STEP_ORDER.
+    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 29);
+    // Lab+max: inline-editor collapse (onboarding-inline bot 2026-06-02)
+    // removed the branch-gated HE-3 (hybrid-markdown-overview), which used
+    // to be gated out on the lab path too. Now only
     // settings-tour-account-type-toggle (gates on solo, so lab skips it)
-    // = 2 gated out.
-    expect(labCount).toBe(TOUR_STEP_ORDER.length - 2);
+    // is gated out = 1 gated out (was 2).
+    expect(labCount).toBe(TOUR_STEP_ORDER.length - 1);
   });
 
   it("applicableStepIndex is 1-based and skips gated steps", () => {

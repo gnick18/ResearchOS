@@ -2306,7 +2306,10 @@ export default function LiveMarkdownEditor({
                   onInsertSyntax={(s) => insertRef.current?.(s)}
                 />
               )}
-              <div className="relative flex-1 flex flex-col min-h-0 h-full">
+              <div
+                className="relative flex-1 flex flex-col min-h-0 h-full"
+                data-tour-target="inline-editor-surface"
+              >
                 <InlineMarkdownEditor
                   value={value}
                   onChange={onChange}

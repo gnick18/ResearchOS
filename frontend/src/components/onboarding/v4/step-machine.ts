@@ -16,7 +16,6 @@
  */
 import type { FeaturePicks } from "@/lib/onboarding/sidecar";
 import type { TourStepId } from "./step-types";
-import { lastBranchChoice } from "./steps/walkthrough/lib/branch-choices";
 
 /**
  * Canonical forward order for the v4 tour. The machine walks this list
@@ -260,41 +259,36 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // entries below own the actual attach / notes interactions.
   "experiment-attach-method-open",    // §6.6a click workbench row → open popup
   "experiment-attach-method-tab",     // §6.6b click Methods tab inside popup
-  // Hybrid editor — §6.7 redesign (Hybrid editor manager 2026-05-22).
-  // 12 sub-steps replacing the prior 4. Order matches HE-0 → HE-11 in
-  // ONBOARDING_V4_HYBRID_EDITOR_REDESIGN.md §6.7. The HE-2 branching
-  // gate (hybrid-markdown-familiarity) directs the user either through
-  // HE-3 (overview) or directly to HE-4 (mechanic).
+  // Hybrid editor — §6.7. Inline-editor collapse (onboarding-inline bot
+  // 2026-06-02): the markdown editor is now INLINE-ONLY (the hybrid
+  // click-to-edit-blocks mode was retired from the UI). The old §6.7
+  // markdown deep-dive (HE-1 through HE-11: markdown-intro / familiarity
+  // / overview / mechanic / bold / italic / underline / h1 / h2 / h3 /
+  // shortcuts / image-attach / image-drag-in / image-resize / file-attach)
+  // taught that retired interaction and typed into the now-dormant hybrid
+  // editor, so it was both overcomplicated and broken. Those ~15 beats
+  // collapse into the single `inline-editor` narration beat below, which
+  // spotlights the live CodeMirror 6 surface and teaches "just type, your
+  // markdown renders as you go" (+ one line on Save checkpoint). The HE-2
+  // branch gate is gone with it.
   "hybrid-notes-vs-results",       // HE-0
   // 2026-05-27 (v4 tour structural manager, Wave 1): new
-  // `hybrid-editor-scope` NARRATION beat sits between HE-0 and HE-1
-  // to call out that "this is the editor you'll use everywhere" before
-  // the markdown deep-dive starts. See the new tour script's §6.7 for
-  // the speech contract.
+  // `hybrid-editor-scope` NARRATION beat sits after HE-0 to call out
+  // that "this is the editor you'll use everywhere" before the inline
+  // editor beat. See the new tour script's §6.7 for the speech contract.
   "hybrid-editor-scope",
   // Writing Focus Mode enter beat (FOCUS_WRITING_MODE_DESIGN.md §9,
   // focus-writing-mode build bot 2026-05-29). Universal (ungated)
-  // BEAKERBOT_DEMO beat between hybrid-editor-scope and hybrid-markdown-intro:
-  // BeakerBot clicks the new Focus Mode toolbar button so the calm writing
-  // surface pops before the markdown deep-dive. Buffer-safe (the editor is
-  // not remounted), so the markdown typing beats that follow keep their
-  // content; the exit beat below peels the overlay back after the cluster.
+  // BEAKERBOT_DEMO beat between hybrid-editor-scope and the inline editor
+  // beat: BeakerBot clicks the Focus Mode toolbar button so the calm
+  // writing surface pops. Buffer-safe (the editor is not remounted), and
+  // focus mode portals the same editor subtree, so the inline-editor
+  // beat's spotlight resolves against the same surface; the exit beat
+  // below peels the overlay back afterward.
   "hybrid-focus-enter",
-  "hybrid-markdown-intro",         // HE-1
-  "hybrid-markdown-familiarity",   // HE-2 (in-tour branch gate)
-  "hybrid-markdown-overview",      // HE-3 (reached only via HE-2 "yes overview" branch)
-  "hybrid-editor-mechanic",        // HE-4
-  "hybrid-bold",                   // HE-5a
-  "hybrid-italic",                 // HE-5b
-  "hybrid-underline",              // HE-5c
-  "hybrid-h1",                     // HE-6a
-  "hybrid-h2",                     // HE-6b
-  "hybrid-h3",                     // HE-6c
-  "hybrid-shortcuts",              // HE-7 (user-action, allow-listed lock)
-  "hybrid-image-attach",           // HE-8 (off-screen cursor entry)
-  "hybrid-image-drag-in",          // HE-9
-  "hybrid-image-resize",           // HE-10
-  "hybrid-file-attach",            // HE-11
+  // Inline-editor collapse (onboarding-inline bot 2026-06-02): the single
+  // beat that replaced the retired HE-1..HE-11 markdown deep-dive.
+  "inline-editor",
   // §6.7 NEW terminal beat: save concept (hybrid-save-concept manager
   // 2026-05-27). Pure narration: ResearchOS doesn't auto-save, every
   // save is version-controlled, navigating away with unsaved changes
@@ -668,29 +662,11 @@ export function isStepGatedOut(
   // teach core Gantt mechanics, not the goals overlay feature.
   if (step === "gantt-goals-overview") return picks?.goals !== "yes";
 
-  // §6.7 HE-3 (`hybrid-markdown-overview`): only show when the user
-  // explicitly picked the "Sure, show me an overview" branch on HE-2
-  // (`hybrid-markdown-familiarity`). Otherwise — including the
-  // initial state before HE-2 fires, since the user hasn't decided
-  // yet — gate out. The branch choice is module-level (see
-  // `lib/branch-choices.ts`) and is NOT persisted to the sidecar per
-  // Grant's design.
-  //
-  // R1 fix-pass (Hybrid fix manager R1, 2026-05-22): without this
-  // gate, back-stepping from HE-4 lands the user on HE-3 — the
-  // overview step they JUST declined.
-  //
-  // Edge case: the FORWARD path from HE-2 uses `controller.branchTo`
-  // which bypasses `getNextStep`, so this gate doesn't fire on the
-  // forward Yes / Sure / Skip path (the branch destination is honored
-  // directly). The gate only matters for back-step traversal AND for
-  // a defensive fast-forward if the cache is empty at the moment
-  // `getNextStep("hybrid-markdown-familiarity", ...)` would otherwise
-  // walk into HE-3 (won't happen in practice, but a safer default).
-  if (step === "hybrid-markdown-overview") {
-    const choice = lastBranchChoice("hybrid-markdown-familiarity");
-    return choice !== "hybrid-markdown-overview";
-  }
+  // §6.7 inline-editor collapse (onboarding-inline bot 2026-06-02): the
+  // old `hybrid-markdown-overview` (HE-3) gate keyed off the retired HE-2
+  // `hybrid-markdown-familiarity` branch choice. Both steps are gone now
+  // that the markdown deep-dive collapsed into the single `inline-editor`
+  // beat, so the gate (and its `lastBranchChoice` import) is removed.
 
   // §6.8 lab-only share cluster (Gantt redesign 2026-05-22): solo
   // accounts skip the entire 7-step share cluster. The teaching

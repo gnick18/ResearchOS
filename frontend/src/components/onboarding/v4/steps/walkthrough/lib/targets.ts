@@ -207,6 +207,14 @@ export const TOUR_TARGETS = {
   // §6.7 Hybrid editor
   experimentNotesTab: "experiment-notes-tab",
   hybridEditorTextarea: "hybrid-editor-textarea",
+  // §6.7 inline editor (onboarding-inline collapse 2026-06-02): the live
+  // CodeMirror 6 surface (InlineMarkdownEditor inside LiveMarkdownEditor)
+  // is now the sole editor — the old hybrid click-to-edit-blocks markdown
+  // deep-dive (HE-1 through HE-11) collapses into a single inline-typing
+  // beat that spotlights this surface. Stamped on the wrapper div around
+  // InlineMarkdownEditor; present in both the normal and focus-mode mounts
+  // (the focus overlay portals the same subtree).
+  inlineEditorSurface: "inline-editor-surface",
   hybridEditorImageStrip: "hybrid-editor-image-strip",
   hybridEditorResizeHandle: "hybrid-editor-resize-handle",
   // §6.7 resize redesign (Grant 2026-05-21): the popover is click-to-

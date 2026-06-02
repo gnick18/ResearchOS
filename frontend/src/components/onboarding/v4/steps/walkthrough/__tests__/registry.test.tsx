@@ -52,34 +52,21 @@ const P5_STEP_IDS = [
   "experiment-attach-method-tab",
   "experiment-attach-method-attach",
   "experiment-attach-method-notes",
-  // §6.7 hybrid editor redesign (Hybrid editor manager 2026-05-22):
-  // 12 sub-steps HE-0 through HE-11. v4 tour structural manager (Wave 1,
-  // 2026-05-27): new `hybrid-editor-scope` narration beat between HE-0
-  // and HE-1.
+  // §6.7 hybrid editor cluster. Inline-editor collapse (onboarding-inline
+  // bot 2026-06-02): the HE-1..HE-11 markdown deep-dive collapsed into the
+  // single `inline-editor` beat now that the editor is inline-only. The
+  // surviving beats (notes-vs-results, editor-scope, focus enter/exit,
+  // save-concept) keep their slots.
   "hybrid-notes-vs-results",
   "hybrid-editor-scope",
   // Writing Focus Mode (FOCUS_WRITING_MODE_DESIGN.md §9, focus-writing-mode
   // build bot 2026-05-29). Two universal BEAKERBOT_DEMO beats: enter between
-  // hybrid-editor-scope and hybrid-markdown-intro; exit between
+  // hybrid-editor-scope and the inline editor beat; exit between
   // hybrid-save-concept and workbench-notes-intro.
   "hybrid-focus-enter",
-  "hybrid-markdown-intro",
-  "hybrid-markdown-familiarity",
-  "hybrid-markdown-overview",
-  "hybrid-editor-mechanic",
-  "hybrid-bold",
-  "hybrid-italic",
-  "hybrid-underline",
-  "hybrid-h1",
-  "hybrid-h2",
-  "hybrid-h3",
-  "hybrid-shortcuts",
-  "hybrid-image-attach",
-  "hybrid-image-drag-in",
-  "hybrid-image-resize",
-  "hybrid-file-attach",
+  "inline-editor",
   // §6.7 hybrid-save-concept (hybrid-save-concept manager 2026-05-27):
-  // NEW pure-narration beat between hybrid-file-attach and
+  // NEW pure-narration beat between the inline editor beat and
   // workbench-notes-intro.
   "hybrid-save-concept",
   // Writing Focus Mode exit beat (FOCUS_WRITING_MODE_DESIGN.md §9,

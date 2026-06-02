@@ -70,10 +70,7 @@ import { buildLabCleanupStep } from "./steps/lab/LabAutoCleanupStep";
 // entries + tests + tour-targets have been removed. The Lab Overview
 // surface itself (R3's production widget canvas) is untouched; only the
 // walkthrough cluster is gone.
-import {
-  onEnterGanttGoalsOverview,
-  onEnterHybridEditorImageDrop,
-} from "./steps/walkthrough/lib/on-enter-helpers";
+import { onEnterGanttGoalsOverview } from "./steps/walkthrough/lib/on-enter-helpers";
 
 /**
  * Build a placeholder step body matching the brief's "Step bodies in
@@ -194,41 +191,32 @@ import { methodAttachmentNotesStep } from "./steps/walkthrough/MethodAttachmentN
 // v4 tour structural manager (Wave 1, 2026-05-27): `experiment-tabs-overview`
 // retired. Grant's new script folds the tab framing into the surrounding
 // step's speech so the standalone overview beat is redundant.
-// §6.7 hybrid editor redesign (Hybrid editor manager 2026-05-22): the
-// prior 4 sub-steps (shortcuts / paragraphs / image-drop / resize) are
-// retired. Their .tsx files stay in tree with @deprecated JSDoc tags
-// and no longer mount via the registry. New shape: 12 sub-steps from
-// HE-0 through HE-11, plus an in-tour branch gate at HE-2.
+// §6.7 hybrid editor cluster. Inline-editor collapse (onboarding-inline
+// bot 2026-06-02): the markdown editor is now INLINE-ONLY. The old
+// markdown deep-dive (HE-1 through HE-11) taught the retired hybrid
+// click-to-edit-blocks interaction and typed into the now-dormant hybrid
+// editor, so those ~15 step bodies were deleted and replaced by the
+// single `inlineEditorStep` below. The remaining cluster beats
+// (notes-vs-results, editor-scope, focus enter/exit, save-concept) teach
+// concepts / separate features and survive unchanged.
 import { hybridNotesVsResultsStep } from "./steps/walkthrough/HybridNotesVsResultsStep";
-// v4 tour structural manager (Wave 1, 2026-05-27): new
-// `hybrid-editor-scope` beat sits between HE-0 (notes-vs-results) and
-// HE-1 (markdown-intro) so BeakerBot can frame the editor as the same
-// one used everywhere before the markdown deep-dive starts. Promoted
-// from NARRATION to BEAKERBOT_DEMO on 2026-05-27 (hybrid editor demo
-// fix manager, Grant hand-walk) so BeakerBot also demos the popup's
-// fullscreen toggle and expands the popup for more screen real estate.
+// v4 tour structural manager (Wave 1, 2026-05-27): the `hybrid-editor-scope`
+// beat sits after HE-0 (notes-vs-results) so BeakerBot can frame the editor
+// as the same one used everywhere before the inline editor beat. It also
+// demos the popup's fullscreen toggle (hybrid editor demo fix manager,
+// 2026-05-27, Grant hand-walk).
 import { hybridEditorScopeStep } from "./steps/walkthrough/HybridEditorScopeStep";
 // Writing Focus Mode (FOCUS_WRITING_MODE_DESIGN.md §9, focus-writing-mode
 // build bot 2026-05-29). Two universal BEAKERBOT_DEMO beats: enter sits
-// between hybrid-editor-scope and hybrid-markdown-intro; exit sits between
+// between hybrid-editor-scope and the inline editor beat; exit sits between
 // hybrid-save-concept and workbench-notes-intro.
 import { hybridFocusEnterStep } from "./steps/walkthrough/HybridFocusEnterStep";
 import { hybridFocusExitStep } from "./steps/walkthrough/HybridFocusExitStep";
-import { hybridMarkdownIntroStep } from "./steps/walkthrough/HybridMarkdownIntroStep";
-import { hybridMarkdownFamiliarityStep } from "./steps/walkthrough/HybridMarkdownFamiliarityStep";
-import { hybridMarkdownOverviewStep } from "./steps/walkthrough/HybridMarkdownOverviewStep";
-import { hybridEditorMechanicStep } from "./steps/walkthrough/HybridEditorMechanicStep";
-import { hybridBoldStep } from "./steps/walkthrough/HybridBoldStep";
-import { hybridItalicStep } from "./steps/walkthrough/HybridItalicStep";
-import { hybridUnderlineStep } from "./steps/walkthrough/HybridUnderlineStep";
-import { hybridH1Step } from "./steps/walkthrough/HybridH1Step";
-import { hybridH2Step } from "./steps/walkthrough/HybridH2Step";
-import { hybridH3Step } from "./steps/walkthrough/HybridH3Step";
-import { hybridShortcutsStep } from "./steps/walkthrough/HybridShortcutsStep";
-import { hybridImageAttachStep } from "./steps/walkthrough/HybridImageAttachStep";
-import { hybridImageDragInStep } from "./steps/walkthrough/HybridImageDragInStep";
-import { hybridImageResizeStep } from "./steps/walkthrough/HybridImageResizeStep";
-import { hybridFileAttachStep } from "./steps/walkthrough/HybridFileAttachStep";
+// Inline-editor collapse (onboarding-inline bot 2026-06-02): the single
+// narration beat replacing HE-1..HE-11. Spotlights the live CodeMirror 6
+// surface (data-tour-target="inline-editor-surface") and teaches "just
+// type, your markdown renders as you go" + one line on Save checkpoint.
+import { inlineEditorStep } from "./steps/walkthrough/InlineEditorStep";
 // §6.7 hybrid-save-concept (hybrid-save-concept manager 2026-05-27): NEW
 // pure-narration beat between hybrid-file-attach and workbench-notes-intro.
 // Covers manual save, version control, and the unsaved-changes warning.
@@ -404,30 +392,20 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [methodAttachmentTabStep.id]: methodAttachmentTabStep,
   [methodAttachmentAttachStep.id]: methodAttachmentAttachStep,
   [methodAttachmentNotesStep.id]: methodAttachmentNotesStep,
-  // §6.7 hybrid editor redesign (Hybrid editor manager 2026-05-22).
-  // 12 sub-steps wired in TOUR_STEP_ORDER order. Legacy bodies retired.
+  // §6.7 hybrid editor cluster. Inline-editor collapse (onboarding-inline
+  // bot 2026-06-02): the HE-1..HE-11 markdown deep-dive collapsed into the
+  // single `inlineEditorStep` beat. The surviving beats (notes-vs-results,
+  // editor-scope, focus enter/exit, save-concept) wire in TOUR_STEP_ORDER.
   [hybridNotesVsResultsStep.id]: hybridNotesVsResultsStep,
-  // v4 tour structural manager (Wave 1, 2026-05-27): new scope-narration
-  // beat between HE-0 and HE-1.
+  // v4 tour structural manager (Wave 1, 2026-05-27): scope-narration beat
+  // after HE-0.
   [hybridEditorScopeStep.id]: hybridEditorScopeStep,
-  // Writing Focus Mode enter beat (between hybrid-editor-scope and
-  // hybrid-markdown-intro). focus-writing-mode build bot 2026-05-29.
+  // Writing Focus Mode enter beat (between hybrid-editor-scope and the
+  // inline editor beat). focus-writing-mode build bot 2026-05-29.
   [hybridFocusEnterStep.id]: hybridFocusEnterStep,
-  [hybridMarkdownIntroStep.id]: hybridMarkdownIntroStep,
-  [hybridMarkdownFamiliarityStep.id]: hybridMarkdownFamiliarityStep,
-  [hybridMarkdownOverviewStep.id]: hybridMarkdownOverviewStep,
-  [hybridEditorMechanicStep.id]: hybridEditorMechanicStep,
-  [hybridBoldStep.id]: hybridBoldStep,
-  [hybridItalicStep.id]: hybridItalicStep,
-  [hybridUnderlineStep.id]: hybridUnderlineStep,
-  [hybridH1Step.id]: hybridH1Step,
-  [hybridH2Step.id]: hybridH2Step,
-  [hybridH3Step.id]: hybridH3Step,
-  [hybridShortcutsStep.id]: hybridShortcutsStep,
-  [hybridImageAttachStep.id]: hybridImageAttachStep,
-  [hybridImageDragInStep.id]: hybridImageDragInStep,
-  [hybridImageResizeStep.id]: hybridImageResizeStep,
-  [hybridFileAttachStep.id]: hybridFileAttachStep,
+  // Inline-editor collapse (onboarding-inline bot 2026-06-02): the single
+  // beat replacing HE-1..HE-11.
+  [inlineEditorStep.id]: inlineEditorStep,
   // §6.7 hybrid-save-concept (hybrid-save-concept manager 2026-05-27):
   // NEW pure-narration beat closing the §6.7 editor cluster before the
   // §6.7b Notes/Lists cluster opens. Wires after hybrid-file-attach in
@@ -617,32 +595,21 @@ function patchLabStep(id: TourStepId, body: TourStep): void {
 // patching their entries here would be a dead write.
 patchLabStep("lab-cleanup", buildLabCleanupStep());
 
-// §6.10 onEnter side-effects. The step body files in
-// `walkthrough/GanttDependenciesStep.tsx` +
-// `walkthrough/HybridEditorImageDropStep.tsx` don't own these hooks
-// directly because both spawns depend on an "active project /
-// experiment" id that the step body can't resolve in isolation. We
-// wire them here so the body files stay unit-testable without
-// pulling in `projectsApi` / `tasksApi` / `fileService` mocks.
+// §6.8 onEnter side-effect. The Gantt goals step body can't resolve the
+// active project / experiment id in isolation, so the spawn hook is wired
+// here to keep the body file unit-testable without pulling in `projectsApi`
+// / `tasksApi` / `fileService` mocks.
 //
-// Both hooks are idempotent + best-effort; see
-// `lib/on-enter-helpers.ts` for the exact contracts. TourController
-// catches throws + logs, but the hooks themselves also swallow so a
-// partial failure produces a no-op step instead of a tour-wedge.
-// §6.8 Gantt redesign 2026-05-22 (Gantt manager): the old
-// `gantt-chained-deps` onEnter hook is retired. Its replacement
-// (`gantt-deps-beakerbot`) owns its own onEnter directly via the
-// `buildWalkthroughStep` slot, so no patch is needed here.
-// §6.7 redesign 2026-05-22 (Hybrid editor manager): the onEnter that
-// seeds the BeakerBot selfie blob now hangs off `hybrid-image-attach`
-// (HE-8) instead of the retired `hybrid-editor-image-drop` id. Same
-// helper, new owner step.
-TOUR_STEPS["hybrid-image-attach"] = {
-  ...TOUR_STEPS["hybrid-image-attach"],
-  onEnter: async (ctx) => {
-    await onEnterHybridEditorImageDrop(ctx);
-  },
-};
+// The hook is idempotent + best-effort; see `lib/on-enter-helpers.ts` for
+// the exact contract. TourController catches throws + logs, but the hook
+// itself also swallows so a partial failure produces a no-op step instead
+// of a tour-wedge.
+//
+// Inline-editor collapse (onboarding-inline bot 2026-06-02): the
+// `hybrid-image-attach` (HE-8) onEnter that seeded the BeakerBot selfie blob
+// was removed along with the HE-1..HE-11 markdown deep-dive collapse. The
+// new single `inline-editor` beat is pure narration (no image-attach demo),
+// so no onEnter hook is needed.
 
 // §6.8 `gantt-goals-overview` onEnter — spawns a placeholder personal
 // goal so the cursor's click on the goals affordance reveals a real

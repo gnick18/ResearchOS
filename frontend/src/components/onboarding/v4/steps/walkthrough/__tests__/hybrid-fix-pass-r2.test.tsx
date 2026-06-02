@@ -1,24 +1,19 @@
 /**
- * Regression-pinning tests for the §6.7 hybrid editor R2 fix-pass.
+ * Regression-pinning tests for `clickOutsideEditorAction`.
  *
- * Each test corresponds to one P0/P1/P2 fix from the R2 brief.
+ * Inline-editor collapse (onboarding-inline bot 2026-06-02): the §6.7
+ * markdown deep-dive (HE-1..HE-11) collapsed into the single `inline-editor`
+ * beat now that the editor is inline-only. The per-step R2 fix-pass tests
+ * that pinned the deleted hybrid bold / shortcuts / file-attach / markdown
+ * familiarity / overview behaviors are gone with those steps.
  *
- * Hybrid fix manager R2, 2026-05-22.
+ * `clickOutsideEditorAction` itself survives in `lib/cursor-script.ts` (it
+ * is still consumed by `lib/hybrid-editor-helpers.tsx`, which TaskDetailPopup
+ * and TourController import), so its bypass-the-InputLockOverlay contract is
+ * retained here.
  */
 import { describe, expect, it } from "vitest";
-import { render } from "@testing-library/react";
 import { clickOutsideEditorAction } from "../lib/cursor-script";
-import { hybridMarkdownFamiliarityStep } from "../HybridMarkdownFamiliarityStep";
-import { hybridMarkdownOverviewStep } from "../HybridMarkdownOverviewStep";
-import { hybridShortcutsStep } from "../HybridShortcutsStep";
-import { hybridFileAttachStep } from "../HybridFileAttachStep";
-import { hybridBoldStep } from "../HybridBoldStep";
-import {
-  lastBranchChoice,
-  recordBranchChoice,
-  resetBranchChoices,
-} from "../lib/branch-choices";
-import { isStepGatedOut } from "../../../step-machine";
 
 /**
  * Helper: mirror `InputLockOverlay`'s capture-phase window listener
@@ -53,7 +48,7 @@ function attachOverlayBlocker(): { detach: () => void; blockedCount: () => numbe
   };
 }
 
-describe("R2 fix-pass P0: clickOutsideEditorAction bypasses InputLockOverlay", () => {
+describe("clickOutsideEditorAction bypasses InputLockOverlay", () => {
   it("returns a callback action (not a click) so the cursor ripple isn't misleading", () => {
     const action = clickOutsideEditorAction();
     expect(action.type).toBe("callback");
@@ -123,128 +118,5 @@ describe("R2 fix-pass P0: clickOutsideEditorAction bypasses InputLockOverlay", (
     } finally {
       document.body.dispatchEvent = original;
     }
-  });
-});
-
-describe("R2 fix-pass P1: HE-2 onExit no longer wipes the branch choice", () => {
-  it("HE-2 has no onExit clear (the R1 onExit wiped the choice the user just made)", () => {
-    // The R1 implementation had:
-    //   onExit: async () => { recordBranchChoice(..., null); }
-    // That clear ran AFTER TourController.branchTo wrote the branch
-    // choice → SET_STEP, wiping the just-recorded selection. Back-
-    // stepping from HE-4 to HE-3 then read null and gated HE-3 OUT,
-    // even though the user picked the overview branch.
-    expect(hybridMarkdownFamiliarityStep.onExit).toBeUndefined();
-  });
-
-  it("back-step path: HE-2 → pick overview → HE-3 → HE-4 → back-step lands on HE-3, not HE-2", () => {
-    // Simulate the flow: HE-2 branch click writes via
-    // TourController.branchTo, which calls recordBranchChoice
-    // BEFORE the SET_STEP dispatch. We replicate that write here.
-    resetBranchChoices();
-    recordBranchChoice(
-      "hybrid-markdown-familiarity",
-      "hybrid-markdown-overview",
-    );
-
-    // User advances HE-3 → HE-4 via normal manualAdvance. The R1
-    // bug would have fired HE-2's onExit (which was never actually
-    // tied to a forward branch click, but instead fired on EVERY
-    // HE-2 exit including the branch path) and wiped the choice.
-    // The R2 fix removes that onExit → the choice survives.
-
-    // Now back-step from HE-4: the step-machine's getPreviousStep
-    // walks backwards and asks isStepGatedOut for each candidate.
-    // HE-3's gate reads lastBranchChoice; with the choice still
-    // intact, HE-3 should NOT be gated out.
-    expect(lastBranchChoice("hybrid-markdown-familiarity")).toBe(
-      "hybrid-markdown-overview",
-    );
-    expect(isStepGatedOut("hybrid-markdown-overview", null)).toBe(false);
-    resetBranchChoices();
-  });
-
-  it("forward-path: HE-2 skip branch still gates HE-3 OUT for the same session", () => {
-    // The skip / yes-knows-markdown paths route HE-2 directly to
-    // HE-4. The step-machine's gate must keep HE-3 OUT for back-
-    // stepping in those flows too.
-    resetBranchChoices();
-    recordBranchChoice(
-      "hybrid-markdown-familiarity",
-      "hybrid-editor-mechanic",
-    );
-    expect(isStepGatedOut("hybrid-markdown-overview", null)).toBe(true);
-    resetBranchChoices();
-  });
-});
-
-describe("R2 fix-pass P1: HE-3 paragraph 3 restored with corrected location", () => {
-  it("speech includes the 'shortcut bar on the left' framing the spec mandates", () => {
-    const speech =
-      typeof hybridMarkdownOverviewStep.speech === "function"
-        ? hybridMarkdownOverviewStep.speech()
-        : hybridMarkdownOverviewStep.speech;
-    const { container } = render(<>{speech}</>);
-    const text = container.textContent ?? "";
-    expect(text).toMatch(/shortcut bar on the left/i);
-    expect(text).toMatch(/memorize/i);
-  });
-});
-
-describe("R2 fix-pass P1: HE-7 speech teaches the Cmd+B keyboard shortcut", () => {
-  it("speech mentions Cmd+B plus the Ctrl+B Windows variant (Wave 2C rewrite 2026-05-27)", () => {
-    // Wave 2C speech rewrite (v4 tour speech manager — C, 2026-05-27):
-    // Grant's two-paragraph copy intentionally trimmed the HE-7 speech
-    // to a SINGLE representative shortcut — Cmd+B (bold) — with the
-    // Ctrl+B Windows equivalent. The earlier "Cmd+I / Cmd+U / Word
-    // shortcuts" laundry list (spec line 131) was dropped to keep the
-    // user-action prompt short. Cmd+B is still the spec-mandated
-    // framing and is present; the assertion now matches the current
-    // copy instead of the retired multi-shortcut list.
-    const speech =
-      typeof hybridShortcutsStep.speech === "function"
-        ? hybridShortcutsStep.speech()
-        : hybridShortcutsStep.speech;
-    const { container } = render(<>{speech}</>);
-    const text = container.textContent ?? "";
-    expect(text).toMatch(/Cmd\+B/);
-    expect(text).toMatch(/Ctrl\+B/);
-    expect(text).toMatch(/bold text/i);
-  });
-});
-
-describe("R2 fix-pass P1: HE-11 speech restores the PDF/text disclosure", () => {
-  it("speech mentions PDFs and text files (spec line 168-170)", () => {
-    const speech =
-      typeof hybridFileAttachStep.speech === "function"
-        ? hybridFileAttachStep.speech()
-        : hybridFileAttachStep.speech;
-    const { container } = render(<>{speech}</>);
-    const text = container.textContent ?? "";
-    expect(text).toMatch(/PDFs/);
-    expect(text).toMatch(/text files/i);
-    expect(text).toMatch(/directly/i);
-    expect(text).toMatch(/download/i);
-  });
-
-  it("speech no longer says 'drag in' (the cursor uses callbackAction, not real drag)", () => {
-    const speech =
-      typeof hybridFileAttachStep.speech === "function"
-        ? hybridFileAttachStep.speech()
-        : hybridFileAttachStep.speech;
-    const { container } = render(<>{speech}</>);
-    const text = container.textContent ?? "";
-    // Match the verb usage specifically. "drag in" is the
-    // unsupported claim. "attach" is fine.
-    expect(text).not.toMatch(/drag in/i);
-    expect(text).not.toMatch(/drag them in/i);
-  });
-});
-
-describe("R2 fix-pass P2: em-dash leak in typing pill copy", () => {
-  it("HE-5 typing pill uses comma, not em-dash", () => {
-    const pill = hybridBoldStep.pageLock?.pillLabel ?? "";
-    expect(pill).not.toMatch(/—/);
-    expect(pill).toMatch(/back in a sec/i);
   });
 });

@@ -715,15 +715,16 @@ describe("TourController — manual-advance button debounces double-click (R2 re
     const { result } = renderHook(() => useTourController(), {
       wrapper: wrapper(picks()),
     });
-    // hybrid-markdown-intro is a manual-completion step with NO
-    // cursor script, which keeps these debounce assertions isolated
-    // from the cursor-script gating added 2026-05-26 (Fix 4). A step
-    // with a cursor demo would have manualButtonDisabled = true on
-    // mount, so the first click would be a no-op and the assertion
-    // would never observe the debounce.
-    act(() => result.current.start("hybrid-markdown-intro"));
+    // inline-editor is a manual-completion step with NO cursor script,
+    // which keeps these debounce assertions isolated from the
+    // cursor-script gating added 2026-05-26 (Fix 4). A step with a cursor
+    // demo would have manualButtonDisabled = true on mount, so the first
+    // click would be a no-op and the assertion would never observe the
+    // debounce. (Inline-editor collapse 2026-06-02 replaced the prior
+    // hybrid-markdown-intro fixture, which was removed.)
+    act(() => result.current.start("inline-editor"));
     const firstStep = result.current.currentStep;
-    expect(firstStep).toBe("hybrid-markdown-intro");
+    expect(firstStep).toBe("inline-editor");
 
     const btn = document.body.querySelector<HTMLButtonElement>(
       "[data-testid='tour-manual-advance-button']",
@@ -747,13 +748,13 @@ describe("TourController — manual-advance button debounces double-click (R2 re
     const btnAfter = document.body.querySelector<HTMLButtonElement>(
       "[data-testid='tour-manual-advance-button']",
     );
-    // The next step (`methods-create`) is event-driven so no manual
-    // button renders. Either way, the absence of a stuck-disabled
-    // button on the original step proves the per-step reset works.
+    // The next step's button shape varies by step; either way, the
+    // absence of a stuck-disabled button on the original step proves the
+    // per-step reset works.
     // For coverage of the re-enable path, jump to another manual step
     // and confirm it isn't carrying a stale `advanceClicked` flag.
     void btnAfter;
-    act(() => result.current.start("hybrid-markdown-intro"));
+    act(() => result.current.start("inline-editor"));
     const btnReset = document.body.querySelector<HTMLButtonElement>(
       "[data-testid='tour-manual-advance-button']",
     );
@@ -770,7 +771,7 @@ describe("TourController — manual-advance button debounces double-click (R2 re
     const { result } = renderHook(() => useTourController(), {
       wrapper: wrapper(picks()),
     });
-    act(() => result.current.start("hybrid-markdown-intro"));
+    act(() => result.current.start("inline-editor"));
     const btn = document.body.querySelector<HTMLButtonElement>(
       "[data-testid='tour-manual-advance-button']",
     );
