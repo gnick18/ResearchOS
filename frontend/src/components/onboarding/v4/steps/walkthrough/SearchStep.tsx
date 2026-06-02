@@ -33,7 +33,7 @@ export const PLACEHOLDER_EXPERIMENT_NAME = "Demo Experiment One";
 export const searchStep = buildWalkthroughStep({
   id: "search-demo",
   speech:
-    "Search runs across everything in your account at once: experiments, methods, tasks, notes, results. So a year from now, when you vaguely remember running something with a particular reagent, you can find it without remembering which project it lived in.",
+    "Search runs across everything in your account at once: experiments, methods, tasks, notes, results. So when you half-remember running something with a particular reagent, you can find it without remembering which project it lived in.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.searchSubmit),
   cursorScript: cursorScript(async () => {

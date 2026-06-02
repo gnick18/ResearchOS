@@ -82,26 +82,16 @@ export const settingsAiHelperStep = buildWalkthroughStep({
   speech: (
     <>
       <p className="mb-2">
-        This is the AI Helper. Three prompt sizes: Full, Medium,
-        Minimal. Big context for big models like Claude, ChatGPT, or
-        Gemini.
+        This is the AI Helper. It generates a system prompt about your
+        notebook in three sizes: Full, Medium, Minimal.
       </p>
       <p className="mb-2">
-        Two use cases worth knowing:
-      </p>
-      <p className="mb-2">
-        (1) Paste a prompt into your favorite AI chat. Now you&apos;ve
-        got a ResearchOS-fluent agent you can ask questions to.
-      </p>
-      <p className="mb-2">
-        (2) More interesting: agentic models with access to your data
-        folder can WRITE your lab notebook with you. You give them a
-        prompt and read access to your folder; they help you draft
-        entries, build new methods, fill in experiment notes.
+        Two ways to use it. One: paste a prompt into a chat with Claude,
+        ChatGPT, or Gemini, then ask it questions about your work.
       </p>
       <p>
-        It&apos;s like having a research collaborator that knows your
-        codebase.
+        Two: give an agentic model read access to your folder and it can
+        help draft entries, build methods, and fill in notes.
       </p>
     </>
   ),

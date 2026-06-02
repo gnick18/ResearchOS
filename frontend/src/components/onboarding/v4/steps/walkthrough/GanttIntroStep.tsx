@@ -17,20 +17,14 @@ export const ganttIntroStep = buildWalkthroughStep({
   speech: (
     <>
       <p className="mb-2">
-        Once you have more than a few experiments running, a list view
-        stops being enough. You need to see what overlaps, what's
-        blocking what, and what your week actually looks like.
-      </p>
-      <p className="mb-2">
-        That's what the Gantt chart is for. Every experiment, task, and
-        purchase order with a date lives here on one timeline, so you
-        can spot when you're overbooked or plan backward from a
-        deadline.
+        The Gantt chart puts every experiment, task, and purchase order
+        with a date on one timeline, so you can see what overlaps and
+        plan backward from a deadline.
       </p>
       <p>
-        We'll cover three things on this page: rescheduling work by
-        dragging bars around, wiring up dependencies between tasks, and
-        sharing experiments with your lab.
+        We'll cover three things here: rescheduling work by dragging bars
+        around, wiring up dependencies between tasks, and sharing
+        experiments with your lab.
       </p>
     </>
   ),

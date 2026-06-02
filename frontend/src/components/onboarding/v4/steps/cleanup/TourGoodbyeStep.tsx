@@ -135,7 +135,7 @@ function TourGoodbyeSpeech() {
       ) : (
         <p className="leading-relaxed">
           That&apos;s the tour. Nothing to clean up since you skipped
-          ahead, so your account is ready whenever you&apos;re.
+          ahead, so your account is ready whenever you are.
         </p>
       )}
       <p className="leading-relaxed">
