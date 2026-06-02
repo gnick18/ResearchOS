@@ -64,11 +64,6 @@ import MemberWorkloadWidget, {
   SidebarTile as MemberWorkloadSidebar,
   HELP_TEXT as MemberWorkloadHelp,
 } from "./MemberWorkloadWidget";
-import TodaysAnnouncementsWidget, {
-  SnapshotTile as TodaysAnnouncementsSnapshot,
-  SidebarTile as TodaysAnnouncementsSidebar,
-  HELP_TEXT as TodaysAnnouncementsHelp,
-} from "./TodaysAnnouncementsWidget";
 import LabNotesWidget, {
   SnapshotTile as LabNotesSnapshot,
   SidebarTile as LabNotesSidebar,
@@ -89,11 +84,6 @@ import LabPurchasesWidget, {
   SidebarTile as LabPurchasesSidebar,
   HELP_TEXT as LabPurchasesHelp,
 } from "./LabPurchasesWidget";
-import {
-  SnapshotTile as LabPurchasesBurnRateSnapshot,
-  SidebarTile as LabPurchasesBurnRateSidebar,
-  HELP_TEXT as LabPurchasesBurnRateHelp,
-} from "./LabPurchasesBurnRateWidget";
 import {
   SnapshotTile as LabPurchasesPendingCountSnapshot,
   SidebarTile as LabPurchasesPendingCountSidebar,
@@ -186,7 +176,6 @@ void MetricsWidget;
 void RecentActivityWidget;
 void PiActionsWidget;
 void MemberWorkloadWidget;
-void TodaysAnnouncementsWidget;
 void LabNotesWidget;
 void LabExperimentsWidget;
 void LabActivityWidget;
@@ -422,22 +411,6 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     memberVisible: false, // lab_head only; replaces the /purchases nav for PIs
   },
   {
-    // Variant 2: the burn-rate 4-week chart. New in Phase C. Canvas-only.
-    // Opens the same LabPurchases 4-tab popup as the funding-bars variant.
-    id: "lab-purchases-burn-rate",
-    toolId: "purchases",
-    variantId: "burn-rate",
-    title: "Purchase burn rate",
-    description:
-      "Approved purchase spend over the last 4 weeks. Lab head only.",
-    helpText: LabPurchasesBurnRateHelp,
-    SnapshotTile: LabPurchasesBurnRateSnapshot,
-    SidebarTile: LabPurchasesBurnRateSidebar,
-    defaultLayout: { w: 4, h: 6, minW: 3, minH: 4 },
-    surfaces: { canvas: true },
-    memberVisible: false,
-  },
-  {
     // Variant 3: the compact pending-count summary. New in Phase C.
     // Canvas-only. Same popup.
     id: "lab-purchases-pending-count",
@@ -491,33 +464,12 @@ export const WIDGET_CATALOG: WidgetDefinition[] = [
     surfaces: { sidebar: true },
     memberVisible: false,
   },
-  {
-    id: "sidebar-todays-announcements",
-    toolId: "todays-announcements",
-    title: "Today's announcements",
-    description: "Pinned announcements, titles only.",
-    helpText: TodaysAnnouncementsHelp,
-    SnapshotTile: TodaysAnnouncementsSnapshot,
-    SidebarTile: TodaysAnnouncementsSidebar,
-    defaultLayout: { w: 1, h: 1 },
-    // Home canvas migration (2026-05-23): originally chosen as the
-    // home "today's events" slot because no dedicated calendar-events-
-    // today widget existed. CalendarEventsTodayWidget (added 2026-05-24)
-    // is now the canonical today's-events tile and the default home
-    // layout points at it instead. This widget stays in the catalog so
-    // members and lab heads can still opt to pin it via Add widget on
-    // either home or sidebar.
-    surfaces: { sidebar: true, canvas: true, home: true },
-    memberVisible: true,
-  },
   // CalendarEventsTodayWidget (CalendarEventsTodayWidget manager,
-  // 2026-05-24): the true "today's events" tile, replacing the
-  // TodaysAnnouncementsWidget stand-in in the default home layout.
-  // Sits next to its today-themed sibling in the catalog so both read
-  // as related variants. Canvas-eligible too so a lab head can pin it
-  // on /lab-overview if they want a today's-events tile on the dense
-  // PI dashboard. toolId is the new `calendar` Tool registered in
-  // `lib/lab-overview/tool-registry.tsx`.
+  // 2026-05-24): the true "today's events" tile. Sits in the catalog
+  // as the canonical today's-events tile. Canvas-eligible too so a lab
+  // head can pin it on /lab-overview if they want a today's-events tile
+  // on the dense PI dashboard. toolId is the new `calendar` Tool
+  // registered in `lib/lab-overview/tool-registry.tsx`.
   {
     id: "calendar-events-today",
     toolId: "calendar",

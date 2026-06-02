@@ -85,15 +85,13 @@ function applyIdRenames(ids: string[]): string[] {
  * "append on new catalog entry" path in `resolveLayout` covers any
  * widget the saved layout doesn't list.
  *
- * Burn-rate default (burn-rate range manager, 2026-05-23): the burn-rate
- * variant tile is included next to lab-purchases so fresh lab heads see
- * the spend chart day-one. The pending-count variant is NOT in the
- * default (opt-in for PIs who want a compact status pill).
+ * The lab-purchases burn-rate and pending-count variant tiles are NOT in
+ * the default (opt-in via Add widget for PIs who want them); the burn-rate
+ * chart already lives as a tab inside the main lab-purchases widget.
  *
  * Canvas order: announcements, lab-purchases (the PI's main daily
- * triage), lab-purchases-burn-rate (spend trend, sits next to its
- * purchases sibling), metrics, lab-activity, lab-experiments, lab-notes,
- * comment-feed. Sidebar default unchanged.
+ * triage), metrics, lab-activity, lab-experiments, lab-notes,
+ * comment-feed. Sidebar: recent-activity, pi-actions, member-workload.
  */
 function defaultLabHeadLayout(): LabOverviewLayout {
   return {
@@ -110,7 +108,6 @@ function defaultLabHeadLayout(): LabOverviewLayout {
       canvas: [
         "announcements",
         "lab-purchases",
-        "lab-purchases-burn-rate",
         "metrics",
         "lab-activity",
         "lab-experiments",
@@ -121,7 +118,6 @@ function defaultLabHeadLayout(): LabOverviewLayout {
         "sidebar-recent-activity",
         "sidebar-pi-actions",
         "sidebar-member-workload",
-        "sidebar-todays-announcements",
       ],
     },
   };
@@ -137,7 +133,11 @@ function defaultMemberLayout(): LabOverviewLayout {
       // top-level New Project button + auto Single Project widgets are the
       // project surface now. Still addable via "+ Add widget".
       canvas: ["announcements", "comment-feed"],
-      sidebar: ["sidebar-overdue", "sidebar-today", "sidebar-upcoming"],
+      // Member sidebar default is empty: members always have the permanent
+      // DailyTasksSidebar (overdue / today / upcoming), so the sidebar-overdue
+      // / sidebar-today / sidebar-upcoming widgets duplicated it. Those widgets
+      // stay in the catalog (a lab head with a customizable rail can add them).
+      sidebar: [],
     },
   };
 }
@@ -598,7 +598,10 @@ function defaultMemberHomeLayout(): LabOverviewLayout {
       // dashboard. The top-level New Project button + auto Single Project
       // widgets are the project surface; Projects Overview stays addable via
       // "+ Add widget".
-      canvas: ["sidebar-upcoming", "calendar-events-today"],
+      // Lean member home default: just the today's-events tile. The
+      // sidebar-upcoming widget was removed (the permanent DailyTasksSidebar
+      // already shows upcoming tasks); it stays addable via "+ Add widget".
+      canvas: ["calendar-events-today"],
       // Home sidebar is unused today (see note above). Leave empty so
       // the home canvas reader has a stable shape to read.
       sidebar: [],

@@ -595,25 +595,20 @@ describe("resolveHomeLayout + defaultHomeLayoutFor", () => {
   it("falls back to the member default when home_layout is undefined", () => {
     const layout = resolveHomeLayout(undefined, "member", homeCatalog);
     expect(layout.version).toBe(LAB_OVERVIEW_LAYOUT_VERSION);
-    // Home widgets surface-prep manager (2026-05-25): shrunk from 4
-    // signals to 2 (one project-aware, one calendar-aware) per the
-    // §6.2b walkthrough proposal. Upcoming tasks first, then today's
-    // events.
-    expect(layout.widgetOrder.canvas).toEqual([
-      "sidebar-upcoming",
-      "calendar-events-today",
-    ]);
+    // widget-trim bot (2026-06-02): the member home default is now lean,
+    // just the calendar-aware today's-events tile. sidebar-upcoming was
+    // dropped because the permanent DailyTasksSidebar already shows
+    // upcoming tasks; it stays addable via "+ Add widget".
+    expect(layout.widgetOrder.canvas).toEqual(["calendar-events-today"]);
     // Home doesn't use the sidebar axis (today).
     expect(layout.widgetOrder.sidebar).toEqual([]);
   });
 
-  it("seeds new lab_head accounts with the same 2 home defaults as members", () => {
-    // Home widgets surface-prep manager (2026-05-25): lab heads also
-    // get the home canvas (they can pin personal widgets there
-    // alongside projects). They get the same 2-widget seed so the
-    // §6.2b walkthrough shows a consistent shape regardless of account
-    // type. Both widgets carry `labHeadVisible: true` so they survive
-    // the visibleCatalog filter.
+  it("seeds new lab_head accounts with the 2 home defaults (lab heads have a customizable rail, not the fixed sidebar)", () => {
+    // Lab heads also get the home canvas (they can pin personal widgets
+    // there alongside projects). Unlike members they do NOT have the
+    // permanent DailyTasksSidebar, so their home default keeps the
+    // upcoming-tasks tile alongside today's events.
     const layout = resolveHomeLayout(undefined, "lab_head", homeCatalog);
     expect(layout.widgetOrder.canvas).toEqual([
       "sidebar-upcoming",
@@ -621,25 +616,12 @@ describe("resolveHomeLayout + defaultHomeLayoutFor", () => {
     ]);
   });
 
-  it("uses the same default for PIs (they get /lab-overview for the dense dashboard)", () => {
-    const memberDefault = defaultHomeLayoutFor("member");
-    const headDefault = defaultHomeLayoutFor("lab_head");
-    expect(headDefault.widgetOrder.canvas).toEqual(
-      memberDefault.widgetOrder.canvas,
-    );
-  });
-
-  it("default seed leads with upcoming-tasks, then today's-events (no Projects Overview)", () => {
-    // New-account default-set change (dashboard-newproject-tour bot,
-    // 2026-05-29, FLAG): Projects Overview is no longer seeded by default;
-    // the top-level New Project button + auto Single Project widgets are the
-    // project surface. The remaining order stays load-bearing for the §6.2b
-    // walkthrough — Upcoming tasks demonstrates a project-aware tile, Today's
-    // events a calendar-aware tile.
+  it("member home default is lean (a single today's-events tile)", () => {
+    // widget-trim bot (2026-06-02): members always have the permanent
+    // DailyTasksSidebar, so the duplicate sidebar-upcoming home tile was
+    // dropped from the member default. It stays in the catalog (addable).
     const def = defaultHomeLayoutFor("member");
-    expect(def.widgetOrder.canvas).toHaveLength(2);
-    expect(def.widgetOrder.canvas[0]).toBe("sidebar-upcoming");
-    expect(def.widgetOrder.canvas[1]).toBe("calendar-events-today");
+    expect(def.widgetOrder.canvas).toEqual(["calendar-events-today"]);
   });
 
   it("the new default seed only applies to accounts WITHOUT a saved layout", () => {

@@ -58,7 +58,6 @@ import { ExpandedView as MetricsExpanded } from "@/components/lab-overview/widge
 import { ExpandedView as RecentActivityExpanded } from "@/components/lab-overview/widgets/RecentActivityWidget";
 import { ExpandedView as PiActionsExpanded } from "@/components/lab-overview/widgets/PiActionsWidget";
 import { ExpandedView as MemberWorkloadExpanded } from "@/components/lab-overview/widgets/MemberWorkloadWidget";
-import { ExpandedView as TodaysAnnouncementsExpanded } from "@/components/lab-overview/widgets/TodaysAnnouncementsWidget";
 import { ExpandedView as LabNotesExpanded } from "@/components/lab-overview/widgets/LabNotesWidget";
 import { ExpandedView as LabExperimentsExpanded } from "@/components/lab-overview/widgets/LabExperimentsWidget";
 import { ExpandedView as LabActivityExpanded } from "@/components/lab-overview/widgets/LabActivityWidget";
@@ -202,14 +201,6 @@ const MEMBER_WORKLOAD_ICON = (
     <circle cx="9" cy="7" r="4" />
     <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
     <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-  </svg>
-);
-
-const TODAYS_ANNOUNCEMENTS_ICON = (
-  // Pin — mirrors PIN_SVG from TodaysAnnouncementsWidget.
-  <svg {...ICON_PROPS}>
-    <line x1="12" y1="17" x2="12" y2="22" />
-    <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24z" />
   </svg>
 );
 
@@ -411,14 +402,6 @@ export const TOOL_REGISTRY: ToolDefinition[] = [
     Icon: MEMBER_WORKLOAD_ICON,
     ExpandedView: MemberWorkloadExpanded,
     memberVisible: false,
-  },
-  {
-    id: "todays-announcements",
-    title: "Today's announcements",
-    description: "Pinned announcements, titles only.",
-    Icon: TODAYS_ANNOUNCEMENTS_ICON,
-    ExpandedView: TodaysAnnouncementsExpanded,
-    memberVisible: true,
   },
   {
     // Calendar Tool. SnapshotTile + SidebarTile of
