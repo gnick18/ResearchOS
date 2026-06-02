@@ -51,3 +51,19 @@ export { recordTaskHistory } from "./task-history";
 // VC Phase 3 (Project, sequencing step 2): the Project recorder. Same shared
 // flags re-exported from project-history.ts, single source of truth.
 export { recordProjectHistory } from "./project-history";
+
+// save-checkpoint bot (2026-06-02): the task Lab Notes / Results MARKDOWN
+// document recorder + viewer adapter. Additive entity types ("task_notes" /
+// "task_results") keyed by (owner, taskId); same shared flags re-exported.
+export {
+  recordTaskDocHistory,
+  taskDocAdapter,
+  taskDocEntityType,
+  taskDocPayload,
+  projectTaskDocState,
+  summarizeTaskDocChange,
+  TASK_NOTES_ENTITY_TYPE,
+  TASK_RESULTS_ENTITY_TYPE,
+  type TaskDocSurface,
+  type TaskDocProjection,
+} from "./task-doc-history";

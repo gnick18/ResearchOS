@@ -82,6 +82,16 @@ import EntityVersionHistorySidebar, {
   type VersionPreview,
 } from "@/components/history/EntityVersionHistorySidebar";
 import VersionDiffView from "@/components/history/VersionDiffView";
+// save-checkpoint bot (2026-06-02): version-control wiring for the task Lab
+// Notes / Results MARKDOWN documents (notes.md / results.md). Separate additive
+// entity types ("task_notes" / "task_results") from the structured-Task history.
+import { recordTaskDocHistory } from "@/lib/history";
+import {
+  useTaskDocHistory,
+  TaskDocHistoryButton,
+  TaskDocDiffColumn,
+  TaskDocHistorySidebar,
+} from "@/components/history/TaskDocVersionHistory";
 import type { TaskRestorePayload } from "@/lib/types";
 
 interface TaskDetailPopupProps {
@@ -4143,6 +4153,17 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
     const latest = typeof explicitValue === "string" ? explicitValue : content;
     setSaving(true);
     try {
+      // save-checkpoint bot: read the CURRENT on-disk content BEFORE writing so
+      // the version recorder can diff prev -> next. Best-effort: a read failure
+      // (fresh notes.md) falls back to the empty string, and the recorder is a
+      // side-channel that never blocks the save.
+      let prevContent = "";
+      try {
+        const before = await filesApi.readFile(notesPath);
+        prevContent = before.content ?? "";
+      } catch {
+        prevContent = "";
+      }
       const split = await ensureAttachmentsSplit(latest);
       const toWrite = split.migrated ? split.notesContent : latest;
       await filesApi.writeFile(notesPath, toWrite, `Update lab notes for: ${task.name}`);
@@ -4151,12 +4172,45 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
       // Saved content now lives on disk — drop the SPA-nav draft so the
       // next mount doesn't re-promote the now-redundant copy.
       clearNotesDraft();
+      // save-checkpoint bot: record a permanent, revertible version of the Lab
+      // Notes document. Skip a true no-op (prev === next) so re-saving an
+      // unchanged doc never mints a phantom version. AFTER the write so a
+      // history failure cannot lose the user's save.
+      if (prevContent !== toWrite) {
+        void recordTaskDocHistory({
+          surface: "notes",
+          type: "update",
+          id: task.id,
+          owner: task.owner || currentUser || "",
+          actor: currentUser ?? task.owner ?? "",
+          prevContent,
+          nextContent: toWrite,
+        });
+      }
     } catch {
       alert("Failed to save notes");
     } finally {
       setSaving(false);
     }
-  }, [content, ensureAttachmentsSplit, notesPath, task.name, clearNotesDraft]);
+  }, [content, ensureAttachmentsSplit, notesPath, task.name, task.id, task.owner, currentUser, clearNotesDraft]);
+
+  // save-checkpoint bot: version-history controller for the Lab Notes document.
+  // `writeRestored` writes the reconstructed markdown back to notes.md + reflects
+  // it into the editor, then the controller records the "revert" version.
+  const docHistory = useTaskDocHistory({
+    surface: "notes",
+    taskId: task.id,
+    owner: task.owner || currentUser || "",
+    actor: currentUser ?? task.owner ?? "",
+    liveContent: originalContent,
+    canRestore: !readOnly,
+    writeRestored: async (restored) => {
+      await filesApi.writeFile(notesPath, restored, `Restore lab notes for: ${task.name}`);
+      setContent(restored);
+      setOriginalContent(restored);
+      clearNotesDraft();
+    },
+  });
 
   // Compact Markdown | Files sub-tab switcher. Folded into the editor's single
   // unified toolbar (markdown tab) and shown standalone above the files panel.
@@ -4201,26 +4255,34 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
   const editorToolbarTrailing = !readOnly ? (
     <>
       {subTabSwitcher}
-      <button
-        data-tour-target="task-popup-notes-save"
-        onClick={() => {
-          // Flush the editor's in-flight block buffer first so the
-          // last in-progress edit lands on disk, then persist.
-          const latest = editorSaveRef.current?.() ?? content;
-          void handleSave(latest);
-        }}
-        disabled={saving || (!hasUnsavedChanges && !editorDirty)}
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-          (hasUnsavedChanges || editorDirty) && !saving
-            ? "text-white bg-blue-600 hover:bg-blue-700"
-            : "text-gray-400 bg-gray-100 cursor-not-allowed"
-        }`}
-      >
-        {(hasUnsavedChanges || editorDirty) && !saving && (
-          <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-300" />
-        )}
-        {saving ? "Saving..." : "Save notes"}
-      </button>
+      {/* save-checkpoint bot: version-history entry button (icon-only clock +
+          counter-arrow, Tooltip per house rule). Opens the docked sidebar +
+          in-place diff for the Lab Notes document. */}
+      <TaskDocHistoryButton controller={docHistory} />
+      {/* save-checkpoint bot: "Save checkpoint" makes it obvious every save is a
+          permanent, revertible version. Tooltip spells that out. */}
+      <Tooltip label="Saves a permanent version you can revert to anytime." placement="bottom">
+        <button
+          data-tour-target="task-popup-notes-save"
+          onClick={() => {
+            // Flush the editor's in-flight block buffer first so the
+            // last in-progress edit lands on disk, then persist.
+            const latest = editorSaveRef.current?.() ?? content;
+            void handleSave(latest);
+          }}
+          disabled={saving || (!hasUnsavedChanges && !editorDirty)}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+            (hasUnsavedChanges || editorDirty) && !saving
+              ? "text-white bg-blue-600 hover:bg-blue-700"
+              : "text-gray-400 bg-gray-100 cursor-not-allowed"
+          }`}
+        >
+          {(hasUnsavedChanges || editorDirty) && !saving && (
+            <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-300" />
+          )}
+          {saving ? "Saving..." : "Save checkpoint"}
+        </button>
+      </Tooltip>
     </>
   ) : (
     subTabSwitcher
@@ -4314,8 +4376,12 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
             {/* Editor — give it a sized flex slot so the editor scrolls
                 internally (the markdown body, toolbar, and image strip
                 stay anchored) instead of pushing the whole popup tab
-                to scroll as a unit. */}
-            <div className="flex-1 min-h-0 flex flex-col">
+                to scroll as a unit. save-checkpoint bot: when version
+                history is open the editor slot splits into the read-only
+                diff column + the docked history sidebar (mirrors the Notes
+                pilot). */}
+            <div className="flex-1 min-h-0 flex">
+              <div className="flex-1 min-h-0 flex flex-col">
               {loading ? (
                 <div className="p-6 space-y-2 animate-pulse" aria-busy="true">
                 <div className="h-3 w-1/3 bg-gray-200 rounded" />
@@ -4323,6 +4389,8 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                 <div className="h-3 w-5/6 bg-gray-200 rounded" />
                 <div className="h-3 w-4/5 bg-gray-100 rounded" />
               </div>
+              ) : docHistory.isOpen ? (
+                <TaskDocDiffColumn controller={docHistory} />
               ) : (
                 <LiveMarkdownEditor
                   value={content}
@@ -4339,7 +4407,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                   // sidecar is absent (= not an ELN-imported task).
                   notesMarkdownPath={notesPath}
                   showToolbar={true}
-                  // The popup owns its own version-controlled "Save notes"
+                  // The popup owns its own version-controlled "Save checkpoint"
                   // button (above), so hide the editor's internal one to
                   // avoid two Save buttons. saveRef lets that button flush
                   // the live buffer; onExplicitSave routes Cmd+S to disk;
@@ -4349,9 +4417,19 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                   onExplicitSave={(v) => { void handleSave(v); }}
                   onDirtyChange={setEditorDirty}
                   // Fold the Markdown | Files sub-tab switcher and the
-                  // "Save notes" button into the editor's single unified
+                  // "Save checkpoint" button into the editor's single unified
                   // toolbar instead of stacking parent bars above it.
                   toolbarTrailing={editorToolbarTrailing}
+                />
+              )}
+              </div>
+              {docHistory.isOpen && (
+                <TaskDocHistorySidebar
+                  controller={docHistory}
+                  surface="notes"
+                  taskId={task.id}
+                  owner={task.owner || currentUser || ""}
+                  canRestore={!readOnly}
                 />
               )}
             </div>
@@ -4719,6 +4797,15 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
     const latest = typeof explicitValue === "string" ? explicitValue : content;
     setSaving(true);
     try {
+      // save-checkpoint bot: read the CURRENT on-disk content BEFORE writing so
+      // the version recorder can diff prev -> next (see LabNotesTab.handleSave).
+      let prevContent = "";
+      try {
+        const before = await filesApi.readFile(resultsPath);
+        prevContent = before.content ?? "";
+      } catch {
+        prevContent = "";
+      }
       const split = await ensureAttachmentsSplit(latest);
       const toWrite = split.migrated ? split.resultsContent : latest;
       await filesApi.writeFile(resultsPath, toWrite, `Update results: ${task.name}`);
@@ -4726,12 +4813,42 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
       setOriginalContent(toWrite);
       // Saved to disk — drop the SPA-nav draft.
       clearResultsDraft();
+      // save-checkpoint bot: record a permanent, revertible version of the
+      // Results document. Skip a true no-op so re-saving an unchanged doc never
+      // mints a phantom version. AFTER the write (best-effort side-channel).
+      if (prevContent !== toWrite) {
+        void recordTaskDocHistory({
+          surface: "results",
+          type: "update",
+          id: task.id,
+          owner: task.owner || currentUser || "",
+          actor: currentUser ?? task.owner ?? "",
+          prevContent,
+          nextContent: toWrite,
+        });
+      }
     } catch {
       alert("Failed to save results");
     } finally {
       setSaving(false);
     }
-  }, [content, ensureAttachmentsSplit, resultsPath, task.name, clearResultsDraft]);
+  }, [content, ensureAttachmentsSplit, resultsPath, task.name, task.id, task.owner, currentUser, clearResultsDraft]);
+
+  // save-checkpoint bot: version-history controller for the Results document.
+  const docHistory = useTaskDocHistory({
+    surface: "results",
+    taskId: task.id,
+    owner: task.owner || currentUser || "",
+    actor: currentUser ?? task.owner ?? "",
+    liveContent: originalContent,
+    canRestore: !readOnly,
+    writeRestored: async (restored) => {
+      await filesApi.writeFile(resultsPath, restored, `Restore results: ${task.name}`);
+      setContent(restored);
+      setOriginalContent(restored);
+      clearResultsDraft();
+    },
+  });
 
   // Compact Markdown | Files sub-tab switcher. Folded into the editor's single
   // unified toolbar (markdown tab) and shown standalone above the files panel.
@@ -4776,26 +4893,32 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
   const editorToolbarTrailing = !readOnly ? (
     <>
       {subTabSwitcher}
-      <button
-        data-tour-target="task-popup-results-save"
-        onClick={() => {
-          // Flush the editor's in-flight block buffer first so the
-          // last in-progress edit lands on disk, then persist.
-          const latest = editorSaveRef.current?.() ?? content;
-          void handleSave(latest);
-        }}
-        disabled={saving || (!hasUnsavedChanges && !editorDirty)}
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-          (hasUnsavedChanges || editorDirty) && !saving
-            ? "text-white bg-blue-600 hover:bg-blue-700"
-            : "text-gray-400 bg-gray-100 cursor-not-allowed"
-        }`}
-      >
-        {(hasUnsavedChanges || editorDirty) && !saving && (
-          <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-300" />
-        )}
-        {saving ? "Saving..." : "Save results"}
-      </button>
+      {/* save-checkpoint bot: version-history entry button for the Results
+          document (see LabNotesTab). */}
+      <TaskDocHistoryButton controller={docHistory} />
+      {/* save-checkpoint bot: "Save checkpoint" + tooltip (see LabNotesTab). */}
+      <Tooltip label="Saves a permanent version you can revert to anytime." placement="bottom">
+        <button
+          data-tour-target="task-popup-results-save"
+          onClick={() => {
+            // Flush the editor's in-flight block buffer first so the
+            // last in-progress edit lands on disk, then persist.
+            const latest = editorSaveRef.current?.() ?? content;
+            void handleSave(latest);
+          }}
+          disabled={saving || (!hasUnsavedChanges && !editorDirty)}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+            (hasUnsavedChanges || editorDirty) && !saving
+              ? "text-white bg-blue-600 hover:bg-blue-700"
+              : "text-gray-400 bg-gray-100 cursor-not-allowed"
+          }`}
+        >
+          {(hasUnsavedChanges || editorDirty) && !saving && (
+            <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-300" />
+          )}
+          {saving ? "Saving..." : "Save checkpoint"}
+        </button>
+      </Tooltip>
     </>
   ) : (
     subTabSwitcher
@@ -4830,8 +4953,11 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
 
           {/* Editor — sized flex slot so the markdown scrolls inside the
               editor, not by pushing the whole tab. Matches the LabNotes
-              tab and the fullscreen behavior. */}
-          <div className="flex-1 min-h-0 flex flex-col">
+              tab and the fullscreen behavior. save-checkpoint bot: splits
+              into the diff column + history sidebar when version history is
+              open. */}
+          <div className="flex-1 min-h-0 flex">
+            <div className="flex-1 min-h-0 flex flex-col">
             {loading ? (
               <div className="p-6 space-y-2 animate-pulse" aria-busy="true">
                 <div className="h-3 w-1/3 bg-gray-200 rounded" />
@@ -4839,6 +4965,8 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
                 <div className="h-3 w-5/6 bg-gray-200 rounded" />
                 <div className="h-3 w-4/5 bg-gray-100 rounded" />
               </div>
+            ) : docHistory.isOpen ? (
+              <TaskDocDiffColumn controller={docHistory} />
             ) : (
               <LiveMarkdownEditor
                 value={content}
@@ -4865,9 +4993,19 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
                 onExplicitSave={(v) => { void handleSave(v); }}
                 onDirtyChange={setEditorDirty}
                 // Fold the Markdown | Files sub-tab switcher and the
-                // "Save results" button into the editor's single unified
+                // "Save checkpoint" button into the editor's single unified
                 // toolbar instead of stacking parent bars above it.
                 toolbarTrailing={editorToolbarTrailing}
+              />
+            )}
+            </div>
+            {docHistory.isOpen && (
+              <TaskDocHistorySidebar
+                controller={docHistory}
+                surface="results"
+                taskId={task.id}
+                owner={task.owner || currentUser || ""}
+                canRestore={!readOnly}
               />
             )}
           </div>
