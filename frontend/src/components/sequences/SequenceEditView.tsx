@@ -471,8 +471,14 @@ export default function SequenceEditView({
   }, [doc.seq, sel, addPrimerFeature]);
 
   // The topology toggle in the rail can force a circular plasmid to render as
-  // linear; a genuinely linear molecule always renders linear.
-  const viewer = doc.circular && !view.forceLinear ? "both" : "linear";
+  // linear; a genuinely linear molecule always renders linear. For a circular
+  // plasmid, the Map tab shows JUST the ring (full size, no sequence panel) and
+  // the Sequence tab shows the ring PLUS the linear sequence ("both").
+  const viewer = doc.circular && !view.forceLinear
+    ? viewMode === "map"
+      ? "circular"
+      : "both"
+    : "linear";
 
   // seq nav bot — SEAMLESS ZOOM. The effective linear zoom is the user's chosen
   // value, or (until they touch the control) a length-aware "fit-ish" initial
