@@ -26,6 +26,7 @@ import {
 } from "./lib/cursor-script";
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
+import { ensureExperimentPopupOpen } from "./lib/on-enter-helpers";
 
 export const hybridNotesVsResultsStep = buildWalkthroughStep({
   id: "hybrid-notes-vs-results",
@@ -60,6 +61,12 @@ export const hybridNotesVsResultsStep = buildWalkthroughStep({
   // provides the visual pairing, so a single tight anchor on Notes is
   // sufficient.
   targetSelector: targetSelector(TOUR_TARGETS.experimentNotesTab),
+  // tour-popup-resilience bot 2026-06-03: this beat (and the whole §6.7
+  // editor cluster) lives inside the experiment TaskDetailPopup, which a
+  // mid-tour refresh closes (portal state, not a route). Reopen it before
+  // the Notes-tab spotlight + cursor glide resolve. No-op on the canonical
+  // path where the prior step left the popup open.
+  onEnter: () => ensureExperimentPopupOpen(),
   cursorScript: cursorScript(async () => {
     const clickNotes = await safeClickAction(
       targetSelector(TOUR_TARGETS.experimentNotesTab),

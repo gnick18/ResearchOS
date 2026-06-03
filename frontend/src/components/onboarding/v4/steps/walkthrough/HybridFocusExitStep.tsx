@@ -23,6 +23,7 @@ import {
 } from "./lib/cursor-script";
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
+import { ensureExperimentPopupOpen } from "./lib/on-enter-helpers";
 
 export const hybridFocusExitStep = buildWalkthroughStep({
   id: "hybrid-focus-exit",
@@ -40,6 +41,13 @@ export const hybridFocusExitStep = buildWalkthroughStep({
   ),
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.hybridEditorFocusExit),
+  // tour-popup-resilience bot 2026-06-03: reopen the experiment popup if a
+  // mid-tour refresh closed it (portal state, not a route), so this beat's
+  // narration shows over the popup rather than an empty workbench. The Exit
+  // focus control only exists while focus mode is active; a refresh drops
+  // focus mode, but the cursor's safeClickAction then gracefully no-ops and
+  // the manual "Got it, next" still advances. No-op on the canonical path.
+  onEnter: () => ensureExperimentPopupOpen(),
   cursorScript: cursorScript(async () => {
     // Click the always-visible Exit focus control so the overlay peels back
     // to reveal the popup underneath. Pause briefly so the user registers

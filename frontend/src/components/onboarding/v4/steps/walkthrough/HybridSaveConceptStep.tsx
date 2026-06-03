@@ -27,6 +27,7 @@
  * No artifacts. Pure speech.
  */
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
+import { ensureExperimentPopupOpen } from "./lib/on-enter-helpers";
 
 export const hybridSaveConceptStep = buildWalkthroughStep({
   id: "hybrid-save-concept",
@@ -49,5 +50,13 @@ export const hybridSaveConceptStep = buildWalkthroughStep({
     </>
   ),
   pose: "pointing",
+  // tour-popup-resilience bot 2026-06-03: this is a pure-narration beat
+  // about the editor's Save behavior, conceptually "inside" the experiment
+  // popup; a mid-tour refresh closes the popup (portal state, not a route).
+  // It has no spotlight of its own, but reopening here keeps the popup back
+  // for the immediately-following `hybrid-focus-exit` beat (which clicks a
+  // popup-internal control) and keeps the §6.7 cluster coherent. No-op on
+  // the canonical path.
+  onEnter: () => ensureExperimentPopupOpen(),
   completion: manualAdvance("Got it, next"),
 });

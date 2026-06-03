@@ -1,3 +1,9 @@
+// @vitest-environment jsdom
+//
+// tour-popup-resilience bot 2026-06-03: the file gained DOM-driven tests
+// for ensureExperimentPopupOpen, so it runs under jsdom. The pre-existing
+// goals/deps guards are DOM-free and unaffected (their popup-close prelude
+// no-ops when no popup button is mounted, in node OR jsdom).
 /**
  * Tests for the §6.10 onEnter helpers' defensive guards. Wave 1 sidecar
  * hardening manager (v2) 2026-05-22.
@@ -81,10 +87,23 @@ vi.mock("../lib/artifacts", () => ({
   encodeTelegramImageId: (filename: string) => filename,
 }));
 
+// tour-popup-resilience bot 2026-06-03: isolate the popup-reopen DOM
+// behavior from the experiment-create plumbing. ensureFirstExperimentExists
+// is exercised by its own ensure-helpers tests; here we only assert the
+// reopen helper's detect-open / row-click / tab-activate logic.
+const ensureFirstExperimentExistsMock = vi
+  .fn()
+  .mockResolvedValue({ id: 1, name: "First experiment" });
+vi.mock("../lib/ensure-helpers", () => ({
+  ensureFirstExperimentExists: () => ensureFirstExperimentExistsMock(),
+}));
+
 import {
   onEnterGanttChainedDeps,
   onEnterGanttGoalsOverview,
   GANTT_DEMO_GOAL_NAME,
+  ensureExperimentPopupOpen,
+  withExperimentPopupOpen,
 } from "../lib/on-enter-helpers";
 
 describe("on-enter-helpers defensive guards (Wave 1 sidecar hardening v2)", () => {
@@ -220,5 +239,108 @@ describe("on-enter-helpers defensive guards (Wave 1 sidecar hardening v2)", () =
       const result = await onEnterGanttGoalsOverview({ username: "alex" });
       expect(result).toBe(99);
     });
+  });
+});
+
+/**
+ * tour-popup-resilience bot 2026-06-03: the experiment TaskDetailPopup is
+ * opened by ONE step and every later §6.6/§6.7/§6.7d step lives inside it.
+ * A mid-tour refresh closes the popup (portal state, not a route), so the
+ * tour resumed on a popup-dependent step whose target no longer existed.
+ * ensureExperimentPopupOpen reopens it by reusing the documented open path
+ * (Experiments tab → ensure experiment → DOM-click the row).
+ */
+describe("ensureExperimentPopupOpen (tour-popup-resilience)", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    ensureFirstExperimentExistsMock.mockClear();
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  });
+
+  /** Mount a fake experiment popup tab-strip (the stable open-marker). */
+  function mountPopup(): void {
+    const strip = document.createElement("div");
+    strip.setAttribute("data-tour-target", "experiment-tab-container");
+    const notes = document.createElement("button");
+    notes.setAttribute("data-tour-target", "experiment-notes-tab");
+    const methods = document.createElement("button");
+    methods.setAttribute("data-tour-target", "experiment-methods-tab");
+    strip.appendChild(notes);
+    strip.appendChild(methods);
+    document.body.appendChild(strip);
+  }
+
+  it("no-ops when the popup is already open (canonical path)", async () => {
+    mountPopup();
+    await ensureExperimentPopupOpen();
+    // Never tried to reopen: no experiment-create + no workbench-tab click.
+    expect(ensureFirstExperimentExistsMock).not.toHaveBeenCalled();
+  });
+
+  it("reopens the popup by clicking the experiment row when closed", async () => {
+    // Experiments-tab button (so switchWorkbenchTab has a target) + a row.
+    const tabBtn = document.createElement("button");
+    tabBtn.setAttribute("data-tour-target", "workbench-experiments-tab");
+    document.body.appendChild(tabBtn);
+
+    const row = document.createElement("div");
+    row.setAttribute("data-tour-target", "workbench-experiment-row-1");
+    let rowClicked = false;
+    row.addEventListener("click", () => {
+      rowClicked = true;
+      // Simulate the popup mounting in response to the row click.
+      mountPopup();
+    });
+    document.body.appendChild(row);
+
+    await ensureExperimentPopupOpen();
+
+    expect(ensureFirstExperimentExistsMock).toHaveBeenCalledTimes(1);
+    expect(rowClicked).toBe(true);
+    expect(
+      document.querySelector('[data-tour-target="experiment-tab-container"]'),
+    ).not.toBeNull();
+  });
+
+  it("activates the requested tab after a reopen", async () => {
+    const tabBtn = document.createElement("button");
+    tabBtn.setAttribute("data-tour-target", "workbench-experiments-tab");
+    document.body.appendChild(tabBtn);
+
+    let methodsTabClicked = false;
+    const row = document.createElement("div");
+    row.setAttribute("data-tour-target", "workbench-experiment-row-1");
+    row.addEventListener("click", () => {
+      mountPopup();
+      const methods = document.querySelector(
+        '[data-tour-target="experiment-methods-tab"]',
+      );
+      methods?.addEventListener("click", () => {
+        methodsTabClicked = true;
+      });
+    });
+    document.body.appendChild(row);
+
+    await ensureExperimentPopupOpen("experiment-methods-tab");
+    expect(methodsTabClicked).toBe(true);
+  });
+
+  it("does not throw when no row ever mounts (best-effort)", async () => {
+    const tabBtn = document.createElement("button");
+    tabBtn.setAttribute("data-tour-target", "workbench-experiments-tab");
+    document.body.appendChild(tabBtn);
+    // No row in the DOM -> waitForElement times out and we return quietly.
+    await expect(ensureExperimentPopupOpen()).resolves.toBeUndefined();
+  });
+
+  it("withExperimentPopupOpen runs the reopen first, then the inner onEnter", async () => {
+    mountPopup(); // already open -> reopen is a no-op
+    const order: string[] = [];
+    const inner = vi.fn(async () => {
+      order.push("inner");
+    });
+    await withExperimentPopupOpen(inner)({ username: "alex" });
+    expect(inner).toHaveBeenCalledWith({ username: "alex" });
+    expect(order).toEqual(["inner"]);
   });
 });

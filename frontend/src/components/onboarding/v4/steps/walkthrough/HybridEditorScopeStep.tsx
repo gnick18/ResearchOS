@@ -28,6 +28,7 @@ import {
 } from "./lib/cursor-script";
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
+import { ensureExperimentPopupOpen } from "./lib/on-enter-helpers";
 
 export const hybridEditorScopeStep = buildWalkthroughStep({
   id: "hybrid-editor-scope",
@@ -52,6 +53,11 @@ export const hybridEditorScopeStep = buildWalkthroughStep({
   ),
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.taskPopupFullscreen),
+  // tour-popup-resilience bot 2026-06-03: the fullscreen toggle this beat
+  // spotlights lives inside the experiment popup, which a mid-tour refresh
+  // closes. Reopen it before the spotlight + cursor resolve. No-op on the
+  // canonical path.
+  onEnter: () => ensureExperimentPopupOpen(),
   cursorScript: cursorScript(async () => {
     // Glide to the fullscreen toggle, click it so the experiment popup
     // expands to fill the viewport. Pause briefly so the user sees the

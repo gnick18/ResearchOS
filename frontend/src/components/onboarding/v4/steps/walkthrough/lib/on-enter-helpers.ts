@@ -38,7 +38,10 @@ import {
   spawnDemoDependencyTasks,
 } from "../GanttDependenciesStep";
 import { appendArtifact } from "./artifacts";
-import { tourClickWithLockBypass } from "./cursor-script";
+import { tourClickWithLockBypass, waitForElement } from "./cursor-script";
+import { ensureFirstExperimentExists } from "./ensure-helpers";
+import { TOUR_TARGETS, targetSelector } from "./targets";
+import type { TourTargetName } from "./targets";
 
 /**
  * Close any open task-detail popup before the goals step's speech runs.
@@ -149,6 +152,134 @@ export function closeNotificationsPopup(): void {
   } catch (err) {
     console.warn("[onboarding-v4] closeNotificationsPopup failed", err);
   }
+}
+
+/**
+ * Selector that matches ANY of the experiment TaskDetailPopup's
+ * tab-strip anchors. The experiment popup always renders this tab strip
+ * (TaskDetailPopup.tsx ~line 1520: `experiment-tab-container` wraps the
+ * per-tab buttons, each stamped `experiment-notes-tab` /
+ * `experiment-methods-tab` / `experiment-results-tab`). None of these
+ * anchors exist anywhere else in the app, and the popup is the ONLY
+ * surface that mounts them, so the presence of any one is a reliable,
+ * stable "the experiment popup is open" marker. We deliberately do NOT
+ * add a dedicated `data-tour-popup` attribute to the popup component —
+ * these existing anchors already give us a non-invasive open-marker.
+ */
+const EXPERIMENT_POPUP_OPEN_SELECTOR = [
+  targetSelector(TOUR_TARGETS.experimentTabContainer),
+  targetSelector(TOUR_TARGETS.experimentNotesTab),
+  targetSelector(TOUR_TARGETS.experimentMethodsTab),
+  targetSelector(TOUR_TARGETS.experimentResultsTab),
+].join(", ");
+
+/** True when the experiment TaskDetailPopup is currently mounted. */
+function isExperimentPopupOpen(): boolean {
+  if (typeof document === "undefined") return false;
+  return document.querySelector(EXPERIMENT_POPUP_OPEN_SELECTOR) !== null;
+}
+
+/**
+ * Reopen the experiment TaskDetailPopup if a mid-tour refresh closed it.
+ *
+ * tour-popup-resilience bot 2026-06-03: the §6.6 `experiment-attach-
+ * method-open` step is the ONE step that mounts the experiment popup;
+ * every §6.6/§6.7/§6.7d step after it spotlights / clicks elements that
+ * live INSIDE that popup (the Methods tab, the Notes/Results tabs, the
+ * inline editor surface, the focus-mode toggles, the variation-notes
+ * field). The popup is portal state, not a route, so a browser refresh
+ * mid-sequence closes it. The tour then resumes on a popup-dependent
+ * step whose target no longer exists and the spotlight/cursor fire into
+ * the void. Grant's fix: REOPEN the experiment instead of failing.
+ *
+ * This helper is the shared `onEnter` side-effect wired onto every
+ * popup-dependent step (NOT onto `experiment-attach-method-open`, which
+ * already opens it). It:
+ *   1. No-ops when the popup is already open (the canonical, non-refresh
+ *      path: the prior step's cursor left the popup mounted).
+ *   2. When closed, REUSES the documented open path
+ *      (`experiment-attach-method-open`): switch to the Experiments
+ *      sub-tab so the row renders, ensure a first experiment exists
+ *      (idempotent — canonical flow no-ops), then DOM-click the
+ *      experiment row to mount the popup, and await the tab strip
+ *      appearing so the step's spotlight/cursor resolve against a
+ *      present DOM.
+ *
+ * Idempotent + best-effort: guarded by `typeof window`, wrapped in
+ * try/catch, tolerant of the row not being present yet (waitForElement
+ * times out → we return without throwing). A failure here degrades to
+ * the pre-existing "spotlight finds nothing" behavior rather than
+ * wedging the tour; the TourController also catches onEnter throws.
+ *
+ * Note (focus mode): reopening restores the popup, NOT the transient
+ * focus-mode overlay that `hybrid-focus-enter` toggles. The two
+ * focus-mode beats' cursor clicks gracefully no-op when the focus
+ * control is absent (safeClickAction → null → compactScript drops it),
+ * and their manual "Got it, next" still advances, so popup-level
+ * resilience is the correct scope.
+ *
+ * Optional `tabTarget`: the experiment popup mounts on its Details tab by
+ * default (TaskDetailPopup.tsx ~line 145). Steps whose spotlight lives on
+ * a DIFFERENT tab (e.g. `inline-editor` spotlights the Notes-tab editor
+ * surface; the §6.7d notes beat spotlights the Methods tab) pass the
+ * tab's `data-tour-target` so the right surface is showing after a
+ * reopen. We only switch the tab when we ACTUALLY reopened — if the popup
+ * was already open we leave the user's current tab alone so the canonical
+ * (non-refresh) path isn't disrupted. Steps that drive the tab switch via
+ * their own cursor script (e.g. `hybrid-notes-vs-results` clicks Notes)
+ * don't need to pass this.
+ */
+export async function ensureExperimentPopupOpen(
+  tabTarget?: TourTargetName,
+): Promise<void> {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  try {
+    if (isExperimentPopupOpen()) return;
+    // Closed (refresh mid-sequence). Reopen via the documented open path.
+    switchWorkbenchTab(TOUR_TARGETS.workbenchExperimentsTab);
+    // Make sure there's a row to click. Idempotent: canonical flow's §6.5
+    // experiment is reused; a seed-jump past §6.5 mints a placeholder.
+    await ensureFirstExperimentExists();
+    const row = await waitForElement(
+      "[data-tour-target^='workbench-experiment-row-']",
+      3000,
+    );
+    if (!(row instanceof HTMLElement)) return;
+    // Mounting the popup also dispatches `tour:experiment-popup-opened`,
+    // matching the canonical open path exactly.
+    row.click();
+    // Wait for the popup's tab strip so the step's spotlight + cursor
+    // script (which run after onEnter) resolve against a present DOM.
+    await waitForElement(EXPERIMENT_POPUP_OPEN_SELECTOR, 3000);
+    // The popup opens on Details by default. If this step's spotlight
+    // lives on another tab, switch to it now (only on the reopen path).
+    if (tabTarget) {
+      const tab = await waitForElement(targetSelector(tabTarget), 3000);
+      if (tab instanceof HTMLElement) tab.click();
+    }
+  } catch (err) {
+    console.warn("[onboarding-v4] ensureExperimentPopupOpen failed", err);
+  }
+}
+
+/**
+ * Compose a popup-reopen guard ahead of an existing step `onEnter`.
+ *
+ * tour-popup-resilience bot 2026-06-03: several popup-dependent steps
+ * already declare an `onEnter` (e.g. the attach / notes beats run the
+ * `ensureFirst*` artifact guards). This wrapper runs
+ * `ensureExperimentPopupOpen()` FIRST (so the popup is back before the
+ * existing logic resolves popup-internal artifacts / anchors), then the
+ * step's original `onEnter`. Both are best-effort: a reopen failure
+ * never blocks the original hook, and vice versa.
+ */
+export function withExperimentPopupOpen(
+  inner?: (ctx: { username: string | null }) => void | Promise<void>,
+): (ctx: { username: string | null }) => Promise<void> {
+  return async (ctx) => {
+    await ensureExperimentPopupOpen();
+    if (inner) await inner(ctx);
+  };
 }
 
 /**

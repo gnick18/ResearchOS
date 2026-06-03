@@ -45,6 +45,7 @@ import {
   ensureFirstExperimentExists,
   ensureFirstMethodExists,
 } from "./lib/ensure-helpers";
+import { ensureExperimentPopupOpen } from "./lib/on-enter-helpers";
 
 export const methodAttachmentAttachStep = buildWalkthroughStep({
   id: "experiment-attach-method-attach",
@@ -74,7 +75,17 @@ export const methodAttachmentAttachStep = buildWalkthroughStep({
   // (methods-create) leaves the user with nothing to attach. Both
   // ensure helpers are idempotent — canonical flow hits the no-op
   // branch.
+  // tour-popup-resilience bot 2026-06-03: reopen the experiment popup AND
+  // activate the Methods tab if a mid-tour refresh closed it (portal state,
+  // not a route) BEFORE the existing experiment/method ensures run. The
+  // + Attach button this beat spotlights lives on the popup's Methods tab,
+  // which the popup does not show by default after a reopen. The cursor
+  // script below also re-stages the surface (row-click + Methods tab) as a
+  // belt-and-suspenders fallback, but reopening in onEnter lets the
+  // spotlight land without waiting on the cursor. No-op on the canonical
+  // path where the popup is already open.
   onEnter: async () => {
+    await ensureExperimentPopupOpen(TOUR_TARGETS.experimentMethodsTab);
     await ensureFirstExperimentExists();
     await ensureFirstMethodExists();
   },

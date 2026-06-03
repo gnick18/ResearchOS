@@ -27,6 +27,7 @@
  */
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
+import { ensureExperimentPopupOpen } from "./lib/on-enter-helpers";
 
 export const inlineEditorStep = buildWalkthroughStep({
   id: "inline-editor",
@@ -50,5 +51,14 @@ export const inlineEditorStep = buildWalkthroughStep({
   ),
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.inlineEditorSurface),
+  // tour-popup-resilience bot 2026-06-03: this pure-narration beat
+  // spotlights the live editor surface, which only renders on the Notes
+  // tab inside the experiment popup. A mid-tour refresh closes the popup
+  // (portal state, not a route). Reopen it AND activate the Notes tab
+  // (the popup opens on Details by default) so the inline-editor-surface
+  // spotlight resolves. There's no cursor script here to self-heal the
+  // tab, so we drive the tab switch via the reopen helper. No-op on the
+  // canonical path where the popup is already open on Notes.
+  onEnter: () => ensureExperimentPopupOpen(TOUR_TARGETS.experimentNotesTab),
   completion: manualAdvance("Got it, next"),
 });

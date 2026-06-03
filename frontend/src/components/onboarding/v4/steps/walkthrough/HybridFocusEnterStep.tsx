@@ -30,6 +30,7 @@ import {
 } from "./lib/cursor-script";
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
+import { ensureExperimentPopupOpen } from "./lib/on-enter-helpers";
 
 export const hybridFocusEnterStep = buildWalkthroughStep({
   id: "hybrid-focus-enter",
@@ -51,6 +52,13 @@ export const hybridFocusEnterStep = buildWalkthroughStep({
   ),
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.hybridEditorFocusToggle),
+  // tour-popup-resilience bot 2026-06-03: the Focus Mode toolbar button
+  // lives in the editor toolbar on the Notes tab inside the experiment
+  // popup, which a mid-tour refresh closes. Reopen it AND activate the
+  // Notes tab (the popup opens on Details by default) so the focus toggle
+  // is present before the spotlight + cursor resolve. No-op on the
+  // canonical path.
+  onEnter: () => ensureExperimentPopupOpen(TOUR_TARGETS.experimentNotesTab),
   cursorScript: cursorScript(async () => {
     // Glide to the focus-mode enter button and click it so the calm
     // full-viewport surface pops. Pause briefly so the user registers the

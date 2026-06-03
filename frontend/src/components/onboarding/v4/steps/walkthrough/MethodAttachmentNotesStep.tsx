@@ -35,6 +35,7 @@ import {
   ensureFirstExperimentExists,
   ensureFirstMethodExists,
 } from "./lib/ensure-helpers";
+import { ensureExperimentPopupOpen } from "./lib/on-enter-helpers";
 
 export const methodAttachmentNotesStep = buildWalkthroughStep({
   id: "experiment-attach-method-notes",
@@ -58,7 +59,16 @@ export const methodAttachmentNotesStep = buildWalkthroughStep({
   // ensure experiment + method exist so the spotlight on the variation
   // notes field has a real method-attachment row to anchor against on
   // a seed-jump past the prior steps. Canonical flow no-ops.
+  // tour-popup-resilience bot 2026-06-03: this beat has NO cursor script to
+  // self-heal, and its spotlight (the variation-notes field) lives on the
+  // experiment popup's Methods tab. A mid-tour refresh closes the popup
+  // (portal state, not a route), so without this the spotlight fired into
+  // the void. Reopen the popup AND activate the Methods tab before the
+  // existing experiment/method ensures run; the variation-notes field
+  // re-renders for the method attached in the prior `-attach` beat. No-op
+  // on the canonical path where the popup is already open.
   onEnter: async () => {
+    await ensureExperimentPopupOpen(TOUR_TARGETS.experimentMethodsTab);
     await ensureFirstExperimentExists();
     await ensureFirstMethodExists();
   },

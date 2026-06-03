@@ -33,6 +33,7 @@ import {
 import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 import { ensureFirstExperimentExists } from "./lib/ensure-helpers";
+import { withExperimentPopupOpen } from "./lib/on-enter-helpers";
 
 export const methodAttachmentTabStep = buildWalkthroughStep({
   id: "experiment-attach-method-tab",
@@ -64,9 +65,16 @@ export const methodAttachmentTabStep = buildWalkthroughStep({
   // experiment-attach-method-open step leaves no row OR popup; the
   // ensure helper at least guarantees a row exists so the cursor's
   // popup-re-open fallback (below) has something to click.
-  onEnter: async () => {
+  // tour-popup-resilience bot 2026-06-03: compose the shared popup-reopen
+  // guard AHEAD of the existing experiment-ensure. The Methods tab this
+  // beat spotlights lives inside the experiment popup, which a mid-tour
+  // refresh closes (portal state, not a route). withExperimentPopupOpen
+  // reopens it first (no-op when already open), then the original
+  // experiment-ensure runs. The cursorScript's own reopen-if-needed below
+  // stays as a belt-and-suspenders fallback.
+  onEnter: withExperimentPopupOpen(async () => {
     await ensureFirstExperimentExists();
-  },
+  }),
   cursorScript: cursorScript(async () => {
     // Tour robustification 2026-05-27: if the experiment popup is NOT
     // already open (seed-jump path), re-open it by clicking the
