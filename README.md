@@ -169,7 +169,7 @@ npx vercel
 
 The repo is preconfigured for Vercel. No environment variables required for the core app. After deploy, share the URL with your team; each user picks the same shared folder and signs in under their own username.
 
-**Browser support.** Chrome and Edge only. Firefox and Safari do not implement the File System Access API the app depends on, and Brave (though Chromium-based) deliberately removes it.
+**Browser support.** Chrome and Edge are the supported, tested browsers. Other Chromium-based browsers (Arc, Vivaldi, Opera) usually work but are untested. Firefox and Safari do not implement the File System Access API the app depends on, and Brave (though Chromium-based) deliberately removes it.
 
 ---
 
