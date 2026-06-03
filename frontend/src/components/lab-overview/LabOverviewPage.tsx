@@ -9,9 +9,9 @@
  * static page sections, wrapped in titled section cards. No grid, no
  * drag-drop, no add/remove widget chrome.
  *
- * This is ADDITIVE: the "/" home canvas, the widget registry, the
- * SnapshotCanvas, the customizable sidebar, and layout-persistence are
- * all left untouched. Phase 2 tears the framework down.
+ * The old "/" home canvas framework (widget registry, snapshot canvas,
+ * customizable sidebar, layout-persistence) was torn down in Phase 2;
+ * this page renders the widget bodies directly as static sections.
  *
  * Layout (top to bottom), action-first so a PI sees what needs them
  * above the fold:

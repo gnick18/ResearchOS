@@ -785,19 +785,18 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
           // No-op
         }
 
-        // §6.2b R4 fix manager (2026-05-25): the home widget canvas
-        // reorder demo (Step 4) was visibly no-oping because
-        // SnapshotCanvas wires its drop receivers to React's HTML5
-        // `onDragStart` / `onDragOver` / `onDrop` props, not raw mouse
-        // events. The original `dragFromTo` only dispatched mouse
-        // events, so the drop handlers never fired and the widget
-        // order never changed. The fix also dispatches HTML5
+        // §6.2b R4 fix manager (2026-05-25): a reorder demo was
+        // visibly no-oping because the drop receiver wired its handlers
+        // to React's HTML5 `onDragStart` / `onDragOver` / `onDrop`
+        // props, not raw mouse events. The original `dragFromTo` only
+        // dispatched mouse events, so the drop handlers never fired and
+        // the order never changed. The fix also dispatches HTML5
         // `dragstart` / `dragover` / `drop` / `dragend` events with a
         // populated `DataTransfer` so React's `onDrag*` handlers fire
         // alongside the mouse events. `dragFile` follows the same
         // shape for typed payloads; this path uses `text/plain` to
-        // satisfy receivers (like SnapshotCanvas) that call
-        // `e.dataTransfer.setData("text/plain", widgetId)` on
+        // satisfy receivers that call
+        // `e.dataTransfer.setData("text/plain", id)` on
         // dragstart and have no other payload contract.
         let dt: DataTransfer | null = null;
         try {
@@ -837,8 +836,8 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
           }
         };
 
-        // Fire dragstart at the source so receivers like SnapshotCanvas
-        // can stash the dragged widget id on the dataTransfer payload.
+        // Fire dragstart at the source so the drop receiver can stash
+        // the dragged item id on the dataTransfer payload.
         dispatchDrag(source, "dragstart", src.x, src.y);
 
         // 3. Glide to destination with pressed state held. Reduced
@@ -876,8 +875,8 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
         await glideTo(dst.x, dst.y);
 
         // 4. Final mousemove + dragover on dest at arrival, then
-        //    drop + mouseup + dragend → release. SnapshotCanvas's
-        //    onDrop is what actually moves the tile; the mouse events
+        //    drop + mouseup + dragend → release. The receiver's
+        //    onDrop is what actually moves the item; the mouse events
         //    are kept for back-compat with any non-HTML5-drag
         //    receivers that listened on raw mouse events.
         try {

@@ -30,9 +30,6 @@
  * HR-dispatched: v4 onEnter wiring sub-bot 2026-05-21.
  */
 import { dependenciesApi, goalsApi, projectsApi, tasksApi } from "@/lib/local-api";
-import { attachImageToTask } from "@/lib/attachments/attach-image";
-import { fileService } from "@/lib/file-system/file-service";
-import { taskNotesBase } from "@/lib/tasks/results-paths";
 import { patchOnboarding } from "@/lib/onboarding/sidecar";
 import { appQueryClient } from "@/lib/query-client";
 import type { Project, Task } from "@/lib/types";
@@ -40,7 +37,7 @@ import {
   DEP_CHAIN_NAMES,
   spawnDemoDependencyTasks,
 } from "../GanttDependenciesStep";
-import { appendArtifact, encodeTelegramImageId } from "./artifacts";
+import { appendArtifact } from "./artifacts";
 import { tourClickWithLockBypass } from "./cursor-script";
 
 /**
@@ -73,14 +70,6 @@ export function closeAnyOpenTaskPopup(): void {
   );
   if (closeBtn) tourClickWithLockBypass(closeBtn);
 }
-
-/** Selfie filename written into the experiment's `Images/` folder. The
- *  asset itself lives in `frontend/public/onboarding/beakerbot-selfie.png`
- *  and is reached via `fetch("/onboarding/beakerbot-selfie.png")`. */
-export const SELFIE_FILENAME = "beakerbot-selfie.png";
-
-/** Public URL the browser fetches when seeding the selfie blob. */
-export const SELFIE_PUBLIC_URL = "/onboarding/beakerbot-selfie.png";
 
 /**
  * Resolve the "active project" for the walkthrough by listing all
@@ -260,142 +249,6 @@ export async function onEnterGanttChainedDeps(ctx: {
       err,
     );
     return [];
-  }
-}
-
-/**
- * §6.10 `hybrid-editor-image-drop` onEnter.
- *
- * Seeds the active experiment's Notes-tab `Images/` folder with
- * BeakerBot's selfie PNG so the image strip below the hybrid editor
- * has something to drag from. Without this, the strip is empty and
- * the cursor script's `${strip} > *:first-child` selector resolves
- * to nothing.
- *
- * Storage location: writes to `taskNotesBase(...)/Images` — i.e.
- * `users/{owner}/results/task-{id}/notes/Images/` — NOT the outer
- * `taskResultsBase/Images`. The Notes tab's `ImageStrip` reads from
- * `attachBase` (= `taskNotesBase` per `TaskDetailPopup.tsx`), so the
- * selfie must live there for the strip to surface it. An earlier
- * revision wrote to `taskResultsBase/Images` (the per-tab split
- * happened after this helper was first authored); the file landed on
- * disk but in the wrong sub-folder, the strip stayed empty, and the
- * cursor's `safeDragAction` had no source to drag from.
- *
- * Idempotency: skip when `Images/beakerbot-selfie.png` already exists
- * under the experiment's NOTES base. The check uses
- * `fileService.fileExists` because `attachImageToTask` auto-suffixes
- * the filename on collision (we'd otherwise end up with
- * `beakerbot-selfie-1.png` on a second visit).
- *
- * The asset is fetched from `/onboarding/beakerbot-selfie.png` (a
- * committed public asset) and piped into `attachImageToTask` with an
- * explicit `basePath` override so the blob lands in
- * `taskNotesBase/Images`. The helper fires `imageEvents.emitAttached`
- * with that same base, so the Notes-tab strip refreshes immediately.
- *
- * Returns `true` when the spawn ran, `false` when it short-circuited
- * (no experiment, already present, fetch failed). Caller ignores;
- * exposed for the test seam.
- */
-export async function onEnterHybridEditorImageDrop(ctx: {
-  username: string | null;
-}): Promise<boolean> {
-  const project = await getActiveProject();
-  if (!project) {
-    console.warn(
-      "[onboarding-v4] hybrid-editor-image-drop: no active project; skip",
-    );
-    return false;
-  }
-  const experiment = await getActiveExperiment(project.id);
-  if (!experiment) {
-    console.warn(
-      "[onboarding-v4] hybrid-editor-image-drop: no active experiment; skip",
-    );
-    return false;
-  }
-  // Use the task's `owner` if set, else the active username from the
-  // controller ctx. taskNotesBase requires `{id, owner}` so we
-  // synthesize the minimal shape from whichever value is non-empty.
-  const owner = experiment.owner || ctx.username || "";
-  if (!owner) {
-    console.warn(
-      "[onboarding-v4] hybrid-editor-image-drop: no owner resolvable; skip",
-    );
-    return false;
-  }
-  // Per-tab notes base. The Notes-tab ImageStrip resolves attachments
-  // off this path, so it's where the selfie must land. NOT the outer
-  // `taskResultsBase` (which is what the legacy shared layout used).
-  const notesBase = taskNotesBase({ id: experiment.id, owner });
-  try {
-    const alreadyThere = await fileService.fileExists(
-      `${notesBase}/Images/${SELFIE_FILENAME}`,
-    );
-    if (alreadyThere) return false;
-  } catch (err) {
-    // fileExists failures are not fatal; fall through to the attach
-    // attempt which will surface a more useful error if writing fails.
-    console.warn(
-      "[onboarding-v4] hybrid-editor-image-drop: fileExists probe failed",
-      err,
-    );
-  }
-  try {
-    const res = await fetch(SELFIE_PUBLIC_URL);
-    if (!res.ok) {
-      console.warn(
-        "[onboarding-v4] hybrid-editor-image-drop: selfie fetch %d",
-        res.status,
-      );
-      return false;
-    }
-    const blob = await res.blob();
-    await attachImageToTask({
-      ownerUsername: owner,
-      taskId: experiment.id,
-      // Explicit override: route to the Notes-tab scoped folder so
-      // the ImageStrip (which reads `${taskNotesBase}/Images`) sees
-      // the file. Default `basePath` resolution would send this to
-      // `taskResultsBase/Images`, which the Notes strip ignores.
-      basePath: notesBase,
-      blob,
-      suggestedFilename: SELFIE_FILENAME,
-      altText: "BeakerBot selfie",
-    });
-    // Record the artifact so Phase 4 cleanup can wipe the selfie on
-    // tour exit. The id encodes filename + task location via the v3
-    // `encodeTelegramImageId` helper — keeps the same `<filename>:task-<id>`
-    // shape Phase 4 + cleanup-execution.ts already know how to decode.
-    // cleanup_default "discard" because the selfie is a demo asset,
-    // not user content (per the brief). Username-gated; sidecar is
-    // per-user.
-    if (ctx.username) {
-      try {
-        await patchOnboarding(ctx.username, (cur) =>
-          appendArtifact(cur, {
-            type: "notes_image",
-            id: encodeTelegramImageId(SELFIE_FILENAME, {
-              taskId: experiment.id,
-            }),
-            cleanup_default: "discard",
-          }),
-        );
-      } catch (err) {
-        console.warn(
-          "[onboarding-v4] hybrid-editor-image-drop artifact persist failed",
-          err,
-        );
-      }
-    }
-    return true;
-  } catch (err) {
-    console.warn(
-      "[onboarding-v4] hybrid-editor-image-drop selfie spawn failed",
-      err,
-    );
-    return false;
   }
 }
 
