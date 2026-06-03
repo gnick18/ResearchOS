@@ -24,6 +24,9 @@ export interface SequenceEditorState {
   annotations: ReturnType<typeof documentToAnnotations>;
   /** apply an edit intent from the SeqViz EventHandler. */
   applyEdit: (edit: SeqEdit) => void;
+  /** apply an arbitrary pure document transform (e.g. an annotated paste that
+   *  both splices bases AND merges carried features) as a single undo step. */
+  applyDocEdit: (transform: (prev: SeqDocument) => SeqDocument) => void;
   undo: () => void;
   redo: () => void;
   canUndo: boolean;
@@ -95,6 +98,19 @@ export function useSequenceEditor(detail: SequenceDetail): SequenceEditorState {
     [pushHistory, bump],
   );
 
+  const applyDocEdit = useCallback(
+    (transform: (prev: SeqDocument) => SeqDocument) => {
+      setDoc((prev) => {
+        const next = transform(prev);
+        if (next === prev) return prev; // no-op
+        pushHistory(prev);
+        return next;
+      });
+      bump();
+    },
+    [pushHistory, bump],
+  );
+
   const undo = useCallback(() => {
     if (past.current.length === 0) return;
     setDoc((prev) => {
@@ -126,6 +142,7 @@ export function useSequenceEditor(detail: SequenceDetail): SequenceEditorState {
     doc,
     annotations,
     applyEdit,
+    applyDocEdit,
     undo,
     redo,
     canUndo: past.current.length > 0,
