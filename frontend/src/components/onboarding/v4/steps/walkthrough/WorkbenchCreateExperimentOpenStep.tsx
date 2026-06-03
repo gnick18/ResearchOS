@@ -88,9 +88,9 @@ export const workbenchCreateExperimentOpenStep = buildWalkthroughStep({
   speech: (
     <>
       <p className="mb-2">
-        The Workbench is where you log your day-to-day lab work. Every
-        experiment you run gets its own entry, with space for notes,
-        results, attached methods, and files.
+        This is your Experiments page, where you log your day-to-day lab
+        work. Every experiment you run gets its own entry, with space for
+        notes, results, attached methods, and files.
       </p>
       <p>
         Let&apos;s create your first experiment. Click{" "}
