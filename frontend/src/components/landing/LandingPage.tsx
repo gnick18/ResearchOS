@@ -521,7 +521,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
           </div>
           <div className="flex flex-col items-center gap-5">
             <span className="inline-flex items-center gap-2 rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-xs font-medium tracking-wide text-sky-200">
-              A free, local-first lab notebook
+              Free and open, built by a researcher for academic labs
             </span>
             <h1 className="max-w-3xl text-4xl font-bold leading-tight tracking-tight text-white md:text-5xl">
               Your research notebook. On your machine. Yours to keep.
@@ -554,6 +554,13 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             </button>
           </div>
 
+          <p className="max-w-xl text-sm leading-relaxed text-slate-400">
+            Made for the people who actually run the science. Grad students and
+            postdocs at the bench, the PI keeping an eye on the whole lab, a
+            small research group or core facility with no IT department behind
+            it.
+          </p>
+
           <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-slate-400">
             <Link
               href="/wiki/getting-started"
@@ -585,10 +592,11 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             A different deal than a cloud notebook
           </h2>
           <p className="mt-3 text-base leading-relaxed text-gray-600">
-            Most electronic lab notebooks rent you space on their servers.
-            ResearchOS flips that. You pick where your data lives, which is why
-            you can always run it for free and why your privacy isn&apos;t ours
-            to leak.
+            ResearchOS was built by a researcher with support from the
+            UW-Madison RISE Initiative, not a venture-backed company. Most
+            electronic lab notebooks rent you space on their servers. This one
+            flips that. You pick where your data lives, which is why you can
+            always run it for free and why your privacy isn&apos;t ours to leak.
           </p>
         </div>
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -1038,11 +1046,13 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             Supports your NIH Data Management and Sharing Plan
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-sky-50">
-            No electronic notebook is &ldquo;NIH certified&rdquo; (there is no
-            such thing), and the big cloud vendors charge enterprise prices for
-            security badges a grantee lab does not need. ResearchOS gives you
-            what the policy actually asks for: organized records you own, real
-            version history, and clean exports, without the enterprise price tag.
+            You are a research lab, not an enterprise. No electronic notebook is
+            &ldquo;NIH certified&rdquo; (there is no such thing), yet the big
+            cloud vendors charge enterprise prices for compliance badges your
+            grant never asked you to buy. ResearchOS is shaped around how an
+            academic lab actually works and gives you what the policy really
+            wants: organized records you own, with real version history and
+            clean exports, minus the enterprise price tag.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
