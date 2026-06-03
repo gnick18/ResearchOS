@@ -36,17 +36,6 @@ interface ImageMetadataPopupProps {
   onClose: () => void;
 }
 
-function parseTags(input: string): string[] {
-  return input
-    .split(",")
-    .map((t) => t.trim())
-    .filter(Boolean);
-}
-
-function formatTags(tags: string[] | undefined): string {
-  return tags?.join(", ") ?? "";
-}
-
 export default function ImageMetadataPopup({
   basePath,
   filename,
@@ -62,7 +51,6 @@ export default function ImageMetadataPopup({
   const [sidecar, setSidecar] = useState<ImageSidecar | null>(null);
   const [caption, setCaption] = useState("");
   const [description, setDescription] = useState("");
-  const [tagsInput, setTagsInput] = useState("");
   const [renameInput, setRenameInput] = useState(filename);
   const [renameError, setRenameError] = useState<string | null>(null);
   const [renaming, setRenaming] = useState(false);
@@ -86,7 +74,6 @@ export default function ImageMetadataPopup({
       setSidecar(existing);
       setCaption(existing?.caption ?? "");
       setDescription(existing?.description ?? "");
-      setTagsInput(formatTags(existing?.tags));
       setLoaded(true);
     })();
     return () => {
@@ -101,7 +88,6 @@ export default function ImageMetadataPopup({
         ...sidecar,
         caption: caption.trim() || undefined,
         description: description.trim() || undefined,
-        tags: parseTags(tagsInput),
       };
       await fileService.writeJson(sidecarFsPath, next);
       imageEvents.emitMetadataChanged({ basePath, filename });
@@ -169,7 +155,6 @@ export default function ImageMetadataPopup({
         ...sidecar,
         caption: caption.trim() || undefined,
         description: description.trim() || undefined,
-        tags: parseTags(tagsInput),
       };
       await fileService.writeJson(sidecarFsPath, next);
       await onMoveToActive(activeTask);
@@ -255,18 +240,6 @@ export default function ImageMetadataPopup({
                     rows={4}
                     placeholder="What does this image show? Conditions, time, etc."
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
-                    Tags
-                  </label>
-                  <input
-                    type="text"
-                    value={tagsInput}
-                    onChange={(e) => setTagsInput(e.target.value)}
-                    placeholder="comma, separated, tags"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 {onRename && (

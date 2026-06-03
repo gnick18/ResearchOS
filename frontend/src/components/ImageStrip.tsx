@@ -6,6 +6,15 @@ import { imageEvents } from "@/lib/attachments/image-events";
 import { listImagesInFolder, type FolderImageEntry } from "@/lib/attachments/image-folder";
 import ImageMetadataPopup from "./ImageMetadataPopup";
 import AnnotatedImage from "./AnnotatedImage";
+import Tooltip from "./Tooltip";
+import dynamic from "next/dynamic";
+
+// Konva touches window/canvas and breaks SSR, so the annotator is client-only
+// and lazy-loaded; it mounts only when the user opens it from a thumbnail's
+// pen button.
+const ImageAnnotatorModal = dynamic(() => import("./ImageAnnotatorModal"), {
+  ssr: false,
+});
 
 /** MIME-style key for drag-and-drop. Defined here so the editor can pick it
  *  out without coupling. */
@@ -85,6 +94,7 @@ export default function ImageStrip({
   const [folderEntries, setFolderEntries] = useState<FolderImageEntry[]>([]);
   const [blobUrls, setBlobUrls] = useState<Map<string, string>>(new Map());
   const [popupFilename, setPopupFilename] = useState<string | null>(null);
+  const [annotatingFilename, setAnnotatingFilename] = useState<string | null>(null);
 
   const referencedNames = useMemo(() => imagesReferencedInMarkdown(content), [content]);
 
@@ -207,9 +217,10 @@ export default function ImageStrip({
             caption: entry.sidecarCaption,
           };
           return (
-            <button
+            <div
               key={entry.filename}
-              type="button"
+              role="button"
+              tabIndex={0}
               draggable={!!basePath}
               onDragStart={(e) => {
                 e.dataTransfer.setData(STRIP_DRAG_MIME, JSON.stringify(payload));
@@ -231,6 +242,12 @@ export default function ImageStrip({
               }}
               onDragEnd={() => imageEvents.emitDragEnd()}
               onClick={() => setPopupFilename(entry.filename)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setPopupFilename(entry.filename);
+                }
+              }}
               className="group relative flex-shrink-0 w-16 h-16 rounded-md border border-gray-200 bg-white overflow-hidden hover:border-blue-400 hover:ring-2 hover:ring-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-grab active:cursor-grabbing"
               title={tooltip}
             >
@@ -251,10 +268,42 @@ export default function ImageStrip({
                   aria-label="Linked but not in document"
                 />
               )}
+              {basePath && (
+                <Tooltip label="Annotate">
+                  <button
+                    type="button"
+                    draggable={false}
+                    onDragStart={(e) => e.preventDefault()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setAnnotatingFilename(entry.filename);
+                    }}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    aria-label="Annotate image"
+                    className="absolute top-1 left-1 z-10 flex items-center justify-center w-5 h-5 rounded bg-black/55 text-white opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity hover:bg-black/80 focus:outline-none focus:ring-1 focus:ring-white"
+                  >
+                    {/* Pencil icon (custom inline SVG, matches the popup's Annotate). */}
+                    <svg
+                      width="11"
+                      height="11"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2.2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden
+                    >
+                      <path d="M12 20h9" />
+                      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+                    </svg>
+                  </button>
+                </Tooltip>
+              )}
               <span className="absolute inset-x-0 bottom-0 px-1 py-0.5 text-[9px] text-white bg-black/60 truncate opacity-0 group-hover:opacity-100 transition-opacity" data-force-hover-controls-target>
                 {entry.filename}
               </span>
-            </button>
+            </div>
           );
         })}
       </div>
@@ -265,6 +314,14 @@ export default function ImageStrip({
           inDocument={referencedNames.has(popupFilename)}
           onJump={onJumpToImage}
           onClose={() => setPopupFilename(null)}
+        />
+      )}
+      {annotatingFilename && basePath && (
+        <ImageAnnotatorModal
+          basePath={basePath}
+          filename={annotatingFilename}
+          resolvedSrc={blobUrls.get(`${basePath}/Images/${annotatingFilename}`)}
+          onClose={() => setAnnotatingFilename(null)}
         />
       )}
     </div>
