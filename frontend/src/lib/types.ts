@@ -2466,3 +2466,104 @@ export interface LabNote {
   last_edited_by?: string;
   last_edited_at?: string;
 }
+
+// ── Sequences (SnapGene-style sequence/plasmid surface, Phase 1) ────────────
+// On-disk format is LOCKED (proposal docs/proposals/SEQUENCE_EDITOR_PROPOSAL.md,
+// Grant 2026-06-02): the SOURCE OF TRUTH is a real GenBank file at
+//   users/{username}/sequences/{id}.gb
+// plus a small ResearchOS metadata SIDECAR at
+//   users/{username}/sequences/{id}.meta.json
+// The sidecar holds only the app-level metadata that GenBank does not carry.
+// NOT a JSON-record-of-truth, NOT a dual-file mirror.
+//
+// DATA-SHAPE FLAGGED: this is a NEW on-disk shape. Review before merge.
+
+/** A DNA / RNA / protein sequence's molecule kind. */
+export type SeqType = "dna" | "rna" | "protein";
+
+/**
+ * The on-disk `{id}.meta.json` sidecar shape. This is the LOCKED metadata
+ * envelope written next to each `{id}.gb` file. It deliberately mirrors the
+ * `users/{username}/sequences/` per-item store convention of other entities.
+ */
+export interface SequenceMeta {
+  /** Stable per-user numeric id; matches the `{id}.gb` / `{id}.meta.json` name. */
+  id: number;
+  /** User-facing name (the GenBank LOCUS name is the parser fallback). */
+  display_name: string;
+  /**
+   * Collection links: ids of projects this sequence belongs to (PROJECTS ARE
+   * COLLECTIONS). A sequence with no project links is "Unfiled". These ids
+   * reference the CURRENT user's own project ids. Cross-user project links are
+   * out of scope for v1 — see the per-user namespacing note in the Phase 1
+   * report; project ids are per-owner and would need owner-qualifying.
+   */
+  project_ids: string[];
+  /** ISO timestamp when the sequence was added to the library. */
+  added_at: string;
+  /** Molecule kind, derived from the GenBank LOCUS on create. */
+  seq_type: SeqType;
+}
+
+/**
+ * The app-facing sequence record: the parsed view of a sequence, combining the
+ * `.meta.json` sidecar with a light summary parsed from the `.gb` file. The raw
+ * GenBank text and full feature list are loaded on demand by `sequencesApi.get`
+ * (the read view needs the bases + annotations; the library only needs the
+ * summary fields below).
+ */
+export interface SequenceRecord {
+  id: number;
+  display_name: string;
+  project_ids: string[];
+  added_at: string;
+  seq_type: SeqType;
+  /** Length in bases (or residues for protein). */
+  length: number;
+  /** Whether the molecule is circular (plasmid) vs linear. */
+  circular: boolean;
+  /** Number of annotated features in the GenBank record. */
+  feature_count: number;
+}
+
+/** A fully-loaded sequence, including the bases + parsed annotations needed by
+ *  the read view, plus the raw GenBank text the file holds. */
+export interface SequenceDetail extends SequenceRecord {
+  /** The raw on-disk GenBank text (source of truth). */
+  genbank: string;
+  /** The sequence bases (uppercased), parsed from the GenBank ORIGIN. */
+  seq: string;
+  /** Parsed annotations, shaped for the SeqViz read view. */
+  annotations: SequenceAnnotation[];
+  /** GenBank LOCUS name (may differ from the user-facing display_name). */
+  locus_name: string;
+}
+
+/** A parsed annotation, shaped for the SeqViz `annotations` prop. */
+export interface SequenceAnnotation {
+  name: string;
+  start: number;
+  end: number;
+  direction: -1 | 0 | 1;
+  type?: string;
+  color?: string;
+}
+
+/** Input to `sequencesApi.create`. The caller provides the GenBank text (e.g.
+ *  from a parsed import) and the metadata envelope minus the server-assigned
+ *  fields. */
+export interface SequenceCreate {
+  display_name: string;
+  genbank: string;
+  project_ids?: string[];
+  seq_type?: SeqType;
+}
+
+/** Patch shape for `sequencesApi.update`. Any subset; `genbank` replaces the
+ *  on-disk `.gb` file, the rest patch the sidecar. */
+export interface SequenceUpdate {
+  display_name?: string;
+  project_ids?: string[];
+  seq_type?: SeqType;
+  genbank?: string;
+}

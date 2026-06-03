@@ -45,6 +45,7 @@ const EXCLUDED_PREFIXES = [
   "/lab-inbox", // redirect-only stub → /lab-overview (legacy bookmark target after the 2026-05-23 rename)
   "/welcome", // first-time-visitor landing ("sell") page, not a documented app feature; captured as landing.png
   "/showcase", // hidden, unlinked BeakerBot showcase Easter egg (URL / brand-mark unlock only, never in nav); not a documented feature
+  "/sequences", // pending wiki page (sequence editor Phase 4)
 ];
 
 /** Next.js conventions to ignore when walking app/. */

@@ -98,7 +98,16 @@ import type {
   ShiftedAlertEntry,
   ShiftedAlertsFile,
   SeenShiftAlertsFile,
+  SequenceMeta,
+  SequenceRecord,
+  SequenceDetail,
+  SequenceCreate,
+  SequenceUpdate,
+  SeqType,
 } from "./types";
+import { sequenceStore } from "./sequences/sequence-store";
+import { genbankToDetail, genbankToRecord, deriveSeqType } from "./sequences/parse";
+import { genbankToJson } from "@/vendor/bio-parsers";
 // Runtime helpers (values, not types) for the per-item ordering status
 // (purchases-ordered-stage, 2026-05-29).
 import {
@@ -2237,6 +2246,130 @@ export const methodsApi = {
       }
     }
     return { scanned: records.length, repaired, alreadyCorrect, failed };
+  },
+};
+
+// ── sequencesApi ────────────────────────────────────────────────────────────
+// SnapGene-style sequence/plasmid library (proposal Phase 1). Mirrors the other
+// *Api shapes (list / get / create / update / delete + getForUser cross-user +
+// a listByProject collection filter). The on-disk truth is a GenBank file
+// (`{id}.gb`) plus a `{id}.meta.json` sidecar — see lib/sequences/sequence-store
+// and the SequenceMeta type. DATA-SHAPE FLAGGED: review before merge.
+
+/**
+ * Normalize-on-read for the sequence sidecar (forward-compat, template:
+ * normalizeMethodRecord / normalizeTaskRecord). Back-fills defaults for fields
+ * added after a record was first written so older `{id}.meta.json` files keep
+ * loading cleanly. Currently: `project_ids` defaults to `[]` and `seq_type`
+ * defaults to "dna" if a pre-field record is missing them.
+ */
+function normalizeSequenceMeta(raw: SequenceMeta): SequenceMeta {
+  return {
+    ...raw,
+    project_ids: Array.isArray(raw.project_ids) ? raw.project_ids : [],
+    seq_type: (raw.seq_type as SeqType) ?? "dna",
+    added_at: raw.added_at ?? new Date(0).toISOString(),
+    display_name: raw.display_name ?? `Sequence ${raw.id}`,
+  };
+}
+
+export const sequencesApi = {
+  /** List the current user's sequences as light summary records (no bases). */
+  list: async (): Promise<SequenceRecord[]> => {
+    const username = await getCurrentUserCached();
+    return sequencesApi.getForUser(username);
+  },
+
+  /** List a specific user's sequences (cross-user read), summary records. */
+  getForUser: async (username: string): Promise<SequenceRecord[]> => {
+    const metas = await sequenceStore.listMetaForUser(username);
+    const records: SequenceRecord[] = [];
+    for (const rawMeta of metas) {
+      const meta = normalizeSequenceMeta(rawMeta);
+      const raw = await sequenceStore.getRawForUser(meta.id, username);
+      const genbank = raw?.genbank ?? "";
+      records.push(genbankToRecord(genbank, meta));
+    }
+    return records;
+  },
+
+  /** Sequences linked to a given project id (collection filter). */
+  listByProject: async (projectId: number | string): Promise<SequenceRecord[]> => {
+    const id = String(projectId);
+    const all = await sequencesApi.list();
+    return all.filter((s) => s.project_ids.includes(id));
+  },
+
+  /** Sequences with no project link yet ("Unfiled" collection). */
+  listUnfiled: async (): Promise<SequenceRecord[]> => {
+    const all = await sequencesApi.list();
+    return all.filter((s) => s.project_ids.length === 0);
+  },
+
+  /** Load one sequence in full (bases + annotations) for the read view. */
+  get: async (id: number, owner?: string): Promise<SequenceDetail | null> => {
+    const username = owner ?? (await getCurrentUserCached());
+    const raw = await sequenceStore.getRawForUser(id, username);
+    if (!raw) return null;
+    const meta = normalizeSequenceMeta(raw.meta);
+    return genbankToDetail(raw.genbank, meta);
+  },
+
+  /** Add a new sequence from GenBank text. Derives seq_type from the parse. */
+  create: async (data: SequenceCreate): Promise<SequenceRecord | null> => {
+    // Derive molecule kind from the parsed GenBank when the caller didn't pin
+    // it explicitly. Falls back to "dna".
+    let seqType: SeqType = data.seq_type ?? "dna";
+    if (!data.seq_type) {
+      const parsed = genbankToJson(data.genbank, {}).find(
+        (r) => r.success && r.parsedSequence,
+      );
+      if (parsed?.parsedSequence) {
+        seqType = deriveSeqType(parsed.parsedSequence);
+      }
+    }
+    const meta: Omit<SequenceMeta, "id"> = {
+      display_name: data.display_name,
+      project_ids: data.project_ids ?? [],
+      added_at: new Date().toISOString(),
+      seq_type: seqType,
+    };
+    const { meta: fullMeta, genbank } = await sequenceStore.create(
+      data.genbank,
+      meta,
+    );
+    return genbankToRecord(genbank, fullMeta);
+  },
+
+  /** Patch a sequence. `genbank` replaces the .gb source; the rest patch the
+   *  sidecar. Returns the refreshed summary record. */
+  update: async (
+    id: number,
+    data: SequenceUpdate,
+    owner?: string,
+  ): Promise<SequenceRecord | null> => {
+    const username = owner ?? (await getCurrentUserCached());
+    if (data.genbank !== undefined) {
+      await sequenceStore.writeGenbank(id, data.genbank, username);
+    }
+    const metaPatch: Partial<Omit<SequenceMeta, "id">> = {};
+    if (data.display_name !== undefined) metaPatch.display_name = data.display_name;
+    if (data.project_ids !== undefined) metaPatch.project_ids = data.project_ids;
+    if (data.seq_type !== undefined) metaPatch.seq_type = data.seq_type;
+    let meta = await sequenceStore.updateMeta(id, metaPatch, username);
+    if (!meta) {
+      const raw = await sequenceStore.getRawForUser(id, username);
+      if (!raw) return null;
+      meta = normalizeSequenceMeta(raw.meta);
+    }
+    const raw = await sequenceStore.getRawForUser(id, username);
+    return genbankToRecord(raw?.genbank ?? "", normalizeSequenceMeta(meta));
+  },
+
+  /** Delete a sequence (both .gb and .meta.json). */
+  delete: async (id: number, owner?: string): Promise<boolean> => {
+    const username = owner ?? (await getCurrentUserCached());
+    return sequenceStore.delete(id, username);
   },
 };
 
