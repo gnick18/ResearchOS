@@ -47,8 +47,17 @@ export function deriveSelectionReadout(
 }
 
 /** The inner content of the readout (coords / bp / GC%, or caret, or a hint).
- *  Parents wrap this with their own footer chrome. */
-export function SelectionReadoutContent({ readout }: { readout: SelectionReadout | null }) {
+ *  Parents wrap this with their own footer chrome. The `floating` variant is
+ *  used by the drag-time badge: it renders the Tm as a SnapGene-style violet
+ *  chip (the derive logic / values are identical, only the Tm presentation
+ *  differs), so the badge and the bottom strip share one source of truth. */
+export function SelectionReadoutContent({
+  readout,
+  floating = false,
+}: {
+  readout: SelectionReadout | null;
+  floating?: boolean;
+}) {
   if (readout == null) {
     return <span className="text-gray-400">Click or select bases to see coordinates.</span>;
   }
@@ -73,9 +82,15 @@ export function SelectionReadoutContent({ readout }: { readout: SelectionReadout
         <span className="font-medium text-gray-800">{readout.gc.toFixed(0)}%</span> GC
       </span>
       {readout.tm != null ? (
-        <span>
-          Tm <span className="font-medium text-gray-800">{readout.tm.toFixed(1)} °C</span>
-        </span>
+        floating ? (
+          <span className="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 font-medium text-violet-700">
+            Tm {readout.tm.toFixed(1)} °C
+          </span>
+        ) : (
+          <span>
+            Tm <span className="font-medium text-gray-800">{readout.tm.toFixed(1)} °C</span>
+          </span>
+        )
       ) : null}
     </>
   );

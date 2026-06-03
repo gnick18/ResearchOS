@@ -6,7 +6,7 @@
 // and a live selection readout (start..end, length bp, GC%). No autosave — Save
 // is an explicit checkpoint.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Tooltip from "@/components/Tooltip";
 import type { SequenceDetail } from "@/lib/types";
@@ -18,6 +18,7 @@ import type { Selection } from "@/vendor/seqviz/selectionContext";
 import {
   deriveSelectionReadout,
   SelectionReadoutContent,
+  type SelectionReadout,
 } from "./SequenceSelectionReadout";
 import {
   clipSelection,
@@ -234,6 +235,62 @@ function ToolbarButton({
   );
 }
 
+/** selection badge bot — the drag-time FLOATING SELECTION BADGE. A small
+ *  absolutely-positioned card anchored inside the viewer's (position: relative)
+ *  container, near the cursor. It measures itself after layout and clamps to
+ *  the container bounds: it offsets down-right of the cursor by default and
+ *  flips up / left when that would overflow the right or bottom edge, so the
+ *  card never spills out of the viewer. pointer-events: none keeps it from
+ *  intercepting the drag. Content reuses SelectionReadoutContent (floating
+ *  variant) so range / bp / GC / Tm match the bottom strip exactly. */
+function FloatingSelectionBadge({
+  pointer,
+  container,
+  readout,
+}: {
+  pointer: { x: number; y: number };
+  container: HTMLElement | null;
+  readout: Extract<SelectionReadout, { kind: "range" }>;
+}) {
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const [pos, setPos] = useState<{ left: number; top: number }>({
+    left: pointer.x + 12,
+    top: pointer.y + 16,
+  });
+
+  useLayoutEffect(() => {
+    const card = cardRef.current;
+    if (!card) return;
+    const cw = container?.clientWidth ?? 0;
+    const ch = container?.clientHeight ?? 0;
+    const bw = card.offsetWidth;
+    const bh = card.offsetHeight;
+    const offX = 12;
+    const offY = 16;
+    const margin = 6;
+    // Default down-right of the cursor; flip to the other side when the card
+    // would overflow the right / bottom edge.
+    let left = pointer.x + offX;
+    if (cw && left + bw + margin > cw) left = pointer.x - offX - bw;
+    let top = pointer.y + offY;
+    if (ch && top + bh + margin > ch) top = pointer.y - offY - bh;
+    // Final clamp so the card stays inside even in tiny viewers.
+    if (cw) left = Math.max(margin, Math.min(left, cw - bw - margin));
+    if (ch) top = Math.max(margin, Math.min(top, ch - bh - margin));
+    setPos({ left, top });
+  }, [pointer.x, pointer.y, container, readout.lo, readout.hi, readout.len, readout.tm]);
+
+  return (
+    <div
+      ref={cardRef}
+      className="pointer-events-none absolute z-30 flex items-center gap-3 rounded-lg border border-gray-200 bg-white/95 px-3 py-1.5 text-xs text-gray-600 shadow-md backdrop-blur-sm"
+      style={{ left: pos.left, top: pos.top }}
+    >
+      <SelectionReadoutContent readout={readout} floating />
+    </div>
+  );
+}
+
 export default function SequenceEditView({
   sequence,
   onSave,
@@ -263,6 +320,14 @@ export default function SequenceEditView({
 
   // Track the live SeqViz selection for the readout.
   const [selection, setSelection] = useState<Selection | null>(null);
+
+  // selection badge bot — drag-time floating badge state. `isDragging` is true
+  // only while the mouse button is held down over the viewer (SeqViz owns the
+  // actual selection; we only need to know whether a drag is in progress).
+  // `dragPointer` is the cursor position relative to the viewer container, used
+  // to anchor the badge near the cursor and follow it live.
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragPointer, setDragPointer] = useState<{ x: number; y: number } | null>(null);
 
   // App-scoped molecular clipboard (survives switching open sequences).
   const molClip = useMolecularClipboard();
@@ -591,6 +656,16 @@ export default function SequenceEditView({
   // fraction == the visible bp fraction). Updated on scroll/zoom/resize.
   const viewerRef = useRef<HTMLDivElement | null>(null);
   const scrollerRef = useRef<HTMLElement | null>(null);
+
+  // selection badge bot — end the drag on mouse-up ANYWHERE (release can land
+  // outside the viewer after a fast drag), so the floating badge always hides
+  // on release. The button-down side is set by the viewer's onMouseDown.
+  useEffect(() => {
+    if (!isDragging) return;
+    const end = () => setIsDragging(false);
+    window.addEventListener("mouseup", end);
+    return () => window.removeEventListener("mouseup", end);
+  }, [isDragging]);
   const [overviewWindow, setOverviewWindow] = useState<{ start: number; end: number }>({
     start: 0,
     end: doc.seq.length,
@@ -2149,6 +2224,23 @@ export default function SequenceEditView({
               <div
                 ref={viewerRef}
                 className="relative min-h-0 min-w-0 flex-1 overflow-hidden"
+                // selection badge bot — mouse-down starts a drag; mouse-move
+                // tracks the cursor relative to this (position: relative)
+                // container so the floating badge can follow it. Mouse-up is
+                // handled by the window listener above so a release outside the
+                // viewer still ends the drag.
+                onMouseDown={(e) => {
+                  // Left button only; right-click opens the context menu.
+                  if (e.button !== 0) return;
+                  const rect = viewerRef.current?.getBoundingClientRect();
+                  if (rect) setDragPointer({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+                  setIsDragging(true);
+                }}
+                onMouseMove={(e) => {
+                  if (!isDragging) return;
+                  const rect = viewerRef.current?.getBoundingClientRect();
+                  if (rect) setDragPointer({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+                }}
                 onContextMenu={(e) => {
                   // Right-click anywhere on the sequence surface opens the Edit
                   // menu (the primary, selection-aware home for these ops).
@@ -2237,6 +2329,22 @@ export default function SequenceEditView({
                   style={{ height: "100%", width: "100%" }}
                 />
                 )}
+                {/* selection badge bot — FLOATING SELECTION BADGE. Visible only
+                    while the user is actively dragging a real range (mouse held
+                    down, readout.kind === "range"); hidden the instant the
+                    mouse is released. Shares SelectionReadoutContent with the
+                    persistent bottom strip (range + bp always, Tm violet chip
+                    for 8..50 bp). pointer-events: none so it never intercepts
+                    the drag or a double-click. Positioned near the cursor with
+                    a small offset, flipped near the right / bottom edges so it
+                    never overflows the container. */}
+                {isDragging && dragPointer && readout?.kind === "range" ? (
+                  <FloatingSelectionBadge
+                    pointer={dragPointer}
+                    container={viewerRef.current}
+                    readout={readout}
+                  />
+                ) : null}
               </div>
               {/* BOTTOM COORDINATE / ZOOM CLUSTER (linear only): zoom slider +
                   editable bp-in-view field + exact window readout + horizontal
