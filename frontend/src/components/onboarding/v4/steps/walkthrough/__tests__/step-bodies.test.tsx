@@ -82,7 +82,6 @@ import { methodAttachmentStep } from "../MethodAttachmentStep";
 // v4 tour structural manager (Wave 1, 2026-05-27): `experiment-tabs-overview`
 // retired; the ExperimentTabsOverviewStep.tsx file has been deleted.
 // New skeleton imports for Wave 1.
-import { projectOverviewRollupStep } from "../ProjectOverviewRollupStep";
 import {
   projectOverviewTypingDemoStep,
   PLACEHOLDER_HYPOTHESIS,
@@ -195,9 +194,8 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   homeCreateProjectFillStep,
   projectOverviewNavStep,
   projectOverviewStep,
-  // v4 tour structural manager (Wave 1, 2026-05-27): new skeleton bodies
+  // v4 tour structural manager (Wave 1, 2026-05-27): new skeleton body
   // between project-overview-prose and project-overview-context.
-  projectOverviewRollupStep,
   projectOverviewTypingDemoStep,
   projectOverviewContextStep,
   // v4 tour structural manager (Wave 1, 2026-05-27): new notifications-intro
@@ -296,8 +294,7 @@ describe("P5 step bodies — universal contract", () => {
       "home-create-project-fill",
       "project-overview-nav",
       "project-overview-prose",
-      // v4 tour structural manager (Wave 1, 2026-05-27): new skeletons.
-      "project-overview-rollup",
+      // v4 tour structural manager (Wave 1, 2026-05-27): new skeleton.
       "project-overview-typing-demo",
       "project-overview-context",
       "notifications-intro",

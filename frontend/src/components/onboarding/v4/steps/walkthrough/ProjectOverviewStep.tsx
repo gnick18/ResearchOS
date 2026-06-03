@@ -1,13 +1,13 @@
 /**
  * §6.2 Project route Overview prose (PROSE sub-step).
  *
- * Second of §6.2 sub-steps (NAV -> PROSE -> ROLLUP -> TYPING-DEMO ->
- * CONTEXT -> EXIT). After the NAV sub-step navigates to
- * `/workbench/projects/<id>`, BeakerBot teaches the four-section
- * structure of the project page and explains what the Overview box at
- * the top is FOR (the project's anchor: hypothesis, motivation, why it
- * exists). Manual advance hands off to project-overview-rollup, which
- * spotlights the Results / Methods / Activity roll-up sections below.
+ * Second of §6.2 sub-steps (NAV -> PROSE -> TYPING-DEMO -> CONTEXT ->
+ * EXIT). After the NAV sub-step navigates to
+ * `/workbench/projects/<id>`, BeakerBot teaches the structure of the
+ * project page and explains what the Overview box at the top is FOR
+ * (the project's anchor: hypothesis, motivation, why it exists).
+ * Manual advance hands off to project-overview-typing-demo, which types
+ * a placeholder hypothesis into the Overview textarea.
  *
  * Wave 2A rewrite (v4 tour speech manager — A, 2026-05-27): per Grant's
  * BEAKERBOT_TOUR_SCRIPT_REWRITE_2026-05-27.md §6.2, the BEAKERBOT_DEMO

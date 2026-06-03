@@ -123,13 +123,10 @@ import { homeCreateProjectStep } from "./steps/walkthrough/HomeCreateProjectStep
 import { homeCreateProjectFillStep } from "./steps/walkthrough/HomeCreateProjectFillStep";
 import { projectOverviewNavStep } from "./steps/walkthrough/ProjectOverviewNavStep";
 import { projectOverviewStep } from "./steps/walkthrough/ProjectOverviewStep";
-// v4 tour structural manager (Wave 1, 2026-05-27): new
-// `project-overview-rollup` + `project-overview-typing-demo` skeletons
-// split the prior single `project-overview-prose` step into a narration
-// of the page roll-up (Results/Methods/Activity) plus the BEAKERBOT_DEMO
-// that types into the Overview textarea. Wave 2 fills in speech + cursor
-// scripts.
-import { projectOverviewRollupStep } from "./steps/walkthrough/ProjectOverviewRollupStep";
+// v4 tour structural manager (Wave 1, 2026-05-27): the
+// `project-overview-typing-demo` skeleton split off the BEAKERBOT_DEMO
+// half of `project-overview-prose` (it types into the Overview
+// textarea). Wave 2 filled in speech + cursor scripts.
 import { projectOverviewTypingDemoStep } from "./steps/walkthrough/ProjectOverviewTypingDemoStep";
 import { projectOverviewContextStep } from "./steps/walkthrough/ProjectOverviewContextStep";
 import { projectOverviewExitStep } from "./steps/walkthrough/ProjectOverviewExitStep";
@@ -342,10 +339,9 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [homeCreateProjectFillStep.id]: homeCreateProjectFillStep,
   [projectOverviewNavStep.id]: projectOverviewNavStep,
   [projectOverviewStep.id]: projectOverviewStep,
-  // v4 tour structural manager (Wave 1, 2026-05-27): new
-  // `project-overview-rollup` + `project-overview-typing-demo` skeletons
-  // split off the prose step's NARRATION vs BEAKERBOT_DEMO halves.
-  [projectOverviewRollupStep.id]: projectOverviewRollupStep,
+  // v4 tour structural manager (Wave 1, 2026-05-27): the
+  // `project-overview-typing-demo` skeleton split off the prose step's
+  // BEAKERBOT_DEMO half.
   [projectOverviewTypingDemoStep.id]: projectOverviewTypingDemoStep,
   [projectOverviewContextStep.id]: projectOverviewContextStep,
   [projectOverviewExitStep.id]: projectOverviewExitStep,

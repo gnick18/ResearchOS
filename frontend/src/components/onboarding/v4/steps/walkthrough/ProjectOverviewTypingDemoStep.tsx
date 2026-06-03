@@ -3,7 +3,7 @@
  * cursor wire-up, 2026-05-27).
  *
  * Split off the BEAKERBOT_DEMO portion that previously lived at the end
- * of `project-overview-prose`. Sits between `project-overview-rollup`
+ * of `project-overview-prose`. Sits between `project-overview-prose`
  * and `project-overview-context`. Cursor focuses the Overview textarea
  * and types a placeholder hypothesis at the standard typing cadence so
  * the user sees what shape of prose belongs on the Overview page.

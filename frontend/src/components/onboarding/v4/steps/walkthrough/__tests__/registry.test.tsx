@@ -21,7 +21,6 @@ const P5_STEP_IDS = [
   "home-create-project-fill",
   "project-overview-nav",
   "project-overview-prose",
-  "project-overview-rollup",
   "project-overview-typing-demo",
   "project-overview-context",
   "project-overview-exit",

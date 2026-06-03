@@ -131,11 +131,13 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "project-overview-prose",
   // 2026-05-27 (v4 tour structural manager, Wave 1): split off the
   // BEAKERBOT_DEMO portion of `project-overview-prose` (the cursor
-  // typing demo) into `project-overview-typing-demo`, with a new
-  // `project-overview-rollup` NARRATION beat in between that
-  // describes how the Results / Methods / Activity sections roll up
-  // automatically. Position: prose → rollup → typing-demo → context.
-  "project-overview-rollup",
+  // typing demo) into `project-overview-typing-demo`.
+  // 2026-06-03: the old `project-overview-rollup` narration beat
+  // (which described Results / Methods / Activity rolling up
+  // automatically) was removed. Those sections became hide-when-empty
+  // tabs in the real-tabs redesign, so on a fresh project the step
+  // spotlighted nothing and read as broken. Neighbors auto-stitch.
+  // Position: prose → typing-demo → context.
   "project-overview-typing-demo",
   // Context narration (Grant 2026-05-22, v4 §6.2 overview teach sub-bot):
   // BeakerBot points at the sticky project topbar and narrates the
