@@ -24,7 +24,6 @@ import Tooltip from "./Tooltip";
 import { useAppStore } from "@/lib/store";
 import { taskKey } from "@/lib/types";
 import type { Task, Project, ShiftResult, SubTask } from "@/lib/types";
-import type { GitHubTreeItem } from "@/lib/types";
 import { createNewFileContent, normalizeStampFormat, hasLegacyStampFormat } from "@/lib/stamp-utils";
 // TODO(manager): unstub once Sub-bot A lands frontend/src/lib/export/orchestrate.ts.
 import { exportExperiments, downloadResult } from "@/lib/export/orchestrate";
@@ -48,11 +47,8 @@ import {
   taskResultsTabBase,
 } from "@/lib/tasks/results-paths";
 import { migrateTaskAttachmentsToFiles, splitTaskAttachments } from "@/lib/tasks/migrate-attachments";
-import { FileExtBadge } from "@/lib/utils/file-icons";
-import { PaperclipIcon } from "@/lib/utils/icons";
 import { attachImageToTask } from "@/lib/attachments/attach-image";
 import { fileEvents } from "@/lib/attachments/file-events";
-import { stripAttachmentReferences } from "@/lib/attachments/strip-references";
 import { imageEvents } from "@/lib/attachments/image-events";
 import { recordProjectActivity } from "@/lib/project-activity/event-log";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -3746,10 +3742,7 @@ function DetailsTab({
 
 // ── Lab Notes Tab (with LiveMarkdownEditor) ──────────────────────────────────
 
-type ContentSubTab = "markdown" | "pdfs";
-
 function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; readOnly?: boolean; ownerUsername?: string }) {
-  const [activeSubTab, setActiveSubTab] = useState<ContentSubTab>("markdown");
   const [content, setContent] = useState("");
   const [originalContent, setOriginalContent] = useState("");
   const [saving, setSaving] = useState(false);
@@ -4212,49 +4205,14 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
     },
   });
 
-  // Compact Markdown | Files sub-tab switcher. Folded into the editor's single
-  // unified toolbar (markdown tab) and shown standalone above the files panel.
-  const subTabSwitcher = (
-    <div className="inline-flex items-center p-0.5 bg-gray-100 rounded-lg">
-      <button
-        onClick={() => setActiveSubTab("markdown")}
-        className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-          activeSubTab === "markdown"
-            ? "bg-white text-gray-900 shadow-sm"
-            : "text-gray-500 hover:text-gray-700"
-        }`}
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
-          <line x1="16" y1="13" x2="8" y2="13" />
-          <line x1="16" y1="17" x2="8" y2="17" />
-        </svg>
-        Markdown
-      </button>
-      <button
-        onClick={() => setActiveSubTab("pdfs")}
-        className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-          activeSubTab === "pdfs"
-            ? "bg-white text-gray-900 shadow-sm"
-            : "text-gray-500 hover:text-gray-700"
-        }`}
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-        </svg>
-        Files
-      </button>
-    </div>
-  );
-
-  // Right-side controls for the editor's unified toolbar: the sub-tab switcher
-  // plus the Save button. The "Unsaved changes" cue is folded into the Save
-  // button's amber-dot + enabled state (no separate text bar). Hidden in
-  // readOnly mode (lab view) where there is nothing to save.
+  // Right-side controls for the editor's unified toolbar: the version-history
+  // button plus the Save button. The "Unsaved changes" cue is folded into the
+  // Save button's amber-dot + enabled state (no separate text bar). Hidden in
+  // readOnly mode (lab view) where there is nothing to save. The old
+  // "Markdown | Files" sub-tab switcher is retired: files now live in the
+  // single bottom attachments strip (file-unify bot).
   const editorToolbarTrailing = !readOnly ? (
     <>
-      {subTabSwitcher}
       {/* save-checkpoint bot: version-history entry button (icon-only clock +
           counter-arrow, Tooltip per house rule). Opens the docked sidebar +
           in-place diff for the Lab Notes document. */}
@@ -4284,16 +4242,14 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
         </button>
       </Tooltip>
     </>
-  ) : (
-    subTabSwitcher
-  );
+  ) : undefined;
 
   return (
     <>
       <FileRenamePopup />
       <DuplicateDialog />
       <div className="flex flex-col h-full">
-        {activeSubTab === "markdown" ? (
+        {(
           <>
 
             {/* File size warning */}
@@ -4416,10 +4372,15 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                   saveRef={editorSaveRef}
                   onExplicitSave={(v) => { void handleSave(v); }}
                   onDirtyChange={setEditorDirty}
-                  // Fold the Markdown | Files sub-tab switcher and the
-                  // "Save checkpoint" button into the editor's single unified
-                  // toolbar instead of stacking parent bars above it.
+                  // Fold the "Save checkpoint" button + version history into
+                  // the editor's single unified toolbar instead of stacking
+                  // parent bars above it.
                   toolbarTrailing={editorToolbarTrailing}
+                  // file-unify bot: the single bottom attachments strip now
+                  // UNION-reads the retired Files panel's `NotesPDFs/` folder
+                  // so files attached there still appear (and can be viewed /
+                  // deleted). New uploads write to Images/ + Files/ only.
+                  legacyAttachmentsDir={pdfsDir}
                 />
               )}
               </div>
@@ -4433,21 +4394,6 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                 />
               )}
             </div>
-          </>
-        ) : (
-          <>
-            {/* Files sub-tab: the editor (and its unified toolbar) is not
-                mounted here, so surface the same compact sub-tab switcher
-                in a thin standalone bar above the attachments panel. */}
-            <div className="flex items-center px-6 py-2 border-b border-gray-100">
-              {subTabSwitcher}
-            </div>
-            <PdfAttachmentsPanel
-              pdfsDir={pdfsDir}
-              label="Lab Notes"
-              body={content}
-              onBodyChange={setContent}
-            />
           </>
         )}
       </div>
@@ -4473,7 +4419,6 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
 // ── Results Tab ──────────────────────────────────────────────────────────────
 
 function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; readOnly?: boolean; ownerUsername?: string }) {
-  const [activeSubTab, setActiveSubTab] = useState<ContentSubTab>("markdown");
   const [content, setContent] = useState("");
   const [originalContent, setOriginalContent] = useState("");
   const [saving, setSaving] = useState(false);
@@ -4850,49 +4795,12 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
     },
   });
 
-  // Compact Markdown | Files sub-tab switcher. Folded into the editor's single
-  // unified toolbar (markdown tab) and shown standalone above the files panel.
-  const subTabSwitcher = (
-    <div className="inline-flex items-center p-0.5 bg-gray-100 rounded-lg">
-      <button
-        onClick={() => setActiveSubTab("markdown")}
-        className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-          activeSubTab === "markdown"
-            ? "bg-white text-gray-900 shadow-sm"
-            : "text-gray-500 hover:text-gray-700"
-        }`}
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
-          <line x1="16" y1="13" x2="8" y2="13" />
-          <line x1="16" y1="17" x2="8" y2="17" />
-        </svg>
-        Markdown
-      </button>
-      <button
-        onClick={() => setActiveSubTab("pdfs")}
-        className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-          activeSubTab === "pdfs"
-            ? "bg-white text-gray-900 shadow-sm"
-            : "text-gray-500 hover:text-gray-700"
-        }`}
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-        </svg>
-        Files
-      </button>
-    </div>
-  );
-
-  // Right-side controls for the editor's unified toolbar: the sub-tab switcher
-  // plus the Save button. The "Unsaved changes" cue is folded into the Save
-  // button's amber-dot + enabled state (no separate text bar). Hidden in
-  // readOnly mode (lab view) where there is nothing to save.
+  // Right-side controls for the editor's unified toolbar: the version-history
+  // button plus the Save button. The old "Markdown | Files" sub-tab switcher is
+  // retired: files now live in the single bottom attachments strip
+  // (file-unify bot).
   const editorToolbarTrailing = !readOnly ? (
     <>
-      {subTabSwitcher}
       {/* save-checkpoint bot: version-history entry button for the Results
           document (see LabNotesTab). */}
       <TaskDocHistoryButton controller={docHistory} />
@@ -4920,16 +4828,14 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
         </button>
       </Tooltip>
     </>
-  ) : (
-    subTabSwitcher
-  );
+  ) : undefined;
 
   return (
     <>
       <FileRenamePopup />
       <DuplicateDialog />
       <div className="flex flex-col h-full">
-        {activeSubTab === "markdown" ? (
+        {(
         <>
           {/* File size warning */}
           {uploadWarning && (
@@ -4992,10 +4898,15 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
                 saveRef={editorSaveRef}
                 onExplicitSave={(v) => { void handleSave(v); }}
                 onDirtyChange={setEditorDirty}
-                // Fold the Markdown | Files sub-tab switcher and the
-                // "Save checkpoint" button into the editor's single unified
-                // toolbar instead of stacking parent bars above it.
+                // Fold the "Save checkpoint" button + version history into
+                // the editor's single unified toolbar instead of stacking
+                // parent bars above it.
                 toolbarTrailing={editorToolbarTrailing}
+                // file-unify bot: the single bottom attachments strip now
+                // UNION-reads the retired Files panel's `ResultsPDFs/` folder
+                // so files attached there still appear (view / delete). New
+                // uploads write to Images/ + Files/ only.
+                legacyAttachmentsDir={pdfsDir}
               />
             )}
             </div>
@@ -5010,414 +4921,9 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
             )}
           </div>
         </>
-      ) : (
-        <>
-          {/* Files sub-tab: the editor (and its unified toolbar) is not
-              mounted here, so surface the same compact sub-tab switcher
-              in a thin standalone bar above the attachments panel. */}
-          <div className="flex items-center px-6 py-2 border-b border-gray-100">
-            {subTabSwitcher}
-          </div>
-          <PdfAttachmentsPanel
-            pdfsDir={pdfsDir}
-            label="Results"
-            body={content}
-            onBodyChange={setContent}
-          />
-        </>
       )}
     </div>
     </>
-  );
-}
-
-// ── PDF Attachments Panel ─────────────────────────────────────────────────────
-
-// Helper to determine if a file is renderable in browser
-const isRenderableFile = (filename: string): boolean => {
-  const ext = filename.toLowerCase().split('.').pop() || '';
-  return ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'md', 'txt'].includes(ext);
-};
-
-// Helper to determine if a file is markdown
-const isMarkdownFile = (filename: string): boolean => {
-  const ext = filename.toLowerCase().split('.').pop() || '';
-  return ext === 'md';
-};
-
-// getFileIcon replaced by shared FileExtBadge component (see lib/utils/file-icons.tsx)
-
-// Helper to get MIME type
-const getMimeType = (filename: string): string => {
-  const ext = filename.toLowerCase().split('.').pop() || '';
-  const mimeTypes: Record<string, string> = {
-    'pdf': 'application/pdf',
-    'png': 'image/png',
-    'jpg': 'image/jpeg',
-    'jpeg': 'image/jpeg',
-    'gif': 'image/gif',
-    'svg': 'image/svg+xml',
-    'webp': 'image/webp',
-  };
-  return mimeTypes[ext] || 'application/octet-stream';
-};
-
-interface PdfAttachment {
-  name: string;
-  path: string;
-  url: string | null;
-  loading: boolean;
-  isRenderable: boolean;
-}
-
-function PdfAttachmentsPanel({
-  pdfsDir,
-  label,
-  body,
-  onBodyChange,
-}: {
-  pdfsDir: string;
-  label: string;
-  // Editor body + onChange so a delete from the Files sub-tab can strip
-  // any inline references the user added by hand. Optional because
-  // callers without a body (none today) can still mount the panel.
-  body?: string;
-  onBodyChange?: (next: string) => void;
-}) {
-  const [files, setFiles] = useState<PdfAttachment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [activeFile, setActiveFile] = useState<PdfAttachment | null>(null);
-  const [fileUrl, setFileUrl] = useState<string | null>(null);
-  const [markdownContent, setMarkdownContent] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const loadFiles = useCallback(async () => {
-    setLoading(true);
-    try {
-      const dirFiles = await filesApi.listDirectory(pdfsDir);
-
-      const attachments: PdfAttachment[] = dirFiles.map((f: GitHubTreeItem) => ({
-        name: f.name,
-        path: f.path,
-        url: null,
-        loading: false,
-        isRenderable: isRenderableFile(f.name),
-      }));
-
-      setFiles(attachments);
-    } catch {
-      // Directory doesn't exist yet
-      setFiles([]);
-    }
-    setLoading(false);
-  }, [pdfsDir]);
-
-  // Load files from directory. loadFiles is async and calls setState
-  // internally; the lint rule trips on the transitive setState but this is
-  // a standard "fetch on mount/dep change" pattern.
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadFiles();
-  }, [loadFiles]);
-
-  // Handle file upload
-  const handleUpload = useCallback(async (fileList: FileList | null) => {
-    if (!fileList || fileList.length === 0) return;
-    
-    setUploading(true);
-    for (const file of Array.from(fileList)) {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        try {
-          const base64 = (reader.result as string).split(",")[1];
-          const fileName = `${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
-          const filePath = `${pdfsDir}/${fileName}`;
-          
-          await filesApi.uploadImage(
-            filePath,
-            base64,
-            `Upload file for ${label}: ${file.name}`
-          );
-          
-          // Refresh the list
-          await loadFiles();
-        } catch {
-          alert(`Failed to upload ${file.name}`);
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-    setUploading(false);
-  }, [pdfsDir, label, loadFiles]);
-
-  // Load and display a file
-  const handleViewFile = useCallback(async (file: PdfAttachment) => {
-    if (!file.isRenderable) {
-      // For non-renderable files, offer download
-      try {
-        const fileData = await filesApi.readFile(file.path);
-        const binaryString = atob(fileData.content);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-        const blob = new Blob([bytes], { type: getMimeType(file.name) });
-        const url = URL.createObjectURL(blob);
-        
-        // Create download link
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = file.name;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      } catch {
-        alert("Failed to download file");
-      }
-      return;
-    }
-    
-    setActiveFile(file);
-    setFileUrl(null);
-    setMarkdownContent(null);
-    
-    try {
-      const fileData = await filesApi.readFile(file.path);
-      
-      // Check if it's a markdown file - render with ReactMarkdown
-      if (isMarkdownFile(file.name)) {
-        // Decode base64 to text
-        const binaryString = atob(fileData.content);
-        const textContent = decodeURIComponent(escape(binaryString));
-        setMarkdownContent(textContent);
-      } else {
-        // For PDFs and images, create blob URL for iframe
-        const binaryString = atob(fileData.content);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-        const blob = new Blob([bytes], { type: getMimeType(file.name) });
-        const url = URL.createObjectURL(blob);
-        setFileUrl(url);
-      }
-    } catch {
-      alert("Failed to load file");
-      setActiveFile(null);
-    }
-  }, []);
-
-  // Delete a file
-  const handleDeleteFile = useCallback(async (file: PdfAttachment) => {
-    if (!confirm(`Delete "${file.name}"?`)) return;
-
-    try {
-      const ok = await fileService.deleteFile(file.path);
-      if (!ok) {
-        alert("Failed to delete file");
-        return;
-      }
-      if (body !== undefined && onBodyChange) {
-        const next = stripAttachmentReferences(body, file.name, "Files");
-        if (next !== body) onBodyChange(next);
-      }
-      fileEvents.emitDeleted({ basePath: pdfsDir, filename: file.name });
-      setFiles((prev) => prev.filter((f) => f.path !== file.path));
-      if (activeFile?.path === file.path) {
-        setActiveFile(null);
-        setFileUrl(null);
-        setMarkdownContent(null);
-      }
-    } catch {
-      alert("Failed to delete file");
-    }
-  }, [activeFile, body, onBodyChange, pdfsDir]);
-
-  // Cleanup blob URL on unmount
-  useEffect(() => {
-    return () => {
-      if (fileUrl) {
-        URL.revokeObjectURL(fileUrl);
-      }
-    };
-  }, [fileUrl]);
-
-  if (activeFile) {
-    const isMarkdown = isMarkdownFile(activeFile.name);
-    
-    return (
-      <div className="flex flex-col h-full">
-        {/* File Viewer Header */}
-        <div className="flex items-center gap-2 px-6 py-3 border-b border-gray-50">
-          <button
-            onClick={() => {
-              setActiveFile(null);
-              setFileUrl(null);
-              setMarkdownContent(null);
-            }}
-            className="px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
-          >
-            ← Back to Files
-          </button>
-          <span className="text-sm text-gray-600 truncate">{activeFile.name}</span>
-        </div>
-        
-        {/* File Viewer */}
-        <div className="flex-1 overflow-hidden">
-          {isMarkdown ? (
-            markdownContent ? (
-              <div className="h-full overflow-y-auto p-6 prose prose-sm prose-gray max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm, remarkUnderline]} rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema]]}>
-                  {markdownContent}
-                </ReactMarkdown>
-              </div>
-            ) : (
-              // R1 fix-pass: replaced plain "Loading..." text with the
-              // skeleton-block pattern used elsewhere (matches lab-notes
-              // editor loading state) so all loading surfaces speak the
-              // same visual language.
-              <div className="p-6 space-y-2 animate-pulse" aria-busy="true">
-                <div className="h-3 w-1/3 bg-gray-200 rounded" />
-                <div className="h-3 w-full bg-gray-200 rounded" />
-                <div className="h-3 w-5/6 bg-gray-200 rounded" />
-                <div className="h-3 w-4/5 bg-gray-100 rounded" />
-              </div>
-            )
-          ) : (
-            fileUrl ? (
-              <iframe
-                src={fileUrl}
-                className="w-full h-full"
-                title={activeFile.name}
-              />
-            ) : (
-              // R1 fix-pass: same skeleton swap for the non-markdown file
-              // preview. PDF/image previews use the iframe shell so a few
-              // skeleton bars stand in for the rendered content.
-              <div className="p-6 space-y-2 animate-pulse" aria-busy="true">
-                <div className="h-3 w-1/3 bg-gray-200 rounded" />
-                <div className="h-3 w-full bg-gray-200 rounded" />
-                <div className="h-3 w-5/6 bg-gray-200 rounded" />
-                <div className="h-3 w-4/5 bg-gray-100 rounded" />
-              </div>
-            )
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col h-full">
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 px-6 py-2.5 border-b border-gray-100">
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          {uploading ? "Uploading..." : "Add file"}
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          className="hidden"
-          onChange={(e) => handleUpload(e.target.files)}
-        />
-        <span className="text-xs text-gray-500">
-          PDFs and images view inline, other files download
-        </span>
-        <div className="flex-1" />
-        <span className="text-xs text-gray-500">
-          {files.length} file{files.length !== 1 ? "s" : ""}
-        </span>
-      </div>
-
-      {/* File List */}
-      <div className="flex-1 overflow-y-auto p-6">
-        {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3" aria-busy="true">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="bg-gray-50 border border-gray-200 rounded-xl p-4 animate-pulse">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-10 rounded bg-gray-200 flex-shrink-0" />
-                  <div className="flex-1 space-y-1.5">
-                    <div className="h-3 w-3/4 bg-gray-200 rounded" />
-                    <div className="h-2 w-1/2 bg-gray-100 rounded" />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : files.length === 0 ? (
-          <div className="text-center py-16 max-w-sm mx-auto">
-            <div className="w-12 h-12 rounded-full bg-gray-100 mx-auto mb-3 flex items-center justify-center">
-              <PaperclipIcon className="w-5 h-5 text-gray-400" />
-            </div>
-            <p className="text-sm font-medium text-gray-700 mb-1">No files yet</p>
-            <p className="text-xs text-gray-500 mb-4">
-              Drop files here or click <span className="font-medium text-gray-700">Add file</span> to upload PDFs, images, or any document.
-            </p>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-              Add your first file
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {files.map((file) => (
-              <div
-                key={file.path}
-                className="group relative bg-white border border-gray-200 rounded-xl p-4 hover:border-gray-300 hover:shadow-sm transition-all cursor-pointer"
-                onClick={() => handleViewFile(file)}
-              >
-                <div className="flex items-start gap-3">
-                  <FileExtBadge filename={file.name} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {file.name}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {file.isRenderable ? "Click to view" : "Click to download"}
-                    </p>
-                  </div>
-                </div>
-                <Tooltip label="Delete file" placement="bottom">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteFile(file);
-                    }}
-                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all"
-                    aria-label={`Delete ${file.name}`}
-                    data-force-hover-controls-target
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="18" y1="6" x2="6" y2="18" />
-                      <line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
-                  </button>
-                </Tooltip>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
   );
 }
 

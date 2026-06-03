@@ -219,6 +219,12 @@ interface LiveMarkdownEditorProps {
    *  toolbar instead of stacking their own bars above the editor. Rendered
    *  only when `showToolbar` is true and focus mode is off. */
   toolbarTrailing?: React.ReactNode;
+  /** Legacy attachments directory passed through to the bottom strips so the
+   *  unified Files surface UNION-reads files attached through the retired
+   *  "Files" panel (the task popup's `NotesPDFs/` / `ResultsPDFs/` folders).
+   *  New uploads never write here; this is read-only legacy. Only the task
+   *  popup sets it; other mount sites leave it undefined. */
+  legacyAttachmentsDir?: string;
 }
 
 /**
@@ -251,6 +257,7 @@ export default function LiveMarkdownEditor({
   onFocusModeChange,
   enableInlineMode = true,
   toolbarTrailing,
+  legacyAttachmentsDir,
 }: LiveMarkdownEditorProps) {
   // Internal mode state (used if onModeChange is not provided)
   const [internalMode, setInternalMode] = useState<EditorMode>(mode);
@@ -2389,11 +2396,19 @@ export default function LiveMarkdownEditor({
             <ImageStrip
               content={value}
               basePath={imageBasePath}
+              legacyPdfsDir={legacyAttachmentsDir}
               onJumpToImage={handleJumpToImage}
               recordType={recordType}
+              onBodyChange={disabled ? undefined : onChange}
             />
           ) : (
-            <FileStrip content={value} basePath={imageBasePath} recordType={recordType} />
+            <FileStrip
+              content={value}
+              basePath={imageBasePath}
+              legacyPdfsDir={legacyAttachmentsDir}
+              recordType={recordType}
+              onBodyChange={disabled ? undefined : onChange}
+            />
           )}
         </div>
       )}

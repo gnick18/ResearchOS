@@ -3,9 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { blobUrlResolver, encodeAttachmentRefPath } from "@/lib/utils/blob-url-resolver";
 import { imageEvents } from "@/lib/attachments/image-events";
-import { listImagesInFolder, type FolderImageEntry } from "@/lib/attachments/image-folder";
+import { listImagesInFolder, hasImageExtension, type FolderImageEntry } from "@/lib/attachments/image-folder";
+import { deleteImageFromBase } from "@/lib/attachments/move-image";
+import { stripAttachmentReferences } from "@/lib/attachments/strip-references";
+import { fileService } from "@/lib/file-system/file-service";
 import ImageMetadataPopup from "./ImageMetadataPopup";
 import AnnotatedImage from "./AnnotatedImage";
+import AttachmentViewerModal from "./AttachmentViewerModal";
 import Tooltip from "./Tooltip";
 import dynamic from "next/dynamic";
 
@@ -38,20 +42,32 @@ interface ImageStripProps {
    *  We list `${basePath}/Images/` for the primary thumbnail set, and resolve
    *  relative srcs against it. */
   basePath?: string;
+  /** Legacy attachments directory (the retired Files panel wrote here as
+   *  `NotesPDFs/` / `ResultsPDFs/`). The unified strip reads image files from
+   *  here too (the UNION read) so nothing previously attached is orphaned.
+   *  New uploads never land here; legacy images are view / delete only. */
+  legacyPdfsDir?: string;
   /** Triggered when the user clicks "Jump to occurrence" inside the metadata
    *  popup. Parent (markdown editor) scrolls the preview to the image. */
   onJumpToImage?: (filename: string) => void;
   className?: string;
   /** Context label used in empty-state copy. Defaults to "experiment". */
   recordType?: "experiment" | "note" | "method" | "list" | "purchase";
+  /** Strip the markdown ref(s) for a just-deleted image from the body. Only
+   *  wired on editing surfaces; absent on read-only strips. */
+  onBodyChange?: (next: string) => void;
 }
 
 interface StripEntry {
   filename: string;
-  /** Path inside the markdown's directory (always `Images/{filename}`). */
+  /** Path inside the markdown's directory (`Images/{filename}` for the
+   *  primary set; the legacy folder name for union-read legacy images). */
   relativePath: string;
-  /** Full FS path, used to resolve a blob URL. */
+  /** Full FS path, used to resolve a blob URL and to delete. */
   fullPath: string;
+  /** Whether the image lives under the primary `Images/` folder (draggable +
+   *  sidecar-aware) or the legacy folder (view / delete only). */
+  source: "images" | "legacy";
   inDocument: boolean;
   sidecarCaption?: string;
 }
@@ -87,29 +103,44 @@ function imagesReferencedInMarkdown(markdown: string): Set<string> {
 export default function ImageStrip({
   content,
   basePath,
+  legacyPdfsDir,
   onJumpToImage,
   className,
   recordType = "experiment",
+  onBodyChange,
 }: ImageStripProps) {
   const [folderEntries, setFolderEntries] = useState<FolderImageEntry[]>([]);
+  const [legacyEntries, setLegacyEntries] = useState<string[]>([]);
   const [blobUrls, setBlobUrls] = useState<Map<string, string>>(new Map());
   const [popupFilename, setPopupFilename] = useState<string | null>(null);
   const [annotatingFilename, setAnnotatingFilename] = useState<string | null>(null);
+  const [viewingLegacy, setViewingLegacy] = useState<{ path: string; name: string } | null>(null);
 
   const referencedNames = useMemo(() => imagesReferencedInMarkdown(content), [content]);
 
   const refresh = useCallback(async () => {
-    if (!basePath) {
+    if (basePath) {
+      try {
+        setFolderEntries(await listImagesInFolder(basePath));
+      } catch {
+        setFolderEntries([]);
+      }
+    } else {
       setFolderEntries([]);
-      return;
     }
-    try {
-      const entries = await listImagesInFolder(basePath);
-      setFolderEntries(entries);
-    } catch {
-      setFolderEntries([]);
+    // UNION read of image files in the legacy `NotesPDFs/` / `ResultsPDFs/`
+    // folder so images attached through the retired Files panel still appear.
+    if (legacyPdfsDir) {
+      try {
+        const all = await fileService.listFiles(legacyPdfsDir);
+        setLegacyEntries(all.filter((name) => !name.startsWith(".") && hasImageExtension(name)));
+      } catch {
+        setLegacyEntries([]);
+      }
+    } else {
+      setLegacyEntries([]);
     }
-  }, [basePath]);
+  }, [basePath, legacyPdfsDir]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on deps change
@@ -120,14 +151,15 @@ export default function ImageStrip({
   // anywhere in the app (in-app upload, Telegram inbound, metadata popup,
   // trash drop-zone). We compare basePath so unrelated tasks don't re-list.
   useEffect(() => {
+    const matches = (b: string) => b === basePath || b === legacyPdfsDir;
     const unsubAttach = imageEvents.onAttached((ev) => {
-      if (ev.basePath === basePath) void refresh();
+      if (matches(ev.basePath)) void refresh();
     });
     const unsubMeta = imageEvents.onMetadataChanged((ev) => {
-      if (ev.basePath === basePath) void refresh();
+      if (matches(ev.basePath)) void refresh();
     });
     const unsubDelete = imageEvents.onDeleted((ev) => {
-      if (ev.basePath === basePath) void refresh();
+      if (matches(ev.basePath)) void refresh();
     });
     const onFocus = () => {
       void refresh();
@@ -139,23 +171,55 @@ export default function ImageStrip({
       unsubDelete();
       window.removeEventListener("focus", onFocus);
     };
-  }, [basePath, refresh]);
+  }, [basePath, legacyPdfsDir, refresh]);
 
   const entries: StripEntry[] = useMemo(() => {
-    const items: StripEntry[] = folderEntries.map((e) => ({
-      filename: e.name,
-      relativePath: `Images/${e.name}`,
-      fullPath: basePath ? `${basePath}/Images/${e.name}` : `Images/${e.name}`,
-      inDocument: referencedNames.has(e.name),
-      sidecarCaption: e.sidecar?.caption,
-    }));
+    const items: StripEntry[] = [
+      ...folderEntries.map((e): StripEntry => ({
+        filename: e.name,
+        relativePath: `Images/${e.name}`,
+        fullPath: basePath ? `${basePath}/Images/${e.name}` : `Images/${e.name}`,
+        source: "images",
+        inDocument: referencedNames.has(e.name),
+        sidecarCaption: e.sidecar?.caption,
+      })),
+      ...legacyEntries.map((name): StripEntry => ({
+        filename: name,
+        relativePath: name,
+        fullPath: legacyPdfsDir ? `${legacyPdfsDir}/${name}` : name,
+        source: "legacy",
+        // Legacy images aren't under `Images/`, so the reference probe (which
+        // only matches `Images/…`) never flags them as in-document.
+        inDocument: false,
+      })),
+    ];
     // Stable order: linked-only first (so the user immediately notices new
     // arrivals), then in-document, alphabetical within each group.
     return items.sort((a, b) => {
       if (a.inDocument !== b.inDocument) return a.inDocument ? 1 : -1;
       return a.filename.localeCompare(b.filename);
     });
-  }, [folderEntries, referencedNames, basePath]);
+  }, [folderEntries, legacyEntries, referencedNames, basePath, legacyPdfsDir]);
+
+  // Delete an image: primary `Images/` files go through the sidecar-aware
+  // helper; legacy `NotesPDFs/` files are a single bare delete. Either way we
+  // strip the inline `Images/{name}` ref from the body and broadcast.
+  const handleDelete = useCallback(
+    async (entry: StripEntry) => {
+      if (entry.source === "images" && basePath) {
+        await deleteImageFromBase(basePath, entry.filename);
+      } else {
+        await fileService.deleteFile(entry.fullPath);
+        blobUrlResolver.revokePath(entry.fullPath);
+        if (legacyPdfsDir) imageEvents.emitDeleted({ basePath: legacyPdfsDir, filename: entry.filename });
+      }
+      if (onBodyChange) {
+        onBodyChange(stripAttachmentReferences(content, entry.filename, "Images"));
+      }
+      void refresh();
+    },
+    [basePath, legacyPdfsDir, content, onBodyChange, refresh]
+  );
 
   // Resolve blob URLs for everything we're showing.
   useEffect(() => {
@@ -208,6 +272,7 @@ export default function ImageStrip({
         </span>
         {entries.map((entry) => {
           const url = blobUrls.get(entry.fullPath);
+          const draggable = entry.source === "images" && !!basePath;
           const tooltip = entry.sidecarCaption
             ? `${entry.sidecarCaption} — ${entry.filename}`
             : entry.filename;
@@ -218,37 +283,49 @@ export default function ImageStrip({
           };
           return (
             <div
-              key={entry.filename}
+              key={entry.fullPath}
               role="button"
               tabIndex={0}
-              draggable={!!basePath}
-              onDragStart={(e) => {
-                e.dataTransfer.setData(STRIP_DRAG_MIME, JSON.stringify(payload));
-                e.dataTransfer.setData(
-                  "text/plain",
-                  // Percent-encode the filename so a spaced name produces a
-                  // CommonMark-valid destination when the receiving editor
-                  // falls back to the text/plain payload (matches FileStrip).
-                  `![${entry.sidecarCaption ?? ""}](${encodeAttachmentRefPath("Images", entry.filename)})`
-                );
-                e.dataTransfer.effectAllowed = "copyMove";
-                const img = e.currentTarget.querySelector("img");
-                if (img) e.dataTransfer.setDragImage(img, 32, 32);
-                imageEvents.emitDragStart({
-                  basePath: basePath ?? "",
-                  filename: entry.filename,
-                  caption: entry.sidecarCaption,
-                });
+              draggable={draggable}
+              onDragStart={
+                draggable
+                  ? (e) => {
+                      e.dataTransfer.setData(STRIP_DRAG_MIME, JSON.stringify(payload));
+                      e.dataTransfer.setData(
+                        "text/plain",
+                        // Percent-encode the filename so a spaced name produces a
+                        // CommonMark-valid destination when the receiving editor
+                        // falls back to the text/plain payload (matches FileStrip).
+                        `![${entry.sidecarCaption ?? ""}](${encodeAttachmentRefPath("Images", entry.filename)})`
+                      );
+                      e.dataTransfer.effectAllowed = "copyMove";
+                      const img = e.currentTarget.querySelector("img");
+                      if (img) e.dataTransfer.setDragImage(img, 32, 32);
+                      imageEvents.emitDragStart({
+                        basePath: basePath ?? "",
+                        filename: entry.filename,
+                        caption: entry.sidecarCaption,
+                      });
+                    }
+                  : undefined
+              }
+              onDragEnd={draggable ? () => imageEvents.emitDragEnd() : undefined}
+              onClick={() => {
+                // Primary images open the rich metadata popup; legacy images
+                // (no sidecar, not under Images/) open the simple viewer.
+                if (entry.source === "images") setPopupFilename(entry.filename);
+                else setViewingLegacy({ path: entry.fullPath, name: entry.filename });
               }}
-              onDragEnd={() => imageEvents.emitDragEnd()}
-              onClick={() => setPopupFilename(entry.filename)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  setPopupFilename(entry.filename);
+                  if (entry.source === "images") setPopupFilename(entry.filename);
+                  else setViewingLegacy({ path: entry.fullPath, name: entry.filename });
                 }
               }}
-              className="group relative flex-shrink-0 w-16 h-16 rounded-md border border-gray-200 bg-white overflow-hidden hover:border-blue-400 hover:ring-2 hover:ring-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-grab active:cursor-grabbing"
+              className={`group relative flex-shrink-0 w-16 h-16 rounded-md border border-gray-200 bg-white overflow-hidden hover:border-blue-400 hover:ring-2 hover:ring-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                draggable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
+              }`}
               title={tooltip}
             >
               {url ? (
@@ -268,7 +345,7 @@ export default function ImageStrip({
                   aria-label="Linked but not in document"
                 />
               )}
-              {basePath && (
+              {entry.source === "images" && basePath && (
                 <Tooltip label="Annotate">
                   <button
                     type="button"
@@ -300,6 +377,32 @@ export default function ImageStrip({
                   </button>
                 </Tooltip>
               )}
+              {/* Per-tile delete (carries the markdown-ref strip). Legacy
+                  images, which can't reach the metadata popup's delete, rely
+                  on this affordance too. Placed top-right to clear the
+                  top-left Annotate button. */}
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label={`Delete ${entry.filename}`}
+                data-force-hover-controls-target
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (confirm(`Delete "${entry.filename}"?`)) void handleDelete(entry);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.stopPropagation();
+                    if (confirm(`Delete "${entry.filename}"?`)) void handleDelete(entry);
+                  }
+                }}
+                className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-0.5 text-white bg-black/50 hover:bg-red-600 rounded transition-all cursor-pointer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </span>
               <span className="absolute inset-x-0 bottom-0 px-1 py-0.5 text-[9px] text-white bg-black/60 truncate opacity-0 group-hover:opacity-100 transition-opacity" data-force-hover-controls-target>
                 {entry.filename}
               </span>
@@ -313,6 +416,18 @@ export default function ImageStrip({
           filename={popupFilename}
           inDocument={referencedNames.has(popupFilename)}
           onJump={onJumpToImage}
+          // Delete from the popup footer: sidecar-aware delete + markdown-ref
+          // strip, mirroring the per-tile delete. Only enabled on editing
+          // surfaces (where onBodyChange is wired) so read-only strips don't
+          // offer destructive controls.
+          onDelete={
+            onBodyChange
+              ? async () => {
+                  const target = entries.find((e) => e.filename === popupFilename);
+                  if (target) await handleDelete(target);
+                }
+              : undefined
+          }
           onClose={() => setPopupFilename(null)}
         />
       )}
@@ -322,6 +437,13 @@ export default function ImageStrip({
           filename={annotatingFilename}
           resolvedSrc={blobUrls.get(`${basePath}/Images/${annotatingFilename}`)}
           onClose={() => setAnnotatingFilename(null)}
+        />
+      )}
+      {viewingLegacy && (
+        <AttachmentViewerModal
+          path={viewingLegacy.path}
+          name={viewingLegacy.name}
+          onClose={() => setViewingLegacy(null)}
         />
       )}
     </div>

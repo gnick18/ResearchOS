@@ -2,8 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { filesApi } from "@/lib/local-api";
+import { fileService } from "@/lib/file-system/file-service";
 import { fileEvents } from "@/lib/attachments/file-events";
+import { stripAttachmentReferences } from "@/lib/attachments/strip-references";
 import { FileExtBadge } from "@/lib/utils/file-icons";
+import Tooltip from "./Tooltip";
+import AttachmentViewerModal from "./AttachmentViewerModal";
 
 /** MIME-style key for drag-and-drop. Defined here so the editor can pick it
  *  out without coupling. Mirrors `STRIP_DRAG_MIME` in ImageStrip. */
@@ -23,16 +27,72 @@ interface FileStripProps {
   /** Directory the markdown file lives in (e.g. `users/Grant/results/task-3`).
    *  We list `${basePath}/Files/`. */
   basePath?: string;
+  /** Legacy attachments directory (the retired Files panel wrote here as
+   *  `NotesPDFs/` / `ResultsPDFs/`). The unified strip reads non-image files
+   *  from here too (the UNION read) so nothing previously attached is
+   *  orphaned. New uploads never land here; this is read-only legacy. */
+  legacyPdfsDir?: string;
   className?: string;
   /** Context label used in empty-state copy. Defaults to "experiment". */
   recordType?: "experiment" | "note" | "method" | "list" | "purchase";
+  /** Strip the markdown ref(s) for a just-deleted file from the body. Only
+   *  wired on editing surfaces; absent on read-only strips. */
+  onBodyChange?: (next: string) => void;
 }
 
 interface StripEntry {
   filename: string;
-  /** Path inside the markdown's directory (always `Files/{filename}`). */
+  /** Path inside the markdown's directory (`Files/{filename}` for the
+   *  primary set; the legacy folder name for union-read legacy files). */
   relativePath: string;
+  /** Full FS path, used to view / delete the file. */
+  fullPath: string;
+  /** Whether this file lives in the primary `Files/` folder (draggable +
+   *  ref-strippable) or the legacy folder (view / delete only). */
+  source: "files" | "legacy";
   inDocument: boolean;
+}
+
+const isRenderableFile = (filename: string): boolean => {
+  const ext = filename.toLowerCase().split(".").pop() || "";
+  return ["pdf", "png", "jpg", "jpeg", "gif", "svg", "webp", "md", "txt"].includes(ext);
+};
+
+function getMimeType(filename: string): string {
+  const ext = filename.toLowerCase().split(".").pop() || "";
+  const mimeTypes: Record<string, string> = {
+    pdf: "application/pdf",
+    png: "image/png",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    gif: "image/gif",
+    svg: "image/svg+xml",
+    webp: "image/webp",
+  };
+  return mimeTypes[ext] || "application/octet-stream";
+}
+
+/** Stream a non-renderable file to the browser's download flow. */
+async function downloadFile(path: string, name: string): Promise<void> {
+  try {
+    const fileData = await filesApi.readFile(path);
+    const binaryString = atob(fileData.content);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    const blob = new Blob([bytes], { type: getMimeType(name) });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch {
+    alert("Failed to download file");
+  }
 }
 
 const MD_LINK_REGEX = /\[[^\]]*\]\(([^)\s]+)/g;
@@ -74,29 +134,53 @@ function getExtension(filename: string): string {
 export default function FileStrip({
   content,
   basePath,
+  legacyPdfsDir,
   className,
   recordType = "experiment",
+  onBodyChange,
 }: FileStripProps) {
   const [folderEntries, setFolderEntries] = useState<string[]>([]);
+  const [legacyEntries, setLegacyEntries] = useState<string[]>([]);
+  const [viewing, setViewing] = useState<{ path: string; name: string } | null>(null);
 
   const referencedNames = useMemo(() => filesReferencedInMarkdown(content), [content]);
 
   const refresh = useCallback(async () => {
-    if (!basePath) {
+    // Primary `Files/` folder — drag-to-insert + ref-strippable.
+    if (basePath) {
+      try {
+        const items = await filesApi.listDirectory(`${basePath}/Files`);
+        setFolderEntries(
+          items
+            .filter((item) => item.type === "file")
+            .map((item) => item.name)
+            .filter((name) => !IMAGE_EXTS.has(getExtension(name)))
+        );
+      } catch {
+        setFolderEntries([]);
+      }
+    } else {
       setFolderEntries([]);
-      return;
     }
-    try {
-      const items = await filesApi.listDirectory(`${basePath}/Files`);
-      const names = items
-        .filter((item) => item.type === "file")
-        .map((item) => item.name)
-        .filter((name) => !IMAGE_EXTS.has(getExtension(name)));
-      setFolderEntries(names);
-    } catch {
-      setFolderEntries([]);
+    // Legacy `NotesPDFs/` / `ResultsPDFs/` folder — UNION read so files
+    // attached through the retired Files panel still appear. View / delete
+    // only (no drag-to-insert: they don't live under `Files/`).
+    if (legacyPdfsDir) {
+      try {
+        const items = await filesApi.listDirectory(legacyPdfsDir);
+        setLegacyEntries(
+          items
+            .filter((item) => item.type === "file")
+            .map((item) => item.name)
+            .filter((name) => !IMAGE_EXTS.has(getExtension(name)))
+        );
+      } catch {
+        setLegacyEntries([]);
+      }
+    } else {
+      setLegacyEntries([]);
     }
-  }, [basePath]);
+  }, [basePath, legacyPdfsDir]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on deps change
@@ -111,29 +195,77 @@ export default function FileStrip({
     };
     window.addEventListener("focus", onFocus);
     const offAttached = fileEvents.onAttached((detail) => {
-      if (detail.basePath === basePath) void refresh();
+      if (detail.basePath === basePath || detail.basePath === legacyPdfsDir) void refresh();
     });
     const offDeleted = fileEvents.onDeleted((detail) => {
-      if (detail.basePath === basePath) void refresh();
+      if (detail.basePath === basePath || detail.basePath === legacyPdfsDir) void refresh();
     });
     return () => {
       window.removeEventListener("focus", onFocus);
       offAttached();
       offDeleted();
     };
-  }, [refresh, basePath]);
+  }, [refresh, basePath, legacyPdfsDir]);
 
   const entries: StripEntry[] = useMemo(() => {
-    const items: StripEntry[] = folderEntries.map((name) => ({
-      filename: name,
-      relativePath: `Files/${name}`,
-      inDocument: referencedNames.has(name),
-    }));
+    const items: StripEntry[] = [
+      ...folderEntries.map((name): StripEntry => ({
+        filename: name,
+        relativePath: `Files/${name}`,
+        fullPath: basePath ? `${basePath}/Files/${name}` : `Files/${name}`,
+        source: "files",
+        inDocument: referencedNames.has(name),
+      })),
+      ...legacyEntries.map((name): StripEntry => ({
+        filename: name,
+        relativePath: name,
+        fullPath: legacyPdfsDir ? `${legacyPdfsDir}/${name}` : name,
+        source: "legacy",
+        // Legacy files aren't under `Files/`, so the document-reference probe
+        // (which only matches `Files/…`) never flags them as in-document.
+        inDocument: false,
+      })),
+    ];
     return items.sort((a, b) => {
       if (a.inDocument !== b.inDocument) return a.inDocument ? 1 : -1;
       return a.filename.localeCompare(b.filename);
     });
-  }, [folderEntries, referencedNames]);
+  }, [folderEntries, legacyEntries, basePath, legacyPdfsDir, referencedNames]);
+
+  // Click a tile: renderable files open the inline viewer; everything else
+  // downloads. Mirrors the retired PdfAttachmentsPanel behavior.
+  const handleView = useCallback((entry: StripEntry) => {
+    if (isRenderableFile(entry.filename)) {
+      setViewing({ path: entry.fullPath, name: entry.filename });
+    } else {
+      void downloadFile(entry.fullPath, entry.filename);
+    }
+  }, []);
+
+  // Delete from disk, strip any inline `Files/{name}` refs from the body, and
+  // broadcast so sibling strips re-list. `Files/`-scoped strip only fires the
+  // ref-strip; legacy files have no `Files/` ref to remove.
+  const handleDelete = useCallback(
+    async (entry: StripEntry) => {
+      if (!confirm(`Delete "${entry.filename}"?`)) return;
+      try {
+        const ok = await fileService.deleteFile(entry.fullPath);
+        if (!ok) {
+          alert("Failed to delete file");
+          return;
+        }
+        if (entry.source === "files" && onBodyChange) {
+          onBodyChange(stripAttachmentReferences(content, entry.filename, "Files"));
+        }
+        const emitBase = entry.source === "files" ? basePath : legacyPdfsDir;
+        if (emitBase) fileEvents.emitDeleted({ basePath: emitBase, filename: entry.filename });
+        void refresh();
+      } catch {
+        alert("Failed to delete file");
+      }
+    },
+    [basePath, legacyPdfsDir, content, onBodyChange, refresh]
+  );
 
   const wrapperClass = `sticky bottom-0 z-10 ${className ?? ""}`.trim();
 
@@ -159,50 +291,84 @@ export default function FileStrip({
           )}
         </span>
         {entries.map((entry) => {
+          const draggable = entry.source === "files" && !!basePath;
           const payload: FileStripDragPayload = {
             filename: entry.filename,
             basePath: basePath ?? "",
           };
           const tooltip = entry.inDocument
-            ? entry.filename
-            : `${entry.filename} — not yet linked. Drag into the document to insert.`;
+            ? `${entry.filename} — click to view`
+            : draggable
+              ? `${entry.filename} — click to view, or drag into the document to insert.`
+              : `${entry.filename} — click to view.`;
           return (
             <div
-              key={entry.filename}
-              draggable={!!basePath}
-              onDragStart={(e) => {
-                e.dataTransfer.setData(FILE_STRIP_DRAG_MIME, JSON.stringify(payload));
-                e.dataTransfer.setData(
-                  "text/plain",
-                  // URL-encode just the filename so spaces (and other reserved
-                  // chars) produce a CommonMark-valid link destination when
-                  // the receiving editor falls back to the text/plain payload.
-                  `[${entry.filename}](Files/${encodeURIComponent(entry.filename)})`
-                );
-                e.dataTransfer.effectAllowed = "copyMove";
-                fileEvents.emitDragStart({
-                  basePath: basePath ?? "",
-                  filename: entry.filename,
-                });
-              }}
-              onDragEnd={() => fileEvents.emitDragEnd()}
-              className="group relative flex-shrink-0 w-28 h-16 rounded-md border border-gray-200 bg-white overflow-hidden hover:border-blue-400 hover:ring-2 hover:ring-blue-200 transition-all cursor-grab active:cursor-grabbing flex items-center gap-2 px-2"
+              key={entry.fullPath}
+              draggable={draggable}
+              onDragStart={
+                draggable
+                  ? (e) => {
+                      e.dataTransfer.setData(FILE_STRIP_DRAG_MIME, JSON.stringify(payload));
+                      e.dataTransfer.setData(
+                        "text/plain",
+                        // URL-encode just the filename so spaces (and other reserved
+                        // chars) produce a CommonMark-valid link destination when
+                        // the receiving editor falls back to the text/plain payload.
+                        `[${entry.filename}](Files/${encodeURIComponent(entry.filename)})`
+                      );
+                      e.dataTransfer.effectAllowed = "copyMove";
+                      fileEvents.emitDragStart({
+                        basePath: basePath ?? "",
+                        filename: entry.filename,
+                      });
+                    }
+                  : undefined
+              }
+              onDragEnd={draggable ? () => fileEvents.emitDragEnd() : undefined}
+              onClick={() => handleView(entry)}
+              className={`group relative flex-shrink-0 w-28 h-16 rounded-md border border-gray-200 bg-white overflow-hidden hover:border-blue-400 hover:ring-2 hover:ring-blue-200 transition-all flex items-center gap-2 px-2 ${
+                draggable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
+              }`}
               title={tooltip}
             >
               <FileExtBadge filename={entry.filename} />
               <span className="text-[10px] text-gray-700 truncate flex-1" title={entry.filename}>
                 {entry.filename}
               </span>
-              {!entry.inDocument && (
+              {!entry.inDocument && entry.source === "files" && (
                 <span
                   className="absolute top-1 right-1 w-2 h-2 rounded-full bg-blue-500 ring-2 ring-white"
                   aria-label="Linked but not in document"
                 />
               )}
+              <Tooltip label="Delete file" placement="top">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void handleDelete(entry);
+                  }}
+                  aria-label={`Delete ${entry.filename}`}
+                  data-force-hover-controls-target
+                  className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-all bg-white/80"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </Tooltip>
             </div>
           );
         })}
       </div>
+      {viewing && (
+        <AttachmentViewerModal
+          path={viewing.path}
+          name={viewing.name}
+          onClose={() => setViewing(null)}
+        />
+      )}
     </div>
   );
 }
