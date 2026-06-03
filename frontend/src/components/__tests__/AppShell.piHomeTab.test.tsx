@@ -150,37 +150,46 @@ function navHrefs(container: HTMLElement): string[] {
   return items;
 }
 
-function dashboardLabel(container: HTMLElement): string | null {
-  const el = container.querySelector('nav a[href="/"]');
-  return el ? (el.textContent ?? "").trim() : null;
+function labelForHref(container: HTMLElement, href: string): string | null {
+  const a = container.querySelector(`nav a[href="${href}"]`);
+  if (a) return (a.textContent ?? "").trim();
+  const btn = container.querySelector(
+    `nav button[data-tour-nav-item="${href}"]`,
+  );
+  return btn ? (btn.textContent ?? "").trim() : null;
 }
 
 afterEach(() => {
   currentAccountType = "member";
 });
 
-describe("AppShell — unified dashboard nav entry", () => {
-  it("lab_head: single '/' entry labeled 'Lab Overview'; no separate /lab-overview tab", () => {
+// Widget-framework teardown (2026-06-02): "/" no longer renders anything
+// (it is a pure redirect). A PI's dashboard entry is now "Lab Overview"
+// pointing STRAIGHT at /lab-overview; a non-PI has no dashboard entry at all
+// (Workbench is their landing). There is no generic "Home" entry any more.
+describe("AppShell — dashboard nav entry", () => {
+  it("lab_head: 'Lab Overview' entry pointing at /lab-overview; no '/' entry", () => {
     const { container } = renderShell({ accountType: "lab_head" });
     const hrefs = navHrefs(container);
-    expect(hrefs).toContain("/");
-    expect(hrefs).not.toContain("/lab-overview");
-    expect(dashboardLabel(container)).toBe("Lab Overview");
-    // Other non-PI-suppressed tabs still render.
+    expect(hrefs).toContain("/lab-overview");
+    expect(hrefs).not.toContain("/");
+    expect(labelForHref(container, "/lab-overview")).toBe("Lab Overview");
+    // Other tabs still render (incl. /purchases, no longer hidden for PIs).
     expect(hrefs).toContain("/workbench");
   });
 
-  it("member: single '/' entry labeled 'Home'", () => {
+  it("member: no dashboard entry (Workbench is the landing)", () => {
     const { container } = renderShell({ accountType: "member" });
     const hrefs = navHrefs(container);
-    expect(hrefs).toContain("/");
+    expect(hrefs).not.toContain("/");
     expect(hrefs).not.toContain("/lab-overview");
-    expect(dashboardLabel(container)).toBe("Home");
+    expect(hrefs).toContain("/workbench");
   });
 
-  it("accountType undefined (read in flight): '/' shown, label falls back to 'Home'", () => {
+  it("accountType undefined (read in flight): no dashboard entry yet (treated as non-PI)", () => {
     const { container } = renderShell({ accountType: undefined });
-    expect(navHrefs(container)).toContain("/");
-    expect(dashboardLabel(container)).toBe("Home");
+    const hrefs = navHrefs(container);
+    expect(hrefs).not.toContain("/");
+    expect(hrefs).not.toContain("/lab-overview");
   });
 });
