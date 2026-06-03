@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Tooltip from "./Tooltip";
 
 /**
@@ -77,13 +77,30 @@ const MARKDOWN_STYLE_GUIDE = [
 interface MarkdownShortcutsSidebarProps {
   /** Click-to-insert handler for a Style Guide entry. */
   onInsertSyntax?: (syntax: string) => void;
+  /** Focus-mode signal. In focus mode the rail collapses to the thin
+   *  expandable strip instead of vanishing, so the cheat sheet stays one
+   *  click away without cluttering the calm writing surface. Edge-triggered:
+   *  collapses on focus-enter, re-expands on focus-exit; a manual toggle
+   *  within a mode still sticks. */
+  focusActive?: boolean;
 }
 
 export default function MarkdownShortcutsSidebar({
   onInsertSyntax,
+  focusActive = false,
 }: MarkdownShortcutsSidebarProps) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(focusActive);
   const [tab, setTab] = useState<HelperTab>("shortcuts");
+
+  // Collapse to the thin strip when entering focus mode, re-expand on exit.
+  // Edge-triggered so a manual expand/collapse within a mode is preserved.
+  const prevFocusActive = useRef(focusActive);
+  useEffect(() => {
+    if (focusActive !== prevFocusActive.current) {
+      setCollapsed(focusActive);
+      prevFocusActive.current = focusActive;
+    }
+  }, [focusActive]);
 
   return (
     <div

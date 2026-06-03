@@ -2311,16 +2311,16 @@ export default function LiveMarkdownEditor({
             // Shortcuts / Style Guide rail is a fixed-width column on the LEFT
             // (it owns its own collapse state) and the editor fills the rest as
             // flex-1. `min-h-0` + `h-full` keep the editor scrolling inside its
-            // own column instead of bursting the flex row. The rail is hidden
-            // in focus mode to match the calm focus surface (the hybrid editor
-            // collapses its own rail on focus enter via forceHelperCollapsed);
-            // the keyboard shortcuts keep working there via the CM6 keymap.
+            // own column instead of bursting the flex row. In focus mode the
+            // rail collapses to the thin expandable strip (not hidden, per
+            // Grant 2026-06-03) so the cheat sheet stays one click away without
+            // disturbing the calm surface; the shortcuts keep working via the
+            // CM6 keymap.
             <div className="flex h-full min-h-0">
-              {!focusModeActive && (
-                <MarkdownShortcutsSidebar
-                  onInsertSyntax={(s) => insertRef.current?.(s)}
-                />
-              )}
+              <MarkdownShortcutsSidebar
+                onInsertSyntax={(s) => insertRef.current?.(s)}
+                focusActive={focusModeActive}
+              />
               <div
                 className="relative flex-1 flex flex-col min-h-0 h-full"
                 data-tour-target="inline-editor-surface"
