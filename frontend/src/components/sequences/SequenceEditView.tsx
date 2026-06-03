@@ -400,6 +400,30 @@ export default function SequenceEditView({
   // storing the primer's own 5'->3' sequence as a /note qualifier so a primer
   // with a non-annealing 5' tail round-trips into the .gb. Turning the Primers
   // layer on so the new primer is immediately visible on the map.
+  // Persist a primer as a primer_bind feature at its binding site. Shared by the
+  // PrimerDialog ("Add a custom primer") and the Primers-tab design/check panel,
+  // so every path that creates a primer uses the SAME persistence (it lands on
+  // the map + GenBank, with the 5'->3' sequence in a /note "primer <SEQ>" flag).
+  const addPrimerFeature = useCallback(
+    (name: string, primerSeq: string, site: { start: number; end: number; direction: 1 | -1 }) => {
+      editor.applyDocEdit((prev) =>
+        addFeature(prev, {
+          name: name || "primer",
+          type: "primer_bind",
+          strand: site.direction === -1 ? -1 : 1,
+          start: site.start,
+          end: site.end,
+          qualifiers: [
+            { key: "note", value: `primer ${primerSeq}` },
+            { key: "label", value: name || "primer" },
+          ],
+        }),
+      );
+      setView((v) => (v.showPrimers ? v : { ...v, showPrimers: true }));
+    },
+    [editor],
+  );
+
   const openPrimerDialog = useCallback(() => {
     const seedSeq = sel.hasRange ? doc.seq.slice(sel.lo, sel.hi) : "";
     setPrimerRequest({
@@ -407,25 +431,12 @@ export default function SequenceEditView({
       seedSeq,
       seedName: "",
       onSubmit: ({ name, primerSeq, site }) => {
-        editor.applyDocEdit((prev) =>
-          addFeature(prev, {
-            name: name || "primer",
-            type: "primer_bind",
-            strand: site.direction === -1 ? -1 : 1,
-            start: site.start,
-            end: site.end,
-            qualifiers: [
-              { key: "note", value: `primer ${primerSeq}` },
-              { key: "label", value: name || "primer" },
-            ],
-          }),
-        );
-        setView((v) => (v.showPrimers ? v : { ...v, showPrimers: true }));
+        addPrimerFeature(name, primerSeq, site);
         setPrimerRequest(null);
       },
       onCancel: () => setPrimerRequest(null),
     });
-  }, [doc.seq, sel, editor]);
+  }, [doc.seq, sel, addPrimerFeature]);
 
   // The topology toggle in the rail can force a circular plasmid to render as
   // linear; a genuinely linear molecule always renders linear.
@@ -1833,12 +1844,15 @@ export default function SequenceEditView({
           {viewMode === "primers" ? (
             <SequencePrimersPanel
               features={doc.features}
+              template={doc.seq}
+              selection={sel.hasRange ? { start: sel.lo, end: sel.hi } : null}
               onSelectPrimer={(index) => {
                 setViewMode("sequence");
                 selectFeature(index);
               }}
               selectedIndex={selectedFeatureIdx}
-              onDesignPrimer={openPrimerDialog}
+              onAddCustomPrimer={openPrimerDialog}
+              onAddPrimer={addPrimerFeature}
               onDeletePrimer={deleteFeatureAt}
               readOnly={readOnly}
             />

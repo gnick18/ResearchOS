@@ -1,21 +1,47 @@
 "use client";
 
-// seq nav bot — the PRIMERS tab panel. Primers persist as standard GenBank
-// primer_bind features (see the editor's `primers` memo), so this panel derives
-// its list directly from those features: name, binding position, strand, and the
-// primer's own 5'->3' sequence (stored as a /note "primer <SEQ>" qualifier).
+// primer panel bot — the PRIMERS tab. ONE calm panel, progressive disclosure,
+// APE "Find Primers" as the model (Benchling's wizard/Task-dropdown is the
+// anti-pattern). Three sections, no modal/wizard for the common case:
 //
-// It REUSES the existing primer biology (lib/sequences/primer.ts for GC/Tm) and
-// the existing PrimerDialog for design (opened via onDesignPrimer); it adds no
-// new persistence. Clicking a row selects/zooms the primer on the map; a per-row
-// delete removes the primer_bind feature. Inline SVG only (no emoji); icon-only
-// buttons are labelled; no em-dashes.
+//  - PRIMERS LIST: the primer_bind features already on the molecule (unchanged
+//    behaviour: click a row to zoom it, delete a row). Primers persist as
+//    standard primer_bind features so they carry to the map + GenBank.
+//  - DESIGN: with a region selected, one click ("Design primers") generates a
+//    short RANKED list of candidate forward/reverse oligos using Primer3's
+//    sensible defaults (length 18/20/27, Tm 57/60/63, %GC, 3' GC clamp). Each
+//    candidate shows length / Tm / %GC and small trust BADGES (green = fine,
+//    amber = worth a look). Per-row: add as a primer_bind feature (same persist
+//    path) or copy the oligo. Defaults are invisible; an "Advanced" disclosure
+//    (collapsed) holds the length/Tm windows, %GC range, salt/oligo conc, clamp.
+//  - CHECK: paste a primer (or pick an existing one) and see length / Tm / %GC /
+//    3' clamp + the trust checks (self-dimer, 3'-dimer, hairpin, poly-X) and
+//    where it binds the CURRENT sequence (with extra/unintended sites flagged).
+//
+// The biology is REUSED: lib/sequences/primer.ts (Tm = the SantaLucia model the
+// calculator uses, GC, findBindingSites) and lib/sequences/primer-design.ts
+// (the scan/scoring + the trust checks). These are APE-level first-pass filters,
+// NOT full Primer3 thermodynamics, and the UI says so. A "Check specificity"
+// seam is left for the later local-library + NCBI Primer-BLAST item.
+//
+// Inline SVG only (no emoji); icon-only buttons use the Tooltip component (no
+// native title=); no em-dashes.
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Tooltip from "@/components/Tooltip";
 import type { EditFeature } from "@/lib/sequences/edit-model";
-import { gcContent, predictTm } from "@/lib/sequences/primer";
+import { gcContent, predictTm, sanitizePrimer } from "@/lib/sequences/primer";
+import {
+  DEFAULT_DESIGN_PARAMS,
+  designPrimers,
+  analyzePrimer,
+  checkBinding,
+  type PrimerCandidate,
+  type PrimerDesignParams,
+  type PrimerCheck,
+} from "@/lib/sequences/primer-design";
 
+// --- inline icons -----------------------------------------------------------
 function IconPlus({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
@@ -33,6 +59,38 @@ function IconTrash({ className }: { className?: string }) {
     </svg>
   );
 }
+function IconCopy({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  );
+}
+function IconCheck({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M9 11l3 3L22 4" />
+      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+    </svg>
+  );
+}
+function IconChevron({ open, className }: { open: boolean; className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={`${className ?? ""} transition-transform ${open ? "rotate-90" : ""}`}
+      aria-hidden="true"
+    >
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
 
 /** Pull the primer's own 5'->3' sequence out of its /note "primer <SEQ>" flag. */
 function primerSeqOf(f: EditFeature): string {
@@ -42,27 +100,74 @@ function primerSeqOf(f: EditFeature): string {
   return m ? m[1].toUpperCase() : "";
 }
 
+/** A small trust badge: green when ok, amber when worth a look. */
+function CheckBadge({ check }: { check: PrimerCheck }) {
+  const ok = check.level === "ok";
+  return (
+    <Tooltip label={check.detail}>
+      <span
+        className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${
+          ok ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+        }`}
+      >
+        <span className={`h-1.5 w-1.5 rounded-full ${ok ? "bg-emerald-500" : "bg-amber-500"}`} />
+        {check.label}
+      </span>
+    </Tooltip>
+  );
+}
+
+/** A small stat (label over value), compact. */
+function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
+  return (
+    <div className="rounded-md bg-gray-50 px-2.5 py-1.5">
+      <div className="text-[10px] font-medium uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-sm font-semibold text-gray-800">{value}</div>
+      {hint ? <div className="text-[10px] text-gray-400">{hint}</div> : null}
+    </div>
+  );
+}
+
 export interface SequencePrimersPanelProps {
   features: EditFeature[];
-  /** Click a primer row => select/zoom its binding site. Receives the doc index. */
+  /** Full forward-strand template (for design + binding checks). */
+  template: string;
+  /** Current selection [start, end) (forward coords), or null. */
+  selection: { start: number; end: number } | null;
   onSelectPrimer: (index: number) => void;
   selectedIndex: number | null;
-  /** Open the existing PrimerDialog to design + add a primer. */
-  onDesignPrimer: () => void;
-  /** Delete the primer_bind feature at the given doc index. */
+  /** Open the PrimerDialog to add a custom (typed/pasted) primer with alignment. */
+  onAddCustomPrimer: () => void;
+  /** Persist a designed/checked primer as a primer_bind feature (shared path). */
+  onAddPrimer: (
+    name: string,
+    primerSeq: string,
+    site: { start: number; end: number; direction: 1 | -1 },
+  ) => void;
   onDeletePrimer: (index: number) => void;
   readOnly?: boolean;
 }
 
+type Mode = "list" | "design" | "check";
+
 export default function SequencePrimersPanel({
   features,
+  template,
+  selection,
   onSelectPrimer,
   selectedIndex,
-  onDesignPrimer,
+  onAddCustomPrimer,
+  onAddPrimer,
   onDeletePrimer,
   readOnly = false,
 }: SequencePrimersPanelProps) {
-  // Derive the primer rows, carrying the ORIGINAL doc index for callbacks.
+  const [mode, setMode] = useState<Mode>("list");
+  const [params, setParams] = useState<PrimerDesignParams>(DEFAULT_DESIGN_PARAMS);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [checkRaw, setCheckRaw] = useState("");
+
+  // Existing primers on the molecule (carry the original doc index).
   const primers = useMemo(
     () =>
       features
@@ -71,92 +176,589 @@ export default function SequencePrimersPanel({
     [features],
   );
 
+  const hasSelection = !!selection && selection.end > selection.start;
+  const selLen = hasSelection ? selection!.end - selection!.start : 0;
+
+  // DESIGN: generate ranked candidates for the current selection.
+  const design = useMemo(() => {
+    if (mode !== "design" || !hasSelection || !selection) return null;
+    return designPrimers(template, selection.start, selection.end, params, { limit: 5 });
+  }, [mode, hasSelection, template, selection, params]);
+
+  // CHECK: the pasted/picked primer, its analysis + binding sites.
+  const checkPrimer = useMemo(() => sanitizePrimer(checkRaw), [checkRaw]);
+  const checkAnalysis = useMemo(
+    () => (checkPrimer.length > 0 ? analyzePrimer(checkPrimer, params) : null),
+    [checkPrimer, params],
+  );
+  const checkBindingReport = useMemo(
+    () => (checkPrimer.length > 0 ? checkBinding(checkPrimer, template) : null),
+    [checkPrimer, template],
+  );
+
+  // Clear the "copied" flash after a beat.
+  useEffect(() => {
+    if (!copied) return;
+    const t = setTimeout(() => setCopied(null), 1200);
+    return () => clearTimeout(t);
+  }, [copied]);
+
+  const copy = async (seq: string) => {
+    try {
+      await navigator.clipboard.writeText(seq);
+      setCopied(seq);
+    } catch {
+      // clipboard may be blocked; the readout already shows the sequence.
+    }
+  };
+
+  // Add a designed candidate as a primer_bind feature (shared persist path).
+  const addCandidate = (c: PrimerCandidate, idx: number) => {
+    const name = `${c.direction === 1 ? "fwd" : "rev"}_${idx + 1}`;
+    onAddPrimer(name, c.primer, { start: c.start, end: c.end, direction: c.direction });
+  };
+
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-white">
+      {/* Header + mode switch */}
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2">
-        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-          Primers
-        </span>
-        {!readOnly ? (
-          <Tooltip label="Design a primer (Tm, GC, binding site, alignment)">
+        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Primers</span>
+        <div className="inline-flex rounded-md bg-gray-100 p-0.5 text-[11px] font-medium">
+          {(
+            [
+              ["list", "List"],
+              ["design", "Design"],
+              ["check", "Check"],
+            ] as [Mode, string][]
+          ).map(([m, label]) => (
             <button
+              key={m}
               type="button"
-              onClick={onDesignPrimer}
-              className="inline-flex items-center gap-1 rounded-md bg-sky-600 px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-sky-700"
+              onClick={() => setMode(m)}
+              aria-pressed={mode === m}
+              className={`rounded px-2.5 py-1 transition-colors ${
+                mode === m ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"
+              }`}
             >
-              <IconPlus className="h-3.5 w-3.5" />
-              Design primer
+              {label}
             </button>
-          </Tooltip>
-        ) : null}
+          ))}
+        </div>
       </div>
 
-      {primers.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-          <p className="text-sm text-gray-500">No primers yet.</p>
-          <p className="mt-1 text-xs text-gray-400">
-            {readOnly
-              ? "Primers added to this sequence will appear here."
-              : "Design a primer to add it to the map and this list."}
-          </p>
+      {/* Trust banner: our Tm matches Primer3 / Primer-BLAST. */}
+      {mode !== "list" ? (
+        <div className="border-b border-gray-100 bg-sky-50/60 px-4 py-1.5 text-[11px] text-sky-700">
+          Tm uses the SantaLucia 1998 nearest-neighbor model, the same one Primer3 and
+          Primer-BLAST use, so these numbers match those tools. Dimer, hairpin and poly-X
+          checks are a first-pass filter (APE level), not full Primer3 thermodynamics.
         </div>
-      ) : (
-        <ul className="min-h-0 flex-1 overflow-y-auto py-1">
-          {primers.map(({ f, index }) => {
-            const seq = primerSeqOf(f);
-            const len = seq.length || f.end - f.start;
-            const gc = seq ? Math.round(gcContent(seq)) : null;
-            const tm = seq ? Math.round(predictTm(seq)) : null;
-            const selected = selectedIndex === index;
-            return (
-              <li key={`${f.name}-${f.start}-${index}`}>
-                <div
-                  className={`group flex items-center gap-2 px-3 py-1.5 ${
-                    selected ? "bg-sky-50" : "hover:bg-gray-50"
-                  }`}
-                >
+      ) : null}
+
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {/* ===================== LIST ===================== */}
+        {mode === "list" ? (
+          <div className="flex h-full flex-col">
+            {!readOnly ? (
+              <div className="flex items-center gap-2 px-4 py-2">
+                <Tooltip label="Generate candidate primers for the selected region">
                   <button
                     type="button"
-                    onClick={() => onSelectPrimer(index)}
-                    className="flex min-w-0 flex-1 flex-col items-start text-left"
+                    onClick={() => setMode("design")}
+                    className="inline-flex items-center gap-1 rounded-md bg-sky-600 px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-sky-700"
                   >
-                    <span className="flex items-center gap-1.5">
-                      <span className="truncate text-sm font-medium text-gray-800">
-                        {f.name || "primer"}
-                      </span>
-                      <span className="rounded bg-gray-100 px-1 text-[10px] font-medium text-gray-500">
-                        {f.strand === -1 ? "reverse" : "forward"}
-                      </span>
-                    </span>
-                    <span className="font-mono text-[11px] text-gray-400">
-                      {(f.start + 1).toLocaleString()} .. {f.end.toLocaleString()} · {len} nt
-                      {gc !== null ? ` · ${gc}% GC` : ""}
-                      {tm !== null ? ` · Tm ${tm} C` : ""}
-                    </span>
-                    {seq ? (
-                      <span className="truncate font-mono text-[11px] text-gray-500">
-                        {`5'-${seq}-3'`}
-                      </span>
-                    ) : null}
+                    <IconPlus className="h-3.5 w-3.5" />
+                    Design primers
                   </button>
-                  {!readOnly ? (
-                    <Tooltip label="Delete primer">
+                </Tooltip>
+                <Tooltip label="Add a primer you type or paste (with alignment)">
+                  <button
+                    type="button"
+                    onClick={onAddCustomPrimer}
+                    className="rounded-md border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                  >
+                    Add a primer
+                  </button>
+                </Tooltip>
+              </div>
+            ) : null}
+
+            {primers.length === 0 ? (
+              <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+                <p className="text-sm text-gray-500">No primers yet.</p>
+                <p className="mt-1 text-xs text-gray-400">
+                  {readOnly
+                    ? "Primers added to this sequence will appear here."
+                    : "Select a region and Design primers, or add one you already have."}
+                </p>
+              </div>
+            ) : (
+              <ul className="min-h-0 flex-1 overflow-y-auto py-1">
+                {primers.map(({ f, index }) => {
+                  const seq = primerSeqOf(f);
+                  const len = seq.length || f.end - f.start;
+                  const gc = seq ? Math.round(gcContent(seq)) : null;
+                  const tm = seq ? Math.round(predictTm(seq)) : null;
+                  const selected = selectedIndex === index;
+                  return (
+                    <li key={`${f.name}-${f.start}-${index}`}>
+                      <div
+                        className={`group flex items-center gap-2 px-3 py-1.5 ${
+                          selected ? "bg-sky-50" : "hover:bg-gray-50"
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => onSelectPrimer(index)}
+                          className="flex min-w-0 flex-1 flex-col items-start text-left"
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <span className="truncate text-sm font-medium text-gray-800">
+                              {f.name || "primer"}
+                            </span>
+                            <span className="rounded bg-gray-100 px-1 text-[10px] font-medium text-gray-500">
+                              {f.strand === -1 ? "reverse" : "forward"}
+                            </span>
+                          </span>
+                          <span className="font-mono text-[11px] text-gray-400">
+                            {(f.start + 1).toLocaleString()} .. {f.end.toLocaleString()} · {len} nt
+                            {gc !== null ? ` · ${gc}% GC` : ""}
+                            {tm !== null ? ` · Tm ${tm} C` : ""}
+                          </span>
+                          {seq ? (
+                            <span className="truncate font-mono text-[11px] text-gray-500">
+                              {`5'-${seq}-3'`}
+                            </span>
+                          ) : null}
+                        </button>
+                        {seq ? (
+                          <Tooltip label="Check this primer (Tm, dimers, hairpin, binding)">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCheckRaw(seq);
+                                setMode("check");
+                              }}
+                              aria-label={`Check primer ${f.name}`}
+                              className="rounded p-1 text-gray-300 opacity-0 transition-opacity hover:bg-gray-100 hover:text-sky-600 group-hover:opacity-100"
+                            >
+                              <IconCheck className="h-3.5 w-3.5" />
+                            </button>
+                          </Tooltip>
+                        ) : null}
+                        {!readOnly ? (
+                          <Tooltip label="Delete primer">
+                            <button
+                              type="button"
+                              onClick={() => onDeletePrimer(index)}
+                              aria-label={`Delete primer ${f.name}`}
+                              className="rounded p-1 text-gray-300 opacity-0 transition-opacity hover:bg-gray-100 hover:text-red-500 group-hover:opacity-100"
+                            >
+                              <IconTrash className="h-3.5 w-3.5" />
+                            </button>
+                          </Tooltip>
+                        ) : null}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        ) : null}
+
+        {/* ===================== DESIGN ===================== */}
+        {mode === "design" ? (
+          <div className="space-y-3 px-4 py-3">
+            {!hasSelection || !selection ? (
+              <div className="rounded-md border border-dashed border-gray-200 bg-gray-50 px-3 py-4 text-center text-sm text-gray-500">
+                Select a region in the Sequence view, then design primers for it.
+                <div className="mt-1 text-xs text-gray-400">
+                  Candidates use Primer3 defaults (length 18/20/27, Tm 57/60/63 C).
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <span>
+                    Region {(selection.start + 1).toLocaleString()}..
+                    {selection.end.toLocaleString()}{" "}
+                    <span className="text-gray-400">({selLen.toLocaleString()} bp)</span>
+                  </span>
+                  <span className="text-gray-400">ranked best first</span>
+                </div>
+
+                {design && design.forward.length === 0 && design.reverse.length === 0 ? (
+                  <div className="rounded-md border border-dashed border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-700">
+                    No candidate met the windows in this region. Widen the length/Tm/%GC
+                    windows under Advanced, or pick a longer region.
+                  </div>
+                ) : null}
+
+                {design ? (
+                  <>
+                    <CandidateList
+                      title="Forward"
+                      candidates={design.forward}
+                      readOnly={readOnly}
+                      copied={copied}
+                      onCopy={copy}
+                      onAdd={addCandidate}
+                    />
+                    <CandidateList
+                      title="Reverse"
+                      candidates={design.reverse}
+                      readOnly={readOnly}
+                      copied={copied}
+                      onCopy={copy}
+                      onAdd={addCandidate}
+                    />
+                  </>
+                ) : null}
+              </>
+            )}
+
+            {/* Advanced (collapsed by default) */}
+            <AdvancedPanel
+              open={advancedOpen}
+              onToggle={() => setAdvancedOpen((o) => !o)}
+              params={params}
+              onChange={setParams}
+              onReset={() => setParams(DEFAULT_DESIGN_PARAMS)}
+            />
+          </div>
+        ) : null}
+
+        {/* ===================== CHECK ===================== */}
+        {mode === "check" ? (
+          <div className="space-y-3 px-4 py-3">
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-gray-500">
+                Primer sequence (5&apos; to 3&apos;)
+              </span>
+              <textarea
+                value={checkRaw}
+                onChange={(e) => setCheckRaw(sanitizePrimer(e.target.value))}
+                rows={2}
+                placeholder="Paste a primer, or pick one from the List tab"
+                spellCheck={false}
+                className="w-full resize-y rounded-md border border-gray-200 px-2.5 py-2 font-mono text-sm tracking-wide text-gray-800 focus:border-sky-400 focus:outline-none"
+              />
+            </label>
+
+            {checkAnalysis && checkBindingReport ? (
+              <>
+                <div className="grid grid-cols-3 gap-2">
+                  <Stat label="Length" value={`${checkAnalysis.length}-mer`} />
+                  <Stat label="GC" value={`${checkAnalysis.gc.toFixed(1)}%`} />
+                  <Stat label="Tm" value={`${checkAnalysis.tm.toFixed(1)} °C`} hint="SantaLucia" />
+                </div>
+
+                <div>
+                  <span className="mb-1 block text-xs font-medium text-gray-500">Trust checks</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {checkAnalysis.checks.map((c) => (
+                      <CheckBadge key={c.label} check={c} />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Binding on the current sequence */}
+                <div>
+                  <span className="mb-1 block text-xs font-medium text-gray-500">
+                    Binds this sequence
+                  </span>
+                  {checkBindingReport.sites.length > 0 ? (
+                    <div className="space-y-1">
+                      {checkBindingReport.sites.map((s, i) => (
+                        <div
+                          key={`${s.start}-${s.end}-${s.direction}`}
+                          className={`rounded-md px-2.5 py-1.5 text-xs ${
+                            i === 0 ? "bg-gray-50 text-gray-700" : "bg-amber-50 text-amber-700"
+                          }`}
+                        >
+                          <span className="font-medium">
+                            {s.direction === 1 ? "Forward" : "Reverse"} strand
+                          </span>
+                          {", "}
+                          {(s.start + 1).toLocaleString()}..{s.end.toLocaleString()}
+                          {", "}
+                          {s.annealedLength} of {checkAnalysis.length} bp anneal
+                          {s.fullMatch ? "" : " (3'-anchored)"}
+                          {i > 0 ? " — extra site, may be unintended" : ""}
+                        </div>
+                      ))}
+                      {checkBindingReport.hasExtraSites ? (
+                        <p className="text-[11px] text-amber-600">
+                          More than one binding site on this sequence. Extra sites are flagged
+                          amber.
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="rounded-md border border-dashed border-gray-200 px-2.5 py-2 text-[11px] text-gray-400">
+                      No binding site found on this sequence.
+                    </p>
+                  )}
+                </div>
+
+                {/* Add + copy + specificity seam */}
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  {!readOnly && checkBindingReport.sites.length > 0 ? (
+                    <Tooltip label="Add this primer as a primer_bind feature at its best binding site">
                       <button
                         type="button"
-                        onClick={() => onDeletePrimer(index)}
-                        aria-label={`Delete primer ${f.name}`}
-                        className="rounded p-1 text-gray-300 opacity-0 transition-opacity hover:bg-gray-100 hover:text-red-500 group-hover:opacity-100"
+                        onClick={() => {
+                          const s = checkBindingReport.sites[0];
+                          onAddPrimer("primer", checkPrimer, {
+                            start: s.start,
+                            end: s.end,
+                            direction: s.direction,
+                          });
+                        }}
+                        className="inline-flex items-center gap-1 rounded-md bg-sky-600 px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-sky-700"
                       >
-                        <IconTrash className="h-3.5 w-3.5" />
+                        <IconPlus className="h-3.5 w-3.5" />
+                        Add to sequence
                       </button>
                     </Tooltip>
                   ) : null}
+                  <Tooltip label="Copy the oligo">
+                    <button
+                      type="button"
+                      onClick={() => copy(checkPrimer)}
+                      className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                    >
+                      <IconCopy className="h-3.5 w-3.5" />
+                      {copied === checkPrimer ? "Copied" : "Copy"}
+                    </button>
+                  </Tooltip>
+                  <Tooltip label="Genome-wide specificity (local-library + NCBI Primer-BLAST) is coming next.">
+                    <button
+                      type="button"
+                      disabled
+                      className="inline-flex cursor-not-allowed items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-300"
+                    >
+                      Check specificity (soon)
+                    </button>
+                  </Tooltip>
                 </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+              </>
+            ) : (
+              <p className="rounded-md border border-dashed border-gray-200 px-2.5 py-3 text-center text-[11px] text-gray-400">
+                Paste a primer to see its Tm, GC, trust checks and binding sites.
+              </p>
+            )}
+
+            <AdvancedPanel
+              open={advancedOpen}
+              onToggle={() => setAdvancedOpen((o) => !o)}
+              params={params}
+              onChange={setParams}
+              onReset={() => setParams(DEFAULT_DESIGN_PARAMS)}
+            />
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+// --- candidate list (DESIGN rows) -------------------------------------------
+function CandidateList({
+  title,
+  candidates,
+  readOnly,
+  copied,
+  onCopy,
+  onAdd,
+}: {
+  title: string;
+  candidates: PrimerCandidate[];
+  readOnly: boolean;
+  copied: string | null;
+  onCopy: (seq: string) => void;
+  onAdd: (c: PrimerCandidate, idx: number) => void;
+}) {
+  if (candidates.length === 0) return null;
+  return (
+    <div>
+      <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+        {title}
+      </div>
+      <ul className="space-y-1.5">
+        {candidates.map((c, i) => (
+          <li key={`${c.primer}-${c.start}`} className="rounded-md border border-gray-100 px-2.5 py-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="break-all font-mono text-[12px] text-gray-800">
+                5&apos;-{c.primer}-3&apos;
+              </span>
+              <div className="flex shrink-0 items-center gap-1">
+                <Tooltip label="Copy the oligo">
+                  <button
+                    type="button"
+                    onClick={() => onCopy(c.primer)}
+                    aria-label="Copy oligo"
+                    className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                  >
+                    <IconCopy className="h-3.5 w-3.5" />
+                  </button>
+                </Tooltip>
+                {!readOnly ? (
+                  <Tooltip label="Add as a primer_bind feature (lands on the map + GenBank)">
+                    <button
+                      type="button"
+                      onClick={() => onAdd(c, i)}
+                      aria-label="Add primer"
+                      className="rounded p-1 text-sky-500 transition-colors hover:bg-sky-50 hover:text-sky-700"
+                    >
+                      <IconPlus className="h-3.5 w-3.5" />
+                    </button>
+                  </Tooltip>
+                ) : null}
+              </div>
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500">
+              <span>
+                {(c.start + 1).toLocaleString()}..{c.end.toLocaleString()}
+              </span>
+              <span>{c.length} nt</span>
+              <span>Tm {c.tm.toFixed(1)} °C</span>
+              <span>{c.gc.toFixed(0)}% GC</span>
+              {copied === c.primer ? <span className="text-emerald-600">copied</span> : null}
+            </div>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {c.analysis.checks.map((ck) => (
+                <CheckBadge key={ck.label} check={ck} />
+              ))}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// --- Advanced disclosure (collapsed by default) -----------------------------
+function NumberField({
+  label,
+  value,
+  onChange,
+  step = 1,
+}: {
+  label: string;
+  value: number;
+  onChange: (n: number) => void;
+  step?: number;
+}) {
+  return (
+    <label className="flex flex-col gap-0.5">
+      <span className="text-[10px] font-medium uppercase tracking-wide text-gray-400">{label}</span>
+      <input
+        type="number"
+        value={value}
+        step={step}
+        onChange={(e) => {
+          const n = Number(e.target.value);
+          if (!Number.isNaN(n)) onChange(n);
+        }}
+        className="w-full rounded-md border border-gray-200 px-2 py-1 text-sm text-gray-800 focus:border-sky-400 focus:outline-none"
+      />
+    </label>
+  );
+}
+
+function AdvancedPanel({
+  open,
+  onToggle,
+  params,
+  onChange,
+  onReset,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  params: PrimerDesignParams;
+  onChange: (p: PrimerDesignParams) => void;
+  onReset: () => void;
+}) {
+  const set = (patch: Partial<PrimerDesignParams>) => onChange({ ...params, ...patch });
+  return (
+    <div className="rounded-md border border-gray-100">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+      >
+        <span className="inline-flex items-center gap-1.5">
+          <IconChevron open={open} className="h-3.5 w-3.5" />
+          Advanced
+        </span>
+        <span className="text-[10px] font-normal text-gray-400">defaults match Primer3</span>
+      </button>
+      {open ? (
+        <div className="space-y-3 border-t border-gray-100 px-3 py-3">
+          <div>
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+              Length (bp)
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <NumberField label="min" value={params.lengthMin} onChange={(n) => set({ lengthMin: n })} />
+              <NumberField label="opt" value={params.lengthOpt} onChange={(n) => set({ lengthOpt: n })} />
+              <NumberField label="max" value={params.lengthMax} onChange={(n) => set({ lengthMax: n })} />
+            </div>
+          </div>
+          <div>
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+              Tm (°C)
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <NumberField label="min" value={params.tmMin} onChange={(n) => set({ tmMin: n })} />
+              <NumberField label="opt" value={params.tmOpt} onChange={(n) => set({ tmOpt: n })} />
+              <NumberField label="max" value={params.tmMax} onChange={(n) => set({ tmMax: n })} />
+            </div>
+          </div>
+          <div>
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+              %GC range
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <NumberField label="min" value={params.gcMin} onChange={(n) => set({ gcMin: n })} />
+              <NumberField label="max" value={params.gcMax} onChange={(n) => set({ gcMax: n })} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <NumberField
+              label="Na+ (mM)"
+              value={params.naMillimolar}
+              onChange={(n) => set({ naMillimolar: n })}
+            />
+            <NumberField
+              label="Oligo (nM)"
+              value={params.oligoNanomolar}
+              onChange={(n) => set({ oligoNanomolar: n })}
+            />
+          </div>
+          <label className="flex items-center gap-2 text-xs text-gray-600">
+            <input
+              type="checkbox"
+              checked={params.requireGcClamp}
+              onChange={(e) => set({ requireGcClamp: e.target.checked })}
+              className="h-3.5 w-3.5 rounded border-gray-300 text-sky-600 focus:ring-sky-400"
+            />
+            Require a 3&apos; GC clamp
+          </label>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={onReset}
+              className="rounded-md px-2.5 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100"
+            >
+              Reset to defaults
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
