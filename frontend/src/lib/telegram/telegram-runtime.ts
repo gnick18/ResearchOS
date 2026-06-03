@@ -5,7 +5,9 @@
  */
 
 export type PollingHealth =
-  | "idle"        // not running (no pairing, or another tab holds the lock)
+  | "idle"        // not running (no pairing)
+  | "standby"     // paired, but another live tab holds the poll lock — this
+                  //   tab is a quiet follower (no fighting over the cursor)
   | "ok"          // last poll succeeded
   | "retrying"    // transient errors, backing off
   | "auth_error"  // 401 from Telegram — token revoked, user must re-pair
@@ -28,5 +30,23 @@ export function subscribePollingHealth(fn: (h: PollingHealth) => void): () => vo
   listeners.add(fn);
   return () => {
     listeners.delete(fn);
+  };
+}
+
+// --- "Use this tab" takeover request ---------------------------------------
+// The standby badge lets the user promote THIS tab to the active poller. The
+// request is a tab-local signal: the polling hook (same document) subscribes
+// and force-claims the cross-tab lock. Kept as a typed module emitter (not a
+// window CustomEvent) so it stays unit-testable and import-traceable.
+const takeoverListeners = new Set<() => void>();
+
+export function requestTakeover(): void {
+  for (const fn of takeoverListeners) fn();
+}
+
+export function subscribeTakeoverRequests(fn: () => void): () => void {
+  takeoverListeners.add(fn);
+  return () => {
+    takeoverListeners.delete(fn);
   };
 }

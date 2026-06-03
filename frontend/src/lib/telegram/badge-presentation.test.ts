@@ -62,6 +62,34 @@ describe("resolveBadgePresentation", () => {
     expect(p.label).toBe("re-pair needed");
   });
 
+  it("paired + standby → calm neutral gray, standby tone, no glow, no amber/red", () => {
+    // Multiple tabs are no longer a problem to warn about: one stable leader
+    // polls and the image lands in shared local data. So standby is a neutral
+    // informational state, NOT an amber warning and NOT the emerald live look.
+    const p = resolveBadgePresentation({
+      paired: true,
+      health: "standby",
+      isStale: false,
+    });
+    expect(p.dot).toBe("bg-gray-400");
+    expect(p.tone).toBe("standby");
+    expect(p.glow).toBe(false);
+    expect(p.label).toBe("another tab");
+    expect(p.dot).not.toMatch(/amber|red|emerald/);
+  });
+
+  it("paired + standby ignores the stale overlay (stale only modifies ok)", () => {
+    // A standby tab is not the active poller, so the stale cursor signal is
+    // irrelevant to it — it must stay the calm gray standby presentation.
+    const p = resolveBadgePresentation({
+      paired: true,
+      health: "standby",
+      isStale: true,
+    });
+    expect(p.tone).toBe("standby");
+    expect(p.dot).toBe("bg-gray-400");
+  });
+
   it("unpaired → idle, regardless of health or stale signal", () => {
     const p = resolveBadgePresentation({
       paired: false,

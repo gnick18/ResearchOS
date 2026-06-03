@@ -11,14 +11,20 @@
  * `ok` steady-state but the staleness signal fires, swap the emerald
  * breathing-glow dot for a flat amber dot. Yellow (not red) because the
  * polling didn't fail — the cursor just drifted and one inbound message
- * refreshes it. Other health states (`retrying`, `auth_error`,
+ * refreshes it. Other health states (`standby`, `retrying`, `auth_error`,
  * `conflict`, `idle`) take precedence over the stale overlay: those
  * carry more specific recovery semantics.
+ *
+ * Standby is the calm "another open tab is the active poller" state. Multiple
+ * tabs are no longer a problem to warn about (one stable leader polls and the
+ * inbound image lands in the shared local data every tab reads), so standby is
+ * a neutral gray, not an amber warning — purely informational, no action
+ * required. The user can click "Use this tab" in the badge to take over.
  */
 
 import type { PollingHealth } from "./telegram-runtime";
 
-export type BadgeTone = "ok" | "warn" | "error" | "idle";
+export type BadgeTone = "ok" | "warn" | "error" | "idle" | "standby";
 
 export interface BadgePresentation {
   dot: string;
@@ -32,6 +38,14 @@ export interface BadgePresentation {
 
 const HEALTH_PRESENTATION: Record<PollingHealth, BadgePresentation> = {
   ok: { dot: "bg-emerald-500", tone: "ok", glow: true },
+  standby: {
+    // Neutral, not a warning: another open tab is handling Telegram and the
+    // result lands in shared local data anyway, so there is nothing to fix.
+    dot: "bg-gray-400",
+    label: "another tab",
+    tone: "standby",
+    glow: false,
+  },
   retrying: {
     dot: "bg-amber-400 animate-pulse",
     label: "retrying",
@@ -39,8 +53,11 @@ const HEALTH_PRESENTATION: Record<PollingHealth, BadgePresentation> = {
     glow: false,
   },
   conflict: {
+    // A 409 now means a genuinely separate client (another browser profile or
+    // device), since our own tabs coordinate via the standby lock and never
+    // double-poll. Brief overlaps during a leader handoff also self-heal.
     dot: "bg-amber-400",
-    label: "another tab is polling",
+    label: "another client is using this bot",
     tone: "warn",
     glow: false,
   },

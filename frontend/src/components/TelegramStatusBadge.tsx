@@ -6,6 +6,7 @@ import { readPairing, type TelegramPairing } from "@/lib/telegram/telegram-store
 import { useTelegramPolling } from "@/lib/telegram/use-telegram-polling";
 import {
   getPollingHealth,
+  requestTakeover,
   subscribePollingHealth,
   type PollingHealth,
 } from "@/lib/telegram/telegram-runtime";
@@ -25,6 +26,14 @@ import Tooltip from "./Tooltip";
 // banner; the badge's emerald→amber flip is now the sole visual signal.
 const STALE_TOOLTIP_LABEL =
   "Send a message in your Telegram app to refresh the stale connection.";
+
+// Copy shown on hover when another open tab is the active poller. Calm and
+// reassuring on purpose: with one stable leader tab, multiple tabs just work
+// (the inbound image lands in your shared local data either way), so there is
+// nothing to close and nothing to fix. The adjacent "Use this tab" button is
+// the only action, for when the user wants THIS tab to do the polling.
+const STANDBY_TOOLTIP_LABEL =
+  "Telegram is running in another open tab. This tab is on standby — your messages still come through, so there is nothing to close. Click \"Use this tab\" to handle them here instead.";
 
 export default function TelegramStatusBadge() {
   const { currentUser } = useCurrentUser();
@@ -76,14 +85,17 @@ export default function TelegramStatusBadge() {
     health,
     isStale: staleSignal.isStale,
   });
+  const isStandby = paired && presentation.tone === "standby";
   const toneClass =
     presentation.tone === "error"
       ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
       : presentation.tone === "warn"
         ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
-        : paired
-          ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-          : "border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100";
+        : presentation.tone === "standby"
+          ? "border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100"
+          : paired
+            ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+            : "border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100";
 
   const badgeButton = (
     <button
@@ -122,7 +134,22 @@ export default function TelegramStatusBadge() {
 
   return (
     <>
-      {staleSignal.isStale ? (
+      {isStandby ? (
+        // Another open tab is the active poller. Calm gray badge + an
+        // explanatory tooltip + a one-click "Use this tab" handoff. No
+        // "close your tabs" alarm: the leader fix means multiple tabs just
+        // work, so this is purely informational.
+        <span className="flex items-center gap-1.5">
+          <Tooltip label={STANDBY_TOOLTIP_LABEL}>{badgeButton}</Tooltip>
+          <button
+            type="button"
+            onClick={() => requestTakeover()}
+            className="text-[11px] text-gray-500 underline underline-offset-2 hover:text-gray-700"
+          >
+            Use this tab
+          </button>
+        </span>
+      ) : staleSignal.isStale ? (
         // Hover-only surface — touch devices and keyboard users still see
         // the amber dot flip, which is the load-bearing signal. The
         // tooltip is a secondary cue for desktop hover, replacing the

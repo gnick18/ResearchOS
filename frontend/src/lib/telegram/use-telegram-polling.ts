@@ -5,7 +5,7 @@ import { getUpdates, TelegramApiError } from "./telegram-client";
 import { readPairing, updateLastUpdateId } from "./telegram-store";
 import { routeTelegramMessage } from "./image-router";
 import { routeBatchCallbackQuery } from "./batch-routing";
-import { setPollingHealth } from "./telegram-runtime";
+import { setPollingHealth, subscribeTakeoverRequests } from "./telegram-runtime";
 import { isStaleState, setStaleSignal } from "./staleness";
 
 const TAB_LOCK_KEY = "telegram-poller-tab";
@@ -97,16 +97,36 @@ export function useTelegramPolling(username: string | null): void {
       setStaleSignal({ isStale: stale, botUsername: stale ? botUsername : null });
     };
 
-    // When this tab becomes foreground/visible it should be the one
-    // polling: claim the cross-tab lock and drop any stalled in-flight poll
-    // so the loop re-polls right away and drains anything Telegram queued
-    // while we were backgrounded. Without this, a returning user had to
-    // refresh the page before a photo they had already sent was picked up.
+    // When this tab becomes foreground/visible, re-drain anything Telegram
+    // queued while we were backgrounded — but ONLY if this tab is, or can
+    // become, the active poller. We must NOT steal the lock from another LIVE
+    // tab on every focus: that focus-driven ping-pong is exactly what made two
+    // open ResearchOS tabs collide on Telegram's one-getUpdates-per-bot rule
+    // (409) and drop messages mid-flow when the user switched tabs.
+    // `tryClaimLock` only writes when the lock is free, already ours, or stale,
+    // so a live leader keeps polling and this tab stays a quiet standby.
+    // Failover is unaffected: when the leader's lock goes stale (its tab is
+    // closed or long-suspended) a foreground tab claims it here. We only abort
+    // the in-flight poll once we actually hold the lock, so a returning leader
+    // still drains its queue immediately.
     const kick = (): void => {
+      if (cancelled) return;
+      if (tryClaimLock(tabId)) {
+        pollController?.abort();
+      }
+    };
+    // Explicit user action from the standby badge ("Use this tab"): promote
+    // THIS tab to the active poller right now, regardless of which tab holds
+    // the lock. Deliberate (a click), so unlike `kick` it is allowed to take
+    // the lock from a live tab; the previous leader sees it lost the lock on
+    // its next loop and drops to standby. No 409 storm because it is a one-shot
+    // handoff, not a per-focus reflex.
+    const forceTakeover = (): void => {
       if (cancelled) return;
       writeLock(tabId);
       pollController?.abort();
     };
+    const unsubscribeTakeover = subscribeTakeoverRequests(forceTakeover);
     const onVisibility = (): void => {
       if (typeof document !== "undefined" && document.visibilityState === "visible") {
         kick();
@@ -138,7 +158,11 @@ export function useTelegramPolling(username: string | null): void {
           continue;
         }
         if (!tryClaimLock(tabId)) {
-          setPollingHealth("idle");
+          // Paired, but another live tab holds the poll lock. Stay a quiet
+          // standby (the badge shows a calm "another tab" state). Incoming
+          // images still land in the shared local data via the active tab, so
+          // there is nothing for the user to do and no reason to close tabs.
+          setPollingHealth("standby");
           await sleep(HEARTBEAT_MS);
           continue;
         }
@@ -226,6 +250,7 @@ export function useTelegramPolling(username: string | null): void {
       cancelled = true;
       pollController?.abort();
       window.clearInterval(heartbeat);
+      unsubscribeTakeover();
       if (typeof document !== "undefined") {
         document.removeEventListener("visibilitychange", onVisibility);
       }
