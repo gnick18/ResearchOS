@@ -87,6 +87,13 @@ Build later (each reuses the same engine):
   SnapGene/Benchling, and only possible once the engine exists.
 - HOMOLOGY-BASED ANNOTATION. Auto-annotate a new sequence by aligning known
   features/primers to it.
+- ENHANCED FIND (Cmd+F). SnapGene's search family: Find DNA sequence, Find
+  protein sequence, Find enzyme / feature / primer (by name), and Find similar
+  DNA sequences. The key aligner-powered behavior: when an EXACT match is not
+  found, offer to find a CLOSE match (allow some gaps / mismatches) via local
+  alignment, and highlight the best hit(s). Extends the existing exact-only
+  `SequenceFindBox` (Cmd+F) into the full search surface; "Find similar" is just
+  local alignment of the query against the sequence.
 
 ## 6. Feasibility and risks
 
