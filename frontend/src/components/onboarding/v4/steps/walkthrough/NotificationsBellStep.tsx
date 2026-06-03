@@ -1,10 +1,17 @@
 /**
- * §6.3 Notifications, beat 1 of 3: bell click.
+ * §6.3 Notifications: bell click.
  *
  * Fires a programmatic test notification on step entry so the badge lights
  * up, then asks the user to click the spotlighted bell to open their
- * inbox. The two follow-up beats (silence, delete) keep the user
- * exercising real affordances on that test row before the tour moves on.
+ * inbox.
+ *
+ * 2026-06-03 (HR / tour-simplification): the two follow-up field-walk
+ * beats (notifications-silence mark-as-read, notifications-delete dismiss)
+ * were cut. Their awareness, that a row can be marked read to clear the
+ * badge or dismissed with the X, folded into this beat's speech. The beat
+ * still gates on the user actually opening the inbox (popup-opened DOM
+ * event), so it stands on its own; it never depended on an artifact the
+ * cut beats produced.
  *
  * Per Grant's 2026-05-21 cursor responsibility audit, this is a USER-
  * ACTION step: BeakerBot fires the notification, but opening the inbox
@@ -103,7 +110,7 @@ export async function fireNotificationsStepTestNotification(): Promise<void> {
 export const notificationsBellStep = buildWalkthroughStep({
   id: "notifications-bell",
   speech:
-    "I just fired a test notification so you can see how the bell works. Click it to open the popup.",
+    "I just fired a test notification so you can see how the bell works. Click it to open your inbox. Each row can be marked read to clear the badge, or dismissed with the X.",
   pose: "pointing-up",
   targetSelector: targetSelector(TOUR_TARGETS.notificationsBell),
   // No cursorScript: user-action step. The user clicks the spotlighted

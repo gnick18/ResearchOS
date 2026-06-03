@@ -705,26 +705,31 @@ describe("TourBootstrap:v4 mid-tour resume", () => {
 });
 
 // Wiki-pointer cluster nav suppression (2026-05-27, wiki-pointer nav
-// fix manager). The §6.12 cluster's wikiPointerClickDemoStep clicks the
-// `?` icon which navigates to /wiki/<page>; that wiki route runs under a
-// different providers.tsx early-return branch and remounts
+// fix manager). Historically the §6.12 cluster's click-demo beat clicked
+// the `?` icon which navigated to /wiki/<page>; that wiki route runs
+// under a different providers.tsx early-return branch and remounts
 // V4MountForUser inside the wiki shell. The remount re-fires TourBoot
 // strap's probe, which (pre-fix) read the persisted wizard_resume_state
 // off disk -- now a wiki-pointer-* step -- and surfaced the V4Resume
 // Prompt mid-walk. The fix: a "tour:wiki-pointer-nav-active" session
-// Storage flag set by wikiPointerClickDemoStep.onEnter and cleared by
-// wikiPointerBackDemoStep.onExit. When the probe sees the flag AND a
-// wiki-pointer-* resume step, it silently resumes the saved step.
+// Storage flag, honored by the probe for any wiki-pointer-* resume step.
+//
+// 2026-06-03 (HR / tour-simplification): the two cursor navigation beats
+// (click-demo, back-demo) were cut, so no tour step sets the flag anymore
+// and the suppression branch is inert in practice. These tests still
+// exercise the guard's branch logic against the surviving cluster ids
+// (wiki-pointer-intro / -icon-spotlight) so a future re-introduction of a
+// BeakerBot wiki nav stays covered.
 describe("TourBootstrap:wiki-pointer nav suppression", () => {
   const WIKI_NAV_FLAG = "tour:wiki-pointer-nav-active";
 
-  it("suppresses V4ResumePrompt when flag is set and saved step is wiki-pointer-click-demo", async () => {
+  it("suppresses V4ResumePrompt when flag is set and saved step is wiki-pointer-intro", async () => {
     memFs.set(
       PATH,
       fullSidecar({
         feature_picks: VALID_PICKS,
         wizard_resume_state: {
-          current_step: "wiki-pointer-click-demo",
+          current_step: "wiki-pointer-intro",
           skipped_steps: [],
           artifacts_created: [],
         },
@@ -745,13 +750,13 @@ describe("TourBootstrap:wiki-pointer nav suppression", () => {
     ).toBeNull();
   });
 
-  it("suppresses V4ResumePrompt when flag is set and saved step is wiki-pointer-back-demo", async () => {
+  it("suppresses V4ResumePrompt when flag is set and saved step is wiki-pointer-icon-spotlight", async () => {
     memFs.set(
       PATH,
       fullSidecar({
         feature_picks: VALID_PICKS,
         wizard_resume_state: {
-          current_step: "wiki-pointer-back-demo",
+          current_step: "wiki-pointer-icon-spotlight",
           skipped_steps: [],
           artifacts_created: [],
         },
@@ -806,7 +811,7 @@ describe("TourBootstrap:wiki-pointer nav suppression", () => {
       fullSidecar({
         feature_picks: VALID_PICKS,
         wizard_resume_state: {
-          current_step: "wiki-pointer-click-demo",
+          current_step: "wiki-pointer-icon-spotlight",
           skipped_steps: [],
           artifacts_created: [],
         },

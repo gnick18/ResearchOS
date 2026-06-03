@@ -34,8 +34,8 @@ export const hybridSaveConceptStep = buildWalkthroughStep({
   speech: (
     <>
       <p className="mb-2">
-        One last thing about the editor: ResearchOS doesn&apos;t auto-save.
-        Hit <strong>Save</strong> up here when you&apos;re done adding
+        One last thing about the editor. ResearchOS doesn&apos;t auto-save,
+        so hit <strong>Save</strong> up here when you&apos;re done adding
         notes, results, or anything else.
       </p>
       <p className="mb-2">

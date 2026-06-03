@@ -33,7 +33,7 @@ export const hybridNotesVsResultsStep = buildWalkthroughStep({
   speech: (
     <>
       <p className="mb-2">
-        Every experiment has two separate places to write:{" "}
+        Every experiment has two separate places to write,{" "}
         <strong>Notes</strong> and <strong>Results</strong>.
       </p>
       <p className="mb-2">

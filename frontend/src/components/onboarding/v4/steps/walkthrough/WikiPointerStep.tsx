@@ -1,63 +1,35 @@
 /**
- * §6.12 Wiki pointer — final universal walkthrough cluster (4 beats).
+ * §6.12 Wiki pointer, final universal walkthrough cluster (2 beats).
  *
- * Wiki pointer multi-beat redesign 2026-05-22 (Wiki pointer manager):
- * R7-D flagged the prior single `wiki-pointer` beat as misleading -
- * BeakerBot's speech said "the Wiki tab has guides" but the wiki is a
- * `?` icon in the top right of the AppShell topbar, not a labeled tab.
- * The replacement is a 4-beat arc that actually walks the user through
- * what the icon does:
+ * Wiki pointer redesign 2026-05-22 (Wiki pointer manager), collapsed to
+ * 2 beats 2026-06-03 (HR / tour-simplification). The wiki is a `?` icon
+ * in the top right of the AppShell topbar, not a labeled tab. The cluster
+ * now has two awareness beats:
  *
- *   1. `wiki-pointer-intro` — speech only. "There's a wiki page with
- *      detailed documentation of every page in the app." Manual advance.
- *   2. `wiki-pointer-icon-spotlight` — spotlight the `?` icon in the
- *      topbar. Speech tells the user where to look if they're curious or
- *      confused. Manual advance.
- *   3. `wiki-pointer-click-demo` — cursor clicks the `?` icon and the
- *      app navigates to the wiki page corresponding to the current route
- *      (`/wiki/features/home` from `/`, `/wiki/features/gantt` from
- *      `/gantt`, etc - see `appRouteToWikiRoute`). Manual advance.
- *   4. `wiki-pointer-back-demo` — on the wiki page, cursor clicks the
- *      "Back to app" button on the slim WikiTopBar to route back to
- *      wherever the user started. Manual advance, advance lands on the
- *      next applicable step (telegram / purchases / calendar / etc).
+ *   1. `wiki-pointer-intro`, speech only. "There's a wiki with detailed
+ *      documentation of every page in the app." Manual advance.
+ *   2. `wiki-pointer-icon-spotlight`, spotlight the `?` icon in the
+ *      topbar. Speech tells the user where to look AND, as awareness,
+ *      what clicking it does (jump to the matching help article, back
+ *      arrow returns them where they left off). Manual advance, advance
+ *      lands on the next applicable step (telegram / purchases / etc).
  *
- * Cross-tour-route concern (resolved): the wiki layout (see
- * `/wiki/layout.tsx`) has its own provider tree without AppShell. The
- * §6.12 R4 inline glide-only rework was made specifically because the
- * earlier click-through navigation killed the v4 tour mid-walk -
- * `providers.tsx`'s `isWikiRoute` early-return dropped V4MountForUser
- * for the wiki tree, so the controller unmounted and stranded every
- * downstream conditional + lab beat. The fix lives alongside this
- * redesign: `providers.tsx` now re-mounts V4MountForUser + the
- * OnboardingProvider inside the `isWikiRoute` branch when a real
- * signed-in user is present, so the tour controller survives the round
- * trip to `/wiki/*` and back. Click-demo + back-demo therefore run
- * real navigations the same way the route-bearing beats do (for
- * example `home-create-project-fill`), with `expectedRoute` declared so
- * a refresh mid-cluster lands the user on the right page on resume.
+ * 2026-06-03 (HR / tour-simplification): Grant hand-walked the cluster
+ * and found the two cursor navigation demos overbuilt for a single icon.
+ * `wiki-pointer-click-demo` (cursor clicked the `?` icon and navigated to
+ * the matching wiki page) and `wiki-pointer-back-demo` (cursor clicked
+ * "Back to app" to return) were cut; the click-and-return behavior now
+ * reads as one awareness sentence on the icon-spotlight beat. With no
+ * BeakerBot-driven wiki navigation left in the tour, the wiki-pointer nav
+ * suppression flag (wiki-pointer-nav-flag.ts) is no longer set from this
+ * file, though the module + TourBootstrap's guard stay for safety.
  *
- * Per the universal pacing rule (Grant 2026-05-22), every beat in this
- * cluster uses `manualAdvance("Got it, next")` so the user controls the
- * cadence and never feels the speech bubble auto-advance under them.
+ * Per the universal pacing rule (Grant 2026-05-22), both beats use
+ * `manualAdvance("Got it, next")` so the user controls the cadence.
  */
-import {
-  cursorScript,
-  safeClickAction,
-  compactScript,
-} from "./lib/cursor-script";
 import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 import { appRouteToWikiRoute } from "@/lib/wiki/nav";
-// Import the nav-flag helpers from the standalone module, NOT from
-// TourBootstrap (circular-import break 2026-05-27). TourBootstrap
-// imports step-registry, step-registry imports this file, so importing
-// TourBootstrap here closed a cycle that broke vitest's module loader.
-// See wiki-pointer-nav-flag.ts for the full narrative.
-import {
-  markWikiPointerNavActive,
-  clearWikiPointerNavActive,
-} from "../../wiki-pointer-nav-flag";
 
 /**
  * §6.12 beat 1 - speech-only intro.
@@ -78,163 +50,33 @@ export const wikiPointerIntroStep = buildWalkthroughStep({
 /**
  * §6.12 beat 2 - spotlight the `?` icon in the top bar.
  *
- * Spotlight only, no cursor click yet. The icon lives in AppShell next
- * to NotificationBadge / InboxBadge / TelegramStatusBadge / Settings,
+ * Spotlight only, no cursor. The icon lives in AppShell next to
+ * NotificationBadge / InboxBadge / TelegramStatusBadge / Settings,
  * stamped with `data-tour-target="wiki-nav-tab"`. Speech tells the user
- * what the icon does so the next beat's cursor click reads as
- * confirming the affordance, not introducing it.
+ * where to look and, as awareness (no demo), what clicking it does and
+ * how the back arrow returns them where they left off.
  */
 export const wikiPointerIconSpotlightStep = buildWalkthroughStep({
   id: "wiki-pointer-icon-spotlight",
   speech:
-    "If you're ever confused on a page, just click the question-mark icon up in the top right.",
+    "If you're ever confused on a page, just click the question-mark icon up in the top right. It jumps you straight to the matching help article, and the back arrow brings you right back where you left off.",
   pose: "pointing-up",
   targetSelector: targetSelector(TOUR_TARGETS.wikiNavTab),
   completion: manualAdvance("Got it, next"),
 });
 
 /**
- * §6.12 beat 3 - cursor click on the `?` icon triggers real navigation.
+ * @deprecated 2026-05-22 (Wiki pointer manager): retired by the §6.12
+ * redesign. Replaced by the cluster above (`wiki-pointer-intro` ->
+ * `wiki-pointer-icon-spotlight`, collapsed to 2 awareness beats
+ * 2026-06-03 by HR / tour-simplification). Kept in tree for git-history
+ * reference and to avoid breaking any external importer; removed from
+ * `step-registry.ts` and `TOUR_STEP_ORDER` so the controller never lands
+ * on it.
  *
- * The `?` icon is a `<Link>` whose href is computed by
- * `appRouteToWikiRoute(pathname)` plus a `?return=<currentPath>` query
- * param so the wiki's "Back to app" button can drop the user back where
- * they started. Clicking it dispatches a real navigation event, so the
- * tour controller's `InProductWalkthroughOverlay` will unmount on route
- * change and remount on the new page. That's fine: `V4MountForUser`
- * lives ABOVE the overlay in the tree (mounted in `providers.tsx` with
- * the wiki-route carve-out so it persists across `/wiki/*` visits), so
- * the controller's `currentStep` survives and the next beat
- * (`wiki-pointer-back-demo`) picks up on the wiki page.
- *
- * No `expectedRoute` here on purpose. The user's current page IS the
- * expected route at step entry; the cursor click itself is what
- * navigates. Setting `expectedRoute: "/wiki/..."` would race the
- * controller's `router.push` against the cursor click, exactly the
- * conflict the prior R4 doc on this file warned about.
- *
- * Speech narrates the click ("watch") so the user reads BeakerBot's
- * cursor as the agent of the navigation. Pose `pointing` is the
- * click-affordance pose; `pointing-up` would tilt at the wrong angle
- * for a topbar icon.
- */
-export const wikiPointerClickDemoStep = buildWalkthroughStep({
-  id: "wiki-pointer-click-demo",
-  speech:
-    "Clicking it takes you directly to the wiki article explaining whatever you were just looking at.",
-  pose: "pointing",
-  targetSelector: targetSelector(TOUR_TARGETS.wikiNavTab),
-  cursorScript: cursorScript(async () => {
-    const click = await safeClickAction(
-      targetSelector(TOUR_TARGETS.wikiNavTab),
-    );
-    return compactScript([click]);
-  }),
-  completion: manualAdvance("Got it, next"),
-  // Wiki-pointer nav suppression (2026-05-27, wiki-pointer nav fix
-  // manager). The cursor script below clicks the `?` icon which fires
-  // a real navigation to `/wiki/<page>`. The wiki route uses a different
-  // early-return branch in providers.tsx -> V4MountForUser unmounts in
-  // the previous tree and remounts inside the wiki shell, which re-runs
-  // the TourBootstrap probe. Without this flag, the probe reads
-  // `wizard_resume_state.current_step` (now this very step) off disk and
-  // surfaces the V4ResumePrompt mid-walk. Set the flag on entry so the
-  // probe knows the navigation is BeakerBot-driven, not user-driven.
-  // Cleared by `wikiPointerBackDemoStep.onExit` after the cluster's
-  // final beat advances.
-  onEnter: () => {
-    markWikiPointerNavActive();
-  },
-});
-
-/**
- * §6.12 beat 4 - on the wiki page, cursor clicks "Back to app".
- *
- * Mirrors the click-demo beat in reverse. We DECLARE the expected route
- * lazily by computing the wiki destination from whatever page the user
- * was on at the start of beat 3. That doesn't actually work as a static
- * `expectedRoute` (we don't have access to the prior pathname at
- * module-load time), so we rely on the click-demo beat's cursor having
- * landed the user on `/wiki/...` already. Setting
- * `expectedRoute: "/wiki"` as a coarse prefix would handle the
- * refresh-mid-step case: if the user refreshes while the body is on
- * this beat, they're routed to `/wiki` (the landing) which still has
- * the WikiTopBar's "Back to app" button mounted, so the cursor click
- * still finds its target. The button's `router.push` to the cached
- * return path then drops them back home, which is a reasonable resume
- * behavior.
- *
- * The cursor script targets the WikiTopBar's "Back to app" button via
- * the new `data-tour-target="wiki-back-to-app"` stamp. The button's
- * onClick reads the cached `?return=<path>` from sessionStorage (set
- * on wiki arrival in WikiTopBar's mount effect) and `router.push`es
- * back to it - the same affordance a real user would tap.
- */
-export const wikiPointerBackDemoStep = buildWalkthroughStep({
-  id: "wiki-pointer-back-demo",
-  speech:
-    "When you're done reading, hit the back button up here to jump right back to your work.",
-  pose: "pointing-up",
-  targetSelector: targetSelector(TOUR_TARGETS.wikiBackToApp),
-  cursorScript: cursorScript(async () => {
-    const click = await safeClickAction(
-      targetSelector(TOUR_TARGETS.wikiBackToApp),
-    );
-    return compactScript([click]);
-  }),
-  completion: manualAdvance("Got it, next"),
-  // Coarse prefix - if the user refreshes mid-step, route them back to
-  // the wiki landing. The "Back to app" button's sessionStorage-cached
-  // return path will still drop them home on click. A more precise
-  // expectedRoute would need access to the pathname captured at the
-  // start of the click-demo beat, which the static step body can't see.
-  expectedRoute: "/wiki",
-  // Wiki-pointer nav suppression (2026-05-27, wiki-pointer nav fix
-  // manager + 2026-05-27 follow-up). Counterpart to
-  // `wikiPointerClickDemoStep.onEnter`. Hand-walk follow-up: clearing
-  // the flag synchronously on onExit was racing the back-nav remount.
-  // The cursor click on "Back to app" navigates from /wiki to the app
-  // shell, which tears the V4MountForUser subtree. onExit fires
-  // before the new layout's TourBootstrap probe runs, so by the time
-  // the probe checks the flag, it's already gone and the V4ResumePrompt
-  // surfaces a second time.
-  //
-  // Fix: delay the clear via setTimeout to outlast the
-  // remount-and-probe sequence (~100-500ms in practice). 2000ms gives
-  // plenty of margin. The flag is sessionStorage-scoped, so a real
-  // user-initiated tab close + reopen still surfaces the prompt
-  // normally (sessionStorage clears on tab close). The
-  // Discard/Restart handlers in TourBootstrap also clear it explicitly
-  // as a belt-and-braces safety net.
-  onExit: () => {
-    if (typeof window === "undefined") {
-      clearWikiPointerNavActive();
-      return;
-    }
-    window.setTimeout(() => {
-      clearWikiPointerNavActive();
-    }, 2000);
-  },
-});
-
-/**
- * @deprecated 2026-05-22 (Wiki pointer manager): retired by the
- * §6.12 multi-beat redesign. Replaced by the 4-beat cluster above
- * (`wiki-pointer-intro` -> `wiki-pointer-icon-spotlight` ->
- * `wiki-pointer-click-demo` -> `wiki-pointer-back-demo`). Kept in tree
- * for git-history reference and to avoid breaking any external
- * importer; removed from `step-registry.ts` and `TOUR_STEP_ORDER` so
- * the controller never lands on it.
- *
- * Original body: a single glide-only beat that landed the cursor on
- * the `?` icon as a visual anchor with no click. Speech read "If you
- * ever get stuck, the Wiki tab up here has guides. Come back to it
- * anytime." The pre-glide-only variant (R4 2026-05-22) actually
- * clicked the icon and navigated, but that killed the tour mid-walk
- * because the wiki layout dropped V4MountForUser. The fix that ships
- * alongside this redesign re-mounts V4MountForUser inside the
- * `isWikiRoute` early-return so the new click-demo beat works without
- * stranding the tour.
+ * Original body: a single glide-only beat that landed the cursor on the
+ * `?` icon as a visual anchor with no click. Speech read "If you ever get
+ * stuck, the Wiki tab up here has guides. Come back to it anytime."
  */
 export const wikiPointerStep = buildWalkthroughStep({
   id: "wiki-pointer",

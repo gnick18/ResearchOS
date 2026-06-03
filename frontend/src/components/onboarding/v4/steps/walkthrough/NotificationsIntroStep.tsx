@@ -46,9 +46,9 @@ export const notificationsIntroStep = buildWalkthroughStep({
       </p>
       <p className="mb-2">
         The <strong>bell</strong> collects everything that needs your
-        attention: reminders for upcoming tasks and experiments on your
-        Gantt, updates from labmates on anything they shared with you,
-        and any mentions or comments on your work.
+        attention, like reminders for upcoming tasks and experiments on
+        your Gantt, updates from labmates on anything they shared with
+        you, and any mentions or comments on your work.
       </p>
       <p>
         The <strong>inbox</strong> next to it is where files land when

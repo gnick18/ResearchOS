@@ -40,13 +40,16 @@ export { markWikiPointerNavActive, clearWikiPointerNavActive };
 
 /** v4 step ids in the §6.12 wiki-pointer cluster. Used by the bootstrap
  *  probe to recognize a saved resume step as "mid-cluster" so the
- *  suppression flag is honored. The set is closed-over the four beat
- *  ids so a future cluster rename has to touch this list explicitly. */
+ *  suppression flag is honored. 2026-06-03 (HR / tour-simplification):
+ *  the two cursor navigation beats (wiki-pointer-click-demo,
+ *  wiki-pointer-back-demo) were cut, so no tour step drives a
+ *  BeakerBot wiki navigation anymore and the suppression flag is never
+ *  set from the cluster. The two surviving awareness beats stay listed
+ *  for the guard; the flag-honoring branch below is now effectively
+ *  inert but harmless (kept as a safety net). */
 const WIKI_POINTER_STEP_IDS: ReadonlySet<string> = new Set([
   "wiki-pointer-intro",
   "wiki-pointer-icon-spotlight",
-  "wiki-pointer-click-demo",
-  "wiki-pointer-back-demo",
 ]);
 
 /** Selector for the AppShell's static mount marker. Stays in sync with
@@ -308,20 +311,17 @@ export default function TourBootstrap({ username }: TourBootstrapProps) {
               return;
             }
             // Wiki-pointer cluster nav suppression (2026-05-27, wiki-
-            // pointer nav fix manager). When BeakerBot's cursor click
-            // on the `?` icon navigates the user to a `/wiki/*` route
-            // mid-cluster, `providers.tsx`'s `isWikiRoute` early-return
-            // unmounts the previous tree's V4MountForUser and mounts a
-            // fresh one inside the wiki shell. That remount re-runs the
-            // bootstrap probe, which reads `wizard_resume_state.current_
-            // step` off disk (now a wiki-pointer-* id) and would surface
-            // the V4ResumePrompt mid-walk -- the bug Grant flagged. The
-            // suppression flag is set by `wikiPointerClickDemoStep.on
-            // Enter` and cleared by `wikiPointerBackDemoStep.onExit`,
-            // so it is true exactly while a BeakerBot-driven wiki nav
-            // is in flight. When true AND the saved step is one of the
-            // cluster's four beats, silently start the controller at
-            // the saved step instead of popping the modal.
+            // pointer nav fix manager). Historically the cluster's
+            // cursor click on the `?` icon navigated the user to a
+            // `/wiki/*` route mid-cluster, which remounted V4MountForUser
+            // inside the wiki shell, re-ran this probe, and would surface
+            // the V4ResumePrompt mid-walk. The suppression flag (set by
+            // the click-demo beat, cleared by the back-demo beat) covered
+            // that window. 2026-06-03 (HR / tour-simplification): both
+            // cursor navigation beats were cut, so no tour step sets the
+            // flag anymore and this branch is effectively inert. It is
+            // kept as a harmless safety net in case a future cluster beat
+            // re-introduces a BeakerBot-driven wiki nav.
             if (
               WIKI_POINTER_STEP_IDS.has(resumeId) &&
               isWikiNavInProgress()

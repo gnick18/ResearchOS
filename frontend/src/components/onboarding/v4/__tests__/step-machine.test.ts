@@ -91,12 +91,19 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER).toContain("methods-create");
     // §6.7 hybrid editor cluster. Inline-editor collapse (onboarding-inline
     // bot 2026-06-02): the HE-1..HE-11 markdown deep-dive collapsed into the
-    // single `inline-editor` beat now that the editor is inline-only. The
-    // surviving cluster beats keep their ids; the removed markdown ids are
-    // gone.
+    // single `inline-editor` beat now that the editor is inline-only.
+    // 2026-06-03 (HR / tour-simplification): the fullscreen + focus-enter +
+    // focus-exit cursor demos (hybrid-editor-scope, hybrid-focus-enter,
+    // hybrid-focus-exit) were cut; their awareness folded into the
+    // inline-editor speech. The surviving cluster beats keep their ids; the
+    // removed ids must be gone so a stale resume_state can't pin the
+    // controller to a step that no longer exists.
     expect(TOUR_STEP_ORDER).toContain("hybrid-notes-vs-results");
     expect(TOUR_STEP_ORDER).toContain("inline-editor");
     expect(TOUR_STEP_ORDER).toContain("hybrid-save-concept");
+    expect(TOUR_STEP_ORDER).not.toContain("hybrid-editor-scope");
+    expect(TOUR_STEP_ORDER).not.toContain("hybrid-focus-enter");
+    expect(TOUR_STEP_ORDER).not.toContain("hybrid-focus-exit");
     expect(TOUR_STEP_ORDER).not.toContain("hybrid-markdown-familiarity");
     expect(TOUR_STEP_ORDER).not.toContain("hybrid-file-attach");
     expect(TOUR_STEP_ORDER).not.toContain("hybrid-editor");
@@ -270,12 +277,11 @@ describe("TOUR_STEP_ORDER", () => {
     const order = [
       "inline-editor",
       // hybrid-save-concept manager 2026-05-27: beat between the inline
-      // editor beat and workbench-notes-intro.
+      // editor beat and workbench-notes-intro. 2026-06-03 (HR / tour-
+      // simplification): the hybrid-focus-exit cursor demo that used to
+      // sit between hybrid-save-concept and workbench-notes-intro was cut,
+      // so save-concept now hands straight to the notes cluster.
       "hybrid-save-concept",
-      // Writing Focus Mode exit beat (focus-writing-mode build bot
-      // 2026-05-29): inserted between hybrid-save-concept and
-      // workbench-notes-intro.
-      "hybrid-focus-exit",
       "workbench-notes-intro",
       "workbench-lists-intro",
       "methods-category-prompt",
@@ -363,14 +369,16 @@ describe("TOUR_STEP_ORDER", () => {
     });
   });
 
-  it("does NOT place the methods cluster right after notifications-delete (FINAL reorder manager 2026-05-27)", () => {
-    // Regression guard: the methods cluster's prior position was
-    // right after notifications-delete. The FINAL restructure moved
-    // it to after workbench-list-mark-done. If a future refactor
-    // moves it back, this test catches it.
-    const notifDeleteIdx = TOUR_STEP_ORDER.indexOf("notifications-delete");
-    expect(notifDeleteIdx).toBeGreaterThanOrEqual(0);
-    expect(TOUR_STEP_ORDER[notifDeleteIdx + 1]).not.toBe("methods-category-prompt");
+  it("does NOT place the methods cluster right after the notifications cluster (FINAL reorder manager 2026-05-27)", () => {
+    // Regression guard: the methods cluster's prior position was right
+    // after the notifications cluster. The FINAL restructure moved it to
+    // after workbench-list-mark-done. If a future refactor moves it back,
+    // this test catches it. 2026-06-03 (HR / tour-simplification): the
+    // cluster terminal is now notifications-bell (notifications-delete was
+    // cut), so the guard anchors on the bell beat instead.
+    const notifBellIdx = TOUR_STEP_ORDER.indexOf("notifications-bell");
+    expect(notifBellIdx).toBeGreaterThanOrEqual(0);
+    expect(TOUR_STEP_ORDER[notifBellIdx + 1]).not.toBe("methods-category-prompt");
   });
 
   it("the §6.7b Workbench cluster is universal (no feature_picks gating)", () => {
@@ -495,9 +503,9 @@ describe("TOUR_STEP_ORDER", () => {
       // was removed; the project beat hands straight to the notifications
       // framing.
       "notifications-intro",
+      // 2026-06-03 (HR / tour-simplification): notifications-silence +
+      // notifications-delete cut; the bell beat is the cluster terminal.
       "notifications-bell",
-      "notifications-silence",
-      "notifications-delete",
     ];
     for (const id of dashboardBlock) {
       expect(isStepGatedOut(id, pi)).toBe(false);
@@ -512,24 +520,26 @@ describe("TOUR_STEP_ORDER", () => {
     expect(getNextStep("setup-wrapup", solo)).toBe("home-create-project");
   });
 
-  it("contains the three §6.3 notification sub-step ids", () => {
-    // Grant 2026-05-21: split the original single `notifications` step
-    // into three beats (bell → silence → delete). The old id MUST be
-    // gone so a stale resume_state record can't pin the controller to
-    // a step that no longer exists.
+  it("contains the §6.3 notification beats (intro + bell) and not the cut field-walk beats", () => {
+    // Grant 2026-05-21 split the original single `notifications` step into
+    // beats. 2026-06-03 (HR / tour-simplification): the two field-walk
+    // beats (notifications-silence mark-as-read, notifications-delete
+    // dismiss) were cut; their awareness folded into the bell speech. The
+    // old single id AND the two cut ids MUST be gone so a stale
+    // resume_state record can't pin the controller to a step that no
+    // longer exists.
+    expect(TOUR_STEP_ORDER).toContain("notifications-intro");
     expect(TOUR_STEP_ORDER).toContain("notifications-bell");
-    expect(TOUR_STEP_ORDER).toContain("notifications-silence");
-    expect(TOUR_STEP_ORDER).toContain("notifications-delete");
+    expect(TOUR_STEP_ORDER).not.toContain("notifications-silence");
+    expect(TOUR_STEP_ORDER).not.toContain("notifications-delete");
     expect(TOUR_STEP_ORDER).not.toContain("notifications");
   });
 
-  it("orders the §6.3 sub-steps bell → silence → delete", () => {
+  it("orders the §6.3 beats intro → bell (bell is the cluster terminal after the field-walk cut)", () => {
+    const introIdx = TOUR_STEP_ORDER.indexOf("notifications-intro");
     const bellIdx = TOUR_STEP_ORDER.indexOf("notifications-bell");
-    const silenceIdx = TOUR_STEP_ORDER.indexOf("notifications-silence");
-    const deleteIdx = TOUR_STEP_ORDER.indexOf("notifications-delete");
-    expect(bellIdx).toBeGreaterThanOrEqual(0);
-    expect(silenceIdx).toBe(bellIdx + 1);
-    expect(deleteIdx).toBe(silenceIdx + 1);
+    expect(introIdx).toBeGreaterThanOrEqual(0);
+    expect(bellIdx).toBe(introIdx + 1);
   });
 
   it("ends with tour-goodbye (Cleanup retirement 2026-05-22)", () => {
@@ -586,21 +596,16 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER).not.toContain("methods-file-vs-markdown");
   });
 
-  it("orders the §6.7 hybrid-editor cluster after the inline-editor collapse (onboarding-inline bot 2026-06-02)", () => {
+  it("orders the §6.7 hybrid-editor cluster after the inline-editor collapse + demo-cut (tour-simplification 2026-06-03)", () => {
     // Inline-editor collapse (onboarding-inline bot 2026-06-02): the
-    // HE-1..HE-11 markdown deep-dive (markdown-intro / familiarity /
-    // overview / mechanic / bold / italic / underline / h1 / h2 / h3 /
-    // shortcuts / image-attach / image-drag-in / image-resize /
-    // file-attach) collapsed into the single `inline-editor` beat. The
-    // cluster is now: notes-vs-results → editor-scope → focus-enter →
-    // inline-editor → save-concept → focus-exit.
+    // HE-1..HE-11 markdown deep-dive collapsed into the single
+    // `inline-editor` beat. 2026-06-03 (HR / tour-simplification): the
+    // fullscreen + focus-enter + focus-exit cursor demos (hybrid-editor-
+    // scope, hybrid-focus-enter, hybrid-focus-exit) were cut; their
+    // awareness folded into the inline-editor speech. The cluster is now:
+    // notes-vs-results → inline-editor → save-concept.
     const order = [
       "hybrid-notes-vs-results",
-      "hybrid-editor-scope",
-      // Writing Focus Mode enter beat (focus-writing-mode build bot
-      // 2026-05-29): inserted between hybrid-editor-scope and the inline
-      // editor beat.
-      "hybrid-focus-enter",
       "inline-editor",
       // hybrid-save-concept manager 2026-05-27: terminal beat of the
       // §6.7 editor cluster (manual save / version control / unsaved-
@@ -619,41 +624,35 @@ describe("TOUR_STEP_ORDER", () => {
     });
   });
 
-  it("inserts the two Writing Focus Mode beats at the right positions (focus-writing-mode build bot 2026-05-29)", () => {
-    // FOCUS_WRITING_MODE_DESIGN.md §9: hybrid-focus-enter sits immediately
-    // AFTER hybrid-editor-scope and BEFORE the inline-editor beat (was
-    // hybrid-markdown-intro before the inline-editor collapse 2026-06-02);
-    // hybrid-focus-exit sits immediately AFTER hybrid-save-concept and
-    // BEFORE workbench-notes-intro.
-    const scope = TOUR_STEP_ORDER.indexOf("hybrid-editor-scope");
-    const enter = TOUR_STEP_ORDER.indexOf("hybrid-focus-enter");
+  it("the cut Writing Focus Mode + editor-scope beats are gone from the order (tour-simplification 2026-06-03)", () => {
+    // FOCUS_WRITING_MODE_DESIGN.md §9 added hybrid-focus-enter +
+    // hybrid-focus-exit cursor demos around the inline editor beat;
+    // hybrid-editor-scope demoed the fullscreen toggle. 2026-06-03 (HR /
+    // tour-simplification): all three were cut. They must be gone from the
+    // order so a stale resume_state can't pin the controller to them, and
+    // the inline-editor beat must hand straight to hybrid-save-concept,
+    // which in turn hands straight to workbench-notes-intro.
+    expect(TOUR_STEP_ORDER).not.toContain("hybrid-editor-scope");
+    expect(TOUR_STEP_ORDER).not.toContain("hybrid-focus-enter");
+    expect(TOUR_STEP_ORDER).not.toContain("hybrid-focus-exit");
     const inlineEditor = TOUR_STEP_ORDER.indexOf("inline-editor");
-    expect(enter).toBeGreaterThanOrEqual(0);
-    expect(enter).toBe(scope + 1);
-    expect(inlineEditor).toBe(enter + 1);
-
     const save = TOUR_STEP_ORDER.indexOf("hybrid-save-concept");
-    const exit = TOUR_STEP_ORDER.indexOf("hybrid-focus-exit");
     const notes = TOUR_STEP_ORDER.indexOf("workbench-notes-intro");
-    expect(exit).toBeGreaterThanOrEqual(0);
-    expect(exit).toBe(save + 1);
-    expect(notes).toBe(exit + 1);
+    expect(inlineEditor).toBeGreaterThanOrEqual(0);
+    expect(save).toBe(inlineEditor + 1);
+    expect(notes).toBe(save + 1);
   });
 
-  it("traverses the focus-mode beats (universal, never gated) on both solo and lab paths", () => {
-    // Both beats are ungated, so getNextStep / firstApplicableStep walk
-    // through them regardless of account type. Verify the forward traversal
-    // lands on each from its predecessor for both a solo and a lab picks.
+  it("traverses the collapsed §6.7 cluster (universal, never gated) on both solo and lab paths", () => {
+    // The surviving beats are ungated, so getNextStep walks through them
+    // regardless of account type. Verify the forward traversal lands on
+    // each from its predecessor for both a solo and a lab picks.
     const solo = picks({ account_type: "solo" });
     const lab = picks({ account_type: "lab" });
     for (const p of [solo, lab]) {
-      expect(getNextStep("hybrid-editor-scope", p)).toBe("hybrid-focus-enter");
-      expect(getNextStep("hybrid-focus-enter", p)).toBe("inline-editor");
-      expect(getNextStep("hybrid-save-concept", p)).toBe("hybrid-focus-exit");
-      expect(getNextStep("hybrid-focus-exit", p)).toBe("workbench-notes-intro");
-      // Neither beat is gated out.
-      expect(isStepGatedOut("hybrid-focus-enter", p)).toBe(false);
-      expect(isStepGatedOut("hybrid-focus-exit", p)).toBe(false);
+      expect(getNextStep("hybrid-notes-vs-results", p)).toBe("inline-editor");
+      expect(getNextStep("inline-editor", p)).toBe("hybrid-save-concept");
+      expect(getNextStep("hybrid-save-concept", p)).toBe("workbench-notes-intro");
     }
   });
 });
@@ -1158,11 +1157,13 @@ describe("getPreviousStep — backward traversal", () => {
     // Easier check: from "calendar" with all-no, getPreviousStep should
     // skip purchases too (gated out under all-no).
     const allNo = picks({ purchases: "no", calendar: "no", telegram: "no" });
-    // §6.12 Wiki pointer multi-beat redesign 2026-05-22: the cluster's
-    // terminal beat is `wiki-pointer-back-demo`, so backstep from
-    // `calendar` under all-no picks lands there (skipping the gated-out
-    // purchases / telegram / links cluster between).
-    expect(getPreviousStep("calendar", allNo)).toBe("wiki-pointer-back-demo");
+    // §6.12 Wiki pointer redesign 2026-05-22, collapsed to 2 beats
+    // 2026-06-03 (HR / tour-simplification): the cluster's terminal beat
+    // is now `wiki-pointer-icon-spotlight` (the click-demo + back-demo
+    // navigation beats were cut), so backstep from `calendar` under
+    // all-no picks lands there (skipping the gated-out purchases /
+    // telegram / links cluster between).
+    expect(getPreviousStep("calendar", allNo)).toBe("wiki-pointer-icon-spotlight");
     // With purchases=yes, backstep from "calendar" lands on the LAST
     // applicable purchases cluster step (purchases-back-to-real per
     // the redesign 2026-05-22). Per the cluster order in TOUR_STEP_ORDER.

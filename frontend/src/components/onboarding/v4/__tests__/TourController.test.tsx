@@ -373,14 +373,15 @@ describe("TourController — setFeaturePicks", () => {
     // lab-permission-practice would skip past the whole lab cluster.
     // Confirm the controller follows the gate.
     //
-    // §6.12 Wiki pointer multi-beat redesign 2026-05-22 (Wiki pointer
-    // manager): the legacy `wiki-pointer` id is gone; the cluster's
-    // terminal beat is now `wiki-pointer-back-demo`. Starting on that
-    // beat exercises the exact same gating decision (next-step from
-    // the end of the cluster lands on the first applicable post-wiki
-    // step, which is `tour-goodbye` under solo and `lab-mode-prompt`
-    // under lab).
-    act(() => result.current.start("wiki-pointer-back-demo"));
+    // §6.12 Wiki pointer redesign 2026-05-22, collapsed to 2 beats
+    // 2026-06-03 (HR / tour-simplification): the legacy `wiki-pointer` id
+    // is gone and the two cursor navigation beats were cut, so the
+    // cluster's terminal beat is now `wiki-pointer-icon-spotlight`.
+    // Starting on that beat exercises the same gating decision (next-step
+    // from the end of the cluster lands on the first applicable post-wiki
+    // step, which is `tour-goodbye` under solo and `lab-cleanup` under
+    // lab).
+    act(() => result.current.start("wiki-pointer-icon-spotlight"));
     act(() => result.current.advance());
     // Solo → all conditionals + lab cluster gated → land on
     // tour-goodbye (Cleanup retirement 2026-05-22 swap from
@@ -399,7 +400,7 @@ describe("TourController — setFeaturePicks", () => {
         picks({ account_type: "lab", lab_head: true }),
       ),
     );
-    act(() => result.current.start("wiki-pointer-back-demo"));
+    act(() => result.current.start("wiki-pointer-icon-spotlight"));
     act(() => result.current.advance());
     expect(result.current.currentStep).toBe("lab-cleanup");
   });

@@ -1,16 +1,13 @@
 /**
- * §6.3 Notifications sub-step bodies. The single-step §6.3 surface from
- * commit eac06e40 was split into three beats per Grant's 2026-05-21
- * design feedback ("be smarter than a Got it button" — instead, walk
- * the user through opening the inbox, silencing the row, and deleting
- * it). These tests cover:
+ * §6.3 Notifications bell-step body. 2026-06-03 (HR / tour-
+ * simplification): the §6.3 cluster collapsed to intro + bell. The two
+ * field-walk beats (silence mark-as-read, delete dismiss) were cut and
+ * their awareness folded into the bell speech, so their bodies + tests
+ * were removed. This file now covers the surviving bell beat:
  *
- *  - Beat 1 (bell): onEnter still fires the test notification,
- *    completion is event-driven on the popup-opened DOM event.
- *  - Beat 2 (silence): targets the mark-as-read affordance, completion
- *    is event-driven on `tour:notification-silenced`.
- *  - Beat 3 (delete): targets the dismiss affordance, completion is
- *    event-driven on `tour:notification-deleted`.
+ *  - bell: onEnter still fires the test notification, completion is
+ *    event-driven on the popup-opened DOM event (the user opening the
+ *    inbox is the advance trigger; it never depended on the cut beats).
  *
  * Mocks the local-api surface so the test exercises the bell step's
  * payload shape (title + body verbatim, source tag) without touching
@@ -42,8 +39,6 @@ import {
   NOTIFICATIONS_STEP_TEST_BODY,
   fireNotificationsStepTestNotification,
 } from "../NotificationsBellStep";
-import { notificationsSilenceStep } from "../NotificationsSilenceStep";
-import { notificationsDeleteStep } from "../NotificationsDeleteStep";
 
 describe("NotificationsBellStep §6.3a (bell click)", () => {
   beforeEach(() => {
@@ -167,137 +162,5 @@ describe("NotificationsBellStep §6.3a (bell click)", () => {
     } finally {
       stop();
     }
-  });
-});
-
-describe("NotificationsSilenceStep §6.3b (mark-as-read / silence)", () => {
-  it("declares the canonical id", () => {
-    expect(notificationsSilenceStep.id).toBe("notifications-silence");
-  });
-
-  it("targets the notification-silence anchor (the mark-as-read button)", () => {
-    expect(notificationsSilenceStep.targetSelector).toBe(
-      "[data-tour-target=\"notification-silence\"]",
-    );
-  });
-
-  it("has no cursorScript (user-action step, Grant 2026-05-21)", () => {
-    expect(notificationsSilenceStep.cursorScript).toBeUndefined();
-  });
-
-  it("speech bubble contains no em-dashes", () => {
-    const speech =
-      typeof notificationsSilenceStep.speech === "string"
-        ? notificationsSilenceStep.speech
-        : "";
-    expect(speech).not.toContain("—");
-  });
-
-  it("declares event-driven completion", () => {
-    expect(notificationsSilenceStep.completion.type).toBe("event");
-  });
-
-  it("advances when tour:notification-silenced fires", async () => {
-    if (notificationsSilenceStep.completion.type !== "event") {
-      throw new Error("completion contract changed shape; update test");
-    }
-    let advanced = false;
-    const stop = notificationsSilenceStep.completion.eventListener(() => {
-      advanced = true;
-    });
-    try {
-      window.dispatchEvent(new CustomEvent("tour:notification-silenced"));
-      await Promise.resolve();
-      expect(advanced).toBe(true);
-    } finally {
-      stop();
-    }
-  });
-
-  it("the event listener unsubscribes cleanly (no double-fire after stop)", async () => {
-    if (notificationsSilenceStep.completion.type !== "event") {
-      throw new Error("completion contract changed shape; update test");
-    }
-    let fireCount = 0;
-    const stop = notificationsSilenceStep.completion.eventListener(() => {
-      fireCount++;
-    });
-    stop();
-    window.dispatchEvent(new CustomEvent("tour:notification-silenced"));
-    await Promise.resolve();
-    expect(fireCount).toBe(0);
-  });
-
-  // R2 chip B Fix 2/3: Esc-on-popup recovery. When the NotificationPopup
-  // closes mid-step (Escape or click-outside), the row-level Mark-read
-  // target detaches from the DOM. The Wave 2 target-detach watcher
-  // reads `recoveryHint.buttonLabel` to swap the speech bubble to
-  // "Looks like that closed. Click <buttonLabel> to re-open and try
-  // again." Without the hint, the watcher falls back to "the button you
-  // clicked before", which is meaningless for this step. The bell icon
-  // is the affordance that re-opens the popup.
-  it("declares a recoveryHint pointing at the bell icon", () => {
-    expect(notificationsSilenceStep.recoveryHint).toEqual({
-      buttonLabel: "the bell icon",
-    });
-  });
-});
-
-describe("NotificationsDeleteStep §6.3c (dismiss / delete)", () => {
-  it("declares the canonical id", () => {
-    expect(notificationsDeleteStep.id).toBe("notifications-delete");
-  });
-
-  it("targets the notification-delete anchor (the dismiss X button)", () => {
-    expect(notificationsDeleteStep.targetSelector).toBe(
-      "[data-tour-target=\"notification-delete\"]",
-    );
-  });
-
-  it("has no cursorScript (user-action step, Grant 2026-05-21)", () => {
-    expect(notificationsDeleteStep.cursorScript).toBeUndefined();
-  });
-
-  it("speech bubble contains no em-dashes", () => {
-    const speech =
-      typeof notificationsDeleteStep.speech === "string"
-        ? notificationsDeleteStep.speech
-        : "";
-    expect(speech).not.toContain("—");
-  });
-
-  it("declares event-driven completion", () => {
-    expect(notificationsDeleteStep.completion.type).toBe("event");
-  });
-
-  it("advances when tour:notification-deleted fires", async () => {
-    if (notificationsDeleteStep.completion.type !== "event") {
-      throw new Error("completion contract changed shape; update test");
-    }
-    let advanced = false;
-    const stop = notificationsDeleteStep.completion.eventListener(() => {
-      advanced = true;
-    });
-    try {
-      window.dispatchEvent(new CustomEvent("tour:notification-deleted"));
-      await Promise.resolve();
-      expect(advanced).toBe(true);
-    } finally {
-      stop();
-    }
-  });
-
-  it("the event listener unsubscribes cleanly (no double-fire after stop)", async () => {
-    if (notificationsDeleteStep.completion.type !== "event") {
-      throw new Error("completion contract changed shape; update test");
-    }
-    let fireCount = 0;
-    const stop = notificationsDeleteStep.completion.eventListener(() => {
-      fireCount++;
-    });
-    stop();
-    window.dispatchEvent(new CustomEvent("tour:notification-deleted"));
-    await Promise.resolve();
-    expect(fireCount).toBe(0);
   });
 });

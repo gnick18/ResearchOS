@@ -42,6 +42,11 @@ export const inlineEditorStep = buildWalkthroughStep({
         You always see the finished page while you write, so there is no
         edit mode or preview to switch between.
       </p>
+      <p className="mb-2">
+        This same editor shows up everywhere you write. The expand icon
+        gives you more room, and the focus button (or Cmd/Ctrl+Shift+F)
+        clears everything but the page. Esc brings the full view back.
+      </p>
       <p>
         When you reach a good stopping point, hit{" "}
         <strong>Save checkpoint</strong>. It saves a version of your work you

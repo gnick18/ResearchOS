@@ -41,8 +41,9 @@ vi.mock("../../../TourController", () => ({
 import { homeCreateProjectStep } from "../HomeCreateProjectStep";
 import { homeCreateProjectFillStep } from "../HomeCreateProjectFillStep";
 import { notificationsBellStep } from "../NotificationsBellStep";
-import { notificationsSilenceStep } from "../NotificationsSilenceStep";
-import { notificationsDeleteStep } from "../NotificationsDeleteStep";
+// 2026-06-03 (HR / tour-simplification): NotificationsSilenceStep +
+// NotificationsDeleteStep were deleted; their awareness folded into the
+// bell speech.
 import { methodsCategoryStep } from "../MethodsCategoryStep";
 import { methodsCategoryPromptStep } from "../MethodsCategoryPromptStep";
 import { methodsOpenPickerStep } from "../MethodsOpenPickerStep";
@@ -84,7 +85,6 @@ import {
   PLACEHOLDER_HYPOTHESIS,
 } from "../ProjectOverviewTypingDemoStep";
 import { notificationsIntroStep } from "../NotificationsIntroStep";
-import { hybridEditorScopeStep } from "../HybridEditorScopeStep";
 import { settingsIntroStep } from "../SettingsIntroStep";
 import { aiHelperSizeOptionsStep } from "../AiHelperSizeOptionsStep";
 // §6.7 hybrid editor cluster. Inline-editor collapse (onboarding-inline
@@ -98,10 +98,9 @@ import { aiHelperSizeOptionsStep } from "../AiHelperSizeOptionsStep";
 import { hybridNotesVsResultsStep } from "../HybridNotesVsResultsStep";
 import { inlineEditorStep } from "../InlineEditorStep";
 import { hybridSaveConceptStep } from "../HybridSaveConceptStep";
-// Writing Focus Mode (FOCUS_WRITING_MODE_DESIGN.md §9, focus-writing-mode
-// build bot 2026-05-29): enter + exit BEAKERBOT_DEMO beats.
-import { hybridFocusEnterStep } from "../HybridFocusEnterStep";
-import { hybridFocusExitStep } from "../HybridFocusExitStep";
+// 2026-06-03 (HR / tour-simplification): HybridEditorScopeStep +
+// HybridFocusEnterStep + HybridFocusExitStep were deleted; their
+// awareness folded into the inline-editor speech.
 import { ganttIntroStep } from "../GanttIntroStep";
 import { ganttExistingExperimentStep } from "../GanttExistingExperimentStep";
 import { ganttDragDropStep } from "../GanttDragDropStep";
@@ -151,17 +150,14 @@ import { settingsAiHelperSizeDiffStep } from "../SettingsAiHelperSizeDiffStep";
 import { settingsAiHelperUseCasePasteStep } from "../SettingsAiHelperUseCasePasteStep";
 import { settingsAiHelperUseCaseAgenticStep } from "../SettingsAiHelperUseCaseAgenticStep";
 import { searchStep } from "../SearchStep";
-// §6.12 Wiki pointer multi-beat redesign 2026-05-22 (Wiki pointer manager).
-// Legacy `wikiPointerStep` retired from ALL_STEPS / expected-ids - the
-// body remains exported with @deprecated JSDoc but is no longer wired
-// through the registry, so the contract sweep would otherwise fail on
-// it (it has no cursorScript but isn't classified as user-action). The
-// 4-beat cluster replaces it.
+// §6.12 Wiki pointer redesign 2026-05-22 (Wiki pointer manager),
+// collapsed to 2 beats 2026-06-03 (HR / tour-simplification). Legacy
+// `wikiPointerStep` stays retired from ALL_STEPS / expected-ids; the two
+// cursor navigation demos (click-demo, back-demo) were cut. The two
+// surviving awareness beats are imported below.
 import {
   wikiPointerIntroStep,
   wikiPointerIconSpotlightStep,
-  wikiPointerClickDemoStep,
-  wikiPointerBackDemoStep,
 } from "../WikiPointerStep";
 import type { TourStep } from "../../../step-types";
 import type { FeaturePicks } from "@/lib/onboarding/sidecar";
@@ -197,8 +193,6 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   // narration beat before notifications-bell.
   notificationsIntroStep,
   notificationsBellStep,
-  notificationsSilenceStep,
-  notificationsDeleteStep,
   methodsCategoryPromptStep,
   methodsCategoryStep,
   methodsOpenPickerStep,
@@ -213,19 +207,14 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   methodAttachmentAttachStep,
   methodAttachmentNotesStep,
   hybridNotesVsResultsStep,
-  // v4 tour structural manager (Wave 1, 2026-05-27): new hybrid-editor-scope
-  // narration beat between HE-0 and HE-1.
-  hybridEditorScopeStep,
-  // Writing Focus Mode enter beat (focus-writing-mode build bot 2026-05-29).
-  hybridFocusEnterStep,
   // Inline-editor collapse (onboarding-inline bot 2026-06-02): the single
-  // beat replacing HE-1..HE-11.
+  // beat replacing HE-1..HE-11. 2026-06-03 (HR / tour-simplification): the
+  // hybrid-editor-scope + focus enter/exit cursor demos were cut; their
+  // awareness folded into this beat's speech.
   inlineEditorStep,
-  // hybrid-save-concept manager 2026-05-27: NEW pure-narration beat
-  // closing the §6.7 editor cluster before §6.7b opens.
+  // hybrid-save-concept manager 2026-05-27: pure-narration beat closing
+  // the §6.7 editor cluster before §6.7b opens.
   hybridSaveConceptStep,
-  // Writing Focus Mode exit beat (focus-writing-mode build bot 2026-05-29).
-  hybridFocusExitStep,
   ganttIntroStep,
   ganttExistingExperimentStep,
   ganttDragDropStep,
@@ -269,8 +258,6 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   searchStep,
   wikiPointerIntroStep,
   wikiPointerIconSpotlightStep,
-  wikiPointerClickDemoStep,
-  wikiPointerBackDemoStep,
 ];
 
 describe("P5 step bodies — universal contract", () => {
@@ -290,9 +277,9 @@ describe("P5 step bodies — universal contract", () => {
       // 2026-06-03 (HR / tour-simplification): single project-page beat.
       "project-overview-typing-demo",
       "notifications-intro",
+      // 2026-06-03 (HR / tour-simplification): notifications-silence +
+      // notifications-delete cut; awareness folded into the bell beat.
       "notifications-bell",
-      "notifications-silence",
-      "notifications-delete",
       "methods-category-prompt",
       "methods-category",
       "methods-open-picker",
@@ -304,20 +291,17 @@ describe("P5 step bodies — universal contract", () => {
       "experiment-attach-method-tab",
       "experiment-attach-method-attach",
       "experiment-attach-method-notes",
-      // §6.7 hybrid editor redesign (Hybrid editor manager 2026-05-22)
+      // §6.7 hybrid editor redesign (Hybrid editor manager 2026-05-22).
+      // 2026-06-03 (HR / tour-simplification): hybrid-editor-scope +
+      // hybrid-focus-enter + hybrid-focus-exit cursor demos cut; their
+      // awareness folded into the inline-editor speech.
       "hybrid-notes-vs-results",
-      "hybrid-editor-scope",
-      // Writing Focus Mode (focus-writing-mode build bot 2026-05-29).
-      "hybrid-focus-enter",
       // Inline-editor collapse (onboarding-inline bot 2026-06-02): the
       // single beat replacing the HE-1..HE-11 markdown deep-dive.
       "inline-editor",
-      // hybrid-save-concept manager 2026-05-27: NEW pure-narration
-      // beat closing the §6.7 editor cluster before §6.7b opens.
+      // hybrid-save-concept manager 2026-05-27: pure-narration beat
+      // closing the §6.7 editor cluster before §6.7b opens.
       "hybrid-save-concept",
-      // Writing Focus Mode exit beat (focus-writing-mode build bot
-      // 2026-05-29).
-      "hybrid-focus-exit",
       // §6.8 Gantt redesign 2026-05-22 (Gantt manager).
       "gantt-intro",
       "gantt-existing-experiment",
@@ -355,13 +339,12 @@ describe("P5 step bodies — universal contract", () => {
       "ai-helper-use-case-paste",
       "ai-helper-use-case-agentic",
       "search-demo",
-      // §6.12 Wiki pointer multi-beat redesign 2026-05-22 (Wiki pointer
-      // manager). Legacy `wiki-pointer` id retired; 4-beat cluster
-      // replaces it.
+      // §6.12 Wiki pointer redesign 2026-05-22 (Wiki pointer manager),
+      // collapsed to 2 beats 2026-06-03 (HR / tour-simplification). Legacy
+      // `wiki-pointer` id stays retired; the two cursor navigation demos
+      // (click-demo, back-demo) were cut.
       "wiki-pointer-intro",
       "wiki-pointer-icon-spotlight",
-      "wiki-pointer-click-demo",
-      "wiki-pointer-back-demo",
     ]);
     for (const step of ALL_STEPS) {
       expect(expectedIds.has(step.id), `unexpected id ${step.id}`).toBe(true);
@@ -507,13 +490,11 @@ describe("P5 step bodies — universal contract", () => {
       aiHelperSizeOptionsStep,
       settingsAiHelperUseCasePasteStep,
       searchStep,
-      // §6.12 Wiki pointer cluster - the two cursor-driven beats.
-      // `wiki-pointer-intro` is speech-only and
-      // `wiki-pointer-icon-spotlight` is spotlight-only (no click yet),
-      // so neither carries a cursorScript; the click-demo + back-demo
-      // beats do.
-      wikiPointerClickDemoStep,
-      wikiPointerBackDemoStep,
+      // §6.12 Wiki pointer cluster - 2026-06-03 (HR / tour-simplification):
+      // the two cursor-driven beats (click-demo, back-demo) were cut. Both
+      // surviving beats (`wiki-pointer-intro` speech-only,
+      // `wiki-pointer-icon-spotlight` spotlight-only) are awareness beats
+      // with no cursorScript, so neither belongs in this list.
     ];
     for (const step of DEMO_STEPS_WITH_CURSOR_SCRIPT) {
       expect(
@@ -675,20 +656,20 @@ describe("ProjectOverviewTypingDemoStep (§6.2 single project-page beat)", () =>
   });
 });
 
-describe("Notifications sub-steps (§6.3 bell / silence / delete)", () => {
+describe("Notifications bell step (§6.3, collapsed to intro + bell 2026-06-03)", () => {
+  // 2026-06-03 (HR / tour-simplification): the silence + delete field-walk
+  // beats were cut; their awareness folded into the bell speech. The bell
+  // beat is the cluster terminal and still gates on the popup-opened event.
   it("bell step declares event-driven completion (popup-opened DOM event)", () => {
     expect(notificationsBellStep.completion.type).toBe("event");
   });
-  it("silence step declares event-driven completion", () => {
-    expect(notificationsSilenceStep.completion.type).toBe("event");
-  });
-  it("delete step declares event-driven completion", () => {
-    expect(notificationsDeleteStep.completion.type).toBe("event");
-  });
-  it("all three sub-steps are user-action (no cursorScript)", () => {
+  it("bell step is user-action (no cursorScript)", () => {
     expect(notificationsBellStep.cursorScript).toBeUndefined();
-    expect(notificationsSilenceStep.cursorScript).toBeUndefined();
-    expect(notificationsDeleteStep.cursorScript).toBeUndefined();
+  });
+  it("bell speech folds in the clear-badge + dismiss awareness from the cut beats", () => {
+    const text = renderSpeech(notificationsBellStep);
+    expect(text).toMatch(/marked read/i);
+    expect(text).toMatch(/dismissed/i);
   });
 });
 
@@ -1387,7 +1368,10 @@ describe("SearchStep (§6.11)", () => {
   });
 });
 
-describe("WikiPointerCluster (§6.12) — multi-beat redesign 2026-05-22", () => {
+describe("WikiPointerCluster (§6.12) — collapsed to 2 awareness beats 2026-06-03", () => {
+  // 2026-06-03 (HR / tour-simplification): the two cursor navigation demos
+  // (wiki-pointer-click-demo, wiki-pointer-back-demo) were cut; the
+  // click-and-return behavior folded into the icon-spotlight speech.
   it("intro beat is speech-only (no target, no cursor)", () => {
     expect(wikiPointerIntroStep.id).toBe("wiki-pointer-intro");
     expect(wikiPointerIntroStep.targetSelector).toBeUndefined();
@@ -1402,44 +1386,27 @@ describe("WikiPointerCluster (§6.12) — multi-beat redesign 2026-05-22", () =>
     expect(wikiPointerIconSpotlightStep.targetSelector).toBe(
       "[data-tour-target=\"wiki-nav-tab\"]",
     );
-    // Spotlight only; the click happens on the next beat. Keeps the
-    // beat split honest (no double-action per beat).
+    // Awareness beat: spotlight only, no cursor demo (the navigation
+    // demos were cut 2026-06-03).
     expect(wikiPointerIconSpotlightStep.cursorScript).toBeUndefined();
     const text = renderSpeech(wikiPointerIconSpotlightStep);
     expect(text).toMatch(/question.?mark/i);
     expect(text).toMatch(/top right/i);
   });
 
-  it("click-demo beat targets the `?` icon and carries a cursor script", () => {
-    expect(wikiPointerClickDemoStep.id).toBe("wiki-pointer-click-demo");
-    expect(wikiPointerClickDemoStep.targetSelector).toBe(
-      "[data-tour-target=\"wiki-nav-tab\"]",
-    );
-    expect(wikiPointerClickDemoStep.cursorScript).toBeDefined();
-    // No expectedRoute on the click-demo beat - the cursor click itself
-    // is the navigation. Setting expectedRoute would race the
-    // controller's router.push against the cursor click.
-    expect(wikiPointerClickDemoStep.expectedRoute).toBeUndefined();
+  it("icon-spotlight speech conveys the click + back-arrow behavior as awareness (no demo)", () => {
+    // The cut click-demo + back-demo beats' value folds into this beat:
+    // clicking the icon jumps to the matching help article, and the back
+    // arrow returns the user where they left off.
+    const text = renderSpeech(wikiPointerIconSpotlightStep);
+    expect(text).toMatch(/help article/i);
+    expect(text).toMatch(/back/i);
   });
 
-  it("back-demo beat targets the WikiTopBar back button and expects /wiki", () => {
-    expect(wikiPointerBackDemoStep.id).toBe("wiki-pointer-back-demo");
-    expect(wikiPointerBackDemoStep.targetSelector).toBe(
-      "[data-tour-target=\"wiki-back-to-app\"]",
-    );
-    expect(wikiPointerBackDemoStep.cursorScript).toBeDefined();
-    // Coarse /wiki prefix handles the refresh-mid-step case (drops the
-    // user on the wiki landing, where the "Back to app" button still
-    // mounts).
-    expect(wikiPointerBackDemoStep.expectedRoute).toBe("/wiki");
-  });
-
-  it("every cluster beat uses manualAdvance (universal pacing rule)", () => {
+  it("both surviving cluster beats use manualAdvance (universal pacing rule)", () => {
     for (const step of [
       wikiPointerIntroStep,
       wikiPointerIconSpotlightStep,
-      wikiPointerClickDemoStep,
-      wikiPointerBackDemoStep,
     ]) {
       expect(step.completion.type).toBe("manual");
     }

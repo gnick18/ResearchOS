@@ -141,13 +141,15 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // user-action so BeakerBot can frame the top-bar bell + inbox pair
   // before the user has to interact with either.
   "notifications-intro",
-  // Notifications universal moment (§6.3). Split into three beats so
-  // the user actually opens the inbox, silences the row, and dismisses
-  // it before moving on — see ONBOARDING_V4_PROPOSAL.md §6.3 (Grant's
-  // 2026-05-21 design feedback "be smarter than a Got it button").
-  "notifications-bell",      // §6.3a: open the inbox
-  "notifications-silence",   // §6.3b: mark-as-read (mute the bell badge)
-  "notifications-delete",    // §6.3c: dismiss the row
+  // Notifications universal moment (§6.3). 2026-06-03 (HR / tour-
+  // simplification): Grant hand-walked the cluster and found it
+  // overbuilt. The two field-by-field demos (notifications-silence
+  // mark-as-read, notifications-delete dismiss) were cut; the user just
+  // needs to know the inbox exists and that rows can be cleared or
+  // dismissed. That awareness folded into the bell beat's speech, which
+  // still fires the test notification and gates on the user opening the
+  // inbox.
+  "notifications-bell",      // §6.3: open the inbox (clear + dismiss folded into speech)
   // Workbench experiment creation (§6.5)
   // 2026-05-27 (v4 tour structural manager, Wave 1): the prior
   // `workbench-page-intro` page-transition beat is retired. Grant's
@@ -232,22 +234,14 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // markdown renders as you go" (+ one line on Save checkpoint). The HE-2
   // branch gate is gone with it.
   "hybrid-notes-vs-results",       // HE-0
-  // 2026-05-27 (v4 tour structural manager, Wave 1): new
-  // `hybrid-editor-scope` NARRATION beat sits after HE-0 to call out
-  // that "this is the editor you'll use everywhere" before the inline
-  // editor beat. See the new tour script's §6.7 for the speech contract.
-  "hybrid-editor-scope",
-  // Writing Focus Mode enter beat (FOCUS_WRITING_MODE_DESIGN.md §9,
-  // focus-writing-mode build bot 2026-05-29). Universal (ungated)
-  // BEAKERBOT_DEMO beat between hybrid-editor-scope and the inline editor
-  // beat: BeakerBot clicks the Focus Mode toolbar button so the calm
-  // writing surface pops. Buffer-safe (the editor is not remounted), and
-  // focus mode portals the same editor subtree, so the inline-editor
-  // beat's spotlight resolves against the same surface; the exit beat
-  // below peels the overlay back afterward.
-  "hybrid-focus-enter",
   // Inline-editor collapse (onboarding-inline bot 2026-06-02): the single
   // beat that replaced the retired HE-1..HE-11 markdown deep-dive.
+  // 2026-06-03 (HR / tour-simplification): the fullscreen + focus-enter +
+  // focus-exit cursor demos (hybrid-editor-scope, hybrid-focus-enter,
+  // hybrid-focus-exit) were cut. They each clicked a single self-evident
+  // control. Their awareness value (same editor everywhere, fullscreen
+  // for more room, focus mode hides everything but the page) folded into
+  // the inline-editor speech as one short line, no cursor.
   "inline-editor",
   // §6.7 NEW terminal beat: save concept (hybrid-save-concept manager
   // 2026-05-27). Pure narration: ResearchOS doesn't auto-save, every
@@ -255,13 +249,6 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // shows a warning prompt. Closes the §6.7 editor cluster before the
   // §6.7b Notes/Lists cluster opens.
   "hybrid-save-concept",
-  // Writing Focus Mode exit beat (FOCUS_WRITING_MODE_DESIGN.md §9,
-  // focus-writing-mode build bot 2026-05-29). Universal (ungated)
-  // BEAKERBOT_DEMO beat between hybrid-save-concept and workbench-notes-intro:
-  // BeakerBot clicks the Exit focus control so the overlay peels back to
-  // reveal the still-expanded popup. Closes out the focus-mode demo before
-  // the §6.7b Notes / Lists cluster opens.
-  "hybrid-focus-exit",
   // §6.7b Workbench Notes + Lists expansion (Workbench expansion
   // manager 2026-05-22, collapsed to 5 beats by Workbench fix manager
   // R1 2026-05-22, collapsed to 2 beats 2026-06-03 by HR /
@@ -416,19 +403,18 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // step's speech so the page-intro beat is now redundant.
   // Search (§6.11)
   "search-demo",
-  // Wiki pointer outro (§6.12) - Wiki pointer multi-beat redesign
-  // 2026-05-22 (Wiki pointer manager): the prior single `wiki-pointer`
-  // beat is replaced by a 4-beat cluster that intros the wiki,
-  // spotlights the `?` icon in the topbar, demos the cursor click
-  // through to the matching wiki page, and demos the "Back to app"
-  // click to return. The legacy `wiki-pointer` id is retired from this
-  // list; the body survives in WikiPointerStep.tsx with @deprecated
-  // JSDoc for git-history reference. See ONBOARDING_V4_PROPOSAL.md
-  // §6.12 + WikiPointerStep.tsx for the per-beat contracts.
+  // Wiki pointer outro (§6.12) - Wiki pointer redesign 2026-05-22 (Wiki
+  // pointer manager), collapsed to 2 beats 2026-06-03 (HR / tour-
+  // simplification). The cluster intros the wiki, then spotlights the
+  // `?` icon in the topbar. Grant hand-walked the cluster and found the
+  // two cursor demos (wiki-pointer-click-demo, which navigated into the
+  // wiki, and wiki-pointer-back-demo, which navigated back) overbuilt
+  // for a single icon. They were cut; the click-and-return behavior
+  // folded into the icon-spotlight speech as awareness, no navigation.
+  // The legacy single `wiki-pointer` id stays retired; the deprecated
+  // body survives in WikiPointerStep.tsx for git-history reference.
   "wiki-pointer-intro",
   "wiki-pointer-icon-spotlight",
-  "wiki-pointer-click-demo",
-  "wiki-pointer-back-demo",
 
   // ----- Phase 2b: conditional walkthroughs (§6.13 - §6.15, plus
   // links from Lab Links manager 2026-05-22)

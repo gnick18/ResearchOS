@@ -27,9 +27,9 @@ const P5_STEP_IDS = [
   // was removed; the project beat hands straight to the notifications
   // framing.
   "notifications-intro",
+  // 2026-06-03 (HR / tour-simplification): notifications-silence +
+  // notifications-delete cut; awareness folded into the bell beat.
   "notifications-bell",
-  "notifications-silence",
-  "notifications-delete",
   "methods-category-prompt",
   "methods-category-open",
   "methods-category",
@@ -47,24 +47,18 @@ const P5_STEP_IDS = [
   "experiment-attach-method-notes",
   // §6.7 hybrid editor cluster. Inline-editor collapse (onboarding-inline
   // bot 2026-06-02): the HE-1..HE-11 markdown deep-dive collapsed into the
-  // single `inline-editor` beat now that the editor is inline-only. The
-  // surviving beats (notes-vs-results, editor-scope, focus enter/exit,
-  // save-concept) keep their slots.
+  // single `inline-editor` beat now that the editor is inline-only.
+  // 2026-06-03 (HR / tour-simplification): the fullscreen + focus-enter +
+  // focus-exit cursor demos (hybrid-editor-scope, hybrid-focus-enter,
+  // hybrid-focus-exit) were cut; their awareness folded into the
+  // inline-editor speech. The surviving beats (notes-vs-results,
+  // inline-editor, save-concept) keep their slots.
   "hybrid-notes-vs-results",
-  "hybrid-editor-scope",
-  // Writing Focus Mode (FOCUS_WRITING_MODE_DESIGN.md §9, focus-writing-mode
-  // build bot 2026-05-29). Two universal BEAKERBOT_DEMO beats: enter between
-  // hybrid-editor-scope and the inline editor beat; exit between
-  // hybrid-save-concept and workbench-notes-intro.
-  "hybrid-focus-enter",
   "inline-editor",
   // §6.7 hybrid-save-concept (hybrid-save-concept manager 2026-05-27):
-  // NEW pure-narration beat between the inline editor beat and
+  // pure-narration beat between the inline editor beat and
   // workbench-notes-intro.
   "hybrid-save-concept",
-  // Writing Focus Mode exit beat (FOCUS_WRITING_MODE_DESIGN.md §9,
-  // focus-writing-mode build bot 2026-05-29).
-  "hybrid-focus-exit",
   // §6.7b Workbench Notes + Lists expansion (Workbench expansion
   // manager 2026-05-22, collapsed to 5 beats by Workbench fix manager
   // R1 2026-05-22, collapsed to 2 beats 2026-06-03 by HR / tour-
@@ -107,14 +101,12 @@ const P5_STEP_IDS = [
   "ai-helper-use-case-paste",
   "ai-helper-use-case-agentic",
   "search-demo",
-  // §6.12 Wiki pointer multi-beat redesign 2026-05-22 (Wiki pointer
-  // manager). Legacy single `wiki-pointer` id retired; the 4-beat
-  // cluster replaces it. Each beat must resolve to a non-placeholder
-  // body in the registry.
+  // §6.12 Wiki pointer redesign 2026-05-22 (Wiki pointer manager),
+  // collapsed to 2 beats 2026-06-03 (HR / tour-simplification). The two
+  // cursor navigation demos (click-demo, back-demo) were cut; the two
+  // surviving awareness beats must resolve to non-placeholder bodies.
   "wiki-pointer-intro",
   "wiki-pointer-icon-spotlight",
-  "wiki-pointer-click-demo",
-  "wiki-pointer-back-demo",
 ] as const;
 
 describe("P5 step registry wiring", () => {

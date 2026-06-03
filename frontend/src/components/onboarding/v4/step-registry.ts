@@ -11,7 +11,7 @@
  *        (lab storage) + setup-q1b (lab connect info) removed; lab
  *        storage decision moved to pre-onboarding §6.4.
  *   P5 → home-create-project through the wiki-pointer cluster's
- *        terminal beat wiki-pointer-back-demo (universal §6.1-6.12)
+ *        terminal beat wiki-pointer-icon-spotlight (universal §6.1-6.12)
  *   P6 → telegram + purchases + calendar (conditional §6.13-6.15)
  *   P7 → lab-prompt + lab-spawn-beakerbot + lab-permission-practice
  *      + lab-cleanup (§6.16, minimal lab tour per L19; lab-cleanup
@@ -103,7 +103,7 @@ function placeholderStep(id: TourStepId): TourStep {
 // P5 universal-walkthrough step body imports (§6.1 - §6.12)
 //
 // Each id in TOUR_STEP_ORDER between "home-create-project" and the
-// wiki-pointer cluster's terminal beat ("wiki-pointer-back-demo") maps
+// wiki-pointer cluster's terminal beat ("wiki-pointer-icon-spotlight") maps
 // to a real body here. Setup steps (P4), conditional
 // walkthroughs (P6), lab tour (P7), and the cleanup grid (P8) still
 // render placeholders until their dispatching phase lands.
@@ -137,8 +137,11 @@ import { projectOverviewTypingDemoStep } from "./steps/walkthrough/ProjectOvervi
 // BeakerBot can frame the bell + inbox pair before the user has to click.
 import { notificationsIntroStep } from "./steps/walkthrough/NotificationsIntroStep";
 import { notificationsBellStep } from "./steps/walkthrough/NotificationsBellStep";
-import { notificationsSilenceStep } from "./steps/walkthrough/NotificationsSilenceStep";
-import { notificationsDeleteStep } from "./steps/walkthrough/NotificationsDeleteStep";
+// 2026-06-03 (HR / tour-simplification): the notifications-silence +
+// notifications-delete field-walk beats were cut. Their awareness (rows
+// can be marked read or dismissed) folded into the bell beat's speech.
+// The NotificationsSilenceStep.tsx / NotificationsDeleteStep.tsx source
+// files were deleted with the beats.
 import { methodsCategoryPromptStep } from "./steps/walkthrough/MethodsCategoryPromptStep";
 import { methodsCategoryOpenStep } from "./steps/walkthrough/MethodsCategoryOpenStep";
 import { methodsCategoryStep } from "./steps/walkthrough/MethodsCategoryStep";
@@ -186,22 +189,16 @@ import { methodAttachmentNotesStep } from "./steps/walkthrough/MethodAttachmentN
 // markdown deep-dive (HE-1 through HE-11) taught the retired hybrid
 // click-to-edit-blocks interaction and typed into the now-dormant hybrid
 // editor, so those ~15 step bodies were deleted and replaced by the
-// single `inlineEditorStep` below. The remaining cluster beats
-// (notes-vs-results, editor-scope, focus enter/exit, save-concept) teach
-// concepts / separate features and survive unchanged.
+// single `inlineEditorStep` below. 2026-06-03 (HR / tour-simplification):
+// the three cursor demos (hybrid-editor-scope fullscreen toggle,
+// hybrid-focus-enter, hybrid-focus-exit) were cut; their awareness value
+// (same editor everywhere, fullscreen for more room, focus mode hides
+// everything but the page) folded into the inline-editor speech as one
+// short line. The HybridEditorScopeStep.tsx / HybridFocusEnterStep.tsx /
+// HybridFocusExitStep.tsx source files were deleted with the beats. The
+// surviving cluster beats (notes-vs-results, inline-editor, save-concept)
+// carry the cluster now.
 import { hybridNotesVsResultsStep } from "./steps/walkthrough/HybridNotesVsResultsStep";
-// v4 tour structural manager (Wave 1, 2026-05-27): the `hybrid-editor-scope`
-// beat sits after HE-0 (notes-vs-results) so BeakerBot can frame the editor
-// as the same one used everywhere before the inline editor beat. It also
-// demos the popup's fullscreen toggle (hybrid editor demo fix manager,
-// 2026-05-27, Grant hand-walk).
-import { hybridEditorScopeStep } from "./steps/walkthrough/HybridEditorScopeStep";
-// Writing Focus Mode (FOCUS_WRITING_MODE_DESIGN.md §9, focus-writing-mode
-// build bot 2026-05-29). Two universal BEAKERBOT_DEMO beats: enter sits
-// between hybrid-editor-scope and the inline editor beat; exit sits between
-// hybrid-save-concept and workbench-notes-intro.
-import { hybridFocusEnterStep } from "./steps/walkthrough/HybridFocusEnterStep";
-import { hybridFocusExitStep } from "./steps/walkthrough/HybridFocusExitStep";
 // Inline-editor collapse (onboarding-inline bot 2026-06-02): the single
 // narration beat replacing HE-1..HE-11. Spotlights the live CodeMirror 6
 // surface (data-tour-target="inline-editor-surface") and teaches "just
@@ -294,18 +291,17 @@ import { settingsAiHelperUseCaseAgenticStep } from "./steps/walkthrough/Settings
 // retired; Grant's new script folds the page framing into the existing
 // `search-demo` speech so the standalone intro is redundant.
 import { searchStep } from "./steps/walkthrough/SearchStep";
-// §6.12 Wiki pointer multi-beat redesign 2026-05-22 (Wiki pointer manager).
-// The legacy single `wikiPointerStep` body is replaced by a 4-beat cluster:
-// intro (speech) -> icon spotlight -> click-demo (cursor click on `?` icon
-// navigates into the wiki) -> back-demo (cursor click on "Back to app"
-// returns the user to where they started). The retired `wikiPointerStep`
-// export survives in WikiPointerStep.tsx with @deprecated JSDoc; it is
-// NOT mapped through the registry.
+// §6.12 Wiki pointer redesign 2026-05-22 (Wiki pointer manager), collapsed
+// to 2 beats 2026-06-03 (HR / tour-simplification). The cluster is now
+// intro (speech) -> icon spotlight (spotlight the `?` icon + awareness of
+// what clicking it does). The two cursor navigation demos
+// (wikiPointerClickDemoStep, wikiPointerBackDemoStep) were cut; the
+// click-and-return behavior folded into the icon-spotlight speech. Those
+// bodies remain in WikiPointerStep.tsx but no longer wire through the
+// registry, alongside the long-retired single `wikiPointerStep`.
 import {
   wikiPointerIntroStep,
   wikiPointerIconSpotlightStep,
-  wikiPointerClickDemoStep,
-  wikiPointerBackDemoStep,
 } from "./steps/walkthrough/WikiPointerStep";
 // Cleanup retirement 2026-05-22: `phase4-cleanup` is gone from
 // TOUR_STEP_ORDER; the terminal step is now `tour-goodbye` (auto-
@@ -342,9 +338,9 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   // v4 tour structural manager (Wave 1, 2026-05-27): the
   // `notifications-intro` narration beat sits before notifications-bell.
   [notificationsIntroStep.id]: notificationsIntroStep,
+  // 2026-06-03 (HR / tour-simplification): notifications-silence +
+  // notifications-delete cut; awareness folded into the bell speech.
   [notificationsBellStep.id]: notificationsBellStep,
-  [notificationsSilenceStep.id]: notificationsSilenceStep,
-  [notificationsDeleteStep.id]: notificationsDeleteStep,
   [methodsCategoryPromptStep.id]: methodsCategoryPromptStep,
   [methodsCategoryOpenStep.id]: methodsCategoryOpenStep,
   [methodsCategoryStep.id]: methodsCategoryStep,
@@ -371,26 +367,16 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [methodAttachmentNotesStep.id]: methodAttachmentNotesStep,
   // §6.7 hybrid editor cluster. Inline-editor collapse (onboarding-inline
   // bot 2026-06-02): the HE-1..HE-11 markdown deep-dive collapsed into the
-  // single `inlineEditorStep` beat. The surviving beats (notes-vs-results,
-  // editor-scope, focus enter/exit, save-concept) wire in TOUR_STEP_ORDER.
+  // single `inlineEditorStep` beat. 2026-06-03 (HR / tour-simplification):
+  // the fullscreen + focus-enter + focus-exit cursor demos were cut; their
+  // awareness folded into the inline-editor speech. The surviving beats
+  // (notes-vs-results, inline-editor, save-concept) wire in TOUR_STEP_ORDER.
   [hybridNotesVsResultsStep.id]: hybridNotesVsResultsStep,
-  // v4 tour structural manager (Wave 1, 2026-05-27): scope-narration beat
-  // after HE-0.
-  [hybridEditorScopeStep.id]: hybridEditorScopeStep,
-  // Writing Focus Mode enter beat (between hybrid-editor-scope and the
-  // inline editor beat). focus-writing-mode build bot 2026-05-29.
-  [hybridFocusEnterStep.id]: hybridFocusEnterStep,
-  // Inline-editor collapse (onboarding-inline bot 2026-06-02): the single
-  // beat replacing HE-1..HE-11.
   [inlineEditorStep.id]: inlineEditorStep,
   // §6.7 hybrid-save-concept (hybrid-save-concept manager 2026-05-27):
-  // NEW pure-narration beat closing the §6.7 editor cluster before the
-  // §6.7b Notes/Lists cluster opens. Wires after hybrid-file-attach in
-  // TOUR_STEP_ORDER.
+  // pure-narration beat closing the §6.7 editor cluster before the
+  // §6.7b Notes/Lists cluster opens.
   [hybridSaveConceptStep.id]: hybridSaveConceptStep,
-  // Writing Focus Mode exit beat (between hybrid-save-concept and
-  // workbench-notes-intro). focus-writing-mode build bot 2026-05-29.
-  [hybridFocusExitStep.id]: hybridFocusExitStep,
   // §6.7b Workbench Notes + Lists expansion (Workbench expansion
   // manager 2026-05-22, collapsed to 5 beats by Workbench fix manager
   // R1 2026-05-22, collapsed to 2 beats 2026-06-03 by HR / tour-
@@ -451,13 +437,13 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [settingsAiHelperUseCasePasteStep.id]: settingsAiHelperUseCasePasteStep,
   [settingsAiHelperUseCaseAgenticStep.id]: settingsAiHelperUseCaseAgenticStep,
   [searchStep.id]: searchStep,
-  // §6.12 Wiki pointer multi-beat redesign 2026-05-22 (Wiki pointer
-  // manager). 4-beat cluster wired in TOUR_STEP_ORDER order; legacy
-  // single `wiki-pointer` id retired (see WikiPointerStep.tsx).
+  // §6.12 Wiki pointer redesign 2026-05-22 (Wiki pointer manager),
+  // collapsed to 2 beats 2026-06-03 (HR / tour-simplification). The two
+  // cursor navigation demos were cut; their behavior folded into the
+  // icon-spotlight speech. Legacy single `wiki-pointer` id stays retired
+  // (see WikiPointerStep.tsx).
   [wikiPointerIntroStep.id]: wikiPointerIntroStep,
   [wikiPointerIconSpotlightStep.id]: wikiPointerIconSpotlightStep,
-  [wikiPointerClickDemoStep.id]: wikiPointerClickDemoStep,
-  [wikiPointerBackDemoStep.id]: wikiPointerBackDemoStep,
   // Cleanup retirement 2026-05-22: tour-goodbye is the new terminal
   // step; the body lives in steps/cleanup/TourGoodbyeStep.tsx alongside
   // the retired Phase 4 cleanup-grid sources (marked @deprecated).

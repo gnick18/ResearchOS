@@ -23,6 +23,16 @@
  * instead of from TourBootstrap, so the cycle never forms. Mirrors
  * the `lib/query-client.ts` extraction pattern (dependency-free module
  * for cross-tree consumers).
+ *
+ * 2026-06-03 (HR / tour-simplification): the §6.12 cursor navigation
+ * beats (wikiPointerClickDemoStep, wikiPointerBackDemoStep) that set +
+ * cleared this flag were cut, so `markWikiPointerNavActive` is no longer
+ * called from the cluster and the flag is effectively never set in normal
+ * tour flow. The module + its TourBootstrap guard + the Discard/Restart
+ * clear calls are retained as a harmless safety net in case a future
+ * cluster beat re-introduces a BeakerBot-driven wiki navigation. The
+ * per-function references to the cut beats below are kept for historical
+ * context.
  */
 
 /** sessionStorage key flipped to "1" while the §6.12 wiki-pointer
