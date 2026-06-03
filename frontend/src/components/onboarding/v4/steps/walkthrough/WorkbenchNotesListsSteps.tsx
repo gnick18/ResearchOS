@@ -83,6 +83,7 @@ import {
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { targetSelector, TOUR_TARGETS } from "./lib/targets";
 import { flushPendingArtifacts, pendingArtifactStore } from "./lib/artifacts";
+import { switchWorkbenchTab } from "./lib/on-enter-helpers";
 
 // ---------------------------------------------------------------------------
 // Sample content (Grant 2026-05-22 spec values, lab-recipe note style)
@@ -247,6 +248,16 @@ export const workbenchNotesCreateStep = buildWalkthroughStep({
   ),
   pose: "typing-on-laptop",
   targetSelector: targetSelector(TOUR_TARGETS.workbenchNewNoteButton),
+  // tour-workbench-tab-fix bot 2026-06-03: the spotlight target (+New Note)
+  // only renders on the Notes sub-tab, but the Workbench now defaults to
+  // Projects. The cursorScript's glide can't reveal a button that isn't
+  // mounted, and on a refresh / back-step into this beat the prior
+  // notes-intro tab click has been lost. Switch to the Notes tab in onEnter
+  // (before the spotlight resolves) so the button mounts. Idempotent no-op
+  // when the tab is already active.
+  onEnter: () => {
+    switchWorkbenchTab(TOUR_TARGETS.workbenchNotesTab);
+  },
   cursorScript: cursorScript(async () => {
     // Workbench fix manager R1 2026-05-22 (Verify-A P1-4): the previous
     // script glided to the +New Note button and then spawned the note
@@ -431,6 +442,17 @@ export const workbenchListCreateShellStep = buildWalkthroughStep({
   ),
   pose: "typing-on-laptop",
   targetSelector: targetSelector(TOUR_TARGETS.workbenchNewListButton),
+  // tour-workbench-tab-fix bot 2026-06-03: the spotlight target (+New List)
+  // only renders on the Lists sub-tab, but the Workbench now defaults to
+  // Projects. The cursorScript already clicks the Lists tab as its first
+  // action, but the spotlight resolves independently of cursorScript timing
+  // (and a refresh / back-step into this beat starts on Projects). Switch
+  // in onEnter so the button mounts before the spotlight looks for it.
+  // Idempotent no-op when the tab is already active; the cursorScript's
+  // ensureListsTab click stays as belt-and-braces for the modal flow.
+  onEnter: () => {
+    switchWorkbenchTab(TOUR_TARGETS.workbenchListsTab);
+  },
   cursorScript: cursorScript(async () => {
     // Defensive: activate the Lists tab in case the user back-stepped
     // off another tab. Clicking an already-active tab is a no-op.
@@ -585,6 +607,16 @@ export const workbenchListMarkDoneStep = buildWalkthroughStep({
   ),
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.workbenchListItemCheckbox),
+  // tour-workbench-tab-fix bot 2026-06-03: the spotlight target (the list
+  // card's first item checkbox) lives on the Lists sub-tab. The Workbench
+  // now defaults to Projects, so a refresh / back-step into this beat would
+  // leave the user on Projects with nothing to spotlight. Switch to the
+  // Lists tab in onEnter so the card (and the checkbox the cursor expands
+  // to) mount before the spotlight resolves. Idempotent no-op when already
+  // on Lists.
+  onEnter: () => {
+    switchWorkbenchTab(TOUR_TARGETS.workbenchListsTab);
+  },
   cursorScript: cursorScript(async () => {
     // Hand-walk fix 2026-05-27: the prior list-create-shell modal flow
     // no longer leaves the card expanded by default (the card is

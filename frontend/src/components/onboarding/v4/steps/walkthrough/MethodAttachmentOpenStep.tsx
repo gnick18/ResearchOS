@@ -31,6 +31,8 @@ import {
 } from "./lib/cursor-script";
 import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { ensureFirstExperimentExists } from "./lib/ensure-helpers";
+import { switchWorkbenchTab } from "./lib/on-enter-helpers";
+import { TOUR_TARGETS } from "./lib/targets";
 
 export const methodAttachmentOpenStep = buildWalkthroughStep({
   id: "experiment-attach-method-open",
@@ -66,6 +68,15 @@ export const methodAttachmentOpenStep = buildWalkthroughStep({
   // "First experiment" so the cursor lands on a real row. Canonical
   // flow (§6.5 ran first) hits the no-op branch.
   onEnter: async () => {
+    // tour-workbench-tab-fix bot 2026-06-03: the cursor below clicks a
+    // `workbench-experiment-row-*` card, which only renders on the
+    // Experiments sub-tab. The Workbench now defaults to Projects (de-bloat
+    // change), so without a switch the row is absent and the cursor's
+    // safeClickAction finds nothing to open. Switch to the Experiments tab
+    // first; idempotent no-op when already active. Then ensure a row exists
+    // (canonical flow already created one in §6.5; a seed-jump past §6.5
+    // hits the create branch).
+    switchWorkbenchTab(TOUR_TARGETS.workbenchExperimentsTab);
     await ensureFirstExperimentExists();
   },
   cursorScript: cursorScript(async () => {

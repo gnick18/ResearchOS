@@ -72,6 +72,86 @@ export function closeAnyOpenTaskPopup(): void {
 }
 
 /**
+ * Switch the Workbench page to a specific tab by DOM-clicking the tab
+ * button that carries the given `data-tour-target` (e.g.
+ * `workbench-experiments-tab`, `workbench-notes-tab`,
+ * `workbench-lists-tab`).
+ *
+ * Why this exists (tour-workbench-tab-fix bot 2026-06-03): the de-bloat
+ * pass made "Projects" the DEFAULT Workbench tab. Several walkthrough
+ * beats spotlight elements that only render on a DIFFERENT sub-tab — the
+ * "+ New Experiment" button lives on the Experiments tab, the +New Note
+ * button on the Notes tab, etc. On the default Projects tab those targets
+ * are absent, so the spotlight resolves to nothing and the user is stuck.
+ * Firing this in the beat's `onEnter` switches to the required tab BEFORE
+ * the spotlight's MutationObserver looks for the target, so the element
+ * mounts and the spotlight lands.
+ *
+ * Robustness: guarded by `typeof window`, wrapped in try/catch, and a
+ * no-op when the tab button is absent (wrong page / already-correct tab /
+ * jsdom test harness without the workbench mounted). Clicking an
+ * already-active tab is a harmless no-op on the page side. We dispatch a
+ * real `click` rather than routing through the lock-bypass helper because
+ * tab switching is a plain button onClick with no capture-phase blocker
+ * to defeat, and these onEnter beats run on user-action steps that do not
+ * arm the page lock.
+ */
+export function switchWorkbenchTab(tabTarget: string): void {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  try {
+    const tabBtn = document.querySelector<HTMLElement>(
+      `[data-tour-target="${tabTarget}"]`,
+    );
+    if (tabBtn) tabBtn.click();
+  } catch (err) {
+    console.warn(
+      `[onboarding-v4] switchWorkbenchTab("${tabTarget}") failed`,
+      err,
+    );
+  }
+}
+
+/**
+ * Close the Notifications dropdown if it is open.
+ *
+ * Why (tour-workbench-tab-fix bot 2026-06-03): the §6.3 `notifications-bell`
+ * beat has the user click the bell, which opens NotificationPopup; the
+ * silence + delete beats operate on rows inside it, so it must stay open
+ * through `notifications-delete`. But once that arc ends the dropdown
+ * lingers and overlaps the following `workbench-create-experiment-open`
+ * spotlight. NotificationPopup closes itself on a `mousedown` whose target
+ * is OUTSIDE its container (the standard click-outside pattern, see
+ * NotificationPopup.tsx). We reproduce exactly that real close path by
+ * dispatching a synthetic `mousedown` on `document.body` (always outside
+ * the absolutely-positioned popup), so `handleClickOutside` -> `onClose`
+ * runs and React unmounts the popup. We touch no app-component state
+ * directly.
+ *
+ * Robustness: guarded + try/catch; harmless no-op when the popup is closed
+ * (the click-outside listener is only registered while open) or when the
+ * bell isn't mounted (other pages, jsdom harness).
+ */
+export function closeNotificationsPopup(): void {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  try {
+    // Only act when the popup is actually open: its container is rendered
+    // as a sibling of the bell button and the silence/delete row targets
+    // only exist while it is open. Probing for the bell wrapper keeps this
+    // a no-op outside the AppShell.
+    const bell = document.querySelector('[data-tour-target="notifications-bell"]');
+    if (!bell) return;
+    const evt = new MouseEvent("mousedown", {
+      bubbles: true,
+      cancelable: true,
+      view: window,
+    });
+    document.body.dispatchEvent(evt);
+  } catch (err) {
+    console.warn("[onboarding-v4] closeNotificationsPopup failed", err);
+  }
+}
+
+/**
  * Resolve the "active project" for the walkthrough by listing all
  * projects and returning the most-recently-created one. Returns `null`
  * when no project exists (e.g. the user skipped §6.1, the test

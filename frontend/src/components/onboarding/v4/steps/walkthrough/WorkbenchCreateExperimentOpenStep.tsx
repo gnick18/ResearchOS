@@ -50,6 +50,10 @@ import {
 } from "./lib/tour-events";
 import { flushPendingArtifacts, pendingArtifactStore } from "./lib/artifacts";
 import {
+  closeNotificationsPopup,
+  switchWorkbenchTab,
+} from "./lib/on-enter-helpers";
+import {
   ensureFirstProjectExists as canonicalEnsureFirstProjectExists,
   resolveFirstProjectId as canonicalResolveFirstProjectId,
 } from "./lib/ensure-helpers";
@@ -95,6 +99,25 @@ export const workbenchCreateExperimentOpenStep = buildWalkthroughStep({
   targetSelector: targetSelector(TOUR_TARGETS.workbenchNewExperiment),
   // No cursorScript: USER_ACTION step. The user clicks the spotlighted
   // button themselves.
+  //
+  // onEnter (tour-workbench-tab-fix bot 2026-06-03): the Workbench now
+  // DEFAULTS to the "Projects" tab (de-bloat change), but the
+  // "+ New Experiment" button (TOUR_TARGETS.workbenchNewExperiment) only
+  // renders on the Experiments sub-tab. Without a switch the spotlight
+  // resolves to nothing and the user is stuck with nothing to click.
+  // Switch to the Experiments tab in onEnter so the button mounts before
+  // the spotlight's MutationObserver looks for it. Also close any
+  // lingering Notifications dropdown left open by the §6.3 bell arc
+  // (notifications-bell -> silence -> delete) so it doesn't overlap this
+  // spotlight. Both helpers are guarded + idempotent + no-op when their
+  // target is absent. The downstream name/project/submit beats all happen
+  // inside the TaskModal, which is tab-independent, so they need no
+  // change. onEnter runs after the pathname settles on /workbench (see
+  // TourController), before the spotlight resolves.
+  onEnter: () => {
+    closeNotificationsPopup();
+    switchWorkbenchTab(TOUR_TARGETS.workbenchExperimentsTab);
+  },
   completion: advanceOnEvent(watchWorkbenchExperimentModalOpened),
   expectedRoute: "/workbench",
 });
