@@ -23,6 +23,17 @@
 
 import { APP_VERSION } from "./version";
 
+/** A block in a release's optional personal `message`. When a release has a
+ *  `message`, the popup renders it INSTEAD of the flat `highlights` bullets,
+ *  so a big release can carry a from-the-author note with structure:
+ *    - `para`    a paragraph of prose
+ *    - `feature` a bold lead-in (`title`) + `text`, with optional `items`
+ *                rendered as sub-bullets underneath
+ *  Phrased cleanly: no em-dashes, no emojis. */
+export type ReleaseMessageBlock =
+  | { kind: "para"; text: string }
+  | { kind: "feature"; title: string; text: string; items?: string[] };
+
 /** One curated release's worth of user-facing notes. */
 export interface ReleaseNote {
   /** Semantic version string, e.g. "0.1.0". Matches the APP_VERSION the
@@ -31,8 +42,13 @@ export interface ReleaseNote {
   /** ISO date (YYYY-MM-DD) the release went out. Display-only. */
   date: string;
   /** User-facing highlight lines, rendered as bullets in the popup.
-   *  Phrased cleanly: no em-dashes, no emojis. */
+   *  Phrased cleanly: no em-dashes, no emojis. Used when `message` is absent
+   *  (and kept as a concise fallback even when a `message` is present). */
   highlights: string[];
+  /** Optional from-the-author note. When present, the popup renders this
+   *  structured message in place of `highlights`. Used for big releases that
+   *  warrant a personal, change-management framing rather than a bullet list. */
+  message?: ReleaseMessageBlock[];
 }
 
 /**
@@ -61,6 +77,49 @@ export const RELEASE_NOTES: ReadonlyArray<ReleaseNote> = [
       "A dedicated Lab Overview page for PIs, and a required lab password at setup and login to keep your workspace private",
       "A general-purpose Scientific calculator, and more accurate nearest-neighbor primer melting temperatures",
       "A Built on open source page crediting the projects ResearchOS is built on, plus quieter, less cluttered chrome throughout the app",
+    ],
+    message: [
+      {
+        kind: "para",
+        text: "Hi Beta testers! This version you'll see some LARGE changes based on some feedback we had gotten that the website felt a bit bloated. This is a known problem I'm still fighting to improve on. Now that we've added lots of features it's equally important for me to figure out where the redundancies are and how we can make the whole site much more user intuitive.",
+      },
+      {
+        kind: "para",
+        text: "In that vein you will notice the home page and widget pages have been fully deprecated. Everything you actually used is still here, it has just moved into a calmer, more focused layout. Your projects now open by default and act as the home base for their notes, tasks, results, and sequences, your experiments live in a cleaner pipeline board, and if you run a lab you get a dedicated Lab Overview page. Nothing was deleted and your data is exactly where you left it, it should just take fewer clicks to get to.",
+      },
+      {
+        kind: "para",
+        text: "On top of the cleanup there are some genuinely big new features.",
+      },
+      {
+        kind: "feature",
+        title: "Sequence Editor (the headline):",
+        text: "a SnapGene and Benchling style molecular biology workspace built right into ResearchOS. With it you can:",
+        items: [
+          "Import your SnapGene .dna, GenBank, and FASTA files",
+          "View and edit sequences with colored annotations",
+          "Zoom smoothly from a whole-plasmid map down to individual bases",
+          "Design primers with melting temperatures",
+          "See exactly where restriction enzymes cut",
+          "View multi-exon genes as proper spliced exons with the correctly translated protein",
+          "Export to GenBank, FASTA, protein, or a map image",
+        ],
+      },
+      {
+        kind: "feature",
+        title: "Scientific calculator:",
+        text: "a general-purpose calculator alongside the existing lab calculators.",
+      },
+      {
+        kind: "feature",
+        title: "More accurate primer Tm:",
+        text: "melting temperatures now use the nearest-neighbor model.",
+      },
+      {
+        kind: "feature",
+        title: "Built on open source:",
+        text: "a new page crediting the projects ResearchOS is built on.",
+      },
     ],
   },
   {

@@ -64,6 +64,62 @@ function formatDate(iso: string): string {
   });
 }
 
+/** A flat highlights list (the default body shape). */
+function HighlightList({ highlights }: { highlights: string[] }) {
+  return (
+    <ul className="mt-2 space-y-1.5">
+      {highlights.map((h, i) => (
+        <li key={i} className="flex gap-2 text-sm text-gray-700 leading-snug">
+          <span
+            aria-hidden="true"
+            className="mt-1.5 h-1.5 w-1.5 flex-none rounded-full bg-sky-400"
+          />
+          <span>{h}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** A structured from-the-author note: prose paragraphs + bold feature lead-ins
+ *  with optional sub-bullets. Rendered in place of the flat highlights when a
+ *  release carries a `message`. */
+function ReleaseMessage({
+  message,
+}: {
+  message: NonNullable<ReleaseNote["message"]>;
+}) {
+  return (
+    <div className="mt-2 space-y-3">
+      {message.map((block, i) =>
+        block.kind === "para" ? (
+          <p key={i} className="text-sm text-gray-700 leading-relaxed">
+            {block.text}
+          </p>
+        ) : (
+          <div key={i} className="text-sm text-gray-700 leading-relaxed">
+            <span className="font-semibold text-gray-900">{block.title}</span>{" "}
+            {block.text}
+            {block.items && block.items.length > 0 && (
+              <ul className="mt-1.5 space-y-1.5">
+                {block.items.map((it, j) => (
+                  <li key={j} className="flex gap-2 leading-snug">
+                    <span
+                      aria-hidden="true"
+                      className="mt-1.5 h-1.5 w-1.5 flex-none rounded-full bg-sky-400"
+                    />
+                    <span>{it}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ),
+      )}
+    </div>
+  );
+}
+
 function ReleaseBlock({ release }: { release: ReleaseNote }) {
   return (
     <div>
@@ -75,20 +131,11 @@ function ReleaseBlock({ release }: { release: ReleaseNote }) {
           {formatDate(release.date)}
         </span>
       </div>
-      <ul className="mt-2 space-y-1.5">
-        {release.highlights.map((h, i) => (
-          <li
-            key={i}
-            className="flex gap-2 text-sm text-gray-700 leading-snug"
-          >
-            <span
-              aria-hidden="true"
-              className="mt-1.5 h-1.5 w-1.5 flex-none rounded-full bg-sky-400"
-            />
-            <span>{h}</span>
-          </li>
-        ))}
-      </ul>
+      {release.message && release.message.length > 0 ? (
+        <ReleaseMessage message={release.message} />
+      ) : (
+        <HighlightList highlights={release.highlights} />
+      )}
     </div>
   );
 }
