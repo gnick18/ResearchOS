@@ -36,8 +36,9 @@ export const inlineEditorStep = buildWalkthroughStep({
         This is a live document: just type, and your{" "}
         <strong>markdown</strong> renders as you go. A{" "}
         <code># </code> starts a heading, <code>**stars**</code> make text
-        bold, and a <code>- </code> begins a list. No buttons to hunt for,
-        no switching in and out of an edit mode.
+        bold, a <code>- </code> starts a list. That&apos;s the whole trick:
+        you&apos;re always just typing, with no edit mode to flip in and out
+        of.
       </p>
       <p>
         When you hit a good stopping point, <strong>Save checkpoint</strong>{" "}
