@@ -230,14 +230,14 @@ export default function LabLinksPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">{surfaceLabel}</h2>
-            <p className="text-sm text-gray-400 mt-0.5">
+            <h2 className="text-heading font-semibold text-gray-900">{surfaceLabel}</h2>
+            <p className="text-body text-gray-400 mt-0.5">
               {links.length} link{links.length !== 1 ? "s" : ""} saved
             </p>
           </div>
           <button
             onClick={startCreate}
-            className="px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
+            className="px-4 py-2 bg-blue-500 text-white text-body font-medium rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 5v14M5 12h14"/>
@@ -249,12 +249,12 @@ export default function LabLinksPage() {
         {/* Create/Edit Form */}
         {(isCreating || editingLink) && (
           <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6">
-            <h3 className="text-sm font-semibold text-gray-700 mb-4">
+            <h3 className="text-body font-semibold text-gray-700 mb-4">
               {editingLink ? "Edit Link" : "New Link"}
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">
+                <label className="block text-meta font-medium text-gray-500 mb-1">
                   URL *
                 </label>
                 <div className="flex gap-2">
@@ -263,14 +263,14 @@ export default function LabLinksPage() {
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
                     placeholder="https://..."
-                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   <Tooltip label="Fetch preview" placement="bottom">
                     <button
                       type="button"
                       onClick={handleFetchPreview}
                       disabled={!url.trim() || isLoadingPreview}
-                      className="px-3 py-2 bg-gray-100 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                      className="px-3 py-2 bg-gray-100 text-gray-600 text-body font-medium rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                     >
                       {isLoadingPreview ? (
                         <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -289,7 +289,7 @@ export default function LabLinksPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">
+                <label className="block text-meta font-medium text-gray-500 mb-1">
                   Title *
                 </label>
                 <input
@@ -297,11 +297,11 @@ export default function LabLinksPage() {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Link title"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">
+                <label className="block text-meta font-medium text-gray-500 mb-1">
                   Category
                 </label>
                 <input
@@ -310,7 +310,7 @@ export default function LabLinksPage() {
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
                   placeholder="Select or type category"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 <datalist id="categories">
                   {CATEGORIES.map((cat) => (
@@ -319,7 +319,7 @@ export default function LabLinksPage() {
                 </datalist>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">
+                <label className="block text-meta font-medium text-gray-500 mb-1">
                   Color
                 </label>
                 <div className="flex gap-2 flex-wrap">
@@ -345,7 +345,7 @@ export default function LabLinksPage() {
                   every lab member can see (and collaboratively maintain)
                   the bookmark. New links default to "Just me". */}
               <div className="md:col-span-2">
-                <label className="block text-xs font-medium text-gray-500 mb-1">
+                <label className="block text-meta font-medium text-gray-500 mb-1">
                   Visibility
                 </label>
                 <div
@@ -358,7 +358,7 @@ export default function LabLinksPage() {
                     role="radio"
                     aria-checked={!wholeLab}
                     onClick={() => setWholeLab(false)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-body font-medium rounded-md transition-colors ${
                       !wholeLab
                         ? "bg-white text-gray-900 shadow-sm"
                         : "text-gray-500 hover:text-gray-700"
@@ -375,7 +375,7 @@ export default function LabLinksPage() {
                     role="radio"
                     aria-checked={wholeLab}
                     onClick={() => setWholeLab(true)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-body font-medium rounded-md transition-colors ${
                       wholeLab
                         ? "bg-white text-blue-600 shadow-sm"
                         : "text-gray-500 hover:text-gray-700"
@@ -390,14 +390,14 @@ export default function LabLinksPage() {
                     Whole lab
                   </button>
                 </div>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-meta text-gray-400 mt-1">
                   {wholeLab
                     ? "Everyone in your lab can see and edit this link."
                     : "Only you can see this link."}
                 </p>
               </div>
               <div className="md:col-span-2">
-                <label className="block text-xs font-medium text-gray-500 mb-1">
+                <label className="block text-meta font-medium text-gray-500 mb-1">
                   Description
                 </label>
                 <input
@@ -405,12 +405,12 @@ export default function LabLinksPage() {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Brief description (optional)"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
               {/* Preview Image URL */}
               <div className="md:col-span-2">
-                <label className="block text-xs font-medium text-gray-500 mb-1">
+                <label className="block text-meta font-medium text-gray-500 mb-1">
                   Preview Image URL
                 </label>
                 <div className="flex gap-2 items-start">
@@ -419,7 +419,7 @@ export default function LabLinksPage() {
                     value={previewImageUrl || ""}
                     onChange={(e) => setPreviewImageUrl(e.target.value || null)}
                     placeholder="Auto-fetched or paste custom image URL"
-                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   {previewImageUrl && (
                     <div className="w-20 h-14 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
@@ -440,14 +440,14 @@ export default function LabLinksPage() {
             <div className="flex justify-end gap-2 mt-4">
               <button
                 onClick={editingLink ? cancelEdit : () => setIsCreating(false)}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                className="px-4 py-2 text-body text-gray-600 hover:text-gray-800 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={editingLink ? handleUpdate : handleCreate}
                 disabled={!title.trim() || !url.trim()}
-                className="px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-blue-500 text-white text-body font-medium rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {editingLink ? "Save Changes" : "Create Link"}
               </button>
@@ -469,7 +469,7 @@ export default function LabLinksPage() {
               </svg>
             </div>
             <p className="text-lg text-gray-400 mb-2">No links saved yet</p>
-            <p className="text-sm text-gray-300">
+            <p className="text-body text-gray-300">
               Add a link to save it here
             </p>
           </div>
@@ -477,7 +477,7 @@ export default function LabLinksPage() {
           <div className="space-y-6">
             {Object.entries(groupedLinks).map(([cat, catLinks]) => (
               <div key={cat}>
-                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                <h3 className="text-meta font-semibold text-gray-400 uppercase tracking-wider mb-3">
                   {cat}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -516,7 +516,7 @@ export default function LabLinksPage() {
                         {/* Category badge */}
                         {link.category && (
                           <div className="absolute top-2 left-2">
-                            <span className="px-2 py-0.5 bg-black/50 text-white text-xs rounded-full backdrop-blur-sm">
+                            <span className="px-2 py-0.5 bg-black/50 text-white text-meta rounded-full backdrop-blur-sm">
                               {link.category}
                             </span>
                           </div>
@@ -563,15 +563,15 @@ export default function LabLinksPage() {
                       
                       {/* Content */}
                       <div className="p-4 flex-1 flex flex-col">
-                        <h4 className="text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2">
+                        <h4 className="text-body font-semibold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2">
                           {link.title}
                         </h4>
                         {link.description && (
-                          <p className="text-xs text-gray-500 mt-1.5 line-clamp-2 flex-1">
+                          <p className="text-meta text-gray-500 mt-1.5 line-clamp-2 flex-1">
                             {link.description}
                           </p>
                         )}
-                        <p className="text-xs text-gray-400 mt-2 truncate">
+                        <p className="text-meta text-gray-400 mt-2 truncate">
                           {new URL(link.url).hostname}
                         </p>
                         {/* Owner badge (links lab-share restore bot,
@@ -582,7 +582,7 @@ export default function LabLinksPage() {
                         {!isOwnLink(link) && link.owner && (
                           <div className="flex items-center gap-1.5 mt-2 min-w-0">
                             <UserAvatar username={link.owner} size="xs" />
-                            <span className="text-xs text-gray-500 truncate">
+                            <span className="text-meta text-gray-500 truncate">
                               Shared by{" "}
                               {profileMap[link.owner]?.displayName?.trim() ||
                                 link.owner}
@@ -616,19 +616,19 @@ export default function LabLinksPage() {
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 Delete Link?
               </h3>
-              <p className="text-sm text-gray-500 mb-4">
+              <p className="text-body text-gray-500 mb-4">
                 This action cannot be undone.
               </p>
               <div className="flex justify-end gap-2">
                 <button
                   onClick={() => setDeleteConfirmId(null)}
-                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                  className="px-4 py-2 text-body text-gray-600 hover:text-gray-800 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={() => handleDelete(deleteConfirmId)}
-                  className="px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition-colors"
+                  className="px-4 py-2 bg-red-500 text-white text-body font-medium rounded-lg hover:bg-red-600 transition-colors"
                 >
                   Delete
                 </button>

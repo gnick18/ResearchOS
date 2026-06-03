@@ -111,10 +111,10 @@ export default function RehydrateMissingImagesModal({
       >
         <div className="px-6 pt-5 pb-3 border-b border-gray-100 flex items-center justify-between gap-4">
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-gray-500 font-medium">
+            <p className="text-meta uppercase tracking-wide text-gray-500 font-medium">
               LabArchives import
             </p>
-            <h2 className="text-base font-semibold text-gray-900 mt-0.5">
+            <h2 className="text-title font-semibold text-gray-900 mt-0.5">
               Pull in your missing inline images
             </h2>
           </div>
@@ -141,7 +141,7 @@ export default function RehydrateMissingImagesModal({
             />
           )}
           {applyState.kind === "error" && (
-            <p className="mt-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+            <p className="mt-3 text-meta text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
               {applyState.message}
             </p>
           )}
@@ -152,7 +152,7 @@ export default function RehydrateMissingImagesModal({
             type="button"
             onClick={handleClose}
             disabled={applyState.kind === "applying"}
-            className="px-3 py-2 text-sm text-gray-700 hover:text-gray-900 disabled:opacity-50"
+            className="px-3 py-2 text-body text-gray-700 hover:text-gray-900 disabled:opacity-50"
           >
             {applyState.kind === "done" ? "Done" : "Cancel"}
           </button>
@@ -161,7 +161,7 @@ export default function RehydrateMissingImagesModal({
               type="button"
               onClick={handleApply}
               disabled={stagedOkCount === 0 || applyState.kind === "applying"}
-              className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {applyState.kind === "applying"
                 ? "Applying…"
@@ -191,13 +191,13 @@ function ApplySummary({ result }: { result: RehydrateResult }) {
   return (
     <div className="space-y-3">
       <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3">
-        <p className="text-sm font-medium text-emerald-900">
+        <p className="text-body font-medium text-emerald-900">
           {result.applied === 0
             ? "Nothing was applied."
             : `Applied ${result.applied} image${result.applied === 1 ? "" : "s"}.`}
         </p>
         {result.sidecar && (
-          <p className="text-xs text-emerald-800 mt-1">
+          <p className="text-meta text-emerald-800 mt-1">
             {result.sidecar.missingInlineImages.length === 0
               ? "All your inline images are now in the note."
               : `${result.sidecar.missingInlineImages.length} image${
@@ -208,13 +208,13 @@ function ApplySummary({ result }: { result: RehydrateResult }) {
       </div>
       {result.warnings.length > 0 && (
         <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
-          <p className="text-sm font-medium text-amber-900">
+          <p className="text-body font-medium text-amber-900">
             Some images couldn&apos;t be written:
           </p>
-          <ul className="mt-1 list-disc list-inside text-xs text-amber-800 space-y-0.5">
+          <ul className="mt-1 list-disc list-inside text-meta text-amber-800 space-y-0.5">
             {result.warnings.slice(0, 8).map((w, i) => (
               <li key={i}>
-                <code className="text-[10px]">{w.filename}</code> — {w.message}
+                <code className="text-meta">{w.filename}</code> — {w.message}
               </li>
             ))}
             {result.warnings.length > 8 && (

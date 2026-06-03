@@ -416,8 +416,8 @@ function SettingsBody() {
     return (
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="max-w-md text-center space-y-3">
-          <h2 className="text-xl font-semibold text-gray-900">Settings unavailable</h2>
-          <p className="text-sm text-gray-600">
+          <h2 className="text-heading font-semibold text-gray-900">Settings unavailable</h2>
+          <p className="text-body text-gray-600">
             Connect to a research folder and pick a user to manage your account settings.
           </p>
         </div>
@@ -456,8 +456,8 @@ function SettingsBody() {
               <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
               <VersionBadge />
             </div>
-            <p className="text-sm text-gray-500 mt-1">
-              Stored in <code className="px-1 py-0.5 bg-gray-100 rounded text-xs">users/{currentUser}/settings.json</code>
+            <p className="text-body text-gray-500 mt-1">
+              Stored in <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">users/{currentUser}/settings.json</code>
             </p>
           </div>
           <SavedIndicator saving={saving} recentlySaved={recentlySaved} />
@@ -564,8 +564,8 @@ function SettingsBody() {
 }
 
 function SavedIndicator({ saving, recentlySaved }: { saving: boolean; recentlySaved: boolean }) {
-  if (saving) return <span className="text-xs text-gray-500">Saving…</span>;
-  if (recentlySaved) return <span className="text-xs text-emerald-600">Saved</span>;
+  if (saving) return <span className="text-meta text-gray-500">Saving…</span>;
+  if (recentlySaved) return <span className="text-meta text-emerald-600">Saved</span>;
   return null;
 }
 
@@ -611,7 +611,7 @@ function SettingsSearchBar() {
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search settings..."
         aria-label="Search settings"
-        className="w-full pl-9 pr-9 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full pl-9 pr-9 py-2 border border-gray-300 rounded-lg text-body bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
       {query && (
         <div className="absolute right-2 top-1/2 -translate-y-1/2">
@@ -689,7 +689,7 @@ function SettingsSearchEmptyState() {
   return (
     <div
       role="status"
-      className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600"
+      className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-body text-gray-600"
     >
       No settings match{" "}
       <span className="font-medium text-gray-800">&ldquo;{query}&rdquo;</span>.
@@ -748,11 +748,11 @@ function SectionShell({
       className="bg-white rounded-xl border border-gray-200 p-6 scroll-mt-4"
     >
       <div className="mb-4">
-        <h2 className="text-base font-semibold text-gray-900">
+        <h2 className="text-title font-semibold text-gray-900">
           <HighlightedText text={title} />
         </h2>
         {description && (
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-meta text-gray-500 mt-1">
             <HighlightedText text={description} />
           </p>
         )}
@@ -787,13 +787,13 @@ function DataFolderSection({
     >
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-sm text-gray-800">
+          <p className="text-body text-gray-800">
             Connected folder:{" "}
             <span className={directoryName ? "font-medium text-gray-900" : "text-gray-500"}>
               {directoryName ?? "none"}
             </span>
           </p>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-meta text-gray-400 mt-1">
             Switching folders does not move or delete any files; it only changes
             which folder the app is pointed at.
           </p>
@@ -801,7 +801,7 @@ function DataFolderSection({
         <button
           type="button"
           onClick={onConnectOrSwitch}
-          className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+          className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
         >
           Connect or switch folder
         </button>
@@ -836,19 +836,19 @@ function AccountSection({
           {currentUser ? (
             <UserAvatar username={currentUser} size="sm" />
           ) : (
-            <span className="inline-flex w-9 h-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 text-sm font-semibold">
+            <span className="inline-flex w-9 h-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 text-body font-semibold">
               ?
             </span>
           )}
           <div className="min-w-0">
-            <p className="text-sm text-gray-800">
+            <p className="text-body text-gray-800">
               Signed in as{" "}
               <span className={currentUser ? "font-medium text-gray-900" : "text-gray-500"}>
                 {currentUser ?? "no one"}
               </span>
               .
             </p>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-meta text-gray-400 mt-1">
               Same picker as the app login screen.
             </p>
           </div>
@@ -857,7 +857,7 @@ function AccountSection({
           type="button"
           onClick={onSwitchUser}
           data-tour-target="user-picker-button"
-          className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+          className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
         >
           Switch user
         </button>
@@ -897,8 +897,8 @@ function ProfileSection({ settings, update }: SectionProps) {
             secondaryOverride={settings.colorSecondary}
           />
         )}
-        <div className="text-xs text-gray-500">
-          <p className="text-sm text-gray-800 font-medium">{draftName.trim() || currentUser}</p>
+        <div className="text-meta text-gray-500">
+          <p className="text-body text-gray-800 font-medium">{draftName.trim() || currentUser}</p>
           <p className="mt-0.5">
             {settings.colorSecondary
               ? "Two-color gradient — your live preview."
@@ -908,7 +908,7 @@ function ProfileSection({ settings, update }: SectionProps) {
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1">
+        <label className="block text-meta font-medium text-gray-700 mb-1">
           Display name
         </label>
         <input
@@ -920,9 +920,9 @@ function ProfileSection({ settings, update }: SectionProps) {
           onKeyDown={(e) => {
             if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
           }}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
-        <p className="text-xs text-gray-400 mt-1">
+        <p className="text-meta text-gray-400 mt-1">
           Leave blank to use your folder name ({currentUser}).
         </p>
       </div>
@@ -1052,13 +1052,13 @@ function AccountTypeSection({ settings, update }: SectionProps) {
               }`}
             >
               <span
-                className={`text-sm font-semibold ${
+                className={`text-body font-semibold ${
                   selected ? "text-amber-800" : "text-gray-800"
                 }`}
               >
                 {opt.title}
               </span>
-              <span className="text-xs text-gray-500">{opt.description}</span>
+              <span className="text-meta text-gray-500">{opt.description}</span>
             </button>
           );
         })}
@@ -1078,13 +1078,13 @@ function AccountTypeSection({ settings, update }: SectionProps) {
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-5">
             <h3
               id="account-type-confirm-title"
-              className="text-base font-semibold text-gray-900"
+              className="text-title font-semibold text-gray-900"
             >
               {pendingSwitch === "lab_head"
                 ? "Switch your account type to PI?"
                 : "Switch your account type to Member?"}
             </h3>
-            <p className="text-sm text-gray-600 mt-2">
+            <p className="text-body text-gray-600 mt-2">
               {pendingSwitch === "lab_head"
                 ? "This adds the curated Lab Overview page, audit logging, and the ability to approve purchases."
                 : "This hides the Lab Overview surface and lab-head-only controls. You will keep your existing data."}
@@ -1093,7 +1093,7 @@ function AccountTypeSection({ settings, update }: SectionProps) {
               <button
                 type="button"
                 onClick={() => setPendingSwitch(null)}
-                className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                className="px-3 py-1.5 text-body text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 Cancel
               </button>
@@ -1104,7 +1104,7 @@ function AccountTypeSection({ settings, update }: SectionProps) {
                   setPendingSwitch(null);
                   void commitSwitch(target);
                 }}
-                className="px-3 py-1.5 text-sm bg-amber-600 text-white hover:bg-amber-700 rounded-lg transition-colors"
+                className="px-3 py-1.5 text-body bg-amber-600 text-white hover:bg-amber-700 rounded-lg transition-colors"
                 data-testid="account-type-confirm-ok"
               >
                 Switch
@@ -1138,7 +1138,7 @@ function AccountTypeSection({ settings, update }: SectionProps) {
           >
             <polyline points="20 6 9 17 4 12" />
           </svg>
-          <span className="text-sm">
+          <span className="text-body">
             Switched to{" "}
             <span className="font-semibold">
               {undoToast.next === "lab_head" ? "PI" : "Member"}
@@ -1147,7 +1147,7 @@ function AccountTypeSection({ settings, update }: SectionProps) {
           <button
             type="button"
             onClick={() => void undoSwitch()}
-            className="text-xs font-medium text-amber-300 hover:text-amber-200 underline-offset-2 hover:underline"
+            className="text-meta font-medium text-amber-300 hover:text-amber-200 underline-offset-2 hover:underline"
             data-testid="account-type-undo-button"
           >
             Switch back
@@ -1216,8 +1216,8 @@ function LabHeadSection({
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-gray-200 bg-white">
           <div className="min-w-0">
-            <p className="text-sm font-medium text-gray-800">Lab-head password</p>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-body font-medium text-gray-800">Lab-head password</p>
+            <p className="text-meta text-gray-500 mt-0.5">
               Starts as your account password. You can change it here once
               you&apos;ve unlocked edit mode at least once.
             </p>
@@ -1225,7 +1225,7 @@ function LabHeadSection({
           <button
             type="button"
             onClick={() => setChangePwOpen(true)}
-            className="flex-shrink-0 px-3 py-1.5 rounded-md text-xs font-medium text-white bg-amber-600 hover:bg-amber-700"
+            className="flex-shrink-0 px-3 py-1.5 rounded-md text-meta font-medium text-white bg-amber-600 hover:bg-amber-700"
           >
             Change password
           </button>
@@ -1233,13 +1233,13 @@ function LabHeadSection({
 
         <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-gray-200 bg-white">
           <div className="min-w-0">
-            <p className="text-sm font-medium text-gray-800">Active session</p>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-body font-medium text-gray-800">Active session</p>
+            <p className="text-meta text-gray-500 mt-0.5">
               Sessions last 5 minutes and survive navigation. Close the tab or
               click Lock to end early.
             </p>
             <span
-              className={`inline-block mt-1.5 px-2 py-0.5 rounded text-[11px] font-medium border ${statusClass}`}
+              className={`inline-block mt-1.5 px-2 py-0.5 rounded text-meta font-medium border ${statusClass}`}
               data-testid="lab-head-session-status"
             >
               {statusLabel}
@@ -1249,7 +1249,7 @@ function LabHeadSection({
             type="button"
             onClick={() => endEditSession()}
             disabled={!isActive}
-            className="flex-shrink-0 px-3 py-1.5 rounded-md text-xs font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-shrink-0 px-3 py-1.5 rounded-md text-meta font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Lock session now
           </button>
@@ -1314,7 +1314,7 @@ function SettingsTabStrip({
         aria-selected={activeTab === "personal"}
         onClick={() => onTabChange("personal")}
         data-tour-target="settings-tab-personal"
-        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+        className={`px-4 py-2 rounded-lg text-body font-medium transition-colors ${
           activeTab === "personal"
             ? "bg-blue-100 text-blue-700"
             : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
@@ -1328,7 +1328,7 @@ function SettingsTabStrip({
         aria-selected={activeTab === "lab"}
         onClick={() => onTabChange("lab")}
         data-tour-target="settings-tab-lab"
-        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+        className={`px-4 py-2 rounded-lg text-body font-medium transition-colors ${
           activeTab === "lab"
             ? "bg-amber-100 text-amber-800"
             : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
@@ -1466,19 +1466,19 @@ function ChangeLabHeadPasswordPopup({
         className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6 space-y-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-base font-semibold text-gray-900">
+        <h2 className="text-title font-semibold text-gray-900">
           Change lab-head password
         </h2>
         {done ? (
           <div className="space-y-3">
-            <p className="text-sm text-emerald-700">
+            <p className="text-body text-emerald-700">
               Password updated. New unlocks will require the new password.
             </p>
             <div className="flex justify-end">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3 py-1.5 rounded-md text-xs font-medium text-white bg-amber-600 hover:bg-amber-700"
+                className="px-3 py-1.5 rounded-md text-meta font-medium text-white bg-amber-600 hover:bg-amber-700"
               >
                 Done
               </button>
@@ -1488,7 +1488,7 @@ function ChangeLabHeadPasswordPopup({
           <>
             {!forgot ? (
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label className="block text-meta font-medium text-gray-700 mb-1">
                   Current password
                 </label>
                 <input
@@ -1497,7 +1497,7 @@ function ChangeLabHeadPasswordPopup({
                   onChange={(e) => setCurrent(e.target.value)}
                   disabled={busy}
                   autoComplete="current-password"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
                 <button
                   type="button"
@@ -1507,13 +1507,13 @@ function ChangeLabHeadPasswordPopup({
                     setError(null);
                   }}
                   disabled={busy}
-                  className="mt-1 text-xs text-gray-500 hover:text-gray-700 underline-offset-2 hover:underline disabled:opacity-50"
+                  className="mt-1 text-meta text-gray-500 hover:text-gray-700 underline-offset-2 hover:underline disabled:opacity-50"
                 >
                   Forgot current password? Reset instead
                 </button>
               </div>
             ) : (
-              <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
+              <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-meta text-amber-900">
                 <p className="font-medium">
                   Resetting without the current password.
                 </p>
@@ -1535,7 +1535,7 @@ function ChangeLabHeadPasswordPopup({
               </div>
             )}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
+              <label className="block text-meta font-medium text-gray-700 mb-1">
                 New password
               </label>
               <input
@@ -1544,11 +1544,11 @@ function ChangeLabHeadPasswordPopup({
                 onChange={(e) => setNext(e.target.value)}
                 disabled={busy}
                 autoComplete="new-password"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
+              <label className="block text-meta font-medium text-gray-700 mb-1">
                 Confirm new password
               </label>
               <input
@@ -1563,11 +1563,11 @@ function ChangeLabHeadPasswordPopup({
                   }
                 }}
                 autoComplete="new-password"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500"
               />
             </div>
             {error && (
-              <p className="text-xs text-red-600" role="alert">
+              <p className="text-meta text-red-600" role="alert">
                 {error}
               </p>
             )}
@@ -1576,7 +1576,7 @@ function ChangeLabHeadPasswordPopup({
                 type="button"
                 onClick={onClose}
                 disabled={busy}
-                className="px-3 py-1.5 rounded-md text-xs text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+                className="px-3 py-1.5 rounded-md text-meta text-gray-600 hover:bg-gray-100 disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -1584,7 +1584,7 @@ function ChangeLabHeadPasswordPopup({
                 type="button"
                 onClick={() => void handleSubmit()}
                 disabled={busy || (!forgot && !current) || !next || !confirm}
-                className="px-3 py-1.5 rounded-md text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 rounded-md text-meta font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {busy ? "Updating…" : forgot ? "Reset password" : "Update password"}
               </button>
@@ -1697,7 +1697,7 @@ function ColorPickerRows({
   return (
     <>
       <div>
-        <label className="block text-xs font-medium text-gray-700 mb-2">
+        <label className="block text-meta font-medium text-gray-700 mb-2">
           Primary color
         </label>
         <div className="flex flex-wrap gap-2">
@@ -1748,14 +1748,14 @@ function ColorPickerRows({
 
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="block text-xs font-medium text-gray-700">
+          <label className="block text-meta font-medium text-gray-700">
             Optional second color for gradient
           </label>
           {secondary && (
             <button
               type="button"
               onClick={() => void handleClearSecondary()}
-              className="text-xs text-gray-500 hover:text-gray-900 underline"
+              className="text-meta text-gray-500 hover:text-gray-900 underline"
             >
               Clear secondary
             </button>
@@ -1806,7 +1806,7 @@ function ColorPickerRows({
             );
           })}
         </div>
-        <p className="text-xs text-gray-400 mt-1">
+        <p className="text-meta text-gray-400 mt-1">
           Pick a second color to make your avatar a 2-stop gradient.
           Helpful when your lab has more than 10 people. Direction
           doesn&apos;t matter — blue-to-green and green-to-blue count as
@@ -1860,21 +1860,21 @@ function TabsSection({ settings, update }: SectionProps) {
                 onChange={() => toggle(item.href)}
                 className="accent-blue-600"
               />
-              <span className="text-sm text-gray-800">{item.label}</span>
-              {isHome && <span className="text-[10px] text-gray-400 ml-auto">always on</span>}
+              <span className="text-body text-gray-800">{item.label}</span>
+              {isHome && <span className="text-meta text-gray-400 ml-auto">always on</span>}
             </label>
           );
         })}
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1">
+        <label className="block text-meta font-medium text-gray-700 mb-1">
           Default landing tab
         </label>
         <select
           value={settings.defaultLandingTab}
           onChange={(e) => void update({ defaultLandingTab: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-body bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           {reachableLandingTabs.map((item) => (
             <option key={item.href} value={item.href}>
@@ -1882,7 +1882,7 @@ function TabsSection({ settings, update }: SectionProps) {
             </option>
           ))}
         </select>
-        <p className="text-xs text-gray-400 mt-1">
+        <p className="text-meta text-gray-400 mt-1">
           Where ResearchOS opens to when you load the app.
         </p>
       </div>
@@ -1906,8 +1906,8 @@ function SidebarSection({ settings, update }: SectionProps) {
             onChange={(e) => void update({ sidebarShowTasks: e.target.checked })}
             className="accent-blue-600"
           />
-          <span className="text-sm text-gray-800">Tasks</span>
-          <span className="ml-auto text-[10px] text-gray-400">
+          <span className="text-body text-gray-800">Tasks</span>
+          <span className="ml-auto text-meta text-gray-400">
             today + overdue + upcoming
           </span>
         </label>
@@ -1920,8 +1920,8 @@ function SidebarSection({ settings, update }: SectionProps) {
             }
             className="accent-blue-600"
           />
-          <span className="text-sm text-gray-800">Calendar events</span>
-          <span className="ml-auto text-[10px] text-gray-400">
+          <span className="text-body text-gray-800">Calendar events</span>
+          <span className="ml-auto text-meta text-gray-400">
             today and beyond
           </span>
         </label>
@@ -1930,7 +1930,7 @@ function SidebarSection({ settings, update }: SectionProps) {
       <div
         className={settings.sidebarShowCalendarEvents ? "" : "opacity-50 pointer-events-none"}
       >
-        <label className="block text-xs font-medium text-gray-700 mb-1">
+        <label className="block text-meta font-medium text-gray-700 mb-1">
           How much calendar to show
         </label>
         <select
@@ -1939,7 +1939,7 @@ function SidebarSection({ settings, update }: SectionProps) {
             void update({ sidebarEventsHorizonDays: parseInt(e.target.value, 10) })
           }
           disabled={!settings.sidebarShowCalendarEvents}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-body bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
         >
           {SIDEBAR_HORIZON_CHOICES.map((c) => (
             <option key={c.value} value={c.value}>
@@ -1947,13 +1947,13 @@ function SidebarSection({ settings, update }: SectionProps) {
             </option>
           ))}
         </select>
-        <p className="text-xs text-gray-400 mt-1">
+        <p className="text-meta text-gray-400 mt-1">
           Controls the &ldquo;Next N days&rdquo; section under Today&apos;s Events.
         </p>
       </div>
 
       {bothOff && (
-        <p className="text-xs text-amber-600 mt-1">
+        <p className="text-meta text-amber-600 mt-1">
           Both off — the sidebar will be empty on non-calendar pages.
         </p>
       )}
@@ -2136,12 +2136,12 @@ function AnimationSection({ settings, update }: SectionProps) {
                 selected ? "border-purple-400 bg-purple-50" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
               }`}
             >
-              {renderAnimationIcon(meta.icon, meta.color, "text-xl", "w-7 h-7")}
+              {renderAnimationIcon(meta.icon, meta.color, "text-heading", "w-7 h-7")}
               <div className="min-w-0 flex-1">
-                <p className={`text-sm font-medium ${selected ? "text-purple-700" : "text-gray-700"}`}>
+                <p className={`text-body font-medium ${selected ? "text-purple-700" : "text-gray-700"}`}>
                   {meta.name}
                 </p>
-                <p className="text-xs text-gray-400 truncate">{meta.description}</p>
+                <p className="text-meta text-gray-400 truncate">{meta.description}</p>
               </div>
             </button>
           );
@@ -2170,13 +2170,13 @@ function AnimationSection({ settings, update }: SectionProps) {
           </span>
           <div className="min-w-0 flex-1">
             <p
-              className={`text-sm font-medium ${
+              className={`text-body font-medium ${
                 settings.animationType === "none" ? "text-purple-700" : "text-gray-700"
               }`}
             >
               None / off
             </p>
-            <p className="text-xs text-gray-400 truncate">No animation on task completion</p>
+            <p className="text-meta text-gray-400 truncate">No animation on task completion</p>
           </div>
         </button>
       </div>
@@ -2298,10 +2298,10 @@ function TelegramConnectionRow() {
     >
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-sm text-gray-800">
+          <p className="text-body text-gray-800">
             <HighlightedText text="Telegram connection" />
           </p>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-meta text-gray-500 mt-0.5">
             {paired ? (
               <>
                 <span className="text-emerald-600 font-medium">{statusText}</span>
@@ -2318,7 +2318,7 @@ function TelegramConnectionRow() {
         <button
           type="button"
           onClick={() => setModalOpen(true)}
-          className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+          className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
         >
           {buttonLabel}
         </button>
@@ -2476,7 +2476,7 @@ function TelegramAutoReconnectRow({ settings, update }: SectionProps) {
       />
       {pendingEnable && (
         <div className="ml-0 sm:ml-6 p-3 rounded-lg border border-blue-200 bg-blue-50 space-y-2">
-          <p className="text-xs text-gray-700">
+          <p className="text-meta text-gray-700">
             Enter your account password to encrypt the bot token. This
             password is also the one you will use to decrypt the backup
             on auto-reconnect.
@@ -2494,7 +2494,7 @@ function TelegramAutoReconnectRow({ settings, update }: SectionProps) {
               }}
               autoComplete="off"
               placeholder="Account password"
-              className={`w-full pl-3 pr-10 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500${!showPassword ? " [-webkit-text-security:disc]" : ""}`}
+              className={`w-full pl-3 pr-10 py-1.5 border border-gray-300 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500${!showPassword ? " [-webkit-text-security:disc]" : ""}`}
             />
             <button
               type="button"
@@ -2506,19 +2506,19 @@ function TelegramAutoReconnectRow({ settings, update }: SectionProps) {
               {showPassword ? "Hide" : "Show"}
             </button>
           </div>
-          {error && <p className="text-xs text-red-600">{error}</p>}
+          {error && <p className="text-meta text-red-600">{error}</p>}
           <div className="flex items-center justify-end gap-2">
             <button
               onClick={cancelPending}
               disabled={busy}
-              className="px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+              className="px-3 py-1.5 text-meta text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={() => void handleConfirmEnable()}
               disabled={busy || !passwordInput}
-              className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-50"
+              className="px-3 py-1.5 text-meta text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-50"
             >
               {busy ? "Saving…" : "Save encrypted backup"}
             </button>
@@ -2526,7 +2526,7 @@ function TelegramAutoReconnectRow({ settings, update }: SectionProps) {
         </div>
       )}
       {!pendingEnable && error && (
-        <p className="ml-0 sm:ml-6 text-xs text-red-600">{error}</p>
+        <p className="ml-0 sm:ml-6 text-meta text-red-600">{error}</p>
       )}
     </div>
   );
@@ -2561,11 +2561,11 @@ function LockEncryptedBackupRow() {
           clearCachedPassword();
           setCached(false);
         }}
-        className="px-3 py-1.5 text-xs text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-md transition-colors"
+        className="px-3 py-1.5 text-meta text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-md transition-colors"
       >
         Lock encrypted backup access
       </button>
-      <p className="text-[11px] text-gray-500">
+      <p className="text-meta text-gray-500">
         Clears the in-memory password used by the encrypted Telegram
         backup. You will be prompted again the next time auto-reconnect
         runs.
@@ -2761,24 +2761,24 @@ function DataInventorySection() {
       <div>
         <div className="flex items-start justify-between gap-4 mb-3">
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-gray-800">Files on disk</p>
+            <p className="text-body font-medium text-gray-800">Files on disk</p>
             {scanning && !files ? (
-              <p className="text-xs text-gray-500 mt-1">Scanning your folder…</p>
+              <p className="text-meta text-gray-500 mt-1">Scanning your folder…</p>
             ) : files ? (
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-meta text-gray-500 mt-1">
                 <strong>{fileCount}</strong> file{fileCount === 1 ? "" : "s"}{" "}
                 across <strong>{dirCount}</strong>{" "}
                 {dirCount === 1 ? "group" : "groups"}. All paths are under your
                 selected folder.
               </p>
             ) : null}
-            {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
+            {error && <p className="text-meta text-red-600 mt-2">{error}</p>}
           </div>
           <button
             type="button"
             onClick={() => void runScan()}
             disabled={scanning}
-            className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
+            className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
           >
             {scanning ? "Scanning…" : "Refresh"}
           </button>
@@ -2787,7 +2787,7 @@ function DataInventorySection() {
           <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 max-h-96 overflow-y-auto space-y-3">
             {grouped.map(([group, paths]) => (
               <div key={group}>
-                <p className="text-[11px] font-semibold text-gray-700 uppercase tracking-wide">
+                <p className="text-meta font-semibold text-gray-700 uppercase tracking-wide">
                   {group}{" "}
                   <span className="text-gray-400 font-normal normal-case">
                     ({paths.length})
@@ -2807,13 +2807,13 @@ function DataInventorySection() {
           </div>
         )}
         {grouped && grouped.length === 0 && !scanning && (
-          <p className="text-xs text-gray-500">No files found in your folder.</p>
+          <p className="text-meta text-gray-500">No files found in your folder.</p>
         )}
       </div>
 
       <div className="border-t border-gray-100 pt-4">
-        <p className="text-sm font-medium text-gray-800">Browser IndexedDB keys</p>
-        <p className="text-xs text-gray-500 mt-1 mb-2">
+        <p className="text-body font-medium text-gray-800">Browser IndexedDB keys</p>
+        <p className="text-meta text-gray-500 mt-1 mb-2">
           Five known keys, listed below. Open DevTools → Application → IndexedDB
           to verify.
         </p>
@@ -2828,7 +2828,7 @@ function DataInventorySection() {
                   <code className="text-[11px] text-gray-800 font-mono break-all">
                     {k.key}
                   </code>
-                  <p className="text-xs text-gray-600 mt-1">{k.meaning}</p>
+                  <p className="text-meta text-gray-600 mt-1">{k.meaning}</p>
                 </div>
                 {k.isCredential && (
                   <Tooltip
@@ -2839,7 +2839,7 @@ function DataInventorySection() {
                       type="button"
                       onClick={() => void handleForgetTelegramCache()}
                       disabled={forgetting || !directoryName}
-                      className="px-2.5 py-1.5 text-xs bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md whitespace-nowrap shrink-0"
+                      className="px-2.5 py-1.5 text-meta bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md whitespace-nowrap shrink-0"
                     >
                       {forgetting ? "Forgetting…" : "Forget"}
                     </button>
@@ -2848,7 +2848,7 @@ function DataInventorySection() {
               </div>
               {k.isCredential && forgetStatus && (
                 <p
-                  className={`text-xs mt-2 ${
+                  className={`text-meta mt-2 ${
                     forgetStatus.kind === "ok"
                       ? "text-emerald-700"
                       : "text-red-600"
@@ -2863,10 +2863,10 @@ function DataInventorySection() {
       </div>
 
       <div className="border-t border-gray-100 pt-4">
-        <p className="text-sm font-medium text-gray-800">
+        <p className="text-body font-medium text-gray-800">
           Telegram bot backup{" "}
           <span
-            className={`ml-2 align-middle inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
+            className={`ml-2 align-middle inline-flex items-center rounded-md px-1.5 py-0.5 text-meta font-semibold ${
               encryptedBackup.state === "present"
                 ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
                 : "bg-gray-100 text-gray-600 ring-1 ring-gray-200"
@@ -2881,11 +2881,11 @@ function DataInventorySection() {
           </span>
         </p>
         <div className="flex items-start justify-between gap-3 mt-1">
-          <p className="text-xs text-gray-500 leading-relaxed min-w-0 flex-1">
+          <p className="text-meta text-gray-500 leading-relaxed min-w-0 flex-1">
             {encryptedBackup.state === "present" ? (
               <>
                 Encrypted backup present at{" "}
-                <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
+                <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">
                   users/{currentUser ?? "<u>"}/_telegram-encrypted.json
                 </code>
                 .{" "}
@@ -2903,7 +2903,7 @@ function DataInventorySection() {
           <button
             type="button"
             onClick={handleManageEncryptedBackup}
-            className="shrink-0 px-2.5 py-1.5 text-xs bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md whitespace-nowrap"
+            className="shrink-0 px-2.5 py-1.5 text-meta bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md whitespace-nowrap"
           >
             Manage
           </button>
@@ -2911,37 +2911,37 @@ function DataInventorySection() {
       </div>
 
       <div className="border-t border-gray-100 pt-4">
-        <p className="text-sm font-medium text-gray-800">External calls</p>
-        <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+        <p className="text-body font-medium text-gray-800">External calls</p>
+        <p className="text-meta text-gray-500 mt-1 leading-relaxed">
           When using ResearchOS, your browser makes outbound calls to: (a){" "}
-          <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
+          <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">
             api.telegram.org
           </code>{" "}
           directly, if you&apos;ve paired a Telegram bot; (b){" "}
-          <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
+          <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">
             /api/calendar-feed
           </code>{" "}
           on this app&apos;s origin, which fetches ICS calendars on your behalf
           with the subscription URL in the{" "}
-          <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
+          <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">
             x-calendar-url
           </code>{" "}
           request header; (c){" "}
-          <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
+          <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">
             /api/telegram-file
           </code>{" "}
           on this app&apos;s origin, which proxies Telegram CDN file downloads;
           (d){" "}
-          <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
+          <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">
             va.vercel-scripts.com
           </code>{" "}
           +{" "}
-          <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
+          <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">
             vitals.vercel-insights.com
           </code>{" "}
           for anonymous page-view pings via Vercel Web Analytics and
           anonymous Core Web Vitals via Vercel Speed Insights; and (e){" "}
-          <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
+          <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">
             research-os-xi.vercel.app
           </code>{" "}
           only if you click{" "}
@@ -2950,7 +2950,7 @@ function DataInventorySection() {
           AI Helper prompt when the bundled copy is stale). Toggle
           &quot;Offline mode&quot; below to disable destinations (b), (c), and
           (d) durably. Direct{" "}
-          <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">
+          <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">
             api.telegram.org
           </code>{" "}
           polling continues either way since the proxy isn&apos;t on that path.
@@ -2999,7 +2999,7 @@ function TrashAndHistorySection({ settings, update }: SectionProps) {
         desc="How long deleted records stay recoverable before they are permanently removed."
       >
         <div className="space-y-2">
-          <p className="text-xs text-gray-600">
+          <p className="text-meta text-gray-600">
             How long deleted records stay recoverable before they are
             permanently removed.
           </p>
@@ -3012,7 +3012,7 @@ function TrashAndHistorySection({ settings, update }: SectionProps) {
                 <label
                   key={id}
                   htmlFor={id}
-                  className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
+                  className="flex items-center gap-2 text-body text-gray-700 cursor-pointer"
                 >
                   <input
                     id={id}
@@ -3035,13 +3035,13 @@ function TrashAndHistorySection({ settings, update }: SectionProps) {
         desc="Open the /trash page to restore or permanently delete records."
       >
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-gray-600 flex-1">
+          <p className="text-meta text-gray-600 flex-1">
             Open the trash page to restore records back to their original
             location, or permanently delete them ahead of the cleanup window.
           </p>
           <Link
             href="/trash"
-            className="px-3 py-1.5 text-sm rounded-md border border-gray-300 bg-white hover:bg-gray-50"
+            className="px-3 py-1.5 text-body rounded-md border border-gray-300 bg-white hover:bg-gray-50"
           >
             Open trash
           </Link>
@@ -3052,7 +3052,7 @@ function TrashAndHistorySection({ settings, update }: SectionProps) {
         label="Orphaned files"
         desc="Find image attachments that no live record references. Coming in R2."
       >
-        <p className="text-xs text-gray-600">
+        <p className="text-meta text-gray-600">
           Image attachments referenced only by deleted records currently stay
           on disk. A &ldquo;View orphaned files&rdquo; tool that scans for
           unreferenced attachments and offers cleanup ships in R2.
@@ -3092,7 +3092,7 @@ function MaintenanceSection() {
       searchKeywords="repair method links source paths split lab notes results attachments stamp formats reconcile cross-owner project sharing import experiment zip LabArchives orphan credentials"
     >
       {orphanNotice !== null && (
-        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-meta text-amber-900">
           Orphaned LabArchives credential file(s) detected ({orphanNotice}). See the
           &ldquo;Clean up orphaned LabArchives credentials&rdquo; button below.
         </div>
@@ -3110,7 +3110,7 @@ function MaintenanceSection() {
         description={
           <>
             Walks every task in your folder and rewrites the few that still
-            store their linked method in the old <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">method_id</code> field.
+            store their linked method in the old <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">method_id</code> field.
             The app already understands the legacy shape on read; this is
             for confidence and tidier files on disk.
           </>
@@ -3123,7 +3123,7 @@ function MaintenanceSection() {
         searchDesc="Walks every method (private and public) and renames the legacy github_path field to source_path. Same value, just under the new name."
         description={
           <>
-            Walks every method (private and public) and renames the legacy <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">github_path</code> field to <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">source_path</code>.
+            Walks every method (private and public) and renames the legacy <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">github_path</code> field to <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">source_path</code>.
             Same value, just under the new name. The app reads either field
             transparently; this is to retire the old key.
           </>
@@ -3136,9 +3136,9 @@ function MaintenanceSection() {
         searchDesc="Walks every task you own and splits the shared results/task-N/Files/ and Images/ into per-tab folders notes and results, copying each file into whichever tab body references it and rewriting markdown links to match."
         description={
           <>
-            Walks every task you own and splits the shared <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">results/task-N/Files/</code> and <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">results/task-N/Images/</code> into per-tab folders <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">notes/{`{Files,Images}`}</code> and <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">results/{`{Files,Images}`}</code>, copying each file into whichever tab body references it (or both if both reference it) and rewriting markdown links to match.
+            Walks every task you own and splits the shared <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">results/task-N/Files/</code> and <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">results/task-N/Images/</code> into per-tab folders <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">notes/{`{Files,Images}`}</code> and <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">results/{`{Files,Images}`}</code>, copying each file into whichever tab body references it (or both if both reference it) and rewriting markdown links to match.
             Files referenced by neither body are left alone in the legacy folder.
-            If you have any leftover <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">Attachments/</code> folders from the previous repair button, this step runs that fold-into-<code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">Files/</code> migration first.
+            If you have any leftover <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">Attachments/</code> folders from the previous repair button, this step runs that fold-into-<code className="px-1 py-0.5 bg-gray-100 rounded text-meta">Files/</code> migration first.
             The app falls back to the legacy shared folder on read so old data renders without clicking this — the button finishes the long tail.
           </>
         }
@@ -3150,8 +3150,8 @@ function MaintenanceSection() {
         searchDesc="Walks every notes, results, and method markdown file and rewrites the legacy stamp header into the new HTML-comment format."
         description={
           <>
-            Walks every notes, results, and method markdown file and rewrites the legacy stamp header (the <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">[stamp-start]: # (hidden)</code> block at the top) into the new HTML-comment format.
-            Older files render with a stray <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">[stamp-end]: # (hidden)</code> line bleeding into the preview; the app folds these in on first open, but the button finishes any tail you have not visited yet.
+            Walks every notes, results, and method markdown file and rewrites the legacy stamp header (the <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">[stamp-start]: # (hidden)</code> block at the top) into the new HTML-comment format.
+            Older files render with a stray <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">[stamp-end]: # (hidden)</code> line bleeding into the preview; the app folds these in on first open, but the button finishes any tail you have not visited yet.
           </>
         }
         run={repairStampFormats}
@@ -3164,8 +3164,8 @@ function MaintenanceSection() {
           <>
             Walks every PCR protocol (private and public) and normalises
             malformed gradient steps, cycles, and ingredient rows, plus any
-            missing <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">name</code>, <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">notes</code>, or <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">is_public</code> fields, back to a valid shape.
-            Records missing a numeric <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">id</code> can&rsquo;t be recovered and are reported under failed.
+            missing <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">name</code>, <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">notes</code>, or <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">is_public</code> fields, back to a valid shape.
+            Records missing a numeric <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">id</code> can&rsquo;t be recovered and are reported under failed.
           </>
         }
         run={async () => {
@@ -3275,25 +3275,25 @@ function LabArchivesOrphanCleanupRow() {
     >
     <div className="flex items-start justify-between gap-4">
       <div className="min-w-0 flex-1">
-        <p className="text-sm text-gray-800">
+        <p className="text-body text-gray-800">
           <HighlightedText text="Clean up orphaned LabArchives credentials" />
         </p>
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-meta text-gray-500 mt-1">
           The institutional LabArchives API was removed, but earlier setups may
-          have left two sidecar files on disk: <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">{DEPLOYER_SIDECAR}</code>{" "}
+          have left two sidecar files on disk: <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">{DEPLOYER_SIDECAR}</code>{" "}
           at the folder root (institutional access password, plaintext) and{" "}
-          <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">users/&lt;u&gt;/{USER_SIDECAR}</code>{" "}
+          <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">users/&lt;u&gt;/{USER_SIDECAR}</code>{" "}
           per user. Scans for them and offers to delete; nothing reads or writes
           these files anymore.
         </p>
         {orphans && orphans.length > 0 && !status && (
-          <p className="text-xs text-amber-700 mt-2">
+          <p className="text-meta text-amber-700 mt-2">
             Cancelled. {orphans.length} orphan file(s) still on disk: {orphans.join(", ")}
           </p>
         )}
         {status && (
           <p
-            className={`text-xs mt-2 ${
+            className={`text-meta mt-2 ${
               statusKind === "ok"
                 ? "text-emerald-700"
                 : statusKind === "err"
@@ -3309,7 +3309,7 @@ function LabArchivesOrphanCleanupRow() {
         type="button"
         onClick={handle}
         disabled={running}
-        className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
+        className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
       >
         {running ? "Scanning…" : "Scan + clean"}
       </button>
@@ -3327,18 +3327,18 @@ function ImportRow({ onOpen }: { onOpen: () => void }) {
     >
     <div className="flex items-start justify-between gap-4">
       <div className="min-w-0 flex-1">
-        <p className="text-sm text-gray-800">
+        <p className="text-body text-gray-800">
           <HighlightedText text="Import experiment" />
         </p>
-        <p className="text-xs text-gray-500 mt-1">
-          Bring an experiment exported by another ResearchOS user (a <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">-raw.zip</code> bundle) into your workspace.
+        <p className="text-meta text-gray-500 mt-1">
+          Bring an experiment exported by another ResearchOS user (a <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">-raw.zip</code> bundle) into your workspace.
           You&apos;ll get a chance to match its project and methods against your own before anything is written.
         </p>
       </div>
       <button
         type="button"
         onClick={onOpen}
-        className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+        className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
       >
         Import .zip
       </button>
@@ -3389,7 +3389,7 @@ function LabArchivesSection() {
           <button
             type="button"
             onClick={() => setElnImportOpen(true)}
-            className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+            className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
           >
             Open import…
           </button>
@@ -3397,7 +3397,7 @@ function LabArchivesSection() {
         footer={
           <a
             href="/wiki/integrations/labarchives#exporting-from-labarchives"
-            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 underline"
+            className="inline-flex items-center gap-1 text-meta text-blue-600 hover:text-blue-700 underline"
           >
             How to export from LabArchives →
           </a>
@@ -3437,22 +3437,22 @@ function LabArchivesOptionCard({
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <p className="text-sm font-medium text-gray-900">{title}</p>
+            <p className="text-body font-medium text-gray-900">{title}</p>
             <Tooltip label={showExplainer ? "Hide details" : "Why this exists"}>
               <button
                 type="button"
                 onClick={() => setShowExplainer((v) => !v)}
                 aria-expanded={showExplainer}
                 aria-label={`Explain ${title}`}
-                className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 text-[10px] font-semibold leading-none"
+                className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 text-meta font-semibold leading-none"
               >
                 ?
               </button>
             </Tooltip>
           </div>
-          <p className="text-xs text-gray-500 mt-1">{whatItDoes}</p>
+          <p className="text-meta text-gray-500 mt-1">{whatItDoes}</p>
           {showExplainer && (
-            <div className="mt-2 text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded-md px-3 py-2 leading-relaxed">
+            <div className="mt-2 text-meta text-gray-700 bg-gray-50 border border-gray-200 rounded-md px-3 py-2 leading-relaxed">
               {whyExplainer}
               <div className="mt-1.5">
                 <Link
@@ -3515,12 +3515,12 @@ function RepairRow({
     <SearchableRow id={`repair:${title}`} label={title} desc={searchDesc}>
     <div className="flex items-start justify-between gap-4">
       <div className="min-w-0 flex-1">
-        <p className="text-sm text-gray-800">
+        <p className="text-body text-gray-800">
           <HighlightedText text={title} />
         </p>
-        <p className="text-xs text-gray-500 mt-1">{description}</p>
+        <p className="text-meta text-gray-500 mt-1">{description}</p>
         {result && (
-          <p className="text-xs text-gray-600 mt-2">
+          <p className="text-meta text-gray-600 mt-2">
             Scanned <strong>{result.scanned}</strong> · repaired{" "}
             <strong>{result.repaired}</strong> · already clean{" "}
             <strong>{result.alreadyCorrect}</strong>
@@ -3532,13 +3532,13 @@ function RepairRow({
             )}
           </p>
         )}
-        {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
+        {error && <p className="text-meta text-red-600 mt-2">{error}</p>}
       </div>
       <button
         type="button"
         onClick={handle}
         disabled={running}
-        className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
+        className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
       >
         {running ? "Running…" : "Run repair"}
       </button>
@@ -3627,29 +3627,29 @@ function ReconcileRow() {
     >
     <div className="flex items-start justify-between gap-4">
       <div className="min-w-0 flex-1">
-        <p className="text-sm text-gray-800">
+        <p className="text-body text-gray-800">
           <HighlightedText text="Reconcile cross-owner project sharing" />
         </p>
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-meta text-gray-500 mt-1">
           Walks every task and every project hosted manifest and fixes drift between the two sides
           (a hosted task that&apos;s no longer marked as external on its origin, or a manifest entry
           pointing at a deleted task). Safe to run anytime; no destructive operations beyond pruning
           broken refs.
         </p>
         {result && (
-          <p className="text-xs text-gray-600 mt-2">
+          <p className="text-meta text-gray-600 mt-2">
             Reconcile complete: <strong>{result.manifestDropped.length}</strong> drops ·{" "}
             <strong>{result.mirrorDriftAppended.length}</strong> appends ·{" "}
             <strong>{result.unknownDestinations.length}</strong> unknown destinations
           </p>
         )}
-        {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
+        {error && <p className="text-meta text-red-600 mt-2">{error}</p>}
       </div>
       <button
         type="button"
         onClick={handle}
         disabled={running}
-        className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
+        className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
       >
         {running ? "Running…" : "Run reconcile"}
       </button>
@@ -3970,7 +3970,7 @@ function AIHelperSection() {
       <div className="space-y-4">
         {/* Size picker */}
         <div>
-          <p className="text-sm font-medium text-gray-800 mb-2">Pick a size</p>
+          <p className="text-body font-medium text-gray-800 mb-2">Pick a size</p>
           <div className="flex flex-col gap-2">
             {AI_HELPER_SIZE_OPTIONS.map((opt) => {
               const selected = selectedSize === opt.value;
@@ -4009,10 +4009,10 @@ function AIHelperSection() {
                     className="mt-0.5"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-800">{opt.label}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{opt.blurb}</p>
+                    <p className="text-body font-medium text-gray-800">{opt.label}</p>
+                    <p className="text-meta text-gray-500 mt-0.5">{opt.blurb}</p>
                     {sizeTokens !== undefined && sizeBytes !== undefined && (
-                      <p className="text-[10px] text-gray-400 mt-1">
+                      <p className="text-meta text-gray-400 mt-1">
                         Built size: ~{sizeTokens.toLocaleString()} tokens · {Math.round(sizeBytes / 1024)} KB
                       </p>
                     )}
@@ -4030,7 +4030,7 @@ function AIHelperSection() {
             onClick={handleCopy}
             disabled={!promptReady}
             data-tour-target="settings-ai-helper-copy"
-            className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg"
+            className="px-4 py-2 text-body bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg"
           >
             {loadingSize === selectedSize
               ? "Loading prompt…"
@@ -4039,13 +4039,13 @@ function AIHelperSection() {
                 : "Prompt unavailable"}
           </button>
           {fetchError && (
-            <p className="text-xs text-red-600 mt-2">{fetchError}</p>
+            <p className="text-meta text-red-600 mt-2">{fetchError}</p>
           )}
         </div>
 
         {/* Open-in provider buttons */}
         <div>
-          <p className="text-sm font-medium text-gray-800 mb-2">Open in your AI</p>
+          <p className="text-body font-medium text-gray-800 mb-2">Open in your AI</p>
           <div className="flex flex-wrap gap-2">
             {AI_HELPER_PROVIDERS.map((provider) => (
               <button
@@ -4053,19 +4053,19 @@ function AIHelperSection() {
                 type="button"
                 onClick={() => handleOpenIn(provider)}
                 disabled={!promptReady}
-                className="inline-flex items-center gap-1 px-3 py-2 text-sm border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-800 rounded-lg"
+                className="inline-flex items-center gap-1 px-3 py-2 text-body border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-800 rounded-lg"
               >
                 {provider.label}
                 <span aria-hidden className="text-gray-400">↗</span>
               </button>
             ))}
           </div>
-          <p className="text-xs text-gray-500 mt-2">
+          <p className="text-meta text-gray-500 mt-2">
             Each &ldquo;Open in&rdquo; button copies the prompt and opens the provider in a new tab.
             Paste it as your first message, or save it as a Claude Project / Custom GPT / Gem for a
             persistent helper.
           </p>
-          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mt-2">
+          <p className="text-meta text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mt-2">
             <span className="font-medium">Heads up:</span> this is for the chat interface
             (claude.ai, chatgpt.com, gemini.google.com, copilot.microsoft.com). Your Claude Max
             / ChatGPT Plus / Gemini Advanced subscription works fine, and Microsoft Copilot is
@@ -4077,13 +4077,13 @@ function AIHelperSection() {
 
         {/* Inline status toast (4s auto-dismiss) */}
         {status && (
-          <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">
+          <p className="text-meta text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">
             {status}
           </p>
         )}
 
         {/* Freshness footer */}
-        <div className="pt-3 border-t border-gray-100 text-xs text-gray-500">
+        <div className="pt-3 border-t border-gray-100 text-meta text-gray-500">
           {manifestError ? (
             <p className="text-amber-700">
               Couldn&apos;t load freshness info: {manifestError}
@@ -4093,7 +4093,7 @@ function AIHelperSection() {
           ) : (
             <p>
               Last refreshed: {builtDate} · helper_version {manifest.helper_version} · ResearchOS @{" "}
-              <code className="px-1 py-0.5 bg-gray-100 rounded text-[10px]">{shortManifestCommit}</code>
+              <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">{shortManifestCommit}</code>
             </p>
           )}
         </div>
@@ -4101,15 +4101,15 @@ function AIHelperSection() {
         {/* Stale-prompt callout (only when running-app commit differs from
             manifest commit; suppressed in demo/fixture mode). */}
         {showStaleCallout && (
-          <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 space-y-2">
+          <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-meta text-amber-900 space-y-2">
             <p>
               <span aria-hidden>⚠ </span>
               These prompts are from{" "}
-              <code className="px-1 py-0.5 bg-amber-100 rounded text-[10px]">
+              <code className="px-1 py-0.5 bg-amber-100 rounded text-meta">
                 {shortManifestCommit}
               </code>{" "}
               but the running app is at{" "}
-              <code className="px-1 py-0.5 bg-amber-100 rounded text-[10px]">
+              <code className="px-1 py-0.5 bg-amber-100 rounded text-meta">
                 {shortRunningCommit}
               </code>
               . They may be older than the running app.
@@ -4118,7 +4118,7 @@ function AIHelperSection() {
               type="button"
               onClick={() => void handlePullLatest()}
               disabled={pullingLive}
-              className="px-2.5 py-1 text-xs bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md"
+              className="px-2.5 py-1 text-meta bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md"
             >
               {pullingLive
                 ? "Pulling…"
@@ -4133,7 +4133,7 @@ function AIHelperSection() {
             self-explanatory (prompt + copy button + "Open in Claude /
             ChatGPT / Gemini" affordances are right above). Re-add if a
             dedicated /wiki/integrations/ai-helper page is later created. */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-meta">
           <Link
             href={`/ai-helper/${selectedSize}.md`}
             target="_blank"
@@ -4263,7 +4263,7 @@ function TipsSection() {
     >
       {orphanedArtifactCount > 0 && (
         <div
-          className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+          className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-meta text-amber-900"
           data-testid="settings-orphan-artifact-banner"
         >
           Your previous tour left {orphanedArtifactCount} demo
@@ -4274,20 +4274,20 @@ function TipsSection() {
       )}
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <p className="text-sm text-gray-800">Re-run welcome tour</p>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-body text-gray-800">Re-run welcome tour</p>
+          <p className="text-meta text-gray-500 mt-1">
             Launches the BeakerBot walkthrough again. New users see
             this once on first sign-in; existing users can opt back in
             here.
           </p>
-          {status && <p className="text-xs text-emerald-600 mt-2">{status}</p>}
+          {status && <p className="text-meta text-emerald-600 mt-2">{status}</p>}
         </div>
         <button
           type="button"
           onClick={handleRerunWizard}
           disabled={busy || !currentUser}
           data-testid="settings-rerun-welcome-tour"
-          className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
+          className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
         >
           {busy ? "Resetting..." : "Re-run tour"}
         </button>
@@ -4298,8 +4298,8 @@ function TipsSection() {
           row keeps it reachable any time. */}
       <div className="mt-4 flex items-start justify-between gap-4 border-t border-gray-100 pt-4">
         <div className="min-w-0 flex-1">
-          <p className="text-sm text-gray-800">What&apos;s new</p>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-body text-gray-800">What&apos;s new</p>
+          <p className="text-meta text-gray-500 mt-1">
             Revisit the latest release highlights and the full history of
             what changed in ResearchOS.
           </p>
@@ -4308,7 +4308,7 @@ function TipsSection() {
           type="button"
           onClick={() => setWhatsNewOpen(true)}
           data-testid="settings-open-whats-new"
-          className="px-3 py-2 text-sm border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg whitespace-nowrap"
+          className="px-3 py-2 text-body border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg whitespace-nowrap"
         >
           What&apos;s new
         </button>
@@ -4327,8 +4327,8 @@ function TipsSection() {
           it via this dedicated /welcome route. (landing-page manager) */}
       <div className="mt-4 flex items-start justify-between gap-4 border-t border-gray-100 pt-4">
         <div className="min-w-0 flex-1">
-          <p className="text-sm text-gray-800">View the welcome page</p>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-body text-gray-800">View the welcome page</p>
+          <p className="text-meta text-gray-500 mt-1">
             Revisit the landing page new visitors see on their very first
             open, with the overview of what ResearchOS does.
           </p>
@@ -4336,13 +4336,13 @@ function TipsSection() {
         <Link
           href="/welcome"
           data-testid="settings-view-welcome-page"
-          className="px-3 py-2 text-sm border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg whitespace-nowrap"
+          className="px-3 py-2 text-body border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg whitespace-nowrap"
         >
           View welcome page
         </Link>
       </div>
       {process.env.NODE_ENV === "development" && (
-        <div className="mt-4 border-t border-gray-100 pt-3 text-xs text-gray-500">
+        <div className="mt-4 border-t border-gray-100 pt-3 text-meta text-gray-500">
           <Link
             href="/dev/beakerbot-gallery"
             data-testid="settings-beakerbot-gallery-link"
@@ -4374,21 +4374,21 @@ function SecuritySection({
     >
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className="text-sm text-gray-800">
+          <p className="text-body text-gray-800">
             Password is currently{" "}
             <span className={pwExists ? "text-emerald-600 font-medium" : "text-gray-500"}>
               {pwExists === null ? "…" : pwExists ? "set" : "not set"}
             </span>
             .
           </p>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-meta text-gray-400 mt-1">
             Same flow as the lock icon on the login screen.
           </p>
         </div>
         <button
           type="button"
           onClick={onOpen}
-          className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+          className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
         >
           {pwExists ? "Change password" : "Set password"}
         </button>
@@ -4418,7 +4418,7 @@ function OfflineModeSection({ settings, update }: SectionProps) {
         onChange={(v) => void update({ offlineMode: v })}
       />
       {settings.offlineMode && (
-        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-meta text-amber-900">
           Offline mode active. Calendar feeds and Telegram file downloads are blocked.
           Direct Telegram polling still works.
         </div>
@@ -4452,13 +4452,13 @@ function SelectField<T extends string>({
       desc={optionsBlob}
     >
     <div>
-      <label className="block text-xs font-medium text-gray-700 mb-1">
+      <label className="block text-meta font-medium text-gray-700 mb-1">
         <HighlightedText text={label} />
       </label>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as T)}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-body bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -4492,11 +4492,11 @@ function ToggleRow({
     <SearchableRow id={`toggle:${label}`} label={label} desc={description}>
       <label className="flex items-start justify-between gap-4 cursor-pointer">
         <div className="min-w-0">
-          <p className="text-sm text-gray-800">
+          <p className="text-body text-gray-800">
             <HighlightedText text={label} />
           </p>
           {description && (
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-meta text-gray-500 mt-0.5">
               <HighlightedText text={description} />
             </p>
           )}

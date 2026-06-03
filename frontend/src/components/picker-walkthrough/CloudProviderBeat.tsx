@@ -69,7 +69,7 @@ export default function CloudProviderBeat({
       <h2 className="mb-3 text-2xl font-bold text-slate-900">
         Cool, you picked cloud sync.
       </h2>
-      <p className="mb-4 text-base leading-relaxed text-slate-700">
+      <p className="mb-4 text-title leading-relaxed text-slate-700">
         Make sure your provider&apos;s desktop app is installed and the folder
         you want to use is already syncing on your machine. The setup guides
         below walk through each one.
@@ -88,10 +88,10 @@ export default function CloudProviderBeat({
               data-testid={`picker-walkthrough-provider-${p.name.toLowerCase().replace(/\s+/g, "-")}`}
             >
               <span className="flex flex-col">
-                <span className="text-sm font-semibold text-slate-900">
+                <span className="text-body font-semibold text-slate-900">
                   {p.name}
                 </span>
-                <span className="text-xs text-slate-600">{p.caption}</span>
+                <span className="text-meta text-slate-600">{p.caption}</span>
               </span>
               {/* External-link glyph: inline SVG, no icon lib */}
               <span
@@ -117,7 +117,7 @@ export default function CloudProviderBeat({
           </li>
         ))}
       </ul>
-      <p className="mb-6 text-xs leading-relaxed text-slate-500">
+      <p className="mb-6 text-meta leading-relaxed text-slate-500">
         Once the provider&apos;s app is syncing, come back here and pick the
         synced folder when ResearchOS prompts you.
       </p>
@@ -125,7 +125,7 @@ export default function CloudProviderBeat({
         <button
           type="button"
           onClick={onContinue}
-          className="inline-flex items-center rounded-lg bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-sky-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
+          className="inline-flex items-center rounded-lg bg-sky-500 px-5 py-2.5 text-body font-semibold text-white shadow-sm transition-colors hover:bg-sky-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
           data-testid="picker-walkthrough-cloud-provider-continue"
         >
           I&apos;m ready, back to the picker

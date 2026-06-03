@@ -264,13 +264,13 @@ export default function ShareDialog({
               </button>
             </Tooltip>
           </div>
-          <p className="text-sm text-gray-500 mt-1 truncate">{recordName}</p>
+          <p className="text-body text-gray-500 mt-1 truncate">{recordName}</p>
         </div>
 
         {/* PI hint */}
         {viewerIsLabHead && viewerUsername !== ownerUsername && (
           <div className="px-6 py-2 bg-amber-50 border-b border-amber-200">
-            <p className="text-xs text-amber-800">
+            <p className="text-meta text-amber-800">
               PI: you can see and edit this record regardless of these
               share entries.
             </p>
@@ -281,11 +281,11 @@ export default function ShareDialog({
         <div className="px-6 py-4 flex-1 overflow-y-auto">
           {/* Currently shared */}
           <div className="mb-4">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">
+            <h3 className="text-body font-medium text-gray-700 mb-2">
               Currently shared with
             </h3>
             {shared.length === 0 ? (
-              <p className="text-xs text-gray-400 italic">
+              <p className="text-meta text-gray-400 italic">
                 Only you can see this {labelForType(recordType)}.
               </p>
             ) : (
@@ -299,12 +299,12 @@ export default function ShareDialog({
                       <div className="flex items-center gap-2">
                         <SharedUserAvatar username={s.username} />
                         <div>
-                          <p className="text-sm font-medium text-gray-900">
+                          <p className="text-body font-medium text-gray-900">
                             {s.username === WHOLE_LAB_SENTINEL
                               ? "Whole lab"
                               : `@${s.username}`}
                             {archivedSet.has(s.username) && (
-                              <span className="ml-1 text-xs text-gray-400">
+                              <span className="ml-1 text-meta text-gray-400">
                                 (archived)
                               </span>
                             )}
@@ -312,7 +312,7 @@ export default function ShareDialog({
                           <button
                             type="button"
                             onClick={() => handleToggleLevel(s.username)}
-                            className="text-xs text-gray-500 hover:text-gray-700 underline-offset-2 hover:underline"
+                            className="text-meta text-gray-500 hover:text-gray-700 underline-offset-2 hover:underline"
                           >
                             {s.level === "edit" ? "Can edit" : "Can read"} (click
                             to toggle)
@@ -321,7 +321,7 @@ export default function ShareDialog({
                       </div>
                       <button
                         onClick={() => handleRemove(s.username)}
-                        className="text-red-500 hover:text-red-700 text-sm font-medium"
+                        className="text-red-500 hover:text-red-700 text-body font-medium"
                         aria-label={`Remove access for ${s.username}`}
                       >
                         Remove
@@ -334,7 +334,7 @@ export default function ShareDialog({
                      *  no extra writes — just visibility. */}
                     {s.username === WHOLE_LAB_SENTINEL && (
                       <div
-                        className="mt-2 pt-2 border-t border-gray-200 text-xs text-gray-600"
+                        className="mt-2 pt-2 border-t border-gray-200 text-meta text-gray-600"
                         data-testid="share-dialog-whole-lab-roster"
                       >
                         {wholeLabRoster.length === 0 ? (
@@ -366,7 +366,7 @@ export default function ShareDialog({
             <button
               type="button"
               onClick={handleToggleWholeLab}
-              className={`w-full text-left px-3 py-2 rounded-lg border transition-colors text-sm font-medium ${
+              className={`w-full text-left px-3 py-2 rounded-lg border transition-colors text-body font-medium ${
                 wholeLab
                   ? "bg-emerald-50 border-emerald-300 text-emerald-700"
                   : "border-gray-300 text-gray-700 hover:bg-gray-50"
@@ -375,7 +375,7 @@ export default function ShareDialog({
             >
               {wholeLab ? "Remove Whole-lab share" : "+ Share with the whole lab"}
             </button>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-meta text-gray-500 mt-1">
               Whole-lab shares default to read-only. Toggle the level above
               after adding.
             </p>
@@ -383,7 +383,7 @@ export default function ShareDialog({
 
           {/* Add someone */}
           <div className="mb-4">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">
+            <h3 className="text-body font-medium text-gray-700 mb-2">
               Add someone
             </h3>
             <div className="flex gap-2">
@@ -405,7 +405,7 @@ export default function ShareDialog({
                 onChange={(e) =>
                   setAddLevel(e.target.value as "read" | "edit")
                 }
-                className="px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                className="px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-body"
                 aria-label="Permission level for new share"
               >
                 <option value="edit">Edit</option>
@@ -415,7 +415,7 @@ export default function ShareDialog({
                 type="button"
                 onClick={handleAdd}
                 disabled={!addUsername}
-                className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-body font-medium"
                 data-tour-target="share-dialog-add"
               >
                 Add
@@ -434,10 +434,10 @@ export default function ShareDialog({
                   className="mt-1 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
                 />
                 <div>
-                  <p className="text-sm font-medium text-amber-800">
+                  <p className="text-body font-medium text-amber-800">
                     Also share all tasks in this project
                   </p>
-                  <p className="text-xs text-amber-700">
+                  <p className="text-meta text-amber-700">
                     Each task&apos;s sharing list will be updated to match.
                     New tasks added later are NOT auto-shared.
                   </p>
@@ -448,7 +448,7 @@ export default function ShareDialog({
 
           {error && (
             <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-700">{error}</p>
+              <p className="text-body text-red-700">{error}</p>
             </div>
           )}
         </div>
@@ -499,14 +499,14 @@ function labelForType(type: ShareDialogRecordType): string {
 function SharedUserAvatar({ username }: { username: string }) {
   if (username === WHOLE_LAB_SENTINEL) {
     return (
-      <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 text-base">
+      <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 text-title">
         *
       </div>
     );
   }
   return (
     <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-      <span className="text-sm font-medium text-blue-700">
+      <span className="text-body font-medium text-blue-700">
         {username.charAt(0).toUpperCase()}
       </span>
     </div>

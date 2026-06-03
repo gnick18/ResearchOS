@@ -142,11 +142,11 @@ export default function StreaksSection() {
       hidden={state.shouldHide}
     >
       <div className="mb-4">
-        <h2 className="text-base font-semibold text-gray-900 flex items-center gap-1.5">
+        <h2 className="text-title font-semibold text-gray-900 flex items-center gap-1.5">
           <LockIcon className="h-3.5 w-3.5 text-sky-500" />
           <HighlightedText text={sectionTitle} />
         </h2>
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-meta text-gray-500 mt-1">
           <HighlightedText text={sectionDesc} />
         </p>
       </div>
@@ -154,7 +154,7 @@ export default function StreaksSection() {
       <SectionMatchProvider register={state.register}>
       <div className="space-y-4">
         {loading || !sidecar ? (
-          <div className="text-xs text-gray-400">Loading.</div>
+          <div className="text-meta text-gray-400">Loading.</div>
         ) : (
           <>
             <StreakToggleRow
@@ -187,7 +187,7 @@ export default function StreaksSection() {
                 <button
                   type="button"
                   onClick={() => setShowResetModal(true)}
-                  className="px-3 py-1.5 text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors"
+                  className="px-3 py-1.5 text-body font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors"
                   data-testid="streaks-reset-button"
                 >
                   Reset streak
@@ -227,7 +227,7 @@ function StreakToggleRow({
 }) {
   return (
     <label className="flex items-center justify-between gap-4 cursor-pointer">
-      <span className="text-sm text-gray-800">Enable streak tracking</span>
+      <span className="text-body text-gray-800">Enable streak tracking</span>
       <button
         type="button"
         role="switch"
@@ -252,8 +252,8 @@ function StreakToggleRow({
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-      <p className="text-[11px] uppercase tracking-wide text-gray-500">{label}</p>
-      <p className="text-sm font-semibold text-gray-900 mt-1">{value}</p>
+      <p className="text-meta uppercase tracking-wide text-gray-500">{label}</p>
+      <p className="text-body font-semibold text-gray-900 mt-1">{value}</p>
     </div>
   );
 }
@@ -313,13 +313,13 @@ function ResetStreakModal({
       <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl">
         <h3
           id="streaks-reset-title"
-          className="text-base font-semibold text-gray-900"
+          className="text-title font-semibold text-gray-900"
         >
           Reset your {currentCount}-day streak?
         </h3>
-        <p className="mt-2 text-sm text-gray-600">This can't be undone.</p>
+        <p className="mt-2 text-body text-gray-600">This can't be undone.</p>
 
-        <label className="mt-4 flex items-start gap-2 cursor-pointer text-sm text-gray-700">
+        <label className="mt-4 flex items-start gap-2 cursor-pointer text-body text-gray-700">
           <input
             type="checkbox"
             checked={alsoClear}
@@ -336,7 +336,7 @@ function ResetStreakModal({
           <button
             type="button"
             onClick={onCancel}
-            className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
+            className="px-3 py-1.5 text-body font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
             data-testid="streaks-reset-cancel"
           >
             Cancel
@@ -344,7 +344,7 @@ function ResetStreakModal({
           <button
             type="button"
             onClick={() => onConfirm(alsoClear)}
-            className="px-3 py-1.5 text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors"
+            className="px-3 py-1.5 text-body font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors"
             data-testid="streaks-reset-confirm"
           >
             Reset streak

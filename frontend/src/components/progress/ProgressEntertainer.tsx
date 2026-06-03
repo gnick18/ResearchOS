@@ -199,14 +199,14 @@ export default function ProgressEntertainer({
       >
         <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 pointer-events-auto">
           <h2
-            className="text-base font-semibold text-gray-900"
+            className="text-title font-semibold text-gray-900"
             data-testid="progress-entertainer-title"
           >
             {title}
           </h2>
           {subtitle ? (
             <p
-              className="text-xs text-gray-500 mt-1 leading-relaxed"
+              className="text-meta text-gray-500 mt-1 leading-relaxed"
               data-testid="progress-entertainer-subtitle"
             >
               {subtitle}
@@ -245,7 +245,7 @@ export default function ProgressEntertainer({
               )}
             </div>
             {isDeterminate ? (
-              <div className="text-[11px] text-gray-500 mt-1 text-right tabular-nums">
+              <div className="text-meta text-gray-500 mt-1 text-right tabular-nums">
                 {percent}%
               </div>
             ) : null}
@@ -256,7 +256,7 @@ export default function ProgressEntertainer({
               <button
                 type="button"
                 onClick={onCancel}
-                className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+                className="px-3 py-1.5 text-body text-gray-600 hover:bg-gray-100 rounded-lg"
                 data-testid="progress-entertainer-cancel"
               >
                 Cancel

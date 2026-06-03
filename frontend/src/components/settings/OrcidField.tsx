@@ -90,7 +90,7 @@ export default function OrcidField({ currentUser }: OrcidFieldProps) {
     <div>
       <label
         htmlFor="settings-orcid-input"
-        className="block text-xs font-medium text-gray-700 mb-1"
+        className="block text-meta font-medium text-gray-700 mb-1"
       >
         ORCID iD
       </label>
@@ -110,7 +110,7 @@ export default function OrcidField({ currentUser }: OrcidFieldProps) {
             onKeyDown={(e) => {
               if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
             }}
-            className="w-full px-3 py-2 pr-9 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
+            className="w-full px-3 py-2 pr-9 border border-gray-300 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
           />
           {/* Inline status glyph: only shown when there's something typed.
               Green check = valid checksum; amber warn triangle = could not
@@ -160,7 +160,7 @@ export default function OrcidField({ currentUser }: OrcidFieldProps) {
             href={recordUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 whitespace-nowrap"
+            className="inline-flex items-center gap-1 text-meta text-blue-600 hover:text-blue-800 whitespace-nowrap"
           >
             View record
             <svg
@@ -184,22 +184,22 @@ export default function OrcidField({ currentUser }: OrcidFieldProps) {
 
       {/* Live, non-blocking validity line. */}
       {hasValue && !valid && (
-        <p className="text-xs text-amber-600 mt-1">
+        <p className="text-meta text-amber-600 mt-1">
           This doesn&apos;t look like a valid ORCID iD (the checksum
           doesn&apos;t match). It will still be saved, but double-check it.
         </p>
       )}
       {saved && (
-        <p className="text-xs text-emerald-600 mt-1" role="status">
+        <p className="text-meta text-emerald-600 mt-1" role="status">
           Saved.
         </p>
       )}
 
       {/* "Where is this stored?" hint - matches the Settings convention
           (e.g. the header's "Stored in users/<u>/settings.json" line). */}
-      <p className="text-xs text-gray-400 mt-1">
+      <p className="text-meta text-gray-400 mt-1">
         Stored in{" "}
-        <code className="px-1 py-0.5 bg-gray-100 rounded text-xs">
+        <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">
           users/_user_metadata.json
         </code>
         . Paste a full orcid.org link or the bare digits; we normalize it to

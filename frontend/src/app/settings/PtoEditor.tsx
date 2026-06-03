@@ -173,8 +173,8 @@ export default function PtoEditor({ username }: Props) {
       className="rounded-lg border border-gray-200 bg-white p-4"
     >
       <header className="mb-1">
-        <h3 className="text-sm font-semibold text-gray-800">Days off (PTO)</h3>
-        <p className="text-xs text-gray-500">
+        <h3 className="text-body font-semibold text-gray-800">Days off (PTO)</h3>
+        <p className="text-meta text-gray-500">
           Dates here are treated like weekends for your streak and for
           projects that skip weekends.
         </p>
@@ -189,20 +189,20 @@ export default function PtoEditor({ username }: Props) {
           onChange={(e) => setPendingDate(e.target.value)}
           disabled={loading || !username}
           data-testid="pto-editor-date-input"
-          className="rounded border border-gray-300 px-2 py-1 text-sm"
+          className="rounded border border-gray-300 px-2 py-1 text-body"
         />
         <button
           type="button"
           onClick={handleAdd}
           disabled={loading || !username || !pendingDate}
           data-testid="pto-editor-add-button"
-          className="rounded bg-sky-600 px-3 py-1 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50"
+          className="rounded bg-sky-600 px-3 py-1 text-body font-medium text-white hover:bg-sky-700 disabled:opacity-50"
         >
           Add
         </button>
       </div>
       {error && (
-        <p className="mt-1 text-xs text-red-600" role="alert">
+        <p className="mt-1 text-meta text-red-600" role="alert">
           {error}
         </p>
       )}
@@ -210,7 +210,7 @@ export default function PtoEditor({ username }: Props) {
       {/* Soft cap warning */}
       {overSoftCap && (
         <p
-          className="mt-2 text-xs text-amber-700"
+          className="mt-2 text-meta text-amber-700"
           role="status"
           data-testid="pto-editor-soft-cap-warning"
         >
@@ -227,7 +227,7 @@ export default function PtoEditor({ username }: Props) {
             data-testid="pto-editor-empty"
           >
             <CalendarIcon className="h-6 w-6" />
-            <p className="text-xs">
+            <p className="text-meta">
               No PTO days yet. Add dates you won&apos;t be working.
             </p>
           </div>
@@ -242,7 +242,7 @@ export default function PtoEditor({ username }: Props) {
                 data-testid={`pto-editor-entry-${iso}`}
                 className="flex items-center justify-between px-3 py-1.5"
               >
-                <span className="text-sm text-gray-700">
+                <span className="text-body text-gray-700">
                   <span className="font-mono text-xs text-gray-400">{iso}</span>
                   <span className="ml-2 text-gray-600">
                     {formatRowLabel(iso)}

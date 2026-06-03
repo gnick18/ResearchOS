@@ -159,7 +159,7 @@ export function coerceAnimationType(
 export function renderAnimationIcon(
   icon: AnimationIcon,
   color: string,
-  emojiClassName = "text-xl",
+  emojiClassName = "text-heading",
   svgClassName = "w-6 h-6",
 ) {
   if (typeof icon === "string") {

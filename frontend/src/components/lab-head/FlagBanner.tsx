@@ -88,7 +88,7 @@ export default function FlagBanner({
     <div
       role="status"
       aria-live="polite"
-      className="flex items-start justify-between gap-2 px-3 py-2 mb-3 rounded-lg border border-red-200 bg-red-50 text-red-900 text-xs"
+      className="flex items-start justify-between gap-2 px-3 py-2 mb-3 rounded-lg border border-red-200 bg-red-50 text-red-900 text-meta"
       data-testid="lab-head-flag-banner"
     >
       <div className="flex items-start gap-2 min-w-0">
@@ -110,7 +110,7 @@ export default function FlagBanner({
             <span>{piName}</span>
             {showLabHeadBadge && (
               <span
-                className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-100 text-amber-800"
+                className="px-1.5 py-0.5 text-meta font-semibold rounded bg-amber-100 text-amber-800"
                 title="PI"
               >
                 PI
@@ -133,7 +133,7 @@ export default function FlagBanner({
           type="button"
           onClick={handleClear}
           disabled={busy}
-          className="flex-shrink-0 px-2 py-1 rounded-md text-xs text-red-800 hover:bg-red-100 border border-red-300 disabled:opacity-50"
+          className="flex-shrink-0 px-2 py-1 rounded-md text-meta text-red-800 hover:bg-red-100 border border-red-300 disabled:opacity-50"
           data-testid="lab-head-flag-clear-owner"
         >
           {busy ? "Clearing…" : "Clear flag"}

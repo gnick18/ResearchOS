@@ -91,7 +91,7 @@ function ExternalIcon() {
 /** A subtle license pill. */
 function LicensePill({ license }: { license: string }) {
   return (
-    <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
+    <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-meta font-medium text-gray-600">
       {license}
     </span>
   );
@@ -144,13 +144,13 @@ export default function OpenSourceCredits() {
         <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
           <Link
             href="/"
-            className="text-sm font-medium text-gray-500 underline-offset-2 hover:text-gray-800 hover:underline"
+            className="text-body font-medium text-gray-500 underline-offset-2 hover:text-gray-800 hover:underline"
           >
             ResearchOS
           </Link>
           <Link
             href="/"
-            className="text-sm font-medium text-sky-700 underline-offset-2 hover:text-sky-900 hover:underline"
+            className="text-body font-medium text-sky-700 underline-offset-2 hover:text-sky-900 hover:underline"
           >
             Back to the app
           </Link>
@@ -160,10 +160,10 @@ export default function OpenSourceCredits() {
       <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-12">
         {/* ── Heartfelt intro ── */}
         <section className="mb-14">
-          <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-sky-600">
+          <p className="mb-3 text-body font-semibold uppercase tracking-wide text-sky-600">
             Thank you
           </p>
-          <h1 className="mb-6 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+          <h1 className="mb-6 text-display font-bold tracking-tight text-gray-900 sm:text-4xl">
             Built on open source
           </h1>
           <div className="space-y-4 text-lg leading-relaxed text-gray-700">
@@ -190,7 +190,7 @@ export default function OpenSourceCredits() {
         </section>
 
         {error && (
-          <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-body text-amber-800">
             The credits data could not be loaded right now. The full list also
             lives in THIRD_PARTY_NOTICES and ACKNOWLEDGEMENTS.md in the source
             repository.
@@ -201,10 +201,10 @@ export default function OpenSourceCredits() {
           <>
             {/* ── Newest attribution, featured ── */}
             <section className="mb-14">
-              <h2 className="mb-2 text-xl font-semibold text-gray-900">
+              <h2 className="mb-2 text-heading font-semibold text-gray-900">
                 Recently added
               </h2>
-              <p className="mb-5 text-sm text-gray-500">
+              <p className="mb-5 text-body text-gray-500">
                 Two pieces of work we want to call out by name.
               </p>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -225,20 +225,20 @@ export default function OpenSourceCredits() {
 
             {/* ── Curated highlights by area ── */}
             <section className="mb-14">
-              <h2 className="mb-2 text-xl font-semibold text-gray-900">
+              <h2 className="mb-2 text-heading font-semibold text-gray-900">
                 What powers each part of the app
               </h2>
-              <p className="mb-6 text-sm text-gray-500">
+              <p className="mb-6 text-body text-gray-500">
                 A few of the projects we rely on most, grouped by where you
                 meet them.
               </p>
               <div className="space-y-8">
                 {credits.highlightGroups.map((group) => (
                   <div key={group.id}>
-                    <h3 className="text-base font-semibold text-gray-800">
+                    <h3 className="text-title font-semibold text-gray-800">
                       {group.title}
                     </h3>
-                    <p className="mb-3 text-sm text-gray-500">{group.blurb}</p>
+                    <p className="mb-3 text-body text-gray-500">{group.blurb}</p>
                     <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
                       {group.items.map((item) => (
                         <li
@@ -247,7 +247,7 @@ export default function OpenSourceCredits() {
                         >
                           <div className="min-w-0">
                             <PackageLink name={item.name} repo={item.repo} />
-                            <p className="mt-0.5 text-sm text-gray-600">
+                            <p className="mt-0.5 text-body text-gray-600">
                               {item.note}
                             </p>
                           </div>
@@ -267,10 +267,10 @@ export default function OpenSourceCredits() {
 
             {/* ── Code we recycle (vendored / ported) ── */}
             <section className="mb-14">
-              <h2 className="mb-2 text-xl font-semibold text-gray-900">
+              <h2 className="mb-2 text-heading font-semibold text-gray-900">
                 Code we recycle
               </h2>
-              <p className="mb-6 text-sm text-gray-500">
+              <p className="mb-6 text-body text-gray-500">
                 Some projects we do not just depend on, we carry their source
                 directly. We keep their licenses and copyright alongside the
                 code, exactly as their authors intended.
@@ -286,15 +286,15 @@ export default function OpenSourceCredits() {
                         href={v.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-base font-semibold text-sky-700 underline-offset-2 hover:text-sky-900 hover:underline"
+                        className="text-title font-semibold text-sky-700 underline-offset-2 hover:text-sky-900 hover:underline"
                       >
                         {v.name}
                         <ExternalIcon />
                       </a>
                       <LicensePill license={v.license} />
                     </div>
-                    <p className="text-sm text-gray-600">{v.note}</p>
-                    <p className="mt-2 text-xs text-gray-400">
+                    <p className="text-body text-gray-600">{v.note}</p>
+                    <p className="mt-2 text-meta text-gray-400">
                       {v.by}. {v.copyright}
                     </p>
                   </div>
@@ -304,10 +304,10 @@ export default function OpenSourceCredits() {
 
             {/* ── Scientific references ── */}
             <section className="mb-14">
-              <h2 className="mb-2 text-xl font-semibold text-gray-900">
+              <h2 className="mb-2 text-heading font-semibold text-gray-900">
                 Scientific references
               </h2>
-              <p className="mb-6 text-sm text-gray-500">
+              <p className="mb-6 text-body text-gray-500">
                 The calculators reproduce published methods. The parameters and
                 equations come straight from these papers.
               </p>
@@ -317,8 +317,8 @@ export default function OpenSourceCredits() {
                     key={r.citation}
                     className="rounded-xl border border-gray-200 bg-white p-5"
                   >
-                    <p className="text-sm text-gray-800">{r.citation}</p>
-                    <p className="mt-1 text-xs text-gray-500">{r.use}</p>
+                    <p className="text-body text-gray-800">{r.citation}</p>
+                    <p className="mt-1 text-meta text-gray-500">{r.use}</p>
                   </li>
                 ))}
               </ul>
@@ -333,10 +333,10 @@ export default function OpenSourceCredits() {
                 className="flex w-full items-center justify-between rounded-xl border border-gray-200 bg-white px-5 py-4 text-left transition-colors hover:bg-gray-50"
               >
                 <span>
-                  <span className="text-base font-semibold text-gray-900">
+                  <span className="text-title font-semibold text-gray-900">
                     Every dependency we ship
                   </span>
-                  <span className="ml-2 text-sm text-gray-500">
+                  <span className="ml-2 text-body text-gray-500">
                     {credits.dependencyCount} packages
                   </span>
                 </span>
@@ -377,7 +377,7 @@ export default function OpenSourceCredits() {
                 </div>
               )}
 
-              <p className="mt-3 text-xs text-gray-400">
+              <p className="mt-3 text-meta text-gray-400">
                 Generated from the installed packages on{" "}
                 {new Date(credits.generatedAt).toLocaleDateString(undefined, {
                   year: "numeric",
@@ -417,13 +417,13 @@ function FeaturedCard({
       className="group block rounded-xl border border-sky-100 bg-sky-50/60 p-5 transition-colors hover:border-sky-200 hover:bg-sky-50"
     >
       <div className="mb-2 flex items-center gap-2">
-        <span className="text-base font-semibold text-gray-900 group-hover:text-sky-800">
+        <span className="text-title font-semibold text-gray-900 group-hover:text-sky-800">
           {title}
           <ExternalIcon />
         </span>
         <LicensePill license={license} />
       </div>
-      <p className="text-sm leading-relaxed text-gray-600">{body}</p>
+      <p className="text-body leading-relaxed text-gray-600">{body}</p>
     </a>
   );
 }

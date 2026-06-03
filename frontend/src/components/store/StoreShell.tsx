@@ -182,11 +182,11 @@ export function StoreShell<T>({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <div className="min-w-0">
-            <h3 className="text-base font-semibold text-gray-900 truncate">
+            <h3 className="text-title font-semibold text-gray-900 truncate">
               {title}
             </h3>
             {subtitle && (
-              <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>
+              <p className="text-meta text-gray-400 mt-0.5">{subtitle}</p>
             )}
           </div>
           <Tooltip label="Close" placement="bottom">
@@ -268,7 +268,7 @@ export function StoreShell<T>({
                 lg-only: that is where the collapsed detail pane frees the
                 width, and the mobile browse view has no pane to reclaim. */}
             {noSelection && items.length > 0 && (
-              <div className="hidden lg:flex items-center gap-2 mb-4 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-xs text-gray-500">
+              <div className="hidden lg:flex items-center gap-2 mb-4 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-meta text-gray-500">
                 <svg
                   width="14"
                   height="14"
@@ -288,7 +288,7 @@ export function StoreShell<T>({
               </div>
             )}
             {items.length === 0 ? (
-              <div className="py-10 text-center text-sm text-gray-400">
+              <div className="py-10 text-center text-body text-gray-400">
                 {emptyState ?? "No results."}
               </div>
             ) : (
@@ -332,7 +332,7 @@ export function StoreShell<T>({
               <button
                 type="button"
                 onClick={() => onSelectItem(null)}
-                className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
+                className="inline-flex items-center gap-1 text-body text-gray-600 hover:text-gray-900"
               >
                 <svg
                   width="16"
@@ -377,7 +377,7 @@ function CategoryButton({
       type="button"
       onClick={onClick}
       aria-current={active ? "true" : undefined}
-      className={`w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+      className={`w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-body transition-colors ${
         active
           ? "bg-blue-50 text-blue-700 font-medium"
           : "text-gray-600 hover:bg-gray-50"
@@ -385,7 +385,7 @@ function CategoryButton({
     >
       <span className="truncate">{label}</span>
       <span
-        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+        className={`shrink-0 rounded-full px-2 py-0.5 text-meta font-medium ${
           active ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-500"
         }`}
       >
@@ -410,7 +410,7 @@ function FilterChip({
       type="button"
       onClick={onClick}
       aria-current={active ? "true" : undefined}
-      className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+      className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-meta font-medium transition-colors ${
         active
           ? "bg-blue-600 text-white"
           : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -441,7 +441,7 @@ function EnabledOnlyToggle({
         onClick={onToggle}
         className={`inline-flex items-center gap-2 ${
           compact ? "" : "w-full"
-        } text-sm text-gray-600`}
+        } text-body text-gray-600`}
       >
         <span
           className={`relative shrink-0 inline-flex h-5 w-9 items-center rounded-full transition-colors ${

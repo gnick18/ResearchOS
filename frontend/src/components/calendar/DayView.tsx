@@ -95,9 +95,9 @@ export default function DayView({
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col">
       <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-900">{heading}</h3>
+        <h3 className="text-body font-semibold text-gray-900">{heading}</h3>
         {isToday && (
-          <span className="text-[10px] uppercase tracking-wide text-blue-600 font-semibold">
+          <span className="text-meta uppercase tracking-wide text-blue-600 font-semibold">
             Today
           </span>
         )}
@@ -106,7 +106,7 @@ export default function DayView({
       {/* All-day strip */}
       {sortedAllDay.length > 0 && (
         <div className="border-b border-gray-100 bg-gray-50/40 px-5 py-2 space-y-1">
-          <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">
+          <p className="text-meta uppercase tracking-wide text-gray-400 font-semibold">
             All-day
           </p>
           <div className="space-y-1">
@@ -121,7 +121,7 @@ export default function DayView({
                 <button
                   key={`n-${item.event.id}`}
                   onClick={() => onEventClick(item.event)}
-                  className={`w-full text-left px-2 py-1 text-xs rounded hover:opacity-90 ${ended ? ENDED_CLASSES : ""}`}
+                  className={`w-full text-left px-2 py-1 text-meta rounded hover:opacity-90 ${ended ? ENDED_CLASSES : ""}`}
                   style={{
                     backgroundColor: itemColor,
                     color: textColor,
@@ -139,7 +139,7 @@ export default function DayView({
                   key={`x-${item.event.id}`}
                   onClick={() => onExternalClick(item.event)}
                   title="Linked calendar event (read-only)"
-                  className={`w-full text-left px-2 py-1 text-xs rounded hover:opacity-90 flex items-center gap-1 ${ended ? ENDED_CLASSES : ""}`}
+                  className={`w-full text-left px-2 py-1 text-meta rounded hover:opacity-90 flex items-center gap-1 ${ended ? ENDED_CLASSES : ""}`}
                   style={{
                     backgroundColor: itemColor,
                     color: textColor,
@@ -189,7 +189,7 @@ export default function DayView({
             {Array.from({ length: 24 }, (_, h) => (
               <div
                 key={h}
-                className="border-t border-gray-100 text-xs text-gray-400 text-right pr-3 pt-0.5"
+                className="border-t border-gray-100 text-meta text-gray-400 text-right pr-3 pt-0.5"
                 style={{ height: HOUR_HEIGHT }}
               >
                 {h === 0 ? "" : h === 12 ? "12pm" : h > 12 ? `${h - 12}pm` : `${h}am`}
@@ -262,7 +262,7 @@ export default function DayView({
                     border: item.kind === "external" ? `1px solid ${color}` : "none",
                   }}
                 >
-                  <p className="text-xs font-medium truncate flex items-center gap-1">
+                  <p className="text-meta font-medium truncate flex items-center gap-1">
                     {item.kind === "external" && (
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -282,12 +282,12 @@ export default function DayView({
                     )}
                     <span className="truncate">{item.event.title}</span>
                   </p>
-                  <p className="text-[10px] opacity-80 truncate">
+                  <p className="text-meta opacity-80 truncate">
                     {formatTime(item.event.start_time)}
                     {item.event.end_time && ` – ${formatTime(item.event.end_time)}`}
                   </p>
                   {item.event.location && height > 50 && (
-                    <p className="text-[10px] opacity-70 truncate">
+                    <p className="text-meta opacity-70 truncate">
                       {item.event.location}
                     </p>
                   )}

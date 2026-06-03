@@ -325,8 +325,8 @@ export default function PurchasesPage() {
       <div className="flex-1 overflow-auto p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Purchases</h2>
-            <p className="text-sm text-gray-400 mt-0.5">
+            <h2 className="text-heading font-semibold text-gray-900">Purchases</h2>
+            <p className="text-body text-gray-400 mt-0.5">
               {purchaseTasks.length} purchase order
               {purchaseTasks.length !== 1 ? "s" : ""} · ${grandTotal.toFixed(2)}{" "}
               total
@@ -335,14 +335,14 @@ export default function PurchasesPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowNewPurchase(true)}
-              className="px-3 py-1.5 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
+              className="px-3 py-1.5 text-body bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
               data-tour-target="purchases-new-button"
             >
               + New Purchase
             </button>
             <button
               onClick={() => setShowFundingManager(!showFundingManager)}
-              className="px-3 py-1.5 text-sm bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors"
+              className="px-3 py-1.5 text-body bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors"
             >
               {showFundingManager ? "Hide Funding Manager" : "Manage Funding Accounts"}
             </button>
@@ -400,12 +400,12 @@ export default function PurchasesPage() {
                 <line x1="12" y1="17" x2="12.01" y2="17" />
               </svg>
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-amber-900">
+                <p className="text-body font-semibold text-amber-900">
                   {labPendingApprovalCount} item
                   {labPendingApprovalCount === 1 ? "" : "s"} across the lab
                   await{labPendingApprovalCount === 1 ? "s" : ""} your approval
                 </p>
-                <p className="text-xs text-amber-800 mt-0.5">
+                <p className="text-meta text-amber-800 mt-0.5">
                   This page shows your personal purchases. The lab-wide
                   approval queue lives on Lab Overview.
                 </p>
@@ -419,7 +419,7 @@ export default function PurchasesPage() {
                 as described in the supporting paragraph above. */}
             <button
               onClick={() => router.push("/lab-overview")}
-              className="flex-shrink-0 inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
+              className="flex-shrink-0 inline-flex items-center gap-1 px-3 py-1.5 text-meta font-medium bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
               data-testid="purchases-lab-head-pending-banner-cta"
             >
               Open Lab Overview
@@ -483,7 +483,7 @@ export default function PurchasesPage() {
                 aria-selected={isActive}
                 onClick={() => setCategoryFilter(chip.key)}
                 data-tour-target={`purchases-filter-${chip.key}`}
-                className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                className={`px-3 py-1 text-meta rounded-full transition-colors ${
                   isActive
                     ? "bg-amber-600 text-white"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -512,7 +512,7 @@ export default function PurchasesPage() {
           role="tablist"
           aria-label="Filter purchases by ordering status"
         >
-          <span className="text-xs text-gray-400 mr-1">Ordering:</span>
+          <span className="text-meta text-gray-400 mr-1">Ordering:</span>
           {([
             { key: "any", label: "Any stage", count: purchaseTasks.length },
             {
@@ -539,7 +539,7 @@ export default function PurchasesPage() {
                 aria-selected={isActive}
                 onClick={() => setOrderStatusFilter(chip.key)}
                 data-tour-target={`purchases-order-status-${chip.key}`}
-                className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                className={`px-3 py-1 text-meta rounded-full transition-colors ${
                   isActive
                     ? "bg-blue-600 text-white"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -631,17 +631,17 @@ export default function PurchasesPage() {
                       }`}
                     />
                     <div>
-                      <h3 className={`text-sm font-semibold ${task.is_complete ? "text-green-700" : "text-gray-900"}`}>
+                      <h3 className={`text-body font-semibold ${task.is_complete ? "text-green-700" : "text-gray-900"}`}>
                         {task.name}
                       </h3>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-meta text-gray-400">
                         {projectDisplayName} · {task.start_date} ·{" "}
                         {items.length} item{items.length !== 1 ? "s" : ""}{task.is_complete && " · Complete"}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold text-gray-700">
+                    <span className="text-body font-semibold text-gray-700">
                       ${taskTotal.toFixed(2)}
                     </span>
                     <span className="text-gray-400">
@@ -751,7 +751,7 @@ export default function PurchasesPage() {
             return (
               <div className="text-center py-16">
                 <p className="text-lg text-gray-400 mb-2">No purchases yet</p>
-                <p className="text-sm text-gray-300">
+                <p className="text-body text-gray-300">
                   Create a task with type &ldquo;Purchase&rdquo; to start
                   tracking orders
                 </p>
@@ -775,7 +775,7 @@ export default function PurchasesPage() {
             }
             return (
               <div className="text-center py-12">
-                <p className="text-sm text-gray-400">
+                <p className="text-body text-gray-400">
                   No {filterLabel} yet
                 </p>
               </div>

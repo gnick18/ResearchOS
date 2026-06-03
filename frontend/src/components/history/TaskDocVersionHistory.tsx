@@ -258,7 +258,7 @@ export function TaskDocDiffColumn({
     );
   }
   return (
-    <div className="flex items-center justify-center h-full text-gray-400 text-sm p-6">
+    <div className="flex items-center justify-center h-full text-gray-400 text-body p-6">
       <p>Select a version to preview it here.</p>
     </div>
   );

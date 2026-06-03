@@ -31,7 +31,7 @@ export default function MethodChip({
     : undefined;
 
   const baseClass =
-    "inline-flex items-center px-2 py-0.5 text-xs rounded-md border max-w-[10rem] truncate";
+    "inline-flex items-center px-2 py-0.5 text-meta rounded-md border max-w-[10rem] truncate";
   const interactive = onClick
     ? " hover:brightness-95 cursor-pointer transition"
     : "";

@@ -108,13 +108,13 @@ const SelectorCard = forwardRef<HTMLButtonElement, SelectorCardProps>(
           <div className="flex items-start justify-between gap-2">
             <div className="flex min-w-0 flex-1 flex-col gap-1">
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="min-w-0 truncate text-sm font-semibold text-gray-900">
+                <span className="min-w-0 truncate text-body font-semibold text-gray-900">
                   {title}
                 </span>
                 {badges}
               </div>
               {subtitle != null && (
-                <span className="truncate text-xs text-gray-500">
+                <span className="truncate text-meta text-gray-500">
                   {subtitle}
                 </span>
               )}

@@ -103,7 +103,7 @@ export default function MonthView({
         {DAY_NAMES.map((day) => (
           <div
             key={day}
-            className="px-2 py-3 text-xs font-semibold text-gray-500 text-center"
+            className="px-2 py-3 text-meta font-semibold text-gray-500 text-center"
           >
             {day}
           </div>
@@ -130,7 +130,7 @@ export default function MonthView({
               }`}
             >
               <div
-                className={`text-xs font-medium mb-1 w-6 h-6 flex items-center justify-center rounded-full ${
+                className={`text-meta font-medium mb-1 w-6 h-6 flex items-center justify-center rounded-full ${
                   isToday
                     ? "bg-blue-600 text-white"
                     : day.isCurrentMonth
@@ -161,7 +161,7 @@ export default function MonthView({
                         isPto ? "PTO day, won't break your streak" : undefined
                       }
                       data-pto={isPto ? "true" : undefined}
-                      className={`w-full text-left px-1.5 py-0.5 text-[10px] rounded truncate hover:opacity-80 flex items-center gap-1 ${
+                      className={`w-full text-left px-1.5 py-0.5 text-meta rounded truncate hover:opacity-80 flex items-center gap-1 ${
                         isPto ? "ring-1 ring-sky-300 ring-inset" : ""
                       } ${ended ? ENDED_CLASSES : ""}`}
                       style={{
@@ -170,7 +170,7 @@ export default function MonthView({
                       }}
                     >
                       {isPto && (
-                        <span className="flex-shrink-0 px-1 py-px text-[8px] font-bold leading-none rounded bg-sky-50 text-sky-700 border border-sky-200">
+                        <span className="flex-shrink-0 px-1 py-px text-meta font-bold leading-none rounded bg-sky-50 text-sky-700 border border-sky-200">
                           PTO
                         </span>
                       )}
@@ -189,7 +189,7 @@ export default function MonthView({
                         onExternalClick(item.event);
                       }}
                       title="Linked calendar event (read-only)"
-                      className={`w-full text-left px-1.5 py-0.5 text-[10px] rounded truncate hover:opacity-80 flex items-center gap-1 ${ended ? ENDED_CLASSES : ""}`}
+                      className={`w-full text-left px-1.5 py-0.5 text-meta rounded truncate hover:opacity-80 flex items-center gap-1 ${ended ? ENDED_CLASSES : ""}`}
                       style={{
                         backgroundColor: itemColor,
                         color: textColor,
@@ -221,7 +221,7 @@ export default function MonthView({
                   );
                 })}
                 {sorted.length > 3 && (
-                  <p className="text-[10px] text-gray-400 px-1.5">
+                  <p className="text-meta text-gray-400 px-1.5">
                     +{sorted.length - 3} more
                   </p>
                 )}

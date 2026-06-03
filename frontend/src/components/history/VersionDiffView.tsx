@@ -72,7 +72,7 @@ export default function VersionDiffView({
   return (
     <div className="space-y-3" data-testid="version-diff">
       {!hasChange && (
-        <div className="text-xs text-gray-400 italic">
+        <div className="text-meta text-gray-400 italic">
           No tracked content changed in this version.
         </div>
       )}

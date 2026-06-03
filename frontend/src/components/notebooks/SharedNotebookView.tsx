@@ -280,7 +280,7 @@ export default function SharedNotebookView({ notebook }: SharedNotebookViewProps
           {SHARED_SVG}
         </span>
         <UserAvatar username={otherMember} size="sm" />
-        <p className="text-sm text-sky-900">
+        <p className="text-body text-sky-900">
           Always shared with{" "}
           <span className="font-semibold">{otherMember}</span>. Everything here,
           notes and weekly tasks, is visible to both of you.
@@ -291,9 +291,9 @@ export default function SharedNotebookView({ notebook }: SharedNotebookViewProps
         {/* Weekly tasks */}
         <section>
           <div className="mb-2 flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold text-gray-800">Weekly tasks</h3>
+            <h3 className="text-body font-semibold text-gray-800">Weekly tasks</h3>
           </div>
-          <p className="mb-2 text-xs text-gray-500">
+          <p className="mb-2 text-meta text-gray-500">
             Add tasks for the week. Either of you can add a task and check off
             any task, so a PI can assign and the student can complete (and vice
             versa).
@@ -312,26 +312,26 @@ export default function SharedNotebookView({ notebook }: SharedNotebookViewProps
               onChange={(e) => setTaskDraft(e.target.value)}
               placeholder={`Add a task for ${weekLabel(thisWeek)}…`}
               data-testid="notebook-task-input"
-              className="min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"
+              className="min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-body focus:outline-none focus:ring-2 focus:ring-sky-300"
             />
             <button
               type="submit"
               disabled={!taskDraft.trim() || busy}
               data-testid="notebook-task-add"
-              className="rounded-lg bg-sky-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-40"
+              className="rounded-lg bg-sky-600 px-3 py-1.5 text-body font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-40"
             >
               Add task
             </button>
           </form>
 
           {tasksLoading ? (
-            <p className="text-sm italic text-gray-400">Loading tasks…</p>
+            <p className="text-body italic text-gray-400">Loading tasks…</p>
           ) : groupedTasks.length === 0 ? (
             <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/40 px-4 py-5 text-center">
-              <p className="text-sm font-medium text-gray-700">
+              <p className="text-body font-medium text-gray-700">
                 No weekly tasks yet
               </p>
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-meta text-gray-500">
                 Add the first task for this 1:1.
               </p>
             </div>
@@ -339,7 +339,7 @@ export default function SharedNotebookView({ notebook }: SharedNotebookViewProps
             <div className="flex flex-col gap-3">
               {groupedTasks.map((group) => (
                 <div key={group.week}>
-                  <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                  <p className="mb-1.5 text-meta font-semibold uppercase tracking-wide text-gray-500">
                     {weekLabel(group.week)}
                   </p>
                   <ul className="flex flex-col gap-1">
@@ -368,7 +368,7 @@ export default function SharedNotebookView({ notebook }: SharedNotebookViewProps
                           </button>
                         </Tooltip>
                         <span
-                          className={`min-w-0 flex-1 truncate text-sm ${
+                          className={`min-w-0 flex-1 truncate text-body ${
                             task.is_complete
                               ? "text-gray-400 line-through"
                               : "text-gray-800"
@@ -412,14 +412,14 @@ export default function SharedNotebookView({ notebook }: SharedNotebookViewProps
         {/* Notes */}
         <section>
           <div className="mb-2 flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold text-gray-800">Notes</h3>
+            <h3 className="text-body font-semibold text-gray-800">Notes</h3>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => void handleAddNote(false)}
                 disabled={busy}
                 data-testid="notebook-add-note"
-                className="flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-40"
+                className="flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-body font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-40"
               >
                 {PLUS_SVG}
                 Note
@@ -429,7 +429,7 @@ export default function SharedNotebookView({ notebook }: SharedNotebookViewProps
                 onClick={() => void handleAddNote(true)}
                 disabled={busy}
                 data-testid="notebook-add-running-log"
-                className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-40"
+                className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-body font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-40"
               >
                 {PLUS_SVG}
                 Running log
@@ -438,11 +438,11 @@ export default function SharedNotebookView({ notebook }: SharedNotebookViewProps
           </div>
 
           {notesLoading ? (
-            <p className="text-sm italic text-gray-400">Loading notes…</p>
+            <p className="text-body italic text-gray-400">Loading notes…</p>
           ) : sortedNotes.length === 0 ? (
             <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/40 px-4 py-6 text-center">
-              <p className="text-sm font-medium text-gray-700">No notes yet</p>
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="text-body font-medium text-gray-700">No notes yet</p>
+              <p className="mt-1 text-meta text-gray-500">
                 Add a note to start this shared notebook.
               </p>
             </div>

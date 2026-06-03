@@ -167,8 +167,8 @@ export default function LabRoster() {
     <div className="space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-medium text-gray-800">Lab Roster</h3>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <h3 className="text-body font-medium text-gray-800">Lab Roster</h3>
+          <p className="text-meta text-gray-500 mt-0.5">
             Manage which lab members appear in pickers and on the login
             screen. Archive a departed member to hide them from
             day-to-day surfaces while keeping all their data searchable.
@@ -185,9 +185,9 @@ export default function LabRoster() {
       {isLabHead && sessionUnlocked && <EditSessionBanner />}
 
       {isLoading ? (
-        <p className="text-xs text-gray-500">Loading roster…</p>
+        <p className="text-meta text-gray-500">Loading roster…</p>
       ) : rows.length === 0 ? (
-        <p className="text-xs text-gray-500">
+        <p className="text-meta text-gray-500">
           No lab members found. The roster populates as users log in to
           this lab folder.
         </p>
@@ -219,7 +219,7 @@ export default function LabRoster() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span
-                      className={`text-sm font-medium truncate ${
+                      className={`text-body font-medium truncate ${
                         row.archived ? "text-gray-500" : "text-gray-900"
                       }`}
                     >
@@ -227,7 +227,7 @@ export default function LabRoster() {
                     </span>
                     {row.account_type === "lab_head" && (
                       <span
-                        className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-100 text-amber-800"
+                        className="px-1.5 py-0.5 text-meta font-semibold rounded bg-amber-100 text-amber-800"
                         title="PI"
                       >
                         PI
@@ -235,7 +235,7 @@ export default function LabRoster() {
                     )}
                     {row.archived ? (
                       <span
-                        className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-slate-200 text-slate-600"
+                        className="px-1.5 py-0.5 text-meta font-semibold rounded bg-slate-200 text-slate-600"
                         title={
                           row.archived_by
                             ? `Archived by ${row.archived_by}`
@@ -245,17 +245,17 @@ export default function LabRoster() {
                         Archived
                       </span>
                     ) : (
-                      <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-emerald-100 text-emerald-800">
+                      <span className="px-1.5 py-0.5 text-meta font-semibold rounded bg-emerald-100 text-emerald-800">
                         Active
                       </span>
                     )}
                     {isSelf && (
-                      <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-blue-100 text-blue-800">
+                      <span className="px-1.5 py-0.5 text-meta font-semibold rounded bg-blue-100 text-blue-800">
                         You
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-gray-500 truncate">
+                  <div className="text-meta text-gray-500 truncate">
                     @{row.username}
                     {row.archived && row.archived_at && (
                       <>
@@ -272,7 +272,7 @@ export default function LabRoster() {
                     onClick={() =>
                       setPendingAction({ kind: "archive", row })
                     }
-                    className="flex-shrink-0 px-2.5 py-1 rounded-md text-xs font-medium border border-gray-300 text-gray-700 hover:bg-gray-50"
+                    className="flex-shrink-0 px-2.5 py-1 rounded-md text-meta font-medium border border-gray-300 text-gray-700 hover:bg-gray-50"
                     data-testid={`lab-roster-archive-${row.username}`}
                   >
                     Archive
@@ -284,7 +284,7 @@ export default function LabRoster() {
                     onClick={() =>
                       setPendingAction({ kind: "restore", row })
                     }
-                    className="flex-shrink-0 px-2.5 py-1 rounded-md text-xs font-medium border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                    className="flex-shrink-0 px-2.5 py-1 rounded-md text-meta font-medium border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
                     data-testid={`lab-roster-restore-${row.username}`}
                   >
                     Restore
@@ -346,19 +346,19 @@ function ConfirmDialog({
         className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6 space-y-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-base font-semibold text-gray-900">
+        <h2 className="text-title font-semibold text-gray-900">
           {action.kind === "archive"
             ? `Archive ${label}?`
             : `Restore ${label}?`}
         </h2>
         {action.kind === "archive" ? (
-          <p className="text-sm text-gray-600">
+          <p className="text-body text-gray-600">
             Their data stays searchable; they&apos;re just hidden from the
             login picker, the @mention picker, the share dialog, and the
             assignee dropdown. You can restore them any time.
           </p>
         ) : (
-          <p className="text-sm text-gray-600">
+          <p className="text-body text-gray-600">
             They&apos;ll reappear in the login picker and all member
             pickers immediately.
           </p>
@@ -368,7 +368,7 @@ function ConfirmDialog({
             type="button"
             onClick={onCancel}
             disabled={busy}
-            className="px-3 py-1.5 rounded-md text-xs text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+            className="px-3 py-1.5 rounded-md text-meta text-gray-600 hover:bg-gray-100 disabled:opacity-50"
           >
             Cancel
           </button>
@@ -376,7 +376,7 @@ function ConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={busy}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium text-white ${
+            className={`px-3 py-1.5 rounded-md text-meta font-medium text-white ${
               action.kind === "archive"
                 ? "bg-gray-700 hover:bg-gray-800"
                 : "bg-emerald-600 hover:bg-emerald-700"

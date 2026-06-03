@@ -50,7 +50,7 @@ export default function SharingChips({
 
   return (
     <div
-      className={`flex flex-wrap items-center gap-1.5 text-xs ${className}`}
+      className={`flex flex-wrap items-center gap-1.5 text-meta ${className}`}
       data-tour-target="sharing-chips"
     >
       {/* Owner chip */}
@@ -75,7 +75,7 @@ export default function SharingChips({
           {s.username === WHOLE_LAB_SENTINEL
             ? "Whole lab"
             : `@${s.username}`}
-          <span className="text-[10px] opacity-75">
+          <span className="text-meta opacity-75">
             {s.level === "edit" ? "edit" : "read"}
           </span>
         </span>
@@ -89,7 +89,7 @@ export default function SharingChips({
         <button
           type="button"
           onClick={onShareClick}
-          className="ml-1 px-2 py-0.5 rounded-full bg-blue-600 text-white hover:bg-blue-700 text-xs font-medium"
+          className="ml-1 px-2 py-0.5 rounded-full bg-blue-600 text-white hover:bg-blue-700 text-meta font-medium"
           data-tour-target="sharing-chips-share-button"
         >
           Share…

@@ -221,7 +221,7 @@ export default function TrashPage() {
       <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
         <header className="space-y-2">
           <h1 className="text-2xl font-semibold text-gray-900">Trash</h1>
-          <p className="text-sm text-gray-600">
+          <p className="text-body text-gray-600">
             Deleted records stay here until the cleanup window passes. Restore
             puts a record back where it came from; permanent delete removes
             it without recovery.{" "}
@@ -236,17 +236,17 @@ export default function TrashPage() {
         </header>
 
         <div className="flex items-center justify-between">
-          <p className="text-sm text-gray-600">
+          <p className="text-body text-gray-600">
             {loading
               ? "Loading…"
               : `${entries.length} item${entries.length === 1 ? "" : "s"}`}
           </p>
-          <label className="flex items-center gap-2 text-sm text-gray-700">
+          <label className="flex items-center gap-2 text-body text-gray-700">
             <span>Sort:</span>
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as TrashSort)}
-              className="border border-gray-300 rounded px-2 py-1 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-gray-300 rounded px-2 py-1 text-body bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {SORT_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -260,7 +260,7 @@ export default function TrashPage() {
         {actionState.error && (
           <div
             role="alert"
-            className="rounded-md border border-red-300 bg-red-50 text-red-800 text-sm px-3 py-2"
+            className="rounded-md border border-red-300 bg-red-50 text-red-800 text-body px-3 py-2"
           >
             {actionState.error}
           </div>
@@ -349,9 +349,9 @@ function TrashSection({
               collapsed ? "-rotate-45" : "rotate-45"
             }`}
           />
-          <span className="text-sm font-medium text-gray-900">{label}</span>
+          <span className="text-body font-medium text-gray-900">{label}</span>
         </span>
-        <span className="text-xs text-gray-500">
+        <span className="text-meta text-gray-500">
           {count === 0 ? "Empty" : `${count} item${count === 1 ? "" : "s"}`}
         </span>
       </button>
@@ -389,10 +389,10 @@ function TrashRow({ entry, busy, onRestore, onPermanentDelete }: TrashRowProps) 
   return (
     <li className="px-4 py-3 flex items-center gap-3">
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-gray-900 truncate">
+        <div className="text-body font-medium text-gray-900 truncate">
           {displayName}
         </div>
-        <div className="text-xs text-gray-500 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+        <div className="text-meta text-gray-500 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
           <span>Deleted by {entry.deleted_by}</span>
           <span aria-hidden="true">·</span>
           <span>{deletedAtPretty}</span>
@@ -410,7 +410,7 @@ function TrashRow({ entry, busy, onRestore, onPermanentDelete }: TrashRowProps) 
             type="button"
             onClick={onRestore}
             disabled={busy}
-            className="px-3 py-1.5 text-sm rounded-md border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-1.5 text-body rounded-md border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Restore
           </button>
@@ -420,7 +420,7 @@ function TrashRow({ entry, busy, onRestore, onPermanentDelete }: TrashRowProps) 
             type="button"
             onClick={onPermanentDelete}
             disabled={busy}
-            className="px-3 py-1.5 text-sm rounded-md text-red-700 border border-red-200 bg-red-50 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-1.5 text-body rounded-md text-red-700 border border-red-200 bg-red-50 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Permanent delete
           </button>

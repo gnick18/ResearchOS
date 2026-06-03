@@ -99,11 +99,11 @@ export default function WeekView({
               className="px-2 py-2 text-center hover:bg-gray-50 border-l border-gray-100"
               title="Click to view all events on this day"
             >
-              <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">
+              <p className="text-meta uppercase tracking-wide text-gray-400 font-semibold">
                 {d.toLocaleDateString(undefined, { weekday: "short" })}
               </p>
               <p
-                className={`mt-1 inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-medium ${
+                className={`mt-1 inline-flex items-center justify-center w-7 h-7 rounded-full text-body font-medium ${
                   isToday ? "bg-blue-600 text-white" : "text-gray-700"
                 }`}
               >
@@ -138,7 +138,7 @@ export default function WeekView({
             {Array.from({ length: 24 }, (_, h) => (
               <div
                 key={h}
-                className="border-t border-gray-100 text-[10px] text-gray-400 text-right pr-2 pt-0.5"
+                className="border-t border-gray-100 text-meta text-gray-400 text-right pr-2 pt-0.5"
                 style={{ height: HOUR_HEIGHT }}
               >
                 {h === 0 ? "" : h === 12 ? "12p" : h > 12 ? `${h - 12}p` : `${h}a`}
@@ -245,7 +245,7 @@ function AllDayStrip({
 
   return (
     <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-gray-100 bg-gray-50/40">
-      <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-gray-400 font-semibold flex items-start pt-1">
+      <div className="px-2 py-1 text-meta uppercase tracking-wide text-gray-400 font-semibold flex items-start pt-1">
         All-day
       </div>
       {weekDays.map((d) => {
@@ -270,7 +270,7 @@ function AllDayStrip({
                 <button
                   key={`n-${item.event.id}`}
                   onClick={() => onEventClick(item.event)}
-                  className={`w-full text-left px-1.5 py-0.5 text-[10px] rounded truncate hover:opacity-80 ${ended ? ENDED_CLASSES : ""}`}
+                  className={`w-full text-left px-1.5 py-0.5 text-meta rounded truncate hover:opacity-80 ${ended ? ENDED_CLASSES : ""}`}
                   style={{
                     backgroundColor: itemColor,
                     color: textColor,
@@ -288,7 +288,7 @@ function AllDayStrip({
                   key={`x-${item.event.id}`}
                   onClick={() => onExternalClick(item.event)}
                   title="Linked calendar event (read-only)"
-                  className={`w-full text-left px-1.5 py-0.5 text-[10px] rounded truncate hover:opacity-80 flex items-center gap-1 ${ended ? ENDED_CLASSES : ""}`}
+                  className={`w-full text-left px-1.5 py-0.5 text-meta rounded truncate hover:opacity-80 flex items-center gap-1 ${ended ? ENDED_CLASSES : ""}`}
                   style={{
                     backgroundColor: itemColor,
                     color: textColor,
@@ -305,7 +305,7 @@ function AllDayStrip({
               );
             })}
             {extra > 0 && (
-              <p className="text-[10px] text-gray-400 px-1.5">+{extra} more</p>
+              <p className="text-meta text-gray-400 px-1.5">+{extra} more</p>
             )}
           </div>
         );
@@ -369,12 +369,12 @@ function TimedEventBlock({
       title={`${item.event.title}${item.event.start_time ? ` · ${formatTime(item.event.start_time)}${item.event.end_time ? ` – ${formatTime(item.event.end_time)}` : ""}` : ""}`}
     >
       {isShort ? (
-        <p className="text-[10px] font-medium truncate">
+        <p className="text-meta font-medium truncate">
           {formatTime(item.event.start_time)} {item.event.title}
         </p>
       ) : (
         <>
-          <p className="text-[10px] font-medium truncate flex items-center gap-1">
+          <p className="text-meta font-medium truncate flex items-center gap-1">
             {item.kind === "external" && (
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -394,7 +394,7 @@ function TimedEventBlock({
             )}
             <span className="truncate">{item.event.title}</span>
           </p>
-          <p className="text-[9px] opacity-80 truncate">
+          <p className="text-meta opacity-80 truncate">
             {formatTime(item.event.start_time)}
             {item.event.end_time && ` – ${formatTime(item.event.end_time)}`}
           </p>

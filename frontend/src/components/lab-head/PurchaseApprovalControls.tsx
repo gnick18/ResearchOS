@@ -88,7 +88,7 @@ export function PurchaseApprovalToggle({
         type="button"
         onClick={handleToggle}
         disabled={busy}
-        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium ${
+        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-meta font-medium ${
           isApproved
             ? "bg-green-100 text-green-800 border border-green-300 hover:bg-green-200"
             : "bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200"
@@ -135,7 +135,7 @@ export function PurchaseApprovalBadge({ item }: { item: PurchaseItem }) {
       placement="top"
     >
       <span
-        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-800 border border-green-300"
+        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-meta font-semibold bg-green-100 text-green-800 border border-green-300"
         data-testid="lab-head-purchase-approved-badge"
       >
         <svg
@@ -184,7 +184,7 @@ export function PurchaseDeclinedBadge({ item }: { item: PurchaseItem }) {
       placement="top"
     >
       <span
-        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-800 border border-red-300"
+        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-meta font-semibold bg-red-100 text-red-800 border border-red-300"
         data-testid="lab-head-purchase-declined-badge"
       >
         <svg

@@ -28,13 +28,13 @@ export default function SecurityBeat({ onNext }: SecurityBeatProps) {
       <h2 className="mb-3 text-2xl font-bold text-slate-900">
         Your data stays on your computer.
       </h2>
-      <p className="mb-3 text-base leading-relaxed text-slate-700">
+      <p className="mb-3 text-title leading-relaxed text-slate-700">
         ResearchOS is local-first. The folder you pick is yours. Every
         experiment, note, and measurement lives inside it on your machine,
         and the browser reads and writes that folder directly through your
         operating system.
       </p>
-      <ul className="mb-4 space-y-2 text-sm text-slate-700">
+      <ul className="mb-4 space-y-2 text-body text-slate-700">
         <li className="flex items-start gap-2">
           <span
             aria-hidden="true"
@@ -78,7 +78,7 @@ export default function SecurityBeat({ onNext }: SecurityBeatProps) {
           </span>
         </li>
       </ul>
-      <p className="mb-6 text-sm leading-relaxed text-slate-600">
+      <p className="mb-6 text-body leading-relaxed text-slate-600">
         Backups and sharing are your call. If you ever want to sync across
         devices or share with the lab, you can put the folder in your
         cloud-sync app (we will show you how on the next screen).
@@ -87,7 +87,7 @@ export default function SecurityBeat({ onNext }: SecurityBeatProps) {
         <button
           type="button"
           onClick={onNext}
-          className="inline-flex items-center rounded-lg bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-sky-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
+          className="inline-flex items-center rounded-lg bg-sky-500 px-5 py-2.5 text-body font-semibold text-white shadow-sm transition-colors hover:bg-sky-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
           data-testid="picker-walkthrough-security-next"
         >
           Got it, next

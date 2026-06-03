@@ -26,12 +26,12 @@ export default function WelcomeBeat({ onNext }: WelcomeBeatProps) {
       <h2 className="mb-3 text-2xl font-bold text-slate-900">
         Hi, I&apos;m BeakerBot.
       </h2>
-      <p className="mb-3 text-base leading-relaxed text-slate-700">
+      <p className="mb-3 text-title leading-relaxed text-slate-700">
         Welcome to ResearchOS, a free and open source digital lab notebook
         built by Dr. Grant R. Nickles (PhD) and funded in part by the
         UW-Madison RISE Initiative.
       </p>
-      <p className="mb-6 text-base leading-relaxed text-slate-700">
+      <p className="mb-6 text-title leading-relaxed text-slate-700">
         I&apos;ll help you set things up. Every experiment, note, and result
         stays on your computer and under your control.
       </p>
@@ -39,7 +39,7 @@ export default function WelcomeBeat({ onNext }: WelcomeBeatProps) {
         <button
           type="button"
           onClick={onNext}
-          className="inline-flex items-center rounded-lg bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-sky-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
+          className="inline-flex items-center rounded-lg bg-sky-500 px-5 py-2.5 text-body font-semibold text-white shadow-sm transition-colors hover:bg-sky-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
           data-testid="picker-walkthrough-welcome-next"
         >
           Next

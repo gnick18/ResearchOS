@@ -65,8 +65,8 @@ function Pillar({
       <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
         {icon}
       </div>
-      <h3 className="text-base font-semibold text-gray-900">{title}</h3>
-      <p className="mt-2 text-sm leading-relaxed text-gray-600">{children}</p>
+      <h3 className="text-title font-semibold text-gray-900">{title}</h3>
+      <p className="mt-2 text-body leading-relaxed text-gray-600">{children}</p>
     </div>
   );
 }
@@ -128,8 +128,8 @@ function FeatureCard({
         </span>
       </button>
       <div className="p-5">
-        <h3 className="text-base font-semibold text-gray-900">{title}</h3>
-        <p className="mt-1.5 text-sm leading-relaxed text-gray-600">
+        <h3 className="text-title font-semibold text-gray-900">{title}</h3>
+        <p className="mt-1.5 text-body leading-relaxed text-gray-600">
           {children}
         </p>
       </div>
@@ -202,13 +202,13 @@ function HeroBand({
 
   const text = (
     <div className="flex flex-col justify-center">
-      <span className="text-sm font-semibold uppercase tracking-wide text-sky-600">
+      <span className="text-body font-semibold uppercase tracking-wide text-sky-600">
         {eyebrow}
       </span>
-      <h3 className="mt-2 text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+      <h3 className="mt-2 text-2xl font-bold tracking-tight text-gray-900 sm:text-display">
         {title}
       </h3>
-      <p className="mt-3 text-base leading-relaxed text-gray-600">{children}</p>
+      <p className="mt-3 text-title leading-relaxed text-gray-600">{children}</p>
       <ul className="mt-5 flex flex-col gap-2.5">
         {points.map((point) => (
           <li key={point} className="flex items-start gap-2.5">
@@ -226,7 +226,7 @@ function HeroBand({
                 d="M5 13l4 4L19 7"
               />
             </svg>
-            <span className="text-sm leading-relaxed text-gray-700">
+            <span className="text-body leading-relaxed text-gray-700">
               {point}
             </span>
           </li>
@@ -349,7 +349,7 @@ type CellMark = "win" | "have" | "soon" | "none";
 function MarkIcon({ mark }: { mark: CellMark }) {
   if (mark === "soon") {
     return (
-      <span className="mt-0.5 inline-block flex-shrink-0 whitespace-nowrap rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-700">
+      <span className="mt-0.5 inline-block flex-shrink-0 whitespace-nowrap rounded-full bg-sky-100 px-2 py-0.5 text-meta font-semibold text-sky-700">
         Coming soon
       </span>
     );
@@ -393,14 +393,14 @@ function ComparisonRow({
 }) {
   return (
     <tr className="border-b border-gray-100 align-top last:border-0">
-      <td className="px-4 py-3 text-sm font-medium text-gray-900">{label}</td>
-      <td className="bg-sky-50/60 px-4 py-3 text-sm text-gray-800">
+      <td className="px-4 py-3 text-body font-medium text-gray-900">{label}</td>
+      <td className="bg-sky-50/60 px-4 py-3 text-body text-gray-800">
         <span className="flex items-start gap-2">
           <MarkIcon mark={us.mark} />
           <span>{us.text}</span>
         </span>
       </td>
-      <td className="px-4 py-3 text-sm text-gray-600">
+      <td className="px-4 py-3 text-body text-gray-600">
         <span className="flex items-start gap-2">
           <MarkIcon mark={them.mark} />
           <span>{them.text}</span>
@@ -520,13 +520,13 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             <BeakerBot pose="waving" className="h-32 w-32 text-sky-400 md:h-40 md:w-40" />
           </div>
           <div className="flex flex-col items-center gap-5">
-            <span className="inline-flex items-center gap-2 rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-xs font-medium tracking-wide text-sky-200">
+            <span className="inline-flex items-center gap-2 rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-meta font-medium tracking-wide text-sky-200">
               Free and open, built by a researcher for academic labs
             </span>
             <h1 className="max-w-3xl text-4xl font-bold leading-tight tracking-tight text-white md:text-5xl">
               Your research notebook. On your machine. Yours to keep.
             </h1>
-            <p className="max-w-2xl text-base leading-relaxed text-slate-300 md:text-lg">
+            <p className="max-w-2xl text-title leading-relaxed text-slate-300 md:text-lg">
               ResearchOS is a free electronic lab notebook that lives as a plain
               folder on your own computer. There is no account to set up and
               nothing gets uploaded to a cloud, so you will never see a per-seat
@@ -540,7 +540,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               type="button"
               onClick={handleGetStarted}
               data-testid="landing-get-started"
-              className="rounded-xl bg-sky-500 px-7 py-3 text-base font-semibold text-white shadow-lg transition-all hover:scale-[1.02] hover:bg-sky-400 hover:shadow-xl"
+              className="rounded-xl bg-sky-500 px-7 py-3 text-title font-semibold text-white shadow-lg transition-all hover:scale-[1.02] hover:bg-sky-400 hover:shadow-xl"
             >
               Get Started
             </button>
@@ -548,20 +548,20 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               type="button"
               onClick={handleTryDemo}
               data-testid="landing-try-demo"
-              className="rounded-xl border border-white/20 bg-white/5 px-7 py-3 text-base font-semibold text-white transition-all hover:bg-white/10"
+              className="rounded-xl border border-white/20 bg-white/5 px-7 py-3 text-title font-semibold text-white transition-all hover:bg-white/10"
             >
               Try the demo
             </button>
           </div>
 
-          <p className="max-w-xl text-sm leading-relaxed text-slate-400">
+          <p className="max-w-xl text-body leading-relaxed text-slate-400">
             Made for the people who actually run the science. Grad students and
             postdocs at the bench, the PI keeping an eye on the whole lab, a
             small research group or core facility with no IT department behind
             it.
           </p>
 
-          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-slate-400">
+          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-body text-slate-400">
             <Link
               href="/wiki/getting-started"
               data-testid="landing-read-docs"
@@ -588,10 +588,10 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
       {/* ── Trust pillars ────────────────────────────────────────────── */}
       <section className="mx-auto max-w-6xl px-6 py-20">
         <div className="mx-auto mb-12 max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-gray-900">
+          <h2 className="text-display font-bold tracking-tight text-gray-900">
             A different deal than a cloud notebook
           </h2>
-          <p className="mt-3 text-base leading-relaxed text-gray-600">
+          <p className="mt-3 text-title leading-relaxed text-gray-600">
             ResearchOS was built by a researcher with support from the
             UW-Madison RISE Initiative, not a venture-backed company. Most
             electronic lab notebooks rent you space on their servers. This one
@@ -685,13 +685,13 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
       <section className="bg-white py-20">
         <div className="mx-auto max-w-6xl px-6">
           <div className="mx-auto mb-14 max-w-2xl text-center">
-            <span className="text-sm font-semibold uppercase tracking-wide text-sky-600">
+            <span className="text-body font-semibold uppercase tracking-wide text-sky-600">
               The features that set us apart
             </span>
-            <h2 className="mt-2 text-3xl font-bold tracking-tight text-gray-900">
+            <h2 className="mt-2 text-display font-bold tracking-tight text-gray-900">
               Two features you would expect to pay for
             </h2>
-            <p className="mt-3 text-base leading-relaxed text-gray-600">
+            <p className="mt-3 text-title leading-relaxed text-gray-600">
               These are not on a roadmap or behind a paywall. They are built in,
               free, and running on your own machine.
             </p>
@@ -746,13 +746,13 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
       <section className="bg-slate-50 py-20">
         <div className="mx-auto max-w-6xl px-6">
           <div className="mx-auto mb-12 max-w-2xl text-center">
-            <span className="text-sm font-semibold uppercase tracking-wide text-sky-600">
+            <span className="text-body font-semibold uppercase tracking-wide text-sky-600">
               Everything a working lab needs
             </span>
-            <h2 className="mt-2 text-3xl font-bold tracking-tight text-gray-900">
+            <h2 className="mt-2 text-display font-bold tracking-tight text-gray-900">
               One place for the whole project
             </h2>
-            <p className="mt-3 text-base leading-relaxed text-gray-600">
+            <p className="mt-3 text-title leading-relaxed text-gray-600">
               Plan it, run it, write it up, and pay for it, without juggling
               five different tools.
             </p>
@@ -842,13 +842,13 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
       <section className="bg-white py-20">
         <div className="mx-auto max-w-6xl px-6">
           <div className="mx-auto mb-12 max-w-2xl text-center">
-            <span className="text-sm font-semibold uppercase tracking-wide text-sky-600">
+            <span className="text-body font-semibold uppercase tracking-wide text-sky-600">
               Built for the whole lab
             </span>
-            <h2 className="mt-2 text-3xl font-bold tracking-tight text-gray-900">
+            <h2 className="mt-2 text-display font-bold tracking-tight text-gray-900">
               Run your lab together, not seat by seat
             </h2>
-            <p className="mt-3 text-base leading-relaxed text-gray-600">
+            <p className="mt-3 text-title leading-relaxed text-gray-600">
               Share a shared folder and your whole lab works from it. No
               per-seat pricing, no admin licenses to buy. Members keep their own
               accounts; the PI gets the bird&apos;s-eye view.
@@ -890,13 +890,13 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
       <section className="bg-slate-50 py-20">
         <div className="mx-auto max-w-5xl px-6">
           <div className="mx-auto mb-12 max-w-2xl text-center">
-            <span className="text-sm font-semibold uppercase tracking-wide text-sky-600">
+            <span className="text-body font-semibold uppercase tracking-wide text-sky-600">
               Open source vs per-seat
             </span>
-            <h2 className="mt-2 text-3xl font-bold tracking-tight text-gray-900">
+            <h2 className="mt-2 text-display font-bold tracking-tight text-gray-900">
               How we compare to LabArchives
             </h2>
-            <p className="mt-3 text-base leading-relaxed text-gray-600">
+            <p className="mt-3 text-title leading-relaxed text-gray-600">
               LabArchives is the incumbent most labs are leaving. Here is the
               honest side-by-side on the things that matter most.
             </p>
@@ -907,13 +907,13 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               <table className="w-full min-w-[640px] border-collapse text-left">
                 <thead>
                   <tr className="border-b border-gray-200">
-                    <th className="w-[28%] px-4 py-3 text-sm font-semibold text-gray-500">
+                    <th className="w-[28%] px-4 py-3 text-body font-semibold text-gray-500">
                       <span className="sr-only">Capability</span>
                     </th>
-                    <th className="w-[36%] bg-sky-50 px-4 py-3 text-sm font-bold text-sky-700">
+                    <th className="w-[36%] bg-sky-50 px-4 py-3 text-body font-bold text-sky-700">
                       ResearchOS
                     </th>
-                    <th className="w-[36%] px-4 py-3 text-sm font-semibold text-gray-700">
+                    <th className="w-[36%] px-4 py-3 text-body font-semibold text-gray-700">
                       LabArchives (Professional)
                     </th>
                   </tr>
@@ -1021,7 +1021,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             </div>
           </div>
 
-          <p className="mx-auto mt-6 max-w-2xl text-center text-sm leading-relaxed text-gray-500">
+          <p className="mx-auto mt-6 max-w-2xl text-center text-body leading-relaxed text-gray-500">
             No electronic notebook is &ldquo;NIH certified&rdquo; (no such
             thing exists). Want the row-by-row detail?{" "}
             <Link
@@ -1039,13 +1039,13 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
       {/* ── NIH data-management compliance highlight ─────────────────── */}
       <section className="bg-gradient-to-br from-sky-600 to-sky-700 py-20 text-white">
         <div className="mx-auto max-w-4xl px-6 text-center">
-          <span className="text-sm font-semibold uppercase tracking-wide text-sky-100">
+          <span className="text-body font-semibold uppercase tracking-wide text-sky-100">
             Built for grant-funded labs
           </span>
-          <h2 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">
+          <h2 className="mt-2 text-display font-bold tracking-tight md:text-4xl">
             Supports your NIH Data Management and Sharing Plan
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-sky-50">
+          <p className="mx-auto mt-4 max-w-2xl text-title leading-relaxed text-sky-50">
             You are a research lab, not an enterprise. No electronic notebook is
             &ldquo;NIH certified&rdquo; (there is no such thing), yet the big
             cloud vendors charge enterprise prices for compliance badges your
@@ -1058,13 +1058,13 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             <Link
               href="/wiki/compliance/nih-data-management"
               data-testid="landing-nih-compliance"
-              className="rounded-xl bg-white px-6 py-3 text-base font-semibold text-sky-700 shadow-lg transition-all hover:scale-[1.02] hover:bg-sky-50"
+              className="rounded-xl bg-white px-6 py-3 text-title font-semibold text-sky-700 shadow-lg transition-all hover:scale-[1.02] hover:bg-sky-50"
             >
               How ResearchOS supports NIH compliance
             </Link>
             <Link
               href="/wiki/compliance/labarchives-comparison"
-              className="rounded-xl border border-white/40 px-6 py-3 text-base font-semibold text-white transition-all hover:bg-white/10"
+              className="rounded-xl border border-white/40 px-6 py-3 text-title font-semibold text-white transition-all hover:bg-white/10"
             >
               Compare to LabArchives
             </Link>
@@ -1075,10 +1075,10 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
       {/* ── How it works ─────────────────────────────────────────────── */}
       <section className="mx-auto max-w-5xl px-6 py-20">
         <div className="mx-auto mb-14 max-w-2xl text-center">
-          <span className="text-sm font-semibold uppercase tracking-wide text-sky-600">
+          <span className="text-body font-semibold uppercase tracking-wide text-sky-600">
             Up and running in three steps
           </span>
-          <h2 className="mt-2 text-3xl font-bold tracking-tight text-gray-900">
+          <h2 className="mt-2 text-display font-bold tracking-tight text-gray-900">
             BeakerBot does the heavy lifting
           </h2>
         </div>
@@ -1101,13 +1101,13 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             },
           ].map((step) => (
             <li key={step.n} className="flex flex-col items-start">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-500 text-base font-bold text-white">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-500 text-title font-bold text-white">
                 {step.n}
               </div>
               <h3 className="mt-4 text-lg font-semibold text-gray-900">
                 {step.title}
               </h3>
-              <p className="mt-2 text-sm leading-relaxed text-gray-600">
+              <p className="mt-2 text-body leading-relaxed text-gray-600">
                 {step.body}
               </p>
             </li>
@@ -1119,13 +1119,13 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
       <section className="bg-slate-50 py-20">
         <div className="mx-auto max-w-5xl px-6">
           <div className="mx-auto mb-12 max-w-2xl text-center">
-            <span className="text-sm font-semibold uppercase tracking-wide text-sky-600">
+            <span className="text-body font-semibold uppercase tracking-wide text-sky-600">
               Built in the open
             </span>
-            <h2 className="mt-2 text-3xl font-bold tracking-tight text-gray-900">
+            <h2 className="mt-2 text-display font-bold tracking-tight text-gray-900">
               What we are building
             </h2>
-            <p className="mt-3 text-base leading-relaxed text-gray-600">
+            <p className="mt-3 text-title leading-relaxed text-gray-600">
               ResearchOS is shaped by what real labs ask for. Here is what has
               landed recently and what we are working on next. A roadmap is not
               a promise, but this is honestly where the effort is going.
@@ -1151,7 +1151,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                 </svg>
                 Recently shipped
               </h3>
-              <ul className="space-y-3 text-sm leading-relaxed text-gray-700">
+              <ul className="space-y-3 text-body leading-relaxed text-gray-700">
                 <li>
                   <span className="font-semibold text-gray-900">
                     A built-in Sequence Editor
@@ -1207,7 +1207,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                 </svg>
                 Coming next
               </h3>
-              <ul className="space-y-3 text-sm leading-relaxed text-gray-700">
+              <ul className="space-y-3 text-body leading-relaxed text-gray-700">
                 <li>
                   <span className="font-semibold text-gray-900">
                     In-silico cloning
@@ -1239,10 +1239,10 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
       {/* ── Final CTA ────────────────────────────────────────────────── */}
       <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-20">
         <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-6 text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+          <h2 className="text-display font-bold tracking-tight text-white md:text-4xl">
             Ready when you are
           </h2>
-          <p className="max-w-xl text-base leading-relaxed text-slate-300">
+          <p className="max-w-xl text-title leading-relaxed text-slate-300">
             It is free to use, it is yours, and you can leave any time. Pick a
             folder and BeakerBot will take it from there.
           </p>
@@ -1250,14 +1250,14 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             <button
               type="button"
               onClick={handleGetStarted}
-              className="rounded-xl bg-sky-500 px-7 py-3 text-base font-semibold text-white shadow-lg transition-all hover:scale-[1.02] hover:bg-sky-400 hover:shadow-xl"
+              className="rounded-xl bg-sky-500 px-7 py-3 text-title font-semibold text-white shadow-lg transition-all hover:scale-[1.02] hover:bg-sky-400 hover:shadow-xl"
             >
               Get Started
             </button>
             <button
               type="button"
               onClick={handleTryDemo}
-              className="rounded-xl border border-white/20 bg-white/5 px-7 py-3 text-base font-semibold text-white transition-all hover:bg-white/10"
+              className="rounded-xl border border-white/20 bg-white/5 px-7 py-3 text-title font-semibold text-white transition-all hover:bg-white/10"
             >
               Try the demo
             </button>

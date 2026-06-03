@@ -143,7 +143,7 @@ export default function FlagForReviewButton({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium ${
+          className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-meta font-medium ${
             isFlagged
               ? "border border-red-300 bg-red-50 text-red-800 hover:bg-red-100"
               : "border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
@@ -182,16 +182,16 @@ export default function FlagForReviewButton({
             onClick={(e) => e.stopPropagation()}
           >
             <header>
-              <h3 className="text-base font-semibold text-gray-900">
+              <h3 className="text-title font-semibold text-gray-900">
                 {isFlagged ? "Update flag" : "Flag for review"}
               </h3>
-              <p className="text-xs text-gray-500 mt-0.5 break-words">
+              <p className="text-meta text-gray-500 mt-0.5 break-words">
                 {recordName}
               </p>
             </header>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
+              <label className="block text-meta font-medium text-gray-700 mb-1">
                 Reason (optional)
               </label>
               <textarea
@@ -199,7 +199,7 @@ export default function FlagForReviewButton({
                 onChange={(e) => setReason(e.target.value)}
                 disabled={busy}
                 placeholder="e.g. Let's chat about this in our 1:1."
-                className="w-full min-h-[80px] text-sm rounded-md border border-gray-300 px-2 py-1.5 focus:ring-2 focus:ring-amber-500"
+                className="w-full min-h-[80px] text-body rounded-md border border-gray-300 px-2 py-1.5 focus:ring-2 focus:ring-amber-500"
                 data-testid="lab-head-flag-reason"
               />
             </div>
@@ -211,7 +211,7 @@ export default function FlagForReviewButton({
                     type="button"
                     onClick={handleClear}
                     disabled={busy}
-                    className="px-3 py-1.5 rounded-md text-xs text-gray-600 hover:bg-gray-100 border border-gray-200"
+                    className="px-3 py-1.5 rounded-md text-meta text-gray-600 hover:bg-gray-100 border border-gray-200"
                     data-testid="lab-head-flag-clear"
                   >
                     Clear flag
@@ -223,7 +223,7 @@ export default function FlagForReviewButton({
                   type="button"
                   onClick={() => setOpen(false)}
                   disabled={busy}
-                  className="px-3 py-1.5 rounded-md text-xs text-gray-600 hover:bg-gray-100"
+                  className="px-3 py-1.5 rounded-md text-meta text-gray-600 hover:bg-gray-100"
                 >
                   Cancel
                 </button>
@@ -231,7 +231,7 @@ export default function FlagForReviewButton({
                   type="button"
                   onClick={handleSet}
                   disabled={busy}
-                  className="px-3 py-1.5 rounded-md bg-amber-600 text-white text-xs font-medium hover:bg-amber-700 disabled:bg-gray-300"
+                  className="px-3 py-1.5 rounded-md bg-amber-600 text-white text-meta font-medium hover:bg-amber-700 disabled:bg-gray-300"
                   data-testid="lab-head-flag-set"
                 >
                   {busy ? "Saving…" : isFlagged ? "Update" : "Flag"}

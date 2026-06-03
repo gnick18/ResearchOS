@@ -25,7 +25,7 @@ function OrphanBanner({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
     <div
-      className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+      className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-meta text-amber-900"
       data-testid="settings-orphan-artifact-banner"
     >
       Your previous tour left {count} demo

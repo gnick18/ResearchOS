@@ -44,7 +44,7 @@ export default function FolderChoiceBeat({ onContinue }: FolderChoiceBeatProps) 
       <h2 className="mb-3 text-2xl font-bold text-slate-900">
         Where should your folder live?
       </h2>
-      <p className="mb-4 text-base leading-relaxed text-slate-700">
+      <p className="mb-4 text-title leading-relaxed text-slate-700">
         Pick the spot that fits how you work. You can always migrate later.
       </p>
       <div className="mb-4 grid gap-3 sm:grid-cols-2">
@@ -65,7 +65,7 @@ export default function FolderChoiceBeat({ onContinue }: FolderChoiceBeatProps) 
           onSelect={() => setChoice("cloud")}
         />
       </div>
-      <p className="mb-6 text-xs leading-relaxed text-slate-500">
+      <p className="mb-6 text-meta leading-relaxed text-slate-500">
         Not sure? Pick local. It is the fastest path and you can move the
         folder into a cloud sync app any time.
       </p>
@@ -74,7 +74,7 @@ export default function FolderChoiceBeat({ onContinue }: FolderChoiceBeatProps) 
           type="button"
           onClick={handleContinue}
           disabled={!choice}
-          className="inline-flex items-center rounded-lg bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-sky-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center rounded-lg bg-sky-500 px-5 py-2.5 text-body font-semibold text-white shadow-sm transition-colors hover:bg-sky-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
           data-testid="picker-walkthrough-folder-choice-continue"
         >
           Continue
@@ -129,12 +129,12 @@ function ChoiceCard({
             <span className="inline-block h-2 w-2 rounded-full bg-sky-500" />
           )}
         </span>
-        <span className="text-base font-semibold text-slate-900">{title}</span>
+        <span className="text-title font-semibold text-slate-900">{title}</span>
       </div>
-      <span className="text-xs font-medium uppercase tracking-wide text-sky-700">
+      <span className="text-meta font-medium uppercase tracking-wide text-sky-700">
         {recommendation}
       </span>
-      <span className="text-sm leading-relaxed text-slate-700">{body}</span>
+      <span className="text-body leading-relaxed text-slate-700">{body}</span>
     </button>
   );
 }

@@ -136,10 +136,10 @@ export default function StartSharedNotebookDialog({
               {PEOPLE_SVG}
             </span>
             <div>
-              <h2 className="text-base font-semibold text-gray-900">
+              <h2 className="text-title font-semibold text-gray-900">
                 Start a shared notebook
               </h2>
-              <p className="text-xs text-gray-500">
+              <p className="text-meta text-gray-500">
                 A private 1:1 space for notes and weekly tasks, shared with one
                 lab member.
               </p>
@@ -160,14 +160,14 @@ export default function StartSharedNotebookDialog({
           <div className="flex flex-col gap-1.5">
             <label
               htmlFor="notebook-partner"
-              className="text-xs font-semibold uppercase tracking-wide text-gray-500"
+              className="text-meta font-semibold uppercase tracking-wide text-gray-500"
             >
               Share with
             </label>
             {loadingRoster ? (
-              <p className="text-sm italic text-gray-400">Loading lab members…</p>
+              <p className="text-body italic text-gray-400">Loading lab members…</p>
             ) : roster.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50/50 px-3 py-3 text-sm text-gray-500">
+              <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50/50 px-3 py-3 text-body text-gray-500">
                 No other lab members yet. Invite someone to your data folder
                 first.
               </p>
@@ -177,7 +177,7 @@ export default function StartSharedNotebookDialog({
                 value={selected}
                 onChange={(e) => setSelected(e.target.value)}
                 data-testid="notebook-partner-select"
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-body focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
               >
                 <option value="">Pick a lab member…</option>
                 {roster.map((u) => (
@@ -189,7 +189,7 @@ export default function StartSharedNotebookDialog({
               </select>
             )}
             {alreadyHas && (
-              <p className="text-xs text-amber-600">
+              <p className="text-meta text-amber-600">
                 You already share a notebook with {selected}. Creating another
                 makes a second, separate 1:1 space.
               </p>
@@ -199,7 +199,7 @@ export default function StartSharedNotebookDialog({
           <div className="flex flex-col gap-1.5">
             <label
               htmlFor="notebook-title"
-              className="text-xs font-semibold uppercase tracking-wide text-gray-500"
+              className="text-meta font-semibold uppercase tracking-wide text-gray-500"
             >
               Title <span className="font-normal text-gray-400">(optional)</span>
             </label>
@@ -210,11 +210,11 @@ export default function StartSharedNotebookDialog({
               onChange={(e) => setTitle(e.target.value)}
               placeholder={selected ? `1:1 with ${selected}` : "e.g. Thesis 1:1"}
               data-testid="notebook-title-input"
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-body focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
             />
           </div>
 
-          {error && <p className="text-sm text-red-500">{error}</p>}
+          {error && <p className="text-body text-red-500">{error}</p>}
         </div>
 
         {/* Footer */}
@@ -222,7 +222,7 @@ export default function StartSharedNotebookDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100"
+            className="rounded-lg px-4 py-2 text-body font-medium text-gray-600 transition-colors hover:bg-gray-100"
           >
             Cancel
           </button>
@@ -231,7 +231,7 @@ export default function StartSharedNotebookDialog({
             onClick={() => void handleCreate()}
             disabled={!selected || creating}
             data-testid="notebook-create-confirm"
-            className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-40"
+            className="rounded-lg bg-sky-600 px-4 py-2 text-body font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-40"
           >
             {creating ? "Creating…" : "Create notebook"}
           </button>

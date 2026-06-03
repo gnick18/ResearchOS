@@ -171,7 +171,7 @@ export function RestoreParentPromptHost() {
           >
             Restore parent {parentTypeLabel} too?
           </h2>
-          <p className="text-sm text-gray-600">
+          <p className="text-body text-gray-600">
             The parent <strong>{parentTypeLabel}</strong>{" "}
             <span className="font-medium">{parentName}</span> is also in trash.
             Restoring{" "}
@@ -186,7 +186,7 @@ export function RestoreParentPromptHost() {
               type="button"
               data-restore-default
               onClick={() => resolve("restore-both")}
-              className="w-full px-4 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              className="w-full px-4 py-2 text-body font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             >
               Restore both
             </button>
@@ -195,7 +195,7 @@ export function RestoreParentPromptHost() {
             <button
               type="button"
               onClick={() => resolve("just-this")}
-              className="w-full px-4 py-2 text-sm rounded-md border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-400"
+              className="w-full px-4 py-2 text-body rounded-md border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-400"
             >
               Just this record
             </button>
@@ -203,7 +203,7 @@ export function RestoreParentPromptHost() {
           <button
             type="button"
             onClick={() => resolve("cancel")}
-            className="w-full px-4 py-2 text-sm rounded-md text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-400"
+            className="w-full px-4 py-2 text-body rounded-md text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-400"
           >
             Cancel
           </button>

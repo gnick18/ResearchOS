@@ -60,10 +60,10 @@ export default function RehydrateMissingImagesPanel({
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold text-gray-900">
+        <h3 className="text-body font-semibold text-gray-900">
           Pull online-only images into your notes
         </h3>
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-meta text-gray-500 mt-1">
           The export ZIP doesn&apos;t bundle every inline image — about half are
           stored online by LabArchives. Pick a path below to fetch them now,
           or skip and leave them as placeholders you can fix up later.
@@ -71,7 +71,7 @@ export default function RehydrateMissingImagesPanel({
       </div>
 
       <div className="rounded-lg border border-gray-200 bg-white p-4">
-        <p className="text-sm text-gray-900">
+        <p className="text-body text-gray-900">
           <span className="font-semibold">{missingImages.length}</span> online-only
           image{missingImages.length === 1 ? "" : "s"} expected.
         </p>
@@ -91,10 +91,10 @@ export default function RehydrateMissingImagesPanel({
 
       {active === "drop" && (
         <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
-          <p className="text-xs text-gray-600">
+          <p className="text-meta text-gray-600">
             Already saved your inline images somewhere — from a previous
             download, a screenshot batch, or another tool? Drop the folder
-            or a <code className="text-[10px]">.zip</code> here. ResearchOS
+            or a <code className="text-meta">.zip</code> here. ResearchOS
             matches the files to the expected names automatically.
           </p>
           <ManualImageDropPanel
@@ -125,8 +125,8 @@ function PanelSwitcher({
           : "border-gray-200 bg-white hover:border-gray-300"
       }`}
     >
-      <p className="text-xs font-semibold text-gray-900">{label}</p>
-      <p className="text-[11px] text-gray-600 mt-0.5">{subtitle}</p>
+      <p className="text-meta font-semibold text-gray-900">{label}</p>
+      <p className="text-meta text-gray-600 mt-0.5">{subtitle}</p>
     </button>
   );
 

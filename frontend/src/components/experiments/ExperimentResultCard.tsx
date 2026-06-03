@@ -144,7 +144,7 @@ export default function ExperimentResultCard({
           ) : resultsPreview ? (
             <MarkdownPreview content={resultsPreview} />
           ) : (
-            <div className="flex flex-col items-center justify-center text-gray-400 text-xs">
+            <div className="flex flex-col items-center justify-center text-gray-400 text-meta">
               <svg
                 className="w-8 h-8 mb-1 opacity-50"
                 fill="none"
@@ -176,12 +176,12 @@ export default function ExperimentResultCard({
               aria-hidden
             />
           ) : null}
-          <h3 className="text-sm font-medium text-gray-900 truncate flex-1">
+          <h3 className="text-body font-medium text-gray-900 truncate flex-1">
             {task.name}
           </h3>
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-gray-500 min-w-0">
+        <div className="flex items-center gap-2 text-meta text-gray-500 min-w-0">
           <span
             onClick={(e) => {
               if (!onAvatarClick) return;
@@ -214,7 +214,7 @@ export default function ExperimentResultCard({
               />
             ))}
             {methods.length > 3 ? (
-              <span className="text-[11px] text-gray-400 self-center">
+              <span className="text-meta text-gray-400 self-center">
                 +{methods.length - 3}
               </span>
             ) : null}
@@ -253,28 +253,28 @@ export default function ExperimentResultCard({
  */
 export function MarkdownPreview({ content }: { content: string }) {
   return (
-    <div className="text-[11px] leading-snug text-gray-700 px-3 py-2 max-h-full overflow-hidden w-full">
+    <div className="text-meta leading-snug text-gray-700 px-3 py-2 max-h-full overflow-hidden w-full">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkUnderline]}
         rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema]]}
         components={{
           h1: ({ children }) => (
-            <strong className="block text-[12px] mb-0.5">{children}</strong>
+            <strong className="block text-meta mb-0.5">{children}</strong>
           ),
           h2: ({ children }) => (
-            <strong className="block text-[12px] mb-0.5">{children}</strong>
+            <strong className="block text-meta mb-0.5">{children}</strong>
           ),
           h3: ({ children }) => (
-            <strong className="block text-[11px] mb-0.5">{children}</strong>
+            <strong className="block text-meta mb-0.5">{children}</strong>
           ),
           h4: ({ children }) => (
-            <strong className="block text-[11px] mb-0.5">{children}</strong>
+            <strong className="block text-meta mb-0.5">{children}</strong>
           ),
           h5: ({ children }) => (
-            <strong className="block text-[11px] mb-0.5">{children}</strong>
+            <strong className="block text-meta mb-0.5">{children}</strong>
           ),
           h6: ({ children }) => (
-            <strong className="block text-[11px] mb-0.5">{children}</strong>
+            <strong className="block text-meta mb-0.5">{children}</strong>
           ),
           p: ({ children }) => <div className="mb-1">{children}</div>,
           ul: ({ children }) => (

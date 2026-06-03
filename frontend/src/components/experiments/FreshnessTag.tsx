@@ -47,7 +47,7 @@ export default function FreshnessTag({ kind, label }: FreshnessTagProps) {
   return (
     <span
       className={
-        "inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-full border " +
+        "inline-flex items-center px-2 py-0.5 text-meta font-medium rounded-full border " +
         cfg.className
       }
     >
