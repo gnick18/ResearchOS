@@ -75,6 +75,7 @@ import {
   pinchDeltaToZoom,
   bpUnderCursor,
   anchorScrollTopForBp,
+  clampSequenceZoom,
   MAP_ZOOM,
 } from "@/lib/sequences/sequence-zoom";
 import {
@@ -442,7 +443,14 @@ export default function SequenceEditView({
   // (feature arrows, not legible bases). The zoom slider / coordinate cluster and
   // the editable detail surface belong to the Sequence tab.
   const showViewer = viewMode === "map" || viewMode === "sequence";
-  const viewerLinearZoom = viewMode === "map" ? MAP_ZOOM : linearZoom;
+  const isMapView = viewMode === "map";
+  // nav polish bot — FIX 1: keep Map and Sequence visually distinct even at the
+  // slider floor. The Sequence view FLOORS its effective zoom just above SeqViz's
+  // bases-free schematic band (SEQUENCE_MIN_LINEAR_ZOOM), so it always shows
+  // legible bases + a base ruler; the Map view pins to MAP_ZOOM (pure feature
+  // schematic, no bases). Toggling Map<->Sequence therefore always changes what
+  // is drawn, not just the active-tab underline.
+  const viewerLinearZoom = isMapView ? MAP_ZOOM : clampSequenceZoom(linearZoom);
 
   // The bp window currently visible in the main linear viewer, for the overview
   // bar's viewport box. Two-way sync: we read the SeqViz linear scroller's live
@@ -1602,9 +1610,15 @@ export default function SequenceEditView({
                   seq={doc.seq}
                   seqType={doc.seqType === "protein" ? "aa" : doc.seqType}
                   annotations={annotations}
-                  translations={translations}
-                  enzymes={enzymes}
-                  primers={primers}
+                  // nav polish bot — FIX 1: the Map view is explicitly the
+                  // "no bases, whole molecule" feature schematic. Strip the
+                  // base-level clutter (translation tracks, enzyme cut sites,
+                  // primer arrows) so only feature arrows + labels carry the
+                  // map; the Sequence view keeps the full layer stack. This makes
+                  // the two tabs render obviously different content.
+                  translations={isMapView ? [] : translations}
+                  enzymes={isMapView ? [] : enzymes}
+                  primers={isMapView ? [] : primers}
                   search={searchProp}
                   onSearch={onSearchResults}
                   viewer={viewer}
@@ -1618,8 +1632,12 @@ export default function SequenceEditView({
                     if (externalSel) setExternalSel(null);
                   }}
                   selection={externalSel ?? undefined}
-                  showComplement={view.showComplement}
-                  showIndex={view.showIndex}
+                  // nav polish bot — FIX 1: remove the base ruler / complement
+                  // strand in Map view (there are no legible bases to index), and
+                  // always keep them available in Sequence view so it retains its
+                  // base-level character even at the slider floor.
+                  showComplement={isMapView ? false : view.showComplement}
+                  showIndex={isMapView ? false : view.showIndex}
                   disableExternalFonts
                   style={{ height: "100%", width: "100%" }}
                 />
@@ -1634,7 +1652,36 @@ export default function SequenceEditView({
                   zoom={linearZoom}
                   onZoomChange={(z) => setView((v) => ({ ...v, linearZoom: z }))}
                   onScrollToBp={scrollMainToBp}
+                  // nav polish bot — in Map view the molecule is shown whole, so
+                  // the window cluster (slider / bp-in-view / readout / minimap)
+                  // is stale; collapse it to a "Whole molecule (N bp)" indicator.
+                  mapMode={viewMode === "map"}
                 />
+              ) : viewMode === "map" ? (
+                // nav polish bot — circular molecule in Map view: the ring IS the
+                // whole-molecule map, so the circular zoom slider is irrelevant.
+                // Mirror the linear Map cluster with the same calm indicator.
+                <div className="flex items-center gap-2 border-t border-gray-100 bg-white px-3 py-2 text-[12px] text-gray-500">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-3.5 w-3.5 text-gray-400"
+                    aria-hidden="true"
+                  >
+                    <circle cx="12" cy="12" r="8" />
+                    <path d="M12 4v3M20 12h-3M12 20v-3M4 12h3" />
+                  </svg>
+                  <span>
+                    Whole molecule
+                    <span className="ml-1 font-mono text-gray-600">
+                      ({doc.seq.length.toLocaleString()} bp)
+                    </span>
+                  </span>
+                </div>
               ) : (
                 <div className="flex items-center gap-3 border-t border-gray-100 bg-white px-3 py-1.5">
                   <SequenceZoomControl

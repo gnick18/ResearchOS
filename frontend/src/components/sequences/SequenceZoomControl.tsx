@@ -14,7 +14,6 @@ import {
   MIN_LINEAR_ZOOM,
   MAX_LINEAR_ZOOM,
   clampLinearZoom,
-  isMapZoom,
 } from "@/lib/sequences/sequence-zoom";
 
 function IconMinus({ className }: { className?: string }) {
@@ -53,11 +52,23 @@ export interface SequenceZoomControlProps {
   onZoomChange: (zoom: number) => void;
   /** Which knob this drives — only affects the label / Fit-target. */
   axis: "linear" | "circular";
+  /** nav polish bot — the lowest zoom this control may reach. The Sequence view
+   *  passes SEQUENCE_MIN_LINEAR_ZOOM so the slider floor matches the floored
+   *  view (the whole-molecule map lives on the Map tab, not the slider bottom).
+   *  Defaults to MIN_LINEAR_ZOOM. */
+  minZoom?: number;
 }
 
-export default function SequenceZoomControl({ zoom, onZoomChange, axis }: SequenceZoomControlProps) {
-  const set = (z: number) => onZoomChange(clampLinearZoom(z));
-  const atMap = axis === "linear" && isMapZoom(zoom);
+export default function SequenceZoomControl({
+  zoom,
+  onZoomChange,
+  axis,
+  minZoom = MIN_LINEAR_ZOOM,
+}: SequenceZoomControlProps) {
+  const floor = Math.max(MIN_LINEAR_ZOOM, minZoom);
+  const set = (z: number) => onZoomChange(Math.min(MAX_LINEAR_ZOOM, Math.max(floor, clampLinearZoom(z))));
+  // The "Fit" button snaps to this control's floor (full zoom-out for THIS view).
+  const atFloor = axis === "linear" && zoom <= floor;
 
   return (
     <div className="flex items-center gap-1.5" role="group" aria-label="Zoom">
@@ -65,7 +76,7 @@ export default function SequenceZoomControl({ zoom, onZoomChange, axis }: Sequen
         <button
           type="button"
           onClick={() => set(zoom - STEP)}
-          disabled={zoom <= MIN_LINEAR_ZOOM}
+          disabled={zoom <= floor}
           className="flex h-6 w-6 items-center justify-center rounded text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
           aria-label="Zoom out"
         >
@@ -74,9 +85,9 @@ export default function SequenceZoomControl({ zoom, onZoomChange, axis }: Sequen
       </Tooltip>
       <input
         type="range"
-        min={MIN_LINEAR_ZOOM}
+        min={axis === "linear" ? floor : MIN_LINEAR_ZOOM}
         max={MAX_LINEAR_ZOOM}
-        value={zoom}
+        value={Math.max(zoom, axis === "linear" ? floor : MIN_LINEAR_ZOOM)}
         onChange={(e) => set(Number(e.target.value))}
         aria-label={`${axis === "linear" ? "Linear" : "Circular"} zoom`}
         className="h-1 w-28 cursor-pointer accent-sky-600"
@@ -93,17 +104,17 @@ export default function SequenceZoomControl({ zoom, onZoomChange, axis }: Sequen
         </button>
       </Tooltip>
       {axis === "linear" ? (
-        <Tooltip label="Fit whole sequence (overview map)">
+        <Tooltip label="Fit (zoom out fully; the whole-molecule map is the Map tab)">
           <button
             type="button"
-            onClick={() => set(MIN_LINEAR_ZOOM)}
-            aria-pressed={atMap}
+            onClick={() => set(floor)}
+            aria-pressed={atFloor}
             className={`flex h-6 items-center gap-1 rounded px-1.5 text-[11px] font-medium transition-colors ${
-              atMap ? "bg-sky-50 text-sky-700" : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+              atFloor ? "bg-sky-50 text-sky-700" : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
             }`}
           >
             <IconFitMap className="h-3.5 w-3.5" />
-            <span className="hidden md:inline">Map</span>
+            <span className="hidden md:inline">Fit</span>
           </button>
         </Tooltip>
       ) : null}

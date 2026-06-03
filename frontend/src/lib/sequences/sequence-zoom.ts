@@ -22,6 +22,22 @@ export const MIN_LINEAR_ZOOM = 1;
 /** The highest the slider/zoom can go (large bases). */
 export const MAX_LINEAR_ZOOM = 100;
 
+/**
+ * nav polish bot — the lowest zoom the SEQUENCE view is allowed to reach. SeqViz
+ * collapses to a bases-free schematic line at `zoom <= 10` (see
+ * SeqViewerContainer.linearProps), which is visually identical to the Map view's
+ * feature schematic. The Sequence tab is the base-level view, so we floor its
+ * effective zoom just above that band: dragging the slider all the way down still
+ * shows legible bases, so toggling Map<->Sequence is always an obvious change.
+ */
+export const SEQUENCE_MIN_LINEAR_ZOOM = 12;
+
+/** Clamp a zoom into the SEQUENCE view's range [SEQUENCE_MIN_LINEAR_ZOOM, MAX]. */
+export function clampSequenceZoom(zoom: number): number {
+  if (!Number.isFinite(zoom)) return DEFAULT_LINEAR_ZOOM;
+  return Math.min(MAX_LINEAR_ZOOM, Math.max(SEQUENCE_MIN_LINEAR_ZOOM, zoom));
+}
+
 /** SeqViz's own default linear zoom (base-level, comfortable). */
 export const DEFAULT_LINEAR_ZOOM = 50;
 
@@ -123,6 +139,64 @@ export function zoomForTargetSpan(opts: {
   // octaves > 0 when we want a SMALLER span (zoom in => raise the knob).
   const octaves = Math.log2(currentSpan / targetSpan);
   return clampLinearZoom(Math.round(base + octaves * ZOOM_PER_SPAN_OCTAVE));
+}
+
+/**
+ * nav polish bot — INVERSE of zoomForTargetSpan: what bp span ends up visible at
+ * a given zoom, projected from the live (zoom, span) calibration sample?
+ *
+ * zoomForTargetSpan maps a span delta to a zoom delta of
+ * `log2(currentSpan / targetSpan) * ZOOM_PER_SPAN_OCTAVE`. Solving for the span at
+ * an arbitrary `zoom` inverts that: each ZOOM_PER_SPAN_OCTAVE knob units HALVES
+ * the visible span. So
+ *   span(zoom) = currentSpan * 2 ^ (-(zoom - currentZoom) / ZOOM_PER_SPAN_OCTAVE).
+ * Used to compute the ACHIEVABLE span at the slider extremes (the renderer's max
+ * zoom can't show fewer bases than span(MAX_LINEAR_ZOOM), and its min zoom can't
+ * show more than span(MIN_LINEAR_ZOOM)). Pure + DOM-free for unit testing.
+ */
+export function spanForZoom(opts: {
+  currentZoom: number;
+  currentSpan: number;
+  zoom: number;
+}): number {
+  const { currentZoom, currentSpan, zoom } = opts;
+  if (!Number.isFinite(currentSpan) || currentSpan <= 0) return 0;
+  const base = Number.isFinite(currentZoom) ? currentZoom : DEFAULT_LINEAR_ZOOM;
+  const target = Number.isFinite(zoom) ? zoom : base;
+  return currentSpan * Math.pow(2, -(target - base) / ZOOM_PER_SPAN_OCTAVE);
+}
+
+/**
+ * nav polish bot — the ACHIEVABLE [min, max] bp-in-view span the linear renderer
+ * can actually honor, projected from the live (zoom, span) sample and bounded by
+ * the slider's zoom range AND the molecule length.
+ *
+ * The smallest achievable span is what the MAX zoom shows (SeqViz caps zoom, so
+ * on a small molecule the field can't go below ~hundreds of bp); the largest is
+ * the whole molecule (capped at `seqLength`, since you can never view more bases
+ * than exist). The editable bp-in-view field clamps user input into this range
+ * and, on commit, snaps the displayed value to the span actually achieved so it
+ * never advertises a span the view can't render. Pure + DOM-free.
+ */
+export function achievableSpanRange(opts: {
+  currentZoom: number;
+  currentSpan: number;
+  seqLength: number;
+}): { min: number; max: number } {
+  const { currentZoom, currentSpan, seqLength } = opts;
+  const len = Number.isFinite(seqLength) && seqLength > 0 ? seqLength : 0;
+  if (!Number.isFinite(currentSpan) || currentSpan <= 0) {
+    // No live sample yet: the only safe bound is the molecule length.
+    return { min: 1, max: Math.max(1, len) };
+  }
+  // Smallest span: at the highest (most zoomed-in) knob value.
+  const tight = spanForZoom({ currentZoom, currentSpan, zoom: MAX_LINEAR_ZOOM });
+  // Largest span: at the lowest knob value (whole-molecule overview).
+  const wide = spanForZoom({ currentZoom, currentSpan, zoom: MIN_LINEAR_ZOOM });
+  const cap = len > 0 ? len : Math.max(currentSpan, Math.round(wide));
+  const min = Math.max(1, Math.min(cap, Math.round(tight)));
+  const max = Math.max(min, Math.min(cap, Math.round(wide)));
+  return { min, max };
 }
 
 /**

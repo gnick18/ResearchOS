@@ -21,7 +21,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import SequenceZoomControl from "./SequenceZoomControl";
-import { bpToTrackX, trackXToBp, zoomForTargetSpan } from "@/lib/sequences/sequence-zoom";
+import {
+  achievableSpanRange,
+  bpToTrackX,
+  trackXToBp,
+  zoomForTargetSpan,
+  SEQUENCE_MIN_LINEAR_ZOOM,
+} from "@/lib/sequences/sequence-zoom";
 
 const TICK_PAD_X = 6;
 const MINIMAP_H = 22;
@@ -35,6 +41,11 @@ export interface SequenceCoordinateBarProps {
   onZoomChange: (zoom: number) => void;
   /** Scroll the main view so `bp` sits at the top of its viewport. */
   onScrollToBp: (bp: number) => void;
+  /** nav polish bot — when true the molecule is shown WHOLE (Map view): there is
+   *  no scrollable window, so the zoom slider / bp-in-view field / window readout
+   *  / minimap are all irrelevant. The cluster collapses to a simple
+   *  "Whole molecule (N bp)" indicator. */
+  mapMode?: boolean;
 }
 
 export default function SequenceCoordinateBar({
@@ -43,6 +54,7 @@ export default function SequenceCoordinateBar({
   zoom,
   onZoomChange,
   onScrollToBp,
+  mapMode = false,
 }: SequenceCoordinateBarProps) {
   const span = Math.max(1, win.end - win.start);
 
@@ -54,13 +66,27 @@ export default function SequenceCoordinateBar({
   const liveValue = span.toLocaleString();
   const fieldValue = editing ? draft : liveValue;
 
+  // nav polish bot — the span the renderer can actually honor, projected from the
+  // live (zoom, span) sample. SeqViz caps zoom, so on a short molecule the field
+  // cannot drop below ~hundreds of bp; the upper bound is the whole molecule.
+  const spanRange = useMemo(
+    () => achievableSpanRange({ currentZoom: zoom, currentSpan: span, seqLength }),
+    [zoom, span, seqLength],
+  );
+
   const commitField = useCallback(() => {
     setEditing(false);
-    const target = Number(draft.replace(/[^0-9]/g, ""));
-    if (!Number.isFinite(target) || target <= 0) return;
-    const clampedTarget = Math.min(seqLength, Math.max(1, target));
-    onZoomChange(zoomForTargetSpan({ currentZoom: zoom, currentSpan: span, targetSpan: clampedTarget }));
-  }, [draft, seqLength, zoom, span, onZoomChange]);
+    const requested = Number(draft.replace(/[^0-9]/g, ""));
+    if (!Number.isFinite(requested) || requested <= 0) return;
+    // Clamp the requested span to what the renderer can actually show: anything
+    // below the max-zoom minimum (or above the whole molecule) silently snapped
+    // to the achievable bound, so the field never advertises a span the view
+    // can't honor. The live `span` mirror then reflects the value achieved.
+    const clampedTarget = Math.min(spanRange.max, Math.max(spanRange.min, requested));
+    onZoomChange(
+      zoomForTargetSpan({ currentZoom: zoom, currentSpan: span, targetSpan: clampedTarget }),
+    );
+  }, [draft, spanRange, zoom, span, onZoomChange]);
 
   // ── horizontal coordinate minimap ───────────────────────────────────────────
   const trackRef = useRef<HTMLDivElement | null>(null);
@@ -140,10 +166,48 @@ export default function SequenceCoordinateBar({
     return out;
   }, [trackWidth, seqLength]);
 
+  // nav polish bot — MAP VIEW: the molecule is shown whole, so there is no
+  // visible-window concept. The zoom slider / bp-in-view field / window readout /
+  // minimap would all be stale or inert, so we replace the whole cluster with a
+  // single calm "Whole molecule (N bp)" indicator. The full cluster returns in
+  // Sequence view. (No emoji; inline SVG glyph; the tab bar is unchanged.)
+  if (mapMode) {
+    return (
+      <div className="flex items-center gap-2 border-t border-gray-100 bg-white px-3 py-2 text-[12px] text-gray-500">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="h-3.5 w-3.5 text-gray-400"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="8" />
+          <path d="M12 4v3M20 12h-3M12 20v-3M4 12h3" />
+        </svg>
+        <span>
+          Whole molecule
+          <span className="ml-1 font-mono text-gray-600">
+            ({seqLength.toLocaleString()} bp)
+          </span>
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center gap-3 border-t border-gray-100 bg-white px-3 py-1.5">
-      {/* zoom slider cluster */}
-      <SequenceZoomControl axis="linear" zoom={zoom} onZoomChange={onZoomChange} />
+      {/* zoom slider cluster — floored to the Sequence view's min zoom so the
+          slider bottom matches the floored view (the whole-molecule map is the
+          Map tab, reached via the bottom tab bar). */}
+      <SequenceZoomControl
+        axis="linear"
+        zoom={zoom}
+        onZoomChange={onZoomChange}
+        minZoom={SEQUENCE_MIN_LINEAR_ZOOM}
+      />
 
       <div className="h-5 w-px bg-gray-200" />
 

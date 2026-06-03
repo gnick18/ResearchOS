@@ -21,6 +21,10 @@ import {
   anchorScrollTopForBp,
   showInOverview,
   OVERVIEW_WHOLE_SPAN_FRACTION,
+  spanForZoom,
+  achievableSpanRange,
+  clampSequenceZoom,
+  SEQUENCE_MIN_LINEAR_ZOOM,
 } from "./sequence-zoom";
 
 describe("initialLinearZoom", () => {
@@ -319,5 +323,98 @@ describe("zoomForTargetSpan (editable bp-in-view field -> zoom)", () => {
     expect(zoomForTargetSpan({ currentZoom: NaN, currentSpan: 100, targetSpan: 50 })).toBe(
       clampLinearZoom(DEFAULT_LINEAR_ZOOM + ZOOM_PER_SPAN_OCTAVE),
     );
+  });
+});
+
+describe("clampSequenceZoom — Sequence view floor (FIX 1)", () => {
+  it("floors below the bases-free schematic band", () => {
+    expect(clampSequenceZoom(1)).toBe(SEQUENCE_MIN_LINEAR_ZOOM);
+    expect(clampSequenceZoom(MIN_LINEAR_ZOOM)).toBe(SEQUENCE_MIN_LINEAR_ZOOM);
+    expect(clampSequenceZoom(MAP_ZOOM)).toBe(SEQUENCE_MIN_LINEAR_ZOOM);
+  });
+  it("keeps zooms at/above the floor untouched and caps at the max", () => {
+    expect(clampSequenceZoom(50)).toBe(50);
+    expect(clampSequenceZoom(SEQUENCE_MIN_LINEAR_ZOOM)).toBe(SEQUENCE_MIN_LINEAR_ZOOM);
+    expect(clampSequenceZoom(250)).toBe(MAX_LINEAR_ZOOM);
+  });
+  it("the floor is strictly above the map / schematic threshold", () => {
+    // SeqViz collapses to a bases-free line at zoom <= 10; the floor must clear it.
+    expect(SEQUENCE_MIN_LINEAR_ZOOM).toBeGreaterThan(MAP_ZOOM);
+    expect(SEQUENCE_MIN_LINEAR_ZOOM).toBeGreaterThan(10);
+  });
+  it("falls back to the default for non-finite input", () => {
+    expect(clampSequenceZoom(NaN)).toBe(DEFAULT_LINEAR_ZOOM);
+  });
+});
+
+describe("spanForZoom — inverse of zoomForTargetSpan (FIX 3)", () => {
+  it("returns the current span at the current zoom", () => {
+    expect(spanForZoom({ currentZoom: 50, currentSpan: 1000, zoom: 50 })).toBeCloseTo(1000, 5);
+  });
+  it("halves the span per ZOOM_PER_SPAN_OCTAVE knob units of zoom-IN", () => {
+    const s = spanForZoom({ currentZoom: 40, currentSpan: 1000, zoom: 40 + ZOOM_PER_SPAN_OCTAVE });
+    expect(s).toBeCloseTo(500, 5);
+  });
+  it("doubles the span per octave of zoom-OUT", () => {
+    const s = spanForZoom({ currentZoom: 60, currentSpan: 1000, zoom: 60 - ZOOM_PER_SPAN_OCTAVE });
+    expect(s).toBeCloseTo(2000, 5);
+  });
+  it("round-trips against zoomForTargetSpan", () => {
+    // The zoom that yields a 250 bp span, fed back through spanForZoom, recovers ~250.
+    const z = zoomForTargetSpan({ currentZoom: 50, currentSpan: 1800, targetSpan: 250 });
+    const back = spanForZoom({ currentZoom: 50, currentSpan: 1800, zoom: z });
+    expect(back).toBeCloseTo(250, -1); // within rounding of the integer zoom step
+  });
+  it("guards bad input", () => {
+    expect(spanForZoom({ currentZoom: 50, currentSpan: 0, zoom: 50 })).toBe(0);
+  });
+});
+
+describe("achievableSpanRange — bp-in-view clamp to what the renderer can honor (FIX 3)", () => {
+  it("caps the WIDEST span at the molecule length", () => {
+    const r = achievableSpanRange({ currentZoom: 50, currentSpan: 600, seqLength: 1800 });
+    expect(r.max).toBe(1800);
+  });
+
+  it("the SMALLEST span is the max-zoom projection of the live sample (not 1)", () => {
+    // 1800 bp molecule, live sample 600 bp visible at zoom 50. At MAX zoom (100)
+    // the span shrinks by (100-50) knob units == that many / ZOOM_PER_SPAN_OCTAVE
+    // octaves. The achievable floor is that projected span, NOT 1.
+    const r = achievableSpanRange({ currentZoom: 50, currentSpan: 600, seqLength: 1800 });
+    const expectedMin = Math.round(
+      spanForZoom({ currentZoom: 50, currentSpan: 600, zoom: MAX_LINEAR_ZOOM }),
+    );
+    expect(r.min).toBe(Math.max(1, Math.min(1800, expectedMin)));
+    expect(r.min).toBeGreaterThan(1);
+    expect(r.min).toBeLessThan(r.max);
+  });
+
+  it("a too-small request (below the floor) clamps UP to the achievable minimum", () => {
+    // A short, already-tight sample so the achievable floor is well above a tiny
+    // request: mirrors the verifier's case (typing a span the view can't honor).
+    const r = achievableSpanRange({ currentZoom: 20, currentSpan: 1200, seqLength: 1800 });
+    const requested = Math.max(1, r.min - 1); // strictly below the floor
+    const clamped = Math.min(r.max, Math.max(r.min, requested));
+    expect(clamped).toBe(r.min);
+    expect(clamped).toBeGreaterThanOrEqual(requested);
+  });
+
+  it("a too-large request clamps DOWN to the molecule length", () => {
+    const r = achievableSpanRange({ currentZoom: 50, currentSpan: 600, seqLength: 1800 });
+    const clamped = Math.min(r.max, Math.max(r.min, 999999));
+    expect(clamped).toBe(1800);
+  });
+
+  it("min never exceeds max even when the sample is already near the floor", () => {
+    const r = achievableSpanRange({ currentZoom: 95, currentSpan: 220, seqLength: 1800 });
+    expect(r.min).toBeLessThanOrEqual(r.max);
+    expect(r.min).toBeGreaterThanOrEqual(1);
+  });
+
+  it("falls back to [1, seqLength] when there is no live span sample", () => {
+    expect(achievableSpanRange({ currentZoom: 50, currentSpan: 0, seqLength: 1800 })).toEqual({
+      min: 1,
+      max: 1800,
+    });
   });
 });
