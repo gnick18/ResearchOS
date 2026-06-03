@@ -146,23 +146,14 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // demo, manual advance. See ProjectOverviewContextStep.tsx for the
   // rationale.
   "project-overview-context",
-  // Transition beat (Grant 2026-05-21): cursor glides to the Home nav
-  // tab and the controller pushes the browser back to "/" so §6.2b
-  // home widgets fires from the home surface, not from inside the
-  // project page. Avoids the jarring "still in /workbench/projects/123
-  // but suddenly talking about the canvas" cut. See
-  // ProjectOverviewExitStep.tsx for the rationale.
-  //
-  // Copy refresh (home widgets §6.2b step bodies manager, 2026-05-25):
-  // the exit speech used to promise notifications next; it now
-  // telegraphs the widgets beat ("how the canvas works") because §6.2b
-  // sits between this step and §6.3.
-  "project-overview-exit",
-  // Widget-framework teardown v2 (2026-06-02): the §6.2b Home widgets
-  // walkthrough (5 sub-steps: canvas-intro / tile-anatomy / add / reorder
-  // / exit) taught the customizable widget canvas, which was removed.
-  // project-overview-exit now hands straight off to notifications-intro.
-  // 2026-05-27 (v4 tour structural manager, Wave 1): new
+  // 2026-06-03 (tour-merge): the old `project-overview-exit` transition
+  // beat was removed. It glided the cursor to the notification bell with
+  // no click, then `notifications-intro` re-explained that same bell with
+  // no cursor — a redundant pair. The exit step's job (route handoff to
+  // /workbench, the lead-in framing) folded into `notifications-intro`,
+  // which now carries `expectedRoute: "/workbench"` and spotlights the
+  // bell. Neighbors auto-stitch: context → notifications-intro.
+  // 2026-05-27 (v4 tour structural manager, Wave 1): the
   // `notifications-intro` narration beat sits before the click-the-bell
   // user-action so BeakerBot can frame the top-bar bell + inbox pair
   // before the user has to interact with either.

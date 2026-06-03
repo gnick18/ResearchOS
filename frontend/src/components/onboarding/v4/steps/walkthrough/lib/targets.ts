@@ -527,9 +527,12 @@ export function targetSelector(name: TourTargetName): string {
  * Account-type-aware selector for the "back to Home" transition anchor
  * (PI Home migration, pi-walkthrough hardening 2026-05-29).
  *
- * The §6.2→6.3 transition step (`project-overview-exit`) glides the
- * cursor to, and spotlights, the top-nav dashboard tab the user is being
- * sent back to.
+ * Historically the §6.2→6.3 transition step (`project-overview-exit`,
+ * removed in the 2026-06-03 tour-merge) glided the cursor to, and
+ * spotlighted, the top-nav dashboard tab the user was sent back to. No
+ * live walkthrough step consumes this selector anymore; it is retained
+ * for any account-type-aware nav lookups that still want the dashboard
+ * tab.
  *
  * Dashboard unification (dashboard-unification build, 2026-05-29): Home
  * and Lab Overview collapsed into ONE nav entry at `/`, which ALWAYS

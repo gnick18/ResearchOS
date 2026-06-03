@@ -1,8 +1,8 @@
 /**
  * §6.2 Project route context sub-step (CONTEXT).
  *
- * Third of three §6.2 sub-steps in the walkthrough flow:
- *   NAV → PROSE → CONTEXT → EXIT
+ * Last of the §6.2 sub-steps in the walkthrough flow:
+ *   NAV → PROSE → TYPING-DEMO → CONTEXT
  *
  * Added 2026-05-22 (HR-dispatched: v4 §6.2 overview teach sub-bot) to
  * fix Grant's feedback that the original §6.2 was a one-liner
@@ -31,8 +31,10 @@
  * (universal pacing rule, Grant 2026-05-22).
  *
  * No expectedRoute: the user is already on `/workbench/projects/<id>`
- * thanks to the NAV sub-step. The EXIT sub-step that follows is the
- * one that pushes back to `/` for the §6.3 notifications surface.
+ * thanks to the NAV sub-step. The `notifications-intro` step that
+ * follows is the one that pushes to `/workbench` for the §6.3
+ * notifications surface (tour-merge 2026-06-03 folded the old
+ * project-overview-exit route handoff into it).
  */
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";

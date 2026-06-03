@@ -129,12 +129,11 @@ import { projectOverviewStep } from "./steps/walkthrough/ProjectOverviewStep";
 // textarea). Wave 2 filled in speech + cursor scripts.
 import { projectOverviewTypingDemoStep } from "./steps/walkthrough/ProjectOverviewTypingDemoStep";
 import { projectOverviewContextStep } from "./steps/walkthrough/ProjectOverviewContextStep";
-import { projectOverviewExitStep } from "./steps/walkthrough/ProjectOverviewExitStep";
-// Widget-framework teardown v2 (2026-06-02): the §6.2b Home widgets
-// walkthrough (5 sub-steps) taught the customizable widget canvas, which
-// was removed. The step bodies + their ids are gone; the cluster used to
-// sit between project-overview-exit and notifications-intro.
-// v4 tour structural manager (Wave 1, 2026-05-27): new
+// 2026-06-03 (tour-merge): the `project-overview-exit` step was removed.
+// It glided to the notification bell with no click, then duplicated by
+// `notifications-intro`. Its route handoff (/workbench) + lead-in framing
+// folded into `notifications-intro`, which now spotlights the bell.
+// v4 tour structural manager (Wave 1, 2026-05-27): the
 // `notifications-intro` narration beat sits before notifications-bell so
 // BeakerBot can frame the bell + inbox pair before the user has to click.
 import { notificationsIntroStep } from "./steps/walkthrough/NotificationsIntroStep";
@@ -344,11 +343,9 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   // BEAKERBOT_DEMO half.
   [projectOverviewTypingDemoStep.id]: projectOverviewTypingDemoStep,
   [projectOverviewContextStep.id]: projectOverviewContextStep,
-  [projectOverviewExitStep.id]: projectOverviewExitStep,
-  // Widget-framework teardown v2 (2026-06-02): the §6.2b Home widgets
-  // cluster (5 sub-steps) was removed along with the customizable widget
-  // canvas it taught.
-  // v4 tour structural manager (Wave 1, 2026-05-27): new
+  // 2026-06-03 (tour-merge): `project-overview-exit` removed; its route
+  // handoff + lead-in framing folded into `notifications-intro` below.
+  // v4 tour structural manager (Wave 1, 2026-05-27): the
   // `notifications-intro` narration beat sits before notifications-bell.
   [notificationsIntroStep.id]: notificationsIntroStep,
   [notificationsBellStep.id]: notificationsBellStep,

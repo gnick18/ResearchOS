@@ -241,13 +241,7 @@ export default function WelcomeWizardPage() {
           <strong>project-overview-context.</strong> BeakerBot points at the
           sticky project top-bar and narrates the metadata strip (name, tags,
           action icons) so you know where a project&apos;s shape lives at a
-          glance. Pure narration, manual advance.
-        </Step>
-        <Step>
-          <strong>project-overview-exit.</strong> Cursor glides to the
-          notification bell in the top bar while the controller navigates to
-          your Workbench, so the next cluster fires from a real page instead
-          of from inside the project. Manual advance hands off to the
+          glance. Pure narration, manual advance. Hands straight off to the
           notifications walkthrough.
         </Step>
       </Steps>
@@ -263,9 +257,11 @@ export default function WelcomeWizardPage() {
       </p>
       <Steps>
         <Step>
-          <strong>notifications-intro.</strong> Pure narration. BeakerBot
-          frames the bell-and-inbox pair in the top bar so you know what
-          each one collects before you click on either. Manual advance.
+          <strong>notifications-intro.</strong> The controller navigates to
+          your Workbench so this beat fires from a real page instead of from
+          inside the project. BeakerBot spotlights the bell and frames the
+          bell-and-inbox pair in the top bar so you know what each one
+          collects before you click on either. Manual advance.
         </Step>
         <Step>
           <strong>notifications-bell.</strong> BeakerBot fires a test

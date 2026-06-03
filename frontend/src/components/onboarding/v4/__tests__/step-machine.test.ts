@@ -197,12 +197,14 @@ describe("TOUR_STEP_ORDER", () => {
     expect(duplicates, `TOUR_STEP_ORDER contains duplicate ids: ${duplicates.join(", ")}`).toEqual([]);
   });
 
-  it("hands project-overview-exit straight to notifications-intro (widget-framework teardown v2 2026-06-02 removed the §6.2b Home widgets cluster)", () => {
-    // Widget-framework teardown v2: the 5-step §6.2b Home widgets cluster
-    // that taught the customizable widget canvas was removed. The §6.2 exit
-    // beat now flows directly into the §6.3 notifications framing.
+  it("hands project-overview-context straight to notifications-intro (tour-merge 2026-06-03 removed the redundant project-overview-exit beat)", () => {
+    // Tour-merge: the `project-overview-exit` beat glided the cursor to the
+    // notification bell with no click, then notifications-intro re-explained
+    // that same bell with no cursor. The exit beat was removed; its route
+    // handoff + lead-in framing folded into notifications-intro, so the §6.2
+    // context beat now flows directly into the §6.3 notifications framing.
     const order = [
-      "project-overview-exit",
+      "project-overview-context",
       "notifications-intro",
       "notifications-bell",
     ];
@@ -472,9 +474,8 @@ describe("TOUR_STEP_ORDER", () => {
       "project-overview-prose",
       "project-overview-typing-demo",
       "project-overview-context",
-      "project-overview-exit",
-      // Widget-framework teardown v2 (2026-06-02): the §6.2b Home widgets
-      // cluster was removed here; exit hands straight to notifications.
+      // Tour-merge (2026-06-03): the redundant `project-overview-exit` beat
+      // was removed; context hands straight to the notifications framing.
       "notifications-intro",
       "notifications-bell",
       "notifications-silence",

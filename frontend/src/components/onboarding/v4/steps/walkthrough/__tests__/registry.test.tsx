@@ -23,9 +23,8 @@ const P5_STEP_IDS = [
   "project-overview-prose",
   "project-overview-typing-demo",
   "project-overview-context",
-  "project-overview-exit",
-  // Widget-framework teardown v2 (2026-06-02): the §6.2b Home widgets
-  // cluster (5 sub-steps) was removed with the customizable widget canvas.
+  // Tour-merge (2026-06-03): the redundant `project-overview-exit` beat
+  // was removed; context hands straight to the notifications framing.
   "notifications-intro",
   "notifications-bell",
   "notifications-silence",

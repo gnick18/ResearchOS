@@ -1283,32 +1283,35 @@ describe("TourController — cursor-script invocation", () => {
       expect(cursorRunScriptMock).toHaveBeenCalledTimes(1);
     });
     cursorRunScriptMock.mockClear();
-    // Widget-framework teardown v2 (2026-06-02): project-overview-nav lost
-    // its cursorScript (it is pure narration now that the create flow routes
-    // straight to the project page). Use project-overview-exit instead — it
-    // still carries a glide cursorScript and keeps the test scoped to
-    // "transition between two cursor-script steps re-invokes runScript".
-    // Tour-teardown audit (2026-06-03): the exit glide now waits for the
-    // notification bell (the removed Home nav tab no longer renders), so
-    // plant that element here for the build to resolve promptly.
-    const bell = document.createElement("button");
-    bell.setAttribute("data-tour-target", "notifications-bell");
-    document.body.appendChild(bell);
-    // The exit step's expectedRoute is now /workbench. Put the pathname on
-    // route first so waitForPathnameSettle resolves immediately instead of
-    // burning its 1500ms timeout (the mocked router.push doesn't move
-    // window.location), which would otherwise outlast waitFor's timeout.
-    window.history.pushState({}, "", "/workbench");
-    setMockPathname("/workbench");
+    // Tour-merge (2026-06-03): the project-overview-exit step (a single
+    // glide-to-the-bell demo) was removed, so this transition now targets
+    // another BEAKERBOT-demo step that still carries a glide cursorScript:
+    // methods-category. Its builder types the picked label into the New
+    // Category modal name input, then clicks Create Empty, so plant both
+    // anchors here for the build to resolve promptly. Keeps the test scoped
+    // to "transition between two cursor-script steps re-invokes runScript".
+    const categoryNameInput = document.createElement("input");
+    categoryNameInput.setAttribute("data-tour-target", "methods-category-name-input");
+    document.body.appendChild(categoryNameInput);
+    const createEmptyButton = document.createElement("button");
+    createEmptyButton.setAttribute("data-tour-target", "methods-category-create-empty");
+    document.body.appendChild(createEmptyButton);
+    // The methods-category step's expectedRoute is /methods. Put the
+    // pathname on route first so waitForPathnameSettle resolves immediately
+    // instead of burning its 1500ms timeout (the mocked router.push doesn't
+    // move window.location), which would otherwise outlast waitFor's timeout.
+    window.history.pushState({}, "", "/methods");
+    setMockPathname("/methods");
     try {
       act(() => {
-        result.current.start("project-overview-exit");
+        result.current.start("methods-category");
       });
       await waitFor(() => {
         expect(cursorRunScriptMock).toHaveBeenCalledTimes(1);
       });
     } finally {
-      bell.remove();
+      categoryNameInput.remove();
+      createEmptyButton.remove();
     }
   });
 });
