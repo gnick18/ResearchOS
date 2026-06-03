@@ -2715,6 +2715,140 @@ const FIXTURE_ROUTES = [
       if (clip && clip.width > 200 && clip.height > 200) return { clip };
     },
   },
+  // ── Welcome / landing-page showcase shots ───────────────────────────────
+  // Referenced by LandingPage.tsx. These were hand-captured back in May, so
+  // they went stale (lab-overview showed the deleted widget canvas) and leaked
+  // the dev FAB dock. Captured by the pipeline now so they stay current +
+  // dev-button-free (applyClean hides the dock on all of these too).
+  {
+    // The curated PI Lab Overview page (post widget-framework teardown). The
+    // fixture's PI is mira (alex is a member now), so sign in as mira via the
+    // ?fixtureUser override; /lab-overview then renders the curated ~7-section
+    // PI page, NOT the removed customizable widget canvas.
+    path: "/lab-overview?fixtureUser=mira",
+    file: "lab-overview-pi-default.png",
+    waitFor: "text=Lab Overview",
+    settleMs: 1400,
+  },
+  {
+    // The unified Share dialog, opened on a user method. The fixture seeds
+    // "Growth-curve QC analysis" under My Methods; open it to show the detail
+    // pane, then click its "Share method" header button (aria-label).
+    path: "/methods",
+    file: "sharing-method-share-dialog.png",
+    waitFor: "text=Method Library",
+    settleMs: 1000,
+    action: async (page) => {
+      try {
+        const method = page.getByText(/Growth-curve QC analysis/i).first();
+        await method.waitFor({ state: "visible", timeout: 12000 });
+        // DOM-click the clickable method card (cards are divs).
+        await page.evaluate(() => {
+          const leaf = [...document.querySelectorAll("*")].find(
+            (e) =>
+              e.children.length === 0 &&
+              /Growth-curve QC analysis/i.test(e.textContent || ""),
+          );
+          let c = leaf;
+          for (let i = 0; i < 8 && c; i++) {
+            const cs = getComputedStyle(c);
+            if (
+              cs.cursor === "pointer" ||
+              c.getAttribute("role") === "button" ||
+              c.tagName === "BUTTON"
+            ) {
+              c.click();
+              return;
+            }
+            c = c.parentElement;
+          }
+          leaf?.click();
+        });
+        await page.waitForTimeout(1000);
+      } catch (err) {
+        console.warn(`  ⚠ sharing-method open method: ${err.message}`);
+      }
+      try {
+        // The share trigger is the "Private"/"Public" toggle in the method-
+        // detail header. It has no stable aria-label, so match by exact text.
+        await page.waitForFunction(
+          () =>
+            [...document.querySelectorAll("button")].some((b) =>
+              /^(Private|Public)$/.test((b.textContent || "").trim()),
+            ),
+          { timeout: 8000 },
+        );
+        await page.evaluate(() => {
+          const btn = [...document.querySelectorAll("button")].find((b) =>
+            /^(Private|Public)$/.test((b.textContent || "").trim()),
+          );
+          btn?.click();
+        });
+        await page
+          .waitForFunction(
+            () => /Currently shared with/.test(document.body.innerText),
+            { timeout: 6000 },
+          )
+          .catch(() => {});
+        await page.waitForTimeout(700);
+      } catch (err) {
+        console.warn(`  ⚠ sharing-method open dialog: ${err.message}`);
+      }
+    },
+  },
+  {
+    // The per-task Lab comments thread (seeded on task 5, "PCR-screen
+    // integrants": a mira/alex/morgan thread). Open the completed experiment
+    // popup and scroll the comments into frame.
+    path: "/workbench",
+    file: "lab-inbox-comments-thread.png",
+    waitFor: "text=Workbench",
+    settleMs: 700,
+    action: async (page) => {
+      await ensureExperimentsTab(page);
+      try {
+        const card = page.getByText(/^PCR-screen integrants$/).first();
+        await card.waitFor({ state: "visible", timeout: 12000 });
+        // DOM-click the card (experiment cards are clickable divs).
+        await page.evaluate(() => {
+          const leaf = [...document.querySelectorAll("*")].find(
+            (e) =>
+              e.children.length === 0 &&
+              /^PCR-screen integrants$/.test((e.textContent || "").trim()),
+          );
+          let c = leaf;
+          for (let i = 0; i < 8 && c; i++) {
+            const cs = getComputedStyle(c);
+            if (
+              cs.cursor === "pointer" ||
+              c.getAttribute("role") === "button" ||
+              c.tagName === "BUTTON"
+            ) {
+              c.click();
+              return;
+            }
+            c = c.parentElement;
+          }
+          leaf?.click();
+        });
+        await page.waitForTimeout(1200);
+      } catch (err) {
+        console.warn(`  ⚠ lab-comments open task: ${err.message}`);
+      }
+      // Scroll the Lab comments section into frame.
+      try {
+        await page.evaluate(() => {
+          const node = [...document.querySelectorAll("*")].find(
+            (e) =>
+              /^Lab comments/.test((e.textContent || "").trim()) &&
+              e.children.length <= 4,
+          );
+          node?.scrollIntoView({ block: "center", behavior: "instant" });
+        });
+        await page.waitForTimeout(700);
+      } catch {}
+    },
+  },
 ];
 
 /** Hide dev/beta UI that distracts from docs. Re-applied per page.
