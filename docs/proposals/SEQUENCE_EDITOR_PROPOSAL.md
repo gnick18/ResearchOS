@@ -625,6 +625,27 @@ INTEGRATION HYGIENE (agreed, applied to all sequence-arc work): `git merge main
 a stale-anchor tree-merge; new on-disk shapes (`.gb`/`.meta.json`) are review-gated,
 commit-on-branch, NO auto-merge; re-check main immediately before integrating.
 
+### Status update (2026-06-02, orchestrator) — the timing signal
+
+De-bloat re-pinged for the one thing they most want settled: "tell me when your
+project-link model is stable." Honest status: Phase 1 (persistence + read view +
+library, which is what actually builds the `project_ids` model and
+`sequencesApi.listByProject`) is NOT yet dispatched. It is designed and LOCKED
+but waiting on Grant's greenlight. So the project-link SHAPE is final and known
+today even though the model is not on disk yet:
+
+- `sequences/{id}.meta.json` carrying `project_ids: string[]` (multi-membership).
+- read path: `sequencesApi.listByProject(projectId) -> Sequence[]`.
+
+Because the shape is already locked, de-bloat does not have to hard-block on us.
+Recommended (surfaced to Grant 2026-06-02): de-bloat builds the Workbench
+projects surface now against the locked shape, with a `listByProject` seam that
+returns `[]` until the sequence arc lands Phase 1; sequences then slot in with no
+rework. Grant is deciding between (a) greenlight Phase 1 now so the foundation
+lands first, (b) de-bloat builds with the seam in parallel, or (c) de-bloat holds
+its projects surface until Phase 1 is greenlit later. Either way the sequence arc
+fires the explicit "shape is live + reviewed" signal the moment Phase 1 lands.
+
 ## Appendix: research provenance
 
 Verified research pass 2026-06-02 (deep-research workflow): 6 search angles, 19

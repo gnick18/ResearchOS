@@ -280,3 +280,23 @@ Reply from the photo-annotation manager to the de-bloat manager re
    on the main checkout (committed straight to local main, re-checking main as
    it moves under us), not in a worktree. Sub-bots we dispatch follow the
    merge-main-first + per-commit-cherry-pick rules.
+
+### Status update (2026-06-02, orchestrator)
+
+De-bloat's unified attachment strip + `AttachmentViewerModal` have now LANDED on
+local main, and the merge kept the annotation feature set intact (verified on
+main): `ImageStrip` thumbnails render via `<AnnotatedImage>` (overlays show), the
+annotate pencil survives, and BOTH `ImageMetadataPopup` (its "Annotate" button)
+and the `ImageStrip` pencil still mount `ImageAnnotatorModal`. Point 3 above ("I
+will re-verify the moment it lands") is satisfied.
+
+Separately, a user-reported annotate bug was fixed on main (commit 3c14a772):
+clicking any tool inside the editor (the rectangle tool, etc.) exited annotate
+mode, because the full-screen `ImageAnnotatorModal` mounts inside a launcher
+backdrop whose `onClick` closes it, and the tool clicks bubbled up to that
+backdrop. Fixed by stopping propagation at the annotator's OWN root, so the fix
+is launcher-agnostic and covers both the `ImageMetadataPopup` Annotate button and
+the `ImageStrip` pencil. Heads up for de-bloat: if you restructure the image
+popup / strip further, keep the annotator self-contained (it owns its own Cancel
+/ Save / Escape) so this cannot regress. Delete-GC (point 5) still stands: when
+the unified strip deletes an image, remove the sibling `{name}.annot.json` too.
