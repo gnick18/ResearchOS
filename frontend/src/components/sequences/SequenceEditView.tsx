@@ -76,6 +76,22 @@ import {
   type EditMenuItem,
 } from "./SequenceEditMenu";
 import {
+  ExportMenuDropdown,
+  type ExportMenuItem,
+} from "./SequenceExportMenu";
+import {
+  documentToGenbankText,
+  documentToFasta,
+  selectionToGenbankText,
+  selectionToFasta,
+  selectionToProteinFasta,
+  exportMapImage,
+  sanitizeFilename,
+  downloadText,
+  downloadDataUrl,
+  downloadBlob,
+} from "@/lib/sequences/export";
+import {
   copyBottomStrand,
   copyAminoAcids,
   reverseComplementClip,
@@ -1227,6 +1243,121 @@ export default function SequenceEditView({
     openFind,
   ]);
 
+  // seq export bot — the Export dropdown. Read-only download of the whole
+  // sequence (GenBank/FASTA), the current selection (DNA .gb/FASTA + frame-1
+  // protein FASTA), and the live map image (SVG always; PNG best-effort via
+  // canvas rasterization). All serialization lives in lib/sequences/export.ts;
+  // these handlers only call it and trigger the browser download.
+  const baseFileName = useMemo(
+    () => sanitizeFilename(doc.name || sequence.display_name || "sequence"),
+    [doc.name, sequence.display_name],
+  );
+
+  const exportMenuItems = useMemo<ExportMenuItem[]>(() => {
+    const items: ExportMenuItem[] = [];
+
+    items.push({
+      id: "gb-all",
+      label: "GenBank (whole sequence)",
+      hint: ".gb",
+      enabled: true,
+      onRun: () => {
+        const text = documentToGenbankText(doc);
+        if (!text) {
+          alert("Could not serialize this sequence to GenBank.");
+          return;
+        }
+        downloadText(text, `${baseFileName}.gb`, "chemical/seq-na-genbank");
+      },
+    });
+    items.push({
+      id: "fasta-all",
+      label: "FASTA (whole sequence)",
+      hint: ".fasta",
+      enabled: true,
+      onRun: () => {
+        downloadText(documentToFasta(doc), `${baseFileName}.fasta`, "text/x-fasta");
+      },
+    });
+
+    items.push({
+      id: "gb-sel",
+      label: "Selected DNA (GenBank)",
+      hint: ".gb",
+      enabled: sel.hasRange,
+      group: true,
+      onRun: () => {
+        const text = selectionToGenbankText(doc, sel.lo, sel.hi);
+        if (!text) {
+          alert("Could not serialize the selection to GenBank.");
+          return;
+        }
+        downloadText(text, `${baseFileName}_${sel.lo + 1}-${sel.hi}.gb`, "chemical/seq-na-genbank");
+      },
+    });
+    items.push({
+      id: "fasta-sel",
+      label: "Selected DNA (FASTA)",
+      hint: ".fasta",
+      enabled: sel.hasRange,
+      onRun: () => {
+        const text = selectionToFasta(doc, sel.lo, sel.hi);
+        downloadText(text, `${baseFileName}_${sel.lo + 1}-${sel.hi}.fasta`, "text/x-fasta");
+      },
+    });
+    items.push({
+      id: "protein-sel",
+      label: "Selected protein (FASTA, frame 1)",
+      hint: ".fasta",
+      enabled: sel.hasRange && isNucleotide,
+      onRun: () => {
+        const text = selectionToProteinFasta(doc, sel.lo, sel.hi);
+        downloadText(text, `${baseFileName}_${sel.lo + 1}-${sel.hi}_protein.fasta`, "text/x-fasta");
+      },
+    });
+
+    items.push({
+      id: "map-svg",
+      label: "Map image (SVG)",
+      hint: ".svg",
+      enabled: true,
+      group: true,
+      onRun: async () => {
+        const out = await exportMapImage(viewerRef.current);
+        if (!out) {
+          alert("Could not capture the map view.");
+          return;
+        }
+        downloadText(out.svg, `${baseFileName}_map.svg`, "image/svg+xml");
+      },
+    });
+    items.push({
+      id: "map-png",
+      label: "Map image (PNG)",
+      hint: ".png",
+      enabled: true,
+      onRun: async () => {
+        const out = await exportMapImage(viewerRef.current);
+        if (!out) {
+          alert("Could not capture the map view.");
+          return;
+        }
+        if (out.png) {
+          downloadDataUrl(out.png, `${baseFileName}_map.png`);
+        } else {
+          // PNG rasterization unavailable in this environment: fall back to SVG
+          // so the user still gets an image they can convert.
+          downloadBlob(
+            new Blob([out.svg], { type: "image/svg+xml;charset=utf-8" }),
+            `${baseFileName}_map.svg`,
+          );
+        }
+      },
+    });
+
+    return items;
+  }, [doc, sel, isNucleotide, baseFileName]);
+
   return (
     <div ref={containerRef} className="flex h-full w-full flex-col" tabIndex={-1}>
       {/* Toolbar. The mutating affordances (undo/redo/cut/paste/primer/save) are
@@ -1268,6 +1399,9 @@ export default function SequenceEditView({
         {/* seq editops bot — the visible "Edit" dropdown (third home for the
             ops; right-click menu + keyboard shortcuts are the other two). */}
         <EditMenuDropdown items={editMenuItems} />
+        {/* seq export bot — the Export dropdown (download .gb / .fasta /
+            selected DNA + protein / map image). Available in read-only too. */}
+        <ExportMenuDropdown items={exportMenuItems} />
         <div className="mx-1 h-5 w-px bg-gray-200" />
         <Tooltip label={featuresPanelOpen ? "Hide the feature list" : "Show the feature list"}>
           <button
