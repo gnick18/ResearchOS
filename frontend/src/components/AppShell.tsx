@@ -155,6 +155,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // NAV_ITEMS.
   const filtered = NAV_ITEMS.filter((item) => {
     if (item.href === HOME_HREF) return true;
+    // /sequences (the molecular-biology editor) is a flagship surface that
+    // must always be reachable from the nav. Existing accounts whose
+    // visibleTabs list predates the route would otherwise never see it (the
+    // route was only reachable by opening a project's attached file). Force
+    // it visible like Home, regardless of the legacy tab list. (2026-06-03)
+    if (item.href === "/sequences") return true;
     return effectiveVisibleTabs.includes(item.href);
   });
   // Widget catalog cleanup (widget catalog cleanup manager, 2026-05-23):
