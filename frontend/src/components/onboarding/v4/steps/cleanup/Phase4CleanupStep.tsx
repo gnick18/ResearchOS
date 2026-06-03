@@ -410,7 +410,7 @@ export default function Phase4CleanupStep({
             <h2 className="text-lg font-semibold text-gray-900">
               Pick what to keep before we wrap up
             </h2>
-            <p className="mt-1 text-sm text-gray-600">{intro}</p>
+            <p className="mt-1 text-body text-gray-600">{intro}</p>
           </div>
         </header>
 
@@ -419,7 +419,7 @@ export default function Phase4CleanupStep({
           <div className="flex-1 overflow-y-auto p-5">
             <p
               data-cleanup-empty=""
-              className="text-sm text-gray-500"
+              className="text-body text-gray-500"
             >
               No artifacts were created during this run. Click Finish whenever
               you&apos;re ready.
@@ -429,14 +429,14 @@ export default function Phase4CleanupStep({
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
             {/* Master "Start fresh" toggle */}
             <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-md border border-amber-200 bg-amber-50">
-              <p className="text-xs text-amber-900">
+              <p className="text-meta text-amber-900">
                 Want a clean slate? I&apos;ll uncheck everything for you.
               </p>
               <button
                 type="button"
                 onClick={handleStartFreshClick}
                 data-cleanup-action="start-fresh"
-                className="px-3 py-1.5 text-xs font-medium border border-amber-300 bg-white text-amber-900 rounded-md hover:bg-amber-100 transition-colors"
+                className="px-3 py-1.5 text-meta font-medium border border-amber-300 bg-white text-amber-900 rounded-md hover:bg-amber-100 transition-colors"
               >
                 Start fresh
               </button>
@@ -473,7 +473,7 @@ export default function Phase4CleanupStep({
 
         {/* Footer: partial-failure notice + Finish */}
         <footer className="flex items-center justify-between gap-3 p-5 border-t border-gray-100">
-          <div className="flex-1 min-w-0 text-xs text-gray-500">
+          <div className="flex-1 min-w-0 text-meta text-gray-500">
             {partialFailureNotice && (
               <span
                 role="status"
@@ -494,7 +494,7 @@ export default function Phase4CleanupStep({
             onClick={handleFinish}
             disabled={uiState === "persisting"}
             data-cleanup-action="finish"
-            className="px-4 py-2 text-sm font-medium bg-sky-500 hover:bg-sky-600 disabled:bg-sky-300 text-white rounded-full"
+            className="px-4 py-2 text-body font-medium bg-sky-500 hover:bg-sky-600 disabled:bg-sky-300 text-white rounded-full"
           >
             {uiState === "persisting" ? "Wrapping up..." : "Finish setup"}
           </button>

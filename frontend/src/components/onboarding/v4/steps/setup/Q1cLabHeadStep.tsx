@@ -164,12 +164,12 @@ export default function Q1cLabHeadStep({
 
   return (
     <div data-step-id="setup-q1c" className="space-y-4">
-      <p className="text-sm text-gray-700 leading-relaxed">
+      <p className="text-body text-gray-700 leading-relaxed">
         One follow-up before we move on: are you the PI, or a lab
         member? The PI is the group leader, the person whose name is on
         the door.
       </p>
-      <p className="text-sm text-gray-700 leading-relaxed">
+      <p className="text-body text-gray-700 leading-relaxed">
         PIs can post announcements, approve purchases, and see
         audit trails across the lab. Members focus on their own work.
       </p>
@@ -217,11 +217,11 @@ export default function Q1cLabHeadStep({
                 <path d="M7 11V7a5 5 0 0 1 10 0v4" />
               </svg>
             </span>
-            <div className="text-sm text-gray-700 leading-relaxed">
+            <div className="text-body text-gray-700 leading-relaxed">
               <p className="font-medium text-gray-800">
                 Set a PI password
               </p>
-              <p className="text-xs text-gray-600 mt-0.5">
+              <p className="text-meta text-gray-600 mt-0.5">
                 Because the PI account can post lab-wide announcements
                 and approve purchases, a password is required. You will
                 enter it each time you sign in to this account.
@@ -249,7 +249,7 @@ export default function Q1cLabHeadStep({
                   <path d="M20 6 9 17l-5-5" />
                 </svg>
               </span>
-              <p className="text-xs text-emerald-800 font-medium">
+              <p className="text-meta text-emerald-800 font-medium">
                 Password set. You can continue.
               </p>
             </div>
@@ -258,7 +258,7 @@ export default function Q1cLabHeadStep({
               <div>
                 <label
                   htmlFor="q1c-pi-password"
-                  className="block text-xs font-medium text-gray-600 mb-1"
+                  className="block text-meta font-medium text-gray-600 mb-1"
                 >
                   Password
                 </label>
@@ -269,13 +269,13 @@ export default function Q1cLabHeadStep({
                   onChange={(e) => setNewPassword(e.target.value)}
                   autoComplete="new-password"
                   data-testid="q1c-pi-password-input"
-                  className="w-full px-3 py-2 text-sm rounded-md border border-amber-300 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                  className="w-full px-3 py-2 text-body rounded-md border border-amber-300 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                 />
               </div>
               <div>
                 <label
                   htmlFor="q1c-pi-password-confirm"
-                  className="block text-xs font-medium text-gray-600 mb-1"
+                  className="block text-meta font-medium text-gray-600 mb-1"
                 >
                   Confirm password
                 </label>
@@ -289,13 +289,13 @@ export default function Q1cLabHeadStep({
                   }}
                   autoComplete="new-password"
                   data-testid="q1c-pi-password-confirm-input"
-                  className="w-full px-3 py-2 text-sm rounded-md border border-amber-300 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                  className="w-full px-3 py-2 text-body rounded-md border border-amber-300 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                 />
               </div>
               {passwordError && (
                 <p
                   data-testid="q1c-pi-password-error"
-                  className="text-xs text-red-600"
+                  className="text-meta text-red-600"
                 >
                   {passwordError}
                 </p>
@@ -305,11 +305,11 @@ export default function Q1cLabHeadStep({
                 onClick={() => void handleSavePassword()}
                 disabled={saving}
                 data-testid="q1c-pi-password-save"
-                className="w-full px-3 py-2 text-sm font-medium rounded-md bg-amber-600 text-white hover:bg-amber-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                className="w-full px-3 py-2 text-body font-medium rounded-md bg-amber-600 text-white hover:bg-amber-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
               >
                 {saving ? "Saving…" : "Set password"}
               </button>
-              <p className="text-[11px] text-gray-500 leading-relaxed">
+              <p className="text-meta text-gray-500 leading-relaxed">
                 Stored only on your disk, hashed with PBKDF2-SHA-256.
                 Never sent to any server. If you forget it, delete
                 {" "}

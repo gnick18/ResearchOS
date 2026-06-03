@@ -85,7 +85,7 @@ export default function ArtifactRow({
         data-artifact-type={artifact.type}
         data-artifact-cleanup-default={artifact.cleanup_default}
         data-cleanup-state={decision}
-        className="flex items-start gap-2 px-2 py-1.5 rounded-md border border-gray-200 bg-white text-sm text-gray-800 cursor-pointer hover:bg-gray-50"
+        className="flex items-start gap-2 px-2 py-1.5 rounded-md border border-gray-200 bg-white text-body text-gray-800 cursor-pointer hover:bg-gray-50"
       >
         <input
           type="checkbox"
@@ -96,7 +96,7 @@ export default function ArtifactRow({
         />
         <span
           data-artifact-icon=""
-          className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-sky-50 text-sky-700 text-xs font-semibold border border-sky-100"
+          className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-sky-50 text-sky-700 text-meta font-semibold border border-sky-100"
           aria-hidden="true"
         >
           {iconFor(artifact.type)}
@@ -104,7 +104,7 @@ export default function ArtifactRow({
         <span className="flex-1 min-w-0 leading-snug">
           {label}
           {tag && (
-            <span className="ml-2 inline-block text-[10px] font-medium uppercase tracking-wide text-amber-700 bg-amber-100 border border-amber-200 rounded px-1.5 py-0.5">
+            <span className="ml-2 inline-block text-meta font-medium uppercase tracking-wide text-amber-700 bg-amber-100 border border-amber-200 rounded px-1.5 py-0.5">
               {tag}
             </span>
           )}

@@ -265,7 +265,7 @@ function PurchasesFormFillBody() {
           label for where the money came from, like a grant number or gift
           fund. Group your purchases however your lab thinks about money.
         </p>
-        <p className="text-xs text-gray-500">
+        <p className="text-meta text-gray-500">
           Item: &ldquo;{PURCHASE_ITEM_NAME}&rdquo; from {PURCHASE_VENDOR},
           ${PURCHASE_PRICE.toFixed(2)} x {PURCHASE_QTY}, charged to &ldquo;
           {FUNDING_STRING_NAME}&rdquo;.

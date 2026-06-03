@@ -39,7 +39,7 @@ export default function Q3CalendarStep({
 
   return (
     <div data-step-id="setup-q3" className="space-y-4">
-      <p className="text-sm text-gray-700 leading-relaxed">
+      <p className="text-body text-gray-700 leading-relaxed">
         ResearchOS can overlay any public calendar such as personal ones
         from Outlook, Apple, Google, etc. Would you like a walkthrough
         on how to get that link working?

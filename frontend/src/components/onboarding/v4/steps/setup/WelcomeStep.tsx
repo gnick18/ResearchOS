@@ -19,17 +19,17 @@ export default function WelcomeStep({ setNextDisabled }: SetupStepProps) {
 
   return (
     <div data-step-id="welcome" className="space-y-3">
-      <p className="text-base text-gray-700 leading-relaxed">
+      <p className="text-title text-gray-700 leading-relaxed">
         I&apos;m BeakerBot. ResearchOS keeps your experiments, lab notes,
         methods, and calendar in one local-first place, and I&apos;ll get
         you set up in about ten minutes.
       </p>
-      <p className="text-base text-gray-700 leading-relaxed">
+      <p className="text-title text-gray-700 leading-relaxed">
         Seven quick questions, then a short tour of the pages you turned
         on. Anything we build together along the way gets cleaned up at
         the end, except your first project.
       </p>
-      <p className="text-sm text-gray-500">
+      <p className="text-body text-gray-500">
         Hit <span className="font-medium text-gray-700">Let&apos;s go</span>{" "}
         when you&apos;re ready, or{" "}
         <span className="font-medium text-gray-700">Skip walkthrough</span>{" "}

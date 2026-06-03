@@ -96,7 +96,7 @@ function GanttDepsUserSpeech() {
         then pick "start after" so B is forced to wait until your
         experiment finishes.
       </p>
-      <p className="text-xs text-gray-500">
+      <p className="text-meta text-gray-500">
         (I'll keep you on rails. Clicks outside the right affordance
         will be ignored.)
       </p>

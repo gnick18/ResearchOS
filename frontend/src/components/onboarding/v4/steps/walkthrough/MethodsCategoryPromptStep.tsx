@@ -160,7 +160,7 @@ function MethodsCategoryPromptInner() {
             type="button"
             onClick={() => commitPick(label)}
             data-methods-category-pick={label}
-            className="px-3 py-2 text-xs font-medium rounded-lg border border-gray-300 bg-white hover:bg-sky-50 hover:border-sky-300 text-gray-800 text-left transition-colors"
+            className="px-3 py-2 text-meta font-medium rounded-lg border border-gray-300 bg-white hover:bg-sky-50 hover:border-sky-300 text-gray-800 text-left transition-colors"
           >
             {label}
           </button>
@@ -169,7 +169,7 @@ function MethodsCategoryPromptInner() {
           type="button"
           onClick={() => setOtherOpen((v) => !v)}
           data-methods-category-pick="__other_toggle"
-          className="px-3 py-2 text-xs font-medium rounded-lg border border-gray-300 bg-white hover:bg-sky-50 hover:border-sky-300 text-gray-700 text-left transition-colors"
+          className="px-3 py-2 text-meta font-medium rounded-lg border border-gray-300 bg-white hover:bg-sky-50 hover:border-sky-300 text-gray-700 text-left transition-colors"
           aria-expanded={otherOpen}
         >
           Other (type your own)
@@ -185,7 +185,7 @@ function MethodsCategoryPromptInner() {
               onChange={(e) => setOtherText(e.target.value)}
               placeholder="e.g. Mycology"
               data-methods-category-other-input
-              className="flex-1 px-2 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500"
+              className="flex-1 px-2 py-1.5 text-meta border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500"
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleOtherSubmit();
               }}
@@ -196,7 +196,7 @@ function MethodsCategoryPromptInner() {
               onClick={handleOtherSubmit}
               disabled={!otherText.trim()}
               data-methods-category-other-submit
-              className="px-2.5 py-1.5 text-xs font-semibold rounded-md bg-sky-500 hover:bg-sky-600 text-white disabled:opacity-50"
+              className="px-2.5 py-1.5 text-meta font-semibold rounded-md bg-sky-500 hover:bg-sky-600 text-white disabled:opacity-50"
             >
               Use this
             </button>

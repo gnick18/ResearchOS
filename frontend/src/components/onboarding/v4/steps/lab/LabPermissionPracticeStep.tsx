@@ -156,7 +156,7 @@ function LabPermissionPracticeInner() {
           </p>
           <p
             data-testid="lab-view-blocked-toast"
-            className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-2 py-1.5"
+            className="text-meta text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-2 py-1.5"
           >
             Blocked. Only the owner ({BEAKERBOT_LAB_DISPLAY_NAME}) can
             delete this task.

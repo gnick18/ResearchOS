@@ -168,7 +168,7 @@ function ShareExploreSpeech() {
         This is your view of my shared experiment. Try adding a note or
         opening the results tab to see how the access works.
       </p>
-      <p className="text-xs text-gray-500">
+      <p className="text-meta text-gray-500">
         When you're ready, click "Got it, next" and I'll take over.
       </p>
     </>
@@ -267,7 +267,7 @@ export const ganttShareUserSharesBackStep = buildWalkthroughStep({
         <strong>Share</strong> in the popup header, pick a labmate, choose
         view or edit, and save. Try sharing your chain back to me.
       </p>
-      <p className="text-xs text-gray-500">
+      <p className="text-meta text-gray-500">
         (I'll keep you on rails. Clicks outside the share flow will be
         ignored.)
       </p>
@@ -404,7 +404,7 @@ function ShareSeesEditSpeech() {
         Open Fake A on the timeline and check the notes tab. You should
         see the edit I just made.
       </p>
-      <p className="text-xs text-gray-500">
+      <p className="text-meta text-gray-500">
         Take a look around when you're ready, then click "Got it, next".
       </p>
     </>

@@ -648,17 +648,17 @@ function V3InflightPrompt({ onRestart, onSkip }: V3InflightPromptProps) {
               />
             </div>
             <div className="flex-1 min-w-0">
-              <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              <span className="text-meta font-medium text-gray-500 uppercase tracking-wide">
                 Heads up
               </span>
-              <h2 className="mt-1 text-xl font-semibold text-gray-900">
+              <h2 className="mt-1 text-heading font-semibold text-gray-900">
                 Welcome tour updated
               </h2>
             </div>
           </div>
         </div>
 
-        <div className="px-7 py-6 text-sm text-gray-700 leading-relaxed">
+        <div className="px-7 py-6 text-body text-gray-700 leading-relaxed">
           <p>
             We refreshed the welcome tour. You had some progress on the
             old version. Want to start the new one, or skip and keep
@@ -671,7 +671,7 @@ function V3InflightPrompt({ onRestart, onSkip }: V3InflightPromptProps) {
             type="button"
             onClick={onSkip}
             data-testid="v3-inflight-skip"
-            className="px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 text-body font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
           >
             Skip
           </button>
@@ -679,7 +679,7 @@ function V3InflightPrompt({ onRestart, onSkip }: V3InflightPromptProps) {
             type="button"
             onClick={onRestart}
             data-testid="v3-inflight-restart"
-            className="px-4 py-2 text-sm font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm"
+            className="px-4 py-2 text-body font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm"
           >
             Restart
           </button>
@@ -758,17 +758,17 @@ function V4ResumePrompt({
               />
             </div>
             <div className="flex-1 min-w-0">
-              <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              <span className="text-meta font-medium text-gray-500 uppercase tracking-wide">
                 Welcome tour
               </span>
-              <h2 className="mt-1 text-xl font-semibold text-gray-900">
+              <h2 className="mt-1 text-heading font-semibold text-gray-900">
                 Continue your welcome tour?
               </h2>
             </div>
           </div>
         </div>
 
-        <div className="px-7 py-6 text-sm text-gray-700 leading-relaxed">
+        <div className="px-7 py-6 text-body text-gray-700 leading-relaxed">
           <p>
             You were partway through setting up ResearchOS. Pick up
             where you left off, restart from the beginning, or skip the
@@ -781,7 +781,7 @@ function V4ResumePrompt({
             type="button"
             onClick={onDiscard}
             data-testid="v4-resume-discard"
-            className="px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 text-body font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
           >
             Discard
           </button>
@@ -789,7 +789,7 @@ function V4ResumePrompt({
             type="button"
             onClick={onRestart}
             data-testid="v4-resume-restart"
-            className="px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 text-body font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
           >
             Restart
           </button>
@@ -798,7 +798,7 @@ function V4ResumePrompt({
             type="button"
             onClick={onResume}
             data-testid="v4-resume-resume"
-            className="px-4 py-2 text-sm font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm"
+            className="px-4 py-2 text-body font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm"
           >
             Resume
           </button>

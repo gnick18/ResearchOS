@@ -47,7 +47,7 @@ export default function Q7LinksStep({
 
   return (
     <div data-step-id="setup-q7" className="space-y-4">
-      <p className="text-sm text-gray-700 leading-relaxed">
+      <p className="text-body text-gray-700 leading-relaxed">
         The Links tab is a dedicated space to save important bookmarks,
         like your lab calendar, freezer inventory, or manuscript drafts.
         Do you want this tab enabled?

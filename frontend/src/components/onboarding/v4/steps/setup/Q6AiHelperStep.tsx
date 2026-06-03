@@ -77,7 +77,7 @@ export default function Q6AiHelperStep({
 
   return (
     <div data-step-id="setup-q6" className="space-y-4">
-      <p className="text-sm text-gray-700 leading-relaxed">
+      <p className="text-body text-gray-700 leading-relaxed">
         We can generate a custom system prompt for external AI tools
         like Claude, ChatGPT, or Gemini so they understand how your lab
         notebook is organized. Pick how much detail you want included.

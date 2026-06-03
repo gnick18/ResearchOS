@@ -103,14 +103,14 @@ export default function Q1AccountTypeStep({
 
   return (
     <div data-step-id="setup-q1" className="space-y-4">
-      <p className="text-sm text-gray-700 leading-relaxed">
+      <p className="text-body text-gray-700 leading-relaxed">
         First up: are you setting this account up just for yourself, or
         for an entire lab?
       </p>
       {autoDetected && current === "lab" && (
         <div
           data-testid="q1-auto-detected-banner"
-          className="text-xs text-sky-800 bg-sky-50 border border-sky-200 rounded-md px-3 py-2 leading-relaxed"
+          className="text-meta text-sky-800 bg-sky-50 border border-sky-200 rounded-md px-3 py-2 leading-relaxed"
         >
           We noticed other users in this folder, so we set this to Lab.
           Change it if needed.

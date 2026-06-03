@@ -39,7 +39,7 @@ export default function Q4GoalsStep({
 
   return (
     <div data-step-id="setup-q4" className="space-y-4">
-      <p className="text-sm text-gray-700 leading-relaxed">
+      <p className="text-body text-gray-700 leading-relaxed">
         You can set up high-level goals for projects, or even private
         goals for things outside the lab. They show up right on your
         Gantt chart to help you keep track of what you want to achieve

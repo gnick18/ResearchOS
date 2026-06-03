@@ -38,9 +38,9 @@ export default function RadioCard<V extends string>({
         className="mt-0.5"
       />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-gray-800">{label}</p>
+        <p className="text-body font-medium text-gray-800">{label}</p>
         {description && (
-          <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+          <p className="text-meta text-gray-500 mt-0.5 leading-relaxed">
             {description}
           </p>
         )}

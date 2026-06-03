@@ -2487,11 +2487,11 @@ function ModalSetupShell({
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-3">
-                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                <span className="text-meta font-medium text-gray-500 uppercase tracking-wide">
                   Setup
                 </span>
                 <div className="flex items-center gap-3">
-                  <span className="text-[10px] font-mono text-gray-400">
+                  <span className="text-meta font-mono text-gray-400">
                     {stepId}
                   </span>
                   {/* Copy-alignment manager 2026-05-26: header X mirrors
@@ -2527,7 +2527,7 @@ function ModalSetupShell({
               </div>
               <h2
                 id={titleId}
-                className="mt-1 text-xl font-semibold text-gray-900"
+                className="mt-1 text-heading font-semibold text-gray-900"
               >
                 {title}
               </h2>
@@ -2559,7 +2559,7 @@ function ModalSetupShell({
                 type="button"
                 onClick={onBack}
                 disabled={isWelcome}
-                className="px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                className="px-4 py-2 text-body font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
               >
                 Back
               </button>
@@ -2568,7 +2568,7 @@ function ModalSetupShell({
                 <button
                   type="button"
                   onClick={onSkipStep}
-                  className="text-xs text-gray-500 hover:text-gray-700 underline"
+                  className="text-meta text-gray-500 hover:text-gray-700 underline"
                 >
                   Skip this step
                 </button>
@@ -2580,7 +2580,7 @@ function ModalSetupShell({
                 disabled={nextDisabled}
                 data-tour-next="setup"
                 data-next-disabled={nextDisabled ? "true" : "false"}
-                className="px-4 py-2 text-sm font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-body font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {nextLabel}
               </button>
@@ -2590,7 +2590,7 @@ function ModalSetupShell({
               <button
                 type="button"
                 onClick={() => setShowSkipConfirm(true)}
-                className="text-xs text-gray-500 hover:text-gray-700 underline"
+                className="text-meta text-gray-500 hover:text-gray-700 underline"
                 aria-label="Skip walkthrough"
               >
                 Skip walkthrough
@@ -2649,19 +2649,19 @@ function SetupSkipConfirmModal({
     >
       <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-[420px] max-w-[calc(100vw-2rem)] mx-4 p-6">
         <h3 className="text-lg font-semibold text-gray-900">{heading}</h3>
-        <p className="mt-2 text-sm text-gray-600 leading-relaxed">{body}</p>
+        <p className="mt-2 text-body text-gray-600 leading-relaxed">{body}</p>
         <div className="mt-5 flex items-center justify-end gap-3">
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 text-body font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className="px-4 py-2 text-sm font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm"
+            className="px-4 py-2 text-body font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm"
           >
             Yes, skip ahead
           </button>
@@ -3252,7 +3252,7 @@ function TourBeakerBotOverlay({
           readability when the bubble overlaps widget chrome. */}
       <div
         data-testid="tour-beakerbot-bubble"
-        className="pointer-events-auto bg-white/95 backdrop-blur-md border border-gray-300 rounded-2xl shadow-2xl p-4 text-sm text-gray-800"
+        className="pointer-events-auto bg-white/95 backdrop-blur-md border border-gray-300 rounded-2xl shadow-2xl p-4 text-body text-gray-800"
         style={{ maxWidth: 340 }}
       >
         <div data-testid="tour-beakerbot-speech" className="leading-relaxed">
@@ -3277,7 +3277,7 @@ function TourBeakerBotOverlay({
               <button
                 type="button"
                 onClick={onBack}
-                className="text-xs text-gray-500 hover:text-gray-700 underline underline-offset-2"
+                className="text-meta text-gray-500 hover:text-gray-700 underline underline-offset-2"
                 aria-label="Back"
               >
                 {"← Back"}
@@ -3311,7 +3311,7 @@ function TourBeakerBotOverlay({
                     onBranchTo(b.nextStep);
                   }}
                   data-branch-label={b.label}
-                  className="text-xs font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-full px-3 py-1.5"
+                  className="text-meta font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-full px-3 py-1.5"
                   aria-label={b.buttonLabel}
                 >
                   {b.buttonLabel}
@@ -3332,8 +3332,8 @@ function TourBeakerBotOverlay({
               data-debounce-locked={advanceClicked ? "true" : undefined}
               className={
                 manualButtonDisabled
-                  ? "text-xs font-medium bg-sky-500 text-white rounded-full px-3 py-1.5 opacity-50 cursor-not-allowed"
-                  : "text-xs font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-full px-3 py-1.5"
+                  ? "text-meta font-medium bg-sky-500 text-white rounded-full px-3 py-1.5 opacity-50 cursor-not-allowed"
+                  : "text-meta font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-full px-3 py-1.5"
               }
               aria-label={manualButtonAriaLabel}
               aria-disabled={manualButtonDisabled || undefined}
@@ -3357,18 +3357,18 @@ function TourBeakerBotOverlay({
               <button
                 type="button"
                 onClick={onSkipStep}
-                className="text-xs text-gray-500 hover:text-gray-700 underline underline-offset-2"
+                className="text-meta text-gray-500 hover:text-gray-700 underline underline-offset-2"
                 aria-label="Skip this step"
               >
                 Skip this step
               </button>
-              <span aria-hidden className="text-xs text-gray-300">
+              <span aria-hidden className="text-meta text-gray-300">
                 {"·"}
               </span>
               <button
                 type="button"
                 onClick={onExitTour}
-                className="text-xs text-gray-400 hover:text-gray-600 underline underline-offset-2"
+                className="text-meta text-gray-400 hover:text-gray-600 underline underline-offset-2"
                 aria-label="Skip walkthrough"
               >
                 Skip walkthrough

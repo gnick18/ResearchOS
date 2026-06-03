@@ -47,7 +47,7 @@ export default function CleanupSection({
         type="button"
         onClick={toggle}
         aria-expanded={open}
-        className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-left text-xs font-semibold uppercase tracking-wide text-gray-600 hover:bg-gray-50"
+        className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-left text-meta font-semibold uppercase tracking-wide text-gray-600 hover:bg-gray-50"
       >
         <span className="flex items-center gap-2">
           <span
@@ -64,7 +64,7 @@ export default function CleanupSection({
           </span>
         </span>
         {count === 0 && (
-          <span className="text-[10px] font-normal text-gray-400 normal-case">
+          <span className="text-meta font-normal text-gray-400 normal-case">
             none
           </span>
         )}

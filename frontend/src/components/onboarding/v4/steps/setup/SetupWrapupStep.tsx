@@ -107,7 +107,7 @@ export default function SetupWrapupStep({
 
   return (
     <div data-step-id="setup-wrapup" className="space-y-5">
-      <p className="text-sm text-gray-700 leading-relaxed">
+      <p className="text-body text-gray-700 leading-relaxed">
         You&apos;re all set. Here&apos;s what you picked, and what
         we&apos;ll have ready for you on the home page. You can change any
         of this later in Settings.
@@ -153,7 +153,7 @@ export default function SetupWrapupStep({
           type="button"
           onClick={handleTour}
           data-tour-next="setup-wrapup-tour"
-          className="w-full px-5 py-3 text-sm font-semibold bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm"
+          className="w-full px-5 py-3 text-body font-semibold bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm"
         >
           Give me a tour of my features
         </button>
@@ -161,7 +161,7 @@ export default function SetupWrapupStep({
           type="button"
           onClick={handleHome}
           data-tour-next="setup-wrapup-home"
-          className="w-full px-5 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+          className="w-full px-5 py-2.5 text-body font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
         >
           Skip for now, take me to home
         </button>
@@ -169,13 +169,13 @@ export default function SetupWrapupStep({
           type="button"
           onClick={handleBack}
           data-tour-back="setup-wrapup"
-          className="self-start mt-1 text-xs font-medium text-gray-500 hover:text-gray-700 underline"
+          className="self-start mt-1 text-meta font-medium text-gray-500 hover:text-gray-700 underline"
         >
           Back
         </button>
       </div>
 
-      <p className="text-xs text-gray-500 text-center leading-relaxed">
+      <p className="text-meta text-gray-500 text-center leading-relaxed">
         The tour is tailored to the features you just turned on, with
         BeakerBot as your guide. You can re-run it any time from Settings.
       </p>
@@ -335,16 +335,16 @@ function SummaryRow({
         {icon}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+        <p className="text-meta font-medium text-gray-500 uppercase tracking-wide">
           {label}
         </p>
-        <p className="text-sm text-gray-800 leading-snug mt-0.5">
+        <p className="text-body text-gray-800 leading-snug mt-0.5">
           {value}
         </p>
       </div>
       <Link
         href={settingsHref}
-        className="flex-shrink-0 self-center text-xs font-medium text-sky-700 hover:text-sky-900 hover:underline whitespace-nowrap"
+        className="flex-shrink-0 self-center text-meta font-medium text-sky-700 hover:text-sky-900 hover:underline whitespace-nowrap"
       >
         {settingsLabel}
       </Link>

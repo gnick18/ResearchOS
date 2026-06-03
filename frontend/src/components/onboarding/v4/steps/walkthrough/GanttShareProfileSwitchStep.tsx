@@ -323,7 +323,7 @@ function ProfileSwitchSpeech() {
         </p>
       ) : null}
       {beat === 3 ? (
-        <p className="text-xs text-gray-500">
+        <p className="text-meta text-gray-500">
           (Typing the note from BeakerBot's side...)
         </p>
       ) : null}

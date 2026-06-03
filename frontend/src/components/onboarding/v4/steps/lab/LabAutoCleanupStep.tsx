@@ -89,7 +89,7 @@ function LabAutoCleanupInner({ cleanupFn }: LabAutoCleanupInnerProps) {
       </div>
       <p
         data-testid="lab-cleanup-status"
-        className="text-xs text-gray-500"
+        className="text-meta text-gray-500"
       >
         {phase === "cleaning"
           ? "Removing BeakerBot and the demo experiments..."

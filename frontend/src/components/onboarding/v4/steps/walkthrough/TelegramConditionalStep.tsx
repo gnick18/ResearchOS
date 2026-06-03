@@ -378,7 +378,7 @@ function TelegramBranchPicker() {
           <button
             type="button"
             onClick={() => handleBranchSelect("yes-now")}
-            className="text-left text-xs px-3 py-1.5 rounded-md border border-sky-300 bg-sky-50 hover:bg-sky-100 text-sky-800"
+            className="text-left text-meta px-3 py-1.5 rounded-md border border-sky-300 bg-sky-50 hover:bg-sky-100 text-sky-800"
             data-testid="telegram-branch-yes-now"
           >
             Yes, let&apos;s set it up now
@@ -386,7 +386,7 @@ function TelegramBranchPicker() {
           <button
             type="button"
             onClick={() => handleBranchSelect("yes-later")}
-            className="text-left text-xs px-3 py-1.5 rounded-md border border-gray-300 bg-white hover:bg-gray-50 text-gray-800"
+            className="text-left text-meta px-3 py-1.5 rounded-md border border-gray-300 bg-white hover:bg-gray-50 text-gray-800"
             data-testid="telegram-branch-yes-later"
           >
             Yes, but I&apos;ll set it up later
@@ -394,7 +394,7 @@ function TelegramBranchPicker() {
           <button
             type="button"
             onClick={() => handleBranchSelect("synthetic")}
-            className="text-left text-xs px-3 py-1.5 rounded-md border border-gray-300 bg-white hover:bg-gray-50 text-gray-800"
+            className="text-left text-meta px-3 py-1.5 rounded-md border border-gray-300 bg-white hover:bg-gray-50 text-gray-800"
             data-testid="telegram-branch-synthetic"
           >
             No Telegram on my phone
@@ -422,11 +422,11 @@ function TelegramBranchPicker() {
           show you how the caption and metadata flow works.
         </p>
         {syntheticError ? (
-          <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded px-2 py-1.5">
+          <p className="text-meta text-rose-700 bg-rose-50 border border-rose-200 rounded px-2 py-1.5">
             {syntheticError}
           </p>
         ) : syntheticLanded ? (
-          <p className="text-xs text-emerald-700">
+          <p className="text-meta text-emerald-700">
             Got it. The photo{" "}
             {syntheticLanded === "svg-fallback"
               ? "(SVG fallback, PNG asset pending) "
@@ -435,7 +435,7 @@ function TelegramBranchPicker() {
             experiment&apos;s notes whenever you want.
           </p>
         ) : (
-          <p className="text-xs text-gray-500">
+          <p className="text-meta text-gray-500">
             Dropping the synthetic photo into your inbox...
           </p>
         )}
@@ -465,18 +465,18 @@ function TelegramBranchPicker() {
           <p>
             Paired. Now send me a photo from Telegram. Anything works.
           </p>
-          <p className="text-xs text-gray-500">
+          <p className="text-meta text-gray-500">
             Heads up: just for this first send, the bot will only offer
             &quot;Place in Inbox&quot; so the picker stays simple. After
             the tour, it will also let you attach to active experiments
             and lists.
           </p>
-          <p className="text-xs text-gray-500">
+          <p className="text-meta text-gray-500">
             Waiting for your photo to land...
           </p>
         </>
       ) : (
-        <p className="text-xs text-emerald-700">
+        <p className="text-meta text-emerald-700">
           Got it. The photo is in your inbox. Drag it into your
           experiment&apos;s notes whenever you want.
         </p>

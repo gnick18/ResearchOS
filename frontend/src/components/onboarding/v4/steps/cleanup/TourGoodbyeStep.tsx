@@ -296,7 +296,7 @@ export function TourGoodbyeOverlay({
         data-testid="tour-goodbye-toast"
         role="status"
         aria-live="polite"
-        className="fixed bottom-6 right-6 z-[600] max-w-sm rounded-lg bg-gray-900 text-white shadow-lg px-4 py-3 text-sm pointer-events-auto"
+        className="fixed bottom-6 right-6 z-[600] max-w-sm rounded-lg bg-gray-900 text-white shadow-lg px-4 py-3 text-body pointer-events-auto"
       >
         Tour complete. Find BeakerBot again in Settings → Onboarding.
       </div>
@@ -344,7 +344,7 @@ export function TourGoodbyeOverlay({
             ariaLabel="BeakerBot waving goodbye"
           />
         </div>
-        <p className="text-base font-medium text-gray-900">
+        <p className="text-title font-medium text-gray-900">
           {phase === "cheering" ? "Here's to many great experiments ahead!" : "See you around!"}
         </p>
       </div>

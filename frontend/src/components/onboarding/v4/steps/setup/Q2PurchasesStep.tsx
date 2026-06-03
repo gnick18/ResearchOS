@@ -56,7 +56,7 @@ export default function Q2PurchasesStep({
 
   return (
     <div data-step-id="setup-q2" className="space-y-4">
-      <p className="text-sm text-gray-700 leading-relaxed">
+      <p className="text-body text-gray-700 leading-relaxed">
         Do you want to track lab purchases and reagent orders? You can
         enable the tracker now or leave it off to keep things simple.
       </p>

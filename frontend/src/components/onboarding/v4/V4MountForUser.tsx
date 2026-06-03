@@ -182,10 +182,10 @@ export default function V4MountForUser({
         <div
           role="alert"
           data-testid="onboarding-persist-error"
-          className="fixed bottom-4 right-4 z-[1000] max-w-sm rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-lg"
+          className="fixed bottom-4 right-4 z-[1000] max-w-sm rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-body text-amber-900 shadow-lg"
         >
           <p className="font-medium">Tour can&apos;t save your progress.</p>
-          <p className="mt-1 text-xs">
+          <p className="mt-1 text-meta">
             Check that your folder allows writes, or click Exit Tour to
             end early.
           </p>
@@ -196,7 +196,7 @@ export default function V4MountForUser({
                 void retryRef.current?.();
               }}
               data-testid="onboarding-persist-error-retry"
-              className="rounded bg-amber-600 px-2 py-1 text-xs font-medium text-white hover:bg-amber-700"
+              className="rounded bg-amber-600 px-2 py-1 text-meta font-medium text-white hover:bg-amber-700"
             >
               Retry
             </button>
@@ -204,7 +204,7 @@ export default function V4MountForUser({
               type="button"
               onClick={() => setPersistError(null)}
               data-testid="onboarding-persist-error-dismiss"
-              className="rounded border border-amber-300 px-2 py-1 text-xs text-amber-900 hover:bg-amber-100"
+              className="rounded border border-amber-300 px-2 py-1 text-meta text-amber-900 hover:bg-amber-100"
             >
               Dismiss
             </button>

@@ -101,7 +101,7 @@ function LabSpawnInner({ spawnFn }: LabSpawnInnerProps) {
       {phase === "spawning" && (
         <p
           data-testid="lab-spawn-status"
-          className="text-xs text-gray-500"
+          className="text-meta text-gray-500"
         >
           Spinning up {BEAKERBOT_LAB_DISPLAY_NAME}, the fake lab member...
         </p>
@@ -109,7 +109,7 @@ function LabSpawnInner({ spawnFn }: LabSpawnInnerProps) {
       {phase === "ready" && handle && (
         <p
           data-testid="lab-spawn-status"
-          className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-2 py-1.5"
+          className="text-meta text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-2 py-1.5"
         >
           {BEAKERBOT_LAB_DISPLAY_NAME} joined the lab. Two experiments
           (one edit, one view-only) are now in your Workbench.
@@ -118,7 +118,7 @@ function LabSpawnInner({ spawnFn }: LabSpawnInnerProps) {
       {phase === "error" && errorMessage && (
         <p
           data-testid="lab-spawn-status"
-          className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-2 py-1.5"
+          className="text-meta text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-2 py-1.5"
         >
           {errorMessage}
         </p>

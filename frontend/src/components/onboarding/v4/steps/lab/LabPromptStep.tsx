@@ -152,7 +152,7 @@ function LabPromptInner({ onDismiss }: LabPromptInnerProps) {
           onClick={() => void handleNow()}
           disabled={busy !== null}
           data-lab-prompt-pick="now"
-          className="px-3 py-2 text-xs font-semibold rounded-lg bg-sky-500 hover:bg-sky-600 text-white disabled:opacity-50 text-left"
+          className="px-3 py-2 text-meta font-semibold rounded-lg bg-sky-500 hover:bg-sky-600 text-white disabled:opacity-50 text-left"
         >
           Now ({"~"}2 min)
         </button>
@@ -161,7 +161,7 @@ function LabPromptInner({ onDismiss }: LabPromptInnerProps) {
           onClick={() => void handleLater()}
           disabled={busy !== null}
           data-lab-prompt-pick="later"
-          className="px-3 py-2 text-xs font-medium rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-800 disabled:opacity-50 text-left"
+          className="px-3 py-2 text-meta font-medium rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-800 disabled:opacity-50 text-left"
         >
           Later (I&apos;ll prompt you the first time you open Lab Mode)
         </button>
@@ -170,13 +170,13 @@ function LabPromptInner({ onDismiss }: LabPromptInnerProps) {
           onClick={() => void handleDismiss()}
           disabled={busy !== null}
           data-lab-prompt-pick="dismiss"
-          className="px-3 py-2 text-xs font-medium rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 disabled:opacity-50 text-left"
+          className="px-3 py-2 text-meta font-medium rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 disabled:opacity-50 text-left"
         >
           Dismiss (re-run from Settings any time)
         </button>
       </div>
       {error && (
-        <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-2 py-1.5">
+        <p className="text-meta text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-2 py-1.5">
           {error}
         </p>
       )}
