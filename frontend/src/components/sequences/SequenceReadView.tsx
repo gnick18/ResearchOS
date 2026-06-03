@@ -99,6 +99,14 @@ export default function SequenceReadView({ sequence }: { sequence: SequenceDetai
   // linear molecules show just the linear viewer.
   const viewer = sequence.circular ? "both" : "linear";
 
+  // Adaptive default zoom: SeqViz's linear zoom defaults to 50 (base-level),
+  // which is unreadable for a long genomic contig (hundreds of base rows, no
+  // map). At linear zoom <= 5 SeqViz renders the overview "map" (features as
+  // arrows along a line). So open large sequences zoomed-out to that map and
+  // keep small plasmids at the detailed default. (A real zoom control is a
+  // follow-up; this just makes big sequences legible by default.)
+  const linearZoom = (sequence.seq?.length ?? 0) > 5000 ? 2 : 50;
+
   return (
     <div className="flex h-full w-full flex-col">
       <div className="min-h-0 flex-1">
@@ -109,6 +117,7 @@ export default function SequenceReadView({ sequence }: { sequence: SequenceDetai
           annotations={annotations}
           primers={[]}
           viewer={viewer}
+          zoom={{ linear: linearZoom }}
           onSelection={setSelection}
           onAnnotationDoubleClick={handleAnnotationDoubleClick}
           showComplement
