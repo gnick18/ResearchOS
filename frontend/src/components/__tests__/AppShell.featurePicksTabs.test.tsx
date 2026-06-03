@@ -148,8 +148,10 @@ describe("AppShell — top-nav visibility under feature_picks", () => {
     // Sanity: calendar=yes + links=yes still show.
     expect(hrefs).toContain("/calendar");
     expect(hrefs).toContain("/links");
-    // Always-on tabs survive.
-    expect(hrefs).toContain("/");
+    // Always-on tabs survive. Post widget-framework teardown (2026-06-02)
+    // a "member" account has NO dashboard entry — the "/" tab was dropped
+    // (Workbench is the landing), so it is no longer in the nav.
+    expect(hrefs).not.toContain("/");
     expect(hrefs).toContain("/workbench");
     expect(hrefs).toContain("/gantt");
     expect(hrefs).toContain("/methods");

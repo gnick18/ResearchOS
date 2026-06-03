@@ -186,8 +186,12 @@ describe("AppShell — top-nav gate", () => {
         expect(b.className).toMatch(/opacity-50/);
       }
     });
-    // Test renders at "/" so exactly one Home button reads aria-current.
-    expect(activeCount).toBe(1);
+    // Post widget-framework teardown (2026-06-02): "/" is a pure redirect
+    // and a non-PI account (this test does not mock useAccountType, so it
+    // resolves to the non-PI path) has NO dashboard nav entry. The test
+    // renders at "/", which now matches no nav-item href, so no button
+    // reads aria-current and every gated nav-item is inactive (opacity-50).
+    expect(activeCount).toBe(0);
     expect(inactiveCount).toBeGreaterThan(0);
     // No <Link>-rendered anchors in the nav while gated.
     expect(homeNav!.querySelectorAll("a").length).toBe(0);
