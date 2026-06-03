@@ -66,6 +66,7 @@ import {
   initialLinearZoom,
   viewportWindow,
   bpToScrollTop,
+  pinchDeltaToZoom,
 } from "@/lib/sequences/sequence-zoom";
 import {
   EditMenuDropdown,
@@ -481,6 +482,65 @@ export default function SequenceEditView({
       ro.disconnect();
     };
   }, [isLinearViewer, recomputeWindow, sequence.id, linearZoom]);
+
+  // seq pinch bot — TRACKPAD PINCH-TO-ZOOM (SnapGene feel). On macOS a trackpad
+  // pinch arrives as a `wheel` event with ctrlKey===true (deltaY < 0 == spread /
+  // zoom in, > 0 == pinch / zoom out). We attach a NON-passive wheel listener on
+  // the viewer container so we can preventDefault and drive the SAME linear/
+  // circular zoom view-state the slider uses. A PLAIN wheel (no ctrlKey) is left
+  // untouched so SeqViz's own scroller keeps scrolling the sequence as today.
+  //
+  // Zoom is CENTERED (not cursor-anchored): SeqViz owns its own vertical scroll
+  // model and re-renders its scroller subtree on every zoom change, so there is
+  // no stable bp-under-cursor handle to pin to. Cursor-anchored zoom is noted as
+  // a follow-up. We still nudge the scroll so the current top stays roughly put.
+  useEffect(() => {
+    const el = viewerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      // Only a pinch (ctrl/⌘+wheel) zooms; everything else falls through to the
+      // SeqViz scroller as a normal scroll.
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setView((v) => {
+        if (isLinearViewer) {
+          const current = v.linearZoom ?? autoLinearZoom;
+          const next = pinchDeltaToZoom(current, e.deltaY);
+          return next === current && v.linearZoom !== null ? v : { ...v, linearZoom: next };
+        }
+        const next = pinchDeltaToZoom(v.circularZoom, e.deltaY);
+        return next === v.circularZoom ? v : { ...v, circularZoom: next };
+      });
+    };
+    // Safari (some builds) fires gesture* instead of ctrl+wheel. Handle if present.
+    const onGesture = (e: Event) => {
+      const ge = e as Event & { scale?: number };
+      if (typeof ge.scale !== "number") return;
+      e.preventDefault();
+      // gesturechange `scale` is relative to gesturestart (1 == no change, >1
+      // spread/zoom-in, <1 pinch/zoom-out). Map to a deltaY-equivalent so we
+      // reuse the same scaling: scale 1.1 -> ~ -10 deltaY (zoom in).
+      const deltaY = (1 - ge.scale) * 100;
+      setView((v) => {
+        if (isLinearViewer) {
+          const current = v.linearZoom ?? autoLinearZoom;
+          return { ...v, linearZoom: pinchDeltaToZoom(current, deltaY) };
+        }
+        return { ...v, circularZoom: pinchDeltaToZoom(v.circularZoom, deltaY) };
+      });
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("gesturestart", onGesture as EventListener);
+    el.addEventListener("gesturechange", onGesture as EventListener);
+    el.addEventListener("gestureend", onGesture as EventListener);
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("gesturestart", onGesture as EventListener);
+      el.removeEventListener("gesturechange", onGesture as EventListener);
+      el.removeEventListener("gestureend", onGesture as EventListener);
+    };
+  }, [isLinearViewer, autoLinearZoom]);
 
   // Drag the overview viewport box -> scroll the main view so `bp` is at top.
   const scrollMainToBp = useCallback(

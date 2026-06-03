@@ -69,6 +69,27 @@ export function isMapZoom(zoom: number): boolean {
 }
 
 /**
+ * seq pinch bot — map a trackpad PINCH wheel delta to a new zoom level.
+ *
+ * A macOS trackpad pinch surfaces as a `wheel` event with `ctrlKey === true`;
+ * `deltaY` is NEGATIVE when the fingers spread apart (pinch OUT == zoom IN) and
+ * POSITIVE when they pinch together (zoom OUT). We move the existing 0-100 zoom
+ * knob by `-deltaY * PINCH_ZOOM_SENSITIVITY` so spreading raises the zoom and the
+ * gesture feels continuous (a typical pinch fires many small-delta events). The
+ * result is clamped into [MIN_LINEAR_ZOOM, MAX_LINEAR_ZOOM].
+ *
+ * Pure + DOM-free so it is unit-testable; the component just feeds it
+ * `event.deltaY` and the current zoom.
+ */
+export const PINCH_ZOOM_SENSITIVITY = 0.5;
+
+export function pinchDeltaToZoom(currentZoom: number, deltaY: number): number {
+  const base = Number.isFinite(currentZoom) ? currentZoom : DEFAULT_LINEAR_ZOOM;
+  if (!Number.isFinite(deltaY) || deltaY === 0) return clampLinearZoom(base);
+  return clampLinearZoom(base - deltaY * PINCH_ZOOM_SENSITIVITY);
+}
+
+/**
  * The fraction of the whole sequence visible in the main linear view, derived
  * from the scroll container's geometry. The linear viewer stacks rows of bases
  * vertically and scrolls, so the visible vertical fraction == the visible bp

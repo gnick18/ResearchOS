@@ -13,6 +13,8 @@ import {
   bpToScrollTop,
   trackXToBp,
   bpToTrackX,
+  pinchDeltaToZoom,
+  PINCH_ZOOM_SENSITIVITY,
 } from "./sequence-zoom";
 
 describe("initialLinearZoom", () => {
@@ -60,6 +62,33 @@ describe("isMapZoom", () => {
     expect(isMapZoom(MAP_ZOOM)).toBe(true);
     expect(isMapZoom(MAP_ZOOM + 1)).toBe(false);
     expect(isMapZoom(50)).toBe(false);
+  });
+});
+
+describe("pinchDeltaToZoom", () => {
+  it("zooms IN on a negative deltaY (fingers spread / pinch out)", () => {
+    // -30 * 0.5 = +15
+    expect(pinchDeltaToZoom(50, -30)).toBe(50 + 30 * PINCH_ZOOM_SENSITIVITY);
+    expect(pinchDeltaToZoom(50, -30)).toBeGreaterThan(50);
+  });
+
+  it("zooms OUT on a positive deltaY (fingers pinch together)", () => {
+    expect(pinchDeltaToZoom(50, 30)).toBe(50 - 30 * PINCH_ZOOM_SENSITIVITY);
+    expect(pinchDeltaToZoom(50, 30)).toBeLessThan(50);
+  });
+
+  it("clamps into the slider range", () => {
+    expect(pinchDeltaToZoom(MAX_LINEAR_ZOOM, -1000)).toBe(MAX_LINEAR_ZOOM);
+    expect(pinchDeltaToZoom(MIN_LINEAR_ZOOM, 1000)).toBe(MIN_LINEAR_ZOOM);
+  });
+
+  it("is a no-op on a zero / non-finite delta", () => {
+    expect(pinchDeltaToZoom(42, 0)).toBe(42);
+    expect(pinchDeltaToZoom(42, NaN)).toBe(42);
+  });
+
+  it("falls back to the default zoom for a non-finite current zoom", () => {
+    expect(pinchDeltaToZoom(NaN, 0)).toBe(DEFAULT_LINEAR_ZOOM);
   });
 });
 
