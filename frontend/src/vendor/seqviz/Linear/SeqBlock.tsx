@@ -8,7 +8,7 @@ import AnnotationRows from "./Annotations";
 import { CutSites } from "./CutSites";
 import Find from "./Find";
 import { Highlights } from "./Highlights";
-import IndexRow, { RULER_NUMBERS } from "./Index";
+import IndexRow from "./Index";
 import PrimeRows from "./Primers";
 import Selection from "./Selection";
 import { TranslationRows } from "./Translations";
@@ -358,13 +358,10 @@ export class SeqBlock extends React.PureComponent<SeqBlockProps> {
             used to fight: this interval ruler and the bolted strand-connector
             tape). Two clean states, swapped at the base-legibility gate:
               State A (baseLegible): the in-seam measuring tape, rendered LATER
-                (after the strand glyphs) so its numbers paint on top.
-              State B (zoomed out): the numbered interval ruler at its row, here.
-            With RULER_NUMBERS === "above" the State-A tape is ticks-only and
-            this interval row stays visible to carry the numbers above the top
-            strand (the comparison variant). The user picks one; the loser is
-            removed later. */}
-        {showIndex && !(zoomed && showComplement && seqType !== "aa" && RULER_NUMBERS === "tape") && (
+                (after the strand glyphs) so its numbers paint on top, and this
+                interval row is suppressed (the tape carries the numbers).
+              State B (zoomed out): the numbered interval ruler at its row, here. */}
+        {showIndex && !(zoomed && showComplement && seqType !== "aa") && (
           <IndexRow
             baseLegible={false}
             charWidth={charWidth}
@@ -514,10 +511,9 @@ export class SeqBlock extends React.PureComponent<SeqBlockProps> {
           </text>
         ) : null}
         {/* ruler redesign bot — State A: the in-seam measuring tape, rendered
-            AFTER the strand glyphs so its 10s numbers (RULER_NUMBERS === "tape")
-            paint on top of the seam with their white halo. Active only when both
-            strands render (the seam exists). It IS the strand connector + ruler
-            + numbers, unified. */}
+            AFTER the strand glyphs so its 10s numbers paint on top of the seam
+            with their white halo. Active only when both strands render (the seam
+            exists). It IS the strand connector + ruler + numbers, unified. */}
         {showIndex && zoomed && showComplement && seqType !== "aa" && (
           <IndexRow
             baseLegible={true}

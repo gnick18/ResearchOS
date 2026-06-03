@@ -6,23 +6,13 @@ import { indexLine, indexTick, indexTickLabel } from "../style";
 import { FindXAndWidthType } from "./SeqBlock";
 
 /**
- * NUMBER PLACEMENT comparison switch (ruler redesign bot).
- *
- * Temporary constant so the user can pick where the coordinate numbers live at
- * base-level zoom (State A). Both variants share the exact same tick geometry
- * and the exact same zoomed-out State B; only the number source differs.
- *
- *   "tape":  numbers render at the 10-ticks ON the seam tape, between the two
- *            strands (SnapGene). The separate number row above the top strand
- *            is suppressed, so there is exactly one number source.
- *   "above": the seam tape is ticks-only and the numbers stay in a row above
- *            the top strand (the historical position).
- *
- * State B (zoomed out) is identical in both variants: a plain numbered interval
- * ruler at SeqViz's 5 / 10 / 20 / 50 logic. The loser gets removed in a
- * follow-up, so flipping this is a single edit.
+ * Linear DNA ruler (redesigned). ONE owned ruler with two states:
+ *   State A (base-level zoom): a crisp per-base measuring tape in the strand
+ *     seam, with the coordinate number on each 10-tick (the only number source;
+ *     the separate bottom index row is suppressed in this state).
+ *   State B (zoomed out): a plain numbered interval ruler at SeqViz's
+ *     5 / 10 / 20 / 50 tick logic.
  */
-export const RULER_NUMBERS: "tape" | "above" = "tape";
 
 interface IndexProps {
   charWidth: number;
@@ -159,9 +149,8 @@ export default class Index extends React.PureComponent<IndexProps> {
 
   // ---- State A: the per-base measuring tape, drawn in the strand seam ----
   // A crisp tape: full-contrast tick at every base, taller every 5, tallest
-  // every 10. When RULER_NUMBERS === "tape", the coordinate number sits at each
-  // 10-tick on the seam (this becomes the only number source); when "above",
-  // the tape is ticks-only and the separate number row carries the numbers.
+  // every 10. The coordinate number sits at each 10-tick on the seam (the only
+  // number source in State A; the separate bottom index row is hidden there).
   renderTape = () => {
     const { charWidth, firstBase, lineHeight, seq } = this.props;
     const half = lineHeight ?? 14; // seam half-height fallback if not provided
@@ -197,7 +186,7 @@ export default class Index extends React.PureComponent<IndexProps> {
         />,
       );
 
-      if (isTen && RULER_NUMBERS === "tape") {
+      if (isTen) {
         // number centered on the 10-tick, sitting ON the seam baseline. The two
         // strand rows nearly meet at the seam, so the number gets a white halo
         // rect that punches it through the glyphs and keeps it crisp. fontSize
