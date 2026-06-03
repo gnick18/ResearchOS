@@ -14,7 +14,6 @@ import WorkbenchExperimentsPanel from "@/components/workbench/WorkbenchExperimen
 import WorkbenchListsPanel from "@/components/workbench/WorkbenchListsPanel";
 import WorkbenchProjectsPanel from "@/components/workbench/WorkbenchProjectsPanel";
 import WorkbenchProjectFilterPills from "@/components/workbench/WorkbenchProjectFilterPills";
-import NewProjectButton from "@/components/lab-overview/NewProjectButton";
 import { matchesAnyProjectFilter } from "@/lib/search/filterKey";
 import type { Project } from "@/lib/types";
 
@@ -128,9 +127,6 @@ export default function WorkbenchPage() {
             <h2 className="text-xl font-semibold text-gray-900">Workbench</h2>
             <p className="text-sm text-gray-400 mt-0.5">{subtitle}</p>
           </div>
-          {/* Project creation home (widget-framework teardown v2): the canvas
-              that used to host the only "+ New Project" affordance is gone. */}
-          {currentUser && <NewProjectButton username={currentUser} />}
         </div>
 
         {/* Tabs */}
