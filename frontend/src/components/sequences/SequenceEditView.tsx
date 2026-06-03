@@ -117,6 +117,19 @@ function IconPasteTool({ className }: { className?: string }) {
     </svg>
   );
 }
+// Features index toggle — a list/index glyph (the on-demand feature panel opener).
+function IconFeaturesList({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <line x1="8" y1="6" x2="21" y2="6" />
+      <line x1="8" y1="12" x2="21" y2="12" />
+      <line x1="8" y1="18" x2="21" y2="18" />
+      <line x1="3" y1="6" x2="3.01" y2="6" />
+      <line x1="3" y1="12" x2="3.01" y2="12" />
+      <line x1="3" y1="18" x2="3.01" y2="18" />
+    </svg>
+  );
+}
 
 function ToolbarButton({
   label,
@@ -170,6 +183,9 @@ export default function SequenceEditView({
   // Phase 2c — view controls (calm-by-default) + the feature add/edit dialog +
   // the currently-selected feature row, and an externally-driven zoom selection.
   const [view, setView] = useState<SequenceViewState>(DEFAULT_VIEW_STATE);
+  // FEATURES LIST = ON-DEMAND: the right-side feature index is hidden by default
+  // (calm full-width map + left rail). A toolbar toggle opens it as a drawer.
+  const [featuresPanelOpen, setFeaturesPanelOpen] = useState(false);
   const [featureEditor, setFeatureEditor] = useState<FeatureEditorRequest | null>(null);
   const [selectedFeatureIdx, setSelectedFeatureIdx] = useState<number | null>(null);
   // When a feature row is clicked we drive the viewer selection to zoom it.
@@ -334,6 +350,26 @@ export default function SequenceEditView({
       });
     },
     [doc.features, doc.seq.length, editor],
+  );
+
+  // DOUBLE-CLICK A FEATURE ON THE VIEWER -> open its editor. SeqViz assigns its
+  // own internal ids to annotations, so we match the double-clicked annotation
+  // back to its feature by (name, start, end) — documentToAnnotations projects
+  // features 1:1 in order, so this resolves to the correct feature index.
+  const handleAnnotationDoubleClick = useCallback(
+    (range: { name: string; start: number; end: number; direction?: number }) => {
+      let index = doc.features.findIndex(
+        (f) => f.name === range.name && f.start === range.start && f.end === range.end,
+      );
+      // Fall back to name-only, then start-only, in case the viewer normalized
+      // a coordinate (e.g. modulo across the origin on a circular plasmid).
+      if (index < 0) index = doc.features.findIndex((f) => f.name === range.name);
+      if (index < 0) index = doc.features.findIndex((f) => f.start === range.start);
+      if (index < 0) return;
+      setSelectedFeatureIdx(index);
+      openEditFeature(index);
+    },
+    [doc.features, openEditFeature],
   );
 
   const duplicateFeatureAt = useCallback(
@@ -580,6 +616,20 @@ export default function SequenceEditView({
           <span className="hidden sm:inline">Paste</span>
         </ToolbarButton>
         <div className="mx-1 h-5 w-px bg-gray-200" />
+        <Tooltip label={featuresPanelOpen ? "Hide the feature list" : "Show the feature list"}>
+          <button
+            type="button"
+            onClick={() => setFeaturesPanelOpen((o) => !o)}
+            aria-pressed={featuresPanelOpen}
+            className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
+              featuresPanelOpen ? "bg-sky-50 text-sky-700" : "text-gray-600 hover:bg-gray-100"
+            }`}
+          >
+            <IconFeaturesList className="h-4 w-4" />
+            <span className="hidden sm:inline">Features</span>
+          </button>
+        </Tooltip>
+        <div className="mx-1 h-5 w-px bg-gray-200" />
         <ToolbarButton label="Save (Cmd+S)" onClick={handleSave} disabled={!dirty || saving} primary>
           <IconSave className="h-4 w-4" />
           <span>{saving ? "Saving…" : dirty ? "Save" : "Saved"}</span>
@@ -606,6 +656,7 @@ export default function SequenceEditView({
             viewer={viewer}
             editable
             onEdit={requestEdit}
+            onAnnotationDoubleClick={handleAnnotationDoubleClick}
             onSelection={(s) => {
               setSelection(s);
               // A user-driven selection takes back control from a feature zoom.
@@ -618,20 +669,25 @@ export default function SequenceEditView({
             style={{ height: "100%", width: "100%" }}
           />
         </div>
-        <FeaturesPanel
-          features={doc.features}
-          view={view}
-          onViewChange={setView}
-          onSelectFeature={selectFeature}
-          selectedIndex={selectedFeatureIdx}
-          onAddFeature={openAddFeature}
-          canAdd
-          onEditFeature={openEditFeature}
-          onDuplicateFeature={duplicateFeatureAt}
-          onDeleteFeature={deleteFeatureAt}
-          onRecolorFeature={recolorFeatureAt}
-          onRecolorType={recolorType}
-        />
+        {/* FEATURES LIST = ON-DEMAND: rendered only when the toolbar toggle is on.
+            Default view is a clean full-width map + the left view-control rail. */}
+        {featuresPanelOpen && (
+          <FeaturesPanel
+            features={doc.features}
+            view={view}
+            onViewChange={setView}
+            onSelectFeature={selectFeature}
+            selectedIndex={selectedFeatureIdx}
+            onAddFeature={openAddFeature}
+            canAdd
+            onEditFeature={openEditFeature}
+            onDuplicateFeature={duplicateFeatureAt}
+            onDeleteFeature={deleteFeatureAt}
+            onRecolorFeature={recolorFeatureAt}
+            onRecolorType={recolorType}
+            onClose={() => setFeaturesPanelOpen(false)}
+          />
+        )}
       </div>
 
       {/* Live selection readout */}

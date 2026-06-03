@@ -44,6 +44,11 @@ export interface SeqVizProps {
   /** sequence Phase 2a bot — called with each edit intent when `editable`. */
   onEdit?: (edit: import("./EventHandler").SeqEdit) => void;
 
+  /** seq restructure bot — called when an annotation arrow is double-clicked on
+   *  the viewer (linear or circular). The host matches it to a feature and opens
+   *  the feature editor. Single-click selection behavior is unchanged. */
+  onAnnotationDoubleClick?: import("./annotationDoubleClickContext").AnnotationDoubleClickHandler;
+
   /**
    * an iGEM backbone to render within the viewer
    *

@@ -80,6 +80,14 @@ function IconEyeOff({ className }: { className?: string }) {
     </svg>
   );
 }
+function IconX({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}
 function IconChevron({ open, className }: { open: boolean; className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`${className ?? ""} transition-transform ${open ? "rotate-90" : ""}`} aria-hidden="true">
@@ -171,6 +179,8 @@ export interface FeaturesPanelProps {
   onRecolorFeature: (index: number, color: string) => void;
   /** Set the default color for a whole type. */
   onRecolorType: (type: string, color: string) => void;
+  /** Close the on-demand panel (omitted when the panel is always-on). */
+  onClose?: () => void;
 }
 
 export default function FeaturesPanel({
@@ -186,6 +196,7 @@ export default function FeaturesPanel({
   onDeleteFeature,
   onRecolorFeature,
   onRecolorType,
+  onClose,
 }: FeaturesPanelProps) {
   const [featuresOpen, setFeaturesOpen] = useState(true);
   const [displayOpen, setDisplayOpen] = useState(false); // calm: collapsed
@@ -240,6 +251,22 @@ export default function FeaturesPanel({
 
   return (
     <div className="flex h-full w-72 shrink-0 flex-col overflow-hidden border-l border-gray-100 bg-white">
+      {/* On-demand drawer header with a close affordance. */}
+      {onClose ? (
+        <div className="flex items-center justify-between border-b border-gray-100 px-3 py-1.5">
+          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Feature index</span>
+          <Tooltip label="Hide the feature list">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              aria-label="Hide the feature list"
+            >
+              <IconX className="h-3.5 w-3.5" />
+            </button>
+          </Tooltip>
+        </div>
+      ) : null}
       {/* FEATURES SECTION */}
       <SectionHeader
         title={`Features (${features.length})`}

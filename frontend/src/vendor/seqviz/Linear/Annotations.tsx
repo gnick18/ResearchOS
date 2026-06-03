@@ -2,6 +2,7 @@
 import * as React from "react";
 
 import { InputRefFunc } from "../SelectionHandler";
+import AnnotationDoubleClickContext from "../annotationDoubleClickContext";
 import { COLOR_BORDER_MAP, darkerColor } from "../colors";
 import { NameRange } from "../elements";
 import { annotation, annotationLabel } from "../style";
@@ -104,6 +105,19 @@ const SingleNamedElement = (props: {
   lastBase: number;
 }) => {
   const { element, elements, findXAndWidth, firstBase, index, inputRef, lastBase } = props;
+
+  // seq restructure bot — double-click an annotation opens its editor in the host.
+  const onAnnotationDoubleClick = React.useContext(AnnotationDoubleClickContext);
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    if (!onAnnotationDoubleClick) return;
+    e.stopPropagation();
+    onAnnotationDoubleClick({
+      name: element.name,
+      start: element.start,
+      end: element.end,
+      direction: element.direction,
+    });
+  };
 
   const { color, direction, end, name, start } = element;
   const forward = direction === 1;
@@ -225,6 +239,7 @@ const SingleNamedElement = (props: {
         onFocus={() => {
           // do nothing
         }}
+        onDoubleClick={handleDoubleClick}
         onMouseOut={() => hoverOtherAnnotationRows(element.id, 0.7)}
         onMouseOver={() => hoverOtherAnnotationRows(element.id, 1.0)}
       />
@@ -241,6 +256,7 @@ const SingleNamedElement = (props: {
         onBlur={() => {
           // do nothing
         }}
+        onDoubleClick={handleDoubleClick}
         onFocus={() => {
           // do nothing
         }}

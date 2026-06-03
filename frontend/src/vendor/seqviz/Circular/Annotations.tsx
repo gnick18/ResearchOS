@@ -2,6 +2,7 @@
 import * as React from "react";
 
 import { InputRefFunc } from "../SelectionHandler";
+import AnnotationDoubleClickContext from "../annotationDoubleClickContext";
 import CentralIndexContext from "../centralIndexContext";
 import { COLOR_BORDER_MAP, darkerColor } from "../colors";
 import { Annotation } from "../elements";
@@ -121,6 +122,19 @@ const SingleAnnotation = (props: SingleAnnotationProps) => {
     seqLength,
   } = props;
 
+  // seq restructure bot — double-click an annotation opens its editor in the host.
+  const onAnnotationDoubleClick = React.useContext(AnnotationDoubleClickContext);
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    if (!onAnnotationDoubleClick) return;
+    e.stopPropagation();
+    onAnnotationDoubleClick({
+      name: a.name,
+      start: a.start,
+      end: a.end,
+      direction: a.direction,
+    });
+  };
+
   // if it crosses the zero index, correct for actual length
   let annLength = a.end >= a.start ? a.end - a.start : seqLength - a.start + a.end;
 
@@ -184,6 +198,7 @@ const SingleAnnotation = (props: SingleAnnotationProps) => {
         onFocus={() => {
           // do nothing
         }}
+        onDoubleClick={handleDoubleClick}
         onMouseOut={() => hoverAnnotation(a.id, "0.7")}
         onMouseOver={() => hoverAnnotation(a.id, "1.0")}
       />
@@ -195,6 +210,7 @@ const SingleAnnotation = (props: SingleAnnotationProps) => {
           onBlur={() => {
             // do nothing
           }}
+          onDoubleClick={handleDoubleClick}
           onFocus={() => {
             // do nothing
           }}

@@ -7,6 +7,7 @@ import { EventHandler } from "./EventHandler";
 import Linear, { LinearProps } from "./Linear/Linear";
 import SelectionHandler, { InputRefFunc } from "./SelectionHandler";
 import CentralIndexContext from "./centralIndexContext";
+import AnnotationDoubleClickContext from "./annotationDoubleClickContext";
 import { Annotation, CutSite, Highlight, NameRange, Primer, SeqType } from "./elements";
 import { isEqual } from "./isEqual";
 import SelectionContext, { ExternalSelection, Selection, defaultSelection } from "./selectionContext";
@@ -62,6 +63,8 @@ interface SeqViewerContainerProps {
   /** sequence Phase 2a bot — editable mode + edit callback (threaded to EventHandler). */
   editable?: boolean;
   onEdit?: (edit: import("./EventHandler").SeqEdit) => void;
+  /** seq restructure bot — double-click an annotation arrow opens its editor. Provided via context to the deep render trees. */
+  onAnnotationDoubleClick?: import("./annotationDoubleClickContext").AnnotationDoubleClickHandler;
 }
 
 export interface SeqViewerContainerState {
@@ -292,6 +295,7 @@ class SeqViewerContainer extends React.Component<SeqViewerContainerProps, SeqVie
         }}
       >
         <CentralIndexContext.Provider value={centralIndex}>
+         <AnnotationDoubleClickContext.Provider value={this.props.onAnnotationDoubleClick || null}>
           <SelectionContext.Provider value={mergedSelection}>
             <SelectionHandler
               bpsPerBlock={linearProps.bpsPerBlock}
@@ -379,6 +383,7 @@ class SeqViewerContainer extends React.Component<SeqViewerContainerProps, SeqVie
               )}
             </SelectionHandler>
           </SelectionContext.Provider>
+         </AnnotationDoubleClickContext.Provider>
         </CentralIndexContext.Provider>
       </div>
     );
