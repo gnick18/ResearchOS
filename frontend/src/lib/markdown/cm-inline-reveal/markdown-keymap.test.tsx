@@ -97,6 +97,100 @@ describe("wrap commands (bold / italic / underline / strike)", () => {
   });
 });
 
+describe("wrap commands TOGGLE off when already wrapped (bold / italic)", () => {
+  it("a SECOND bold on the empty **|** caret toggles it back to nothing", () => {
+    // Reproduces the reported bug: an empty bold caret must toggle OFF, not grow
+    // a second ** pair (****** ).
+    const v = mount("a****b", { anchor: 3, head: 3 }); // caret between the pairs
+    expect(run(v, boldCommand)).toBe(true);
+    expect(v.state.doc.toString()).toBe("ab");
+    expect(v.state.selection.main.empty).toBe(true);
+    expect(v.state.selection.main.head).toBe(1); // caret where the content was
+  });
+
+  it("wrap then SECOND bold round-trips an empty caret (wrap on, toggle off)", () => {
+    const v = mount("ab", { anchor: 1, head: 1 });
+    expect(run(v, boldCommand)).toBe(true);
+    expect(v.state.doc.toString()).toBe("a****b");
+    expect(run(v, boldCommand)).toBe(true);
+    expect(v.state.doc.toString()).toBe("ab");
+    expect(v.state.selection.main.empty).toBe(true);
+    expect(v.state.selection.main.head).toBe(1);
+  });
+
+  it("bold UNWRAPS from outside: 'bold' selected inside **bold** -> bold (selected)", () => {
+    const v = mount("**bold**", { anchor: 2, head: 6 }); // "bold" between the markers
+    expect(run(v, boldCommand)).toBe(true);
+    expect(v.state.doc.toString()).toBe("bold");
+    expect(
+      v.state.sliceDoc(v.state.selection.main.from, v.state.selection.main.to),
+    ).toBe("bold");
+  });
+
+  it("bold UNWRAPS from within: **bold** selected (markers included) -> bold", () => {
+    const v = mount("**bold**", { anchor: 0, head: 8 }); // whole "**bold**"
+    expect(run(v, boldCommand)).toBe(true);
+    expect(v.state.doc.toString()).toBe("bold");
+    expect(
+      v.state.sliceDoc(v.state.selection.main.from, v.state.selection.main.to),
+    ).toBe("bold");
+  });
+
+  it("italic UNWRAPS from outside: 'word' selected inside *word* -> word", () => {
+    const v = mount("*word*", { anchor: 1, head: 5 });
+    expect(run(v, italicCommand)).toBe(true);
+    expect(v.state.doc.toString()).toBe("word");
+  });
+
+  it("italic inside **bold** does NOT strip the bold star (no *bold*)", () => {
+    // The * vs ** disambiguation: the inner * of a ** pair must not be treated as
+    // a lone italic marker, so Cmd+I must never produce *bold*.
+    const v = mount("**bold**", { anchor: 2, head: 6 }); // "bold" selected
+    expect(run(v, italicCommand)).toBe(true);
+    expect(v.state.doc.toString()).not.toBe("*bold*");
+    expect(v.state.doc.toString()).toBe("***bold***"); // falls through to WRAP
+  });
+
+  it("bold inside ***x*** unwraps to *x* (leaves the italic pair)", () => {
+    const v = mount("***x***", { anchor: 3, head: 4 }); // "x" selected
+    expect(run(v, boldCommand)).toBe(true);
+    expect(v.state.doc.toString()).toBe("*x*");
+  });
+});
+
+describe("wrap toggle is multi-cursor safe", () => {
+  it("wraps every caret, and a second press unwraps every caret", () => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    view = new EditorView({
+      state: EditorState.create({
+        doc: "a b",
+        // Two bare carets: one after "a" (1), one at the end (3). The view
+        // collapses a multi-range selection unless multiple selections are
+        // explicitly allowed, so enable the facet to exercise both ranges.
+        selection: EditorSelection.create([
+          EditorSelection.cursor(1),
+          EditorSelection.cursor(3),
+        ]),
+        extensions: [
+          EditorState.allowMultipleSelections.of(true),
+          markdown({ base: markdownLanguage }),
+        ],
+      }),
+      parent: host,
+    });
+    const v = view;
+    expect(v.state.selection.ranges.length).toBe(2);
+    expect(run(v, boldCommand)).toBe(true);
+    // changeByRange wraps each range against original positions: caret 1 -> a****,
+    // caret 3 (end) -> b****.
+    expect(v.state.doc.toString()).toBe("a**** b****");
+    // Second press toggles BOTH empty pairs off.
+    expect(run(v, boldCommand)).toBe(true);
+    expect(v.state.doc.toString()).toBe("a b");
+  });
+});
+
 describe("link / code-fence commands", () => {
   it("link produces [sel]() with the caret inside the empty url parens", () => {
     const v = mount("see here now", { anchor: 4, head: 8 }); // "here"

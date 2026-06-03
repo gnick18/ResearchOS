@@ -35,16 +35,71 @@ import { EditorView, keymap } from "@codemirror/view";
 import type { KeyBinding } from "@codemirror/view";
 
 /**
- * Wrap each selection range with `before` / `after`. For a non-empty range the
- * selected text is wrapped and stays selected (offset by the inserted prefix);
- * for a bare caret the empty pair is inserted and the caret lands BETWEEN the
- * delimiters so the user can type immediately. Insert-wrap (no toggle): this is
- * the hybrid-editor parity contract.
+ * Toggle each selection range with the `before` / `after` markers (Word-style):
+ * wrap when not already wrapped, UNWRAP when it is. For EACH range, in priority
+ * order:
+ *
+ *   1. UNWRAP-FROM-OUTSIDE: if the text immediately BEFORE the selection equals
+ *      `before` AND immediately AFTER equals `after`, delete those outer markers
+ *      and keep the inner text selected (an empty caret stays a caret where the
+ *      content was). This is the key bug-fix case: an empty bold caret `**|**`
+ *      toggles OFF to nothing instead of growing a second `**` pair.
+ *   2. UNWRAP-FROM-WITHIN: else if the SELECTED text itself starts with `before`
+ *      and ends with `after` (and is long enough to hold both), strip them,
+ *      keeping the inner text selected.
+ *   3. WRAP: else wrap with `before`/`after`. A non-empty selection stays
+ *      selected (offset by the prefix); a bare caret lands BETWEEN the
+ *      delimiters. This branch is byte-identical to the original insert-wrap.
+ *
+ * `*` vs `**` disambiguation: a single `*` (italic) marker must only count as
+ * "wrapped from outside" when it is a LONE `*`, not the inner star of a `**`
+ * (bold) pair. So for the outside check we require, when a marker is a single
+ * "*", that the character just beyond the candidate marker is not also "*". That
+ * keeps Cmd+I on the `bold` inside `**bold**` from stripping a bold star (it
+ * would wrongly yield `*bold*`); instead italic there falls through to WRAP. The
+ * `**` family needs no such rejection: unwrapping bold inside `***...***`
+ * correctly leaves `*...*`, which is the desired toggle.
  */
 function wrapCommand(before: string, after: string): StateCommand {
   return ({ state, dispatch }) => {
     const tr = state.changeByRange((range) => {
       const text = state.sliceDoc(range.from, range.to);
+
+      // --- 1. UNWRAP-FROM-OUTSIDE -------------------------------------------
+      const outerFrom = range.from - before.length;
+      const outerTo = range.to + after.length;
+      if (
+        outerFrom >= 0 &&
+        outerTo <= state.doc.length &&
+        state.sliceDoc(outerFrom, range.from) === before &&
+        state.sliceDoc(range.to, outerTo) === after &&
+        !isLoneStarViolation(state, before, after, outerFrom, outerTo)
+      ) {
+        // Remove the outer markers; keep the inner content selected (an empty
+        // selection collapses to a caret sitting where the content was).
+        return {
+          changes: [
+            { from: outerFrom, to: range.from, insert: "" },
+            { from: range.to, to: outerTo, insert: "" },
+          ],
+          range: EditorSelection.range(outerFrom, outerFrom + text.length),
+        };
+      }
+
+      // --- 2. UNWRAP-FROM-WITHIN ---------------------------------------------
+      if (
+        text.length >= before.length + after.length &&
+        text.startsWith(before) &&
+        text.endsWith(after)
+      ) {
+        const inner = text.slice(before.length, text.length - after.length);
+        return {
+          changes: { from: range.from, to: range.to, insert: inner },
+          range: EditorSelection.range(range.from, range.from + inner.length),
+        };
+      }
+
+      // --- 3. WRAP (original insert-wrap behavior, unchanged) ---------------
       const insert = before + text + after;
       // Keep the original content selected; for an empty range this collapses
       // to a bare caret sitting between the delimiters.
@@ -58,6 +113,43 @@ function wrapCommand(before: string, after: string): StateCommand {
     return true;
   };
 }
+
+/**
+ * Guard for the UNWRAP-FROM-OUTSIDE check: a LONE-`*` marker (italic) must not
+ * be matched when it is really the inner star of a `**` (bold) pair. When
+ * `before`/`after` is the single character "*", require that the character just
+ * BEYOND each candidate marker is not also "*"; otherwise the candidate `*` is
+ * part of a `**` and italic must not strip it. Returns true when the match
+ * should be REJECTED. Non-single-star markers (`**`, `~~`, `<u>`, ...) never
+ * trigger the guard: unwrapping bold inside `***...***` correctly yields `*...*`.
+ */
+function isLoneStarViolation(
+  state: EditorStateLike,
+  before: string,
+  after: string,
+  outerFrom: number,
+  outerTo: number,
+): boolean {
+  if (before === "*") {
+    // Char just before the leading `*` (i.e. an outer `*` making it `**`).
+    if (outerFrom - 1 >= 0 && state.sliceDoc(outerFrom - 1, outerFrom) === "*") {
+      return true;
+    }
+  }
+  if (after === "*") {
+    // Char just after the trailing `*`.
+    if (outerTo + 1 <= state.doc.length && state.sliceDoc(outerTo, outerTo + 1) === "*") {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** The minimal slice of EditorState the lone-star guard needs. */
+type EditorStateLike = {
+  doc: { length: number };
+  sliceDoc(from: number, to: number): string;
+};
 
 /**
  * The link command: wrap the selection as the link TEXT and append an empty
