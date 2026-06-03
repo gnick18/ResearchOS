@@ -490,3 +490,10 @@ body[data-tour-step="notifications-silence"] .tour-secondary-pulse[data-tour-sec
   opacity: 1 !important;
 }
 
+/* Hide the global floating action dock (bottom-right cluster) while the
+   full-screen photo annotation editor is open. The annotator sets
+   `data-annotator-open` on <html> on mount and clears it on close. */
+html[data-annotator-open] [data-floating-dock] {
+  display: none !important;
+}
+

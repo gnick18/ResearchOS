@@ -611,7 +611,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           the cloned trigger via `composeRefs` — but we set it directly
           on each button below for belt-and-suspenders, because Tooltip
           doesn't propagate utility classes from the container.) */}
-      <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 pointer-events-none">
+      <div
+        data-floating-dock
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 pointer-events-none"
+      >
         <DevBeakerBotGalleryButton />
 
         <DevForceWalkthroughButton inline />

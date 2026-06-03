@@ -88,6 +88,15 @@ export default function ImageAnnotatorModal({
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
+  // While the full-screen annotation editor is open, hide the global
+  // floating action dock (bottom-right cluster) via a document flag + CSS.
+  // It is clutter over the edit surface and one of the rare cases where the
+  // dock should not show. Removed on close.
+  useEffect(() => {
+    document.documentElement.setAttribute("data-annotator-open", "");
+    return () => document.documentElement.removeAttribute("data-annotator-open");
+  }, []);
+
   const [img, setImg] = useState<HTMLImageElement | null>(null);
   const [imgError, setImgError] = useState(false);
 
