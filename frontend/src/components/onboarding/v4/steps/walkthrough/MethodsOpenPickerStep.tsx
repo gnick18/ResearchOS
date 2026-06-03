@@ -1,29 +1,28 @@
 /**
- * §6.4 Methods page, open-picker beat (sub-bot 2026-05-21).
+ * §6.7c Methods page, single awareness beat for the purpose-built editors.
  *
- * Sits BETWEEN category creation (§6.4a) and the type-breadth tour
- * (§6.4b/c). Grant's feedback after testing §6.4 was that the tour
- * jumped straight from finishing the category to a wall of type-breadth
- * speech with no on-screen anchor: the user had no idea where the New
- * Method picker was about to appear. This step inserts a short narrative
- * beat where BeakerBot announces the move ("Now let me show you the
- * kinds of methods you can build. I'm clicking New Method to open the
- * picker.") and the cursor demos clicking the "+ New Method" button.
- * The follow-up type-tour body then takes over with the picker already
- * visible.
+ * 2026-06-03 (HR / tour-simplification): collapsed the methods-builder
+ * demos 3 to 1. This beat used to be a bridge that opened the picker for a
+ * follow-up `methods-type-tour` (PCR builder) + `methods-lc-demo` (LC
+ * Gradient) pair. Those two tile demos were cut: the editors drive a
+ * self-evident UI, so a single awareness beat is enough. The speech now
+ * explains WHAT the purpose-built editors are and WHY to use them; the
+ * cursor opens the +New Method catalog so it is visible, then stops and
+ * lets the user explore the thermal-cycle builder and the live gradient
+ * chart themselves.
  *
- * Cursor responsibility: BEAKERBOT DEMO. Speech literally says "I'm
- * clicking", so the cursor performs the click. The user just watches.
+ * Cursor responsibility: one click to open the picker so the catalog is
+ * on screen. After that the user is free to poke around.
  *
- * Completion: event-driven. The step advances on the
- * `tour:methods-picker-opened` custom DOM event, which `CreateMethodModal`
- * dispatches from a mount-effect. The watch helper also falls back to
- * detecting the picker anchor in the DOM via MutationObserver so a
- * future refactor that drops the dispatch still trips the advance.
+ * Completion: `manualAdvance("Got it, next")`. The user opens an editor
+ * and explores at their own pace, then clicks to continue.
  *
- * No artifact (the modal is closed back out before §6.4d so the type
- * picker hover is transient). No expectedRoute beyond `/methods` because
- * the previous step's expectedRoute already landed us there.
+ * No artifact (the modal is closed back out before the markdown method is
+ * built; the catalog browse is transient). No expectedRoute beyond
+ * `/methods` because the previous step's expectedRoute already landed us
+ * there. `methods-create` (which follows) opens its own picker via
+ * `withNewMethodModalOpen`, so it never relied on this beat leaving the
+ * modal open.
  */
 import {
   cursorScript,
@@ -39,7 +38,7 @@ import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 export const methodsOpenPickerStep = buildWalkthroughStep({
   id: "methods-open-picker",
   speech:
-    "Now let me show you the different kinds of methods you can build. I'm clicking New Method to open the catalog.",
+    "For common techniques like PCR and LC gradients, ResearchOS gives you a purpose-built editor instead of plain text. The thermal-cycle builder and the live gradient chart live in the New Method catalog. Open one and try it whenever you like.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.methodsNewMethodButton),
   cursorScript: cursorScript(async () => {
@@ -48,16 +47,17 @@ export const methodsOpenPickerStep = buildWalkthroughStep({
     );
     return compactScript([openPicker]);
   }),
-  // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
+  // Universal pacing (Grant 2026-05-22): the step waits for the user to click before advancing.
   completion: manualAdvance("Got it, next"),
   expectedRoute: "/methods",
-  // Methods fix manager 2026-05-22: full page-lock during the
-  // BeakerBot demo. Cursor click passes through via the
-  // `__beakerBotCursorClicking` flag; user clicks outside the speech
-  // bubble are blocked so they can't accidentally walk off the tour
-  // while the picker is mounting.
+  // 2026-06-03 (HR / tour-simplification): the cursor opens the catalog,
+  // then the speech invites the user to open an editor and explore. Allow
+  // the CreateMethodModal subtree so they can actually click around inside
+  // it (matches the lock the cut PCR demo used); clicks outside the modal
+  // are still blocked so they can't walk off the tour. The cursor's own
+  // opening click passes through via the `__beakerBotCursorClicking` flag.
   pageLock: {
-    allowList: [],
-    pillLabel: "BeakerBot is opening the New Method picker.",
+    allowList: [TOUR_TARGETS.methodsCreateForm],
+    pillLabel: "Open a builder and explore. Hit Got it, next when you're ready.",
   },
 });

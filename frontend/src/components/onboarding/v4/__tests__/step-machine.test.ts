@@ -200,7 +200,7 @@ describe("TOUR_STEP_ORDER", () => {
     // bug by relocating `experiment-attach-method-attach` +
     // `experiment-attach-method-notes` to §6.7d but leaving their old
     // §6.6c / §6.6d entries in place. The user walking forward from
-    // `experiment-attach-method-tab` (§6.6b) would land on the early
+    // the §6.6 framing beat would land on the early
     // duplicate of `-attach`, then the controller's next advance
     // (consulting STEP_INDEX, which pointed at the §6.7d position)
     // jumped them ~30 steps forward, skipping the entire hybrid editor +
@@ -314,8 +314,6 @@ describe("TOUR_STEP_ORDER", () => {
       "methods-category-open",
       "methods-category",
       "methods-open-picker",
-      "methods-type-tour",
-      "methods-lc-demo",
       "methods-create",
       "experiment-attach-method-attach",
       "experiment-attach-method-notes",
@@ -333,28 +331,28 @@ describe("TOUR_STEP_ORDER", () => {
     });
   });
 
-  it("places experiment-attach-method-open / -tab immediately before the hybrid editor cluster (FINAL reorder manager 2026-05-27)", () => {
-    // FINAL restructure: the §6.6 experiment-detail framing beats
-    // (open + tab) stay right after the §6.5 experiment-create cluster
-    // (open, name, project, submit), so BeakerBot can frame the
-    // experiment popup + Methods tab before the §6.7 hybrid editor
-    // deep-dive. The attach + notes beats moved to §6.7d (after
-    // methods cluster).
+  it("places experiment-attach-method-open immediately before the hybrid editor cluster (FINAL reorder manager 2026-05-27)", () => {
+    // FINAL restructure: the §6.6 experiment-detail framing beat stays
+    // right after the §6.5 experiment-create cluster (open, name, project,
+    // submit), so BeakerBot can frame the experiment popup + Methods tab
+    // before the §6.7 hybrid editor deep-dive. The attach + notes beats
+    // moved to §6.7d (after methods cluster).
     //
     // USER_ACTION refactor 2026-05-27: the single
     // `workbench-create-experiment-open` beat became four
-    // (open, name, project, submit). Order assertion updated to
-    // require the FULL four-beat cluster comes first, with
-    // experiment-attach-method-open / -tab landing right after the
-    // submit beat. Each adjacent pair must be contiguous in
-    // TOUR_STEP_ORDER (no other ids in between).
+    // (open, name, project, submit). Order assertion requires the FULL
+    // four-beat cluster comes first.
+    //
+    // 2026-06-03 (HR / tour-simplification): the §6.6 framing merged 4 to 3;
+    // `experiment-attach-method-tab` was cut, so the open framing beat now
+    // lands directly before the hybrid editor cluster. Each adjacent pair
+    // must be contiguous in TOUR_STEP_ORDER (no other ids in between).
     const order = [
       "workbench-create-experiment-open",
       "workbench-create-experiment-name",
       "workbench-create-experiment-project",
       "workbench-create-experiment-submit",
       "experiment-attach-method-open",
-      "experiment-attach-method-tab",
       "hybrid-notes-vs-results",
     ];
     const indices = order.map((id) => TOUR_STEP_ORDER.indexOf(id));
@@ -553,47 +551,38 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER[0]).toBe("welcome");
   });
 
-  it("places methods-open-picker between methods-category and methods-type-tour (Wave 1 2026-05-27)", () => {
-    // §6.4 open-picker beat sits between finishing the category and
-    // the type-tour PCR builder demo. The cursor click on "+ New
-    // Method" owns the modal-open transition before the PCR demo
-    // fires. v4 tour structural manager (Wave 1, 2026-05-27):
-    // `methods-file-vs-markdown` retired; methods-type-tour is now the
-    // first beat after methods-open-picker.
+  it("places methods-open-picker between methods-category and methods-create (tour-simplification 2026-06-03)", () => {
+    // §6.7c open-picker beat sits between finishing the category and the
+    // markdown method build. 2026-06-03 (HR / tour-simplification): the
+    // methods-builder demos collapsed 3 to 1. methods-open-picker is now
+    // the single awareness beat (its cursor opens the catalog, the user
+    // explores), and methods-create follows it directly.
     const categoryIdx = TOUR_STEP_ORDER.indexOf("methods-category");
     const openPickerIdx = TOUR_STEP_ORDER.indexOf("methods-open-picker");
-    const typeTourIdx = TOUR_STEP_ORDER.indexOf("methods-type-tour");
+    const createIdx = TOUR_STEP_ORDER.indexOf("methods-create");
     expect(categoryIdx).toBeGreaterThanOrEqual(0);
     expect(openPickerIdx).toBeGreaterThan(categoryIdx);
-    expect(typeTourIdx).toBeGreaterThan(openPickerIdx);
+    expect(createIdx).toBe(openPickerIdx + 1);
   });
 
-  it("walks the methods builder arc in PCR -> LC -> markdown order (v4 tour structural manager Wave 1, 2026-05-27)", () => {
-    // §6.4b (Grant 2026-05-27 rewrite): the new arc is PCR builder
-    // demo (methods-type-tour) followed by LC Gradient demo
-    // (methods-lc-demo, re-introduced) followed by Standard Markdown
-    // (methods-create). The 2026-05-26 file-vs-markdown explainer was
-    // retired in favor of a single combined PCR+LC interactive-builder
-    // narrative.
-    const order = [
-      "methods-type-tour",
-      "methods-lc-demo",
-      "methods-create",
-    ];
-    const indices = order.map((id) => TOUR_STEP_ORDER.indexOf(id));
-    indices.forEach((idx, i) => {
-      expect(idx, `${order[i]} missing from TOUR_STEP_ORDER`).toBeGreaterThanOrEqual(0);
-      if (i > 0) {
-        expect(
-          idx,
-          `${order[i]} must follow ${order[i - 1]}`,
-        ).toBe(indices[i - 1] + 1);
-      }
-    });
+  it("collapses the methods builder demos to a single awareness beat (tour-simplification 2026-06-03)", () => {
+    // 2026-06-03 (HR / tour-simplification): the two tile demos
+    // (methods-type-tour PCR builder, methods-lc-demo LC Gradient) were
+    // cut. methods-open-picker is the only methods-builder awareness beat
+    // and methods-create follows it directly.
+    expect(TOUR_STEP_ORDER).not.toContain("methods-type-tour");
+    expect(TOUR_STEP_ORDER).not.toContain("methods-lc-demo");
   });
 
   it("does NOT contain the retired methods-file-vs-markdown step (Wave 1 2026-05-27)", () => {
     expect(TOUR_STEP_ORDER).not.toContain("methods-file-vs-markdown");
+  });
+
+  it("does NOT contain the cut experiment-attach-method-tab step (tour-simplification 2026-06-03)", () => {
+    // 2026-06-03 (HR / tour-simplification): the §6.6 framing merged 4 to
+    // 3; the redundant Methods-tab cursor beat was cut (the §6.7d attach
+    // beat re-stages the Methods tab via its own onEnter).
+    expect(TOUR_STEP_ORDER).not.toContain("experiment-attach-method-tab");
   });
 
   it("orders the §6.7 hybrid-editor cluster after the inline-editor collapse + demo-cut (tour-simplification 2026-06-03)", () => {
@@ -1174,24 +1163,24 @@ describe("getPreviousStep — backward traversal", () => {
     expect(getPreviousStep("not-a-real-step", picks())).toBeNull();
   });
 
-  it("backstep from hybrid-notes-vs-results lands on experiment-attach-method-tab, not anywhere in the methods cluster (back-nav jump fix manager 2026-05-27)", () => {
+  it("backstep from hybrid-notes-vs-results lands on experiment-attach-method-open, not anywhere in the methods cluster (back-nav jump fix manager 2026-05-27)", () => {
     // Grant's repro: after the duplicate-id dedup landed (commit d42461c4),
     // clicking Back on hybrid-notes-vs-results (HE-0) was still observed
     // jumping to somewhere in the §6.7c methods cluster (methods-create or
-    // similar). Per TOUR_STEP_ORDER the immediate predecessor of HE-0 is
-    // experiment-attach-method-tab; no gating predicate hides it, so
-    // backstep MUST land there under every picks shape.
+    // similar). 2026-06-03 (HR / tour-simplification): the §6.6 framing
+    // merged 4 to 3; experiment-attach-method-tab was cut, so HE-0's
+    // immediate predecessor is now experiment-attach-method-open. No gating
+    // predicate hides it, so backstep MUST land there under every picks
+    // shape.
     //
     // Belt-and-suspenders coverage: assert NOT inside the methods cluster
     // (which would be the symptom of the bug) AND assert that the back-
-    // step lands precisely on experiment-attach-method-tab.
+    // step lands precisely on experiment-attach-method-open.
     const methodsClusterIds = new Set([
       "methods-category-prompt",
       "methods-category-open",
       "methods-category",
       "methods-open-picker",
-      "methods-type-tour",
-      "methods-lc-demo",
       "methods-create",
     ]);
 
@@ -1221,7 +1210,7 @@ describe("getPreviousStep — backward traversal", () => {
     for (const [label, p] of shapes) {
       const prev = getPreviousStep("hybrid-notes-vs-results", p);
       expect(prev, `back from hybrid-notes-vs-results under ${label}`).toBe(
-        "experiment-attach-method-tab",
+        "experiment-attach-method-open",
       );
       expect(
         methodsClusterIds.has(prev as string),

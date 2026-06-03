@@ -5,14 +5,14 @@
  * declutter, 2026-05-23). The previous toolbar-popup affordance was
  * removed because Settings already carried an inline picker; rather
  * than maintain both surfaces the tour now anchors to the Settings
- * tile grid directly. Cursor clicks the "celebration" tile and the
- * animation preview fires.
+ * tile grid directly.
  *
- * Per §6.9, the suggested default pick is "celebration." Pickable
- * themes vary by user settings; the cursor click targets the
- * celebration tile by data-attribute. If that tile doesn't exist
- * (theme rename, etc.), the cursor falls through and the step
- * advances on the auto timer.
+ * 2026-06-03 (HR / tour-simplification): cursor downgrade. The beat used
+ * to click the "celebration" tile for the user; the tile grid is
+ * self-evident, so the cursor was dropped and the choice lands on the user
+ * (the speech says "pick the one you want"). The spotlight, speech, and the
+ * onExit settings_change artifact (now only recorded when the user actually
+ * changes the animation) all stay.
  *
  * Artifact:
  *   { type: "settings_change", id: "animationType:<from>→<to>", cleanup_default: "discard" }
@@ -23,19 +23,12 @@
  * `encodeSettingsChangeId(field, from, to)` so the Phase 4 grid can
  * re-use the same restore path.
  *
- * Classification: BEAKERBOT DEMO (per Grant's design correction
- * 2026-05-21). Brief explicitly classifies personalization-animations
- * as demo: cursor picks the "celebration" default so the user sees
- * the animation fire. The cleanup grid later lets the user revert if
- * they prefer a quieter theme.
+ * Classification: awareness beat (spotlight + speech, no cursor). The
+ * user picks the theme they want; the cleanup grid later lets them revert
+ * if they change their mind.
  */
 import { readUserSettings } from "@/lib/settings/user-settings";
 import { getCurrentUserCached } from "@/lib/storage/json-store";
-import {
-  cursorScript,
-  safeClickAction,
-  compactScript,
-} from "./lib/cursor-script";
 import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 import { flushPendingArtifacts, pendingArtifactStore } from "./lib/artifacts";
@@ -53,17 +46,12 @@ export const animationPickerStep = buildWalkthroughStep({
     "First up: the animation picker. When you finish an experiment, ResearchOS plays an animation to mark it. Pick the one you want.",
   pose: "bouncing",
   targetSelector: targetSelector(TOUR_TARGETS.settingsAnimationPicker),
-  cursorScript: cursorScript(async () => {
-    // The Settings page renders the picker as an inline tile grid; each
-    // tile carries `data-animation-theme="<id>"`. The "celebration"
-    // theme is the default pick per §6.9. No popup-open beat anymore
-    // (the toolbar popup was removed in the 2026-05-23 declutter pass).
-    const pickCelebration = await safeClickAction(
-      "[data-animation-theme='celebration']",
-    );
-    return compactScript([pickCelebration]);
-  }),
-  // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
+  // 2026-06-03 (HR / tour-simplification): cursor dropped. The beat used to
+  // click the "celebration" tile for the user; the picker is a self-evident
+  // tile grid, so the speech ("pick the one you want") now lands the choice
+  // on the user. The onExit artifact below is conditional on the
+  // animationType actually changing, so if the user leaves it untouched no
+  // settings_change artifact is recorded (nothing to revert).
   completion: manualAdvance("Got it, next"),
   // Capture the pre-change animationType so the artifact encodes the
   // original value for cleanup-execution.ts's settings_change revert

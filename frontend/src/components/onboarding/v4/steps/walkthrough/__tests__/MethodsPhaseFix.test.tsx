@@ -49,7 +49,9 @@ import { methodsOpenPickerStep } from "../MethodsOpenPickerStep";
 // v4 tour structural manager (Wave 1, 2026-05-27): methodsFileVsMarkdownStep
 // retired; the step body file is deleted. Tests that referenced it are
 // removed below.
-import { methodsBreadthStep } from "../MethodsBreadthStep";
+// 2026-06-03 (HR / tour-simplification): the PCR builder demo
+// (methodsBreadthStep / methods-type-tour) was cut and its source file
+// deleted; tests that referenced it are removed below.
 import {
   methodsCreateStep,
   METHODS_CREATE_PAUSE_MS,
@@ -248,8 +250,8 @@ describe("Methods phase — completion contract (P1, Grant 2026-05-22)", () => {
     ["methods-category", methodsCategoryStep],
     ["methods-open-picker", methodsOpenPickerStep],
     // v4 tour structural manager (Wave 1, 2026-05-27):
-    // methods-file-vs-markdown retired.
-    ["methods-type-tour", methodsBreadthStep],
+    // methods-file-vs-markdown retired. 2026-06-03 (HR /
+    // tour-simplification): methods-type-tour cut.
     ["methods-create", methodsCreateStep],
   ])("%s uses manualAdvance per the universal pacing rule", (_id, step) => {
     expect(step.completion.type).toBe("manual");
@@ -285,25 +287,24 @@ describe("Methods phase — page lock (P1, Grant 2026-05-22)", () => {
     expect(methodsCategoryStep.pageLock?.pillLabel).toBeTruthy();
   });
 
-  it("methods-open-picker declares a full page-lock", () => {
+  it("methods-open-picker declares a page-lock that allows the CreateMethodModal subtree", () => {
+    // 2026-06-03 (HR / tour-simplification): methods-open-picker is now the
+    // single methods-builder awareness beat. Its cursor opens the catalog
+    // and the speech invites the user to open an editor and explore, so the
+    // form anchor must be allow-listed (was a full lock when it was just a
+    // bridge to the cut PCR demo). Clicks outside the modal are still
+    // blocked.
     expect(methodsOpenPickerStep.pageLock).toBeDefined();
-    expect(methodsOpenPickerStep.pageLock?.allowList).toEqual([]);
-    expect(methodsOpenPickerStep.pageLock?.pillLabel).toBeTruthy();
-  });
-
-  it("methods-type-tour declares a page-lock that allows the CreateMethodModal subtree", () => {
-    expect(methodsBreadthStep.pageLock).toBeDefined();
-    // The form anchor covers the picker tiles + the PCR builder so the
-    // user can poke around per the speech bubble's "click around to get
-    // a feel for it" prompt.
-    expect(methodsBreadthStep.pageLock?.allowList).toContain(
+    expect(methodsOpenPickerStep.pageLock?.allowList).toContain(
       TOUR_TARGETS.methodsCreateForm,
     );
-    expect(methodsBreadthStep.pageLock?.pillLabel).toBeTruthy();
+    expect(methodsOpenPickerStep.pageLock?.pillLabel).toBeTruthy();
   });
 
   // v4 tour structural manager (Wave 1, 2026-05-27): methods-file-vs-markdown
   // retired; its page-lock guard test is removed alongside the step body.
+  // 2026-06-03 (HR / tour-simplification): methods-type-tour (the PCR
+  // builder demo) cut; its page-lock guard test is removed too.
 
   it("methods-create demo declares a full page-lock", () => {
     expect(methodsCreateStep.pageLock).toBeDefined();

@@ -146,19 +146,13 @@ import { methodsCategoryPromptStep } from "./steps/walkthrough/MethodsCategoryPr
 import { methodsCategoryOpenStep } from "./steps/walkthrough/MethodsCategoryOpenStep";
 import { methodsCategoryStep } from "./steps/walkthrough/MethodsCategoryStep";
 import { methodsOpenPickerStep } from "./steps/walkthrough/MethodsOpenPickerStep";
-// v4 tour structural manager (Wave 1, 2026-05-27): `methods-file-vs-markdown`
-// retired. Grant's new script reshapes §6.4b around two interactive
-// builders (PCR + LC Gradient); the prior explainer beat is folded into
-// surrounding speech.
-import { methodsBreadthStep } from "./steps/walkthrough/MethodsBreadthStep";
-// §6.4b Grant 2026-05-21 rework: PCR sub-steps (edit / add-cycle /
-// confirm-cycle) dropped from the active flow. The bodies stay in the
-// repo for now, easy to bring back if Grant changes his mind on the
-// detail level. Removed from TOUR_STEP_ORDER and TOUR_STEPS.
-// v4 tour structural manager (Wave 1, 2026-05-27): re-introduce
-// `methods-lc-demo` as a Wave 1 skeleton. Sits between methods-type-tour
-// (PCR) and methods-create (markdown). Wave 2 fills speech + cursor.
-import { methodsLcDemoStep } from "./steps/walkthrough/MethodsLcDemoStep";
+// 2026-06-03 (HR / tour-simplification): collapsed the methods-builder
+// demos 3 to 1. `methods-open-picker` is now the single awareness beat for
+// the purpose-built PCR / LC editors (its cursor opens the catalog, then
+// the user explores). The two tile demos `methods-type-tour`
+// (methodsBreadthStep, PCR builder) and `methods-lc-demo` (methodsLcDemoStep,
+// LC Gradient) were cut; the MethodsBreadthStep.tsx / MethodsLcDemoStep.tsx
+// source files were deleted with them.
 import { methodsCreateStep } from "./steps/walkthrough/MethodsCreateStep";
 // v4 tour structural manager (Wave 1, 2026-05-27): `workbench-page-intro`
 // retired (page framing folded into workbench-create-experiment-open) +
@@ -178,7 +172,11 @@ import {
 // `methodAttachmentStep` was split into 4 popup-mount-safe sub-steps.
 // Re-export glue lives in MethodAttachmentStep.tsx for back-compat.
 import { methodAttachmentOpenStep } from "./steps/walkthrough/MethodAttachmentOpenStep";
-import { methodAttachmentTabStep } from "./steps/walkthrough/MethodAttachmentTabStep";
+// 2026-06-03 (HR / tour-simplification): merged the §6.6 method-attach
+// framing 4 to 3. `experiment-attach-method-tab` (methodAttachmentTabStep)
+// was cut; its Methods-tab framing folded into `experiment-attach-method-
+// open`'s speech, and the later `-attach` beat re-stages the Methods tab via
+// its own onEnter. The MethodAttachmentTabStep.tsx source file was deleted.
 import { methodAttachmentAttachStep } from "./steps/walkthrough/MethodAttachmentAttachStep";
 import { methodAttachmentNotesStep } from "./steps/walkthrough/MethodAttachmentNotesStep";
 // v4 tour structural manager (Wave 1, 2026-05-27): `experiment-tabs-overview`
@@ -344,12 +342,10 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [methodsCategoryPromptStep.id]: methodsCategoryPromptStep,
   [methodsCategoryOpenStep.id]: methodsCategoryOpenStep,
   [methodsCategoryStep.id]: methodsCategoryStep,
+  // 2026-06-03 (HR / tour-simplification): methods-builder demos 3 to 1.
+  // methods-open-picker is the single awareness beat; methodsBreadthStep
+  // (methods-type-tour) + methodsLcDemoStep (methods-lc-demo) were cut.
   [methodsOpenPickerStep.id]: methodsOpenPickerStep,
-  // v4 tour structural manager (Wave 1, 2026-05-27):
-  // `methods-file-vs-markdown` retired; PCR (methodsBreadthStep) +
-  // new methodsLcDemoStep carry the §6.4b builders arc.
-  [methodsBreadthStep.id]: methodsBreadthStep,
-  [methodsLcDemoStep.id]: methodsLcDemoStep,
   [methodsCreateStep.id]: methodsCreateStep,
   // v4 tour structural manager (Wave 1, 2026-05-27): `workbench-page-intro`
   // and `workbench-create-experiment` retired. Only the user-action
@@ -358,11 +354,11 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [workbenchCreateExperimentNameStep.id]: workbenchCreateExperimentNameStep,
   [workbenchCreateExperimentProjectStep.id]: workbenchCreateExperimentProjectStep,
   [workbenchCreateExperimentSubmitStep.id]: workbenchCreateExperimentSubmitStep,
+  // 2026-06-03 (HR / tour-simplification): method-attach framing 4 to 3.
+  // experiment-attach-method-open is the single framing beat;
+  // methodAttachmentTabStep (experiment-attach-method-tab) was cut, its
+  // Methods-tab framing folded into the open beat's speech.
   [methodAttachmentOpenStep.id]: methodAttachmentOpenStep,
-  // v4 tour structural manager (Wave 1, 2026-05-27):
-  // `experiment-tabs-overview` retired; framing folded into surrounding
-  // step's speech.
-  [methodAttachmentTabStep.id]: methodAttachmentTabStep,
   [methodAttachmentAttachStep.id]: methodAttachmentAttachStep,
   [methodAttachmentNotesStep.id]: methodAttachmentNotesStep,
   // §6.7 hybrid editor cluster. Inline-editor collapse (onboarding-inline

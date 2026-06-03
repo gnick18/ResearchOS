@@ -9,21 +9,24 @@
  * script's targets don't exist until the popup mounts, so the second
  * click in the script either timed out or fired on a stale DOM.
  *
- * The split mirrors §6.2's NAV / PROSE pattern, scaled to four beats:
+ * The split mirrors §6.2's NAV / PROSE pattern. 2026-06-03 (HR /
+ * tour-simplification) merged the framing 4 beats to 3:
  *
- *   1. `experiment-attach-method-open`   — click the workbench row to
- *                                          open the popup.
- *   2. `experiment-attach-method-tab`    — click the Methods tab inside
- *                                          the now-open popup.
- *   3. `experiment-attach-method-attach` — click Attach + pick first
+ *   1. `experiment-attach-method-open`   — open the popup + frame the
+ *                                          Methods tab (absorbed the cut
+ *                                          `-tab` beat's framing).
+ *   2. `experiment-attach-method-attach` — click Attach + pick first
  *                                          method (the funny markdown
- *                                          one from §6.4d).
- *   4. `experiment-attach-method-notes`  — type the variation note +
+ *                                          one from §6.7c). Its onEnter
+ *                                          re-stages the Methods tab.
+ *   3. `experiment-attach-method-notes`  — type the variation note +
  *                                          deliver the mental-model
  *                                          speech.
  *
- * Each sub-step's cursor script runs against a stable overlay mount
- * (the popup mounts during step 1, stays mounted through steps 2-4).
+ * The cut `experiment-attach-method-tab` beat (cursor just clicked the
+ * Methods tab) was redundant: the `-attach` beat's onEnter
+ * (`ensureExperimentPopupOpen`) reopens the popup AND activates the
+ * Methods tab on its own.
  *
  * This file is kept as a re-export hub so the test fixtures and
  * back-compat callers (`import { methodAttachmentStep } from
@@ -33,7 +36,9 @@
  * moment (user attached a method and added a variation note).
  */
 export { methodAttachmentOpenStep } from "./MethodAttachmentOpenStep";
-export { methodAttachmentTabStep } from "./MethodAttachmentTabStep";
+// 2026-06-03 (HR / tour-simplification): methodAttachmentTabStep
+// (experiment-attach-method-tab) was cut and its source file deleted; the
+// re-export is gone with it.
 export { methodAttachmentAttachStep } from "./MethodAttachmentAttachStep";
 export { methodAttachmentNotesStep } from "./MethodAttachmentNotesStep";
 // VARIATION_NOTE removed (experiment-flow fix manager 2026-05-27): the

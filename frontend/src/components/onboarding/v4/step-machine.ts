@@ -189,9 +189,9 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // cluster (§6.7c) and the actual method-attachment beats (§6.7d).
   // The order is:
   //
-  //   experiment-attach-method-open  (open the experiment popup, frame it)
-  //   experiment-attach-method-tab   (point at the Methods tab, defer the
-  //                                  attach to after the methods cluster)
+  //   experiment-attach-method-open  (open the experiment popup, frame the
+  //                                  Methods tab, defer the attach to after
+  //                                  the methods cluster)
   //   ... hybrid editor + workbench notes/lists clusters ...
   //   ... methods cluster (§6.7c) ...
   //   experiment-attach-method-attach (return to the experiment, attach
@@ -200,10 +200,10 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   //
   // The attach + notes beats moved to AFTER methods-create per the FINAL
   // tour script so the user has built a method (in the methods cluster)
-  // BEFORE we ask them to attach one to the experiment. The tab beat
-  // stays here to introduce the concept early; the attach beat carries
-  // a navigation hook to re-open the experiment popup + Methods tab
-  // after the methods detour.
+  // BEFORE we ask them to attach one to the experiment. The framing beat
+  // introduces the concept early; the attach beat carries a navigation
+  // hook to re-open the experiment popup + Methods tab after the methods
+  // detour.
   //
   // Saved-step jump-ahead fix (2026-05-27, tour saved-step jump-ahead
   // fix manager): the FINAL reorder relocated `experiment-attach-method-
@@ -212,15 +212,23 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // §6.6c / §6.6d entries here too. Because `STEP_INDEX` is built from
   // `TOUR_STEP_ORDER.map((id, i) => [id, i])` and a Map keeps the LAST
   // value per duplicate key, every lookup of these two ids resolved to
-  // their LATE indices. The controller would advance from `-tab` to
-  // `-attach` (the first occurrence at +1 in the array), but the next
-  // advance / back-step consulted STEP_INDEX and jumped to / from the
+  // their LATE indices. The controller would advance from the framing
+  // beat to `-attach` (the first occurrence at +1 in the array), but the
+  // next advance / back-step consulted STEP_INDEX and jumped to / from the
   // LATE position, skipping ~30 steps (hybrid editor + workbench notes/
   // lists + methods cluster). Removing the duplicates here keeps `-open`
-  // / `-tab` as the §6.6a/b framing beats and lets the canonical §6.7d
-  // entries below own the actual attach / notes interactions.
-  "experiment-attach-method-open",    // §6.6a click workbench row → open popup
-  "experiment-attach-method-tab",     // §6.6b click Methods tab inside popup
+  // as the §6.6 framing beat and lets the canonical §6.7d entries below
+  // own the actual attach / notes interactions.
+  // 2026-06-03 (HR / tour-simplification): merged the §6.6 method-attach
+  // framing 4 to 3. `experiment-attach-method-open` is now the single
+  // awareness beat (it opens the experiment popup and frames the Methods
+  // tab). The redundant `experiment-attach-method-tab` beat (cursor just
+  // clicked the Methods tab) was cut; the later §6.7d
+  // `experiment-attach-method-attach` re-stages that surface via its own
+  // onEnter (`ensureExperimentPopupOpen` reopens the popup AND activates
+  // the Methods tab). The MethodAttachmentTabStep.tsx source file was
+  // deleted with the beat.
+  "experiment-attach-method-open",    // §6.6 single framing beat (open popup + frame Methods tab)
   // Hybrid editor — §6.7. Inline-editor collapse (onboarding-inline bot
   // 2026-06-02): the markdown editor is now INLINE-ONLY (the hybrid
   // click-to-edit-blocks mode was retired from the UI). The old §6.7
@@ -290,18 +298,17 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // click Create Empty.
   "methods-category-open",   // §6.7c-open (user opens the modal)
   "methods-category",        // §6.7c-demo (cursor types + clicks Create Empty)
-  "methods-open-picker",     // §6.7c bridge (click New Method, modal mounts)
-  // 2026-05-27 (v4 tour structural manager, Wave 1): the prior
-  // `methods-file-vs-markdown` explainer beat is retired. Grant's new
-  // script reshapes §6.7c around two interactive builders (PCR + LC
-  // Gradient); file-attach is mentioned in passing in the new
-  // `methods-type-tour` copy and doesn't need its own beat anymore.
-  "methods-type-tour",        // §6.7c-1: PCR builder demo (two edits + free-play)
-  // 2026-05-27 (v4 tour structural manager, Wave 1): re-introduce
-  // `methods-lc-demo` as a split-off BEAKERBOT_DEMO that exercises the
-  // LC Gradient editor. Lives between PCR (`methods-type-tour`) and the
-  // standard markdown demo (`methods-create`).
-  "methods-lc-demo",          // §6.7c-2: LC Gradient editor demo
+  // 2026-06-03 (HR / tour-simplification): collapsed the methods-builder
+  // demos 3 to 1. `methods-open-picker` is now the single awareness beat
+  // for the purpose-built PCR / LC editors. Its cursor opens the +New
+  // Method picker so the catalog is visible, then stops; the user explores
+  // the thermal-cycle builder and the live gradient chart themselves. The
+  // two tile demos (`methods-type-tour` PCR builder + `methods-lc-demo` LC
+  // Gradient) were cut. The MethodsBreadthStep.tsx / MethodsLcDemoStep.tsx
+  // source files were deleted with them. `methods-create` (below) opens its
+  // own picker via `withNewMethodModalOpen`, so it never relied on a prior
+  // beat leaving the modal open.
+  "methods-open-picker",     // §6.7c single awareness beat (open the catalog)
   "methods-create",           // §6.7c-3 (BeakerBot's funny markdown method)
   // Method attachment + variation notes (§6.7d, FINAL restructure
   // 2026-05-27). Originally §6.6c + §6.6d; relocated to after the

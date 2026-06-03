@@ -47,15 +47,10 @@ import { notificationsBellStep } from "../NotificationsBellStep";
 import { methodsCategoryStep } from "../MethodsCategoryStep";
 import { methodsCategoryPromptStep } from "../MethodsCategoryPromptStep";
 import { methodsOpenPickerStep } from "../MethodsOpenPickerStep";
-// v4 tour structural manager (Wave 1, 2026-05-27):
-// `methods-file-vs-markdown` retired; the file is deleted. The new arc
-// is PCR (methodsBreadthStep) → LC (methodsLcDemoStep skeleton) → markdown
-// (methodsCreateStep).
-import {
-  methodsBreadthStep,
-  METHODS_BREADTH_TILE_TARGETS,
-} from "../MethodsBreadthStep";
-import { methodsLcDemoStep } from "../MethodsLcDemoStep";
+// 2026-06-03 (HR / tour-simplification): the methods-builder demos
+// collapsed 3 to 1. methods-open-picker is the single awareness beat;
+// the PCR (methodsBreadthStep) + LC (methodsLcDemoStep) tile demos were
+// cut and their source files deleted. methods-create follows directly.
 import { methodsCreateStep, FUNNY_METHOD_NAME } from "../MethodsCreateStep";
 import {
   workbenchCreateExperimentOpenStep,
@@ -73,7 +68,9 @@ import {
 // re-exports `methodAttachmentNotesStep` for back-compat (the
 // MethodAttachmentStep.tsx file is now a glue module).
 import { methodAttachmentOpenStep } from "../MethodAttachmentOpenStep";
-import { methodAttachmentTabStep } from "../MethodAttachmentTabStep";
+// 2026-06-03 (HR / tour-simplification): methodAttachmentTabStep
+// (experiment-attach-method-tab) cut; its source file deleted. The §6.6
+// framing merged 4 to 3 (open + attach + notes).
 import { methodAttachmentAttachStep } from "../MethodAttachmentAttachStep";
 import { methodAttachmentNotesStep } from "../MethodAttachmentNotesStep";
 import { methodAttachmentStep } from "../MethodAttachmentStep";
@@ -195,15 +192,15 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   notificationsBellStep,
   methodsCategoryPromptStep,
   methodsCategoryStep,
+  // 2026-06-03 (HR / tour-simplification): methods-builder demos 3 to 1.
+  // methods-open-picker is the single awareness beat; the PCR + LC tile
+  // demos (methodsBreadthStep, methodsLcDemoStep) were cut.
   methodsOpenPickerStep,
-  methodsBreadthStep,
-  // v4 tour structural manager (Wave 1, 2026-05-27): re-introduced
-  // methods-lc-demo skeleton.
-  methodsLcDemoStep,
   methodsCreateStep,
   workbenchCreateExperimentOpenStep,
+  // 2026-06-03 (HR / tour-simplification): method-attach framing 4 to 3.
+  // methodAttachmentTabStep (experiment-attach-method-tab) was cut.
   methodAttachmentOpenStep,
-  methodAttachmentTabStep,
   methodAttachmentAttachStep,
   methodAttachmentNotesStep,
   hybridNotesVsResultsStep,
@@ -282,13 +279,14 @@ describe("P5 step bodies — universal contract", () => {
       "notifications-bell",
       "methods-category-prompt",
       "methods-category",
+      // 2026-06-03 (HR / tour-simplification): methods-builder demos 3 to 1
+      // (methods-type-tour + methods-lc-demo cut).
       "methods-open-picker",
-      "methods-type-tour",
-      "methods-lc-demo",
       "methods-create",
       "workbench-create-experiment-open",
+      // 2026-06-03 (HR / tour-simplification): method-attach framing 4 to 3
+      // (experiment-attach-method-tab cut).
       "experiment-attach-method-open",
-      "experiment-attach-method-tab",
       "experiment-attach-method-attach",
       "experiment-attach-method-notes",
       // §6.7 hybrid editor redesign (Hybrid editor manager 2026-05-22).
@@ -417,8 +415,11 @@ describe("P5 step bodies — universal contract", () => {
       // 2026-05-21 split (the user clicks bell, silence, and delete
       // themselves); they're absent from this list deliberately.
       methodsCategoryStep,
+      // 2026-06-03 (HR / tour-simplification): methods-open-picker keeps its
+      // single opening cursor (opens the catalog, then the user explores).
+      // The PCR + LC tile demos (methodsBreadthStep, methodsLcDemoStep) were
+      // cut, so they're gone from this list.
       methodsOpenPickerStep,
-      methodsBreadthStep,
       methodsCreateStep,
       // v4 tour structural manager (Wave 1, 2026-05-27):
       // workbench-create-experiment retired (Grant's [DROP] marker).
@@ -430,7 +431,8 @@ describe("P5 step bodies — universal contract", () => {
       // "no beat declares a pageLock" / "no cursor" assertions there,
       // and are intentionally EXCLUDED from this demo-with-cursor list.
       methodAttachmentOpenStep,
-      methodAttachmentTabStep,
+      // 2026-06-03 (HR / tour-simplification): methodAttachmentTabStep
+      // (experiment-attach-method-tab) was cut, so it's gone from this list.
       // attach-step-unblock bot (2026-06-03, Grant live-walk):
       // `experiment-attach-method-attach` dropped its cursorScript (and
       // its targetSelector). The old cursor demo re-clicked the row +
@@ -458,7 +460,11 @@ describe("P5 step bodies — universal contract", () => {
       // intentionally EXCLUDED: per Gantt fix manager R1 (P1 #6) it now
       // drives the demo entirely via the speech body's faked-switch
       // modal (no cursor sequence), so a cursorScript is not required.
-      ganttExistingExperimentStep,
+      // 2026-06-03 (HR / tour-simplification): `ganttExistingExperimentStep`
+      // (gantt-existing-experiment) is also EXCLUDED now. Its cursor (open
+      // the user's bar, then auto-close the popup via Escape) was dropped;
+      // opening a bar is self-evident, so the beat is spotlight + speech
+      // only. Asserted undefined in its own describe block below.
       ganttDragDropStep,
       ganttDepsBeakerBotStep,
       ganttDepsCascadeStep,
@@ -472,7 +478,11 @@ describe("P5 step bodies — universal contract", () => {
       // a leftover experiment popup. The step is now pure narration with
       // a static spotlight on the "+ Goal" button, so it no longer
       // carries a cursorScript.
-      animationPickerStep,
+      // 2026-06-03 (HR / tour-simplification): `animationPickerStep`
+      // (personalization-animations) is EXCLUDED now. Its cursor (click the
+      // celebration tile) was dropped; the tile grid is self-evident, so the
+      // user picks the theme themselves. Asserted undefined in its own
+      // describe block below.
       // §6.10 Settings phase redesign 2026-05-22 (Wave 2E split,
       // 2026-05-27): BeakerBot-led demo steps that retain cursor
       // scripts. The agentic use-case step is intentionally EXCLUDED
@@ -489,7 +499,10 @@ describe("P5 step bodies — universal contract", () => {
       // `size-options` is the BeakerBot-led demo.
       aiHelperSizeOptionsStep,
       settingsAiHelperUseCasePasteStep,
-      searchStep,
+      // 2026-06-03 (HR / tour-simplification): `searchStep` (search-demo) is
+      // EXCLUDED now. Its cursor (click the Search button) was dropped; the
+      // Search button is self-evident, so the beat is spotlight + speech
+      // only. Asserted undefined in its own describe block below.
       // §6.12 Wiki pointer cluster - 2026-06-03 (HR / tour-simplification):
       // the two cursor-driven beats (click-demo, back-demo) were cut. Both
       // surviving beats (`wiki-pointer-intro` speech-only,
@@ -712,90 +725,12 @@ describe("Methods steps (§6.4)", () => {
     // for the user.
     expect(methodsCategoryStep.completion.type).toBe("manual");
   });
-  it("breadth step renders the type-tour speech (PCR-only after Grant 2026-05-26 rework)", () => {
-    const speech = renderSpeech(methodsBreadthStep);
-    expect(speech).toMatch(/PCR/);
-    expect(speech).toMatch(/LC Gradient/);
-  });
-  it("breadth step speech opens the PCR builder + hands off to LC (script rewrite 2026-05-27)", () => {
-    // Script rewrite 2026-05-27: the prior breadth speech (with
-    // Compound / wiki / "click around") split into two steps. This step
-    // is now PCR-only and ends with the LC handoff line; the LC editor
-    // speech lives on the new methods-lc-demo step.
-    const speech = renderSpeech(methodsBreadthStep);
-    expect(speech).toMatch(/PCR/);
-    expect(speech).toMatch(/LC Gradient/);
-    expect(speech).toMatch(/purpose-built editor/i);
-    expect(speech).toMatch(/Opening the PCR builder/);
-    // 2026-05-27 hand-walk fix: the scripted edits were dropped and the
-    // speech now invites the user to scroll + poke the gradient steps
-    // themselves ("try adjusting one of the steps") instead of the old
-    // "Take a look around" wording.
-    expect(speech).toMatch(/try adjusting/i);
-    expect(speech).toMatch(/Got it, next/);
-    // Old fast-demo framing must be gone.
-    expect(speech).not.toMatch(/Watch\./);
-    expect(speech).not.toMatch(/move across them/);
-    // Old breadth copy must be gone (now lives in methods-lc-demo or is dropped).
-    expect(speech).not.toMatch(/Compound/);
-    expect(speech).not.toMatch(/wiki/i);
-  });
-  it("breadth step targets only PCR (Grant 2026-05-26 LC removal)", () => {
-    // After the LC Gradient deep-demo removal, the breadth arc visits
-    // PCR only. Regression guard against re-introducing additional
-    // tiles in the breadth-step demo.
-    expect(METHODS_BREADTH_TILE_TARGETS).toEqual(["method-type-pcr"]);
-  });
-  it("breadth step cursor script clicks PCR tile then scrolls the builder into view (Grant 2026-05-27 hand-walk fix)", async () => {
-    // Grant's 2026-05-27 hand-walk found that the prior scripted edits
-    // (Edit Cycle, Add Step, type temp, type duration, Save) all
-    // scrolled the modal back to the top — each `safeClickAction`
-    // refits its target into the viewport, undoing the earlier
-    // scroll-down. Dropped the scripted edits entirely. Cursor now
-    // just clicks the PCR tile + scrolls the builder into view; the
-    // user pokes the gradient steps themselves.
-    const fixtures: Array<{ el: HTMLElement; cleanup: () => void }> = [];
-    const mkStub = (target: string, tag: keyof HTMLElementTagNameMap = "button") => {
-      const el = document.createElement(tag);
-      el.setAttribute("data-tour-target", target);
-      document.body.appendChild(el);
-      fixtures.push({ el: el as HTMLElement, cleanup: () => el.remove() });
-      return el;
-    };
-    try {
-      mkStub("methods-type-picker", "div");
-      const pcrTile = mkStub("method-type-pcr");
-      mkStub("pcr-editor-wrapper", "div");
-
-      expect(methodsBreadthStep.cursorScript).toBeDefined();
-      const actions = await methodsBreadthStep.cursorScript!();
-      const clicks = actions.filter((a) => a.type === "click");
-      const types = actions.filter((a) => a.type === "type");
-      const callbacks = actions.filter((a) => a.type === "callback");
-      // Cursor performs exactly one click (the PCR tile) + no types.
-      // 2026-05-27 hand-walk follow-up: the scripted scroll callback was
-      // removed (the ensureViewportAnchor loop fought the user's wheel),
-      // so the script now ships exactly one callback (the post-click
-      // read-then-watch pause). The speech invites the user to scroll
-      // down themselves.
-      expect(clicks.length).toBe(1);
-      expect(types.length).toBe(0);
-      expect(callbacks.length).toBeGreaterThanOrEqual(1);
-      // First action is the PCR tile click.
-      const firstClick = actions.find((a) => a.type === "click");
-      if (firstClick && firstClick.type === "click") {
-        expect(firstClick.target).toBe(pcrTile);
-      }
-    } finally {
-      for (const f of fixtures) f.cleanup();
-    }
-  }, 30000);
-  it("breadth step uses manual advance so user can explore at their own pace (Grant 2026-05-21 rework)", () => {
-    // Reverted from autoAdvanceAfter to manualAdvance: Grant's
-    // feedback was that the multi-sub-step click drama moved too fast.
-    // Manual advance gives the user time to read AND poke the builder.
-    expect(methodsBreadthStep.completion.type).toBe("manual");
-  });
+  // 2026-06-03 (HR / tour-simplification): the methods-builder demos
+  // collapsed 3 to 1. The PCR builder demo (methods-type-tour /
+  // methodsBreadthStep) and the LC Gradient demo (methods-lc-demo /
+  // methodsLcDemoStep) were cut; their source files were deleted and their
+  // dedicated tests removed. methods-open-picker is now the single awareness
+  // beat (covered in its own describe block below).
   it("methods-create step uses the funny coffee protocol name", () => {
     expect(FUNNY_METHOD_NAME).toMatch(/Coffee Brewing/);
     // Universal pacing rule (Grant 2026-05-22): the BeakerBot demo
@@ -818,77 +753,7 @@ describe("Methods steps (§6.4)", () => {
   });
 });
 
-describe("MethodsLcDemoStep (§6.4b LC Gradient invite-to-explore beat)", () => {
-  it("targets the LC Gradient tile via its cursor script (spotlight dropped 2026-05-27)", async () => {
-    // Hand-walk fix 2026-05-27 (third pass): the spotlight targetSelector
-    // was removed on purpose. Anchoring the spotlight on the LC tile at
-    // the top of the modal made TourSpotlight's keep-in-view logic
-    // auto-scroll the modal back up whenever the user scrolled down to
-    // the chart, so the step is now spotlight-less. The cursor script
-    // still clicks the LC Gradient tile, which is the affordance the
-    // step is "targeting". Assert the script aims at that tile.
-    expect(methodsLcDemoStep.targetSelector).toBeUndefined();
-    const lcTile = document.createElement("button");
-    lcTile.setAttribute("data-tour-target", "method-type-lc-gradient");
-    document.body.appendChild(lcTile);
-    try {
-      const actions = await methodsLcDemoStep.cursorScript!();
-      const firstClick = actions.find((a) => a.type === "click");
-      expect(firstClick).toBeDefined();
-      if (firstClick && firstClick.type === "click") {
-        expect(firstClick.target).toBe(lcTile);
-      }
-    } finally {
-      lcTile.remove();
-    }
-  });
-  it("manual-advances ('Got it, next') so the user can explore at their own pace", () => {
-    expect(methodsLcDemoStep.completion.type).toBe("manual");
-  });
-  it("speech introduces the LC Gradient editor (script rewrite 2026-05-27)", () => {
-    const speech = renderSpeech(methodsLcDemoStep);
-    expect(speech).toMatch(/LC Gradient/);
-    expect(speech).toMatch(/chart/i);
-    // Speech wording evolved to "the live chart that updates as you
-    // change values in the table" (was "updates automatically").
-    expect(speech).toMatch(/updates as you change values/i);
-    expect(speech).toMatch(/Got it, next/);
-  });
-  it("cursor script clicks the LC tile then scrolls the chart into view (scroll-and-demo fix manager 2026-05-27)", async () => {
-    // Per Grant's 2026-05-27 hand-walk: clicking the LC tile alone left
-    // the chart below the fold on the CreateMethodModal's inner scroll
-    // container. Cursor now: clicks tile, pauses, scrolls the chart
-    // into view via ensureViewportAnchor (no interactive edits — the
-    // chart updates as the user pokes the table values themselves).
-    const fixtures: Array<{ el: HTMLElement; cleanup: () => void }> = [];
-    try {
-      const lcTile = document.createElement("button");
-      lcTile.setAttribute("data-tour-target", "method-type-lc-gradient");
-      document.body.appendChild(lcTile);
-      fixtures.push({ el: lcTile, cleanup: () => lcTile.remove() });
-
-      const actions = await methodsLcDemoStep.cursorScript!();
-      const clicks = actions.filter((a) => a.type === "click");
-      const callbacks = actions.filter((a) => a.type === "callback");
-      // One click (the tile) plus the post-click read-then-watch pause
-      // callback. No edit clicks per Grant's brief. 2026-05-27 hand-walk
-      // follow-up: the scripted scroll-into-view callback was dropped
-      // (the ensureViewportAnchor loop fought the user's wheel), so the
-      // script now ships exactly one callback. The speech invites the
-      // user to scroll down to the chart themselves.
-      expect(clicks).toHaveLength(1);
-      expect(callbacks.length).toBeGreaterThanOrEqual(1);
-      if (clicks[0].type === "click") expect(clicks[0].target).toBe(lcTile);
-      // First visible action must be the tile click (so the user sees
-      // BeakerBot pick LC Gradient before the scroll happens).
-      expect(actions[0].type).toBe("click");
-    } finally {
-      for (const f of fixtures) f.cleanup();
-    }
-  });
-});
-
-describe("MethodsOpenPickerStep (§6.4 open-picker beat)", () => {
+describe("MethodsOpenPickerStep (§6.7c single awareness beat)", () => {
   it("declares manual completion (universal pacing rule, Grant 2026-05-22)", () => {
     // Was event-driven on `tour:methods-picker-opened`. Universal pacing
     // converts BeakerBot-led demo steps to manual advance.
@@ -902,15 +767,16 @@ describe("MethodsOpenPickerStep (§6.4 open-picker beat)", () => {
       "[data-tour-target=\"methods-new-method-button\"]",
     );
   });
-  it("speech announces the New Method click verbatim", () => {
+  it("speech frames the purpose-built editors as a single awareness beat (tour-simplification 2026-06-03)", () => {
+    // 2026-06-03 (HR / tour-simplification): the methods-builder demos
+    // collapsed 3 to 1. This beat now explains the purpose-built PCR / LC
+    // editors and invites the user to open one and explore. The old
+    // "I'm clicking New Method" demo framing is gone.
     const text = renderSpeech(methodsOpenPickerStep);
-    expect(text).toMatch(
-      /I'm clicking New Method to open the catalog/,
-    );
-    // Also lock the leading prose so a future copy edit gets surfaced.
-    expect(text).toMatch(
-      /Now let me show you the different kinds of methods/,
-    );
+    expect(text).toMatch(/purpose-built editor/i);
+    expect(text).toMatch(/PCR and LC gradients/);
+    expect(text).toMatch(/Open one and try it whenever you like/);
+    expect(text).not.toMatch(/I'm clicking New Method/);
   });
   it("cursor script issues a click against the New Method button", async () => {
     const button = document.createElement("button");
@@ -1049,10 +915,18 @@ describe("MethodAttachment split sub-steps (§6.6 popup-mount split, 2026-05-21)
   it("open sub-step expectedRoute is /workbench (popup is portal-mounted)", () => {
     expect(methodAttachmentOpenStep.expectedRoute).toBe("/workbench");
   });
-  it("open sub-step speech absorbs the experiment-tabs-overview intro (script rewrite 2026-05-27)", () => {
+  it("open sub-step speech merges the Methods-tab framing (tour-simplification 2026-06-03)", () => {
+    // 2026-06-03 (HR / tour-simplification): the §6.6 framing merged 4 to
+    // 3. The open beat absorbed the Methods-tab framing the cut
+    // `experiment-attach-method-tab` beat used to carry. Speech now frames
+    // where to open the experiment and what the Methods tab is for, then
+    // states the build-first-then-attach sequence.
     const text = renderSpeech(methodAttachmentOpenStep);
-    expect(text).toMatch(/This is one experiment, opened up/);
-    expect(text).toMatch(/We'll walk through each piece/);
+    expect(text).toMatch(/Open your experiment/);
+    expect(text).toMatch(/Methods/);
+    expect(text).toMatch(/pin the/);
+    expect(text).toMatch(/protocol you followed/);
+    expect(text).toMatch(/build a method first, then come back here to attach it/);
   });
   it("open sub-step uses the 'Got it, next' button label (universal pacing)", () => {
     if (methodAttachmentOpenStep.completion.type !== "manual") {
@@ -1061,34 +935,11 @@ describe("MethodAttachment split sub-steps (§6.6 popup-mount split, 2026-05-21)
     expect(methodAttachmentOpenStep.completion.buttonLabel).toBe("Got it, next");
   });
 
-  it("tab sub-step has id `experiment-attach-method-tab`", () => {
-    expect(methodAttachmentTabStep.id).toBe("experiment-attach-method-tab");
-  });
-  it("tab sub-step declares manual completion (universal pacing rule, Grant 2026-05-22)", () => {
-    // Was event-driven on `tour:experiment-methods-tab-active`.
-    expect(methodAttachmentTabStep.completion.type).toBe("manual");
-  });
-  it("tab sub-step targets experiment-methods-tab anchor", () => {
-    expect(methodAttachmentTabStep.targetSelector).toBe(
-      "[data-tour-target=\"experiment-methods-tab\"]",
-    );
-  });
-  it("tab sub-step uses the 'Got it, next' button label (universal pacing)", () => {
-    if (methodAttachmentTabStep.completion.type !== "manual") {
-      throw new Error("completion contract changed shape; update test");
-    }
-    expect(methodAttachmentTabStep.completion.buttonLabel).toBe("Got it, next");
-  });
-  it("tab sub-step speech says what the Methods tab is for and defers the attach (voice pass 2026-06-03)", () => {
-    // Voice pass 2026-06-03: tightened to the point. The beat now states
-    // what the tab is for, then the build-then-attach sequence. The old
-    // "Six months from now..." scenario + "for now just know it exists"
-    // filler were cut as AI-speak.
-    const text = renderSpeech(methodAttachmentTabStep);
-    expect(text).toMatch(/where you attach the protocol/);
-    expect(text).toMatch(/stay tied to this experiment/);
-    expect(text).toMatch(/build a method first, then come back here to attach it/);
-  });
+  // 2026-06-03 (HR / tour-simplification): the `experiment-attach-method-tab`
+  // beat (cursor clicked the Methods tab) was cut. Its framing folded into
+  // the open beat's speech (above), and the §6.7d attach beat re-stages the
+  // Methods tab via its own onEnter (ensureExperimentPopupOpen). Its source
+  // file + dedicated tests were removed.
 
   it("attach sub-step has id `experiment-attach-method-attach`", () => {
     expect(methodAttachmentAttachStep.id).toBe(
@@ -1224,6 +1075,17 @@ describe("Gantt steps (§6.8) — Gantt manager redesign 2026-05-22", () => {
       "[data-tour-target=\"gantt-bar-user-experiment\"]",
     );
   });
+  it("existing-experiment step has no cursor after the downgrade (tour-simplification 2026-06-03)", () => {
+    // 2026-06-03 (HR / tour-simplification): cursor downgrade. The beat
+    // used to open the user's bar then auto-close the popup via a scheduled
+    // Escape. Opening a bar is self-evident, so the cursor + the open/close
+    // Escape choreography were dropped. The spotlight + speech stay; the
+    // user opens the bar themselves. No onExit Escape either (no popup is
+    // opened by the tour now).
+    expect(ganttExistingExperimentStep.cursorScript).toBeUndefined();
+    expect(ganttExistingExperimentStep.onExit).toBeUndefined();
+    expect(ganttExistingExperimentStep.completion.type).toBe("manual");
+  });
   it("drag-drop step targets the user's experiment bar (new attribute)", () => {
     // Redesign 2026-05-22: now points at the dedicated
     // gantt-bar-user-experiment attribute instead of the legacy
@@ -1282,6 +1144,16 @@ describe("AnimationPickerStep (§6.9)", () => {
     expect(animationPickerStep.targetSelector).toBe(
       "[data-tour-target=\"settings-animation-picker\"]",
     );
+  });
+  it("has no cursor after the downgrade (tour-simplification 2026-06-03)", () => {
+    // 2026-06-03 (HR / tour-simplification): cursor downgrade. The beat
+    // used to click the "celebration" tile for the user; the tile grid is
+    // self-evident, so the cursor was dropped and the choice lands on the
+    // user (the speech says "pick the one you want"). The spotlight + speech
+    // + the onExit settings_change artifact (now only recorded when the user
+    // actually changes the animation) all stay.
+    expect(animationPickerStep.cursorScript).toBeUndefined();
+    expect(animationPickerStep.completion.type).toBe("manual");
   });
 });
 

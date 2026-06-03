@@ -1019,18 +1019,11 @@ describe("§6.4b step bodies declare the expected viewportAnchor — Bug A", () 
    * into view before the cursor demo runs. Catches a regression where
    * a future maintainer drops the field by accident.
    */
-  it("methodsBreadthStep no longer anchors the modal (hand-walk fix 2026-05-27)", async () => {
-    // Hand-walk fix 2026-05-27 (third pass): the breadth step
-    // deliberately DROPPED its viewportAnchor. The CreateMethodModal is
-    // a portal covering most of the screen, so it is already in view;
-    // re-anchoring re-snapped the scroll to the top and fought the
-    // user's own wheel scroll as they tried to reach the gradient
-    // builder. The PCR tile is highlighted in purple post-click for the
-    // visual cue. This step is now the one §6.4b sub-step WITHOUT an
-    // anchor; the four PCR sub-steps below still declare theirs.
-    const { methodsBreadthStep } = await import("../MethodsBreadthStep");
-    expect(methodsBreadthStep.viewportAnchor).toBeUndefined();
-  });
+  // 2026-06-03 (HR / tour-simplification): the PCR builder demo
+  // (methodsBreadthStep / methods-type-tour) and the LC Gradient demo
+  // (methodsLcDemoStep / methods-lc-demo) were cut and their source files
+  // deleted. The viewport-anchor sweep no longer covers them; the dormant
+  // PCR sub-step bodies below still declare their anchors.
   it("methodsPcrEditStep anchors the PCR editor wrapper", async () => {
     const { methodsPcrEditStep } = await import("../MethodsPcrEditStep");
     expect(methodsPcrEditStep.viewportAnchor).toBe(
@@ -1075,29 +1068,17 @@ describe("step bodies — cursor scripts produce expected actions", () => {
     expect(homeCreateProjectStep.cursorScript).toBeUndefined();
   });
 
-  it("SearchStep: clicks the Search button (no keyword typing) — hand-walk simplification 2026-05-27", async () => {
-    // Hand-walk simplification 2026-05-27 (Grant): the search demo no
-    // longer TYPES a partial-match query ("Demo Experiment") into the
-    // Keywords input. The cursor now just CLICKS the Search button with
-    // no filters set, returning every experiment in the account (one
-    // for a fresh user). So the script is a single click on the
-    // `search-submit` target, NOT a type into `search-input`.
-    //
-    // Mount the search-submit button fixture (what the cursor now waits
-    // for). The prior version mounted `search-input` and asserted a
-    // "type" action; with the rewrite, safeClickAction(search-submit)
-    // would wait 5000ms on an element the old fixture never provided,
-    // tripping the test timeout. Mounting the correct fixture makes
-    // waitForElement resolve immediately.
-    const { cleanup } = mountFixture(TOUR_TARGETS.searchSubmit, "button");
-    try {
-      const script = await searchStep.cursorScript?.();
-      expect(script).toBeDefined();
-      expect(script).toHaveLength(1);
-      expect(script?.[0].type).toBe("click");
-    } finally {
-      cleanup();
-    }
+  it("SearchStep: no cursor (downgraded to awareness beat) — tour-simplification 2026-06-03", () => {
+    // 2026-06-03 (HR / tour-simplification): cursor downgrade. The beat
+    // used to click the Search button for the user; the Search button is
+    // self-evident, so the cursor was dropped. The spotlight on the Search
+    // button + the speech carry the awareness, and the user clicks Search
+    // themselves if they want to try it.
+    expect(searchStep.cursorScript).toBeUndefined();
+    expect(searchStep.targetSelector).toBe(
+      targetSelector(TOUR_TARGETS.searchSubmit),
+    );
+    expect(searchStep.completion.type).toBe("manual");
   });
 
   it("WorkbenchCreateExperimentOpenStep: USER_ACTION open beat, no cursor demo (experiment-create user-action manager 2026-05-27)", () => {

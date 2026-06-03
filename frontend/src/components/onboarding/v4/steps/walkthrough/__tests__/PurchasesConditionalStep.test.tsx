@@ -61,6 +61,7 @@ import {
 } from "../PurchasesConditionalStep";
 import { pendingArtifactStore } from "../lib/artifacts";
 import { TOUR_DOM_EVENTS } from "../lib/tour-events";
+import { TOUR_TARGETS, targetSelector } from "../lib/targets";
 
 function picks(over: Partial<FeaturePicks> = {}): FeaturePicks {
   return {
@@ -322,43 +323,19 @@ describe("purchases-form-fill onEnter / onExit artifact capture", () => {
   });
 });
 
-describe("purchases-demo-charts cursorScript", () => {
-  beforeEach(() => {
-    document.body.innerHTML = "";
-  });
-
-  it("glides to the dashboard then clicks Category and Project lens toggles", async () => {
-    // R1 fix-pass P0-3: the prior single-glide demo left the speech
-    // beats stranded on a stale lens. The cursor now visibly switches
-    // lenses between beats so the chart matches the narration.
-    document.body.innerHTML = `
-      <section data-tour-target="demo-spending-dashboard">
-        <div data-tour-target="spending-breakdown-lens-toggle">
-          <button data-tour-target="spending-breakdown-lens-project">Project</button>
-          <button data-tour-target="spending-breakdown-lens-vendor">Vendor</button>
-          <button data-tour-target="spending-breakdown-lens-category">Category</button>
-        </div>
-      </section>
-    `;
-    const script = purchasesDemoChartsStep.cursorScript;
-    if (!script) throw new Error("expected cursorScript");
-    const actions = await script();
-    // glide + callback + click(Category) + callback + click(Project) = 5
-    expect(actions).toHaveLength(5);
-    expect(actions[0]).toMatchObject({ type: "glide" });
-    expect(actions[1]).toMatchObject({ type: "callback" });
-    expect(actions[2]).toMatchObject({ type: "click" });
-    expect(actions[3]).toMatchObject({ type: "callback" });
-    expect(actions[4]).toMatchObject({ type: "click" });
-    // Verify the two clicks land on the right lens buttons.
-    const categoryBtn = document.querySelector(
-      '[data-tour-target="spending-breakdown-lens-category"]',
+describe("purchases-demo-charts (awareness beat after the cursor downgrade)", () => {
+  it("has no cursorScript (tour-simplification 2026-06-03)", () => {
+    // 2026-06-03 (HR / tour-simplification): cursor downgrade. The beat
+    // used to flip the breakdown lens (Category, then Project) for the
+    // user. The lens toggle is a self-evident set of buttons, so the cursor
+    // was dropped. The dashboard spotlight + speech stay; the speech ("You
+    // can flip the lens...") already reads as awareness, so the user flips
+    // it themselves.
+    expect(purchasesDemoChartsStep.cursorScript).toBeUndefined();
+    expect(purchasesDemoChartsStep.targetSelector).toBe(
+      targetSelector(TOUR_TARGETS.demoSpendingDashboard),
     );
-    const projectBtn = document.querySelector(
-      '[data-tour-target="spending-breakdown-lens-project"]',
-    );
-    expect(actions[2]).toMatchObject({ target: categoryBtn });
-    expect(actions[4]).toMatchObject({ target: projectBtn });
+    expect(purchasesDemoChartsStep.completion.type).toBe("manual");
   });
 });
 

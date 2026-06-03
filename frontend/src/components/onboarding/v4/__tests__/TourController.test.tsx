@@ -221,21 +221,23 @@ describe("TourController — start() / advance() / goBack() / exitTour()", () =>
     expect(result.current.currentStep).toBe("setup-q1c");
   });
 
-  it("goBack() from hybrid-notes-vs-results lands on experiment-attach-method-tab (back-nav jump fix manager 2026-05-27)", () => {
+  it("goBack() from hybrid-notes-vs-results lands on experiment-attach-method-open (back-nav jump fix manager 2026-05-27)", () => {
     // Grant's repro: rewalking the tour AFTER the duplicate-id dedup fix
     // landed (commit d42461c4), clicking Back on hybrid-notes-vs-results
     // (HE-0) was reported to still jump to "methods" (somewhere in the
-    // §6.7c methods cluster). The expected destination is the immediate
-    // predecessor in TOUR_STEP_ORDER: experiment-attach-method-tab.
-    // Exercise the controller's goBack directly so the regression covers
-    // the full dispatch + reducer path, not just getPreviousStep.
+    // §6.7c methods cluster). 2026-06-03 (HR / tour-simplification): the
+    // §6.6 framing merged 4 to 3; experiment-attach-method-tab was cut, so
+    // the expected destination is now its immediate predecessor in
+    // TOUR_STEP_ORDER: experiment-attach-method-open. Exercise the
+    // controller's goBack directly so the regression covers the full
+    // dispatch + reducer path, not just getPreviousStep.
     const { result } = renderHook(() => useTourController(), {
       wrapper: wrapper(picks()),
     });
     act(() => result.current.start("hybrid-notes-vs-results"));
     expect(result.current.currentStep).toBe("hybrid-notes-vs-results");
     act(() => result.current.goBack());
-    expect(result.current.currentStep).toBe("experiment-attach-method-tab");
+    expect(result.current.currentStep).toBe("experiment-attach-method-open");
     // Belt-and-suspenders: the symptom of the bug was landing inside the
     // methods cluster, so assert NOT there explicitly.
     expect(result.current.currentStep).not.toMatch(/^methods-/);

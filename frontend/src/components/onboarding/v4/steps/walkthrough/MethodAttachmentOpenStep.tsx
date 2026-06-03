@@ -36,23 +36,21 @@ import { TOUR_TARGETS } from "./lib/targets";
 
 export const methodAttachmentOpenStep = buildWalkthroughStep({
   id: "experiment-attach-method-open",
-  // Script rewrite 2026-05-27: absorbs the experiment intro that
-  // previously lived in the dropped `experiment-tabs-overview` step. The
-  // cursor click on the workbench row opens the popup; this speech then
-  // orients the user inside the freshly-opened experiment surface.
-  // Hand-walk edit 2026-05-27 (Grant): added the "OK, let's open it"
-  // lead-in so the cursor click reads as a deliberate handoff from the
-  // previous workbench-create-experiment-open BeakerBot demo.
+  // 2026-06-03 (HR / tour-simplification): merged the §6.6 method-attach
+  // framing 4 to 3. This beat absorbs the Methods-tab framing that the cut
+  // `experiment-attach-method-tab` beat used to carry; the later §6.7d
+  // `-attach` beat re-stages the Methods tab via its own onEnter. The
+  // cursor click on the workbench row opens the popup so the experiment
+  // surface is visible; the speech frames where the protocol gets pinned.
   speech: (
     <>
       <p className="mb-2">
-        OK, let&apos;s open the experiment we just made.
+        Open your experiment from the timeline or the Workbench.
       </p>
       <p>
-        This is one experiment, opened up. Everything that belongs to a
-        single run lives in here: the protocol you followed, your notes
-        from the bench, the results, any files you generated. We&apos;ll
-        walk through each piece.
+        Inside, the <strong>Methods</strong> tab is where you pin the
+        protocol you followed, so the exact steps stay tied to this run.
+        We will build a method first, then come back here to attach it.
       </p>
     </>
   ),

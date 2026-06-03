@@ -15,7 +15,6 @@ import {
   compactScript,
   cursorScript,
   safeClickAction,
-  safeGlideToElementAction,
   safeTypeAction,
   tourClickWithLockBypass,
   waitForElement,
@@ -677,9 +676,11 @@ export const purchasesDemoViewerStep: TourStep = buildWalkthroughStep({
  *     toggle (Project / Vendor / Category). There is no pie chart; bars
  *     are not clickable for filtering.
  *
- * Speech now describes what the user actually sees, beat by beat, and
- * the cursor script clicks the Category lens before the categories
- * beat lands so the chart matches the narration.
+ * 2026-06-03 (HR / tour-simplification): cursor downgrade. The beat used
+ * to flip the breakdown lens (Category, then Project) for the user. The
+ * lens toggle is a self-evident set of buttons, so the cursor was dropped.
+ * The dashboard spotlight + speech stay; the speech already reads as
+ * awareness ("You can flip the lens...") so the user flips it themselves.
  */
 export const purchasesDemoChartsStep: TourStep = buildWalkthroughStep({
   id: "purchases-demo-charts",
@@ -698,36 +699,9 @@ export const purchasesDemoChartsStep: TourStep = buildWalkthroughStep({
     </div>
   ),
   targetSelector: targetSelector(TOUR_TARGETS.demoSpendingDashboard),
-  cursorScript: cursorScript(async () => {
-    // Glide to the dashboard, click Category lens (matches the second
-    // speech beat), pause, then click Project lens (matches the third
-    // beat). The lens toggle anchors live on SpendingDashboard so they
-    // resolve inside the DemoPurchasesViewer overlay too. We can't
-    // hover individual recharts cells (Recharts doesn't stamp per-bar
-    // anchors), so the lens-switch cursor action IS the visible beat.
-    const glideToDashboard = await safeGlideToElementAction(
-      targetSelector(TOUR_TARGETS.demoSpendingDashboard),
-    );
-    const settle = callbackAction(
-      () => new Promise<void>((res) => setTimeout(res, 600)),
-    );
-    const clickCategory = await safeClickAction(
-      targetSelector(TOUR_TARGETS.spendingBreakdownLensCategory),
-    );
-    const pauseAfterCategory = callbackAction(
-      () => new Promise<void>((res) => setTimeout(res, 800)),
-    );
-    const clickProject = await safeClickAction(
-      targetSelector(TOUR_TARGETS.spendingBreakdownLensProject),
-    );
-    return compactScript([
-      glideToDashboard,
-      settle,
-      clickCategory,
-      pauseAfterCategory,
-      clickProject,
-    ]);
-  }),
+  // 2026-06-03 (HR / tour-simplification): cursor dropped. The lens toggle
+  // is a self-evident set of buttons; the spotlight + speech carry the
+  // awareness and the user flips the lens themselves.
   completion: manualAdvance("Got it, next"),
   conditionalOn: (picks) => picks?.purchases === "yes",
   expectedRoute: "/purchases",

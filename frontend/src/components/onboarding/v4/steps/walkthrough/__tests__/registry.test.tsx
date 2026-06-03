@@ -33,16 +33,18 @@ const P5_STEP_IDS = [
   "methods-category-prompt",
   "methods-category-open",
   "methods-category",
+  // 2026-06-03 (HR / tour-simplification): methods-builder demos 3 to 1.
+  // methods-type-tour + methods-lc-demo cut; methods-open-picker is the
+  // single awareness beat.
   "methods-open-picker",
-  "methods-type-tour",
-  "methods-lc-demo",
   "methods-create",
   "workbench-create-experiment-open",
   // §6.6 method-attachment split (2026-05-21): the original single
-  // `experiment-attach-method` id was split into 4 popup-mount-safe
-  // sub-steps. Registry must resolve every new id to a non-placeholder.
+  // `experiment-attach-method` id was split into popup-mount-safe
+  // sub-steps. Registry must resolve every id to a non-placeholder.
+  // 2026-06-03 (HR / tour-simplification): framing merged 4 to 3;
+  // experiment-attach-method-tab cut.
   "experiment-attach-method-open",
-  "experiment-attach-method-tab",
   "experiment-attach-method-attach",
   "experiment-attach-method-notes",
   // §6.7 hybrid editor cluster. Inline-editor collapse (onboarding-inline
