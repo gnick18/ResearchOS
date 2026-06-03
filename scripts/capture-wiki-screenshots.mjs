@@ -104,6 +104,7 @@ const PICKER_ROUTES = [
 // the matching tile to open the task popup. Returns true if the popup
 // likely opened.
 async function revealCompletedAndOpenTask(page, taskNameRegex) {
+  await ensureExperimentsTab(page);
   try {
     // Toggle on completed experiments. Idempotent — clicking twice toggles
     // it back off, so only click when the label still says "Show".
@@ -127,6 +128,20 @@ async function revealCompletedAndOpenTask(page, taskNameRegex) {
     console.warn(`  ⚠ open-task action: ${err.message}`);
     return false;
   }
+}
+
+// The Workbench default tab is now "Projects" (P3, 2026-06). Experiment
+// captures must click into the Experiments tab first or they shoot Projects.
+async function ensureExperimentsTab(page) {
+  try {
+    const tab = page
+      .locator('[data-tour-target="workbench-experiments-tab"]')
+      .first();
+    if (await tab.count()) {
+      await tab.click({ timeout: 3000 });
+      await page.waitForTimeout(500);
+    }
+  } catch {}
 }
 
 // Click the Lab Notes tab inside an open TaskDetailPopup.
@@ -426,117 +441,6 @@ async function notePopupClip(page) {
  *  open a modal). */
 const FIXTURE_ROUTES = [
   {
-    // The unified per-user widget dashboard at "/" (Home for members/solo,
-    // "Lab Overview" for a PI; the fixture signs in as alex, a PI, so the
-    // toolbar heading reads "Lab Overview"). The old hardcoded "Research
-    // Project Overview" grid is gone, so its text can no longer be a wait
-    // target. Wait on the canvas <section> instead: HomeCanvas always
-    // renders `aria-label="Dashboard widgets"` (with a stable
-    // data-tour-target="home-widget-canvas") once the account type
-    // resolves, independent of which widgets are pinned or the
-    // account-aware heading text. "+ Add widget" (the always-present
-    // toolbar button from SnapshotCanvas) is the fallback marker. This is
-    // the screenshot the /wiki/features/home page embeds.
-    path: "/",
-    file: "home-dashboard.png",
-    waitFor:
-      '[aria-label="Dashboard widgets"], [data-tour-target="home-widget-canvas"], text=+ Add widget',
-    settleMs: 1200,
-    highlight: { text: "+ Add widget" },
-  },
-  {
-    path: "/",
-    file: "home-projects.png",
-    waitFor:
-      '[aria-label="Dashboard widgets"], [data-tour-target="home-widget-canvas"], text=+ Add widget',
-    highlight: { text: "New Project" },
-  },
-  {
-    path: "/",
-    file: "home-project-popup.png",
-    waitFor: "text=Research Project Overview",
-    settleMs: 800,
-    action: async (page) => {
-      // The same project name appears in the left sidebar too — scope the
-      // click to the project card's <h3> so we open the project popup
-      // rather than a sidebar task entry.
-      const heading = page
-        .locator("h3")
-        .filter({ hasText: /^DEMO:\s*Engineer FakeYeast for biofuel$/ })
-        .first();
-      if (await heading.count()) {
-        try {
-          await heading.click({ timeout: 3000 });
-          await page.waitForTimeout(900);
-        } catch {}
-      }
-    },
-  },
-  {
-    // Project Surface — the slim Inspector popup (P7-stripped) over Home.
-    // Click the FakeYeast project card on Home, then compute a tight clip
-    // around the popup so the screenshot focuses on the Inspector itself
-    // and not the dimmed page behind it.
-    path: "/",
-    file: "projects-slim-popup.png",
-    waitFor: "text=Research Project Overview",
-    settleMs: 900,
-    action: async (page) => {
-      try {
-        const heading = page
-          .locator("h3")
-          .filter({ hasText: /^DEMO:\s*Engineer FakeYeast for biofuel$/ })
-          .first();
-        if (!(await heading.count())) return;
-        await heading.click({ timeout: 3000 });
-        await page.waitForTimeout(900);
-      } catch (err) {
-        console.warn(`  ⚠ projects-slim-popup open card: ${err.message}`);
-        return;
-      }
-      // Tight clip around the popup. The popup container is a fixed-inset
-      // overlay whose first child is the white card (max-w-lg, max-h-80vh).
-      // The `Open full view →` Link text is a stable marker that the slim
-      // P7 popup is mounted.
-      try {
-        const clip = await page.evaluate(() => {
-          const anchors = Array.from(document.querySelectorAll("a"));
-          const cta = anchors.find((a) =>
-            (a.textContent || "").trim().startsWith("Open full view"),
-          );
-          if (!cta) return null;
-          // Walk up to the popup card (the rounded-xl shadow-xl wrapper).
-          let card = cta.parentElement;
-          while (card && card !== document.body) {
-            if (card.className && /rounded-xl/.test(card.className) && /shadow/.test(card.className)) {
-              break;
-            }
-            card = card.parentElement;
-          }
-          if (!card || card === document.body) return null;
-          const r = card.getBoundingClientRect();
-          const pad = 16;
-          const x = Math.max(0, Math.floor(r.left - pad));
-          const y = Math.max(0, Math.floor(r.top - pad));
-          const width = Math.min(
-            Math.max(0, window.innerWidth - x),
-            Math.ceil(r.width + pad * 2),
-          );
-          const height = Math.min(
-            Math.max(0, window.innerHeight - y),
-            Math.ceil(r.height + pad * 2),
-          );
-          return { x, y, width, height };
-        });
-        if (clip && clip.width > 100 && clip.height > 100) {
-          return { clip };
-        }
-      } catch (err) {
-        console.warn(`  ⚠ projects-slim-popup clip calc: ${err.message}`);
-      }
-    },
-  },
-  {
     // Project Surface route — Overview section + the sticky anchor strip.
     // FakeYeast project (alex/1) is the demo project. The fixture seeds no
     // overview prose, so the editor's empty-state placeholder is what
@@ -783,24 +687,25 @@ const FIXTURE_ROUTES = [
     },
   },
   {
-    // The Workbench landing view: tab strip + project filter pills +
-    // first stacked sections (Ready to start / Blocked / Running ...)
-    // visible above the fold. Highlight + New Experiment.
+    // The Workbench Experiments tab: the pipeline kanban board (Ready /
+    // Blocked / Running / Awaiting columns) with the results grids below.
+    // Projects is the default tab now, so click into Experiments first.
     path: "/workbench",
     file: "workbench-experiments.png",
-    waitFor: "text=Workbench, text=Experiments",
+    waitFor: "text=Workbench",
     settleMs: 600,
+    action: ensureExperimentsTab,
     highlight: { text: "New Experiment" },
   },
   {
-    // Scroll the Experiments tab so several stacked section headers are
-    // in frame at once (e.g. Running, Awaiting writeup). The fullPage
-    // capture pulls in the whole stack so readers can see the full
-    // section vocabulary without scrolling the wiki shot.
+    // The Experiments pipeline board with all four stage columns (Ready /
+    // Blocked / Running / Awaiting) in frame, plus the results grids below.
+    // fullPage so readers see the whole board + the section vocabulary.
     path: "/workbench",
     file: "workbench-experiments-sections.png",
-    waitFor: "text=Workbench, text=Experiments",
+    waitFor: "text=Workbench",
     settleMs: 600,
+    action: ensureExperimentsTab,
     fullPage: true,
   },
   {
@@ -2779,6 +2684,13 @@ const FIXTURE_ROUTES = [
  *  for wiki docs. The cluster lives in `frontend/src/components/AppShell.tsx`. */
 const HIDE_SCRIPT = `
   (function hideDevUI() {
+    // Robust primary hide: nuke the entire bottom-right floating dock
+    // (Calculators, Feedback, Donate, and ALL dev-only FABs). Replaces the
+    // fragile per-button list below so new/renamed/relocated dev FABs
+    // (BeakerBot gallery, Demo toggle, etc.) can never leak into wiki shots.
+    for (const dock of document.querySelectorAll("[data-floating-dock]")) {
+      dock.style.display = "none";
+    }
     const HIDE_TEXTS = [
       "Test Notification",
       "Test Error",
