@@ -70,7 +70,8 @@ import {
   writeEncryptedBackup,
 } from "@/lib/telegram/encrypted-backup";
 import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
-import { readPairing } from "@/lib/telegram/telegram-store";
+import { readPairing, type TelegramPairing } from "@/lib/telegram/telegram-store";
+import TelegramPairingModal from "@/components/TelegramPairingModal";
 import { USER_COLOR_QUERY_KEY } from "@/hooks/useUserColor";
 import { readAllUserMetadata } from "@/lib/file-system/user-metadata";
 import {
@@ -2216,6 +2217,7 @@ function BehaviorSection({ settings, update }: SectionProps) {
           (some docs/links use the section's title word rather than the
           original `#telegram` id). */}
       <span id="behavior" aria-hidden="true" />
+      <TelegramConnectionRow />
       <ToggleRow
         label="Telegram notifications"
         description="When off, the app stops polling Telegram for inbound photos and updates."
@@ -2238,6 +2240,91 @@ function BehaviorSection({ settings, update }: SectionProps) {
           for one release (R1 migration honored it once on first login),
           but the UI control no longer exists. */}
     </SectionShell>
+  );
+}
+
+// Settings entry point for Telegram pairing (settings-telegram-pairing bot,
+// 2026-06-02). Until now the ONLY way to open the pairing flow was the header
+// status badge (TelegramStatusBadge). Now that Settings is the config home for
+// Telegram (notifications + auto-reconnect + encrypted backup all live in this
+// section), this row gives Settings its own first-class "connect / manage"
+// entry. It reuses the exact same TelegramPairingModal the badge launches with
+// the same {username, onClose(updated?)} contract, and reads connection state
+// from the same readPairing() store helper, so there is no forked pairing
+// logic and both entry points stay in sync (closing the modal here updates the
+// status text; the badge re-reads on its own next render).
+function TelegramConnectionRow() {
+  const { currentUser } = useFileSystem();
+  const [pairing, setPairing] = useState<TelegramPairing | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const reload = useCallback(async () => {
+    if (!currentUser) {
+      setPairing(null);
+      return;
+    }
+    const p = await readPairing(currentUser);
+    setPairing(p);
+  }, [currentUser]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  const paired = !!pairing;
+  // Mirror the badge's paired/unpaired split. The badge labels its button
+  // "Connect Telegram" / "Telegram"; in the calmer Settings context we use
+  // the explicit verbs Grant asked for: "Pair Telegram" when there's nothing
+  // to manage yet, "Manage connection" once a bot is paired.
+  const buttonLabel = paired ? "Manage connection" : "Pair Telegram";
+  const statusText = paired
+    ? `Connected as @${pairing.botUsername}`
+    : "Not connected";
+
+  return (
+    <SearchableRow
+      id="telegram:connection"
+      label="Telegram connection"
+      desc="Pair or manage the Telegram bot that sends photos to your inbox. Connect manage bot handle."
+    >
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-sm text-gray-800">
+            <HighlightedText text="Telegram connection" />
+          </p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {paired ? (
+              <>
+                <span className="text-emerald-600 font-medium">{statusText}</span>
+                . Sends photos straight to your inbox.
+              </>
+            ) : (
+              <>
+                <span className="text-gray-500">{statusText}</span>. Pair a bot
+                to send photos straight to your inbox.
+              </>
+            )}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setModalOpen(true)}
+          className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+        >
+          {buttonLabel}
+        </button>
+      </div>
+      {modalOpen && currentUser && (
+        <TelegramPairingModal
+          username={currentUser}
+          onClose={(updated) => {
+            setModalOpen(false);
+            if (updated === undefined) return;
+            setPairing(updated);
+          }}
+        />
+      )}
+    </SearchableRow>
   );
 }
 
