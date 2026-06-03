@@ -136,7 +136,7 @@ function CheckBadge({ check }: { check: PrimerCheck }) {
   return (
     <Tooltip label={check.detail}>
       <span
-        className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium ${
+        className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-meta font-medium ${
           ok ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
         }`}
       >
@@ -151,9 +151,9 @@ function CheckBadge({ check }: { check: PrimerCheck }) {
 function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
   return (
     <div className="rounded-md bg-gray-50 px-2.5 py-1.5">
-      <div className="text-xs font-medium uppercase tracking-wide text-gray-400">{label}</div>
-      <div className="text-sm font-semibold text-gray-800">{value}</div>
-      {hint ? <div className="text-xs text-gray-400">{hint}</div> : null}
+      <div className="text-meta font-medium uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-body font-semibold text-gray-800">{value}</div>
+      {hint ? <div className="text-meta text-gray-400">{hint}</div> : null}
     </div>
   );
 }
@@ -349,8 +349,8 @@ export default function SequencePrimersPanel({
     <div className="flex h-full w-full flex-col overflow-hidden bg-white">
       {/* Header + mode switch */}
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2">
-        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Primers</span>
-        <div className="inline-flex rounded-md bg-gray-100 p-0.5 text-xs font-medium">
+        <span className="text-meta font-semibold uppercase tracking-wide text-gray-500">Primers</span>
+        <div className="inline-flex rounded-md bg-gray-100 p-0.5 text-meta font-medium">
           {(
             [
               ["list", "List"],
@@ -375,7 +375,7 @@ export default function SequencePrimersPanel({
 
       {/* Trust banner: our Tm matches Primer3 / Primer-BLAST. */}
       {mode !== "list" ? (
-        <div className="border-b border-gray-100 bg-sky-50/60 px-4 py-1.5 text-xs text-sky-700">
+        <div className="border-b border-gray-100 bg-sky-50/60 px-4 py-1.5 text-meta text-sky-700">
           Tm uses the SantaLucia 1998 nearest-neighbor model, the same one Primer3 and
           Primer-BLAST use, so these numbers match those tools. The dimer, hairpin, and
           poly-X checks are a quick screen that flags likely problems, not exact
@@ -393,7 +393,7 @@ export default function SequencePrimersPanel({
                   <button
                     type="button"
                     onClick={() => setMode("design")}
-                    className="inline-flex items-center gap-1 rounded-md bg-sky-600 px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-sky-700"
+                    className="inline-flex items-center gap-1 rounded-md bg-sky-600 px-2.5 py-1 text-meta font-medium text-white transition-colors hover:bg-sky-700"
                   >
                     <IconPlus className="h-3.5 w-3.5" />
                     Design primers
@@ -403,7 +403,7 @@ export default function SequencePrimersPanel({
                   <button
                     type="button"
                     onClick={onAddCustomPrimer}
-                    className="rounded-md border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                    className="rounded-md border border-gray-200 px-2.5 py-1 text-meta font-medium text-gray-600 transition-colors hover:bg-gray-50"
                   >
                     Add a primer
                   </button>
@@ -413,8 +413,8 @@ export default function SequencePrimersPanel({
 
             {primers.length === 0 ? (
               <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-                <p className="text-sm text-gray-500">No primers yet.</p>
-                <p className="mt-1 text-xs text-gray-400">
+                <p className="text-body text-gray-500">No primers yet.</p>
+                <p className="mt-1 text-meta text-gray-400">
                   {readOnly
                     ? "Primers added to this sequence will appear here."
                     : "Select a region and Design primers, or add one you already have."}
@@ -441,20 +441,20 @@ export default function SequencePrimersPanel({
                           className="flex min-w-0 flex-1 flex-col items-start text-left"
                         >
                           <span className="flex items-center gap-1.5">
-                            <span className="truncate text-sm font-medium text-gray-800">
+                            <span className="truncate text-body font-medium text-gray-800">
                               {f.name || "primer"}
                             </span>
-                            <span className="rounded bg-gray-100 px-1 text-xs font-medium text-gray-500">
+                            <span className="rounded bg-gray-100 px-1 text-meta font-medium text-gray-500">
                               {f.strand === -1 ? "reverse" : "forward"}
                             </span>
                           </span>
-                          <span className="font-mono text-xs text-gray-400">
+                          <span className="font-mono text-meta text-gray-400">
                             {(f.start + 1).toLocaleString()} .. {f.end.toLocaleString()} · {len} nt
                             {gc !== null ? ` · ${gc}% GC` : ""}
                             {tm !== null ? ` · Tm ${tm} C` : ""}
                           </span>
                           {seq ? (
-                            <span className="truncate font-mono text-xs text-gray-500">
+                            <span className="truncate font-mono text-meta text-gray-500">
                               {`5'-${seq}-3'`}
                             </span>
                           ) : null}
@@ -511,15 +511,15 @@ export default function SequencePrimersPanel({
         {mode === "design" ? (
           <div className="space-y-3 px-4 py-3">
             {!hasSelection || !selection ? (
-              <div className="rounded-md border border-dashed border-gray-200 bg-gray-50 px-3 py-4 text-center text-sm text-gray-500">
+              <div className="rounded-md border border-dashed border-gray-200 bg-gray-50 px-3 py-4 text-center text-body text-gray-500">
                 Select a region in the Sequence view, then design primers for it.
-                <div className="mt-1 text-xs text-gray-400">
+                <div className="mt-1 text-meta text-gray-400">
                   Candidates use Primer3 defaults (length 18/20/27, Tm 57/60/63 C).
                 </div>
               </div>
             ) : (
               <>
-                <div className="flex items-center justify-between text-xs text-gray-500">
+                <div className="flex items-center justify-between text-meta text-gray-500">
                   <span>
                     Region {(selection.start + 1).toLocaleString()}..
                     {selection.end.toLocaleString()}{" "}
@@ -529,7 +529,7 @@ export default function SequencePrimersPanel({
                 </div>
 
                 {design && design.forward.length === 0 && design.reverse.length === 0 ? (
-                  <div className="rounded-md border border-dashed border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-700">
+                  <div className="rounded-md border border-dashed border-amber-200 bg-amber-50 px-3 py-3 text-body text-amber-700">
                     No candidate met the windows in this region. Widen the length/Tm/%GC
                     windows under Advanced, or pick a longer region.
                   </div>
@@ -573,7 +573,7 @@ export default function SequencePrimersPanel({
         {mode === "check" ? (
           <div className="space-y-3 px-4 py-3">
             <label className="block">
-              <span className="mb-1 block text-xs font-medium text-gray-500">
+              <span className="mb-1 block text-meta font-medium text-gray-500">
                 Primer sequence (5&apos; to 3&apos;)
               </span>
               <textarea
@@ -582,7 +582,7 @@ export default function SequencePrimersPanel({
                 rows={2}
                 placeholder="Paste a primer, or pick one from the List tab"
                 spellCheck={false}
-                className="w-full resize-y rounded-md border border-gray-200 px-2.5 py-2 font-mono text-sm tracking-wide text-gray-800 focus:border-sky-400 focus:outline-none"
+                className="w-full resize-y rounded-md border border-gray-200 px-2.5 py-2 font-mono text-body tracking-wide text-gray-800 focus:border-sky-400 focus:outline-none"
               />
             </label>
 
@@ -595,7 +595,7 @@ export default function SequencePrimersPanel({
                 </div>
 
                 <div>
-                  <span className="mb-1 block text-xs font-medium text-gray-500">Trust checks</span>
+                  <span className="mb-1 block text-meta font-medium text-gray-500">Trust checks</span>
                   <div className="flex flex-wrap gap-1.5">
                     {checkAnalysis.checks.map((c) => (
                       <CheckBadge key={c.label} check={c} />
@@ -605,7 +605,7 @@ export default function SequencePrimersPanel({
 
                 {/* Binding on the current sequence */}
                 <div>
-                  <span className="mb-1 block text-xs font-medium text-gray-500">
+                  <span className="mb-1 block text-meta font-medium text-gray-500">
                     Binds this sequence
                   </span>
                   {checkBindingReport.sites.length > 0 ? (
@@ -613,7 +613,7 @@ export default function SequencePrimersPanel({
                       {checkBindingReport.sites.map((s, i) => (
                         <div
                           key={`${s.start}-${s.end}-${s.direction}`}
-                          className={`rounded-md px-2.5 py-1.5 text-xs ${
+                          className={`rounded-md px-2.5 py-1.5 text-meta ${
                             i === 0 ? "bg-gray-50 text-gray-700" : "bg-amber-50 text-amber-700"
                           }`}
                         >
@@ -629,14 +629,14 @@ export default function SequencePrimersPanel({
                         </div>
                       ))}
                       {checkBindingReport.hasExtraSites ? (
-                        <p className="text-xs text-amber-600">
+                        <p className="text-meta text-amber-600">
                           More than one binding site on this sequence. Extra sites are flagged
                           amber.
                         </p>
                       ) : null}
                     </div>
                   ) : (
-                    <p className="rounded-md border border-dashed border-gray-200 px-2.5 py-2 text-xs text-gray-400">
+                    <p className="rounded-md border border-dashed border-gray-200 px-2.5 py-2 text-meta text-gray-400">
                       No binding site found on this sequence.
                     </p>
                   )}
@@ -656,7 +656,7 @@ export default function SequencePrimersPanel({
                             direction: s.direction,
                           });
                         }}
-                        className="inline-flex items-center gap-1 rounded-md bg-sky-600 px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-sky-700"
+                        className="inline-flex items-center gap-1 rounded-md bg-sky-600 px-2.5 py-1 text-meta font-medium text-white transition-colors hover:bg-sky-700"
                       >
                         <IconPlus className="h-3.5 w-3.5" />
                         Add to sequence
@@ -667,7 +667,7 @@ export default function SequencePrimersPanel({
                     <button
                       type="button"
                       onClick={() => copy(checkPrimer)}
-                      className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                      className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1 text-meta font-medium text-gray-600 transition-colors hover:bg-gray-50"
                     >
                       <IconCopy className="h-3.5 w-3.5" />
                       {copied === checkPrimer ? "Copied" : "Copy"}
@@ -678,7 +678,7 @@ export default function SequencePrimersPanel({
                       type="button"
                       onClick={runSpecificity}
                       disabled={specBusy}
-                      className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                      className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1 text-meta font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
                     >
                       <IconShield className="h-3.5 w-3.5" />
                       {specBusy ? "Scanning..." : "Check specificity"}
@@ -688,7 +688,7 @@ export default function SequencePrimersPanel({
 
                 {/* Local-library specificity result (instant, no network) */}
                 {specError ? (
-                  <p className="rounded-md border border-dashed border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-700">
+                  <p className="rounded-md border border-dashed border-amber-200 bg-amber-50 px-2.5 py-2 text-meta text-amber-700">
                     {specError}
                   </p>
                 ) : null}
@@ -701,7 +701,7 @@ export default function SequencePrimersPanel({
 
                 {/* NCBI Primer-BLAST privacy notice + handoff */}
                 {ncbiNoticeOpen ? (
-                  <div className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs text-sky-800">
+                  <div className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2.5 text-meta text-sky-800">
                     <p className="flex items-start gap-1.5 font-medium">
                       <IconGlobe className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                       This opens NCBI Primer-BLAST in a new tab and sends your primer and
@@ -715,7 +715,7 @@ export default function SequencePrimersPanel({
                       <button
                         type="button"
                         onClick={submitToPrimerBlast}
-                        className="inline-flex items-center gap-1 rounded-md bg-sky-600 px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-sky-700"
+                        className="inline-flex items-center gap-1 rounded-md bg-sky-600 px-2.5 py-1 text-meta font-medium text-white transition-colors hover:bg-sky-700"
                       >
                         <IconGlobe className="h-3.5 w-3.5" />
                         Open Primer-BLAST
@@ -723,7 +723,7 @@ export default function SequencePrimersPanel({
                       <button
                         type="button"
                         onClick={() => setNcbiNoticeOpen(false)}
-                        className="rounded-md px-2.5 py-1 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-100"
+                        className="rounded-md px-2.5 py-1 text-meta font-medium text-sky-700 transition-colors hover:bg-sky-100"
                       >
                         Cancel
                       </button>
@@ -732,7 +732,7 @@ export default function SequencePrimersPanel({
                 ) : null}
               </>
             ) : (
-              <p className="rounded-md border border-dashed border-gray-200 px-2.5 py-3 text-center text-xs text-gray-400">
+              <p className="rounded-md border border-dashed border-gray-200 px-2.5 py-3 text-center text-meta text-gray-400">
                 Paste a primer to see its Tm, GC, trust checks and binding sites.
               </p>
             )}
@@ -763,15 +763,15 @@ function SpecificityResult({
   return (
     <div className="rounded-md border border-gray-100 bg-gray-50/60 px-3 py-2.5">
       <div className="mb-1.5 flex items-center justify-between">
-        <span className="text-xs font-semibold text-gray-700">Local-library specificity</span>
-        <span className="text-xs text-gray-400">
+        <span className="text-meta font-semibold text-gray-700">Local-library specificity</span>
+        <span className="text-meta text-gray-400">
           {report.scanned} sequence{report.scanned === 1 ? "" : "s"} scanned
           {report.skipped > 0 ? ` (+${report.skipped} skipped)` : ""}
         </span>
       </div>
 
       {report.hits.length === 0 ? (
-        <p className="text-xs text-gray-500">
+        <p className="text-meta text-gray-500">
           This primer does not anneal anywhere in your connected sequences (at or above{" "}
           {report.minAnneal} bp). It may still have an intended site that is shorter than the
           detection threshold.
@@ -781,7 +781,7 @@ function SpecificityResult({
           {report.hits.map((h) => (
             <div
               key={`${h.sequenceId}-${h.site.start}-${h.site.end}-${h.site.direction}`}
-              className={`rounded px-2 py-1 text-xs ${
+              className={`rounded px-2 py-1 text-meta ${
                 h.intended ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
               }`}
             >
@@ -797,7 +797,7 @@ function SpecificityResult({
         </div>
       )}
 
-      <p className="mt-1.5 text-xs text-gray-400">
+      <p className="mt-1.5 text-meta text-gray-400">
         {clean
           ? "No off-target sites in your library. This is a local check only; it does not see genome-wide off-targets."
           : "Amber rows are extra sites this primer can also prime. This is a local check only; it does not see genome-wide off-targets."}
@@ -808,13 +808,13 @@ function SpecificityResult({
           <button
             type="button"
             onClick={onCheckNcbi}
-            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-meta font-medium text-gray-600 transition-colors hover:bg-gray-50"
           >
             <IconGlobe className="h-3.5 w-3.5" />
             Check genome-wide on NCBI
           </button>
         </Tooltip>
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-1 text-meta text-gray-400">
           Sends your primer and template to NCBI Primer-BLAST in a new tab (leaves your machine).
         </p>
       </div>
@@ -841,14 +841,14 @@ function CandidateList({
   if (candidates.length === 0) return null;
   return (
     <div>
-      <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+      <div className="mb-1 text-meta font-semibold uppercase tracking-wide text-gray-400">
         {title}
       </div>
       <ul className="space-y-1.5">
         {candidates.map((c, i) => (
           <li key={`${c.primer}-${c.start}`} className="rounded-md border border-gray-100 px-2.5 py-2">
             <div className="flex items-center justify-between gap-2">
-              <span className="break-all font-mono text-xs text-gray-800">
+              <span className="break-all font-mono text-meta text-gray-800">
                 5&apos;-{c.primer}-3&apos;
               </span>
               <div className="flex shrink-0 items-center gap-1">
@@ -876,7 +876,7 @@ function CandidateList({
                 ) : null}
               </div>
             </div>
-            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-gray-500">
               <span>
                 {(c.start + 1).toLocaleString()}..{c.end.toLocaleString()}
               </span>
@@ -911,7 +911,7 @@ function NumberField({
 }) {
   return (
     <label className="flex flex-col gap-0.5">
-      <span className="text-xs font-medium uppercase tracking-wide text-gray-400">{label}</span>
+      <span className="text-meta font-medium uppercase tracking-wide text-gray-400">{label}</span>
       <input
         type="number"
         value={value}
@@ -920,7 +920,7 @@ function NumberField({
           const n = Number(e.target.value);
           if (!Number.isNaN(n)) onChange(n);
         }}
-        className="w-full rounded-md border border-gray-200 px-2 py-1 text-sm text-gray-800 focus:border-sky-400 focus:outline-none"
+        className="w-full rounded-md border border-gray-200 px-2 py-1 text-body text-gray-800 focus:border-sky-400 focus:outline-none"
       />
     </label>
   );
@@ -946,18 +946,18 @@ function AdvancedPanel({
         type="button"
         onClick={onToggle}
         aria-expanded={open}
-        className="flex w-full items-center justify-between px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+        className="flex w-full items-center justify-between px-3 py-2 text-meta font-medium text-gray-600 transition-colors hover:bg-gray-50"
       >
         <span className="inline-flex items-center gap-1.5">
           <IconChevron open={open} className="h-3.5 w-3.5" />
           Advanced
         </span>
-        <span className="text-xs font-normal text-gray-400">defaults match Primer3</span>
+        <span className="text-meta font-normal text-gray-400">defaults match Primer3</span>
       </button>
       {open ? (
         <div className="space-y-3 border-t border-gray-100 px-3 py-3">
           <div>
-            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <div className="mb-1 text-meta font-semibold uppercase tracking-wide text-gray-400">
               Length (bp)
             </div>
             <div className="grid grid-cols-3 gap-2">
@@ -967,7 +967,7 @@ function AdvancedPanel({
             </div>
           </div>
           <div>
-            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <div className="mb-1 text-meta font-semibold uppercase tracking-wide text-gray-400">
               Tm (°C)
             </div>
             <div className="grid grid-cols-3 gap-2">
@@ -977,7 +977,7 @@ function AdvancedPanel({
             </div>
           </div>
           <div>
-            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <div className="mb-1 text-meta font-semibold uppercase tracking-wide text-gray-400">
               %GC range
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -997,7 +997,7 @@ function AdvancedPanel({
               onChange={(n) => set({ oligoNanomolar: n })}
             />
           </div>
-          <label className="flex items-center gap-2 text-xs text-gray-600">
+          <label className="flex items-center gap-2 text-meta text-gray-600">
             <input
               type="checkbox"
               checked={params.requireGcClamp}
@@ -1010,7 +1010,7 @@ function AdvancedPanel({
             <button
               type="button"
               onClick={onReset}
-              className="rounded-md px-2.5 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100"
+              className="rounded-md px-2.5 py-1 text-meta font-medium text-gray-500 transition-colors hover:bg-gray-100"
             >
               Reset to defaults
             </button>

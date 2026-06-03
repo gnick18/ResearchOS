@@ -110,7 +110,7 @@ function MenuItems({ items, onAfterRun }: { items: EditMenuItem[]; onAfterRun: (
               it.onRun();
               onAfterRun();
             }}
-            className={`flex w-full items-center justify-between gap-6 px-3 py-1.5 text-left text-sm transition-colors ${
+            className={`flex w-full items-center justify-between gap-6 px-3 py-1.5 text-left text-body transition-colors ${
               !it.enabled
                 ? "cursor-not-allowed text-gray-300"
                 : it.destructive
@@ -135,7 +135,7 @@ function MenuItems({ items, onAfterRun }: { items: EditMenuItem[]; onAfterRun: (
                 <IconEyeOff className="h-3.5 w-3.5 shrink-0 text-gray-400" />
               )
             ) : it.shortcut ? (
-              <span className={`shrink-0 text-xs ${it.enabled ? "text-gray-400" : "text-gray-300"}`}>
+              <span className={`shrink-0 text-meta ${it.enabled ? "text-gray-400" : "text-gray-300"}`}>
                 {it.shortcut}
               </span>
             ) : null}
@@ -196,7 +196,7 @@ export function EditMenuDropdown({
         aria-haspopup="menu"
         aria-expanded={open}
         data-testid={testId}
-        className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
+        className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-body font-medium transition-colors ${
           open ? "bg-gray-100 text-gray-800" : "text-gray-600 hover:bg-gray-100"
         }`}
       >
@@ -333,10 +333,10 @@ export function SequencePromptDialog<T>({
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl">
         <div className="border-b border-gray-100 px-5 py-4">
-          <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+          <h2 className="text-title font-semibold text-gray-900">{title}</h2>
         </div>
         <div className="space-y-2 px-5 py-4">
-          <label htmlFor={inputId} className="block text-sm text-gray-700">
+          <label htmlFor={inputId} className="block text-body text-gray-700">
             {label}
           </label>
           <input
@@ -355,15 +355,15 @@ export function SequencePromptDialog<T>({
                 onClose();
               }
             }}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-body outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
           />
-          {helper ? <p className="text-xs text-gray-500">{helper}</p> : null}
+          {helper ? <p className="text-meta text-gray-500">{helper}</p> : null}
         </div>
         <div className="flex justify-end gap-2 border-t border-gray-100 bg-gray-50 px-4 py-3">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-200"
+            className="rounded-lg px-4 py-2 text-body text-gray-600 transition-colors hover:bg-gray-200"
           >
             Cancel
           </button>
@@ -371,7 +371,7 @@ export function SequencePromptDialog<T>({
             type="button"
             onClick={submit}
             disabled={!valid}
-            className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-lg bg-sky-600 px-4 py-2 text-body font-medium text-white transition-colors hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {confirmLabel}
           </button>
@@ -433,9 +433,9 @@ export function SequenceFindBox({
             onClose();
           }
         }}
-        className="w-40 bg-transparent text-sm outline-none placeholder:text-gray-400"
+        className="w-40 bg-transparent text-body outline-none placeholder:text-gray-400"
       />
-      <span className="min-w-[3.5rem] text-right text-xs tabular-nums text-gray-400">
+      <span className="min-w-[3.5rem] text-right text-meta tabular-nums text-gray-400">
         {query.length < 2 ? "" : matchCount === 0 ? "0 / 0" : `${activeIndex + 1} / ${matchCount}`}
       </span>
       <button

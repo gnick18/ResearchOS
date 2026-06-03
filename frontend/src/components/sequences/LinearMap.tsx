@@ -453,7 +453,7 @@ export default function LinearMap({
   return (
     <div className="relative flex h-full min-h-0 w-full flex-1 flex-col bg-white" aria-label="Linear map">
       {/* ── compact zoom control row: -/+ buttons, log slider, readouts ── */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-slate-100 px-3 py-1.5 text-xs text-slate-500">
+      <div className="flex shrink-0 items-center gap-2 border-b border-slate-100 px-3 py-1.5 text-meta text-slate-500">
         <Tooltip label="Zoom out">
           <button
             type="button"
@@ -764,7 +764,7 @@ export default function LinearMap({
             </div>
           ) : null}
         </div>
-        <div className="px-3 pb-1 text-xs tabular-nums text-slate-400">
+        <div className="px-3 pb-1 text-meta tabular-nums text-slate-400">
           Whole molecule ({comma(seqLength)} bp)
         </div>
       </div>

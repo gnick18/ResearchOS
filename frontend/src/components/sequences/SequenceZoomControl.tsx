@@ -109,7 +109,7 @@ export default function SequenceZoomControl({
             type="button"
             onClick={() => set(floor)}
             aria-pressed={atFloor}
-            className={`flex h-6 items-center gap-1 rounded px-1.5 text-xs font-medium transition-colors ${
+            className={`flex h-6 items-center gap-1 rounded px-1.5 text-meta font-medium transition-colors ${
               atFloor ? "bg-sky-50 text-sky-700" : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
             }`}
           >

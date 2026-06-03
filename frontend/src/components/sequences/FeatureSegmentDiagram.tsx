@@ -131,7 +131,7 @@ export default function FeatureSegmentDiagram({
       </svg>
 
       {/* SnapGene-style summary line */}
-      <div className="mt-0.5 text-center text-xs font-medium text-gray-500">
+      <div className="mt-0.5 text-center text-meta font-medium text-gray-500">
         {layout.summary}
       </div>
     </div>

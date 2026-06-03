@@ -213,10 +213,10 @@ export default function SequenceDropZone({
         <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-lg bg-sky-50/90 p-3">
           <div className="flex flex-col items-center gap-2 rounded-lg border-2 border-dashed border-sky-400 px-6 py-8 text-center">
             <DropIcon className="h-8 w-8 text-sky-500" />
-            <p className="text-sm font-medium text-sky-700">
+            <p className="text-body font-medium text-sky-700">
               Drop sequence files or a folder to import
             </p>
-            <p className="text-xs text-sky-600">
+            <p className="text-meta text-sky-600">
               GenBank, FASTA, and SnapGene files; other files are skipped.
             </p>
           </div>

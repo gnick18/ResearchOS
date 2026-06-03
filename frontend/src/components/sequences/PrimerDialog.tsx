@@ -69,9 +69,9 @@ function IconSwap({ className }: { className?: string }) {
 function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
   return (
     <div className="rounded-md bg-gray-50 px-2.5 py-1.5">
-      <div className="text-xs font-medium uppercase tracking-wide text-gray-400">{label}</div>
-      <div className="text-sm font-semibold text-gray-800">{value}</div>
-      {hint ? <div className="text-xs text-gray-400">{hint}</div> : null}
+      <div className="text-meta font-medium uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-body font-semibold text-gray-800">{value}</div>
+      {hint ? <div className="text-meta text-gray-400">{hint}</div> : null}
     </div>
   );
 }
@@ -176,8 +176,8 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-sky-50 text-sky-600">
             <IconPrimer className="h-4 w-4" />
           </span>
-          <h2 className="text-base font-semibold text-gray-900">Add primer</h2>
-          <span className="ml-auto text-xs text-gray-400">
+          <h2 className="text-title font-semibold text-gray-900">Add primer</h2>
+          <span className="ml-auto text-meta text-gray-400">
             Template {template.length.toLocaleString()} bp
           </span>
         </div>
@@ -193,25 +193,25 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
         >
           {/* Name */}
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-gray-500">Primer name</span>
+            <span className="mb-1 block text-meta font-medium text-gray-500">Primer name</span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. M13_fwd"
-              className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-sm text-gray-800 focus:border-sky-400 focus:outline-none"
+              className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-body text-gray-800 focus:border-sky-400 focus:outline-none"
             />
           </label>
 
           {/* Sequence + revcomp toggle */}
           <div>
             <div className="mb-1 flex items-center justify-between">
-              <span className="text-xs font-medium text-gray-500">Primer sequence (5&apos; to 3&apos;)</span>
+              <span className="text-meta font-medium text-gray-500">Primer sequence (5&apos; to 3&apos;)</span>
               <Tooltip label="Reverse-complement the primer (anneal to the other strand)">
                 <button
                   type="button"
                   onClick={() => setRevComp((r) => !r)}
                   aria-pressed={revComp}
-                  className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium transition-colors ${
+                  className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-meta font-medium transition-colors ${
                     revComp ? "bg-sky-50 text-sky-700" : "text-gray-500 hover:bg-gray-100"
                   }`}
                 >
@@ -227,10 +227,10 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
               rows={2}
               placeholder="Type or paste bases, or seed from the current selection"
               spellCheck={false}
-              className="w-full resize-y rounded-md border border-gray-200 px-2.5 py-2 font-mono text-sm tracking-wide text-gray-800 focus:border-sky-400 focus:outline-none"
+              className="w-full resize-y rounded-md border border-gray-200 px-2.5 py-2 font-mono text-body tracking-wide text-gray-800 focus:border-sky-400 focus:outline-none"
             />
             {revComp ? (
-              <p className="mt-1 text-xs text-sky-600">
+              <p className="mt-1 text-meta text-sky-600">
                 Showing readouts for the reverse complement of what you typed.
               </p>
             ) : null}
@@ -249,13 +249,13 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
 
           {/* Binding site */}
           <div>
-            <span className="mb-1 block text-xs font-medium text-gray-500">Binding site</span>
+            <span className="mb-1 block text-meta font-medium text-gray-500">Binding site</span>
             {length === 0 ? (
-              <p className="rounded-md border border-dashed border-gray-200 px-2.5 py-2 text-xs text-gray-400">
+              <p className="rounded-md border border-dashed border-gray-200 px-2.5 py-2 text-meta text-gray-400">
                 Enter a primer to find where it anneals.
               </p>
             ) : sites.length === 0 ? (
-              <p className="rounded-md border border-dashed border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-700">
+              <p className="rounded-md border border-dashed border-amber-200 bg-amber-50 px-2.5 py-2 text-meta text-amber-700">
                 No binding site found on either strand. The primer can still be
                 added at its best guess only if it anneals somewhere.
               </p>
@@ -268,7 +268,7 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
                         key={`${s.start}-${s.end}-${s.direction}`}
                         type="button"
                         onClick={() => setSiteIdx(i)}
-                        className={`rounded-md px-2 py-0.5 text-xs font-medium transition-colors ${
+                        className={`rounded-md px-2 py-0.5 text-meta font-medium transition-colors ${
                           i === siteIdx
                             ? "bg-sky-600 text-white"
                             : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -282,7 +282,7 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
                   </div>
                 ) : null}
                 {site ? (
-                  <div className="rounded-md bg-gray-50 px-2.5 py-2 text-xs text-gray-700">
+                  <div className="rounded-md bg-gray-50 px-2.5 py-2 text-meta text-gray-700">
                     <span className="font-medium text-gray-800">
                       {site.direction === 1 ? "Forward" : "Reverse"} strand
                     </span>
@@ -300,10 +300,10 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
           {/* Visual alignment */}
           {alignment ? (
             <div>
-              <span className="mb-1 block text-xs font-medium text-gray-500">
+              <span className="mb-1 block text-meta font-medium text-gray-500">
                 Alignment (primer over template)
               </span>
-              <div className="overflow-x-auto rounded-md border border-gray-200 bg-white px-3 py-2.5 font-mono text-xs leading-relaxed">
+              <div className="overflow-x-auto rounded-md border border-gray-200 bg-white px-3 py-2.5 font-mono text-meta leading-relaxed">
                 {/* Primer row: dimmed 5' tail, bold annealed 3' region. */}
                 <div className="whitespace-pre text-gray-800">
                   <span className="text-gray-400">5&apos; </span>
@@ -328,7 +328,7 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
                   <span className="text-gray-400"> 5&apos;</span>
                 </div>
               </div>
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="mt-1 text-meta text-gray-400">
                 The 3&apos; annealed bases are shown in blue; a dimmed 5&apos; region is a
                 non-annealing tail (e.g. a cloning overhang).
               </p>
@@ -340,7 +340,7 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
           <button
             type="button"
             onClick={request.onCancel}
-            className="rounded-lg px-4 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-200"
+            className="rounded-lg px-4 py-2 text-body text-gray-600 transition-colors hover:bg-gray-200"
           >
             Cancel
           </button>
@@ -349,7 +349,7 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
               type="button"
               onClick={submit}
               disabled={!canAdd}
-              className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-lg bg-sky-600 px-4 py-2 text-body font-medium text-white transition-colors hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Add primer to template
             </button>

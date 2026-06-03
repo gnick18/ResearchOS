@@ -10,6 +10,26 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* ── Canonical typography scale (semantic font-size tokens) ──────────────────
+   * Five named tiers, additive on top of the built-in text-xs/sm/base/lg sizes.
+   * Each token equals an existing built-in size so adoption is pixel-identical:
+   * meta = text-xs (12px), body = text-sm (14px), title = text-base (16px),
+   * heading = text-xl (20px), display = text-3xl (30px). New code should use a
+   * semantic token (text-meta / text-body / text-title / text-heading /
+   * text-display) and treat an arbitrary text-[Npx] as a smell. See
+   * docs/TYPE_SCALE.md. Tailwind v4 reads --text-{name} as the font-size and
+   * --text-{name}--line-height as the paired line-height for that utility. */
+  --text-meta: 0.75rem;
+  --text-meta--line-height: 1rem;
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.25rem;
+  --text-title: 1rem;
+  --text-title--line-height: 1.5rem;
+  --text-heading: 1.25rem;
+  --text-heading--line-height: 1.75rem;
+  --text-display: 1.875rem;
+  --text-display--line-height: 2.25rem;
 }
 
 body {

@@ -129,7 +129,7 @@ function ColorSwatches({
           className="h-5 w-5 cursor-pointer opacity-0"
           aria-label="Custom color"
         />
-        <span className="pointer-events-none absolute text-xs font-bold text-gray-500">+</span>
+        <span className="pointer-events-none absolute text-meta font-bold text-gray-500">+</span>
       </label>
     </div>
   );
@@ -151,7 +151,7 @@ function SectionHeader({
       <button
         type="button"
         onClick={onToggle}
-        className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500 hover:text-gray-700"
+        className="flex items-center gap-1.5 text-meta font-semibold uppercase tracking-wide text-gray-500 hover:text-gray-700"
       >
         <IconChevron open={open} className="h-3.5 w-3.5" />
         {title}
@@ -256,7 +256,7 @@ export default function FeaturesPanel({
       {/* On-demand drawer header with a close affordance. */}
       {onClose ? (
         <div className="flex items-center justify-between border-b border-gray-100 px-3 py-1.5">
-          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Feature index</span>
+          <span className="text-meta font-semibold uppercase tracking-wide text-gray-500">Feature index</span>
           <Tooltip label="Hide the feature list">
             <button
               type="button"
@@ -281,7 +281,7 @@ export default function FeaturesPanel({
                 type="button"
                 onClick={onAddFeature}
                 disabled={!canAdd}
-                className="flex items-center gap-1 rounded-md bg-sky-600 px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex items-center gap-1 rounded-md bg-sky-600 px-2 py-1 text-meta font-medium text-white transition-colors hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <IconPlus className="h-3 w-3" />
                 Add
@@ -294,7 +294,7 @@ export default function FeaturesPanel({
       {featuresOpen ? (
         <div className="min-h-0 flex-1 overflow-y-auto">
           {/* sort header */}
-          <div className="flex items-center gap-1 border-y border-gray-50 px-3 py-1 text-xs uppercase tracking-wide text-gray-400">
+          <div className="flex items-center gap-1 border-y border-gray-50 px-3 py-1 text-meta uppercase tracking-wide text-gray-400">
             <span className="mr-auto">Sort</span>
             {(["order", "name", "type", "start", "length"] as SortKey[]).map((k) => (
               <button
@@ -311,7 +311,7 @@ export default function FeaturesPanel({
           </div>
 
           {features.length === 0 ? (
-            <p className="px-3 py-6 text-center text-xs text-gray-400">
+            <p className="px-3 py-6 text-center text-meta text-gray-400">
               {readOnly
                 ? "This sequence has no features."
                 : "No features yet. Select a range in the viewer and click Add."}
@@ -362,10 +362,10 @@ export default function FeaturesPanel({
                         onClick={() => onSelectFeature(index)}
                         className="min-w-0 flex-1 text-left"
                       >
-                        <span className={`block truncate text-sm ${hidden ? "text-gray-400 line-through" : "text-gray-800"}`}>
+                        <span className={`block truncate text-body ${hidden ? "text-gray-400 line-through" : "text-gray-800"}`}>
                           {f.name}
                         </span>
-                        <span className="block text-xs text-gray-400">
+                        <span className="block text-meta text-gray-400">
                           {(f.type || "misc_feature")} · {(f.start + 1).toLocaleString()}..{f.end.toLocaleString()} ·{" "}
                           {len.toLocaleString()} bp · {f.strand === -1 ? "-" : "+"}
                           {f.locations && f.locations.length > 1 ? ` · ${f.locations.length} segments` : ""}
@@ -451,12 +451,12 @@ export default function FeaturesPanel({
                           ) : null}
                         </div>
                         {readOnly ? (
-                          <span className="flex-1 truncate text-left text-sm text-gray-700">{k}</span>
+                          <span className="flex-1 truncate text-left text-body text-gray-700">{k}</span>
                         ) : (
                           <button
                             type="button"
                             onClick={() => setOpenTypeColor(openTypeColor === k ? null : k)}
-                            className="flex-1 truncate text-left text-sm text-gray-700"
+                            className="flex-1 truncate text-left text-body text-gray-700"
                           >
                             {k}
                           </button>

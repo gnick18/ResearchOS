@@ -72,7 +72,7 @@ export function ExportMenuDropdown({ items }: { items: ExportMenuItem[] }) {
         aria-haspopup="menu"
         aria-expanded={open}
         data-testid="sequence-export-button"
-        className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
+        className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-body font-medium transition-colors ${
           open ? "bg-gray-100 text-gray-800" : "text-gray-600 hover:bg-gray-100"
         }`}
       >
@@ -98,7 +98,7 @@ export function ExportMenuDropdown({ items }: { items: ExportMenuItem[] }) {
                   it.onRun();
                   setOpen(false);
                 }}
-                className={`flex w-full items-center justify-between gap-6 px-3 py-1.5 text-left text-sm transition-colors ${
+                className={`flex w-full items-center justify-between gap-6 px-3 py-1.5 text-left text-body transition-colors ${
                   !it.enabled
                     ? "cursor-not-allowed text-gray-300"
                     : "text-gray-700 hover:bg-gray-50"
@@ -106,7 +106,7 @@ export function ExportMenuDropdown({ items }: { items: ExportMenuItem[] }) {
               >
                 <span className="truncate">{it.label}</span>
                 {it.hint ? (
-                  <span className={`shrink-0 text-xs ${it.enabled ? "text-gray-400" : "text-gray-300"}`}>
+                  <span className={`shrink-0 text-meta ${it.enabled ? "text-gray-400" : "text-gray-300"}`}>
                     {it.hint}
                   </span>
                 ) : null}

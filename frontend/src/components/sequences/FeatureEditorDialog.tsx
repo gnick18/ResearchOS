@@ -210,11 +210,11 @@ export default function FeatureEditorDialog({
             style={{ backgroundColor: effectiveColor }}
             aria-hidden="true"
           />
-          <h2 className="text-base font-semibold text-gray-900">
+          <h2 className="text-title font-semibold text-gray-900">
             {isAdd ? "Add feature" : readOnly ? name || "Feature" : "Edit feature"}
           </h2>
           {readOnly ? (
-            <span className="ml-auto rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+            <span className="ml-auto rounded-full bg-gray-100 px-2 py-0.5 text-meta font-medium text-gray-500">
               Read-only
             </span>
           ) : null}
@@ -256,25 +256,25 @@ export default function FeatureEditorDialog({
 
           {/* Name */}
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-gray-500">Name</span>
+            <span className="mb-1 block text-meta font-medium text-gray-500">Name</span>
             <input
               ref={nameRef}
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Feature name"
-              className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-sm text-gray-800 focus:border-sky-400 focus:outline-none"
+              className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-body text-gray-800 focus:border-sky-400 focus:outline-none"
             />
           </label>
 
           {/* Type + strand */}
           <div className="flex flex-wrap items-end gap-3">
             <label className="block min-w-[10rem] flex-1">
-              <span className="mb-1 block text-xs font-medium text-gray-500">Type</span>
+              <span className="mb-1 block text-meta font-medium text-gray-500">Type</span>
               <input
                 list="feature-type-options"
                 value={type}
                 onChange={(e) => setType(e.target.value)}
-                className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-sm text-gray-800 focus:border-sky-400 focus:outline-none"
+                className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-body text-gray-800 focus:border-sky-400 focus:outline-none"
               />
               <datalist id="feature-type-options">
                 {COMMON_TYPES.map((t) => (
@@ -283,12 +283,12 @@ export default function FeatureEditorDialog({
               </datalist>
             </label>
             <div className="block">
-              <span className="mb-1 block text-xs font-medium text-gray-500">Strand</span>
+              <span className="mb-1 block text-meta font-medium text-gray-500">Strand</span>
               <StrandSelector value={strandDisplay} onChange={onStrandChange} />
             </div>
           </div>
           {strandDisplay === "none" || strandDisplay === "both" ? (
-            <p className="-mt-1.5 text-xs text-gray-400">
+            <p className="-mt-1.5 text-meta text-gray-400">
               GenBank stores a + or - strand only, so this saves as forward (+).
             </p>
           ) : null}
@@ -296,17 +296,17 @@ export default function FeatureEditorDialog({
           {/* Segment table (multi-segment join() editing) */}
           <div>
             <div className="mb-1 flex items-center justify-between">
-              <span className="text-xs font-medium text-gray-500">
+              <span className="text-meta font-medium text-gray-500">
                 Segments {segments.length > 1 ? `(join of ${segments.length})` : ""}
               </span>
-              <span className="text-xs text-gray-400">
+              <span className="text-meta text-gray-400">
                 {span.length.toLocaleString()} bp total
               </span>
             </div>
             <div className="overflow-hidden rounded-md border border-gray-200">
-              <table className="w-full text-sm">
+              <table className="w-full text-body">
                 <thead>
-                  <tr className="bg-gray-50 text-xs font-medium text-gray-500">
+                  <tr className="bg-gray-50 text-meta font-medium text-gray-500">
                     <th className="px-2 py-1 text-left">Start</th>
                     <th className="px-2 py-1 text-left">End</th>
                     <th className="px-2 py-1 text-left">Color</th>
@@ -325,7 +325,7 @@ export default function FeatureEditorDialog({
                           onChange={(e) =>
                             setSegStart(i, (Number(e.target.value) || 1) - 1)
                           }
-                          className="w-20 rounded border border-gray-200 px-1.5 py-1 text-sm focus:border-sky-400 focus:outline-none"
+                          className="w-20 rounded border border-gray-200 px-1.5 py-1 text-body focus:border-sky-400 focus:outline-none"
                           aria-label={`Segment ${i + 1} start`}
                         />
                       </td>
@@ -336,7 +336,7 @@ export default function FeatureEditorDialog({
                           max={request.seqLength}
                           value={s.end}
                           onChange={(e) => setSegEnd(i, Number(e.target.value) || 0)}
-                          className="w-20 rounded border border-gray-200 px-1.5 py-1 text-sm focus:border-sky-400 focus:outline-none"
+                          className="w-20 rounded border border-gray-200 px-1.5 py-1 text-body focus:border-sky-400 focus:outline-none"
                           aria-label={`Segment ${i + 1} end`}
                         />
                       </td>
@@ -358,7 +358,7 @@ export default function FeatureEditorDialog({
                             type="button"
                             onClick={() => onSplit(i)}
                             disabled={s.end - s.start < 2}
-                            className="rounded px-1.5 py-0.5 text-xs text-sky-600 hover:bg-sky-50 disabled:opacity-30"
+                            className="rounded px-1.5 py-0.5 text-meta text-sky-600 hover:bg-sky-50 disabled:opacity-30"
                           >
                             Split
                           </button>
@@ -366,7 +366,7 @@ export default function FeatureEditorDialog({
                             <button
                               type="button"
                               onClick={() => onMerge(i)}
-                              className="rounded px-1.5 py-0.5 text-xs text-sky-600 hover:bg-sky-50"
+                              className="rounded px-1.5 py-0.5 text-meta text-sky-600 hover:bg-sky-50"
                             >
                               Merge
                             </button>
@@ -375,7 +375,7 @@ export default function FeatureEditorDialog({
                             type="button"
                             onClick={() => onDeleteSeg(i)}
                             disabled={segments.length <= 1}
-                            className="rounded px-1.5 py-0.5 text-xs text-rose-600 hover:bg-rose-50 disabled:opacity-30"
+                            className="rounded px-1.5 py-0.5 text-meta text-rose-600 hover:bg-rose-50 disabled:opacity-30"
                             aria-label={`Delete segment ${i + 1}`}
                           >
                             Remove
@@ -387,7 +387,7 @@ export default function FeatureEditorDialog({
                 </tbody>
               </table>
             </div>
-            <p className="mt-1 text-xs text-gray-400">
+            <p className="mt-1 text-meta text-gray-400">
               Positions are 1-based inclusive (span {(span.start + 1).toLocaleString()}..
               {span.end.toLocaleString()}). Sequence is {request.seqLength.toLocaleString()} bp.
               Split a segment to create an intron gap (a GenBank join).
@@ -396,7 +396,7 @@ export default function FeatureEditorDialog({
 
           {/* Color */}
           <div>
-            <span className="mb-1 block text-xs font-medium text-gray-500">Color</span>
+            <span className="mb-1 block text-meta font-medium text-gray-500">Color</span>
             <div className="flex flex-wrap items-center gap-1.5">
               {FEATURE_COLOR_SWATCHES.map((sw) => {
                 const active = color.trim().toLowerCase() === sw.toLowerCase();
@@ -422,13 +422,13 @@ export default function FeatureEditorDialog({
                   className="h-6 w-6 cursor-pointer opacity-0"
                   aria-label="Custom color"
                 />
-                <span className="pointer-events-none absolute text-xs font-bold text-gray-500">+</span>
+                <span className="pointer-events-none absolute text-meta font-bold text-gray-500">+</span>
               </label>
             </div>
             <button
               type="button"
               onClick={() => setColor("")}
-              className="mt-1.5 text-xs text-gray-400 underline-offset-2 hover:text-gray-600 hover:underline"
+              className="mt-1.5 text-meta text-gray-400 underline-offset-2 hover:text-gray-600 hover:underline"
             >
               Use type default ({FEATURE_TYPE_COLORS[type.trim().toLowerCase()] ? type : "auto"})
             </button>
@@ -437,17 +437,17 @@ export default function FeatureEditorDialog({
           {/* Qualifiers (GenBank /product, /note, /gene, ...) */}
           <div>
             <div className="mb-1 flex items-center justify-between">
-              <span className="text-xs font-medium text-gray-500">Qualifiers</span>
+              <span className="text-meta font-medium text-gray-500">Qualifiers</span>
               <button
                 type="button"
                 onClick={addQualifier}
-                className="rounded px-1.5 py-0.5 text-xs font-medium text-sky-600 hover:bg-sky-50"
+                className="rounded px-1.5 py-0.5 text-meta font-medium text-sky-600 hover:bg-sky-50"
               >
                 + Add qualifier
               </button>
             </div>
             {qualifiers.length === 0 ? (
-              <p className="rounded-md border border-dashed border-gray-200 px-2.5 py-2 text-xs text-gray-400">
+              <p className="rounded-md border border-dashed border-gray-200 px-2.5 py-2 text-meta text-gray-400">
                 No qualifiers. Add /product, /note, /gene, or any GenBank qualifier.
               </p>
             ) : (
@@ -459,7 +459,7 @@ export default function FeatureEditorDialog({
                       value={q.key}
                       onChange={(e) => setQualKey(i, e.target.value)}
                       placeholder="key"
-                      className="w-28 shrink-0 rounded-md border border-gray-200 px-2 py-1 text-sm focus:border-sky-400 focus:outline-none"
+                      className="w-28 shrink-0 rounded-md border border-gray-200 px-2 py-1 text-body focus:border-sky-400 focus:outline-none"
                       aria-label={`Qualifier ${i + 1} key`}
                     />
                     <textarea
@@ -467,13 +467,13 @@ export default function FeatureEditorDialog({
                       onChange={(e) => setQualValue(i, e.target.value)}
                       rows={1}
                       placeholder="value"
-                      className="min-h-[32px] flex-1 resize-y rounded-md border border-gray-200 px-2 py-1 text-sm focus:border-sky-400 focus:outline-none"
+                      className="min-h-[32px] flex-1 resize-y rounded-md border border-gray-200 px-2 py-1 text-body focus:border-sky-400 focus:outline-none"
                       aria-label={`Qualifier ${i + 1} value`}
                     />
                     <button
                       type="button"
                       onClick={() => removeQualifier(i)}
-                      className="mt-0.5 rounded px-1.5 py-1 text-xs text-rose-600 hover:bg-rose-50"
+                      className="mt-0.5 rounded px-1.5 py-1 text-meta text-rose-600 hover:bg-rose-50"
                       aria-label={`Remove qualifier ${i + 1}`}
                     >
                       Remove
@@ -492,7 +492,7 @@ export default function FeatureEditorDialog({
           {/* Display toggles */}
           <div className="space-y-2 rounded-md bg-gray-50 px-3 py-2.5">
             <label className="flex cursor-pointer items-center justify-between gap-3">
-              <span className="text-xs font-medium text-gray-600">Translate in sequence view</span>
+              <span className="text-meta font-medium text-gray-600">Translate in sequence view</span>
               <input
                 type="checkbox"
                 checked={translate}
@@ -501,7 +501,7 @@ export default function FeatureEditorDialog({
               />
             </label>
             <label className="flex cursor-pointer items-center justify-between gap-3">
-              <span className="text-xs font-medium text-gray-600">Prioritize display in maps</span>
+              <span className="text-meta font-medium text-gray-600">Prioritize display in maps</span>
               <input
                 type="checkbox"
                 checked={prioritize}
@@ -520,7 +520,7 @@ export default function FeatureEditorDialog({
               <button
                 type="button"
                 onClick={request.onDelete}
-                className="rounded-lg px-3 py-2 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50"
+                className="rounded-lg px-3 py-2 text-body font-medium text-rose-600 transition-colors hover:bg-rose-50"
               >
                 Delete
               </button>
@@ -530,7 +530,7 @@ export default function FeatureEditorDialog({
             <button
               type="button"
               onClick={request.onCancel}
-              className="rounded-lg px-4 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-200"
+              className="rounded-lg px-4 py-2 text-body text-gray-600 transition-colors hover:bg-gray-200"
             >
               {readOnly ? "Close" : "Cancel"}
             </button>
@@ -538,7 +538,7 @@ export default function FeatureEditorDialog({
               <button
                 type="button"
                 onClick={submit}
-                className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sky-700"
+                className="rounded-lg bg-sky-600 px-4 py-2 text-body font-medium text-white transition-colors hover:bg-sky-700"
               >
                 {isAdd ? "Add feature" : "Save"}
               </button>
@@ -581,8 +581,8 @@ function ReadOnlyBody({
 }) {
   const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
     <div className="flex gap-3 py-1">
-      <span className="w-28 shrink-0 text-xs font-medium text-gray-500">{label}</span>
-      <span className="flex-1 break-words text-sm text-gray-800">{children}</span>
+      <span className="w-28 shrink-0 text-meta font-medium text-gray-500">{label}</span>
+      <span className="flex-1 break-words text-body text-gray-800">{children}</span>
     </div>
   );
 
@@ -614,7 +614,7 @@ function ReadOnlyBody({
             className="inline-block h-3.5 w-3.5 rounded-sm ring-1 ring-black/10"
             style={{ backgroundColor: effectiveColor }}
           />
-          <span className="font-mono text-xs">
+          <span className="font-mono text-meta">
             {colorOverride.trim() ? effectiveColor : `${effectiveColor} (type default)`}
           </span>
         </span>
@@ -629,11 +629,11 @@ function ReadOnlyBody({
 
       {qualifiers.length ? (
         <div className="py-2">
-          <span className="mb-1 block text-xs font-medium text-gray-500">Qualifiers</span>
+          <span className="mb-1 block text-meta font-medium text-gray-500">Qualifiers</span>
           <div className="space-y-1">
             {qualifiers.map((q, i) => (
-              <div key={i} className="flex gap-2 text-sm">
-                <span className="shrink-0 font-mono text-xs text-sky-700">/{q.key}</span>
+              <div key={i} className="flex gap-2 text-body">
+                <span className="shrink-0 font-mono text-meta text-sky-700">/{q.key}</span>
                 <span className="break-words text-gray-800">{q.value}</span>
               </div>
             ))}
@@ -644,10 +644,10 @@ function ReadOnlyBody({
       {featureSeq ? (
         <div className="py-2">
           <div className="mb-1 flex items-center justify-between">
-            <span className="text-xs font-medium text-gray-500">Sequence</span>
-            <span className="text-xs text-gray-400">GC {featureGc.toFixed(1)}%</span>
+            <span className="text-meta font-medium text-gray-500">Sequence</span>
+            <span className="text-meta text-gray-400">GC {featureGc.toFixed(1)}%</span>
           </div>
-          <div className="max-h-32 overflow-y-auto rounded-md bg-gray-50 px-2.5 py-2 font-mono text-xs leading-relaxed tracking-wide text-gray-700 break-all">
+          <div className="max-h-32 overflow-y-auto rounded-md bg-gray-50 px-2.5 py-2 font-mono text-meta leading-relaxed tracking-wide text-gray-700 break-all">
             {featureSeq}
           </div>
         </div>

@@ -99,9 +99,9 @@ function IconTrash({ className }: { className?: string }) {
 function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
   return (
     <div className="rounded-md bg-gray-50 px-2.5 py-1.5">
-      <div className="text-xs font-medium uppercase tracking-wide text-gray-400">{label}</div>
-      <div className="text-sm font-semibold text-gray-800">{value}</div>
-      {hint ? <div className="text-xs text-gray-400">{hint}</div> : null}
+      <div className="text-meta font-medium uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-body font-semibold text-gray-800">{value}</div>
+      {hint ? <div className="text-meta text-gray-400">{hint}</div> : null}
     </div>
   );
 }
@@ -265,10 +265,10 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-pink-50 text-pink-600">
             <IconPrimer className="h-4 w-4" />
           </span>
-          <h2 className="text-base font-semibold text-gray-900">
+          <h2 className="text-title font-semibold text-gray-900">
             {readOnly ? "Primer" : "Edit primer"}
           </h2>
-          <span className="ml-auto text-xs text-gray-400">
+          <span className="ml-auto text-meta text-gray-400">
             Template {template.length.toLocaleString()} bp
           </span>
         </div>
@@ -284,38 +284,38 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
         >
           {/* Name */}
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-gray-500">Name</span>
+            <span className="mb-1 block text-meta font-medium text-gray-500">Name</span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={readOnly}
               placeholder="e.g. GFP-seq-F"
-              className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-sm text-gray-800 focus:border-sky-400 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
+              className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-body text-gray-800 focus:border-sky-400 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
             />
           </label>
 
           {/* Description */}
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-gray-500">Description</span>
+            <span className="mb-1 block text-meta font-medium text-gray-500">Description</span>
             <input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               disabled={readOnly}
               placeholder="Optional note about this primer"
-              className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-sm text-gray-800 focus:border-sky-400 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
+              className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-body text-gray-800 focus:border-sky-400 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
             />
           </label>
 
           {/* Oligo sequence + reverse-complement action */}
           <div>
             <div className="mb-1 flex items-center justify-between">
-              <span className="text-xs font-medium text-gray-500">Sequence</span>
+              <span className="text-meta font-medium text-gray-500">Sequence</span>
               {!readOnly ? (
                 <Tooltip label="Replace the oligo with its reverse complement">
                   <button
                     type="button"
                     onClick={() => setRaw((r) => reverseComplement(sanitizePrimer(r)))}
-                    className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100"
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-meta font-medium text-gray-500 transition-colors hover:bg-gray-100"
                   >
                     <IconSwap className="h-3.5 w-3.5" />
                     Reverse complement
@@ -324,7 +324,7 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
               ) : null}
             </div>
             <div className="flex items-center gap-2">
-              <span className="select-none text-xs font-medium text-gray-400">5&apos;</span>
+              <span className="select-none text-meta font-medium text-gray-400">5&apos;</span>
               <textarea
                 ref={seqRef}
                 value={raw}
@@ -333,14 +333,14 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
                 rows={2}
                 placeholder="Type or paste bases (5' to 3')"
                 spellCheck={false}
-                className="w-full resize-y rounded-md border border-gray-200 px-2.5 py-2 font-mono text-sm tracking-wide text-gray-800 focus:border-sky-400 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
+                className="w-full resize-y rounded-md border border-gray-200 px-2.5 py-2 font-mono text-body tracking-wide text-gray-800 focus:border-sky-400 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
               />
-              <span className="select-none text-xs font-medium text-gray-400">3&apos;</span>
+              <span className="select-none text-meta font-medium text-gray-400">3&apos;</span>
             </div>
           </div>
 
           {/* 5' phosphorylation */}
-          <label className="flex items-center gap-2 text-sm text-gray-700">
+          <label className="flex items-center gap-2 text-body text-gray-700">
             <input
               type="checkbox"
               checked={phosphorylated}
@@ -364,19 +364,19 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
 
           {/* Binding info */}
           <div>
-            <span className="mb-1 block text-xs font-medium text-gray-500">Binding</span>
+            <span className="mb-1 block text-meta font-medium text-gray-500">Binding</span>
             {length === 0 ? (
-              <p className="rounded-md border border-dashed border-gray-200 px-2.5 py-2 text-xs text-gray-400">
+              <p className="rounded-md border border-dashed border-gray-200 px-2.5 py-2 text-meta text-gray-400">
                 Enter a sequence to see where it anneals.
               </p>
             ) : sites.length === 0 ? (
-              <p className="rounded-md border border-dashed border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-700">
+              <p className="rounded-md border border-dashed border-amber-200 bg-amber-50 px-2.5 py-2 text-meta text-amber-700">
                 This oligo does not anneal to the template. Saving keeps the
                 primer&apos;s current position on the map.
               </p>
             ) : (
               <div className="space-y-1.5">
-                <p className="text-xs text-gray-500">
+                <p className="text-meta text-gray-500">
                   {sites.length} binding {sites.length === 1 ? "site" : "sites"} on this template.
                 </p>
                 {sites.length > 1 ? (
@@ -386,7 +386,7 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
                         key={`${s.start}-${s.end}-${s.direction}`}
                         type="button"
                         onClick={() => setSiteIdx(i)}
-                        className={`rounded-md px-2 py-0.5 text-xs font-medium transition-colors ${
+                        className={`rounded-md px-2 py-0.5 text-meta font-medium transition-colors ${
                           i === siteIdx
                             ? "bg-pink-600 text-white"
                             : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -400,7 +400,7 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
                   </div>
                 ) : null}
                 {site ? (
-                  <div className="rounded-md bg-gray-50 px-2.5 py-2 text-xs text-gray-700">
+                  <div className="rounded-md bg-gray-50 px-2.5 py-2 text-meta text-gray-700">
                     <span className="font-medium text-gray-800">
                       {site.direction === 1 ? "Forward" : "Reverse"} strand
                     </span>
@@ -418,11 +418,11 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
           {/* Binding-site visualization (SnapGene-style thin bracket + 3' hook) */}
           {site ? (
             <div>
-              <span className="mb-1 block text-xs font-medium text-gray-500">
+              <span className="mb-1 block text-meta font-medium text-gray-500">
                 Annealing (primer over template)
               </span>
               <BindingViz template={template} site={site} />
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="mt-1 text-meta text-gray-400">
                 The thin bracket marks the annealed bases; the hook points toward the
                 primer&apos;s 3&apos; end.
               </p>
@@ -437,7 +437,7 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
                 <button
                   type="button"
                   onClick={request.onDelete}
-                  className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+                  className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-body font-medium text-red-600 transition-colors hover:bg-red-50"
                 >
                   <IconTrash className="h-4 w-4" />
                   Delete
@@ -449,7 +449,7 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
             <button
               type="button"
               onClick={request.onCancel}
-              className="rounded-lg px-4 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-200"
+              className="rounded-lg px-4 py-2 text-body text-gray-600 transition-colors hover:bg-gray-200"
             >
               {readOnly ? "Close" : "Cancel"}
             </button>
@@ -457,7 +457,7 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
               <button
                 type="button"
                 onClick={submit}
-                className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sky-700"
+                className="rounded-lg bg-sky-600 px-4 py-2 text-body font-medium text-white transition-colors hover:bg-sky-700"
               >
                 Save
               </button>

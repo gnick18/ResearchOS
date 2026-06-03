@@ -157,12 +157,12 @@ function SortHeader({
     <button
       type="button"
       onClick={() => onSort(col)}
-      className={`flex items-center gap-1 text-left text-xs font-medium uppercase tracking-wide ${
+      className={`flex items-center gap-1 text-left text-meta font-medium uppercase tracking-wide ${
         active ? "text-gray-700" : "text-gray-400"
       } hover:text-gray-700 ${className ?? ""}`}
     >
       {label}
-      <span className="text-xs">{active ? (sortDir === "asc" ? "▲" : "▼") : ""}</span>
+      <span className="text-meta">{active ? (sortDir === "asc" ? "▲" : "▼") : ""}</span>
     </button>
   );
 }
@@ -564,7 +564,7 @@ export default function SequencesPage() {
             <div className="flex flex-col gap-3">
               <div>
                 <h1 className="text-lg font-semibold text-gray-900">Sequences</h1>
-                <p className="mt-0.5 text-xs text-gray-500">
+                <p className="mt-0.5 text-meta text-gray-500">
                   Your plasmids and sequences, organized by project.
                 </p>
               </div>
@@ -572,7 +572,7 @@ export default function SequencesPage() {
                 <button
                   type="button"
                   onClick={() => setNewOpen(true)}
-                  className="flex items-center gap-1 rounded-md bg-sky-600 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-sky-700"
+                  className="flex items-center gap-1 rounded-md bg-sky-600 px-2.5 py-1.5 text-meta font-medium text-white transition-colors hover:bg-sky-700"
                 >
                   <PlusIcon className="h-3.5 w-3.5" />
                   New
@@ -584,7 +584,7 @@ export default function SequencesPage() {
                   <button
                     type="button"
                     onClick={() => setAssembleOpen(true)}
-                    className="flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                    className="flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1.5 text-meta font-medium text-gray-700 transition-colors hover:bg-gray-100"
                   >
                     <AssembleIcon className="h-3.5 w-3.5" />
                     Assemble
@@ -601,7 +601,7 @@ export default function SequencesPage() {
                       disabled={importing}
                       aria-haspopup="menu"
                       aria-expanded={importMenuOpen}
-                      className="flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:opacity-50"
+                      className="flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1.5 text-meta font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:opacity-50"
                     >
                       <ImportIcon className="h-3.5 w-3.5" />
                       {importing ? "Importing…" : "Import"}
@@ -620,7 +620,7 @@ export default function SequencesPage() {
                           setImportMenuOpen(false);
                           fileInputRef.current?.click();
                         }}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-gray-100"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-meta font-medium text-gray-700 hover:bg-gray-100"
                       >
                         <FileIcon className="h-3.5 w-3.5 text-gray-400" />
                         Choose files…
@@ -632,7 +632,7 @@ export default function SequencesPage() {
                           setImportMenuOpen(false);
                           folderInputRef.current?.click();
                         }}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-gray-100"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-meta font-medium text-gray-700 hover:bg-gray-100"
                       >
                         <FolderIcon className="h-3.5 w-3.5 text-gray-400" />
                         Choose folder…
@@ -644,7 +644,7 @@ export default function SequencesPage() {
             </div>
             {status ? (
               <p
-                className={`mt-2 text-xs ${
+                className={`mt-2 text-meta ${
                   status.tone === "error" ? "text-rose-600" : "text-emerald-600"
                 }`}
               >
@@ -675,13 +675,13 @@ export default function SequencesPage() {
 
           {/* Collection selector */}
           <div className="border-b border-gray-100 px-3 py-2">
-            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-400">
+            <label className="mb-1 block text-meta font-medium uppercase tracking-wide text-gray-400">
               Collection
             </label>
             <select
               value={collection}
               onChange={(e) => setCollection(e.target.value as Collection)}
-              className="w-full rounded-md border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-700 focus:border-sky-400 focus:outline-none"
+              className="w-full rounded-md border border-gray-200 bg-white px-2 py-1.5 text-body text-gray-700 focus:border-sky-400 focus:outline-none"
             >
               <option value="all">All Sequences ({sequences.length})</option>
               <option value="unfiled">Unfiled ({unfiledCount})</option>
@@ -704,7 +704,7 @@ export default function SequencesPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search sequences…"
-              className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-sm text-gray-700 placeholder:text-gray-400 focus:border-sky-400 focus:outline-none"
+              className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-body text-gray-700 placeholder:text-gray-400 focus:border-sky-400 focus:outline-none"
             />
           </div>
 
@@ -718,18 +718,18 @@ export default function SequencesPage() {
           {/* List */}
           <div className="min-h-0 flex-1 overflow-y-auto">
             {isLoading ? (
-              <div className="px-4 py-6 text-sm text-gray-400">Loading…</div>
+              <div className="px-4 py-6 text-body text-gray-400">Loading…</div>
             ) : sorted.length === 0 ? (
               sequences.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
-                  <p className="text-sm font-medium text-gray-600">No sequences yet</p>
-                  <p className="text-xs leading-relaxed text-gray-400">
+                  <p className="text-body font-medium text-gray-600">No sequences yet</p>
+                  <p className="text-meta leading-relaxed text-gray-400">
                     Use New, Assemble, or Import above to create a sequence or
                     bring in a GenBank, FASTA, or SnapGene file.
                   </p>
                 </div>
               ) : (
-                <div className="px-4 py-6 text-sm text-gray-400">
+                <div className="px-4 py-6 text-body text-gray-400">
                   No sequences match this filter.
                 </div>
               )
@@ -751,10 +751,10 @@ export default function SequencesPage() {
                         }`}
                       />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium text-gray-800">
+                        <span className="block truncate text-body font-medium text-gray-800">
                           {s.display_name}
                         </span>
-                        <span className="block text-xs text-gray-400">
+                        <span className="block text-meta text-gray-400">
                           {seqTypeLabel(s.seq_type)} · {s.length.toLocaleString()} bp ·{" "}
                           {formatAdded(s.added_at)}
                         </span>
@@ -778,10 +778,10 @@ export default function SequencesPage() {
             <>
               <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2.5">
                 <div className="min-w-0">
-                  <h2 className="truncate text-base font-semibold text-gray-800">
+                  <h2 className="truncate text-title font-semibold text-gray-800">
                     {selected.display_name}
                   </h2>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-meta text-gray-500">
                     {seqTypeLabel(selected.seq_type)} ·{" "}
                     {selected.circular ? "Circular" : "Linear"} ·{" "}
                     {selected.length.toLocaleString()} bp · {selected.feature_count}{" "}
@@ -799,7 +799,7 @@ export default function SequencesPage() {
               </div>
             </>
           ) : (
-            <div className="flex flex-1 items-center justify-center text-sm text-gray-400">
+            <div className="flex flex-1 items-center justify-center text-body text-gray-400">
               {sequences.length === 0
                 ? "No sequences to display yet."
                 : "Select a sequence from the library."}

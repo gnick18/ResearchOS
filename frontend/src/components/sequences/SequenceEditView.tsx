@@ -7,14 +7,16 @@
 // is an explicit checkpoint.
 //
 // ── SEQUENCE EDITOR TYPE SCALE (one size per role, SnapGene-calm) ────────────
-// Keep every UI text usage on exactly one of these four roles. Similar things
-// share a size; do not reintroduce arbitrary text-[Npx] one-offs.
-//   TITLE     text-base (16px), semibold where present. Panel / section titles,
+// This surface is the worked reference for the site-wide semantic type scale
+// (see docs/TYPE_SCALE.md). Keep every UI text usage on exactly one of these
+// roles via its semantic token; do not reintroduce arbitrary text-[Npx] one-offs.
+//   TITLE     text-title (16px), semibold where present. Panel / section titles,
 //             the sequence name header. (One exception: the top-most page
-//             heading "Sequences" may stay text-lg.)
-//   BODY      text-sm (14px). List items, menu items, toolbar / button labels,
+//             heading "Sequences" stays text-lg, between text-title and
+//             text-heading; left as-is so the swap is pixel-identical.)
+//   BODY      text-body (14px). List items, menu items, toolbar / button labels,
 //             dialog body text, form controls, primary interactive labels.
-//   META      text-xs (12px). Grey subtitles, dates, captions, tab labels,
+//   META      text-meta (12px). Grey subtitles, dates, captions, tab labels,
 //             coordinate / selection readouts, helper text, badges, small chrome
 //             controls. This tier absorbs all the former 9-13px one-offs.
 //   SVG MAP   fontSize 10 = ruler / coordinate numbers, fontSize 11 = feature /
@@ -165,7 +167,7 @@ import type { Range as SeqVizRange } from "@/vendor/seqviz/elements";
 const SeqViz = dynamic(() => import("@/vendor/seqviz"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-full w-full items-center justify-center text-sm text-gray-400">
+    <div className="flex h-full w-full items-center justify-center text-body text-gray-400">
       Loading editor…
     </div>
   ),
@@ -271,7 +273,7 @@ function ToolbarButton({
   primary?: boolean;
 }) {
   const base =
-    "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40";
+    "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-body font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40";
   const tone = primary
     ? "bg-sky-600 text-white hover:bg-sky-700 disabled:hover:bg-sky-600"
     : "text-gray-600 hover:bg-gray-100";
@@ -332,7 +334,7 @@ function FloatingSelectionBadge({
   return (
     <div
       ref={cardRef}
-      className="pointer-events-none absolute z-30 flex items-center gap-3 rounded-lg border border-gray-200 bg-white/95 px-3 py-1.5 text-xs text-gray-600 shadow-md backdrop-blur-sm"
+      className="pointer-events-none absolute z-30 flex items-center gap-3 rounded-lg border border-gray-200 bg-white/95 px-3 py-1.5 text-meta text-gray-600 shadow-md backdrop-blur-sm"
       style={{ left: pos.left, top: pos.top }}
     >
       <SelectionReadoutContent readout={readout} floating />
@@ -2401,7 +2403,7 @@ export default function SequenceEditView({
           </>
         ) : null}
         <div className="ml-auto flex items-center gap-3 pr-1">
-          <div className="text-xs text-gray-400">
+          <div className="text-meta text-gray-400">
             {doc.seq.length.toLocaleString()} bp
             {!readOnly && dirty ? <span className="ml-2 text-amber-500">• unsaved</span> : null}
             {readOnly ? <span className="ml-2 text-gray-400">Read-only</span> : null}
@@ -2586,7 +2588,7 @@ export default function SequenceEditView({
                 // nav polish bot — circular molecule in Map view: the ring IS the
                 // whole-molecule map, so the circular zoom slider is irrelevant.
                 // Mirror the linear Map cluster with the same calm indicator.
-                <div className="flex items-center gap-2 border-t border-gray-100 bg-white px-3 py-2 text-xs text-gray-500">
+                <div className="flex items-center gap-2 border-t border-gray-100 bg-white px-3 py-2 text-meta text-gray-500">
                   <svg
                     viewBox="0 0 24 24"
                     fill="none"
@@ -2675,7 +2677,7 @@ export default function SequenceEditView({
       </div>
 
       {/* Live selection readout */}
-      <div className="flex items-center gap-4 border-t border-gray-100 bg-gray-50 px-3 py-1.5 text-xs text-gray-600">
+      <div className="flex items-center gap-4 border-t border-gray-100 bg-gray-50 px-3 py-1.5 text-meta text-gray-600">
         <SelectionReadoutContent readout={readout} />
       </div>
 
@@ -2776,7 +2778,7 @@ export default function SequenceEditView({
         <div
           role="status"
           aria-live="polite"
-          className="fixed bottom-4 left-1/2 z-[120] -translate-x-1/2 flex items-center gap-3 rounded-lg border border-emerald-200 bg-white px-4 py-2.5 text-sm shadow-lg"
+          className="fixed bottom-4 left-1/2 z-[120] -translate-x-1/2 flex items-center gap-3 rounded-lg border border-emerald-200 bg-white px-4 py-2.5 text-body shadow-lg"
         >
           <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3" aria-hidden="true">

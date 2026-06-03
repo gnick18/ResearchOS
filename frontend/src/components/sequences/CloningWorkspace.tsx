@@ -86,14 +86,14 @@ function PreviewBox({ seq, circular }: { seq: string; circular: boolean }) {
   return (
     <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
       <div className="mb-1 flex items-center justify-between">
-        <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
+        <span className="text-meta font-medium uppercase tracking-wide text-gray-500">
           Assembled construct {circular ? "(circular)" : "(linear)"}
         </span>
-        <span className="text-xs text-gray-500">
+        <span className="text-meta text-gray-500">
           {seq.length.toLocaleString()} bp · {productGc(seq).toFixed(0)}% GC
         </span>
       </div>
-      <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all font-mono text-xs leading-relaxed text-gray-700">
+      <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all font-mono text-meta leading-relaxed text-gray-700">
         {shown}
         {seq.length > shown.length ? `\n… (${(seq.length - shown.length).toLocaleString()} more bp)` : ""}
       </pre>
@@ -265,8 +265,8 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
       {/* Header */}
       <header className="flex items-center justify-between border-b border-gray-200 px-5 py-3">
         <div className="min-w-0">
-          <h1 className="text-base font-semibold text-gray-800">Assemble construct</h1>
-          <p className="text-xs text-gray-500">
+          <h1 className="text-title font-semibold text-gray-800">Assemble construct</h1>
+          <p className="text-meta text-gray-500">
             Overlap assembly (Gibson / NEBuilder HiFi). Join fragments by shared homologous ends.
           </p>
         </div>
@@ -275,7 +275,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
             <button
               type="button"
               onClick={() => setStep("pick")}
-              className="rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+              className="rounded-md border border-gray-200 px-3 py-1.5 text-meta font-medium text-gray-700 hover:bg-gray-100"
             >
               Back to fragments
             </button>
@@ -297,13 +297,13 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
         <div className="grid min-h-0 flex-1 grid-cols-[1fr_22rem] gap-0 overflow-hidden">
           {/* LEFT: ordered fragment list + options */}
           <section className="flex min-h-0 flex-col overflow-y-auto p-5">
-            <h2 className="mb-1 text-sm font-semibold text-gray-700">Fragments, in order</h2>
-            <p className="mb-3 text-xs text-gray-500">
+            <h2 className="mb-1 text-body font-semibold text-gray-700">Fragments, in order</h2>
+            <p className="mb-3 text-meta text-gray-500">
               Order is 5&apos;-&gt;3&apos; along the product. For a plasmid put the insert first, then the vector backbone.
             </p>
 
             {picked.length === 0 ? (
-              <div className="rounded-md border border-dashed border-gray-300 px-4 py-8 text-center text-sm text-gray-400">
+              <div className="rounded-md border border-dashed border-gray-300 px-4 py-8 text-center text-body text-gray-400">
                 Add two or more fragments from your library or paste a sequence.
               </div>
             ) : (
@@ -313,12 +313,12 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                   const len = frag?.seq.length ?? 0;
                   return (
                     <li key={`${p.kind}-${i}-${p.name}`} className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-100 text-xs font-semibold text-sky-700">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-100 text-meta font-semibold text-sky-700">
                         {i + 1}
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium text-gray-800">{p.name}</span>
-                        <span className="block text-xs text-gray-400">
+                        <span className="block truncate text-body font-medium text-gray-800">{p.name}</span>
+                        <span className="block text-meta text-gray-400">
                           {p.kind === "pasted" ? "Pasted" : "Library"} ·{" "}
                           {resolving && p.kind === "library" && !len ? "resolving…" : `${len.toLocaleString()} bp`}
                         </span>
@@ -348,7 +348,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
               <button
                 type="button"
                 onClick={() => setPasteOpen((o) => !o)}
-                className="rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                className="rounded-md border border-gray-200 px-3 py-1.5 text-meta font-medium text-gray-700 hover:bg-gray-100"
               >
                 Paste a sequence…
               </button>
@@ -359,18 +359,18 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                     value={pasteName}
                     onChange={(e) => setPasteName(e.target.value)}
                     placeholder="Fragment name"
-                    className="mb-2 w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-sm focus:border-sky-400 focus:outline-none"
+                    className="mb-2 w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-body focus:border-sky-400 focus:outline-none"
                   />
                   <textarea
                     value={pasteSeq}
                     onChange={(e) => setPasteSeq(e.target.value)}
                     placeholder="Paste DNA bases (ACGT). Whitespace, numbers, and a FASTA header are stripped."
                     rows={3}
-                    className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 font-mono text-xs focus:border-sky-400 focus:outline-none"
+                    className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 font-mono text-meta focus:border-sky-400 focus:outline-none"
                   />
                   <div className="mt-2 flex justify-end gap-2">
-                    <button type="button" onClick={() => setPasteOpen(false)} className="rounded-md px-3 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-100">Cancel</button>
-                    <button type="button" onClick={addPasted} disabled={!sanitizeRawSequence(pasteSeq, "dna")} className="rounded-md bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-700 disabled:opacity-50">Add fragment</button>
+                    <button type="button" onClick={() => setPasteOpen(false)} className="rounded-md px-3 py-1.5 text-meta font-medium text-gray-500 hover:bg-gray-100">Cancel</button>
+                    <button type="button" onClick={addPasted} disabled={!sanitizeRawSequence(pasteSeq, "dna")} className="rounded-md bg-sky-600 px-3 py-1.5 text-meta font-medium text-white hover:bg-sky-700 disabled:opacity-50">Add fragment</button>
                   </div>
                 </div>
               ) : null}
@@ -379,52 +379,52 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
             {/* Options */}
             <div className="mt-6 space-y-4 border-t border-gray-100 pt-4">
               <div>
-                <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-400">Product topology</span>
+                <span className="mb-1.5 block text-meta font-medium uppercase tracking-wide text-gray-400">Product topology</span>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => setCircular(true)} className={`rounded-md border px-3 py-1.5 text-xs font-medium ${circular ? "border-sky-500 bg-sky-50 text-sky-700" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+                  <button type="button" onClick={() => setCircular(true)} className={`rounded-md border px-3 py-1.5 text-meta font-medium ${circular ? "border-sky-500 bg-sky-50 text-sky-700" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
                     Circular (plasmid)
                   </button>
-                  <button type="button" onClick={() => setCircular(false)} className={`rounded-md border px-3 py-1.5 text-xs font-medium ${!circular ? "border-sky-500 bg-sky-50 text-sky-700" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+                  <button type="button" onClick={() => setCircular(false)} className={`rounded-md border px-3 py-1.5 text-meta font-medium ${!circular ? "border-sky-500 bg-sky-50 text-sky-700" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
                     Linear
                   </button>
                 </div>
-                <p className="mt-1 text-xs text-gray-400">
+                <p className="mt-1 text-meta text-gray-400">
                   {circular ? "The last fragment joins back to the first, closing the loop." : "An open construct; the two ends are not joined."}
                 </p>
               </div>
 
               <div>
-                <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-400">Homology overlap</span>
+                <span className="mb-1.5 block text-meta font-medium uppercase tracking-wide text-gray-400">Homology overlap</span>
                 <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <label className="flex items-center gap-2 text-body text-gray-700">
                     <input type="radio" checked={overlapKind === "length"} onChange={() => setOverlapKind("length")} />
                     Length
                   </label>
                   {overlapKind === "length" ? (
                     <span className="flex items-center gap-1">
-                      <input type="number" min={10} max={60} value={overlapBp} onChange={(e) => setOverlapBp(Math.max(10, Math.min(60, Number(e.target.value) || DEFAULT_OVERLAP_BP)))} className="w-16 rounded-md border border-gray-200 px-2 py-1 text-sm focus:border-sky-400 focus:outline-none" />
-                      <span className="text-xs text-gray-500">bp</span>
+                      <input type="number" min={10} max={60} value={overlapBp} onChange={(e) => setOverlapBp(Math.max(10, Math.min(60, Number(e.target.value) || DEFAULT_OVERLAP_BP)))} className="w-16 rounded-md border border-gray-200 px-2 py-1 text-body focus:border-sky-400 focus:outline-none" />
+                      <span className="text-meta text-gray-500">bp</span>
                     </span>
                   ) : null}
                 </div>
-                <button type="button" onClick={() => setShowAdvanced((s) => !s)} className="mt-2 text-xs font-medium text-sky-600 hover:text-sky-800">
+                <button type="button" onClick={() => setShowAdvanced((s) => !s)} className="mt-2 text-meta font-medium text-sky-600 hover:text-sky-800">
                   {showAdvanced ? "Hide advanced" : "Advanced: size by Tm"}
                 </button>
                 {showAdvanced ? (
                   <div className="mt-2 flex items-center gap-3">
-                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                    <label className="flex items-center gap-2 text-body text-gray-700">
                       <input type="radio" checked={overlapKind === "tm"} onChange={() => setOverlapKind("tm")} />
                       Target Tm
                     </label>
                     {overlapKind === "tm" ? (
                       <span className="flex items-center gap-1">
-                        <input type="number" min={40} max={70} value={overlapTm} onChange={(e) => setOverlapTm(Math.max(40, Math.min(70, Number(e.target.value) || 48)))} className="w-16 rounded-md border border-gray-200 px-2 py-1 text-sm focus:border-sky-400 focus:outline-none" />
-                        <span className="text-xs text-gray-500">C</span>
+                        <input type="number" min={40} max={70} value={overlapTm} onChange={(e) => setOverlapTm(Math.max(40, Math.min(70, Number(e.target.value) || 48)))} className="w-16 rounded-md border border-gray-200 px-2 py-1 text-body focus:border-sky-400 focus:outline-none" />
+                        <span className="text-meta text-gray-500">C</span>
                       </span>
                     ) : null}
                   </div>
                 ) : null}
-                <p className="mt-1 text-xs text-gray-400">
+                <p className="mt-1 text-meta text-gray-400">
                   The shared end each junction&apos;s primers add. Default 25 bp suits Gibson / NEBuilder HiFi.
                 </p>
               </div>
@@ -434,20 +434,20 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
           {/* RIGHT: pick from library */}
           <aside className="flex min-h-0 flex-col border-l border-gray-200">
             <div className="border-b border-gray-100 px-4 py-3">
-              <h2 className="text-sm font-semibold text-gray-700">Your DNA library</h2>
-              <p className="mt-0.5 text-xs text-gray-500">Click to add a fragment in order.</p>
+              <h2 className="text-body font-semibold text-gray-700">Your DNA library</h2>
+              <p className="mt-0.5 text-meta text-gray-500">Click to add a fragment in order.</p>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
               {dnaLibrary.length === 0 ? (
-                <div className="px-4 py-6 text-sm text-gray-400">No DNA sequences in your library yet.</div>
+                <div className="px-4 py-6 text-body text-gray-400">No DNA sequences in your library yet.</div>
               ) : (
                 <ul>
                   {dnaLibrary.map((s) => (
                     <li key={s.id}>
                       <button type="button" onClick={() => addLibrary(s)} className="flex w-full items-center justify-between gap-2 border-b border-gray-50 px-4 py-2 text-left hover:bg-sky-50">
                         <span className="min-w-0">
-                          <span className="block truncate text-sm font-medium text-gray-800">{s.display_name}</span>
-                          <span className="block text-xs text-gray-400">{s.length.toLocaleString()} bp{s.circular ? " · circular" : ""}</span>
+                          <span className="block truncate text-body font-medium text-gray-800">{s.display_name}</span>
+                          <span className="block text-meta text-gray-400">{s.length.toLocaleString()} bp{s.circular ? " · circular" : ""}</span>
                         </span>
                         <span className="text-lg leading-none text-sky-500">+</span>
                       </button>
@@ -462,7 +462,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                   type="button"
                   onClick={() => setStep("review")}
                   disabled={!canReview}
-                  className="w-full rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="w-full rounded-md bg-sky-600 px-3 py-2 text-body font-medium text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Review junctions
                 </button>
@@ -478,13 +478,13 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
               {/* Construct name + preview */}
               <div className="space-y-3">
                 <label className="block">
-                  <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-400">Construct name</span>
+                  <span className="mb-1 block text-meta font-medium uppercase tracking-wide text-gray-400">Construct name</span>
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Assembled construct"
-                    className="w-full max-w-md rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-sky-400 focus:outline-none"
+                    className="w-full max-w-md rounded-md border border-gray-200 px-3 py-2 text-body focus:border-sky-400 focus:outline-none"
                   />
                 </label>
                 <PreviewBox seq={result.product.seq} circular={result.product.circular} />
@@ -493,10 +493,10 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
               {/* Assembly-level warnings */}
               {result.warnings.length > 0 ? (
                 <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
-                  <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-amber-800">
+                  <div className="mb-1 flex items-center gap-1.5 text-meta font-semibold text-amber-800">
                     <WarnIcon className="h-4 w-4" /> Assembly warnings
                   </div>
-                  <ul className="list-inside list-disc space-y-0.5 text-xs text-amber-700">
+                  <ul className="list-inside list-disc space-y-0.5 text-meta text-amber-700">
                     {result.warnings.map((w, i) => <li key={i}>{w}</li>)}
                   </ul>
                 </div>
@@ -504,7 +504,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
 
               {/* Junctions */}
               <div>
-                <h2 className="mb-2 text-sm font-semibold text-gray-700">Junctions ({result.junctions.length})</h2>
+                <h2 className="mb-2 text-body font-semibold text-gray-700">Junctions ({result.junctions.length})</h2>
                 <div className="space-y-3">
                   {result.junctions.map((jn, i) => {
                     const up = result.primers[jn.fragmentIndex];
@@ -512,22 +512,22 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                     return (
                       <div key={i} className="rounded-md border border-gray-200 p-3">
                         <div className="mb-2 flex items-center justify-between">
-                          <span className="text-sm font-medium text-gray-800">
+                          <span className="text-body font-medium text-gray-800">
                             {up?.fragmentName} <span className="text-gray-400">-&gt;</span> {down?.fragmentName}
                           </span>
-                          <span className="text-xs text-gray-500">
+                          <span className="text-meta text-gray-500">
                             overlap {jn.overlapBp} bp · Tm {Number.isFinite(jn.overlapTm) ? jn.overlapTm.toFixed(1) : "—"} C
                           </span>
                         </div>
                         {jn.warning ? (
-                          <div className="mb-2 flex items-start gap-1.5 rounded bg-amber-50 px-2 py-1 text-xs text-amber-700">
+                          <div className="mb-2 flex items-start gap-1.5 rounded bg-amber-50 px-2 py-1 text-meta text-amber-700">
                             <WarnIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {jn.warning}
                           </div>
                         ) : null}
-                        <div className="mb-2 rounded bg-gray-50 px-2 py-1 font-mono text-xs text-gray-600 break-all">
+                        <div className="mb-2 rounded bg-gray-50 px-2 py-1 font-mono text-meta text-gray-600 break-all">
                           overlap: {jn.overlapSeq || "—"}
                         </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="grid grid-cols-2 gap-2 text-meta">
                           <PrimerCell label={`${down?.fragmentName} forward`} primer={down?.forward} />
                           <PrimerCell label={`${up?.fragmentName} reverse`} primer={up?.reverse} />
                         </div>
@@ -540,13 +540,13 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
               {/* Oligo order list */}
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-gray-700">Oligo order list ({result.primers.length * 2})</h2>
-                  <button type="button" onClick={copyOligos} className="flex items-center gap-1.5 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100">
+                  <h2 className="text-body font-semibold text-gray-700">Oligo order list ({result.primers.length * 2})</h2>
+                  <button type="button" onClick={copyOligos} className="flex items-center gap-1.5 rounded-md border border-gray-200 px-2.5 py-1.5 text-meta font-medium text-gray-700 hover:bg-gray-100">
                     <CopyIcon className="h-3.5 w-3.5" /> {copied ? "Copied" : "Copy all"}
                   </button>
                 </div>
                 <div className="overflow-x-auto rounded-md border border-gray-200">
-                  <table className="w-full text-left text-xs">
+                  <table className="w-full text-left text-meta">
                     <thead className="bg-gray-50 text-gray-500">
                       <tr>
                         <th className="px-2 py-1.5 font-medium">Name</th>
@@ -570,24 +570,24 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                     </tbody>
                   </table>
                 </div>
-                <p className="mt-1 text-xs text-gray-400">
+                <p className="mt-1 text-meta text-gray-400">
                   Each primer is a 3&apos; annealing region (sized to ~{DEFAULT_ANNEAL_TM} C) plus a 5&apos; homology tail that adds the overlap. Saved with the construct as primer_bind features.
                 </p>
               </div>
 
               {/* Save */}
               <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-4">
-                {saveError ? <span className="text-xs text-rose-600">{saveError}</span> : null}
-                <button type="button" onClick={() => setStep("pick")} className="rounded-md border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">
+                {saveError ? <span className="text-meta text-rose-600">{saveError}</span> : null}
+                <button type="button" onClick={() => setStep("pick")} className="rounded-md border border-gray-200 px-4 py-2 text-body font-medium text-gray-700 hover:bg-gray-100">
                   Back
                 </button>
-                <button type="button" onClick={handleSave} disabled={saving} className="rounded-md bg-sky-600 px-5 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50">
+                <button type="button" onClick={handleSave} disabled={saving} className="rounded-md bg-sky-600 px-5 py-2 text-body font-medium text-white hover:bg-sky-700 disabled:opacity-50">
                   {saving ? "Saving…" : "Save construct"}
                 </button>
               </div>
             </div>
           ) : (
-            <div className="flex h-full items-center justify-center text-sm text-gray-400">
+            <div className="flex h-full items-center justify-center text-body text-gray-400">
               Add at least two fragments to assemble.
             </div>
           )}

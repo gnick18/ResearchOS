@@ -106,21 +106,21 @@ export default function SequenceImportTargetDialog({
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100">
             <FolderInIcon className="h-5 w-5 text-sky-600" />
           </div>
-          <h2 className="text-base font-semibold text-gray-900">
+          <h2 className="text-title font-semibold text-gray-900">
             Import {count} {seqNoun} into
           </h2>
         </div>
 
         <div className="space-y-3 px-5 py-4">
           <label className="block">
-            <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-400">
+            <span className="mb-1 block text-meta font-medium uppercase tracking-wide text-gray-400">
               Collection
             </span>
             <select
               autoFocus
               value={value}
               onChange={(e) => setValue(e.target.value)}
-              className="w-full rounded-md border border-gray-200 bg-white px-2.5 py-2 text-sm text-gray-700 focus:border-sky-400 focus:outline-none"
+              className="w-full rounded-md border border-gray-200 bg-white px-2.5 py-2 text-body text-gray-700 focus:border-sky-400 focus:outline-none"
             >
               <option value={UNFILED_VALUE}>Unfiled (no project)</option>
               {request.projects.length > 0 ? (
@@ -135,26 +135,26 @@ export default function SequenceImportTargetDialog({
             </select>
           </label>
 
-          <p className="text-xs text-gray-500">
+          <p className="text-meta text-gray-500">
             These {seqNoun} will link to the chosen project collection. Pick
             Unfiled to keep them out of any project for now.
           </p>
 
-          {skipNote ? <p className="text-xs text-gray-500">{skipNote}</p> : null}
+          {skipNote ? <p className="text-meta text-gray-500">{skipNote}</p> : null}
         </div>
 
         <div className="flex justify-end gap-2 border-t border-gray-100 bg-gray-50 px-4 py-3">
           <button
             type="button"
             onClick={request.onCancel}
-            className="rounded-lg px-4 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-200"
+            className="rounded-lg px-4 py-2 text-body text-gray-600 transition-colors hover:bg-gray-200"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={confirm}
-            className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sky-700"
+            className="rounded-lg bg-sky-600 px-4 py-2 text-body font-medium text-white transition-colors hover:bg-sky-700"
           >
             Import
           </button>
