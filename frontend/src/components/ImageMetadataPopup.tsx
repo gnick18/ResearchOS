@@ -208,118 +208,122 @@ export default function ImageMetadataPopup({
             )}
           </div>
 
-          {/* Metadata form */}
-          <div className="w-1/2 px-5 py-4 space-y-3 overflow-y-auto max-h-[60vh]">
+          {/* Metadata + actions */}
+          <div className="w-1/2 px-5 py-4 flex flex-col overflow-y-auto max-h-[60vh]">
             {!loaded ? (
               <p className="text-sm text-gray-500">Loading…</p>
             ) : (
               <>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
-                    Description
-                  </label>
-                  <textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    rows={4}
-                    placeholder="What does this image show? Conditions, time, etc."
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
-                  />
-                </div>
-                {onRename && (
-                  <div className="pt-2 border-t border-gray-100">
+                <div className="space-y-3">
+                  <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">
-                      Filename
+                      Description
                     </label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={renameInput}
-                        onChange={(e) => {
-                          setRenameInput(e.target.value);
-                          setRenameError(null);
-                        }}
-                        className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleRename}
-                        disabled={renaming || renameInput.trim() === filename || !renameInput.trim()}
-                        className="px-3 py-2 text-xs text-white bg-gray-700 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-40"
-                      >
-                        {renaming ? "Renaming…" : "Rename"}
-                      </button>
+                    <textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      rows={4}
+                      placeholder="What does this image show? Conditions, time, etc."
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                    />
+                  </div>
+                  {onRename && (
+                    <div className="pt-2 border-t border-gray-100">
+                      <label className="block text-xs font-medium text-gray-500 mb-1">
+                        Filename
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={renameInput}
+                          onChange={(e) => {
+                            setRenameInput(e.target.value);
+                            setRenameError(null);
+                          }}
+                          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleRename}
+                          disabled={renaming || renameInput.trim() === filename || !renameInput.trim()}
+                          className="px-3 py-2 text-xs text-white bg-gray-700 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-40"
+                        >
+                          {renaming ? "Renaming…" : "Rename"}
+                        </button>
+                      </div>
+                      {renameError && (
+                        <p className="mt-1 text-xs text-red-600">{renameError}</p>
+                      )}
                     </div>
-                    {renameError && (
-                      <p className="mt-1 text-xs text-red-600">{renameError}</p>
-                    )}
-                  </div>
-                )}
-                {sidecar?.source && (
-                  <div className="text-xs text-gray-400 pt-1 space-y-0.5">
-                    <p>
-                      Source: <span className="font-mono">{sidecar.source}</span>
-                    </p>
-                    {sidecar.receivedAt && (
-                      <p>Received: {new Date(sidecar.receivedAt).toLocaleString()}</p>
-                    )}
-                  </div>
-                )}
+                  )}
+                  {sidecar?.source && (
+                    <div className="text-xs text-gray-400 pt-1 space-y-0.5">
+                      <p>
+                        Source: <span className="font-mono">{sidecar.source}</span>
+                      </p>
+                      {sidecar.receivedAt && (
+                        <p>Received: {new Date(sidecar.receivedAt).toLocaleString()}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Primary actions live in the open right-hand space (pinned to
+                    the bottom of the column) instead of a cramped footer bar. */}
+                <div className="mt-auto pt-4 space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => setAnnotating(true)}
+                    disabled={!loaded || !previewUrl}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {/* Pencil icon (custom inline SVG, no icon library). */}
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden
+                    >
+                      <path d="M12 20h9" />
+                      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+                    </svg>
+                    Annotate
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleJump}
+                    disabled={!inDocument}
+                    title={
+                      inDocument
+                        ? "Scroll the rendered note to this image"
+                        : "This image isn't in the note yet — drag it in first"
+                    }
+                    className="w-full px-4 py-2 text-sm text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    ↪ Jump to occurrence in note
+                  </button>
+                  {onDelete && (
+                    <button
+                      type="button"
+                      onClick={handleDelete}
+                      disabled={deleting}
+                      className="w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
+                    >
+                      {deleting ? "Deleting…" : "Delete file"}
+                    </button>
+                  )}
+                </div>
               </>
             )}
           </div>
         </div>
 
-        <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleJump}
-              disabled={!inDocument}
-              className="px-3 py-2 text-xs text-blue-700 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              title={
-                inDocument
-                  ? "Scroll the rendered note to this image"
-                  : "This image isn't in the note yet — drag it in first"
-              }
-            >
-              ↪ Jump to occurrence in note
-            </button>
-            <button
-              type="button"
-              onClick={() => setAnnotating(true)}
-              disabled={!loaded || !previewUrl}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs text-blue-700 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-40"
-            >
-              {/* Pencil icon (custom inline SVG, no icon library). */}
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-              >
-                <path d="M12 20h9" />
-                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
-              </svg>
-              Annotate
-            </button>
-            {onDelete && (
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={deleting}
-                className="px-3 py-2 text-xs text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
-              >
-                {deleting ? "Deleting…" : "Delete file"}
-              </button>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
+        <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-2">
             {onMoveToActive && activeTask && (
               <button
                 type="button"
@@ -346,7 +350,6 @@ export default function ImageMetadataPopup({
             >
               {saving ? "Saving…" : "Save"}
             </button>
-          </div>
         </div>
       </div>
 
