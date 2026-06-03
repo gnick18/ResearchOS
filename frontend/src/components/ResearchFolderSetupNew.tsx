@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useFileSystem, isFileSystemAccessSupported } from "@/lib/file-system/file-system-context";
+import BrowserNotSupported from "@/components/BrowserNotSupported";
 import BetaDonationButton from "@/components/BetaDonationButton";
 import FeedbackModal from "@/components/FeedbackModal";
 import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
@@ -131,8 +132,8 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
 
   // Drag-and-drop handlers for the "Link a folder" card. Browser
   // support note: `DataTransferItem.getAsFileSystemHandle()` and
-  // `showDirectoryPicker()` ship together in Chromium (Chrome / Edge /
-  // Brave) and are absent in Safari + Firefox alike. We already gate the
+  // `showDirectoryPicker()` ship together in Chromium (Chrome / Edge) and
+  // are absent in Safari + Firefox + Brave alike. We already gate the
   // entire setup screen on `isFileSystemAccessSupported()` above, so if
   // the click-the-button path works in this browser the drop path works
   // too. `webkitGetAsEntry()` is kept as a defensive fallback.
@@ -241,17 +242,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
   };
 
   if (!isFileSystemAccessSupported()) {
-    return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-        <div className="max-w-lg mx-4 p-6 bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20">
-          <h2 className="text-xl font-bold text-white mb-4">Browser Not Supported</h2>
-          <p className="text-slate-300">
-            ResearchOS requires the File System Access API, which is only supported in 
-            Chromium-based browsers (Chrome, Edge, Brave). Please switch to a supported browser.
-          </p>
-        </div>
-      </div>
-    );
+    return <BrowserNotSupported />;
   }
 
   if (showUserSelection) {

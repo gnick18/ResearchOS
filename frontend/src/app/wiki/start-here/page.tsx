@@ -178,8 +178,8 @@ export default function StartHerePage() {
           <Link href="/wiki/getting-started/browser-requirements">
             Browser requirements
           </Link>
-          . Chrome, Edge, or Brave. The folder API does not work in Safari
-          or Firefox.
+          . Chrome or Edge. The folder API does not work in Safari, Firefox,
+          or Brave.
         </li>
         <li>
           <Link href="/wiki/getting-started/connecting-your-folder">

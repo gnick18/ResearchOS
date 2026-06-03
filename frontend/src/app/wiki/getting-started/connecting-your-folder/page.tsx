@@ -9,10 +9,10 @@ export default function ConnectingYourFolderPage() {
     <WikiPage
       intro="Pick a folder on your disk. ResearchOS will read and write JSON files inside it (no cloud, no upload). On a brand-new visit, BeakerBot waves at you from the upper-right with an optional 3-minute walkthrough you can take before linking anything."
     >
-      <Callout variant="info" title="Chromium browsers only">
+      <Callout variant="info" title="Chrome or Edge only">
         ResearchOS uses the File System Access API, which is only available in
-        Chromium-based browsers (Chrome, Edge, Brave). Safari and Firefox are
-        not supported. See{" "}
+        Chrome and Edge. Safari, Firefox, and Brave are not supported (Brave
+        disables the API on purpose). See{" "}
         <Link href="/wiki/getting-started/browser-requirements">
           Browser Requirements
         </Link>{" "}

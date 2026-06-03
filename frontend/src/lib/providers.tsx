@@ -10,6 +10,7 @@ import {
   isV4PreviewMode,
 } from "@/lib/file-system/wiki-capture-mock";
 import ResearchFolderSetupNew from "@/components/ResearchFolderSetupNew";
+import BrowserNotSupported from "@/components/BrowserNotSupported";
 import LandingPage from "@/components/landing/LandingPage";
 import {
   shouldShowLanding,
@@ -267,23 +268,7 @@ function AppContent({ children }: { children: ReactNode }) {
   }
 
   if (!isFileSystemAccessSupported()) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-        <div className="max-w-lg mx-4 p-6 bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20">
-          <h2 className="text-xl font-bold text-white mb-4">Browser Not Supported</h2>
-          <p className="text-slate-300 mb-4">
-            ResearchOS requires the File System Access API, which is only supported in
-            Chromium-based browsers (Chrome, Edge, Brave). Please switch to a supported browser.
-          </p>
-          <a
-            href="/wiki/getting-started/browser-requirements"
-            className="inline-block text-sm font-medium text-blue-300 hover:text-blue-200 underline"
-          >
-            Read the browser requirements guide →
-          </a>
-        </div>
-      </div>
-    );
+    return <BrowserNotSupported />;
   }
 
   // First-time-visitor landing ("sell") page. Sits between the browser-

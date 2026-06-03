@@ -1150,3 +1150,35 @@ export function useOptionalCurrentUser(): string | null {
 export function isFileSystemAccessSupported(): boolean {
   return typeof window !== "undefined" && "showDirectoryPicker" in window;
 }
+
+/**
+ * When the folder picker is missing we want to explain *why* in
+ * browser-specific terms instead of a generic "switch browsers."
+ *
+ * Brave is the case that bit a real user: it is Chromium-based, so we used
+ * to list it as supported, but it deliberately removes `showDirectoryPicker`
+ * (brave-browser#11407) with no reliable user-facing way to re-enable it. A
+ * Brave visitor otherwise lands on a "Browser Not Supported" screen that
+ * still names Brave as supported. Detect it synchronously via the
+ * `navigator.brave` object Brave injects (its `isBrave()` method is async and
+ * unusable in a render path). Safari and Firefox only ship the sandboxed
+ * Origin Private File System, never the real-folder picker, so they fall here
+ * too.
+ */
+export type UnsupportedBrowser = "brave" | "safari" | "firefox" | "other";
+
+export function detectUnsupportedBrowser(): UnsupportedBrowser {
+  if (typeof navigator === "undefined") return "other";
+  const nav = navigator as Navigator & {
+    brave?: { isBrave?: () => Promise<boolean> };
+  };
+  if (nav.brave && typeof nav.brave.isBrave === "function") return "brave";
+  const ua = navigator.userAgent;
+  if (/firefox\//i.test(ua)) return "firefox";
+  // Safari UA contains "Safari" but so does Chrome; exclude the Chromium and
+  // iOS-Chrome/Firefox markers to isolate genuine Safari.
+  if (/^((?!chrome|chromium|crios|fxios|android).)*safari/i.test(ua)) {
+    return "safari";
+  }
+  return "other";
+}

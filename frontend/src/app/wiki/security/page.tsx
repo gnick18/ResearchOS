@@ -359,7 +359,7 @@ export default function SecurityPage() {
         </p>
         <Steps>
           <Step>
-            Open ResearchOS in Chrome, Edge, or Brave, then open DevTools.{" "}
+            Open ResearchOS in Chrome or Edge, then open DevTools.{" "}
             <Kbd>F12</Kbd> works on Windows and Linux. <Kbd>Cmd</Kbd> +{" "}
             <Kbd>Option</Kbd> + <Kbd>I</Kbd> works on macOS.
           </Step>

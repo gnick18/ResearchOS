@@ -1009,7 +1009,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                     label="Managed backups + browser support"
                     us={{
                       mark: "none",
-                      text: "Your own cloud drive; Chrome, Edge, or Brave",
+                      text: "Your own cloud drive; Chrome or Edge",
                     }}
                     them={{
                       mark: "have",

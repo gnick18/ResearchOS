@@ -127,7 +127,7 @@ Built by Dr. Grant R. Nickles (PhD). Free and open source, funded in part by the
 ```
 +-----------------------------+
 |        Your Browser         |
-|  (Chrome / Edge / Brave)    |
+|     (Chrome / Edge)         |
 |                             |
 |  ResearchOS UI              |
 |     |                       |
@@ -147,7 +147,7 @@ Everything lives in the folder you picked. To back up, sync, or share, point a t
 
 ### Option A: hosted
 
-Open **[research-os-xi.vercel.app](https://research-os-xi.vercel.app/)** in Chrome, Edge, or Brave. Click "Connect folder," pick (or create) an empty folder on your machine, allow the read-write prompt, then pick or create a username. Your folder can live anywhere on disk; OneDrive, Dropbox, iCloud, or a plain local directory all work.
+Open **[research-os-xi.vercel.app](https://research-os-xi.vercel.app/)** in Chrome or Edge. Click "Connect folder," pick (or create) an empty folder on your machine, allow the read-write prompt, then pick or create a username. Your folder can live anywhere on disk; OneDrive, Dropbox, iCloud, or a plain local directory all work.
 
 ### Option B: run it yourself
 
@@ -169,7 +169,7 @@ npx vercel
 
 The repo is preconfigured for Vercel. No environment variables required for the core app. After deploy, share the URL with your team; each user picks the same shared folder and signs in under their own username.
 
-**Browser support.** Chrome, Edge, and Brave only. Firefox and Safari do not implement the File System Access API the app depends on.
+**Browser support.** Chrome and Edge only. Firefox and Safari do not implement the File System Access API the app depends on, and Brave (though Chromium-based) deliberately removes it.
 
 ---
 

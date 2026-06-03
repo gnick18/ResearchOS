@@ -230,7 +230,7 @@ export default function LabArchivesComparisonPage() {
                 <strong>Browser support</strong>
               </td>
               <td>
-                Chrome, Edge, or Brave (needs the File System Access API).
+                Chrome or Edge (needs the File System Access API).
               </td>
               <td>
                 <Yes>Any modern browser.</Yes>

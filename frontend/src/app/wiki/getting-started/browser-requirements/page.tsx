@@ -16,9 +16,6 @@ export default function BrowserRequirementsPage() {
           <strong>Microsoft Edge</strong> (version 86+) on Windows, macOS.
         </li>
         <li>
-          <strong>Brave</strong> on Windows, macOS, Linux.
-        </li>
-        <li>
           Other Chromium-based browsers (e.g., Arc, Vivaldi, Opera) usually
           work but aren&apos;t officially tested.
         </li>
@@ -26,6 +23,12 @@ export default function BrowserRequirementsPage() {
 
       <h2>Not supported</h2>
       <ul>
+        <li>
+          <strong>Brave</strong> is built on Chromium but deliberately removes
+          the File System Access API for privacy reasons, and there is no
+          reliable way to turn it back on. ResearchOS can&apos;t open your
+          folder in Brave. Use Chrome or Edge instead.
+        </li>
         <li>
           <strong>Firefox</strong> doesn&apos;t implement the File System
           Access API. Your data is still stored in{" "}
@@ -72,12 +75,6 @@ export default function BrowserRequirementsPage() {
             microsoft.com/edge
           </a>{" "}
           (preinstalled on Windows 10/11)
-        </li>
-        <li>
-          <strong>Brave</strong>:{" "}
-          <a href="https://brave.com/" target="_blank" rel="noopener noreferrer">
-            brave.com
-          </a>
         </li>
       </ul>
 

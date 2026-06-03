@@ -65,7 +65,6 @@ ResearchOS/
 │   │       └── utils/blob-url-resolver.ts ← FSA path → blob: URL, used everywhere an <img> renders
 │   ├── package.json
 │   └── tsconfig.json
-├── installer/                          ← Electron wrapper (optional desktop launcher)
 ├── scripts/
 │   └── cleanup-migrated-images.mjs     ← legacy image cleanup w/ Desktop-zip backup
 ├── AGENTS.md                           ← (this file)

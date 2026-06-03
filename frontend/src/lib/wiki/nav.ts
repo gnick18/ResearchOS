@@ -95,7 +95,7 @@ export const WIKI_NAV: WikiNode[] = [
       {
         href: "/wiki/getting-started/browser-requirements",
         label: "Browser Requirements",
-        blurb: "Why ResearchOS needs Chrome, Edge, or Brave.",
+        blurb: "Why ResearchOS needs Chrome or Edge.",
       },
       {
         href: "/wiki/getting-started/connecting-your-folder",

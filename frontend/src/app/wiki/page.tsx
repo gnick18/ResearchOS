@@ -43,7 +43,7 @@ export default function WikiLandingPage() {
       </p>
       <ol className="my-4 list-decimal pl-6 space-y-2.5 text-gray-800 leading-relaxed marker:text-gray-500 marker:font-semibold">
         <li>
-          Open ResearchOS in <strong>Chrome, Edge, or Brave</strong>. Other browsers
+          Open ResearchOS in <strong>Chrome or Edge</strong>. Other browsers
           can&apos;t read local folders yet.
         </li>
         <li>

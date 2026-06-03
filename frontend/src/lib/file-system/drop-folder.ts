@@ -6,7 +6,8 @@
  * `DataTransferItem.getAsFileSystemHandle()` (used here, preferred)
  * and `window.showDirectoryPicker()` (used by the existing click-handler
  * path in `file-system-context.tsx`) ship together in Chrome / Edge /
- * Brave / Opera and are absent in Safari + Firefox. The parent screen
+ * Opera and are absent in Safari + Firefox (and in Brave, which strips the
+ * API even though it is Chromium-based). The parent screen
  * already gates rendering on `isFileSystemAccessSupported()`, which
  * checks for `showDirectoryPicker`; since the two APIs are paired we
  * can assume `getAsFileSystemHandle` is available whenever the screen
