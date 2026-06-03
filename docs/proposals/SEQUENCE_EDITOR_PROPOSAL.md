@@ -320,12 +320,39 @@ just a feature):
   pass), so a view-control panel we BUILD just filters the data fed to SeqViz; the
   rendering already responds. This is the concrete mechanism for the locked UI
   principle (clean default, layers toggled on demand).
+  PRESENTATION (Grant 2026-06-02): present these as a compact ICON RAIL of toggle
+  buttons (SnapGene's left-edge track toolbar pattern, which Grant likes), NOT a
+  checklist. Use OUR custom inline-SVG icons (never emoji) + <Tooltip> on each
+  (house style). Grant likes the pattern, not SnapGene's specific images. Our
+  toggle-able tracks (all supported by SeqViz props): Features, Enzymes,
+  Translation, ORFs, Primers, complement strand, ruler/index, circular-vs-linear
+  topology. If 2c ships these as a panel/checklist instead of the rail, refine to
+  the rail in a polish pass.
+- FEATURES LIST = ON-DEMAND (locked, Grant 2026-06-02): the always-on right
+  Features side panel is too busy. DEFAULT view = clean full-width map + the icon
+  rail, NO side panel. A toolbar TOGGLE opens the feature list/index on demand
+  (kept as a valuable INDEX for big multi-gene contigs: search/jump; SnapGene's
+  Features-tab model). Editing a feature is via double-click on the viewer (see
+  rich feature-edit popup) and adding via a toolbar action, so the list is not
+  needed for those. Restructure applied after the 2c-polish chip lands.
 - FEATURE MANAGEMENT: add / edit / duplicate / remove features, feature COLORS,
   feature TYPES (CDS / promoter / gene / misc; types come from parsed GenBank via
   bio-parsers, plus a manage-types UI), and MULTI-SEGMENT features. Part of the
   Phase 2 editing layer (we own the feature model, SeqViz renders it). DOMAIN NOTE:
   multi-segment features are table stakes for Grant's work, fungal genes have
   INTRONS (exon/intron segment structure), not optional polish for this user base.
+- RICH FEATURE-EDIT POPUP (Grant 2026-06-02, SnapGene "Edit Feature" parity). Click
+  a feature -> a popup to edit it. Phase 2c builds the CORE (name, type, strand,
+  color, range). A FOLLOW-UP chip "2c2: rich feature editor" brings full parity:
+  (a) the SEGMENT TABLE with Split / Merge / Delete segment + per-segment location +
+  per-segment color (full multi-segment EDITING, beyond 2c's display+preserve);
+  (b) a QUALIFIERS editor (`/product`, `/note`, etc., add/remove arbitrary GenBank
+  qualifiers; round-trips into the .gb); (c) the per-feature "translate in sequence
+  view" toggle; (d) "prioritize display in maps". ENTRY (Grant ask): DOUBLE-CLICK a
+  feature ON THE VIEWER (the colored arrow on the map) opens its editor (wire SeqViz
+  feature double-click -> the existing FeatureEditorDialog), plus the panel edit
+  action. Dispatched AFTER the 2c-polish chip lands (both touch editor/viewer files;
+  serialize), so the delta is scoped against what is on main then.
 - ANNOTATION COLORS (Grant 2026-06-02, wanted): recolor annotations in the viewer
   (genes, primers, features) PER-FEATURE and PER-FEATURE-TYPE (a default
   type->color palette, e.g. CDS / promoter / primer each a color), SnapGene-style.
