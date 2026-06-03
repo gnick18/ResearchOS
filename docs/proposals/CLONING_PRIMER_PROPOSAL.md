@@ -240,8 +240,27 @@ Locked (Grant, 2026-06-03):
 - Specificity: NCBI handoff (auto-fill confirmed feasible) plus local-library
   baseline.
 
-Pending Grant review:
-- Confirm the build-first order (primer panel first, then overlap assembly, or
-  the reverse).
-- Confirm "probably skip" for Gateway is acceptable.
-- Whether a hands-on Benchling pass is wanted to sharpen the anti-pattern rules.
+Locked (Grant, 2026-06-03, second pass):
+- Build-first order: primer-design panel FIRST (its scoring core is reused by
+  the cloning auto-junction-primer step), then the overlap (Gibson) assembly.
+- Primer panel scope: BOTH design (generate candidates for a selected region)
+  and check (validate a pasted or existing primer), from the first cut.
+- Cloning surface: a STANDALONE Cloning workspace (not an editor tab), since
+  cloning combines several sequences into a new construct and fits the
+  projects-as-collections model.
+- Gateway / MultiSite recombination: SKIP in-house for the MVP (revisit on demand).
+
+Build sequencing (derived):
+1. Primer-design panel (design + check + trust badges + add-as-primer_bind),
+   fully client-side, no network.
+2. Specificity: local-library check (client-side) then the NCBI Primer-BLAST
+   auto-submit handoff (with the field-name caveat).
+3. Standalone Cloning workspace with overlap (Gibson / NEBuilder HiFi) assembly,
+   reusing the primer scoring from step 1.
+4. Later: Golden Gate / Type IIS; restriction-ligation + site-directed mutagenesis.
+
+Still optional:
+- A hands-on Benchling pass to sharpen the anti-pattern rules (documented read
+  is enough to proceed).
+- Privacy notice on the NCBI handoff (default: a clear "this sends your primers
+  to NCBI" note before the external request).
