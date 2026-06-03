@@ -48,7 +48,7 @@ export default function WelcomeWizardPage() {
       </ul>
 
       <Callout variant="info" title="If you remember the old seven-step modal">
-        ResearchOS used to ship a different welcome wizard: a seven-step modal
+        ResearchOS used to ship a different welcome wizard, a seven-step modal
         that asked which use-case you fit into and toggled tabs from a static
         map. That version has been retired. BeakerBot&apos;s tour now walks you
         through your own account instead of front-loading taxonomy questions.
@@ -139,7 +139,7 @@ export default function WelcomeWizardPage() {
       <h3>Q1c: are you the PI?</h3>
       <p>
         Conditional on Q1 = Lab. After picking Lab, BeakerBot follows up with
-        a single binary question: are you the PI, or are you a member?
+        a single binary question. Are you the PI, or are you a member?
         Picking <strong>PI</strong> sets{" "}
         <code>account_type</code> to <code>&quot;lab_head&quot;</code> on this
         account; picking <strong>Member</strong> leaves it at the default. One
@@ -180,7 +180,7 @@ export default function WelcomeWizardPage() {
         you can jump straight to the resource.
       </p>
       <p>
-        The surface name is account-type-conditional: solo accounts see{" "}
+        The surface name is account-type-conditional. Solo accounts see{" "}
         <strong>Links</strong>; lab accounts see <strong>Lab Links</strong>, a
         shared tab visible to everyone in the lab. Saying yes to Q7 adds the
         tab and fires the <code>links</code> conditional walkthrough later in
@@ -594,7 +594,7 @@ export default function WelcomeWizardPage() {
 
       <h2>BeakerBot, the character</h2>
       <p>
-        BeakerBot is the canonical ResearchOS mascot: a sky-blue chemistry
+        BeakerBot is the canonical ResearchOS mascot, a sky-blue chemistry
         beaker with pastel-rainbow liquid, dot eyes, and measurement-mark cheek
         dashes. The voice is funny and playful throughout. The tour draws from
         nine or more poses, chosen contextually:
@@ -729,7 +729,7 @@ export default function WelcomeWizardPage() {
       <ul>
         <li>
           <strong>Mount at step.</strong> Pick any v4 step ID from the dropdown
-          (every node in <code>TOUR_STEP_ORDER</code> — the full 91-step graph
+          (every node in <code>TOUR_STEP_ORDER</code>, the full 78-step graph
           from <code>welcome</code> through <code>tour-goodbye</code>) and click{" "}
           <strong>Mount wizard at this step</strong>. The orchestrator writes a
           resume_state pointing at your pick, flips the force-show flag on the
