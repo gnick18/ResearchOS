@@ -63,6 +63,11 @@ import {
 } from "./sequence-view-state";
 import SequenceZoomControl from "./SequenceZoomControl";
 import SequenceOverviewBar, { type OverviewFeature } from "./SequenceOverviewBar";
+import SequenceTabBar, { type SequenceViewMode } from "./SequenceTabBar";
+import SequenceCoordinateBar from "./SequenceCoordinateBar";
+import SequencePrimersPanel from "./SequencePrimersPanel";
+import SequenceEnzymesPanel from "./SequenceEnzymesPanel";
+import SequenceHistoryPanel from "./SequenceHistoryPanel";
 import {
   initialLinearZoom,
   viewportWindow,
@@ -70,6 +75,7 @@ import {
   pinchDeltaToZoom,
   bpUnderCursor,
   anchorScrollTopForBp,
+  MAP_ZOOM,
 } from "@/lib/sequences/sequence-zoom";
 import {
   EditMenuDropdown,
@@ -169,42 +175,6 @@ function IconPasteTool({ className }: { className?: string }) {
     </svg>
   );
 }
-// Features index toggle — a list/index glyph (the on-demand feature panel opener).
-function IconFeaturesList({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <line x1="8" y1="6" x2="21" y2="6" />
-      <line x1="8" y1="12" x2="21" y2="12" />
-      <line x1="8" y1="18" x2="21" y2="18" />
-      <line x1="3" y1="6" x2="3.01" y2="6" />
-      <line x1="3" y1="12" x2="3.01" y2="12" />
-      <line x1="3" y1="18" x2="3.01" y2="18" />
-    </svg>
-  );
-}
-// Primer dialog opener — a 5'->3' arrow over a strand line.
-function IconPrimerTool({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <line x1="3" y1="16" x2="21" y2="16" />
-      <path d="M4 9h12" />
-      <path d="M13 6l3 3-3 3" />
-    </svg>
-  );
-}
-// Enzyme picker opener — scissors (restriction cut site).
-function IconEnzymePicker({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <circle cx="6" cy="6" r="3" />
-      <circle cx="6" cy="18" r="3" />
-      <path d="M20 4L8.12 15.88" />
-      <path d="M14.47 14.48L20 20" />
-      <path d="M8.12 8.12L12 12" />
-    </svg>
-  );
-}
-
 function ToolbarButton({
   label,
   onClick,
@@ -264,9 +234,13 @@ export default function SequenceEditView({
   // Phase 2c — view controls (calm-by-default) + the feature add/edit dialog +
   // the currently-selected feature row, and an externally-driven zoom selection.
   const [view, setView] = useState<SequenceViewState>(DEFAULT_VIEW_STATE);
-  // FEATURES LIST = ON-DEMAND: the right-side feature index is hidden by default
-  // (calm full-width map + left rail). A toolbar toggle opens it as a drawer.
-  const [featuresPanelOpen, setFeaturesPanelOpen] = useState(false);
+  // seq nav bot — the SnapGene BOTTOM-TAB view switcher. `viewMode` is the
+  // primary "which view" state (Map / Sequence / Enzymes / Features / Primers /
+  // History). The Map + Sequence tabs render the SeqViz viewer (Map = a
+  // zoomed-out feature map, Sequence = base-level detail); the rest render their
+  // panels in the main content area. This is orthogonal to the left
+  // ViewControlRail (which toggles WHAT is drawn on the map).
+  const [viewMode, setViewMode] = useState<SequenceViewMode>("sequence");
   const [featureEditor, setFeatureEditor] = useState<FeatureEditorRequest | null>(null);
   const [selectedFeatureIdx, setSelectedFeatureIdx] = useState<number | null>(null);
   // Phase 2d — the restriction-enzyme picker. `activeEnzymes` is the in-session
@@ -394,6 +368,13 @@ export default function SequenceEditView({
       }));
   }, [doc.features, view.showPrimers]);
 
+  // Count of primer_bind features regardless of the Primers layer toggle (the
+  // Primers tab badge + panel always reflect the real primers on the molecule).
+  const primerCount = useMemo(
+    () => doc.features.filter((f) => (f.type || "").toLowerCase() === "primer_bind").length,
+    [doc.features],
+  );
+
   // Opening the enzyme picker also turns the cut-site layer on, so the chosen
   // enzymes are immediately visible on the map.
   const openEnzymePicker = useCallback(() => {
@@ -446,6 +427,15 @@ export default function SequenceEditView({
   const linearZoom = view.linearZoom ?? autoLinearZoom;
   const isLinearViewer = viewer === "linear";
 
+  // seq nav bot — MAP vs SEQUENCE tabs. The Sequence tab is the base-level detail
+  // view (the user's chosen / auto zoom). The Map tab is a zoomed-out whole-
+  // molecule view: circular molecules already render their ring (viewer="both"),
+  // and a LINEAR molecule renders a feature MAP by pinning the zoom to MAP_ZOOM
+  // (feature arrows, not legible bases). The zoom slider / coordinate cluster and
+  // the editable detail surface belong to the Sequence tab.
+  const showViewer = viewMode === "map" || viewMode === "sequence";
+  const viewerLinearZoom = viewMode === "map" ? MAP_ZOOM : linearZoom;
+
   // The bp window currently visible in the main linear viewer, for the overview
   // bar's viewport box. Two-way sync: we read the SeqViz linear scroller's live
   // geometry (it stacks rows + scrolls vertically, so the visible vertical
@@ -457,9 +447,19 @@ export default function SequenceEditView({
     end: doc.seq.length,
   });
 
+  // ACCURACY FIX: re-resolve the live scroller (its ref can go stale across a
+  // SeqViz re-render) and refuse to compute off a not-yet-laid-out subtree
+  // (scrollHeight === 0 right after a zoom would otherwise snap the box to the
+  // whole molecule). When the geometry isn't ready we leave the last good window
+  // in place; the rAF-after-zoom effect below recomputes once it settles.
   const recomputeWindow = useCallback(() => {
-    const sc = scrollerRef.current;
+    let sc = scrollerRef.current;
+    if (!sc || !sc.isConnected) {
+      sc = viewerRef.current?.querySelector<HTMLElement>(".la-vz-linear-scroller") ?? null;
+      if (sc) scrollerRef.current = sc;
+    }
     if (!sc) return;
+    if (!(sc.scrollHeight > 0) || !(sc.clientHeight > 0)) return;
     setOverviewWindow(
       viewportWindow({
         scrollTop: sc.scrollTop,
@@ -501,6 +501,26 @@ export default function SequenceEditView({
       ro.disconnect();
     };
   }, [isLinearViewer, recomputeWindow, sequence.id, linearZoom]);
+
+  // ACCURACY FIX (the core bug): after ANY zoom change (slider, +/- buttons, the
+  // bp-in-view field, the Fit button), SeqViz re-wraps the sequence into rows and
+  // the scroller's scrollHeight changes asynchronously over the next frame or
+  // two. A single synchronous recompute reads the STALE scrollHeight, so the
+  // viewport box drifts / fails to shrink. We recompute on a short rAF burst so
+  // the box settles to the true visible window once the row layout has updated.
+  // (The pinch path runs its own re-assert loop, so this primarily covers the
+  // slider / field / button / initial-mount paths.)
+  useEffect(() => {
+    if (!isLinearViewer) return;
+    let raf = 0;
+    const start = performance.now();
+    const tick = () => {
+      recomputeWindow();
+      if (performance.now() - start < 260) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [isLinearViewer, linearZoom, recomputeWindow]);
 
   // seq pinch bot — TRACKPAD PINCH-TO-ZOOM (SnapGene feel). On macOS a trackpad
   // pinch arrives as a `wheel` event with ctrlKey===true (deltaY < 0 == spread /
@@ -1488,44 +1508,6 @@ export default function SequenceEditView({
         {/* seq export bot — the Export dropdown (download .gb / .fasta /
             selected DNA + protein / map image). Available in read-only too. */}
         <ExportMenuDropdown items={exportMenuItems} />
-        <div className="mx-1 h-5 w-px bg-gray-200" />
-        <Tooltip label={featuresPanelOpen ? "Hide the feature list" : "Show the feature list"}>
-          <button
-            type="button"
-            onClick={() => setFeaturesPanelOpen((o) => !o)}
-            aria-pressed={featuresPanelOpen}
-            className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
-              featuresPanelOpen ? "bg-sky-50 text-sky-700" : "text-gray-600 hover:bg-gray-100"
-            }`}
-          >
-            <IconFeaturesList className="h-4 w-4" />
-            <span className="hidden sm:inline">Features</span>
-          </button>
-        </Tooltip>
-        <Tooltip label="Choose restriction enzymes">
-          <button
-            type="button"
-            onClick={openEnzymePicker}
-            aria-haspopup="dialog"
-            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100"
-          >
-            <IconEnzymePicker className="h-4 w-4" />
-            <span className="hidden sm:inline">Enzymes</span>
-          </button>
-        </Tooltip>
-        {!readOnly ? (
-          <Tooltip label="Design a primer (Tm, GC, binding site, alignment)">
-            <button
-              type="button"
-              onClick={openPrimerDialog}
-              aria-haspopup="dialog"
-              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100"
-            >
-              <IconPrimerTool className="h-4 w-4" />
-              <span className="hidden sm:inline">Primer</span>
-            </button>
-          </Tooltip>
-        ) : null}
         {!readOnly ? (
           <>
             <div className="mx-1 h-5 w-px bg-gray-200" />
@@ -1535,16 +1517,7 @@ export default function SequenceEditView({
             </ToolbarButton>
           </>
         ) : null}
-        {/* seq nav bot — seamless zoom control. Drives SeqViz's linear/circular
-            zoom knob; the Fit/Map button snaps to the whole-sequence overview. */}
         <div className="ml-auto flex items-center gap-3 pr-1">
-          <SequenceZoomControl
-            axis={isLinearViewer ? "linear" : "circular"}
-            zoom={isLinearViewer ? linearZoom : view.circularZoom}
-            onZoomChange={(z) =>
-              setView((v) => (isLinearViewer ? { ...v, linearZoom: z } : { ...v, circularZoom: z }))
-            }
-          />
           <div className="text-xs text-gray-400">
             {doc.seq.length.toLocaleString()} bp
             {!readOnly && dirty ? <span className="ml-2 text-amber-500">• unsaved</span> : null}
@@ -1553,101 +1526,177 @@ export default function SequenceEditView({
         </div>
       </div>
 
-      {/* Icon rail + editable viewer + features/display panel */}
+      {/* Icon rail + tab content. The left ViewControlRail (layer toggles) stays
+          visible for the Map + Sequence views; the other tabs render their own
+          panel in the main content area. */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <ViewControlRail view={view} onViewChange={setView} circular={doc.circular} featureTypes={featureTypes} />
+        {showViewer ? (
+          <ViewControlRail view={view} onViewChange={setView} circular={doc.circular} featureTypes={featureTypes} />
+        ) : null}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          {/* seq nav bot — persistent overview / context bar (linear only). A
-              custom SVG mini-map of the WHOLE sequence + a draggable viewport
-              box that both reflects and controls the main view (two-way sync). */}
-          {isLinearViewer ? (
-            <SequenceOverviewBar
-              seqLength={doc.seq.length}
-              features={overviewFeatures}
-              window={overviewWindow}
-              onScrollToBp={scrollMainToBp}
+          {/* seq nav bot — Map + Sequence: the SeqViz viewer + the persistent top
+              overview strip (linear) + the bottom coordinate / zoom cluster. The
+              viewer is kept MOUNTED for both tabs (just re-zoomed) so switching
+              Map<->Sequence does not tear down + reflow the renderer. */}
+          {showViewer ? (
+            <>
+              {/* FIXED whole-molecule overview strip + moving viewport box. Always
+                  shows the WHOLE molecule at full extent; the box reflects the bp
+                  range currently visible in the detail view (linear only). */}
+              {isLinearViewer ? (
+                <SequenceOverviewBar
+                  seqLength={doc.seq.length}
+                  features={overviewFeatures}
+                  window={overviewWindow}
+                  onScrollToBp={scrollMainToBp}
+                />
+              ) : null}
+              <div
+                ref={viewerRef}
+                className="relative min-h-0 min-w-0 flex-1 overflow-hidden"
+                onContextMenu={(e) => {
+                  // Right-click anywhere on the sequence surface opens the Edit
+                  // menu (the primary, selection-aware home for these ops).
+                  e.preventDefault();
+                  setContextMenuAt({ x: e.clientX, y: e.clientY });
+                }}
+              >
+                {/* seq editops bot — inline Find box (Cmd+F), anchored top-right. */}
+                {findOpen ? (
+                  <SequenceFindBox
+                    query={findQuery}
+                    onQueryChange={setFindQuery}
+                    matchCount={findMatches.length}
+                    activeIndex={findActive}
+                    onPrev={() => goToMatch(findActive - 1)}
+                    onNext={() => goToMatch(findActive + 1)}
+                    onClose={() => {
+                      setFindOpen(false);
+                      setFindQuery("");
+                    }}
+                  />
+                ) : null}
+                <SeqViz
+                  key={sequence.id}
+                  name={sequence.locus_name || sequence.display_name}
+                  seq={doc.seq}
+                  seqType={doc.seqType === "protein" ? "aa" : doc.seqType}
+                  annotations={annotations}
+                  translations={translations}
+                  enzymes={enzymes}
+                  primers={primers}
+                  search={searchProp}
+                  onSearch={onSearchResults}
+                  viewer={viewer}
+                  zoom={{ linear: viewerLinearZoom, circular: view.circularZoom }}
+                  editable={!readOnly && viewMode === "sequence"}
+                  onEdit={requestEdit}
+                  onAnnotationDoubleClick={handleAnnotationDoubleClick}
+                  onSelection={(s) => {
+                    setSelection(s);
+                    // A user-driven selection takes back control from a feature zoom.
+                    if (externalSel) setExternalSel(null);
+                  }}
+                  selection={externalSel ?? undefined}
+                  showComplement={view.showComplement}
+                  showIndex={view.showIndex}
+                  disableExternalFonts
+                  style={{ height: "100%", width: "100%" }}
+                />
+              </div>
+              {/* BOTTOM COORDINATE / ZOOM CLUSTER (linear only): zoom slider +
+                  editable bp-in-view field + exact window readout + horizontal
+                  coordinate minimap. Hidden on circular (the ring is the map). */}
+              {isLinearViewer ? (
+                <SequenceCoordinateBar
+                  seqLength={doc.seq.length}
+                  window={overviewWindow}
+                  zoom={linearZoom}
+                  onZoomChange={(z) => setView((v) => ({ ...v, linearZoom: z }))}
+                  onScrollToBp={scrollMainToBp}
+                />
+              ) : (
+                <div className="flex items-center gap-3 border-t border-gray-100 bg-white px-3 py-1.5">
+                  <SequenceZoomControl
+                    axis="circular"
+                    zoom={view.circularZoom}
+                    onZoomChange={(z) => setView((v) => ({ ...v, circularZoom: z }))}
+                  />
+                </div>
+              )}
+            </>
+          ) : null}
+
+          {/* FEATURES tab — reuses the FeaturesPanel content as a full-width view. */}
+          {viewMode === "features" ? (
+            <FeaturesPanel
+              features={doc.features}
+              view={view}
+              onViewChange={setView}
+              onSelectFeature={selectFeature}
+              selectedIndex={selectedFeatureIdx}
+              onAddFeature={openAddFeature}
+              canAdd={!readOnly}
+              readOnly={readOnly}
+              onEditFeature={readOnly ? openViewFeature : openEditFeature}
+              onDuplicateFeature={duplicateFeatureAt}
+              onDeleteFeature={deleteFeatureAt}
+              onRecolorFeature={recolorFeatureAt}
+              onRecolorType={recolorType}
             />
           ) : null}
-          <div
-            ref={viewerRef}
-            className="relative min-h-0 min-w-0 flex-1 overflow-hidden"
-            onContextMenu={(e) => {
-              // Right-click anywhere on the sequence surface opens the Edit menu
-              // (the primary, selection-aware home for these ops).
-              e.preventDefault();
-              setContextMenuAt({ x: e.clientX, y: e.clientY });
-            }}
-          >
-          {/* seq editops bot — inline Find box (Cmd+F), anchored top-right. */}
-          {findOpen ? (
-            <SequenceFindBox
-              query={findQuery}
-              onQueryChange={setFindQuery}
-              matchCount={findMatches.length}
-              activeIndex={findActive}
-              onPrev={() => goToMatch(findActive - 1)}
-              onNext={() => goToMatch(findActive + 1)}
-              onClose={() => {
-                setFindOpen(false);
-                setFindQuery("");
+
+          {/* ENZYMES tab — in-panel digest summary; the picker dialog still opens
+              from "Choose enzymes" to change the active set. */}
+          {viewMode === "enzymes" ? (
+            <SequenceEnzymesPanel
+              seq={doc.seq}
+              seqType={doc.seqType === "protein" ? "aa" : doc.seqType}
+              circular={doc.circular}
+              active={activeEnzymes ?? COMMON_ENZYMES}
+              onChooseEnzymes={openEnzymePicker}
+              onGoToPosition={(bp) => {
+                setViewMode("sequence");
+                applyGoTo(bp);
               }}
             />
           ) : null}
-          <SeqViz
-            key={sequence.id}
-            name={sequence.locus_name || sequence.display_name}
-            seq={doc.seq}
-            seqType={doc.seqType === "protein" ? "aa" : doc.seqType}
-            annotations={annotations}
-            translations={translations}
-            enzymes={enzymes}
-            primers={primers}
-            search={searchProp}
-            onSearch={onSearchResults}
-            viewer={viewer}
-            zoom={{ linear: linearZoom, circular: view.circularZoom }}
-            editable={!readOnly}
-            onEdit={requestEdit}
-            onAnnotationDoubleClick={handleAnnotationDoubleClick}
-            onSelection={(s) => {
-              setSelection(s);
-              // A user-driven selection takes back control from a feature zoom.
-              if (externalSel) setExternalSel(null);
-            }}
-            selection={externalSel ?? undefined}
-            showComplement={view.showComplement}
-            showIndex={view.showIndex}
-            disableExternalFonts
-            style={{ height: "100%", width: "100%" }}
-          />
-          </div>
+
+          {/* PRIMERS tab — derived from primer_bind features; design via the
+              existing PrimerDialog. */}
+          {viewMode === "primers" ? (
+            <SequencePrimersPanel
+              features={doc.features}
+              onSelectPrimer={(index) => {
+                setViewMode("sequence");
+                selectFeature(index);
+              }}
+              selectedIndex={selectedFeatureIdx}
+              onDesignPrimer={openPrimerDialog}
+              onDeletePrimer={deleteFeatureAt}
+              readOnly={readOnly}
+            />
+          ) : null}
+
+          {/* HISTORY tab — empty state until the cloning-history phase lands. */}
+          {viewMode === "history" ? <SequenceHistoryPanel /> : null}
         </div>
-        {/* FEATURES LIST = ON-DEMAND: rendered only when the toolbar toggle is on.
-            Default view is a clean full-width map + the left view-control rail. */}
-        {featuresPanelOpen && (
-          <FeaturesPanel
-            features={doc.features}
-            view={view}
-            onViewChange={setView}
-            onSelectFeature={selectFeature}
-            selectedIndex={selectedFeatureIdx}
-            onAddFeature={openAddFeature}
-            canAdd={!readOnly}
-            readOnly={readOnly}
-            onEditFeature={readOnly ? openViewFeature : openEditFeature}
-            onDuplicateFeature={duplicateFeatureAt}
-            onDeleteFeature={deleteFeatureAt}
-            onRecolorFeature={recolorFeatureAt}
-            onRecolorType={recolorType}
-            onClose={() => setFeaturesPanelOpen(false)}
-          />
-        )}
       </div>
 
       {/* Live selection readout */}
       <div className="flex items-center gap-4 border-t border-gray-100 bg-gray-50 px-3 py-1.5 text-xs text-gray-600">
         <SelectionReadoutContent readout={readout} />
       </div>
+
+      {/* seq nav bot — the SnapGene-style BOTTOM TAB BAR (always visible): the
+          primary Map / Sequence / Enzymes / Features / Primers / History switch. */}
+      <SequenceTabBar
+        active={viewMode}
+        onChange={setViewMode}
+        featureCount={doc.features.length}
+        primerCount={primerCount}
+        enzymeCount={(activeEnzymes ?? COMMON_ENZYMES).length}
+      />
 
       {/* Confirmation dialog for Cut / chunk-delete / Paste / feature delete. */}
       <SequenceConfirmDialog request={confirm} />

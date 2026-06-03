@@ -90,6 +90,42 @@ export function pinchDeltaToZoom(currentZoom: number, deltaY: number): number {
 }
 
 /**
+ * seq nav bot — EDITABLE "bp in view" field -> zoom (the inverse of the live
+ * readout, calibrated against the renderer instead of guessed from a formula).
+ *
+ * SeqViz's linear `zoom` knob controls bases-per-row, but how many bp end up
+ * VISIBLE also depends on the container height (rows on screen), which pure math
+ * can't know. So instead of a fragile closed form we CALIBRATE off the live
+ * sample the editor already measures every frame: the current zoom and the bp
+ * span currently in view. Higher zoom => fewer bp per row => fewer bp in view, so
+ * span and zoom move INVERSELY and roughly geometrically (bpsPerRow scales with
+ * 1/seqFontSize, and seqFontSize is ~linear in zoom over the legible band). We
+ * therefore step zoom by the LOG-ratio of current span to target span: to halve
+ * the visible span the user must roughly double the effective resolution.
+ *
+ * `ZOOM_PER_SPAN_OCTAVE` is how many zoom-knob units correspond to one halving
+ * of the visible span; tuned so dragging the full 1..100 range sweeps the whole
+ * legible span range of a typical molecule. The result is clamped to the slider
+ * range. Pure + DOM-free so it is unit-testable; the component feeds it the live
+ * (zoom, span) sample and the user's requested span.
+ */
+export const ZOOM_PER_SPAN_OCTAVE = 14;
+
+export function zoomForTargetSpan(opts: {
+  currentZoom: number;
+  currentSpan: number;
+  targetSpan: number;
+}): number {
+  const { currentZoom, currentSpan, targetSpan } = opts;
+  const base = Number.isFinite(currentZoom) ? currentZoom : DEFAULT_LINEAR_ZOOM;
+  if (!Number.isFinite(currentSpan) || currentSpan <= 0) return clampLinearZoom(base);
+  if (!Number.isFinite(targetSpan) || targetSpan <= 0) return clampLinearZoom(base);
+  // octaves > 0 when we want a SMALLER span (zoom in => raise the knob).
+  const octaves = Math.log2(currentSpan / targetSpan);
+  return clampLinearZoom(Math.round(base + octaves * ZOOM_PER_SPAN_OCTAVE));
+}
+
+/**
  * The fraction of the whole sequence visible in the main linear view, derived
  * from the scroll container's geometry. The linear viewer stacks rows of bases
  * vertically and scrolls, so the visible vertical fraction == the visible bp

@@ -15,6 +15,8 @@ import {
   bpToTrackX,
   pinchDeltaToZoom,
   PINCH_ZOOM_SENSITIVITY,
+  zoomForTargetSpan,
+  ZOOM_PER_SPAN_OCTAVE,
   bpUnderCursor,
   anchorScrollTopForBp,
   showInOverview,
@@ -273,5 +275,49 @@ describe("showInOverview — mini-map whole-span / source filter", () => {
   });
   it("the threshold constant is ~99%", () => {
     expect(OVERVIEW_WHOLE_SPAN_FRACTION).toBeCloseTo(0.99, 5);
+  });
+});
+
+describe("zoomForTargetSpan (editable bp-in-view field -> zoom)", () => {
+  it("returns the current zoom when the target equals the current span", () => {
+    expect(
+      zoomForTargetSpan({ currentZoom: 50, currentSpan: 1000, targetSpan: 1000 }),
+    ).toBe(50);
+  });
+
+  it("raises the zoom to show FEWER bases (zoom in)", () => {
+    const z = zoomForTargetSpan({ currentZoom: 40, currentSpan: 1000, targetSpan: 500 });
+    expect(z).toBeGreaterThan(40);
+    // one octave (halving) == ZOOM_PER_SPAN_OCTAVE steps
+    expect(z).toBe(clampLinearZoom(40 + ZOOM_PER_SPAN_OCTAVE));
+  });
+
+  it("lowers the zoom to show MORE bases (zoom out)", () => {
+    const z = zoomForTargetSpan({ currentZoom: 60, currentSpan: 1000, targetSpan: 2000 });
+    expect(z).toBeLessThan(60);
+    expect(z).toBe(clampLinearZoom(60 - ZOOM_PER_SPAN_OCTAVE));
+  });
+
+  it("is monotonic: a smaller target span never lowers the zoom", () => {
+    const wide = zoomForTargetSpan({ currentZoom: 50, currentSpan: 4000, targetSpan: 3000 });
+    const narrow = zoomForTargetSpan({ currentZoom: 50, currentSpan: 4000, targetSpan: 200 });
+    expect(narrow).toBeGreaterThanOrEqual(wide);
+  });
+
+  it("clamps into the slider range", () => {
+    expect(
+      zoomForTargetSpan({ currentZoom: 95, currentSpan: 10000, targetSpan: 1 }),
+    ).toBe(MAX_LINEAR_ZOOM);
+    expect(
+      zoomForTargetSpan({ currentZoom: 5, currentSpan: 100, targetSpan: 1_000_000 }),
+    ).toBe(MIN_LINEAR_ZOOM);
+  });
+
+  it("guards bad input (non-positive / non-finite spans)", () => {
+    expect(zoomForTargetSpan({ currentZoom: 50, currentSpan: 0, targetSpan: 100 })).toBe(50);
+    expect(zoomForTargetSpan({ currentZoom: 50, currentSpan: 100, targetSpan: 0 })).toBe(50);
+    expect(zoomForTargetSpan({ currentZoom: NaN, currentSpan: 100, targetSpan: 50 })).toBe(
+      clampLinearZoom(DEFAULT_LINEAR_ZOOM + ZOOM_PER_SPAN_OCTAVE),
+    );
   });
 });
