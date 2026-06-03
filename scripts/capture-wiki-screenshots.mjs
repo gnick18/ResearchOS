@@ -229,12 +229,17 @@ async function openSeededNote(page) {
       .first();
     await card.waitFor({ state: "visible", timeout: 10000 });
     await card.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
-    // Normal click (waits for actionability). Proven against a healthy dev
-    // server; only flaky on a cold/slow one where the Notes grid never
-    // stabilizes in time. Do NOT force-click here: force fires before React
-    // wires the card and the note popup never mounts.
-    await card.click({ timeout: 6000 });
-    await page.waitForTimeout(900);
+    // The note card is a clickable DIV (not a button) with a hover
+    // transition; Playwright's actionability click times out on it, but a
+    // DOM-level .click() reliably fires the React onClick (verified: opens
+    // the note popup). Dispatch it directly.
+    await page.evaluate(() => {
+      const h3 = [...document.querySelectorAll("h3")].find((e) =>
+        /qPCR optimization log \(fakeGFP vs ACT1\)/.test(e.textContent || ""),
+      );
+      if (h3) h3.click();
+    });
+    await page.waitForTimeout(1000);
   } catch (err) {
     console.warn(`  ⚠ openSeededNote open card: ${err.message}`);
   }
@@ -258,8 +263,13 @@ async function openSeededNote(page) {
 async function openHistorySidebar(page) {
   try {
     const btn = page.locator('[data-testid="note-history-button"]').first();
+    await btn.waitFor({ state: "visible", timeout: 6000 }).catch(() => {});
     if (await btn.count()) {
-      await btn.click({ timeout: 3000 });
+      // DOM-level click: the note popup is still mid-transition here, so
+      // Playwright's actionability click times out; the raw click fires.
+      await page.evaluate(() => {
+        document.querySelector('[data-testid="note-history-button"]')?.click();
+      });
       await page.waitForSelector(
         '[data-testid="note-version-history-sidebar"]',
         { timeout: 5000 },
@@ -316,7 +326,14 @@ async function selectVersionByIndex(page, versionIndex) {
       .first();
     if (await row.count()) {
       await row.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
-      await row.click({ timeout: 3000 });
+      // DOM-level click (rows are divs inside the animating sidebar).
+      await page.evaluate((idx) => {
+        document
+          .querySelector(
+            `[data-testid="version-row"][data-version-index="${idx}"]`,
+          )
+          ?.click();
+      }, versionIndex);
       await page.waitForTimeout(700);
       return true;
     }
@@ -2497,7 +2514,14 @@ const FIXTURE_ROUTES = [
           .locator('[data-testid="version-row"][data-version-index="2"]')
           .first();
         if (await row.count()) {
-          await row.click({ timeout: 3000 });
+          // DOM-level click (row is a div in the animating sidebar).
+          await page.evaluate(() => {
+            document
+              .querySelector(
+                '[data-testid="version-row"][data-version-index="2"]',
+              )
+              ?.click();
+          });
           await page.waitForTimeout(600);
         }
       } catch (err) {
