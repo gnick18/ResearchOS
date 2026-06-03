@@ -292,6 +292,15 @@ export class Labels extends React.Component<LabelsProps, LabelsState> {
       <g className="la-vz-circular-labels" onMouseLeave={() => this.setHoveredGroup("")}>
         {labelGroups.map(g => {
           const [first] = g.labels;
+          // RESEARCHOS (primer labels bot): a label/leader is rendered in the
+          // primer color (pink) when every label in this position is a primer.
+          // Mixed groups (a primer overlapping a feature) keep the neutral gray
+          // so we never mislabel a feature line as a primer. Single primer
+          // labels (the common SnapGene case) get the pink leader + name.
+          const allPrimers = g.labels.every((l: ILabel) => l.type === "primer");
+          const primerColor = allPrimers ? first.color || "#f472b6" : null;
+          const lineStyle = primerColor ? { ...circularLabelLine, stroke: primerColor } : circularLabelLine;
+          const labelTextStyle = primerColor ? { ...circularLabel, fill: primerColor } : circularLabel;
           // generate the line between the name and plasmid surface
           const fC = g.forkCoor || g.textCoor;
           const labelLines = (
@@ -299,13 +308,13 @@ export class Labels extends React.Component<LabelsProps, LabelsState> {
               <path
                 className="la-vz-label-line"
                 d={`M${g.lineCoor.x} ${g.lineCoor.y} L${fC.x} ${fC.y}`}
-                style={circularLabelLine}
+                style={lineStyle}
               />
               {g.forkCoor && (
                 <path
                   className="la-vz-label-line"
                   d={`M${fC.x} ${fC.y} L${g.textCoor.x} ${g.textCoor.y}`}
-                  style={circularLabelLine}
+                  style={lineStyle}
                 />
               )}
             </>
@@ -321,7 +330,7 @@ export class Labels extends React.Component<LabelsProps, LabelsState> {
                   id={first.id}
                   {...g.textCoor}
                   dominantBaseline="middle"
-                  style={circularLabel}
+                  style={labelTextStyle}
                   textAnchor={g.textAnchor}
                   onMouseEnter={() => setHoveredLabelUnderline(first.id || "", true)}
                   onMouseLeave={() => setHoveredLabelUnderline(first.id || "", false)}
@@ -342,7 +351,7 @@ export class Labels extends React.Component<LabelsProps, LabelsState> {
                 className="la-vz-circular-label"
                 dominantBaseline="middle"
                 id={first.id}
-                style={circularLabel}
+                style={labelTextStyle}
                 textAnchor={g.textAnchor}
                 onMouseEnter={() => this.setHoveredGroup(first.id || "")}
                 {...g.textCoor}

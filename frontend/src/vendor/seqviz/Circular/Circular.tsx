@@ -20,11 +20,16 @@ import { Selection } from "./Selection";
 export const RENDER_SEQ_LENGTH_CUTOFF = 250;
 
 export interface ILabel {
+  // RESEARCHOS (primer labels bot): an optional color so primer labels can carry
+  // their pink stroke/fill through the shared circular Labels layout engine.
+  color?: string;
   end: number;
   id?: string;
   name: string;
   start: number;
-  type: "enzyme" | "annotation";
+  // RESEARCHOS (primer labels bot): "primer" routes a primer NAME through the
+  // same de-collision + leader-line engine that lays out feature/enzyme names.
+  type: "enzyme" | "annotation" | "primer";
 }
 
 /** GenArcFunc is a method that makes an arc on the viewer for a Circular child. */
@@ -134,6 +139,24 @@ export default class Circular extends React.Component<CircularProps, CircularSta
         type: "enzyme",
       }),
     );
+
+    // RESEARCHOS (primer labels bot): route primer NAMES through the shared outer
+    // label engine so they de-collide with one another (and with feature/enzyme
+    // names) and get leader lines, exactly like SnapGene. The directional MARKER
+    // on the ring is still drawn separately by <CircularPrimers>; only the name
+    // travels through Labels. We keep the binding start/end so the leader line
+    // seeds at the primer's binding midpoint (where the marker sits), and carry
+    // the primer's pink color through so the label/leader render pink.
+    (nextProps.primers || []).forEach((p, i) => {
+      outerLabels.push({
+        color: p.color || "#f472b6",
+        end: p.end,
+        id: p.id || `circular-primer-${p.name}-${p.start}-${p.end}-${i}`,
+        name: p.name,
+        start: p.start,
+        type: "primer",
+      });
+    });
 
     // sort all the labels so they're in ascending order
     outerLabels.sort((a, b) => Math.min(a.start, a.end) - Math.min(b.start, b.end));
@@ -444,7 +467,9 @@ const CircularPrimers = (props: {
 
   const stemInner = radius - 2; // stem starts just inside the plasmid edge
   const stemOuter = radius + 7; // and reaches outward to where the arrowhead sits
-  const labelRadius = radius + 12; // label sits just past the arrowhead
+  // RESEARCHOS (primer labels bot): the name label is no longer drawn here. It is
+  // fed into the shared <Labels> de-collision + leader-line engine (see
+  // getDerivedStateFromProps) so primer names never stack on top of one another.
 
   // Top-of-ring anchor (index 0). findCoor(0, r) returns the point at the top
   // of the circle; the tangent there is horizontal, so a clockwise arrow points
@@ -468,7 +493,6 @@ const CircularPrimers = (props: {
         // Build at the top of the ring, then rotate into place via getRotation.
         const stemTop = findCoor(0, stemInner); // inner end of the radial stem
         const headBase = findCoor(0, stemOuter); // where stem meets arrowhead
-        const labelCoor = findCoor(0, labelRadius);
 
         // Arrowhead triangle, tangent to the ring at the top: the tip is shifted
         // along x by dir*HEAD_LEN; the two back corners straddle the tangent.
@@ -480,13 +504,6 @@ const CircularPrimers = (props: {
         const color = p.color || "#f472b6";
         const id = p.id || `circular-primer-${p.name}-${p.start}-${p.end}-${i}`;
         const coordLabel = `${p.name} (${p.start + 1}..${p.end}, ${fwd ? "fwd" : "rev"})`;
-
-        // The label group is also rotated to mid; keep the text upright and
-        // anchored away from the ring. At the top (after rotation) the label
-        // start-anchored to the right reads outward for the upper half; mirror
-        // for the lower half so names never run back across the ring.
-        const onUpper = mid % seqLength < seqLength / 2;
-        const anchor = onUpper ? "start" : "end";
 
         const handleDoubleClick = (e: React.MouseEvent) => {
           if (!onAnnotationDoubleClick) return;
@@ -519,18 +536,10 @@ const CircularPrimers = (props: {
             {/* directional arrowhead: tangent to the ring, points the way the
                 primer reads (clockwise for fwd, counter-clockwise for rev). */}
             <path className="la-vz-circular-primer-arrow" cursor="pointer" d={headPath} fill={color} stroke="none" />
-            <text
-              className="la-vz-circular-primer-label"
-              cursor="pointer"
-              dominantBaseline="middle"
-              fill="rgb(70, 70, 70)"
-              fontSize={11}
-              textAnchor={anchor}
-              x={labelCoor.x}
-              y={labelCoor.y}
-            >
-              {p.name}
-            </text>
+            {/* RESEARCHOS (primer labels bot): the name label is intentionally NOT
+                rendered here anymore. It goes through the shared <Labels> engine
+                so it de-collides with other primer/feature names and gets a
+                leader line. */}
           </g>
         );
       })}
