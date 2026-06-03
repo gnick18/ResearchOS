@@ -17,7 +17,7 @@ import {
 
 function input(over: Partial<LandingRedirectInput> = {}): LandingRedirectInput {
   return {
-    didLandingRedirect: false,
+    suppress: false,
     currentUser: "mira",
     accountType: "member",
     defaultLandingTab: null,
@@ -27,10 +27,10 @@ function input(over: Partial<LandingRedirectInput> = {}): LandingRedirectInput {
   };
 }
 
-describe("decideLandingRedirect — in-flight / one-shot guards", () => {
-  it("does nothing once the one-shot flag is already set", () => {
+describe("decideLandingRedirect — in-flight / suppress guards", () => {
+  it("does nothing while a deep-link / open popup suppresses the bounce", () => {
     const d = decideLandingRedirect(
-      input({ didLandingRedirect: true, accountType: "lab_head" }),
+      input({ suppress: true, accountType: "lab_head" }),
     );
     expect(d).toEqual({ kind: "none", markOneShot: false });
   });

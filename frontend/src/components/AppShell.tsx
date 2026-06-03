@@ -159,7 +159,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const accountType = useAccountType(currentUser ?? null);
   const _isLabWorkspace = featurePicks?.account_type === "lab";
   void _isLabWorkspace;
-  const dashboardLabel = accountType === "lab_head" ? "Lab Overview" : "Home";
 
   // The dashboard ("/") is always shown so the user has a guaranteed safe
   // landing tab even if they hide everything else (or if Settings was
@@ -176,17 +175,23 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // itself stays alive, so a lab head who types /purchases directly still
   // gets the full page, and members keep the nav entry unchanged.
   const navItemsWithOverview = useMemo(() => {
-    let next = [...filtered];
+    // Widget-framework teardown follow-up (2026-06-02): "/" no longer
+    // renders anything (it is a pure redirect). So a PI's dashboard entry
+    // becomes "Lab Overview" pointing STRAIGHT at the curated /lab-overview
+    // page (no "/" redirect hop), and everyone else has no dashboard at all
+    // (Workbench is their landing), so the "/" entry is dropped. The
+    // /purchases entry is NO LONGER hidden for PIs: the LabPurchasesWidget
+    // that justified hiding it was deleted with the canvas, so a PI needs
+    // the /purchases nav entry back.
     if (accountType === "lab_head") {
-      next = next.filter((i) => i.href !== "/purchases");
+      return filtered.map((item) =>
+        item.href === HOME_HREF
+          ? { ...item, href: "/lab-overview", label: "Lab Overview" }
+          : item,
+      );
     }
-    // Apply the account-aware dashboard label to the "/" entry in place
-    // (NAV_ITEMS hard-codes "Home"; a PI sees "Lab Overview").
-    next = next.map((item) =>
-      item.href === HOME_HREF ? { ...item, label: dashboardLabel } : item,
-    );
-    return next;
-  }, [filtered, accountType, dashboardLabel]);
+    return filtered.filter((item) => item.href !== HOME_HREF);
+  }, [filtered, accountType]);
 
   // Onboarding v4 L23: while the in-product walkthrough is active, the
   // top-nav tabs are visually disabled + onClick-suppressed so the user

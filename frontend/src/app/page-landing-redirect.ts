@@ -18,8 +18,11 @@ import type { AccountType } from "@/lib/settings/user-settings";
 
 /** Inputs to the landing-redirect decision, sampled at effect time. */
 export interface LandingRedirectInput {
-  /** True once the one-shot redirect has already fired this session. */
-  didLandingRedirect: boolean;
+  /** Suppress the bounce: a deep-link (?openTask= / ?openProject=) is being
+   *  handled or a task popup is open on "/". Keeps "/" from redirecting out
+   *  from under the deep-link flow. Otherwise "/" ALWAYS bounces now (the
+   *  canvas it used to render is gone, so there is no "stay here" state). */
+  suppress: boolean;
   /** Active username ("" / falsy when signed out or pre-data-setup). */
   currentUser: string;
   /** `undefined` while the account-type settings read is in flight. */
@@ -74,7 +77,7 @@ export type LandingRedirectDecision =
 export function decideLandingRedirect(
   input: LandingRedirectInput,
 ): LandingRedirectDecision {
-  if (input.didLandingRedirect) return { kind: "none", markOneShot: false };
+  if (input.suppress) return { kind: "none", markOneShot: false };
   if (!input.currentUser) return { kind: "none", markOneShot: false };
   // Wait for the account-type read to resolve before deciding so the
   // one-shot timing stays stable across the async settle (a later pass

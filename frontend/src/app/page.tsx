@@ -27,10 +27,6 @@ import type { Task } from "@/lib/types";
 // gate, the deep-link TaskDetailPopup, and a light spinner while the
 // bounce resolves.
 
-// Only redirect to the user's default landing tab once per tab/session. If
-// they manually navigate back to "/" later, we respect that.
-let didLandingRedirect = false;
-
 export default function HomePage() {
   const router = useRouter();
   // Single useSearchParams call shared by both the landing-tab redirect and
@@ -65,21 +61,27 @@ export default function HomePage() {
       typeof sessionStorage !== "undefined" &&
       sessionStorage.getItem(V4_PREVIEW_STICKY_KEY) === "1");
   useEffect(() => {
+    // "/" renders nothing now, so it ALWAYS bounces to the role landing,
+    // EXCEPT while a deep-link is being handled (a popup is opening on "/")
+    // or a task popup is open. Without that guard the bounce would yank the
+    // user off "/" before the ?openTask=/?openProject= flow can run.
+    const hasDeepLink = !!(
+      searchParams?.get("openTask") || searchParams?.get("openProject")
+    );
     const decision = decideLandingRedirect({
-      didLandingRedirect,
+      suppress: hasDeepLink || selectedTask !== null,
       currentUser,
       accountType,
       defaultLandingTab,
       fromRedirect: searchParams?.get("from") ?? null,
       tourActive,
     });
-    if (decision.markOneShot) didLandingRedirect = true;
     if (decision.kind === "replace") {
       router.replace(decision.to);
       return;
     }
-    // A `?from=` sentinel that resolved to "stay on the dashboard" still
-    // needs the sentinel stripped from the URL (so reload + share work).
+    // A `?from=` sentinel that resolved to "stay on /" still needs the
+    // sentinel stripped from the URL (so reload + share work).
     if (decision.markOneShot && searchParams?.get("from")) {
       const next = new URLSearchParams(searchParams.toString());
       next.delete("from");
@@ -93,6 +95,7 @@ export default function HomePage() {
     tourActive,
     router,
     searchParams,
+    selectedTask,
   ]);
 
   const { data: projects = [] } = useQuery({
