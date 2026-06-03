@@ -2,6 +2,7 @@ import { fileService } from "@/lib/file-system/file-service";
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 import { imageEvents } from "./image-events";
 import { sidecarPath, type ImageSidecar } from "./image-folder";
+import { annotPath } from "./annotations";
 
 /**
  * Move an image (and its sidecar, if present) from one base path's
@@ -43,8 +44,18 @@ export async function renameImageInPlace(
     await fileService.writeJson(newSidecar, sidecar);
   }
 
+  // Carry the photo-annotation overlay sidecar to the new name. Overlay coords
+  // are relative to the (unchanged) image, so a verbatim copy is correct and a
+  // rename no longer silently breaks the annotation.
+  const oldAnnot = annotPath(basePath, oldFilename);
+  const annot = await fileService.readJson(oldAnnot);
+  if (annot) {
+    await fileService.writeJson(annotPath(basePath, newFilename), annot);
+  }
+
   await fileService.deleteFile(oldImage);
   await fileService.deleteFile(oldSidecar);
+  await fileService.deleteFile(oldAnnot);
   blobUrlResolver.revokePath(oldImage);
 
   imageEvents.emitAttached({ basePath, relativePath: `Images/${newFilename}` });
@@ -62,6 +73,9 @@ export async function deleteImageFromBase(
 ): Promise<void> {
   await fileService.deleteFile(`${basePath}/Images/${filename}`);
   await fileService.deleteFile(sidecarPath(basePath, filename));
+  // Also remove the photo-annotation overlay sidecar (annotation arc) so it
+  // doesn't orphan once its underlying image is gone.
+  await fileService.deleteFile(annotPath(basePath, filename));
   blobUrlResolver.revokePath(`${basePath}/Images/${filename}`);
   imageEvents.emitDeleted({ basePath, filename });
 }
