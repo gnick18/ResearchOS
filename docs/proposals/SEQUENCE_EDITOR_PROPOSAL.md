@@ -587,6 +587,18 @@ sequences alongside experiments and notes, consuming our model. Division of labo
   sequence arc tells the de-bloat arc, who then sequences the projects surface around
   it. The shape to expect: `sequences/{id}.meta.json` with `project_ids: string[]`.
 
+UPDATE (2026-06-02) — DE-BLOAT ARC, THE PROJECT-LINK MODEL IS NOW STABLE ON MAIN.
+Phase 1 merged to local main @ a8b7a5b7 (Grant-approved, tsc green). You can now
+build the Workbench projects surface against it:
+- API: `sequencesApi.listByProject(projectId)` and `listUnfiled()` in local-api.ts.
+- Shape: `users/{u}/sequences/{id}.meta.json` = `{ id (number), display_name,
+  project_ids: string[], added_at, seq_type }`; raw GenBank at `{id}.gb`.
+- `project_ids` are the CURRENT USER's own project ids (v1). Cross-user links need
+  owner-qualifying later (per-user id collision, like taskKey) when sharing lands.
+- NOTE FOR YOUR APPSHELL/NAV SIMPLIFICATION: Phase 1 added a `/sequences` nav entry
+  in `frontend/src/lib/nav.ts`. Please PRESERVE it (re-point onto the surviving
+  sidebar) when you simplify the shell, rather than dropping it.
+
 WIDGET CANVAS TEARDOWN: no impact. The sequence editor has ZERO widget / canvas
 dependency. Our surface is the standalone `/sequences` route. We will not add a
 widget or touch `components/lab-overview/**`.
