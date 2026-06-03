@@ -71,18 +71,18 @@ export default function CodingWorkflowMethodTabContent({
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-body font-medium text-gray-700">
               {method.name || "Coding workflow"}
             </span>
-            <span className={`text-xs px-1.5 py-0.5 rounded ${meta.color.bg} ${meta.color.text}`}>
+            <span className={`text-meta px-1.5 py-0.5 rounded ${meta.color.bg} ${meta.color.text}`}>
               {meta.shortLabel}
             </span>
           </div>
         </div>
         {isLoading ? (
-          <p className="text-sm text-gray-400 animate-pulse">Loading…</p>
+          <p className="text-body text-gray-400 animate-pulse">Loading…</p>
         ) : !protocol ? (
-          <p className="text-sm text-gray-400">No coding workflow data available</p>
+          <p className="text-body text-gray-400">No coding workflow data available</p>
         ) : (
           <CodingWorkflowRenderer
             language={protocol.language}

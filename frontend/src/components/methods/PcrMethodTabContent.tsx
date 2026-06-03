@@ -276,8 +276,8 @@ export default function PcrMethodTabContent({
         {/* PCR header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-medium text-gray-700">{method.name || "PCR Protocol"}</span>
-            <span className="text-xs px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded">PCR</span>
+            <span className="text-body font-medium text-gray-700">{method.name || "PCR Protocol"}</span>
+            <span className="text-meta px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded">PCR</span>
             {isModifiedFromSource && (
               <span className={MODIFIED_BADGE_CLASSES}>{MODIFIED_CHIP_TEXT}</span>
             )}
@@ -286,12 +286,12 @@ export default function PcrMethodTabContent({
           {!readOnly && (
             <div className="flex items-center gap-2">
               {hasUnsavedChanges && (
-                <span className="text-xs text-amber-600">Unsaved changes</span>
+                <span className="text-meta text-amber-600">Unsaved changes</span>
               )}
               <button
                 onClick={handleResetPcr}
                 disabled={saving}
-                className="px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+                className="px-3 py-1.5 text-meta bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-50"
                 title="Reset to original method values"
               >
                 Reset to Method
@@ -299,7 +299,7 @@ export default function PcrMethodTabContent({
               <button
                 onClick={handleSavePcrChanges}
                 disabled={saving || !hasUnsavedChanges}
-                className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+                className="px-3 py-1.5 text-meta text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
               >
                 {saving ? "Saving..." : "Save Changes"}
               </button>
@@ -309,7 +309,7 @@ export default function PcrMethodTabContent({
 
         {/* Gradient Visualization */}
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-2">
+          <label className="block text-meta font-medium text-gray-500 mb-2">
             Thermal Gradient
           </label>
           {pcrGradient ? (
@@ -321,13 +321,13 @@ export default function PcrMethodTabContent({
               sourceGradient={sourcePcrGradient}
             />
           ) : (
-            <p className="text-sm text-gray-400">No gradient data available</p>
+            <p className="text-body text-gray-400">No gradient data available</p>
           )}
         </div>
 
         {/* Recipe Table */}
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-2">
+          <label className="block text-meta font-medium text-gray-500 mb-2">
             Reaction Recipe
           </label>
           <PCRRecipeTable
@@ -343,8 +343,8 @@ export default function PcrMethodTabContent({
         {/* Notes */}
         {fetchedPcrProtocol?.notes && (
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Notes</label>
-            <p className="text-sm text-gray-600 whitespace-pre-wrap">
+            <label className="block text-meta font-medium text-gray-500 mb-1">Notes</label>
+            <p className="text-body text-gray-600 whitespace-pre-wrap">
               {fetchedPcrProtocol.notes}
             </p>
           </div>
@@ -451,18 +451,18 @@ function PCRRecipeTable({
               style={{ width: `${(checkedCount / totalCount) * 100}%` }}
             />
           </div>
-          <span className="text-xs text-gray-500 flex-shrink-0">
+          <span className="text-meta text-gray-500 flex-shrink-0">
             {checkedCount}/{totalCount} checked
           </span>
         </div>
       )}
-      <table className="w-full text-sm">
+      <table className="w-full text-body">
         <thead className="bg-gray-50">
           <tr>
-            <th className="px-2 py-2 w-10 text-center text-xs font-medium text-gray-500" title="Check off ingredients as you add them">✓</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Ingredient</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Concentration</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Amount (uL)</th>
+            <th className="px-2 py-2 w-10 text-center text-meta font-medium text-gray-500" title="Check off ingredients as you add them">✓</th>
+            <th className="px-3 py-2 text-left text-meta font-medium text-gray-500">Ingredient</th>
+            <th className="px-3 py-2 text-left text-meta font-medium text-gray-500">Concentration</th>
+            <th className="px-3 py-2 text-left text-meta font-medium text-gray-500">Amount (uL)</th>
             {editable && <th className="px-3 py-2 w-10"></th>}
           </tr>
         </thead>
@@ -517,7 +517,7 @@ function PCRRecipeTable({
                       type="text"
                       value={ing.name}
                       onChange={(e) => handleChange(ing.id, "name", e.target.value)}
-                      className={`w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 ${ing.checked ? "line-through text-gray-400" : ""}`}
+                      className={`w-full px-2 py-1 border border-gray-200 rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-500 ${ing.checked ? "line-through text-gray-400" : ""}`}
                     />
                   ) : (
                     <span className={`text-gray-900 ${ing.checked ? "line-through text-gray-400" : ""}`}>{ing.name}</span>
@@ -532,7 +532,7 @@ function PCRRecipeTable({
                       type="text"
                       value={ing.concentration}
                       onChange={(e) => handleChange(ing.id, "concentration", e.target.value)}
-                      className={`w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 ${ing.checked ? "line-through text-gray-400" : ""}`}
+                      className={`w-full px-2 py-1 border border-gray-200 rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-500 ${ing.checked ? "line-through text-gray-400" : ""}`}
                       placeholder="e.g. 10x"
                     />
                   ) : (
@@ -548,7 +548,7 @@ function PCRRecipeTable({
                       type="text"
                       value={ing.amount_per_reaction}
                       onChange={(e) => handleChange(ing.id, "amount_per_reaction", e.target.value)}
-                      className={`w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 ${ing.checked ? "line-through text-gray-400" : ""}`}
+                      className={`w-full px-2 py-1 border border-gray-200 rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-500 ${ing.checked ? "line-through text-gray-400" : ""}`}
                       placeholder="e.g. 2.5"
                     />
                   ) : (
@@ -587,7 +587,7 @@ function PCRRecipeTable({
       {editable && (
         <button
           onClick={addRow}
-          className="w-full py-2 text-xs text-blue-600 hover:bg-blue-50 border-t border-gray-200"
+          className="w-full py-2 text-meta text-blue-600 hover:bg-blue-50 border-t border-gray-200"
         >
           + Add Row
         </button>

@@ -620,19 +620,19 @@ export function CompoundChildCreator({
         <Tooltip label="Back to type picker" placement="right">
           <button
             onClick={() => setPhase({ kind: "pick-type" })}
-            className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-50"
+            className="text-meta text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-50"
           >
             ← Back
           </button>
         </Tooltip>
-        <span className="text-xs text-gray-400">
+        <span className="text-meta text-gray-400">
           Inline new method · {labelForType(phase.type)}
         </span>
       </div>
       <div className="flex-1 overflow-y-auto pt-3 pb-1 space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
+            <label className="block text-meta font-medium text-gray-500 mb-1">
               Method name
             </label>
             <input
@@ -640,12 +640,12 @@ export function CompoundChildCreator({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Western blot assay"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               autoFocus
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
+            <label className="block text-meta font-medium text-gray-500 mb-1">
               Folder (optional)
             </label>
             <input
@@ -654,7 +654,7 @@ export function CompoundChildCreator({
               onChange={(e) => setFolder(e.target.value)}
               placeholder="e.g. Assays"
               list="compound-child-folders"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <datalist id="compound-child-folders">
               {existingFolders.map((f) => (
@@ -664,7 +664,7 @@ export function CompoundChildCreator({
           </div>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">
+          <label className="block text-meta font-medium text-gray-500 mb-1">
             Tags (comma-separated, optional)
           </label>
           <input
@@ -672,7 +672,7 @@ export function CompoundChildCreator({
             value={tags}
             onChange={(e) => setTags(e.target.value)}
             placeholder="e.g. assay, gel"
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
         {/* Lab Mode retirement R1b: child-method "public" checkbox
@@ -682,7 +682,7 @@ export function CompoundChildCreator({
 
         {phase.type === "markdown" && (
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
+            <label className="block text-meta font-medium text-gray-500 mb-1">
               Method content
             </label>
             <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -704,12 +704,12 @@ export function CompoundChildCreator({
                 onDirtyChange={setEditorDirty}
               />
             </div>
-            <p className="text-[11px] text-gray-400 mt-1">
+            <p className="text-meta text-gray-400 mt-1">
               Image uploads from inside a kit component editor land in
               <code className="px-1">{`methods/${slug || "<slug>"}/Images`}</code>.
             </p>
             {uploadWarning && (
-              <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
+              <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-meta text-amber-800">
                 {uploadWarning}
               </div>
             )}
@@ -718,7 +718,7 @@ export function CompoundChildCreator({
 
         {phase.type === "pdf" && (
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
+            <label className="block text-meta font-medium text-gray-500 mb-1">
               Upload PDF
             </label>
             <div
@@ -727,8 +727,8 @@ export function CompoundChildCreator({
             >
               {pdfFile ? (
                 <div>
-                  <p className="text-sm font-medium text-gray-900">{pdfFile.name}</p>
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="text-body font-medium text-gray-900">{pdfFile.name}</p>
+                  <p className="text-meta text-gray-400 mt-1">
                     {(pdfFile.size / 1024 / 1024).toFixed(2)} MB
                   </p>
                   <button
@@ -737,13 +737,13 @@ export function CompoundChildCreator({
                       e.stopPropagation();
                       setPdfFile(null);
                     }}
-                    className="mt-2 text-xs text-red-500 hover:text-red-700"
+                    className="mt-2 text-meta text-red-500 hover:text-red-700"
                   >
                     Remove
                   </button>
                 </div>
               ) : (
-                <p className="text-sm text-gray-500">Click to select a PDF file</p>
+                <p className="text-body text-gray-500">Click to select a PDF file</p>
               )}
             </div>
             <input
@@ -761,23 +761,23 @@ export function CompoundChildCreator({
         {phase.type === "pcr" && (
           <div className="space-y-3">
             <div>
-              <h4 className="text-sm font-semibold text-gray-700 mb-2">Thermal gradient</h4>
+              <h4 className="text-body font-semibold text-gray-700 mb-2">Thermal gradient</h4>
               <InteractiveGradientEditor gradient={pcrGradient} onChange={setPcrGradient} />
             </div>
             <div>
-              <h4 className="text-sm font-semibold text-gray-700 mb-2">Reaction recipe</h4>
+              <h4 className="text-body font-semibold text-gray-700 mb-2">Reaction recipe</h4>
               <PcrIngredientTable
                 ingredients={pcrIngredients}
                 onChange={setPcrIngredients}
               />
             </div>
             <div>
-              <h4 className="text-sm font-semibold text-gray-700 mb-1">Notes (optional)</h4>
+              <h4 className="text-body font-semibold text-gray-700 mb-1">Notes (optional)</h4>
               <textarea
                 value={pcrNotes}
                 onChange={(e) => setPcrNotes(e.target.value)}
                 rows={2}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
@@ -880,7 +880,7 @@ export function CompoundChildCreator({
         )}
 
         {saveError && (
-          <div className="border border-red-200 bg-red-50 rounded p-3 text-sm text-red-900">
+          <div className="border border-red-200 bg-red-50 rounded p-3 text-body text-red-900">
             {saveError}
           </div>
         )}
@@ -888,14 +888,14 @@ export function CompoundChildCreator({
       <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
         <button
           onClick={handleCancel}
-          className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+          className="px-4 py-2 text-body text-gray-600 hover:bg-gray-100 rounded-lg"
         >
           Cancel
         </button>
         <button
           onClick={handleSave}
           disabled={saveDisabled}
-          className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+          className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
         >
           {saving ? "Creating..." : "Create + add to kit"}
         </button>
@@ -931,7 +931,7 @@ function TypeTilePicker({ unsupportedTypes, onPick, onCancel }: TypeTilePickerPr
   ) {
     return (
       <div>
-        <label className="block text-xs font-medium text-gray-500 mb-2">
+        <label className="block text-meta font-medium text-gray-500 mb-2">
           {heading}
         </label>
         <div className="flex flex-wrap gap-2">
@@ -954,15 +954,15 @@ function TypeTilePicker({ unsupportedTypes, onPick, onCancel }: TypeTilePickerPr
               >
                 <div className="flex items-center gap-2">
                   <Icon className="w-4 h-4" />
-                  <span className="text-sm">{meta.label}</span>
+                  <span className="text-body">{meta.label}</span>
                   {disabled && (
-                    <span className="text-[10px] text-gray-400 italic ml-auto">
+                    <span className="text-meta text-gray-400 italic ml-auto">
                       coming soon
                     </span>
                   )}
                 </div>
                 {meta.description && (
-                  <p className="mt-1 text-[11px] text-gray-400">
+                  <p className="mt-1 text-meta text-gray-400">
                     {meta.description}
                   </p>
                 )}
@@ -977,7 +977,7 @@ function TypeTilePicker({ unsupportedTypes, onPick, onCancel }: TypeTilePickerPr
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto pt-1 space-y-4">
-        <p className="text-[11px] text-gray-400">
+        <p className="text-meta text-gray-400">
           Pick a method type. The new method will be created in your methods
           library AND added to this kit&apos;s component list when you save.
           A kit nested in a kit isn&apos;t available here, build the
@@ -989,7 +989,7 @@ function TypeTilePicker({ unsupportedTypes, onPick, onCancel }: TypeTilePickerPr
       <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
         <button
           onClick={onCancel}
-          className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+          className="px-4 py-2 text-body text-gray-600 hover:bg-gray-100 rounded-lg"
         >
           Cancel
         </button>
@@ -1006,7 +1006,7 @@ interface PcrIngredientTableProps {
 function PcrIngredientTable({ ingredients, onChange }: PcrIngredientTableProps) {
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden">
-      <table className="w-full text-xs">
+      <table className="w-full text-meta">
         <thead className="bg-gray-100">
           <tr>
             <th className="px-3 py-2 text-left font-medium text-gray-600">Ingredient</th>
@@ -1069,7 +1069,7 @@ function PcrIngredientTable({ ingredients, onChange }: PcrIngredientTableProps) 
                   <Tooltip label="Remove ingredient" placement="left">
                     <button
                       onClick={() => onChange(ingredients.filter((it) => it.id !== ing.id))}
-                      className="text-gray-400 hover:text-red-500 text-sm"
+                      className="text-gray-400 hover:text-red-500 text-body"
                     >
                       ✕
                     </button>
@@ -1095,7 +1095,7 @@ function PcrIngredientTable({ ingredients, onChange }: PcrIngredientTableProps) 
             onChange([...ingredients, insertion]);
           }
         }}
-        className="w-full py-2 text-xs text-blue-600 hover:bg-blue-50 border-t border-gray-200"
+        className="w-full py-2 text-meta text-blue-600 hover:bg-blue-50 border-t border-gray-200"
       >
         + Add ingredient
       </button>

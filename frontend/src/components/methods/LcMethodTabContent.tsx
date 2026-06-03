@@ -247,20 +247,20 @@ export default function LcMethodTabContent({
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-body font-medium text-gray-700">
               {method.name || "LC Gradient"}
             </span>
-            <span className="text-xs px-1.5 py-0.5 bg-sky-100 text-sky-600 rounded">LC</span>
+            <span className="text-meta px-1.5 py-0.5 bg-sky-100 text-sky-600 rounded">LC</span>
           </div>
           {!readOnly && (
             <div className="flex items-center gap-2">
               {hasUnsavedChanges && (
-                <span className="text-xs text-amber-600">Unsaved changes</span>
+                <span className="text-meta text-amber-600">Unsaved changes</span>
               )}
               <button
                 onClick={handleReset}
                 disabled={saving}
-                className="px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+                className="px-3 py-1.5 text-meta bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-50"
                 title="Reset to original method values"
               >
                 Reset to Method
@@ -268,7 +268,7 @@ export default function LcMethodTabContent({
               <button
                 onClick={handleSave}
                 disabled={saving || !hasUnsavedChanges}
-                className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+                className="px-3 py-1.5 text-meta text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
               >
                 {saving ? "Saving…" : "Save Changes"}
               </button>
@@ -296,7 +296,7 @@ export default function LcMethodTabContent({
             originalIngredients={editorOriginal?.ingredients}
           />
         ) : (
-          <p className="text-sm text-gray-400">No LC gradient data available</p>
+          <p className="text-body text-gray-400">No LC gradient data available</p>
         )}
       </div>
     </div>

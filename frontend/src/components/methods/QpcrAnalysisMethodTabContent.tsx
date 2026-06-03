@@ -281,10 +281,10 @@ export default function QpcrAnalysisMethodTabContent({
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-body font-medium text-gray-700">
               {method.name || "qPCR analysis"}
             </span>
-            <span className="text-xs px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded">qPCR</span>
+            <span className="text-meta px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded">qPCR</span>
             {hasReadouts && (
               <span className={MODIFIED_BADGE_CLASSES}>{MODIFIED_CHIP_TEXT}</span>
             )}
@@ -292,12 +292,12 @@ export default function QpcrAnalysisMethodTabContent({
           {!readOnly && (
             <div className="flex items-center gap-2">
               {hasUnsavedChanges && (
-                <span className="text-xs text-amber-600">Unsaved changes</span>
+                <span className="text-meta text-amber-600">Unsaved changes</span>
               )}
               <button
                 onClick={handleReset}
                 disabled={saving}
-                className="px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+                className="px-3 py-1.5 text-meta bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-50"
                 title="Reset to empty readouts"
               >
                 Reset readouts
@@ -305,7 +305,7 @@ export default function QpcrAnalysisMethodTabContent({
               <button
                 onClick={handleSave}
                 disabled={saving || !hasUnsavedChanges}
-                className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+                className="px-3 py-1.5 text-meta text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
               >
                 {saving ? "Saving…" : "Save Changes"}
               </button>
@@ -317,20 +317,20 @@ export default function QpcrAnalysisMethodTabContent({
           <>
             {/* Per-target Cq readouts table */}
             <div>
-              <h3 className="text-sm font-semibold text-gray-800 mb-1">
+              <h3 className="text-body font-semibold text-gray-800 mb-1">
                 Per-target Cq readouts for this run
               </h3>
-              <p className="text-xs text-gray-500 mb-3">
+              <p className="text-meta text-gray-500 mb-3">
                 Enter the measured Cq for each target. The reference target&rsquo;s row drives the
                 ΔΔCq fold-change column in the visualization below.
               </p>
               {sourceProtocol.references.length === 0 ? (
-                <p className="text-sm text-gray-400">
+                <p className="text-body text-gray-400">
                   No targets defined on this method yet — edit the protocol via /methods to add targets.
                 </p>
               ) : (
                 <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <table className="w-full text-xs">
+                  <table className="w-full text-meta">
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-3 py-1.5 text-left font-medium text-gray-600">Target</th>
@@ -348,7 +348,7 @@ export default function QpcrAnalysisMethodTabContent({
                           <td className="px-3 py-1">
                             <span className="font-medium text-gray-800">{ref.target || "(unnamed)"}</span>
                             {ref.is_reference && (
-                              <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded">
+                              <span className="ml-1.5 text-meta px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded">
                                 ref
                               </span>
                             )}
@@ -394,7 +394,7 @@ export default function QpcrAnalysisMethodTabContent({
                   </table>
                 </div>
               )}
-              <label className="block mt-3 text-xs text-gray-600 space-y-1">
+              <label className="block mt-3 text-meta text-gray-600 space-y-1">
                 <span>Run notes</span>
                 <textarea
                   value={notes ?? ""}
@@ -409,19 +409,19 @@ export default function QpcrAnalysisMethodTabContent({
 
             {/* Visualization panel */}
             <div className="border-t border-gray-200 pt-4">
-              <h3 className="text-sm font-semibold text-gray-800 mb-3">Visualization &amp; ΔΔCq</h3>
+              <h3 className="text-body font-semibold text-gray-800 mb-3">Visualization &amp; ΔΔCq</h3>
               <QpcrAnalysisViz protocol={sourceProtocol} snapshot={liveSnapshot} />
             </div>
 
             {/* Protocol template summary (read-only at a glance) */}
             <div className="border-t border-gray-200 pt-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-800">Protocol template</h3>
+                <h3 className="text-body font-semibold text-gray-800">Protocol template</h3>
                 <Tooltip label="Edit the protocol template via the /methods page" placement="left">
-                  <span className="text-[11px] text-gray-400">read-only</span>
+                  <span className="text-meta text-gray-400">read-only</span>
                 </Tooltip>
               </div>
-              <div className="mt-2 text-xs text-gray-600 space-y-1">
+              <div className="mt-2 text-meta text-gray-600 space-y-1">
                 <div>
                   <span className="font-medium">Chemistry:</span> {sourceProtocol.chemistry}
                   {sourceProtocol.chemistry === "other" && sourceProtocol.chemistry_label
@@ -451,7 +451,7 @@ export default function QpcrAnalysisMethodTabContent({
             </div>
           </>
         ) : (
-          <p className="text-sm text-gray-400">No qPCR analysis protocol available</p>
+          <p className="text-body text-gray-400">No qPCR analysis protocol available</p>
         )}
       </div>
     </div>

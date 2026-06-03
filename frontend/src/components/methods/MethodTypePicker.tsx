@@ -143,7 +143,7 @@ function MethodTypeSection({
 }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-500 mb-2">
+      <label className="block text-meta font-medium text-gray-500 mb-2">
         {heading}
       </label>
       <div className="flex flex-wrap gap-2">
@@ -164,15 +164,15 @@ function MethodTypeSection({
               >
                 <div className="flex items-center gap-2 text-gray-400">
                   <Icon className="w-4 h-4" />
-                  <span className="text-sm">{meta.label}</span>
+                  <span className="text-body">{meta.label}</span>
                 </div>
                 <div className="mt-1 flex items-center justify-between gap-2">
-                  <p className="text-xs text-gray-400">Disabled in your library</p>
+                  <p className="text-meta text-gray-400">Disabled in your library</p>
                   <Tooltip label={`Enable ${meta.label}`} placement="top">
                     <button
                       type="button"
                       onClick={() => onEnableType(meta.id)}
-                      className="shrink-0 text-xs font-medium text-blue-600 hover:text-blue-700"
+                      className="shrink-0 text-meta font-medium text-blue-600 hover:text-blue-700"
                     >
                       Enable
                     </button>
@@ -196,10 +196,10 @@ function MethodTypeSection({
             >
               <div className="flex items-center gap-2">
                 <Icon className="w-4 h-4" />
-                <span className="text-sm">{meta.label}</span>
+                <span className="text-body">{meta.label}</span>
               </div>
               {meta.description && (
-                <p className={`mt-1 text-xs ${selected ? "" : "text-gray-400"}`}>
+                <p className={`mt-1 text-meta ${selected ? "" : "text-gray-400"}`}>
                   {meta.description}
                 </p>
               )}

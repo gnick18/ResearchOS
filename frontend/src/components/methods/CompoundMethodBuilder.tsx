@@ -263,7 +263,7 @@ export function CompoundMethodBuilder({
     >
       <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full mx-4 max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h3 className="text-base font-semibold text-gray-900">
+          <h3 className="text-title font-semibold text-gray-900">
             Edit kit
           </h3>
           <Tooltip label="Close" placement="bottom">
@@ -276,7 +276,7 @@ export function CompoundMethodBuilder({
           </Tooltip>
         </div>
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          <p className="text-xs text-gray-500">
+          <p className="text-meta text-gray-500">
             A kit bundles existing methods into one attachable
             unit. Open it on an experiment and every component renders inline
             with its own editor; per-task edits are saved against this
@@ -285,7 +285,7 @@ export function CompoundMethodBuilder({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
+              <label className="block text-meta font-medium text-gray-500 mb-1">
                 Kit name
               </label>
               <input
@@ -293,12 +293,12 @@ export function CompoundMethodBuilder({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder='e.g. "Assay X full kit"'
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
                 autoFocus
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
+              <label className="block text-meta font-medium text-gray-500 mb-1">
                 Folder (optional)
               </label>
               <input
@@ -307,7 +307,7 @@ export function CompoundMethodBuilder({
                 onChange={(e) => setFolder(e.target.value)}
                 placeholder="e.g. Assays"
                 list="compound-builder-folders"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <datalist id="compound-builder-folders">
                 {existingFolders.map((f) => (
@@ -318,7 +318,7 @@ export function CompoundMethodBuilder({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
+            <label className="block text-meta font-medium text-gray-500 mb-1">
               Tags (comma-separated, optional)
             </label>
             <input
@@ -326,19 +326,19 @@ export function CompoundMethodBuilder({
               value={tags}
               onChange={(e) => setTags(e.target.value)}
               placeholder="e.g. kit, assay"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           {/* Per Q-V1 lock: no public toggle for compounds in v2. */}
-          <p className="text-xs text-gray-400 italic">
+          <p className="text-meta text-gray-400 italic">
             Kits are private in v2; cross-user sharing arrives in v2.1.
           </p>
 
           <div className="border-t border-gray-100 pt-4">
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-medium text-gray-500">Components</label>
-              <span className="text-xs text-gray-400">
+              <label className="text-meta font-medium text-gray-500">Components</label>
+              <span className="text-meta text-gray-400">
                 Drag rows by the handle to reorder.
               </span>
             </div>
@@ -356,7 +356,7 @@ export function CompoundMethodBuilder({
             />
             <button
               onClick={() => setShowPicker(true)}
-              className="mt-3 w-full px-4 py-2 text-sm border border-dashed border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50"
+              className="mt-3 w-full px-4 py-2 text-body border border-dashed border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50"
             >
               + Add component
             </button>
@@ -365,14 +365,14 @@ export function CompoundMethodBuilder({
           {/* Inline validation feedback. Save remains disabled until clean. */}
           {!validation.ok && components.length > 0 && (
             <div className="border border-red-200 bg-red-50 rounded p-3">
-              <div className="text-xs font-medium text-red-700">
+              <div className="text-meta font-medium text-red-700">
                 {validation.reason === "cycle"
                   ? "Cycle detected"
                   : validation.reason === "depth_exceeded"
                     ? "Nested too deep"
                     : "Component missing"}
               </div>
-              <div className="text-sm text-red-900 mt-1">
+              <div className="text-body text-red-900 mt-1">
                 {validation.reason === "cycle" &&
                   `Components form a cycle in the composition graph. Remove the loop before saving.`}
                 {validation.reason === "depth_exceeded" &&
@@ -383,7 +383,7 @@ export function CompoundMethodBuilder({
             </div>
           )}
           {saveError && (
-            <div className="border border-red-200 bg-red-50 rounded p-3 text-sm text-red-900">
+            <div className="border border-red-200 bg-red-50 rounded p-3 text-body text-red-900">
               {saveError}
             </div>
           )}
@@ -391,14 +391,14 @@ export function CompoundMethodBuilder({
         <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-100">
           <button
             onClick={handleCancel}
-            className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+            className="px-4 py-2 text-body text-gray-600 hover:bg-gray-100 rounded-lg"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={saving || !name.trim() || !validation.ok}
-            className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+            className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save changes"}
           </button>
@@ -449,8 +449,8 @@ function ComponentList({
   if (components.length === 0) {
     return (
       <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center">
-        <p className="text-sm text-gray-400">No components yet</p>
-        <p className="text-xs text-gray-300 mt-1">
+        <p className="text-body text-gray-400">No components yet</p>
+        <p className="text-meta text-gray-300 mt-1">
           Click &ldquo;+ Add component&rdquo; below to attach existing methods.
         </p>
       </div>
@@ -482,7 +482,7 @@ function ComponentList({
             >
               ⋮⋮
             </span>
-            <span className="text-xs text-gray-400 w-5">{idx + 1}.</span>
+            <span className="text-meta text-gray-400 w-5">{idx + 1}.</span>
             <Icon className="w-4 h-4 text-gray-500 flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
@@ -491,19 +491,19 @@ function ComponentList({
                   value={c.label ?? ""}
                   onChange={(e) => onLabelChange(idx, e.target.value)}
                   placeholder={child?.name ?? `Method ${c.method_id}`}
-                  className="text-sm bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none px-1 py-0.5 min-w-[180px] flex-1"
+                  className="text-body bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none px-1 py-0.5 min-w-[180px] flex-1"
                 />
-                <span className={`text-[10px] px-1.5 py-0.5 rounded ${meta.color.bg} ${meta.color.text}`}>
+                <span className={`text-meta px-1.5 py-0.5 rounded ${meta.color.bg} ${meta.color.text}`}>
                   {meta.shortLabel}
                 </span>
                 {isOrphan && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                  <span className="text-meta px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
                     Deleted
                   </span>
                 )}
               </div>
               {child && (
-                <div className="text-[11px] text-gray-400 mt-0.5">
+                <div className="text-meta text-gray-400 mt-0.5">
                   {child.name} · owner {owner} · id {c.method_id}
                 </div>
               )}
@@ -511,7 +511,7 @@ function ComponentList({
             <Tooltip label="Remove component" placement="left">
               <button
                 onClick={() => onRemove(idx)}
-                className="text-gray-400 hover:text-red-500 text-sm px-2 py-1"
+                className="text-gray-400 hover:text-red-500 text-body px-2 py-1"
               >
                 ✕
               </button>
@@ -607,7 +607,7 @@ function ComponentPicker({
     >
       <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h3 className="text-base font-semibold text-gray-900">Add component</h3>
+          <h3 className="text-title font-semibold text-gray-900">Add component</h3>
           <Tooltip label="Cancel" placement="bottom">
             <button
               onClick={onCancel}
@@ -637,13 +637,13 @@ function ComponentPicker({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search methods by name or folder..."
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
                 autoFocus
               />
               <div className="flex flex-wrap gap-1">
                 <button
                   onClick={() => setTypeFilter("all")}
-                  className={`text-xs px-2 py-1 rounded-full border ${
+                  className={`text-meta px-2 py-1 rounded-full border ${
                     typeFilter === "all"
                       ? "bg-blue-50 border-blue-300 text-blue-700"
                       : "border-gray-200 text-gray-500 hover:bg-gray-50"
@@ -655,7 +655,7 @@ function ComponentPicker({
                   <button
                     key={meta.id}
                     onClick={() => setTypeFilter(meta.id)}
-                    className={`text-xs px-2 py-1 rounded-full border inline-flex items-center gap-1 ${
+                    className={`text-meta px-2 py-1 rounded-full border inline-flex items-center gap-1 ${
                       typeFilter === meta.id
                         ? `${meta.color.bg} ${meta.color.text} border-current`
                         : "border-gray-200 text-gray-500 hover:bg-gray-50"
@@ -669,7 +669,7 @@ function ComponentPicker({
             </div>
             <div className="flex-1 overflow-y-auto p-4">
               {filtered.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-8">
+                <p className="text-body text-gray-400 text-center py-8">
                   No methods match this filter.
                 </p>
               ) : (
@@ -691,21 +691,21 @@ function ComponentPicker({
                         >
                           <div className="flex items-center gap-2">
                             <Icon className="w-4 h-4 text-gray-500" />
-                            <span className="text-sm font-medium text-gray-900 flex-1">
+                            <span className="text-body font-medium text-gray-900 flex-1">
                               {m.name}
                             </span>
                             <span
-                              className={`text-[10px] px-1.5 py-0.5 rounded ${meta.color.bg} ${meta.color.text}`}
+                              className={`text-meta px-1.5 py-0.5 rounded ${meta.color.bg} ${meta.color.text}`}
                             >
                               {meta.shortLabel}
                             </span>
                             {alreadyAttached && (
-                              <span className="text-[10px] text-gray-400 italic">
+                              <span className="text-meta text-gray-400 italic">
                                 already added
                               </span>
                             )}
                           </div>
-                          <div className="text-[11px] text-gray-400 mt-0.5">
+                          <div className="text-meta text-gray-400 mt-0.5">
                             {m.folder_path ?? "Uncategorized"} · owner {m.owner} ·
                             id {m.id}
                             {m.is_public ? " · public" : ""}
@@ -717,7 +717,7 @@ function ComponentPicker({
                 </ul>
               )}
             </div>
-            <div className="px-6 py-3 border-t border-gray-100 text-xs text-gray-400">
+            <div className="px-6 py-3 border-t border-gray-100 text-meta text-gray-400">
               Want a brand-new method? Switch to the &ldquo;Create new&rdquo;
               tab above to build one inline and attach it in one step.
             </div>
@@ -750,7 +750,7 @@ function PickerTabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`px-4 py-2 text-sm rounded-t-md border-b-2 transition-colors ${
+      className={`px-4 py-2 text-body rounded-t-md border-b-2 transition-colors ${
         active
           ? "border-blue-500 text-blue-700 font-medium"
           : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"

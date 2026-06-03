@@ -277,10 +277,10 @@ export default function CellCultureMethodTabContent({
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-body font-medium text-gray-700">
               {method.name || "Cell culture passaging"}
             </span>
-            <span className="text-xs px-1.5 py-0.5 bg-rose-100 text-rose-600 rounded">
+            <span className="text-meta px-1.5 py-0.5 bg-rose-100 text-rose-600 rounded">
               Cell culture
             </span>
             {hasLoggedEvents && (
@@ -290,12 +290,12 @@ export default function CellCultureMethodTabContent({
           {!readOnly && (
             <div className="flex items-center gap-2">
               {hasUnsavedChanges && (
-                <span className="text-xs text-amber-600">Unsaved changes</span>
+                <span className="text-meta text-amber-600">Unsaved changes</span>
               )}
               <button
                 onClick={handleReset}
                 disabled={saving}
-                className="px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+                className="px-3 py-1.5 text-meta bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-50"
                 title="Reset to source method values (clears logged events)"
               >
                 Reset to Method
@@ -303,7 +303,7 @@ export default function CellCultureMethodTabContent({
               <button
                 onClick={handleSave}
                 disabled={saving || !hasUnsavedChanges}
-                className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+                className="px-3 py-1.5 text-meta text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
               >
                 {saving ? "Saving…" : "Save Changes"}
               </button>
@@ -314,7 +314,7 @@ export default function CellCultureMethodTabContent({
         {/* Planned schedule (top half) */}
         {sourceSchedule ? (
           <div>
-            <h3 className="text-sm font-semibold text-gray-800 mb-3">Planned schedule</h3>
+            <h3 className="text-body font-semibold text-gray-800 mb-3">Planned schedule</h3>
             <CellCultureScheduleEditor
               cellLine={cellLine}
               onCellLineChange={readOnly ? undefined : setCellLine}
@@ -332,21 +332,21 @@ export default function CellCultureMethodTabContent({
             />
           </div>
         ) : (
-          <p className="text-sm text-gray-400">No cell culture schedule available</p>
+          <p className="text-body text-gray-400">No cell culture schedule available</p>
         )}
 
         {/* Actual events log (bottom half) — the unique value-add for cell culture */}
         <div className="border-t border-gray-200 pt-4">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h3 className="text-sm font-semibold text-gray-800">Actual events</h3>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <h3 className="text-body font-semibold text-gray-800">Actual events</h3>
+              <p className="text-meta text-gray-500 mt-0.5">
                 Documentation along the way — log what was actually fed, split, or observed.
               </p>
             </div>
             {!readOnly && (
               <div className="flex items-center gap-1">
-                <span className="text-xs text-gray-500 mr-2">Log:</span>
+                <span className="text-meta text-gray-500 mr-2">Log:</span>
                 <QuickLogButton onClick={() => addActualEvent("feed")} label="Feed" />
                 <QuickLogButton onClick={() => addActualEvent("split")} label="Split" />
                 <QuickLogButton onClick={() => addActualEvent("observe")} label="Observe" />
@@ -355,7 +355,7 @@ export default function CellCultureMethodTabContent({
             )}
           </div>
           <div className="border border-gray-200 rounded-lg overflow-hidden">
-            <table className="w-full text-xs">
+            <table className="w-full text-meta">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium text-gray-600 w-44">Timestamp</th>
@@ -369,7 +369,7 @@ export default function CellCultureMethodTabContent({
               <tbody>
                 {actualEvents.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-3 py-4 text-center text-gray-400 text-xs">
+                    <td colSpan={6} className="px-3 py-4 text-center text-gray-400 text-meta">
                       No events logged yet. Use the &ldquo;Log&rdquo; buttons above to record passage history.
                     </td>
                   </tr>
@@ -477,7 +477,7 @@ function QuickLogButton({ onClick, label }: { onClick: () => void; label: string
     <Tooltip label={`Log a ${label.toLowerCase()} event at the current time`} placement="bottom">
       <button
         onClick={onClick}
-        className="px-2 py-1 text-xs rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
+        className="px-2 py-1 text-meta rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
       >
         + {label}
       </button>

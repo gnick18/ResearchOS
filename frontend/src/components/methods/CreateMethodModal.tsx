@@ -790,7 +790,7 @@ export function CreateMethodModal({
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h3 className="text-base font-semibold text-gray-900">
+          <h3 className="text-title font-semibold text-gray-900">
             New Method
           </h3>
           <Tooltip label="Close" placement="bottom">
@@ -823,14 +823,14 @@ export function CreateMethodModal({
             <button
               type="button"
               onClick={() => setShowLibrary(true)}
-              className="text-xs text-gray-400 hover:text-gray-600 underline underline-offset-2"
+              className="text-meta text-gray-400 hover:text-gray-600 underline underline-offset-2"
             >
               Manage method types in your library
             </button>
 
             {/* Name */}
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
+              <label className="block text-meta font-medium text-gray-500 mb-1">
                 Method Name
               </label>
               <input
@@ -839,7 +839,7 @@ export function CreateMethodModal({
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Western Blot Protocol"
                 data-tour-target="methods-create-name-input"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
                 autoFocus
               />
             </div>
@@ -847,7 +847,7 @@ export function CreateMethodModal({
             {/* Folder + Tags */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">
+                <label className="block text-meta font-medium text-gray-500 mb-1">
                   Folder (optional)
                 </label>
                 <input
@@ -857,7 +857,7 @@ export function CreateMethodModal({
                   placeholder="e.g. Molecular Biology"
                   list="existing-folders"
                   data-tour-target="methods-create-category-input"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <datalist id="existing-folders">
                   {existingFolders.map((f) => (
@@ -866,7 +866,7 @@ export function CreateMethodModal({
                 </datalist>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">
+                <label className="block text-meta font-medium text-gray-500 mb-1">
                   Tags (comma-separated, optional)
                 </label>
                 <input
@@ -874,7 +874,7 @@ export function CreateMethodModal({
                   value={tags}
                   onChange={(e) => setTags(e.target.value)}
                   placeholder="e.g. protein, gel"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
@@ -894,7 +894,7 @@ export function CreateMethodModal({
             {/* Markdown editor */}
             {uploadType === "markdown" && (
               <div>
-                <label className="text-xs font-medium text-gray-500 mb-2 block">
+                <label className="text-meta font-medium text-gray-500 mb-2 block">
                   Method Content
                 </label>
                 <div
@@ -923,7 +923,7 @@ export function CreateMethodModal({
                   />
                 </div>
                 {!mdContent.trim() && (
-                  <p className="mt-1 text-xs text-gray-400">
+                  <p className="mt-1 text-meta text-gray-400">
                     Add method content above to enable Create.
                   </p>
                 )}
@@ -933,7 +933,7 @@ export function CreateMethodModal({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
                     <div className="flex-1">
-                      <p className="text-sm text-amber-800">{uploadWarning}</p>
+                      <p className="text-body text-amber-800">{uploadWarning}</p>
                     </div>
                     <Tooltip label="Dismiss warning" placement="bottom">
                       <button
@@ -954,7 +954,7 @@ export function CreateMethodModal({
             {/* PDF upload */}
             {uploadType === "pdf" && (
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-2">
+                <label className="block text-meta font-medium text-gray-500 mb-2">
                   Upload PDF
                 </label>
                 <div
@@ -963,10 +963,10 @@ export function CreateMethodModal({
                 >
                   {pdfFile ? (
                     <div>
-                      <p className="text-sm font-medium text-gray-900">
+                      <p className="text-body font-medium text-gray-900">
                         {pdfFile.name}
                       </p>
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="text-meta text-gray-400 mt-1">
                         {(pdfFile.size / 1024 / 1024).toFixed(2)} MB
                       </p>
                       <button
@@ -975,14 +975,14 @@ export function CreateMethodModal({
                           e.stopPropagation();
                           setPdfFile(null);
                         }}
-                        className="mt-2 text-xs text-red-500 hover:text-red-700"
+                        className="mt-2 text-meta text-red-500 hover:text-red-700"
                       >
                         Remove
                       </button>
                     </div>
                   ) : (
                     <div>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-body text-gray-500">
                         Click to select a PDF file
                       </p>
                     </div>
@@ -997,7 +997,7 @@ export function CreateMethodModal({
                     if (e.target.files?.[0]) setPdfFile(e.target.files[0]);
                   }}
                 />
-                <p className="text-xs text-gray-400 mt-2">
+                <p className="text-meta text-gray-400 mt-2">
                   PDF methods can be viewed but not edited inline. Step
                   deviations will be saved as a separate Markdown file.
                 </p>
@@ -1007,7 +1007,7 @@ export function CreateMethodModal({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
                     <div className="flex-1">
-                      <p className="text-sm text-amber-800">{uploadWarning}</p>
+                      <p className="text-body text-amber-800">{uploadWarning}</p>
                     </div>
                     <Tooltip label="Dismiss warning" placement="bottom">
                       <button
@@ -1028,7 +1028,7 @@ export function CreateMethodModal({
             {/* LC Gradient editor */}
             {uploadType === "lc_gradient" && (
               <div className="space-y-2" data-tour-target="lc-editor-wrapper">
-                <p className="text-xs text-gray-400">
+                <p className="text-meta text-gray-400">
                   LC gradient protocols store the solvent gradient (%A/%B over time + flow), column geometry, detection wavelength, and ingredient list.
                 </p>
                 <LcGradientEditor
@@ -1049,7 +1049,7 @@ export function CreateMethodModal({
             {/* Plate Layout editor */}
             {uploadType === "plate" && (
               <div className="space-y-2">
-                <p className="text-xs text-gray-400">
+                <p className="text-meta text-gray-400">
                   Plate layouts store a well-plate template — plate size plus any pre-labeled regions (blanks, controls, sample wells). Per-task sample identities go on the experiment page snapshot.
                 </p>
                 <PlateLayoutEditor
@@ -1066,7 +1066,7 @@ export function CreateMethodModal({
             {/* qPCR analysis editor */}
             {uploadType === "qpcr_analysis" && (
               <div className="space-y-2">
-                <p className="text-xs text-gray-400">
+                <p className="text-meta text-gray-400">
                   qPCR analysis protocols store the references list (experimental targets + housekeeping), optional standard-curve dilution points, and the melt-curve sweep. Per-task Cq readouts and ΔΔCq fold-change land on the experiment page. Pair with a PCR method via a kit for the full qPCR workflow.
                 </p>
                 <QpcrAnalysisEditor
@@ -1091,7 +1091,7 @@ export function CreateMethodModal({
             {/* Cell culture passaging editor */}
             {uploadType === "cell_culture" && (
               <div className="space-y-2">
-                <p className="text-xs text-gray-400">
+                <p className="text-meta text-gray-400">
                   Cell culture passaging schedules store the cell line, media composition, and planned cadence (feed / split / observe / harvest). Mid-execution events are logged on the experiment task.
                 </p>
                 <CellCultureScheduleEditor
@@ -1110,7 +1110,7 @@ export function CreateMethodModal({
             {/* Mass spec editor */}
             {uploadType === "mass_spec" && (
               <div className="space-y-2">
-                <p className="text-xs text-gray-400">
+                <p className="text-meta text-gray-400">
                   Mass spec methods store the ionization mode + source / scan / calibration params. Source-param fields shown vary by ionization mode; toggle &quot;Show all fields&quot; for the full set.
                 </p>
                 <MassSpecEditor
@@ -1137,7 +1137,7 @@ export function CreateMethodModal({
             {/* Coding workflow editor */}
             {uploadType === "coding_workflow" && (
               <div className="space-y-2">
-                <p className="text-xs text-gray-400">
+                <p className="text-meta text-gray-400">
                   Coding workflows store a reusable script (Python, R, SQL, etc.) or a Jupyter notebook. Embed the code body inline, point at an external path for the open-in-editor handoff, or both.
                 </p>
                 <CodingWorkflowEditor
@@ -1160,13 +1160,13 @@ export function CreateMethodModal({
             {/* PCR editor */}
             {uploadType === "pcr" && (
               <div className="space-y-4" data-tour-target="pcr-editor-wrapper">
-                <p className="text-xs text-gray-400">
+                <p className="text-meta text-gray-400">
                   PCR protocols store thermal cycler gradients and reaction recipes.
                 </p>
 
                 {/* Interactive Gradient Editor */}
                 <div>
-                  <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                  <h4 className="text-body font-semibold text-gray-700 mb-3">
                     Thermal Gradient
                   </h4>
                   <InteractiveGradientEditor
@@ -1177,11 +1177,11 @@ export function CreateMethodModal({
 
                 {/* Reaction Recipe */}
                 <div>
-                  <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                  <h4 className="text-body font-semibold text-gray-700 mb-3">
                     Reaction Recipe
                   </h4>
                   <div className="border border-gray-200 rounded-lg overflow-hidden">
-                    <table className="w-full text-xs">
+                    <table className="w-full text-meta">
                       <thead className="bg-gray-100">
                         <tr>
                           <th className="px-4 py-2 text-left font-medium text-gray-600">Ingredient</th>
@@ -1279,7 +1279,7 @@ export function CreateMethodModal({
                           ]);
                         }
                       }}
-                      className="w-full py-2 text-xs text-blue-600 hover:bg-blue-50 border-t border-gray-200"
+                      className="w-full py-2 text-meta text-blue-600 hover:bg-blue-50 border-t border-gray-200"
                     >
                       + Add Ingredient
                     </button>
@@ -1288,14 +1288,14 @@ export function CreateMethodModal({
 
                 {/* Notes */}
                 <div>
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                  <h4 className="text-body font-semibold text-gray-700 mb-2">
                     Notes (optional)
                   </h4>
                   <textarea
                     value={pcrNotes}
                     onChange={(e) => setPcrNotes(e.target.value)}
                     rows={2}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Any additional notes..."
                   />
                 </div>
@@ -1309,7 +1309,7 @@ export function CreateMethodModal({
           <button
             onClick={handleCancel}
             disabled={saving}
-            className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50"
+            className="px-4 py-2 text-body text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50"
           >
             Cancel
           </button>
@@ -1332,7 +1332,7 @@ export function CreateMethodModal({
                   (uploadType === "pdf" && !pdfFile) ||
                   (uploadType === "markdown" && !(mdContent.trim() || editorDirty))
                 }
-                className="px-4 py-2 text-sm text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg disabled:opacity-50"
+                className="px-4 py-2 text-body text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg disabled:opacity-50"
               >
                 {savingMode === "extend" ? "Creating & bundling…" : "Create & extend into kit"}
               </button>
@@ -1347,7 +1347,7 @@ export function CreateMethodModal({
               (uploadType === "markdown" && !(mdContent.trim() || editorDirty))
             }
             data-tour-target="methods-create-submit"
-            className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+            className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
           >
             {savingMode === "save" ? "Saving..." : "Create Method"}
           </button>

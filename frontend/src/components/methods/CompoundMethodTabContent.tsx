@@ -258,8 +258,8 @@ export default function CompoundMethodTabContent({
             inline below where the broken row would have appeared. */}
         {!graphCheck.ok && graphCheck.reason === "depth_exceeded" && (
           <div className="mx-6 mt-4 border border-red-200 bg-red-50 rounded p-3">
-            <div className="text-xs font-medium text-red-700">Nested too deep</div>
-            <div className="text-sm text-red-900 mt-1">
+            <div className="text-meta font-medium text-red-700">Nested too deep</div>
+            <div className="text-body text-red-900 mt-1">
               This compound nests more than {MAX_COMPOUND_DEPTH} levels of compounds.
               Flatten one of the inner kits to render the full hierarchy.
             </div>
@@ -267,7 +267,7 @@ export default function CompoundMethodTabContent({
         )}
         <div className="p-6 space-y-6">
           {resolvedChildren.length === 0 && (
-            <p className="text-sm text-gray-400 text-center py-8">
+            <p className="text-body text-gray-400 text-center py-8">
               This compound has no components yet. Edit the compound to add some.
             </p>
           )}
@@ -282,8 +282,8 @@ export default function CompoundMethodTabContent({
                   id={sectionId}
                   className="border border-amber-200 bg-amber-50 rounded p-3"
                 >
-                  <div className="text-xs font-medium text-amber-700">Component deleted</div>
-                  <div className="text-sm text-amber-900 mt-1">
+                  <div className="text-meta font-medium text-amber-700">Component deleted</div>
+                  <div className="text-body text-amber-900 mt-1">
                     The method referenced here (id {c.method_id}, owner {owner}) no longer
                     exists. Edit this compound to remove the broken reference.
                   </div>
@@ -304,8 +304,8 @@ export default function CompoundMethodTabContent({
                   id={sectionId}
                   className="border border-red-200 bg-red-50 rounded p-3"
                 >
-                  <div className="text-xs font-medium text-red-700">Cycle detected</div>
-                  <div className="text-sm text-red-900 mt-1">
+                  <div className="text-meta font-medium text-red-700">Cycle detected</div>
+                  <div className="text-body text-red-900 mt-1">
                     Component {displayLabel} forms a cycle in this compound&apos;s
                     composition graph. The recursive render is stopped here.
                   </div>
@@ -350,7 +350,7 @@ function CompoundToc({
   return (
     <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-2.5">
       <div className="flex flex-wrap gap-1.5 items-center">
-        <span className="text-[10px] uppercase tracking-wider text-gray-400 font-medium mr-1">
+        <span className="text-meta uppercase tracking-wider text-gray-400 font-medium mr-1">
           {compoundName}
         </span>
         {(resolvedChildren as Array<{
@@ -375,7 +375,7 @@ function CompoundToc({
                   target.scrollIntoView({ behavior: "smooth", block: "start" });
                 }
               }}
-              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs ${meta.color.bg} ${meta.color.text} hover:opacity-80 transition-opacity`}
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-meta ${meta.color.bg} ${meta.color.text} hover:opacity-80 transition-opacity`}
               title={`${label} (${meta.label})`}
             >
               <Icon className="w-3 h-3" />
@@ -429,13 +429,13 @@ function CompoundChildSection({
       <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-4 py-2">
         <div className="flex items-center gap-2">
           <Icon className="w-4 h-4 text-gray-500" />
-          <h4 className="text-sm font-semibold text-gray-800">{label}</h4>
+          <h4 className="text-body font-semibold text-gray-800">{label}</h4>
           <span
-            className={`text-[10px] px-1.5 py-0.5 rounded-full ${meta.color.bg} ${meta.color.text}`}
+            className={`text-meta px-1.5 py-0.5 rounded-full ${meta.color.bg} ${meta.color.text}`}
           >
             {meta.shortLabel}
           </span>
-          <span className="text-[10px] text-gray-400">
+          <span className="text-meta text-gray-400">
             (owner: {ownerCtx} · id {child.id})
           </span>
         </div>

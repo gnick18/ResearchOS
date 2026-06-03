@@ -71,7 +71,7 @@ export default function PdfMethodTabContent({
   }, [method.source_path]);
 
   if (loading) {
-    return <div className="p-6 text-sm text-gray-400 animate-pulse">Loading method...</div>;
+    return <div className="p-6 text-body text-gray-400 animate-pulse">Loading method...</div>;
   }
 
   return (
@@ -104,7 +104,7 @@ export default function PdfMethodTabContent({
         />
       ) : (
         <div className="p-6 text-center">
-          <p className="text-sm text-gray-500">Unable to display PDF. The file may not exist yet.</p>
+          <p className="text-body text-gray-500">Unable to display PDF. The file may not exist yet.</p>
         </div>
       )}
     </div>
