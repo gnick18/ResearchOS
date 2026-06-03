@@ -16,7 +16,6 @@ import {
   type StaleSignal,
 } from "@/lib/telegram/staleness";
 import { resolveBadgePresentation } from "@/lib/telegram/badge-presentation";
-import { imageEvents } from "@/lib/attachments/image-events";
 import TelegramPairingModal from "./TelegramPairingModal";
 import Tooltip from "./Tooltip";
 
@@ -54,14 +53,6 @@ export default function TelegramStatusBadge() {
     void reload();
   }, [reload]);
 
-  // Bump the displayed counters when new images arrive — gives the user
-  // visual confirmation in the header that the connection is alive.
-  const [recent, setRecent] = useState(0);
-  useEffect(() => {
-    const unsub = imageEvents.onAttached(() => setRecent((n) => n + 1));
-    return unsub;
-  }, []);
-
   // Drive the inbound photo pipeline. The hook short-circuits when the user
   // isn't paired and self-throttles via a cross-tab lock.
   useTelegramPolling(pairing ? currentUser : null);
@@ -86,6 +77,25 @@ export default function TelegramStatusBadge() {
     isStale: staleSignal.isStale,
   });
   const isStandby = paired && presentation.tone === "standby";
+
+  // Header-declutter pass (2026-06-02): the badge used to be a loud pill
+  // showing "Telegram: @botname" + an uppercase status word + a "+N"
+  // recent-photo counter + a breathing emerald glow. Two beta testers
+  // flagged the top nav as busy. The status badge is now a single quiet
+  // dot in the calm steady-state; the bot name, the per-arrival counter,
+  // and connection management all moved off the header. Inbound photos
+  // still surface via the adjacent Inbox affordance, and full connection
+  // management (pairing, auto-reconnect, encrypted backup, the on/off
+  // notifications switch) lives in Settings -> Notifications & behavior
+  // (`/settings#telegram`). The badge is kept (and still mounts the
+  // polling pipeline + the pairing modal), but only RAISES ITS VOICE when
+  // there is something the user must see: a connection problem (warn /
+  // error / stale), the standby handoff, or an unpaired "Connect" prompt.
+  //
+  // "calm" === paired and healthy (tone ok, not stale): nothing is wrong,
+  // so we render a bare dot with no pill chrome, no label, no name.
+  const calm = paired && presentation.tone === "ok" && !staleSignal.isStale;
+
   const toneClass =
     presentation.tone === "error"
       ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
@@ -93,41 +103,65 @@ export default function TelegramStatusBadge() {
         ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
         : presentation.tone === "standby"
           ? "border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100"
-          : paired
-            ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-            : "border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100";
+          : "border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100";
 
+  // Detail string surfaced on hover (and used as the dot's title) so the
+  // bot name and live status are one hover away rather than always-on text.
+  const detailTitle = paired
+    ? `Telegram connected as @${pairing.botUsername}${presentation.label ? ` (${presentation.label})` : ""}. Manage in Settings -> Notifications & behavior.`
+    : "Connect a Telegram bot to send photos to your inbox.";
+
+  if (calm) {
+    // Quiet steady-state: a single small dot, no pill, no text, no glow,
+    // no counter. Clicking still opens the pairing/manage modal; the
+    // tooltip carries the bot name and points at Settings.
+    const calmDot = (
+      <button
+        type="button"
+        onClick={() => setModalOpen(true)}
+        aria-label={detailTitle}
+        title={detailTitle}
+        className="flex items-center justify-center w-7 h-7 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+      >
+        <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
+      </button>
+    );
+    return (
+      <>
+        <Tooltip label={detailTitle} placement="bottom">
+          {calmDot}
+        </Tooltip>
+        {modalOpen && (
+          <TelegramPairingModal
+            username={currentUser}
+            onClose={(updated) => {
+              setModalOpen(false);
+              if (updated === undefined) return;
+              setPairing(updated);
+            }}
+          />
+        )}
+      </>
+    );
+  }
+
+  // Attention states (warn / error / stale / standby / unpaired): keep a
+  // visible labeled chip so the user can SEE that something needs them. This
+  // is the load-bearing "messages may not be arriving" signal the spec said
+  // to preserve; it just no longer competes for attention in the calm case.
   const badgeButton = (
     <button
       type="button"
       onClick={() => setModalOpen(true)}
-      title={
-        paired
-          ? `Paired with @${pairing.botUsername}${presentation.label ? ` (${presentation.label})` : ""}`
-          : "Connect a Telegram bot to send photos"
-      }
+      title={detailTitle}
       className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${toneClass}`}
     >
-      {presentation.glow ? (
-        // Active-connection glow: an expanding emerald halo around a
-        // solid dot, so the badge visibly "breathes" while polling is
-        // healthy. Other states (including stale) use a flat dot so
-        // they stand out from the healthy steady-state.
-        <span className="relative flex w-2 h-2">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
-          <span className="relative inline-flex w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_1px_rgba(16,185,129,0.7)]" />
-        </span>
-      ) : (
-        <span className={`inline-block w-2 h-2 rounded-full ${presentation.dot}`} />
-      )}
-      {paired ? `Telegram: @${pairing.botUsername}` : "Connect Telegram"}
+      <span className={`inline-block w-2 h-2 rounded-full ${presentation.dot}`} />
+      {paired ? "Telegram" : "Connect Telegram"}
       {paired && presentation.label && (
         <span className="ml-1 text-[10px] uppercase tracking-wide">
           {presentation.label}
         </span>
-      )}
-      {paired && recent > 0 && (
-        <span className="ml-1 text-emerald-600">+{recent}</span>
       )}
     </button>
   );
