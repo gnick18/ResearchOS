@@ -6,6 +6,7 @@ import {
   sliderToSpan,
   spanToSlider,
   windowAroundCenter,
+  windowAroundPoint,
   fullWindow,
   panWindow,
   resizeWindowEdge,
@@ -85,6 +86,46 @@ describe("windowAroundCenter", () => {
   it("never exceeds the molecule for a span larger than it", () => {
     const w = windowAroundCenter(50, 99999, 1000);
     expect(w).toEqual({ start: 0, end: 1000 });
+  });
+});
+
+describe("windowAroundPoint", () => {
+  const len = 10000;
+  it("places the anchor at the requested fraction across the track", () => {
+    // anchor 5000 at fraction 0.25 with span 1000 -> start = 5000 - 250 = 4750.
+    expect(windowAroundPoint(5000, 1000, 0.25, len)).toEqual({ start: 4750, end: 5750 });
+  });
+  it("matches windowAroundCenter at fraction 0.5", () => {
+    expect(windowAroundPoint(5000, 200, 0.5, len)).toEqual(windowAroundCenter(5000, 200, len));
+  });
+  it("keeps the anchor bp under the same fraction after a zoom-in (cursor anchor)", () => {
+    // Cursor at fraction 0.3 over a window [1000, 10000] sits on bp 3700.
+    const win0 = { start: 1000, end: 10000 };
+    const span0 = win0.end - win0.start; // 9000
+    const frac = 0.3;
+    const anchorBp = win0.start + frac * span0; // 3700
+    // Zoom in to span 3000; the anchor must still sit at frac 0.3 (within rounding).
+    const win1 = windowAroundPoint(anchorBp, 3000, frac, len);
+    const bpAtFracAfter = win1.start + frac * (win1.end - win1.start);
+    expect(Math.abs(bpAtFracAfter - anchorBp)).toBeLessThanOrEqual(1);
+  });
+  it("clamps a window that runs off the left", () => {
+    // anchor 10 at fraction 0.5 span 200 would start at -90 -> slid to 0.
+    expect(windowAroundPoint(10, 200, 0.5, len)).toEqual({ start: 0, end: 200 });
+  });
+  it("clamps a window that runs off the right", () => {
+    expect(windowAroundPoint(9990, 200, 0.5, len)).toEqual({ start: 9800, end: 10000 });
+  });
+  it("keeps the full span when clamped at an edge", () => {
+    const w = windowAroundPoint(0, 200, 0, len);
+    expect(w.end - w.start).toBe(200);
+  });
+  it("never exceeds the molecule for a span larger than it", () => {
+    expect(windowAroundPoint(50, 99999, 0.4, 1000)).toEqual({ start: 0, end: 1000 });
+  });
+  it("clamps the fraction to 0..1", () => {
+    expect(windowAroundPoint(5000, 1000, -5, len)).toEqual(windowAroundPoint(5000, 1000, 0, len));
+    expect(windowAroundPoint(5000, 1000, 5, len)).toEqual(windowAroundPoint(5000, 1000, 1, len));
   });
 });
 

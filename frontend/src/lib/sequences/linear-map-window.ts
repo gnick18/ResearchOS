@@ -88,6 +88,40 @@ export function windowAroundCenter(
   return { start, end };
 }
 
+/**
+ * Build a window of a given SPAN such that `anchorBp` lands at `fraction` (0..1)
+ * across the track, then clamp to [0, seqLength]. This is the CURSOR-ANCHORED
+ * zoom used by the map's trackpad pinch (map pinch bot): the bp under the cursor
+ * before the zoom stays under the cursor after it, matching the SeqViz / SnapGene
+ * feel. The span is clamped to [MIN_WINDOW_BP, seqLength] first; if anchoring at
+ * the exact fraction would push an edge past a molecule bound, the window slides
+ * back inside so it always keeps its full span (when the span fits) and never
+ * exceeds the molecule. With fraction 0.5 this reduces to windowAroundCenter.
+ */
+export function windowAroundPoint(
+  anchorBp: number,
+  span: number,
+  fraction: number,
+  seqLength: number,
+): { start: number; end: number } {
+  const len = Math.max(0, Math.round(seqLength));
+  const s = clampSpan(span, len);
+  const a = Math.max(0, Math.min(len, Number.isFinite(anchorBp) ? anchorBp : len / 2));
+  const f = Math.max(0, Math.min(1, Number.isFinite(fraction) ? fraction : 0.5));
+  // We want start + f * s == a, so the anchor sits f of the way across the track.
+  let start = Math.round(a - f * s);
+  let end = start + s;
+  if (start < 0) {
+    start = 0;
+    end = s;
+  }
+  if (end > len) {
+    end = len;
+    start = Math.max(0, end - s);
+  }
+  return { start, end };
+}
+
 /** The whole-molecule window (default zoom). */
 export function fullWindow(seqLength: number): { start: number; end: number } {
   return { start: 0, end: Math.max(0, Math.round(seqLength)) };

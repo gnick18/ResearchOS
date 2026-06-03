@@ -49,6 +49,7 @@ import {
   sliderToSpan,
   spanToSlider,
   windowAroundCenter,
+  windowAroundPoint,
   fullWindow,
   spanOverlapsWindow,
   clipSpanToWindow,
@@ -206,6 +207,77 @@ export default function LinearMap({
   const canZoomOut = winSpan < seqLength;
   const zoomIn = () => setSpanKeepingCenter(winSpan / ZOOM_STEP);
   const zoomOut = () => setSpanKeepingCenter(winSpan * ZOOM_STEP);
+
+  // ── TRACKPAD PINCH-TO-ZOOM (map pinch bot) ────────────────────────────────
+  // The map's window is the single source of truth, so a pinch just sets a new
+  // window: the slider, navigator, and ellipsis cues all follow. The wheel/gesture
+  // listener is attached ONCE (it must be non-passive so preventDefault works), so
+  // it reads the live window + track geometry from a ref instead of stale closure
+  // values. PINCH = ctrl/meta + wheel (macOS trackpad reports a pinch as a wheel
+  // event with ctrlKey true), or a Safari gesture event. A PLAIN wheel is left
+  // alone so normal scrolling still works.
+  const pinchStateRef = useRef({ winStart, winSpan, trackWidth, seqLength });
+  pinchStateRef.current = { winStart, winSpan, trackWidth, seqLength };
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+
+    // Apply a pinch of magnitude `deltaY` (deltaY < 0 == spread / zoom IN, > 0 ==
+    // pinch / zoom OUT), anchored so the bp under the cursor stays put. K tunes the
+    // feel: each unit of deltaY nudges the 0..1 log slider by K, matching the
+    // SeqViz pinch's smooth, constant-ratio feel.
+    const K = 0.0035;
+    const applyPinch = (deltaY: number, clientX: number) => {
+      const { winStart: ws, winSpan: span, trackWidth: tw, seqLength: len } = pinchStateRef.current;
+      if (tw <= 0 || len <= 0) return;
+      const rect = el.getBoundingClientRect();
+      // Fraction of the cursor across the TRACK (0 at PAD_X, 1 at PAD_X+trackWidth),
+      // clamped so a cursor in the side padding still anchors at an edge.
+      const fraction = Math.max(0, Math.min(1, (clientX - rect.left - PAD_X) / tw));
+      const anchorBp = ws + fraction * span;
+      // Nudge the log slider: deltaY < 0 (spread) -> larger slider -> smaller span
+      // (zoom in). Convert span -> slider, step, convert back.
+      const pos = spanToSlider(span, len);
+      const nextPos = Math.max(0, Math.min(1, pos - deltaY * K));
+      const nextSpan = sliderToSpan(nextPos, len);
+      if (nextSpan === span) return;
+      setWin(windowAroundPoint(anchorBp, nextSpan, fraction, len));
+    };
+
+    const onWheel = (e: WheelEvent) => {
+      // Only a pinch (ctrl/meta + wheel) zooms; a plain wheel falls through to the
+      // container's normal scroll untouched.
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      e.stopPropagation();
+      applyPinch(e.deltaY, e.clientX);
+    };
+
+    // Safari fires gesture* with a relative `scale` (1 == no change, >1 spread /
+    // zoom-in, <1 pinch / zoom-out) instead of ctrl+wheel. Convert scale to a
+    // deltaY-equivalent so we reuse the same path (scale 1.1 -> ~ -10 deltaY).
+    const onGesture = (e: Event) => {
+      const ge = e as Event & { scale?: number; clientX?: number };
+      if (typeof ge.scale !== "number") return;
+      e.preventDefault();
+      const deltaY = (1 - ge.scale) * 100;
+      const rect = el.getBoundingClientRect();
+      const clientX = typeof ge.clientX === "number" ? ge.clientX : rect.left + rect.width / 2;
+      applyPinch(deltaY, clientX);
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("gesturestart", onGesture as EventListener);
+    el.addEventListener("gesturechange", onGesture as EventListener);
+    el.addEventListener("gestureend", onGesture as EventListener);
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("gesturestart", onGesture as EventListener);
+      el.removeEventListener("gesturechange", onGesture as EventListener);
+      el.removeEventListener("gestureend", onGesture as EventListener);
+    };
+  }, []);
 
   // ── ENZYME CUT SITES (above the line) ────────────────────────────────────
   // Reuse the vendored digest via digestEnzymes; flatten to one item per cut.
