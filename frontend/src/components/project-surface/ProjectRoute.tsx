@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   projectsApi as rawProjectsApi,
   purchasesApi,
+  sequencesApi,
   tasksApi,
 } from "@/lib/local-api";
 import type { ProjectUpdate } from "@/lib/local-api";
@@ -23,6 +24,7 @@ import Tooltip from "@/components/Tooltip";
 import ProjectFundingSection from "@/components/project-surface/ProjectFundingSection";
 import ResultsGallery from "@/components/project-surface/ResultsGallery";
 import MethodsInventory from "@/components/project-surface/MethodsInventory";
+import SequencesInventory from "@/components/project-surface/SequencesInventory";
 import GoalsSection from "@/components/project-surface/GoalsSection";
 import ActivityFeed from "@/components/project-surface/ActivityFeed";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -52,11 +54,20 @@ const DEFAULT_COLORS = [
 
 // Tab set is derived per-render from feature_picks + content presence (see
 // `sections` below): the Goals entry only appears when L11's gating condition
-// is met, and Results / Methods only when those sections have content. These
-// are REAL tabs backed by local React state (see `activeTab`), not scroll
-// anchors: only the active section's content renders at a time, so a
+// is met, and Results / Methods / Sequences only when those sections have
+// content. These are REAL tabs backed by local React state (see `activeTab`),
+// not scroll anchors: only the active section's content renders at a time, so a
 // near-empty project never shows a tab that scrolls nowhere. (Beta bug #4.)
-type SectionId = "overview" | "results" | "methods" | "goals" | "activity";
+// Sequences (de-bloat arc Phase 3b) is PRESENTATION-ONLY: it lists the project's
+// linked plasmids/sequences from the sequence arc's `sequencesApi.listByProject`
+// and links OUT to /sequences; it does not embed the editor or write data.
+type SectionId =
+  | "overview"
+  | "results"
+  | "methods"
+  | "sequences"
+  | "goals"
+  | "activity";
 
 interface SectionDef {
   id: SectionId;
@@ -66,6 +77,7 @@ interface SectionDef {
 const OVERVIEW_SECTION: SectionDef = { id: "overview", label: "Overview" };
 const RESULTS_SECTION: SectionDef = { id: "results", label: "Results" };
 const METHODS_SECTION: SectionDef = { id: "methods", label: "Methods" };
+const SEQUENCES_SECTION: SectionDef = { id: "sequences", label: "Sequences" };
 const GOALS_SECTION: SectionDef = { id: "goals", label: "Goals" };
 const ACTIVITY_SECTION: SectionDef = { id: "activity", label: "Activity" };
 
@@ -78,6 +90,7 @@ const ACTIVITY_SECTION: SectionDef = { id: "activity", label: "Activity" };
 interface SectionPresence {
   hasResults: boolean;
   hasMethods: boolean;
+  hasSequences: boolean;
   hasActivity: boolean;
 }
 
@@ -145,9 +158,23 @@ function useSectionPresence(project: Project | null | undefined): SectionPresenc
     enabled: !!project,
   });
 
+  // Sequences presence: any plasmid/sequence in the current user's library
+  // linked to this project (project_ids membership). Shares SequencesInventory's
+  // exact query key so the tab probe and the rendered section read from one
+  // warmed cache entry. PRESENTATION-ONLY: we consume the sequence arc's live
+  // `sequencesApi.listByProject` (lib/local-api.ts) and never write sequence
+  // data. The seam returns [] until the sequence arc fills it, so the tab and
+  // section stay hidden for projects with no linked sequences.
+  const { data: sequences = [] } = useQuery({
+    queryKey: ["project-sequences", owner, projectId],
+    queryFn: () => sequencesApi.listByProject(projectId),
+    enabled: !!project,
+  });
+
   return {
     hasResults: totalImages > 0,
     hasMethods,
+    hasSequences: sequences.length > 0,
     hasActivity: events.length > 0,
   };
 }
@@ -462,6 +489,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
     OVERVIEW_SECTION,
     ...(presence.hasResults ? [RESULTS_SECTION] : []),
     ...(presence.hasMethods ? [METHODS_SECTION] : []),
+    ...(presence.hasSequences ? [SEQUENCES_SECTION] : []),
     ...(goalsEnabled ? [GOALS_SECTION] : []),
     ...(presence.hasActivity ? [ACTIVITY_SECTION] : []),
   ];
@@ -913,6 +941,9 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
             )}
             {effectiveTab === "results" && <ResultsGallery project={project} />}
             {effectiveTab === "methods" && <MethodsInventory project={project} />}
+            {effectiveTab === "sequences" && (
+              <SequencesInventory project={project} />
+            )}
             {effectiveTab === "goals" && goalsEnabled && (
               <GoalsSection project={project} />
             )}
