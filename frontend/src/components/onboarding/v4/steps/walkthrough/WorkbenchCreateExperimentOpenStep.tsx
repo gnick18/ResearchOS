@@ -52,6 +52,7 @@ import { flushPendingArtifacts, pendingArtifactStore } from "./lib/artifacts";
 import {
   closeNotificationsPopup,
   ensureCreateExperimentModalOpen,
+  rehydrateExperimentSubmitGate,
   switchWorkbenchTab,
   withCreateExperimentModalOpen,
 } from "./lib/on-enter-helpers";
@@ -223,15 +224,25 @@ export const workbenchCreateExperimentSubmitStep = buildWalkthroughStep({
   // (mirrors the experiment-popup `withExperimentPopupOpen` composition).
   // The guard reopens ONLY when the modal is closed AND no experiment
   // exists yet, so a refresh AFTER the experiment was created no-ops
-  // (no confusing blank-form reopen). FLAG (see report): the
-  // `disabledUntilEvent: experimentCreated` gate on this beat's manual
-  // advance does NOT survive a refresh (the event fired before reload),
-  // so a refresh on this exact beat AFTER creating the experiment leaves
-  // "Got it, next" disabled even though the work is done. That is a
-  // pre-existing gate-persistence gap, orthogonal to the modal-reopen
-  // pass, and is left for master to decide (would need the gate to
-  // re-check on-disk experiment existence, not just the live event).
-  onEnter: withCreateExperimentModalOpen(() => {
+  // (no confusing blank-form reopen).
+  //
+  // tour-submit-gate bot 2026-06-03: closes the gate-persistence gap the
+  // modal-resilience bot flagged. The `disabledUntilEvent:
+  // experimentCreated` gate does NOT survive a refresh (the event fired
+  // before reload), so a refresh on this exact beat AFTER creating the
+  // experiment used to leave "Got it, next" permanently disabled even
+  // though the work is done = soft-block. After registering the
+  // artifact-capture listener below, `rehydrateExperimentSubmitGate()`
+  // scans the disk for an existing experiment and, if one is found,
+  // re-dispatches `tour:experiment-created` with its real id. That
+  // satisfies the controller's gate listener (button enables) AND feeds
+  // the artifact-capture listener the same id (deduped on (type, id), so
+  // no double artifact). On the CANONICAL fresh run no experiment exists,
+  // so it no-ops and the button stays disabled until the user genuinely
+  // clicks Create Experiment. The rehydrate runs AFTER the listener is
+  // registered (and after an await, so the controller's gate effect has
+  // mounted) so the re-dispatch is observed by both listeners.
+  onEnter: withCreateExperimentModalOpen(async () => {
     if (typeof window === "undefined") return;
     const handler = (evt: Event) => {
       const id = (evt as CustomEvent<{ id?: number }>).detail?.id;
@@ -244,6 +255,9 @@ export const workbenchCreateExperimentSubmitStep = buildWalkthroughStep({
       window.removeEventListener(TOUR_DOM_EVENTS.experimentCreated, handler);
     };
     window.addEventListener(TOUR_DOM_EVENTS.experimentCreated, handler);
+    // Re-hydrate the refresh-after-create gate. No-op on the canonical
+    // pre-create path (no experiment on disk yet).
+    await rehydrateExperimentSubmitGate();
   }),
   onExit: async () => {
     await flushPendingArtifacts(SUBMIT_STEP_ID);

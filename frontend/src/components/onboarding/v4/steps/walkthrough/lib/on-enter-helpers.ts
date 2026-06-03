@@ -499,6 +499,84 @@ async function anyExperimentExists(): Promise<boolean> {
 }
 
 /**
+ * Resolve the id of the user's existing experiment, scanning ALL of the
+ * user's own tasks (project-agnostic, like {@link anyExperimentExists}),
+ * not just the active project. Returns the most-recently-created
+ * (max id) experiment's id, or `null` when none exists or the list
+ * fails. Project-agnostic because the §6.5 user-action flow lets the
+ * experiment land in a project, Miscellaneous, OR Standalone.
+ *
+ * Shares the same filter as `anyExperimentExists` (own, type
+ * "experiment") so the two agree on existence; this one additionally
+ * surfaces the id so a caller can re-dispatch `tour:experiment-created`
+ * with the real id (the refresh-after-create gate-rehydration path).
+ */
+async function resolveExistingExperimentId(): Promise<number | null> {
+  try {
+    const all = await fetchAllTasks();
+    const experiments = all.filter(
+      (t) => t.task_type === "experiment" && !t.is_shared_with_me,
+    );
+    if (experiments.length === 0) return null;
+    const sorted = [...experiments].sort((a, b) => b.id - a.id);
+    return sorted[0]?.id ?? null;
+  } catch (err) {
+    console.warn("[onboarding-v4] resolveExistingExperimentId probe failed", err);
+    return null;
+  }
+}
+
+/**
+ * Re-hydrate the §6.5d `workbench-create-experiment-submit` gate after a
+ * refresh that happened AFTER the experiment was already created.
+ *
+ * The submit beat's "Got it, next" manual-advance is gated on
+ * `disabledUntilEvent: tour:experiment-created`. That event fires once,
+ * from `tasksApi.create` in local-api, at the moment the experiment
+ * lands on disk. If the user refreshes ON this beat AFTER creating the
+ * experiment, the event already fired pre-reload, so on reload the gate
+ * never satisfies and the button stays permanently disabled = soft
+ * block.
+ *
+ * Fix: on step enter, if an experiment already exists on disk, re-DISPATCH
+ * `tour:experiment-created` with the existing experiment's real id. This
+ * reuses the existing plumbing end-to-end:
+ *   - the controller's overlay gate listener flips `eventFired` -> the
+ *     button enables (the soft-block is cleared),
+ *   - the submit step's own artifact-capture listener records the same
+ *     id into pendingArtifactStore. Because `appendArtifact` dedupes on
+ *     `(type, id)`, recording the SAME id never double-counts an artifact
+ *     even if the live event had also fired this run (it won't, on the
+ *     refresh path),
+ *   - the controller's detach-recovery watcher suppresses the false
+ *     "Looks like that closed" hint.
+ *
+ * CANONICAL-PATH SAFETY: on a fresh run where no experiment exists yet,
+ * `resolveExistingExperimentId()` returns null and we DO NOT dispatch, so
+ * the button stays disabled until the user genuinely clicks Create
+ * Experiment and `tasksApi.create` fires the real event. This only
+ * un-gates when an experiment genuinely already exists on disk.
+ *
+ * Caller must invoke this AFTER registering its own listeners (the await
+ * inside guarantees the synchronous render + effects have flushed, so the
+ * controller's gate listener is already subscribed when we dispatch).
+ * Best-effort: SSR-safe + swallow/log internally so it never wedges the
+ * step.
+ */
+export async function rehydrateExperimentSubmitGate(): Promise<void> {
+  if (typeof window === "undefined") return;
+  try {
+    const id = await resolveExistingExperimentId();
+    if (id === null) return;
+    window.dispatchEvent(
+      new CustomEvent("tour:experiment-created", { detail: { id } }),
+    );
+  } catch (err) {
+    console.warn("[onboarding-v4] rehydrateExperimentSubmitGate failed", err);
+  }
+}
+
+/**
  * Reopen the §6.5 Create Experiment modal (TaskModal) if a mid-tour
  * refresh closed it.
  *

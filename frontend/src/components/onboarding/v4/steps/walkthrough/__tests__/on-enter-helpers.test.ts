@@ -112,6 +112,7 @@ import {
   withCategoryModalOpen,
   ensureCreateExperimentModalOpen,
   withCreateExperimentModalOpen,
+  rehydrateExperimentSubmitGate,
 } from "../lib/on-enter-helpers";
 
 describe("on-enter-helpers defensive guards (Wave 1 sidecar hardening v2)", () => {
@@ -556,5 +557,108 @@ describe("ensureCreateExperimentModalOpen (tour-modal-resilience §6.5)", () => 
     const inner = vi.fn(async () => undefined);
     await withCreateExperimentModalOpen(inner)({ username: "alex" });
     expect(inner).toHaveBeenCalledWith({ username: "alex" });
+  });
+});
+
+// tour-submit-gate bot 2026-06-03: the refresh-after-create soft-block on
+// the §6.5d `workbench-create-experiment-submit` beat. The manual-advance
+// is gated on `disabledUntilEvent: tour:experiment-created`, which fires
+// once at create time. On a refresh AFTER the experiment was created, the
+// event already fired pre-reload, so the gate never satisfies and the
+// button stays permanently disabled. `rehydrateExperimentSubmitGate`
+// re-dispatches `tour:experiment-created` (with the existing id) on enter
+// ONLY when an experiment already exists on disk, which re-satisfies the
+// gate. The CANONICAL fresh run (no experiment) must NOT dispatch, so the
+// button stays disabled until the user genuinely clicks Create Experiment.
+describe("rehydrateExperimentSubmitGate (refresh-after-create gate fix)", () => {
+  beforeEach(() => {
+    fetchAllTasksMock.mockReset();
+    fetchAllTasksMock.mockResolvedValue([]);
+  });
+
+  it("REFRESH-AFTER-CREATE: re-dispatches tour:experiment-created with the existing experiment id when one exists on disk", async () => {
+    fetchAllTasksMock.mockResolvedValue([
+      { id: 42, task_type: "experiment", is_shared_with_me: false },
+    ]);
+    const events: Array<{ id?: number }> = [];
+    const handler = (evt: Event) => {
+      events.push((evt as CustomEvent<{ id?: number }>).detail);
+    };
+    window.addEventListener("tour:experiment-created", handler);
+    try {
+      await rehydrateExperimentSubmitGate();
+    } finally {
+      window.removeEventListener("tour:experiment-created", handler);
+    }
+    expect(events).toHaveLength(1);
+    expect(events[0]).toEqual({ id: 42 });
+  });
+
+  it("REFRESH-AFTER-CREATE: picks the most-recently-created (max id) experiment, project-agnostic", async () => {
+    // Several own experiments across projects / Standalone. The gate
+    // re-dispatch carries the highest id so it resolves to one stable
+    // artifact target rather than churning.
+    fetchAllTasksMock.mockResolvedValue([
+      { id: 7, task_type: "experiment", is_shared_with_me: false },
+      { id: 99, task_type: "experiment", is_shared_with_me: false },
+      { id: 12, task_type: "list", is_shared_with_me: false },
+    ]);
+    const events: Array<{ id?: number }> = [];
+    const handler = (evt: Event) => {
+      events.push((evt as CustomEvent<{ id?: number }>).detail);
+    };
+    window.addEventListener("tour:experiment-created", handler);
+    try {
+      await rehydrateExperimentSubmitGate();
+    } finally {
+      window.removeEventListener("tour:experiment-created", handler);
+    }
+    expect(events).toHaveLength(1);
+    expect(events[0]).toEqual({ id: 99 });
+  });
+
+  it("CANONICAL FRESH RUN: does NOT dispatch when no experiment exists on disk (button stays gated until the real create event)", async () => {
+    fetchAllTasksMock.mockResolvedValue([]);
+    const events: Array<{ id?: number }> = [];
+    const handler = (evt: Event) => {
+      events.push((evt as CustomEvent<{ id?: number }>).detail);
+    };
+    window.addEventListener("tour:experiment-created", handler);
+    try {
+      await rehydrateExperimentSubmitGate();
+    } finally {
+      window.removeEventListener("tour:experiment-created", handler);
+    }
+    expect(events).toHaveLength(0);
+  });
+
+  it("CANONICAL FRESH RUN: ignores shared experiments (is_shared_with_me) so a borrowed experiment never un-gates the user's own create", async () => {
+    fetchAllTasksMock.mockResolvedValue([
+      { id: 5, task_type: "experiment", is_shared_with_me: true },
+    ]);
+    const events: Array<{ id?: number }> = [];
+    const handler = (evt: Event) => {
+      events.push((evt as CustomEvent<{ id?: number }>).detail);
+    };
+    window.addEventListener("tour:experiment-created", handler);
+    try {
+      await rehydrateExperimentSubmitGate();
+    } finally {
+      window.removeEventListener("tour:experiment-created", handler);
+    }
+    expect(events).toHaveLength(0);
+  });
+
+  it("best-effort: swallows a fetchAllTasks failure and does not dispatch", async () => {
+    fetchAllTasksMock.mockRejectedValue(new Error("disk gone"));
+    const events: unknown[] = [];
+    const handler = () => events.push(1);
+    window.addEventListener("tour:experiment-created", handler);
+    try {
+      await expect(rehydrateExperimentSubmitGate()).resolves.toBeUndefined();
+    } finally {
+      window.removeEventListener("tour:experiment-created", handler);
+    }
+    expect(events).toHaveLength(0);
   });
 });
