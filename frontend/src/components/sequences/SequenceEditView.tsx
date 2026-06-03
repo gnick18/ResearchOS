@@ -191,11 +191,18 @@ export default function SequenceEditView({
   sequence,
   onSave,
   saving,
+  readOnly = false,
 }: {
   sequence: SequenceDetail;
-  /** persist the current GenBank; resolves true on success. */
-  onSave: (genbank: string) => Promise<boolean>;
-  saving: boolean;
+  /** persist the current GenBank; resolves true on success. Unused when readOnly. */
+  onSave?: (genbank: string) => Promise<boolean>;
+  saving?: boolean;
+  /** When true, the surface is a read-only inspector: no caret/keystroke edit,
+   *  no clipboard, no Save, no Add/Edit/Delete feature actions. Selection +
+   *  readout still work, and double-clicking a feature opens its READ-ONLY info
+   *  popup. Used to embed the same surface where the user can't edit (future
+   *  in-note embeds / read-only-shared sequences). */
+  readOnly?: boolean;
 }) {
   const editor = useSequenceEditor(sequence);
   const { doc, annotations: docAnnotations, applyEdit, undo, redo, canUndo, canRedo, dirty } = editor;
@@ -262,6 +269,14 @@ export default function SequenceEditView({
         })),
     [docAnnotations, view],
   );
+
+  // Distinct feature types present (lowercase keys, sorted), for the per-type
+  // show/hide flyout on the rail. Mirrors FeaturesPanel's typesPresent.
+  const featureTypes = useMemo(() => {
+    const set = new Set<string>();
+    for (const f of doc.features) set.add((f.type || "misc_feature").trim().toLowerCase());
+    return [...set].sort();
+  }, [doc.features]);
 
   // Translation tracks: amino-acid translation of CDS-like features (opt-in),
   // plus computed ORFs when that layer is on. Both render as SeqViz translation
@@ -367,7 +382,14 @@ export default function SequenceEditView({
   // linear; a genuinely linear molecule always renders linear.
   const viewer = doc.circular && !view.forceLinear ? "both" : "linear";
 
+  // Crude length-based auto-zoom default (carried over from the old read view so
+  // long contigs open at the legible overview "map" instead of unreadable
+  // base-level). A real zoom control is the NEXT chip; this just sets the
+  // initial linear zoom. SeqViz renders the overview map at linear zoom <= 5.
+  const linearZoom = useMemo(() => ((doc.seq.length ?? 0) > 5000 ? 2 : 50), [doc.seq.length]);
+
   const handleSave = useCallback(async () => {
+    if (readOnly || !onSave) return;
     const { documentToGenbank } = await import("@/lib/sequences/edit-model");
     const gb = documentToGenbank(doc);
     if (!gb) {
@@ -378,7 +400,7 @@ export default function SequenceEditView({
     }
     const ok = await onSave(gb);
     if (ok) editor.commitSaved();
-  }, [doc, onSave, editor]);
+  }, [doc, onSave, editor, readOnly]);
 
   // Move the SeqViz caret to a given index after an edit so the next action
   // (e.g. paste, then keep typing) lands in the right place.
@@ -454,10 +476,39 @@ export default function SequenceEditView({
     [doc.features, doc.seq.length, editor],
   );
 
-  // DOUBLE-CLICK A FEATURE ON THE VIEWER -> open its editor. SeqViz assigns its
-  // own internal ids to annotations, so we match the double-clicked annotation
-  // back to its feature by (name, start, end) — documentToAnnotations projects
-  // features 1:1 in order, so this resolves to the correct feature index.
+  // VIEW (read-only): open the feature info popup seeded from an existing
+  // feature, with no edit affordances (mode "view").
+  const openViewFeature = useCallback(
+    (index: number) => {
+      const f = doc.features[index];
+      if (!f) return;
+      setFeatureEditor({
+        mode: "view",
+        seqLength: doc.seq.length,
+        seq: doc.seq,
+        initial: {
+          name: f.name,
+          type: f.type || "misc_feature",
+          strand: f.strand === -1 ? -1 : 1,
+          start: f.start,
+          end: f.end,
+          color: f.color,
+          segments: segmentsOf(f),
+          qualifiers: qualifiersFromNotes(f.notes),
+          translate: readNoteFlag(f.notes, TRANSLATE_NOTE_KEY),
+          prioritize: readNoteFlag(f.notes, PRIORITIZE_NOTE_KEY),
+        },
+        onCancel: () => setFeatureEditor(null),
+      });
+    },
+    [doc.features, doc.seq],
+  );
+
+  // DOUBLE-CLICK A FEATURE ON THE VIEWER -> open its editor (editable surface) or
+  // its READ-ONLY info popup (readOnly surface). SeqViz assigns its own internal
+  // ids to annotations, so we match the double-clicked annotation back to its
+  // feature by (name, start, end) — documentToAnnotations projects features 1:1
+  // in order, so this resolves to the correct feature index.
   const handleAnnotationDoubleClick = useCallback(
     (range: { name: string; start: number; end: number; direction?: number }) => {
       let index = doc.features.findIndex(
@@ -469,9 +520,10 @@ export default function SequenceEditView({
       if (index < 0) index = doc.features.findIndex((f) => f.start === range.start);
       if (index < 0) return;
       setSelectedFeatureIdx(index);
-      openEditFeature(index);
+      if (readOnly) openViewFeature(index);
+      else openEditFeature(index);
     },
-    [doc.features, openEditFeature],
+    [doc.features, openEditFeature, openViewFeature, readOnly],
   );
 
   const duplicateFeatureAt = useCallback(
@@ -635,13 +687,14 @@ export default function SequenceEditView({
   // apply immediately so typing stays fluid.
   const requestEdit = useCallback(
     (edit: SeqEdit) => {
+      if (readOnly) return; // read-only surface: ignore any edit intent
       if (edit.type === "delete" && edit.count > 1) {
         requestRangeDelete(edit.from, edit.from + edit.count);
         return;
       }
       applyEdit(edit);
     },
-    [applyEdit, requestRangeDelete],
+    [applyEdit, requestRangeDelete, readOnly],
   );
 
   // Keyboard: Cmd/Ctrl+Z undo, Cmd/Ctrl+Shift+Z or Cmd/Ctrl+Y redo, Cmd/Ctrl+S save.
@@ -655,6 +708,13 @@ export default function SequenceEditView({
       const mod = e.metaKey || e.ctrlKey;
       if (!mod) return;
       const k = e.key.toLowerCase();
+      // Read-only surface: allow Copy (non-mutating); ignore all edit shortcuts.
+      if (readOnly) {
+        if (k === "c") {
+          if (doCopy()) e.preventDefault();
+        }
+        return;
+      }
       if (k === "z" && !e.shiftKey) {
         e.preventDefault();
         undo();
@@ -680,7 +740,7 @@ export default function SequenceEditView({
     };
     el.addEventListener("keydown", onKey);
     return () => el.removeEventListener("keydown", onKey);
-  }, [undo, redo, handleSave, doCopy, doCut, doPaste, sel.hasRange]);
+  }, [undo, redo, handleSave, doCopy, doCut, doPaste, sel.hasRange, readOnly]);
 
   // Selection readout values (shared with the read view via the extracted
   // helper; edit-mode behavior is identical to before).
@@ -691,32 +751,42 @@ export default function SequenceEditView({
 
   return (
     <div ref={containerRef} className="flex h-full w-full flex-col" tabIndex={-1}>
-      {/* Toolbar */}
+      {/* Toolbar. The mutating affordances (undo/redo/cut/paste/primer/save) are
+          hidden on the read-only surface; selection, the feature list, enzymes
+          (display-only) and Copy remain available. */}
       <div className="flex items-center gap-1 border-b border-gray-100 px-2 py-1.5">
-        <ToolbarButton label="Undo (Cmd+Z)" onClick={undo} disabled={!canUndo}>
-          <IconUndo className="h-4 w-4" />
-          <span className="hidden sm:inline">Undo</span>
-        </ToolbarButton>
-        <ToolbarButton label="Redo (Cmd+Shift+Z)" onClick={redo} disabled={!canRedo}>
-          <IconRedo className="h-4 w-4" />
-          <span className="hidden sm:inline">Redo</span>
-        </ToolbarButton>
-        <div className="mx-1 h-5 w-px bg-gray-200" />
+        {!readOnly ? (
+          <>
+            <ToolbarButton label="Undo (Cmd+Z)" onClick={undo} disabled={!canUndo}>
+              <IconUndo className="h-4 w-4" />
+              <span className="hidden sm:inline">Undo</span>
+            </ToolbarButton>
+            <ToolbarButton label="Redo (Cmd+Shift+Z)" onClick={redo} disabled={!canRedo}>
+              <IconRedo className="h-4 w-4" />
+              <span className="hidden sm:inline">Redo</span>
+            </ToolbarButton>
+            <div className="mx-1 h-5 w-px bg-gray-200" />
+          </>
+        ) : null}
         <ToolbarButton label="Copy (Cmd+C)" onClick={doCopy} disabled={!sel.hasRange}>
           <IconCopy className="h-4 w-4" />
           <span className="hidden sm:inline">Copy</span>
         </ToolbarButton>
-        <ToolbarButton label="Cut (Cmd+X)" onClick={doCut} disabled={!sel.hasRange}>
-          <IconCut className="h-4 w-4" />
-          <span className="hidden sm:inline">Cut</span>
-        </ToolbarButton>
-        <ToolbarButton
-          label={molClip ? "Paste annotated sequence (Cmd+V)" : "Paste bases from clipboard (Cmd+V)"}
-          onClick={doPaste}
-        >
-          <IconPasteTool className="h-4 w-4" />
-          <span className="hidden sm:inline">Paste</span>
-        </ToolbarButton>
+        {!readOnly ? (
+          <>
+            <ToolbarButton label="Cut (Cmd+X)" onClick={doCut} disabled={!sel.hasRange}>
+              <IconCut className="h-4 w-4" />
+              <span className="hidden sm:inline">Cut</span>
+            </ToolbarButton>
+            <ToolbarButton
+              label={molClip ? "Paste annotated sequence (Cmd+V)" : "Paste bases from clipboard (Cmd+V)"}
+              onClick={doPaste}
+            >
+              <IconPasteTool className="h-4 w-4" />
+              <span className="hidden sm:inline">Paste</span>
+            </ToolbarButton>
+          </>
+        ) : null}
         <div className="mx-1 h-5 w-px bg-gray-200" />
         <Tooltip label={featuresPanelOpen ? "Hide the feature list" : "Show the feature list"}>
           <button
@@ -742,31 +812,38 @@ export default function SequenceEditView({
             <span className="hidden sm:inline">Enzymes</span>
           </button>
         </Tooltip>
-        <Tooltip label="Design a primer (Tm, GC, binding site, alignment)">
-          <button
-            type="button"
-            onClick={openPrimerDialog}
-            aria-haspopup="dialog"
-            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100"
-          >
-            <IconPrimerTool className="h-4 w-4" />
-            <span className="hidden sm:inline">Primer</span>
-          </button>
-        </Tooltip>
-        <div className="mx-1 h-5 w-px bg-gray-200" />
-        <ToolbarButton label="Save (Cmd+S)" onClick={handleSave} disabled={!dirty || saving} primary>
-          <IconSave className="h-4 w-4" />
-          <span>{saving ? "Saving…" : dirty ? "Save" : "Saved"}</span>
-        </ToolbarButton>
+        {!readOnly ? (
+          <Tooltip label="Design a primer (Tm, GC, binding site, alignment)">
+            <button
+              type="button"
+              onClick={openPrimerDialog}
+              aria-haspopup="dialog"
+              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100"
+            >
+              <IconPrimerTool className="h-4 w-4" />
+              <span className="hidden sm:inline">Primer</span>
+            </button>
+          </Tooltip>
+        ) : null}
+        {!readOnly ? (
+          <>
+            <div className="mx-1 h-5 w-px bg-gray-200" />
+            <ToolbarButton label="Save (Cmd+S)" onClick={handleSave} disabled={!dirty || saving} primary>
+              <IconSave className="h-4 w-4" />
+              <span>{saving ? "Saving…" : dirty ? "Save" : "Saved"}</span>
+            </ToolbarButton>
+          </>
+        ) : null}
         <div className="ml-auto pr-1 text-xs text-gray-400">
           {doc.seq.length.toLocaleString()} bp
-          {dirty ? <span className="ml-2 text-amber-500">• unsaved</span> : null}
+          {!readOnly && dirty ? <span className="ml-2 text-amber-500">• unsaved</span> : null}
+          {readOnly ? <span className="ml-2 text-gray-400">Read-only</span> : null}
         </div>
       </div>
 
       {/* Icon rail + editable viewer + features/display panel */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <ViewControlRail view={view} onViewChange={setView} circular={doc.circular} />
+        <ViewControlRail view={view} onViewChange={setView} circular={doc.circular} featureTypes={featureTypes} />
         <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
           <SeqViz
             key={sequence.id}
@@ -778,7 +855,8 @@ export default function SequenceEditView({
             enzymes={enzymes}
             primers={primers}
             viewer={viewer}
-            editable
+            zoom={{ linear: linearZoom }}
+            editable={!readOnly}
             onEdit={requestEdit}
             onAnnotationDoubleClick={handleAnnotationDoubleClick}
             onSelection={(s) => {
@@ -803,8 +881,9 @@ export default function SequenceEditView({
             onSelectFeature={selectFeature}
             selectedIndex={selectedFeatureIdx}
             onAddFeature={openAddFeature}
-            canAdd
-            onEditFeature={openEditFeature}
+            canAdd={!readOnly}
+            readOnly={readOnly}
+            onEditFeature={readOnly ? openViewFeature : openEditFeature}
             onDuplicateFeature={duplicateFeatureAt}
             onDeleteFeature={deleteFeatureAt}
             onRecolorFeature={recolorFeatureAt}

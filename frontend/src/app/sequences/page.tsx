@@ -10,7 +10,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import AppShell from "@/components/AppShell";
 import Tooltip from "@/components/Tooltip";
-import SequenceReadView from "@/components/sequences/SequenceReadView";
 import SequenceEditView from "@/components/sequences/SequenceEditView";
 import SequenceNewDialog, {
   type NewSequenceSubmit,
@@ -25,7 +24,6 @@ import type { SequenceRecord, SeqType } from "@/lib/types";
 
 type SortKey = "name" | "type" | "length" | "added";
 type SortDir = "asc" | "desc";
-type Mode = "read" | "edit";
 
 // "all" | "unfiled" | a project id (as string)
 type Collection = "all" | "unfiled" | string;
@@ -124,7 +122,6 @@ export default function SequencesPage() {
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [mode, setMode] = useState<Mode>("read");
   const [saving, setSaving] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -218,12 +215,6 @@ export default function SequencesPage() {
     queryFn: () => (selectedId == null ? null : sequencesApi.get(selectedId)),
     enabled: selectedId != null,
   });
-
-  // Switching the selected sequence drops back to read mode (you re-enter the
-  // workshop deliberately per sequence).
-  useEffect(() => {
-    setMode("read");
-  }, [selectedId]);
 
   // Persist the edited GenBank back to disk (atomic .gb rewrite via the store),
   // then refresh the summary + detail queries so the library and header update.
@@ -513,7 +504,11 @@ export default function SequencesPage() {
           </div>
         </aside>
 
-        {/* RIGHT: read view */}
+        {/* RIGHT: the single fluid editor surface. No Read|Edit modal toggle —
+            you select / inspect (readout) / edit / double-click a feature all in
+            one place (SnapGene / Benchling spirit). The /sequences route renders
+            it editable (the user's own sequences); a read-only embed passes
+            readOnly to the same component. */}
         <section className="flex min-w-0 flex-1 flex-col rounded-lg border border-gray-200 bg-white">
           {selected ? (
             <>
@@ -529,41 +524,14 @@ export default function SequencesPage() {
                     {selected.feature_count === 1 ? "feature" : "features"}
                   </p>
                 </div>
-                {/* Read | Edit toggle (same renderer underneath, single-renderer principle) */}
-                <div className="flex shrink-0 items-center rounded-md border border-gray-200 p-0.5 text-xs font-medium">
-                  <button
-                    type="button"
-                    onClick={() => setMode("read")}
-                    className={`rounded px-2.5 py-1 ${
-                      mode === "read" ? "bg-sky-600 text-white" : "text-gray-600 hover:bg-gray-100"
-                    }`}
-                  >
-                    Read
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMode("edit")}
-                    className={`rounded px-2.5 py-1 ${
-                      mode === "edit" ? "bg-sky-600 text-white" : "text-gray-600 hover:bg-gray-100"
-                    }`}
-                  >
-                    Edit
-                  </button>
-                </div>
               </div>
               <div className="min-h-0 flex-1 overflow-hidden">
-                {mode === "edit" ? (
-                  <SequenceEditView
-                    key={`edit-${selected.id}`}
-                    sequence={selected}
-                    onSave={handleSave}
-                    saving={saving}
-                  />
-                ) : (
-                  <div className="h-full w-full p-2">
-                    <SequenceReadView key={selected.id} sequence={selected} />
-                  </div>
-                )}
+                <SequenceEditView
+                  key={selected.id}
+                  sequence={selected}
+                  onSave={handleSave}
+                  saving={saving}
+                />
               </div>
             </>
           ) : (

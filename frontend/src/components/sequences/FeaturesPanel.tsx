@@ -181,6 +181,10 @@ export interface FeaturesPanelProps {
   onRecolorType: (type: string, color: string) => void;
   /** Close the on-demand panel (omitted when the panel is always-on). */
   onClose?: () => void;
+  /** Read-only surface: hide every mutating affordance (Add, recolor, duplicate,
+   *  delete). The list stays selectable and the per-row "edit" button opens a
+   *  read-only info popup (mapped by the parent). */
+  readOnly?: boolean;
 }
 
 export default function FeaturesPanel({
@@ -197,6 +201,7 @@ export default function FeaturesPanel({
   onRecolorFeature,
   onRecolorType,
   onClose,
+  readOnly = false,
 }: FeaturesPanelProps) {
   const [featuresOpen, setFeaturesOpen] = useState(true);
   const [displayOpen, setDisplayOpen] = useState(false); // calm: collapsed
@@ -241,9 +246,6 @@ export default function FeaturesPanel({
   const setView = (patch: Partial<SequenceViewState>) =>
     onViewChange({ ...view, ...patch });
 
-  const toggleType = (k: string) =>
-    setView({ hiddenTypes: { ...view.hiddenTypes, [k]: !view.hiddenTypes[k] } });
-
   const toggleFeature = (f: EditFeature) => {
     const key = featureKey(f);
     setView({ hiddenFeatures: { ...view.hiddenFeatures, [key]: !view.hiddenFeatures[key] } });
@@ -273,17 +275,19 @@ export default function FeaturesPanel({
         open={featuresOpen}
         onToggle={() => setFeaturesOpen((v) => !v)}
         right={
-          <Tooltip label={canAdd ? "Add a feature from the selected range" : "Select a range in the viewer first"}>
-            <button
-              type="button"
-              onClick={onAddFeature}
-              disabled={!canAdd}
-              className="flex items-center gap-1 rounded-md bg-sky-600 px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <IconPlus className="h-3 w-3" />
-              Add
-            </button>
-          </Tooltip>
+          readOnly ? null : (
+            <Tooltip label={canAdd ? "Add a feature from the selected range" : "Select a range in the viewer first"}>
+              <button
+                type="button"
+                onClick={onAddFeature}
+                disabled={!canAdd}
+                className="flex items-center gap-1 rounded-md bg-sky-600 px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <IconPlus className="h-3 w-3" />
+                Add
+              </button>
+            </Tooltip>
+          )
         }
       />
 
@@ -308,7 +312,9 @@ export default function FeaturesPanel({
 
           {features.length === 0 ? (
             <p className="px-3 py-6 text-center text-xs text-gray-400">
-              No features yet. Select a range in the viewer and click Add.
+              {readOnly
+                ? "This sequence has no features."
+                : "No features yet. Select a range in the viewer and click Add."}
             </p>
           ) : (
             <ul>
@@ -320,16 +326,24 @@ export default function FeaturesPanel({
                 return (
                   <li key={`${index}-${f.name}`} className={`border-b border-gray-50 ${isSel ? "bg-sky-50" : ""}`}>
                     <div className="group flex items-center gap-2 px-3 py-1.5">
-                      {/* color swatch (click to recolor) */}
+                      {/* color swatch (click to recolor; static in read-only) */}
                       <div className="relative">
-                        <button
-                          type="button"
-                          onClick={() => setOpenColorIdx(openColorIdx === index ? null : index)}
-                          className="h-4 w-4 shrink-0 rounded-sm ring-1 ring-black/10"
-                          style={{ backgroundColor: color }}
-                          aria-label={`Recolor ${f.name}`}
-                        />
-                        {openColorIdx === index ? (
+                        {readOnly ? (
+                          <span
+                            className="block h-4 w-4 shrink-0 rounded-sm ring-1 ring-black/10"
+                            style={{ backgroundColor: color }}
+                            aria-hidden="true"
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setOpenColorIdx(openColorIdx === index ? null : index)}
+                            className="h-4 w-4 shrink-0 rounded-sm ring-1 ring-black/10"
+                            style={{ backgroundColor: color }}
+                            aria-label={`Recolor ${f.name}`}
+                          />
+                        )}
+                        {!readOnly && openColorIdx === index ? (
                           <div className="absolute left-0 top-5 z-20 rounded-lg border border-gray-200 bg-white p-2 shadow-lg">
                             <ColorSwatches
                               value={color}
@@ -365,21 +379,25 @@ export default function FeaturesPanel({
                             {hidden ? <IconEyeOff className="h-3.5 w-3.5" /> : <IconEye className="h-3.5 w-3.5" />}
                           </button>
                         </Tooltip>
-                        <Tooltip label="Edit feature">
+                        <Tooltip label={readOnly ? "Feature details" : "Edit feature"}>
                           <button type="button" onClick={() => onEditFeature(index)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
                             <IconEdit className="h-3.5 w-3.5" />
                           </button>
                         </Tooltip>
-                        <Tooltip label="Duplicate feature">
-                          <button type="button" onClick={() => onDuplicateFeature(index)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
-                            <IconDuplicate className="h-3.5 w-3.5" />
-                          </button>
-                        </Tooltip>
-                        <Tooltip label="Delete feature">
-                          <button type="button" onClick={() => onDeleteFeature(index)} className="rounded p-1 text-gray-400 hover:bg-rose-50 hover:text-rose-600">
-                            <IconTrash className="h-3.5 w-3.5" />
-                          </button>
-                        </Tooltip>
+                        {!readOnly ? (
+                          <>
+                            <Tooltip label="Duplicate feature">
+                              <button type="button" onClick={() => onDuplicateFeature(index)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+                                <IconDuplicate className="h-3.5 w-3.5" />
+                              </button>
+                            </Tooltip>
+                            <Tooltip label="Delete feature">
+                              <button type="button" onClick={() => onDeleteFeature(index)} className="rounded p-1 text-gray-400 hover:bg-rose-50 hover:text-rose-600">
+                                <IconTrash className="h-3.5 w-3.5" />
+                              </button>
+                            </Tooltip>
+                          </>
+                        ) : null}
                       </div>
                     </div>
                   </li>
@@ -390,31 +408,28 @@ export default function FeaturesPanel({
         </div>
       ) : null}
 
-      {/* DISPLAY SECTION */}
-      <div className="border-t border-gray-100">
-        <SectionHeader title="Display" open={displayOpen} onToggle={() => setDisplayOpen((v) => !v)} />
-        {displayOpen ? (
-          <div className="max-h-[55vh] overflow-y-auto px-3 pb-3">
-            {/* The layer toggles (Features / Translation / ORFs / Restriction /
-                Complement / Ruler / Primers / topology) now live in the
-                left-edge icon rail (ViewControlRail). This Display section keeps
-                only the per-type visibility + color controls, which are
-                feature-list specific. */}
-
-            {/* per-type visibility + color */}
-            {typesPresent.length > 0 ? (
-              <>
-                <p className="mb-1 mt-3 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-                  Feature types
-                </p>
-                <ul className="space-y-0.5">
-                  {typesPresent.map((k) => {
-                    const hidden = view.hiddenTypes[k];
-                    const typeColor = colorForType(k);
-                    return (
-                      <li key={k}>
-                        <div className="flex items-center gap-2 py-0.5">
-                          <div className="relative">
+      {/* TYPE COLORS SECTION. Per-type SHOW/HIDE has moved to the left icon rail
+          (the flyout off the Features toggle); this section keeps only per-type
+          COLOR, which is styling that belongs with feature management. */}
+      {typesPresent.length > 0 ? (
+        <div className="border-t border-gray-100">
+          <SectionHeader title="Type colors" open={displayOpen} onToggle={() => setDisplayOpen((v) => !v)} />
+          {displayOpen ? (
+            <div className="max-h-[55vh] overflow-y-auto px-3 pb-3">
+              <ul className="space-y-0.5">
+                {typesPresent.map((k) => {
+                  const typeColor = colorForType(k);
+                  return (
+                    <li key={k}>
+                      <div className="flex items-center gap-2 py-0.5">
+                        <div className="relative">
+                          {readOnly ? (
+                            <span
+                              className="block h-3.5 w-3.5 shrink-0 rounded-sm ring-1 ring-black/10"
+                              style={{ backgroundColor: typeColor }}
+                              aria-hidden="true"
+                            />
+                          ) : (
                             <button
                               type="button"
                               onClick={() => setOpenTypeColor(openTypeColor === k ? null : k)}
@@ -422,43 +437,39 @@ export default function FeaturesPanel({
                               style={{ backgroundColor: typeColor }}
                               aria-label={`Set default color for ${k}`}
                             />
-                            {openTypeColor === k ? (
-                              <div className="absolute left-0 top-5 z-20 rounded-lg border border-gray-200 bg-white p-2 shadow-lg">
-                                <ColorSwatches
-                                  value={typeColor}
-                                  onPick={(c) => {
-                                    onRecolorType(k, c);
-                                    setOpenTypeColor(null);
-                                  }}
-                                />
-                              </div>
-                            ) : null}
-                          </div>
+                          )}
+                          {!readOnly && openTypeColor === k ? (
+                            <div className="absolute left-0 top-5 z-20 rounded-lg border border-gray-200 bg-white p-2 shadow-lg">
+                              <ColorSwatches
+                                value={typeColor}
+                                onPick={(c) => {
+                                  onRecolorType(k, c);
+                                  setOpenTypeColor(null);
+                                }}
+                              />
+                            </div>
+                          ) : null}
+                        </div>
+                        {readOnly ? (
+                          <span className="flex-1 truncate text-left text-sm text-gray-700">{k}</span>
+                        ) : (
                           <button
                             type="button"
-                            onClick={() => toggleType(k)}
-                            className={`flex-1 truncate text-left text-sm ${hidden ? "text-gray-400 line-through" : "text-gray-700"}`}
+                            onClick={() => setOpenTypeColor(openTypeColor === k ? null : k)}
+                            className="flex-1 truncate text-left text-sm text-gray-700"
                           >
                             {k}
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => toggleType(k)}
-                            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                            aria-label={hidden ? `Show ${k}` : `Hide ${k}`}
-                          >
-                            {hidden ? <IconEyeOff className="h-3.5 w-3.5" /> : <IconEye className="h-3.5 w-3.5" />}
-                          </button>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
