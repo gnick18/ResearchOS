@@ -502,6 +502,7 @@ function SettingsBody() {
               settings={settings}
               update={update}
             />
+            <ProfessionalModeSection settings={settings} update={update} />
             <TabsSection settings={settings} update={update} />
             <LabArchivesSection />
             <AIHelperSection />
@@ -2039,18 +2040,14 @@ function NoAnimationIcon({ className }: { className?: string }) {
   );
 }
 
-function AnimationSection({ settings, update }: SectionProps) {
+// Professional mode lives in its own section near the top of Settings (moved
+// out of the Animation section 2026-06-03). One master switch that quiets the
+// playful surfaces at once: the streak badge, the per-task animation, and
+// BeakerBot. Flipping ON sets all three off; flipping OFF does nothing
+// automatic (the user re-enables each surface individually). The streak sidecar
+// lives outside UserSettings, so it is patched separately via the streak lib.
+function ProfessionalModeSection({ settings, update }: SectionProps) {
   const { currentUser } = useFileSystem();
-  // Real animations only (ANIMATION_METADATA excludes the "none" opt-out,
-  // which gets its own dedicated tile below).
-  const types = Object.keys(ANIMATION_METADATA) as RealAnimationType[];
-
-  // Professional-mode master switch. Flipping ON quiets all three playful
-  // surfaces at once: streak sidecar enabled=false, the per-task animation
-  // to "none", and BeakerBot animations off. Flipping OFF does nothing
-  // automatic (the user re-enables each surface individually). The streak
-  // sidecar lives outside UserSettings, so it is patched separately via the
-  // streak lib.
   const handleProfessionalMode = (on: boolean) => {
     if (on) {
       void update({
@@ -2065,6 +2062,28 @@ function AnimationSection({ settings, update }: SectionProps) {
       void update({ professionalMode: false });
     }
   };
+  return (
+    <SectionShell
+      id="professional-mode"
+      title="Professional mode"
+      description="A focused, minimal workspace with the playful touches turned off."
+      searchKeywords="professional mode quiet focus minimal animation beakerbot streak badge celebration playful"
+    >
+      <ToggleRow
+        label="Quiet the streak badge, animations, and BeakerBot"
+        description="Turns all three off at once. Turning professional mode back off lets you re-enable each one individually."
+        checked={settings.professionalMode}
+        onChange={handleProfessionalMode}
+      />
+    </SectionShell>
+  );
+}
+
+function AnimationSection({ settings, update }: SectionProps) {
+  // Real animations only (ANIMATION_METADATA excludes the "none" opt-out,
+  // which gets its own dedicated tile below).
+  const types = Object.keys(ANIMATION_METADATA) as RealAnimationType[];
+
   // Concatenate every animation's name + description into the section's
   // search-keyword blob. Lets a query like "confetti" or "explosion"
   // surface the Animation section even though the section title is
@@ -2101,18 +2120,8 @@ function AnimationSection({ settings, update }: SectionProps) {
       tourTarget="settings-animation-picker"
       title="Animation"
       description="Plays when you complete a task. Pick the one that suits your vibe."
-      searchKeywords={`${animationKeywords} professional mode quiet focus minimal`}
+      searchKeywords={animationKeywords}
     >
-      {/* Professional-mode master switch. One toggle that quiets the streak
-          badge, the per-task animation, and BeakerBot all at once. */}
-      <div className="mb-4 pb-4 border-b border-gray-100">
-        <ToggleRow
-          label="Professional mode"
-          description="Turn off the streak badge, task-completion animation, and BeakerBot all at once. Turning it back off lets you re-enable each one individually."
-          checked={settings.professionalMode}
-          onChange={handleProfessionalMode}
-        />
-      </div>
       <div className="grid grid-cols-2 gap-2">
         {types.map((type) => {
           const meta = ANIMATION_METADATA[type];
