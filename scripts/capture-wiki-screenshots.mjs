@@ -206,18 +206,24 @@ async function switchEditorMode(page, label) {
 /** Switch the Workbench to the Notes sub-tab and open note 5's popup. Returns
  *  true once the NoteDetailPopup is mounted. */
 async function openSeededNote(page) {
-  // Land directly on the Notes tab via the deep-link param instead of
-  // clicking the tab button. workbench/page.tsx reads ?tab=notes on mount,
-  // so this is deterministic; the tab-button click is flaky on a still-
-  // hydrating Workbench (the button is visible but not yet actionable, so
-  // the click times out). Preserve the existing wikiCapture query param.
+  // Switch to the Notes tab via a DOM click. Do NOT re-navigate (e.g. goto
+  // ?tab=notes): a second navigation re-triggers the onboarding "Welcome"
+  // overlay that is only suppressed on the INITIAL route load, and it then
+  // covers the shot. The tab is a button, but Playwright's actionability
+  // click is flaky on the still-hydrating tab bar, so dispatch a DOM click.
   try {
-    const u = new URL(page.url());
-    u.searchParams.set("tab", "notes");
-    await page.goto(u.toString(), { waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(900);
+    await page
+      .locator('[data-tour-target="workbench-notes-tab"]')
+      .first()
+      .waitFor({ state: "visible", timeout: 12000 });
+    await page.evaluate(() => {
+      document
+        .querySelector('[data-tour-target="workbench-notes-tab"]')
+        ?.click();
+    });
+    await page.waitForTimeout(1000);
   } catch (err) {
-    console.warn(`  ⚠ openSeededNote nav notes: ${err.message}`);
+    console.warn(`  ⚠ openSeededNote notes tab: ${err.message}`);
   }
   // The NoteCard root carries the onClick; match the card whose <h3> is the
   // qPCR optimization log title and click it. Wait for the Notes grid to
