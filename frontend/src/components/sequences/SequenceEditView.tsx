@@ -87,6 +87,7 @@ import {
 } from "./sequence-view-state";
 import SequenceZoomControl from "./SequenceZoomControl";
 import SequenceOverviewBar, { type OverviewFeature } from "./SequenceOverviewBar";
+import LinearMap, { type LinearMapFeature } from "./LinearMap";
 import SequenceTabBar, { type SequenceViewMode } from "./SequenceTabBar";
 import SequenceCoordinateBar from "./SequenceCoordinateBar";
 import SequencePrimersPanel from "./SequencePrimersPanel";
@@ -554,6 +555,12 @@ export default function SequenceEditView({
   // the editable detail surface belong to the Sequence tab.
   const showViewer = viewMode === "map" || viewMode === "sequence";
   const isMapView = viewMode === "map";
+  // linear map bot — the LINEAR MAP render path. In Map mode a LINEAR molecule
+  // now renders the dedicated SnapGene-style single-line LinearMap (one strand
+  // fit to width + ruler + feature arrows below + enzyme/primer labels above)
+  // INSTEAD of SeqViz's wrapped MAP_ZOOM rows. The Sequence view, the circular
+  // ring, and the wrap toggle are untouched.
+  const linearMapMode = isLinearViewer && isMapView;
   // nav polish bot — FIX 1: keep Map and Sequence visually distinct even at the
   // slider floor. The Sequence view FLOORS its effective zoom just above SeqViz's
   // bases-free schematic band (SEQUENCE_MIN_LINEAR_ZOOM), so it always shows
@@ -946,6 +953,35 @@ export default function SequenceEditView({
     [docAnnotations, view],
   );
 
+  // linear map bot — features for the SnapGene-style single-line LinearMap (the
+  // linear Map render path). Same visibility filtering + the SAME color/coords as
+  // the SeqViz annotations, but it ALSO carries `segments` so multi-exon (join)
+  // features draw exon boxes + dashed intron connectors. No recompute of data:
+  // these are the existing docAnnotations projected to the LinearMap shape.
+  const linearMapFeatures: LinearMapFeature[] = useMemo(
+    () =>
+      docAnnotations
+        .filter((a) =>
+          isFeatureVisible(view, {
+            name: a.name,
+            type: a.type,
+            start: a.start,
+            end: a.end,
+            strand: a.direction === -1 ? -1 : 1,
+          }),
+        )
+        .map((a) => ({
+          name: a.name,
+          start: a.start,
+          end: a.end,
+          direction: (a.direction === -1 ? -1 : 1) as 1 | -1,
+          color: a.color,
+          type: a.type,
+          ...(a.segments && a.segments.length > 1 ? { segments: a.segments } : {}),
+        })),
+    [docAnnotations, view],
+  );
+
   const handleSave = useCallback(async () => {
     if (readOnly || !onSave) return;
     const { documentToGenbank, documentFromDetail } = await import(
@@ -1293,6 +1329,30 @@ export default function SequenceEditView({
       else openEditFeature(index);
     },
     [doc.features, openEditFeature, openViewFeature, openEditPrimer, readOnly],
+  );
+
+  // linear map bot — DOUBLE-CLICK A PRIMER on the linear map -> open the Edit
+  // Primer dialog. Primers are NOT in the annotation layer (they render via the
+  // dedicated primer renderer), so the LinearMap reports the primer by
+  // (name, start, end); we resolve it back to its primer_bind feature index and
+  // route through the SAME openEditPrimer the rest of the editor uses.
+  const handlePrimerDoubleClick = useCallback(
+    (range: { name: string; start: number; end: number }) => {
+      let index = doc.features.findIndex(
+        (f) =>
+          (f.type || "").toLowerCase() === "primer_bind" &&
+          f.name === range.name &&
+          f.start === range.start &&
+          f.end === range.end,
+      );
+      if (index < 0)
+        index = doc.features.findIndex(
+          (f) => (f.type || "").toLowerCase() === "primer_bind" && f.name === range.name,
+        );
+      if (index < 0) return;
+      openEditPrimer(index);
+    },
+    [doc.features, openEditPrimer],
   );
 
   const duplicateFeatureAt = useCallback(
@@ -2061,7 +2121,11 @@ export default function SequenceEditView({
               {/* FIXED whole-molecule overview strip + moving viewport box. Always
                   shows the WHOLE molecule at full extent; the box reflects the bp
                   range currently visible in the detail view (linear only). */}
-              {isLinearViewer ? (
+              {/* linear map bot — HIDE the redundant overview strip in linear Map
+                  mode: the LinearMap IS the whole-molecule view. The strip stays
+                  for the linear Sequence (detail) view, where it provides the
+                  navigational context the detail scroll lacks. */}
+              {isLinearViewer && !linearMapMode ? (
                 <SequenceOverviewBar
                   seqLength={doc.seq.length}
                   features={overviewFeatures}
@@ -2094,6 +2158,25 @@ export default function SequenceEditView({
                     }}
                   />
                 ) : null}
+                {/* linear map bot — linear Map mode renders the dedicated
+                    single-line LinearMap (one strand fit to width + ruler +
+                    feature arrows below + enzyme/primer leader-line labels above)
+                    INSTEAD of SeqViz's wrapped MAP_ZOOM rows. The Sequence view
+                    and the circular ring keep SeqViz unchanged. */}
+                {linearMapMode ? (
+                  <LinearMap
+                    seq={doc.seq}
+                    seqType={doc.seqType === "protein" ? "aa" : doc.seqType}
+                    seqLength={doc.seq.length}
+                    features={linearMapFeatures}
+                    enzymeKeys={enzymes}
+                    showEnzymes={view.showEnzymes}
+                    primers={primers}
+                    showPrimers={view.showPrimers}
+                    onFeatureDoubleClick={handleAnnotationDoubleClick}
+                    onPrimerDoubleClick={handlePrimerDoubleClick}
+                  />
+                ) : (
                 <SeqViz
                   key={sequence.id}
                   name={sequence.locus_name || sequence.display_name}
@@ -2140,6 +2223,7 @@ export default function SequenceEditView({
                   disableExternalFonts
                   style={{ height: "100%", width: "100%" }}
                 />
+                )}
               </div>
               {/* BOTTOM COORDINATE / ZOOM CLUSTER (linear only): zoom slider +
                   editable bp-in-view field + exact window readout + horizontal
