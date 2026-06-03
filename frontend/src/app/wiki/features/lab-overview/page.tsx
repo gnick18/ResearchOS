@@ -1,138 +1,110 @@
 import Link from "next/link";
 import WikiPage from "@/components/wiki/WikiPage";
 import Callout from "@/components/wiki/Callout";
-import Screenshot from "@/components/wiki/Screenshot";
 
 export default function LabOverviewFeaturePage() {
   return (
     <WikiPage
       title="Lab Overview"
-      intro="The Lab Overview at /lab-overview is the PI's customizable dashboard for the whole lab. It is not a separate view of the same app; it is a canvas of small, draggable summary tiles that each click out into a full popup. Members do not see this surface at all (their starting point is /home). The mental model is closer to a phone home screen than a tab: you pin the things you want to glance at, you click a tile when you need the full story."
+      intro="The Lab Overview at /lab-overview is the lab head's landing page: a fixed, curated, action-first view of the whole lab. It's the same designed layout for every PI, ordered so the things that need you sit at the top. There's nothing to configure: no tiles to add, no canvas to rearrange. You open it and the lab's state is already laid out for you."
     >
-      {/* TODO screenshot agent: capture the Lab Overview canvas at default layout.
-          Route: /lab-overview
-          Fixture: ?wikiCapture=1
-          Viewport: desktop 1440x900
-          State: lab_head fixture with the default widget set pinned (announcements, comments,
-                 lab activity, today's events, daily-tasks sidebar tiles)
-          Save to: frontend/public/wiki/screenshots/lab-overview-canvas.png
-      */}
-      <Screenshot
-        src="/wiki/screenshots/lab-overview-canvas.png"
-        alt="The Lab Overview at /lab-overview, showing a grid of widget tiles (announcements, comments, lab activity) with a vertical sidebar rail on the right pinning a few extra tiles."
-        caption="The Lab Overview. Snapshot tiles in the main grid, a customizable sidebar rail on the right, and a Tools header button up top."
-      />
-
       <h2>Who this page is for</h2>
       <p>
-        Lab Overview is gated on <code>account_type === &quot;lab_head&quot;</code>.
-        Lab members never see it. After the Home canvas migration, members land
-        on <code>/home</code> for their own work, while PIs get this
-        dedicated cross-lab surface at <code>/lab-overview</code>. The two surfaces
-        share the widget vocabulary but answer different questions: Home asks
-        &quot;what is on my plate today,&quot; Lab Overview asks &quot;what is
-        the lab doing right now and what needs my attention.&quot;
+        Lab Overview is gated on the lab head (PI) account type. A PI lands
+        here automatically on sign-in. Lab members and solo researchers never
+        see it: they land on the{" "}
+        <Link href="/wiki/features/experiments">Workbench</Link> instead, which
+        opens on their projects. So the two starting points answer two
+        different questions. The Workbench asks &quot;what's on my plate,&quot;
+        and Lab Overview asks &quot;what is the lab doing right now and what
+        needs my attention.&quot;
       </p>
-      <p>
-        PIs also get a Home canvas of their own (with its own default
-        layout under <code>defaultLabHeadHomeLayout</code>). Lab Overview is
-        not their only widget surface; it is the cross-lab dashboard that
-        sits next to a personal Home, and the two layouts persist separately.
-      </p>
+      <Callout variant="info" title="One fixed page, not a dashboard you build">
+        Lab Overview used to be a customizable widget canvas: a grid of
+        draggable tiles, an add-widget palette, a configurable sidebar rail.
+        That's gone. The page is now a single curated layout that's the same
+        for every PI. You can't add, remove, drag, or reset anything, because
+        there's nothing to arrange. The design does the curating for you.
+      </Callout>
 
-      <h2>Anatomy</h2>
+      <h2>How the page is laid out</h2>
       <p>
-        The page has three regions you interact with:
+        The sections run top to bottom in a deliberate, action-first order, so
+        the things that need a decision from you sit above the fold and the
+        ambient lab context sits below.
       </p>
       <ul>
         <li>
-          <strong>The snapshot canvas</strong> is the main grid in the center.
-          Each cell is a widget tile that pulls live data from the lab and
-          renders a compact summary. Tiles are draggable when edit mode is
-          on, toggled via the <strong>Edit layout</strong> text button in
-          the canvas toolbar (right side of the same row as <strong>+ Add
-          widget</strong> and <strong>Reset</strong>).
+          <strong>Pending approvals bar.</strong> A compact row at the very top
+          that summarizes what's waiting on you: purchase approvals, the flag
+          queue, and unread @-mentions. Each segment links straight to the
+          surface that resolves it. When nothing is pending, the bar collapses
+          to a thin &quot;you're all caught up&quot; line, so a clear queue
+          reads as clear at a glance.
         </li>
         <li>
-          <strong>The customizable sidebar</strong> runs down the right edge
-          as a vertical rail of slim tiles. Pin a widget to the sidebar when
-          you want it always-visible without consuming canvas space, the way
-          you would put a battery indicator in a phone status bar.
+          <strong>Browse link-outs.</strong> Two buttons (&quot;Browse lab
+          experiments&quot; and &quot;Browse lab notes&quot;) that drop you
+          into the lab-wide view of the{" "}
+          <Link href="/wiki/features/experiments">Workbench</Link>.
         </li>
         <li>
-          <strong>The Tools launcher</strong> is a header button that opens
-          the same widget popups directly, without pinning anything. Useful
-          when you want a one-shot look at audit logs or pending purchases
-          but do not want a permanent tile for it.
+          <strong>Announcements.</strong> The lab-wide announcement stream from
+          the <Link href="/wiki/features/lab-inbox">Lab Inbox</Link>, posted
+          inline so the latest notices are visible without leaving the page.
+        </li>
+        <li>
+          <strong>Lab activity.</strong> The centerpiece feed: a running log of
+          what members have been doing across the lab (saves, completions, new
+          experiments, and the like).
+        </li>
+        <li>
+          <strong>Today's events.</strong> A right-rail panel showing today's
+          calendar events, drawn from the same{" "}
+          <Link href="/wiki/features/calendar">Calendar</Link> the rest of the
+          app uses.
+        </li>
+        <li>
+          <strong>Member workload.</strong> A right-rail panel rolling up how
+          much each member currently has on their plate, so you can spot who's
+          overloaded and who has room.
+        </li>
+        <li>
+          <strong>Trainee notes &amp; goals.</strong> An expandable section at
+          the bottom for the per-member notes and goals a PI keeps on their
+          trainees.
         </li>
       </ul>
-
-      <h2>Three core ideas</h2>
       <p>
-        Once these three primitives click, the rest of the page is just
-        composition.
+        On a wide screen the lab-activity feed sits in the main column with
+        Today's events and Member workload stacked in a right rail beside it.
+        On a narrow screen the rail drops below the feed. That's the only thing
+        about the layout that changes, and it changes for you, based on screen
+        width, not by configuration.
       </p>
-      <ul>
-        <li>
-          <strong>Tools.</strong> The canonical full-screen popup for each
-          subject (announcements, comments, purchases, member workload, and
-          so on). Each Tool is the same popup regardless of where you opened
-          it from: a tile click, the Tools launcher, or a sidebar entry all
-          route to the same surface. See{" "}
-          <Link href="/wiki/features/lab-overview/widgets-and-tools">
-            Widgets and Tools
-          </Link>{" "}
-          for the full catalog.
-        </li>
-        <li>
-          <strong>Widget variants.</strong> A single Tool can have multiple
-          tile shapes. <code>LabPurchases</code>, for example, ships three
-          variants (funding-bars, burn-rate, pending-count); each one summarizes
-          the same underlying data in a different visual register. Think of it
-          as the iPhone-widgets model: same app, different widget sizes for
-          different glance patterns.
-        </li>
-        <li>
-          <strong>Customizable layout.</strong> Edit mode (toggle from the gear
-          icon) flips every tile into drag mode. Snapshots reorder freely, the
-          sidebar rail accepts drops from the canvas and vice versa, and a
-          <strong>+ Add widget</strong> palette mounts a panel of every
-          available widget. <strong>Reset to default</strong> restores the
-          shipping layout.
-        </li>
-      </ul>
 
-      <Callout variant="info" title="The widget contract">
-        Every widget conforms to the same <code>SidebarTile</code> contract
-        on the data side and renders both a small snapshot body and a full
-        expanded popup. That is what makes the variants pluggable: pinning
-        a widget to the sidebar or dragging it onto the canvas is the same
-        underlying object, just rendered at a different size.
+      <Callout variant="info" title="Comments on your work">
+        Mentions and comments on a PI's own work surface through the pending
+        approvals bar (the unread @-mentions segment) and resolve on the{" "}
+        <Link href="/wiki/features/lab-inbox">Lab Inbox</Link>. There's no
+        separate comments tile to pin anymore. The bar tells you there's
+        something to read and links you to it.
       </Callout>
 
       <h2>Where to go next</h2>
       <ul>
         <li>
-          <Link href="/wiki/features/lab-overview/widgets-and-tools">
-            Widgets and Tools
-          </Link>{" "}
-          covers the 12 Tools you can pin and the variant system.
+          For the PI role itself (the account type that gates this whole page),
+          see <Link href="/wiki/features/lab-head">PI</Link>.
         </li>
         <li>
-          <Link href="/wiki/features/lab-overview/customizable-sidebar">
-            Customizable sidebar
-          </Link>{" "}
-          walks the right-edge rail (PIs only).
+          For where members and solo researchers land instead, see{" "}
+          <Link href="/wiki/features/home">Where you land</Link> and the{" "}
+          <Link href="/wiki/features/experiments">Workbench</Link>.
         </li>
         <li>
-          <Link href="/wiki/features/lab-overview/snapshot-tiles-and-expanded-views">
-            Snapshot tiles and expanded views
-          </Link>{" "}
-          explains the tile-to-popup model, drag-to-reorder, and edit mode.
-        </li>
-        <li>
-          For the PI role itself (the account type that gates this whole
-          page), see <Link href="/wiki/features/lab-head">PI</Link>.
+          The announcements, comments, and @-mention streams live on the{" "}
+          <Link href="/wiki/features/lab-inbox">Lab Inbox</Link>.
         </li>
       </ul>
     </WikiPage>
