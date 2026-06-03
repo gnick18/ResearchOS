@@ -15,6 +15,7 @@ import SequenceNewDialog, {
   type NewSequenceSubmit,
 } from "@/components/sequences/SequenceNewDialog";
 import SequenceDropZone from "@/components/sequences/SequenceDropZone";
+import CloningWorkspace from "@/components/sequences/CloningWorkspace";
 import { sequencesApi, projectsApi } from "@/lib/local-api";
 import {
   importSequenceFile,
@@ -92,6 +93,17 @@ function ImportIcon({ className }: { className?: string }) {
   );
 }
 
+/** Assemble glyph: two short segments meeting (fragments joining). Inline SVG. */
+function AssembleIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M3 9h6l1.5 3L13 6l1.5 6H21" />
+      <circle cx="3" cy="9" r="0.6" fill="currentColor" />
+      <circle cx="21" cy="12" r="0.6" fill="currentColor" />
+    </svg>
+  );
+}
+
 /** Downward chevron for the Import split-menu. Inline SVG (no emojis). */
 function ChevronDownIcon({ className }: { className?: string }) {
   return (
@@ -158,6 +170,7 @@ export default function SequencesPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
+  const [assembleOpen, setAssembleOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   // Transient status line under the toolbar (import counts / parse errors).
   const [status, setStatus] = useState<{ text: string; tone: "ok" | "error" } | null>(null);
@@ -481,6 +494,19 @@ export default function SequencesPage() {
                   <PlusIcon className="h-3.5 w-3.5" />
                   New
                 </button>
+                {/* Assemble: open the standalone overlap-assembly (Gibson /
+                    NEBuilder HiFi) workspace. Combines several library
+                    sequences into a new construct. */}
+                <Tooltip label="Assemble a new construct from fragments (Gibson / NEBuilder HiFi overlap assembly).">
+                  <button
+                    type="button"
+                    onClick={() => setAssembleOpen(true)}
+                    className="flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                  >
+                    <AssembleIcon className="h-3.5 w-3.5" />
+                    Assemble
+                  </button>
+                </Tooltip>
                 {/* Import split-menu: pick files, or pick a whole folder
                     (e.g. a SnapGene collection). Drag-and-drop also works
                     anywhere on the library. */}
@@ -722,6 +748,20 @@ export default function SequencesPage() {
         open={newOpen}
         onCancel={() => setNewOpen(false)}
         onSubmit={handleNewSubmit}
+      />
+
+      {/* Standalone overlap-assembly (Gibson / NEBuilder HiFi) workspace. The
+          saved construct lands in the active collection and opens in the editor. */}
+      <CloningWorkspace
+        open={assembleOpen}
+        onClose={() => setAssembleOpen(false)}
+        activeProjectIds={activeProjectIds}
+        onSaved={async (newId) => {
+          setAssembleOpen(false);
+          await queryClient.invalidateQueries({ queryKey: ["sequences"] });
+          setSelectedId(newId);
+          setStatus({ text: "Construct assembled and saved.", tone: "ok" });
+        }}
       />
     </AppShell>
   );
