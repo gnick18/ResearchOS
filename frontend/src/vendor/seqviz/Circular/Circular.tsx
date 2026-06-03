@@ -49,6 +49,8 @@ export interface CircularProps {
   inputRef: InputRefFunc;
   name: string;
   onUnmount: (id: string) => void;
+  // RESEARCHOS (primer style bot): primers, drawn as radial markers (not arcs).
+  primers?: { color?: string; direction?: -1 | 1; end: number; id?: string; name: string; start: number }[];
   radius: number;
   rotateOnScroll: boolean;
   search: Range[];
@@ -388,12 +390,111 @@ export default class Circular extends React.Component<CircularProps, CircularSta
             seqLength={props.seqLength}
           />
           <Annotations {...props} annotations={annotationsInRows} inlinedAnnotations={inlinedLabels} rowsToSkip={0} />
+          {/* RESEARCHOS (primer style bot): primers render as lightweight radial
+              MARKERS (a short tick + dot + label), not big block arcs. */}
+          <CircularPrimers
+            findCoor={findCoor}
+            getRotation={getRotation}
+            inputRef={inputRef}
+            lineHeight={lineHeight}
+            primers={this.props.primers || []}
+            radius={radius}
+            seqLength={seqLength}
+          />
           <Labels {...props} labels={outerLabels} size={size} yDiff={yDiff} />
         </g>
       </svg>
     );
   }
 }
+
+/**
+ * RESEARCHOS (primer style bot): Circular primer markers.
+ *
+ * SnapGene-style: a primer on the circular/map view is NOT a big block arc; it
+ * is a small marker at its binding position — a short radial tick from the
+ * plasmid edge, a dot, and the name + coordinates label. Each marker is rotated
+ * to the primer's midpoint index using the same getRotation/findCoor the rest of
+ * the circular viewer uses, so it stays pinned as the plasmid is scrolled.
+ */
+const CircularPrimers = (props: {
+  findCoor: (index: number, radius: number, rotate?: boolean) => { x: number; y: number };
+  getRotation: (index: number) => string;
+  inputRef: InputRefFunc;
+  lineHeight: number;
+  primers: { color?: string; direction?: -1 | 1; end: number; id?: string; name: string; start: number }[];
+  radius: number;
+  seqLength: number;
+}) => {
+  const { findCoor, getRotation, inputRef, primers, radius, seqLength } = props;
+  if (!primers || !primers.length || !seqLength) return null;
+
+  const tickInner = radius - 2; // tick starts just inside the plasmid edge
+  const tickOuter = radius + 9; // and reaches outward
+  const labelRadius = radius + 13; // label sits just past the tick
+
+  return (
+    <g className="la-vz-circular-primers">
+      {primers.map((p, i) => {
+        // midpoint index of the binding region (handle a zero-crossing primer)
+        let end = p.end;
+        if (end < p.start) end += seqLength;
+        const mid = ((p.start + end) / 2) % seqLength;
+
+        const inner = findCoor(mid, tickInner);
+        const outer = findCoor(mid, tickOuter);
+        const labelCoor = findCoor(mid, labelRadius);
+
+        // keep the label upright + readable: anchor it away from the tick based
+        // on which half of the circle it sits in.
+        const onLeft = labelCoor.x < props.findCoor(0, 0).x;
+        const anchor = onLeft ? "end" : "start";
+
+        const color = p.color || "#f472b6";
+        const id = p.id || `circular-primer-${p.name}-${p.start}-${p.end}-${i}`;
+        const coordLabel = `${p.name} (${p.start + 1}..${p.end})`;
+
+        return (
+          <g key={id} transform={getRotation(mid)}>
+            <title>{coordLabel}</title>
+            <line
+              ref={inputRef(id, {
+                end: p.end,
+                name: p.name,
+                ref: id,
+                start: p.start,
+                type: "PRIMER",
+                viewer: "CIRCULAR",
+              })}
+              className="la-vz-circular-primer"
+              cursor="pointer"
+              stroke={color}
+              strokeLinecap="round"
+              strokeWidth={1.5}
+              x1={inner.x}
+              x2={outer.x}
+              y1={inner.y}
+              y2={outer.y}
+            />
+            <circle cx={outer.x} cy={outer.y} fill={color} r={2.2} stroke="none" />
+            <text
+              className="la-vz-circular-primer-label"
+              cursor="pointer"
+              dominantBaseline="middle"
+              fill="rgb(70, 70, 70)"
+              fontSize={11}
+              textAnchor={anchor}
+              x={labelCoor.x}
+              y={labelCoor.y}
+            >
+              {p.name}
+            </text>
+          </g>
+        );
+      })}
+    </g>
+  );
+};
 
 /**
  * Create an SVG arc around a single element in the Circular Viewer.

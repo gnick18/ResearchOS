@@ -55,7 +55,10 @@ export const DEFAULT_VIEW_STATE: SequenceViewState = {
   showOrfs: false,
   showComplement: false,
   showIndex: true,
-  showPrimers: false,
+  // primer style bot — primers are now drawn ONLY by the dedicated primers layer
+  // (thin SnapGene-style annealing brackets), not the annotation layer. Default
+  // them VISIBLE so they don't disappear; the Primers rail toggle still hides them.
+  showPrimers: true,
   forceLinear: false,
   linearZoom: null,
   circularZoom: 0,

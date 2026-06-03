@@ -371,7 +371,8 @@ export default function SequenceEditView({
   // binding-site coordinates + strand. The rail's `showPrimers` toggle is the
   // visibility lever (it was wired earlier as a forward hook fed primers={[]}).
   const primers = useMemo(() => {
-    if (!view.showPrimers) return [] as { name: string; start: number; end: number; direction: 1 | -1 }[];
+    if (!view.showPrimers)
+      return [] as { name: string; start: number; end: number; direction: 1 | -1; color: string }[];
     return doc.features
       .filter((f) => (f.type || "").toLowerCase() === "primer_bind")
       .map((f) => ({
@@ -379,6 +380,10 @@ export default function SequenceEditView({
         start: f.start,
         end: f.end,
         direction: (f.strand === -1 ? -1 : 1) as 1 | -1,
+        // primer style bot — carry the primer color (pink, from feature-colors)
+        // so the thin-bracket/marker renderer keeps it instead of SeqViz's
+        // arbitrary colorByIndex fallback.
+        color: f.color || colorForType("primer_bind"),
       }));
   }, [doc.features, view.showPrimers]);
 
@@ -1774,7 +1779,12 @@ export default function SequenceEditView({
                   // the two tabs render obviously different content.
                   translations={isMapView ? [] : translations}
                   enzymes={isMapView ? [] : enzymes}
-                  primers={isMapView ? [] : primers}
+                  // primer style bot — primers now have a lightweight map renderer
+                  // (thin brackets on linear / radial markers on circular), so the
+                  // Map view keeps showing them as SnapGene-style markers instead
+                  // of stripping them. Still gated by the Primers rail toggle via
+                  // the `primers` memo.
+                  primers={primers}
                   search={searchProp}
                   onSearch={onSearchResults}
                   viewer={viewer}

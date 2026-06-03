@@ -15,6 +15,7 @@ import { nearestNeighborTm } from "../calculators/tm-nn";
 import {
   documentToGenbank,
   documentFromDetail,
+  documentToAnnotations,
   type SeqDocument,
 } from "./edit-model";
 import { addFeature } from "./feature-edit";
@@ -225,5 +226,48 @@ describe("primer persistence — primer_bind round-trips into the .gb", () => {
     expect(primer!.start).toBe(6);
     expect(primer!.end).toBe(26);
     expect(primer!.strand).toBe(1);
+  });
+});
+
+describe("documentToAnnotations — primers excluded from the annotation layer", () => {
+  // primer style bot — primers must NOT be projected into the SeqViz annotation
+  // layer (otherwise they double-draw as filled feature block-arrows / "mini
+  // genes"). They keep living in doc.features (Features list, Primers list,
+  // GenBank round-trip) and render only via the dedicated primers layer.
+  const doc: SeqDocument = {
+    name: "test",
+    seqType: "dna",
+    circular: false,
+    seq: "ATGCATGCATGCATGCATGCATGCATGCATGC",
+    features: [
+      { name: "GFP", type: "CDS", start: 0, end: 12, strand: 1, forward: true },
+      { name: "Plac", type: "promoter", start: 13, end: 20, strand: 1, forward: true },
+      { name: "myFwd", type: "primer_bind", start: 2, end: 10, strand: 1, forward: true },
+      { name: "myRev", type: "primer_bind", start: 20, end: 28, strand: -1, forward: false },
+      // case-insensitivity guard: an upper-case primer type must also drop out.
+      { name: "loud", type: "PRIMER_BIND", start: 5, end: 9, strand: 1, forward: true },
+    ],
+  };
+
+  it("drops every primer_bind feature (case-insensitive) from the annotations", () => {
+    const annotations = documentToAnnotations(doc);
+    expect(annotations.some((a) => a.name === "myFwd")).toBe(false);
+    expect(annotations.some((a) => a.name === "myRev")).toBe(false);
+    expect(annotations.some((a) => a.name === "loud")).toBe(false);
+  });
+
+  it("still includes ordinary features (CDS, promoter)", () => {
+    const annotations = documentToAnnotations(doc);
+    expect(annotations.map((a) => a.name).sort()).toEqual(["GFP", "Plac"]);
+    const cds = annotations.find((a) => a.name === "GFP");
+    expect(cds).toBeDefined();
+    expect(cds!.start).toBe(0);
+    expect(cds!.end).toBe(12);
+    expect(cds!.type).toBe("CDS");
+  });
+
+  it("leaves doc.features untouched (primers still live in the document)", () => {
+    documentToAnnotations(doc);
+    expect(doc.features.filter((f) => (f.type || "").toLowerCase() === "primer_bind")).toHaveLength(3);
   });
 });

@@ -110,9 +110,20 @@ export function documentFromDetail(detail: SequenceDetail): SeqDocument {
   };
 }
 
-/** Project the document's features down to the SeqViz `annotations` shape. */
+/** Project the document's features down to the SeqViz `annotations` shape.
+ *
+ *  primer style bot — `primer_bind` features are EXCLUDED from the annotation
+ *  layer on purpose. Primers get their own dedicated, lightweight renderer (the
+ *  SeqViz `primers` prop / vendored Primers layer drawing a thin SnapGene-style
+ *  annealing bracket), so projecting them here too would double-draw each primer
+ *  as a filled feature block-arrow ("mini gene"). They still live in
+ *  `doc.features`, so they remain in the Features list, the Primers list, and
+ *  serialize back to GenBank — only this on-map annotation projection drops them.
+ */
 export function documentToAnnotations(doc: SeqDocument): SequenceAnnotation[] {
-  return doc.features.map((f) => ({
+  return doc.features
+    .filter((f) => (f.type || "").toLowerCase() !== "primer_bind")
+    .map((f) => ({
     name: f.name,
     start: f.start,
     end: f.end,

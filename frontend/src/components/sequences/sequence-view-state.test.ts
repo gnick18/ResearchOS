@@ -26,7 +26,9 @@ describe("calm default", () => {
     expect(DEFAULT_VIEW_STATE.showTranslation).toBe(false);
     expect(DEFAULT_VIEW_STATE.showOrfs).toBe(false);
     expect(DEFAULT_VIEW_STATE.showComplement).toBe(false);
-    expect(DEFAULT_VIEW_STATE.showPrimers).toBe(false);
+    // primer style bot — primers now draw via the dedicated primers layer (not
+    // the annotation layer), so they default VISIBLE to avoid disappearing.
+    expect(DEFAULT_VIEW_STATE.showPrimers).toBe(true);
     expect(DEFAULT_VIEW_STATE.forceLinear).toBe(false);
   });
 });

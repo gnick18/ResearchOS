@@ -2,7 +2,6 @@
 import * as React from "react";
 
 import { InputRefFunc } from "../SelectionHandler";
-import { COLOR_BORDER_MAP, darkerColor } from "../colors";
 import { NameRange } from "../elements";
 import { annotation, annotationLabel } from "../style";
 import { FindXAndWidthElementType } from "./SeqBlock";
@@ -125,75 +124,51 @@ const SingleNamedElement = (props: {
   // create padding on either side, vertically, of an element
   const height = props.height * 0.7;
 
-  const cW = 4; // jagged cutoff width
-  const cH = height / 4; // jagged cutoff height
-  const aH = 3; // arrow height at edges of primers
   const [x, w] = [origX, width];
 
-  // create the SVG path, starting at the topLeft and working clockwise
-  // there is additional logic here for if the element overflows
-  // to the left or right of this seqBlock, where a "jagged edge" is created
-  const topLeft = "M 0 0";
-  const topRight = endFWD
-    ? `
-      L ${width - Math.min(8 * cW, w)} 0
-      L ${width - Math.min(8 * cW, w)} ${-aH}
-    `
-    : `L ${width} 0`;
+  // RESEARCHOS (primer style bot): SnapGene-style primer rendering.
+  // Instead of a filled block-arrow ("mini gene"), a primer is drawn as a THIN
+  // outlined annealing bracket spanning its binding region: a horizontal stroke
+  // along the annealing line with small downward "feet" at the region ends, plus
+  // a short angled HOOK at the 3' end pointing in the primer's direction
+  // (forward => hook at the right/3' end pointing right; reverse => hook at the
+  // left/3' end pointing left). Nothing is filled; the stroke carries the primer
+  // color. Per-block clipping is preserved: when a primer overflows a SeqBlock
+  // boundary we suppress the foot/hook on the overflowing side (the bracket just
+  // continues as a flat line into the next block), mirroring the original
+  // "jagged edge means it continues" semantics.
+  const midY = height / 2; // the annealing line sits on the row's vertical center
+  const footH = Math.min(height / 2, 5); // length of the end "feet"
+  const hookW = 5; // horizontal reach of the 3' hook
+  const hookH = 4; // vertical reach of the 3' hook
 
-  let linePath = "";
+  // The annealing line spans the visible binding region within this block.
+  let linePath = `M 0 ${midY} L ${width} ${midY}`;
 
-  let bottomRight = `L ${width} ${height}`; // flat right edge
-  if ((overflowRight && width > 2 * cW) || crossZero) {
-    bottomRight = `
-        L ${width - cW} ${cH}
-        L ${width} ${2 * cH}
-        L ${width - cW} ${3 * cH}
-        L ${width} ${4 * cH}`; // jagged right edge
-  } else if (endFWD) {
-    bottomRight = `
-        L ${width} ${height}`; // arrow forward
+  // Left foot: drawn only when the region actually STARTS in this block (not an
+  // overflow continuation, not a cross-zero wrap).
+  const startsHere = !overflowLeft && !crossZero;
+  // Right foot: drawn only when the region actually ENDS in this block.
+  const endsHere = !overflowRight && !crossZero;
+
+  if (startsHere) {
+    linePath += ` M 0 ${midY} L 0 ${midY + footH}`;
+  }
+  if (endsHere) {
+    linePath += ` M ${width} ${midY} L ${width} ${midY + footH}`;
   }
 
-  let bottomLeft = `L 0 ${height} L 0 0`; // flat left edge
-  if (overflowLeft && width > 2 * cW) {
-    bottomLeft = `
-        L 0 ${height}
-        L ${cW} ${3 * cH}
-        L 0 ${2 * cH}
-        L ${cW} ${cH}
-        L 0 0`; // jagged left edge
-  } else if (endREV) {
-    bottomLeft = `
-        L ${Math.min(8 * cW, w)} ${height}
-        L ${Math.min(8 * cW, w)} ${height + aH}`; // arrow reverse
-  }
-
-  linePath = `${topLeft} ${topRight} ${bottomRight} ${bottomLeft}`;
-
-  if ((forward && overflowRight) || (forward && crossZero)) {
-    // If it's less than 15 pixels the double arrow barely fits
-    if (width > 15) {
-      linePath += `
-        M ${width - 3 * cW} ${cH}
-        L ${width - 2 * cW} ${2 * cH}
-        L ${width - 3 * cW} ${3 * cH}
-        M ${width - 4 * cW} ${cH}
-        L ${width - 3 * cW} ${2 * cH}
-        L ${width - 4 * cW} ${3 * cH}`; // add double arrow forward
-    }
-  }
-  if ((reverse && overflowLeft) || (reverse && crossZero)) {
-    // If it's less than 15 pixels the double arrow barely fits
-    if (width > 15) {
-      linePath += `
-        M ${3 * cW} ${3 * cH}
-        L ${2 * cW} ${cH * 2}
-        L ${3 * cW} ${cH}
-        M ${4 * cW} ${3 * cH}
-        L ${3 * cW} ${cH * 2}
-        L ${4 * cW} ${cH}`; // add double forward reverse
-    }
+  // 3' directional hook. Forward primers anneal 5'->3' left-to-right, so the 3'
+  // end is the RIGHT edge; reverse primers run right-to-left, so the 3' end is
+  // the LEFT edge. Only draw the hook when that 3' end actually lands in this
+  // block (so a primer split across blocks shows its hook once, on the correct
+  // piece) and there's room for it.
+  if (forward && endFWD && width > hookW + 2) {
+    // hook at the right end, caret opening to the right (pointing 3' / forward)
+    linePath += ` M ${width - hookW} ${midY - hookH} L ${width} ${midY} L ${width - hookW} ${midY + hookH}`;
+  } else if (reverse && endREV && width > hookW + 2) {
+    // hook at the left end, caret opening to the left (pointing 3' / reverse)
+    linePath += ` M ${hookW} ${midY - hookH} L 0 ${midY} L ${hookW} ${midY + hookH}`;
   }
   // 0.591 is our best approximation of Roboto Mono's aspect ratio (width / height).
   const fontSize = 12;
@@ -228,9 +203,14 @@ const SingleNamedElement = (props: {
         className={`${element.id} la-vz-primer`}
         cursor="pointer"
         d={linePath}
-        fill={color}
+        // RESEARCHOS (primer style bot): thin outlined bracket, not a filled
+        // block. No fill; the primer color is carried by the stroke.
+        fill="none"
         id={element.id}
-        stroke={color ? COLOR_BORDER_MAP[color] || darkerColor(color) : "gray"}
+        stroke={color || "#f472b6"}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
         style={annotation}
         onBlur={() => {
           // do nothing
@@ -250,7 +230,9 @@ const SingleNamedElement = (props: {
         style={annotationLabel}
         textAnchor="middle"
         x={width / 2}
-        y={height / 2 + 1}
+        // RESEARCHOS (primer style bot): sit the label just ABOVE the thin
+        // annealing line so it doesn't collide with the bracket stroke.
+        y={height / 2 - 5}
         onBlur={() => {
           // do nothing
         }}
