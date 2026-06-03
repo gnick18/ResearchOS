@@ -206,30 +206,35 @@ async function switchEditorMode(page, label) {
 /** Switch the Workbench to the Notes sub-tab and open note 5's popup. Returns
  *  true once the NoteDetailPopup is mounted. */
 async function openSeededNote(page) {
+  // Land directly on the Notes tab via the deep-link param instead of
+  // clicking the tab button. workbench/page.tsx reads ?tab=notes on mount,
+  // so this is deterministic; the tab-button click is flaky on a still-
+  // hydrating Workbench (the button is visible but not yet actionable, so
+  // the click times out). Preserve the existing wikiCapture query param.
   try {
-    // Notes sub-tab button (data-tour-target is stable across copy edits).
-    const notesTab = page
-      .locator('[data-tour-target="workbench-notes-tab"]')
-      .first();
-    if (await notesTab.count()) {
-      await notesTab.click({ timeout: 3000 });
-      await page.waitForTimeout(700);
-    }
+    const u = new URL(page.url());
+    u.searchParams.set("tab", "notes");
+    await page.goto(u.toString(), { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(900);
   } catch (err) {
-    console.warn(`  ⚠ openSeededNote notes tab: ${err.message}`);
+    console.warn(`  ⚠ openSeededNote nav notes: ${err.message}`);
   }
   // The NoteCard root carries the onClick; match the card whose <h3> is the
-  // qPCR optimization log title and click it.
+  // qPCR optimization log title and click it. Wait for the Notes grid to
+  // load its data and render the card.
   try {
     const card = page
       .locator("h3")
       .filter({ hasText: /^qPCR optimization log \(fakeGFP vs ACT1\)$/ })
       .first();
-    if (await card.count()) {
-      await card.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
-      await card.click({ timeout: 3000 });
-      await page.waitForTimeout(900);
-    }
+    await card.waitFor({ state: "visible", timeout: 10000 });
+    await card.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+    // Normal click (waits for actionability). Proven against a healthy dev
+    // server; only flaky on a cold/slow one where the Notes grid never
+    // stabilizes in time. Do NOT force-click here: force fires before React
+    // wires the card and the note popup never mounts.
+    await card.click({ timeout: 6000 });
+    await page.waitForTimeout(900);
   } catch (err) {
     console.warn(`  ⚠ openSeededNote open card: ${err.message}`);
   }
@@ -1132,6 +1137,10 @@ const FIXTURE_ROUTES = [
     waitFor: "h1, h2, text=Lab Notes",
     settleMs: 1000,
     action: async (page) => {
+      // "Heat-shock survival assay" is an EXPERIMENT card; Projects is the
+      // default Workbench tab now, so switch into Experiments first or the
+      // card is never on screen.
+      await ensureExperimentsTab(page);
       try {
         // h3 with exactly the task name is the card title in the
         // Workbench grid; the sidebar entry uses a different element.
@@ -1139,10 +1148,9 @@ const FIXTURE_ROUTES = [
           .locator("h3")
           .filter({ hasText: /^Heat-shock survival assay$/ })
           .first();
-        if (await card.count()) {
-          await card.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
-          await card.click({ timeout: 3000 });
-        }
+        await card.waitFor({ state: "visible", timeout: 8000 });
+        await card.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+        await card.click({ timeout: 5000 });
       } catch (err) {
         console.warn(`  ⚠ purchases-non-purchase-warning open card: ${err.message}`);
         return;
@@ -1162,17 +1170,18 @@ const FIXTURE_ROUTES = [
         return;
       }
       try {
-        // The tab id is "purchases" but the button label is "Items"
-        // (TaskDetailPopup.tsx:726). The tab only renders on experiment
-        // popups when the task has orphan purchase items (chip
-        // c6597cd7) — task 11 has purchase item id=20 attached, which
-        // satisfies the orphan filter.
+        // The tab id is "purchases"; the button label is now "Order items"
+        // (renamed from "Items" in the TaskDetailPopup density pass). The
+        // tab only renders on experiment popups when the task has orphan
+        // purchase items (chip c6597cd7) — task 11 has purchase item id=20
+        // attached, which satisfies the orphan filter.
         const tab = page
           .locator("button")
-          .filter({ hasText: /^Items$/ })
+          .filter({ hasText: /^Order items$/ })
           .first();
+        await tab.waitFor({ state: "visible", timeout: 6000 }).catch(() => {});
         if (await tab.count()) {
-          await tab.click({ timeout: 3000 });
+          await tab.click({ timeout: 4000 });
           await page.waitForTimeout(900);
         }
       } catch (err) {
@@ -2584,11 +2593,13 @@ const FIXTURE_ROUTES = [
         const btn = page
           .locator('[data-tour-target="methods-template-library-button"]')
           .first();
-        if (!(await btn.count())) {
-          console.warn("  ⚠ method-catalog-source-pdf: library button missing");
-          return;
-        }
-        await btn.click({ timeout: 4000 });
+        // Wait for the button + let the Methods page finish hydrating (the
+        // catalog loads async; the button can be visible but not yet wired,
+        // so a plain click times out). Settle, then force-click past any
+        // transient stability check.
+        await btn.waitFor({ state: "visible", timeout: 12000 });
+        await page.waitForTimeout(1500);
+        await btn.click({ timeout: 5000, force: true });
         await page.waitForTimeout(1000);
       } catch (err) {
         console.warn(`  ⚠ method-catalog-source-pdf open modal: ${err.message}`);
@@ -2613,8 +2624,9 @@ const FIXTURE_ROUTES = [
           .locator("button")
           .filter({ hasText: /^Kits\b/ })
           .first();
+        await kits.waitFor({ state: "visible", timeout: 6000 }).catch(() => {});
         if (await kits.count()) {
-          await kits.click({ timeout: 3000 }).catch(() => {});
+          await kits.click({ timeout: 4000, force: true }).catch(() => {});
           await page.waitForTimeout(800);
         }
       } catch {}
@@ -2622,12 +2634,14 @@ const FIXTURE_ROUTES = [
       // structured preview + the bundled-source-PDF line.
       try {
         const qubit = page.getByText(/Qubit dsDNA HS/i).first();
+        await qubit.waitFor({ state: "visible", timeout: 8000 }).catch(() => {});
         if (!(await qubit.count())) {
           console.warn("  ⚠ method-catalog-source-pdf: qubit card not found");
           return;
         }
         await qubit.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
-        await qubit.click({ timeout: 3000 });
+        await page.waitForTimeout(500);
+        await qubit.click({ timeout: 4000, force: true });
         await page.waitForTimeout(1500);
       } catch (err) {
         console.warn(`  ⚠ method-catalog-source-pdf select card: ${err.message}`);
