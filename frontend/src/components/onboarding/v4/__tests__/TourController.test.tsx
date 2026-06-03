@@ -1899,6 +1899,27 @@ describe("TourController — Wave 2 Fix 6: waitForPathnameSettle", () => {
     await expect(waitForPathnameSettle("/methods")).resolves.toBeUndefined();
     window.history.pushState({}, "", "/");
   });
+
+  it("prefix-matches a deeper sub-route and resolves immediately by default", async () => {
+    // Default (prefix) behavior: /workbench/projects/5 counts as already
+    // on /workbench, so the helper resolves on the next RAF tick.
+    window.history.pushState({}, "", "/workbench/projects/5");
+    const start = Date.now();
+    await waitForPathnameSettle("/workbench");
+    expect(Date.now() - start).toBeLessThan(200);
+    window.history.pushState({}, "", "/");
+  });
+
+  it("does NOT immediately match a deeper sub-route when exact is true", async () => {
+    // exactRoute opt-in: /workbench/projects/5 is NOT /workbench, so the
+    // helper waits (here it times out, since the route never settles). It
+    // should consume close to the full timeout rather than resolving fast.
+    window.history.pushState({}, "", "/workbench/projects/5");
+    const start = Date.now();
+    await waitForPathnameSettle("/workbench", 80, true);
+    expect(Date.now() - start).toBeGreaterThanOrEqual(60);
+    window.history.pushState({}, "", "/");
+  });
 });
 
 // Wave 2 Fix 2/9: target-detach watcher.

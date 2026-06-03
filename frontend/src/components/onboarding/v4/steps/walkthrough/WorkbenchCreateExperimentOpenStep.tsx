@@ -122,7 +122,13 @@ export const workbenchCreateExperimentOpenStep = buildWalkthroughStep({
     switchWorkbenchTab(TOUR_TARGETS.workbenchExperimentsTab);
   },
   completion: advanceOnEvent(watchWorkbenchExperimentModalOpened),
+  // Exact match required: the prior project-create beat lands the user on
+  // /workbench/projects/<id>, which prefix-matches /workbench. Without
+  // exact matching the auto-nav thinks it is already on the right page and
+  // never returns to the bare experiment list, so + New Experiment (which
+  // lives only on the list) is missing. See TourStep.exactRoute.
   expectedRoute: "/workbench",
+  exactRoute: true,
 });
 
 /** Beat 2 (NEW): spotlight the Name input. Pure narration + manual

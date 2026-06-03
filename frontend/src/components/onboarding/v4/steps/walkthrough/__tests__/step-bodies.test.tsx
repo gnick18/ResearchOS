@@ -1094,6 +1094,10 @@ describe("WorkbenchCreateExperiment 4-beat sequence (§6.5, USER_ACTION refactor
     expect(workbenchCreateExperimentOpenStep.completion.type).toBe("event");
     expect(workbenchCreateExperimentOpenStep.cursorScript).toBeUndefined();
     expect(workbenchCreateExperimentOpenStep.expectedRoute).toBe("/workbench");
+    // exactRoute opt-in: the prior project-create beat lands on
+    // /workbench/projects/<id>, which prefix-matches /workbench. Exact
+    // matching forces the auto-nav back to the bare experiment list.
+    expect(workbenchCreateExperimentOpenStep.exactRoute).toBe(true);
   });
 
   it("beat 2 (name) spotlights the Name input, manual advance, no cursor", () => {

@@ -26,6 +26,9 @@ export interface StepBuilderInput {
   onExit?: () => void | Promise<void>;
   conditionalOn?: TourStep["conditionalOn"];
   expectedRoute?: string;
+  /** When true, the route comparison against `expectedRoute` is exact
+   *  rather than a `startsWith` prefix. See `TourStep.exactRoute`. */
+  exactRoute?: boolean;
   /** Optional larger surface to scroll into view before the cursor
    *  script runs. See `TourStep.viewportAnchor` for behavior. */
   viewportAnchor?: string;
@@ -69,6 +72,7 @@ export function buildWalkthroughStep(input: StepBuilderInput): TourStep {
     onExit: input.onExit,
     conditionalOn: input.conditionalOn,
     expectedRoute: input.expectedRoute,
+    exactRoute: input.exactRoute,
     viewportAnchor: input.viewportAnchor,
     pageLock: input.pageLock,
     cursorEntry: input.cursorEntry,

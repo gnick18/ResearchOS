@@ -289,4 +289,23 @@ export interface TourStep {
    *  the blue New Project button" but there was no such button on
    *  that page. Auto-navigating to the expected route fixes this. */
   expectedRoute?: string;
+
+  /** When true, the route comparison against `expectedRoute` is EXACT
+   *  (`pathname === expectedRoute`) rather than the default `startsWith`
+   *  prefix check.
+   *
+   *  Why this exists: the prefix default treats a deeper sub-route as
+   *  "already on the right page". The `workbench-create-experiment-open`
+   *  step expects the bare `/workbench` list, but the prior project-create
+   *  step lands the user on `/workbench/projects/<id>`. That path
+   *  prefix-matches `/workbench`, so the controller thought it was already
+   *  there and never navigated back to the experiment list (the
+   *  + New Experiment button lives only on the bare list). Setting
+   *  `exactRoute: true` makes the deeper sub-route fail the match, so the
+   *  auto-nav pushes to `/workbench`.
+   *
+   *  The global prefix behavior is intentional and load-bearing for
+   *  `/methods/...` sub-routes, so this stays an opt-in per step.
+   *  Unset or false keeps the existing prefix behavior. */
+  exactRoute?: boolean;
 }

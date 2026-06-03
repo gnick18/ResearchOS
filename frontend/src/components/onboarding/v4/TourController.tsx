@@ -154,14 +154,16 @@ export function stripPreviewQueryParams(search: string): string {
 export function waitForPathnameSettle(
   expectedPathname: string | undefined,
   timeoutMs = 1500,
+  exact = false,
 ): Promise<void> {
   if (typeof window === "undefined") return Promise.resolve();
   if (!expectedPathname) return Promise.resolve();
   // Match contract from the expectedRoute effect: "/" is exact, other
-  // values are prefix matches.
+  // values are prefix matches, unless the step opts into exact matching
+  // (exactRoute), in which case any non-equal pathname fails the match.
   const matches = () =>
-    expectedPathname === "/"
-      ? window.location.pathname === "/"
+    expectedPathname === "/" || exact
+      ? window.location.pathname === expectedPathname
       : window.location.pathname.startsWith(expectedPathname);
   if (matches()) {
     // Already on route — still yield two RAF ticks so a freshly-
@@ -975,7 +977,11 @@ export function TourControllerProvider({
         // can read stale page state (the previous step's surface)
         // because router.push schedules navigation async and effects
         // fire on currentStep change before the new route commits.
-        await waitForPathnameSettle(body.expectedRoute);
+        await waitForPathnameSettle(
+          body.expectedRoute,
+          undefined,
+          body.exactRoute === true,
+        );
         if (cancelled) return;
         // Defensive note (cursor-nav race audit, 2026-05-25): the
         // __beakerBotCursorScriptRunning window flag set inside the
@@ -1057,9 +1063,15 @@ export function TourControllerProvider({
     // mean home-rooted steps never auto-navigate from a sub-page (the
     // exact bug Grant hit, where refreshing on /workbench/projects/<id>
     // while on a home-rooted step never moved him back to home). Treat
-    // `/` as an exact-match route and any other path as a prefix.
-    const alreadyOnRoute =
-      expected === "/" ? current === "/" : current.startsWith(expected);
+    // `/` as an exact-match route and any other path as a prefix. A step
+    // can also opt into exact matching via `exactRoute` so a deeper
+    // sub-route does not count as "already there" (the
+    // workbench-create-experiment-open case, where /workbench/projects/<id>
+    // prefix-matched /workbench and suppressed the nav back to the list).
+    const useExact = expected === "/" || body.exactRoute === true;
+    const alreadyOnRoute = useExact
+      ? current === expected
+      : current.startsWith(expected);
     if (alreadyOnRoute) return;
 
     // §6.1 nav fix (2026-05-25): when BeakerBot's cursor script is
@@ -1174,8 +1186,10 @@ export function TourControllerProvider({
       if (!body?.expectedRoute) return;
       const expected = body.expectedRoute;
       const pathname = window.location.pathname;
-      const matched =
-        expected === "/" ? pathname === "/" : pathname.startsWith(expected);
+      const useExact = expected === "/" || body.exactRoute === true;
+      const matched = useExact
+        ? pathname === expected
+        : pathname.startsWith(expected);
       if (matched) return;
       // Carry the same query-param contract as the expectedRoute
       // auto-navigate effect above — strip preview-only params
@@ -1953,7 +1967,11 @@ function InProductWalkthroughOverlay({
         // builder (waitForElement etc) race the route commit
         // otherwise. The helper is a no-op when the step has no
         // expectedRoute or when the pathname already matches.
-        await waitForPathnameSettle(stepBody.expectedRoute);
+        await waitForPathnameSettle(
+          stepBody.expectedRoute,
+          undefined,
+          stepBody.exactRoute === true,
+        );
         if (cancelled) return;
         // Build the action list FIRST. Some step bodies (e.g. the LC
         // demo) silent-pre-click a tile inside the builder so the
