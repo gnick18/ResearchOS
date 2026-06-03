@@ -520,6 +520,7 @@ export default class SeqViz extends React.Component<SeqVizProps, SeqVizState> {
           id: string;
           name: string;
           segments?: { start: number; end: number }[];
+          orf?: boolean;
         } => ({
           direction: t.direction ? (t.direction < 0 ? -1 : 1) : 1,
           end: seqType === "aa" ? t.end : t.start + Math.floor((t.end - t.start) / 3) * 3,
@@ -530,6 +531,9 @@ export default class SeqViz extends React.Component<SeqVizProps, SeqVizState> {
           // seq introns bot — carry exon spans through to createTranslations so the
           // protein is spliced. Only meaningful when length > 1.
           ...(t.segments && t.segments.length > 1 ? { segments: t.segments } : {}),
+          // sequence-view legibility bot — carry the computed-ORF marker through
+          // so the renderer can give ORF tracks a muted / outline treatment.
+          ...(t.orf ? { orf: true } : {}),
         }),
       ),
       viewer: this.props.viewer || "both",

@@ -41,6 +41,11 @@ export interface TranslationProp {
   // placed only over exon positions, with introns shown as a dashed gap. When
   // absent, the raw start..end span is translated as before.
   segments?: { start: number; end: number }[];
+  // sequence-view legibility bot — marks a COMPUTED open reading frame (an
+  // ATG-to-stop guess) rather than an annotated CDS. When true the renderer
+  // gives the track a muted / outline treatment so it reads as "computed ORF,
+  // not your annotated CDS".
+  orf?: boolean;
 }
 
 /** Annotation is an annotation after parsing. */
@@ -59,6 +64,9 @@ export interface Translation extends NameRange {
   // its absolute bp start so the letters land over exon positions only.
   segments?: { start: number; end: number }[];
   aaToBp?: number[];
+  // sequence-view legibility bot — see TranslationProp.orf. Survives the
+  // createTranslations `...t` spread so the renderer can read it.
+  orf?: boolean;
 }
 
 /** PrimerProp is a single primer to visualize above/below the linear viewer. */

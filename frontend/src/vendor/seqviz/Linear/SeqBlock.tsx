@@ -487,6 +487,35 @@ export class SeqBlock extends React.PureComponent<SeqBlockProps> {
             {seq.split("").map(this.seqTextSpan)}
           </text>
         ) : null}
+        {/* sequence-view legibility bot — SnapGene-style PER-BASE STRAND
+            CONNECTOR: a faint tick centered in each base column, tying the top
+            sequence row to the complement row so the eye can track which bp is
+            where. Renders only when the complement strand is shown (which is
+            always, in the Sequence view) and the block is zoomed enough to show
+            bases. Low-contrast slate, drawn per visible block like the other
+            rows. Sits in the seam between the seq text and the comp text. */}
+        {compSeq && zoomed && showComplement && seqType !== "aa" ? (
+          <g
+            className="la-vz-strand-connector"
+            data-testid="la-vz-strand-connector"
+            stroke="#cbd5e1"
+            strokeWidth={0.5}
+            strokeOpacity={0.55}
+          >
+            {seq.split("").map((_, i) => {
+              const cx = charWidth * (i + 0.5);
+              return (
+                <line
+                  key={`conn-${id}-${i}`}
+                  x1={cx}
+                  x2={cx}
+                  y1={compYDiff - lineHeight * 0.18}
+                  y2={compYDiff + lineHeight * 0.18}
+                />
+              );
+            })}
+          </g>
+        ) : null}
         {compSeq && zoomed && showComplement && seqType !== "aa" ? (
           <text
             {...textProps}

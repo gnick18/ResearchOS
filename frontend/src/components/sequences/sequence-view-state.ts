@@ -2,8 +2,9 @@
 // delivers the locked "calm by default / progressive disclosure" feel: SeqViz
 // is prop-driven, so showing/hiding a layer == filtering the props we pass it.
 // Everything here defaults to a CLEAN, uncluttered view: features + ruler on,
-// everything heavier (translation, enzymes, complement, ORFs) OFF until the
-// user opts in.
+// everything heavier (translation, enzymes, ORFs) OFF until the user opts in.
+// The complement strand is ALWAYS shown in the Sequence view (deliberate
+// simplification, no toggle): a paired bottom strand is core to reading DNA.
 
 export interface SequenceViewState {
   /** Master switch for the annotation layer. */
@@ -19,8 +20,6 @@ export interface SequenceViewState {
   showTranslation: boolean;
   /** Show open reading frames. */
   showOrfs: boolean;
-  /** Show the complement (bottom) strand. */
-  showComplement: boolean;
   /** Show the index / ruler row. */
   showIndex: boolean;
   /** Show primer-binding annotations (the toggle / track; the full primer popup
@@ -53,7 +52,6 @@ export const DEFAULT_VIEW_STATE: SequenceViewState = {
   showEnzymes: false,
   showTranslation: false,
   showOrfs: false,
-  showComplement: false,
   showIndex: true,
   // primer style bot — primers are now drawn ONLY by the dedicated primers layer
   // (thin SnapGene-style annealing brackets), not the annotation layer. Default

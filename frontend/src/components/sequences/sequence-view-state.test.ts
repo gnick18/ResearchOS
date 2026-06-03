@@ -26,7 +26,8 @@ describe("calm default", () => {
     expect(DEFAULT_VIEW_STATE.showEnzymes).toBe(false);
     expect(DEFAULT_VIEW_STATE.showTranslation).toBe(false);
     expect(DEFAULT_VIEW_STATE.showOrfs).toBe(false);
-    expect(DEFAULT_VIEW_STATE.showComplement).toBe(false);
+    // complement strand has no view-state field: it is always shown in the
+    // Sequence view (no toggle) and always off in Map view (no bases).
     // primer style bot — primers now draw via the dedicated primers layer (not
     // the annotation layer), so they default VISIBLE to avoid disappearing.
     expect(DEFAULT_VIEW_STATE.showPrimers).toBe(true);

@@ -11,10 +11,11 @@
 import { useMemo } from "react";
 import type { Selection } from "@/vendor/seqviz/selectionContext";
 import { gcPercent } from "@/lib/sequences/edit-model";
+import { nearestNeighborTm } from "@/lib/calculators/tm-nn";
 
 export type SelectionReadout =
   | { kind: "caret"; caret: number }
-  | { kind: "range"; lo: number; hi: number; len: number; gc: number };
+  | { kind: "range"; lo: number; hi: number; len: number; gc: number; tm?: number };
 
 /** Derive the readout values from a SeqViz selection over a sequence string.
  *  Returns null when there is no usable selection. */
@@ -33,8 +34,16 @@ export function deriveSelectionReadout(
     return { kind: "caret", caret: lo };
   }
   const gc = gcPercent(seq, lo, hi);
+  // Tm is meaningful only for oligo-length selections: compute the unified
+  // nearest-neighbor Tm (the same model the primer tools use) for 8..50 bp, and
+  // omit it otherwise (a 2 kb gene has no useful annealing Tm).
+  let tm: number | undefined;
+  if (len >= 8 && len <= 50) {
+    const r = nearestNeighborTm(seq.slice(lo, hi));
+    if (r) tm = r.tm;
+  }
   // SnapGene shows 1-based inclusive coordinates (e.g. "5..10").
-  return { kind: "range", lo: lo + 1, hi, len, gc };
+  return { kind: "range", lo: lo + 1, hi, len, gc, tm };
 }
 
 /** The inner content of the readout (coords / bp / GC%, or caret, or a hint).
@@ -63,6 +72,11 @@ export function SelectionReadoutContent({ readout }: { readout: SelectionReadout
       <span>
         <span className="font-medium text-gray-800">{readout.gc.toFixed(0)}%</span> GC
       </span>
+      {readout.tm != null ? (
+        <span>
+          Tm <span className="font-medium text-gray-800">{readout.tm.toFixed(1)} °C</span>
+        </span>
+      ) : null}
     </>
   );
 }

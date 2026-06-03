@@ -66,18 +66,6 @@ function IconPrimers({ className }: { className?: string }) {
     </svg>
   );
 }
-function IconComplement({ className }: { className?: string }) {
-  // two parallel strands
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <line x1="3" y1="8" x2="21" y2="8" />
-      <line x1="3" y1="16" x2="21" y2="16" />
-      <line x1="8" y1="8" x2="8" y2="16" />
-      <line x1="13" y1="8" x2="13" y2="16" />
-      <line x1="18" y1="8" x2="18" y2="16" />
-    </svg>
-  );
-}
 function IconRuler({ className }: { className?: string }) {
   // ruler with ticks
   return (
@@ -486,7 +474,11 @@ export default function ViewControlRail({
       <RailToggle label="Translation (CDS)" active={view.showTranslation} onClick={() => set({ showTranslation: !view.showTranslation })}>
         <IconTranslation className="h-4 w-4" />
       </RailToggle>
-      <RailToggle label="Open reading frames" active={view.showOrfs} onClick={() => set({ showOrfs: !view.showOrfs })}>
+      <RailToggle
+        label="Open reading frames: highlight ATG-to-stop runs (>=30 aa, both strands) that could be genes in unannotated DNA."
+        active={view.showOrfs}
+        onClick={() => set({ showOrfs: !view.showOrfs })}
+      >
         <IconOrfs className="h-4 w-4" />
       </RailToggle>
       <RailToggle label="Primers" active={view.showPrimers} onClick={() => set({ showPrimers: !view.showPrimers })}>
@@ -495,9 +487,6 @@ export default function ViewControlRail({
 
       <div className="my-1 h-px w-6 bg-gray-100" />
 
-      <RailToggle label="Complement strand" active={view.showComplement} onClick={() => set({ showComplement: !view.showComplement })}>
-        <IconComplement className="h-4 w-4" />
-      </RailToggle>
       <RailToggle label="Ruler / index" active={view.showIndex} onClick={() => set({ showIndex: !view.showIndex })}>
         <IconRuler className="h-4 w-4" />
       </RailToggle>

@@ -171,6 +171,11 @@ class SingleNamedElementAminoacids extends React.PureComponent<SingleNamedElemen
     } = this.props;
 
     const { AAseq, direction, end, id, start } = translation;
+    // sequence-view legibility bot — a COMPUTED ORF track (not an annotated
+    // CDS): render it as a muted outline (lower fill opacity, no per-residue
+    // fill, dashed-feeling slate stroke) so it stays clearly secondary to your
+    // real CDS translations. Stops still pop in crimson.
+    const isOrf = !!(translation as { orf?: boolean }).orf;
     // seq introns bot — for a spliced (join) translation, aaToBp[i] is the
     // absolute bp start of codon i, so the AA glyphs land over exon positions
     // and skip the introns. Undefined for single-span translations (unchanged).
@@ -277,6 +282,26 @@ class SingleNamedElementAminoacids extends React.PureComponent<SingleNamedElemen
           // arrow are facing
           const path = this.genPath(bpCount, direction === 1 ? 1 : -1);
 
+          // sequence-view legibility bot — a stop codon (TAA/TAG/TGA -> "*")
+          // gets a distinct muted-crimson fill + darker crimson border so
+          // reading-frame ends / premature stops pop out from the generic
+          // per-residue palette, while staying within the calm translation
+          // style (same opacity / stroke width as the other residues).
+          const isStop = a === "*";
+          // ORF residues use a single muted slate (outline treatment) instead
+          // of the per-residue palette, so the run reads as one computed guess.
+          // Stops still override to crimson so premature stops remain obvious.
+          const fill = isStop
+            ? "#b91c1c"
+            : isOrf
+              ? "#cbd5e1"
+              : colorByIndex(a.charCodeAt(0));
+          const stroke = isStop
+            ? "#7f1d1d"
+            : isOrf
+              ? "#94a3b8"
+              : borderColorByIndex(a.charCodeAt(0));
+
           return (
             <g
               key={aaId}
@@ -292,14 +317,18 @@ class SingleNamedElementAminoacids extends React.PureComponent<SingleNamedElemen
             >
               <path
                 d={path}
-                fill={colorByIndex(a.charCodeAt(0))}
+                fill={fill}
                 id={aaId}
                 shapeRendering="geometricPrecision"
-                stroke={borderColorByIndex(a.charCodeAt(0))}
+                stroke={stroke}
                 style={{
                   cursor: "pointer",
-                  opacity: 0.7,
-                  strokeWidth: 0.8,
+                  // stops sit a touch more opaque so the crimson reads clearly;
+                  // ORF residues sit lighter so the computed run stays secondary
+                  // to real CDS translations.
+                  opacity: isStop ? 0.85 : isOrf ? 0.45 : 0.7,
+                  strokeWidth: isStop ? 1 : isOrf ? 1 : 0.8,
+                  strokeDasharray: isOrf && !isStop ? "2 1.5" : undefined,
                 }}
               />
 
@@ -309,6 +338,8 @@ class SingleNamedElementAminoacids extends React.PureComponent<SingleNamedElemen
                   cursor="pointer"
                   data-testid="la-vz-translation"
                   dominantBaseline="middle"
+                  fill={isStop ? "#ffffff" : undefined}
+                  fontWeight={isStop ? 700 : undefined}
                   id={aaId}
                   style={translationAminoAcidLabel}
                   textAnchor="middle"
@@ -343,6 +374,12 @@ const SingleNamedElementHandle = (props: {
   const { element, elementHeight, elements, findXAndWidthElement, index, inputRef, y } = props;
 
   const { color, end, name, start } = element;
+  // sequence-view legibility bot — a computed ORF handle reads as an OUTLINE
+  // (hollow fill, slate border) with a "computed" cue in the label, so it is
+  // obviously not one of your annotated CDS translation handles (solid fill).
+  const isOrf = !!(element as { orf?: boolean }).orf;
+  const handleFill = isOrf ? "#f1f5f9" : color;
+  const handleStroke = isOrf ? "#94a3b8" : color;
   const { width, x: origX } = findXAndWidthElement(index, element, elements);
 
   // 0.591 is our best approximation of Roboto Mono's aspect ratio (width / height).
@@ -351,14 +388,15 @@ const SingleNamedElementHandle = (props: {
   // Use at most 1/4 of the width for the name handle.
   const availableCharacters = Math.floor(width / 4 / characterWidth);
 
-  let displayName = name ?? "";
-  if (name && name.length > availableCharacters) {
+  // ORF handles carry a "computed" cue so they don't read as an annotated CDS.
+  let displayName = isOrf ? "ORF (computed)" : (name ?? "");
+  if (displayName && displayName.length > availableCharacters) {
     const charactersToShow = availableCharacters - 1;
     if (charactersToShow < 3) {
       // If we can't show at least three characters, don't show any.
       displayName = "";
     } else {
-      displayName = `${name.slice(0, charactersToShow)}…`;
+      displayName = `${displayName.slice(0, charactersToShow)}…`;
     }
   }
 
@@ -397,14 +435,14 @@ const SingleNamedElementHandle = (props: {
     >
       <g id={element.id} transform={`translate(${x}, 0)`}>
         {/* <title> provides a hover tooltip on most browsers */}
-        <title>{name}</title>
+        <title>{isOrf ? "Computed ORF (ATG to stop)" : name}</title>
         <path
           className={`${element.id} la-vz-translation-handle`}
           cursor="pointer"
           d={linePath}
-          fill={color}
+          fill={handleFill}
           id={element.id}
-          stroke={color}
+          stroke={handleStroke}
           style={translationHandle}
           onBlur={() => {
             // do nothing
@@ -419,7 +457,9 @@ const SingleNamedElementHandle = (props: {
           className="la-vz-handle-label"
           cursor="pointer"
           dominantBaseline="middle"
+          fill={isOrf ? "#475569" : undefined}
           fontSize={fontSize}
+          fontStyle={isOrf ? "italic" : undefined}
           id={element.id}
           style={translationHandleLabel}
           textAnchor="start"

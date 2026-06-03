@@ -398,6 +398,11 @@ export default function SequenceEditView({
       });
     }
     if (view.showOrfs) {
+      // sequence-view legibility bot — ORF overlay tracks are COMPUTED guesses
+      // (ATG-to-stop runs), not annotated CDS. Tag them with `orf: true` and a
+      // clearer "ORF" label so the renderer can give them a muted / outline
+      // treatment, keeping them visually distinct from your real CDS
+      // translations.
       for (const o of findOrfs(doc.seq)) {
         out.push({
           start: o.start,
@@ -405,6 +410,7 @@ export default function SequenceEditView({
           direction: o.strand,
           name: "ORF",
           color: "#94a3b8",
+          orf: true,
         });
       }
     }
@@ -2221,7 +2227,7 @@ export default function SequenceEditView({
                   // strand in Map view (there are no legible bases to index), and
                   // always keep them available in Sequence view so it retains its
                   // base-level character even at the slider floor.
-                  showComplement={isMapView ? false : view.showComplement}
+                  showComplement={!isMapView}
                   showIndex={isMapView ? false : view.showIndex}
                   // wrap toggle bot — SINGLE-LINE vs WRAPPED for the linear
                   // Sequence detail view. Map / circular always render wrapped.
