@@ -36,6 +36,8 @@ function buildSyntheticDna(opts: {
   notesXml: string;
   /** Append an unrecognized block tag with arbitrary body bytes. */
   includeUnknownBlock?: boolean;
+  /** Append a SnapGene Primers block (type 5) with this XML body. */
+  primersXml?: string;
 }): ArrayBuffer {
   const enc = new TextEncoder();
   const chunks: number[] = [];
@@ -76,6 +78,14 @@ function buildSyntheticDna(opts: {
   pushU32(featBytes.length);
   pushBytes(featBytes);
 
+  // ── Primers block: tag 5, body = XML (optional) ──
+  if (opts.primersXml != null) {
+    const primerBytes = enc.encode(opts.primersXml);
+    push(5);
+    pushU32(primerBytes.length);
+    pushBytes(primerBytes);
+  }
+
   // ── Notes block: tag 6, body = XML ──
   const noteBytes = enc.encode(opts.notesXml);
   push(6);
@@ -103,6 +113,111 @@ const NOTES_XML =
   "<Notes><CustomMapLabel>My Modern Plasmid</CustomMapLabel>" +
   "<Description>&lt;html&gt;&lt;body&gt;A test &amp; sample.&lt;/body&gt;&lt;/html&gt;</Description>" +
   "</Notes>";
+
+// A Primers block (type 5) exercising: a forward primer (boundStrand 0), a
+// reverse primer (boundStrand 1), a primer with TWO binding sites (-> two
+// features), and a primer whose binding-site location is garbage (-> skipped,
+// the rest survive). The earlier reader dropped this whole block.
+const PRIMERS_XML =
+  '<?xml version="1.0"?><Primers>' +
+  // forward primer, single site, oligo sequence on the Primer element
+  '<Primer name="M13_fwd" sequence="GTAAAACGACGGCCAGT" description="seq primer">' +
+  '<BindingSite location="3..12" boundStrand="0" simplified="3..12"/>' +
+  "</Primer>" +
+  // reverse primer (boundStrand 1)
+  '<Primer name="M13_rev" sequence="CAGGAAACAGCTATGAC">' +
+  '<BindingSite location="25..36" boundStrand="1"/>' +
+  "</Primer>" +
+  // primer annealing in TWO places -> two primer_bind features
+  '<Primer name="multi" sequence="ATGCATGC">' +
+  '<BindingSite location="1..8" boundStrand="0"/>' +
+  '<BindingSite location="33..40" boundStrand="1"/>' +
+  "</Primer>" +
+  // primer with an unparseable location -> skipped, others survive
+  '<Primer name="broken" sequence="NNNN">' +
+  '<BindingSite location="not-a-range" boundStrand="0"/>' +
+  "</Primer>" +
+  "</Primers>";
+
+describe("snapgeneToJson — primers (block type 5)", () => {
+  let parsed: any;
+
+  beforeAll(async () => {
+    const ab = buildSyntheticDna({
+      sequence: SEQUENCE,
+      circular: true,
+      featuresXml: FEATURES_XML,
+      notesXml: NOTES_XML,
+      primersXml: PRIMERS_XML,
+    });
+    const res = await snapgeneToJson(ab, { fileName: "with-primers.dna" });
+    expect(res[0].success).toBe(true);
+    parsed = res[0].parsedSequence;
+  });
+
+  it("emits primer_bind features (and keeps the type-10 features too)", () => {
+    const primers = parsed.features.filter(
+      (f: any) => f.type === "primer_bind",
+    );
+    // M13_fwd + M13_rev + multi(2 sites) = 4; "broken" is skipped.
+    expect(primers).toHaveLength(4);
+    // The two real Features (geneA, geneB) must still be present.
+    expect(
+      parsed.features.filter((f: any) => f.type !== "primer_bind"),
+    ).toHaveLength(2);
+  });
+
+  it("maps a forward primer with correct coords, strand, and oligo note", () => {
+    const fwd = parsed.features.find((f: any) => f.name === "M13_fwd");
+    expect(fwd).toBeTruthy();
+    expect(fwd.type).toBe("primer_bind");
+    expect(fwd.start).toBe(2); // 1-based 3 -> 0-based 2
+    expect(fwd.end).toBe(11); // 1-based 12 -> 0-based 11
+    expect(fwd.strand).toBe(1);
+    // Oligo sequence carried as a /note (array value -> survives to GenBank).
+    expect(fwd.notes.note).toEqual(["GTAAAACGACGGCCAGT"]);
+  });
+
+  it("maps a reverse primer to strand -1", () => {
+    const rev = parsed.features.find((f: any) => f.name === "M13_rev");
+    expect(rev).toBeTruthy();
+    expect(rev.strand).toBe(-1);
+    expect(rev.start).toBe(24); // 25 -> 24
+    expect(rev.end).toBe(35); // 36 -> 35
+    expect(rev.notes.note).toEqual(["CAGGAAACAGCTATGAC"]);
+  });
+
+  it("emits one feature per binding site for a multi-site primer", () => {
+    const multi = parsed.features.filter((f: any) => f.name === "multi");
+    expect(multi).toHaveLength(2);
+    const strands = multi.map((f: any) => f.strand).sort();
+    expect(strands).toEqual([-1, 1]);
+  });
+
+  it("skips a primer whose binding-site location won't parse", () => {
+    expect(parsed.features.some((f: any) => f.name === "broken")).toBe(false);
+  });
+
+  it("does not throw when there is no Features block, only Primers", async () => {
+    const ab = buildSyntheticDna({
+      sequence: SEQUENCE,
+      circular: false,
+      featuresXml: '<?xml version="1.0"?><Features></Features>',
+      notesXml: NOTES_XML,
+      primersXml:
+        '<Primers><Primer name="solo" sequence="ACGTACGT">' +
+        '<BindingSite location="5..12" boundStrand="0"/></Primer></Primers>',
+    });
+    const res = await snapgeneToJson(ab, { fileName: "x.dna" });
+    expect(res[0].success).toBe(true);
+    const solo = res[0].parsedSequence!.features!.find(
+      (f: any) => f.name === "solo",
+    )!;
+    expect(solo).toBeTruthy();
+    expect(solo.type).toBe("primer_bind");
+    expect(solo.notes?.note).toEqual(["ACGTACGT"]);
+  });
+});
 
 describe("snapgeneToJson — modern format, no DOMParser", () => {
   let parsed: any;

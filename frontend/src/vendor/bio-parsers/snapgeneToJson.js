@@ -215,6 +215,18 @@ async function snapgeneToJson(fileObj, options = {}) {
             color,
           });
         });
+      } else if (nextByte === 5) {
+        // READ THE PRIMERS. SnapGene stores primers in their own block (type 5)
+        // rather than as Features, so the old reader dropped them on the floor
+        // (the final `else` skipped the block by length). Emit each primer as a
+        // standard GenBank `primer_bind` feature — GenBank's native primer
+        // representation, which round-trips through jsonToGenbank and the
+        // existing feature display with zero new plumbing. We append rather than
+        // overwrite `data.features` so a file with both Features (type 10) and
+        // Primers (type 5) blocks keeps both, regardless of block order.
+        const xml = read(block_size, "utf8");
+        const primerFeatures = parsePrimersXml(xml, isProtein);
+        for (const pf of primerFeatures) data.features.push(pf);
       } else if (nextByte === 6) {
         // READ THE NOTES
         const xml = read(block_size, "utf8");
@@ -354,6 +366,123 @@ function parseFeaturesXml(xml) {
       segments,
       colorQual,
     });
+  }
+  return out;
+}
+
+/** Parse a SnapGene primer binding-site location string into 0-based inclusive
+ *  {start, end}, matching how feature ranges are stored elsewhere in this file.
+ *  SnapGene writes primer locations as `start..end` (1-based inclusive, e.g.
+ *  "100..120"); older / variant exports occasionally use `start-end`. Returns
+ *  `null` when neither endpoint parses, so the caller can SKIP that primer
+ *  rather than emit a NaN-coordinate feature. */
+function getStartAndEndFromLocationString(locstring) {
+  const raw = String(locstring == null ? "" : locstring).trim();
+  if (!raw) return null;
+  // Prefer the SnapGene `..` separator; fall back to a single `-` separator.
+  // (A leading `-` would be a negative number, not a separator — split on the
+  // dash BETWEEN two numbers only.)
+  let parts;
+  if (raw.indexOf("..") !== -1) {
+    parts = raw.split("..");
+  } else {
+    const m = raw.match(/^(\d+)\s*-\s*(\d+)$/);
+    parts = m ? [m[1], m[2]] : [raw];
+  }
+  const s = Number(parts[0]);
+  // A single-endpoint location (rare) collapses to a 1-bp site.
+  const e = parts.length > 1 ? Number(parts[1]) : s;
+  if (!Number.isFinite(s) && !Number.isFinite(e)) return null;
+  let start = Number.isFinite(s) ? s - 1 : (Number.isFinite(e) ? e - 1 : 0);
+  let end = Number.isFinite(e) ? e - 1 : start;
+  if (start < 0) start = 0;
+  if (end < start) end = start;
+  return { start, end };
+}
+
+/** Parse the SnapGene `<Primers>` XML block (block type 5) with the same
+ *  dependency-free scanner the Features / Notes blocks use (no DOMParser; see
+ *  file header). Each primer is emitted as a GenBank `primer_bind` feature
+ *  shaped IDENTICALLY to the type-10 features above, so flattenSequenceArray /
+ *  validateSequence / jsonToGenbank treat them the same way.
+ *
+ *  Mapping:
+ *    - name      <- Primer @name (fallback "primer")
+ *    - type      = "primer_bind" (validated against the feature-type table;
+ *                  also drives the existing pink color in feature-colors.ts)
+ *    - start/end <- BindingSite @location, 0-based inclusive
+ *    - strand    <- BindingSite @boundStrand: "1"/reverse -> -1, else +1
+ *    - notes.note = [oligo sequence] (ARRAY form: jsonToGenbank serializes each
+ *                   note value as an array, so the oligo survives to /note)
+ *
+ *  A primer may have multiple binding sites; we emit ONE feature per site so a
+ *  primer that anneals in two places shows both. A primer whose binding-site
+ *  location fails to parse is SKIPPED (others survive), matching the file's
+ *  defensive style. Attribute names vary across SnapGene versions, so every
+ *  lookup is tolerant of absence / aliases. */
+function parsePrimersXml(xml, isProtein) {
+  const out = [];
+  for (const { open: primerOpen, inner: primerInner } of eachElement(
+    xml,
+    "Primer",
+  )) {
+    const name = attr(primerOpen, "name") || "primer";
+    // The oligo sequence may live on the Primer element (attr `sequence`) or,
+    // in some exports, on the BindingSite. Capture the primer-level one here.
+    const primerSeq =
+      attr(primerOpen, "sequence") || attr(primerOpen, "Sequence") || undefined;
+
+    const sites = eachElement(primerInner, "BindingSite");
+    // A primer with no explicit binding site can't be placed on the map; skip.
+    if (!sites.length) continue;
+
+    for (const site of sites) {
+      const location =
+        attr(site.open, "location") ||
+        attr(site.open, "Location") ||
+        attr(site.open, "range") ||
+        "";
+      const coords = getStartAndEndFromLocationString(location);
+      // Skip THIS site (not the whole import) when its location won't parse.
+      if (!coords) continue;
+
+      let { start, end } = coords;
+      if (isProtein) {
+        start = start * 3;
+        end = end * 3 + 2;
+      }
+
+      // boundStrand: "0" (top) -> forward, "1" (bottom) -> reverse. Be tolerant
+      // of alternate spellings / a textual "bottom".
+      const boundStrandRaw =
+        attr(site.open, "boundStrand") ||
+        attr(site.open, "strand") ||
+        attr(site.open, "simplified") ||
+        "";
+      const isReverse =
+        boundStrandRaw === "1" ||
+        /bottom|reverse|minus/i.test(boundStrandRaw);
+      const strand = isReverse ? -1 : 1;
+
+      // Oligo sequence: prefer a site-level sequence, else the primer-level one.
+      const seq =
+        attr(site.open, "sequence") ||
+        attr(site.open, "Sequence") ||
+        primerSeq;
+
+      const feature = {
+        name,
+        type: "primer_bind",
+        strand,
+        arrowheadType: strand === -1 ? "BOTTOM" : "TOP",
+        start,
+        end,
+      };
+      // Carry the oligo sequence as a /note so it survives to GenBank. Array
+      // value form, because jsonToGenbank serializes each note key as an array.
+      if (seq) feature.notes = { note: [seq] };
+      out.push(feature);
+    }
   }
   return out;
 }
