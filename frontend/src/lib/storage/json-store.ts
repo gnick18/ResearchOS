@@ -20,12 +20,10 @@ let currentUserCache: string | null = null;
 
 export async function getCurrentUserCached(): Promise<string> {
   if (currentUserCache) {
-    console.log("[getCurrentUserCached] Returning cached user:", currentUserCache);
     return currentUserCache;
   }
   const user = await getCurrentUser();
   currentUserCache = user;
-  console.log("[getCurrentUserCached] Loaded user from IndexedDB:", user, "cache set to:", currentUserCache);
   return user || "_no_user_";
 }
 
