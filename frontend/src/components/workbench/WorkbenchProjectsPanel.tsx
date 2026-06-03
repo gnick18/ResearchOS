@@ -133,18 +133,18 @@ function ProjectCard({ project, color, counts, sequenceCount, onOpen }: ProjectC
       className="relative flex flex-col text-left rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:shadow-md hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
     >
       {project.is_shared_with_me && (
-        <span className="absolute top-3 right-3">
+        <div className="mb-2 flex">
           <SharedFromPill owner={project.owner} />
-        </span>
+        </div>
       )}
 
-      <div className="flex items-center gap-2 mb-3 pr-2">
+      <div className="flex items-start gap-2 mb-3">
         <span
-          className="h-3 w-3 shrink-0 rounded-full"
+          className="mt-1 h-3 w-3 shrink-0 rounded-full"
           style={{ backgroundColor: color }}
           aria-hidden
         />
-        <h3 className="text-sm font-semibold text-gray-900 truncate">
+        <h3 className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2">
           {project.name || "(unnamed project)"}
         </h3>
       </div>
