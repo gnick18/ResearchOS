@@ -241,12 +241,8 @@ import { ganttDepsCascadeStep } from "./steps/walkthrough/GanttDepsCascadeStep";
 import {
   ganttShareIntroStep,
   ganttShareBeakerBotSpawnStep,
-  ganttShareBeakerBotSharesStep,
   ganttShareUserExploresStep,
   ganttShareUserSharesBackStep,
-  ganttShareUserClicksShareStep,
-  ganttShareUserFillsDialogStep,
-  ganttShareUserSavesDialogStep,
   ganttShareProfileSwitchStep,
   ganttShareUserSeesEditStep,
 } from "./steps/walkthrough/GanttShareClusterSteps";
@@ -401,15 +397,16 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [ganttDepsUserStep.id]: ganttDepsUserStep,
   [ganttDepsCascadeStep.id]: ganttDepsCascadeStep,
   // Lab-only share cluster — gated by isStepGatedOut on
-  // picks.account_type === "lab".
+  // picks.account_type === "lab". Tour simplification pass 4 2026-06-03
+  // (HR / tour-simplification): collapsed 10 to 6. The redundant
+  // beakerbot-shares popup-open beat and the 3-beat share-dialog field
+  // walk (clicks-share / fills-dialog / saves-dialog) were cut; the
+  // surviving gantt-share-user-shares-back is one user-action beat gated
+  // on the same share-completion poll.
   [ganttShareIntroStep.id]: ganttShareIntroStep,
   [ganttShareBeakerBotSpawnStep.id]: ganttShareBeakerBotSpawnStep,
-  [ganttShareBeakerBotSharesStep.id]: ganttShareBeakerBotSharesStep,
   [ganttShareUserExploresStep.id]: ganttShareUserExploresStep,
   [ganttShareUserSharesBackStep.id]: ganttShareUserSharesBackStep,
-  [ganttShareUserClicksShareStep.id]: ganttShareUserClicksShareStep,
-  [ganttShareUserFillsDialogStep.id]: ganttShareUserFillsDialogStep,
-  [ganttShareUserSavesDialogStep.id]: ganttShareUserSavesDialogStep,
   [ganttShareProfileSwitchStep.id]: ganttShareProfileSwitchStep,
   [ganttShareUserSeesEditStep.id]: ganttShareUserSeesEditStep,
   // Goals overview — RELOCATED to after the share cluster. Conditional

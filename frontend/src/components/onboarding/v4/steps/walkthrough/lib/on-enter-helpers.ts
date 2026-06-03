@@ -680,19 +680,20 @@ function isGanttSharePopupOpen(): boolean {
 /**
  * Reopen a §6.8 Gantt TaskDetailPopup if a mid-cluster refresh closed it.
  *
- * The cluster opens these popups by clicking a Gantt bar:
- *   - `gantt-share-user-explores` (beat 4) reads on the SHARED coffee
- *     experiment's popup, opened by `gantt-share-beakerbot-shares`'s
- *     cursor click on `gantt-bar-shared-experiment`.
- *   - `gantt-share-user-clicks-share` (5b) spotlights the Share button in
- *     FAKE A's popup, opened when the user clicks `gantt-bar-fake-a` in 5a.
+ * The cluster opens these popups by clicking a Gantt bar. Tour
+ * simplification pass 4 2026-06-03 collapsed the share-back field walk, so
+ * the live consumer is now `gantt-share-user-explores`, which opens the
+ * SHARED coffee experiment's popup itself in its onEnter (clicking
+ * `gantt-bar-shared-experiment`). The helper is also general-purpose for
+ * any beat that needs to (re)open a Gantt share popup over a bar, e.g.
+ * FAKE A's popup via `gantt-bar-fake-a` (used by `ensureShareDialogOpen`).
  *
- * A refresh on 4 / 5b lands the tour on a popup-dependent step with the
- * popup closed. This helper reopens it by DOM-clicking the bar that the
- * cluster's open step uses (`barTarget`), which fires the bar's real
- * React onClick → `onTaskClickLab` → TaskDetailPopup mounts. The caller
- * is responsible for first re-running the idempotent spawn/share helpers
- * so the bar actually exists (the beats already do this in their onEnter).
+ * A refresh on a popup-dependent step lands the tour with the popup
+ * closed. This helper reopens it by DOM-clicking the bar (`barTarget`),
+ * which fires the bar's real React onClick → `onTaskClickLab` →
+ * TaskDetailPopup mounts. The caller is responsible for first re-running
+ * the idempotent spawn/share helpers so the bar actually exists (the beats
+ * already do this in their onEnter).
  *
  * No-op when a popup is already open (canonical, non-refresh path: the
  * prior beat's click left it mounted). Best-effort: guarded + try/catch +
@@ -742,15 +743,16 @@ function isShareDialogOpen(): boolean {
 }
 
 /**
- * Reopen the §6.8 ShareDialog (over FAKE A's popup) if a mid-cluster
- * refresh closed it.
+ * Reopen the §6.8 ShareDialog (over FAKE A's popup) if a refresh closed it.
  *
- * The dialog is opened by `gantt-share-user-clicks-share` (5b): the user
- * clicks the Share button in Fake A's popup, which sets `showSharePopup`
- * and mounts ShareDialog. The dependent beats `gantt-share-user-fills-
- * dialog` (5c) and `gantt-share-user-saves-dialog` (5d) spotlight the
- * picker / Add / Save affordances INSIDE the dialog. A refresh on 5c / 5d
- * closes both the dialog AND the underlying popup.
+ * The dialog opens when the user clicks the Share button in Fake A's popup,
+ * which sets `showSharePopup` and mounts ShareDialog. Tour simplification
+ * pass 4 2026-06-03 collapsed the 4-beat share-back field walk into the
+ * single `gantt-share-user-shares-back` beat (which poll-gates on the
+ * persisted share rather than spotlighting the in-dialog affordances), so
+ * this helper is no longer wired into a gantt-share beat's onEnter; it is
+ * retained (still unit-tested) for general reuse. A refresh while the
+ * dialog is open closes both the dialog AND the underlying popup.
  *
  * Reopen path mirrors the cluster's open chain exactly: first ensure Fake
  * A's popup is open (reuse `ensureGanttSharePopupOpen(gantt-bar-fake-a)`),

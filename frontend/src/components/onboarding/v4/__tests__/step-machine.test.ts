@@ -934,7 +934,6 @@ describe("isStepGatedOut — §6.8 Gantt share cluster (Gantt manager 2026-05-22
     const p = picks({ account_type: "solo" });
     expect(isStepGatedOut("gantt-share-intro", p)).toBe(true);
     expect(isStepGatedOut("gantt-share-beakerbot-spawn", p)).toBe(true);
-    expect(isStepGatedOut("gantt-share-beakerbot-shares", p)).toBe(true);
     expect(isStepGatedOut("gantt-share-user-explores", p)).toBe(true);
     expect(isStepGatedOut("gantt-share-user-shares-back", p)).toBe(true);
     expect(isStepGatedOut("gantt-share-profile-switch", p)).toBe(true);
@@ -945,7 +944,6 @@ describe("isStepGatedOut — §6.8 Gantt share cluster (Gantt manager 2026-05-22
     const p = picks({ account_type: "lab" });
     expect(isStepGatedOut("gantt-share-intro", p)).toBe(false);
     expect(isStepGatedOut("gantt-share-beakerbot-spawn", p)).toBe(false);
-    expect(isStepGatedOut("gantt-share-beakerbot-shares", p)).toBe(false);
     expect(isStepGatedOut("gantt-share-user-explores", p)).toBe(false);
     expect(isStepGatedOut("gantt-share-user-shares-back", p)).toBe(false);
     expect(isStepGatedOut("gantt-share-profile-switch", p)).toBe(false);
@@ -1079,11 +1077,12 @@ describe("getNextStep — forward traversal", () => {
     expect(visited).not.toContain("lab-spawn-beakerbot");
     expect(visited).not.toContain("lab-permission-practice");
     expect(visited).toContain("lab-cleanup");
-    // §6.8 lab share cluster (Gantt redesign 2026-05-22): all 7 beats
-    // fire in the maximal lab walk.
+    // §6.8 lab share cluster: all 6 beats fire in the maximal lab walk.
+    // Tour simplification pass 4 2026-06-03 (HR / tour-simplification):
+    // collapsed 10 to 6 (cut beakerbot-shares + the clicks-share /
+    // fills-dialog / saves-dialog field walk).
     expect(visited).toContain("gantt-share-intro");
     expect(visited).toContain("gantt-share-beakerbot-spawn");
-    expect(visited).toContain("gantt-share-beakerbot-shares");
     expect(visited).toContain("gantt-share-user-explores");
     expect(visited).toContain("gantt-share-user-shares-back");
     expect(visited).toContain("gantt-share-profile-switch");
@@ -1258,8 +1257,9 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
     //
     // Gantt manager: lab tour Phase 3 retired (lab-prompt /
     // lab-spawn-beakerbot / lab-permission-practice gone), only
-    // lab-cleanup survives. §6.8 Gantt share cluster adds 7 lab-only
-    // steps gated on account_type === "lab".
+    // lab-cleanup survives. §6.8 Gantt share cluster adds 6 lab-only
+    // steps gated on account_type === "lab" (collapsed from 10 by tour
+    // simplification pass 4 2026-06-03).
     //
     // Purchases manager: single `purchases` id grew into an 8-step
     // cluster (purchases-intro through purchases-back-to-real).
@@ -1290,10 +1290,10 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
     // Solo+minimal skips: 4 prior conditionals (telegram, calendar,
     // links, gantt-goals-overview) + 4 ai-helper-* (Wave 1 2026-05-27
     // added ai-helper-size-options to the trio, all 4 share the same
-    // gate) + 8 purchases cluster + 1 lab-cleanup + 10 Gantt share
+    // gate) + 8 purchases cluster + 1 lab-cleanup + 6 Gantt share
     // cluster + 1 settings-tour-* conditional (telegram; calendar's
     // settings beat retired 2026-05-27, account-type-toggle FIRES for
-    // solo) + 1 setup-q1c (lab-only) = 29 gated out for solo. Constant
+    // solo) + 1 setup-q1c (lab-only) = 25 gated out for solo. Constant
     // dropped from 28 to 27 on 2026-05-27 when the settings-tour-calendar
     // step was retired, then rose from 27 to 29 on 2026-05-28 when
     // share-back user-action manager split gantt-share-user-shares-back
@@ -1301,8 +1301,12 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
     // share-dialog manager split gantt-share-user-fills-dialog into Add +
     // Save beats, then dropped from 30 to 29 on 2026-06-02 when the
     // inline-editor collapse removed the branch-gated HE-3
-    // (hybrid-markdown-overview) from TOUR_STEP_ORDER.
-    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 29);
+    // (hybrid-markdown-overview) from TOUR_STEP_ORDER, then dropped from
+    // 29 to 25 on 2026-06-03 when tour simplification pass 4 collapsed the
+    // Gantt share cluster from 10 lab-only beats to 6 (cut
+    // beakerbot-shares + the clicks-share / fills-dialog / saves-dialog
+    // field walk).
+    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 25);
     // Lab+max: inline-editor collapse (onboarding-inline bot 2026-06-02)
     // removed the branch-gated HE-3 (hybrid-markdown-overview), which used
     // to be gated out on the lab path too. Now only

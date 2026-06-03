@@ -333,20 +333,20 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "gantt-deps-beakerbot",         // universal: BeakerBot wires fake A → user
   "gantt-deps-user",              // universal: USER wires fake B → user (page-lock)
   "gantt-deps-cascade",           // universal: BeakerBot moves head, cascade fires
-  // Lab-only share-feature cluster (7 beats). Conditional on
+  // Lab-only share-feature cluster (6 beats). Conditional on
   // picks.account_type === "lab"; solo accounts skip the whole cluster.
+  // Tour simplification pass 4 2026-06-03 (HR / tour-simplification):
+  // collapsed 10 to 6. The redundant `gantt-share-beakerbot-shares`
+  // popup-open beat was cut (gantt-share-user-explores already reopens the
+  // shared popup in its onEnter), and the 3-beat share-dialog field walk
+  // (clicks-share / fills-dialog / saves-dialog) merged back into the
+  // single user-action `gantt-share-user-shares-back` beat, which now owns
+  // the share-completion poll plus the ensureBeakerBotUser /
+  // spawnGanttRedesignFakeTasks guards.
   "gantt-share-intro",            // lab: explain task sharing
-  "gantt-share-beakerbot-spawn",  // lab: BeakerBot spawns coffee experiment
-  "gantt-share-beakerbot-shares", // lab: BeakerBot shares the experiment with user
+  "gantt-share-beakerbot-spawn",  // lab: BeakerBot spawns + shares coffee experiment
   "gantt-share-user-explores",    // lab: user-action, explore the shared experiment
-  // share-back user-action manager (2026-05-28): the single
-  // `gantt-share-user-shares-back` cursor demo is now a 3-beat
-  // USER_ACTION cluster (click Fake A, click Share, fill the dialog).
-  // The first id is preserved for migration continuity.
-  "gantt-share-user-shares-back", // lab: user-action, click Fake A to open popup
-  "gantt-share-user-clicks-share",// lab: user-action, click Share on the popup
-  "gantt-share-user-fills-dialog",// lab: user-action, pick beakerbot + edit, click Add
-  "gantt-share-user-saves-dialog",// lab: user-action, click Save to persist the share
+  "gantt-share-user-shares-back", // lab: user-action, share a chain back (poll-gated)
   "gantt-share-profile-switch",   // lab: REAL user-context switch (faked-flagged)
   "gantt-share-user-sees-edit",   // lab: user-action, open popup to see BeakerBot's note
   // Goals overview — RELOCATED to after the share cluster per
@@ -540,12 +540,8 @@ const GANTT_SHARE_LAB_ONLY_STEP_IDS: ReadonlySet<TourStepId> =
   new Set<TourStepId>([
     "gantt-share-intro",
     "gantt-share-beakerbot-spawn",
-    "gantt-share-beakerbot-shares",
     "gantt-share-user-explores",
     "gantt-share-user-shares-back",
-    "gantt-share-user-clicks-share",
-    "gantt-share-user-fills-dialog",
-    "gantt-share-user-saves-dialog",
     "gantt-share-profile-switch",
     "gantt-share-user-sees-edit",
   ]);

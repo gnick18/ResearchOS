@@ -452,14 +452,13 @@ export default function WelcomeWizardPage() {
       </Steps>
 
       <p>
-        <strong>Lab accounts only</strong> (gated on Q1 = lab): seven share-feature beats follow the universal arc:
+        <strong>Lab accounts only</strong> (gated on Q1 = lab): six share-feature beats follow the universal arc:
       </p>
       <Steps>
         <Step><strong>gantt-share-intro.</strong> BeakerBot explains cross-lab experiment sharing: both people see the task on Gantt and task lists; only the creator can delete it; permissions are edit or read-only.</Step>
-        <Step><strong>gantt-share-beakerbot-spawn.</strong> BeakerBot spawns a temporary second lab account (itself, tagged <code>is_tutorial: true</code>) and creates a &quot;Make some coffee together&quot; experiment.</Step>
-        <Step><strong>gantt-share-beakerbot-shares.</strong> BeakerBot&apos;s account shares the coffee experiment with you. It appears on your Gantt.</Step>
+        <Step><strong>gantt-share-beakerbot-spawn.</strong> BeakerBot spawns a temporary second lab account (itself, tagged <code>is_tutorial: true</code>), creates a &quot;Make some coffee together&quot; experiment, and shares it with you so it appears on your Gantt.</Step>
         <Step><strong>gantt-share-user-explores.</strong> User-action: you open the shared experiment popup to explore it. Page lock active.</Step>
-        <Step><strong>gantt-share-user-shares-back.</strong> User-action: you share one of your own experiments back with BeakerBot. Page lock active.</Step>
+        <Step><strong>gantt-share-user-shares-back.</strong> User-action: you share one of your own experiments back with BeakerBot (open it, click Share, pick a labmate, choose view or edit, and save). Page lock active.</Step>
         <Step><strong>gantt-share-profile-switch.</strong> BeakerBot performs a real (or faked) profile switch to show the BeakerBot-account perspective.</Step>
         <Step><strong>gantt-share-user-sees-edit.</strong> User-action: open the shared experiment popup to read BeakerBot&apos;s variation note. Page lock active.</Step>
       </Steps>

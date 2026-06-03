@@ -151,23 +151,23 @@ export const TOUR_DOM_EVENTS = {
   experimentMethodsTabActive: "tour:experiment-methods-tab-active",
   /**
    * Dispatched by `ShareDialog.tsx` when the dialog opens (its `isOpen`
-   * effect flips true). The §6.8 `gantt-share-user-clicks-share`
-   * USER_ACTION beat (share-back user-action manager 2026-05-28) advances
-   * on this so the follow-up `gantt-share-user-fills-dialog` beat takes
-   * over the moment the share dialog is on screen. Mirrors the
-   * popup-mount events (experimentPopupOpened, methodsPickerOpened):
-   * cheap fire-and-forget, no detail payload.
+   * effect flips true). Tour simplification pass 4 2026-06-03 collapsed the
+   * §6.8 share-back field walk into one poll-gated beat, so no gantt-share
+   * beat consumes this today; the dispatch + `watchShareDialogOpened` are
+   * retained (still unit-tested) for general reuse. Mirrors the popup-mount
+   * events (experimentPopupOpened, methodsPickerOpened): cheap
+   * fire-and-forget, no detail payload.
    */
   shareDialogOpened: "tour:share-dialog-opened",
   /**
    * Dispatched by `ShareDialog.tsx` from `handleAdd` when the user adds a
    * user to the in-dialog "Currently shared with" list (the Add button
-   * only mutates local dialog state; Save persists). The §6.8
-   * `gantt-share-user-fills-dialog` beat (share-dialog manager 2026-05-28)
-   * advances on this so BeakerBot can acknowledge the Add, then the
-   * follow-up `gantt-share-user-saves-dialog` beat guides the Save.
-   * Detail carries `{ username, level }` so the listener can filter to
-   * beakerbot before advancing.
+   * only mutates local dialog state; Save persists). Tour simplification
+   * pass 4 2026-06-03 collapsed the §6.8 share-back field walk into one
+   * poll-gated beat, so no gantt-share beat consumes this today; the
+   * dispatch + `watchShareUserAdded` are retained (still unit-tested) for
+   * general reuse. Detail carries `{ username, level }` so a listener can
+   * filter to beakerbot before advancing.
    */
   shareUserAdded: "tour:share-user-added",
   /**
@@ -947,9 +947,11 @@ export function watchExperimentMethodsTabActive(
  * Watch for the share dialog to open. `ShareDialog.tsx` dispatches
  * `tour:share-dialog-opened` from its `isOpen` effect when the dialog
  * flips open (the user clicked the Share button on the TaskDetailPopup).
- * The §6.8 `gantt-share-user-clicks-share` USER_ACTION beat advances on
- * this so the follow-up `gantt-share-user-fills-dialog` beat takes over
- * the moment the dialog is on screen. Mirrors `watchExperimentPopupOpened`.
+ * Mirrors `watchExperimentPopupOpened`. NOTE (tour simplification pass 4
+ * 2026-06-03): the §6.8 `gantt-share-user-clicks-share` beat that consumed
+ * this was collapsed into the single `gantt-share-user-shares-back` beat,
+ * which now poll-gates on the persisted share rather than this event. This
+ * helper is retained (still unit-tested) for general reuse.
  *
  * DOM-mount fallback watches for the dialog's `share-dialog` anchor so a
  * future refactor that drops the explicit dispatch still trips the
@@ -996,10 +998,12 @@ export function watchShareDialogOpened(advance: () => void): () => void {
 /**
  * Watch for a user to be added to the share dialog's in-dialog list.
  * `ShareDialog.tsx` dispatches `tour:share-user-added` from `handleAdd`
- * when the user clicks Add (local dialog state only; Save persists). The
- * §6.8 `gantt-share-user-fills-dialog` beat (share-dialog manager
- * 2026-05-28) advances on this so BeakerBot can acknowledge the Add and
- * the follow-up `gantt-share-user-saves-dialog` beat can guide the Save.
+ * when the user clicks Add (local dialog state only; Save persists). NOTE
+ * (tour simplification pass 4 2026-06-03): the §6.8
+ * `gantt-share-user-fills-dialog` beat that consumed this was collapsed
+ * into the single `gantt-share-user-shares-back` beat, which poll-gates on
+ * the persisted share. This helper is retained (still unit-tested) for
+ * general reuse.
  *
  * Unlike the fire-and-forget popup-mount watchers, this helper forwards
  * the event detail (`{ username, level }`) to the callback so the step

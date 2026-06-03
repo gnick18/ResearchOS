@@ -109,12 +109,8 @@ import { ganttDepsCascadeStep } from "../GanttDepsCascadeStep";
 import {
   ganttShareIntroStep,
   ganttShareBeakerBotSpawnStep,
-  ganttShareBeakerBotSharesStep,
   ganttShareUserExploresStep,
   ganttShareUserSharesBackStep,
-  ganttShareUserClicksShareStep,
-  ganttShareUserFillsDialogStep,
-  ganttShareUserSavesDialogStep,
   ganttShareProfileSwitchStep,
   ganttShareUserSeesEditStep,
 } from "../GanttShareClusterSteps";
@@ -222,14 +218,15 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   ganttDepsBeakerBotStep,
   ganttDepsUserStep,
   ganttDepsCascadeStep,
+  // Tour simplification pass 4 2026-06-03 (HR / tour-simplification):
+  // collapsed the share cluster 10 to 6. The redundant beakerbot-shares
+  // popup-open beat and the 3-beat share-dialog field walk (clicks-share /
+  // fills-dialog / saves-dialog) were cut; gantt-share-user-shares-back is
+  // now one poll-gated user-action beat.
   ganttShareIntroStep,
   ganttShareBeakerBotSpawnStep,
-  ganttShareBeakerBotSharesStep,
   ganttShareUserExploresStep,
   ganttShareUserSharesBackStep,
-  ganttShareUserClicksShareStep,
-  ganttShareUserFillsDialogStep,
-  ganttShareUserSavesDialogStep,
   ganttShareProfileSwitchStep,
   ganttShareUserSeesEditStep,
   ganttGoalsStep,
@@ -315,15 +312,13 @@ describe("P5 step bodies — universal contract", () => {
       "gantt-deps-cascade",
       "gantt-share-intro",
       "gantt-share-beakerbot-spawn",
-      "gantt-share-beakerbot-shares",
       "gantt-share-user-explores",
-      // share-back user-action manager 2026-05-28: the single
-      // gantt-share-user-shares-back cursor demo is now a 3-beat
-      // USER_ACTION cluster (click Fake A, click Share, fill the dialog).
+      // Tour simplification pass 4 2026-06-03 (HR / tour-simplification):
+      // collapsed 10 to 6. The redundant beakerbot-shares popup-open beat
+      // and the 3-beat share-dialog field walk (clicks-share / fills-dialog
+      // / saves-dialog) were cut; gantt-share-user-shares-back is now one
+      // poll-gated user-action beat.
       "gantt-share-user-shares-back",
-      "gantt-share-user-clicks-share",
-      "gantt-share-user-fills-dialog",
-      "gantt-share-user-saves-dialog",
       "gantt-share-profile-switch",
       "gantt-share-user-sees-edit",
       "gantt-goals-overview",
@@ -479,7 +474,10 @@ describe("P5 step bodies — universal contract", () => {
       ganttDragDropStep,
       ganttDepsBeakerBotStep,
       ganttDepsCascadeStep,
-      ganttShareBeakerBotSharesStep,
+      // Tour simplification pass 4 2026-06-03 (HR / tour-simplification):
+      // `ganttShareBeakerBotSharesStep` was CUT. Its popup-open cursor
+      // demo was redundant (the explore beat reopens the shared popup in
+      // its onEnter), so it no longer belongs in this cursor-script list.
       // `ganttGoalsStep` (gantt-goals-overview) is intentionally
       // EXCLUDED: the gantt cluster consolidation manager (2026-05-27,
       // Bug #36) reclassified it from BeakerBot-demo to NARRATION. The
