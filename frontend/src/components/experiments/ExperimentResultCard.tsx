@@ -62,7 +62,7 @@ interface ExperimentResultCardProps {
    *
    * When `compact` is true:
    *  - no image AND no preview -> the 128px hero is dropped entirely in
-   *    favor of a thin (~6px) full-width color strip tinted with the
+   *    favor of a subtle left accent border (border-l-4) tinted with the
    *    task's `experiment_color` (same source the hero gradient uses), so
    *    media-less in-flight cards collapse to a tight title/footer row.
    *  - image OR preview present -> a shorter 96px (h-24) hero instead of
@@ -114,25 +114,21 @@ export default function ExperimentResultCard({
       // Per-row id keeps the selector specific so a future tour beat
       // can target a particular experiment if needed.
       data-tour-target={`workbench-experiment-row-${task.id}`}
-      className="group text-left bg-white rounded-xl border border-gray-200 overflow-hidden hover:border-emerald-300 hover:shadow-sm transition flex flex-col"
+      className={`group text-left bg-white rounded-xl border border-gray-200 overflow-hidden hover:border-emerald-300 hover:shadow-sm transition flex flex-col${
+        stripOnly ? " border-l-4" : ""
+      }`}
+      style={stripOnly ? { borderLeftColor: heroBg } : undefined}
     >
       {stripOnly ? (
-        // Thin color strip stands in for the dropped hero. Same
-        // experiment_color tint source the gradient hero uses, rendered
-        // as a ~6px full-width bar at the card top. The shared indicator
-        // (if any) still needs a home, so it floats over the strip.
-        <div className="relative">
-          <div
-            className="h-1.5 w-full"
-            style={{
-              background: `linear-gradient(90deg, ${heroBg}cc 0%, ${heroBg}66 100%)`,
-            }}
-            aria-hidden
-          />
-          {sharedIndicator ? (
+        // Media-less compact card: no hero, just a tasteful color spine on
+        // the card's left edge (border-l-4 above, tinted with the same
+        // experiment_color source the gradient hero uses). The shared
+        // indicator (if any) still needs a home, so it floats top-right.
+        sharedIndicator ? (
+          <div className="relative">
             <div className="absolute top-2 right-2">{sharedIndicator}</div>
-          ) : null}
-        </div>
+          </div>
+        ) : null
       ) : (
         <div
           className={`relative ${compact ? "h-24" : "h-32"} w-full overflow-hidden flex items-center justify-center`}
