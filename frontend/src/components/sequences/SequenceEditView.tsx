@@ -480,6 +480,14 @@ export default function SequenceEditView({
     }
     let raf = 0;
     let sc: HTMLElement | null = null;
+    // ACCURACY FIX: SeqViz mounts the linear scroller BEFORE its rows finish
+    // wrapping, so the scroller's scrollHeight grows asynchronously over many
+    // frames after attach (and after a client-side route reload). A fixed-time
+    // settle window is racy; instead we watch scrollHeight on the rAF loop and
+    // recompute the visible window WHENEVER it changes from the last value seen.
+    // That converges the viewport box to the true visible range no matter how
+    // long the row layout takes to settle, with near-zero steady-state cost.
+    let lastScrollHeight = -1;
     const onScroll = () => recomputeWindow();
     const attach = () => {
       const found = viewerRef.current?.querySelector<HTMLElement>(".la-vz-linear-scroller") ?? null;
@@ -488,6 +496,10 @@ export default function SequenceEditView({
         sc = found;
         scrollerRef.current = sc;
         sc.addEventListener("scroll", onScroll, { passive: true });
+        lastScrollHeight = -1;
+      }
+      if (sc && sc.scrollHeight !== lastScrollHeight) {
+        lastScrollHeight = sc.scrollHeight;
         recomputeWindow();
       }
       raf = requestAnimationFrame(attach);
