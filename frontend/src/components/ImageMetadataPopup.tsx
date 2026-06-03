@@ -49,7 +49,6 @@ export default function ImageMetadataPopup({
   const activeTask = useAppStore((s) => s.activeTask);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [sidecar, setSidecar] = useState<ImageSidecar | null>(null);
-  const [caption, setCaption] = useState("");
   const [description, setDescription] = useState("");
   const [renameInput, setRenameInput] = useState(filename);
   const [renameError, setRenameError] = useState<string | null>(null);
@@ -72,7 +71,6 @@ export default function ImageMetadataPopup({
       const existing = await fileService.readJson<ImageSidecar>(sidecarFsPath);
       if (cancelled) return;
       setSidecar(existing);
-      setCaption(existing?.caption ?? "");
       setDescription(existing?.description ?? "");
       setLoaded(true);
     })();
@@ -86,7 +84,6 @@ export default function ImageMetadataPopup({
     try {
       const next: ImageSidecar = {
         ...sidecar,
-        caption: caption.trim() || undefined,
         description: description.trim() || undefined,
       };
       await fileService.writeJson(sidecarFsPath, next);
@@ -153,7 +150,6 @@ export default function ImageMetadataPopup({
       // file move. If the move fails, the sidecar update is still useful.
       const next: ImageSidecar = {
         ...sidecar,
-        caption: caption.trim() || undefined,
         description: description.trim() || undefined,
       };
       await fileService.writeJson(sidecarFsPath, next);
@@ -218,18 +214,6 @@ export default function ImageMetadataPopup({
               <p className="text-sm text-gray-500">Loading…</p>
             ) : (
               <>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
-                    Caption
-                  </label>
-                  <input
-                    type="text"
-                    value={caption}
-                    onChange={(e) => setCaption(e.target.value)}
-                    placeholder="Used as alt-text when dragged into the note"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">
                     Description
