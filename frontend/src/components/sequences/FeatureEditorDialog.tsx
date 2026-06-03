@@ -24,6 +24,12 @@ import {
   FEATURE_TYPE_COLORS,
   colorForType,
 } from "@/lib/sequences/feature-colors";
+import FeatureSegmentDiagram from "./FeatureSegmentDiagram";
+import StrandSelector, {
+  type StrandDisplay,
+  displayToStrand,
+  strandToDisplay,
+} from "./StrandSelector";
 
 /** A common starter set of feature types for the selector. The free-text input
  *  still allows any GenBank type (the parsed file may carry others). */
@@ -71,6 +77,10 @@ export default function FeatureEditorDialog({
   const [name, setName] = useState("");
   const [type, setType] = useState("misc_feature");
   const [strand, setStrand] = useState<1 | -1>(1);
+  // The selector's visual choice (4 SnapGene states). Only +1/-1 round-trips to
+  // the .gb (see StrandSelector caveat); `strand` stays the source of truth for
+  // persistence, `strandDisplay` drives the diagram's arrowheads.
+  const [strandDisplay, setStrandDisplay] = useState<StrandDisplay>("forward");
   // Geometry source of truth: the SEGMENT TABLE, 0-based [start, end). A
   // single-segment feature is one row; >1 row persists as a GenBank join().
   const [segments, setSegments] = useState<FeatureSegment[]>([{ start: 0, end: 1 }]);
@@ -86,7 +96,9 @@ export default function FeatureEditorDialog({
     const i = request.initial;
     setName(i.name);
     setType(i.type || "misc_feature");
-    setStrand(i.strand === -1 ? -1 : 1);
+    const seededStrand = i.strand === -1 ? -1 : 1;
+    setStrand(seededStrand);
+    setStrandDisplay(strandToDisplay(seededStrand));
     // Segments: explicit table if provided, else a single row from the range.
     setSegments(
       i.segments && i.segments.length
@@ -153,6 +165,16 @@ export default function FeatureEditorDialog({
 
   const isAdd = request.mode === "add";
   const readOnly = request.mode === "view";
+
+  // Strand selector: keep the persisted +1/-1 in sync with the visual choice.
+  const onStrandChange = (next: StrandDisplay) => {
+    setStrandDisplay(next);
+    setStrand(displayToStrand(next));
+  };
+  // What the diagram should draw: 0 (no arrowheads) for "none", +1/-1 otherwise.
+  // Bidirectional draws forward arrowheads (the persisted strand is +1).
+  const diagramStrand: 1 | -1 | 0 =
+    strandDisplay === "none" ? 0 : strandDisplay === "reverse" ? -1 : 1;
 
   // --- segment table mutators (no-ops in read-only mode) ---
   const setSegStart = (idx: number, v: number) =>
@@ -225,6 +247,13 @@ export default function FeatureEditorDialog({
           ) : (
           <>
 
+          {/* Mini gene viewer: live segment diagram (SnapGene parity) */}
+          <FeatureSegmentDiagram
+            segments={segments}
+            strand={diagramStrand}
+            color={effectiveColor}
+          />
+
           {/* Name */}
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-gray-500">Name</span>
@@ -238,8 +267,8 @@ export default function FeatureEditorDialog({
           </label>
 
           {/* Type + strand */}
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block">
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="block min-w-[10rem] flex-1">
               <span className="mb-1 block text-xs font-medium text-gray-500">Type</span>
               <input
                 list="feature-type-options"
@@ -253,18 +282,16 @@ export default function FeatureEditorDialog({
                 ))}
               </datalist>
             </label>
-            <label className="block">
+            <div className="block">
               <span className="mb-1 block text-xs font-medium text-gray-500">Strand</span>
-              <select
-                value={strand}
-                onChange={(e) => setStrand(Number(e.target.value) === -1 ? -1 : 1)}
-                className="w-full rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-800 focus:border-sky-400 focus:outline-none"
-              >
-                <option value={1}>Forward (+)</option>
-                <option value={-1}>Reverse (-)</option>
-              </select>
-            </label>
+              <StrandSelector value={strandDisplay} onChange={onStrandChange} />
+            </div>
           </div>
+          {strandDisplay === "none" || strandDisplay === "both" ? (
+            <p className="-mt-1.5 text-[11px] text-gray-400">
+              GenBank stores a + or - strand only, so this saves as forward (+).
+            </p>
+          ) : null}
 
           {/* Segment table (multi-segment join() editing) */}
           <div>
@@ -560,7 +587,11 @@ function ReadOnlyBody({
   );
 
   return (
-    <div className="divide-y divide-gray-50">
+    <div>
+      <div className="pb-3">
+        <FeatureSegmentDiagram segments={segments} strand={strand} color={effectiveColor} />
+      </div>
+      <div className="divide-y divide-gray-50">
       <Row label="Name">{name || "(unnamed)"}</Row>
       <Row label="Type">{type || "misc_feature"}</Row>
       <Row label="Strand">{strand === -1 ? "Reverse (-)" : "Forward (+)"}</Row>
@@ -621,6 +652,7 @@ function ReadOnlyBody({
           </div>
         </div>
       ) : null}
+      </div>
     </div>
   );
 }
