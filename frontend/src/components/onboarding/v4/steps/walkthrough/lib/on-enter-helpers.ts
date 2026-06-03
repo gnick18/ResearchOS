@@ -30,7 +30,6 @@
  * HR-dispatched: v4 onEnter wiring sub-bot 2026-05-21.
  */
 import {
-  dependenciesApi,
   fetchAllTasks,
   goalsApi,
   projectsApi,
@@ -39,10 +38,6 @@ import {
 import { patchOnboarding } from "@/lib/onboarding/sidecar";
 import { appQueryClient } from "@/lib/query-client";
 import type { Project, Task } from "@/lib/types";
-import {
-  DEP_CHAIN_NAMES,
-  spawnDemoDependencyTasks,
-} from "../GanttDependenciesStep";
 import { appendArtifact } from "./artifacts";
 import { tourClickWithLockBypass, waitForElement } from "./cursor-script";
 import { ensureFirstExperimentExists } from "./ensure-helpers";
@@ -862,144 +857,6 @@ async function getActiveExperiment(projectId: number): Promise<Task | null> {
   } catch (err) {
     console.warn("[onboarding-v4] getActiveExperiment failed", err);
     return null;
-  }
-}
-
-/**
- * §6.10 `gantt-chained-deps` onEnter.
- *
- * Spawns three throwaway demo tasks (BeakerBot Boil / Brew / Sip) so
- * BeakerBot's "I made three throwaway tasks for you" speech matches
- * what the user sees in the Gantt. Idempotency check: if any task in
- * the active project already has a name in `DEP_CHAIN_NAMES`, skip
- * the spawn entirely. A second visit to the step (refresh mid-tour)
- * therefore reuses the same three tasks instead of producing six.
- *
- * Returns the list of task ids spawned this run (empty array on
- * skip-due-to-idempotency, empty array on missing-project). The
- * registry binding ignores the return; the value is exposed so a
- * future P12 patch can record artifact ids into the sidecar.
- */
-export async function onEnterGanttChainedDeps(ctx: {
-  username: string | null;
-}): Promise<number[]> {
-  const project = await getActiveProject();
-  if (!project) {
-    console.warn(
-      "[onboarding-v4] gantt-chained-deps: no active project; skip spawn",
-    );
-    return [];
-  }
-  try {
-    const existing = await tasksApi.listByProject(project.id);
-    const demoNameSet = new Set<string>(DEP_CHAIN_NAMES);
-    const alreadyPresent = existing.some((t) => demoNameSet.has(t.name));
-    if (alreadyPresent) return [];
-    const spawned = await spawnDemoDependencyTasks(project.id);
-    // v4 §6.8 cascade polish sub-bot 2026-05-21: create the A→B and
-    // B→C dependency edges here, NOT via cursor drags. BeakerBotCursor's
-    // `dragFromTo` primitive dispatches mouse events; the Gantt's
-    // bar-onto-bar drop handler (`handleDropOnTask`) listens for HTML5
-    // DragEvents, so the cursor's visual drag would not actually create
-    // the dep records. Without real edges, the third cursor drag (A
-    // onto a later date) would move A in isolation and B + C would
-    // stay put — defeating the cascade demo. Creating the edges here
-    // means the cursor's first two drags read as "watch me wire these
-    // up" while the data is already in place.
-    //
-    // `dep_type: "FS"` (Finish-to-Start) matches the default branch the
-    // user would pick from the dependency-creation popup if they were
-    // doing it by hand — see GanttChart's depPopup branches; "FS" is
-    // labelled "Start after" which is the most intuitive default for
-    // the demo's narrative ("chains move as a unit when you reschedule").
-    if (spawned.length === 3) {
-      // Wave 1 sidecar hardening manager (v2): destructure into named
-      // locals + explicit truthy checks. spawnDemoDependencyTasks types
-      // its return as `number[]`; a partial-failure path could still
-      // hand us `[undefined, undefined, undefined]` if a downstream
-      // refactor stops filtering. Guarding the IDs here means the dep
-      // create call below never gets a falsy parent_id / child_id.
-      const [aId, bId, cId] = spawned;
-      if (!aId || !bId || !cId) {
-        console.warn(
-          "[onboarding-v4] gantt-chained-deps: spawned ids missing; skip dep create",
-          { aId, bId, cId },
-        );
-      } else {
-        try {
-          await dependenciesApi.create({
-            parent_id: aId,
-            child_id: bId,
-            dep_type: "FS",
-          });
-          await dependenciesApi.create({
-            parent_id: bId,
-            child_id: cId,
-            dep_type: "FS",
-          });
-          // Refresh the Gantt's task + dependency queries so the bars
-          // and chain accents mount BEFORE the cursor's first visual
-          // drag fires. Without this refetch, the user would briefly
-          // see three unlinked bars (then a delayed chain render) which
-          // breaks the "I wired them up" narrative.
-          await Promise.all([
-            appQueryClient.refetchQueries({ queryKey: ["tasks"] }),
-            appQueryClient.refetchQueries({ queryKey: ["dependencies"] }),
-          ]);
-        } catch (err) {
-          // Dependency creation failure is non-fatal: the demo still
-          // shows three bars, just without the cascade. Surface in the
-          // console so authors can spot it during dev.
-          console.warn(
-            "[onboarding-v4] gantt-chained-deps: dep create failed",
-            err,
-          );
-        }
-      }
-    } else {
-      // Wave 1 sidecar hardening manager (v2): explicit log on the
-      // partial-spawn path. Previously a < 3 result silently dropped
-      // the dependency-edge creation, leaving the user with N bars and
-      // no cascade — defeating the demo with no console trail.
-      console.warn(
-        "[onboarding-v4] gantt-chained-deps: expected 3 spawned tasks, got",
-        spawned.length,
-      );
-    }
-    // Record one `task` artifact per spawned demo so the Phase 4
-    // cleanup grid shows three rows under "Tasks" with
-    // cleanup_default "discard". Type stays `task` (the brief reconciled
-    // the docstring's hypothetical `demo_dep_task` to the canonical
-    // `task` type — Phase4CleanupStep groups by type and a one-off
-    // `demo_dep_task` would land in the tail "Other" section).
-    // Username-gated: a missing user is best-effort, the spawn still
-    // ran. cleanup-execution.ts `case "task"` already routes to
-    // tasksApi.delete.
-    if (ctx.username) {
-      for (const taskId of spawned) {
-        try {
-          await patchOnboarding(ctx.username, (cur) =>
-            appendArtifact(cur, {
-              type: "task",
-              id: String(taskId),
-              cleanup_default: "discard",
-            }),
-          );
-        } catch (err) {
-          console.warn(
-            "[onboarding-v4] gantt-chained-deps artifact persist failed",
-            err,
-          );
-        }
-      }
-    }
-    return spawned;
-  } catch (err) {
-    console.warn(
-      "[onboarding-v4] gantt-chained-deps onEnter spawn failed",
-      err,
-    );
-    return [];
   }
 }
 

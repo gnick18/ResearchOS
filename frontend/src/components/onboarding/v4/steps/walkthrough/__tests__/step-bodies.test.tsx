@@ -114,15 +114,6 @@ import {
   ganttShareProfileSwitchStep,
   ganttShareUserSeesEditStep,
 } from "../GanttShareClusterSteps";
-// §6.8 Gantt redesign 2026-05-22 (Gantt manager): the legacy
-// `ganttDependenciesStep` + `DEP_CHAIN_NAMES` exports remain in
-// `GanttDependenciesStep.tsx` for git-history reference but the step
-// no longer participates in the active flow. Import only the
-// constants test (last assertion in this file uses them).
-import {
-  ganttDependenciesStep,
-  DEP_CHAIN_NAMES,
-} from "../GanttDependenciesStep";
 import { ganttGoalsStep } from "../GanttGoalsStep";
 import { animationPickerStep } from "../AnimationPickerStep";
 // §6.10 Settings phase redesign 2026-05-22 (Settings manager):
@@ -1099,18 +1090,6 @@ describe("Gantt steps (§6.8) — Gantt manager redesign 2026-05-22", () => {
   });
   it("deps-cascade step uses manual completion", () => {
     expect(ganttDepsCascadeStep.completion.type).toBe("manual");
-  });
-  it("legacy DEP_CHAIN_NAMES export is preserved for git-history reference", () => {
-    // Regression guard: the legacy chain-names constant lives in the
-    // deprecated GanttDependenciesStep.tsx for the back-compat test
-    // imports. New code should never reference these strings.
-    expect(DEP_CHAIN_NAMES).toEqual([
-      "BeakerBot Boil",
-      "BeakerBot Brew",
-      "BeakerBot Sip",
-    ]);
-    // Legacy step body still exists but is not in the registry.
-    expect(ganttDependenciesStep.id).toBe("gantt-chained-deps");
   });
   it("goals step is gated on picks.goals === 'yes'", () => {
     const yes: FeaturePicks = {

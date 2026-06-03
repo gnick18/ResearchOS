@@ -60,7 +60,7 @@ export const settingsTourFolderStep = buildWalkthroughStep({
   expectedRoute: "/settings",
 });
 
-// §6.10b — Calendar feeds narration (`settings-tour-calendar`, gated on
+// §6.10b: Calendar feeds narration (`settings-tour-calendar`, gated on
 // Q3=yes) retired 2026-05-27 (Grant hand-walk) and deleted 2026-06-03
 // (HR / tour-cleanup): no dedicated calendar-feeds section exists on
 // /settings, so the beat narrated UI the user couldn't see. Feed
