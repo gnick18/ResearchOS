@@ -3,6 +3,7 @@ import * as React from "react";
 
 import { InputRefFunc } from "../SelectionHandler";
 import { CHAR_WIDTH } from "../SeqViewerContainer";
+import AnnotationDoubleClickContext from "../annotationDoubleClickContext";
 import CentralIndexContext from "../centralIndexContext";
 import { Annotation, Coor, CutSite, Highlight, Range, Size } from "../elements";
 import { stackElements } from "../elementsToRows";
@@ -427,6 +428,9 @@ const CircularPrimers = (props: {
   seqLength: number;
 }) => {
   const { findCoor, getRotation, inputRef, primers, radius, seqLength } = props;
+  // RESEARCHOS (primer dialog bot): double-clicking a circular primer marker
+  // opens the Edit Primer dialog (same context the annotations use).
+  const onAnnotationDoubleClick = React.useContext(AnnotationDoubleClickContext);
   if (!primers || !primers.length || !seqLength) return null;
 
   const tickInner = radius - 2; // tick starts just inside the plasmid edge
@@ -454,8 +458,14 @@ const CircularPrimers = (props: {
         const id = p.id || `circular-primer-${p.name}-${p.start}-${p.end}-${i}`;
         const coordLabel = `${p.name} (${p.start + 1}..${p.end})`;
 
+        const handleDoubleClick = (e: React.MouseEvent) => {
+          if (!onAnnotationDoubleClick) return;
+          e.stopPropagation();
+          onAnnotationDoubleClick({ name: p.name, start: p.start, end: p.end, direction: p.direction });
+        };
+
         return (
-          <g key={id} transform={getRotation(mid)}>
+          <g key={id} cursor="pointer" transform={getRotation(mid)} onDoubleClick={handleDoubleClick}>
             <title>{coordLabel}</title>
             <line
               ref={inputRef(id, {

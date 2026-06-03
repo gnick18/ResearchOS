@@ -73,6 +73,14 @@ function IconCopy({ className }: { className?: string }) {
     </svg>
   );
 }
+function IconPencil({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" />
+    </svg>
+  );
+}
 function IconCheck({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
@@ -157,6 +165,8 @@ export interface SequencePrimersPanelProps {
   /** Current selection [start, end) (forward coords), or null. */
   selection: { start: number; end: number } | null;
   onSelectPrimer: (index: number) => void;
+  /** Open the SnapGene-style Edit Primer dialog for a primer_bind feature. */
+  onEditPrimer?: (index: number) => void;
   selectedIndex: number | null;
   /** Open the PrimerDialog to add a custom (typed/pasted) primer with alignment. */
   onAddCustomPrimer: () => void;
@@ -186,6 +196,7 @@ export default function SequencePrimersPanel({
   template,
   selection,
   onSelectPrimer,
+  onEditPrimer,
   selectedIndex,
   onAddCustomPrimer,
   onAddPrimer,
@@ -448,6 +459,18 @@ export default function SequencePrimersPanel({
                             </span>
                           ) : null}
                         </button>
+                        {onEditPrimer ? (
+                          <Tooltip label="Edit this primer (name, sequence, phosphorylation)">
+                            <button
+                              type="button"
+                              onClick={() => onEditPrimer(index)}
+                              aria-label={`Edit primer ${f.name}`}
+                              className="rounded p-1 text-gray-300 opacity-0 transition-opacity hover:bg-gray-100 hover:text-sky-600 group-hover:opacity-100"
+                            >
+                              <IconPencil className="h-3.5 w-3.5" />
+                            </button>
+                          </Tooltip>
+                        ) : null}
                         {seq ? (
                           <Tooltip label="Check this primer (Tm, dimers, hairpin, binding)">
                             <button

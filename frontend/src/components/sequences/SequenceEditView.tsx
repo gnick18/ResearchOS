@@ -57,6 +57,16 @@ import FeatureEditorDialog, {
 } from "./FeatureEditorDialog";
 import EnzymePickerDialog from "./EnzymePickerDialog";
 import PrimerDialog, { type PrimerDialogRequest } from "./PrimerDialog";
+import PrimerEditorDialog, {
+  type PrimerEditorRequest,
+} from "./PrimerEditorDialog";
+import {
+  readPrimerSeq,
+  readPrimerDescription,
+  readPrimerPhosphorylated,
+  buildPrimerQualifiers,
+} from "@/lib/sequences/primer-feature";
+import { reverseComplement } from "@/lib/sequences/primer";
 import {
   DEFAULT_VIEW_STATE,
   isFeatureVisible,
@@ -257,6 +267,10 @@ export default function SequenceEditView({
   const [activeEnzymes, setActiveEnzymes] = useState<string[] | null>(null);
   // Phase 2e — the primer-design dialog (SnapGene "Add Primer"). null = closed.
   const [primerRequest, setPrimerRequest] = useState<PrimerDialogRequest | null>(null);
+  // primer dialog bot — the SnapGene-style "Edit Primer" dialog (distinct from
+  // PrimerDialog, the "Add Primer" flow). Opened by double-clicking a primer_bind
+  // feature or via the Primers list. null = closed.
+  const [primerEditor, setPrimerEditor] = useState<PrimerEditorRequest | null>(null);
   // When a feature row is clicked we drive the viewer selection to zoom it.
   const [externalSel, setExternalSel] = useState<{ start: number; end: number } | null>(null);
 
@@ -1009,6 +1023,72 @@ export default function SequenceEditView({
     [doc.features, doc.seq],
   );
 
+  // primer dialog bot — EDIT PRIMER. Open the SnapGene-style Edit Primer dialog
+  // for a primer_bind feature: seed name/description/oligo/phosphorylation from
+  // the feature's /note flags (primer-feature.ts), and re-derive the binding site
+  // from the (possibly edited) oligo on Save. Persistence goes through the SAME
+  // feature-update path FeatureEditorDialog uses (updateFeature via applyDocEdit),
+  // so the change lands on the map + round-trips to GenBank. When the oligo no
+  // longer anneals, we keep the previous geometry (strand/start/end) and only
+  // update the notes.
+  const openEditPrimer = useCallback(
+    (index: number) => {
+      const f = doc.features[index];
+      if (!f) return;
+      setSelectedFeatureIdx(index);
+      setPrimerEditor({
+        featureIndex: index,
+        template: doc.seq,
+        initialName: f.name,
+        initialDescription: readPrimerDescription(f),
+        // The stored oligo, or the template subsequence at the binding site when
+        // no /note "primer <SEQ>" flag is present (legacy / imported primers).
+        initialOligo:
+          readPrimerSeq(f) ||
+          (f.strand === -1
+            ? reverseComplement(doc.seq.slice(f.start, f.end))
+            : doc.seq.slice(f.start, f.end)),
+        initialPhosphorylated: readPrimerPhosphorylated(f),
+        readOnly,
+        onSubmit: ({ name, description, oligo, phosphorylated, site }) => {
+          editor.applyDocEdit((prev) => {
+            const cur = prev.features[index];
+            if (!cur) return prev;
+            const qualifiers = buildPrimerQualifiers(cur, {
+              oligo,
+              description,
+              phosphorylated,
+            });
+            // Re-derive geometry from the edited oligo; keep the previous span /
+            // strand when the oligo no longer anneals anywhere.
+            const start = site ? site.start : cur.start;
+            const end = site ? site.end : cur.end;
+            const strand: 1 | -1 = site ? (site.direction === -1 ? -1 : 1) : cur.strand === -1 ? -1 : 1;
+            return updateFeature(prev, index, {
+              name: name || "primer",
+              type: cur.type || "primer_bind",
+              strand,
+              start,
+              end,
+              color: cur.color,
+              qualifiers,
+            });
+          });
+          setPrimerEditor(null);
+        },
+        onDelete: readOnly
+          ? undefined
+          : () => {
+              editor.applyDocEdit((prev) => deleteFeature(prev, index));
+              setPrimerEditor(null);
+              setSelectedFeatureIdx(null);
+            },
+        onCancel: () => setPrimerEditor(null),
+      });
+    },
+    [doc.features, doc.seq, editor, readOnly],
+  );
+
   // DOUBLE-CLICK A FEATURE ON THE VIEWER -> open its editor (editable surface) or
   // its READ-ONLY info popup (readOnly surface). SeqViz assigns its own internal
   // ids to annotations, so we match the double-clicked annotation back to its
@@ -1025,10 +1105,15 @@ export default function SequenceEditView({
       if (index < 0) index = doc.features.findIndex((f) => f.start === range.start);
       if (index < 0) return;
       setSelectedFeatureIdx(index);
-      if (readOnly) openViewFeature(index);
+      // primer dialog bot — primers get the dedicated Edit Primer dialog (read +
+      // edit). Every other feature type opens the generic FeatureEditorDialog
+      // (its read-only "view" popup on the read-only surface) unchanged.
+      const isPrimer = (doc.features[index].type || "").toLowerCase() === "primer_bind";
+      if (isPrimer) openEditPrimer(index);
+      else if (readOnly) openViewFeature(index);
       else openEditFeature(index);
     },
-    [doc.features, openEditFeature, openViewFeature, readOnly],
+    [doc.features, openEditFeature, openViewFeature, openEditPrimer, readOnly],
   );
 
   const duplicateFeatureAt = useCallback(
@@ -1910,6 +1995,7 @@ export default function SequenceEditView({
                 setViewMode("sequence");
                 selectFeature(index);
               }}
+              onEditPrimer={openEditPrimer}
               selectedIndex={selectedFeatureIdx}
               onAddCustomPrimer={openPrimerDialog}
               onAddPrimer={addPrimerFeature}
@@ -1960,6 +2046,10 @@ export default function SequenceEditView({
 
       {/* Phase 2e — primer design dialog (Tm / GC / binding site / alignment). */}
       <PrimerDialog request={primerRequest} />
+
+      {/* primer dialog bot — SnapGene-style Edit Primer dialog for a primer_bind
+          feature (double-click a primer, or open from the Primers list). */}
+      <PrimerEditorDialog request={primerEditor} />
 
       {/* seq editops bot — right-click Edit context menu (selection-aware home). */}
       <SequenceContextMenu

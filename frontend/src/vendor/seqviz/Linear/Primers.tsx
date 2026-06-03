@@ -2,6 +2,7 @@
 import * as React from "react";
 
 import { InputRefFunc } from "../SelectionHandler";
+import AnnotationDoubleClickContext from "../annotationDoubleClickContext";
 import { NameRange } from "../elements";
 import { annotation, annotationLabel } from "../style";
 import { FindXAndWidthElementType } from "./SeqBlock";
@@ -111,6 +112,22 @@ const SingleNamedElement = (props: {
 }) => {
   const { element, elements, findXAndWidth, firstBase, index, inputRef, lastBase } = props;
 
+  // RESEARCHOS (primer dialog bot): primers fire the SAME double-click context as
+  // annotations so double-clicking a primer on the viewer opens the Edit Primer
+  // dialog. The host (SequenceEditView) routes primer_bind features to the
+  // primer-specific editor.
+  const onAnnotationDoubleClick = React.useContext(AnnotationDoubleClickContext);
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    if (!onAnnotationDoubleClick) return;
+    e.stopPropagation();
+    onAnnotationDoubleClick({
+      name: element.name,
+      start: element.start,
+      end: element.end,
+      direction: element.direction,
+    });
+  };
+
   const { color, direction, end, name, start } = element;
   const forward = direction === 1;
   const reverse = direction === -1;
@@ -215,6 +232,7 @@ const SingleNamedElement = (props: {
         onBlur={() => {
           // do nothing
         }}
+        onDoubleClick={handleDoubleClick}
         onFocus={() => {
           // do nothing
         }}
@@ -236,6 +254,7 @@ const SingleNamedElement = (props: {
         onBlur={() => {
           // do nothing
         }}
+        onDoubleClick={handleDoubleClick}
         onFocus={() => {
           // do nothing
         }}
