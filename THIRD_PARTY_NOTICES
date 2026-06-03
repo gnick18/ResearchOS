@@ -70,6 +70,10 @@ diff@9.0.0
   License: BSD-3-Clause
   Source:  https://github.com/kpdecker/jsdiff
 
+expr-eval-fork@3.0.3
+  License: MIT
+  Source:  https://github.com/jorenbroekema/expr-eval
+
 frappe-gantt@1.2.2
   License: MIT
   Source:  https://github.com/frappe/gantt
@@ -93,10 +97,6 @@ konva@10.3.0
 marked@18.0.4
   License: MIT
   Source:  https://github.com/markedjs/marked
-
-mathjs@15.2.0
-  License: Apache-2.0
-  Source:  https://github.com/josdejong/mathjs
 
 next@16.1.6
   License: MIT

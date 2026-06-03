@@ -37,8 +37,8 @@ describe("normalizeRepoUrl", () => {
   });
   test("strips git+ prefix and .git suffix", () => {
     assert.equal(
-      normalizeRepoUrl("git+https://github.com/josdejong/mathjs.git", undefined),
-      "https://github.com/josdejong/mathjs",
+      normalizeRepoUrl("git+https://github.com/jorenbroekema/expr-eval.git", undefined),
+      "https://github.com/jorenbroekema/expr-eval",
     );
   });
   test("converts git:// to https", () => {
@@ -111,10 +111,10 @@ describe("buildCredits", () => {
     }
   });
 
-  test("includes the two flagged attribution items: mathjs and the Biopython Tm port", () => {
-    const mathjs = credits.dependencies.find((d) => d.name === "mathjs");
-    assert.ok(mathjs, "mathjs should be a dependency");
-    assert.equal(mathjs.license, "Apache-2.0");
+  test("includes the two flagged attribution items: expr-eval-fork and the Biopython Tm port", () => {
+    const engine = credits.dependencies.find((d) => d.name === "expr-eval-fork");
+    assert.ok(engine, "expr-eval-fork should be a dependency");
+    assert.equal(engine.license, "MIT");
     const biopython = credits.vendored.find((v) => v.name.includes("Biopython"));
     assert.ok(biopython, "Biopython Tm port should be in the vendored section");
     assert.match(biopython.license, /BSD/);
@@ -138,13 +138,13 @@ describe("buildCredits", () => {
 
 describe("resolveDependency", () => {
   test("resolves a known dependency even when only the pnpm store has it", () => {
-    // mathjs is a real dependency; this exercises the normal hoisted path or
-    // the .pnpm store fallback (whichever the tree currently presents). Either
-    // way the version + license must come back, never a thrown 'not installed'.
-    const dep = resolveDependency("mathjs");
-    assert.equal(dep.name, "mathjs");
+    // expr-eval-fork is a real dependency; this exercises the normal hoisted
+    // path or the .pnpm store fallback (whichever the tree currently presents).
+    // Either way the version + license must come back, never a thrown 'not installed'.
+    const dep = resolveDependency("expr-eval-fork");
+    assert.equal(dep.name, "expr-eval-fork");
     assert.match(dep.version, /^\d+\.\d+\.\d+/);
-    assert.equal(dep.license, "Apache-2.0");
+    assert.equal(dep.license, "MIT");
   });
 
   test("throws loudly for a package that is genuinely not present anywhere", () => {

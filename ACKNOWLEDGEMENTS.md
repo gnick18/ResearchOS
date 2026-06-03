@@ -16,7 +16,7 @@ A few of the projects we rely on most, grouped by where you meet them.
 
 **Sequence and cloning tools.** Plasmid maps and the sequence editor lean on [Konva](https://github.com/konvajs/konva) and [react-konva](https://github.com/konvajs/react-konva) for canvas drawing, plus the vendored code credited below.
 
-**Calculators and the math layer.** [mathjs](https://github.com/josdejong/mathjs) is the expression engine behind the scientific calculator, and our primer melting temperature is ported from Biopython (see "Code we recycle").
+**Calculators and the math layer.** [expr-eval-fork](https://github.com/jorenbroekema/expr-eval) is the lightweight expression engine behind the scientific calculator, and our primer melting temperature is ported from Biopython (see "Code we recycle").
 
 **Charts, files, and state.** [Recharts](https://github.com/recharts/recharts) draws the dashboards, [frappe-gantt](https://github.com/frappe/gantt) the project timeline, [JSZip](https://github.com/Stuk/jszip) handles `.zip` bundles, [idb-keyval](https://github.com/jakearchibald/idb-keyval) backs offline-first storage, [Zustand](https://github.com/pmndrs/zustand) holds app state, [TanStack Query](https://github.com/TanStack/query) fetches and caches data, [date-fns](https://github.com/date-fns/date-fns) does the date math, and [@react-pdf/renderer](https://github.com/diegomura/react-pdf) generates PDF exports.
 
@@ -48,8 +48,8 @@ The calculators reproduce published methods. The parameters and equations come s
 
 The full per-package list with versions and source links is in [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES). Grouped by license, the runtime dependencies are:
 
-- **MIT** (30): @codemirror/commands, @codemirror/lang-markdown, @codemirror/language, @codemirror/state, @codemirror/view, @lezer/common, @lezer/highlight, @lezer/markdown, @react-pdf/renderer, @tanstack/react-query, @vercel/analytics, date-fns, frappe-gantt, konva, marked, next, react, react-dom, react-konva, react-markdown, recharts, rehype-highlight, rehype-raw, rehype-sanitize, remark-gfm, remark-parse, remark-rehype, turndown, unified, zustand
-- **Apache-2.0** (3): @vercel/speed-insights, idb-keyval, mathjs
+- **MIT** (31): @codemirror/commands, @codemirror/lang-markdown, @codemirror/language, @codemirror/state, @codemirror/view, @lezer/common, @lezer/highlight, @lezer/markdown, @react-pdf/renderer, @tanstack/react-query, @vercel/analytics, date-fns, expr-eval-fork, frappe-gantt, konva, marked, next, react, react-dom, react-konva, react-markdown, recharts, rehype-highlight, rehype-raw, rehype-sanitize, remark-gfm, remark-parse, remark-rehype, turndown, unified, zustand
+- **Apache-2.0** (2): @vercel/speed-insights, idb-keyval
 - **BSD-3-Clause** (1): diff
 - **MPL-2.0** (1): ical.js
 - **MIT OR GPL-3.0-or-later** (1): jszip

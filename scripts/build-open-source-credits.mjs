@@ -102,7 +102,7 @@ const HIGHLIGHT_GROUPS = [
     blurb:
       "Primer melting temperatures and a general scientific calculator.",
     pkgs: [
-      { pkg: "mathjs", note: "The expression engine behind the scientific calculator tab." },
+      { pkg: "expr-eval-fork", note: "The lightweight expression engine behind the scientific calculator tab." },
     ],
   },
   {

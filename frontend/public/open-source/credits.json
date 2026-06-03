@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-06-03T03:21:16.115Z",
+  "generatedAt": "2026-06-03T05:00:59.130Z",
   "appVersion": "0.2.0",
   "dependencyCount": 36,
   "licenseCounts": {
-    "MIT": 30,
-    "Apache-2.0": 3,
+    "MIT": 31,
+    "Apache-2.0": 2,
     "BSD-3-Clause": 1,
     "MPL-2.0": 1,
     "(MIT OR GPL-3.0-or-later)": 1
@@ -100,11 +100,11 @@
       "blurb": "Primer melting temperatures and a general scientific calculator.",
       "items": [
         {
-          "name": "mathjs",
-          "note": "The expression engine behind the scientific calculator tab.",
-          "version": "15.2.0",
-          "license": "Apache-2.0",
-          "repo": "https://github.com/josdejong/mathjs"
+          "name": "expr-eval-fork",
+          "note": "The lightweight expression engine behind the scientific calculator tab.",
+          "version": "3.0.3",
+          "license": "MIT",
+          "repo": "https://github.com/jorenbroekema/expr-eval"
         }
       ]
     },
@@ -326,6 +326,12 @@
       "repo": "https://github.com/kpdecker/jsdiff"
     },
     {
+      "name": "expr-eval-fork",
+      "version": "3.0.3",
+      "license": "MIT",
+      "repo": "https://github.com/jorenbroekema/expr-eval"
+    },
+    {
       "name": "frappe-gantt",
       "version": "1.2.2",
       "license": "MIT",
@@ -360,12 +366,6 @@
       "version": "18.0.4",
       "license": "MIT",
       "repo": "https://github.com/markedjs/marked"
-    },
-    {
-      "name": "mathjs",
-      "version": "15.2.0",
-      "license": "Apache-2.0",
-      "repo": "https://github.com/josdejong/mathjs"
     },
     {
       "name": "next",

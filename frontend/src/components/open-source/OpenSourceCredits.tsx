@@ -209,10 +209,10 @@ export default function OpenSourceCredits() {
               </p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <FeaturedCard
-                  title="mathjs"
-                  license="Apache-2.0"
-                  href="https://github.com/josdejong/mathjs"
-                  body="The expression engine behind the scientific calculator tab. mathjs turns a typed formula into a real evaluated result, complete with functions, constants, and angle modes."
+                  title="expr-eval-fork"
+                  license="MIT"
+                  href="https://github.com/jorenbroekema/expr-eval"
+                  body="The lightweight expression engine behind the scientific calculator tab. It turns a typed formula into a real evaluated result, complete with functions, constants, and angle modes."
                 />
                 <FeaturedCard
                   title="Biopython Tm port"
