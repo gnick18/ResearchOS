@@ -26,7 +26,7 @@ describe("ExperimentResultCard / MarkdownPreview", () => {
     expect(html).not.toMatch(/<h2[ >]/i);
     // The heading text survives — just rendered as a compact <strong>.
     expect(html).toContain("Results: Foo");
-    expect(html).toMatch(/<strong[^>]*class="[^"]*text-\[12px\][^"]*"[^>]*>/);
+    expect(html).toMatch(/<strong[^>]*class="[^"]*text-meta[^"]*"[^>]*>/);
   });
 
   it("renders markdown links as non-clickable spans (no <a href>)", () => {
