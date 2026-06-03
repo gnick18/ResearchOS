@@ -1217,16 +1217,15 @@ describe("MethodAttachment split sub-steps (§6.6 popup-mount split, 2026-05-21)
     }
     expect(methodAttachmentTabStep.completion.buttonLabel).toBe("Got it, next");
   });
-  it("tab sub-step speech defers the actual attach until after the methods cluster (FINAL reorder manager 2026-05-27)", () => {
-    // FINAL restructure: the Methods tab beat now closes with a
-    // promise to come back later (after the methods cluster) to
-    // actually attach a method. Future tense ("where you'll pin")
-    // matches the FINAL doc verbatim.
+  it("tab sub-step speech says what the Methods tab is for and defers the attach (voice pass 2026-06-03)", () => {
+    // Voice pass 2026-06-03: tightened to the point. The beat now states
+    // what the tab is for, then the build-then-attach sequence. The old
+    // "Six months from now..." scenario + "for now just know it exists"
+    // filler were cut as AI-speak.
     const text = renderSpeech(methodAttachmentTabStep);
-    expect(text).toMatch(/where you'll pin/);
-    expect(text).toMatch(/Six months from now/);
-    expect(text).toMatch(/come back here to actually attach a method later/);
-    expect(text).toMatch(/after you've built one/);
+    expect(text).toMatch(/where you attach the protocol/);
+    expect(text).toMatch(/stay tied to this experiment/);
+    expect(text).toMatch(/build a method first, then come back here to attach it/);
   });
 
   it("attach sub-step has id `experiment-attach-method-attach`", () => {

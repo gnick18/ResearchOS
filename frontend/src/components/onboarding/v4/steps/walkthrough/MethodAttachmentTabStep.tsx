@@ -37,23 +37,19 @@ import { withExperimentPopupOpen } from "./lib/on-enter-helpers";
 
 export const methodAttachmentTabStep = buildWalkthroughStep({
   id: "experiment-attach-method-tab",
-  // FINAL reorder manager 2026-05-27: two-paragraph speech per the
-  // FINAL script's §6.6 entry. First paragraph frames the Methods tab;
-  // second paragraph defers the actual attach to §6.7d (after methods
-  // cluster). Future tense ("where you'll pin") matches the FINAL doc
-  // exactly.
+  // Voice pass 2026-06-03 (Grant hand-walk): tightened to the point.
+  // First paragraph says what the Methods tab is for; second states the
+  // sequence (build first, attach here later). Cut the "six months from
+  // now..." scenario and the "for now just know it exists" filler that
+  // read as AI-speak.
   speech: (
     <>
       <p className="mb-2">
-        The <strong>Methods</strong> tab is where you&apos;ll pin the
-        protocol you actually followed for this run. Six months from now,
-        when you&apos;re trying to figure out why one experiment worked
-        and another didn&apos;t, this is what tells you exactly what
-        you did.
+        The <strong>Methods</strong> tab is where you attach the protocol
+        you followed, so the exact steps stay tied to this experiment.
       </p>
       <p>
-        We&apos;ll come back here to actually attach a method later,
-        after you&apos;ve built one. For now just know it exists.
+        You&apos;ll build a method first, then come back here to attach it.
       </p>
     </>
   ),
