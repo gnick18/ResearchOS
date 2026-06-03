@@ -407,7 +407,7 @@ export default function ExpandableListCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-start gap-2">
             <span
-              className={`text-sm flex-1 min-w-0 truncate ${
+              className={`text-body flex-1 min-w-0 truncate ${
                 task.is_complete
                   ? "text-gray-500 line-through"
                   : "text-gray-900 font-medium"
@@ -424,7 +424,7 @@ export default function ExpandableListCard({
             )}
           </div>
 
-          <div className="mt-1 flex items-center gap-2 flex-wrap text-xs">
+          <div className="mt-1 flex items-center gap-2 flex-wrap text-meta">
             <span className="inline-flex items-center gap-1.5 text-gray-500">
               <span
                 className="w-2 h-2 rounded-full flex-shrink-0"
@@ -434,7 +434,7 @@ export default function ExpandableListCard({
               <span className="truncate max-w-[16rem]">{projectName}</span>
             </span>
             <span
-              className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] tabular-nums ${DATE_CHIP_CLASSES[dateKind]}`}
+              className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-meta tabular-nums ${DATE_CHIP_CLASSES[dateKind]}`}
             >
               {dateKind === "overdue" && (
                 <svg
@@ -501,7 +501,7 @@ export default function ExpandableListCard({
         >
           {/* Editable name row */}
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-[11px] uppercase tracking-wide text-gray-400 flex-shrink-0">
+            <span className="text-meta uppercase tracking-wide text-gray-400 flex-shrink-0">
               Name
             </span>
             {editingName && !readOnly ? (
@@ -520,7 +520,7 @@ export default function ExpandableListCard({
                     setEditingName(false);
                   }
                 }}
-                className="flex-1 px-2 py-1 text-sm border border-violet-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-300"
+                className="flex-1 px-2 py-1 text-body border border-violet-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-300"
                 aria-label="List name"
               />
             ) : (
@@ -528,7 +528,7 @@ export default function ExpandableListCard({
                 type="button"
                 disabled={readOnly}
                 onClick={() => !readOnly && setEditingName(true)}
-                className={`flex-1 text-left text-sm px-2 py-1 rounded-md ${
+                className={`flex-1 text-left text-body px-2 py-1 rounded-md ${
                   readOnly
                     ? "text-gray-500 cursor-default"
                     : "text-gray-800 hover:bg-white hover:ring-1 hover:ring-gray-200"
@@ -543,7 +543,7 @@ export default function ExpandableListCard({
           {/* Items checklist */}
           <ul className="space-y-1 mb-3" data-testid="expandable-list-items">
             {subTasks.length === 0 && (
-              <li className="text-xs text-gray-400 italic px-1 py-1">
+              <li className="text-meta text-gray-400 italic px-1 py-1">
                 No items yet.
               </li>
             )}
@@ -625,7 +625,7 @@ export default function ExpandableListCard({
                           setEditingItemId(null);
                         }
                       }}
-                      className="flex-1 px-2 py-0.5 text-sm border border-violet-300 rounded focus:outline-none focus:ring-2 focus:ring-violet-300"
+                      className="flex-1 px-2 py-0.5 text-body border border-violet-300 rounded focus:outline-none focus:ring-2 focus:ring-violet-300"
                       aria-label="Edit item text"
                     />
                   ) : (
@@ -637,7 +637,7 @@ export default function ExpandableListCard({
                         setItemDraft(st.text);
                         setEditingItemId(st.id);
                       }}
-                      className={`flex-1 text-left text-sm px-1 py-0.5 rounded ${
+                      className={`flex-1 text-left text-body px-1 py-0.5 rounded ${
                         st.is_complete
                           ? "line-through text-gray-400"
                           : "text-gray-700"
@@ -703,13 +703,13 @@ export default function ExpandableListCard({
                 // input). Stamped so the workbench-list-create-shell
                 // cursor demo can type the 3 demo items.
                 data-tour-target="workbench-list-add-item-input"
-                className="flex-1 px-3 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-300 focus:border-transparent bg-white"
+                className="flex-1 px-3 py-1.5 text-body border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-300 focus:border-transparent bg-white"
               />
               <button
                 type="button"
                 onClick={handleAddItem}
                 disabled={!newItemText.trim() || saving}
-                className="px-3 py-1.5 text-sm bg-violet-600 text-white rounded-md hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 text-body bg-violet-600 text-white rounded-md hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Add
               </button>
@@ -734,7 +734,7 @@ export default function ExpandableListCard({
                 // header button). Stamped so the workbench-list-mark-
                 // done cursor demo can click it.
                 data-tour-target="workbench-list-mark-complete"
-                className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${
+                className={`text-meta px-3 py-1.5 rounded-md font-medium transition-colors ${
                   task.is_complete
                     ? "bg-gray-100 text-gray-600 hover:bg-gray-200"
                     : "bg-emerald-600 text-white hover:bg-emerald-700"
@@ -745,7 +745,7 @@ export default function ExpandableListCard({
                   : "Mark list complete"}
               </button>
             ) : (
-              <span className="text-[11px] text-gray-400 italic">
+              <span className="text-meta text-gray-400 italic">
                 View only (shared)
               </span>
             )}
@@ -757,7 +757,7 @@ export default function ExpandableListCard({
                   e.stopPropagation();
                   onOpenFullView();
                 }}
-                className="text-xs text-gray-500 hover:text-gray-800 underline-offset-2 hover:underline"
+                className="text-meta text-gray-500 hover:text-gray-800 underline-offset-2 hover:underline"
               >
                 Open full view
               </button>

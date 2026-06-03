@@ -17,11 +17,11 @@ export default function ProjectSurfacePage() {
     return (
       <AppShell>
         <div className="flex-1 flex flex-col items-center justify-center p-6 gap-3">
-          <p className="text-base text-gray-700 font-medium">Project not found</p>
-          <p className="text-sm text-gray-400">That URL doesn&apos;t look right.</p>
+          <p className="text-title text-gray-700 font-medium">Project not found</p>
+          <p className="text-body text-gray-400">That URL doesn&apos;t look right.</p>
           <Link
             href="/"
-            className="mt-2 text-sm text-blue-600 hover:text-blue-700 hover:underline"
+            className="mt-2 text-body text-blue-600 hover:text-blue-700 hover:underline"
           >
             ← Back to projects
           </Link>

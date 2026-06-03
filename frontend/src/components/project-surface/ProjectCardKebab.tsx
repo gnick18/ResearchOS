@@ -180,7 +180,7 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
               setOpen(false);
               setShowEditModal(true);
             }}
-            className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${
+            className={`w-full text-left px-3 py-1.5 text-body transition-colors ${
               isViewOnlyReceiver
                 ? "text-gray-300 cursor-not-allowed"
                 : "text-gray-700 hover:bg-gray-50"
@@ -196,7 +196,7 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
                 setOpen(false);
                 setShowSharePopup(true);
               }}
-              className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              className="w-full text-left px-3 py-1.5 text-body text-gray-700 hover:bg-gray-50 transition-colors"
             >
               Share
             </button>
@@ -213,7 +213,7 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
                 setShowArchiveConfirm(true);
               }
             }}
-            className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${
+            className={`w-full text-left px-3 py-1.5 text-body transition-colors ${
               isViewOnlyReceiver
                 ? "text-gray-300 cursor-not-allowed"
                 : "text-gray-700 hover:bg-gray-50"
@@ -229,7 +229,7 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
               setOpen(false);
               setShowDeleteConfirm(true);
             }}
-            className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${
+            className={`w-full text-left px-3 py-1.5 text-body transition-colors ${
               isAnyReceiver
                 ? "text-gray-300 cursor-not-allowed"
                 : "text-red-600 hover:bg-red-50"
@@ -277,19 +277,19 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
             onClick={stop}
           >
             <h3 className="text-lg font-bold text-gray-900 mb-2">Archive project?</h3>
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-body text-gray-600 mb-4">
               Are you sure you want to archive &quot;{project.name}&quot;?
             </p>
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
-              <p className="text-xs text-amber-700">
+              <p className="text-meta text-amber-700">
                 <strong>This will:</strong>
               </p>
-              <ul className="text-xs text-amber-600 mt-1 list-disc list-inside">
+              <ul className="text-meta text-amber-600 mt-1 list-disc list-inside">
                 <li>Hide the project from the main project list</li>
                 <li>Remove tasks from Gantt chart and task sidebar</li>
                 <li>Prevent adding new tasks to this project</li>
               </ul>
-              <p className="text-xs text-amber-700 mt-2">
+              <p className="text-meta text-amber-700 mt-2">
                 <strong>All data will be preserved</strong> and you can unarchive at any time.
               </p>
             </div>
@@ -299,7 +299,7 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
                   stop(e);
                   setShowArchiveConfirm(false);
                 }}
-                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+                className="px-4 py-2 text-body text-gray-600 hover:bg-gray-100 rounded-lg"
               >
                 Cancel
               </button>
@@ -309,7 +309,7 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
                   void handleArchive();
                 }}
                 disabled={archiving}
-                className="px-4 py-2 text-sm text-white bg-amber-600 hover:bg-amber-700 rounded-lg disabled:opacity-50"
+                className="px-4 py-2 text-body text-white bg-amber-600 hover:bg-amber-700 rounded-lg disabled:opacity-50"
               >
                 {archiving ? "Archiving..." : "Archive project"}
               </button>
@@ -331,7 +331,7 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
             onClick={stop}
           >
             <h3 className="text-lg font-bold text-gray-900 mb-2">Delete project?</h3>
-            <p className="text-sm text-gray-600 mb-6">
+            <p className="text-body text-gray-600 mb-6">
               Are you sure you want to delete &quot;{project.name}&quot;? This will also
               delete all tasks associated with this project. This action cannot be
               undone.
@@ -342,7 +342,7 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
                   stop(e);
                   setShowDeleteConfirm(false);
                 }}
-                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+                className="px-4 py-2 text-body text-gray-600 hover:bg-gray-100 rounded-lg"
               >
                 Cancel
               </button>
@@ -352,7 +352,7 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
                   void handleDelete();
                 }}
                 disabled={deleting}
-                className="px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50"
+                className="px-4 py-2 text-body text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50"
               >
                 {deleting ? "Deleting..." : "Delete"}
               </button>

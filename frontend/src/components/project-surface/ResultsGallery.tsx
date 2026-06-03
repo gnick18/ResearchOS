@@ -176,9 +176,9 @@ export default function ResultsGallery({ project }: ResultsGalleryProps) {
   return (
     <section id="results" className="scroll-mt-32">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-base font-semibold text-gray-900">Results</h2>
+        <h2 className="text-title font-semibold text-gray-900">Results</h2>
         {!stillLoading && totalImages > 0 && (
-          <span className="text-xs text-gray-400">
+          <span className="text-meta text-gray-400">
             {totalImages} image{totalImages === 1 ? "" : "s"} across{" "}
             {groups.length} experiment{groups.length === 1 ? "" : "s"}
           </span>
@@ -187,14 +187,14 @@ export default function ResultsGallery({ project }: ResultsGalleryProps) {
 
       {/* Read-only aggregation: Project Results rolls up images from child
           experiments. You add results on each experiment, not here. */}
-      <p className="text-xs text-gray-400 mb-3">
+      <p className="text-meta text-gray-400 mb-3">
         A read-only roll-up of images from this project&apos;s experiments. Add results on each experiment.
       </p>
 
       {stillLoading ? (
-        <p className="text-sm text-gray-400 italic">Loading results…</p>
+        <p className="text-body text-gray-400 italic">Loading results…</p>
       ) : groups.length === 0 ? (
-        <p className="text-sm text-gray-400 italic">
+        <p className="text-body text-gray-400 italic">
           No results yet. Add images on an experiment.
         </p>
       ) : (
@@ -214,21 +214,21 @@ export default function ResultsGallery({ project }: ResultsGalleryProps) {
                   aria-expanded={!isCollapsed}
                 >
                   <span
-                    className={`text-xs text-gray-400 transition-transform ${
+                    className={`text-meta text-gray-400 transition-transform ${
                       isCollapsed ? "" : "rotate-90"
                     }`}
                     aria-hidden
                   >
                     ▶
                   </span>
-                  <h3 className="text-sm font-medium text-gray-800 truncate flex-1">
+                  <h3 className="text-body font-medium text-gray-800 truncate flex-1">
                     {g.task.name}
                   </h3>
-                  <span className="text-[10px] px-2 py-0.5 bg-gray-200 text-gray-600 rounded-full flex-shrink-0">
+                  <span className="text-meta px-2 py-0.5 bg-gray-200 text-gray-600 rounded-full flex-shrink-0">
                     {g.images.length} image{g.images.length === 1 ? "" : "s"}
                   </span>
                   {g.task.is_shared_with_me && (
-                    <span className="text-[10px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full flex-shrink-0">
+                    <span className="text-meta px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full flex-shrink-0">
                       Shared by {g.task.owner}
                     </span>
                   )}
@@ -262,7 +262,7 @@ export default function ResultsGallery({ project }: ResultsGalleryProps) {
                           ) : (
                             <div className="w-full h-full bg-gray-100" />
                           )}
-                          <span className="absolute inset-x-0 bottom-0 px-1 py-0.5 text-[9px] text-white bg-black/60 truncate opacity-0 group-hover:opacity-100 transition-opacity" data-force-hover-controls-target>
+                          <span className="absolute inset-x-0 bottom-0 px-1 py-0.5 text-meta text-white bg-black/60 truncate opacity-0 group-hover:opacity-100 transition-opacity" data-force-hover-controls-target>
                             {img.name}
                           </span>
                         </button>

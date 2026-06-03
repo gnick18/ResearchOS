@@ -30,7 +30,7 @@ export default function WorkbenchProjectFilterPills({
           <button
             key={pKey}
             onClick={() => useAppStore.getState().toggleProject(pKey)}
-            className={`px-2.5 py-1 text-xs rounded-full transition-colors ${
+            className={`px-2.5 py-1 text-meta rounded-full transition-colors ${
               isSelected
                 ? "text-white font-medium"
                 : "bg-gray-100 text-gray-400"
@@ -62,7 +62,7 @@ export default function WorkbenchProjectFilterPills({
             onClick={() =>
               useAppStore.getState().toggleProject(STANDALONE_FILTER_KEY)
             }
-            className={`px-2.5 py-1 text-xs rounded-full border border-dashed transition-colors ${
+            className={`px-2.5 py-1 text-meta rounded-full border border-dashed transition-colors ${
               isSelected
                 ? "bg-slate-600 text-white font-medium border-slate-600"
                 : "bg-gray-100 text-gray-400 border-gray-300"

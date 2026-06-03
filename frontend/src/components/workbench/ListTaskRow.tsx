@@ -103,7 +103,7 @@ export default function ListTaskRow({
       <div className="flex-1 min-w-0">
         <div className="flex items-start gap-2">
           <span
-            className={`text-sm flex-1 min-w-0 truncate ${
+            className={`text-body flex-1 min-w-0 truncate ${
               task.is_complete
                 ? "text-gray-500 line-through"
                 : "text-gray-900 font-medium"
@@ -120,7 +120,7 @@ export default function ListTaskRow({
           )}
         </div>
 
-        <div className="mt-1 flex items-center gap-2 flex-wrap text-xs">
+        <div className="mt-1 flex items-center gap-2 flex-wrap text-meta">
           <span className="inline-flex items-center gap-1.5 text-gray-500">
             <span
               className="w-2 h-2 rounded-full flex-shrink-0"
@@ -130,7 +130,7 @@ export default function ListTaskRow({
             <span className="truncate max-w-[16rem]">{projectName}</span>
           </span>
           <span
-            className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] tabular-nums ${DATE_CHIP_CLASSES[dateKind]}`}
+            className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-meta tabular-nums ${DATE_CHIP_CLASSES[dateKind]}`}
           >
             {dateKind === "overdue" && (
               <svg

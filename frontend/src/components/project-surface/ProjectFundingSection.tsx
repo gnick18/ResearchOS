@@ -122,18 +122,18 @@ export default function ProjectFundingSection({ project }: ProjectFundingSection
 
   return (
     <section className="border border-gray-200 rounded-lg p-4">
-      <h3 className="text-sm font-semibold text-gray-900 mb-3">Funding</h3>
+      <h3 className="text-body font-semibold text-gray-900 mb-3">Funding</h3>
 
       {/* Primary grant link: the single stored funding_account_id. */}
       <div className="mb-3">
-        <p className="text-xs font-medium text-gray-500 mb-1">Primary grant</p>
+        <p className="text-meta font-medium text-gray-500 mb-1">Primary grant</p>
         {primaryName ? (
           <div className="flex items-center gap-2">
             <LinkIcon />
-            <span className="text-sm text-gray-800">{primaryName}</span>
+            <span className="text-body text-gray-800">{primaryName}</span>
           </div>
         ) : (
-          <p className="text-sm text-gray-400">
+          <p className="text-body text-gray-400">
             No primary grant linked. Set one in Edit project.
           </p>
         )}
@@ -142,28 +142,28 @@ export default function ProjectFundingSection({ project }: ProjectFundingSection
       {/* Derived charged-grants set: distinct from the single primary link. */}
       {(accounts.length > 0 || unmatched.length > 0) && (
         <div>
-          <p className="text-xs font-medium text-gray-500 mb-1">
+          <p className="text-meta font-medium text-gray-500 mb-1">
             Grants charged in this project
           </p>
           <ul className="flex flex-col gap-1">
             {accounts.map((acc) => (
               <li key={acc.id} className="flex items-center gap-2">
                 <ReceiptIcon />
-                <span className="text-sm text-gray-800">{acc.name}</span>
+                <span className="text-body text-gray-800">{acc.name}</span>
                 {acc.award_number ? (
-                  <span className="text-xs text-gray-400">({acc.award_number})</span>
+                  <span className="text-meta text-gray-400">({acc.award_number})</span>
                 ) : null}
               </li>
             ))}
             {unmatched.map((value) => (
               <li key={`unmatched:${value}`} className="flex items-center gap-2">
                 <ReceiptIcon />
-                <span className="text-sm text-gray-800">{value}</span>
-                <span className="text-xs text-amber-600">(no matching account)</span>
+                <span className="text-body text-gray-800">{value}</span>
+                <span className="text-meta text-amber-600">(no matching account)</span>
               </li>
             ))}
           </ul>
-          <p className="text-xs text-gray-400 mt-2">
+          <p className="text-meta text-gray-400 mt-2">
             Derived from the funding lines on this project&apos;s purchases. This
             can differ from the primary grant.
           </p>

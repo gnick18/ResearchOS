@@ -122,9 +122,9 @@ export default function MethodsInventory({ project }: MethodsInventoryProps) {
   return (
     <section id="methods" className="scroll-mt-32">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-base font-semibold text-gray-900">Methods</h2>
+        <h2 className="text-title font-semibold text-gray-900">Methods</h2>
         {!stillLoading && rows.length > 0 && (
-          <span className="text-xs text-gray-400">
+          <span className="text-meta text-gray-400">
             {rows.length} method{rows.length === 1 ? "" : "s"} across{" "}
             {rows.reduce((acc, r) => acc + r.usage.count, 0)} experiment-attachment
             {rows.reduce((acc, r) => acc + r.usage.count, 0) === 1 ? "" : "s"}
@@ -133,9 +133,9 @@ export default function MethodsInventory({ project }: MethodsInventoryProps) {
       </div>
 
       {stillLoading ? (
-        <p className="text-sm text-gray-400 italic">Loading methods…</p>
+        <p className="text-body text-gray-400 italic">Loading methods…</p>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-gray-400 italic">
+        <p className="text-body text-gray-400 italic">
           No methods linked yet. Methods attached to this project&apos;s experiments
           will appear here.
         </p>
@@ -163,20 +163,20 @@ export default function MethodsInventory({ project }: MethodsInventoryProps) {
                 href={href}
                 className="px-3 py-2 flex items-center gap-2 hover:bg-gray-50 transition-colors"
               >
-                <span className="text-sm font-medium text-gray-800 truncate flex-1 min-w-0">
+                <span className="text-body font-medium text-gray-800 truncate flex-1 min-w-0">
                   {method?.name ?? `Method #${usage.methodId} (unavailable)`}
                 </span>
                 <span
-                  className={`text-[10px] px-2 py-0.5 rounded-full flex-shrink-0 ${meta.color.bg} ${meta.color.text}`}
+                  className={`text-meta px-2 py-0.5 rounded-full flex-shrink-0 ${meta.color.bg} ${meta.color.text}`}
                 >
                   {meta.label}
                 </span>
                 {hostedTag && (
-                  <span className="text-[10px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full flex-shrink-0">
+                  <span className="text-meta px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full flex-shrink-0">
                     via {hostedTag}
                   </span>
                 )}
-                <span className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full flex-shrink-0">
+                <span className="text-meta px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full flex-shrink-0">
                   used in {usage.count} experiment{usage.count === 1 ? "" : "s"}
                 </span>
               </Link>

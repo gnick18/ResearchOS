@@ -35,19 +35,19 @@ export default function SequencesInventory({ project }: SequencesInventoryProps)
   return (
     <section id="sequences" className="scroll-mt-32">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-base font-semibold text-gray-900">Sequences</h2>
+        <h2 className="text-title font-semibold text-gray-900">Sequences</h2>
         <Link
           href={SEQUENCES_ROUTE}
-          className="text-xs text-gray-500 hover:text-gray-700 hover:underline whitespace-nowrap"
+          className="text-meta text-gray-500 hover:text-gray-700 hover:underline whitespace-nowrap"
         >
           Manage in the sequence library →
         </Link>
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-gray-400 italic">Loading sequences…</p>
+        <p className="text-body text-gray-400 italic">Loading sequences…</p>
       ) : sequences.length === 0 ? (
-        <p className="text-sm text-gray-400 italic">
+        <p className="text-body text-gray-400 italic">
           No sequences linked yet. Plasmids and sequences linked to this project
           in the sequence library will appear here.
         </p>
@@ -59,13 +59,13 @@ export default function SequencesInventory({ project }: SequencesInventoryProps)
               href={SEQUENCES_ROUTE}
               className="px-3 py-2 flex items-center gap-2 hover:bg-gray-50 transition-colors"
             >
-              <span className="text-sm font-medium text-gray-800 truncate flex-1 min-w-0">
+              <span className="text-body font-medium text-gray-800 truncate flex-1 min-w-0">
                 {seq.display_name}
               </span>
-              <span className="text-[11px] text-gray-400 flex-shrink-0">
+              <span className="text-meta text-gray-400 flex-shrink-0">
                 {seq.length.toLocaleString()} bp
               </span>
-              <span className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full flex-shrink-0">
+              <span className="text-meta px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full flex-shrink-0">
                 {seqTypeLabel(seq.seq_type)}
               </span>
             </Link>

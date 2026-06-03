@@ -13,7 +13,7 @@ export interface SharedFromPillProps {
 
 export default function SharedFromPill({ owner }: SharedFromPillProps) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-medium text-amber-700 shadow-sm">
+    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-meta font-medium text-amber-700 shadow-sm">
       <svg
         xmlns="http://www.w3.org/2000/svg"
         width="11"

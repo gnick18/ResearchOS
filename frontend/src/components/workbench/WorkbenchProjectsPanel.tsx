@@ -104,7 +104,7 @@ interface CountChipProps {
 
 function CountChip({ icon, label, value }: CountChipProps) {
   return (
-    <span className="inline-flex items-center gap-1 text-xs text-gray-500">
+    <span className="inline-flex items-center gap-1 text-meta text-gray-500">
       <span className="text-gray-400">{icon}</span>
       <span className="font-medium text-gray-700">{value}</span>
       {label}
@@ -144,7 +144,7 @@ function ProjectCard({ project, color, counts, sequenceCount, onOpen }: ProjectC
           style={{ backgroundColor: color }}
           aria-hidden
         />
-        <h3 className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2">
+        <h3 className="text-body font-semibold text-gray-900 leading-snug line-clamp-2">
           {project.name || "(unnamed project)"}
         </h3>
       </div>
@@ -152,12 +152,12 @@ function ProjectCard({ project, color, counts, sequenceCount, onOpen }: ProjectC
       {/* Completion bar — % of this project's tasks complete. */}
       <div className="mb-3">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-[11px] text-gray-400">
+          <span className="text-meta text-gray-400">
             {counts.total > 0
               ? `${counts.totalComplete} of ${counts.total} complete`
               : "No tasks yet"}
           </span>
-          <span className="text-[11px] font-medium text-gray-500">{pct}%</span>
+          <span className="text-meta font-medium text-gray-500">{pct}%</span>
         </div>
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
           <div
@@ -257,8 +257,8 @@ export default function WorkbenchProjectsPanel({ projects: projectsProp }: Props
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
         </svg>
-        <h3 className="text-base font-semibold text-gray-900">No projects yet</h3>
-        <p className="mt-1 mb-5 max-w-xs text-sm text-gray-500">
+        <h3 className="text-title font-semibold text-gray-900">No projects yet</h3>
+        <p className="mt-1 mb-5 max-w-xs text-body text-gray-500">
           Projects organize your experiments, list tasks, and sequences. Create
           your first to get going.
         </p>
@@ -270,7 +270,7 @@ export default function WorkbenchProjectsPanel({ projects: projectsProp }: Props
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm text-gray-400">
+        <p className="text-body text-gray-400">
           {projects.length} project{projects.length !== 1 ? "s" : ""}
         </p>
         {currentUser && <NewProjectButton username={currentUser} />}

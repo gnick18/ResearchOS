@@ -124,8 +124,8 @@ export default function WorkbenchPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Workbench</h2>
-            <p className="text-sm text-gray-400 mt-0.5">{subtitle}</p>
+            <h2 className="text-heading font-semibold text-gray-900">Workbench</h2>
+            <p className="text-body text-gray-400 mt-0.5">{subtitle}</p>
           </div>
         </div>
 
@@ -134,7 +134,7 @@ export default function WorkbenchPage() {
           <button
             onClick={() => setActiveTab("projects")}
             data-tour-target="workbench-projects-tab"
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-lg text-body font-medium transition-colors flex items-center gap-2 ${
               activeTab === "projects"
                 ? "bg-indigo-100 text-indigo-700"
                 : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
@@ -148,7 +148,7 @@ export default function WorkbenchPage() {
           <button
             onClick={() => setActiveTab("experiments")}
             data-tour-target="workbench-experiments-tab"
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-lg text-body font-medium transition-colors flex items-center gap-2 ${
               activeTab === "experiments"
                 ? "bg-blue-100 text-blue-700"
                 : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
@@ -162,7 +162,7 @@ export default function WorkbenchPage() {
           <button
             onClick={() => setActiveTab("notes")}
             data-tour-target="workbench-notes-tab"
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-lg text-body font-medium transition-colors flex items-center gap-2 ${
               activeTab === "notes"
                 ? "bg-emerald-100 text-emerald-700"
                 : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
@@ -176,7 +176,7 @@ export default function WorkbenchPage() {
           <button
             onClick={() => setActiveTab("lists")}
             data-tour-target="workbench-lists-tab"
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-lg text-body font-medium transition-colors flex items-center gap-2 ${
               activeTab === "lists"
                 ? "bg-violet-100 text-violet-700"
                 : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"

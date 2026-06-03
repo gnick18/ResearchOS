@@ -449,7 +449,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center p-6">
-        <p className="text-sm text-gray-400">Loading…</p>
+        <p className="text-body text-gray-400">Loading…</p>
       </div>
     );
   }
@@ -457,14 +457,14 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
   if (isError || !project) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 gap-3">
-        <p className="text-base text-gray-700 font-medium">Project not found</p>
-        <p className="text-sm text-gray-400 max-w-md text-center">
+        <p className="text-title text-gray-700 font-medium">Project not found</p>
+        <p className="text-body text-gray-400 max-w-md text-center">
           We couldn&apos;t load this project. It may have been deleted, or you don&apos;t
           have access to it.
         </p>
         <Link
           href="/"
-          className="mt-2 text-sm text-blue-600 hover:text-blue-700 hover:underline"
+          className="mt-2 text-body text-blue-600 hover:text-blue-700 hover:underline"
         >
           ← Back to projects
         </Link>
@@ -521,7 +521,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
             <div className="flex items-center gap-3 min-w-0">
               <Link
                 href="/"
-                className="text-sm text-gray-500 hover:text-gray-700 hover:underline flex-shrink-0"
+                className="text-body text-gray-500 hover:text-gray-700 hover:underline flex-shrink-0"
               >
                 ← Projects
               </Link>
@@ -530,12 +530,12 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
                 {project.name}
               </h1>
               {project.is_archived && (
-                <span className="text-[10px] px-2 py-0.5 bg-gray-200 text-gray-500 rounded-full flex-shrink-0">
+                <span className="text-meta px-2 py-0.5 bg-gray-200 text-gray-500 rounded-full flex-shrink-0">
                   Archived
                 </span>
               )}
               {project.is_shared_with_me && (
-                <span className="text-[10px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full flex-shrink-0">
+                <span className="text-meta px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full flex-shrink-0">
                   Shared by {project.owner}
                 </span>
               )}
@@ -544,7 +544,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
             <div className="flex items-center gap-3 flex-shrink-0">
               <Link
                 href={`/gantt?project=${encodeURIComponent(`${project.owner}:${project.id}`)}`}
-                className="text-sm text-gray-500 hover:text-gray-700 hover:underline whitespace-nowrap"
+                className="text-body text-gray-500 hover:text-gray-700 hover:underline whitespace-nowrap"
               >
                 View timeline →
               </Link>
@@ -574,7 +574,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
                       }
                       disabled={!canRestore || restoreBusy}
                       data-testid="project-undo-restore-button"
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-meta font-medium rounded-lg transition-colors ${
                         canRestore && !restoreBusy
                           ? "text-amber-700 bg-amber-50 hover:bg-amber-100"
                           : "text-gray-400 bg-gray-50 cursor-not-allowed"
@@ -793,7 +793,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
                   role="tab"
                   aria-selected={isActive}
                   onClick={() => setActiveTab(section.id)}
-                  className={`px-3 py-1.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                  className={`px-3 py-1.5 text-body font-medium border-b-2 -mb-px transition-colors ${
                     isActive
                       ? "text-gray-900 border-gray-900"
                       : "text-gray-500 border-transparent hover:text-gray-900 hover:border-gray-300"
@@ -816,7 +816,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
         <div className="px-6 pt-3">
           <div
             data-testid="project-undo-confirm"
-            className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug max-w-4xl"
+            className="text-meta text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug max-w-4xl"
           >
             <p>
               You have edited this project since the restore. Undoing will
@@ -828,7 +828,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
                 onClick={() => void confirmUndoRestore()}
                 disabled={restoreBusy}
                 data-testid="project-undo-confirm-button"
-                className="px-2.5 py-1 text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-60 rounded-md transition-colors"
+                className="px-2.5 py-1 text-meta font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-60 rounded-md transition-colors"
               >
                 {restoreBusy ? "Undoing..." : "Discard edits and undo"}
               </button>
@@ -837,7 +837,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
                 onClick={dismissUndoConfirm}
                 disabled={restoreBusy}
                 data-testid="project-undo-cancel-button"
-                className="px-2.5 py-1 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:opacity-60 rounded-md transition-colors"
+                className="px-2.5 py-1 text-meta font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:opacity-60 rounded-md transition-colors"
               >
                 Keep editing
               </button>
@@ -851,7 +851,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
           {project.tags.map((tag) => (
             <span
               key={tag}
-              className="text-xs px-2 py-0.5 bg-gray-100 text-gray-500 rounded"
+              className="text-meta px-2 py-0.5 bg-gray-100 text-gray-500 rounded"
             >
               #{tag}
             </span>
@@ -876,7 +876,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
                 />
               </div>
             ) : (
-              <div className="flex items-center justify-center h-full text-gray-400 text-sm p-6">
+              <div className="flex items-center justify-center h-full text-gray-400 text-body p-6">
                 <p>Select a version to preview it here.</p>
               </div>
             )}
@@ -884,7 +884,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
               <div className="px-6 pb-6 max-w-4xl">
                 <p
                   data-testid="project-restore-error"
-                  className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug"
+                  className="text-meta text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug"
                   role="alert"
                 >
                   {restoreError}
@@ -990,33 +990,33 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-lg font-bold text-gray-900 mb-2">Archive project?</h3>
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-body text-gray-600 mb-4">
               Are you sure you want to archive &quot;{project.name}&quot;?
             </p>
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
-              <p className="text-xs text-amber-700">
+              <p className="text-meta text-amber-700">
                 <strong>This will:</strong>
               </p>
-              <ul className="text-xs text-amber-600 mt-1 list-disc list-inside">
+              <ul className="text-meta text-amber-600 mt-1 list-disc list-inside">
                 <li>Hide the project from the main project list</li>
                 <li>Remove tasks from Gantt chart and task sidebar</li>
                 <li>Prevent adding new tasks to this project</li>
               </ul>
-              <p className="text-xs text-amber-700 mt-2">
+              <p className="text-meta text-amber-700 mt-2">
                 <strong>All data will be preserved</strong> and you can unarchive at any time.
               </p>
             </div>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setShowArchiveConfirm(false)}
-                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+                className="px-4 py-2 text-body text-gray-600 hover:bg-gray-100 rounded-lg"
               >
                 Cancel
               </button>
               <button
                 onClick={handleArchive}
                 disabled={archiving}
-                className="px-4 py-2 text-sm text-white bg-amber-600 hover:bg-amber-700 rounded-lg disabled:opacity-50"
+                className="px-4 py-2 text-body text-white bg-amber-600 hover:bg-amber-700 rounded-lg disabled:opacity-50"
               >
                 {archiving ? "Archiving..." : "Archive project"}
               </button>
@@ -1035,7 +1035,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-lg font-bold text-gray-900 mb-2">Delete project?</h3>
-            <p className="text-sm text-gray-600 mb-6">
+            <p className="text-body text-gray-600 mb-6">
               Are you sure you want to delete &quot;{project.name}&quot;? This will also
               delete all tasks associated with this project. This action cannot be
               undone.
@@ -1043,14 +1043,14 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+                className="px-4 py-2 text-body text-gray-600 hover:bg-gray-100 rounded-lg"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDelete}
                 disabled={deleting}
-                className="px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50"
+                className="px-4 py-2 text-body text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50"
               >
                 {deleting ? "Deleting..." : "Delete"}
               </button>
@@ -1175,10 +1175,10 @@ function OverviewSection({ project, ownerHint, editOwner, readOnly }: OverviewSe
   return (
     <section id="overview" className="scroll-mt-32">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-base font-semibold text-gray-900">Overview</h2>
+        <h2 className="text-title font-semibold text-gray-900">Overview</h2>
         {!readOnly && saveStatus !== "idle" && (
           <span
-            className={`text-xs ${
+            className={`text-meta ${
               saveStatus === "error"
                 ? "text-red-500"
                 : saveStatus === "saving"
@@ -1194,7 +1194,7 @@ function OverviewSection({ project, ownerHint, editOwner, readOnly }: OverviewSe
         )}
       </div>
       {isError ? (
-        <p className="text-sm text-red-500">Couldn&apos;t load this project&apos;s overview.</p>
+        <p className="text-body text-red-500">Couldn&apos;t load this project&apos;s overview.</p>
       ) : (
         // Bug-squad fix bot 2026-05-26 (Bugs 1 + 4): always render the
         // textarea so the §6.2 spotlight selector + cursor type action
@@ -1226,7 +1226,7 @@ function OverviewSection({ project, ownerHint, editOwner, readOnly }: OverviewSe
           // placeholder hypothesis here via the cursor script (see
           // steps/walkthrough/lib/targets.ts -> projectOverviewTextarea).
           data-tour-target="project-overview-textarea"
-          className="w-full min-h-[180px] p-3 text-sm text-gray-800 border border-gray-200 rounded-md resize-y focus:outline-none focus:ring-1 focus:ring-blue-300"
+          className="w-full min-h-[180px] p-3 text-body text-gray-800 border border-gray-200 rounded-md resize-y focus:outline-none focus:ring-1 focus:ring-blue-300"
         />
       )}
     </section>
@@ -1289,28 +1289,28 @@ export function EditProjectModal({ project, onClose, onSave }: EditProjectModalP
         <h3 className="text-lg font-bold text-gray-900 mb-4">Edit project</h3>
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Name</label>
+            <label className="block text-meta font-medium text-gray-500 mb-1">Name</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               autoFocus
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
+            <label className="block text-meta font-medium text-gray-500 mb-1">
               Tags (comma-separated)
             </label>
             <input
               type="text"
               value={tagsText}
               onChange={(e) => setTagsText(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Color</label>
+            <label className="block text-meta font-medium text-gray-500 mb-1">Color</label>
             <div className="flex gap-2 flex-wrap">
               {DEFAULT_COLORS.map((c) => (
                 <button
@@ -1333,19 +1333,19 @@ export function EditProjectModal({ project, onClose, onSave }: EditProjectModalP
               onChange={(e) => setWeekendActive(e.target.checked)}
               className="rounded border-gray-300 text-blue-600"
             />
-            <span className="text-sm text-gray-600">7-day schedule (weekends active)</span>
+            <span className="text-body text-gray-600">7-day schedule (weekends active)</span>
           </label>
           {/* Project -> grant link (metadata implementation bot,
               2026-05-28). Optional single funding account per project.
               "None" = unlinked (the default / current behavior). */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
+            <label className="block text-meta font-medium text-gray-500 mb-1">
               Funding account / grant
             </label>
             <select
               value={fundingAccountId}
               onChange={(e) => setFundingAccountId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">None</option>
               {fundingAccounts.map((acc) => (
@@ -1355,7 +1355,7 @@ export function EditProjectModal({ project, onClose, onSave }: EditProjectModalP
                 </option>
               ))}
             </select>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-meta text-gray-400 mt-1">
               Link this project to a grant so its outputs can carry the
               funding metadata later.
             </p>
@@ -1364,14 +1364,14 @@ export function EditProjectModal({ project, onClose, onSave }: EditProjectModalP
         <div className="flex justify-end gap-3 pt-6">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+            className="px-4 py-2 text-body text-gray-600 hover:bg-gray-100 rounded-lg"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={saving || !name.trim()}
-            className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+            className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save changes"}
           </button>

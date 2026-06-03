@@ -44,11 +44,11 @@ export default function SubTaskProgressDots({
               }`}
             />
           ))}
-          {total > 6 && <span className="text-[10px] text-gray-400 ml-0.5">…</span>}
+          {total > 6 && <span className="text-meta text-gray-400 ml-0.5">…</span>}
         </span>
         {!hideCount && (
           <span
-            className={`text-[11px] tabular-nums ${
+            className={`text-meta tabular-nums ${
               allDone ? "text-emerald-600 font-medium" : "text-gray-500"
             }`}
           >

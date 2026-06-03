@@ -286,7 +286,7 @@ export default function WorkbenchListsPanel({ projects }: Props) {
         <button
           onClick={handleCreateListTask}
           data-tour-target="workbench-new-list-button"
-          className="px-3 py-1.5 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700"
+          className="px-3 py-1.5 text-body bg-violet-600 text-white rounded-lg hover:bg-violet-700"
         >
           + New List Task
         </button>
@@ -295,13 +295,13 @@ export default function WorkbenchListsPanel({ projects }: Props) {
       {isEmpty ? (
         <div className="text-center py-16">
           <p className="text-lg text-gray-400 mb-2">No list tasks yet</p>
-          <p className="text-sm text-gray-300 mb-6">
+          <p className="text-body text-gray-300 mb-6">
             Create a list task to see it here
           </p>
           <button
             onClick={handleCreateListTask}
             data-tour-target="workbench-new-list-button"
-            className="px-6 py-3 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700"
+            className="px-6 py-3 text-body bg-violet-600 text-white rounded-lg hover:bg-violet-700"
           >
             + New List Task
           </button>
@@ -315,7 +315,7 @@ export default function WorkbenchListsPanel({ projects }: Props) {
               <section key={key}>
                 <div className="flex items-baseline justify-between mb-3">
                   <h3
-                    className={`text-sm font-semibold uppercase tracking-wide ${
+                    className={`text-body font-semibold uppercase tracking-wide ${
                       key === "overdue" ? "text-red-700" : "text-gray-900"
                     }`}
                   >
@@ -324,13 +324,13 @@ export default function WorkbenchListsPanel({ projects }: Props) {
                       ({items.length})
                     </span>
                   </h3>
-                  <span className="text-xs text-gray-400">
+                  <span className="text-meta text-gray-400">
                     {SECTION_HELP[key]}
                   </span>
                 </div>
                 <div className="space-y-2">{items.map(renderFirstAwareRow)}</div>
                 {key === "upcoming" && upcomingLater.length > 0 && (
-                  <p className="mt-2 text-xs text-gray-400 pl-1">
+                  <p className="mt-2 text-meta text-gray-400 pl-1">
                     + {upcomingLater.length} scheduled later than{" "}
                     {UPCOMING_HORIZON_DAYS}d out
                   </p>
@@ -344,7 +344,7 @@ export default function WorkbenchListsPanel({ projects }: Props) {
               <button
                 type="button"
                 onClick={() => setEarlierOpen((v) => !v)}
-                className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900 group"
+                className="flex items-center gap-1.5 text-meta text-gray-600 hover:text-gray-900 group"
               >
                 <svg
                   className={`w-3 h-3 transition-transform ${
@@ -379,7 +379,7 @@ export default function WorkbenchListsPanel({ projects }: Props) {
           )}
 
           {totalActive === 0 && (
-            <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2 inline-block">
+            <div className="text-meta text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2 inline-block">
               No active list tasks — your queue is clear.
             </div>
           )}

@@ -72,22 +72,22 @@ export default function GoalsSection({ project }: GoalsSectionProps) {
   return (
     <section id="goals" className="scroll-mt-32">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-base font-semibold text-gray-900">Goals</h2>
+        <h2 className="text-title font-semibold text-gray-900">Goals</h2>
         {!isLoading && !isError && projectGoals.length > 0 && (
-          <span className="text-xs text-gray-400">
+          <span className="text-meta text-gray-400">
             {projectGoals.length} goal{projectGoals.length === 1 ? "" : "s"}
           </span>
         )}
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-gray-400 italic">Loading goals…</p>
+        <p className="text-body text-gray-400 italic">Loading goals…</p>
       ) : isError ? (
-        <p className="text-sm text-red-500">
+        <p className="text-body text-red-500">
           Couldn&apos;t load this project&apos;s goals.
         </p>
       ) : projectGoals.length === 0 ? (
-        <p className="text-sm text-gray-400 italic">
+        <p className="text-body text-gray-400 italic">
           No goals set yet. Goals attached to this project will appear here.
         </p>
       ) : (
@@ -109,23 +109,23 @@ export default function GoalsSection({ project }: GoalsSectionProps) {
                       aria-hidden
                     />
                   )}
-                  <span className="text-sm font-medium text-gray-800 truncate flex-1 min-w-0">
+                  <span className="text-body font-medium text-gray-800 truncate flex-1 min-w-0">
                     {goal.name}
                   </span>
-                  <span className="text-xs text-gray-500 flex-shrink-0">
+                  <span className="text-meta text-gray-500 flex-shrink-0">
                     {formatDateRange(goal.start_date, goal.end_date)}
                   </span>
                   {totalSmart > 0 && (
-                    <span className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full flex-shrink-0">
+                    <span className="text-meta px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full flex-shrink-0">
                       {doneSmart}/{totalSmart} SMART
                     </span>
                   )}
                   {goal.is_complete ? (
-                    <span className="text-[10px] px-2 py-0.5 bg-green-50 text-green-700 rounded-full flex-shrink-0">
+                    <span className="text-meta px-2 py-0.5 bg-green-50 text-green-700 rounded-full flex-shrink-0">
                       Complete
                     </span>
                   ) : (
-                    <span className="text-[10px] px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full flex-shrink-0">
+                    <span className="text-meta px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full flex-shrink-0">
                       Active
                     </span>
                   )}

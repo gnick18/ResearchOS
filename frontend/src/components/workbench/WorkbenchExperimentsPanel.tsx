@@ -467,7 +467,7 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
           compact={compact}
         />
         {entry.section === "blocked" && entry.blockingParents.length > 0 && (
-          <div className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-1.5 py-0.5 leading-snug flex items-center gap-1 min-w-0">
+          <div className="text-meta text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-1.5 py-0.5 leading-snug flex items-center gap-1 min-w-0">
             <svg
               aria-hidden
               className="w-3 h-3 flex-shrink-0"
@@ -509,7 +509,7 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
               e.stopPropagation();
               setSelectedTask(entry.nextInChain!);
             }}
-            className="text-[10px] text-gray-600 hover:text-gray-900 text-left bg-gray-50 border border-gray-200 rounded-md px-1.5 py-0.5 leading-snug flex items-center gap-1 min-w-0 cursor-pointer hover:bg-gray-100"
+            className="text-meta text-gray-600 hover:text-gray-900 text-left bg-gray-50 border border-gray-200 rounded-md px-1.5 py-0.5 leading-snug flex items-center gap-1 min-w-0 cursor-pointer hover:bg-gray-100"
           >
             <span className="font-medium flex-shrink-0">Next:</span>
             <span className="flex-1 min-w-0 truncate">{entry.nextInChain.name}</span>
@@ -541,20 +541,20 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
             <button
               onClick={handleCreateExperiment}
               data-tour-target="workbench-new-experiment"
-              className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-3 py-1.5 text-body bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               + New Experiment
             </button>
           </div>
           <div className="text-center py-16">
             <p className="text-lg text-gray-400 mb-2">No experiments yet</p>
-            <p className="text-sm text-gray-300 mb-6">
+            <p className="text-body text-gray-300 mb-6">
               Create an experiment task to see it here
             </p>
             <button
               onClick={handleCreateExperiment}
               data-tour-target="workbench-new-experiment"
-              className="px-6 py-3 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-6 py-3 text-body bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               + New Experiment
             </button>
@@ -571,7 +571,7 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
               <button
                 onClick={handleCreateExperiment}
                 data-tour-target="workbench-new-experiment"
-                className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-3 py-1.5 text-body bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 + New Experiment
               </button>
@@ -580,7 +580,7 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
               // All four board stages empty -> a single quiet message in
               // place of the 4-column board. Recent/Earlier results below
               // still render normally.
-              <p className="text-sm text-gray-400 text-center py-8">
+              <p className="text-body text-gray-400 text-center py-8">
                 No in-flight experiments
               </p>
             ) : (
@@ -590,7 +590,7 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
                   return (
                     <div key={key} className="flex flex-col">
                       <div className="flex items-center gap-1.5 mb-3">
-                        <h3 className="text-xs font-semibold text-gray-900 uppercase tracking-wide">
+                        <h3 className="text-meta font-semibold text-gray-900 uppercase tracking-wide">
                           {SECTION_LABEL[key]}
                           <span className="ml-1.5 text-gray-400 normal-case font-normal">
                             ({items.length})
@@ -619,11 +619,11 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
                       </div>
                       {items.length === 0 ? (
                         key === "awaiting" ? (
-                          <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">
+                          <div className="text-meta text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">
                             All recent experiments have results logged.
                           </div>
                         ) : (
-                          <p className="text-xs text-gray-300">Nothing here</p>
+                          <p className="text-meta text-gray-300">Nothing here</p>
                         )
                       ) : (
                         <div className="space-y-3 max-h-[34rem] overflow-y-auto pr-1">
@@ -666,13 +666,13 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
             return (
               <section>
                 <div className="flex items-baseline justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+                  <h3 className="text-body font-semibold text-gray-900 uppercase tracking-wide">
                     {SECTION_LABEL.recent}
                     <span className="ml-2 text-gray-400 normal-case font-normal">
                       ({items.length})
                     </span>
                   </h3>
-                  <span className="text-xs text-gray-400">
+                  <span className="text-meta text-gray-400">
                     {SECTION_HELP.recent}
                   </span>
                 </div>
@@ -691,10 +691,10 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
                               style={{ backgroundColor: pColor }}
                               aria-hidden
                             />
-                            <span className="text-xs font-medium text-gray-600">
+                            <span className="text-meta font-medium text-gray-600">
                               {pName}
                             </span>
-                            <span className="text-xs text-gray-400">
+                            <span className="text-meta text-gray-400">
                               ({projectEntries.length})
                             </span>
                           </div>
@@ -712,15 +712,15 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
           {earlierEntries.length > 0 && (
             <section>
               <div className="flex items-baseline justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+                <h3 className="text-body font-semibold text-gray-900 uppercase tracking-wide">
                   {EARLIER_LABEL}
                   <span className="ml-2 text-gray-400 normal-case font-normal">
                     ({earlierEntries.length})
                   </span>
                 </h3>
-                <span className="text-xs text-gray-400">{EARLIER_HELP}</span>
+                <span className="text-meta text-gray-400">{EARLIER_HELP}</span>
               </div>
-              <div className="flex items-center gap-1 mb-3 text-xs">
+              <div className="flex items-center gap-1 mb-3 text-meta">
                 <button
                   type="button"
                   onClick={() => setEarlierLayoutReset("flat")}
@@ -757,7 +757,7 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
                       onClick={() =>
                         setEarlierFlatVisible((v) => v + EARLIER_FLAT_PAGE)
                       }
-                      className="mt-3 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md px-2 py-1 transition-colors"
+                      className="mt-3 text-meta font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md px-2 py-1 transition-colors"
                     >
                       Show more (
                       {earlierEntries.length - earlierFlatVisible} more)
@@ -825,12 +825,12 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
                                 aria-hidden="true"
                               />
                               <span
-                                className="text-sm font-bold uppercase tracking-widest"
+                                className="text-body font-bold uppercase tracking-widest"
                                 style={{ color: pColor }}
                               >
                                 {pName}
                               </span>
-                              <span className="text-xs text-gray-400 font-normal normal-case tracking-normal">
+                              <span className="text-meta text-gray-400 font-normal normal-case tracking-normal">
                                 ({projectEntries.length})
                               </span>
                             </button>
@@ -849,7 +849,7 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
                                         return next;
                                       })
                                     }
-                                    className="mt-3 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md px-2 py-1 transition-colors"
+                                    className="mt-3 text-meta font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md px-2 py-1 transition-colors"
                                   >
                                     Show all {projectEntries.length}
                                   </button>
@@ -867,7 +867,7 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
           )}
 
           {scheduledCount > 0 && (
-            <div className="text-xs text-gray-400 pt-2">
+            <div className="text-meta text-gray-400 pt-2">
               <span>{scheduledCount} scheduled later</span>
             </div>
           )}
