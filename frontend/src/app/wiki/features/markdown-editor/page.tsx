@@ -10,12 +10,12 @@ export default function MarkdownEditorPage() {
   return (
     <WikiPage
       title="The Markdown Editor"
-      intro="Wherever you write prose in ResearchOS (experiment notes, task descriptions, results write-ups, methods bodies, free-form notes), you're using the same markdown editor. Learning its modes and shortcut set pays off fast."
+      intro="Wherever you write prose in ResearchOS (experiment notes, task descriptions, results write-ups, methods bodies, free-form notes), you're using the same markdown editor. It's one live writing surface where you type plain markdown and watch it render as you go. Learning its toolbar and shortcut set pays off fast."
     >
       <Screenshot
         src="/wiki/screenshots/experiments-editor.png"
-        alt="The markdown editor open in an experiment, showing markdown notes, an Images tab at the bottom, and the helper panel on the left."
-        caption="The editor as it appears inside an experiment. The same component mounts in task popups, results, methods, and notes."
+        alt="The markdown editor open in an experiment, showing markdown notes rendering live, an Images tab along the bottom, and the helper panel on the left."
+        caption="NEEDS RE-CAPTURE: inline editing surface, single Edit / Preview toolbar, Save checkpoint button, and the bottom attachment strip. The same component mounts in task popups, results, methods, and notes."
       />
 
       <TryInDemo href="/">Open the demo and try Lab Notes</TryInDemo>
@@ -57,92 +57,48 @@ export default function MarkdownEditorPage() {
         same content.
       </p>
 
-      <h2>The three modes</h2>
+      <h2>One surface: type markdown, watch it render</h2>
       <p>
-        The toolbar in the top-right of every editor has a mode toggle. The
-        choice of mode is purely a viewing preference, it doesn&apos;t change
-        what gets saved. Two modes show everywhere; a third, <strong>Inline</strong>,
-        is an opt-in pilot that currently appears only on free-form Notes (see{" "}
-        <a href="#inline-mode">Inline mode</a> below).
+        There&apos;s nothing to configure and no block to click into. The
+        editor is a single, continuous writing surface, like a normal
+        document. You type plain markdown and the editor renders it live around
+        your cursor: headings look like headings, bold looks bold, and images
+        show as images, all in one flowing column.
       </p>
-      <ul>
-        <li>
-          <strong>Hybrid</strong> (the default): the rendered view, but every
-          block is click-to-edit. Single-click a paragraph or heading to select
-          it, double-click (or <Kbd>Enter</Kbd>) to edit just that block, and{" "}
-          <Kbd>Esc</Kbd> to commit and deselect. This is the right mode for
-          most prose work.
-        </li>
-        <li>
-          <strong>Inline</strong> (opt-in, Notes pilot): one continuous live
-          surface where you type markdown and watch it render as you go, instead
-          of selecting a block at a time. Available today only on free-form
-          Notes. Covered in detail under <a href="#inline-mode">Inline mode</a>.
-        </li>
-        <li>
-          <strong>Preview</strong>: read-only rendered output. Click any image
-          in this mode to bring up the resize picker. Use it when you&apos;re
-          sharing the screen or reviewing.
-        </li>
-      </ul>
-      <Callout variant="tip" title="Auto-switch on drop">
-        Dropping an image into the editor while you&apos;re in Preview mode
-        bounces you into Hybrid automatically, since Preview is read-only.
-      </Callout>
-
-      <h2>Writing in Hybrid mode</h2>
       <Screenshot
-        src="/wiki/screenshots/editor-hybrid-selected.png"
-        alt="A paragraph block in Hybrid mode with a blue selection ring around it and inline Edit and Delete buttons in the top-right corner."
-        caption="A single click on a block selects it. The blue ring marks the selection, and the inline Edit and Delete buttons act on just that block."
+        src="/wiki/screenshots/editor-inline-mode.png"
+        alt="A note open for editing: a single continuous writing column where headings, bold text, and an inline image render live, with the markdown markers on the current line revealed next to the caret."
+        caption="NEEDS RE-CAPTURE: the live editing surface mid-edit. One continuous column renders your markdown; the raw markers reveal only on the line your cursor is on."
       />
       <p>
-        Hybrid is the default and where most editing happens. The editor
-        parses your markdown into logical blocks (paragraphs, headings, code
-        blocks, lists, tables) and each block is a click target:
+        The key is what happens at your cursor. Markdown markers (the{" "}
+        <code>**</code> around bold, the <code>#</code> on a heading, a link
+        target) stay hidden while you read, so the line looks finished. Move
+        your caret onto that line and the markers reveal themselves, ready to
+        edit; move away and they tuck back behind the rendered output. You are
+        always editing the real markdown, never a separate rich-text copy.
       </p>
-      <Steps>
-        <Step>
-          <strong>Click a block once</strong> to select it. A blue ring
-          appears around the block, plus inline <em>Edit</em> and{" "}
-          <em>Delete</em> buttons in the top-right corner of the block.
-        </Step>
-        <Step>
-          <strong>Double-click</strong> (or press <Kbd>Enter</Kbd>) on a
-          selected block to start editing. The block converts into an inline
-          textarea pre-filled with its markdown source.
-        </Step>
-        <Step>
-          Type your edits. Plain <Kbd>Enter</Kbd> inserts a CommonMark soft
-          line break (<code>{"  \\n"}</code>) and stays in the inline
-          textarea. <Kbd>Shift</Kbd>+<Kbd>Enter</Kbd> performs a hard
-          paragraph split (<code>\n\n</code>), commits the edit, and exits
-          the textarea so the next re-parse produces two separate blocks.
-        </Step>
-        <Step>
-          Press <Kbd>Esc</Kbd> to commit the edit and deselect, or click
-          outside the block.
-        </Step>
-      </Steps>
-      <p>
-        Other Hybrid-mode shortcuts on a selected (but not yet editing) block:
-      </p>
-      <ul>
-        <li>
-          <Kbd>Delete</Kbd> or <Kbd>Backspace</Kbd> removes the block.
-        </li>
-        <li>
-          <Kbd>Esc</Kbd> deselects.
-        </li>
-      </ul>
+      <Callout variant="info" title="Edit and Preview">
+        The toolbar carries a two-way <strong>Edit | Preview</strong> toggle.{" "}
+        <strong>Edit</strong> is the live writing surface above and where
+        almost all of your work happens. <strong>Preview</strong> is the same
+        document as read-only rendered output: handy when you&apos;re sharing
+        your screen or reviewing. The choice is purely a viewing preference, it
+        doesn&apos;t change what gets saved, so you can flip between the two
+        freely. Click any image in Preview to bring up the resize picker.
+      </Callout>
+      <Callout variant="tip" title="Auto-switch on drop">
+        Dropping an image into the editor while you&apos;re in Preview mode
+        bounces you back into Edit automatically, since Preview is read-only.
+      </Callout>
 
       <Callout variant="info" title="Code blocks with language picker">
-        Type three backticks (<code>```</code>) at the start of a new line
-        inside any Hybrid inline textarea and a <strong>language picker</strong>{" "}
-        popup appears. Start typing a language name (e.g., <code>python</code>,{" "}
-        <code>bash</code>, <code>sql</code>) and the list narrows. Hit{" "}
-        <Kbd>Enter</Kbd> and ResearchOS completes the code block with the
-        language tag, ready for you to type.
+        Type three backticks (<code>```</code>) at the start of a new line and
+        a <strong>language picker</strong> popup appears. Start typing a
+        language name (e.g., <code>python</code>, <code>bash</code>,{" "}
+        <code>sql</code>) and the list narrows. Hit <Kbd>Enter</Kbd> and
+        ResearchOS completes the code block with the language tag, ready for
+        you to type.
       </Callout>
 
       <Callout variant="info" title="Languages with syntax highlighting">
@@ -153,52 +109,45 @@ export default function MarkdownEditorPage() {
         coloring.
       </Callout>
 
-      <h2 id="inline-mode">Inline mode (opt-in, Notes pilot)</h2>
-      <Callout variant="info" title="An opt-in pilot on Notes">
-        Inline mode is a rolling-out pilot. The third <strong>Inline</strong>{" "}
-        pill appears today only on free-form <strong>Notes</strong>; every other
-        surface (experiment Lab Notes, Results, methods, task descriptions) shows
-        the usual Hybrid and Preview toggle. Hybrid stays the default everywhere,
-        including on Notes, so nothing changes unless you reach for the Inline
-        pill yourself.
-      </Callout>
+      <h2>The toolbar</h2>
       <p>
-        Hybrid edits one block at a time: you click a paragraph, edit it in an
-        inline textarea, and commit. <strong>Inline mode</strong> takes a
-        different approach. It is a single, continuous writing surface, more like
-        a normal document, where you type plain markdown and the editor renders
-        it live around your cursor. Headings look like headings, bold looks bold,
-        and images show as images, all in one flowing column, without the
-        block-select-then-edit step.
+        Every editor has a single toolbar along the top. From left to right it
+        carries:
       </p>
-      <Screenshot
-        src="/wiki/screenshots/editor-inline-mode.png"
-        alt="A free-form note open in Inline mode mid-edit: a single continuous writing column where headings, bold text, and an inline image render live, with the markdown markers on the current line revealed next to the caret."
-        caption="Inline mode on a Note. One continuous surface renders your markdown live; the raw markers reveal only on the line your cursor is on."
-      />
-      <p>
-        The key to inline mode is what happens at your cursor. Markdown markers
-        (the <code>**</code> around bold, the <code>#</code> on a heading, a link
-        target) stay hidden while you read, so the line looks finished. Move your
-        caret onto that line and the markers reveal themselves, ready to edit;
-        move away and they tuck back behind the rendered output. You are always
-        editing the real markdown, never a separate rich-text copy.
-      </p>
-      <Callout variant="info" title="What stays exactly the same">
-        Inline mode is a third way to <em>view and type</em> the same document,
-        not a different document. It writes the same plain markdown to the same
-        file, takes the same dragged-and-pasted images into the same{" "}
-        <code>Images/</code> folder, and saves through the same parent-driven
-        flow described under <a href="#saving">Saving</a>. The familiar editing
-        shortcuts (bold, italic, headings, and the rest) work here too. Switching
-        between Hybrid, Inline, and Preview never changes what gets stored, so you
-        can move between them freely.
+      <ul>
+        <li>
+          The <strong>Edit | Preview</strong> toggle (covered above).
+        </li>
+        <li>
+          <strong>Focus mode</strong>: the expand glyph drops the editor into a
+          full-screen distraction-free writing view (also{" "}
+          <Kbd>Cmd</Kbd>+<Kbd>Shift</Kbd>+<Kbd>F</Kbd>).
+        </li>
+        <li>
+          <strong>Add Image</strong> (or <strong>Add File</strong> on surfaces
+          that accept any file type) to pick attachments from disk.
+        </li>
+        <li>
+          <strong>Browse</strong> to insert an image already attached to this
+          record without re-uploading.
+        </li>
+        <li>
+          <strong>Strip</strong> to show or hide the bottom attachment strip
+          (see <a href="#attachments">Attachments</a>).
+        </li>
+        <li>
+          On surfaces that own their own save (the experiment popup&apos;s Lab
+          Notes / Results tabs, the task popup), the <strong>Version history</strong>{" "}
+          button and the <strong>Save checkpoint</strong> button ride at the
+          right end of this same bar (see <a href="#saving">Saving</a>).
+        </li>
+      </ul>
+      <Callout variant="info" title="One bar, not three">
+        The toolbar is a single consolidated row. Parent surfaces that used to
+        stack their own bars (a save button, a sub-tab switcher) now fold those
+        controls into the right end of this one toolbar instead of adding rows
+        above the editor.
       </Callout>
-      <Screenshot
-        src="/wiki/screenshots/editor-mode-toggle-three.png"
-        alt="The editor toolbar mode toggle on a Note, a segmented control with three options reading Hybrid, Inline, and Preview, with Inline selected."
-        caption="On Notes, the mode toggle gains a third Inline pill. Everywhere else it stays a two-way Hybrid / Preview control."
-      />
 
       <h2>Keyboard shortcuts</h2>
       <p>
@@ -214,6 +163,7 @@ export default function MarkdownEditorPage() {
             </tr>
           </thead>
           <tbody className="text-gray-800 [&>tr]:border-b [&>tr]:border-gray-100">
+            <tr><td className="px-3 py-1.5">Save checkpoint</td><td className="px-3 py-1.5"><Kbd>Cmd</Kbd>+<Kbd>S</Kbd></td></tr>
             <tr><td className="px-3 py-1.5">Undo</td><td className="px-3 py-1.5"><Kbd>Cmd</Kbd>+<Kbd>Z</Kbd></td></tr>
             <tr><td className="px-3 py-1.5">Redo</td><td className="px-3 py-1.5"><Kbd>Cmd</Kbd>+<Kbd>Shift</Kbd>+<Kbd>Z</Kbd> or <Kbd>Ctrl</Kbd>+<Kbd>Y</Kbd></td></tr>
             <tr><td className="px-3 py-1.5">Bold</td><td className="px-3 py-1.5"><Kbd>Cmd</Kbd>+<Kbd>B</Kbd></td></tr>
@@ -226,27 +176,36 @@ export default function MarkdownEditorPage() {
             <tr><td className="px-3 py-1.5">Demote heading (e.g., H2 to H3)</td><td className="px-3 py-1.5"><Kbd>Cmd</Kbd>+<Kbd>Ctrl</Kbd>+<Kbd>-</Kbd></td></tr>
             <tr><td className="px-3 py-1.5">Code block (with language prompt)</td><td className="px-3 py-1.5"><Kbd>Cmd</Kbd>+<Kbd>Ctrl</Kbd>+<Kbd>C</Kbd></td></tr>
             <tr><td className="px-3 py-1.5">Blockquote</td><td className="px-3 py-1.5"><Kbd>Ctrl</Kbd>+<Kbd>Q</Kbd></td></tr>
+            <tr><td className="px-3 py-1.5">Focus mode</td><td className="px-3 py-1.5"><Kbd>Cmd</Kbd>+<Kbd>Shift</Kbd>+<Kbd>F</Kbd></td></tr>
           </tbody>
         </table>
       </div>
       <Callout variant="info" title="Where shortcuts apply">
-        Bold, italic, headings, and the rest work inside the inline edit
-        textarea on a selected Hybrid block. They don&apos;t do anything in
-        Preview, which is read-only.
+        Bold, italic, headings, and the rest work in the Edit surface. They
+        don&apos;t do anything in Preview, which is read-only.
       </Callout>
 
-      <h2>Images</h2>
+      <h2 id="attachments">Attachments</h2>
       <p>
-        Images are first-class. Every editor has an attachments area along
-        the bottom (toggleable from the toolbar) with two tabs,{" "}
-        <strong>Images</strong> and <strong>Files</strong>. The Images tab
-        shows thumbnails for every image in the document&apos;s{" "}
-        <code>Images/</code> folder, whether or not the body references the
-        image yet. There are four ways to get a new image in:
+        Images and files live in one place: a single attachment strip along the
+        bottom of the editor, toggled with the toolbar&apos;s{" "}
+        <strong>Strip</strong> button. A small <strong>Images / Files</strong>{" "}
+        tab bar above the strip switches it between image thumbnails and file
+        tiles. There&apos;s no separate Files panel and no top-of-editor{" "}
+        Markdown / Files toggle anymore; everything funnels through this one
+        strip.
       </p>
+      <Screenshot
+        src="/wiki/screenshots/editor-attachment-strip.png"
+        alt="The bottom attachment strip open on the Images tab, a row of thumbnails with a small Images / Files tab bar above it."
+        caption="NEEDS RE-CAPTURE: the unified bottom attachment strip with its Images / Files tab bar. One place to add, view, delete, and drag-to-insert."
+      />
+
+      <h3>Adding an image</h3>
+      <p>There are four ways to get a new image in:</p>
       <ul>
         <li>
-          <strong>Click the toolbar&apos;s image button</strong> to pick one
+          <strong>Click the toolbar&apos;s Add Image button</strong> to pick one
           or more files from disk.
         </li>
         <li>
@@ -261,14 +220,13 @@ export default function MarkdownEditorPage() {
         </li>
         <li>
           <strong>Paste from the clipboard</strong>. Copy a screenshot
-          (e.g., macOS <Kbd>Cmd</Kbd>+<Kbd>Shift</Kbd>+<Kbd>4</Kbd>, then
+          (e.g., macOS <Kbd>Cmd</Kbd>+<Kbd>Shift</Kbd>+<Kbd>4</Kbd>, then{" "}
           <Kbd>Cmd</Kbd>+<Kbd>V</Kbd> in the editor) and it lands inline.
         </li>
         <li>
-          <strong>Click <em>Browse</em></strong> to pick from images already
-          attached to this experiment (the gallery picker). Useful when the
-          image is already on disk and you just want to insert a reference
-          to it without re-uploading.
+          <strong>Click Browse</strong> to pick from images already attached to
+          this record (the gallery picker). Useful when the image is already on
+          disk and you just want to insert a reference without re-uploading.
         </li>
       </ul>
       <p>
@@ -284,12 +242,13 @@ export default function MarkdownEditorPage() {
 
       <h3>The Images tab</h3>
       <p>
-        The Images tab at the bottom of the editor lists every image in the
-        document&apos;s <code>Images/</code> folder as a row of thumbnails.
-        Images already referenced in the body look normal. Images that exist
-        on disk but aren&apos;t referenced yet (e.g., a fresh arrival from
-        Telegram) show a small blue dot in the corner so you can spot them.
-        Useful things you can do from the tab:
+        The <strong>Images</strong> tab in the bottom strip lists every image in
+        the document&apos;s <code>Images/</code> folder as a row of thumbnails,
+        whether or not the body references the image yet. Images already
+        referenced look normal. Images that exist on disk but aren&apos;t
+        referenced yet (e.g., a fresh arrival from Telegram) show a small blue
+        dot in the corner so you can spot them. Useful things you can do from
+        the tab:
       </p>
       <ul>
         <li>
@@ -301,7 +260,7 @@ export default function MarkdownEditorPage() {
         </li>
         <li>
           <strong>Drag a thumbnail into the editor</strong> to insert that
-          image at the cursor position. The thumbnail stays in the tab so
+          image at the cursor position. The thumbnail stays in the strip so
           the same image can appear twice in the document.
         </li>
         <li>
@@ -316,13 +275,12 @@ export default function MarkdownEditorPage() {
       <Screenshot
         src="/wiki/screenshots/editor-image-resize.png"
         alt="The image resize popover open over a body image, with 25%, 50%, 75%, and 100% size options."
-        caption="Click any rendered image in Hybrid or Preview mode and the size popover opens. The selected percentage is written into the markdown so it sticks."
+        caption="Click any rendered image (in Edit or Preview) and the size popover opens. The selected percentage is written into the markdown so it sticks."
       />
       <p>
-        Click any rendered image in Hybrid or Preview mode and a size popover
-        appears inline with <em>25%</em>, <em>50%</em>, <em>75%</em>, and{" "}
-        <em>100%</em> options. The choice writes a width attribute into the
-        markdown so the size persists.
+        Click any rendered image and a size popover appears inline with{" "}
+        <em>25%</em>, <em>50%</em>, <em>75%</em>, and <em>100%</em> options. The
+        choice writes a width attribute into the markdown so the size persists.
       </p>
 
       <h3>Broken image references</h3>
@@ -340,47 +298,36 @@ export default function MarkdownEditorPage() {
         link so you can step past one without touching it.
       </p>
 
-      <h2>PDFs and other file attachments</h2>
+      <h3>The Files tab</h3>
       <p>
         Anything that isn&apos;t an image (PDFs, CSVs, sequence files,
-        protocols, archives) drops into a sibling{" "}
-        <code>Files/</code> folder and shows up as a clickable hyperlink in
-        the prose, not as an inline preview. The flow mirrors the image
-        flow: drag from Finder, paste, or pick from the toolbar.
+        protocols, archives) drops into a sibling <code>Files/</code> folder and
+        shows up as a clickable hyperlink in the prose, not as an inline
+        preview. Switch the bottom strip to its <strong>Files</strong> tab to
+        manage them. The add flow mirrors images: drag from Finder, paste, or
+        use the toolbar&apos;s <em>Add File</em> button (which replaces{" "}
+        <em>Add Image</em> on surfaces that accept any file type: experiment Lab
+        Notes, Results, and Notes). The chosen file copies into{" "}
+        <code>Files/</code> and a markdown link inserts at the cursor.
       </p>
       <ul>
         <li>
-          <strong>Click the toolbar&apos;s <em>Add File</em> button</strong>{" "}
-          to pick one or more non-image files from disk. The button appears
-          in place of <em>Add Image</em> when the editor is configured to
-          accept any file type (experiment Lab Notes, Results, and Notes).
-          The chosen file copies into <code>Files/</code> and a markdown
-          link inserts at the cursor.
+          Each tile shows an icon for the file type and the filename. Files
+          already linked in the body look normal. Files that exist on disk but
+          aren&apos;t referenced yet show a small blue dot and an
+          &quot;unlinked&quot; count in the tab header.
         </li>
         <li>
-          <strong>Drag a file from Finder</strong> anywhere over the editor.
-          The blue ring lights up while the file is hovering. On release the
-          file copies into <code>Files/</code> and a markdown link inserts at
-          the cursor (or appends to the document if you dropped outside
-          text).
-        </li>
-        <li>
-          <strong>The Files tab</strong> sits next to the Images tab at the
-          bottom of the editor. Click the <strong>Files</strong> tab to swap
-          the strip from image thumbnails to file tiles. Each tile shows an
-          emoji for the file type and the filename. Files already linked in
-          the body look normal. Files that exist on disk but aren&apos;t
-          referenced yet show a small blue dot and an &quot;unlinked&quot;
-          count in the tab header. Drag a tile into the editor to insert a
-          link to it.
+          <strong>Drag a tile into the editor</strong> to insert a link to it at
+          the cursor.
         </li>
         <li>
           <strong>Drag a file tile to the red trash zone</strong> at the
           bottom-right of the editor. ResearchOS asks for confirmation, then
           deletes the file from disk and strips every link to it from the
-          markdown body, including links that stored the filename
-          URL-encoded (so <code>Files/READ%20ME.md</code> gets cleaned up
-          when the underlying <em>READ ME.md</em> is dragged out).
+          markdown body, including links that stored the filename URL-encoded
+          (so <code>Files/READ%20ME.md</code> gets cleaned up when the
+          underlying <em>READ ME.md</em> is dragged out).
         </li>
       </ul>
       <Callout variant="info" title="No metadata popup on file tiles">
@@ -392,7 +339,7 @@ export default function MarkdownEditorPage() {
 
       <h3>Clicking a file link</h3>
       <p>
-        Click any <code>[name](Files/…)</code> link in Hybrid or Preview mode
+        Click any <code>[name](Files/…)</code> link in Edit or Preview mode
         and a small <strong>View / Download</strong> popup appears centered
         on screen.
       </p>
@@ -521,7 +468,7 @@ A3 looks suspect, repeat tomorrow morning.`}</code>
         </li>
         <li>
           <strong>Task lists</strong> with <code>- [ ]</code> and{" "}
-          <code>- [x]</code>. Boxes are clickable in Hybrid and Preview.
+          <code>- [x]</code>. Boxes are clickable in Edit and Preview.
         </li>
         <li>
           <strong>Blockquotes</strong> (<code>{">"} text</code>).
@@ -536,15 +483,14 @@ A3 looks suspect, repeat tomorrow morning.`}</code>
       </ul>
       <Callout variant="tip" title="Paste tables from Excel or Sheets">
         Copy a range from Excel, Google Sheets, or Numbers and paste it into
-        an inline edit textarea in Hybrid mode. The editor converts the
-        tab-separated text into a markdown table on the fly, so you
-        don&apos;t have to retype the rows.
+        the editor. The editor converts the tab-separated text into a markdown
+        table on the fly, so you don&apos;t have to retype the rows.
       </Callout>
 
       <h2>The helper panel</h2>
       <p>
-        The Hybrid editor includes a collapsible helper panel on the{" "}
-        <strong>left</strong> side of the editor with two tabs at the top,{" "}
+        The editor includes a collapsible helper panel on the{" "}
+        <strong>left</strong> side with two tabs at the top,{" "}
         <strong>Shortcuts</strong> and <strong>Style Guide</strong>. Click
         the arrow in the panel header to collapse or expand it.
       </p>
@@ -556,64 +502,76 @@ A3 looks suspect, repeat tomorrow morning.`}</code>
         <li>
           <strong>Style Guide</strong> shows example syntax for every
           markdown feature (headings, lists, tables, code blocks, callouts).
-          Click any example to insert it at the cursor inside the active
-          inline textarea. Handy when you&apos;ve forgotten the table syntax
-          or want to see what callout markdown looks like.
+          Click any example to insert it at the cursor. Handy when you&apos;ve
+          forgotten the table syntax or want to see what callout markdown looks
+          like.
         </li>
       </ul>
 
-      <h2 id="saving">Saving</h2>
+      <h2 id="saving">Saving is a checkpoint</h2>
       <p>
-        The editor doesn&apos;t autosave on every keystroke. The parent
-        surface (the experiment popup, the task popup, the results page)
-        decides when to flush to disk. As a rule of thumb:
+        The editor doesn&apos;t autosave. You save explicitly, and every save
+        is a <strong>checkpoint</strong>: a permanent, revertible version of the
+        document. Click <strong>Save checkpoint</strong> in the toolbar (or
+        press <Kbd>Cmd</Kbd>+<Kbd>S</Kbd>) to write your edits to disk and record
+        a version you can come back to.
       </p>
-      <ul>
-        <li>
-          <strong>Closing a popup</strong> (e.g., the task detail popup) saves
-          first.
-        </li>
-        <li>
-          <strong>Switching to another task or experiment</strong> saves the
-          current one.
-        </li>
-        <li>
-          <strong>Standalone editors</strong> (Results, Methods, Notes) save
-          on a short debounce as you type. There&apos;s no &quot;Save&quot;
-          button to hunt for.
-        </li>
-      </ul>
-      <Callout variant="warning" title="Don't kill the tab mid-edit">
-        Because saves are parent-driven, force-closing the browser tab in the
-        middle of typing can drop the last second or two of edits. Click
-        outside the editor (or close the popup) to be sure the write has
-        landed.
+      <Screenshot
+        src="/wiki/screenshots/editor-save-checkpoint.png"
+        alt="The right end of the editor toolbar showing a Version history button and a blue Save checkpoint button."
+        caption="NEEDS RE-CAPTURE: the Save checkpoint button and the Version history button at the right end of the single toolbar."
+      />
+      <Callout variant="info" title="Why checkpoints, not autosave">
+        Naming the button <strong>Save checkpoint</strong> makes it obvious that
+        each save is a deliberate, recoverable snapshot, not a silent background
+        write. Nothing lands on disk until you click it, so there&apos;s never
+        an ambiguous half-saved state.
+      </Callout>
+
+      <h3>Version history and revert</h3>
+      <p>
+        Next to the save button, the <strong>Version history</strong> button
+        opens a docked sidebar listing every checkpoint, newest first, grouped
+        by day. Select a version and the editor body flips to a read-only{" "}
+        <strong>diff</strong> view showing exactly what changed between that
+        checkpoint and the one before it (additions and removals highlighted in
+        place). The live document is never altered while you browse.
+      </p>
+      <p>
+        If you have write access, the sidebar footer offers a{" "}
+        <strong>Restore</strong> action. Restoring writes the chosen version
+        back as the current content and records it as a fresh checkpoint, so the
+        restore is itself revertible: you can always roll forward again to the
+        pre-restore state. The timeline labels these entries so a restored note
+        reads clearly in its own history.
+      </p>
+      <Callout variant="warning" title="Save before you close">
+        Because saves are explicit, force-closing the browser tab in the middle
+        of typing drops any edits made since your last checkpoint. Click{" "}
+        <strong>Save checkpoint</strong> (or <Kbd>Cmd</Kbd>+<Kbd>S</Kbd>) before
+        you leave to be sure the write has landed.
       </Callout>
       <p>
         On save, the editor also runs a quick cleanup pass over the
         document&apos;s <code>Images/</code> and <code>Files/</code> folders:
         anything sitting on disk that nothing in the markdown points at gets
         deleted, so deleted snippets don&apos;t leave dangling files behind.
-        The sweep matches links the way the body writes them, so
-        URL-encoded file links (<code>Files/READ%20ME.md</code>) protect
-        their on-disk counterparts correctly.
+        The sweep matches links the way the body writes them, so URL-encoded
+        file links (<code>Files/READ%20ME.md</code>) protect their on-disk
+        counterparts correctly.
       </p>
-      <Callout variant="info" title="Every save is recorded">
-        On the surfaces where{" "}
-        <Link href="/wiki/features/version-history">Version History</Link> is on
-        (free-form Notes today, rolling out further), each of these saves also
-        appends one entry to the note&apos;s history timeline, so you can scroll
-        back through past states and, in the restore pilot, roll the note back to
-        an earlier one. Saving is unchanged; the history is recorded alongside it.
-      </Callout>
+      <p>
+        See <Link href="/wiki/features/version-history">Version History</Link>{" "}
+        for the full picture of how checkpoints, diffs, and restore work across
+        ResearchOS.
+      </p>
 
       <h2>Things people miss</h2>
       <ul>
         <li>
           <strong>Undo / redo across the whole document</strong>: the editor
-          maintains its own undo stack (not the browser&apos;s textarea
-          native undo). <Kbd>Cmd</Kbd>+<Kbd>Z</Kbd> steps back through
-          edits, including block deletions and image drops.{" "}
+          maintains its own undo stack. <Kbd>Cmd</Kbd>+<Kbd>Z</Kbd> steps back
+          through edits, including image drops and deletions.{" "}
           <Kbd>Cmd</Kbd>+<Kbd>Shift</Kbd>+<Kbd>Z</Kbd> (or{" "}
           <Kbd>Ctrl</Kbd>+<Kbd>Y</Kbd> on Windows) steps forward.
         </li>
@@ -624,21 +582,14 @@ A3 looks suspect, repeat tomorrow morning.`}</code>
           retype the <code>#</code> marks.
         </li>
         <li>
-          <strong>Split here</strong>: while editing a paragraph block inline,
-          a <em>Split here</em> button appears at the cursor position. Clicking
-          it is the same as pressing <Kbd>Shift</Kbd>+<Kbd>Enter</Kbd>: it
-          inserts a hard paragraph break at that point, commits, and produces
-          two separate blocks.
+          <strong>Focus mode</strong> (<Kbd>Cmd</Kbd>+<Kbd>Shift</Kbd>+<Kbd>F</Kbd>{" "}
+          or the toolbar expand glyph) gives you a full-screen, distraction-free
+          writing view with a compact top bar. Exit returns you to the popup.
         </li>
         <li>
-          <strong>+ Add paragraph</strong> button at the bottom of the editor
-          body. Click it to append a fresh empty paragraph block without
-          scrolling or clicking in the body.
-        </li>
-        <li>
-          <strong>The <em>Strip</em> button</strong> in the toolbar toggles the
-          attachments strip (Images and Files tabs) on and off. Click it again
-          to bring the strip back. It hides both tabs at once.
+          <strong>The Strip button</strong> in the toolbar toggles the bottom
+          attachment strip (its Images and Files tabs) on and off. Click it again
+          to bring the strip back.
         </li>
         <li>
           <strong>Drag a thumbnail back into the editor</strong> to insert the

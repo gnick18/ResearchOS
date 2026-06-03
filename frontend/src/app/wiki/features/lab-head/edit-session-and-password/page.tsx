@@ -7,7 +7,7 @@ export default function LabHeadEditSessionPage() {
   return (
     <WikiPage
       title="Edit session and password"
-      intro="A PI's soft-write actions (approve a purchase, post an announcement, archive a user) are gated by a short edit session. You unlock the session once with the PI password, get a 5-minute window during which the affordances become active, and the session auto-expires after. This page covers the unlock flow and why the gate exists."
+      intro="A PI's cross-member soft-write actions (approve a purchase, archive a user, assign a task, flag a record) are gated by a short edit session. You unlock the session once with the PI password, get a 5-minute window during which the affordances become active, and the session auto-expires after. Posting a lab announcement is the one PI action that's exempt: once logged in, a PI posts it directly. This page covers the unlock flow and why the gate exists."
     >
       {/* TODO screenshot agent: capture the Request Edit password dialog open.
           Route: /lab-overview (any soft-write affordance clicked while session is locked)
@@ -25,13 +25,12 @@ export default function LabHeadEditSessionPage() {
       <h2>Why the gate exists</h2>
       <p>
         Soft-write actions are different from a regular edit. A purchase
-        approval, an announcement, or a user archive is a lab-wide signal
-        that other people will act on (the member sees their purchase
-        approved and orders it, the whole lab reads the announcement and
-        plans around it). An accidental click on the wrong button can have
-        real consequences. The edit-session pattern adds a deliberate step
-        that interrupts an absent-minded press and forces a moment of
-        intent.
+        approval or a user archive is a lab-wide signal that other people
+        will act on (the member sees their purchase approved and orders it,
+        an archived member drops out of everyone&apos;s views). An accidental
+        click on the wrong button can have real consequences. The
+        edit-session pattern adds a deliberate step that interrupts an
+        absent-minded press and forces a moment of intent.
       </p>
       <p>
         The model is the same as elevating to admin on a normal OS: the
@@ -43,19 +42,20 @@ export default function LabHeadEditSessionPage() {
 
       <h2>Setting the PI password</h2>
       <p>
-        The PI password is set the first time you click any soft-write
-        affordance on a fresh PI account. The dialog flips to a
-        &quot;set a new password&quot; mode that asks you to type and
-        confirm. After the first unlock, the dialog reverts to a single
-        password field for ongoing sessions.
+        A PI account always has a password. Unlike a regular member, where a
+        password is optional, a PI is required to set an account password
+        during account setup, and that password is enforced at login. So
+        there is never a PI account with no password behind it. See{" "}
+        <Link href="/wiki/getting-started/creating-a-user">Creating a user</Link>.
       </p>
       <p>
-        The PI password is stored separately from the per-user account
-        password (the one you use to sign in to ResearchOS, documented on{" "}
-        <Link href="/wiki/getting-started/creating-a-user">Creating a user</Link>).
-        Using two distinct passwords keeps the gates orthogonal: someone
-        leaning over your shoulder while you sign in does not also get the
-        keys to approve purchases.
+        The edit-session gate reuses that account password on its first
+        unlock, so you do not have to invent a second secret to get started.
+        The two stay identical until you change one of them: change the PI
+        edit password from Settings, or change your account sign-in password,
+        and from that point the two diverge. Keeping them separable lets you
+        give the edit gate a stronger or different secret than your everyday
+        sign-in if you want the two to be orthogonal.
       </p>
 
       <h2>Unlocking a session</h2>
@@ -72,8 +72,8 @@ export default function LabHeadEditSessionPage() {
         </li>
         <li>
           The affordances unlock for the duration of the session. Approve a
-          purchase, post an announcement, archive a member, all without
-          re-prompting.
+          purchase, assign a task, flag a record, archive a member, all
+          without re-prompting.
         </li>
         <li>
           The session timer is visible in the Lab Overview header so you
@@ -107,7 +107,8 @@ export default function LabHeadEditSessionPage() {
 
       <h2>Other soft-write affordances that use the same session</h2>
       <p>
-        The same 5-minute session covers every PI soft-write:
+        The same 5-minute session covers every PI soft-write that touches a
+        member&apos;s record:
       </p>
       <ul>
         <li>
@@ -123,16 +124,18 @@ export default function LabHeadEditSessionPage() {
           purchases.
         </li>
         <li>
-          <strong>Announcements.</strong> See{" "}
-          <Link href="/wiki/features/lab-inbox/announcements">
-            Announcements
-          </Link>.
-        </li>
-        <li>
           <strong>User archive / unarchive.</strong> See{" "}
           <Link href="/wiki/getting-started/user-archiving">User archiving</Link>.
         </li>
       </ul>
+      <p>
+        Posting an announcement is the exception. It touches no member&apos;s
+        record, so a logged-in PI posts it directly with no edit-session
+        unlock. It still writes an audit row. See{" "}
+        <Link href="/wiki/features/lab-inbox/announcements">
+          Announcements
+        </Link>.
+      </p>
       <p>
         Every one of these writes a row to{" "}
         <code>_pi_audit.json</code>. The audit happens whether or not you

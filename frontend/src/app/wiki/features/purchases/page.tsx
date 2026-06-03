@@ -41,6 +41,18 @@ export default function PurchasesFeaturePage() {
         form, so the common case of logging one item takes one interaction instead
         of two.
       </p>
+      <p>
+        Reordering lives right here in this flow, not in a separate floating
+        button anywhere else in the app. Above the Item Name field is a{" "}
+        <strong>recently ordered</strong> row: a few one-tap chips for the
+        items you bought most recently, newest first. Tap one and the modal
+        pre-fills the name, vendor, and price per unit from that item&apos;s
+        most-recent record so you can restock a primer or a reagent without
+        typing. Quantity stays at 1 and the funding string is left untouched,
+        since a re-buy often re-bills against a different grant. If you would
+        rather type, the Item Name field&apos;s autocomplete (described below)
+        recalls the same history.
+      </p>
 
       {/* TODO recapture: purchases-new-purchase-modal.png pending. Capture
        *  with ?wikiCapture=1 against fixture data, then restore the
@@ -400,38 +412,6 @@ export default function PurchasesFeaturePage() {
         without making the member resubmit. Each decline and each re-approve
         writes a row to the audit log (see{" "}
         <Link href="/wiki/features/lab-head/audit-log">Audit log</Link>).
-      </p>
-
-      <h3>The three purchases widget variants</h3>
-      <p>
-        On the Lab Overview, the purchases Tool has three tile variants you
-        can pin to the canvas or the sidebar rail:
-      </p>
-      <ul>
-        <li>
-          <strong>Funding bars.</strong> A horizontal bar per funding account
-          showing spent vs. budget. Good for &quot;how much grant is
-          left.&quot;
-        </li>
-        <li>
-          <strong>Burn rate.</strong> A small trend chart of weekly spend
-          with a range selector. The range buttons are <strong>4w</strong>,{" "}
-          <strong>8w</strong>, <strong>12w</strong>, and <strong>6mo</strong>.
-          Good for &quot;are we accelerating.&quot;
-        </li>
-        <li>
-          <strong>Pending count.</strong> A single big number plus the top
-          few waiting purchases. Good for &quot;do I need to approve
-          something right now.&quot;
-        </li>
-      </ul>
-      <p>
-        Clicking any of the three variant tiles opens the same four-tab
-        popup described above. See{" "}
-        <Link href="/wiki/features/lab-overview/widgets-and-tools">
-          Widgets and Tools
-        </Link>{" "}
-        for the broader catalog.
       </p>
 
       <Callout variant="info" title="Empty state">

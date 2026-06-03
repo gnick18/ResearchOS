@@ -309,8 +309,9 @@ export default function ExperimentsFeaturePage() {
           here in an amber box.
         </li>
         <li>
-          <strong>Lab Notes</strong> is the during-the-run markdown body
-          plus a Files sub-tab for PDFs and other non-image attachments.
+          <strong>Lab Notes</strong> is the during-the-run markdown body,
+          with a bottom attachment strip (Images / Files tabs) for photos,
+          PDFs, and other files.
         </li>
         <li>
           <strong>Method</strong> shows one tab per attached method,
@@ -320,7 +321,7 @@ export default function ExperimentsFeaturePage() {
         <li>
           <strong>Results</strong> is the second markdown editor, for
           the final writeup (the gel image you&apos;d put in a paper,
-          the plot for a thesis chapter), with its own Files sub-tab.
+          the plot for a thesis chapter), with its own attachment strip.
         </li>
       </ul>
       <p>
@@ -345,12 +346,14 @@ export default function ExperimentsFeaturePage() {
         the two tabs in the popup is instantaneous.
       </p>
       <p>
-        Both tabs use the same editor surface: a markdown body with a
-        three-way <strong>Edit / Hybrid / Preview</strong> mode toggle,
-        an image strip pinned below the editor, and a{" "}
-        <strong>📎 Add File</strong> toolbar button. The full editor
-        reference (shortcuts, block-level editing in Hybrid, the
-        language picker, image-resize popovers) lives on its own page:{" "}
+        Both tabs use the same editor surface: a single live markdown body
+        with an <strong>Edit / Preview</strong> toggle, an attachment strip
+        (Images / Files tabs) pinned below the editor, and an{" "}
+        <strong>Add File</strong> toolbar button. Saving is explicit: each{" "}
+        <strong>Save checkpoint</strong> records a revertible version you can
+        browse and restore from the Version history button. The full editor
+        reference (shortcuts, the language picker, image-resize popovers, the
+        attachment strip, checkpoints) lives on its own page:{" "}
         <Link href="/wiki/features/markdown-editor">
           The Markdown Editor
         </Link>
@@ -358,9 +361,9 @@ export default function ExperimentsFeaturePage() {
       </p>
       <p>
         Drag images straight into the body to place them inline, or drop
-        them on the strip to attach without inlining. The Files sub-tab
-        holds non-image attachments (PDFs especially), and renders them
-        as a thumbnail grid you can open in a new tab.
+        them on the strip to attach without inlining. Switch the strip to its
+        Files tab for non-image attachments (PDFs especially); click a file
+        link in the prose to open or download it.
       </p>
       <Callout variant="info" title="Where the files live">
         Lab Notes saves to{" "}
@@ -370,9 +373,10 @@ export default function ExperimentsFeaturePage() {
         Attachments split per-tab into{" "}
         <code>.../notes/Images</code>, <code>.../notes/Files</code>,{" "}
         <code>.../results/Images</code>, and{" "}
-        <code>.../results/Files</code>. PDFs added through the Files
-        sub-tab land in <code>NotesPDFs/</code> or{" "}
-        <code>ResultsPDFs/</code>.
+        <code>.../results/Files</code>. Files attached through the old
+        separate Files panel (<code>NotesPDFs/</code> /{" "}
+        <code>ResultsPDFs/</code>) still show up in the unified Files tab, so
+        nothing you attached before the strip went live is lost.
       </Callout>
 
       <h2>Attach a method (or a PCR protocol)</h2>

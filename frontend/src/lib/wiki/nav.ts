@@ -167,8 +167,8 @@ export const WIKI_NAV: WikiNode[] = [
     children: [
       {
         href: "/wiki/features/home",
-        label: "Home & Projects",
-        blurb: "Create, color, archive, and reorder projects.",
+        label: "Where you land",
+        blurb: "Members land on the Workbench Projects grid; PIs on the curated Lab Overview. No customizable home dashboard.",
       },
       {
         href: "/wiki/features/projects",
@@ -225,24 +225,7 @@ export const WIKI_NAV: WikiNode[] = [
       {
         href: "/wiki/features/lab-overview",
         label: "Lab Overview",
-        blurb: "The PI's customizable dashboard at /lab-overview.",
-        children: [
-          {
-            href: "/wiki/features/lab-overview/widgets-and-tools",
-            label: "Widgets and Tools",
-            blurb: "The 13 Tools, widget variants, and the + Add widget palette.",
-          },
-          {
-            href: "/wiki/features/lab-overview/customizable-sidebar",
-            label: "Customizable sidebar",
-            blurb: "The always-visible right-edge tile rail for PIs.",
-          },
-          {
-            href: "/wiki/features/lab-overview/snapshot-tiles-and-expanded-views",
-            label: "Snapshot tiles and expanded views",
-            blurb: "Tile-to-popup model, drag to reorder, edit mode, Reset to default.",
-          },
-        ],
+        blurb: "The PI's fixed, curated landing page at /lab-overview: pending approvals, announcements, lab activity, today's events, member workload, trainee notes.",
       },
       {
         href: "/wiki/features/lab-inbox",

@@ -7,7 +7,7 @@ export default function LabHeadSoftWritePage() {
   return (
     <WikiPage
       title="Soft-write actions"
-      intro="A soft-write is a PI action that touches a record owned by someone else: approving a member's purchase, assigning a member to a task, flagging a note for review, posting an announcement. Every soft-write goes through the edit-session unlock and writes to the audit log. The pattern keeps cross-member writes accountable without making them painful."
+      intro="A soft-write is a PI action that touches a record owned by someone else: approving a member's purchase, assigning a member to a task, flagging a note for review. These go through the edit-session unlock and write to the audit log, which keeps cross-member writes accountable without making them painful. Posting a lab announcement is the one exception: it's the PI's own broadcast, so once logged in a PI posts it directly with no unlock."
     >
       {/* TODO screenshot agent: capture the PI Actions popup with the Pending Approvals tab open.
           Route: /lab-overview (PI Actions Tool popup, Pending tab)
@@ -91,8 +91,10 @@ export default function LabHeadSoftWritePage() {
 
       <h3>Announcements</h3>
       <p>
-        Announcements are a lab-wide soft-write covered in its own page.
-        Same edit-session unlock, same audit row. See{" "}
+        Announcements are a lab-wide PI broadcast covered in its own page.
+        Unlike the soft-writes above, posting an announcement does not require
+        unlocking an edit session: it touches no member&apos;s record, so once
+        a PI is logged in they post directly. It still writes an audit row. See{" "}
         <Link href="/wiki/features/lab-inbox/announcements">
           Announcements
         </Link>.
@@ -100,10 +102,12 @@ export default function LabHeadSoftWritePage() {
 
       <h2>The shared edit-session gate</h2>
       <p>
-        Every soft-write goes through the same 5-minute edit-session unlock.
-        The first soft-write in a cold session prompts for the PI
-        password, the next four-and-a-half minutes worth of actions run
-        without re-prompting. See{" "}
+        Every soft-write that touches a member&apos;s record (purchase
+        approval, task assignment, flag-for-review) goes through the same
+        5-minute edit-session unlock. The first such action in a cold session
+        prompts for the PI password, then the next four-and-a-half minutes
+        worth of actions run without re-prompting. Posting an announcement is
+        the exception and needs no unlock. See{" "}
         <Link href="/wiki/features/lab-head/edit-session-and-password">
           Edit session and password
         </Link>{" "}

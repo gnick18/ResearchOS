@@ -321,7 +321,7 @@ function ResultCard({
 }
 
 // ---------------------------------------------------------------------------
-// 0. Scientific calculator (general-purpose, on mathjs)
+// 0. Scientific calculator (general-purpose, on expr-eval-fork)
 // ---------------------------------------------------------------------------
 
 type KeyVariant = "digit" | "fn" | "op" | "accent" | "muted";
@@ -544,7 +544,7 @@ function ScientificCalcTab() {
       </div>
 
       <p className="text-[11px] text-gray-500">
-        Computed live with mathjs. Type directly (Enter sets Ans, Esc clears) or
+        Computed live as you type. Type directly (Enter sets Ans, Esc clears) or
         use the keys. sin / cos / tan and inverses, ln, log (base 10), sqrt,
         powers (^), factorial (!), pi, e. Nothing here is saved.
       </p>
