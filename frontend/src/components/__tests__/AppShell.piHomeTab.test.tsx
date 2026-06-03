@@ -1,20 +1,20 @@
 /**
- * AppShell — unified dashboard top-nav tab.
+ * AppShell — dashboard top-nav tab, post widget-framework teardown.
  *
- * Dashboard unification (dashboard-unification build, 2026-05-29). Home
- * and Lab Overview collapsed into ONE dashboard at "/". Contract:
- *   - There is a SINGLE nav entry for the dashboard ("/"), shown for every
- *     account type. `/lab-overview` is no longer a separate nav entry (it
- *     redirects to "/").
- *   - The entry's LABEL is account-aware: "Lab Overview" for a lab_head
- *     (PI), "Home" for solo + member. Mirrors the "Links" vs "Lab Links"
- *     account-aware label pattern.
- *   - account_type === undefined (settings read in flight): treated as
- *     "not lab_head" so the label resolves to "Home" until the read
- *     settles; the tab itself never disappears.
+ * Nav redirect cleanup (commit 4342c292, 2026-06-02). "/" is now a pure
+ * redirect that renders nothing, so the dashboard nav entry changed shape
+ * per account type:
+ *   - lab_head (PI): the "/" entry is remapped to point STRAIGHT at the
+ *     curated "/lab-overview" page (no "/" redirect hop) and is labeled
+ *     "Lab Overview". There is no "/" entry. The "/purchases" entry is no
+ *     longer hidden for PIs (the LabPurchasesWidget that justified hiding
+ *     it was deleted with the canvas).
+ *   - member / solo / account_type === undefined (settings read in
+ *     flight): the "/" entry is dropped entirely — Workbench is their
+ *     landing tab, so there is no dashboard entry at all.
  *
  * The "Show Home page" toggle and the showHomeForLabHead store field were
- * removed by this build — there is no separate Home tab to hide/restore.
+ * removed earlier — there is no separate Home tab to hide/restore.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
