@@ -298,8 +298,10 @@ export default function SequencesPage() {
     async (
       imports: ImportedSequence[],
       projectIds: string[],
+      onProgress?: (done: number, total: number) => void,
     ): Promise<number | null> => {
       let firstId: number | null = null;
+      let done = 0;
       for (const imp of imports) {
         const rec = await sequencesApi.create({
           display_name: imp.display_name,
@@ -308,7 +310,17 @@ export default function SequencesPage() {
           project_ids: projectIds,
         });
         if (rec && firstId == null) firstId = rec.id;
+        done += 1;
+        onProgress?.(done, imports.length);
+        // Progressive refresh: for a big folder import (dozens of files) the
+        // create loop is slow, so refresh the list every few records (fire and
+        // forget, no await — it must not block the loop) so sequences appear as
+        // they land and the user never has to manually reload.
+        if (done % 8 === 0 && done < imports.length) {
+          void queryClient.invalidateQueries({ queryKey: ["sequences"] });
+        }
       }
+      // Final authoritative refetch once every record is written.
       await queryClient.invalidateQueries({ queryKey: ["sequences"] });
       if (firstId != null) setSelectedId(firstId);
       return firstId;
@@ -364,7 +376,17 @@ export default function SequencesPage() {
     async (imports: ImportedSequence[], projectId: string | null, skipped: number) => {
       setImporting(true);
       try {
-        await persistNew(imports, projectId ? [projectId] : []);
+        await persistNew(
+          imports,
+          projectId ? [projectId] : [],
+          (doneN, total) => {
+            // Live progress for multi-file / folder imports so the user sees it
+            // working (and the list filling in) rather than a frozen "Import".
+            if (total > 1 && doneN < total) {
+              setStatus({ text: `Importing ${doneN} of ${total}…`, tone: "ok" });
+            }
+          },
+        );
         setStatus({
           text: importStatusText(imports.length, skipped, destinationName(projectId)),
           tone: "ok",
