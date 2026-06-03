@@ -96,13 +96,15 @@ function ImportIcon({ className }: { className?: string }) {
   );
 }
 
-/** Assemble glyph: two short segments meeting (fragments joining). Inline SVG. */
+/** Assemble glyph: a plasmid built from fragments — a ring drawn as three arc
+ *  segments with gaps (DNA pieces joining into a circular construct), reading as
+ *  molecular-biology assembly / cloning. Inline SVG, stroke-only. */
 function AssembleIcon({ className }: { className?: string }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <path d="M3 9h6l1.5 3L13 6l1.5 6H21" />
-      <circle cx="3" cy="9" r="0.6" fill="currentColor" />
-      <circle cx="21" cy="12" r="0.6" fill="currentColor" />
+      {/* Circumference of r=8 is ~50.27; "12.5 4.25" x3 ≈ 50.25 -> three even
+          arc fragments with small gaps (the junctions of an assembled plasmid). */}
+      <circle cx="12" cy="12" r="8" strokeDasharray="12.5 4.25" />
     </svg>
   );
 }
