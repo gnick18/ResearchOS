@@ -10,6 +10,7 @@ import rehypeHighlight from "rehype-highlight";
 import rehypeSanitize from "rehype-sanitize";
 import { markdownSanitizeSchema } from "@/lib/markdown/sanitize-schema";
 import remarkUnderline from "@/lib/markdown/remark-underline";
+import { extractUserContent } from "@/lib/stamp-utils";
 import { attachmentsApi } from "@/lib/local-api";
 import HybridMarkdownEditor from "./HybridMarkdownEditor";
 import InlineMarkdownEditor from "./InlineMarkdownEditor";
@@ -438,6 +439,13 @@ export default function LiveMarkdownEditor({
   
   // For backward compatibility, derive previewMode from currentMode
   const previewMode = currentMode === "preview";
+  // Provenance stamp stays in the saved .md + every export, but it is not user
+  // prose, so the Preview render strips the stamp scaffold (HTML-comment block +
+  // its date/time/experiment/project body + the `___` separator + any legacy
+  // last-access / "Reopened on" lines). The inline CM6 editor hides the same
+  // block via a decoration; this is the Preview counterpart so the two read modes
+  // agree. extractUserContent keeps the H1 title and all user content untouched.
+  const previewValue = previewMode ? extractUserContent(value) : value;
   // Broken-reference detection state — shared queue between image and file
   // refs so the popup surfaces them one at a time. `currentBrokenImage.kind`
   // decides whether to run the image-search flow or jump straight to the
@@ -2186,7 +2194,7 @@ export default function LiveMarkdownEditor({
             // the cap; Full-bleed drops the cap. The `px-6` gives the measure
             // breathing room from the scroll edge.
             <div className="p-4 h-full overflow-y-auto">
-              {value.trim() ? (
+              {previewValue.trim() ? (
                 <div
                   className={`prose prose-sm prose-gray ${measureClass} px-6`}
                   style={{ lineHeight: "1.7" }}
@@ -2280,7 +2288,7 @@ export default function LiveMarkdownEditor({
                       },
                     }}
                   >
-                    {preserveBlankLines(value)}
+                    {preserveBlankLines(previewValue)}
                   </ReactMarkdown>
                 </div>
               ) : (

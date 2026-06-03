@@ -48,6 +48,7 @@ import { inlineRevealTheme } from "./theme";
 import { TableWidget, FencedCodeWidget } from "./block-widgets";
 import { ImageWidget } from "./image-widget";
 import { markdownKeymap } from "./markdown-keymap";
+import { stampHideExtension } from "./stamp-hide";
 
 /**
  * The image base path used by the inline image widget to resolve relative srcs
@@ -447,18 +448,23 @@ const blockWidgetField = StateField.define<BlockDecoState>({
  *     inline image widget (viewport-scoped, selection-driven).
  *   - blockWidgetField: the StateField for the Table / FencedCode block widgets
  *     (block decorations cannot come from a plugin).
+ *   - stampHideExtension: the StateField that hides the provenance stamp block
+ *     (and any leftover legacy last-access / reopened lines) while leaving the
+ *     text in the document, so the saved .md + every export still carry it.
  *   - inlineRevealTheme: inline-mark + block-widget + image styling.
  *   - markdownKeymap: the hybrid-parity shortcuts at Prec.high, so they win over
  *     the markdown language + default keymaps regardless of order; the editor
  *     still spreads this AFTER the language extension.
  *
- * The reveal plugin + block field stay VIEW-ONLY (decorations + widgets, no doc
- * mutation); markdownKeymap is the ONLY member that dispatches doc changes, and
- * only on a user keypress. The byte-for-byte round-trip is therefore preserved.
+ * The reveal plugin + block field + stamp-hide field stay VIEW-ONLY (decorations
+ * + widgets, no doc mutation); markdownKeymap is the ONLY member that dispatches
+ * doc changes, and only on a user keypress. The byte-for-byte round-trip is
+ * therefore preserved.
  */
 export const inlineRevealExtension: Extension = [
   inlineReveal,
   blockWidgetField,
+  stampHideExtension,
   inlineRevealTheme,
   markdownKeymap,
 ];

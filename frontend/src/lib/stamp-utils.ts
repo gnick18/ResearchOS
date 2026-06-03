@@ -26,14 +26,18 @@
  *     [//]: # (STAMP_START)      … [//]: # (STAMP_END)
  *     <!-- STAMP_START -->       … <!-- STAMP_END -->
  *
- * Reopened tracking:
+ * Retired journaling (kept STRIPPABLE, never WRITTEN):
+ *   The old "last-access" line and the "Reopened on …" stamps are no longer
+ *   generated on note open / save (the journaling cluttered the editor). New
+ *   files get the provenance stamp only. The strippers below still recognize
+ *   and remove these legacy lines so old files that already contain them clean
+ *   up correctly on read / excerpt / export:
+ *
  *     [last-access]: # (2026-02-15T12:07:00Z)
  *     ___
  *     *Reopened on 2026-02-16 at 2:30 PM*
  *     ___
  */
-
-const REOPEN_THRESHOLD_MS = 12 * 60 * 60 * 1000;
 
 export interface StampData {
   date: string;
@@ -44,7 +48,15 @@ export interface StampData {
 
 export interface ParsedContent {
   stamp: StampData | null;
+  /**
+   * Legacy last-access ISO timestamp if the file still carries one. The app no
+   * longer writes this; it is retained only so old files parse + strip cleanly.
+   */
   lastAccess: string | null;
+  /**
+   * Legacy "Reopened on …" stamps if the file still carries them. No longer
+   * written; retained for clean stripping of old files.
+   */
   reopenedStamps: string[];
   content: string;
 }
@@ -87,17 +99,6 @@ function stampBlockPattern(flags: string): RegExp {
     ({ start, end }) => `(?:${source(start)}[\\s\\S]*?${source(end)}\\s*___\\s*\\n?)`
   ).join("|");
   return new RegExp(alternation, flags);
-}
-
-/**
- * Build a regex that matches any supported stamp-end line followed by the ___
- * separator (used as an insertion anchor by `updateLastAccess` and friends).
- */
-function stampEndAnchorPattern(): RegExp {
-  const alternation = STAMP_BOUNDARIES.map(
-    ({ end }) => `(?:${source(end)}\\s*___\\s*\\n)`
-  ).join("|");
-  return new RegExp(`(${alternation})`);
 }
 
 /**
@@ -169,25 +170,6 @@ export function generateStamp(experimentName: string, projectFolder: string): st
   ].join("\n");
 }
 
-export function generateLastAccess(): string {
-  const now = new Date().toISOString();
-  return `[last-access]: # (${now})`;
-}
-
-export function generateReopenedStamp(): string {
-  const now = new Date();
-  const dateStr = now.toLocaleDateString("en-CA");
-  const timeStr = now.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-
-  return `___
-*Reopened on ${dateStr} at ${timeStr}*
-___`;
-}
-
 // ── Parsers ────────────────────────────────────────────────────────────────
 
 /**
@@ -227,7 +209,12 @@ export function parseStamp(content: string): StampData | null {
   };
 }
 
-export function parseLastAccess(content: string): string | null {
+/**
+ * Internal: detect a legacy last-access ISO timestamp if present. The app no
+ * longer writes last-access lines (the journaling was retired), so this is used
+ * only by `parseContent` to surface the legacy value while stripping it.
+ */
+function detectLegacyLastAccess(content: string): string | null {
   for (const pattern of LAST_ACCESS_CAPTURE) {
     const m = content.match(pattern);
     if (m && m[1]) return m[1];
@@ -235,21 +222,9 @@ export function parseLastAccess(content: string): string | null {
   return null;
 }
 
-export function shouldAddReopenedStamp(content: string): boolean {
-  const lastAccessStr = parseLastAccess(content);
-  if (!lastAccessStr) return false;
-  try {
-    const lastAccess = new Date(lastAccessStr);
-    const now = new Date();
-    return now.getTime() - lastAccess.getTime() > REOPEN_THRESHOLD_MS;
-  } catch {
-    return false;
-  }
-}
-
 export function parseContent(content: string): ParsedContent {
   const stamp = parseStamp(content);
-  const lastAccess = parseLastAccess(content);
+  const lastAccess = detectLegacyLastAccess(content);
 
   const reopenedRegex = /___\s*\n\*Reopened on[^*]+\*\s*\n___/g;
   const reopenedStamps: string[] = [];
@@ -303,39 +278,6 @@ export function updateStampNames(
     .join("\n");
 
   return content.replace(stampContent, updated);
-}
-
-export function updateLastAccess(content: string): string {
-  const now = new Date().toISOString();
-  const newLastAccess = `[last-access]: # (${now})`;
-
-  let updated = content.replace(lastAccessLinePattern("g"), "");
-
-  const stampEnd = updated.match(stampEndAnchorPattern());
-  if (stampEnd) {
-    updated = updated.replace(stampEnd[1], stampEnd[1] + newLastAccess + "\n");
-  } else {
-    updated = newLastAccess + "\n" + updated;
-  }
-
-  return updated;
-}
-
-export function addReopenedStamp(content: string): string {
-  const reopenedStamp = generateReopenedStamp();
-
-  const lastAccessRe = lastAccessLinePattern("");
-  const lastAccess = content.match(lastAccessRe);
-  if (lastAccess) {
-    return content.replace(lastAccess[0], lastAccess[0] + reopenedStamp + "\n");
-  }
-
-  const stampEnd = content.match(stampEndAnchorPattern());
-  if (stampEnd) {
-    return content.replace(stampEnd[1], stampEnd[1] + reopenedStamp + "\n");
-  }
-
-  return reopenedStamp + "\n" + content;
 }
 
 // ── Lazy normalization ─────────────────────────────────────────────────────
@@ -399,7 +341,11 @@ export function normalizeStampFormat(content: string): string {
 // ── File scaffolding ───────────────────────────────────────────────────────
 
 /**
- * Create a fresh file body with a stamp, last-access marker, and an H1 header.
+ * Create a fresh file body with the provenance stamp and an H1 header.
+ *
+ * The last-access journaling line was retired (2026-06-02): new files carry the
+ * provenance stamp (date / time / experiment / project) only. The stamp lives in
+ * the saved .md and survives every export; the inline editor hides it visually.
  *
  * `type === 'method'` is used by newly-created method markdown files in the
  * methods library; falls back to `'notes'`-style header content.
@@ -410,7 +356,6 @@ export function createNewFileContent(
   type: "notes" | "results" | "method" = "notes"
 ): string {
   const stamp = generateStamp(experimentName, projectFolder);
-  const lastAccess = generateLastAccess();
   const header =
     type === "notes"
       ? `# Lab Notes: ${experimentName}`
@@ -419,7 +364,6 @@ export function createNewFileContent(
         : `# ${experimentName}`;
 
   return `${stamp}
-${lastAccess}
 
 ${header}
 `;
