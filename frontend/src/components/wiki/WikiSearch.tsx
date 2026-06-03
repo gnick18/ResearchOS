@@ -235,7 +235,7 @@ export default function WikiSearch() {
             if (query.length > 0) setOpen(true);
           }}
           onKeyDown={onKeyDown}
-          className="w-full pl-8 pr-3 py-1.5 text-sm bg-white border border-gray-200 rounded-md
+          className="w-full pl-8 pr-3 py-1.5 text-body bg-white border border-gray-200 rounded-md
             placeholder-gray-400 text-gray-900
             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
             transition-colors"
@@ -244,7 +244,7 @@ export default function WikiSearch() {
 
       {showHint ? (
         <div
-          className="absolute left-3 right-3 mt-1 px-3 py-2 text-xs text-gray-500
+          className="absolute left-3 right-3 mt-1 px-3 py-2 text-meta text-gray-500
             bg-white border border-gray-200 rounded-md shadow-sm z-50"
         >
           Type 2 or more characters to search.
@@ -253,7 +253,7 @@ export default function WikiSearch() {
 
       {showLoadingState ? (
         <div
-          className="absolute left-3 right-3 mt-1 px-3 py-2 text-xs text-gray-500
+          className="absolute left-3 right-3 mt-1 px-3 py-2 text-meta text-gray-500
             bg-white border border-gray-200 rounded-md shadow-sm z-50"
         >
           Loading wiki index...
@@ -262,7 +262,7 @@ export default function WikiSearch() {
 
       {showErrorState ? (
         <div
-          className="absolute left-3 right-3 mt-1 px-3 py-2 text-xs text-rose-600
+          className="absolute left-3 right-3 mt-1 px-3 py-2 text-meta text-rose-600
             bg-white border border-rose-200 rounded-md shadow-sm z-50"
         >
           Couldn&apos;t load the search index. Reload the page to try again.
@@ -271,7 +271,7 @@ export default function WikiSearch() {
 
       {showZeroState ? (
         <div
-          className="absolute left-3 right-3 mt-1 px-3 py-2 text-xs text-gray-500
+          className="absolute left-3 right-3 mt-1 px-3 py-2 text-meta text-gray-500
             bg-white border border-gray-200 rounded-md shadow-sm z-50"
         >
           No matches for &ldquo;{query.trim()}&rdquo;.
@@ -294,7 +294,7 @@ export default function WikiSearch() {
               <div key={`${flat.hit.entry.href}-${i}`}>
                 {categoryHeader ? (
                   <div
-                    className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wide
+                    className="px-3 pt-2 pb-1 text-meta uppercase tracking-wide
                       font-semibold text-gray-500 bg-gray-50 border-t border-gray-100
                       first:border-t-0"
                   >
@@ -312,7 +312,7 @@ export default function WikiSearch() {
                     navigateTo(flat.hit.entry.href);
                   }}
                   onMouseEnter={() => setActiveIndex(i)}
-                  className={`block px-3 py-2 text-sm border-t border-gray-100 first:border-t-0
+                  className={`block px-3 py-2 text-body border-t border-gray-100 first:border-t-0
                     transition-colors cursor-pointer
                     ${
                       isActive
@@ -322,7 +322,7 @@ export default function WikiSearch() {
                 >
                   <div className="font-medium">{flat.hit.entry.title}</div>
                   <SnippetLine hit={flat.hit} query={debounced} />
-                  <div className="mt-0.5 text-[11px] text-gray-500 truncate">
+                  <div className="mt-0.5 text-meta text-gray-500 truncate">
                     {flat.hit.entry.breadcrumbs.join(" / ")}
                   </div>
                 </a>
@@ -354,7 +354,7 @@ function SnippetLine({ hit, query }: { hit: WikiSearchHit; query: string }) {
   // highlighting if we extend the scoring model.
   void query;
   return (
-    <div className="mt-0.5 text-xs text-gray-600 leading-snug line-clamp-2">
+    <div className="mt-0.5 text-meta text-gray-600 leading-snug line-clamp-2">
       {before}
       <mark className="bg-yellow-100 text-gray-900 px-0.5 rounded-sm">{matched}</mark>
       {after}

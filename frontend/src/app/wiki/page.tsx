@@ -98,9 +98,9 @@ export default function WikiLandingPage() {
           >
             <div className="font-semibold text-gray-900">{section.label}</div>
             {section.blurb ? (
-              <div className="mt-1 text-sm text-gray-600">{section.blurb}</div>
+              <div className="mt-1 text-body text-gray-600">{section.blurb}</div>
             ) : null}
-            <div className="mt-2 text-xs text-gray-500">
+            <div className="mt-2 text-meta text-gray-500">
               {section.children?.length ?? 0} pages
             </div>
           </Link>

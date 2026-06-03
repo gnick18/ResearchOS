@@ -18,7 +18,7 @@ export default function IntegrationsIndex() {
           >
             <div className="font-semibold text-gray-900">{c.label}</div>
             {c.blurb ? (
-              <div className="mt-1 text-sm text-gray-600">{c.blurb}</div>
+              <div className="mt-1 text-body text-gray-600">{c.blurb}</div>
             ) : null}
           </Link>
         ))}

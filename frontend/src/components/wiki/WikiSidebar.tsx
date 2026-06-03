@@ -20,7 +20,7 @@ export default function WikiSidebar() {
         <button
           type="button"
           onClick={() => setMobileOpen((v) => !v)}
-          className="inline-flex items-center gap-2 text-sm font-medium text-gray-700"
+          className="inline-flex items-center gap-2 text-body font-medium text-gray-700"
           aria-expanded={mobileOpen}
           aria-controls="wiki-sidebar-nav"
         >
@@ -44,15 +44,15 @@ export default function WikiSidebar() {
         <div className="px-5 pt-6 pb-3">
           <Link
             href="/wiki"
-            className="block text-base font-bold text-gray-900 tracking-tight hover:text-gray-700"
+            className="block text-title font-bold text-gray-900 tracking-tight hover:text-gray-700"
             onClick={() => setMobileOpen(false)}
           >
             ResearchOS Wiki
           </Link>
-          <p className="mt-1 text-xs text-gray-500">Help & Documentation</p>
+          <p className="mt-1 text-meta text-gray-500">Help & Documentation</p>
         </div>
         <WikiSearch />
-        <nav className="px-3 pb-10 text-sm">
+        <nav className="px-3 pb-10 text-body">
           {WIKI_NAV.map((node) => (
             <SidebarNode
               key={node.href}

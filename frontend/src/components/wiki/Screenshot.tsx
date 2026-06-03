@@ -33,13 +33,13 @@ export default function Screenshot({
 
   const inner = errored ? (
     <div
-      className="w-full aspect-[1440/900] flex items-center justify-center bg-gray-50 text-gray-400 text-sm border-2 border-dashed border-gray-200 rounded-lg"
+      className="w-full aspect-[1440/900] flex items-center justify-center bg-gray-50 text-gray-400 text-body border-2 border-dashed border-gray-200 rounded-lg"
       role="img"
       aria-label={`${alt} (screenshot pending capture)`}
     >
       <div className="text-center">
-        <div className="text-base font-medium text-gray-500">Screenshot pending</div>
-        <div className="mt-1 text-xs text-gray-400">{alt}</div>
+        <div className="text-title font-medium text-gray-500">Screenshot pending</div>
+        <div className="mt-1 text-meta text-gray-400">{alt}</div>
         <div className="mt-2 text-[11px] text-gray-400 font-mono">{src}</div>
       </div>
     </div>
@@ -71,7 +71,7 @@ export default function Screenshot({
         </button>
       )}
       {caption ? (
-        <figcaption className="mt-2 text-xs text-gray-500 text-center">
+        <figcaption className="mt-2 text-meta text-gray-500 text-center">
           {caption}
         </figcaption>
       ) : null}

@@ -150,7 +150,7 @@ export default function SecurityPage() {
         <code>frontend/src/lib/api/rate-limit.ts</code> if you want to read
         it line by line.
       </p>
-      <h3 className="text-base font-semibold mt-6">
+      <h3 className="text-title font-semibold mt-6">
         Two recovery surfaces for your Telegram bot token
       </h3>
       <p>
@@ -233,7 +233,7 @@ export default function SecurityPage() {
           so if anything goes wrong the entire password change is
           aborted and your backup is never stranded.
         </p>
-        <p className="text-sm text-gray-600">
+        <p className="text-body text-gray-600">
           The encryption parameters (KDF, cipher, IV / salt sizes,
           fail-closed decryption semantics) live in{" "}
           <a
@@ -352,7 +352,7 @@ export default function SecurityPage() {
         <summary className="cursor-pointer font-medium text-gray-800">
           The thorough way: open DevTools and watch the network yourself
         </summary>
-        <p className="text-sm text-gray-700 mt-2">
+        <p className="text-body text-gray-700 mt-2">
           Your browser already shows every network request the app makes.
           This is the audit-grade path for anyone who wants to see the
           bytes themselves.

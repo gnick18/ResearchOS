@@ -34,7 +34,7 @@ const STYLES: Record<Variant, { wrap: string; title: string; icon: string }> = {
 export default function Callout({ variant = "info", title, children }: Props) {
   const s = STYLES[variant];
   return (
-    <aside className={`my-4 rounded-lg border px-4 py-3 text-sm leading-relaxed ${s.wrap}`}>
+    <aside className={`my-4 rounded-lg border px-4 py-3 text-body leading-relaxed ${s.wrap}`}>
       <div className="flex items-baseline gap-2">
         <span aria-hidden className="font-bold leading-none">
           {s.icon}

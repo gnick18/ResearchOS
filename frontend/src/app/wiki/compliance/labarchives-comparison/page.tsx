@@ -32,7 +32,7 @@ function Partial({ children }: { children?: ReactNode }) {
 
 function ComingSoon() {
   return (
-    <span className="ml-1.5 inline-block whitespace-nowrap rounded-full bg-sky-100 text-sky-700 text-[11px] font-semibold px-2 py-0.5 align-middle">
+    <span className="ml-1.5 inline-block whitespace-nowrap rounded-full bg-sky-100 text-sky-700 text-meta font-semibold px-2 py-0.5 align-middle">
       Coming soon
     </span>
   );
@@ -60,7 +60,7 @@ export default function LabArchivesComparisonPage() {
       </p>
 
       <div className="my-5 overflow-x-auto not-prose">
-        <table className="w-full text-sm border-collapse">
+        <table className="w-full text-body border-collapse">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-gray-700">
               <th className="text-left px-3 py-2 font-semibold w-[26%]">

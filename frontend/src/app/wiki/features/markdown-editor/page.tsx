@@ -155,7 +155,7 @@ export default function MarkdownEditorPage() {
         anywhere this table says <Kbd>Cmd</Kbd>.
       </p>
       <div className="not-prose my-4 overflow-x-auto">
-        <table className="w-full text-sm border-collapse">
+        <table className="w-full text-body border-collapse">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-gray-700">
               <th className="text-left px-3 py-2 font-semibold">Action</th>

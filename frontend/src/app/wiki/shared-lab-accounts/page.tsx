@@ -83,7 +83,7 @@ export default function SharedLabAccountsPage() {
           >
             <div className="font-semibold text-gray-900">{p.label}</div>
             {p.blurb ? (
-              <div className="mt-1 text-sm text-gray-600">{p.blurb}</div>
+              <div className="mt-1 text-body text-gray-600">{p.blurb}</div>
             ) : null}
           </Link>
         ))}
