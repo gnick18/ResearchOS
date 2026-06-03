@@ -67,3 +67,21 @@ export {
   type TaskDocSurface,
   type TaskDocProjection,
 } from "./task-doc-history";
+
+// seq history bot (2026-06-03): the sequence editor recorder + viewer adapter.
+// Additive entity type ("sequences") keyed by (owner, sequenceId); the same
+// shared flags re-exported, single source of truth.
+export {
+  recordSequenceHistory,
+  sequenceAdapter,
+  sequencePayload,
+  projectSequenceState,
+  summarizeSequenceChange,
+  sequenceDigest,
+  formatBp,
+  SEQUENCES_ENTITY_TYPE,
+  type SequenceTrackedState,
+  type SequenceTrackedFeature,
+  type SequenceProjection,
+  type SequenceDocLike,
+} from "./sequences-history";

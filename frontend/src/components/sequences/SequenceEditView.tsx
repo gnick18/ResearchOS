@@ -47,6 +47,18 @@ import {
   useMolecularClipboard,
 } from "@/lib/sequences/molecular-clipboard";
 import { useSequenceEditor } from "@/lib/sequences/use-sequence-editor";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import {
+  historyEngine,
+  canonicalize,
+  recordSequenceHistory,
+  sequencePayload,
+  projectSequenceState,
+  HISTORY_ENGINE_ENABLED,
+  RESTORE_ENABLED,
+  HistoryCompactedTargetError,
+  SEQUENCES_ENTITY_TYPE,
+} from "@/lib/history";
 import SequenceConfirmDialog, {
   type SequenceConfirmRequest,
 } from "./SequenceConfirmDialog";
@@ -237,6 +249,13 @@ export default function SequenceEditView({
 }) {
   const editor = useSequenceEditor(sequence);
   const { doc, annotations: docAnnotations, applyEdit, undo, redo, canUndo, canRedo, dirty } = editor;
+
+  // seq history bot — the signed-in user is the actor credited on a recorded
+  // version + the owner folder the history file lives under (the /sequences route
+  // edits the current user's own sequences, so owner === actor here).
+  const { currentUser } = useCurrentUser();
+  const historyActor = currentUser ?? "";
+  const historyOwner = currentUser ?? "";
 
   // Track the live SeqViz selection for the readout.
   const [selection, setSelection] = useState<Selection | null>(null);
@@ -909,7 +928,9 @@ export default function SequenceEditView({
 
   const handleSave = useCallback(async () => {
     if (readOnly || !onSave) return;
-    const { documentToGenbank } = await import("@/lib/sequences/edit-model");
+    const { documentToGenbank, documentFromDetail } = await import(
+      "@/lib/sequences/edit-model"
+    );
     const gb = documentToGenbank(doc);
     if (!gb) {
       // Serialization failed — refuse to write a corrupt round-trip.
@@ -918,8 +939,146 @@ export default function SequenceEditView({
       return;
     }
     const ok = await onSave(gb);
-    if (ok) editor.commitSaved();
-  }, [doc, onSave, editor, readOnly]);
+    if (ok) {
+      editor.commitSaved();
+      // seq history bot — record this Save as a permanent, restorable version.
+      // Best-effort + AFTER the .gb write (recordSequenceHistory swallows its own
+      // errors so a history-write failure never affects the save). The prev state
+      // is the on-disk molecule this Save overwrote (the loaded detail), next is
+      // the just-saved doc. The engine's empty-delta short-circuit drops a no-op.
+      if (HISTORY_ENGINE_ENABLED && historyOwner) {
+        const prevDoc = documentFromDetail(sequence);
+        void recordSequenceHistory({
+          type: "update",
+          id: sequence.id,
+          owner: historyOwner,
+          actor: historyActor,
+          prevState: prevDoc,
+          nextState: doc,
+        });
+      }
+    }
+  }, [doc, onSave, editor, readOnly, sequence, historyOwner, historyActor]);
+
+  // seq history bot — the canonical tracked state of the LIVE molecule, threaded
+  // to the History panel so the engine can resolve a bare-genesis anchor (a
+  // sequence first versioned on top of a pre-existing .gb) when reconstructing
+  // each version. Recomputed when the doc changes.
+  const headCanonical = useMemo(() => canonicalize(sequencePayload(doc)), [doc]);
+
+  // seq history bot — RESTORE a version from the History tab. Reverse-walk from
+  // the LIVE HEAD canonical to the target version, rebuild the editor doc from
+  // the reconstructed tracked state, load it into the editor (a single undo step
+  // via applyDocEdit), persist the .gb, and record a "revert" row so the timeline
+  // shows "Restored an earlier version" and the restore is itself revertible.
+  //
+  // Fidelity note: the tracked state carries the bases, topology, name, and the
+  // recognized feature fields (name / type / strand / span). Per-feature
+  // qualifier notes + colors are intentionally not versioned (they would churn
+  // every diff), so a restored feature comes back without those extras.
+  const handleRestoreVersion = useCallback(
+    async (versionIndex: number) => {
+      if (readOnly || !onSave || !RESTORE_ENABLED || !historyOwner) return;
+      try {
+        const rows = await historyEngine.readHistory(
+          SEQUENCES_ENTITY_TYPE,
+          historyOwner,
+          sequence.id,
+        );
+        if (rows.length === 0) return;
+        const headCanon = canonicalize(sequencePayload(doc));
+        let targetCanonical: string;
+        try {
+          targetCanonical = historyEngine.reverseWalkTo(rows, versionIndex, headCanon);
+        } catch (err) {
+          if (err instanceof HistoryCompactedTargetError) {
+            console.warn(
+              `[history] sequence restore target ${versionIndex} was summarized for ${SEQUENCES_ENTITY_TYPE}/${sequence.id}; cannot restore exactly`,
+            );
+            return;
+          }
+          throw err;
+        }
+        const target = projectSequenceState(targetCanonical);
+        // Reconstruct the tracked state object (the projection drops the raw
+        // feature list shape, so re-parse the canonical for the features).
+        let trackedFeatures: {
+          name: string;
+          type: string;
+          strand: 1 | -1;
+          start: number;
+          end: number;
+        }[] = [];
+        try {
+          const parsed = JSON.parse(targetCanonical) as {
+            features?: typeof trackedFeatures;
+          };
+          if (Array.isArray(parsed.features)) trackedFeatures = parsed.features;
+        } catch {
+          /* tolerate: restore bases + metadata even if features fail to parse */
+        }
+
+        const { documentToGenbank } = await import("@/lib/sequences/edit-model");
+        // Load the restored state into the editor as one undo step.
+        editor.applyDocEdit((prev) => ({
+          ...prev,
+          name: target.name || prev.name,
+          seq: target.seq,
+          circular: target.circular,
+          features: trackedFeatures.map((f) => ({
+            name: f.name,
+            type: f.type,
+            strand: f.strand,
+            forward: f.strand !== -1,
+            start: f.start,
+            end: f.end,
+          })),
+        }));
+
+        // Persist the restored molecule + record the "revert" row. We rebuild the
+        // GenBank from the restored fields directly (applyDocEdit's setState has
+        // not flushed yet, so we cannot read the new `doc` synchronously here).
+        const restoredDoc = {
+          name: target.name || doc.name,
+          seq: target.seq,
+          seqType: doc.seqType,
+          circular: target.circular,
+          features: trackedFeatures.map((f) => ({
+            name: f.name,
+            type: f.type,
+            strand: f.strand,
+            forward: f.strand !== -1,
+            start: f.start,
+            end: f.end,
+          })),
+        };
+        const gb = documentToGenbank(restoredDoc);
+        if (!gb) return;
+        // Record the "revert" row FIRST (awaited) so the panel's re-read — which
+        // fires when onSave's refetch changes headCanonical — already sees the
+        // new HEAD row labeled "Restored an earlier version". prev = the live
+        // molecule we are reverting FROM, next = the restored molecule.
+        await recordSequenceHistory({
+          type: "revert",
+          id: sequence.id,
+          owner: historyOwner,
+          actor: historyActor,
+          prevState: doc,
+          nextState: restoredDoc,
+          revertTargetVersion: versionIndex,
+        });
+        // Persist the .gb. The parent invalidates the sequence query, which
+        // re-feeds the restored detail and RE-SEEDS the editor (savedRef =
+        // restored doc), so the dirty flag clears cleanly — we deliberately do
+        // NOT call commitSaved here (its closure `doc` is the pre-restore doc, so
+        // it would set a stale saved baseline and leave the editor "unsaved").
+        await onSave(gb);
+      } catch (err) {
+        console.error("[SequenceEditView] restore failed:", err);
+      }
+    },
+    [readOnly, onSave, historyOwner, historyActor, sequence.id, doc, editor],
+  );
 
   // Move the SeqViz caret to a given index after an edit so the next action
   // (e.g. paste, then keep typing) lands in the right place.
@@ -2006,8 +2165,17 @@ export default function SequenceEditView({
             />
           ) : null}
 
-          {/* HISTORY tab — empty state until the cloning-history phase lands. */}
-          {viewMode === "history" ? <SequenceHistoryPanel /> : null}
+          {/* HISTORY tab — real per-sequence version timeline (seq history bot).
+              Each Save records a version; restore loads an earlier one back. */}
+          {viewMode === "history" ? (
+            <SequenceHistoryPanel
+              sequenceId={sequence.id}
+              owner={historyOwner}
+              headCanonical={headCanonical}
+              canRestore={!readOnly && RESTORE_ENABLED}
+              onRestore={handleRestoreVersion}
+            />
+          ) : null}
         </div>
       </div>
 
