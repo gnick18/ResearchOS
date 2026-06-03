@@ -11,11 +11,29 @@
 //   - bufferpack.unpack(">I"/">H"/">b")  ->  DataView big-endian getUint32 /
 //     getUint16 / getInt8 (the only three pack formats the parser ever uses)
 //   - Buffer / string_decoder                ->  Uint8Array + TextDecoder
-//   - fast-xml-parser                        ->  the browser DOMParser
+//   - fast-xml-parser                        ->  a tiny dependency-free XML
+//     scanner (see parseFeaturesXml / parseNotesXml below)
 //   - lodash `get`                           ->  a tiny local path getter
 //
+// Why NOT DOMParser: the SnapGene Features / Notes blocks are XML, and an
+// earlier revision used the browser `DOMParser`. That made the WHOLE import
+// throw `ReferenceError: DOMParser is not defined` in any non-DOM JS realm
+// (Node test harness, SSR, a web worker) the instant a `.dna` file carried a
+// Features or Notes block — i.e. essentially every real SnapGene export. The
+// wrapper then surfaced "Import Error: Invalid File" with zero sequences. The
+// SnapGene XML is small, flat, and well formed (no namespaces / CDATA), so we
+// scan it with a regex-based reader instead. No DOM, no deps, runs everywhere.
+//
+// Block tolerance: every block is read as (1-byte tag, big-endian uint32
+// length, body). Tags we understand (0/21 sequence, 10 features, 6 notes) are
+// parsed; ANY other tag (including newer ones in modern exports) is skipped by
+// its declared length rather than throwing, so future format additions degrade
+// gracefully instead of failing the import.
+//
 // Original credit (per upstream): adapted from IsaacLuo's SnapGeneFileReader
-// (https://github.com/IsaacLuo/SnapGeneFileReader).
+// (https://github.com/IsaacLuo/SnapGeneFileReader). XML layout (tags /
+// attributes) reimplemented from the publicly documented SnapGene binary
+// format; no third-party (GPL) reader code is vendored.
 
 import createInitialSequence from "./utils/createInitialSequence";
 import validateSequenceArray from "./utils/validateSequenceArray";
@@ -139,6 +157,14 @@ async function snapgeneToJson(fileObj, options = {}) {
       const nextByte = nextByteArr.length ? nextByteArr[0] : -1;
       const block_size = unpack(4, "I");
 
+      // A block whose declared length runs past the end of the file means the
+      // stream is truncated/corrupt or we lost block alignment. Stop cleanly
+      // and keep whatever we parsed so far rather than throwing or reading out
+      // of bounds (subarray would just clamp and silently mis-parse).
+      if (block_size < 0 || offset + block_size > total) {
+        break;
+      }
+
       if (nextByte === 21 || nextByte === 0) {
         // READ THE SEQUENCE AND ITS PROPERTIES
         const props = unpack(1, "b");
@@ -223,42 +249,108 @@ async function snapgeneToJson(fileObj, options = {}) {
   }
 }
 
-/** Parse the SnapGene `<Features>` XML block via DOMParser. Returns a flat list
- *  of `{ name, type, directionality, segments:[{range,color}], colorQual }`. */
-function parseFeaturesXml(xml) {
-  const doc = new DOMParser().parseFromString(xml, "text/xml");
+/** Decode the handful of XML entities SnapGene emits (it double-escapes HTML in
+ *  qualifier values, e.g. `&lt;html&gt;`, plus the standard five). */
+function decodeXmlEntities(s) {
+  if (s == null || s.indexOf("&") === -1) return s;
+  return s
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    // Ampersand last so we don't re-trigger the rules above.
+    .replace(/&amp;/g, "&");
+}
+
+/** Pull a single attribute value out of an element's opening-tag text. Returns
+ *  `undefined` when absent. Values are XML-entity-decoded. */
+function attr(tagText, name) {
+  const m = tagText.match(new RegExp(`\\b${name}\\s*=\\s*"([^"]*)"`));
+  return m ? decodeXmlEntities(m[1]) : undefined;
+}
+
+/** Iterate over every `<Tag ...>...</Tag>` (or self-closing `<Tag .../>`) block
+ *  for `tagName` inside `xml`, returning `{ open, inner }` for each: `open` is
+ *  the opening-tag text (attributes live here), `inner` is the element body
+ *  (empty for self-closing). A flat, namespace-free scanner — sufficient for
+ *  the well-formed XML SnapGene writes, with no DOM dependency. */
+function eachElement(xml, tagName) {
   const out = [];
-  const features = doc.getElementsByTagName("Feature");
-  for (let i = 0; i < features.length; i++) {
-    const feat = features[i];
-    const segEls = feat.getElementsByTagName("Segment");
-    const segments = [];
-    for (let s = 0; s < segEls.length; s++) {
-      const seg = segEls[s];
-      segments.push({
-        range: seg.getAttribute("range") || "",
-        color: seg.getAttribute("color") || undefined,
-      });
+  // Matches `<Tag ...>` or `<Tag ... />`. Group 1 = attributes, group 2 = "/"
+  // when self-closing.
+  const openRe = new RegExp(`<${tagName}\\b([^>]*?)(/?)>`, "g");
+  let m;
+  while ((m = openRe.exec(xml)) !== null) {
+    const open = m[1] || "";
+    if (m[2] === "/") {
+      out.push({ open, inner: "" });
+      continue;
     }
+    // Find the matching close tag, honoring nesting of the same tag name.
+    const closeRe = new RegExp(`</?${tagName}\\b[^>]*?(/?)>`, "g");
+    closeRe.lastIndex = openRe.lastIndex;
+    let depth = 1;
+    let innerEnd = -1;
+    let c;
+    while ((c = closeRe.exec(xml)) !== null) {
+      const isSelfClosed = c[1] === "/";
+      const isClose = xml[c.index + 1] === "/";
+      if (isClose) {
+        depth--;
+        if (depth === 0) {
+          innerEnd = c.index;
+          openRe.lastIndex = closeRe.lastIndex;
+          break;
+        }
+      } else if (!isSelfClosed) {
+        depth++;
+      }
+    }
+    if (innerEnd === -1) {
+      // Unterminated; take the rest of the document as the body.
+      out.push({ open, inner: xml.slice(openRe.lastIndex) });
+      break;
+    }
+    out.push({ open, inner: xml.slice(m.index + m[0].length, innerEnd) });
+  }
+  return out;
+}
+
+/** Parse the SnapGene `<Features>` XML block with a dependency-free scanner
+ *  (no DOMParser; see file header). Returns a flat list of
+ *  `{ name, type, directionality, segments:[{range,color}], colorQual }`. */
+function parseFeaturesXml(xml) {
+  const out = [];
+  for (const { open: featOpen, inner: featInner } of eachElement(
+    xml,
+    "Feature",
+  )) {
+    const segments = eachElement(featInner, "Segment").map((seg) => ({
+      range: attr(seg.open, "range") || "",
+      color: attr(seg.open, "color") || undefined,
+    }));
+
     // Some files carry the color via a <Q name="color"><V .../></Q> qualifier.
     let colorQual;
-    const qEls = feat.getElementsByTagName("Q");
-    for (let q = 0; q < qEls.length; q++) {
-      if (qEls[q].getAttribute("name") === "color") {
-        const vEl = qEls[q].getElementsByTagName("V")[0];
-        if (vEl) {
+    for (const q of eachElement(featInner, "Q")) {
+      if (attr(q.open, "name") === "color") {
+        const v = eachElement(q.inner, "V")[0];
+        if (v) {
           colorQual =
-            vEl.getAttribute("text") ||
-            vEl.getAttribute("int") ||
-            vEl.textContent ||
+            attr(v.open, "text") ||
+            attr(v.open, "int") ||
+            decodeXmlEntities(v.inner.trim()) ||
             undefined;
         }
       }
     }
+
     out.push({
-      name: feat.getAttribute("name") || undefined,
-      type: feat.getAttribute("type") || undefined,
-      directionality: feat.getAttribute("directionality") || undefined,
+      name: attr(featOpen, "name") || undefined,
+      type: attr(featOpen, "type") || undefined,
+      directionality: attr(featOpen, "directionality") || undefined,
       segments,
       colorQual,
     });
@@ -266,30 +358,41 @@ function parseFeaturesXml(xml) {
   return out;
 }
 
+/** Strip XML tags from an element body and decode entities, leaving the text
+ *  content (matches the old DOMParser `.textContent` behavior). */
+function xmlTextContent(inner) {
+  if (inner == null) return undefined;
+  return decodeXmlEntities(inner.replace(/<[^>]*>/g, ""));
+}
+
 /** Parse the SnapGene `<Notes>` XML block into `{ Notes: { CustomMapLabel,
- *  Description } }` (only the fields the parser consumes). */
+ *  Description } }` (only the fields the parser consumes). Dependency-free. */
 function parseNotesXml(xml) {
-  const doc = new DOMParser().parseFromString(xml, "text/xml");
-  const notesEl = doc.getElementsByTagName("Notes")[0];
-  if (!notesEl) return {};
-  const label = notesEl.getElementsByTagName("CustomMapLabel")[0];
-  const desc = notesEl.getElementsByTagName("Description")[0];
+  const notes = eachElement(xml, "Notes")[0];
+  if (!notes) return {};
+  const label = eachElement(notes.inner, "CustomMapLabel")[0];
+  const desc = eachElement(notes.inner, "Description")[0];
   return {
     Notes: {
-      CustomMapLabel: label ? label.textContent : undefined,
-      // The Description may contain raw HTML; innerHTML is unavailable on XML
-      // nodes, so reconstruct from textContent (matches upstream's later strip
-      // of the <html><body> wrapper, which textContent already removes).
-      Description: desc ? desc.textContent : undefined,
+      CustomMapLabel: label ? xmlTextContent(label.inner) : undefined,
+      // The Description may wrap its text in `<html><body>…</body></html>`;
+      // stripping tags reproduces the old `.textContent` result (the later
+      // wrapper-strip in the caller then becomes a no-op, which is fine).
+      Description: desc ? xmlTextContent(desc.inner) : undefined,
     },
   };
 }
 
 function getStartAndEndFromRangeString(rangestring) {
-  const [start, end] = rangestring.split("-");
+  // SnapGene ranges are 1-based inclusive "start-end". Be tolerant of a
+  // missing/garbled range (modern exports occasionally emit segments without
+  // one) so a single odd feature can't NaN-out or throw the whole import.
+  const [start, end] = String(rangestring || "").split("-");
+  const s = Number(start);
+  const e = Number(end);
   return {
-    start: start - 1,
-    end: end - 1,
+    start: Number.isFinite(s) ? s - 1 : 0,
+    end: Number.isFinite(e) ? e - 1 : 0,
   };
 }
 
