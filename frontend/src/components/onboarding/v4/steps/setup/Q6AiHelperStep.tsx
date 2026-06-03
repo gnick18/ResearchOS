@@ -5,10 +5,11 @@ import type { SetupStepProps } from "./types";
 
 /**
  * Q6: AI Helper prompt size? Four options: Full (default, recommended)
- * / Medium / Minimal / No or Maybe later (combined into a single radio
+ * / Lean / Minimal / No or Maybe later (combined into a single radio
  * since both the proposal §4 and the schema treat them as
  * effectively-equivalent "user opted out for now"; the schema retains
  * both values for forward compat). Persists `feature_picks.ai_helper`.
+ * The "Lean" radio persists the internal value 'medium' (label only).
  *
  * Per the v3 L6 lock carried into v4: "full" is the default selection.
  * The radio pre-selects "full" and Next is enabled from the start (the
@@ -95,7 +96,7 @@ export default function Q6AiHelperStep({
           value="medium"
           selected={current === "medium"}
           onChange={(v) => void handleChange(v)}
-          label="Yes, Medium prompt"
+          label="Yes, Lean prompt"
           description="Trimmed for the cost-conscious. Still pretty smart."
         />
         <RadioCard

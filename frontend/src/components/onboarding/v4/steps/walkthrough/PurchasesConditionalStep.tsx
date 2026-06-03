@@ -127,14 +127,10 @@ export const purchasesIntroStep: TourStep = buildWalkthroughStep({
   speech: (
     <div className="space-y-2" data-testid="purchases-intro">
       <p>
-        The Purchases page tracks every order you place and groups it by
-        funding source, category, and project as you go.
-      </p>
-      <p>
-        The reason it exists: when a grant report or budget question comes
-        around, the numbers are already sorted. No digging through email
-        threads or rebuilding a year of orders in a spreadsheet. Let&apos;s
-        log one.
+        The <strong>Purchases</strong> page tracks every order and groups it
+        by funding source, category, and project as you go, so the totals are
+        ready when you need a grant report or budget summary. Let&apos;s log
+        one.
       </p>
     </div>
   ),
@@ -597,11 +593,10 @@ function PurchasesDemoWarpPromptBody() {
   return (
     <div className="space-y-3" data-testid="purchases-demo-warp-prompt">
       <p>
-        The real point of this page is the analytics, but charts on an
-        empty account don&apos;t show much. I can flip you over to a demo
-        account (&ldquo;Alex&rdquo;) that has a year of purchases across
-        three projects, so the breakdowns and budget bars actually have
-        shape to them. Want to take a look?
+        The analytics need data to be worth showing, and your account is
+        empty. I can flip you to a demo account (&ldquo;Alex&rdquo;) with a
+        year of purchases across three projects so the breakdowns and budget
+        bars have something to show. Want to take a look?
       </p>
     </div>
   );

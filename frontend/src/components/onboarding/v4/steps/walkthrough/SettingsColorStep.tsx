@@ -171,7 +171,7 @@ export const settingsColorStep = buildWalkthroughStep({
 export const settingsMoreStep = buildWalkthroughStep({
   id: "settings-more",
   speech:
-    "By the way, there's a lot more you can change in Settings, explore later. There's also a streak counter that turns on when you start saving stuff. Private to you, off in Settings if you don't want it. For now, let me scroll down to one more thing.",
+    "Settings has plenty more to explore later. There's a streak counter that starts when you begin saving work. It's private to you, and you can turn it off here. Let me scroll down to one more thing.",
   pose: "thinking",
   completion: autoAdvanceAfter(3500),
   expectedRoute: "/settings",

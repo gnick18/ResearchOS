@@ -11,12 +11,7 @@ import type { TourStep } from "../../step-types";
  * at the Calendar tab and explains what it does. Manual-advance per
  * the Wave 1 universal-pacing rule (R2 chip C 2026-05-22 fix).
  *
- * **Speech copy (from §6.15, no em-dashes):**
- *
- *   "Calendar tab's optional. You can add events directly, or link
- *    external calendars (Outlook, Apple, Google iCloud) in read-only
- *    mode. ResearchOS shows your external events alongside your
- *    experiments and tasks. When you want, set it up in Settings."
+ * BeakerBot explains what the Calendar tab does and how to link a feed.
  *
  * No artifact created. The cleanup grid skips this step entirely.
  *
@@ -62,21 +57,17 @@ export const calendarConditionalStep: TourStep = {
   speech: (
     <div className="space-y-2" data-testid="calendar-explainer-body">
       <p>
-        Your day isn&apos;t just experiments. There are meetings, classes,
-        office hours, appointments, things that aren&apos;t lab work but
-        still eat your time. The Calendar tab gives those a home inside
-        ResearchOS so you can see your full day in one place.
+        The <strong>Calendar</strong> tab overlays your meetings, classes,
+        and appointments alongside your lab work. Link as many feeds as you
+        want from Outlook, Apple, or Google.
       </p>
       <p>
-        Link as many feeds as you want from Outlook, Apple, or Google.
         Events show up on the Calendar page and in the quick-view bar on
-        the left, kept separate from your experiments and tasks but
-        visible right alongside them.
+        the left, kept separate from your experiments and tasks.
       </p>
       <p>
-        We won&apos;t link one up for you here. When you&apos;re ready,
-        click the <strong>Linked Calendars</strong> button up here and
-        follow the prompts to paste in a feed URL.
+        To add one, click <strong>Linked Calendars</strong> up here and
+        paste in a feed URL.
       </p>
     </div>
   ),

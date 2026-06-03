@@ -53,7 +53,7 @@ const FORWARD_DAYS = 7;
 export const ganttDepsCascadeStep = buildWalkthroughStep({
   id: "gantt-deps-cascade",
   speech:
-    "Once tasks are linked, moving one upstream task drags everything downstream with it. If Fake A slips by a week, your experiment and Fake B slip too. No manual rescheduling, no broken chains.",
+    "Once tasks are linked, moving an upstream task drags everything downstream with it. If Fake A slips by a week, your experiment and Fake B slip too, with no rescheduling by hand.",
   pose: "thinking",
   targetSelector: targetSelector(TOUR_TARGETS.ganttBarFakeA),
   // Tour robustification 2026-05-27 (tour robustification manager):

@@ -695,7 +695,7 @@ describe("ProjectOverviewStep (§6.2 prose)", () => {
     expect(text).toMatch(/four sections/);
     expect(text).toMatch(/Overview/);
     expect(text).toMatch(/hypothesis/);
-    expect(text).toMatch(/anchor/);
+    expect(text).toMatch(/summary/);
   });
   it("expectedRoute is undefined (NAV sub-step already navigated us here)", () => {
     expect(projectOverviewStep.expectedRoute).toBeUndefined();
@@ -1471,8 +1471,8 @@ describe("Settings steps (§6.10)", () => {
     // Wave 2E (v4 tour speech manager — E, 2026-05-27): the size-label
     // enumeration moved to the new `ai-helper-size-options` step. The
     // size-diff beat is now pure narration framing token cost; the
-    // three labels (**Full**, **Medium**, **Minimal**) are listed by
-    // the follow-up size-options beat.
+    // three labels (Full, Lean, Minimal) are listed by the follow-up
+    // size-options beat.
     const text = renderSpeech(settingsAiHelperSizeDiffStep);
     expect(text).toMatch(/token/i);
     expect(text).toMatch(/Claude/);

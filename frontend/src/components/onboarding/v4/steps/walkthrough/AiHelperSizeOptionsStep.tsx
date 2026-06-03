@@ -12,9 +12,9 @@
  * subsequent `ai-helper-use-case-paste` Copy click writes the minimal
  * prompt to the clipboard (matching the prior behavior).
  *
- * Speech is Grant's exact two-paragraph copy from the 2026-05-27 script:
- * one paragraph describing the three tabs (**Full**, **Minimal**,
- * **Medium**), one paragraph framing the cost / quality tradeoff.
+ * Speech: one paragraph describing the three tabs (Full, Minimal, Lean),
+ * one paragraph framing the cost / quality tradeoff. The middle tier's
+ * visible label is "Lean"; its internal value / target id stay "medium".
  *
  * Classification: BEAKERBOT_DEMO
  * Spotlight: `settingsAiHelperSection` (the inline tab cluster)
@@ -58,14 +58,13 @@ export const aiHelperSizeOptionsStep = buildWalkthroughStep({
   speech: (
     <>
       <p className="mb-2">
-        Three sizes to pick from. <strong>Full</strong> gives the
-        model everything it could possibly want to know.{" "}
-        <strong>Minimal</strong> strips it down to the essentials.{" "}
-        <strong>Lean</strong> sits in between.
+        Three sizes to pick from. <strong>Full</strong> hands the model
+        the most context. <strong>Minimal</strong> strips it to the
+        essentials. <strong>Lean</strong> sits in between.
       </p>
       <p>
-        Higher detail means better answers but more tokens per prompt.
-        Pick based on what your usage budget can handle.
+        More detail means better answers but more tokens per prompt, so
+        pick what your budget can handle.
       </p>
     </>
   ),

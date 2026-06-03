@@ -298,7 +298,7 @@ function formatAiHelper(value: FeaturePicks["ai_helper"]): string {
     case "full":
       return "Full prompt (most context, biggest paste)";
     case "medium":
-      return "Medium prompt (balanced size)";
+      return "Lean prompt (balanced size)";
     case "minimal":
       return "Minimal prompt (smallest paste)";
     case "no":

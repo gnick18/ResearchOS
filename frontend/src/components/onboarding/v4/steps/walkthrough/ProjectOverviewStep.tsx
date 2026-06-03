@@ -35,8 +35,7 @@ export const projectOverviewStep = buildWalkthroughStep({
       <p>
         The <strong>Overview</strong> box at the top is yours to fill in:
         the hypothesis, the motivation, why this project exists. It&apos;s
-        the anchor you come back to when you&apos;re deep in the weeds and
-        need to remember the point.
+        the summary you come back to for the project&apos;s purpose.
       </p>
     </>
   ),

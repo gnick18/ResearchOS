@@ -119,7 +119,7 @@ describe("Q6AiHelperStep", () => {
     expect(radios.length).toBe(4);
   });
 
-  it("persists 'medium' on click of the Medium prompt radio", async () => {
+  it("persists 'medium' on click of the Lean prompt radio", async () => {
     let sidecar: OnboardingSidecar = postQ1NoAiHelper();
     const patchSidecar = vi.fn(
       async (mut: (cur: OnboardingSidecar) => OnboardingSidecar) => {
@@ -133,7 +133,7 @@ describe("Q6AiHelperStep", () => {
         patchSidecar={patchSidecar}
       />,
     );
-    await userEvent.setup().click(screen.getByLabelText(/^Yes, Medium prompt/i));
+    await userEvent.setup().click(screen.getByLabelText(/^Yes, Lean prompt/i));
     expect(sidecar.feature_picks?.ai_helper).toBe("medium");
   });
 
