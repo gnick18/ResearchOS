@@ -1,36 +1,63 @@
 /**
  * Math layer for the general-purpose scientific calculator tab.
  *
- * All mathjs usage lives here so the UI stays presentational and the math is
- * unit-tested. We import from the lighter `mathjs/number` build (number-only,
- * no BigNumber/Complex/Matrix/Unit) to keep the bundle small; its types resolve
- * from mathjs's main `index.d.ts`.
+ * The expression engine lives here so the UI stays presentational and the math
+ * is unit-tested. We use `expr-eval-fork` (MIT, zero-dependency, ~8KB gzipped):
+ * a small, safe Pratt-style expression evaluator. It replaced the `mathjs/number`
+ * build, which added ~100KB gzipped to every page's first-load JS for what this
+ * one tab needs; bundle weight matters in a local-first / no-backend app.
+ * `expr-eval-fork` is the maintained fork of `expr-eval` and is not affected by
+ * CVE-2025-12735 (the prototype-pollution / arbitrary-code issue in the original
+ * silentmatt/expr-eval package).
  *
  * Conventions chosen for a familiar handheld-calculator feel:
- *  - `ln(x)` is natural log, `log10(x)` is base-10 (mathjs's bare `log` is
- *    natural, which would be confusing, so `ln` is provided in scope).
- *  - Degrees/radians is handled by overriding the trig functions in the
- *    evaluation scope, so a bare `sin(90)` honors the selected angle mode
- *    without rewriting the user's expression.
- *  - `Ans` (last result) and `M` (memory) are always-defined scope symbols.
+ *  - `ln(x)` is natural log, `log10(x)` is base-10 (both are built-in unary
+ *    operators in expr-eval; `lg`/`log` also exist but the UI only advertises
+ *    `ln` and `log10`).
+ *  - Degrees/radians is handled by overriding the trig unary operators on a
+ *    dedicated parser, so a bare `sin(90)` honors the selected angle mode
+ *    without rewriting the user's expression. expr-eval resolves `sin`, `cos`,
+ *    etc. from the parser's `unaryOps` table (NOT from the evaluation scope),
+ *    so the override has to live on the parser, not in the per-call scope.
+ *  - `pi` and `e` are registered as lowercase constants (expr-eval ships only
+ *    uppercase `PI`/`E`), matching the lowercase names the UI and tests use.
+ *  - `Ans` (last result) and `M` (memory) are passed in per evaluation; they
+ *    default to 0.
  */
-import { evaluate } from "mathjs/number";
+import { Parser } from "expr-eval-fork";
 
 export type AngleMode = "deg" | "rad";
 
 const DEG_PER_RAD = Math.PI / 180;
 
-/** Trig overrides so `sin(90)` etc. read as degrees when the toggle is on. */
-function degreeScope(): Record<string, (x: number) => number> {
-  return {
-    sin: (x) => Math.sin(x * DEG_PER_RAD),
-    cos: (x) => Math.cos(x * DEG_PER_RAD),
-    tan: (x) => Math.tan(x * DEG_PER_RAD),
-    asin: (x) => Math.asin(x) / DEG_PER_RAD,
-    acos: (x) => Math.acos(x) / DEG_PER_RAD,
-    atan: (x) => Math.atan(x) / DEG_PER_RAD,
-  };
+/**
+ * Build a parser for the given angle mode. `pi`/`e` are added as lowercase
+ * constants on both; in degree mode the trig unary operators are overridden so
+ * `sin(90)` etc. read as degrees. Each `new Parser()` gets its own `unaryOps`
+ * and `consts` objects, so mutating one parser never affects the other.
+ */
+function makeParser(angleMode: AngleMode): Parser {
+  const parser = new Parser();
+  parser.consts = { ...parser.consts, pi: Math.PI, e: Math.E };
+  if (angleMode === "deg") {
+    parser.unaryOps = {
+      ...parser.unaryOps,
+      sin: (x: number) => Math.sin(x * DEG_PER_RAD),
+      cos: (x: number) => Math.cos(x * DEG_PER_RAD),
+      tan: (x: number) => Math.tan(x * DEG_PER_RAD),
+      asin: (x: number) => Math.asin(x) / DEG_PER_RAD,
+      acos: (x: number) => Math.acos(x) / DEG_PER_RAD,
+      atan: (x: number) => Math.atan(x) / DEG_PER_RAD,
+    };
+  }
+  return parser;
 }
+
+// Built once and reused: `parse()` returns a fresh Expression each call, so a
+// shared Parser instance per mode is safe and avoids rebuilding the op tables
+// on every keystroke.
+const radParser = makeParser("rad");
+const degParser = makeParser("deg");
 
 export interface EvalSuccess {
   ok: true;
@@ -70,15 +97,10 @@ export function evaluateExpression(
   if (trimmed === "") return { ok: false, error: "" };
   const { angleMode = "rad", ans = 0, memory = 0 } = opts;
 
-  const scope: Record<string, unknown> = {
-    Ans: ans,
-    M: memory,
-    ln: (x: number) => Math.log(x),
-    ...(angleMode === "deg" ? degreeScope() : {}),
-  };
+  const parser = angleMode === "deg" ? degParser : radParser;
 
   try {
-    const value = evaluate(trimmed, scope) as unknown;
+    const value = parser.parse(trimmed).evaluate({ Ans: ans, M: memory }) as unknown;
     if (typeof value !== "number" || !Number.isFinite(value)) {
       return { ok: false, error: "Not a finite number" };
     }
