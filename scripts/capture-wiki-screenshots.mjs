@@ -2896,6 +2896,22 @@ async function _capturePageAt(page, route, url) {
       });
     } catch {}
   }
+  // Clear the sticky v4-onboarding-preview flag before every route EXCEPT the
+  // onboarding-* shots (which intentionally drive the walkthrough). The
+  // onboarding routes set `researchos:v4-preview-active` in sessionStorage,
+  // which persists across page.goto in the same browser context; without
+  // clearing it, the routes that run AFTER them (the version-history shots)
+  // inherit an active walkthrough and the "Welcome to ResearchOS" overlay
+  // covers the screenshot.
+  if (!route.file.startsWith("onboarding-")) {
+    try {
+      await page.evaluate(() => {
+        try {
+          window.sessionStorage.removeItem("researchos:v4-preview-active");
+        } catch {}
+      });
+    } catch {}
+  }
   try {
     // `networkidle` is unreliable against Next.js 16 dev mode (Turbopack +
     // RSC streaming keeps the network active indefinitely, so the wait
