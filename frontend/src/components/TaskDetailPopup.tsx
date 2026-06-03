@@ -1460,13 +1460,17 @@ export default function TaskDetailPopup({
           </div>
         </div>
 
-        {/* PI Phase 3 (PI Phase 3 manager, 2026-05-23): flag
-            banner + assignee chip. The banner shows for everyone who can
-            see the task (PI + owner), with a "Clear flag" affordance
-            scoped to the owner. The assignee chip surfaces when an
-            assignee is set AND differs from the owner. */}
-        {task.flagged && (
-          <div className="px-6 pt-3">
+        {/* Metadata zone — flag banner, assignee, sharing chips and the
+            attribution stamps share ONE padded block with a single vertical
+            rhythm (space-y-2) so they read as one quiet band under the header
+            instead of four separately-padded strips with uneven gaps. Each
+            element still renders/hides on its own condition; only the spacing
+            is unified. Tour mounts still happen via each child's own
+            data-tour-target / data-testid.
+            PI Phase 3 flag banner + assignee, R1b sharing chips, and VCP R3
+            attribution stamps (createdAt null until §3g) all live here. */}
+        <div className="px-6 pt-2 space-y-2">
+          {task.flagged && (
             <FlagBanner
               flag={task.flagged}
               recordType="task"
@@ -1477,49 +1481,28 @@ export default function TaskDetailPopup({
                 void queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] });
               }}
             />
-          </div>
-        )}
-        {task.assignee && task.assignee !== task.owner && (
-          <div className="px-6 pt-2 flex items-center gap-2 text-xs">
-            <span className="text-gray-500">Assigned to</span>
-            <span
-              className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-medium border border-emerald-200"
-              data-testid="task-assignee-chip"
-            >
-              {task.assignee}
-            </span>
-            <span className="text-gray-400">·</span>
-            <span className="text-gray-500">Owner: {task.owner}</span>
-          </div>
-        )}
-
-        {/* R1b: sharing chips — read-only visibility hint row right
-            below the header so viewers can see at a glance who else is
-            on this task without opening the share dialog.
-            R1 fix-pass (experiments fix-pass R1 manager, 2026-05-23):
-            Hide the chips row entirely when there's nothing to share
-            (no co-collaborators, not a shared-with-me task). The empty
-            state was "you (owner) private" which added a row of header
-            chrome with zero signal. Tour mount still happens via
-            SharingChips' internal data-tour-target when the row IS
-            visible. */}
-        {((task.shared_with?.length ?? 0) > 0 || task.is_shared_with_me) && (
-          <div className="px-6 pt-2">
+          )}
+          {task.assignee && task.assignee !== task.owner && (
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-gray-500">Assigned to</span>
+              <span
+                className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-medium border border-emerald-200"
+                data-testid="task-assignee-chip"
+              >
+                {task.assignee}
+              </span>
+              <span className="text-gray-300">·</span>
+              <span className="text-gray-400">Owner: {task.owner}</span>
+            </div>
+          )}
+          {((task.shared_with?.length ?? 0) > 0 || task.is_shared_with_me) && (
             <SharingChips
               sharedWith={task.shared_with || []}
               ownerUsername={task.owner}
               viewerUsername={currentUser ?? undefined}
               hideWhenEmpty
             />
-          </div>
-        )}
-
-        {/* VCP R3 attribution stamps (VCP R3 attribution stamps,
-            2026-05-26): popup stamps row. Tasks store no `created_at`
-            today (per §3g — task is one of the FLAG'd entities missing
-            it pre-R3); pass null so the row only shows "Last edited
-            by X on D" until §3g lands the createdAt fan-out in R4. */}
-        <div className="px-6 pt-2">
+          )}
           <StampsRow
             createdBy={null}
             createdAt={null}
@@ -3043,10 +3026,14 @@ function DetailsTab({
                 <Tooltip label="Delete sub-task" placement="bottom">
                   <button
                     onClick={() => handleDeleteSubTask(st.id)}
-                    className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 text-xs transition-opacity"
+                    className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-opacity"
                     data-force-hover-controls-target
+                    aria-label="Delete sub-task"
                   >
-                    ✕
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
                   </button>
                 </Tooltip>
               </div>
@@ -3452,8 +3439,13 @@ function DetailsTab({
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
                 {dependentTasks.length > 0 && startDate !== task.start_date && (
-                  <p className="text-xs text-amber-600 mt-1">
-                    ⚠️ Will shift {dependentTasks.length} dependent task(s)
+                  <p className="text-xs text-amber-600 mt-1 inline-flex items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0" aria-hidden>
+                      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                      <line x1="12" y1="9" x2="12" y2="13" />
+                      <line x1="12" y1="17" x2="12.01" y2="17" />
+                    </svg>
+                    Will shift {dependentTasks.length} dependent task(s)
                   </p>
                 )}
               </div>
@@ -4256,16 +4248,24 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
             {uploadWarning && (
               <div className="px-6 py-3 bg-amber-50 border-b border-amber-200">
                 <div className="flex items-start gap-2">
-                  <span className="text-amber-500 text-sm">⚠️</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500 flex-shrink-0 mt-0.5" aria-hidden>
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                    <line x1="12" y1="9" x2="12" y2="13" />
+                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                  </svg>
                   <div className="flex-1">
                     <p className="text-sm text-amber-800">{uploadWarning}</p>
                   </div>
                   <Tooltip label="Dismiss warning" placement="bottom">
                     <button
                       onClick={() => setUploadWarning(null)}
-                      className="text-amber-400 hover:text-amber-600 text-sm"
+                      className="text-amber-400 hover:text-amber-600 p-0.5 -m-0.5 rounded transition-colors"
+                      aria-label="Dismiss warning"
                     >
-                      ✕
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
                     </button>
                   </Tooltip>
                 </div>
@@ -4841,16 +4841,24 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
           {uploadWarning && (
             <div className="px-6 py-3 bg-amber-50 border-b border-amber-200">
               <div className="flex items-start gap-2">
-                <span className="text-amber-500 text-sm">⚠️</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500 flex-shrink-0 mt-0.5" aria-hidden>
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
                 <div className="flex-1">
                   <p className="text-sm text-amber-800">{uploadWarning}</p>
                 </div>
                 <Tooltip label="Dismiss warning" placement="bottom">
                   <button
                     onClick={() => setUploadWarning(null)}
-                    className="text-amber-400 hover:text-amber-600 text-sm"
+                    className="text-amber-400 hover:text-amber-600 p-0.5 -m-0.5 rounded transition-colors"
+                    aria-label="Dismiss warning"
                   >
-                    ✕
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
                   </button>
                 </Tooltip>
               </div>
