@@ -147,6 +147,35 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
   const [earlierLayout, setEarlierLayout] = useState<"flat" | "grouped">(
     "flat",
   );
+  // Earlier-results archive navigation (grows unbounded over years).
+  // By-project groups are collapsible and default-collapsed; expanded groups
+  // and flat mode cap their card count behind a "show more" control.
+  const EARLIER_GROUP_CAP = 12;
+  const EARLIER_FLAT_PAGE = 24;
+  const [expandedEarlierGroups, setExpandedEarlierGroups] = useState<
+    Set<string>
+  >(() => new Set());
+  const [expandedEarlierGroupCaps, setExpandedEarlierGroupCaps] = useState<
+    Set<string>
+  >(() => new Set());
+  const [earlierFlatVisible, setEarlierFlatVisible] =
+    useState(EARLIER_FLAT_PAGE);
+  const toggleEarlierGroup = useCallback((pk: string) => {
+    setExpandedEarlierGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(pk)) next.delete(pk);
+      else next.add(pk);
+      return next;
+    });
+  }, []);
+  const setEarlierLayoutReset = useCallback(
+    (layout: "flat" | "grouped") => {
+      setEarlierLayout(layout);
+      setEarlierFlatVisible(EARLIER_FLAT_PAGE);
+      setExpandedEarlierGroupCaps(new Set());
+    },
+    [EARLIER_FLAT_PAGE],
+  );
   const selectedProjectIds = useAppStore((s) => s.selectedProjectIds);
   const setIsCreatingTask = useAppStore((s) => s.setIsCreatingTask);
   const setNewTaskStartDate = useAppStore((s) => s.setNewTaskStartDate);
@@ -694,7 +723,7 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
               <div className="flex items-center gap-1 mb-3 text-xs">
                 <button
                   type="button"
-                  onClick={() => setEarlierLayout("flat")}
+                  onClick={() => setEarlierLayoutReset("flat")}
                   className={`px-2 py-1 rounded-md transition-colors ${
                     earlierLayout === "flat"
                       ? "bg-gray-200 text-gray-900 font-medium"
@@ -705,7 +734,7 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setEarlierLayout("grouped")}
+                  onClick={() => setEarlierLayoutReset("grouped")}
                   className={`px-2 py-1 rounded-md transition-colors ${
                     earlierLayout === "grouped"
                       ? "bg-gray-200 text-gray-900 font-medium"
@@ -716,9 +745,25 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
                 </button>
               </div>
               {earlierLayout === "flat" ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {earlierEntries.map((e) => renderCard(e))}
-                </div>
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {earlierEntries
+                      .slice(0, earlierFlatVisible)
+                      .map((e) => renderCard(e))}
+                  </div>
+                  {earlierEntries.length > earlierFlatVisible && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEarlierFlatVisible((v) => v + EARLIER_FLAT_PAGE)
+                      }
+                      className="mt-3 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md px-2 py-1 transition-colors"
+                    >
+                      Show more (
+                      {earlierEntries.length - earlierFlatVisible} more)
+                    </button>
+                  )}
+                </>
               ) : (
                 (() => {
                   const groups = new Map<string, SectionEntry[]>();
@@ -737,26 +782,80 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
                     return aMin - bMin;
                   });
                   return (
-                    <div className="space-y-6">
+                    <div className="space-y-2">
                       {sortedKeys.map((pk) => {
                         const projectEntries = groups.get(pk)!;
                         const firstTask = projectEntries[0].task;
                         const pName = projectNameFor(firstTask);
                         const pColor = projectColors[pk] ?? DEFAULT_COLORS[0];
+                        const isExpanded = expandedEarlierGroups.has(pk);
+                        const capLifted = expandedEarlierGroupCaps.has(pk);
+                        const visibleEntries =
+                          capLifted ||
+                          projectEntries.length <= EARLIER_GROUP_CAP
+                            ? projectEntries
+                            : projectEntries.slice(0, EARLIER_GROUP_CAP);
+                        const hiddenCount =
+                          projectEntries.length - visibleEntries.length;
                         return (
                           <div key={pk}>
-                            <h4
-                              className="text-sm font-bold uppercase tracking-widest mb-3 px-1"
-                              style={{ color: pColor }}
+                            <button
+                              type="button"
+                              onClick={() => toggleEarlierGroup(pk)}
+                              aria-expanded={isExpanded}
+                              className="flex w-full items-center gap-2 px-1 py-1.5 rounded-md text-left hover:bg-gray-50 transition-colors"
                             >
-                              {pName}
-                              <span className="ml-2 text-gray-400 font-normal normal-case tracking-normal">
+                              <svg
+                                viewBox="0 0 12 12"
+                                aria-hidden="true"
+                                className={`w-3 h-3 flex-shrink-0 text-gray-400 transition-transform ${
+                                  isExpanded ? "rotate-90" : ""
+                                }`}
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M4 2l4 4-4 4" />
+                              </svg>
+                              <span
+                                className="w-2 h-2 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: pColor }}
+                                aria-hidden="true"
+                              />
+                              <span
+                                className="text-sm font-bold uppercase tracking-widest"
+                                style={{ color: pColor }}
+                              >
+                                {pName}
+                              </span>
+                              <span className="text-xs text-gray-400 font-normal normal-case tracking-normal">
                                 ({projectEntries.length})
                               </span>
-                            </h4>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                              {projectEntries.map((e) => renderCard(e))}
-                            </div>
+                            </button>
+                            {isExpanded && (
+                              <div className="mt-2 mb-2 pl-5">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                  {visibleEntries.map((e) => renderCard(e))}
+                                </div>
+                                {hiddenCount > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setExpandedEarlierGroupCaps((prev) => {
+                                        const next = new Set(prev);
+                                        next.add(pk);
+                                        return next;
+                                      })
+                                    }
+                                    className="mt-3 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md px-2 py-1 transition-colors"
+                                  >
+                                    Show all {projectEntries.length}
+                                  </button>
+                                )}
+                              </div>
+                            )}
                           </div>
                         );
                       })}
