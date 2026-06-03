@@ -38,6 +38,11 @@ export default function LabOverviewRoute() {
   useEffect(() => {
     if (fsLoading) return;
     if (!currentUser) return;
+    // Account-type read still in flight: do NOT bounce yet. Redirecting
+    // while `accountType` is `undefined` ping-pongs with "/"'s role-based
+    // redirect (which sends a PI straight back here) into an infinite loop.
+    // Only bounce once we have a RESOLVED non-lab_head type.
+    if (accountType === undefined) return;
     if (accountType !== "lab_head") {
       router.replace("/?from=lab-overview");
     }
