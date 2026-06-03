@@ -10,6 +10,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Tooltip from "@/components/Tooltip";
 import type { SequenceDetail } from "@/lib/types";
+import { sequencesApi } from "@/lib/local-api";
+import type { LibrarySequence } from "@/lib/sequences/primer-specificity";
 import type { SeqEdit } from "@/vendor/seqviz/EventHandler";
 import type { AnnotationProp, TranslationProp } from "@/vendor/seqviz/elements";
 import type { Selection } from "@/vendor/seqviz/selectionContext";
@@ -423,6 +425,36 @@ export default function SequenceEditView({
     },
     [editor],
   );
+
+  // specificity bot — load the user's OWN connected sequences (with bases) for the
+  // local-library specificity scan in the Primers > Check tab. Scope: the current
+  // sequence plus its project siblings (sequences sharing any project_id), or the
+  // whole library when the current sequence is unfiled. Each gets its bases via
+  // sequencesApi.get; the current sequence uses the live (edited) doc so an
+  // in-progress edit is scanned, not the on-disk copy.
+  const loadLibrary = useCallback(async (): Promise<LibrarySequence[]> => {
+    const all = await sequencesApi.list();
+    const mine = sequence.project_ids ?? [];
+    const inScope =
+      mine.length > 0
+        ? all.filter(
+            (s) => s.id === sequence.id || s.project_ids.some((p) => mine.includes(p)),
+          )
+        : all;
+    const out: LibrarySequence[] = [];
+    for (const rec of inScope) {
+      if (rec.id === sequence.id) {
+        // Use the live edited document for the current sequence.
+        out.push({ id: rec.id, name: rec.display_name, seq: doc.seq, circular: doc.circular });
+        continue;
+      }
+      const detail = await sequencesApi.get(rec.id);
+      if (detail?.seq) {
+        out.push({ id: rec.id, name: rec.display_name, seq: detail.seq, circular: rec.circular });
+      }
+    }
+    return out;
+  }, [sequence.id, sequence.project_ids, doc.seq, doc.circular]);
 
   const openPrimerDialog = useCallback(() => {
     const seedSeq = sel.hasRange ? doc.seq.slice(sel.lo, sel.hi) : "";
@@ -1855,6 +1887,8 @@ export default function SequenceEditView({
               onAddPrimer={addPrimerFeature}
               onDeletePrimer={deleteFeatureAt}
               readOnly={readOnly}
+              currentSequenceId={sequence.id}
+              loadLibrary={loadLibrary}
             />
           ) : null}
 

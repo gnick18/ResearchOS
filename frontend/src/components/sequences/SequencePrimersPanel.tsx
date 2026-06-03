@@ -40,6 +40,12 @@ import {
   type PrimerDesignParams,
   type PrimerCheck,
 } from "@/lib/sequences/primer-design";
+import {
+  scanLibrarySpecificity,
+  buildPrimerBlastHandoff,
+  type LibrarySequence,
+  type SpecificityReport,
+} from "@/lib/sequences/primer-specificity";
 
 // --- inline icons -----------------------------------------------------------
 function IconPlus({ className }: { className?: string }) {
@@ -72,6 +78,22 @@ function IconCheck({ className }: { className?: string }) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
       <path d="M9 11l3 3L22 4" />
       <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+    </svg>
+  );
+}
+function IconGlobe({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18" />
+      <path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18z" />
+    </svg>
+  );
+}
+function IconShield({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M12 3l8 3v5c0 4.5-3 8.5-8 10c-5-1.5-8-5.5-8-10V6l8-3z" />
     </svg>
   );
 }
@@ -146,6 +168,15 @@ export interface SequencePrimersPanelProps {
   ) => void;
   onDeletePrimer: (index: number) => void;
   readOnly?: boolean;
+  /** Id of the sequence this panel is open on (the primer's intended parent for
+   *  the local-library specificity scan). Lets the scan mark the designed binding
+   *  site as intended vs flag extra/off-target sites elsewhere. */
+  currentSequenceId?: number;
+  /** Load the user's OWN connected sequences (current + project siblings, or the
+   *  whole library) with their bases, for the local specificity scan. Async glue
+   *  lives in the parent (sequencesApi); the panel only consumes LibrarySequence.
+   *  Omit (or return only the current sequence) and the scan still runs. */
+  loadLibrary?: () => Promise<LibrarySequence[]>;
 }
 
 type Mode = "list" | "design" | "check";
@@ -160,12 +191,23 @@ export default function SequencePrimersPanel({
   onAddPrimer,
   onDeletePrimer,
   readOnly = false,
+  currentSequenceId,
+  loadLibrary,
 }: SequencePrimersPanelProps) {
   const [mode, setMode] = useState<Mode>("list");
   const [params, setParams] = useState<PrimerDesignParams>(DEFAULT_DESIGN_PARAMS);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [checkRaw, setCheckRaw] = useState("");
+
+  // Local-library specificity scan state (CHECK mode). Lazy: only runs when the
+  // user clicks "Check specificity", scoped to the primer in the box.
+  const [specReport, setSpecReport] = useState<SpecificityReport | null>(null);
+  const [specPrimer, setSpecPrimer] = useState<string | null>(null);
+  const [specBusy, setSpecBusy] = useState(false);
+  const [specError, setSpecError] = useState<string | null>(null);
+  // NCBI handoff: show the one-time privacy notice before the external submit.
+  const [ncbiNoticeOpen, setNcbiNoticeOpen] = useState(false);
 
   // Existing primers on the molecule (carry the original doc index).
   const primers = useMemo(
@@ -210,6 +252,80 @@ export default function SequencePrimersPanel({
     } catch {
       // clipboard may be blocked; the readout already shows the sequence.
     }
+  };
+
+  // The specificity result is only valid for the primer it was run on; clear it
+  // (and the NCBI notice) whenever the checked primer changes.
+  useEffect(() => {
+    if (specPrimer !== null && specPrimer !== checkPrimer) {
+      setSpecReport(null);
+      setSpecPrimer(null);
+      setSpecError(null);
+      setNcbiNoticeOpen(false);
+    }
+  }, [checkPrimer, specPrimer]);
+
+  // Run the local-library specificity scan for the primer in the Check box. Loads
+  // the user's connected sequences via the parent's loadLibrary glue, then runs
+  // the pure scanLibrarySpecificity. Always works (no network); the current
+  // sequence alone is a valid library if loadLibrary is absent.
+  const runSpecificity = async () => {
+    if (!checkPrimer) return;
+    setSpecBusy(true);
+    setSpecError(null);
+    try {
+      let library: LibrarySequence[] = [];
+      if (loadLibrary) {
+        library = await loadLibrary();
+      }
+      // Always include the current sequence (the intended parent) so the intended
+      // site is classified even when loadLibrary is unavailable or omits it.
+      if (currentSequenceId != null && !library.some((l) => l.id === currentSequenceId)) {
+        library = [{ id: currentSequenceId, name: "this sequence", seq: template }, ...library];
+      }
+      if (library.length === 0) {
+        library = [{ id: currentSequenceId ?? -1, name: "this sequence", seq: template }];
+      }
+      const report = scanLibrarySpecificity(checkPrimer, library, {
+        intendedSequenceId: currentSequenceId,
+      });
+      setSpecReport(report);
+      setSpecPrimer(checkPrimer);
+    } catch {
+      setSpecError("Could not load the sequence library for the scan.");
+    } finally {
+      setSpecBusy(false);
+    }
+  };
+
+  // Build + submit the auto-submitting hidden POST form to NCBI Primer-BLAST in a
+  // new tab. Form NAVIGATION (not fetch), so no CORS and no backend. Degrades to
+  // the unfilled Primer-BLAST page if there is nothing to prefill.
+  const submitToPrimerBlast = () => {
+    const fwdSite = checkBindingReport?.sites.find((s) => s.direction === 1);
+    const handoff = buildPrimerBlastHandoff({
+      template,
+      // The checked oligo goes in the strand field matching where it anneals.
+      forwardPrimer: fwdSite || !checkBindingReport?.sites.length ? checkPrimer : undefined,
+      reversePrimer: !fwdSite && checkBindingReport?.sites.length ? checkPrimer : undefined,
+    });
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = handoff.action;
+    form.target = "_blank";
+    form.rel = "noopener";
+    form.style.display = "none";
+    for (const [name, value] of Object.entries(handoff.fields)) {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = name;
+      input.value = value;
+      form.appendChild(input);
+    }
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+    setNcbiNoticeOpen(false);
   };
 
   // Add a designed candidate as a primer_bind feature (shared persist path).
@@ -533,16 +649,63 @@ export default function SequencePrimersPanel({
                       {copied === checkPrimer ? "Copied" : "Copy"}
                     </button>
                   </Tooltip>
-                  <Tooltip label="Genome-wide specificity (local-library + NCBI Primer-BLAST) is coming next.">
+                  <Tooltip label="Scan your connected sequences for off-target binding (instant, stays on your machine)">
                     <button
                       type="button"
-                      disabled
-                      className="inline-flex cursor-not-allowed items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-300"
+                      onClick={runSpecificity}
+                      disabled={specBusy}
+                      className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
                     >
-                      Check specificity (soon)
+                      <IconShield className="h-3.5 w-3.5" />
+                      {specBusy ? "Scanning..." : "Check specificity"}
                     </button>
                   </Tooltip>
                 </div>
+
+                {/* Local-library specificity result (instant, no network) */}
+                {specError ? (
+                  <p className="rounded-md border border-dashed border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-700">
+                    {specError}
+                  </p>
+                ) : null}
+                {specReport && specPrimer === checkPrimer ? (
+                  <SpecificityResult
+                    report={specReport}
+                    onCheckNcbi={() => setNcbiNoticeOpen(true)}
+                  />
+                ) : null}
+
+                {/* NCBI Primer-BLAST privacy notice + handoff */}
+                {ncbiNoticeOpen ? (
+                  <div className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2.5 text-[11px] text-sky-800">
+                    <p className="flex items-start gap-1.5 font-medium">
+                      <IconGlobe className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      This opens NCBI Primer-BLAST in a new tab and sends your primer and
+                      this template sequence to NCBI&apos;s servers.
+                    </p>
+                    <p className="mt-1 text-sky-700">
+                      ResearchOS is local-first, so this is the one step that leaves your
+                      machine. Nothing else about your sequence is shared.
+                    </p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={submitToPrimerBlast}
+                        className="inline-flex items-center gap-1 rounded-md bg-sky-600 px-2.5 py-1 text-[11px] font-medium text-white transition-colors hover:bg-sky-700"
+                      >
+                        <IconGlobe className="h-3.5 w-3.5" />
+                        Open Primer-BLAST
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNcbiNoticeOpen(false)}
+                        className="rounded-md px-2.5 py-1 text-[11px] font-medium text-sky-700 transition-colors hover:bg-sky-100"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </>
             ) : (
               <p className="rounded-md border border-dashed border-gray-200 px-2.5 py-3 text-center text-[11px] text-gray-400">
@@ -559,6 +722,77 @@ export default function SequencePrimersPanel({
             />
           </div>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+// --- specificity result (local-library scan + NCBI handoff) -----------------
+function SpecificityResult({
+  report,
+  onCheckNcbi,
+}: {
+  report: SpecificityReport;
+  onCheckNcbi: () => void;
+}) {
+  const clean = report.offTargets.length === 0;
+  return (
+    <div className="rounded-md border border-gray-100 bg-gray-50/60 px-3 py-2.5">
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="text-xs font-semibold text-gray-700">Local-library specificity</span>
+        <span className="text-[10px] text-gray-400">
+          {report.scanned} sequence{report.scanned === 1 ? "" : "s"} scanned
+          {report.skipped > 0 ? ` (+${report.skipped} skipped)` : ""}
+        </span>
+      </div>
+
+      {report.hits.length === 0 ? (
+        <p className="text-[11px] text-gray-500">
+          This primer does not anneal anywhere in your connected sequences (at or above{" "}
+          {report.minAnneal} bp). It may still have an intended site that is shorter than the
+          detection threshold.
+        </p>
+      ) : (
+        <div className="space-y-1">
+          {report.hits.map((h) => (
+            <div
+              key={`${h.sequenceId}-${h.site.start}-${h.site.end}-${h.site.direction}`}
+              className={`rounded px-2 py-1 text-[11px] ${
+                h.intended ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+              }`}
+            >
+              <span className="font-medium">{h.sequenceName}</span>
+              {", "}
+              {h.site.direction === 1 ? "forward" : "reverse"} strand,{" "}
+              {(h.site.start + 1).toLocaleString()}..{h.site.end.toLocaleString()},{" "}
+              {h.site.annealedLength} bp anneal
+              {h.site.fullMatch ? "" : " (3'-anchored)"}
+              {h.intended ? " (intended site)" : " (extra / off-target)"}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <p className="mt-1.5 text-[10px] text-gray-400">
+        {clean
+          ? "No off-target sites in your library. This is a local check only; it does not see genome-wide off-targets."
+          : "Amber rows are extra sites this primer can also prime. This is a local check only; it does not see genome-wide off-targets."}
+      </p>
+
+      <div className="mt-2 border-t border-gray-100 pt-2">
+        <Tooltip label="Open NCBI Primer-BLAST in a new tab to check this primer against full genomes / transcriptomes">
+          <button
+            type="button"
+            onClick={onCheckNcbi}
+            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-[11px] font-medium text-gray-600 transition-colors hover:bg-gray-50"
+          >
+            <IconGlobe className="h-3.5 w-3.5" />
+            Check genome-wide on NCBI
+          </button>
+        </Tooltip>
+        <p className="mt-1 text-[10px] text-gray-400">
+          Sends your primer and template to NCBI Primer-BLAST in a new tab (leaves your machine).
+        </p>
       </div>
     </div>
   );
