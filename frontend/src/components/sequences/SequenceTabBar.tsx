@@ -4,7 +4,11 @@
 //
 // The #1 maintainer ask was "I don't see a map vs seq button anywhere". This is
 // that switcher, promoted to a persistent bottom row exactly like SnapGene:
-//   Map | Sequence | Enzymes | Features | Primers | History
+//   Map | Sequence | Features | Primers | History
+//
+// Restriction enzymes are NOT a tab: they are a toggleable LAYER on the rail
+// (the "Restriction sites" toggle, whose flyout opens the full enzyme picker),
+// so there is no redundant Enzymes tab here.
 //
 // It is a pure presentation control: it owns no view logic, just renders the
 // tabs and reports the chosen `viewMode` up. Inline SVG icons only (no emoji /
@@ -15,7 +19,6 @@ import Tooltip from "@/components/Tooltip";
 export type SequenceViewMode =
   | "map"
   | "sequence"
-  | "enzymes"
   | "features"
   | "primers"
   | "history";
@@ -38,18 +41,6 @@ function IconSequence({ className }: { className?: string }) {
       <path d="M5 13V8M5 8h2.5a1.5 1.5 0 0 1 0 3H5" />
       <path d="M11 13V8l4 5V8" />
       <path d="M19 8h-2v5h2" />
-    </svg>
-  );
-}
-function IconEnzymes({ className }: { className?: string }) {
-  // scissors / cut site
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <circle cx="6" cy="6" r="3" />
-      <circle cx="6" cy="18" r="3" />
-      <path d="M20 4L8.12 15.88" />
-      <path d="M14.47 14.48L20 20" />
-      <path d="M8.12 8.12L12 12" />
     </svg>
   );
 }
@@ -96,7 +87,23 @@ export interface SequenceTabBarProps {
   onChange: (mode: SequenceViewMode) => void;
   featureCount: number;
   primerCount: number;
-  enzymeCount: number;
+}
+
+/** Normalize an arbitrary / restored view-mode string to a valid tab. The
+ *  retired "enzymes" mode (now a rail layer, not a tab) folds back to "map" so
+ *  an old saved state never tries to render the dead Enzymes tab. */
+export function normalizeViewMode(mode: string | null | undefined): SequenceViewMode {
+  switch (mode) {
+    case "map":
+    case "sequence":
+    case "features":
+    case "primers":
+    case "history":
+      return mode;
+    // "enzymes" (retired tab) and anything unknown fall back to the map.
+    default:
+      return "map";
+  }
 }
 
 export default function SequenceTabBar({
@@ -104,12 +111,10 @@ export default function SequenceTabBar({
   onChange,
   featureCount,
   primerCount,
-  enzymeCount,
 }: SequenceTabBarProps) {
   const tabs: TabDef[] = [
     { id: "map", label: "Map", hint: "Whole-molecule map view", Icon: IconMap },
     { id: "sequence", label: "Sequence", hint: "Base-level sequence view", Icon: IconSequence },
-    { id: "enzymes", label: "Enzymes", hint: "Restriction enzymes and digest", Icon: IconEnzymes, count: enzymeCount || undefined },
     { id: "features", label: "Features", hint: "Feature list and editing", Icon: IconFeatures, count: featureCount || undefined },
     { id: "primers", label: "Primers", hint: "Primer list and design", Icon: IconPrimers, count: primerCount || undefined },
     { id: "history", label: "History", hint: "Edit and version history", Icon: IconHistory },

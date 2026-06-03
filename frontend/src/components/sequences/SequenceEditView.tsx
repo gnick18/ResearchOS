@@ -91,7 +91,6 @@ import LinearMap, { type LinearMapFeature } from "./LinearMap";
 import SequenceTabBar, { type SequenceViewMode } from "./SequenceTabBar";
 import SequenceCoordinateBar from "./SequenceCoordinateBar";
 import SequencePrimersPanel from "./SequencePrimersPanel";
-import SequenceEnzymesPanel from "./SequenceEnzymesPanel";
 import SequenceHistoryPanel from "./SequenceHistoryPanel";
 import {
   initialLinearZoom,
@@ -275,8 +274,9 @@ export default function SequenceEditView({
   // the currently-selected feature row, and an externally-driven zoom selection.
   const [view, setView] = useState<SequenceViewState>(DEFAULT_VIEW_STATE);
   // seq nav bot — the SnapGene BOTTOM-TAB view switcher. `viewMode` is the
-  // primary "which view" state (Map / Sequence / Enzymes / Features / Primers /
-  // History). The Map + Sequence tabs render the SeqViz viewer (Map = a
+  // primary "which view" state (Map / Sequence / Features / Primers /
+  // History). Restriction enzymes are a rail LAYER, not a tab. The Map +
+  // Sequence tabs render the SeqViz viewer (Map = a
   // zoomed-out feature map, Sequence = base-level detail); the rest render their
   // panels in the main content area. This is orthogonal to the left
   // ViewControlRail (which toggles WHAT is drawn on the map).
@@ -2109,7 +2109,14 @@ export default function SequenceEditView({
           panel in the main content area. */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {showViewer ? (
-          <ViewControlRail view={view} onViewChange={setView} circular={doc.circular} featureTypes={featureTypes} />
+          <ViewControlRail
+            view={view}
+            onViewChange={setView}
+            circular={doc.circular}
+            featureTypes={featureTypes}
+            onChooseEnzymes={openEnzymePicker}
+            activeEnzymeCount={(activeEnzymes ?? COMMON_ENZYMES).length}
+          />
         ) : null}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {/* seq nav bot — Map + Sequence: the SeqViz viewer + the persistent top
@@ -2296,22 +2303,6 @@ export default function SequenceEditView({
             />
           ) : null}
 
-          {/* ENZYMES tab — in-panel digest summary; the picker dialog still opens
-              from "Choose enzymes" to change the active set. */}
-          {viewMode === "enzymes" ? (
-            <SequenceEnzymesPanel
-              seq={doc.seq}
-              seqType={doc.seqType === "protein" ? "aa" : doc.seqType}
-              circular={doc.circular}
-              active={activeEnzymes ?? COMMON_ENZYMES}
-              onChooseEnzymes={openEnzymePicker}
-              onGoToPosition={(bp) => {
-                setViewMode("sequence");
-                applyGoTo(bp);
-              }}
-            />
-          ) : null}
-
           {/* PRIMERS tab — derived from primer_bind features; design via the
               existing PrimerDialog. */}
           {viewMode === "primers" ? (
@@ -2354,13 +2345,14 @@ export default function SequenceEditView({
       </div>
 
       {/* seq nav bot — the SnapGene-style BOTTOM TAB BAR (always visible): the
-          primary Map / Sequence / Enzymes / Features / Primers / History switch. */}
+          primary Map / Sequence / Features / Primers / History switch. Restriction
+          enzymes are a rail LAYER (the "Restriction sites" toggle + its picker
+          flyout), not a tab. */}
       <SequenceTabBar
         active={viewMode}
         onChange={setViewMode}
         featureCount={doc.features.length}
         primerCount={primerCount}
-        enzymeCount={(activeEnzymes ?? COMMON_ENZYMES).length}
       />
 
       {/* Confirmation dialog for Cut / chunk-delete / Paste / feature delete. */}

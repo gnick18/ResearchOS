@@ -200,6 +200,14 @@ export interface ViewControlRailProps {
   /** The distinct feature types present (lowercase keys), for the per-type
    *  show/hide flyout off the Features toggle. */
   featureTypes: string[];
+  /** Open the full restriction-enzyme picker dialog. Invoked from the enzyme
+   *  rail flyout's "Choose enzymes" button. Opening it also turns the cut-site
+   *  layer on (the parent handles that). */
+  onChooseEnzymes: () => void;
+  /** Count of currently-active enzymes (the set drawn on the map / sequence).
+   *  Surfaced as a small badge on the enzyme toggle when the layer is on, for
+   *  discoverability now that there is no Enzymes tab count. */
+  activeEnzymeCount: number;
 }
 
 /** The per-type show/hide flyout, anchored off the Features rail toggle. Lists
@@ -281,13 +289,103 @@ function FeatureTypesFlyout({
   );
 }
 
+/** The enzyme-layer flyout, anchored off the "Restriction sites" rail toggle.
+ *  Mirrors FeatureTypesFlyout's visual style. Its primary item is a "Choose
+ *  enzymes" button that opens the full EnzymePickerDialog (the real surface that
+ *  replaced the retired Enzymes tab). The master toggle still flips the whole
+ *  cut-site layer on the map + sequence; this just chooses WHICH enzymes. */
+function EnzymeLayerFlyout({
+  showEnzymes,
+  activeEnzymeCount,
+  onToggleLayer,
+  onChooseEnzymes,
+  onClose,
+}: {
+  showEnzymes: boolean;
+  activeEnzymeCount: number;
+  onToggleLayer: () => void;
+  onChooseEnzymes: () => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  // Dismiss on outside click / Escape (calm, non-modal popover).
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      ref={ref}
+      role="dialog"
+      aria-label="Restriction enzymes"
+      className="absolute left-10 top-0 z-30 w-56 rounded-lg border border-gray-200 bg-white p-2 shadow-lg"
+    >
+      <p className="px-1 pb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+        Restriction enzymes
+      </p>
+      <button
+        type="button"
+        onClick={onToggleLayer}
+        aria-pressed={showEnzymes}
+        className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-left hover:bg-gray-50"
+      >
+        {showEnzymes ? (
+          <IconEye className="h-3.5 w-3.5 shrink-0 text-sky-600" />
+        ) : (
+          <IconEyeOff className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+        )}
+        <span className={`flex-1 truncate text-sm ${showEnzymes ? "text-gray-700" : "text-gray-400"}`}>
+          {showEnzymes ? "Cut sites shown" : "Cut sites hidden"}
+        </span>
+        {showEnzymes && activeEnzymeCount > 0 ? (
+          <span className="shrink-0 rounded-full bg-gray-200 px-1.5 text-[10px] font-semibold leading-4 text-gray-500">
+            {activeEnzymeCount}
+          </span>
+        ) : null}
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          onChooseEnzymes();
+          onClose();
+        }}
+        className="mt-0.5 flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-sm text-sky-700 hover:bg-sky-50"
+      >
+        <IconEnzymes className="h-3.5 w-3.5 shrink-0" />
+        <span className="flex-1 truncate">Choose enzymes...</span>
+      </button>
+    </div>
+  );
+}
+
 /** The compact vertical icon rail of view-control toggles. Reuses the 2c
  *  view-state booleans 1:1 — toggling a button just flips the corresponding
  *  flag, and the parent re-derives the SeqViz props exactly as before. The
- *  Features toggle now also opens a per-type show/hide flyout. */
-export default function ViewControlRail({ view, onViewChange, circular, featureTypes }: ViewControlRailProps) {
+ *  Features toggle opens a per-type show/hide flyout; the enzyme toggle opens a
+ *  "Choose enzymes" picker flyout. */
+export default function ViewControlRail({
+  view,
+  onViewChange,
+  circular,
+  featureTypes,
+  onChooseEnzymes,
+  activeEnzymeCount,
+}: ViewControlRailProps) {
   const set = (patch: Partial<SequenceViewState>) => onViewChange({ ...view, ...patch });
   const [typesOpen, setTypesOpen] = useState(false);
+  const [enzymesOpen, setEnzymesOpen] = useState(false);
 
   const toggleType = (k: string) =>
     set({ hiddenTypes: { ...view.hiddenTypes, [k]: !view.hiddenTypes[k] } });
@@ -343,9 +441,48 @@ export default function ViewControlRail({ view, onViewChange, circular, featureT
           />
         ) : null}
       </div>
-      <RailToggle label="Restriction sites" active={view.showEnzymes} onClick={() => set({ showEnzymes: !view.showEnzymes })}>
-        <IconEnzymes className="h-4 w-4" />
-      </RailToggle>
+      {/* ENZYMES toggle + "Choose enzymes" flyout. The master button flips the
+          whole cut-site layer; the caret opens the picker flyout. A small count
+          badge surfaces the number of ACTIVE enzymes when the layer is on (the
+          discoverability cue that replaced the retired Enzymes tab count). */}
+      <div className="relative flex flex-col items-center">
+        <div className="relative">
+          <RailToggle label="Restriction sites" active={view.showEnzymes} onClick={() => set({ showEnzymes: !view.showEnzymes })}>
+            <IconEnzymes className="h-4 w-4" />
+          </RailToggle>
+          {view.showEnzymes && activeEnzymeCount > 0 ? (
+            <span
+              className="pointer-events-none absolute -right-1 -top-1 min-w-[14px] rounded-full bg-gray-200 px-1 text-center text-[9px] font-semibold leading-[14px] text-gray-600 ring-2 ring-white"
+              aria-hidden="true"
+            >
+              {activeEnzymeCount}
+            </span>
+          ) : null}
+        </div>
+        <Tooltip label="Choose enzymes" placement="right">
+          <button
+            type="button"
+            onClick={() => setEnzymesOpen((o) => !o)}
+            aria-haspopup="dialog"
+            aria-expanded={enzymesOpen}
+            aria-label="Choose enzymes"
+            className={`mt-0.5 flex h-4 w-8 items-center justify-center rounded transition-colors ${
+              enzymesOpen ? "bg-sky-50 text-sky-600" : "text-gray-300 hover:bg-gray-100 hover:text-gray-500"
+            }`}
+          >
+            <IconCaret className="h-3 w-3" />
+          </button>
+        </Tooltip>
+        {enzymesOpen ? (
+          <EnzymeLayerFlyout
+            showEnzymes={view.showEnzymes}
+            activeEnzymeCount={activeEnzymeCount}
+            onToggleLayer={() => set({ showEnzymes: !view.showEnzymes })}
+            onChooseEnzymes={onChooseEnzymes}
+            onClose={() => setEnzymesOpen(false)}
+          />
+        ) : null}
+      </div>
       <RailToggle label="Translation (CDS)" active={view.showTranslation} onClick={() => set({ showTranslation: !view.showTranslation })}>
         <IconTranslation className="h-4 w-4" />
       </RailToggle>

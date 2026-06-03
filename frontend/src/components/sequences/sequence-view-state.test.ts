@@ -8,6 +8,7 @@ import {
   featureKey,
   type SequenceViewState,
 } from "./sequence-view-state";
+import { normalizeViewMode } from "./SequenceTabBar";
 
 const f = (over: Partial<Parameters<typeof isFeatureVisible>[1]> = {}) => ({
   name: "g",
@@ -54,6 +55,22 @@ describe("isFeatureVisible", () => {
     };
     expect(isFeatureVisible(v, target)).toBe(false);
     expect(isFeatureVisible(v, f({ name: "other" }))).toBe(true);
+  });
+});
+
+describe("normalizeViewMode (retired Enzymes tab)", () => {
+  it("folds the retired 'enzymes' mode back to 'map'", () => {
+    expect(normalizeViewMode("enzymes")).toBe("map");
+  });
+  it("passes valid tab modes through unchanged", () => {
+    for (const m of ["map", "sequence", "features", "primers", "history"] as const) {
+      expect(normalizeViewMode(m)).toBe(m);
+    }
+  });
+  it("falls back to 'map' for unknown / null / undefined values", () => {
+    expect(normalizeViewMode("bogus")).toBe("map");
+    expect(normalizeViewMode(null)).toBe("map");
+    expect(normalizeViewMode(undefined)).toBe("map");
   });
 });
 
