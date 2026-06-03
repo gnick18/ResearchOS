@@ -208,6 +208,81 @@ describe("link / code-fence commands", () => {
   });
 });
 
+describe("fenced-code TOGGLE (fence <-> unfence)", () => {
+  it("fences a plain selection, then a SECOND press unfences back to the plain text", () => {
+    const v = mount("hello world", { anchor: 0, head: 11 }); // whole doc
+    // First press: FENCE.
+    expect(run(v, fencedCodeCommand)).toBe(true);
+    expect(v.state.doc.toString()).toBe("```\nhello world\n```");
+    // The newly fenced block stays selected (the ```...``` span).
+    expect(
+      v.state.sliceDoc(v.state.selection.main.from, v.state.selection.main.to),
+    ).toBe("hello world");
+    // Second press on that same fenced selection: UNFENCE back to plain text.
+    expect(run(v, fencedCodeCommand)).toBe(true);
+    expect(v.state.doc.toString()).toBe("hello world");
+    expect(
+      v.state.sliceDoc(v.state.selection.main.from, v.state.selection.main.to),
+    ).toBe("hello world");
+  });
+
+  it("unfences when the selection ITSELF is a whole fenced block (case a)", () => {
+    const doc = "```\ncode here\n```";
+    const v = mount(doc, { anchor: 0, head: doc.length });
+    expect(run(v, fencedCodeCommand)).toBe(true);
+    expect(v.state.doc.toString()).toBe("code here");
+    expect(
+      v.state.sliceDoc(v.state.selection.main.from, v.state.selection.main.to),
+    ).toBe("code here");
+  });
+
+  it("unfences a fenced block with a language tag on the opening fence (case a)", () => {
+    const doc = "```ts\nconst x = 1\n```";
+    const v = mount(doc, { anchor: 0, head: doc.length });
+    expect(run(v, fencedCodeCommand)).toBe(true);
+    expect(v.state.doc.toString()).toBe("const x = 1");
+  });
+
+  it("unfences when a bare caret sits on a body line inside a fenced block (case b)", () => {
+    // "```\nalpha\nbeta\n```" - caret inside "beta".
+    const doc = "```\nalpha\nbeta\n```";
+    const caret = doc.indexOf("beta") + 2; // inside the body line
+    const v = mount(doc, { anchor: caret, head: caret });
+    expect(run(v, fencedCodeCommand)).toBe(true);
+    expect(v.state.doc.toString()).toBe("alpha\nbeta");
+  });
+
+  it("unfences a caret inside a block that has surrounding prose (case b)", () => {
+    const doc = "intro\n```\nbody line\n```\noutro";
+    const caret = doc.indexOf("body") + 1;
+    const v = mount(doc, { anchor: caret, head: caret });
+    expect(run(v, fencedCodeCommand)).toBe(true);
+    expect(v.state.doc.toString()).toBe("intro\nbody line\noutro");
+  });
+
+  it("does NOT mis-strip a lone ``` with no closing fence (case b guard) - it FENCES instead", () => {
+    // A single opening fence above, but no closer below: a selection on the body
+    // line must NOT be treated as inside a block. The toggle falls through to
+    // FENCE and wraps the selection exactly as the non-fenced path would.
+    const doc = "```\norphan body";
+    const from = doc.indexOf("orphan");
+    const to = from + "orphan body".length;
+    const v = mount(doc, { anchor: from, head: to }); // select "orphan body"
+    expect(run(v, fencedCodeCommand)).toBe(true);
+    // No unfence happened; the original lone fence is intact and the selected
+    // body got wrapped in its own fresh fence pair (FENCE path, byte-identical).
+    expect(v.state.doc.toString()).toBe("```\n```\norphan body\n```");
+  });
+
+  it("does NOT mis-strip a selection that opens with ``` but never closes (case a guard)", () => {
+    const doc = "```\nno closer here";
+    const v = mount(doc, { anchor: 0, head: doc.length });
+    expect(run(v, fencedCodeCommand)).toBe(true);
+    // Case (a) requires a trailing close fence; with none, it FENCES (wraps).
+    expect(v.state.doc.toString()).toBe("```\n```\nno closer here\n```");
+  });
+});
+
 describe("line-prefix commands (headings / blockquote)", () => {
   it("heading-1 adds a '# ' marker to the caret line", () => {
     const v = mount("title line", { anchor: 3, head: 3 });

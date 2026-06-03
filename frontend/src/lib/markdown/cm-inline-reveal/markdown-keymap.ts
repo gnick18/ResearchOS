@@ -30,7 +30,7 @@
  */
 
 import { EditorSelection, Prec } from "@codemirror/state";
-import type { ChangeSpec, StateCommand } from "@codemirror/state";
+import type { ChangeSpec, EditorState, StateCommand } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
 import type { KeyBinding } from "@codemirror/view";
 
@@ -171,12 +171,115 @@ const linkCommand: StateCommand = ({ state, dispatch }) => {
   return true;
 };
 
+// A lone fence line is exactly ``` (optionally with a language tag after the
+// opening fence) and nothing else on the line.
+const OPEN_FENCE_LINE = /^```[^\n]*$/;
+const CLOSE_FENCE_LINE = /^```\s*$/;
+
 /**
- * The fenced-code command: wrap the selection in a ```\n ... \n``` block. For a
- * bare caret it inserts an empty fence with the caret on the body line.
+ * Detect whether a single selection range is already inside (or equal to) a
+ * fenced code block, and if so return the doc change + new selection that
+ * REMOVES the two fence lines, keeping the inner body selected. Returns null if
+ * no enclosing fenced block is found (so the caller falls back to FENCE).
+ *
+ * Two detect cases, in priority order:
+ *   (a) The selected text ITSELF begins with an opening fence line
+ *       (/^```[^\n]*\n/) and ends with a closing fence (/\n```\s*$/). We strip
+ *       the leading fence line and the trailing fence line, selecting the body.
+ *   (b) The caret / selection sits on a BODY line within a fenced block: scan
+ *       outward line by line from the range to find the nearest preceding lone
+ *       opening fence and the nearest following lone closing fence. We require a
+ *       real closing fence below, so an unclosed lone ``` never matches.
+ */
+type Unfence = { from: number; to: number; insert: string; selFrom: number; selTo: number };
+
+function detectUnfence(state: EditorState, range: { from: number; to: number }): Unfence | null {
+  // Case (a): the selection itself is a whole fenced block.
+  const sel = state.sliceDoc(range.from, range.to);
+  const openMatch = sel.match(/^```[^\n]*\n/);
+  const closeMatch = sel.match(/\n```[ \t]*$/);
+  if (openMatch && closeMatch && range.from + openMatch[0].length <= range.to - closeMatch[0].length) {
+    const bodyFrom = range.from + openMatch[0].length;
+    const bodyTo = range.to - closeMatch[0].length;
+    const body = state.sliceDoc(bodyFrom, bodyTo);
+    return {
+      from: range.from,
+      to: range.to,
+      insert: body,
+      selFrom: range.from,
+      selTo: range.from + body.length,
+    };
+  }
+
+  // Case (b): scan outward by line for the enclosing fence pair.
+  const doc = state.doc;
+  const startLine = doc.lineAt(range.from);
+  const endLine = doc.lineAt(range.to);
+
+  // Find the nearest preceding lone opening fence (scanning up from the line
+  // above the selection). A lone closing fence encountered first means the
+  // selection is OUTSIDE any block above, so we stop.
+  let openLine = null as ReturnType<typeof doc.lineAt> | null;
+  for (let n = startLine.number - 1; n >= 1; n--) {
+    const line = doc.line(n);
+    if (OPEN_FENCE_LINE.test(line.text)) {
+      openLine = line;
+      break;
+    }
+  }
+  if (!openLine) return null;
+
+  // Find the nearest following lone closing fence (scanning down from the line
+  // below the selection). The opening fence above plus this closing fence below
+  // bracket the selection. If none is found, the ``` above is unclosed: no match.
+  let closeLine = null as ReturnType<typeof doc.lineAt> | null;
+  for (let n = endLine.number + 1; n <= doc.lines; n++) {
+    const line = doc.line(n);
+    if (CLOSE_FENCE_LINE.test(line.text)) {
+      closeLine = line;
+      break;
+    }
+  }
+  if (!closeLine) return null;
+
+  // Remove the opening fence line + its trailing newline, and the closing fence
+  // line + its leading newline. Keep the body between them selected.
+  const removeOpenTo = openLine.to + 1; // include the newline after the open fence
+  const removeCloseFrom = closeLine.from - 1; // include the newline before the close fence
+  const bodyFrom = removeOpenTo;
+  const bodyTo = removeCloseFrom;
+  const body = state.sliceDoc(bodyFrom, bodyTo);
+  return {
+    from: openLine.from,
+    to: closeLine.to,
+    insert: body,
+    selFrom: openLine.from,
+    selTo: openLine.from + body.length,
+  };
+}
+
+/**
+ * The fenced-code command: a TOGGLE. If the selection is already inside (or
+ * equal to) a fenced ``` block, the fences are removed (UNFENCE); otherwise the
+ * selection is wrapped in a ```\n ... \n``` block (FENCE). For a bare caret the
+ * FENCE path inserts an empty fence with the caret on the body line. Multi-cursor
+ * safe (one decision per range via changeByRange).
+ *
+ * The FENCE (not-fenced) path is byte-identical to the historical behavior.
  */
 const fencedCodeCommand: StateCommand = ({ state, dispatch }) => {
   const tr = state.changeByRange((range) => {
+    const unfence = detectUnfence(state, range);
+    if (unfence) {
+      return {
+        changes: { from: unfence.from, to: unfence.to, insert: unfence.insert },
+        range:
+          unfence.selFrom === unfence.selTo
+            ? EditorSelection.cursor(unfence.selFrom)
+            : EditorSelection.range(unfence.selFrom, unfence.selTo),
+      };
+    }
+    // FENCE: byte-identical to the historical wrap behavior.
     const text = state.sliceDoc(range.from, range.to);
     const insert = "```\n" + text + "\n```";
     // Caret after the opening fence + newline, i.e. start of the body line.
