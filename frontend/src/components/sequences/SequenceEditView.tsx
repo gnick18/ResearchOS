@@ -39,6 +39,7 @@ import {
 } from "@/lib/sequences/feature-edit";
 import { colorForType } from "@/lib/sequences/feature-colors";
 import { findOrfs } from "@/lib/sequences/orf";
+import { selectTranslationFeatures } from "@/lib/sequences/translation-tracks";
 import {
   setMolecularClip,
   useMolecularClipboard,
@@ -338,21 +339,21 @@ export default function SequenceEditView({
   // tracks, which is the only translation primitive the renderer exposes.
   const translations: TranslationProp[] = useMemo(() => {
     const out: TranslationProp[] = [];
-    for (const f of doc.features) {
-      const t = (f.type || "").toLowerCase();
-      const cdsLike = t === "cds" || t === "gene" || t === "mat_peptide";
-      // A feature is translated when the GLOBAL toggle is on (all CDS-like), OR
-      // when its PER-FEATURE "translate in sequence view" flag is set.
-      const perFeature = readNoteFlag(f.notes, TRANSLATE_NOTE_KEY);
-      if ((view.showTranslation && cdsLike) || perFeature) {
-        out.push({
-          start: f.start,
-          end: f.end,
-          direction: f.strand === -1 ? -1 : 1,
-          name: f.name,
-          color: colorForType(f.type),
-        });
-      }
+    // Central-dogma dedup: when a locus carries overlapping gene/mRNA/CDS, only
+    // the one closest to the protein gets a track, so the same translation is
+    // not painted multiple times. Per-feature opt-ins are always kept.
+    const chosen = selectTranslationFeatures(doc.features, {
+      globalOn: view.showTranslation,
+      isExplicit: (f) => readNoteFlag(f.notes, TRANSLATE_NOTE_KEY),
+    });
+    for (const f of chosen) {
+      out.push({
+        start: f.start,
+        end: f.end,
+        direction: f.strand === -1 ? -1 : 1,
+        name: f.name,
+        color: colorForType(f.type),
+      });
     }
     if (view.showOrfs) {
       for (const o of findOrfs(doc.seq)) {

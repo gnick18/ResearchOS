@@ -1,0 +1,130 @@
+import { describe, it, expect } from "vitest";
+import {
+  selectTranslationFeatures,
+  translationRank,
+  isTranslatableType,
+  type TranslatableFeature,
+} from "./translation-tracks";
+
+const f = (
+  type: string,
+  start: number,
+  end: number,
+  strand = 1,
+  name = type,
+): TranslatableFeature => ({ type, start, end, strand, name });
+
+describe("translationRank / isTranslatableType", () => {
+  it("ranks CDS > mRNA > gene, others 0", () => {
+    expect(translationRank("CDS")).toBe(3);
+    expect(translationRank("mat_peptide")).toBe(3);
+    expect(translationRank("mRNA")).toBe(2);
+    expect(translationRank("gene")).toBe(1);
+    expect(translationRank("promoter")).toBe(0);
+    expect(translationRank(undefined)).toBe(0);
+  });
+  it("is case-insensitive", () => {
+    expect(isTranslatableType("cds")).toBe(true);
+    expect(isTranslatableType("Gene")).toBe(true);
+    expect(isTranslatableType("misc_feature")).toBe(false);
+  });
+});
+
+describe("selectTranslationFeatures — central-dogma dedup", () => {
+  it("the CIP2 case: gene + 2 mRNA + 2 CDS overlapping -> one CDS", () => {
+    const feats = [
+      f("gene", 100, 1000, 1, "CIP2"),
+      f("mRNA", 100, 1000, 1, "CIP2 mRNA"),
+      f("mRNA", 120, 1000, 1, "CIP2 mRNA b"),
+      f("CDS", 150, 950, 1, "dienelactone hydrolase --> CIP2"),
+      f("CDS", 150, 950, 1, "CIP2"),
+    ];
+    const out = selectTranslationFeatures(feats, { globalOn: true });
+    expect(out).toHaveLength(1);
+    expect(out[0].type).toBe("CDS");
+  });
+
+  it("only-mRNA file: translates the mRNA (fallback)", () => {
+    const feats = [f("mRNA", 10, 200, 1, "transcriptX")];
+    const out = selectTranslationFeatures(feats, { globalOn: true });
+    expect(out).toHaveLength(1);
+    expect(out[0].type).toBe("mRNA");
+  });
+
+  it("only-gene file: translates the gene (fallback)", () => {
+    const feats = [f("gene", 10, 200, 1)];
+    const out = selectTranslationFeatures(feats, { globalOn: true });
+    expect(out.map((o) => o.type)).toEqual(["gene"]);
+  });
+
+  it("distinct non-overlapping CDSs are all kept", () => {
+    const feats = [
+      f("CDS", 100, 400, 1, "A"),
+      f("CDS", 600, 900, 1, "B"),
+      f("CDS", 1200, 1500, -1, "C"),
+    ];
+    const out = selectTranslationFeatures(feats, { globalOn: true });
+    expect(out).toHaveLength(3);
+  });
+
+  it("gene over two separate CDSs -> both CDS, no gene", () => {
+    const feats = [
+      f("gene", 100, 2000, 1, "operon"),
+      f("CDS", 150, 700, 1, "cdsA"),
+      f("CDS", 1200, 1900, 1, "cdsB"),
+    ];
+    const out = selectTranslationFeatures(feats, { globalOn: true });
+    expect(out.filter((o) => o.type === "CDS")).toHaveLength(2);
+    expect(out.some((o) => o.type === "gene")).toBe(false);
+  });
+
+  it("opposite-strand overlap is NOT deduped (different products)", () => {
+    const feats = [
+      f("CDS", 100, 900, 1, "fwd"),
+      f("CDS", 100, 900, -1, "rev"),
+    ];
+    const out = selectTranslationFeatures(feats, { globalOn: true });
+    expect(out).toHaveLength(2);
+  });
+
+  it("non-translatable types are ignored", () => {
+    const feats = [
+      f("promoter", 1, 100),
+      f("primer_bind", 10, 30),
+      f("CDS", 200, 500),
+    ];
+    const out = selectTranslationFeatures(feats, { globalOn: true });
+    expect(out).toHaveLength(1);
+    expect(out[0].type).toBe("CDS");
+  });
+
+  it("globalOn=false: only explicit per-feature opt-ins are translated", () => {
+    const gene = f("gene", 100, 1000, 1, "CIP2");
+    const cds = f("CDS", 150, 950, 1, "CIP2");
+    const out = selectTranslationFeatures([gene, cds], {
+      globalOn: false,
+      isExplicit: (x) => x === gene,
+    });
+    expect(out).toEqual([gene]);
+  });
+
+  it("explicit opt-in suppresses an overlapping global candidate (no dup)", () => {
+    const gene = f("gene", 100, 1000, 1, "CIP2");
+    const cds = f("CDS", 150, 950, 1, "CIP2");
+    const out = selectTranslationFeatures([gene, cds], {
+      globalOn: true,
+      isExplicit: (x) => x === gene,
+    });
+    // gene is explicit (kept); the overlapping CDS is suppressed to avoid a dup
+    expect(out).toEqual([gene]);
+  });
+
+  it("preserves original input order", () => {
+    const feats = [
+      f("CDS", 600, 900, 1, "B"),
+      f("CDS", 100, 400, 1, "A"),
+    ];
+    const out = selectTranslationFeatures(feats, { globalOn: true });
+    expect(out.map((o) => o.name)).toEqual(["B", "A"]);
+  });
+});
