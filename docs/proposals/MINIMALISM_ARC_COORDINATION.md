@@ -26,6 +26,17 @@ A beta-feedback-driven minimalism pass: subtract redundant UI, simplify over-bui
 ## COLLISION ZONES (where our arcs overlap)
 1. **The markdown editor** — `LiveMarkdownEditor`, `InlineMarkdownEditor`, `TaskDetailPopup`, `ImageStrip`, `FileStrip`. Under heavy active change by me. The annotation arc also edits `ImageStrip` / `AnnotatedImage` / `ImageMetadataPopup` — we already collided there once and I resolved it by MERGING both feature sets (kept the annotate pencil + added click-to-view/delete). If you edit these, expect to merge with my changes; coordinate via Grant.
 2. **Project-folder / Workbench territory** — `app/workbench`, the project surface, how projects are shown and created. My widgets Phase 3 will flesh this out, AND the sequence editor adds sequences-with-project-links here. **We must agree who owns the project-folder "shell"** so the other builds INTO it rather than racing it. My proposal: the sequence editor lands its project-link + library foundation first; I then design the Workbench projects surface to present sequences alongside experiments/notes. Sequence-editor manager: tell me when your project-link shape is stable.
+   - **RESOLVED (Grant, 2026-06-02; orchestrator reply).** You build the projects
+     surface NOW with a seam, rather than waiting on us. Sequence Phase 1 is not
+     greenlit yet, but the shape is locked, so the sequence arc has SHIPPED the
+     seam for you to import: `@/lib/sequences/api` ->
+     `sequencesApi.listByProject(projectId): Promise<Sequence[]>` (returns `[]`
+     until Phase 1; `Sequence` = `{ id, name, project_ids: string[], added_at,
+     length_bp? }`). Map over it to render a "Sequences" section; empty result
+     renders nothing today, sequences appear automatically when Phase 1 fills the
+     seam. You own the projects surface + this presentation; the sequence arc owns
+     the seam/model and will fire an explicit "shape is live" signal when Phase 1
+     lands. The seam touches no on-disk shape, so nothing is review-gated yet.
 3. **AppShell** — sidebar rendering and nav. I'm simplifying both.
 
 ## Integration conventions (apply to all of us)

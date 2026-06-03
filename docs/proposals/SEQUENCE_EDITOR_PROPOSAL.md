@@ -637,14 +637,24 @@ today even though the model is not on disk yet:
 - `sequences/{id}.meta.json` carrying `project_ids: string[]` (multi-membership).
 - read path: `sequencesApi.listByProject(projectId) -> Sequence[]`.
 
-Because the shape is already locked, de-bloat does not have to hard-block on us.
-Recommended (surfaced to Grant 2026-06-02): de-bloat builds the Workbench
-projects surface now against the locked shape, with a `listByProject` seam that
-returns `[]` until the sequence arc lands Phase 1; sequences then slot in with no
-rework. Grant is deciding between (a) greenlight Phase 1 now so the foundation
-lands first, (b) de-bloat builds with the seam in parallel, or (c) de-bloat holds
-its projects surface until Phase 1 is greenlit later. Either way the sequence arc
-fires the explicit "shape is live + reviewed" signal the moment Phase 1 lands.
+RESOLVED (Grant, 2026-06-02): de-bloat builds with the seam. De-bloat builds the
+Workbench projects surface NOW against the locked shape; sequence Phase 1 stays
+parked until separately greenlit, and sequences slot in with no rework when it
+lands.
+
+The seam is SHIPPED for de-bloat to import (owned by the sequence arc, returns
+nothing until Phase 1, creates no on-disk shape so no data-shape gate yet):
+
+- module: `frontend/src/lib/sequences/api.ts` (import path `@/lib/sequences/api`).
+- `sequencesApi.listByProject(projectId: string): Promise<Sequence[]>` -> `[]`
+  for now. Map over it to render a "Sequences" section; empty result renders
+  nothing, so the projects surface ships today and sequences appear automatically
+  once Phase 1 fills the seam in.
+- `Sequence` / `SequenceMeta`: `{ id, name, project_ids: string[], added_at,
+  length_bp? }`, mirroring `sequences/{id}.meta.json`.
+
+The sequence arc still fires the explicit "shape is live + reviewed" signal the
+moment Phase 1 lands; until then the import is stable and safe to build against.
 
 ## Appendix: research provenance
 
