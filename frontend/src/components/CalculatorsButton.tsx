@@ -131,7 +131,7 @@ function CalculatorsModal({ onClose }: { onClose: () => void }) {
     >
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[88vh] overflow-hidden flex flex-col">
+      <div className="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[88vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
@@ -424,15 +424,18 @@ function ScientificCalcTab() {
   };
 
   // [display label, text to insert, accessible name]
+  // Ordered for a 3-column grid (read left-to-right, top-to-bottom): trig,
+  // inverse trig, logs + root, power + parens, constants + factorial. Five
+  // rows so it stands the same height as the number pad beside it.
   const FN_KEYS: [string, string, string][] = [
     ["sin", "sin(", "sine"],
     ["cos", "cos(", "cosine"],
     ["tan", "tan(", "tangent"],
-    ["ln", "ln(", "natural log"],
-    ["log", "log10(", "log base 10"],
     ["asin", "asin(", "inverse sine"],
     ["acos", "acos(", "inverse cosine"],
     ["atan", "atan(", "inverse tangent"],
+    ["ln", "ln(", "natural log"],
+    ["log", "log10(", "log base 10"],
     ["√", "sqrt(", "square root"],
     ["x^y", "^", "power"],
     ["(", "(", "open parenthesis"],
@@ -445,9 +448,9 @@ function ScientificCalcTab() {
   const showResult = result.ok || expr.trim() !== "";
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Display */}
-      <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+      <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-2">
         <input
           ref={inputRef}
           value={expr}
@@ -509,38 +512,44 @@ function ScientificCalcTab() {
         </div>
       </div>
 
-      {/* Function keys */}
-      <div className="grid grid-cols-5 gap-1.5">
-        {FN_KEYS.map(([label, text, aria], i) => (
-          <CalcKey key={i} label={label} variant="fn" ariaLabel={aria} onPress={() => insert(text)} />
-        ))}
-      </div>
+      {/* Keypad: function grid (left) and number pad (right) sit side by side
+          so the whole keypad fits one screen without the modal scrolling. The
+          3:4 grow split keeps every key the same width across both halves, and
+          both grids run five rows tall so their heights match. */}
+      <div className="flex gap-3">
+        {/* Function keys */}
+        <div className="flex-[3] min-w-0 grid grid-cols-3 gap-1">
+          {FN_KEYS.map(([label, text, aria], i) => (
+            <CalcKey key={i} label={label} variant="fn" ariaLabel={aria} onPress={() => insert(text)} />
+          ))}
+        </div>
 
-      {/* Number pad + operators */}
-      <div className="grid grid-cols-4 gap-1.5">
-        <CalcKey label="AC" variant="muted" ariaLabel="clear all" onPress={clearAll} />
-        <CalcKey label="⌫" variant="muted" ariaLabel="backspace" onPress={backspace} />
-        <CalcKey label="Ans" variant="muted" ariaLabel="last answer" onPress={() => insert("Ans")} />
-        <CalcKey label="÷" variant="op" ariaLabel="divide" onPress={() => insert("/")} />
+        {/* Number pad + operators */}
+        <div className="flex-[4] min-w-0 grid grid-cols-4 gap-1">
+          <CalcKey label="AC" variant="muted" ariaLabel="clear all" onPress={clearAll} />
+          <CalcKey label="⌫" variant="muted" ariaLabel="backspace" onPress={backspace} />
+          <CalcKey label="Ans" variant="muted" ariaLabel="last answer" onPress={() => insert("Ans")} />
+          <CalcKey label="÷" variant="op" ariaLabel="divide" onPress={() => insert("/")} />
 
-        <CalcKey label="7" onPress={() => insert("7")} />
-        <CalcKey label="8" onPress={() => insert("8")} />
-        <CalcKey label="9" onPress={() => insert("9")} />
-        <CalcKey label="×" variant="op" ariaLabel="multiply" onPress={() => insert("*")} />
+          <CalcKey label="7" onPress={() => insert("7")} />
+          <CalcKey label="8" onPress={() => insert("8")} />
+          <CalcKey label="9" onPress={() => insert("9")} />
+          <CalcKey label="×" variant="op" ariaLabel="multiply" onPress={() => insert("*")} />
 
-        <CalcKey label="4" onPress={() => insert("4")} />
-        <CalcKey label="5" onPress={() => insert("5")} />
-        <CalcKey label="6" onPress={() => insert("6")} />
-        <CalcKey label="−" variant="op" ariaLabel="subtract" onPress={() => insert("-")} />
+          <CalcKey label="4" onPress={() => insert("4")} />
+          <CalcKey label="5" onPress={() => insert("5")} />
+          <CalcKey label="6" onPress={() => insert("6")} />
+          <CalcKey label="−" variant="op" ariaLabel="subtract" onPress={() => insert("-")} />
 
-        <CalcKey label="1" onPress={() => insert("1")} />
-        <CalcKey label="2" onPress={() => insert("2")} />
-        <CalcKey label="3" onPress={() => insert("3")} />
-        <CalcKey label="+" variant="op" ariaLabel="add" onPress={() => insert("+")} />
+          <CalcKey label="1" onPress={() => insert("1")} />
+          <CalcKey label="2" onPress={() => insert("2")} />
+          <CalcKey label="3" onPress={() => insert("3")} />
+          <CalcKey label="+" variant="op" ariaLabel="add" onPress={() => insert("+")} />
 
-        <CalcKey label="0" onPress={() => insert("0")} className="col-span-2" />
-        <CalcKey label="." onPress={() => insert(".")} />
-        <CalcKey label="=" variant="accent" ariaLabel="equals" onPress={commit} />
+          <CalcKey label="0" onPress={() => insert("0")} className="col-span-2" />
+          <CalcKey label="." onPress={() => insert(".")} />
+          <CalcKey label="=" variant="accent" ariaLabel="equals" onPress={commit} />
+        </div>
       </div>
 
       <p className="text-[11px] text-gray-500">
