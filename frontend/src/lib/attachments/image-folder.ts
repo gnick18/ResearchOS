@@ -21,6 +21,12 @@ export interface ImageSidecar {
   source?: "telegram" | "upload" | "import";
   telegramMessageId?: number;
   telegramChatId?: number;
+  /** Telegram media_group_id of the album this photo arrived in (a numeric
+   *  string), when it landed in the Inbox as part of a multi-photo send.
+   *  Additive, no migration: photos saved before this field existed simply
+   *  aren't grouped. The InboxPanel groups inbox images that share a value.
+   *  DATA-SHAPE addition (telegram-simplify 2026-06-02). */
+  telegramMediaGroupId?: string;
   /** True when the photo arrived during the guided tutorial's first-photo
    *  step. Used by `lib/telegram/tutorial-cleanup.ts` to scan the inbox
    *  on tutorial-end and delete leftover test photos. */

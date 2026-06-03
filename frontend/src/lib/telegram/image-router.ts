@@ -61,18 +61,18 @@ async function writeSidecar(
  *  future "show me what the bot says" surfacing without drift. */
 const START_REPLY =
   "Hi, I'm your ResearchOS bot. Send me a photo and I'll route it two ways:\n\n" +
-  "1. With an experiment popup OPEN in ResearchOS, the photo attaches to that experiment's image strip.\n" +
-  "2. With nothing open, the photo lands in your Inbox (badge in the top bar) to file later.\n\n" +
-  "After each photo I'll ask for a caption. Reply with a sentence, or send /skip.\n\n" +
+  "1. With an experiment OPEN in ResearchOS, I'll ask Lab Notes or Results, then save it to that experiment.\n" +
+  "2. With nothing open, the photo goes straight to your Inbox (badge in the top bar) and I'll just say so. Sort it from there in the app.\n\n" +
+  "Send several photos at once and I'll handle the whole album together.\n\n" +
   "Type /help any time for this refresher.";
 
 /** Verbatim copy for `/help`. Same dual-mode framing as `/start`,
  *  with the caption / skip lifecycle made explicit. */
 const HELP_REPLY =
   "Two routes for inbound photos:\n\n" +
-  "1. Experiment popup OPEN in ResearchOS, the photo attaches there.\n" +
-  "2. Nothing open, the photo lands in your Inbox (top-bar badge). File from there with \"Move to active\" or right-click \"Send to task...\".\n\n" +
-  "Captions: reply to my \"What is this?\" prompt with text, or send /skip to leave a photo without one.";
+  "1. Experiment OPEN in ResearchOS: I ask Lab Notes or Results, then save it there.\n" +
+  "2. Nothing open: the photo goes straight to your Inbox (top-bar badge). Sort it from there with \"Move to active\", right-click \"Send to task...\", or the bulk-assign action.\n\n" +
+  "Albums: send several photos at once and I'll keep them together.";
 
 /** Verbatim reply for `/tutorial`. The bot can't open a tab on the
  *  user's behalf, so the reply is honest about the cross-tab broadcast
@@ -224,15 +224,17 @@ export async function routeTelegramMessage(
       suggestedStem,
       suggestedExt,
       fileId,
+      mediaGroupId: message.media_group_id,
     };
     await routeBatchablePhoto(message.media_group_id, batchPhoto, ctx, active, activeNote);
     return;
   }
 
   // Non-album, non-tutorial: route through the same state machine as a
-  // batch-of-one. ASK ALWAYS — even with an active task open in
-  // ResearchOS, the bot prompts for destination before saving. This
-  // replaces the previous silent auto-attach.
+  // batch-of-one. With an experiment open, the bot asks Lab Notes or
+  // Results; with only a note open it attaches there; with nothing open
+  // the photo goes straight to the Inbox with a single ack (no picker —
+  // the experiment-list picker was removed, telegram-simplify 2026-06-02).
   if (!tutorial.tutorial_active) {
     const batchPhoto: BatchPhoto = {
       messageId: message.message_id,
@@ -242,25 +244,21 @@ export async function routeTelegramMessage(
       suggestedStem,
       suggestedExt,
       fileId,
+      mediaGroupId: null,
     };
     await routeSinglePhotoThroughBatch(batchPhoto, ctx, active, activeNote);
     return;
   }
 
   // Tutorial-mode pass-through (v4 walkthrough's Telegram setup beat):
-  // route through the simplified picker. The prior implementation silent-
-  // auto-saved (to active task if any, else inbox), which surfaced no
-  // prompt at all. Grant's UX call (2026-05-27): the user needs to SEE
-  // the bot ask "where should this go?" so they learn the routing model,
-  // but the picker should NOT list the full set of active experiments +
-  // lists on their very first send (it was overwhelming in testing). The
-  // simplified picker shows only an Inbox button + a two-sentence note
-  // explaining that the normal "active experiments" options will appear
-  // after the tour. Active task is intentionally ignored here so the
-  // tutorial flow is the same whether or not an experiment popup is
-  // open in the demo tab. After the user advances past the first-photo
-  // beat, `clearTelegramTutorial` flips the sidecar off and the bot
-  // returns to its full production routing.
+  // route through the one-button Inbox prompt. Grant's UX call
+  // (2026-05-27): the user needs to SEE the bot ask "where should this
+  // go?" so they learn the routing model, but on their very first send we
+  // show only an Inbox button + a two-sentence note. Active task is
+  // intentionally ignored here so the tutorial flow is the same whether or
+  // not an experiment popup is open in the demo tab. After the user
+  // advances past the first-photo beat, `clearTelegramTutorial` flips the
+  // sidecar off and the bot returns to its full routing.
   const batchPhoto: BatchPhoto = {
     messageId: message.message_id,
     date: message.date,
@@ -269,6 +267,7 @@ export async function routeTelegramMessage(
     suggestedStem,
     suggestedExt,
     fileId,
+    mediaGroupId: null,
   };
   await routeSinglePhotoTutorialMode(batchPhoto, ctx);
   // V3 cross-tab broadcast removed with the V3 rip (Phase B 2026-05-22):

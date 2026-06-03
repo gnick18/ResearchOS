@@ -33,12 +33,15 @@ function inboxBase(username: string): string {
   return `users/${username}/inbox`;
 }
 
-// "Lab Notes" attachments live in the per-tab `notes/` scope. The image
-// router on the receive side and the universal-drop handler on the popup
-// also target this scope, so dragging into the popup vs filing from here
-// land in the same folder.
-function taskNotesBase(taskResultsBase: string): string {
-  return `${taskResultsBase}/notes`;
+// "Lab Notes" attachments live in the per-tab `notes/` scope; "Results"
+// attachments live in `results/`. The image router on the receive side and
+// the universal-drop handler on the popup also target these scopes, so
+// dragging into the popup vs filing from here land in the same folder.
+function taskSubTabBase(
+  taskResultsBase: string,
+  subTab: "notes" | "results",
+): string {
+  return `${taskResultsBase}/${subTab}`;
 }
 
 export default function InboxPanel({ onClose }: InboxPanelProps) {
@@ -325,7 +328,10 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
   // ---- Batch action: Send selected items to a task -------------------------
 
   const sendSelectedToTask = useCallback(
-    async (task: Pick<ActiveTask, "id" | "owner" | "name">) => {
+    async (
+      task: Pick<ActiveTask, "id" | "owner" | "name">,
+      subTab: "notes" | "results" = "notes",
+    ) => {
       if (!currentUser) return;
       const ids = Array.from(selectedIds);
       if (ids.length === 0) return;
@@ -336,7 +342,7 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
           { id: task.id, owner: task.owner },
           currentUser
         );
-        const destBase = taskNotesBase(taskBase);
+        const destBase = taskSubTabBase(taskBase, subTab);
         const fromBase = inboxBase(currentUser);
 
         // List the destination's existing Images/ filenames so we can
@@ -446,7 +452,8 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
 
         if (succeeded > 0) {
           const noun = succeeded === 1 ? "item" : "items";
-          setToast(`Sent ${succeeded} ${noun} to ${task.name}.`);
+          const tab = subTab === "notes" ? "Lab Notes" : "Results";
+          setToast(`Sent ${succeeded} ${noun} to ${task.name} (${tab}).`);
         }
         if (failures.length > 0) {
           alert(
@@ -552,6 +559,146 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
     return `Send ${selectedCount} items to note…`;
   }, [selectedCount]);
 
+  // ---- Batch grouping (telegram-simplify 2026-06-02) -----------------------
+  // Photos sent to Telegram as one album share a `telegramMediaGroupId` in
+  // their sidecar (recorded by lib/telegram/batch-routing.ts on inbox
+  // arrival). Group consecutive entries that share that id into a single
+  // visual cluster so a user can file the whole album in one action. Entries
+  // without the field (older photos, single sends) render as standalone rows.
+  //
+  // `rows` is an ordered list of either a single entry or a batch group; the
+  // original `entries` order is preserved (arrivals are already sorted) so
+  // grouping never reshuffles the list.
+  type InboxRow =
+    | { kind: "single"; entry: InboxEntry }
+    | { kind: "batch"; groupId: string; entries: InboxEntry[] };
+  const rows = useMemo<InboxRow[]>(() => {
+    const out: InboxRow[] = [];
+    let i = 0;
+    while (i < entries.length) {
+      const gid = entries[i].sidecar?.telegramMediaGroupId;
+      if (!gid) {
+        out.push({ kind: "single", entry: entries[i] });
+        i += 1;
+        continue;
+      }
+      const group: InboxEntry[] = [];
+      while (i < entries.length && entries[i].sidecar?.telegramMediaGroupId === gid) {
+        group.push(entries[i]);
+        i += 1;
+      }
+      // A "group" of one is just a single row — don't draw the batch chrome.
+      if (group.length === 1) out.push({ kind: "single", entry: group[0] });
+      else out.push({ kind: "batch", groupId: gid, entries: group });
+    }
+    return out;
+  }, [entries]);
+
+  // Select every photo in a batch group (replaces the current selection).
+  const selectBatch = useCallback((groupEntries: InboxEntry[]) => {
+    setSelectedIds(new Set(groupEntries.map((e) => e.name)));
+    setAnchorId(groupEntries[groupEntries.length - 1]?.name ?? null);
+  }, []);
+
+  // Single inbox row. Shared between standalone rows and the members of a
+  // batch group so the row chrome (thumbnail, caption, per-row controls)
+  // stays identical in both layouts.
+  const renderRow = (entry: InboxEntry) => {
+    const caption = entry.sidecar?.caption;
+    const isSelected = selectedIds.has(entry.name);
+    return (
+      <li
+        key={entry.name}
+        className={`group flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-colors ${
+          isSelected
+            ? "border-blue-400 bg-blue-50 ring-2 ring-blue-200"
+            : "border-gray-100 bg-white hover:border-blue-200 hover:bg-blue-50/30"
+        }`}
+        onClick={(e) => handleRowClick(e, entry)}
+        onContextMenu={(e) => handleRowContextMenu(e, entry)}
+      >
+        {entry.blobUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={entry.blobUrl}
+            alt={entry.name}
+            className="w-16 h-16 rounded object-cover bg-gray-100 flex-shrink-0"
+          />
+        ) : (
+          <div className="w-16 h-16 rounded bg-gray-100 flex-shrink-0" />
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-gray-800 truncate" title={entry.name}>
+            {caption ?? <span className="italic text-gray-400">No caption</span>}
+          </p>
+          <p className="text-xs text-gray-400 truncate">{entry.name}</p>
+          {entry.sidecar?.receivedAt && (
+            <p className="text-xs text-gray-400">
+              {new Date(entry.sidecar.receivedAt).toLocaleString()}
+            </p>
+          )}
+        </div>
+        <div
+          className="flex items-center gap-1"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <MoveToActiveControl
+            entry={entry}
+            activeTask={activeTask}
+            activeNote={activeNote}
+            busy={busy === entry.name || batchBusy}
+            dropdownOpen={dropdownOpen === entry.name}
+            onOpenDropdown={() => setDropdownOpen(entry.name)}
+            onCloseDropdown={() => setDropdownOpen(null)}
+            onMoveToTask={(task) => {
+              setDropdownOpen(null);
+              void moveToActive(entry, task);
+            }}
+            onMoveToNote={(note) => {
+              setDropdownOpen(null);
+              void moveToActiveNote(entry, note);
+            }}
+          />
+          <button
+            type="button"
+            aria-label="More actions"
+            disabled={batchBusy}
+            onClick={(e) => {
+              e.preventDefault();
+              // Treat the "…" button like a right-click on this row:
+              // select-if-not-selected, then open the menu at the button's
+              // anchor point.
+              if (!selectedIds.has(entry.name)) {
+                setSelectedIds(new Set([entry.name]));
+                setAnchorId(entry.name);
+              }
+              const rect = (
+                e.currentTarget as HTMLButtonElement
+              ).getBoundingClientRect();
+              setContextMenu({
+                x: rect.left,
+                y: rect.bottom + 4,
+                anchorEntry: entry,
+              });
+            }}
+            className="opacity-0 group-hover:opacity-100 focus:opacity-100 px-2 py-1.5 text-xs text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-all"
+            data-force-hover-controls-target
+          >
+            ⋯
+          </button>
+          <button
+            type="button"
+            disabled={busy === entry.name || batchBusy}
+            onClick={() => deleteInbox(entry)}
+            className="px-2 py-1.5 text-xs text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-40"
+          >
+            Delete
+          </button>
+        </div>
+      </li>
+    );
+  };
+
   return (
     <>
     {/* DuplicateDialog uses higher z-index (200) than the inbox backdrop
@@ -575,9 +722,10 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
           <div>
             <h3 className="text-base font-semibold text-gray-900">Inbox</h3>
             <p className="text-xs text-gray-500">
-              Photos sent via Telegram while no experiment was open. Shift-click
-              or Cmd/Ctrl-click to select multiple, then right-click to file as
-              a batch.
+              Photos sent via Telegram while no experiment was open. Albums sent
+              together are grouped. Shift-click or Cmd/Ctrl-click to select
+              multiple (or "Select all" on an album), then right-click to file
+              into a task's Lab Notes or Results.
             </p>
           </div>
           <button
@@ -598,101 +746,40 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
             </p>
           ) : (
             <ul className="space-y-2">
-              {entries.map((entry) => {
-                const caption = entry.sidecar?.caption;
-                const isSelected = selectedIds.has(entry.name);
-                return (
-                  <li
-                    key={entry.name}
-                    className={`group flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-colors ${
-                      isSelected
-                        ? "border-blue-400 bg-blue-50 ring-2 ring-blue-200"
-                        : "border-gray-100 hover:border-blue-200 hover:bg-blue-50/30"
-                    }`}
-                    onClick={(e) => handleRowClick(e, entry)}
-                    onContextMenu={(e) => handleRowContextMenu(e, entry)}
-                  >
-                    {entry.blobUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={entry.blobUrl}
-                        alt={entry.name}
-                        className="w-16 h-16 rounded object-cover bg-gray-100 flex-shrink-0"
-                      />
-                    ) : (
-                      <div className="w-16 h-16 rounded bg-gray-100 flex-shrink-0" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate" title={entry.name}>
-                        {caption ?? <span className="italic text-gray-400">No caption</span>}
-                      </p>
-                      <p className="text-xs text-gray-400 truncate">{entry.name}</p>
-                      {entry.sidecar?.receivedAt && (
-                        <p className="text-xs text-gray-400">
-                          {new Date(entry.sidecar.receivedAt).toLocaleString()}
-                        </p>
-                      )}
-                    </div>
-                    <div
-                      className="flex items-center gap-1"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <MoveToActiveControl
-                        entry={entry}
-                        activeTask={activeTask}
-                        activeNote={activeNote}
-                        busy={busy === entry.name || batchBusy}
-                        dropdownOpen={dropdownOpen === entry.name}
-                        onOpenDropdown={() => setDropdownOpen(entry.name)}
-                        onCloseDropdown={() => setDropdownOpen(null)}
-                        onMoveToTask={(task) => {
-                          setDropdownOpen(null);
-                          void moveToActive(entry, task);
-                        }}
-                        onMoveToNote={(note) => {
-                          setDropdownOpen(null);
-                          void moveToActiveNote(entry, note);
-                        }}
-                      />
-                      <button
-                        type="button"
-                        aria-label="More actions"
-                        disabled={batchBusy}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          // Treat the "…" button like a right-click on this
-                          // row: select-if-not-selected, then open the menu
-                          // at the button's anchor point.
-                          if (!selectedIds.has(entry.name)) {
-                            setSelectedIds(new Set([entry.name]));
-                            setAnchorId(entry.name);
-                          }
-                          const rect = (
-                            e.currentTarget as HTMLButtonElement
-                          ).getBoundingClientRect();
-                          setContextMenu({
-                            x: rect.left,
-                            y: rect.bottom + 4,
-                            anchorEntry: entry,
-                          });
-                        }}
-                        className="opacity-0 group-hover:opacity-100 focus:opacity-100 px-2 py-1.5 text-xs text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-all"
-                        data-force-hover-controls-target
-                      >
-                        ⋯
-                      </button>
-                      <button
-                        type="button"
-                        disabled={busy === entry.name || batchBusy}
-                        onClick={() => deleteInbox(entry)}
-                        className="px-2 py-1.5 text-xs text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-40"
-                      >
-                        Delete
-                      </button>
+              {rows.map((row) =>
+                row.kind === "single" ? (
+                  renderRow(row.entry)
+                ) : (
+                  <li key={`batch-${row.groupId}`} className="list-none">
+                    {/* Telegram album: a single batch the user sent at once.
+                        Grouped visually so it reads as one unit, with a
+                        one-tap "select all" so the whole album can be filed
+                        together via the right-click menu. */}
+                    <div className="rounded-lg border border-blue-100 bg-blue-50/30 p-2">
+                      <div className="flex items-center justify-between px-1 pb-1.5">
+                        <span className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-blue-500">
+                          <BatchIcon />
+                          Telegram album · {row.entries.length} photos
+                        </span>
+                        <button
+                          type="button"
+                          disabled={batchBusy}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            selectBatch(row.entries);
+                          }}
+                          className="text-[11px] font-medium text-blue-600 hover:text-blue-800 disabled:opacity-40"
+                        >
+                          Select all
+                        </button>
+                      </div>
+                      <ul className="space-y-2">
+                        {row.entries.map((entry) => renderRow(entry))}
+                      </ul>
                     </div>
                   </li>
-                );
-              })}
+                ),
+              )}
             </ul>
           )}
         </div>
@@ -787,8 +874,8 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
           isOpen={pickerOpen}
           selectedCount={Math.max(1, selectedIds.size)}
           onClose={() => setPickerOpen(false)}
-          onPick={(task) => {
-            void sendSelectedToTask(task);
+          onPick={(task, subTab) => {
+            void sendSelectedToTask(task, subTab);
           }}
         />
       )}
@@ -843,6 +930,27 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
       )}
     </div>
     </>
+  );
+}
+
+// Small stacked-photos glyph for the Telegram-album group header. Inline
+// SVG (project rule: no emoji / no icon-font deps in UI).
+function BatchIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="4" y="4" width="9" height="9" rx="1.5" />
+      <path d="M2.5 11V3.5A1.5 1.5 0 0 1 4 2h6.5" />
+    </svg>
   );
 }
 

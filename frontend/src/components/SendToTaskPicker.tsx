@@ -35,7 +35,15 @@ interface SendToTaskPickerProps {
   isOpen: boolean;
   selectedCount: number;
   onClose: () => void;
-  onPick: (task: Pick<Task, "id" | "owner" | "name">) => void;
+  /** `subTab` lets the caller file the batch into the task's Lab Notes
+   *  (default) or Results image folder. Added with the Telegram picker rip
+   *  (telegram-simplify 2026-06-02): sorting moved into the Inbox, so the
+   *  bulk-assign here has to offer the same Notes vs Results choice the bot
+   *  used to ask over Telegram. */
+  onPick: (
+    task: Pick<Task, "id" | "owner" | "name">,
+    subTab: "notes" | "results",
+  ) => void;
 }
 
 const RECENT_LIMIT = 8;
@@ -50,6 +58,9 @@ export default function SendToTaskPicker({
   const currentUser = providerCurrentUser ?? "";
   const [query, setQuery] = useState("");
   const [showAll, setShowAll] = useState(false);
+  // Which image folder the batch lands in. Lab Notes is the default (it's
+  // where most photos belong); Results is one tap away.
+  const [subTab, setSubTab] = useState<"notes" | "results">("notes");
 
   // Reuse the same query key the GANTT uses so React Query hands us its
   // already-populated cache rather than spinning up a duplicate read pass.
@@ -146,7 +157,8 @@ export default function SendToTaskPicker({
           <div>
             <h3 className="text-base font-semibold text-gray-900">{headerLabel}</h3>
             <p className="text-xs text-gray-500 mt-0.5">
-              Files land in the task&apos;s Lab Notes folder.
+              Files land in the task&apos;s{" "}
+              {subTab === "notes" ? "Lab Notes" : "Results"} folder.
             </p>
           </div>
           <button
@@ -157,6 +169,41 @@ export default function SendToTaskPicker({
           >
             ×
           </button>
+        </div>
+
+        {/* Lab Notes vs Results segmented toggle. The picked task is then
+            filed into the chosen tab's image folder. */}
+        <div className="px-5 pt-3">
+          <div
+            role="group"
+            aria-label="Destination folder"
+            className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-gray-50"
+          >
+            <button
+              type="button"
+              aria-pressed={subTab === "notes"}
+              onClick={() => setSubTab("notes")}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                subTab === "notes"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              Lab Notes
+            </button>
+            <button
+              type="button"
+              aria-pressed={subTab === "results"}
+              onClick={() => setSubTab("results")}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                subTab === "results"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              Results
+            </button>
+          </div>
         </div>
 
         <div className="px-5 py-3 border-b border-gray-100">
@@ -191,7 +238,7 @@ export default function SendToTaskPicker({
                     <button
                       type="button"
                       onClick={() =>
-                        onPick({ id: t.id, owner: t.owner, name: t.name })
+                        onPick({ id: t.id, owner: t.owner, name: t.name }, subTab)
                       }
                       className="w-full text-left px-3 py-2 rounded-md hover:bg-blue-50 focus:bg-blue-50 focus:outline-none flex items-center gap-3"
                     >
