@@ -1319,13 +1319,18 @@ describe("Hybrid editor cluster (§6.7) — inline-editor collapse 2026-06-02", 
     expect(inlineEditorStep.cursorScript).toBeUndefined();
     expect(inlineEditorStep.completion.type).toBe("manual");
   });
-  it("inline-editor beat teaches live-typing markdown + the Save checkpoint revert", () => {
+  it("inline-editor beat teaches live-typing formatting + the Save checkpoint revert", () => {
     const text = renderSpeech(inlineEditorStep);
-    expect(text).toMatch(/live document/i);
-    expect(text).toMatch(/markdown/);
-    expect(text).toMatch(/renders/);
+    // Copy rewrite 2026-06-03 (Grant: clearer slide): the beat still teaches
+    // (1) it formats as you type, (2) markdown via heading + bold examples,
+    // (3) the no-edit-mode / always-finished-view idea, and (4) Save
+    // checkpoint as a revertable version. Assertions track the new wording.
+    expect(text).toMatch(/formats as you go/i);
+    expect(text).toMatch(/heading/i);
+    expect(text).toMatch(/bold/i);
+    expect(text).toMatch(/no edit mode/i);
     expect(text).toMatch(/Save checkpoint/);
-    expect(text).toMatch(/revert/i);
+    expect(text).toMatch(/jump back/i);
   });
 });
 
