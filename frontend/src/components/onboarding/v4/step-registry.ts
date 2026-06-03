@@ -213,17 +213,15 @@ import { inlineEditorStep } from "./steps/walkthrough/InlineEditorStep";
 import { hybridSaveConceptStep } from "./steps/walkthrough/HybridSaveConceptStep";
 // §6.7b Workbench Notes + Lists expansion (Workbench expansion manager
 // 2026-05-22, collapsed to 5 beats by Workbench fix manager R1
-// 2026-05-22). Five universal steps that sit between §6.7 hybrid
-// editor (terminal beat `hybrid-file-attach`) and §6.8 Gantt
-// (`gantt-intro`). Teaches the standalone Notes panel + the Lists
-// panel on /workbench. R1 pacing fix folded the prior
-// `workbench-list-add-items` beat into `workbench-list-create-shell`.
+// 2026-05-22, collapsed to 2 beats 2026-06-03 by HR / tour-
+// simplification). Two universal explanation steps that sit between
+// the §6.7 hybrid editor cluster and the §6.7c methods cluster. Each
+// beat clicks its tab and explains the concept (Single Notes vs
+// Running Logs, then what a list is). The three BeakerBot demos were
+// cut 2026-06-03.
 import {
   workbenchNotesIntroStep,
-  workbenchNotesCreateStep,
   workbenchListsIntroStep,
-  workbenchListCreateShellStep,
-  workbenchListMarkDoneStep,
 } from "./steps/walkthrough/WorkbenchNotesListsSteps";
 // §6.8 Gantt redesign (Gantt manager 2026-05-22): the legacy
 // `ganttIntroStep` (`gantt-task-types`) and `ganttDependenciesStep`
@@ -395,13 +393,12 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [hybridFocusExitStep.id]: hybridFocusExitStep,
   // §6.7b Workbench Notes + Lists expansion (Workbench expansion
   // manager 2026-05-22, collapsed to 5 beats by Workbench fix manager
-  // R1 2026-05-22). Universal steps wired in TOUR_STEP_ORDER between
-  // hybrid-file-attach and gantt-intro.
+  // R1 2026-05-22, collapsed to 2 beats 2026-06-03 by HR / tour-
+  // simplification). Universal explanation steps wired in
+  // TOUR_STEP_ORDER between the hybrid editor cluster and the methods
+  // cluster.
   [workbenchNotesIntroStep.id]: workbenchNotesIntroStep,
-  [workbenchNotesCreateStep.id]: workbenchNotesCreateStep,
   [workbenchListsIntroStep.id]: workbenchListsIntroStep,
-  [workbenchListCreateShellStep.id]: workbenchListCreateShellStep,
-  [workbenchListMarkDoneStep.id]: workbenchListMarkDoneStep,
   // §6.8 Gantt redesign (Gantt manager 2026-05-22). The 4-step legacy
   // arc (gantt-task-types / gantt-drag-drop / gantt-chained-deps /
   // gantt-goals-overview) is replaced by 14 sub-steps.

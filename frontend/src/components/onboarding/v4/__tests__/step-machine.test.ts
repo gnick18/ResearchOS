@@ -159,16 +159,19 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER).not.toContain("gantt-chained-deps");
     // §6.7b Workbench Notes + Lists expansion (Workbench expansion
     // manager 2026-05-22, collapsed to 5 beats by Workbench fix
-    // manager R1 2026-05-22). Universal steps inserted between
-    // hybrid-file-attach and gantt-intro. The prior
-    // `workbench-list-add-items` beat was folded into
-    // `workbench-list-create-shell` (one continuous cursor script).
+    // manager R1 2026-05-22, collapsed to 2 beats 2026-06-03 by HR /
+    // tour-simplification). Two universal explanation steps inserted
+    // between the hybrid editor cluster and the methods cluster. The
+    // three BeakerBot demos were cut 2026-06-03; only the two
+    // explanation beats survive.
     expect(TOUR_STEP_ORDER).toContain("workbench-notes-intro");
-    expect(TOUR_STEP_ORDER).toContain("workbench-notes-create");
     expect(TOUR_STEP_ORDER).toContain("workbench-lists-intro");
-    expect(TOUR_STEP_ORDER).toContain("workbench-list-create-shell");
-    expect(TOUR_STEP_ORDER).toContain("workbench-list-mark-done");
     expect(TOUR_STEP_ORDER).not.toContain("workbench-list-add-items");
+    // The three cut demos must NOT be present so a stale resume_state
+    // record can't pin the controller to a step that no longer exists.
+    expect(TOUR_STEP_ORDER).not.toContain("workbench-notes-create");
+    expect(TOUR_STEP_ORDER).not.toContain("workbench-list-create-shell");
+    expect(TOUR_STEP_ORDER).not.toContain("workbench-list-mark-done");
     // Cleanup retirement 2026-05-22 (Cleanup manager R2): the prior
     // `phase4-cleanup` interactive grid is gone; the terminal step is
     // now `tour-goodbye` (auto-cleanup + animation outro). The old id
@@ -244,20 +247,22 @@ describe("TOUR_STEP_ORDER", () => {
     }
   });
 
-  it("inserts the §6.7b Workbench Notes + Lists cluster between the §6.7 editor cluster and the methods cluster (FINAL reorder manager 2026-05-27)", () => {
+  it("inserts the §6.7b Workbench Notes + Lists cluster between the §6.7 editor cluster and the methods cluster (FINAL reorder manager 2026-05-27; collapsed to 2 beats 2026-06-03 by HR / tour-simplification)", () => {
     // Workbench expansion manager 2026-05-22, collapsed to 5 beats by
     // Workbench fix manager R1 2026-05-22: universal steps sit BETWEEN
     // the §6.7 editor cluster's terminal beats and the §6.8 first
-    // beat (gantt-intro). Order matters because each step builds on
-    // the prior one's DOM state. R1 folded `workbench-list-add-items`
-    // into `workbench-list-create-shell` so add-items is no longer a
-    // separate beat.
+    // beat (gantt-intro). Order matters because the surviving beats
+    // walk Notes -> Lists.
     //
     // FINAL reorder manager 2026-05-27: the methods cluster moved here
-    // between workbench-list-mark-done and gantt-intro, so this test
-    // now asserts the workbench-list-mark-done → methods-category-prompt
-    // adjacency instead of the prior workbench-list-mark-done →
-    // gantt-intro adjacency.
+    // between the workbench notes/lists cluster and gantt-intro, so
+    // this test asserts the workbench-lists-intro → methods-category-
+    // prompt adjacency.
+    //
+    // 2026-06-03 (HR / tour-simplification): the three BeakerBot demos
+    // (workbench-notes-create, workbench-list-create-shell,
+    // workbench-list-mark-done) were cut, leaving the two explanation
+    // beats adjacent: workbench-notes-intro -> workbench-lists-intro.
     //
     // Inline-editor collapse (onboarding-inline bot 2026-06-02): the §6.7
     // editor cluster's terminal beat before hybrid-save-concept is now the
@@ -272,10 +277,7 @@ describe("TOUR_STEP_ORDER", () => {
       // workbench-notes-intro.
       "hybrid-focus-exit",
       "workbench-notes-intro",
-      "workbench-notes-create",
       "workbench-lists-intro",
-      "workbench-list-create-shell",
-      "workbench-list-mark-done",
       "methods-category-prompt",
     ];
     const indices = order.map((id) => TOUR_STEP_ORDER.indexOf(id));
@@ -290,13 +292,18 @@ describe("TOUR_STEP_ORDER", () => {
     });
   });
 
-  it("places the methods cluster (§6.7c) between workbench-list-mark-done and experiment-attach-method-attach (FINAL reorder manager 2026-05-27)", () => {
+  it("places the methods cluster (§6.7c) between the workbench notes/lists cluster and experiment-attach-method-attach (FINAL reorder manager 2026-05-27; cluster collapsed to 2 beats 2026-06-03)", () => {
     // FINAL restructure: the 7-step methods cluster moved here from
     // its old position right after notifications-delete. The cluster
     // now runs after the workbench notes/lists cluster and before the
     // experiment-attach-method-attach + -notes beats (§6.7d).
+    //
+    // 2026-06-03 (HR / tour-simplification): the workbench notes/lists
+    // cluster collapsed to its two explanation beats, so the methods
+    // cluster now follows workbench-lists-intro directly (was
+    // workbench-list-mark-done).
     const order = [
-      "workbench-list-mark-done",
+      "workbench-lists-intro",
       "methods-category-prompt",
       "methods-category-open",
       "methods-category",
@@ -367,15 +374,14 @@ describe("TOUR_STEP_ORDER", () => {
   });
 
   it("the §6.7b Workbench cluster is universal (no feature_picks gating)", () => {
-    // All six steps fire for every user — the Workbench tabs (Notes,
-    // Lists) exist regardless of account_type / purchases / calendar /
-    // any other pick. Verify with two contrasting pick configs.
+    // Both surviving steps fire for every user — the Workbench tabs
+    // (Notes, Lists) exist regardless of account_type / purchases /
+    // calendar / any other pick. Verify with two contrasting pick
+    // configs. 2026-06-03 (HR / tour-simplification): the three
+    // BeakerBot demos were cut; only the two explanation beats remain.
     const universal = [
       "workbench-notes-intro",
-      "workbench-notes-create",
       "workbench-lists-intro",
-      "workbench-list-create-shell",
-      "workbench-list-mark-done",
     ];
     const allYes = picks({
       account_type: "lab",

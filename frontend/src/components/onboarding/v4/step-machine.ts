@@ -264,18 +264,20 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "hybrid-focus-exit",
   // §6.7b Workbench Notes + Lists expansion (Workbench expansion
   // manager 2026-05-22, collapsed to 5 beats by Workbench fix manager
-  // R1 2026-05-22). Universal steps inserted between §6.7 (hybrid
-  // editor terminal beat) and §6.8 (gantt-intro). Teaches the
-  // standalone Notes panel + the Lists panel on /workbench.
-  // R1 pacing fix: the prior `workbench-list-add-items` beat was
-  // folded into `workbench-list-create-shell` (one continuous cursor
-  // script: create + populate). Beat 6 mark-done stays separate
-  // because it's a conceptually distinct teaching point.
+  // R1 2026-05-22, collapsed to 2 beats 2026-06-03 by HR /
+  // tour-simplification). Universal explanation steps inserted between
+  // §6.7 (hybrid editor cluster) and §6.7c (methods cluster). Each
+  // beat clicks its tab and explains the concept: notes-intro covers
+  // Single Notes vs Running Logs; lists-intro covers what a list is.
+  // 2026-06-03 (HR / tour-simplification): Grant hand-walked the
+  // cluster and found it overbuilt. The tool is UI-friendly enough
+  // that users just need to know what notes and lists ARE; they can
+  // figure out usage themselves. The three BeakerBot demos
+  // (workbench-notes-create, workbench-list-create-shell,
+  // workbench-list-mark-done) were cut, leaving the two explanation
+  // beats adjacent.
   "workbench-notes-intro",
-  "workbench-notes-create",
   "workbench-lists-intro",
-  "workbench-list-create-shell",
-  "workbench-list-mark-done",
   // Methods page deep-dive (§6.7c, FINAL restructure 2026-05-27).
   //
   // FINAL reorder manager 2026-05-27: the methods cluster moved here

@@ -67,13 +67,11 @@ const P5_STEP_IDS = [
   "hybrid-focus-exit",
   // §6.7b Workbench Notes + Lists expansion (Workbench expansion
   // manager 2026-05-22, collapsed to 5 beats by Workbench fix manager
-  // R1 2026-05-22). Universal steps between hybrid-file-attach and
-  // gantt-intro.
+  // R1 2026-05-22, collapsed to 2 beats 2026-06-03 by HR / tour-
+  // simplification). Two universal explanation steps between the
+  // hybrid editor cluster and the methods cluster.
   "workbench-notes-intro",
-  "workbench-notes-create",
   "workbench-lists-intro",
-  "workbench-list-create-shell",
-  "workbench-list-mark-done",
   // §6.8 Gantt redesign 2026-05-22 (Gantt manager): 14-step arc.
   "gantt-intro",
   "gantt-existing-experiment",
