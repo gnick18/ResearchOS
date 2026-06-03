@@ -114,6 +114,11 @@ const ABOVE_LABEL_FONT = 10;
 const FEATURE_LABEL_FONT = 11;
 const RULER_FONT = 9;
 const MIN_FEATURE_PX = 3; // minimum drawn width for a tiny feature
+// navigator pin bot — reserved height (px) for the bottom navigator slot. Matches
+// the navigator SVG height (LinearMapNavigator navH ~= 36) plus its py-1 wrapper
+// (8) so the slot stays the same whether the strip is shown (zoomed in) or hidden
+// (whole molecule); toggling it never shifts the surrounding layout.
+const NAV_SLOT_H = 44;
 
 const PRIMER_PINK = "#ec4899";
 const ENZYME_COLOR = "#475569";
@@ -190,6 +195,10 @@ export default function LinearMap({
   const winStart = win.start;
   const winEnd = Math.max(win.start + 1, win.end);
   const winSpan = winEnd - winStart;
+  // navigator pin bot — the navigator only has a job when the window is SMALLER
+  // than the whole molecule. At full zoom-out (the default) the strand already
+  // shows the whole molecule, so the navigator is hidden.
+  const isZoomedIn = winSpan < seqLength;
   // The WINDOW (not the whole molecule) spans the track now.
   const bpX = (bp: number) => PAD_X + ((bp - winStart) / winSpan) * trackWidth;
 
@@ -440,7 +449,7 @@ export default function LinearMap({
   if (!seqLength) return null;
 
   return (
-    <div className="relative flex min-h-0 w-full flex-1 flex-col bg-white" aria-label="Linear map">
+    <div className="relative flex h-full min-h-0 w-full flex-1 flex-col bg-white" aria-label="Linear map">
       {/* ── compact zoom control row: -/+ buttons, log slider, readouts ── */}
       <div className="flex shrink-0 items-center gap-2 border-b border-slate-100 px-3 py-1.5 text-[11px] text-slate-500">
         <Tooltip label="Zoom out">
@@ -723,17 +732,40 @@ export default function LinearMap({
       ) : null}
       </div>
 
-      {/* ── bottom CONTEXT NAVIGATOR: whole-molecule strip + draggable box ── */}
-      {width > 0 ? (
-        <div className="shrink-0 border-t border-slate-100 px-0 py-1">
-          <LinearMapNavigator
-            seqLength={seqLength}
-            width={width}
-            window={{ start: winStart, end: winEnd }}
-            onWindowChange={setWin}
-          />
+      {/* ── bottom CONTEXT NAVIGATOR + footer (fixed-height, BOTTOM-PINNED) ──
+          navigator pin bot — the navigator is a fixed-height sibling pinned below
+          the scrolling map SVG above, NOT inside the auto-height SVG content. That
+          is why dragging the blue box (which reflows the feature-label tiers and
+          changes the SVG height above) can no longer move the navigator vertically.
+
+          The navigator strip + box only render when ZOOMED IN (winSpan < seqLength):
+          at full zoom-out the whole molecule already fills the track, so there is
+          nothing to navigate. The strip's vertical slot is RESERVED at all zoom
+          levels (a fixed min-height matching the navigator height) so showing /
+          hiding it does not shift the surrounding layout. The "Whole molecule (N bp)"
+          footer is always present as the label. */}
+      <div className="shrink-0 border-t border-slate-100">
+        <div
+          className="px-0"
+          // Reserve the navigator's vertical slot whether or not the strip renders,
+          // so toggling zoomed-in / whole-molecule does not jar the layout.
+          style={{ minHeight: NAV_SLOT_H }}
+        >
+          {isZoomedIn && width > 0 ? (
+            <div className="py-1">
+              <LinearMapNavigator
+                seqLength={seqLength}
+                width={width}
+                window={{ start: winStart, end: winEnd }}
+                onWindowChange={setWin}
+              />
+            </div>
+          ) : null}
         </div>
-      ) : null}
+        <div className="px-3 pb-1 text-[10px] tabular-nums text-slate-400">
+          Whole molecule ({comma(seqLength)} bp)
+        </div>
+      </div>
     </div>
   );
 }
