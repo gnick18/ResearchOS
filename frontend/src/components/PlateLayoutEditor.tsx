@@ -405,12 +405,14 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
   );
 
   // Cell + header sizing scales down for the 16x24 (384-well) grid so it stays
-  // usable; 12/24/48/96 keep their original sizing untouched.
+  // usable; 12/24/48/96 keep their original sizing untouched. The dense grid uses
+  // a sub-scale text-[8px] on purpose: the TYPE_SCALE has no tier below text-meta
+  // (12px), which would overflow a 384-well cell, so this is a deliberate exception.
   const wellSizeClass = !dense
     ? "w-8 h-8 text-meta"
     : compact
       ? "w-4 h-4"
-      : "w-6 h-6 text-meta";
+      : "w-6 h-6 text-[8px]";
   const colHeaderClass = !dense ? "w-8" : compact ? "w-4" : "w-6";
   const rowHeaderClass = !dense ? "w-6" : compact ? "w-4" : "w-6";
   const showWellLabels = !compact;
@@ -562,7 +564,7 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
                     <Tooltip label={`Fill column ${c + 1}`} placement="top">
                       <button
                         onClick={() => fillColumn(c)}
-                        className={`${colHeaderClass} ${dense ? "text-meta" : "text-meta"} font-medium text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded px-0.5 py-0.5`}
+                        className={`${colHeaderClass} ${dense ? "text-[8px]" : "text-meta"} font-medium text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded px-0.5 py-0.5`}
                       >
                         {c + 1}
                       </button>
