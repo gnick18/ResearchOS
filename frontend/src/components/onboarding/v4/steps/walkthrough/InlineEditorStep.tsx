@@ -33,16 +33,18 @@ export const inlineEditorStep = buildWalkthroughStep({
   speech: (
     <>
       <p className="mb-2">
-        This is a live document: just type, and your{" "}
-        <strong>markdown</strong> renders as you go. A{" "}
-        <code># </code> starts a heading, <code>**stars**</code> make text
-        bold, a <code>- </code> starts a list. That&apos;s the whole trick:
-        you&apos;re always just typing, with no edit mode to flip in and out
-        of.
+        This is your editor. Just start typing, and it formats as you go.
+        Begin a line with <code># </code> for a heading, or wrap a word in{" "}
+        <code>**stars**</code> to make it bold.
+      </p>
+      <p className="mb-2">
+        You always see the finished page while you write, so there is no
+        edit mode or preview to switch between.
       </p>
       <p>
-        When you hit a good stopping point, <strong>Save checkpoint</strong>{" "}
-        drops a version you can always come back to and revert to later.
+        When you reach a good stopping point, hit{" "}
+        <strong>Save checkpoint</strong>. It saves a version of your work you
+        can jump back to anytime.
       </p>
     </>
   ),

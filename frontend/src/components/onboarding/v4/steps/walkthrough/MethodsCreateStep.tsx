@@ -198,6 +198,21 @@ export const methodsCreateStep = buildWalkthroughStep({
     // workbench-create-experiment-open + workbench-list-create-shell
     // defer-to-playback patterns landed earlier today.
 
+    // Scroll the Method Content editor into view BEFORE clicking/typing it.
+    // The body editor sits at the bottom of the modal, below the fold, so
+    // without this the user watches the name + folder fill at the top and
+    // then the body typing happens off-screen. Center it first so the whole
+    // demo stays visible.
+    const scrollToBody = callbackAction(async () => {
+      if (typeof document === "undefined") return;
+      const wrapper = await waitForElement(
+        targetSelector(TOUR_TARGETS.methodsCreateBodyInput),
+        3000,
+      );
+      if (!(wrapper instanceof HTMLElement)) return;
+      wrapper.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+
     const clickBodyWrapper = callbackAction(async () => {
       if (typeof document === "undefined") return;
       const wrapper = await waitForElement(
@@ -261,6 +276,8 @@ export const methodsCreateStep = buildWalkthroughStep({
       typeName,
       callbackAction(() => pause(METHODS_CREATE_PAUSE_MS)),
       typeCategory,
+      callbackAction(() => pause(METHODS_CREATE_PAUSE_MS)),
+      scrollToBody,
       callbackAction(() => pause(METHODS_CREATE_PAUSE_MS)),
       clickBodyWrapper,
       callbackAction(() => pause(METHODS_CREATE_PAUSE_MS)),
