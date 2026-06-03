@@ -41,6 +41,18 @@ export default function PurchasesFeaturePage() {
         form, so the common case of logging one item takes one interaction instead
         of two.
       </p>
+      <p>
+        Reordering lives right here in this flow, not in a separate floating
+        button anywhere else in the app. Above the Item Name field is a{" "}
+        <strong>recently ordered</strong> row: a few one-tap chips for the
+        items you bought most recently, newest first. Tap one and the modal
+        pre-fills the name, vendor, and price per unit from that item&apos;s
+        most-recent record so you can restock a primer or a reagent without
+        typing. Quantity stays at 1 and the funding string is left untouched,
+        since a re-buy often re-bills against a different grant. If you would
+        rather type, the Item Name field&apos;s autocomplete (described below)
+        recalls the same history.
+      </p>
 
       {/* TODO recapture: purchases-new-purchase-modal.png pending. Capture
        *  with ?wikiCapture=1 against fixture data, then restore the

@@ -851,7 +851,7 @@ function AccountTypeSection({ settings, update }: SectionProps) {
       value: "lab_head",
       title: "PI",
       description:
-        "Principal investigator. Adds a Lab Overview surface with widgets, announcements, metrics, and the lab roster.",
+        "Principal investigator. Adds a fixed, curated Lab Overview page, plus audit logging and purchase approval.",
     },
   ];
 
@@ -893,7 +893,7 @@ function AccountTypeSection({ settings, update }: SectionProps) {
     <SectionShell
       id="account-type"
       title="Account type"
-      description="What's your role in this lab? Member is the default. PI adds a Lab Overview surface with customizable widgets, announcements, lab metrics, and the lab roster."
+      description="What's your role in this lab? Member is the default. PI adds a fixed, curated Lab Overview page, plus audit logging and purchase approval."
       searchKeywords="member PI principal investigator lab head role"
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -950,7 +950,7 @@ function AccountTypeSection({ settings, update }: SectionProps) {
             </h3>
             <p className="text-sm text-gray-600 mt-2">
               {pendingSwitch === "lab_head"
-                ? "This unlocks PI dashboards, audit logging, and the ability to approve purchases."
+                ? "This adds the curated Lab Overview page, audit logging, and the ability to approve purchases."
                 : "This hides the Lab Overview surface and lab-head-only controls. You will keep your existing data."}
             </p>
             <div className="mt-4 flex justify-end gap-2">

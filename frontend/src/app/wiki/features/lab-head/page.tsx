@@ -67,7 +67,8 @@ export default function LabHeadFeaturePage() {
         </li>
         <li>
           <strong>Cross-lab metrics.</strong> Member workload, recent activity,
-          burn rate; the dashboard data feeds the Lab Overview widget canvas.
+          burn rate. The dashboard data feeds the fixed, curated Lab Overview
+          page.
         </li>
         <li>
           <strong>Edit-session unlock + audit log.</strong> A password-gated
@@ -127,8 +128,8 @@ export default function LabHeadFeaturePage() {
           gated on the PI role).
         </li>
         <li>
-          You want a customizable Lab Overview dashboard instead of every
-          member working from the same Home page.
+          You want the curated, lab-wide Lab Overview page instead of every
+          member working only from their own Home page.
         </li>
       </ul>
       <p>

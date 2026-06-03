@@ -117,7 +117,7 @@ export default function StartHerePage() {
       >
         If your account is flagged as a <strong>PI</strong>, you
         unlock <Link href="/wiki/features/lab-overview">Lab Overview</Link>,
-        a customizable dashboard with cross-member widgets (member workload,
+        a fixed, curated page with cross-member views (member workload,
         recent activity, purchase queue, audit log). It is not visible to
         regular members. Set the PI flag on your account to get the
         bird&apos;s-eye view. See{" "}
