@@ -12,12 +12,13 @@ import AppShell from "@/components/AppShell";
 import NotesPanel from "@/components/NotesPanel";
 import WorkbenchExperimentsPanel from "@/components/workbench/WorkbenchExperimentsPanel";
 import WorkbenchListsPanel from "@/components/workbench/WorkbenchListsPanel";
+import WorkbenchProjectsPanel from "@/components/workbench/WorkbenchProjectsPanel";
 import WorkbenchProjectFilterPills from "@/components/workbench/WorkbenchProjectFilterPills";
 import NewProjectButton from "@/components/lab-overview/NewProjectButton";
 import { matchesAnyProjectFilter } from "@/lib/search/filterKey";
 import type { Project } from "@/lib/types";
 
-type TabType = "experiments" | "notes" | "lists";
+type TabType = "projects" | "experiments" | "notes" | "lists";
 
 const DEFAULT_COLORS = [
   "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
@@ -34,7 +35,10 @@ export default function WorkbenchPage() {
   // lets the gate work without coupling Workbench's routing to the
   // onboarding system — the planned Lists-tab redesign can route
   // however it wants and this gate keeps working.
-  const [activeTab, setActiveTab] = useState<TabType>("experiments");
+  // Projects is the default landing view (workbench-projects bot, Phase 3a):
+  // a member arriving at /workbench browses their projects first. The other
+  // tabs and their `?tab=...` deep-links (see the effect below) are unchanged.
+  const [activeTab, setActiveTab] = useState<TabType>("projects");
 
   // Shared Notebooks Phase 4 (notebooks-phase4-widget sub-bot, 2026-06-02):
   // the Shared Notebook home/dashboard widget deep-links here with
@@ -50,7 +54,14 @@ export default function WorkbenchPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
-    if (params.get("tab") === "notes") setActiveTab("notes");
+    // Deep-link tab selection. The Notes deep-link (`?tab=notes`, optionally
+    // with `&notebook=<id>`) is the long-standing case the Shared Notebook
+    // widget relies on; the others are accepted symmetrically so any link can
+    // land on its tab. Unknown / absent values leave the new Projects default.
+    const tab = params.get("tab");
+    if (tab === "notes" || tab === "experiments" || tab === "lists" || tab === "projects") {
+      setActiveTab(tab);
+    }
     const nb = params.get("notebook");
     if (nb) setInitialNotebookId(nb);
   }, []);
@@ -100,11 +111,13 @@ export default function WorkbenchPage() {
   }, [allTasks, selectedProjectIds]);
 
   const subtitle =
-    activeTab === "experiments"
-      ? `${upcomingCount} experiment${upcomingCount !== 1 ? "s" : ""} in flight`
-      : activeTab === "lists"
-        ? `${openListCount} open list task${openListCount !== 1 ? "s" : ""}`
-        : "Meeting notes and running logs";
+    activeTab === "projects"
+      ? `${projects.length} project${projects.length !== 1 ? "s" : ""}`
+      : activeTab === "experiments"
+        ? `${upcomingCount} experiment${upcomingCount !== 1 ? "s" : ""} in flight`
+        : activeTab === "lists"
+          ? `${openListCount} open list task${openListCount !== 1 ? "s" : ""}`
+          : "Meeting notes and running logs";
 
   return (
     <AppShell>
@@ -122,6 +135,20 @@ export default function WorkbenchPage() {
 
         {/* Tabs */}
         <div className="flex items-center gap-1 mb-6 border-b border-gray-200 pb-3">
+          <button
+            onClick={() => setActiveTab("projects")}
+            data-tour-target="workbench-projects-tab"
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+              activeTab === "projects"
+                ? "bg-indigo-100 text-indigo-700"
+                : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+            </svg>
+            Projects
+          </button>
           <button
             onClick={() => setActiveTab("experiments")}
             data-tour-target="workbench-experiments-tab"
@@ -166,14 +193,18 @@ export default function WorkbenchPage() {
           </button>
         </div>
 
-        {/* Project filter — hidden on Notes (project-agnostic). */}
-        {activeTab !== "notes" && (
+        {/* Project filter — hidden on Notes (project-agnostic) and on the
+            Projects browse tab (the cards ARE the projects; no filter). */}
+        {activeTab !== "notes" && activeTab !== "projects" && (
           <WorkbenchProjectFilterPills
             projects={projects}
             projectColors={projectColors}
           />
         )}
 
+        {activeTab === "projects" && (
+          <WorkbenchProjectsPanel projects={projects} />
+        )}
         {activeTab === "notes" && (
           <NotesPanel initialNotebookId={initialNotebookId} />
         )}
