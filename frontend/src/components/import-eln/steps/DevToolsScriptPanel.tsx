@@ -45,14 +45,14 @@ export default function DevToolsScriptPanel({
   return (
     <div className="space-y-3">
       {notebookLabel && (
-        <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+        <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-meta text-blue-900">
           <span className="font-medium">Fetching {missing.length} image
           {missing.length === 1 ? "" : "s"} from:</span>{" "}
           <span className="font-mono">{notebookLabel}</span>
         </div>
       )}
 
-      <p className="text-xs text-gray-600">
+      <p className="text-meta text-gray-600">
         No API credentials? You can still pull your images down by pasting
         a short script into your browser&apos;s DevTools while signed into
         LabArchives. The script uses your existing browser session, packages
@@ -60,38 +60,38 @@ export default function DevToolsScriptPanel({
         ZIP, and triggers a single download — drop the ZIP back here.
       </p>
 
-      <ol className="text-xs text-gray-700 list-decimal pl-5 space-y-1">
+      <ol className="text-meta text-gray-700 list-decimal pl-5 space-y-1">
         <li>
           Open <strong>any</strong> page on{" "}
-          <code className="text-[10px]">labarchives.com</code> in a separate
+          <code className="text-meta">labarchives.com</code> in a separate
           tab and make sure you&apos;re signed in. You do <strong>not</strong>{" "}
           need to navigate to the specific notebook — your session cookies
           authenticate the fetches regardless of which page is loaded.
         </li>
         <li>
-          Press <kbd className="px-1 py-0.5 bg-gray-100 border border-gray-300 rounded text-[10px]">F12</kbd>{" "}
+          Press <kbd className="px-1 py-0.5 bg-gray-100 border border-gray-300 rounded text-meta">F12</kbd>{" "}
           (or{" "}
-          <kbd className="px-1 py-0.5 bg-gray-100 border border-gray-300 rounded text-[10px]">
+          <kbd className="px-1 py-0.5 bg-gray-100 border border-gray-300 rounded text-meta">
             Cmd+Opt+J
           </kbd>{" "}
           on macOS) and switch to the <strong>Console</strong> tab.
         </li>
         <li>Copy the script below and paste it in the console, then hit Enter.</li>
         <li>
-          When the download lands, drop the <code className="text-[10px]">.zip</code> into
+          When the download lands, drop the <code className="text-meta">.zip</code> into
           the drop zone underneath.
         </li>
       </ol>
 
       <div className="rounded-lg border border-gray-200 bg-gray-50 overflow-hidden">
         <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-200 bg-white">
-          <p className="text-[11px] text-gray-600">
+          <p className="text-meta text-gray-600">
             Generated for {missing.length} image{missing.length === 1 ? "" : "s"}
           </p>
           <button
             type="button"
             onClick={handleCopy}
-            className="text-xs px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+            className="text-meta px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
           >
             {copyState === "copied"
               ? "Copied!"
@@ -105,7 +105,7 @@ export default function DevToolsScriptPanel({
         </pre>
       </div>
 
-      <p className="text-[11px] text-gray-500">
+      <p className="text-meta text-gray-500">
         The script runs entirely in your own browser and only fetches images
         you can already see in your notebook — it doesn&apos;t send your
         credentials anywhere, and ResearchOS never receives anything until

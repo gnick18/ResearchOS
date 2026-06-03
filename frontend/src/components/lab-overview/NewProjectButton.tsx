@@ -98,7 +98,7 @@ export default function NewProjectButton({
           data-tour-target={tourTarget}
           className={
             className ??
-            "inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+            "inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-body font-semibold text-white transition-colors hover:bg-blue-700"
           }
         >
           <span aria-hidden="true">{PLUS_SVG}</span>

@@ -281,10 +281,10 @@ export default function ImportELNDialog({ isOpen, onClose }: ImportELNDialogProp
       >
         <div className="px-6 pt-5 pb-3 border-b border-gray-100 flex items-center justify-between gap-4">
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-gray-500 font-medium">
+            <p className="text-meta uppercase tracking-wide text-gray-500 font-medium">
               {renderedTitle}
             </p>
-            <h2 className="text-base font-semibold text-gray-900 mt-0.5">
+            <h2 className="text-title font-semibold text-gray-900 mt-0.5">
               Import from LabArchives
             </h2>
           </div>
@@ -384,8 +384,8 @@ function ParsingPanel() {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-12">
       <div className="h-6 w-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-      <p className="text-sm text-gray-700 font-medium">Parsing notebook…</p>
-      <p className="text-xs text-gray-500 max-w-sm text-center">
+      <p className="text-body text-gray-700 font-medium">Parsing notebook…</p>
+      <p className="text-meta text-gray-500 max-w-sm text-center">
         Reading folder structure, page entries, and bundled attachments out of
         the ZIP. Larger exports can take a few seconds.
       </p>
@@ -426,10 +426,10 @@ function Footer({
   }
 
   const primaryCls =
-    "px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed";
-  const secondaryCls = "px-3 py-2 text-sm text-gray-700 hover:text-gray-900";
+    "px-4 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed";
+  const secondaryCls = "px-3 py-2 text-body text-gray-700 hover:text-gray-900";
   const ghostCls =
-    "px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg";
+    "px-3 py-2 text-body bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg";
 
   return (
     <div className="px-6 py-3 border-t border-gray-100 flex items-center justify-end gap-2 bg-gray-50">

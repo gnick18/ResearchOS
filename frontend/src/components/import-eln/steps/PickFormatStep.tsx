@@ -44,10 +44,10 @@ export default function PickFormatStep({ selected, onSelect }: PickFormatStepPro
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold text-gray-900">
+        <h3 className="text-body font-semibold text-gray-900">
           Choose the export format you have.
         </h3>
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-meta text-gray-500 mt-1">
           Right now we only support the LabArchives Offline Notebook ZIP. The
           other two are sketched here so you know they&apos;re on the roadmap.
         </p>
@@ -98,16 +98,16 @@ function FormatCard({
       aria-pressed={isSelected}
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-medium text-gray-900">{spec.title}</p>
+        <p className="text-body font-medium text-gray-900">{spec.title}</p>
         {spec.disabled && (
-          <span className="text-[10px] uppercase tracking-wide font-semibold text-gray-500 bg-gray-200 rounded px-1.5 py-0.5 whitespace-nowrap">
+          <span className="text-meta uppercase tracking-wide font-semibold text-gray-500 bg-gray-200 rounded px-1.5 py-0.5 whitespace-nowrap">
             Coming soon
           </span>
         )}
       </div>
-      <p className="text-xs text-gray-600">{spec.subtitle}</p>
+      <p className="text-meta text-gray-600">{spec.subtitle}</p>
       {spec.helper && (
-        <p className="text-[11px] text-gray-500 mt-auto leading-relaxed">{spec.helper}</p>
+        <p className="text-meta text-gray-500 mt-auto leading-relaxed">{spec.helper}</p>
       )}
     </button>
   );

@@ -80,7 +80,7 @@ export default function HeroNumberTile({
         >
           {icon}
         </span>
-        <span className="text-[10px] uppercase tracking-wide text-gray-500 font-medium truncate">
+        <span className="text-meta uppercase tracking-wide text-gray-500 font-medium truncate">
           {label}
         </span>
       </div>
@@ -91,7 +91,7 @@ export default function HeroNumberTile({
           {primary}
         </div>
         {secondary !== undefined && secondary !== null && secondary !== "" && (
-          <div className="text-xs text-gray-500 mt-1.5 truncate">{secondary}</div>
+          <div className="text-meta text-gray-500 mt-1.5 truncate">{secondary}</div>
         )}
       </div>
     </div>

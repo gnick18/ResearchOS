@@ -53,7 +53,7 @@ export default function LabArchivesSignInStep({
         <button
           type="button"
           onClick={onBack}
-          className="px-3 py-2 text-sm text-gray-700 hover:text-gray-900"
+          className="px-3 py-2 text-body text-gray-700 hover:text-gray-900"
         >
           Back
         </button>
@@ -61,7 +61,7 @@ export default function LabArchivesSignInStep({
           <button
             type="button"
             onClick={() => onContinue(new Map())}
-            className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg"
+            className="px-3 py-2 text-body bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg"
           >
             Skip — leave as placeholders
           </button>
@@ -69,7 +69,7 @@ export default function LabArchivesSignInStep({
             type="button"
             onClick={() => onContinue(staged)}
             disabled={stagedCount === 0}
-            className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {stagedCount === 0
               ? "Continue to import"

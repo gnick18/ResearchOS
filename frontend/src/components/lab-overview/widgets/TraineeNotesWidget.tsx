@@ -332,12 +332,12 @@ function MemberDetail({
           <span aria-hidden="true" className="text-emerald-500 flex-shrink-0">
             {TARGET_SVG}
           </span>
-          <span className="text-[11px] uppercase tracking-wide font-semibold text-gray-500">
+          <span className="text-meta uppercase tracking-wide font-semibold text-gray-500">
             Weekly goals
           </span>
         </div>
         {goals.length === 0 ? (
-          <p className="text-xs text-gray-400 italic">
+          <p className="text-meta text-gray-400 italic">
             No weekly goals shared with you yet.
           </p>
         ) : (
@@ -345,7 +345,7 @@ function MemberDetail({
             {goals.map((goal) => (
               <li
                 key={`g-${goal.owner}-${goal.id}`}
-                className="flex items-start gap-2 text-sm"
+                className="flex items-start gap-2 text-body"
                 data-testid={`trainee-goal-${goal.id}`}
               >
                 <span
@@ -368,7 +368,7 @@ function MemberDetail({
                   >
                     {goal.text}
                   </span>
-                  <span className="ml-2 text-[10px] text-gray-400">
+                  <span className="ml-2 text-meta text-gray-400">
                     {weekLabel(goal.week_of)}
                   </span>
                 </span>
@@ -384,12 +384,12 @@ function MemberDetail({
           <span aria-hidden="true" className="text-sky-500 flex-shrink-0">
             {DOC_SVG}
           </span>
-          <span className="text-[11px] uppercase tracking-wide font-semibold text-gray-500">
+          <span className="text-meta uppercase tracking-wide font-semibold text-gray-500">
             Shared notes
           </span>
         </div>
         {notes.length === 0 ? (
-          <p className="text-xs text-gray-400 italic">
+          <p className="text-meta text-gray-400 italic">
             No notes shared with you yet. Private notes never appear.
           </p>
         ) : (
@@ -406,15 +406,15 @@ function MemberDetail({
                     {DOC_SVG}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-800 truncate">
+                    <p className="text-body font-medium text-gray-800 truncate">
                       {note.title || "Untitled note"}
                       {note.is_running_log && (
-                        <span className="ml-2 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-purple-100 text-purple-700 align-middle">
+                        <span className="ml-2 px-1.5 py-0.5 text-meta font-semibold rounded bg-purple-100 text-purple-700 align-middle">
                           Running log
                         </span>
                       )}
                     </p>
-                    <p className="text-[11px] text-gray-500 truncate">
+                    <p className="text-meta text-gray-500 truncate">
                       Updated {formatWhen(note.updated_at)}
                     </p>
                   </div>
@@ -454,7 +454,7 @@ function PinConfigBar({
       </span>
       <label
         htmlFor="trainee-widget-pin"
-        className="text-xs font-medium text-gray-600 flex-shrink-0"
+        className="text-meta font-medium text-gray-600 flex-shrink-0"
       >
         Pin to trainee
       </label>
@@ -466,7 +466,7 @@ function PinConfigBar({
           const v = e.target.value;
           onConfigChange(v ? { pinnedMember: v } : null);
         }}
-        className="flex-1 min-w-0 text-xs rounded border border-gray-200 bg-white px-2 py-1 text-gray-800"
+        className="flex-1 min-w-0 text-meta rounded border border-gray-200 bg-white px-2 py-1 text-gray-800"
       >
         <option value="">Everyone (roster)</option>
         {roster.map((r) => (
@@ -521,7 +521,7 @@ export default function TraineeNotesWidget(props?: ExpandedViewProps) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 text-sm text-gray-500">
+      <div className="flex items-center gap-2 text-body text-gray-500">
         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-sky-600" />
         Loading shared notes and goals…
       </div>
@@ -552,10 +552,10 @@ export default function TraineeNotesWidget(props?: ExpandedViewProps) {
         />
         <div className="flex items-center gap-2 min-w-0">
           <UserAvatar username={pinnedMember} size="sm" />
-          <span className="text-sm font-semibold text-gray-900 truncate">
+          <span className="text-body font-semibold text-gray-900 truncate">
             {label}
           </span>
-          <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-sky-100 text-sky-700">
+          <span className="px-1.5 py-0.5 text-meta font-semibold rounded bg-sky-100 text-sky-700">
             Pinned
           </span>
         </div>
@@ -586,7 +586,7 @@ export default function TraineeNotesWidget(props?: ExpandedViewProps) {
           <button
             type="button"
             onClick={() => setSelectedMember(null)}
-            className="flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-gray-900"
+            className="flex items-center gap-1 text-meta font-medium text-gray-600 hover:text-gray-900"
             data-testid="trainee-notes-back"
           >
             <span aria-hidden="true">{BACK_ARROW_SVG}</span>
@@ -597,7 +597,7 @@ export default function TraineeNotesWidget(props?: ExpandedViewProps) {
           </span>
           <div className="flex items-center gap-2 min-w-0">
             <UserAvatar username={selectedMember} size="sm" />
-            <span className="text-sm font-semibold text-gray-900 truncate">
+            <span className="text-body font-semibold text-gray-900 truncate">
               {label}
             </span>
           </div>
@@ -622,12 +622,12 @@ export default function TraineeNotesWidget(props?: ExpandedViewProps) {
         pinnedMember={undefined}
         onConfigChange={onConfigChange}
       />
-      <p className="text-xs text-gray-500">
+      <p className="text-meta text-gray-500">
         Click a member to read the notes and weekly goals they have shared
         with you.
       </p>
       {roster.length === 0 ? (
-        <p className="text-sm text-gray-400 italic">
+        <p className="text-body text-gray-400 italic">
           No other lab members found yet.
         </p>
       ) : (
@@ -646,23 +646,23 @@ export default function TraineeNotesWidget(props?: ExpandedViewProps) {
                   <UserAvatar username={p.username} size="sm" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-900 truncate">
+                      <span className="text-body font-medium text-gray-900 truncate">
                         {p.label}
                       </span>
                       {p.account_type === "lab_head" && (
-                        <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-100 text-amber-800">
+                        <span className="px-1.5 py-0.5 text-meta font-semibold rounded bg-amber-100 text-amber-800">
                           PI
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-gray-500 truncate">
+                    <div className="text-meta text-gray-500 truncate">
                       @{p.username}
                     </div>
                   </div>
                   {/* Goal count pill (emerald, target motif). */}
                   <Tooltip label="Weekly goals shared with you" placement="top">
                     <span
-                      className={`flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[11px] font-semibold tabular-nums ${
+                      className={`flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-meta font-semibold tabular-nums ${
                         goalCount > 0
                           ? "bg-emerald-100 text-emerald-700"
                           : "bg-gray-100 text-gray-400"
@@ -675,7 +675,7 @@ export default function TraineeNotesWidget(props?: ExpandedViewProps) {
                   {/* Note count pill (sky, document motif). */}
                   <Tooltip label="Notes shared with you" placement="top">
                     <span
-                      className={`flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[11px] font-semibold tabular-nums ${
+                      className={`flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-meta font-semibold tabular-nums ${
                         noteCount > 0
                           ? "bg-sky-100 text-sky-700"
                           : "bg-gray-100 text-gray-400"
@@ -786,32 +786,32 @@ export function SnapshotTile(props: SnapshotTileProps) {
           <span aria-hidden="true" className="text-sky-500 flex-shrink-0">
             {PEOPLE_SVG}
           </span>
-          <span className="text-[10px] uppercase tracking-wide font-medium truncate">
+          <span className="text-meta uppercase tracking-wide font-medium truncate">
             {label}
           </span>
         </div>
         <div className="mt-2 flex-1 min-h-0 flex flex-col justify-center gap-2">
           {isLoading ? (
-            <p className="text-xs text-gray-400 italic">Loading…</p>
+            <p className="text-meta text-gray-400 italic">Loading…</p>
           ) : (
             <>
               <div className="flex items-center gap-2">
                 <span aria-hidden="true" className="text-emerald-500">
                   {TARGET_SVG}
                 </span>
-                <span className="text-sm font-semibold tabular-nums text-gray-800">
+                <span className="text-body font-semibold tabular-nums text-gray-800">
                   {goalCount}
                 </span>
-                <span className="text-xs text-gray-500">weekly goals</span>
+                <span className="text-meta text-gray-500">weekly goals</span>
               </div>
               <div className="flex items-center gap-2">
                 <span aria-hidden="true" className="text-sky-500">
                   {DOC_SVG}
                 </span>
-                <span className="text-sm font-semibold tabular-nums text-gray-800">
+                <span className="text-body font-semibold tabular-nums text-gray-800">
                   {noteCount}
                 </span>
-                <span className="text-xs text-gray-500">shared notes</span>
+                <span className="text-meta text-gray-500">shared notes</span>
               </div>
             </>
           )}
@@ -826,20 +826,20 @@ export function SnapshotTile(props: SnapshotTileProps) {
         <span aria-hidden="true" className="text-sky-500 flex-shrink-0">
           {PEOPLE_SVG}
         </span>
-        <span className="text-[10px] uppercase tracking-wide font-medium">
+        <span className="text-meta uppercase tracking-wide font-medium">
           Trainee notes &amp; goals
         </span>
       </div>
       {totalShared > 0 && (
-        <span className="absolute top-0 right-0 text-[10px] text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded-full font-medium">
+        <span className="absolute top-0 right-0 text-meta text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded-full font-medium">
           {totalShared} shared
         </span>
       )}
       <div className="mt-2 flex-1 min-h-0 flex flex-col gap-1.5">
         {isLoading ? (
-          <p className="text-xs text-gray-400 italic m-auto">Loading…</p>
+          <p className="text-meta text-gray-400 italic m-auto">Loading…</p>
         ) : rows.length === 0 ? (
-          <p className="text-xs text-gray-400 italic m-auto">
+          <p className="text-meta text-gray-400 italic m-auto">
             No lab members yet
           </p>
         ) : (
@@ -849,18 +849,18 @@ export function SnapshotTile(props: SnapshotTileProps) {
               className="flex items-center gap-2 min-w-0 px-1 py-0.5 rounded hover:bg-gray-50 transition-colors"
             >
               <UserAvatar username={row.username} size="sm" />
-              <span className="flex-1 min-w-0 text-xs font-medium text-gray-800 truncate">
+              <span className="flex-1 min-w-0 text-meta font-medium text-gray-800 truncate">
                 {row.label}
               </span>
               <span
-                className={`flex-shrink-0 text-[10px] font-semibold tabular-nums ${
+                className={`flex-shrink-0 text-meta font-semibold tabular-nums ${
                   row.goals > 0 ? "text-emerald-600" : "text-gray-400"
                 }`}
               >
                 {row.goals}g
               </span>
               <span
-                className={`flex-shrink-0 text-[10px] font-semibold tabular-nums ${
+                className={`flex-shrink-0 text-meta font-semibold tabular-nums ${
                   row.notes > 0 ? "text-sky-700" : "text-gray-400"
                 }`}
               >
@@ -906,7 +906,7 @@ export function SidebarTile({ onClick }: SidebarTileProps) {
           "—"
         ) : (
           <span
-            className={`inline-flex items-center justify-center min-w-[20px] px-1.5 py-0.5 rounded-full text-[11px] font-semibold tabular-nums ${
+            className={`inline-flex items-center justify-center min-w-[20px] px-1.5 py-0.5 rounded-full text-meta font-semibold tabular-nums ${
               totalShared > 0
                 ? "bg-sky-100 text-sky-700"
                 : "bg-gray-100 text-gray-400"

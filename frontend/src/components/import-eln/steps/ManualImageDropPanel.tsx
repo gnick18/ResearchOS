@@ -157,24 +157,24 @@ export default function ManualImageDropPanel({
           onChange={onInputChange}
           {...({ webkitdirectory: undefined } as Record<string, unknown>)}
         />
-        <p className="text-sm text-gray-700">
+        <p className="text-body text-gray-700">
           {promptText ?? "Drop a folder, individual images, or a .zip here"}
         </p>
-        <p className="text-xs text-gray-500 mt-1">or click to pick files</p>
+        <p className="text-meta text-gray-500 mt-1">or click to pick files</p>
       </label>
 
       {processing && (
-        <p className="mt-2 text-xs text-gray-600">Processing dropped files…</p>
+        <p className="mt-2 text-meta text-gray-600">Processing dropped files…</p>
       )}
       {error && (
-        <p className="mt-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+        <p className="mt-2 text-meta text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
           {error}
         </p>
       )}
 
       {match && !processing && (
         <div className="mt-3 space-y-2">
-          <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs space-y-1">
+          <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-meta space-y-1">
             <p className="text-emerald-800">
               <span className="font-medium">{matchedCount}</span> image
               {matchedCount === 1 ? "" : "s"} matched and ready to import.
@@ -201,7 +201,7 @@ export default function ManualImageDropPanel({
           </div>
 
           {unusedCount > 0 && (
-            <details className="text-xs text-gray-600">
+            <details className="text-meta text-gray-600">
               <summary className="cursor-pointer select-none">
                 Show unused files ({unusedCount})
               </summary>
@@ -224,7 +224,7 @@ export default function ManualImageDropPanel({
             <button
               type="button"
               onClick={handleClear}
-              className="text-xs text-gray-600 hover:text-gray-900 underline"
+              className="text-meta text-gray-600 hover:text-gray-900 underline"
             >
               Clear and try again
             </button>

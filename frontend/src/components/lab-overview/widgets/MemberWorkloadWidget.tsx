@@ -88,7 +88,7 @@ export default function MemberWorkloadWidget(_props?: {
 
   if (rows.length === 0) {
     return (
-      <p className="text-xs text-gray-400 italic">
+      <p className="text-meta text-gray-400 italic">
         No lab members yet.
       </p>
     );
@@ -112,11 +112,11 @@ export default function MemberWorkloadWidget(_props?: {
           className="flex items-center gap-1.5 px-1 py-1 rounded"
         >
           <UserAvatar username={r.username} size="sm" />
-          <span className="text-xs text-gray-700 truncate flex-1 min-w-0">
+          <span className="text-meta text-gray-700 truncate flex-1 min-w-0">
             {r.displayName}
           </span>
           <span
-            className={`text-[10px] font-semibold tabular-nums px-1 py-0.5 rounded ${
+            className={`text-meta font-semibold tabular-nums px-1 py-0.5 rounded ${
               r.open === 0
                 ? "bg-gray-100 text-gray-400"
                 : "bg-gray-100 text-gray-700"
@@ -126,7 +126,7 @@ export default function MemberWorkloadWidget(_props?: {
             {r.open}
           </span>
           <span
-            className={`text-[10px] font-semibold tabular-nums px-1 py-0.5 rounded ${
+            className={`text-meta font-semibold tabular-nums px-1 py-0.5 rounded ${
               r.overdue === 0
                 ? "bg-gray-100 text-gray-400"
                 : "bg-red-100 text-red-800"
@@ -233,13 +233,13 @@ export function SnapshotTile(_props: SnapshotTileProps) {
         >
           {PEOPLE_ICON}
         </span>
-        <span className="text-[10px] uppercase tracking-wide text-gray-500 font-medium truncate">
+        <span className="text-meta uppercase tracking-wide text-gray-500 font-medium truncate">
           Member workload
         </span>
       </div>
       <div className="flex-1 min-h-0 flex flex-col justify-center">
         {empty ? (
-          <div className="text-xs text-gray-400 italic">
+          <div className="text-meta text-gray-400 italic">
             {top.length === 0 ? "No active members" : "Nothing open"}
           </div>
         ) : (
@@ -260,7 +260,7 @@ export function SnapshotTile(_props: SnapshotTileProps) {
                   </span>
                   <div className="flex-1 min-w-0">
                     <div
-                      className="text-[10px] text-gray-700 truncate"
+                      className="text-meta text-gray-700 truncate"
                       title={r.displayName}
                     >
                       {r.displayName}
@@ -291,7 +291,7 @@ export function SnapshotTile(_props: SnapshotTileProps) {
                       </div>
                     </div>
                   </div>
-                  <span className="text-[10px] text-gray-500 tabular-nums flex-shrink-0">
+                  <span className="text-meta text-gray-500 tabular-nums flex-shrink-0">
                     {r.open}
                   </span>
                 </li>
@@ -346,10 +346,10 @@ export function SidebarTile({ onClick }: SidebarTileProps) {
       <span aria-hidden="true" className="text-indigo-500 flex-shrink-0">
         {PEOPLE_ICON}
       </span>
-      <span className="text-xs font-medium text-gray-700 truncate flex-1 min-w-0">
+      <span className="text-meta font-medium text-gray-700 truncate flex-1 min-w-0">
         Workload
       </span>
-      <span className="text-[11px] text-gray-500 tabular-nums flex-shrink-0">
+      <span className="text-meta text-gray-500 tabular-nums flex-shrink-0">
         {totalMembers} member{totalMembers === 1 ? "" : "s"}
         {totalOverdue > 0 && (
           <>

@@ -212,18 +212,18 @@ export default function CalendarEventsTodayWidget(_props?: {
   const { closePopup } = usePopupActions();
 
   if (isLoading) {
-    return <div className="text-xs text-gray-400 italic">Loading...</div>;
+    return <div className="text-meta text-gray-400 italic">Loading...</div>;
   }
 
   if (rows.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-6 text-gray-400">
         <span aria-hidden="true">{EMPTY_TEA_SVG}</span>
-        <p className="text-xs italic">Nothing on the calendar today</p>
+        <p className="text-meta italic">Nothing on the calendar today</p>
         <Link
           href="/calendar"
           onClick={() => closePopup()}
-          className="mt-2 text-[11px] text-blue-600 hover:underline"
+          className="mt-2 text-meta text-blue-600 hover:underline"
         >
           Open full calendar
         </Link>
@@ -243,7 +243,7 @@ export default function CalendarEventsTodayWidget(_props?: {
           return (
             <li
               key={key}
-              className="flex items-start gap-2 text-xs text-gray-700"
+              className="flex items-start gap-2 text-meta text-gray-700"
             >
               <span
                 aria-hidden="true"
@@ -254,7 +254,7 @@ export default function CalendarEventsTodayWidget(_props?: {
                 <p className="font-medium text-gray-800 truncate">
                   {e.title || "Untitled event"}
                 </p>
-                <p className="text-[11px] text-gray-500 truncate">
+                <p className="text-meta text-gray-500 truncate">
                   {timeRangeLabel(e)}
                   {e.location ? ` - ${e.location}` : ""}
                 </p>
@@ -266,7 +266,7 @@ export default function CalendarEventsTodayWidget(_props?: {
       <Link
         href="/calendar"
         onClick={() => closePopup()}
-        className="mt-1 pt-2 border-t border-gray-100 text-[11px] text-blue-600 hover:underline self-start"
+        className="mt-1 pt-2 border-t border-gray-100 text-meta text-blue-600 hover:underline self-start"
       >
         Open full calendar
       </Link>
@@ -386,16 +386,16 @@ export function SnapshotTile(_props: SnapshotTileProps) {
         >
           {CALENDAR_SVG(14)}
         </span>
-        <span className="text-[10px] uppercase tracking-wide text-gray-500 font-medium truncate">
+        <span className="text-meta uppercase tracking-wide text-gray-500 font-medium truncate">
           Today&apos;s events
         </span>
       </div>
       {isLoading ? (
-        <p className="text-xs text-gray-400 italic">Loading...</p>
+        <p className="text-meta text-gray-400 italic">Loading...</p>
       ) : top.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-1 text-gray-400">
           <span aria-hidden="true">{EMPTY_TEA_SVG}</span>
-          <p className="text-xs italic">Nothing on the calendar today</p>
+          <p className="text-meta italic">Nothing on the calendar today</p>
         </div>
       ) : (
         <ul className="flex-1 flex flex-col gap-1.5 min-h-0">
@@ -416,10 +416,10 @@ export function SnapshotTile(_props: SnapshotTileProps) {
                   style={{ backgroundColor: row.color }}
                 />
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-gray-700 truncate leading-snug">
+                  <p className="text-meta text-gray-700 truncate leading-snug">
                     {e.title || "Untitled event"}
                   </p>
-                  <p className="text-[10px] text-gray-400 truncate leading-tight">
+                  <p className="text-meta text-gray-400 truncate leading-tight">
                     {timeRangeLabel(e)}
                   </p>
                 </div>
@@ -427,7 +427,7 @@ export function SnapshotTile(_props: SnapshotTileProps) {
             );
           })}
           {overflow > 0 && (
-            <li className="text-[10px] text-gray-400 pl-4">
+            <li className="text-meta text-gray-400 pl-4">
               +{overflow} more
             </li>
           )}
@@ -460,7 +460,7 @@ export function SidebarTile({ onClick }: SidebarTileProps) {
         iconClassName="text-blue-500"
         label="Today"
         stat={
-          <span className="inline-flex items-center justify-center min-w-[20px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400 text-[11px] font-semibold tabular-nums">
+          <span className="inline-flex items-center justify-center min-w-[20px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400 text-meta font-semibold tabular-nums">
             0
           </span>
         }
@@ -508,14 +508,14 @@ export function SidebarTile({ onClick }: SidebarTileProps) {
         >
           {CALENDAR_SVG(14)}
         </span>
-        <span className="text-xs font-medium text-gray-700 truncate flex-1 min-w-0">
+        <span className="text-meta font-medium text-gray-700 truncate flex-1 min-w-0">
           Today
         </span>
-        <span className="inline-flex items-center justify-center min-w-[20px] px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 text-[11px] font-semibold tabular-nums flex-shrink-0">
+        <span className="inline-flex items-center justify-center min-w-[20px] px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 text-meta font-semibold tabular-nums flex-shrink-0">
           {count}
         </span>
       </div>
-      <p className="text-[11px] text-gray-500 truncate pl-6" title={previewLine}>
+      <p className="text-meta text-gray-500 truncate pl-6" title={previewLine}>
         {previewLine}
       </p>
     </div>

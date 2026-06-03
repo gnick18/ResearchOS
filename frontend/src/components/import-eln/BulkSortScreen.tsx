@@ -230,7 +230,7 @@ export default function BulkSortScreen({ result, onDone }: BulkSortScreenProps) 
           <h2 className="text-lg font-semibold text-gray-900">
             Bulk sort imported tasks
           </h2>
-          <p className="text-xs text-gray-600 mt-1">
+          <p className="text-meta text-gray-600 mt-1">
             {totalSurviving} task{totalSurviving === 1 ? "" : "s"} imported.
             Re-classify or move to different projects before they show up in
             your gantt.
@@ -239,7 +239,7 @@ export default function BulkSortScreen({ result, onDone }: BulkSortScreenProps) 
         <button
           type="button"
           onClick={onDone}
-          className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+          className="px-4 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
         >
           Done
         </button>
@@ -257,7 +257,7 @@ export default function BulkSortScreen({ result, onDone }: BulkSortScreenProps) 
 
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6 bg-gray-50">
         {grouped.length === 0 && (
-          <div className="text-center text-sm text-gray-500 py-12">
+          <div className="text-center text-body text-gray-500 py-12">
             All imported tasks have been deleted or moved away.
           </div>
         )}
@@ -310,7 +310,7 @@ function BulkActionBar({
   onDeleteRequested: () => void;
 }) {
   return (
-    <div className="border-b border-gray-200 bg-blue-50 px-6 py-2 flex items-center gap-4 flex-wrap text-xs">
+    <div className="border-b border-gray-200 bg-blue-50 px-6 py-2 flex items-center gap-4 flex-wrap text-meta">
       <span className="font-medium text-blue-900">
         {selectedCount} selected
       </span>
@@ -325,7 +325,7 @@ function BulkActionBar({
             onMoveProject(next);
             e.target.value = "";
           }}
-          className="border border-gray-200 rounded px-2 py-1 text-xs bg-white"
+          className="border border-gray-200 rounded px-2 py-1 text-meta bg-white"
         >
           <option value="">— pick project —</option>
           <option value="null">(no project)</option>
@@ -346,7 +346,7 @@ function BulkActionBar({
             onChangeType(v);
             e.target.value = "";
           }}
-          className="border border-gray-200 rounded px-2 py-1 text-xs bg-white"
+          className="border border-gray-200 rounded px-2 py-1 text-meta bg-white"
         >
           <option value="">— pick type —</option>
           {TASK_TYPES.map((t) => (
@@ -359,7 +359,7 @@ function BulkActionBar({
       <button
         type="button"
         onClick={onDeleteRequested}
-        className="ml-auto px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded"
+        className="ml-auto px-2 py-1 text-meta bg-red-600 hover:bg-red-700 text-white rounded"
       >
         Delete {selectedCount} task{selectedCount === 1 ? "" : "s"}
       </button>
@@ -395,13 +395,13 @@ function ProjectGroup({
         onClick={() => setOpen((v) => !v)}
         className="w-full px-4 py-2 text-left flex items-center justify-between bg-gray-50 border-b border-gray-200"
       >
-        <span className="text-sm font-medium text-gray-900">
+        <span className="text-body font-medium text-gray-900">
           {name}{" "}
           <span className="text-gray-500 font-normal">
             ({rows.length} task{rows.length === 1 ? "" : "s"})
           </span>
         </span>
-        <span className="text-xs text-gray-500">{open ? "Collapse" : "Expand"}</span>
+        <span className="text-meta text-gray-500">{open ? "Collapse" : "Expand"}</span>
       </button>
       {open && (
         <div className="divide-y divide-gray-100">
@@ -453,12 +453,12 @@ function TaskRow({
         className="shrink-0"
       />
       <div className="min-w-0 flex-1">
-        <p className="text-sm text-gray-900 truncate">{row.task.pageName}</p>
+        <p className="text-body text-gray-900 truncate">{row.task.pageName}</p>
         {subtitle && (
-          <p className="text-[11px] text-gray-500 truncate">from {subtitle}</p>
+          <p className="text-meta text-gray-500 truncate">from {subtitle}</p>
         )}
         {row.error && (
-          <p className="text-[11px] text-red-600 mt-0.5">{row.error}</p>
+          <p className="text-meta text-red-600 mt-0.5">{row.error}</p>
         )}
       </div>
       <select
@@ -467,7 +467,7 @@ function TaskRow({
           const v = e.target.value;
           onChangeProject(row.task.newTaskId, v === "null" ? null : Number(v));
         }}
-        className="border border-gray-200 rounded px-2 py-1 text-xs bg-white shrink-0"
+        className="border border-gray-200 rounded px-2 py-1 text-meta bg-white shrink-0"
         disabled={row.saving}
       >
         <option value="null">(no project)</option>
@@ -482,7 +482,7 @@ function TaskRow({
         onChange={(e) =>
           onChangeType(row.task.newTaskId, e.target.value as TaskType)
         }
-        className="border border-gray-200 rounded px-2 py-1 text-xs bg-white shrink-0"
+        className="border border-gray-200 rounded px-2 py-1 text-meta bg-white shrink-0"
         disabled={row.saving}
       >
         {TASK_TYPES.map((t) => (
@@ -494,7 +494,7 @@ function TaskRow({
       <button
         type="button"
         onClick={() => setConfirmOpen(true)}
-        className="text-xs text-red-600 hover:text-red-700 px-2 py-1 rounded shrink-0"
+        className="text-meta text-red-600 hover:text-red-700 px-2 py-1 rounded shrink-0"
         disabled={row.saving}
       >
         Delete
@@ -508,17 +508,17 @@ function TaskRow({
             className="bg-white rounded-lg shadow-xl w-full max-w-sm p-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="text-sm text-gray-900 font-medium">
+            <p className="text-body text-gray-900 font-medium">
               Delete &ldquo;{row.task.pageName}&rdquo;?
             </p>
-            <p className="text-xs text-gray-600 mt-1">
+            <p className="text-meta text-gray-600 mt-1">
               This removes the task and its imported notes. Cannot be undone.
             </p>
             <div className="flex items-center justify-end gap-2 mt-4">
               <button
                 type="button"
                 onClick={() => setConfirmOpen(false)}
-                className="px-3 py-1.5 text-xs text-gray-700 hover:text-gray-900"
+                className="px-3 py-1.5 text-meta text-gray-700 hover:text-gray-900"
               >
                 Cancel
               </button>
@@ -528,7 +528,7 @@ function TaskRow({
                   setConfirmOpen(false);
                   onDelete(row.task.newTaskId);
                 }}
-                className="px-3 py-1.5 text-xs bg-red-600 hover:bg-red-700 text-white rounded"
+                className="px-3 py-1.5 text-meta bg-red-600 hover:bg-red-700 text-white rounded"
               >
                 Delete
               </button>
@@ -558,24 +558,24 @@ function ConfirmDeleteModal({
         className="bg-white rounded-lg shadow-xl w-full max-w-sm p-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="text-sm text-gray-900 font-medium">
+        <p className="text-body text-gray-900 font-medium">
           Delete {count} task{count === 1 ? "" : "s"}?
         </p>
-        <p className="text-xs text-gray-600 mt-1">
+        <p className="text-meta text-gray-600 mt-1">
           This removes the selected tasks and their imported notes. Cannot be undone.
         </p>
         <div className="flex items-center justify-end gap-2 mt-4">
           <button
             type="button"
             onClick={onCancel}
-            className="px-3 py-1.5 text-xs text-gray-700 hover:text-gray-900"
+            className="px-3 py-1.5 text-meta text-gray-700 hover:text-gray-900"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className="px-3 py-1.5 text-xs bg-red-600 hover:bg-red-700 text-white rounded"
+            className="px-3 py-1.5 text-meta bg-red-600 hover:bg-red-700 text-white rounded"
           >
             Delete {count}
           </button>

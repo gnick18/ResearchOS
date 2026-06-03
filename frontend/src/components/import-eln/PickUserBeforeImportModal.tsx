@@ -147,7 +147,7 @@ export default function PickUserBeforeImportModal({
           >
             Pick a user to own the imported notebook
           </h2>
-          <p className="text-xs text-slate-400 mb-5">
+          <p className="text-meta text-slate-400 mb-5">
             The LabArchives notebook needs an account on this folder. Pick an
             existing user or create a new one, then the import will continue.
           </p>
@@ -171,7 +171,7 @@ export default function PickUserBeforeImportModal({
           )}
 
           <div className={hasUsers ? "border-t border-white/10 pt-5" : ""}>
-            <h3 className="text-sm font-medium text-slate-300 mb-3">
+            <h3 className="text-body font-medium text-slate-300 mb-3">
               {hasUsers ? "Create new account" : "Create your first account"}
             </h3>
             <div className="flex gap-2">
@@ -198,7 +198,7 @@ export default function PickUserBeforeImportModal({
               </button>
             </div>
             {createError && (
-              <p className="text-red-400 text-sm mt-2" role="alert">
+              <p className="text-red-400 text-body mt-2" role="alert">
                 {createError}
               </p>
             )}

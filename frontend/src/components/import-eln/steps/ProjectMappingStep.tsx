@@ -90,10 +90,10 @@ export default function ProjectMappingStep({
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold text-gray-900">
+        <h3 className="text-body font-semibold text-gray-900">
           Map notebook folders to projects.
         </h3>
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-meta text-gray-500 mt-1">
           Each row is a parent folder in your notebook that contains imported
           pages. Decide whether to create a new project, link to an existing
           one, or leave its pages unassigned.
@@ -101,11 +101,11 @@ export default function ProjectMappingStep({
       </div>
 
       {existingErr && (
-        <p className="text-xs text-red-600">{existingErr}</p>
+        <p className="text-meta text-red-600">{existingErr}</p>
       )}
 
       <div className="rounded-lg border border-gray-200 overflow-hidden">
-        <table className="w-full text-xs">
+        <table className="w-full text-meta">
           <thead className="bg-gray-50">
             <tr className="text-left text-gray-600">
               <th className="px-3 py-2 font-medium">Tree path</th>
@@ -178,7 +178,7 @@ function MappingRow({
         <select
           value={mapping.decision}
           onChange={(e) => setDecision(e.target.value as ELNProjectDecision)}
-          className="border border-gray-200 rounded px-2 py-1 text-xs bg-white"
+          className="border border-gray-200 rounded px-2 py-1 text-meta bg-white"
         >
           <option value="import-new">Create new project</option>
           <option value="use-existing">Use existing</option>
@@ -192,23 +192,23 @@ function MappingRow({
             value={mapping.newProjectName ?? ""}
             onChange={(e) => onChange({ newProjectName: e.target.value })}
             placeholder={mapping.defaultProjectName ?? "Project name"}
-            className={`w-full border rounded px-2 py-1 text-xs ${
+            className={`w-full border rounded px-2 py-1 text-meta ${
               error ? "border-red-300" : "border-gray-200"
             }`}
           />
         )}
         {mapping.decision === "use-existing" && (
           existing === null ? (
-            <span className="text-[11px] text-gray-500">Loading projects…</span>
+            <span className="text-meta text-gray-500">Loading projects…</span>
           ) : existing.length === 0 ? (
-            <span className="text-[11px] text-gray-500">No existing projects to link.</span>
+            <span className="text-meta text-gray-500">No existing projects to link.</span>
           ) : (
             <select
               value={mapping.existingProjectId ?? ""}
               onChange={(e) =>
                 onChange({ existingProjectId: Number(e.target.value) })
               }
-              className={`w-full border rounded px-2 py-1 text-xs bg-white ${
+              className={`w-full border rounded px-2 py-1 text-meta bg-white ${
                 error ? "border-red-300" : "border-gray-200"
               }`}
             >
@@ -222,10 +222,10 @@ function MappingRow({
           )
         )}
         {mapping.decision === "no-project" && (
-          <span className="text-[11px] text-gray-400">—</span>
+          <span className="text-meta text-gray-400">—</span>
         )}
         {error && (
-          <p className="text-[11px] text-red-600 mt-1">{error}</p>
+          <p className="text-meta text-red-600 mt-1">{error}</p>
         )}
       </td>
       <td className="px-3 py-2 text-gray-600 whitespace-nowrap">

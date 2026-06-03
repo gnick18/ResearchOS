@@ -175,7 +175,7 @@ export default function ProjectCreateModal({
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center gap-2 px-5 py-4 border-b border-gray-100">
-          <h2 className="flex-1 min-w-0 truncate text-base font-semibold text-gray-900">
+          <h2 className="flex-1 min-w-0 truncate text-title font-semibold text-gray-900">
             New Research Project
           </h2>
           <Tooltip label="Close" placement="bottom">
@@ -194,7 +194,7 @@ export default function ProjectCreateModal({
           <div>
             <label
               htmlFor="project-create-name"
-              className="block text-xs font-medium text-gray-500 mb-1"
+              className="block text-meta font-medium text-gray-500 mb-1"
             >
               Project Name
             </label>
@@ -210,14 +210,14 @@ export default function ProjectCreateModal({
                 if (e.key === "Enter") submit();
               }}
               placeholder="e.g. CRISPR Gene Editing Study"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <div>
             <label
               htmlFor="project-create-tags"
-              className="block text-xs font-medium text-gray-500 mb-1"
+              className="block text-meta font-medium text-gray-500 mb-1"
             >
               Tags (comma-separated)
             </label>
@@ -228,12 +228,12 @@ export default function ProjectCreateModal({
               value={tags}
               onChange={(e) => setTags(e.target.value)}
               placeholder="e.g. sequencing, LC-MS, cell-culture"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <div>
-            <span className="block text-xs font-medium text-gray-500 mb-1">
+            <span className="block text-meta font-medium text-gray-500 mb-1">
               Project Color
             </span>
             <div className="flex flex-wrap gap-2">
@@ -267,7 +267,7 @@ export default function ProjectCreateModal({
               onChange={(e) => setWeekendActive(e.target.checked)}
               className="rounded border-gray-300 text-blue-600"
             />
-            <span className="text-sm text-gray-600">
+            <span className="text-body text-gray-600">
               7-day schedule (weekends active)
             </span>
           </label>
@@ -277,7 +277,7 @@ export default function ProjectCreateModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            className="px-4 py-2 text-body font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
           >
             Cancel
           </button>
@@ -287,7 +287,7 @@ export default function ProjectCreateModal({
             data-testid="project-create-submit"
             disabled={!name.trim() || saving}
             onClick={submit}
-            className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+            className="px-4 py-2 text-body font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
           >
             {saving ? "Creating…" : "Create Project"}
           </button>

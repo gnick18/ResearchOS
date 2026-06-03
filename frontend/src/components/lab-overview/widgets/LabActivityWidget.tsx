@@ -374,7 +374,7 @@ export default function LabActivityWidget(_props?: {
                   setDateRange(r);
                   setPageCount(1);
                 }}
-                className={`px-3 py-1 text-[11px] transition-colors ${
+                className={`px-3 py-1 text-meta transition-colors ${
                   idx > 0 ? "border-l border-gray-200" : ""
                 } ${
                   active
@@ -387,7 +387,7 @@ export default function LabActivityWidget(_props?: {
             );
           })}
         </div>
-        <span className="text-[10px] text-gray-400 tabular-nums">
+        <span className="text-meta text-gray-400 tabular-nums">
           {visibleItems.length === filteredItems.length
             ? `Showing all ${filteredItems.length} event${filteredItems.length === 1 ? "" : "s"}`
             : `Showing ${visibleItems.length} of ${filteredItems.length} events`}
@@ -407,7 +407,7 @@ export default function LabActivityWidget(_props?: {
                   setFilter(f);
                   setPageCount(1);
                 }}
-                className={`px-2.5 py-1 text-[11px] rounded-full border transition-colors ${
+                className={`px-2.5 py-1 text-meta rounded-full border transition-colors ${
                   active
                     ? "bg-gray-900 text-white border-gray-900"
                     : "bg-white text-gray-700 border-gray-200 hover:border-gray-300"
@@ -430,12 +430,12 @@ export default function LabActivityWidget(_props?: {
       {/* Feed body */}
       <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
         {stillLoading && allItems.length === 0 ? (
-          <div className="flex items-center gap-2 text-sm text-gray-500 py-6 justify-center">
+          <div className="flex items-center gap-2 text-body text-gray-500 py-6 justify-center">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-600" />
             Loading lab activity…
           </div>
         ) : visibleItems.length === 0 ? (
-          <p className="text-sm text-gray-400 italic py-6 text-center">
+          <p className="text-body text-gray-400 italic py-6 text-center">
             No {filter === "all" ? "activity" : FILTER_LABEL[filter].toLowerCase()}{" "}
             yet.
           </p>
@@ -443,7 +443,7 @@ export default function LabActivityWidget(_props?: {
           <div className="space-y-4">
             {groupedByDay.map(({ day, items }) => (
               <section key={day}>
-                <h3 className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold mb-1.5 sticky top-0 bg-white py-1">
+                <h3 className="text-meta uppercase tracking-wider text-gray-400 font-semibold mb-1.5 sticky top-0 bg-white py-1">
                   {day}
                 </h3>
                 <ul className="space-y-1">
@@ -460,7 +460,7 @@ export default function LabActivityWidget(_props?: {
                 <button
                   type="button"
                   onClick={() => setPageCount((c) => c + 1)}
-                  className="text-xs text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-300 rounded-full px-3 py-1 transition-colors"
+                  className="text-meta text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-300 rounded-full px-3 py-1 transition-colors"
                 >
                   Load more
                 </button>
@@ -491,11 +491,11 @@ function ActivityRow({ item }: { item: FeedItem }) {
         <UserAvatar username={item.username} size="sm" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-xs text-gray-700 truncate" title={item.summary}>
+        <p className="text-meta text-gray-700 truncate" title={item.summary}>
           <span className="font-medium text-gray-900">{item.username}</span>{" "}
           {item.summary}
         </p>
-        <p className="text-[10px] text-gray-400">{formatTime(item.timestamp)}</p>
+        <p className="text-meta text-gray-400">{formatTime(item.timestamp)}</p>
       </div>
     </div>
   );
@@ -821,7 +821,7 @@ export function SnapshotTile(_props: SnapshotTileProps) {
         <span aria-hidden="true" className="text-emerald-600 flex-shrink-0">
           {ACTIVITY_ICON}
         </span>
-        <span className="text-[10px] uppercase tracking-wide text-gray-500 font-medium truncate">
+        <span className="text-meta uppercase tracking-wide text-gray-500 font-medium truncate">
           Activity today
         </span>
       </div>
@@ -835,7 +835,7 @@ export function SnapshotTile(_props: SnapshotTileProps) {
               <UserAvatar username={previewItem.username} size="sm" />
             </span>
             <p
-              className="text-[11px] text-gray-600 leading-tight line-clamp-2 min-w-0"
+              className="text-meta text-gray-600 leading-tight line-clamp-2 min-w-0"
               title={`${previewItem.username} ${previewItem.summary}`}
             >
               <span className="font-medium text-gray-800">{previewItem.username}</span>{" "}
@@ -925,10 +925,10 @@ export function SidebarTile({ onClick }: SidebarTileProps) {
         <span aria-hidden="true" className="text-emerald-600 flex-shrink-0 flex items-center justify-center">
           {ACTIVITY_SIDEBAR_ICON}
         </span>
-        <span className="text-xs font-medium text-gray-700 truncate flex-1 min-w-0">
+        <span className="text-meta font-medium text-gray-700 truncate flex-1 min-w-0">
           Activity
         </span>
-        <span className="text-sm font-semibold text-gray-900 tabular-nums flex-shrink-0">
+        <span className="text-body font-semibold text-gray-900 tabular-nums flex-shrink-0">
           {isLoading ? "—" : `${todayCount} today`}
         </span>
       </div>
@@ -939,7 +939,7 @@ export function SidebarTile({ onClick }: SidebarTileProps) {
               <UserAvatar username={username} size="sm" />
             </span>
           ))}
-          <span className="text-[10px] text-gray-400 truncate">
+          <span className="text-meta text-gray-400 truncate">
             recent
           </span>
         </div>

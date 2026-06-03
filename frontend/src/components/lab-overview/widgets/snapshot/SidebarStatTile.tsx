@@ -88,15 +88,15 @@ export default function SidebarStatTile({
         >
           {icon}
         </span>
-        <span className="text-xs font-medium text-gray-700 truncate flex-1 min-w-0">
+        <span className="text-meta font-medium text-gray-700 truncate flex-1 min-w-0">
           {label}
         </span>
-        <span className="text-sm font-semibold text-gray-900 tabular-nums flex-shrink-0">
+        <span className="text-body font-semibold text-gray-900 tabular-nums flex-shrink-0">
           {stat}
         </span>
       </div>
       {sub !== undefined && sub !== null && sub !== "" && (
-        <div className="text-[10px] text-gray-500 truncate pl-6">{sub}</div>
+        <div className="text-meta text-gray-500 truncate pl-6">{sub}</div>
       )}
     </div>
   );

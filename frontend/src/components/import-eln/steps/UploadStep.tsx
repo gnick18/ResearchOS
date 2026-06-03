@@ -91,10 +91,10 @@ export default function UploadStep({
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold text-gray-900">
+        <h3 className="text-body font-semibold text-gray-900">
           Upload the offline notebook ZIP.
         </h3>
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-meta text-gray-500 mt-1">
           Drop the file you downloaded from your LabArchives confirmation
           email, or pick it from your file system.
         </p>
@@ -119,17 +119,17 @@ export default function UploadStep({
           className="hidden"
           onChange={onInputChange}
         />
-        <p className="text-sm text-gray-700">
-          Drag and drop a <code className="px-1 py-0.5 bg-white border border-gray-200 rounded text-[11px]">.zip</code> here
+        <p className="text-body text-gray-700">
+          Drag and drop a <code className="px-1 py-0.5 bg-white border border-gray-200 rounded text-meta">.zip</code> here
         </p>
-        <p className="text-xs text-gray-500">or click to pick a file</p>
+        <p className="text-meta text-gray-500">or click to pick a file</p>
       </label>
 
       {file && (
         <div className="rounded-lg border border-gray-200 bg-white p-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
-            <p className="text-xs text-gray-500">{formatBytes(file.size)}</p>
+            <p className="text-body font-medium text-gray-900 truncate">{file.name}</p>
+            <p className="text-meta text-gray-500">{formatBytes(file.size)}</p>
           </div>
           <button
             type="button"
@@ -137,7 +137,7 @@ export default function UploadStep({
               setLocalError(null);
               onClear();
             }}
-            className="text-xs text-gray-600 hover:text-gray-900 px-2 py-1 rounded"
+            className="text-meta text-gray-600 hover:text-gray-900 px-2 py-1 rounded"
           >
             Remove
           </button>
@@ -147,7 +147,7 @@ export default function UploadStep({
       {oversized && (
         <div
           role="alert"
-          className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+          className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-meta text-amber-900"
         >
           <p className="font-medium">
             Large notebook — import may run out of memory.
@@ -162,7 +162,7 @@ export default function UploadStep({
       )}
 
       {visibleError && (
-        <p className="text-xs text-red-600 break-words">{visibleError}</p>
+        <p className="text-meta text-red-600 break-words">{visibleError}</p>
       )}
     </div>
   );

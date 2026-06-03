@@ -24,21 +24,21 @@ export default function ApplyProgressStep({
     return (
       <div className="space-y-4">
         <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3">
-          <p className="text-sm font-semibold text-red-900">Import failed</p>
-          <p className="text-xs text-red-700 mt-1 whitespace-pre-wrap break-words">{errorMessage}</p>
+          <p className="text-body font-semibold text-red-900">Import failed</p>
+          <p className="text-meta text-red-700 mt-1 whitespace-pre-wrap break-words">{errorMessage}</p>
         </div>
         <div className="flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={onCancel}
-            className="px-3 py-2 text-sm text-gray-700 hover:text-gray-900"
+            className="px-3 py-2 text-body text-gray-700 hover:text-gray-900"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={onRetry}
-            className="px-3 py-2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg"
+            className="px-3 py-2 text-body bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg"
           >
             Back to mapping
           </button>
@@ -57,7 +57,7 @@ export default function ApplyProgressStep({
     <div className="space-y-4 py-6">
       <div className="flex items-center gap-3">
         <div className="h-5 w-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-        <p className="text-sm text-gray-800 font-medium">{phaseLabel(phase)}</p>
+        <p className="text-body text-gray-800 font-medium">{phaseLabel(phase)}</p>
       </div>
 
       <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
@@ -67,14 +67,14 @@ export default function ApplyProgressStep({
         />
       </div>
 
-      <div className="flex items-center justify-between text-xs text-gray-600">
+      <div className="flex items-center justify-between text-meta text-gray-600">
         <span>
           {current} / {total > 0 ? total : "—"}
         </span>
         <span className="truncate ml-2 max-w-[70%]">{label}</span>
       </div>
 
-      <p className="text-xs text-gray-500">
+      <p className="text-meta text-gray-500">
         Please leave this tab open. Files are being written to your local
         folder. Large notebooks with many attachments can take a minute.
       </p>

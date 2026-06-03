@@ -273,7 +273,7 @@ function ActionSegment({ icon, count, label, tint, onClick }: ActionSegmentProps
     <button
       type="button"
       onClick={onClick}
-      className={`group inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${tint}`}
+      className={`group inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-body font-medium transition-colors ${tint}`}
     >
       <span aria-hidden="true" className="flex-shrink-0">
         {icon}
@@ -298,7 +298,7 @@ function ActionBar() {
 
   if (total === 0) {
     return (
-      <div className="flex items-center gap-2 px-3 py-2 text-xs text-gray-400">
+      <div className="flex items-center gap-2 px-3 py-2 text-meta text-gray-400">
         <span aria-hidden="true" className="text-emerald-500">
           {ALL_CLEAR_ICON}
         </span>
@@ -345,7 +345,7 @@ function ActionBar() {
       role="region"
       aria-label="What needs you"
     >
-      <span className="mr-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-amber-700">
+      <span className="mr-1 flex items-center gap-1.5 text-meta font-semibold uppercase tracking-wide text-amber-700">
         <span aria-hidden="true">{SHIELD_ICON}</span>
         What needs you
       </span>
@@ -374,7 +374,7 @@ function LinkOuts() {
       <button
         type="button"
         onClick={() => router.push("/workbench")}
-        className="group inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50"
+        className="group inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-body font-medium text-gray-700 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50"
       >
         <span aria-hidden="true" className="text-gray-400">
           {BEAKER_ICON}
@@ -390,7 +390,7 @@ function LinkOuts() {
       <button
         type="button"
         onClick={() => router.push("/workbench?tab=notes")}
-        className="group inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50"
+        className="group inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-body font-medium text-gray-700 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50"
       >
         <span aria-hidden="true" className="text-gray-400">
           {NOTE_ICON}
@@ -428,9 +428,9 @@ function SectionCard({ title, description, children, className }: SectionCardPro
       className={`rounded-2xl border border-gray-200 bg-white shadow-sm ${className ?? ""}`}
     >
       <header className="border-b border-gray-100 px-5 py-3.5">
-        <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+        <h2 className="text-title font-semibold text-gray-900">{title}</h2>
         {description && (
-          <p className="mt-0.5 text-xs text-gray-500">{description}</p>
+          <p className="mt-0.5 text-meta text-gray-500">{description}</p>
         )}
       </header>
       <div className="p-5">{children}</div>
@@ -450,7 +450,7 @@ export default function LabOverviewPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Lab Overview</h1>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-body text-gray-500">
               Everything that needs you, plus what your lab has been up to.
             </p>
           </div>

@@ -73,28 +73,28 @@ export default function PreviewStep({
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold text-gray-900">
+        <h3 className="text-body font-semibold text-gray-900">
           Here&apos;s what we found in the notebook.
         </h3>
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-meta text-gray-500 mt-1">
           Review the shape of the export before we generate a default import
           plan. Nothing has been written to your folder yet.
         </p>
       </div>
 
       <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-2">
-        <p className="text-sm text-gray-900">
+        <p className="text-body text-gray-900">
           Notebook: <strong>{parsed.notebookName ?? "(unnamed)"}</strong>
         </p>
-        <p className="text-xs text-gray-600">
+        <p className="text-meta text-gray-600">
           Export by{" "}
           <span className="font-medium">{parsed.exportedBy ?? "unknown"}</span>{" "}
           on{" "}
           <span className="font-medium">{parsed.exportedAt ?? "unknown date"}</span>
         </p>
         {rootCrumb && (
-          <p className="text-xs text-gray-600">
-            Imported root: <code className="text-[11px] bg-gray-100 px-1 py-0.5 rounded">{rootCrumb}</code>
+          <p className="text-meta text-gray-600">
+            Imported root: <code className="text-meta bg-gray-100 px-1 py-0.5 rounded">{rootCrumb}</code>
           </p>
         )}
       </div>
@@ -108,10 +108,10 @@ export default function PreviewStep({
 
       {missingCount > 0 && (
         <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
-          <p className="text-sm font-medium text-amber-900">
+          <p className="text-body font-medium text-amber-900">
             {missingCount} online-only image{missingCount === 1 ? "" : "s"} not bundled in the ZIP
           </p>
-          <p className="text-xs text-amber-800 mt-1">
+          <p className="text-meta text-amber-800 mt-1">
             LabArchives stores some pasted images as URLs that aren&apos;t
             embedded in the offline export. We&apos;ll record the URLs so you
             can relink them later from a LabArchives login.
@@ -128,7 +128,7 @@ export default function PreviewStep({
       )}
 
       <div>
-        <p className="text-xs font-medium text-gray-700 mb-2">Tree preview</p>
+        <p className="text-meta font-medium text-gray-700 mb-2">Tree preview</p>
         <div className="rounded-lg border border-gray-200 bg-white max-h-64 overflow-y-auto p-2 text-xs font-mono">
           {parsed.tree.length === 0 ? (
             <p className="text-gray-500 px-2 py-1">No tree nodes parsed.</p>
@@ -146,7 +146,7 @@ export default function PreviewStep({
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-lg border border-gray-200 bg-white px-3 py-2">
-      <p className="text-[10px] uppercase tracking-wide text-gray-500 font-medium">{label}</p>
+      <p className="text-meta uppercase tracking-wide text-gray-500 font-medium">{label}</p>
       <p className="text-lg text-gray-900 font-semibold leading-tight">{value}</p>
     </div>
   );
@@ -195,10 +195,10 @@ function ChangedPagesPanel({
   return (
     <div className="rounded-lg border border-blue-300 bg-blue-50">
       <div className="px-4 py-3 border-b border-blue-200">
-        <p className="text-sm font-medium text-blue-900">
+        <p className="text-body font-medium text-blue-900">
           {changedPages.length} page{changedPages.length === 1 ? " has" : "s have"} changed since your last import
         </p>
-        <p className="text-xs text-blue-800 mt-1">
+        <p className="text-meta text-blue-800 mt-1">
           These pages match notebooks you&apos;ve imported before, but their
           content was edited in LabArchives after that. By default they&apos;ll
           be skipped (current behavior). Tick a page to overwrite the existing
@@ -206,7 +206,7 @@ function ChangedPagesPanel({
           project, sharing, dates) is preserved.
         </p>
         {changedPages.length > 1 && (
-          <label className="mt-2 flex items-center gap-2 text-xs text-blue-900 cursor-pointer select-none">
+          <label className="mt-2 flex items-center gap-2 text-meta text-blue-900 cursor-pointer select-none">
             <input
               type="checkbox"
               checked={allSelected}
@@ -236,13 +236,13 @@ function ChangedPagesPanel({
                 className="mt-0.5 rounded border-blue-400"
               />
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-blue-900 truncate">
+                <p className="text-meta font-medium text-blue-900 truncate">
                   {p.pageName}
                   <span className="text-blue-700/80 font-normal ml-2">
                     → existing task #{p.existingTaskId}
                   </span>
                 </p>
-                <p className="text-[11px] text-blue-700/90 mt-0.5">
+                <p className="text-meta text-blue-700/90 mt-0.5">
                   {p.reason === "entry-count-changed"
                     ? `Entry count changed: ${p.previousEntryCount} → ${p.currentEntryCount}`
                     : `Edited ${formatDelta(p.previouslyImportedAt, p.latestEntryUpdatedAt)} after last import`}
@@ -309,7 +309,7 @@ function TreeNodeView({ node, depth }: { node: ParsedNode; depth: number }) {
       >
         <span className="text-gray-500 w-3 inline-block">{open ? "▾" : "▸"}</span>
         <span className="font-medium text-gray-800 truncate">{node.name}</span>
-        <span className="text-[10px] text-gray-500 ml-1">
+        <span className="text-meta text-gray-500 ml-1">
           ({children.length} {children.length === 1 ? "item" : "items"})
         </span>
       </button>
