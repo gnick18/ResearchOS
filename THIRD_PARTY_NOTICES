@@ -1,0 +1,203 @@
+THIRD-PARTY NOTICES
+===================
+
+ResearchOS (AGPL-3.0-or-later) is built on open-source software and on
+published science. This file lists the third-party code we ship and the
+licenses it is distributed under, in satisfaction of those licenses'
+attribution requirements. It is generated from the installed dependency
+tree by scripts/build-open-source-credits.mjs; do not edit by hand.
+
+A warmer, human-readable version lives in ACKNOWLEDGEMENTS.md and
+in the app at /open-source.
+
+------------------------------------------------------------------------
+RUNTIME DEPENDENCIES
+------------------------------------------------------------------------
+
+@codemirror/commands@6.10.3
+  License: MIT
+  Source:  https://github.com/codemirror/commands
+
+@codemirror/lang-markdown@6.5.0
+  License: MIT
+  Source:  https://github.com/codemirror/lang-markdown
+
+@codemirror/language@6.12.3
+  License: MIT
+  Source:  https://github.com/codemirror/language
+
+@codemirror/state@6.6.0
+  License: MIT
+  Source:  https://github.com/codemirror/state
+
+@codemirror/view@6.43.0
+  License: MIT
+  Source:  https://code.haverbeke.berlin/codemirror/view
+
+@lezer/common@1.5.2
+  License: MIT
+  Source:  https://github.com/lezer-parser/common
+
+@lezer/highlight@1.2.3
+  License: MIT
+  Source:  https://github.com/lezer-parser/highlight
+
+@lezer/markdown@1.6.4
+  License: MIT
+  Source:  https://code.haverbeke.berlin/lezer/markdown
+
+@react-pdf/renderer@4.5.1
+  License: MIT
+  Source:  https://github.com/diegomura/react-pdf
+
+@tanstack/react-query@5.100.14
+  License: MIT
+  Source:  https://github.com/TanStack/query
+
+@vercel/analytics@2.0.1
+  License: MIT
+  Source:  https://github.com/vercel/analytics
+
+@vercel/speed-insights@2.0.0
+  License: Apache-2.0
+  Source:  https://github.com/vercel/speed-insights
+
+date-fns@4.3.0
+  License: MIT
+  Source:  https://github.com/date-fns/date-fns
+
+diff@9.0.0
+  License: BSD-3-Clause
+  Source:  https://github.com/kpdecker/jsdiff
+
+frappe-gantt@1.2.2
+  License: MIT
+  Source:  https://github.com/frappe/gantt
+
+ical.js@2.2.1
+  License: MPL-2.0
+  Source:  https://github.com/kewisch/ical.js
+
+idb-keyval@6.2.4
+  License: Apache-2.0
+  Source:  https://github.com/jakearchibald/idb-keyval
+
+jszip@3.10.1
+  License: (MIT OR GPL-3.0-or-later)
+  Source:  https://github.com/Stuk/jszip
+
+konva@10.3.0
+  License: MIT
+  Source:  https://github.com/konvajs/konva
+
+marked@18.0.4
+  License: MIT
+  Source:  https://github.com/markedjs/marked
+
+mathjs@15.2.0
+  License: Apache-2.0
+  Source:  https://github.com/josdejong/mathjs
+
+next@16.1.6
+  License: MIT
+  Source:  https://github.com/vercel/next.js
+
+react@19.2.3
+  License: MIT
+  Source:  https://github.com/facebook/react
+
+react-dom@19.2.3
+  License: MIT
+  Source:  https://github.com/facebook/react
+
+react-konva@19.2.4
+  License: MIT
+  Source:  https://github.com/konvajs/react-konva
+
+react-markdown@10.1.0
+  License: MIT
+  Source:  https://github.com/remarkjs/react-markdown
+
+recharts@3.8.1
+  License: MIT
+  Source:  https://github.com/recharts/recharts
+
+rehype-highlight@7.0.2
+  License: MIT
+  Source:  https://github.com/rehypejs/rehype-highlight
+
+rehype-raw@7.0.0
+  License: MIT
+  Source:  https://github.com/rehypejs/rehype-raw
+
+rehype-sanitize@6.0.0
+  License: MIT
+  Source:  https://github.com/rehypejs/rehype-sanitize
+
+remark-gfm@4.0.1
+  License: MIT
+  Source:  https://github.com/remarkjs/remark-gfm
+
+remark-parse@11.0.0
+  License: MIT
+  Source:  https://github.com/remarkjs/remark/tree/main/packages/remark-parse
+
+remark-rehype@11.1.2
+  License: MIT
+  Source:  https://github.com/remarkjs/remark-rehype
+
+turndown@7.2.4
+  License: MIT
+  Source:  https://github.com/mixmark-io/turndown
+
+unified@11.0.5
+  License: MIT
+  Source:  https://github.com/unifiedjs/unified
+
+zustand@5.0.13
+  License: MIT
+  Source:  https://github.com/pmndrs/zustand
+
+------------------------------------------------------------------------
+VENDORED AND PORTED SOURCE
+------------------------------------------------------------------------
+
+The following projects are not installed as npm packages; their source is
+copied (vendored) or ported into this repository. Their original license
+and copyright are preserved below and alongside the code.
+
+SeqViz
+  By:        Lattice Automation
+  License:   MIT
+  Copyright (c) 2019 Lattice Automation
+  Source:    https://github.com/Lattice-Automation/seqviz
+  A subset of the SeqViz sequence viewer is vendored under src/vendor/seqviz to draw linear and circular plasmid maps. See src/vendor/seqviz/LICENSE.
+
+TeselaGen bio-parsers (tg-oss)
+  By:        Teselagen Biotechnology, Inc.
+  License:   MIT
+  Copyright (c) 2023 Teselagen Biotechnology, Inc.
+  Source:    https://github.com/TeselaGen/tg-oss
+  The GenBank and FASTA readers/writers from TeselaGen's tg-oss bio-parsers are vendored under src/vendor/bio-parsers. See src/vendor/bio-parsers/LICENSE.
+
+Biopython MeltingTemp (Tm_NN)
+  By:        The Biopython Contributors
+  License:   BSD (Biopython License)
+  Biopython is distributed under the Biopython License Agreement (BSD-style).
+  Source:    https://github.com/biopython/biopython
+  Our nearest-neighbor primer Tm is a faithful TypeScript port of Biopython's Bio.SeqUtils.MeltingTemp.Tm_NN, transcribed verbatim in src/lib/calculators/tm-nn.ts.
+
+------------------------------------------------------------------------
+SCIENTIFIC REFERENCES
+------------------------------------------------------------------------
+
+The calculators reproduce published methods. The parameters and equations
+are transcribed from these papers (see src/lib/calculators/tm-nn.ts):
+
+- Allawi, H.T. & SantaLucia, J. (1997). Thermodynamics and NMR of internal G·T mismatches in DNA. Biochemistry 36: 10581-10594.
+- SantaLucia, J. (1998). A unified view of polymer, dumbbell, and oligonucleotide DNA nearest-neighbor thermodynamics. PNAS 95: 1460-1465.
+- von Ahsen, N., Wittwer, C.T. & Schutz, E. (2001). Oligonucleotide melting temperatures under PCR conditions. Clin Chem 47: 1956-1961.
+
+------------------------------------------------------------------------
+With gratitude to everyone who wrote and maintains the software and
+science above, and to the broader open-source and scientific community.

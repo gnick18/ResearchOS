@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 
 /**
  * Shared site footer, mirroring the landing page's footer so the credit
@@ -48,6 +49,16 @@ export default function AppFooter({ className = "" }: { className?: string }) {
         <p className="text-xs text-gray-400" data-testid="app-footer-author">
           Built by Dr. Grant R. Nickles, PhD.
         </p>
+        {/* Subtle credit link: ResearchOS stands on a lot of open-source work
+            and published science. The /open-source page thanks the community
+            and carries the full attribution. */}
+        <Link
+          href="/open-source"
+          className="text-xs text-gray-400 underline-offset-2 hover:text-gray-600 hover:underline"
+          data-testid="app-footer-open-source"
+        >
+          Built on open source
+        </Link>
       </div>
     </footer>
   );

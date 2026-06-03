@@ -27,7 +27,9 @@
     "demo:zip": "node ../scripts/build-demo-zip.mjs",
     "ai-helper:build": "node ../scripts/build-ai-helper.mjs",
     "ai-helper:check": "node ../scripts/check-ai-helper.mjs",
-    "ai-helper:refresh": "node ../scripts/build-ai-helper.mjs && (cd .. && git add frontend/public/ai-helper 2>/dev/null; git diff --cached --quiet || git commit -m 'AI Helper: refresh prompts (auto)')"
+    "ai-helper:refresh": "node ../scripts/build-ai-helper.mjs && (cd .. && git add frontend/public/ai-helper 2>/dev/null; git diff --cached --quiet || git commit -m 'AI Helper: refresh prompts (auto)')",
+    "credits:build": "node ../scripts/build-open-source-credits.mjs",
+    "credits:check": "node ../scripts/build-open-source-credits.mjs --check"
   },
   "dependencies": {
     "@codemirror/commands": "6.10.3",

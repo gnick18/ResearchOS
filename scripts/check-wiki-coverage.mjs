@@ -46,6 +46,7 @@ const EXCLUDED_PREFIXES = [
   "/welcome", // first-time-visitor landing ("sell") page, not a documented app feature; captured as landing.png
   "/showcase", // hidden, unlinked BeakerBot showcase Easter egg (URL / brand-mark unlock only, never in nav); not a documented feature
   "/sequences", // pending wiki page (sequence editor Phase 4)
+  "/open-source", // "Built on open source" credits + attribution page (legal/informational, no AppShell, not a documented app feature; like /welcome)
 ];
 
 /** Next.js conventions to ignore when walking app/. */

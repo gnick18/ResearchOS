@@ -1,0 +1,461 @@
+{
+  "generatedAt": "2026-06-03T03:21:16.115Z",
+  "appVersion": "0.2.0",
+  "dependencyCount": 36,
+  "licenseCounts": {
+    "MIT": 30,
+    "Apache-2.0": 3,
+    "BSD-3-Clause": 1,
+    "MPL-2.0": 1,
+    "(MIT OR GPL-3.0-or-later)": 1
+  },
+  "highlightGroups": [
+    {
+      "id": "editor",
+      "title": "The writing surface",
+      "blurb": "Notes and methods are Markdown, edited live and rendered cleanly.",
+      "items": [
+        {
+          "name": "@codemirror/view",
+          "note": "The code-grade text editor under the note and sequence surfaces.",
+          "version": "6.43.0",
+          "license": "MIT",
+          "repo": "https://code.haverbeke.berlin/codemirror/view"
+        },
+        {
+          "name": "@codemirror/state",
+          "note": "The editor's document and selection model.",
+          "version": "6.6.0",
+          "license": "MIT",
+          "repo": "https://github.com/codemirror/state"
+        },
+        {
+          "name": "@codemirror/lang-markdown",
+          "note": "Markdown-aware editing inside CodeMirror.",
+          "version": "6.5.0",
+          "license": "MIT",
+          "repo": "https://github.com/codemirror/lang-markdown"
+        },
+        {
+          "name": "marked",
+          "note": "Fast Markdown to HTML for previews.",
+          "version": "18.0.4",
+          "license": "MIT",
+          "repo": "https://github.com/markedjs/marked"
+        },
+        {
+          "name": "unified",
+          "note": "The remark and rehype pipeline that processes Markdown safely.",
+          "version": "11.0.5",
+          "license": "MIT",
+          "repo": "https://github.com/unifiedjs/unified"
+        },
+        {
+          "name": "remark-rehype",
+          "note": "Bridges Markdown syntax into an HTML tree.",
+          "version": "11.1.2",
+          "license": "MIT",
+          "repo": "https://github.com/remarkjs/remark-rehype"
+        },
+        {
+          "name": "rehype-sanitize",
+          "note": "Strips unsafe HTML so rendered notes stay safe.",
+          "version": "6.0.0",
+          "license": "MIT",
+          "repo": "https://github.com/rehypejs/rehype-sanitize"
+        },
+        {
+          "name": "turndown",
+          "note": "Turns pasted HTML back into clean Markdown.",
+          "version": "7.2.4",
+          "license": "MIT",
+          "repo": "https://github.com/mixmark-io/turndown"
+        }
+      ]
+    },
+    {
+      "id": "sequence",
+      "title": "Sequence and cloning tools",
+      "blurb": "Plasmid maps, GenBank and FASTA import, and the sequence editor.",
+      "items": [
+        {
+          "name": "konva",
+          "note": "The 2D canvas engine behind the photo and map overlays.",
+          "version": "10.3.0",
+          "license": "MIT",
+          "repo": "https://github.com/konvajs/konva"
+        },
+        {
+          "name": "react-konva",
+          "note": "React bindings for the Konva canvas.",
+          "version": "19.2.4",
+          "license": "MIT",
+          "repo": "https://github.com/konvajs/react-konva"
+        }
+      ]
+    },
+    {
+      "id": "calculators",
+      "title": "Calculators and the math layer",
+      "blurb": "Primer melting temperatures and a general scientific calculator.",
+      "items": [
+        {
+          "name": "mathjs",
+          "note": "The expression engine behind the scientific calculator tab.",
+          "version": "15.2.0",
+          "license": "Apache-2.0",
+          "repo": "https://github.com/josdejong/mathjs"
+        }
+      ]
+    },
+    {
+      "id": "viz",
+      "title": "Charts, files, and state",
+      "blurb": "Gantt timelines, charts, local storage, and app state.",
+      "items": [
+        {
+          "name": "recharts",
+          "note": "The charts on dashboards and reports.",
+          "version": "3.8.1",
+          "license": "MIT",
+          "repo": "https://github.com/recharts/recharts"
+        },
+        {
+          "name": "frappe-gantt",
+          "note": "The project Gantt timeline.",
+          "version": "1.2.2",
+          "license": "MIT",
+          "repo": "https://github.com/frappe/gantt"
+        },
+        {
+          "name": "jszip",
+          "note": "Reading and writing .zip bundles in the browser.",
+          "version": "3.10.1",
+          "license": "(MIT OR GPL-3.0-or-later)",
+          "repo": "https://github.com/Stuk/jszip"
+        },
+        {
+          "name": "idb-keyval",
+          "note": "A tiny IndexedDB layer for offline-first storage.",
+          "version": "6.2.4",
+          "license": "Apache-2.0",
+          "repo": "https://github.com/jakearchibald/idb-keyval"
+        },
+        {
+          "name": "zustand",
+          "note": "Lightweight global state.",
+          "version": "5.0.13",
+          "license": "MIT",
+          "repo": "https://github.com/pmndrs/zustand"
+        },
+        {
+          "name": "@tanstack/react-query",
+          "note": "Data fetching, caching, and sync.",
+          "version": "5.100.14",
+          "license": "MIT",
+          "repo": "https://github.com/TanStack/query"
+        },
+        {
+          "name": "date-fns",
+          "note": "Date math without the heavyweight library.",
+          "version": "4.3.0",
+          "license": "MIT",
+          "repo": "https://github.com/date-fns/date-fns"
+        },
+        {
+          "name": "@react-pdf/renderer",
+          "note": "Generates PDF exports in the browser.",
+          "version": "4.5.1",
+          "license": "MIT",
+          "repo": "https://github.com/diegomura/react-pdf"
+        }
+      ]
+    },
+    {
+      "id": "framework",
+      "title": "The framework",
+      "blurb": "What the whole app is built on.",
+      "items": [
+        {
+          "name": "react",
+          "note": "The UI library at the core of every screen.",
+          "version": "19.2.3",
+          "license": "MIT",
+          "repo": "https://github.com/facebook/react"
+        },
+        {
+          "name": "react-dom",
+          "note": "Renders React to the browser.",
+          "version": "19.2.3",
+          "license": "MIT",
+          "repo": "https://github.com/facebook/react"
+        },
+        {
+          "name": "next",
+          "note": "The framework, router, and build system.",
+          "version": "16.1.6",
+          "license": "MIT",
+          "repo": "https://github.com/vercel/next.js"
+        }
+      ]
+    }
+  ],
+  "vendored": [
+    {
+      "name": "SeqViz",
+      "by": "Lattice Automation",
+      "license": "MIT",
+      "copyright": "Copyright (c) 2019 Lattice Automation",
+      "url": "https://github.com/Lattice-Automation/seqviz",
+      "note": "A subset of the SeqViz sequence viewer is vendored under src/vendor/seqviz to draw linear and circular plasmid maps. See src/vendor/seqviz/LICENSE."
+    },
+    {
+      "name": "TeselaGen bio-parsers (tg-oss)",
+      "by": "Teselagen Biotechnology, Inc.",
+      "license": "MIT",
+      "copyright": "Copyright (c) 2023 Teselagen Biotechnology, Inc.",
+      "url": "https://github.com/TeselaGen/tg-oss",
+      "note": "The GenBank and FASTA readers/writers from TeselaGen's tg-oss bio-parsers are vendored under src/vendor/bio-parsers. See src/vendor/bio-parsers/LICENSE."
+    },
+    {
+      "name": "Biopython MeltingTemp (Tm_NN)",
+      "by": "The Biopython Contributors",
+      "license": "BSD (Biopython License)",
+      "copyright": "Biopython is distributed under the Biopython License Agreement (BSD-style).",
+      "url": "https://github.com/biopython/biopython",
+      "note": "Our nearest-neighbor primer Tm is a faithful TypeScript port of Biopython's Bio.SeqUtils.MeltingTemp.Tm_NN, transcribed verbatim in src/lib/calculators/tm-nn.ts."
+    }
+  ],
+  "scientificReferences": [
+    {
+      "citation": "Allawi, H.T. & SantaLucia, J. (1997). Thermodynamics and NMR of internal G·T mismatches in DNA. Biochemistry 36: 10581-10594.",
+      "use": "The nearest-neighbor dH/dS parameter table (DNA_NN3) used for primer Tm."
+    },
+    {
+      "citation": "SantaLucia, J. (1998). A unified view of polymer, dumbbell, and oligonucleotide DNA nearest-neighbor thermodynamics. PNAS 95: 1460-1465.",
+      "use": "The salt correction applied to the entropy term (method 5)."
+    },
+    {
+      "citation": "von Ahsen, N., Wittwer, C.T. & Schutz, E. (2001). Oligonucleotide melting temperatures under PCR conditions. Clin Chem 47: 1956-1961.",
+      "use": "The sodium-equivalent that folds in K+, Tris, Mg2+, and dNTPs."
+    }
+  ],
+  "dependencies": [
+    {
+      "name": "@codemirror/commands",
+      "version": "6.10.3",
+      "license": "MIT",
+      "repo": "https://github.com/codemirror/commands"
+    },
+    {
+      "name": "@codemirror/lang-markdown",
+      "version": "6.5.0",
+      "license": "MIT",
+      "repo": "https://github.com/codemirror/lang-markdown"
+    },
+    {
+      "name": "@codemirror/language",
+      "version": "6.12.3",
+      "license": "MIT",
+      "repo": "https://github.com/codemirror/language"
+    },
+    {
+      "name": "@codemirror/state",
+      "version": "6.6.0",
+      "license": "MIT",
+      "repo": "https://github.com/codemirror/state"
+    },
+    {
+      "name": "@codemirror/view",
+      "version": "6.43.0",
+      "license": "MIT",
+      "repo": "https://code.haverbeke.berlin/codemirror/view"
+    },
+    {
+      "name": "@lezer/common",
+      "version": "1.5.2",
+      "license": "MIT",
+      "repo": "https://github.com/lezer-parser/common"
+    },
+    {
+      "name": "@lezer/highlight",
+      "version": "1.2.3",
+      "license": "MIT",
+      "repo": "https://github.com/lezer-parser/highlight"
+    },
+    {
+      "name": "@lezer/markdown",
+      "version": "1.6.4",
+      "license": "MIT",
+      "repo": "https://code.haverbeke.berlin/lezer/markdown"
+    },
+    {
+      "name": "@react-pdf/renderer",
+      "version": "4.5.1",
+      "license": "MIT",
+      "repo": "https://github.com/diegomura/react-pdf"
+    },
+    {
+      "name": "@tanstack/react-query",
+      "version": "5.100.14",
+      "license": "MIT",
+      "repo": "https://github.com/TanStack/query"
+    },
+    {
+      "name": "@vercel/analytics",
+      "version": "2.0.1",
+      "license": "MIT",
+      "repo": "https://github.com/vercel/analytics"
+    },
+    {
+      "name": "@vercel/speed-insights",
+      "version": "2.0.0",
+      "license": "Apache-2.0",
+      "repo": "https://github.com/vercel/speed-insights"
+    },
+    {
+      "name": "date-fns",
+      "version": "4.3.0",
+      "license": "MIT",
+      "repo": "https://github.com/date-fns/date-fns"
+    },
+    {
+      "name": "diff",
+      "version": "9.0.0",
+      "license": "BSD-3-Clause",
+      "repo": "https://github.com/kpdecker/jsdiff"
+    },
+    {
+      "name": "frappe-gantt",
+      "version": "1.2.2",
+      "license": "MIT",
+      "repo": "https://github.com/frappe/gantt"
+    },
+    {
+      "name": "ical.js",
+      "version": "2.2.1",
+      "license": "MPL-2.0",
+      "repo": "https://github.com/kewisch/ical.js"
+    },
+    {
+      "name": "idb-keyval",
+      "version": "6.2.4",
+      "license": "Apache-2.0",
+      "repo": "https://github.com/jakearchibald/idb-keyval"
+    },
+    {
+      "name": "jszip",
+      "version": "3.10.1",
+      "license": "(MIT OR GPL-3.0-or-later)",
+      "repo": "https://github.com/Stuk/jszip"
+    },
+    {
+      "name": "konva",
+      "version": "10.3.0",
+      "license": "MIT",
+      "repo": "https://github.com/konvajs/konva"
+    },
+    {
+      "name": "marked",
+      "version": "18.0.4",
+      "license": "MIT",
+      "repo": "https://github.com/markedjs/marked"
+    },
+    {
+      "name": "mathjs",
+      "version": "15.2.0",
+      "license": "Apache-2.0",
+      "repo": "https://github.com/josdejong/mathjs"
+    },
+    {
+      "name": "next",
+      "version": "16.1.6",
+      "license": "MIT",
+      "repo": "https://github.com/vercel/next.js"
+    },
+    {
+      "name": "react",
+      "version": "19.2.3",
+      "license": "MIT",
+      "repo": "https://github.com/facebook/react"
+    },
+    {
+      "name": "react-dom",
+      "version": "19.2.3",
+      "license": "MIT",
+      "repo": "https://github.com/facebook/react"
+    },
+    {
+      "name": "react-konva",
+      "version": "19.2.4",
+      "license": "MIT",
+      "repo": "https://github.com/konvajs/react-konva"
+    },
+    {
+      "name": "react-markdown",
+      "version": "10.1.0",
+      "license": "MIT",
+      "repo": "https://github.com/remarkjs/react-markdown"
+    },
+    {
+      "name": "recharts",
+      "version": "3.8.1",
+      "license": "MIT",
+      "repo": "https://github.com/recharts/recharts"
+    },
+    {
+      "name": "rehype-highlight",
+      "version": "7.0.2",
+      "license": "MIT",
+      "repo": "https://github.com/rehypejs/rehype-highlight"
+    },
+    {
+      "name": "rehype-raw",
+      "version": "7.0.0",
+      "license": "MIT",
+      "repo": "https://github.com/rehypejs/rehype-raw"
+    },
+    {
+      "name": "rehype-sanitize",
+      "version": "6.0.0",
+      "license": "MIT",
+      "repo": "https://github.com/rehypejs/rehype-sanitize"
+    },
+    {
+      "name": "remark-gfm",
+      "version": "4.0.1",
+      "license": "MIT",
+      "repo": "https://github.com/remarkjs/remark-gfm"
+    },
+    {
+      "name": "remark-parse",
+      "version": "11.0.0",
+      "license": "MIT",
+      "repo": "https://github.com/remarkjs/remark/tree/main/packages/remark-parse"
+    },
+    {
+      "name": "remark-rehype",
+      "version": "11.1.2",
+      "license": "MIT",
+      "repo": "https://github.com/remarkjs/remark-rehype"
+    },
+    {
+      "name": "turndown",
+      "version": "7.2.4",
+      "license": "MIT",
+      "repo": "https://github.com/mixmark-io/turndown"
+    },
+    {
+      "name": "unified",
+      "version": "11.0.5",
+      "license": "MIT",
+      "repo": "https://github.com/unifiedjs/unified"
+    },
+    {
+      "name": "zustand",
+      "version": "5.0.13",
+      "license": "MIT",
+      "repo": "https://github.com/pmndrs/zustand"
+    }
+  ]
+}
