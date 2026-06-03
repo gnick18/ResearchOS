@@ -366,8 +366,9 @@ export default function SequencePrimersPanel({
       {mode !== "list" ? (
         <div className="border-b border-gray-100 bg-sky-50/60 px-4 py-1.5 text-[11px] text-sky-700">
           Tm uses the SantaLucia 1998 nearest-neighbor model, the same one Primer3 and
-          Primer-BLAST use, so these numbers match those tools. Dimer, hairpin and poly-X
-          checks are a first-pass filter (APE level), not full Primer3 thermodynamics.
+          Primer-BLAST use, so these numbers match those tools. The dimer, hairpin, and
+          poly-X checks are a quick screen that flags likely problems, not exact
+          thermodynamic modeling.
         </div>
       ) : null}
 
