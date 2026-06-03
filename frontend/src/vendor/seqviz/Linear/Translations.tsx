@@ -4,7 +4,7 @@ import * as React from "react";
 import { InputRefFunc } from "../SelectionHandler";
 import { borderColorByIndex, colorByIndex } from "../colors";
 import { NameRange, SeqType, Translation } from "../elements";
-import { randomID } from "../sequence";
+import { clipSegmentToBlock, randomID } from "../sequence";
 import { translationAminoAcidLabel, translationHandle, translationHandleLabel } from "../style";
 import { FindXAndWidthElementType, FindXAndWidthType } from "./SeqBlock";
 
@@ -171,6 +171,12 @@ class SingleNamedElementAminoacids extends React.PureComponent<SingleNamedElemen
     } = this.props;
 
     const { AAseq, direction, end, id, start } = translation;
+    // seq introns bot — for a spliced (join) translation, aaToBp[i] is the
+    // absolute bp start of codon i, so the AA glyphs land over exon positions
+    // and skip the introns. Undefined for single-span translations (unchanged).
+    const aaToBp = (translation as { aaToBp?: number[] }).aaToBp;
+    const segments = (translation as { segments?: { start: number; end: number }[] }).segments;
+    const spliced = !!(aaToBp && segments && segments.length > 1);
 
     // if rendering an amino-acid sequence directly, each amino acid block is 1:1 with a "base pair".
     // otherwise, each amino-acid covers three bases.
@@ -194,6 +200,33 @@ class SingleNamedElementAminoacids extends React.PureComponent<SingleNamedElemen
         id={id}
         transform={`translate(0, ${y})`}
       >
+        {/* seq introns bot — dashed intron connector across the gaps between
+            exons, along this row's vertical center; mirrors the annotation. */}
+        {spliced &&
+          (() => {
+            const sorted = segments
+              .map(s => ({ start: Math.min(s.start, s.end), end: Math.max(s.start, s.end) }))
+              .sort((p, q) => p.start - q.start);
+            return sorted.slice(0, -1).map((ex, gi) => {
+              const clip = clipSegmentToBlock(ex.end, sorted[gi + 1].start, firstBase, lastBase);
+              if (!clip) return null;
+              const { x: gx, width: gw } = findXAndWidth(clip.start, clip.end);
+              if (!gw) return null;
+              return (
+                <line
+                  key={`tx-intron-${id}-${gi}-${firstBase}`}
+                  className="la-vz-translation-intron"
+                  stroke="#94a3b8"
+                  strokeDasharray="3 2"
+                  strokeWidth={1}
+                  x1={gx}
+                  x2={gx + gw}
+                  y1={h / 2}
+                  y2={h / 2}
+                />
+              );
+            });
+          })()}
         {AAs.map((a, i) => {
           // generate and store an id reference (that's used for selection)
           const aaId = randomID();
@@ -201,8 +234,8 @@ class SingleNamedElementAminoacids extends React.PureComponent<SingleNamedElemen
 
           // calculate the start and end point of each amino acid
           // modulo needed here for translations that cross zero index
-          let AAStart = (start + i * bpPerBlockCount) % fullSeq.length;
-          let AAEnd = start + i * bpPerBlockCount + bpPerBlockCount;
+          let AAStart = spliced ? aaToBp[i] : (start + i * bpPerBlockCount) % fullSeq.length;
+          let AAEnd = spliced ? aaToBp[i] + bpPerBlockCount : start + i * bpPerBlockCount + bpPerBlockCount;
 
           if (AAStart > AAEnd && firstBase >= bpsPerBlock) {
             // amino acid has crossed zero index in the last SeqBlock

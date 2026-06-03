@@ -5,6 +5,7 @@ import { InputRefFunc } from "../SelectionHandler";
 import AnnotationDoubleClickContext from "../annotationDoubleClickContext";
 import { COLOR_BORDER_MAP, darkerColor } from "../colors";
 import { NameRange } from "../elements";
+import { clipSegmentToBlock } from "../sequence";
 import { annotation, annotationLabel } from "../style";
 import { FindXAndWidthElementType } from "./SeqBlock";
 
@@ -25,6 +26,8 @@ const AnnotationRows = (props: {
   bpsPerBlock: number;
   elementHeight: number;
   findXAndWidth: FindXAndWidthElementType;
+  // seq introns bot — raw bp->x/width helper for exon sub-spans (multi-segment features).
+  findXAndWidthRaw: (firstIndex?: number, lastIndex?: number) => { width: number; x: number };
   firstBase: number;
   fullSeq: string;
   inputRef: InputRefFunc;
@@ -40,6 +43,7 @@ const AnnotationRows = (props: {
         annotations={anns}
         bpsPerBlock={props.bpsPerBlock}
         findXAndWidth={props.findXAndWidth}
+        findXAndWidthRaw={props.findXAndWidthRaw}
         firstBase={props.firstBase}
         fullSeq={props.fullSeq}
         height={props.elementHeight}
@@ -63,6 +67,7 @@ const AnnotationRow = (props: {
   annotations: NameRange[];
   bpsPerBlock: number;
   findXAndWidth: FindXAndWidthElementType;
+  findXAndWidthRaw: (firstIndex?: number, lastIndex?: number) => { width: number; x: number };
   firstBase: number;
   fullSeq: string;
   height: number;
@@ -78,17 +83,203 @@ const AnnotationRow = (props: {
     transform={`translate(0, ${props.y})`}
     width={props.width}
   >
-    {props.annotations.map((a, i) => (
-      <SingleNamedElement
-        {...props} // include overflowLeft in the key to avoid two split annotations in the same row from sharing a key
-        key={`annotation-linear-${a.id}-${i}-${props.firstBase}-${props.lastBase}`}
-        element={a}
-        elements={props.annotations}
-        index={i}
-      />
-    ))}
+    {props.annotations.map((a, i) => {
+      // seq introns bot — a multi-segment (join) feature renders as one box per
+      // exon joined by a thin dashed intron connector, with a single label.
+      const segs = (a as { segments?: { start: number; end: number }[] }).segments;
+      if (segs && segs.length > 1) {
+        return (
+          <SplicedNamedElement
+            key={`annotation-linear-spliced-${a.id}-${i}-${props.firstBase}-${props.lastBase}`}
+            element={a}
+            findXAndWidthRaw={props.findXAndWidthRaw}
+            firstBase={props.firstBase}
+            height={props.height}
+            inputRef={props.inputRef}
+            lastBase={props.lastBase}
+            width={props.width}
+          />
+        );
+      }
+      return (
+        <SingleNamedElement
+          {...props} // include overflowLeft in the key to avoid two split annotations in the same row from sharing a key
+          key={`annotation-linear-${a.id}-${i}-${props.firstBase}-${props.lastBase}`}
+          element={a}
+          elements={props.annotations}
+          index={i}
+        />
+      );
+    })}
   </g>
 );
+
+/**
+ * seq introns bot — SplicedNamedElement renders a multi-exon (join) feature:
+ * one box per exon (clipped to this SeqBlock), a thin dashed intron connector
+ * across the gaps, and ONE label centered over the feature's visible extent in
+ * this block. The arrowhead is drawn on the terminal exon only (last exon for
+ * forward, first exon for reverse). Coordinates are absolute bp in the same
+ * space as start/end; each exon's end is the exclusive boundary (matching the
+ * single-span path's treatment), so a single exon renders byte-identically to a
+ * standalone single-span annotation of the same span.
+ */
+const SplicedNamedElement = (props: {
+  element: NameRange & { segments?: { start: number; end: number }[] };
+  findXAndWidthRaw: (firstIndex?: number, lastIndex?: number) => { width: number; x: number };
+  firstBase: number;
+  height: number;
+  inputRef: InputRefFunc;
+  lastBase: number;
+  width: number;
+}) => {
+  const { element, findXAndWidthRaw, firstBase, inputRef, lastBase } = props;
+  const onAnnotationDoubleClick = React.useContext(AnnotationDoubleClickContext);
+
+  const { color, direction, id, name } = element;
+  const forward = direction === 1;
+  const reverse = direction === -1;
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    if (!onAnnotationDoubleClick) return;
+    e.stopPropagation();
+    onAnnotationDoubleClick({
+      name: element.name,
+      start: element.start,
+      end: element.end,
+      direction: element.direction,
+    });
+  };
+
+  const height = props.height * 0.8;
+  const stroke = color ? COLOR_BORDER_MAP[color] || darkerColor(color) : "gray";
+
+  // Normalize + sort exons (genomic order). end is exclusive.
+  const exons = (element.segments || [])
+    .map(s => ({ start: Math.min(s.start, s.end), end: Math.max(s.start, s.end) }))
+    .sort((a, b) => a.start - b.start);
+
+  // The arrow-bearing terminal exon: last (forward) / first (reverse).
+  const terminalIdx = reverse ? 0 : exons.length - 1;
+
+  const cW = 4; // arrow width
+  const cH = height / 4;
+
+  // Build the exon box path within this block. The terminal exon gets an arrow.
+  const exonPath = (w: number, isTerminal: boolean): string => {
+    const topLeft = isTerminal && reverse ? `M ${2 * cW} 0` : "M 0 0";
+    const topRight = isTerminal && forward ? `L ${w - 2 * cW} 0` : `L ${w} 0`;
+    let bottomRight = `L ${w} ${height}`;
+    if (isTerminal && forward && w > 2 * cW) {
+      bottomRight = `L ${w} ${height / 2} L ${w - Math.min(2 * cW, w)} ${height}`;
+    }
+    let bottomLeft = `L 0 ${height} L 0 0`;
+    if (isTerminal && reverse && w > 2 * cW) {
+      bottomLeft = `L ${Math.min(2 * cW, w)} ${height} L 0 ${height / 2} L ${Math.min(2 * cW, w)} 0`;
+    }
+    return `${topLeft} ${topRight} ${bottomRight} ${bottomLeft}`;
+  };
+
+  // Visible extent of the whole feature within this block (for the single label).
+  const featStart = exons.length ? exons[0].start : element.start;
+  const featEnd = exons.length ? exons[exons.length - 1].end : element.end;
+  const visFeatStart = Math.max(featStart, firstBase);
+  const visFeatEnd = Math.min(featEnd, lastBase);
+  const labelBox = visFeatEnd > visFeatStart ? findXAndWidthRaw(visFeatStart, visFeatEnd) : { x: 0, width: 0 };
+
+  const fontSize = 12;
+  const annotationCharacterWidth = 0.591 * fontSize;
+  const availableCharacters = Math.floor((labelBox.width - 40) / annotationCharacterWidth);
+  let displayName = name;
+  if (name.length > availableCharacters) {
+    const charactersToShow = availableCharacters - 1;
+    displayName = charactersToShow < 3 ? "" : `${name.slice(0, charactersToShow)}…`;
+  }
+
+  return (
+    <g id={id} transform={`translate(0, ${0.1 * height})`}>
+      <title>{name}</title>
+
+      {/* Dashed intron connectors across the gaps between consecutive exons. */}
+      {exons.slice(0, -1).map((ex, gi) => {
+        const clip = clipSegmentToBlock(ex.end, exons[gi + 1].start, firstBase, lastBase);
+        if (!clip) return null;
+        const { x, width } = findXAndWidthRaw(clip.start, clip.end);
+        if (!width) return null;
+        return (
+          <line
+            key={`${id}-intron-${gi}-${firstBase}`}
+            className="la-vz-annotation-intron"
+            stroke={stroke}
+            strokeDasharray="3 2"
+            strokeWidth={1}
+            x1={x}
+            x2={x + width}
+            y1={height / 2}
+            y2={height / 2}
+          />
+        );
+      })}
+
+      {/* One box per exon, clipped to this block. */}
+      {exons.map((ex, ei) => {
+        const clip = clipSegmentToBlock(ex.start, ex.end, firstBase, lastBase);
+        if (!clip) return null;
+        const { x, width } = findXAndWidthRaw(clip.start, clip.end);
+        if (!width) return null;
+        // Only paint the arrow if the terminal exon is fully (its arrow end)
+        // within this block; otherwise draw a plain box for the clipped piece.
+        const isTerminal =
+          ei === terminalIdx &&
+          (forward ? ex.end <= lastBase + 1 : ex.start >= firstBase);
+        return (
+          <path
+            key={`${id}-exon-${ei}-${firstBase}`}
+            ref={inputRef(element.id, {
+              end: element.end,
+              name: element.name,
+              ref: element.id,
+              start: element.start,
+              type: "ANNOTATION",
+              viewer: "LINEAR",
+            })}
+            className={`${element.id} la-vz-annotation`}
+            cursor="pointer"
+            d={exonPath(width, isTerminal)}
+            fill={color}
+            id={element.id}
+            stroke={stroke}
+            style={annotation}
+            transform={`translate(${x}, 0)`}
+            onDoubleClick={handleDoubleClick}
+            onMouseOut={() => hoverOtherAnnotationRows(element.id, 0.7)}
+            onMouseOver={() => hoverOtherAnnotationRows(element.id, 1.0)}
+          />
+        );
+      })}
+
+      {/* Single label centered over the feature's visible extent in this block. */}
+      {displayName && labelBox.width > 0 && (
+        <text
+          className="la-vz-annotation-label"
+          cursor="pointer"
+          dominantBaseline="middle"
+          fontSize={fontSize}
+          id={element.id}
+          style={annotationLabel}
+          textAnchor="middle"
+          x={labelBox.x + labelBox.width / 2}
+          y={height / 2 + 1}
+          onDoubleClick={handleDoubleClick}
+          onMouseOut={() => hoverOtherAnnotationRows(element.id, 0.7)}
+          onMouseOver={() => hoverOtherAnnotationRows(element.id, 1.0)}
+        >
+          {displayName}
+        </text>
+      )}
+    </g>
+  );
+};
 
 /**
  * SingleNamedElement is a single rectangular element in the SeqBlock.

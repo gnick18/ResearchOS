@@ -296,6 +296,10 @@ export default function SequenceEditView({
           end: a.end,
           direction: a.direction,
           color: a.color,
+          // seq introns bot — pass exon spans through to SeqViz so a multi-exon
+          // (join) feature draws exon boxes + a dashed intron connector. Absent
+          // for single-span features (unchanged rendering).
+          ...(a.segments && a.segments.length > 1 ? { segments: a.segments } : {}),
         })),
     [docAnnotations, view],
   );
@@ -327,6 +331,10 @@ export default function SequenceEditView({
         direction: f.strand === -1 ? -1 : 1,
         name: f.name,
         color: colorForType(f.type),
+        // seq introns bot — for a multi-exon (join) CDS, pass the exon spans so
+        // SeqViz splices the protein (translates concatenated exon bases, not the
+        // raw span through the introns) and shows a dashed gap over the introns.
+        ...(f.locations && f.locations.length > 1 ? { segments: f.locations } : {}),
       });
     }
     if (view.showOrfs) {

@@ -462,6 +462,9 @@ export class SeqBlock extends React.PureComponent<SeqBlockProps> {
             bpsPerBlock={bpsPerBlock}
             elementHeight={elementHeight}
             findXAndWidth={this.findXAndWidthElement}
+            /* seq introns bot — raw bp->x/width helper for positioning exon
+               sub-spans of a multi-segment (join) feature within this block. */
+            findXAndWidthRaw={this.findXAndWidth}
             firstBase={firstBase}
             fullSeq={fullSeq}
             inputRef={inputRef}

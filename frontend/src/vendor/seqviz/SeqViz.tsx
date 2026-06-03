@@ -498,13 +498,27 @@ export default class SeqViz extends React.Component<SeqVizProps, SeqVizState> {
       showComplement: (!!compSeq && (typeof showComplement !== "undefined" ? showComplement : true)) || false,
       showIndex: !!showIndex,
       translations: (translations || []).map(
-        (t, i): { direction: 1 | -1; end: number; start: number; color: string; id: string; name: string } => ({
+        (
+          t,
+          i,
+        ): {
+          direction: 1 | -1;
+          end: number;
+          start: number;
+          color: string;
+          id: string;
+          name: string;
+          segments?: { start: number; end: number }[];
+        } => ({
           direction: t.direction ? (t.direction < 0 ? -1 : 1) : 1,
           end: seqType === "aa" ? t.end : t.start + Math.floor((t.end - t.start) / 3) * 3,
           start: t.start % seq.length,
           color: t.color || colorByIndex(i, COLORS),
           id: `translation${t.name}${i}${t.start}${t.end}`,
           name: t.name,
+          // seq introns bot — carry exon spans through to createTranslations so the
+          // protein is spliced. Only meaningful when length > 1.
+          ...(t.segments && t.segments.length > 1 ? { segments: t.segments } : {}),
         }),
       ),
       viewer: this.props.viewer || "both",

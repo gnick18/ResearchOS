@@ -2547,6 +2547,11 @@ export interface SequenceAnnotation {
   direction: -1 | 0 | 1;
   type?: string;
   color?: string;
+  // seq introns bot — OPTIONAL exon spans for a multi-segment (join) feature.
+  // Same coordinate space as start/end. Present only when the feature has more
+  // than one location (a spliced CDS); the SeqViz layer renders these as
+  // separate exon boxes joined by a dashed intron connector.
+  segments?: { start: number; end: number }[];
 }
 
 /** Input to `sequencesApi.create`. The caller provides the GenBank text (e.g.

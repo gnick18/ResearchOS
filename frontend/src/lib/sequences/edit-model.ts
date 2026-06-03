@@ -121,6 +121,10 @@ export function documentToAnnotations(doc: SeqDocument): SequenceAnnotation[] {
     // Resolve to a concrete color (explicit color, else the per-type default)
     // so the viewer + features list always render a consistent swatch.
     color: resolveFeatureColor(f),
+    // seq introns bot — carry exon spans for multi-segment (join) features so
+    // the viewer can draw exon boxes + dashed intron connectors and splice the
+    // translation. Single-span features omit this and render exactly as before.
+    ...(f.locations && f.locations.length > 1 ? { segments: f.locations } : {}),
   }));
 }
 

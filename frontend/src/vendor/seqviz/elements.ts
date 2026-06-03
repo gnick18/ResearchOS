@@ -20,6 +20,12 @@ export interface AnnotationProp {
   end: number;
   name: string;
   start: number;
+  // seq introns bot — OPTIONAL exon spans for a multi-segment (spliced) feature,
+  // e.g. a GenBank join(...) CDS. Same coordinate space as start/end. When
+  // absent OR length <= 1, the feature renders exactly as before (one box).
+  // When length > 1, the renderer draws one box per exon joined by a thin
+  // dashed intron connector with a single label.
+  segments?: { start: number; end: number }[];
 }
 
 /** TranslationProp is an translation provided to SeqViz via the translation prop. */
@@ -29,17 +35,30 @@ export interface TranslationProp {
   end: number;
   name: string;
   start: number;
+  // seq introns bot — OPTIONAL exon spans for a spliced translation (join CDS).
+  // When present (length > 1), the amino-acid sequence is translated from the
+  // CONCATENATED exon bases (in left-to-right order) and the AA letters are
+  // placed only over exon positions, with introns shown as a dashed gap. When
+  // absent, the raw start..end span is translated as before.
+  segments?: { start: number; end: number }[];
 }
 
 /** Annotation is an annotation after parsing. */
 export interface Annotation extends NameRange {
   color: string;
+  // seq introns bot — preserved exon spans for spliced (join) features. See AnnotationProp.
+  segments?: { start: number; end: number }[];
 }
 
 /** Translation is a single translated CDS. */
 export interface Translation extends NameRange {
   AAseq: string;
   direction: -1 | 1;
+  // seq introns bot — preserved exon spans for spliced (join) translations. See TranslationProp.
+  // When present, AAseq is the spliced protein and `aaToBp` maps each AA index to
+  // its absolute bp start so the letters land over exon positions only.
+  segments?: { start: number; end: number }[];
+  aaToBp?: number[];
 }
 
 /** PrimerProp is a single primer to visualize above/below the linear viewer. */
