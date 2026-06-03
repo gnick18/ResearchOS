@@ -487,30 +487,51 @@ export class SeqBlock extends React.PureComponent<SeqBlockProps> {
             {seq.split("").map(this.seqTextSpan)}
           </text>
         ) : null}
-        {/* sequence-view legibility bot — SnapGene-style PER-BASE STRAND
-            CONNECTOR: a faint tick centered in each base column, tying the top
-            sequence row to the complement row so the eye can track which bp is
-            where. Renders only when the complement strand is shown (which is
-            always, in the Sequence view) and the block is zoomed enough to show
-            bases. Low-contrast slate, drawn per visible block like the other
-            rows. Sits in the seam between the seq text and the comp text. */}
+        {/* sequence-view legibility bot — SnapGene-style GRADUATED STRAND RULER:
+            a tick per base column in the seam between the top sequence row and
+            the complement row, with tick length keyed to ABSOLUTE base position
+            (1-based) so the marks line up to real bp counts across blocks, not
+            per-block. Minor tick every bp (subtle), medium tick every 5 bp
+            (longer), major tick every 10 bp (longest, darker, slightly thicker)
+            so the 10s read as clear landmarks for counting. Renders only when
+            the complement strand is shown (always, in the Sequence view) and the
+            block is zoomed enough that bases are legible. The marks naturally
+            spread apart as the user zooms in, since each tick sits at
+            charWidth * (i + 0.5) and charWidth scales with zoom. */}
         {compSeq && zoomed && showComplement && seqType !== "aa" ? (
           <g
             className="la-vz-strand-connector"
             data-testid="la-vz-strand-connector"
-            stroke="#cbd5e1"
-            strokeWidth={0.5}
-            strokeOpacity={0.55}
+            fill="none"
           >
             {seq.split("").map((_, i) => {
               const cx = charWidth * (i + 0.5);
+              // pos is the 1-based absolute bp this column maps to.
+              const pos = firstBase + i + 1;
+              const isMajor = pos % 10 === 0;
+              const isMedium = !isMajor && pos % 5 === 0;
+              // tick half-length as a fraction of lineHeight, centered on the
+              // seam (symmetric above and below compYDiff). Major > medium > minor.
+              const half = isMajor
+                ? lineHeight * 0.34
+                : isMedium
+                  ? lineHeight * 0.22
+                  : lineHeight * 0.12;
+              // progressively higher contrast: minor ticks stay subtle slate,
+              // medium read clearly, major are the darkest, thickest landmarks.
+              const stroke = isMajor ? "#64748b" : isMedium ? "#94a3b8" : "#cbd5e1";
+              const strokeOpacity = isMajor ? 0.85 : isMedium ? 0.7 : 0.5;
+              const strokeWidth = isMajor ? 0.85 : isMedium ? 0.6 : 0.5;
               return (
                 <line
                   key={`conn-${id}-${i}`}
+                  stroke={stroke}
+                  strokeOpacity={strokeOpacity}
+                  strokeWidth={strokeWidth}
                   x1={cx}
                   x2={cx}
-                  y1={compYDiff - lineHeight * 0.18}
-                  y2={compYDiff + lineHeight * 0.18}
+                  y1={compYDiff - half}
+                  y2={compYDiff + half}
                 />
               );
             })}
