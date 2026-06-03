@@ -414,38 +414,6 @@ export default function PurchasesFeaturePage() {
         <Link href="/wiki/features/lab-head/audit-log">Audit log</Link>).
       </p>
 
-      <h3>The three purchases widget variants</h3>
-      <p>
-        On the Lab Overview, the purchases Tool has three tile variants you
-        can pin to the canvas or the sidebar rail:
-      </p>
-      <ul>
-        <li>
-          <strong>Funding bars.</strong> A horizontal bar per funding account
-          showing spent vs. budget. Good for &quot;how much grant is
-          left.&quot;
-        </li>
-        <li>
-          <strong>Burn rate.</strong> A small trend chart of weekly spend
-          with a range selector. The range buttons are <strong>4w</strong>,{" "}
-          <strong>8w</strong>, <strong>12w</strong>, and <strong>6mo</strong>.
-          Good for &quot;are we accelerating.&quot;
-        </li>
-        <li>
-          <strong>Pending count.</strong> A single big number plus the top
-          few waiting purchases. Good for &quot;do I need to approve
-          something right now.&quot;
-        </li>
-      </ul>
-      <p>
-        Clicking any of the three variant tiles opens the same four-tab
-        popup described above. See{" "}
-        <Link href="/wiki/features/lab-overview/widgets-and-tools">
-          Widgets and Tools
-        </Link>{" "}
-        for the broader catalog.
-      </p>
-
       <Callout variant="info" title="Empty state">
         When you have no purchases yet, the spend-over-time chart shows the
         prompt <em>Add your first purchase to see spend breakdowns here.</em>{" "}
