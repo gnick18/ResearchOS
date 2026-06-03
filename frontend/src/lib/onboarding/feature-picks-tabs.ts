@@ -18,8 +18,8 @@ import type { FeaturePicks } from "@/lib/onboarding/sidecar";
  *     nav order, including only the tabs visible under the picks.
  *
  * Tab inclusion rules (per proposal §4):
- *   - "/" (Home), "/workbench", "/gantt", "/methods", "/search":
- *     always visible.
+ *   - "/" (Home), "/workbench", "/gantt", "/methods", "/sequences",
+ *     "/search": always visible.
  *   - "/purchases":  iff picks.purchases === "yes".
  *   - "/calendar":   iff picks.calendar  === "yes".
  *   - "/links" (Links / Lab Links): iff picks.links === "yes" (Lab
@@ -48,6 +48,11 @@ export function tabsForFeaturePicks(
     "/workbench",
     "/gantt",
     "/methods",
+    // Sequences arc 2026-06-02: the SnapGene-style sequence editor is a
+    // core molecular-biology surface alongside Methods, with no Q2-Q5
+    // feature-pick to gate it. Always visible (like /methods); a future
+    // wizard question can add a gate here if de-bloat calls for one.
+    "/sequences",
     "/search",
   ]);
   if (picks.purchases === "yes") visible.add("/purchases");

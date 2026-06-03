@@ -44,12 +44,26 @@ describe("tabsForFeaturePicks() — solo paths", () => {
         ai_helper: "no",
       }),
     );
-    expect(result).toEqual(["/", "/workbench", "/gantt", "/methods", "/search"]);
+    expect(result).toEqual([
+      "/",
+      "/workbench",
+      "/gantt",
+      "/methods",
+      "/sequences",
+      "/search",
+    ]);
   });
 
   it("solo with all 'maybe' returns the same minimal set as all 'no'", () => {
     const result = tabsForFeaturePicks(picks({ account_type: "solo" }));
-    expect(result).toEqual(["/", "/workbench", "/gantt", "/methods", "/search"]);
+    expect(result).toEqual([
+      "/",
+      "/workbench",
+      "/gantt",
+      "/methods",
+      "/sequences",
+      "/search",
+    ]);
   });
 
   it("solo with all 'yes' on Q2-Q5 adds /purchases and /calendar, no /links", () => {
@@ -67,6 +81,7 @@ describe("tabsForFeaturePicks() — solo paths", () => {
       "/workbench",
       "/gantt",
       "/methods",
+      "/sequences",
       "/purchases",
       "/calendar",
       "/search",
@@ -112,6 +127,7 @@ describe("tabsForFeaturePicks() — lab paths", () => {
       "/workbench",
       "/gantt",
       "/methods",
+      "/sequences",
       "/search",
     ]);
     expect(result).not.toContain("/links");
@@ -133,6 +149,7 @@ describe("tabsForFeaturePicks() — lab paths", () => {
       "/workbench",
       "/gantt",
       "/methods",
+      "/sequences",
       "/search",
       "/links",
     ]);
