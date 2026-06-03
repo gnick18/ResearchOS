@@ -11,7 +11,7 @@ import dynamic from "next/dynamic";
 import Tooltip from "@/components/Tooltip";
 import type { SequenceDetail } from "@/lib/types";
 import type { SeqEdit } from "@/vendor/seqviz/EventHandler";
-import type { AnnotationProp } from "@/vendor/seqviz/elements";
+import type { AnnotationProp, TranslationProp } from "@/vendor/seqviz/elements";
 import type { Selection } from "@/vendor/seqviz/selectionContext";
 import { gcPercent } from "@/lib/sequences/edit-model";
 import {
@@ -21,6 +21,17 @@ import {
   sanitizeRawSequence,
 } from "@/lib/sequences/clipboard";
 import {
+  addFeature,
+  updateFeature,
+  duplicateFeature,
+  deleteFeature,
+  setFeatureColor,
+  setTypeColor,
+  type FeatureDraft,
+} from "@/lib/sequences/feature-edit";
+import { colorForType } from "@/lib/sequences/feature-colors";
+import { findOrfs } from "@/lib/sequences/orf";
+import {
   setMolecularClip,
   useMolecularClipboard,
 } from "@/lib/sequences/molecular-clipboard";
@@ -28,6 +39,16 @@ import { useSequenceEditor } from "@/lib/sequences/use-sequence-editor";
 import SequenceConfirmDialog, {
   type SequenceConfirmRequest,
 } from "./SequenceConfirmDialog";
+import FeaturesPanel from "./FeaturesPanel";
+import FeatureEditorDialog, {
+  type FeatureEditorRequest,
+} from "./FeatureEditorDialog";
+import {
+  DEFAULT_VIEW_STATE,
+  isFeatureVisible,
+  COMMON_ENZYMES,
+  type SequenceViewState,
+} from "./sequence-view-state";
 
 const SeqViz = dynamic(() => import("@/vendor/seqviz"), {
   ssr: false,
@@ -142,6 +163,14 @@ export default function SequenceEditView({
   // The pending confirmation request (Cut/range-delete/Paste). null = closed.
   const [confirm, setConfirm] = useState<SequenceConfirmRequest | null>(null);
 
+  // Phase 2c — view controls (calm-by-default) + the feature add/edit dialog +
+  // the currently-selected feature row, and an externally-driven zoom selection.
+  const [view, setView] = useState<SequenceViewState>(DEFAULT_VIEW_STATE);
+  const [featureEditor, setFeatureEditor] = useState<FeatureEditorRequest | null>(null);
+  const [selectedFeatureIdx, setSelectedFeatureIdx] = useState<number | null>(null);
+  // When a feature row is clicked we drive the viewer selection to zoom it.
+  const [externalSel, setExternalSel] = useState<{ start: number; end: number } | null>(null);
+
   // Normalized [lo, hi) of the current selection, and the caret (paste point).
   const sel = useMemo(() => {
     if (!selection || typeof selection.start !== "number" || typeof selection.end !== "number") {
@@ -152,16 +181,69 @@ export default function SequenceEditView({
     return { lo, hi, hasRange: hi > lo, caret: lo };
   }, [selection]);
 
+  // VIEW CONTROLS are the lever for the calm default: SeqViz is prop-driven, so
+  // a hidden layer is just a filtered prop. We filter the annotations by the
+  // per-type / per-feature / master toggles before handing them to SeqViz.
   const annotations: AnnotationProp[] = useMemo(
     () =>
-      docAnnotations.map((a) => ({
-        name: a.name,
-        start: a.start,
-        end: a.end,
-        direction: a.direction,
-        color: a.color,
-      })),
-    [docAnnotations],
+      docAnnotations
+        .filter((a) =>
+          isFeatureVisible(view, {
+            name: a.name,
+            type: a.type,
+            start: a.start,
+            end: a.end,
+            strand: a.direction === -1 ? -1 : 1,
+          }),
+        )
+        .map((a) => ({
+          name: a.name,
+          start: a.start,
+          end: a.end,
+          direction: a.direction,
+          color: a.color,
+        })),
+    [docAnnotations, view],
+  );
+
+  // Translation tracks: amino-acid translation of CDS-like features (opt-in),
+  // plus computed ORFs when that layer is on. Both render as SeqViz translation
+  // tracks, which is the only translation primitive the renderer exposes.
+  const translations: TranslationProp[] = useMemo(() => {
+    const out: TranslationProp[] = [];
+    if (view.showTranslation) {
+      for (const f of doc.features) {
+        const t = (f.type || "").toLowerCase();
+        if (t === "cds" || t === "gene" || t === "mat_peptide") {
+          out.push({
+            start: f.start,
+            end: f.end,
+            direction: f.strand === -1 ? -1 : 1,
+            name: f.name,
+            color: colorForType(f.type),
+          });
+        }
+      }
+    }
+    if (view.showOrfs) {
+      for (const o of findOrfs(doc.seq)) {
+        out.push({
+          start: o.start,
+          end: o.end,
+          direction: o.strand,
+          name: "ORF",
+          color: "#94a3b8",
+        });
+      }
+    }
+    return out;
+  }, [doc.features, doc.seq, view.showTranslation, view.showOrfs]);
+
+  // Restriction-enzyme cut sites: the simple show/hide lever (the full picker is
+  // Phase 2d). We pass a small common set; SeqViz runs the digest itself.
+  const enzymes = useMemo(
+    () => (view.showEnzymes ? COMMON_ENZYMES : []),
+    [view.showEnzymes],
   );
 
   const viewer = doc.circular ? "both" : "linear";
@@ -184,6 +266,106 @@ export default function SequenceEditView({
   const placeCaret = useCallback((pos: number) => {
     setSelection({ clockwise: true, end: pos, start: pos, type: "SEQ" });
   }, []);
+
+  // --- FEATURE MANAGEMENT (Phase 2c) -----------------------------------------
+
+  // Select + zoom a feature in the viewer by driving an external selection over
+  // its range. SeqViz highlights/centers the selected span.
+  const selectFeature = useCallback(
+    (index: number) => {
+      const f = doc.features[index];
+      if (!f) return;
+      setSelectedFeatureIdx(index);
+      setExternalSel({ start: f.start, end: f.end });
+    },
+    [doc.features],
+  );
+
+  // ADD: open the editor seeded from the current drag-selection (or a 1-bp stub
+  // at the caret if there's no range).
+  const openAddFeature = useCallback(() => {
+    const hasRange = sel.hasRange;
+    const start = hasRange ? sel.lo : sel.caret;
+    const end = hasRange ? sel.hi : Math.min(sel.caret + 1, doc.seq.length);
+    setFeatureEditor({
+      mode: "add",
+      seqLength: doc.seq.length,
+      initial: { name: "", type: "misc_feature", strand: 1, start, end },
+      onSubmit: (draft: FeatureDraft) => {
+        editor.applyDocEdit((prev) => addFeature(prev, draft));
+        setFeatureEditor(null);
+      },
+      onCancel: () => setFeatureEditor(null),
+    });
+  }, [sel, doc.seq.length, editor]);
+
+  // EDIT: open the editor seeded from an existing feature, with a Delete action.
+  const openEditFeature = useCallback(
+    (index: number) => {
+      const f = doc.features[index];
+      if (!f) return;
+      setFeatureEditor({
+        mode: "edit",
+        seqLength: doc.seq.length,
+        initial: {
+          name: f.name,
+          type: f.type || "misc_feature",
+          strand: f.strand === -1 ? -1 : 1,
+          start: f.start,
+          end: f.end,
+          color: f.color,
+        },
+        onSubmit: (draft: FeatureDraft) => {
+          editor.applyDocEdit((prev) => updateFeature(prev, index, draft));
+          setFeatureEditor(null);
+        },
+        onDelete: () => {
+          editor.applyDocEdit((prev) => deleteFeature(prev, index));
+          setFeatureEditor(null);
+          setSelectedFeatureIdx(null);
+        },
+        onCancel: () => setFeatureEditor(null),
+      });
+    },
+    [doc.features, doc.seq.length, editor],
+  );
+
+  const duplicateFeatureAt = useCallback(
+    (index: number) => editor.applyDocEdit((prev) => duplicateFeature(prev, index)),
+    [editor],
+  );
+
+  const deleteFeatureAt = useCallback(
+    (index: number) => {
+      const f = doc.features[index];
+      const name = f?.name ?? "this feature";
+      setConfirm({
+        tone: "delete",
+        title: "Delete feature",
+        summary: `Remove the feature "${name}" from the annotation list. The sequence bases are not changed.`,
+        confirmLabel: "Delete",
+        onConfirm: () => {
+          editor.applyDocEdit((prev) => deleteFeature(prev, index));
+          setSelectedFeatureIdx(null);
+          setConfirm(null);
+        },
+        onCancel: () => setConfirm(null),
+      });
+    },
+    [doc.features, editor],
+  );
+
+  const recolorFeatureAt = useCallback(
+    (index: number, color: string) =>
+      editor.applyDocEdit((prev) => setFeatureColor(prev, index, color)),
+    [editor],
+  );
+
+  const recolorType = useCallback(
+    (type: string, color: string) =>
+      editor.applyDocEdit((prev) => setTypeColor(prev, type, color)),
+    [editor],
+  );
 
   // --- ANNOTATED CLIPBOARD ---------------------------------------------------
 
@@ -415,23 +597,46 @@ export default function SequenceEditView({
         </div>
       </div>
 
-      {/* Editable viewer */}
-      <div className="min-h-0 flex-1 overflow-hidden">
-        <SeqViz
-          key={sequence.id}
-          name={sequence.locus_name || sequence.display_name}
-          seq={doc.seq}
-          seqType={doc.seqType === "protein" ? "aa" : doc.seqType}
-          annotations={annotations}
-          primers={[]}
-          viewer={viewer}
-          editable
-          onEdit={requestEdit}
-          onSelection={setSelection}
-          showComplement
-          showIndex
-          disableExternalFonts
-          style={{ height: "100%", width: "100%" }}
+      {/* Editable viewer + features/display panel */}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
+          <SeqViz
+            key={sequence.id}
+            name={sequence.locus_name || sequence.display_name}
+            seq={doc.seq}
+            seqType={doc.seqType === "protein" ? "aa" : doc.seqType}
+            annotations={annotations}
+            translations={translations}
+            enzymes={enzymes}
+            primers={[]}
+            viewer={viewer}
+            editable
+            onEdit={requestEdit}
+            onSelection={(s) => {
+              setSelection(s);
+              // A user-driven selection takes back control from a feature zoom.
+              if (externalSel) setExternalSel(null);
+            }}
+            selection={externalSel ?? undefined}
+            showComplement={view.showComplement}
+            showIndex={view.showIndex}
+            disableExternalFonts
+            style={{ height: "100%", width: "100%" }}
+          />
+        </div>
+        <FeaturesPanel
+          features={doc.features}
+          view={view}
+          onViewChange={setView}
+          onSelectFeature={selectFeature}
+          selectedIndex={selectedFeatureIdx}
+          onAddFeature={openAddFeature}
+          canAdd
+          onEditFeature={openEditFeature}
+          onDuplicateFeature={duplicateFeatureAt}
+          onDeleteFeature={deleteFeatureAt}
+          onRecolorFeature={recolorFeatureAt}
+          onRecolorType={recolorType}
         />
       </div>
 
@@ -460,8 +665,11 @@ export default function SequenceEditView({
         )}
       </div>
 
-      {/* Confirmation dialog for Cut / chunk-delete / Paste. */}
+      {/* Confirmation dialog for Cut / chunk-delete / Paste / feature delete. */}
       <SequenceConfirmDialog request={confirm} />
+
+      {/* Add / edit feature dialog. */}
+      <FeatureEditorDialog request={featureEditor} />
     </div>
   );
 }

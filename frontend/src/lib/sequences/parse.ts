@@ -4,6 +4,7 @@
 // kind for new records.
 
 import { genbankToJson } from "@/vendor/bio-parsers";
+import { readApEinfoColor } from "./feature-colors";
 import type {
   SeqType,
   SequenceAnnotation,
@@ -45,14 +46,25 @@ export function genbankToDetail(
   if (!first || !first.parsedSequence) return null;
   const p = first.parsedSequence;
   const seq = (p.sequence || "").toUpperCase();
-  const annotations: SequenceAnnotation[] = (p.features || []).map((f) => ({
-    name: f.name || "Untitled",
-    start: f.start,
-    end: f.end,
-    direction: toDirection(f.strand),
-    type: f.type,
-    color: f.color,
-  }));
+  const annotations: SequenceAnnotation[] = (p.features || []).map((f) => {
+    const dir = toDirection(f.strand);
+    // bio-parsers reads `/color=` but not the SnapGene/ApE ApEinfo color
+    // qualifiers; promote those here so the read view + library show colors.
+    const color =
+      f.color ??
+      readApEinfoColor(
+        f.notes as Record<string, unknown> | undefined,
+        dir === -1 ? -1 : 1,
+      );
+    return {
+      name: f.name || "Untitled",
+      start: f.start,
+      end: f.end,
+      direction: dir,
+      type: f.type,
+      color,
+    };
+  });
   return {
     id: meta.id,
     display_name: meta.display_name,

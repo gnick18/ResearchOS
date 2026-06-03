@@ -17,6 +17,11 @@ import {
   shiftFeaturesOnInsert,
   type Interval,
 } from "./coordinate-shift";
+import {
+  apEinfoColorNotes,
+  readApEinfoColor,
+  resolveFeatureColor,
+} from "./feature-colors";
 
 /** A feature in the editable model. Superset of what SeqViz renders + what
  *  jsonToGenbank needs to write the feature back out. */
@@ -58,19 +63,27 @@ export function documentFromDetail(detail: SequenceDetail): SeqDocument {
       seq: (p.sequence || detail.seq || "").toUpperCase(),
       seqType: detail.seq_type,
       circular: !!p.circular,
-      features: (p.features || []).map((f) => ({
-        name: f.name || "Untitled",
-        start: f.start,
-        end: f.end,
-        strand: (f.strand === -1 ? -1 : 1) as 1 | -1,
-        forward: f.strand !== -1,
-        type: f.type,
-        color: f.color,
-        notes: (f.notes as Record<string, unknown>) || undefined,
-        locations: Array.isArray((f as unknown as { locations?: unknown }).locations)
-          ? ((f as unknown as { locations: { start: number; end: number }[] }).locations)
-          : undefined,
-      })),
+      features: (p.features || []).map((f) => {
+        const strand = (f.strand === -1 ? -1 : 1) as 1 | -1;
+        const notes = (f.notes as Record<string, unknown>) || undefined;
+        // bio-parsers promotes a `/color=` qualifier to `f.color` but NOT the
+        // SnapGene/ApE `/ApEinfo_fwdcolor`/`/ApEinfo_revcolor` qualifiers, so
+        // pick those up here (our on-disk files use ApEinfo).
+        const color = f.color || readApEinfoColor(notes, strand);
+        return {
+          name: f.name || "Untitled",
+          start: f.start,
+          end: f.end,
+          strand,
+          forward: f.strand !== -1,
+          type: f.type,
+          color,
+          notes,
+          locations: Array.isArray((f as unknown as { locations?: unknown }).locations)
+            ? ((f as unknown as { locations: { start: number; end: number }[] }).locations)
+            : undefined,
+        };
+      }),
     };
   }
   // Degraded fallback: use the already-parsed detail fields.
@@ -99,7 +112,9 @@ export function documentToAnnotations(doc: SeqDocument): SequenceAnnotation[] {
     end: f.end,
     direction: (f.strand === -1 ? -1 : 1) as -1 | 0 | 1,
     type: f.type,
-    color: f.color,
+    // Resolve to a concrete color (explicit color, else the per-type default)
+    // so the viewer + features list always render a consistent swatch.
+    color: resolveFeatureColor(f),
   }));
 }
 
@@ -166,16 +181,25 @@ export function documentToGenbank(doc: SeqDocument): string | null {
       sequence: doc.seq,
       circular: doc.circular,
       type: doc.seqType === "protein" ? "PROTEIN" : doc.seqType === "rna" ? "RNA" : "DNA",
-      features: doc.features.map((f) => ({
-        name: f.name,
-        start: f.start,
-        end: f.end,
-        strand: f.strand === -1 ? -1 : 1,
-        type: f.type,
-        color: f.color,
-        notes: f.notes,
-        ...(f.locations && f.locations.length > 1 ? { locations: f.locations } : {}),
-      })),
+      features: doc.features.map((f) => {
+        // Persist color via the ApEinfo qualifiers so it survives save+reload
+        // and round-trips with SnapGene / ApE. Merge into (not replace) any
+        // existing notes, overwriting only the two ApEinfo color keys.
+        const baseNotes = (f.notes as Record<string, unknown>) || undefined;
+        const notes = f.color
+          ? { ...(baseNotes || {}), ...apEinfoColorNotes(f.color) }
+          : baseNotes;
+        return {
+          name: f.name,
+          start: f.start,
+          end: f.end,
+          strand: f.strand === -1 ? -1 : 1,
+          type: f.type,
+          color: f.color,
+          notes,
+          ...(f.locations && f.locations.length > 1 ? { locations: f.locations } : {}),
+        };
+      }),
     },
     {},
   );
