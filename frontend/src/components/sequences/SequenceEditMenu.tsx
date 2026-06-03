@@ -28,6 +28,10 @@ export interface EditMenuItem {
   destructive?: boolean;
   /** Start of a new visual group (renders a divider before it). */
   group?: boolean;
+  /** Marks a TOGGLE row: when set, a trailing eye indicator is shown (open eye
+   *  when true / shown, slashed eye when false / hidden). `onRun` flips state.
+   *  Non-toggle rows leave this undefined and render no indicator. */
+  checked?: boolean;
   onRun: () => void;
 }
 
@@ -69,6 +73,24 @@ function IconDown({ className }: { className?: string }) {
     </svg>
   );
 }
+// Eye / slashed-eye for TOGGLE rows (the show-hide indicator relocated from the
+// rail flyouts). Mirrors the IconEye / IconEyeOff glyphs in ViewControlRail.
+function IconEye({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+function IconEyeOff({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  );
+}
 
 /** Shared item-list renderer used by both the dropdown and the context menu. */
 function MenuItems({ items, onAfterRun }: { items: EditMenuItem[]; onAfterRun: () => void }) {
@@ -95,7 +117,13 @@ function MenuItems({ items, onAfterRun }: { items: EditMenuItem[]; onAfterRun: (
             }`}
           >
             <span className="truncate">{it.label}</span>
-            {it.shortcut ? (
+            {it.checked !== undefined ? (
+              it.checked ? (
+                <IconEye className="h-3.5 w-3.5 shrink-0 text-sky-600" />
+              ) : (
+                <IconEyeOff className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+              )
+            ) : it.shortcut ? (
               <span className={`shrink-0 text-xs ${it.enabled ? "text-gray-400" : "text-gray-300"}`}>
                 {it.shortcut}
               </span>

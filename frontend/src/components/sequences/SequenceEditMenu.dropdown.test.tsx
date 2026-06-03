@@ -61,4 +61,20 @@ describe("EditMenuDropdown gating", () => {
     fireEvent.click(editItem);
     expect(onEdit).toHaveBeenCalledTimes(1);
   });
+
+  // top menus consolidation bot — a TOGGLE row (one with `checked` set) runs its
+  // onRun to flip state and renders a trailing eye indicator (open vs slashed).
+  it("renders a toggle row with an eye indicator and runs its onRun", () => {
+    const onToggle = vi.fn();
+    const shown: EditMenuItem[] = [
+      { id: "cut", label: "Cut sites", enabled: true, checked: true, onRun: onToggle },
+    ];
+    render(<EditMenuDropdown items={shown} label="Enzyme" testId="enz-btn" />);
+    fireEvent.click(screen.getByTestId("enz-btn"));
+    const row = screen.getByRole("menuitem", { name: /Cut sites/ });
+    // The trailing indicator is an inline SVG (open eye when checked).
+    expect(row.querySelector("svg")).not.toBeNull();
+    fireEvent.click(row);
+    expect(onToggle).toHaveBeenCalledTimes(1);
+  });
 });

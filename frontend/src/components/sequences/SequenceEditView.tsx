@@ -227,6 +227,19 @@ function IconPrimer({ className }: { className?: string }) {
     </svg>
   );
 }
+// top menus consolidation bot — scissors glyph for the new "Enzyme" toolbar
+// dropdown. Mirrors the IconEnzymes cut-site icon in ViewControlRail.
+function IconScissors({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <circle cx="6" cy="6" r="3" />
+      <circle cx="6" cy="18" r="3" />
+      <path d="M20 4 8.12 15.88" />
+      <path d="M14.47 14.48 20 20" />
+      <path d="M8.12 8.12 12 12" />
+    </svg>
+  );
+}
 function ToolbarButton({
   label,
   onClick,
@@ -1973,7 +1986,7 @@ export default function SequenceEditView({
 
   const featureMenuItems = useMemo<EditMenuItem[]>(() => {
     const idx = selectedFeatureIdx;
-    return [
+    const items: EditMenuItem[] = [
       { id: "feat-add", label: "Add Feature…", enabled: true, onRun: openAddFeature },
       {
         id: "feat-edit",
@@ -2002,7 +2015,34 @@ export default function SequenceEditView({
         },
       },
     ];
-  }, [selectedFeatureIdx, selIsFeature, openAddFeature, openEditFeature, duplicateFeatureAt, deleteFeatureAt]);
+    // top menus consolidation bot — the per-feature-type show/hide list relocated
+    // from the rail's FeatureTypesFlyout. One TOGGLE row per distinct type;
+    // `checked` reflects "visible" (NOT in hiddenTypes), `onRun` flips that type's
+    // membership in hiddenTypes (mirrors the old flyout's toggle exactly).
+    if (featureTypes.length > 0) {
+      featureTypes.forEach((k, i) => {
+        items.push({
+          id: `feat-type-${k}`,
+          label: k,
+          enabled: true,
+          checked: !view.hiddenTypes[k],
+          ...(i === 0 ? { group: true } : {}),
+          onRun: () =>
+            setView((v) => ({ ...v, hiddenTypes: { ...v.hiddenTypes, [k]: !v.hiddenTypes[k] } })),
+        });
+      });
+    }
+    return items;
+  }, [
+    selectedFeatureIdx,
+    selIsFeature,
+    openAddFeature,
+    openEditFeature,
+    duplicateFeatureAt,
+    deleteFeatureAt,
+    featureTypes,
+    view.hiddenTypes,
+  ]);
 
   const primerMenuItems = useMemo<EditMenuItem[]>(() => {
     const idx = selectedFeatureIdx;
@@ -2034,8 +2074,50 @@ export default function SequenceEditView({
           if (idx != null) deleteFeatureAt(idx);
         },
       },
+      // top menus consolidation bot — the primer LAYER show/hide, relocated so
+      // the Primer menu holds actions AND visibility (mirrors Feature / Enzyme).
+      {
+        id: "primer-show",
+        label: "Primers",
+        enabled: true,
+        group: true,
+        checked: view.showPrimers,
+        onRun: () => setView((v) => ({ ...v, showPrimers: !v.showPrimers })),
+      },
     ];
-  }, [selectedFeatureIdx, selIsPrimer, openPrimerDialog, openEditPrimer, duplicateFeatureAt, deleteFeatureAt]);
+  }, [
+    selectedFeatureIdx,
+    selIsPrimer,
+    openPrimerDialog,
+    openEditPrimer,
+    duplicateFeatureAt,
+    deleteFeatureAt,
+    view.showPrimers,
+  ]);
+
+  // top menus consolidation bot — the new "Enzyme" toolbar dropdown. Display
+  // only (no mutation), so it renders in read-only too. Holds the cut-site LAYER
+  // toggle + the "Choose enzymes" picker, plus a subtle active-count appended to
+  // the picker label. Relocated from the rail's EnzymeLayerFlyout.
+  const enzymeMenuItems = useMemo<EditMenuItem[]>(() => {
+    const activeCount = (activeEnzymes ?? COMMON_ENZYMES).length;
+    return [
+      {
+        id: "enz-cut-sites",
+        label: "Cut sites",
+        enabled: true,
+        checked: view.showEnzymes,
+        onRun: () => setView((v) => ({ ...v, showEnzymes: !v.showEnzymes })),
+      },
+      {
+        id: "enz-choose",
+        label: `Choose enzymes… (${activeCount})`,
+        enabled: true,
+        group: true,
+        onRun: openEnzymePicker,
+      },
+    ];
+  }, [view.showEnzymes, activeEnzymes, openEnzymePicker]);
 
   // seq export bot — the Export dropdown. Read-only download of the whole
   // sequence (GenBank/FASTA), the current selection (DNA .gb/FASTA + frame-1
@@ -2277,6 +2359,17 @@ export default function SequenceEditView({
             />
           </>
         ) : null}
+        {/* top menus consolidation bot — the Enzyme dropdown. Display only (cut
+            sites layer + enzyme picker), so it renders in read-only too. Sits
+            after Feature / Primer for the consistent top trio. */}
+        {showViewer ? (
+          <EditMenuDropdown
+            items={enzymeMenuItems}
+            label="Enzyme"
+            testId="sequence-enzyme-button"
+            icon={<IconScissors className="h-4 w-4" />}
+          />
+        ) : null}
         {/* seq export bot — the Export dropdown (download .gb / .fasta /
             selected DNA + protein / map image). Available in read-only too. */}
         <ExportMenuDropdown items={exportMenuItems} />
@@ -2307,9 +2400,6 @@ export default function SequenceEditView({
             view={view}
             onViewChange={setView}
             circular={doc.circular}
-            featureTypes={featureTypes}
-            onChooseEnzymes={openEnzymePicker}
-            activeEnzymeCount={(activeEnzymes ?? COMMON_ENZYMES).length}
           />
         ) : null}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
