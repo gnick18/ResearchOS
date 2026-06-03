@@ -53,7 +53,8 @@ export const RELEASE_NOTES: ReadonlyArray<ReleaseNote> = [
     version: "0.3.0",
     date: "2026-06-03",
     highlights: [
-      "New Sequence Editor: a built-in molecular-biology workspace for your plasmids and DNA. Import SnapGene .dna, GenBank, and FASTA files, view and edit sequences with colored annotations, and move smoothly from a whole-plasmid map down to individual bases",
+      "New Sequence Editor: a built-in molecular-biology workspace for your plasmids and DNA. Import SnapGene .dna, GenBank, and FASTA files, then view and edit with colored annotations and SnapGene-style tabbed navigation that moves smoothly from a whole-plasmid map down to individual bases",
+      "Multi-exon genes render the way they should: connected exon boxes with dashed introns and a correctly spliced protein translation",
       "Primer design with melting temperatures and an alignment preview, plus a restriction-enzyme picker that shows exactly where commercial enzymes cut",
       "Annotated copy and paste between sequences, full keyboard and right-click editing, trackpad pinch-to-zoom, and one-click export to GenBank, FASTA, protein, or a map image",
       "A calmer workspace: your home is now a focused, curated dashboard, Projects open by default, and Experiments are laid out as a clean pipeline board",
