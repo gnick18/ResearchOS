@@ -558,7 +558,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Main content with route-specific sidebar */}
       <div className="flex flex-1 overflow-hidden">
-        {pathname === "/calendar" ? (
+        {pathname?.startsWith("/sequences") ? (
+          /* Sequence editor is a full-bleed FOCUS surface (Grant
+           *  2026-06-02): hide the app's left sidebar so the plasmid/
+           *  map viewer gets the full width, SnapGene/Benchling-style.
+           *  The /sequences page already has its own working-tree
+           *  library on the left, so the DailyTasksSidebar is redundant
+           *  here. Cross-arc note: the de-bloat arc owns AppShell —
+           *  PRESERVE this carve-out when simplifying the sidebar. */
+          null
+        ) : pathname === "/calendar" ? (
           <CalendarSidebar />
         ) : pathname === "/lab-overview" ? (
           /* Lab Overview owns its own customizable widget rail via

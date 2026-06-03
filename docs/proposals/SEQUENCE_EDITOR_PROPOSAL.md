@@ -598,6 +598,13 @@ build the Workbench projects surface against it:
 - NOTE FOR YOUR APPSHELL/NAV SIMPLIFICATION: Phase 1 added a `/sequences` nav entry
   in `frontend/src/lib/nav.ts`. Please PRESERVE it (re-point onto the surviving
   sidebar) when you simplify the shell, rather than dropping it.
+- SECOND APPSHELL TOUCH (2026-06-02): I added a one-branch carve-out at the top of
+  the route-sidebar conditional in `AppShell.tsx` so `/sequences` renders NO left
+  sidebar (full-bleed focus surface; the page has its own working-tree library, so
+  the DailyTasksSidebar is redundant there). Matches your existing calendar /
+  lab-overview inline-conditional pattern. PLEASE PRESERVE this `/sequences -> null
+  sidebar` branch when you rework the sidebar chain. Tiny + additive; ping me via
+  Grant if it conflicts with your shell redesign.
 
 WIDGET CANVAS TEARDOWN: no impact. The sequence editor has ZERO widget / canvas
 dependency. Our surface is the standalone `/sequences` route. We will not add a
