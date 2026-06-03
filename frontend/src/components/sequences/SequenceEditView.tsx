@@ -71,7 +71,10 @@ import SequenceHistoryPanel from "./SequenceHistoryPanel";
 import {
   initialLinearZoom,
   viewportWindow,
+  viewportWindowH,
   bpToScrollTop,
+  bpToScrollLeft,
+  zoomToCharWidth,
   pinchDeltaToZoom,
   bpUnderCursor,
   anchorScrollTopForBp,
@@ -452,6 +455,16 @@ export default function SequenceEditView({
   // is drawn, not just the active-tab underline.
   const viewerLinearZoom = isMapView ? MAP_ZOOM : clampSequenceZoom(linearZoom);
 
+  // wrap toggle bot — SINGLE-LINE (unwrapped) mode is opt-in and applies ONLY to
+  // the linear Sequence DETAIL view (not the Map schematic, not circular). When
+  // on, the whole sequence renders on one horizontal row at a fixed char width
+  // mapped from the zoom knob; the viewer scrolls left-right. Default is WRAPPED.
+  const singleLine = isLinearViewer && !isMapView && !view.wrapSequence;
+  const singleLineCharWidth = useMemo(
+    () => zoomToCharWidth(viewerLinearZoom),
+    [viewerLinearZoom],
+  );
+
   // The bp window currently visible in the main linear viewer, for the overview
   // bar's viewport box. Two-way sync: we read the SeqViz linear scroller's live
   // geometry (it stacks rows + scrolls vertically, so the visible vertical
@@ -475,6 +488,21 @@ export default function SequenceEditView({
       if (sc) scrollerRef.current = sc;
     }
     if (!sc) return;
+    // wrap toggle bot — in SINGLE-LINE mode the window is read from the HORIZONTAL
+    // scroll geometry (the row scrolls left-right); in WRAPPED mode it is read
+    // from the VERTICAL geometry exactly as before.
+    if (singleLine) {
+      if (!(sc.scrollWidth > 0) || !(sc.clientWidth > 0)) return;
+      setOverviewWindow(
+        viewportWindowH({
+          scrollLeft: sc.scrollLeft,
+          scrollWidth: sc.scrollWidth,
+          clientWidth: sc.clientWidth,
+          seqLength: doc.seq.length,
+        }),
+      );
+      return;
+    }
     if (!(sc.scrollHeight > 0) || !(sc.clientHeight > 0)) return;
     setOverviewWindow(
       viewportWindow({
@@ -484,7 +512,7 @@ export default function SequenceEditView({
         seqLength: doc.seq.length,
       }),
     );
-  }, [doc.seq.length]);
+  }, [doc.seq.length, singleLine]);
 
   // Locate the SeqViz linear scroller inside our viewer container and wire a
   // scroll listener + resize observer. SeqViz re-renders its scroll subtree on
@@ -503,7 +531,10 @@ export default function SequenceEditView({
     // recompute the visible window WHENEVER it changes from the last value seen.
     // That converges the viewport box to the true visible range no matter how
     // long the row layout takes to settle, with near-zero steady-state cost.
-    let lastScrollHeight = -1;
+    // wrap toggle bot — watch the layout dimension that grows asynchronously for
+    // the active mode: scrollHeight (rows) in WRAPPED, scrollWidth (one wide row)
+    // in SINGLE-LINE. Recompute the visible window whenever it changes.
+    let lastScrollDim = -1;
     const onScroll = () => recomputeWindow();
     const attach = () => {
       const found = viewerRef.current?.querySelector<HTMLElement>(".la-vz-linear-scroller") ?? null;
@@ -512,10 +543,11 @@ export default function SequenceEditView({
         sc = found;
         scrollerRef.current = sc;
         sc.addEventListener("scroll", onScroll, { passive: true });
-        lastScrollHeight = -1;
+        lastScrollDim = -1;
       }
-      if (sc && sc.scrollHeight !== lastScrollHeight) {
-        lastScrollHeight = sc.scrollHeight;
+      const dim = sc ? (singleLine ? sc.scrollWidth : sc.scrollHeight) : -1;
+      if (sc && dim !== lastScrollDim) {
+        lastScrollDim = dim;
         recomputeWindow();
       }
       raf = requestAnimationFrame(attach);
@@ -528,7 +560,7 @@ export default function SequenceEditView({
       if (sc) sc.removeEventListener("scroll", onScroll);
       ro.disconnect();
     };
-  }, [isLinearViewer, recomputeWindow, sequence.id, linearZoom]);
+  }, [isLinearViewer, recomputeWindow, sequence.id, linearZoom, singleLine]);
 
   // ACCURACY FIX (the core bug): after ANY zoom change (slider, +/- buttons, the
   // bp-in-view field, the Fit button), SeqViz re-wraps the sequence into rows and
@@ -633,6 +665,48 @@ export default function SequenceEditView({
     anchorTimerRef.current = window.setTimeout(reassert, 32);
   }, [doc.seq.length, resolveScroller, recomputeWindow]);
 
+  // wrap toggle bot — SINGLE-LINE cursor-anchored zoom (horizontal analog of
+  // startCursorAnchor). Capture the bp under the pointer's X from the pre-zoom
+  // geometry, then re-assert the scrollLeft that keeps that bp under the pointer
+  // as the row's scrollWidth changes with the new charWidth over the next frames.
+  // Because single-line is a single continuous row (no row-wrapping), the anchor
+  // is exact on both axes, unlike the wrapped path.
+  const startCursorAnchorH = useCallback(
+    (clientX: number) => {
+      const sc = resolveScroller();
+      if (!sc) return;
+      const rect = sc.getBoundingClientRect();
+      const cursorX = clientX - rect.left;
+      const preWidth = sc.scrollWidth;
+      if (!(preWidth > 0)) return;
+      const frac = Math.max(0, Math.min(1, (sc.scrollLeft + cursorX) / preWidth));
+      const bp = Math.round(frac * doc.seq.length);
+      cancelAnimationFrame(anchorRafRef.current);
+      window.clearTimeout(anchorTimerRef.current);
+      const start = performance.now();
+      const reassert = () => {
+        const s = resolveScroller();
+        if (!s) return;
+        const newWidth = s.scrollWidth;
+        const desired = (bp / Math.max(1, doc.seq.length)) * newWidth - cursorX;
+        const maxScroll = Math.max(0, newWidth - s.clientWidth);
+        const target = Math.max(0, Math.min(maxScroll, Math.round(desired)));
+        if (Math.abs(s.scrollLeft - target) > 1) s.scrollLeft = target;
+        if (performance.now() - start < 320) {
+          cancelAnimationFrame(anchorRafRef.current);
+          window.clearTimeout(anchorTimerRef.current);
+          anchorRafRef.current = requestAnimationFrame(reassert);
+          anchorTimerRef.current = window.setTimeout(reassert, 32);
+        } else {
+          recomputeWindow();
+        }
+      };
+      anchorRafRef.current = requestAnimationFrame(reassert);
+      anchorTimerRef.current = window.setTimeout(reassert, 32);
+    },
+    [doc.seq.length, resolveScroller, recomputeWindow],
+  );
+
   useEffect(
     () => () => {
       cancelAnimationFrame(anchorRafRef.current);
@@ -650,7 +724,10 @@ export default function SequenceEditView({
       if (!e.ctrlKey) return;
       e.preventDefault();
       e.stopPropagation();
-      if (isLinearViewer) startCursorAnchor(e.clientY);
+      if (isLinearViewer) {
+        if (singleLine) startCursorAnchorH(e.clientX);
+        else startCursorAnchor(e.clientY);
+      }
       setView((v) => {
         if (isLinearViewer) {
           const current = v.linearZoom ?? autoLinearZoom;
@@ -670,7 +747,14 @@ export default function SequenceEditView({
       // spread/zoom-in, <1 pinch/zoom-out). Map to a deltaY-equivalent so we
       // reuse the same scaling: scale 1.1 -> ~ -10 deltaY (zoom in).
       const deltaY = (1 - ge.scale) * 100;
-      if (isLinearViewer && typeof ge.clientY === "number") startCursorAnchor(ge.clientY);
+      const geX = (ge as Event & { clientX?: number }).clientX;
+      if (isLinearViewer) {
+        if (singleLine && typeof geX === "number") {
+          startCursorAnchorH(geX);
+        } else if (typeof ge.clientY === "number") {
+          startCursorAnchor(ge.clientY);
+        }
+      }
       setView((v) => {
         if (isLinearViewer) {
           const current = v.linearZoom ?? autoLinearZoom;
@@ -689,22 +773,33 @@ export default function SequenceEditView({
       el.removeEventListener("gesturechange", onGesture as EventListener);
       el.removeEventListener("gestureend", onGesture as EventListener);
     };
-  }, [isLinearViewer, autoLinearZoom, startCursorAnchor]);
+  }, [isLinearViewer, autoLinearZoom, startCursorAnchor, startCursorAnchorH, singleLine]);
 
   // Drag the overview viewport box -> scroll the main view so `bp` is at top.
   const scrollMainToBp = useCallback(
     (bp: number) => {
       const sc = scrollerRef.current;
       if (!sc) return;
-      sc.scrollTop = bpToScrollTop({
-        bp,
-        scrollHeight: sc.scrollHeight,
-        clientHeight: sc.clientHeight,
-        seqLength: doc.seq.length,
-      });
+      // wrap toggle bot — pan HORIZONTALLY in single-line mode, VERTICALLY when
+      // wrapped. Both put `bp` at the left/top edge of the visible window.
+      if (singleLine) {
+        sc.scrollLeft = bpToScrollLeft({
+          bp,
+          scrollWidth: sc.scrollWidth,
+          clientWidth: sc.clientWidth,
+          seqLength: doc.seq.length,
+        });
+      } else {
+        sc.scrollTop = bpToScrollTop({
+          bp,
+          scrollHeight: sc.scrollHeight,
+          clientHeight: sc.clientHeight,
+          seqLength: doc.seq.length,
+        });
+      }
       recomputeWindow();
     },
-    [doc.seq.length, recomputeWindow],
+    [doc.seq.length, recomputeWindow, singleLine],
   );
 
   // Features projected to the overview bar (whole sequence, as arrows). Uses the
@@ -1638,6 +1733,10 @@ export default function SequenceEditView({
                   // base-level character even at the slider floor.
                   showComplement={isMapView ? false : view.showComplement}
                   showIndex={isMapView ? false : view.showIndex}
+                  // wrap toggle bot — SINGLE-LINE vs WRAPPED for the linear
+                  // Sequence detail view. Map / circular always render wrapped.
+                  wrapSequence={!singleLine}
+                  singleLineCharWidth={singleLineCharWidth}
                   disableExternalFonts
                   style={{ height: "100%", width: "100%" }}
                 />

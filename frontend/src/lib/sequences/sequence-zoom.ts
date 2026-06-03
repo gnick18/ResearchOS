@@ -313,6 +313,97 @@ export function bpToScrollTop(opts: {
   return Math.max(0, Math.min(maxScroll, Math.round(frac * scrollHeight)));
 }
 
+// ─── wrap toggle bot — SINGLE-LINE (UNWRAPPED) HORIZONTAL NAVIGATION ──────────
+//
+// In single-line mode the linear viewer renders the WHOLE sequence on one
+// continuous row whose pixel width is `seqLength * charWidth` (wider than the
+// container), and the scroller scrolls HORIZONTALLY. The visible-bp window is
+// therefore read from the horizontal scroll geometry (scrollLeft / scrollWidth /
+// clientWidth) instead of the vertical geometry the wrapped mode uses. These
+// pure helpers mirror viewportWindow / bpToScrollTop on the X axis so the
+// overview box, the "bp in view" field, and the window readout all keep working.
+// All are DOM-free and unit-tested in isolation.
+
+/** Lowest character width (px per base) the single-line view will draw at: still
+ *  legible at a small monospace size. Reached at the minimum zoom. */
+export const SINGLE_LINE_MIN_CHAR_WIDTH = 3.5;
+/** Highest character width (px per base): large, comfortable bases at max zoom. */
+export const SINGLE_LINE_MAX_CHAR_WIDTH = 18;
+
+/**
+ * Map the 0-100 linear zoom knob to a per-base pixel width for SINGLE-LINE mode.
+ * More zoom => wider characters => fewer bases visible in the container (the
+ * SnapGene single-line feel). Linear interpolation across the legible band,
+ * clamped to [SINGLE_LINE_MIN_CHAR_WIDTH, SINGLE_LINE_MAX_CHAR_WIDTH]. Pure +
+ * DOM-free so the renderer can call it and tests can pin the mapping.
+ */
+export function zoomToCharWidth(zoom: number): number {
+  const z = Number.isFinite(zoom) ? Math.min(MAX_LINEAR_ZOOM, Math.max(MIN_LINEAR_ZOOM, zoom)) : DEFAULT_LINEAR_ZOOM;
+  const t = (z - MIN_LINEAR_ZOOM) / (MAX_LINEAR_ZOOM - MIN_LINEAR_ZOOM); // 0..1
+  return SINGLE_LINE_MIN_CHAR_WIDTH + t * (SINGLE_LINE_MAX_CHAR_WIDTH - SINGLE_LINE_MIN_CHAR_WIDTH);
+}
+
+/**
+ * The fraction of the whole sequence visible in single-line mode, derived from
+ * the horizontal scroll geometry (the row scrolls left-right, so the visible
+ * horizontal fraction == the visible bp fraction). Returns (0, 1]; 1 == fits.
+ */
+export function visibleFractionH(scrollWidth: number, clientWidth: number): number {
+  if (!Number.isFinite(scrollWidth) || scrollWidth <= 0) return 1;
+  if (!Number.isFinite(clientWidth) || clientWidth <= 0) return 1;
+  return Math.min(1, clientWidth / scrollWidth);
+}
+
+/**
+ * Horizontal variant of viewportWindow: map the single-line scroller's HORIZONTAL
+ * geometry to the [start, end) bp window currently visible, for the overview box
+ * + the coordinate-bar readouts. `scrollLeft` is the current horizontal offset.
+ * Clamped to [0, seqLength], always end > start.
+ */
+export function viewportWindowH(opts: {
+  scrollLeft: number;
+  scrollWidth: number;
+  clientWidth: number;
+  seqLength: number;
+}): { start: number; end: number } {
+  const { scrollLeft, scrollWidth, clientWidth, seqLength } = opts;
+  if (!Number.isFinite(seqLength) || seqLength <= 0) return { start: 0, end: 0 };
+  if (!Number.isFinite(scrollWidth) || scrollWidth <= 0) {
+    return { start: 0, end: seqLength };
+  }
+  const frac = visibleFractionH(scrollWidth, clientWidth);
+  const span = Math.max(1, Math.round(frac * seqLength));
+  const leftFrac = Math.max(0, Math.min(1, scrollLeft / scrollWidth));
+  let start = Math.round(leftFrac * seqLength);
+  start = Math.max(0, Math.min(seqLength - 1, start));
+  let end = start + span;
+  if (end > seqLength) {
+    end = seqLength;
+    start = Math.max(0, end - span);
+  }
+  return { start, end };
+}
+
+/**
+ * Horizontal variant of bpToScrollTop: given a target bp (the desired left edge
+ * of the window), what scrollLeft positions the single-line view there? Used when
+ * the user drags the overview box / coordinate scrollbar in single-line mode.
+ * Clamped to [0, maxScroll].
+ */
+export function bpToScrollLeft(opts: {
+  bp: number;
+  scrollWidth: number;
+  clientWidth: number;
+  seqLength: number;
+}): number {
+  const { bp, scrollWidth, clientWidth, seqLength } = opts;
+  if (!Number.isFinite(seqLength) || seqLength <= 0) return 0;
+  if (!Number.isFinite(scrollWidth) || scrollWidth <= 0) return 0;
+  const frac = Math.max(0, Math.min(1, bp / seqLength));
+  const maxScroll = Math.max(0, scrollWidth - Math.max(0, clientWidth));
+  return Math.max(0, Math.min(maxScroll, Math.round(frac * scrollWidth)));
+}
+
 /**
  * Convert an x pixel offset within the overview track (width `trackWidth`) to a
  * base-pair position. The overview lays the whole sequence out left-to-right.

@@ -11,6 +11,8 @@ interface InfiniteScrollProps {
   blockHeights: number[];
   bpsPerBlock: number;
   seqBlocks: React.ReactElement<SeqBlockProps>[];
+  /** RESEARCHOS MODIFICATION (wrap toggle bot): SINGLE-LINE (unwrapped) mode. */
+  singleLine?: boolean;
   size: Size;
   totalHeight: number;
 }
@@ -113,6 +115,24 @@ export class InfiniteScroll extends React.PureComponent<InfiniteScrollProps, Inf
       return;
     }
 
+    // RESEARCHOS MODIFICATION (wrap toggle bot): SINGLE-LINE mode scrolls
+    // HORIZONTALLY. Center the requested base in the viewport by setting
+    // scrollLeft from the one block's charWidth, then sync the central-index
+    // bookkeeping so componentDidUpdate doesn't re-trigger. No vertical scroll.
+    if (this.props.singleLine) {
+      const centralIndex = this.context ? this.context.linear : 0;
+      const block = this.props.seqBlocks[0];
+      const charWidth = block?.props?.charWidth || 0;
+      const { clientWidth } = this.scroller.current;
+      const targetLeft = Math.max(0, centralIndex * charWidth - clientWidth / 2);
+      this.scroller.current.scrollLeft = targetLeft;
+      this.setState({
+        centralIndex,
+        scrollToken: this.context ? this.context.linearScrollToken : 0,
+      } as InfiniteScrollState);
+      return;
+    }
+
     const {
       blockHeights,
       bpsPerBlock,
@@ -192,6 +212,16 @@ export class InfiniteScroll extends React.PureComponent<InfiniteScrollProps, Inf
    */
   handleScrollOrResize = () => {
     if (!this.scroller.current || !this.insideDOM.current) {
+      return;
+    }
+
+    // RESEARCHOS MODIFICATION (wrap toggle bot): SINGLE-LINE mode renders the one
+    // wide block and scrolls horizontally; there is no vertical block windowing
+    // to recompute, so keep the single block visible and bail.
+    if (this.props.singleLine) {
+      if (!isEqual(this.state.visibleBlocks, [0]) && this.props.seqBlocks.length) {
+        this.setState({ visibleBlocks: [0] });
+      }
       return;
     }
 
@@ -296,6 +326,7 @@ export class InfiniteScroll extends React.PureComponent<InfiniteScrollProps, Inf
     const {
       blockHeights,
       seqBlocks,
+      singleLine,
       size: { width },
       totalHeight: height,
     } = this.props;
@@ -305,20 +336,34 @@ export class InfiniteScroll extends React.PureComponent<InfiniteScrollProps, Inf
     const [firstRendered] = visibleBlocks;
     const spaceAbove = blockHeights.slice(0, firstRendered).reduce((acc, h) => acc + h, 0);
 
+    // RESEARCHOS MODIFICATION (wrap toggle bot): SINGLE-LINE mode. Override the
+    // scroller to scroll HORIZONTALLY (overflow-x:auto, overflow-y:hidden) and
+    // size the inner container to the one wide block (`width` == seqLength *
+    // charWidth) so it overflows the container and produces the left-right scroll.
+    // WRAPPED mode keeps the original vertical-scroller styles untouched.
+    const scrollerStyle = singleLine
+      ? { ...linearScroller, overflowX: "auto" as const, overflowY: "hidden" as const }
+      : linearScroller;
+    const innerStyle = singleLine
+      ? { height: "100%", width: width || 0 }
+      : { height, width: "100%" };
+
     return (
       <div
         ref={this.scroller}
         className="la-vz-linear-scroller"
         data-testid="la-vz-viewer-linear"
-        style={linearScroller}
+        style={scrollerStyle}
         onFocus={() => {
           // do nothing
         }}
         onMouseOver={this.handleMouseOver}
         onScroll={this.handleScrollOrResize}
       >
-        <div ref={this.insideDOM} className="la-vz-seqblock-container" style={{ height, width: "100%" }}>
-          <div className="la-vz-seqblock-padding-top" style={{ height: spaceAbove, width: width || 0 }} />
+        <div ref={this.insideDOM} className="la-vz-seqblock-container" style={innerStyle}>
+          {singleLine ? null : (
+            <div className="la-vz-seqblock-padding-top" style={{ height: spaceAbove, width: width || 0 }} />
+          )}
           {visibleBlocks.map(i => seqBlocks[i])}
         </div>
       </div>

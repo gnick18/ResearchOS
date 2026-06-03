@@ -418,3 +418,113 @@ describe("achievableSpanRange — bp-in-view clamp to what the renderer can hono
     });
   });
 });
+
+// ─── wrap toggle bot — SINGLE-LINE (horizontal) navigation math ───────────────
+import {
+  zoomToCharWidth,
+  visibleFractionH,
+  viewportWindowH,
+  bpToScrollLeft,
+  SINGLE_LINE_MIN_CHAR_WIDTH,
+  SINGLE_LINE_MAX_CHAR_WIDTH,
+} from "./sequence-zoom";
+
+describe("zoomToCharWidth (single-line px-per-base from the zoom knob)", () => {
+  it("maps the min zoom to the min char width and max zoom to the max", () => {
+    expect(zoomToCharWidth(MIN_LINEAR_ZOOM)).toBeCloseTo(SINGLE_LINE_MIN_CHAR_WIDTH, 5);
+    expect(zoomToCharWidth(MAX_LINEAR_ZOOM)).toBeCloseTo(SINGLE_LINE_MAX_CHAR_WIDTH, 5);
+  });
+
+  it("is monotonic: more zoom => wider characters => fewer bases on screen", () => {
+    expect(zoomToCharWidth(80)).toBeGreaterThan(zoomToCharWidth(40));
+    expect(zoomToCharWidth(40)).toBeGreaterThan(zoomToCharWidth(12));
+  });
+
+  it("clamps out-of-range / non-finite zoom into the legible band", () => {
+    expect(zoomToCharWidth(-50)).toBeCloseTo(SINGLE_LINE_MIN_CHAR_WIDTH, 5);
+    expect(zoomToCharWidth(500)).toBeCloseTo(SINGLE_LINE_MAX_CHAR_WIDTH, 5);
+    const nan = zoomToCharWidth(Number.NaN);
+    expect(nan).toBeGreaterThanOrEqual(SINGLE_LINE_MIN_CHAR_WIDTH);
+    expect(nan).toBeLessThanOrEqual(SINGLE_LINE_MAX_CHAR_WIDTH);
+  });
+});
+
+describe("visibleFractionH (horizontal visible fraction)", () => {
+  it("returns the clientWidth/scrollWidth ratio, capped at 1", () => {
+    expect(visibleFractionH(1000, 250)).toBeCloseTo(0.25, 5);
+    expect(visibleFractionH(200, 400)).toBe(1); // whole row fits
+  });
+  it("degrades safely to 1 on bad geometry", () => {
+    expect(visibleFractionH(0, 100)).toBe(1);
+    expect(visibleFractionH(1000, 0)).toBe(1);
+  });
+});
+
+describe("viewportWindowH (single-line visible bp window from horizontal scroll)", () => {
+  it("at scrollLeft 0 shows the leftmost slice", () => {
+    // 1000 bp row, container shows 1/4 -> ~250 bp window starting at 0.
+    const w = viewportWindowH({ scrollLeft: 0, scrollWidth: 4000, clientWidth: 1000, seqLength: 1000 });
+    expect(w.start).toBe(0);
+    expect(w.end).toBe(250);
+  });
+
+  it("mid-scroll slides the window proportionally to scrollLeft", () => {
+    // halfway scrolled -> window starts ~halfway through the molecule.
+    const w = viewportWindowH({ scrollLeft: 2000, scrollWidth: 4000, clientWidth: 1000, seqLength: 1000 });
+    expect(w.start).toBe(500);
+    expect(w.end).toBe(750);
+  });
+
+  it("at max scroll the window butts against the end (end == seqLength)", () => {
+    // scrollLeft == scrollWidth - clientWidth == 3000
+    const w = viewportWindowH({ scrollLeft: 3000, scrollWidth: 4000, clientWidth: 1000, seqLength: 1000 });
+    expect(w.end).toBe(1000);
+    expect(w.start).toBe(750);
+  });
+
+  it("zooming in (smaller visible fraction) shrinks the window span", () => {
+    const wide = viewportWindowH({ scrollLeft: 0, scrollWidth: 4000, clientWidth: 1000, seqLength: 1000 });
+    const tight = viewportWindowH({ scrollLeft: 0, scrollWidth: 8000, clientWidth: 1000, seqLength: 1000 });
+    expect(tight.end - tight.start).toBeLessThan(wide.end - wide.start);
+  });
+
+  it("whole row fitting yields the full molecule window", () => {
+    const w = viewportWindowH({ scrollLeft: 0, scrollWidth: 800, clientWidth: 1000, seqLength: 1000 });
+    expect(w.start).toBe(0);
+    expect(w.end).toBe(1000);
+  });
+
+  it("degrades to the whole molecule on bad geometry", () => {
+    expect(viewportWindowH({ scrollLeft: 0, scrollWidth: 0, clientWidth: 100, seqLength: 500 })).toEqual({
+      start: 0,
+      end: 500,
+    });
+    expect(viewportWindowH({ scrollLeft: 0, scrollWidth: 100, clientWidth: 100, seqLength: 0 })).toEqual({
+      start: 0,
+      end: 0,
+    });
+  });
+});
+
+describe("bpToScrollLeft (drag the overview box -> horizontal pan)", () => {
+  it("maps bp fraction to scrollLeft, clamped to [0, maxScroll]", () => {
+    // bp 500 of 1000 over a 4000px row -> 2000px, clamped to maxScroll 3000.
+    expect(bpToScrollLeft({ bp: 500, scrollWidth: 4000, clientWidth: 1000, seqLength: 1000 })).toBe(2000);
+  });
+  it("bp at the start is scrollLeft 0", () => {
+    expect(bpToScrollLeft({ bp: 0, scrollWidth: 4000, clientWidth: 1000, seqLength: 1000 })).toBe(0);
+  });
+  it("bp at the end clamps to maxScroll (scrollWidth - clientWidth)", () => {
+    expect(bpToScrollLeft({ bp: 1000, scrollWidth: 4000, clientWidth: 1000, seqLength: 1000 })).toBe(3000);
+  });
+  it("is the inverse of viewportWindowH at a representative offset", () => {
+    const seqLength = 1000, scrollWidth = 4000, clientWidth = 1000;
+    const left = bpToScrollLeft({ bp: 500, scrollWidth, clientWidth, seqLength });
+    const w = viewportWindowH({ scrollLeft: left, scrollWidth, clientWidth, seqLength });
+    expect(Math.abs(w.start - 500)).toBeLessThanOrEqual(1);
+  });
+  it("degrades safely on bad geometry", () => {
+    expect(bpToScrollLeft({ bp: 100, scrollWidth: 0, clientWidth: 100, seqLength: 500 })).toBe(0);
+    expect(bpToScrollLeft({ bp: 100, scrollWidth: 1000, clientWidth: 100, seqLength: 0 })).toBe(0);
+  });
+});

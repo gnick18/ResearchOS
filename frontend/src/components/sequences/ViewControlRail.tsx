@@ -108,6 +108,29 @@ function IconLinear({ className }: { className?: string }) {
     </svg>
   );
 }
+function IconWrapped({ className }: { className?: string }) {
+  // wrap toggle bot — WRAPPED glyph: stacked rows (the sequence chunked into
+  // rows that scroll vertically). Three short stacked lines.
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <line x1="4" y1="7" x2="20" y2="7" />
+      <line x1="4" y1="12" x2="20" y2="12" />
+      <line x1="4" y1="17" x2="14" y2="17" />
+    </svg>
+  );
+}
+function IconSingleLine({ className }: { className?: string }) {
+  // wrap toggle bot — SINGLE-LINE glyph: one row with a left-right arrow
+  // (the whole sequence on one continuous line that scrolls horizontally).
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <line x1="3" y1="8" x2="21" y2="8" />
+      <polyline points="6 14 3 17 6 20" />
+      <polyline points="18 14 21 17 18 20" />
+      <line x1="3" y1="17" x2="21" y2="17" />
+    </svg>
+  );
+}
 function IconCaret({ className }: { className?: string }) {
   // small disclosure caret marking the Features toggle as having a flyout
   return (
@@ -272,6 +295,10 @@ export default function ViewControlRail({ view, onViewChange, circular, featureT
   // How many types are currently hidden (drives a small "filtered" affordance).
   const hiddenCount = featureTypes.filter((k) => view.hiddenTypes[k]).length;
 
+  // wrap toggle bot — the linear viewer is shown when the molecule is linear, or
+  // when a circular molecule is forced linear. The wrap toggle is linear-only.
+  const linearShown = !circular || view.forceLinear;
+
   return (
     <div
       className="flex w-11 shrink-0 flex-col items-center gap-1 border-r border-gray-100 bg-white py-2"
@@ -350,6 +377,20 @@ export default function ViewControlRail({ view, onViewChange, circular, featureT
         onClick={() => set({ forceLinear: !view.forceLinear })}
       >
         {circular && !view.forceLinear ? <IconCircular className="h-4 w-4" /> : <IconLinear className="h-4 w-4" />}
+      </RailToggle>
+
+      {/* wrap toggle bot — WRAP MODE for the linear Sequence view: WRAPPED
+          (stacked rows, vertical scroll) vs SINGLE-LINE (one continuous row,
+          horizontal scroll). One button that flips between the two states; its
+          icon + tooltip name the mode it will switch TO. Disabled while a
+          circular molecule is shown as a ring (the toggle is linear-only). */}
+      <RailToggle
+        label={view.wrapSequence ? "Single-line view" : "Wrapped view"}
+        active={!view.wrapSequence}
+        disabled={linearShown ? false : true}
+        onClick={() => set({ wrapSequence: !view.wrapSequence })}
+      >
+        {view.wrapSequence ? <IconSingleLine className="h-4 w-4" /> : <IconWrapped className="h-4 w-4" />}
       </RailToggle>
     </div>
   );

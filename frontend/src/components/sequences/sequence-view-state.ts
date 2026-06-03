@@ -36,6 +36,13 @@ export interface SequenceViewState {
   linearZoom: number | null;
   /** seq nav bot — the circular viewer zoom (0-100), wired to `zoom.circular`. */
   circularZoom: number;
+  /** wrap toggle bot — the SnapGene-style WRAP mode for the LINEAR sequence view.
+   *  true (default) => WRAPPED: the sequence is chunked into stacked rows and the
+   *  viewer scrolls vertically (the original, just-shipped behavior). false =>
+   *  SINGLE-LINE: the whole sequence renders on one continuous horizontal row at a
+   *  fixed readable character width and the viewer scrolls left-right. Only the
+   *  linear Sequence view honors this; circular molecules are unaffected. */
+  wrapSequence: boolean;
 }
 
 /** The CALM default: features + ruler visible, every heavier layer off. */
@@ -52,6 +59,8 @@ export const DEFAULT_VIEW_STATE: SequenceViewState = {
   forceLinear: false,
   linearZoom: null,
   circularZoom: 0,
+  // wrap toggle bot — WRAPPED by default (byte-identical to the original view).
+  wrapSequence: true,
 };
 
 /** A small, common enzyme set surfaced by the simple "Show cut sites" toggle.

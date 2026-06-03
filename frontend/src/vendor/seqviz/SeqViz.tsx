@@ -167,6 +167,17 @@ export interface SeqVizProps {
   /** the orientation of the viewer(s). "both", the default, has a circular viewer on left and a linear viewer on right. */
   viewer?: "linear" | "circular" | "both" | "both_flip";
 
+  /** wrap toggle bot (RESEARCHOS) — LINEAR wrap mode. true / undefined (default)
+   *  => WRAPPED (sequence chunked into stacked rows, scrolls vertically). false =>
+   *  SINGLE-LINE (whole sequence on one horizontal row, scrolls left-right). Only
+   *  the linear viewer honors this. */
+  wrapSequence?: boolean;
+
+  /** wrap toggle bot (RESEARCHOS) — in SINGLE-LINE mode, the per-base pixel width
+   *  (driven by the host's zoom knob via zoomToCharWidth). The single block is
+   *  rendered at seqLength * this width. Ignored in wrapped mode. */
+  singleLineCharWidth?: number;
+
   /** how large to make the sequence and elements [0,100]. A larger zoom increases the size of text and elements for that viewer. */
   zoom?: {
     /**

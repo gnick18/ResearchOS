@@ -220,12 +220,18 @@ export default class Linear extends React.Component<LinearProps> {
       yDiff += blockHeights[i];
     }
 
+    // RESEARCHOS MODIFICATION (wrap toggle bot): in SINGLE-LINE (unwrapped) mode
+    // the host passes wrapSequence === false; we forward it so InfiniteScroll
+    // scrolls HORIZONTALLY (the one wide block) instead of vertically.
+    const singleLine = this.props.wrapSequence === false && seq.length > 0;
+
     return (
       seqBlocks.length && (
         <InfiniteScroll
           blockHeights={blockHeights}
           bpsPerBlock={bpsPerBlock}
           seqBlocks={seqBlocks}
+          singleLine={singleLine}
           size={size}
           totalHeight={blockHeights.reduce((acc, h) => acc + h, 0)}
         />

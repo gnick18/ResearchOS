@@ -203,6 +203,41 @@ class SeqViewerContainer extends React.Component<SeqViewerContainerProps, SeqVie
     }
     bpsPerBlock = Math.max(1, bpsPerBlock);
 
+    // ── RESEARCHOS MODIFICATION (wrap toggle bot) ────────────────────────────
+    // SINGLE-LINE (UNWRAPPED) mode. When the host passes `wrapSequence === false`
+    // we render the WHOLE sequence as ONE block at a FIXED, readable character
+    // width (driven by the host's `singleLineCharWidth`, mapped from the zoom
+    // knob) instead of chunking it into vertically-stacked rows. We do this by
+    // (1) making bpsPerBlock == seq.length (Linear.render then produces a single
+    // SeqBlock) and (2) overriding size.width to seq.length * charWidth so the
+    // block is wider than the container; the scroller (style.ts) then scrolls
+    // HORIZONTALLY. SeqBlock positions every element with charWidth on the x axis
+    // and widths as size.width * (span / bpsPerBlock) == span * charWidth, so the
+    // ruler, features, translations, primers and enzymes all stay consistent on
+    // the single row. WRAPPED mode (the `else` path) is byte-identical to before.
+    const singleLine = this.props.wrapSequence === false && seq.length > 0;
+    if (singleLine) {
+      const cw =
+        typeof this.props.singleLineCharWidth === "number" && this.props.singleLineCharWidth > 0
+          ? this.props.singleLineCharWidth
+          : 7.2; // CHAR_WIDTH fallback
+      bpsPerBlock = seq.length; // one block: the whole sequence on one row
+      size.width = Math.max(1, seq.length * cw); // wider than the container -> x-scroll
+      const charWidth = cw;
+      const lineHeight = 1.4 * seqFontSize;
+      const elementHeight = 16;
+      return {
+        ...this.props,
+        bpsPerBlock,
+        charWidth,
+        elementHeight,
+        lineHeight,
+        seqFontSize,
+        size,
+        zoom: { linear: zoom },
+      };
+    }
+
     if (size.width && bpsPerBlock < seq.length) {
       size.width -= 28; // -28 px for the padding (10px) + scroll bar (18px)
     }
