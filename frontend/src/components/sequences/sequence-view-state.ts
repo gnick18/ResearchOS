@@ -30,6 +30,12 @@ export interface SequenceViewState {
    *  false => use the molecule's own topology (circular plasmids show the
    *  circular+linear "both" view). The topology toggle in the rail flips this. */
   forceLinear: boolean;
+  /** seq nav bot — the linear viewer zoom (0-100), wired straight to SeqViz's
+   *  `zoom.linear`. null => "auto": use the length-aware initial zoom. Once the
+   *  user touches the zoom control this becomes a concrete number. */
+  linearZoom: number | null;
+  /** seq nav bot — the circular viewer zoom (0-100), wired to `zoom.circular`. */
+  circularZoom: number;
 }
 
 /** The CALM default: features + ruler visible, every heavier layer off. */
@@ -44,6 +50,8 @@ export const DEFAULT_VIEW_STATE: SequenceViewState = {
   showIndex: true,
   showPrimers: false,
   forceLinear: false,
+  linearZoom: null,
+  circularZoom: 0,
 };
 
 /** A small, common enzyme set surfaced by the simple "Show cut sites" toggle.

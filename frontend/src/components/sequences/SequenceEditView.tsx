@@ -60,6 +60,13 @@ import {
   COMMON_ENZYMES,
   type SequenceViewState,
 } from "./sequence-view-state";
+import SequenceZoomControl from "./SequenceZoomControl";
+import SequenceOverviewBar, { type OverviewFeature } from "./SequenceOverviewBar";
+import {
+  initialLinearZoom,
+  viewportWindow,
+  bpToScrollTop,
+} from "@/lib/sequences/sequence-zoom";
 
 const SeqViz = dynamic(() => import("@/vendor/seqviz"), {
   ssr: false,
@@ -382,11 +389,109 @@ export default function SequenceEditView({
   // linear; a genuinely linear molecule always renders linear.
   const viewer = doc.circular && !view.forceLinear ? "both" : "linear";
 
-  // Crude length-based auto-zoom default (carried over from the old read view so
-  // long contigs open at the legible overview "map" instead of unreadable
-  // base-level). A real zoom control is the NEXT chip; this just sets the
-  // initial linear zoom. SeqViz renders the overview map at linear zoom <= 5.
-  const linearZoom = useMemo(() => ((doc.seq.length ?? 0) > 5000 ? 2 : 50), [doc.seq.length]);
+  // seq nav bot — SEAMLESS ZOOM. The effective linear zoom is the user's chosen
+  // value, or (until they touch the control) a length-aware "fit-ish" initial
+  // zoom: large contigs open at the whole-sequence overview MAP, small plasmids
+  // open at base level. This replaces the crude `>5000 bp -> linear 2` stand-in.
+  const autoLinearZoom = useMemo(() => initialLinearZoom(doc.seq.length ?? 0), [doc.seq.length]);
+  const linearZoom = view.linearZoom ?? autoLinearZoom;
+  const isLinearViewer = viewer === "linear";
+
+  // The bp window currently visible in the main linear viewer, for the overview
+  // bar's viewport box. Two-way sync: we read the SeqViz linear scroller's live
+  // geometry (it stacks rows + scrolls vertically, so the visible vertical
+  // fraction == the visible bp fraction). Updated on scroll/zoom/resize.
+  const viewerRef = useRef<HTMLDivElement | null>(null);
+  const scrollerRef = useRef<HTMLElement | null>(null);
+  const [overviewWindow, setOverviewWindow] = useState<{ start: number; end: number }>({
+    start: 0,
+    end: doc.seq.length,
+  });
+
+  const recomputeWindow = useCallback(() => {
+    const sc = scrollerRef.current;
+    if (!sc) return;
+    setOverviewWindow(
+      viewportWindow({
+        scrollTop: sc.scrollTop,
+        scrollHeight: sc.scrollHeight,
+        clientHeight: sc.clientHeight,
+        seqLength: doc.seq.length,
+      }),
+    );
+  }, [doc.seq.length]);
+
+  // Locate the SeqViz linear scroller inside our viewer container and wire a
+  // scroll listener + resize observer. SeqViz re-renders its scroll subtree on
+  // zoom/seq changes, so we re-locate after those (effect deps below).
+  useEffect(() => {
+    if (!isLinearViewer) {
+      scrollerRef.current = null;
+      return;
+    }
+    let raf = 0;
+    let sc: HTMLElement | null = null;
+    const onScroll = () => recomputeWindow();
+    const attach = () => {
+      const found = viewerRef.current?.querySelector<HTMLElement>(".la-vz-linear-scroller") ?? null;
+      if (found && found !== sc) {
+        if (sc) sc.removeEventListener("scroll", onScroll);
+        sc = found;
+        scrollerRef.current = sc;
+        sc.addEventListener("scroll", onScroll, { passive: true });
+        recomputeWindow();
+      }
+      raf = requestAnimationFrame(attach);
+    };
+    raf = requestAnimationFrame(attach);
+    const ro = new ResizeObserver(() => recomputeWindow());
+    if (viewerRef.current) ro.observe(viewerRef.current);
+    return () => {
+      cancelAnimationFrame(raf);
+      if (sc) sc.removeEventListener("scroll", onScroll);
+      ro.disconnect();
+    };
+  }, [isLinearViewer, recomputeWindow, sequence.id, linearZoom]);
+
+  // Drag the overview viewport box -> scroll the main view so `bp` is at top.
+  const scrollMainToBp = useCallback(
+    (bp: number) => {
+      const sc = scrollerRef.current;
+      if (!sc) return;
+      sc.scrollTop = bpToScrollTop({
+        bp,
+        scrollHeight: sc.scrollHeight,
+        clientHeight: sc.clientHeight,
+        seqLength: doc.seq.length,
+      });
+      recomputeWindow();
+    },
+    [doc.seq.length, recomputeWindow],
+  );
+
+  // Features projected to the overview bar (whole sequence, as arrows). Uses the
+  // same visibility filtering as the main map so hidden types stay hidden.
+  const overviewFeatures: OverviewFeature[] = useMemo(
+    () =>
+      docAnnotations
+        .filter((a) =>
+          isFeatureVisible(view, {
+            name: a.name,
+            type: a.type,
+            start: a.start,
+            end: a.end,
+            strand: a.direction === -1 ? -1 : 1,
+          }),
+        )
+        .map((a) => ({
+          name: a.name,
+          start: a.start,
+          end: a.end,
+          direction: (a.direction === -1 ? -1 : 1) as 1 | -1,
+          color: a.color,
+        })),
+    [docAnnotations, view],
+  );
 
   const handleSave = useCallback(async () => {
     if (readOnly || !onSave) return;
@@ -834,17 +939,40 @@ export default function SequenceEditView({
             </ToolbarButton>
           </>
         ) : null}
-        <div className="ml-auto pr-1 text-xs text-gray-400">
-          {doc.seq.length.toLocaleString()} bp
-          {!readOnly && dirty ? <span className="ml-2 text-amber-500">• unsaved</span> : null}
-          {readOnly ? <span className="ml-2 text-gray-400">Read-only</span> : null}
+        {/* seq nav bot — seamless zoom control. Drives SeqViz's linear/circular
+            zoom knob; the Fit/Map button snaps to the whole-sequence overview. */}
+        <div className="ml-auto flex items-center gap-3 pr-1">
+          <SequenceZoomControl
+            axis={isLinearViewer ? "linear" : "circular"}
+            zoom={isLinearViewer ? linearZoom : view.circularZoom}
+            onZoomChange={(z) =>
+              setView((v) => (isLinearViewer ? { ...v, linearZoom: z } : { ...v, circularZoom: z }))
+            }
+          />
+          <div className="text-xs text-gray-400">
+            {doc.seq.length.toLocaleString()} bp
+            {!readOnly && dirty ? <span className="ml-2 text-amber-500">• unsaved</span> : null}
+            {readOnly ? <span className="ml-2 text-gray-400">Read-only</span> : null}
+          </div>
         </div>
       </div>
 
       {/* Icon rail + editable viewer + features/display panel */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <ViewControlRail view={view} onViewChange={setView} circular={doc.circular} featureTypes={featureTypes} />
-        <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          {/* seq nav bot — persistent overview / context bar (linear only). A
+              custom SVG mini-map of the WHOLE sequence + a draggable viewport
+              box that both reflects and controls the main view (two-way sync). */}
+          {isLinearViewer ? (
+            <SequenceOverviewBar
+              seqLength={doc.seq.length}
+              features={overviewFeatures}
+              window={overviewWindow}
+              onScrollToBp={scrollMainToBp}
+            />
+          ) : null}
+          <div ref={viewerRef} className="min-h-0 min-w-0 flex-1 overflow-hidden">
           <SeqViz
             key={sequence.id}
             name={sequence.locus_name || sequence.display_name}
@@ -855,7 +983,7 @@ export default function SequenceEditView({
             enzymes={enzymes}
             primers={primers}
             viewer={viewer}
-            zoom={{ linear: linearZoom }}
+            zoom={{ linear: linearZoom, circular: view.circularZoom }}
             editable={!readOnly}
             onEdit={requestEdit}
             onAnnotationDoubleClick={handleAnnotationDoubleClick}
@@ -870,6 +998,7 @@ export default function SequenceEditView({
             disableExternalFonts
             style={{ height: "100%", width: "100%" }}
           />
+          </div>
         </div>
         {/* FEATURES LIST = ON-DEMAND: rendered only when the toolbar toggle is on.
             Default view is a clean full-width map + the left view-control rail. */}
