@@ -7,6 +7,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import AppFooter from "@/components/AppFooter";
 import AccountPasswordPopup from "@/components/AccountPasswordPopup";
+import DataSetupScreen from "@/components/DataSetupScreen";
+import UserLoginScreen from "@/components/UserLoginScreen";
 import ImportExperimentDialog from "@/components/ImportExperimentDialog";
 import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
 import Tooltip from "@/components/Tooltip";
@@ -178,7 +180,7 @@ function normalizeSettingsTab(
 }
 
 function SettingsBody() {
-  const { currentUser, isConnected } = useFileSystem();
+  const { currentUser, isConnected, directoryName } = useFileSystem();
   const hydrateFromSettings = useAppStore((s) => s.hydrateFromSettings);
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -191,6 +193,11 @@ function SettingsBody() {
   const [recentlySaved, setRecentlySaved] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
   const [pwExists, setPwExists] = useState<boolean | null>(null);
+  // floating-cluster-split bot (2026-06-02): the Data-folder + Switch-user
+  // CONFIG actions relocated here from the AppShell floating cluster. Each
+  // opens the same self-contained modal/screen the floating buttons used.
+  const [showDataSetup, setShowDataSetup] = useState(false);
+  const [showUserSwitch, setShowUserSwitch] = useState(false);
 
   // Lab-mode users see a Personal / Lab Mode tab strip; solos see the
   // original single-stream Settings layout. The gate mirrors the Lab
@@ -481,6 +488,14 @@ function SettingsBody() {
             half-typed display-name draft to user B. */}
         {(!isLabMode || activeTab === "personal") && (
           <>
+            <DataFolderSection
+              directoryName={directoryName}
+              onConnectOrSwitch={() => setShowDataSetup(true)}
+            />
+            <AccountSection
+              currentUser={currentUser}
+              onSwitchUser={() => setShowUserSwitch(true)}
+            />
             <ProfileSection
               key={`profile-${currentUser}`}
               settings={settings}
@@ -521,6 +536,23 @@ function SettingsBody() {
           onClose={() => {
             setPwOpen(false);
             void refreshPwExists();
+          }}
+        />
+      )}
+
+      {/* Data folder + Switch user modals (floating-cluster-split bot,
+          2026-06-02). Relocated verbatim from the AppShell floating
+          cluster — same DataSetupScreen / UserLoginScreen, same
+          invalidate-on-login behavior — so no capability is lost. */}
+      <DataSetupScreen
+        isOpen={showDataSetup}
+        onClose={() => setShowDataSetup(false)}
+      />
+      {showUserSwitch && (
+        <UserLoginScreen
+          onLogin={() => {
+            setShowUserSwitch(false);
+            queryClient.invalidateQueries();
           }}
         />
       )}
@@ -727,6 +759,108 @@ function SectionShell({
         <div className="space-y-4">{children}</div>
       </SectionMatchProvider>
     </section>
+  );
+}
+
+// ── Data folder ─────────────────────────────────────────────────────────────
+//
+// floating-cluster-split bot (2026-06-02): relocated from the AppShell floating
+// cluster. Beta feedback flagged the cluster as overloaded with CONFIG actions
+// that belong in Settings; connecting / switching the on-disk data folder is
+// exactly that. The button opens the same DataSetupScreen the floating folder
+// icon used, so no capability changed — only its home.
+
+function DataFolderSection({
+  directoryName,
+  onConnectOrSwitch,
+}: {
+  directoryName: string | null;
+  onConnectOrSwitch: () => void;
+}) {
+  return (
+    <SectionShell
+      title="Data folder"
+      description="The local folder where this app reads and writes all your lab data. Connect a folder or point the app at a different one."
+      searchKeywords="data folder directory connect switch research storage disk location"
+    >
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-sm text-gray-800">
+            Connected folder:{" "}
+            <span className={directoryName ? "font-medium text-gray-900" : "text-gray-500"}>
+              {directoryName ?? "none"}
+            </span>
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            Switching folders does not move or delete any files; it only changes
+            which folder the app is pointed at.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onConnectOrSwitch}
+          className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+        >
+          Connect or switch folder
+        </button>
+      </div>
+    </SectionShell>
+  );
+}
+
+// ── Account (switch user) ───────────────────────────────────────────────────
+//
+// floating-cluster-split bot (2026-06-02): relocated from the AppShell floating
+// cluster. The avatar button that switched the signed-in user was a CONFIG
+// action, not a quick-action, so it moves here. Opens the same UserLoginScreen
+// the floating button used. The `user-picker-button` tour target rides along on
+// the new button so any walkthrough anchoring keeps resolving.
+
+function AccountSection({
+  currentUser,
+  onSwitchUser,
+}: {
+  currentUser: string | null;
+  onSwitchUser: () => void;
+}) {
+  return (
+    <SectionShell
+      title="Account"
+      description="The user you are currently signed in as inside this app. Switch to another user in this folder, or sign in / out."
+      searchKeywords="account user switch sign in sign out login logout profile"
+    >
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          {currentUser ? (
+            <UserAvatar username={currentUser} size="sm" />
+          ) : (
+            <span className="inline-flex w-9 h-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 text-sm font-semibold">
+              ?
+            </span>
+          )}
+          <div className="min-w-0">
+            <p className="text-sm text-gray-800">
+              Signed in as{" "}
+              <span className={currentUser ? "font-medium text-gray-900" : "text-gray-500"}>
+                {currentUser ?? "no one"}
+              </span>
+              .
+            </p>
+            <p className="text-xs text-gray-400 mt-1">
+              Same picker as the app login screen.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onSwitchUser}
+          data-tour-target="user-picker-button"
+          className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+        >
+          Switch user
+        </button>
+      </div>
+    </SectionShell>
   );
 }
 

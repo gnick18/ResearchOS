@@ -3,7 +3,6 @@
 import Link from "@/components/FixtureLink";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import DailyTasksSidebar from "./DailyTasksSidebar";
 import CalendarSidebar from "./CalendarSidebar";
 import TelegramStatusBadge from "./TelegramStatusBadge";
@@ -16,7 +15,6 @@ import TelegramRecoveryPrompt from "./TelegramRecoveryPrompt";
 import TelegramEncryptedRecoveryPrompt from "./TelegramEncryptedRecoveryPrompt";
 import IdlePasswordWipe from "./IdlePasswordWipe";
 import Tooltip from "./Tooltip";
-import UserAvatar from "./UserAvatar";
 import FeedbackButton from "./FeedbackButton";
 import BetaDonationButton from "./BetaDonationButton";
 import CalculatorsButton from "./CalculatorsButton";
@@ -24,8 +22,6 @@ import DevTestNotificationButton from "./DevTestNotificationButton";
 import DevDemoToggleButton from "./DevDemoToggleButton";
 import DevBeakerBotGalleryButton from "./DevBeakerBotGalleryButton";
 import DevForceWalkthroughButton from "./DevForceWalkthroughButton";
-import DataSetupScreen from "./DataSetupScreen";
-import UserLoginScreen from "./UserLoginScreen";
 import FeedbackModal from "./FeedbackModal";
 import BeakerBot from "./BeakerBot";
 import { useShowcaseUnlock } from "./showcase/useShowcaseUnlock";
@@ -51,7 +47,6 @@ const SETTINGS_HREF = "/settings";
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const queryClient = useQueryClient();
   const visibleTabs = useAppStore((s) => s.visibleTabs);
   const coloredHeader = useAppStore((s) => s.coloredHeader);
   const { currentUser } = useFileSystem();
@@ -69,11 +64,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     () => deriveVisibleTabs(featurePicks ?? null, visibleTabs),
     [featurePicks, visibleTabs],
   );
-
-  // Floating-cluster state lives in AppShell so the cluster is available
-  // on every AppShell-wrapped route — no per-page duplication.
-  const [showDataSetup, setShowDataSetup] = useState(false);
-  const [showUserSwitch, setShowUserSwitch] = useState(false);
 
   // Phase S2 bootstrap (Streak-and-Milestones, see proposal §4.2 / §5).
   // `installStreakActivityTracking` is idempotent — it registers the
@@ -634,55 +624,22 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
         <CalculatorsButton />
 
-        <Tooltip label="Data folder · connect or switch" placement="top">
-          <button
-            onClick={() => setShowDataSetup(true)}
-            aria-label="Open data folder settings"
-            className="pointer-events-auto w-12 h-12 rounded-full bg-white border border-gray-200 shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center text-gray-600 hover:text-gray-900"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-            </svg>
-          </button>
-        </Tooltip>
-
-        <Tooltip
-          label={`Switch user${currentUser ? ` (now: ${currentUser})` : ""}`}
-          placement="top"
-        >
-          <button
-            onClick={() => setShowUserSwitch(true)}
-            aria-label="Switch user"
-            data-tour-target="user-picker-button"
-            className="pointer-events-auto w-12 h-12 rounded-full bg-white border border-gray-200 shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center"
-          >
-            {currentUser ? (
-              <UserAvatar username={currentUser} size="sm" />
-            ) : (
-              <span className="text-gray-500 text-sm font-semibold">?</span>
-            )}
-          </button>
-        </Tooltip>
+        {/* floating-cluster-split bot (2026-06-02): the Data-folder and
+            Switch-user CONFIG actions used to live here as floating
+            buttons. Beta feedback flagged the cluster as overloaded with
+            config that belongs in Settings, so both moved to dedicated
+            Settings sections (Data folder + Account → /settings). Nothing
+            was removed — only relocated. The cluster now carries genuine
+            quick-actions only: Calculators, Report bug, Donate. */}
 
         <FeedbackButton onClick={openBugReport} />
 
         <BetaDonationButton />
       </div>
 
-      {/* Modals owned by the cluster */}
-      <DataSetupScreen
-        isOpen={showDataSetup}
-        onClose={() => setShowDataSetup(false)}
-      />
-
-      {showUserSwitch && (
-        <UserLoginScreen
-          onLogin={() => {
-            setShowUserSwitch(false);
-            queryClient.invalidateQueries();
-          }}
-        />
-      )}
+      {/* Data-folder + Switch-user modals moved to /settings (floating-
+          cluster-split bot, 2026-06-02). They are now owned by the Data
+          folder and Account sections on the Settings page. */}
 
       <FeedbackModal
         isOpen={showBugReport}
