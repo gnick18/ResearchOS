@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import RadioCard from "./RadioCard";
 import type { SetupStepProps } from "./types";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { patchUserSettings } from "@/lib/settings/user-settings";
+import { hasPassword, setPassword } from "@/lib/auth/password";
 
 /**
  * Q1c: lab head follow-up. Only fires when the user picked "Lab" on
@@ -15,6 +16,19 @@ import { patchUserSettings } from "@/lib/settings/user-settings";
  * walkthrough cluster was retired in #186; both answers complete the
  * same universal walkthrough plus any conditional walkthroughs they
  * opted into.
+ *
+ * pi-password bot (2026-06-02): MANDATORY PI PASSWORD. A lab_head (PI)
+ * account is privileged — it can post lab-wide announcements, approve
+ * purchases, and read audit trails across the lab. We now REQUIRE the
+ * PI to set an account password here before they can move on. When the
+ * user picks "Yes, I run this lab" a set + confirm password block
+ * appears and Next stays disabled until a valid password is saved to
+ * `users/<username>/_auth.json` via `setPassword`. Picking "No, I'm a
+ * member" hides the block and clears the requirement (members keep the
+ * optional-password behavior; only PIs are forced). If the PI already
+ * has a password (e.g. they back-stepped, or set one earlier from the
+ * login screen) we detect it via `hasPassword` and treat the gate as
+ * satisfied without re-prompting.
  *
  * Walkthrough audit fix manager (2026-05-25): rewrote the prose +
  * radio descriptions to drop the stale "Lab Overview tour" framing.
@@ -45,6 +59,8 @@ import { patchUserSettings } from "@/lib/settings/user-settings";
  * gates the rest of the app already reads. Settings → Account type
  * remains the canonical post-onboarding mutator; Q1c just seeds it.
  */
+const MIN_PASSWORD_LENGTH = 4;
+
 export default function Q1cLabHeadStep({
   sidecar,
   setNextDisabled,
@@ -54,9 +70,45 @@ export default function Q1cLabHeadStep({
   const current = picks?.lab_head;
   const { currentUser } = useCurrentUser();
 
+  // PI password gate state. `passwordSaved` flips true once a password
+  // exists on disk for this user (either set here or detected via
+  // hasPassword on mount / re-render). It is the single source of truth
+  // for whether the mandatory-password requirement is satisfied.
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordSaved, setPasswordSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  // On mount (and whenever the user changes), check whether a password
+  // already exists. A back-stepping PI who set one a moment ago should
+  // not be forced to re-enter it; the gate is already satisfied.
   useEffect(() => {
-    setNextDisabled(current === undefined);
-  }, [current, setNextDisabled]);
+    let cancelled = false;
+    if (!currentUser) return;
+    void (async () => {
+      try {
+        const exists = await hasPassword(currentUser);
+        if (!cancelled && exists) setPasswordSaved(true);
+      } catch {
+        // Read failure: leave passwordSaved as-is. The PI can still set
+        // a password below; we never want a transient FS error to let a
+        // PI through with no password OR to wrongly claim one exists.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser]);
+
+  // A lab_head pick requires a saved password; a member pick does not.
+  // Solo users never reach this step. Next stays disabled until the
+  // answer is made AND, for PIs, a password is on disk.
+  useEffect(() => {
+    const answered = current !== undefined;
+    const piNeedsPassword = current === true && !passwordSaved;
+    setNextDisabled(!answered || piNeedsPassword);
+  }, [current, passwordSaved, setNextDisabled]);
 
   const handleChange = (next: boolean) => {
     void patchSidecar((cur) => {
@@ -77,6 +129,36 @@ export default function Q1cLabHeadStep({
       }).catch((err) => {
         console.warn("[Q1cLabHeadStep] patchUserSettings failed", err);
       });
+    }
+  };
+
+  const handleSavePassword = async () => {
+    setPasswordError(null);
+    if (!currentUser) {
+      setPasswordError("No active account. Reload and try again.");
+      return;
+    }
+    if (newPassword.length < MIN_PASSWORD_LENGTH) {
+      setPasswordError(
+        `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
+      );
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError("Passwords do not match.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await setPassword(currentUser, newPassword);
+      setPasswordSaved(true);
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      console.error("[Q1cLabHeadStep] setPassword failed", err);
+      setPasswordError("Failed to save password. Please try again.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -109,6 +191,137 @@ export default function Q1cLabHeadStep({
           description="Someone else runs this lab. Keep me as a member."
         />
       </div>
+
+      {/* Mandatory PI password. Only shown once the user confirms they
+          run the lab. The PI role is privileged, so we require a
+          password before letting them proceed. */}
+      {current === true && (
+        <div
+          data-testid="q1c-pi-password-block"
+          className="rounded-lg border border-amber-200 bg-amber-50/60 p-4 space-y-3"
+        >
+          <div className="flex items-start gap-2">
+            <span aria-hidden className="mt-0.5 text-amber-600">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="3" y="11" width="18" height="11" rx="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+            </span>
+            <div className="text-sm text-gray-700 leading-relaxed">
+              <p className="font-medium text-gray-800">
+                Set a PI password
+              </p>
+              <p className="text-xs text-gray-600 mt-0.5">
+                Because the PI account can post lab-wide announcements
+                and approve purchases, a password is required. You will
+                enter it each time you sign in to this account.
+              </p>
+            </div>
+          </div>
+
+          {passwordSaved ? (
+            <div
+              data-testid="q1c-pi-password-saved"
+              className="flex items-center gap-2 rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2"
+            >
+              <span aria-hidden className="text-emerald-600">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+              </span>
+              <p className="text-xs text-emerald-800 font-medium">
+                Password set. You can continue.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div>
+                <label
+                  htmlFor="q1c-pi-password"
+                  className="block text-xs font-medium text-gray-600 mb-1"
+                >
+                  Password
+                </label>
+                <input
+                  id="q1c-pi-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  autoComplete="new-password"
+                  data-testid="q1c-pi-password-input"
+                  className="w-full px-3 py-2 text-sm rounded-md border border-amber-300 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="q1c-pi-password-confirm"
+                  className="block text-xs font-medium text-gray-600 mb-1"
+                >
+                  Confirm password
+                </label>
+                <input
+                  id="q1c-pi-password-confirm"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void handleSavePassword();
+                  }}
+                  autoComplete="new-password"
+                  data-testid="q1c-pi-password-confirm-input"
+                  className="w-full px-3 py-2 text-sm rounded-md border border-amber-300 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                />
+              </div>
+              {passwordError && (
+                <p
+                  data-testid="q1c-pi-password-error"
+                  className="text-xs text-red-600"
+                >
+                  {passwordError}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => void handleSavePassword()}
+                disabled={saving}
+                data-testid="q1c-pi-password-save"
+                className="w-full px-3 py-2 text-sm font-medium rounded-md bg-amber-600 text-white hover:bg-amber-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+              >
+                {saving ? "Saving…" : "Set password"}
+              </button>
+              <p className="text-[11px] text-gray-500 leading-relaxed">
+                Stored only on your disk, hashed with PBKDF2-SHA-256.
+                Never sent to any server. If you forget it, delete
+                {" "}
+                <code className="px-1 py-0.5 bg-gray-100 rounded">
+                  _auth.json
+                </code>{" "}
+                from your user folder to reset.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

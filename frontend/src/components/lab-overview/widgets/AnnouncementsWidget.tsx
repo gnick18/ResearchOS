@@ -18,9 +18,7 @@ import {
 } from "@/lib/lab/pi-actions";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAccountType } from "@/hooks/useAccountType";
-import { useEditSession } from "@/hooks/useEditSession";
 import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
-import RequestEditButton from "@/components/RequestEditButton";
 import Tooltip from "@/components/Tooltip";
 import UserAvatar from "@/components/UserAvatar";
 
@@ -29,16 +27,19 @@ import UserAvatar from "@/components/UserAvatar";
  * surface for the Lab Inbox.
  *
  * Two modes:
- *   - PI view: composer (gated by Phase 5 session edit mode) + list of
- *     own + others' announcements, with Pin / Edit / Delete on own entries.
+ *   - PI view: composer + list of own + others' announcements, with
+ *     Pin / Edit / Delete on own entries.
  *   - Member view: read-only list, pinned announcements floated to top.
  *
- * The composer's "Post" button is enabled only when:
- *   1. the active user has account_type === "lab_head"
- *   2. the Phase 5 edit session is unlocked for the active user
- *
- * Otherwise the composer renders disabled with a Request Edit affordance
- * so the PI can unlock in-place.
+ * pi-password bot (2026-06-02): the announcement composer no longer
+ * sits behind the lab-head EDIT SESSION (useEditSession +
+ * LabHeadPasswordModal "unlock edit mode"). PI accounts now require a
+ * password at LOGIN, so a signed-in lab head is already authenticated;
+ * gating announcements behind a second time-windowed unlock was
+ * redundant. The composer stays strictly lab_head-only (the
+ * `account_type === "lab_head"` gate below is unchanged) and posts
+ * directly. The edit session still gates every OTHER PI surface
+ * (purchases / tasks / notes / roster) — only this composer was freed.
  */
 export const LAB_ANNOUNCEMENTS_QUERY_KEY = ["lab-announcements"] as const;
 
@@ -52,15 +53,10 @@ export default function AnnouncementsWidget(_props?: {
 }) {
   const { currentUser } = useCurrentUser();
   const accountType = useAccountType(currentUser);
-  const session = useEditSession();
   const queryClient = useQueryClient();
   const profileMap = useLabUserProfileMap();
 
   const isLabHead = accountType === "lab_head";
-  const sessionUnlocked =
-    session.state === "unlocked" &&
-    session.active?.username === currentUser &&
-    isLabHead;
 
   const { data: announcements = [], isLoading } = useQuery({
     queryKey: LAB_ANNOUNCEMENTS_QUERY_KEY,
@@ -89,8 +85,6 @@ export default function AnnouncementsWidget(_props?: {
       {isLabHead && (
         <Composer
           username={currentUser ?? ""}
-          sessionUnlocked={sessionUnlocked}
-          sessionId={sessionUnlocked ? (session.active?.id ?? null) : null}
           onPosted={() => {
             void queryClient.invalidateQueries({ queryKey: LAB_ANNOUNCEMENTS_QUERY_KEY });
           }}
@@ -129,8 +123,8 @@ export default function AnnouncementsWidget(_props?: {
                 authorIsLabHead={
                   profileMap[entry.author]?.account_type === "lab_head"
                 }
-                canEdit={isLabHead && currentUser === entry.author && sessionUnlocked}
-                sessionId={sessionUnlocked ? (session.active?.id ?? null) : null}
+                canEdit={isLabHead && currentUser === entry.author}
+                sessionId={null}
                 onMutated={() => {
                   void queryClient.invalidateQueries({
                     queryKey: LAB_ANNOUNCEMENTS_QUERY_KEY,
@@ -149,12 +143,10 @@ export default function AnnouncementsWidget(_props?: {
 
 interface ComposerProps {
   username: string;
-  sessionUnlocked: boolean;
-  sessionId: string | null;
   onPosted: () => void;
 }
 
-function Composer({ username, sessionUnlocked, sessionId, onPosted }: ComposerProps) {
+function Composer({ username, onPosted }: ComposerProps) {
   const [text, setText] = useState("");
   const [pinned, setPinned] = useState(false);
   const [posting, setPosting] = useState(false);
@@ -166,7 +158,7 @@ function Composer({ username, sessionUnlocked, sessionId, onPosted }: ComposerPr
   const composerRef = useRef<HTMLDivElement | null>(null);
   const [restoredDraftSignal, setRestoredDraftSignal] = useState(0);
 
-  const canPost = sessionUnlocked && text.trim().length > 0 && !posting;
+  const canPost = text.trim().length > 0 && !posting;
 
   // Mira Batch 1 polish (2026-05-23): persist the in-progress draft so
   // accidental navigation (or a hard refresh while the PI is composing)
@@ -219,17 +211,20 @@ function Composer({ username, sessionUnlocked, sessionId, onPosted }: ComposerPr
   // Browser-level unsaved-changes prompt — fires on tab close / hard
   // navigation only when the composer has typed text the user hasn't
   // posted yet.
-  useUnsavedChangesGuard(hasDraft && sessionUnlocked && !posting);
+  useUnsavedChangesGuard(hasDraft && !posting);
 
   const handlePost = async () => {
-    if (!canPost || !sessionId) return;
+    if (!canPost) return;
     setPosting(true);
     try {
+      // pi-password bot (2026-06-02): no sessionId — the edit-session
+      // gate was removed from this composer. postAnnouncement skips the
+      // lab-audit entry when sessionId is omitted; attribution still
+      // lives on entry.author.
       const entry = await postAnnouncement({
         author: username,
         text: text.trim(),
         pinned,
-        sessionId,
       });
       // Notify every other lab member.
       await dispatchAnnouncementNotifications({
@@ -257,13 +252,11 @@ function Composer({ username, sessionUnlocked, sessionId, onPosted }: ComposerPr
       <textarea
         className="w-full min-h-[60px] text-sm rounded-md border border-emerald-300 px-3 py-2 bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-50 disabled:text-gray-400"
         placeholder={
-          sessionUnlocked
-            ? "Share an update with the lab — e.g. \"Lab meeting Friday 2pm, bring strain design notes.\""
-            : "Unlock edit mode to post a lab announcement…"
+          "Share an update with the lab — e.g. \"Lab meeting Friday 2pm, bring strain design notes.\""
         }
         value={text}
         onChange={(e) => setText(e.target.value)}
-        disabled={!sessionUnlocked || posting}
+        disabled={posting}
         data-testid="lab-announcement-composer-textarea"
       />
       <div className="flex items-center justify-between gap-2">
@@ -273,27 +266,19 @@ function Composer({ username, sessionUnlocked, sessionId, onPosted }: ComposerPr
             className="rounded text-emerald-600 focus:ring-emerald-500"
             checked={pinned}
             onChange={(e) => setPinned(e.target.checked)}
-            disabled={!sessionUnlocked || posting}
+            disabled={posting}
           />
           Pin to top
         </label>
-        {sessionUnlocked ? (
-          <button
-            type="button"
-            onClick={handlePost}
-            disabled={!canPost}
-            className="px-3 py-1.5 rounded-md bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-            data-testid="lab-announcement-composer-post"
-          >
-            {posting ? "Posting…" : "Post announcement"}
-          </button>
-        ) : (
-          <RequestEditButton
-            username={username}
-            targetLabel="lab announcements"
-            variant="primary"
-          />
-        )}
+        <button
+          type="button"
+          onClick={handlePost}
+          disabled={!canPost}
+          className="px-3 py-1.5 rounded-md bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          data-testid="lab-announcement-composer-post"
+        >
+          {posting ? "Posting…" : "Post announcement"}
+        </button>
       </div>
     </div>
   );
@@ -338,16 +323,19 @@ function AnnouncementCard({
   }, [entry.id, entry.text]);
 
   const handleSave = async () => {
-    if (!sessionId || draft.trim().length === 0) return;
+    if (draft.trim().length === 0) return;
     setBusy(true);
     try {
       const nextText = draft.trim();
       const textChanged = nextText !== entry.text;
+      // pi-password bot (2026-06-02): sessionId may be null now that the
+      // edit-session gate was removed from this surface. updateAnnouncement
+      // skips the lab-audit row when it's omitted.
       await updateAnnouncement({
         id: entry.id,
         author: entry.author,
         text: nextText,
-        sessionId,
+        sessionId: sessionId ?? undefined,
       });
       // Mira Batch 1 polish (2026-05-23): when the body text changes,
       // re-emit a refreshed preview into every recipient's bell row so
@@ -370,14 +358,13 @@ function AnnouncementCard({
   };
 
   const handleTogglePin = async () => {
-    if (!sessionId) return;
     setBusy(true);
     try {
       await updateAnnouncement({
         id: entry.id,
         author: entry.author,
         pinned: !entry.pinned,
-        sessionId,
+        sessionId: sessionId ?? undefined,
       });
       onMutated();
     } catch (err) {
@@ -388,7 +375,6 @@ function AnnouncementCard({
   };
 
   const handleDelete = async () => {
-    if (!sessionId) return;
     // FOLLOW-UP (mira-batch1): the project's only "styled confirm" lives
     // local to LabRoster.tsx — not yet a shared primitive. Until one
     // lands, fall back to the native confirm() so the destructive path
@@ -396,7 +382,11 @@ function AnnouncementCard({
     if (!confirm("Delete this announcement? Everyone in the lab will lose access to it.")) return;
     setBusy(true);
     try {
-      await deleteAnnouncement({ id: entry.id, author: entry.author, sessionId });
+      await deleteAnnouncement({
+        id: entry.id,
+        author: entry.author,
+        sessionId: sessionId ?? undefined,
+      });
       // Mira Batch 1 polish (2026-05-23): purge the orphaned bell rows
       // that referenced this announcement so the inbox counter and the
       // announcements list stay aligned. Prior to this, clicking a
@@ -623,11 +613,12 @@ function mostRecentN(
  *   - Member surface: the original 3-card mini-stack (members can't
  *     post, so a compose box would be a tease).
  *
- * Session gate mirrors the popup composer: if the PI's edit session
- * is locked, the textarea + Post button render disabled and a
- * `<RequestEditButton>` swaps in. We keep the same draft-persistence
- * key so a draft typed on the tile survives navigating to the popup
- * and back (the popup composer reads the same `draftKey`).
+ * pi-password bot (2026-06-02): the edit-session gate was removed from
+ * this tile composer alongside the popup composer. A signed-in lab head
+ * is already password-authenticated at login, so the textarea + Post
+ * button are always live for a PI. We keep the same draft-persistence
+ * key so a draft typed on the tile survives navigating to the popup and
+ * back (the popup composer reads the same `draftKey`).
  */
 export function SnapshotTile(_props: SnapshotTileProps) {
   const profileMap = useLabUserProfileMap();
@@ -731,11 +722,7 @@ function SnapshotComposer({
   username: string;
   weekCount: number;
 }) {
-  const session = useEditSession();
   const queryClient = useQueryClient();
-  const sessionUnlocked =
-    session.state === "unlocked" && session.active?.username === username;
-  const sessionId = sessionUnlocked ? (session.active?.id ?? null) : null;
 
   const [text, setText] = useState("");
   const [posting, setPosting] = useState(false);
@@ -759,20 +746,21 @@ function SnapshotComposer({
   );
 
   // Browser-level unsaved-changes prompt while the PI has unposted text.
-  useUnsavedChangesGuard(hasDraft && sessionUnlocked && !posting);
+  useUnsavedChangesGuard(hasDraft && !posting);
 
-  const canPost = sessionUnlocked && hasDraft && !posting;
+  const canPost = hasDraft && !posting;
 
   const handlePost = async (e?: React.MouseEvent | React.KeyboardEvent) => {
     e?.stopPropagation();
-    if (!canPost || !sessionId) return;
+    if (!canPost) return;
     setPosting(true);
     try {
+      // pi-password bot (2026-06-02): no sessionId — edit-session gate
+      // removed. Audit row is skipped; attribution stays on entry.author.
       const entry = await postAnnouncement({
         author: username,
         text: text.trim(),
         pinned: false,
-        sessionId,
       });
       await dispatchAnnouncementNotifications({
         author: username,
@@ -829,34 +817,22 @@ function SnapshotComposer({
       >
         <textarea
           className="flex-1 min-h-0 w-full text-xs rounded-md border border-purple-200 px-2 py-1.5 bg-white focus:ring-1 focus:ring-purple-500 focus:border-purple-500 focus:outline-none resize-none disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
-          placeholder={
-            sessionUnlocked
-              ? "Share a quick update with the lab…"
-              : "Unlock edit mode to post…"
-          }
+          placeholder="Share a quick update with the lab…"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          disabled={!sessionUnlocked || posting}
+          disabled={posting}
           data-testid="lab-announcement-snapshot-textarea"
         />
         <div className="flex items-center justify-between gap-2">
-          {sessionUnlocked ? (
-            <button
-              type="button"
-              onClick={handlePost}
-              disabled={!canPost}
-              className="px-2.5 py-1 rounded-md bg-purple-600 text-white text-[11px] font-medium hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex-shrink-0"
-              data-testid="lab-announcement-snapshot-post"
-            >
-              {posting ? "Posting…" : justSent ? "Sent" : "Post"}
-            </button>
-          ) : (
-            <RequestEditButton
-              username={username}
-              targetLabel="lab announcements"
-              variant="primary"
-            />
-          )}
+          <button
+            type="button"
+            onClick={handlePost}
+            disabled={!canPost}
+            className="px-2.5 py-1 rounded-md bg-purple-600 text-white text-[11px] font-medium hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex-shrink-0"
+            data-testid="lab-announcement-snapshot-post"
+          >
+            {posting ? "Posting…" : justSent ? "Sent" : "Post"}
+          </button>
           {/* Click the link to bubble up and open the popup. The link
               is intentionally OUTSIDE the stopPropagation div so the
               outer wrapper picks up the click. */}

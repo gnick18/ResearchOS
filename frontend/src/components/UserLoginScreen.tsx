@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usersApi } from "@/lib/local-api";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
-import { hasPassword, verifyPassword } from "@/lib/auth/password";
+import { hasPassword, verifyPassword, setPassword } from "@/lib/auth/password";
 import { performUserDelete } from "@/lib/users/perform-delete";
 import { readUserSettings } from "@/lib/settings/user-settings";
 import { readArchivedSet } from "@/lib/lab/user-archive";
@@ -79,6 +79,21 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   const [passwordInput, setPasswordInput] = useState("");
   const [verifyingPassword, setVerifyingPassword] = useState(false);
   const passwordInputRef = useRef<HTMLInputElement>(null);
+
+  // Mandatory-password gate for LAB HEADS (pi-password bot, 2026-06-02).
+  // A PI account REQUIRES a password to sign in. If a lab_head account
+  // has no password yet (e.g. an existing PI created before passwords
+  // became mandatory), we force them to SET one on this login before
+  // proceeding rather than letting them in unprotected. Members + solo
+  // accounts are never forced — they keep the optional-password
+  // behavior and skip this gate entirely.
+  const [forcePasswordGate, setForcePasswordGate] = useState<{
+    username: string;
+  } | null>(null);
+  const [forceNewPassword, setForceNewPassword] = useState("");
+  const [forceConfirmPassword, setForceConfirmPassword] = useState("");
+  const [savingForcedPassword, setSavingForcedPassword] = useState(false);
+  const forcePasswordInputRef = useRef<HTMLInputElement>(null);
 
   // Per-user password management popup (set/change/remove)
   const [managingPasswordFor, setManagingPasswordFor] = useState<string | null>(null);
@@ -173,6 +188,12 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   }, [passwordGate]);
 
   useEffect(() => {
+    if (forcePasswordGate && forcePasswordInputRef.current) {
+      forcePasswordInputRef.current.focus();
+    }
+  }, [forcePasswordGate]);
+
+  useEffect(() => {
     loadUsers();
   }, []);
 
@@ -218,8 +239,37 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     try {
       const gated = await hasPassword(username);
       if (gated) {
+        // Has a password (any account type) → require it. This is the
+        // existing path; lab heads with a password flow through here
+        // exactly like a member who opted into a password.
         setPasswordGate({ username, nextAction: "user" });
         setPasswordInput("");
+        return;
+      }
+      // No password on disk. Lab heads MUST have one (pi-password bot,
+      // 2026-06-02): force them to set it now before signing in. The
+      // `labHeadUsers` set is the fast path, but it loads async after
+      // the user list — a click before the fan-out settles could miss
+      // it. So we ALSO read this user's settings directly here to make
+      // the lab_head determination authoritative at click time. Members
+      // + solo accounts skip this and log in directly (optional-password
+      // behavior unchanged).
+      let isLabHead = labHeadUsers.has(username);
+      if (!isLabHead) {
+        try {
+          const settings = await readUserSettings(username);
+          isLabHead = settings.account_type === "lab_head";
+        } catch {
+          // Settings read failed — fall back to the fast-path value
+          // (false here). Better to let a probable non-PI log in than to
+          // block on a transient FS error; a real PI will already be in
+          // labHeadUsers once the screen settles.
+        }
+      }
+      if (isLabHead) {
+        setForcePasswordGate({ username });
+        setForceNewPassword("");
+        setForceConfirmPassword("");
         return;
       }
     } catch {
@@ -227,6 +277,43 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       // safer than locking the user out due to a transient FS error.
     }
     await performLogin(username);
+  };
+
+  const handleSubmitForcedPassword = async () => {
+    if (!forcePasswordGate) return;
+    setError(null);
+    if (forceNewPassword.length < 4) {
+      setError("Password must be at least 4 characters.");
+      return;
+    }
+    if (forceNewPassword !== forceConfirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    setSavingForcedPassword(true);
+    try {
+      const { username } = forcePasswordGate;
+      await setPassword(username, forceNewPassword);
+      setForcePasswordGate(null);
+      setForceNewPassword("");
+      setForceConfirmPassword("");
+      setSavingForcedPassword(false);
+      // Reflect the new lock state on the tile, then sign in.
+      setLockedUsers((prev) => new Set(prev).add(username));
+      await performLogin(username);
+    } catch {
+      setError("Failed to set password. Please try again.");
+      setSavingForcedPassword(false);
+    }
+  };
+
+  const cancelForcePasswordGate = () => {
+    setForcePasswordGate(null);
+    setForceNewPassword("");
+    setForceConfirmPassword("");
+    setSavingForcedPassword(false);
+    setLoggingIn(null);
+    setError(null);
   };
 
   const handleSubmitPassword = async () => {
@@ -1117,6 +1204,88 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                   className="flex-1 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg disabled:opacity-50"
                 >
                   {verifyingPassword ? "Verifying..." : "Sign in"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Force-set-password gate — shown when a lab head with no
+          password yet tries to sign in. A PI account requires a
+          password; we make them set one here before proceeding. */}
+      {forcePasswordGate && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={cancelForcePasswordGate}
+        >
+          <div
+            className="bg-slate-800 rounded-2xl shadow-2xl border border-white/20 max-w-sm w-full mx-4 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-white/10">
+              <h3 className="text-lg font-semibold text-white">
+                Set a PI password
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {forcePasswordGate.username} runs a lab, so a password is
+                required to sign in.
+              </p>
+            </div>
+            <div className="px-6 py-5 space-y-3">
+              <input
+                ref={forcePasswordInputRef}
+                type="password"
+                value={forceNewPassword}
+                onChange={(e) => setForceNewPassword(e.target.value)}
+                disabled={savingForcedPassword}
+                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                autoComplete="new-password"
+                placeholder="New password"
+                data-testid="force-pi-password-input"
+              />
+              <input
+                type="password"
+                value={forceConfirmPassword}
+                onChange={(e) => setForceConfirmPassword(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSubmitForcedPassword();
+                  if (e.key === "Escape") cancelForcePasswordGate();
+                }}
+                disabled={savingForcedPassword}
+                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                autoComplete="new-password"
+                placeholder="Confirm password"
+                data-testid="force-pi-password-confirm-input"
+              />
+              {error && (
+                <div className="p-2 bg-red-500/20 border border-red-500/30 rounded-lg">
+                  <p className="text-xs text-red-300">{error}</p>
+                </div>
+              )}
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Stored only on your disk, hashed with PBKDF2-SHA-256.
+                Never sent to any server.
+              </p>
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={cancelForcePasswordGate}
+                  disabled={savingForcedPassword}
+                  className="flex-1 py-2 text-sm bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 rounded-lg disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmitForcedPassword}
+                  disabled={
+                    savingForcedPassword ||
+                    !forceNewPassword ||
+                    !forceConfirmPassword
+                  }
+                  className="flex-1 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg disabled:opacity-50"
+                  data-testid="force-pi-password-submit"
+                >
+                  {savingForcedPassword ? "Saving…" : "Set & sign in"}
                 </button>
               </div>
             </div>
