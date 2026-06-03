@@ -54,10 +54,12 @@ export function ExportMenuDropdown({ items }: { items: ExportMenuItem[] }) {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
-    document.addEventListener("mousedown", onDown);
+    // Capture phase so a click on the sequence (whose mousedown SeqViz stops
+    // from propagating) still closes the menu, matching Esc.
+    document.addEventListener("mousedown", onDown, true);
     document.addEventListener("keydown", onKey);
     return () => {
-      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("mousedown", onDown, true);
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);

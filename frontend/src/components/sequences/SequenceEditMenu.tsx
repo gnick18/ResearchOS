@@ -120,10 +120,13 @@ export function EditMenuDropdown({ items }: { items: EditMenuItem[] }) {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
-    document.addEventListener("mousedown", onDown);
+    // Capture phase: the SeqViz selection handler calls stopPropagation on
+    // mousedown, so a bubble-phase listener never sees clicks on the sequence.
+    // Capturing fires before that, so clicking anywhere outside closes the menu.
+    document.addEventListener("mousedown", onDown, true);
     document.addEventListener("keydown", onKey);
     return () => {
-      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("mousedown", onDown, true);
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
@@ -189,11 +192,14 @@ export function SequenceContextMenu({
       if (e.key === "Escape") onClose();
     };
     const onScroll = () => onClose();
-    document.addEventListener("mousedown", onDown);
+    // Capture phase: the SeqViz selection handler calls stopPropagation on
+    // mousedown, so a bubble-phase listener never sees clicks on the sequence.
+    // Capturing fires before that, so clicking anywhere outside closes the menu.
+    document.addEventListener("mousedown", onDown, true);
     document.addEventListener("keydown", onKey);
     window.addEventListener("scroll", onScroll, true);
     return () => {
-      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("mousedown", onDown, true);
       document.removeEventListener("keydown", onKey);
       window.removeEventListener("scroll", onScroll, true);
     };
