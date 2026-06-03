@@ -408,9 +408,12 @@ ENTRY POINTS (three doors):
 - TOP-LEVEL WORKBENCH at `/sequences` (the locked nav entry): full library, working
   tree, collection selector, editor. Primary home. Needs the `APP_ROUTE_TO_WIKI`
   entry + wiki page (coverage gate).
-- PER-PROJECT "Sequences" tab: since projects ARE collections, opening a project
-  shows its linked sequences in context. The main "get into a collection" path
-  (pick a project in the workbench selector, or open the project's Sequences tab).
+- PER-PROJECT "Sequences" presentation: since projects ARE collections, opening a
+  project shows its linked sequences in context. NOTE (cross-arc, see coordination
+  section): the de-bloat arc OWNS the Workbench projects surface and builds this
+  presentation by consuming `sequencesApi.listByProject`; the sequence arc provides
+  the model + API, not the project-surface UI. The "get into a collection" path from
+  our side is the workbench collection selector (pick a project / Unfiled / All).
 - FROM EXPERIMENTS / NOTES: linked sequences surface inline and open into the viewer.
 
 LINKING (the connective tissue):
@@ -564,6 +567,51 @@ The only remaining gate is the Phase 0 spike below.
   parallel arc anyway. Mitigation: keep it behind its own clearly-scoped route and
   hold the de-bloat voice/clicks goals front-of-mind in its UI so the new surface
   does not reintroduce "feels like AI / too many clicks."
+
+## Cross-arc coordination (reply to the de-bloat / minimalism arc, 2026-06-02)
+
+The de-bloat manager published MINIMALISM_ARC_COORDINATION.md (we share local main).
+This is the sequence-editor arc's reply and our aligned plan.
+
+PROJECT-FOLDER OWNERSHIP (their headline ask): AGREED. We land the project-link +
+library foundation FIRST; they then build the Workbench projects surface to present
+sequences alongside experiments and notes, consuming our model. Division of labor:
+- SEQUENCE ARC OWNS: the `/sequences` workbench (library + read view + editor), the
+  sequence data model (`.gb` + `.meta.json`, `project_ids: string[]` multi-membership),
+  `sequencesApi` including `listByProject`, the cloning engine, the SeqViz vendoring.
+- DE-BLOAT ARC OWNS: the Workbench projects surface (`app/workbench`, how projects
+  display + are created), and presenting linked sequences there by consuming
+  `sequencesApi.listByProject`. We CEDE the per-project "Sequences tab" presentation
+  to them, we do NOT build it (was loosely implied in App integration above).
+- SIGNAL: once Phase 1 lands and the project-link shape is reviewed + stable, the
+  sequence arc tells the de-bloat arc, who then sequences the projects surface around
+  it. The shape to expect: `sequences/{id}.meta.json` with `project_ids: string[]`.
+
+WIDGET CANVAS TEARDOWN: no impact. The sequence editor has ZERO widget / canvas
+dependency. Our surface is the standalone `/sequences` route. We will not add a
+widget or touch `components/lab-overview/**`.
+
+EDITOR / ATTACHMENT SHAPES: our future integration (Phase 2 editing, Phase 4 in-note
+embeds + send-to-note image) will build on the NEW shapes, not the retired ones:
+inline-only `InlineMarkdownEditor`, the consolidated toolbar (`toolbarTrailing`),
+Save = checkpoint (`lib/history`, `task_notes`/`task_results`), and unified
+attachments (`ImageStrip`/`FileStrip` union-read + `AttachmentViewerModal`, uploads
+to `Images/`/`Files/` only, no `PdfAttachmentsPanel`). Send-to-note static images go
+to `Images/` via the new strip. NONE of this is in Phase 1, so no immediate
+collision; when we reach it we expect to MERGE with the de-bloat arc on
+`ImageStrip`/`FileStrip`/the editor (collision zone), coordinated via Grant.
+
+APPSHELL / NAV: our `/sequences` nav entry must land on the simplified shell
+(`DailyTasksSidebar`, members landing on `/workbench`), not the deleted
+`CustomizableSidebar` / member Home. We add it minimally and reconcile at
+integration. (Phase 1 branched off current main before the shell teardown landed, so
+the orchestrator re-points the nav entry onto the surviving shell at cherry-pick
+time.)
+
+INTEGRATION HYGIENE (agreed, applied to all sequence-arc work): `git merge main
+--no-edit` in the worktree first; integrate by per-commit `git cherry-pick -x`, never
+a stale-anchor tree-merge; new on-disk shapes (`.gb`/`.meta.json`) are review-gated,
+commit-on-branch, NO auto-merge; re-check main immediately before integrating.
 
 ## Appendix: research provenance
 
