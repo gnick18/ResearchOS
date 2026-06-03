@@ -2,30 +2,73 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+
+import AppShell from "@/components/AppShell";
+import LabOverviewPage from "@/components/lab-overview/LabOverviewPage";
+import UserLoginScreen from "@/components/UserLoginScreen";
+import { useFileSystem } from "@/lib/file-system/file-system-context";
+import { useAccountType } from "@/hooks/useAccountType";
 
 /**
- * Dashboard unification (dashboard-unification build, 2026-05-29):
- * `/lab-overview` is now a permanent redirect to "/", the single unified
- * dashboard for every account type. Lab Overview and Home collapsed into
- * one widget canvas; a lab_head's dense lab widgets and a member's
- * personal set both live at "/" now (account-aware catalog + nav label).
+ * Lab Overview route (lab-overview-page bot, 2026-06-02), PHASE 1.
  *
- * The route directory is kept (rather than deleted) so existing bookmarks
- * and any in-app `/lab-overview` link land on the dashboard instead of a
- * 404 — the same precedent the 2026-05-23 `/lab-inbox` -> `/lab-overview`
- * rename set. The `?from=lab-overview` sentinel suppresses the dashboard's
- * one-shot default-landing bounce so a follower of a /lab-overview link
- * stays squarely on the dashboard.
+ * Previously this route redirected to "/" (the unified widget canvas).
+ * It now renders the new FIXED, curated `<LabOverviewPage>` for Lab Heads
+ * (PIs). The "/" home canvas and the entire widget framework are left
+ * untouched; Phase 2 handles "/" and finalizes member routing.
+ *
+ * Account-type gate: this page is for `accountType === "lab_head"`. A
+ * non-PI hitting /lab-overview bounces to "/" for now (Phase 2 finalizes
+ * member routing). The `?from=lab-overview` sentinel suppresses the
+ * home dashboard's one-shot default-landing bounce so a redirected member
+ * stays put on the dashboard.
  */
-export default function LabOverviewRedirect() {
+export default function LabOverviewRoute() {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const { currentUser: providerCurrentUser, isLoading: fsLoading } =
+    useFileSystem();
+  const currentUser = providerCurrentUser ?? "";
+  const accountType = useAccountType(currentUser || null);
+
+  // Non-PI: bounce to the home dashboard. Members get no curated Lab
+  // Overview in Phase 1. Guard on a resolved user so we don't bounce
+  // before the account type is known.
   useEffect(() => {
-    router.replace("/?from=lab-overview");
-  }, [router]);
+    if (fsLoading) return;
+    if (!currentUser) return;
+    if (accountType !== "lab_head") {
+      router.replace("/?from=lab-overview");
+    }
+  }, [fsLoading, currentUser, accountType, router]);
+
+  // Login gate, mirroring the home page.
+  if (!fsLoading && !currentUser) {
+    return (
+      <UserLoginScreen
+        onLogin={() => {
+          queryClient.invalidateQueries();
+        }}
+      />
+    );
+  }
+
+  // While the user/account type resolves, or while a non-PI is being
+  // bounced, show a light spinner instead of flashing the PI page.
+  if (fsLoading || !currentUser || accountType !== "lab_head") {
+    return (
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
+      </div>
+    );
+  }
 
   return (
-    <div className="flex-1 flex items-center justify-center p-8">
-      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
-    </div>
+    <AppShell>
+      <div className="flex-1 overflow-auto">
+        <LabOverviewPage />
+      </div>
+    </AppShell>
   );
 }

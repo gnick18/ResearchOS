@@ -1,0 +1,495 @@
+"use client";
+
+/**
+ * Lab Overview page (lab-overview-page bot, 2026-06-02), PHASE 1.
+ *
+ * A FIXED, curated, action-first page for Lab Heads (PIs) that REPLACES
+ * the customizable widget canvas as the /lab-overview surface. It reuses
+ * the existing widget BODIES (each widget exports `ExpandedView`) as
+ * static page sections, wrapped in titled section cards. No grid, no
+ * drag-drop, no add/remove widget chrome.
+ *
+ * This is ADDITIVE: the "/" home canvas, the widget registry, the
+ * SnapshotCanvas, the customizable sidebar, and layout-persistence are
+ * all left untouched. Phase 2 tears the framework down.
+ *
+ * Layout (top to bottom), action-first so a PI sees what needs them
+ * above the fold:
+ *   1. ACTION BAR (renders only when something is pending): one compact
+ *      row summarizing pending purchase approvals + the flag queue +
+ *      unread @-mentions. Each segment links to the relevant surface.
+ *      Nothing pending collapses to a thin "You're all caught up" line.
+ *   2. LINK-OUTS: "Browse lab experiments" / "Browse lab notes" buttons.
+ *   3. ANNOUNCEMENTS (full section): AnnouncementsWidget body.
+ *   4. LAB ACTIVITY (centerpiece) + RIGHT RAIL (Today's events + Member
+ *      workload). Two-column from lg; the rail stacks below the feed on
+ *      narrow screens.
+ *   5. TRAINEE NOTES & GOALS (expandable section): TraineeNotesWidget body.
+ *
+ * Account-type: PI-only. A non-PI hitting /lab-overview is redirected to
+ * "/" (Phase 2 finalizes member routing).
+ */
+
+import { useMemo, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+
+import { labApi } from "@/lib/local-api";
+import { isPurchasePending } from "@/lib/types";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAccountType } from "@/hooks/useAccountType";
+import { useLabData } from "@/hooks/useLabData";
+
+import { ExpandedView as AnnouncementsBody } from "./widgets/AnnouncementsWidget";
+import { ExpandedView as LabActivityBody } from "./widgets/LabActivityWidget";
+import { ExpandedView as CalendarEventsTodayBody } from "./widgets/CalendarEventsTodayWidget";
+import { ExpandedView as MemberWorkloadBody } from "./widgets/MemberWorkloadWidget";
+import { ExpandedView as TraineeNotesBody } from "./widgets/TraineeNotesWidget";
+
+import type { Note, PurchaseItem } from "@/lib/types";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Inline SVG icons (no emojis; inline SVG only — matches the widget bodies).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SHIELD_ICON = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+  </svg>
+);
+
+const FLAG_ICON = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+    <line x1="4" y1="22" x2="4" y2="15" />
+  </svg>
+);
+
+const MENTION_ICON = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <circle cx="12" cy="12" r="4" />
+    <path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94" />
+  </svg>
+);
+
+const ALL_CLEAR_ICON = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+    <polyline points="22 4 12 14.01 9 11.01" />
+  </svg>
+);
+
+const BEAKER_ICON = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M9 3h6" />
+    <path d="M10 3v6.5L4.5 18a2 2 0 0 0 1.7 3h11.6a2 2 0 0 0 1.7-3L14 9.5V3" />
+    <path d="M7 14h10" />
+  </svg>
+);
+
+const NOTE_ICON = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <polyline points="14 2 14 8 20 8" />
+    <line x1="8" y1="13" x2="16" y2="13" />
+    <line x1="8" y1="17" x2="13" y2="17" />
+  </svg>
+);
+
+const ARROW_RIGHT_ICON = (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <line x1="5" y1="12" x2="19" y2="12" />
+    <polyline points="12 5 19 12 12 19" />
+  </svg>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Action-bar data. Mirrors the data sources the relevant widgets read
+// (PiActionsWidget for pending approvals + flags-by-me; CommentMentions /
+// CommentFeed for @-mentions) so the bar can stand alone above the fold
+// without mounting the full widget bodies. All three queries share React
+// Query keys with the underlying widgets, so this is render-side derivation
+// with no duplicate network reads.
+// ─────────────────────────────────────────────────────────────────────────────
+
+type WithFlag = { flagged?: { by: string } | null };
+
+function useActionBarCounts(): {
+  pending: number;
+  flagged: number;
+  mentions: number;
+  isLoading: boolean;
+} {
+  const { currentUser } = useCurrentUser();
+  const accountType = useAccountType(currentUser);
+  const isLabHead = accountType === "lab_head";
+  const { tasks } = useLabData();
+
+  const { data: items = [], isLoading: itemsLoading } = useQuery<
+    Array<PurchaseItem & { username: string }>
+  >({
+    queryKey: ["lab", "purchase-items"],
+    queryFn: () => labApi.getAllPurchaseItems(),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    enabled: isLabHead,
+  });
+
+  const { data: notes = [], isLoading: notesLoading } = useQuery<Note[]>({
+    queryKey: ["lab", "notes-shared"],
+    queryFn: () => labApi.getNotes({ shared_only: true }),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+
+  const pending = useMemo(
+    () => items.filter(isPurchasePending).length,
+    [items],
+  );
+
+  const flagged = useMemo(() => {
+    if (!currentUser) return 0;
+    let count = 0;
+    for (const t of tasks as Array<(typeof tasks)[number] & WithFlag>) {
+      if (t.flagged?.by === currentUser) count++;
+    }
+    for (const it of items) {
+      if (it.flagged?.by === currentUser) count++;
+    }
+    return count;
+  }, [tasks, items, currentUser]);
+
+  const mentions = useMemo(() => {
+    if (!currentUser) return 0;
+    let count = 0;
+    for (const n of notes) {
+      for (const c of n.comments ?? []) {
+        if ((c.mentions ?? []).includes(currentUser)) count++;
+      }
+    }
+    return count;
+  }, [notes, currentUser]);
+
+  return {
+    pending,
+    flagged,
+    mentions,
+    isLoading: itemsLoading || notesLoading,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Action bar
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ActionSegmentProps {
+  icon: ReactNode;
+  count: number;
+  label: string;
+  tint: string;
+  onClick: () => void;
+}
+
+function ActionSegment({ icon, count, label, tint, onClick }: ActionSegmentProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${tint}`}
+    >
+      <span aria-hidden="true" className="flex-shrink-0">
+        {icon}
+      </span>
+      <span className="tabular-nums font-semibold">{count}</span>
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function ActionBar() {
+  const router = useRouter();
+  const { pending, flagged, mentions, isLoading } = useActionBarCounts();
+
+  if (isLoading) {
+    // Render nothing while counts resolve to avoid a flash of the
+    // all-caught-up line before the real numbers arrive.
+    return null;
+  }
+
+  const total = pending + flagged + mentions;
+
+  if (total === 0) {
+    return (
+      <div className="flex items-center gap-2 px-3 py-2 text-xs text-gray-400">
+        <span aria-hidden="true" className="text-emerald-500">
+          {ALL_CLEAR_ICON}
+        </span>
+        You&apos;re all caught up.
+      </div>
+    );
+  }
+
+  const segments: ActionSegmentProps[] = [];
+  if (pending > 0) {
+    segments.push({
+      icon: SHIELD_ICON,
+      count: pending,
+      label: pending === 1 ? "approval" : "approvals",
+      tint: "bg-amber-100 text-amber-800 hover:bg-amber-200",
+      // Pending purchase approvals live on the purchases surface.
+      onClick: () => router.push("/purchases"),
+    });
+  }
+  if (flagged > 0) {
+    segments.push({
+      icon: FLAG_ICON,
+      count: flagged,
+      label: "flagged",
+      tint: "bg-red-100 text-red-800 hover:bg-red-200",
+      // Flagged records by the PI surface in the Lab Inbox.
+      onClick: () => router.push("/lab-inbox"),
+    });
+  }
+  if (mentions > 0) {
+    segments.push({
+      icon: MENTION_ICON,
+      count: mentions,
+      label: mentions === 1 ? "mention" : "mentions",
+      tint: "bg-blue-100 text-blue-800 hover:bg-blue-200",
+      // @-mentions surface in the Lab Inbox comments view.
+      onClick: () => router.push("/lab-inbox"),
+    });
+  }
+
+  return (
+    <div
+      className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-2.5"
+      role="region"
+      aria-label="What needs you"
+    >
+      <span className="mr-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-amber-700">
+        <span aria-hidden="true">{SHIELD_ICON}</span>
+        What needs you
+      </span>
+      {segments.map((seg, i) => (
+        <span key={seg.label} className="flex items-center gap-2">
+          {i > 0 && (
+            <span aria-hidden="true" className="text-gray-300">
+              ·
+            </span>
+          )}
+          <ActionSegment {...seg} />
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Link-outs
+// ─────────────────────────────────────────────────────────────────────────────
+
+function LinkOuts() {
+  const router = useRouter();
+  return (
+    <div className="flex flex-wrap gap-2">
+      <button
+        type="button"
+        onClick={() => router.push("/workbench")}
+        className="group inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50"
+      >
+        <span aria-hidden="true" className="text-gray-400">
+          {BEAKER_ICON}
+        </span>
+        Browse lab experiments
+        <span
+          aria-hidden="true"
+          className="text-gray-300 transition-transform group-hover:translate-x-0.5"
+        >
+          {ARROW_RIGHT_ICON}
+        </span>
+      </button>
+      <button
+        type="button"
+        onClick={() => router.push("/workbench?tab=notes")}
+        className="group inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50"
+      >
+        <span aria-hidden="true" className="text-gray-400">
+          {NOTE_ICON}
+        </span>
+        Browse lab notes
+        <span
+          aria-hidden="true"
+          className="text-gray-300 transition-transform group-hover:translate-x-0.5"
+        >
+          {ARROW_RIGHT_ICON}
+        </span>
+      </button>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Section card — the uniform titled container every reused widget body
+// sits inside. Matches the app's white-card / rounded-2xl / subtle-border
+// section styling.
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface SectionCardProps {
+  title: string;
+  description?: string;
+  children: ReactNode;
+  /** When true, the card body gets a capped, scrollable height so a long
+   *  feed doesn't push the page endlessly. */
+  className?: string;
+}
+
+function SectionCard({ title, description, children, className }: SectionCardProps) {
+  return (
+    <section
+      className={`rounded-2xl border border-gray-200 bg-white shadow-sm ${className ?? ""}`}
+    >
+      <header className="border-b border-gray-100 px-5 py-3.5">
+        <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+        {description && (
+          <p className="mt-0.5 text-xs text-gray-500">{description}</p>
+        )}
+      </header>
+      <div className="p-5">{children}</div>
+    </section>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Page
+// ─────────────────────────────────────────────────────────────────────────────
+
+export default function LabOverviewPage() {
+  return (
+    <div className="mx-auto w-full max-w-6xl space-y-6 p-6">
+      <div className="space-y-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Lab Overview</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Everything that needs you, plus what your lab has been up to.
+          </p>
+        </div>
+        <ActionBar />
+        <LinkOuts />
+      </div>
+
+      <SectionCard
+        title="Announcements"
+        description="Post to the whole lab and see recent announcements."
+      >
+        <AnnouncementsBody surface="canvas" />
+      </SectionCard>
+
+      {/* Activity feed + right rail. Single column below lg; two columns
+          (feed wider than the rail) from lg up. The rail stacks BELOW the
+          feed on narrow screens. */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <SectionCard
+            title="Lab activity"
+            description="A cross-lab feed of recent experiments, notes, and tasks."
+          >
+            <LabActivityBody surface="canvas" />
+          </SectionCard>
+        </div>
+        <div className="space-y-6">
+          <SectionCard title="Today's events">
+            <CalendarEventsTodayBody surface="sidebar" />
+          </SectionCard>
+          <SectionCard title="Member workload">
+            <MemberWorkloadBody surface="sidebar" />
+          </SectionCard>
+        </div>
+      </div>
+
+      <SectionCard
+        title="Trainee notes & goals"
+        description="Pick a member to see their shared notes and weekly goals."
+      >
+        <TraineeNotesBody surface="canvas" />
+      </SectionCard>
+    </div>
+  );
+}
