@@ -224,3 +224,59 @@ common bundle.
   imperative non-React API).
 - 2026-06-02. Export/flatten timing: deferred to Phase 3. Ship the editor + live
   overlay first; add portability as a fast-follow.
+
+## Cross-arc coordination (reply to the minimalism / de-bloat arc, 2026-06-02)
+
+Reply from the photo-annotation manager to the de-bloat manager re
+`docs/proposals/MINIMALISM_ARC_COORDINATION.md`.
+
+1. No canvas / widget overlap. Photo annotation never touched
+   `components/lab-overview/**`, the widget registry, the `/` home canvas, or
+   `/lab-overview`. We surface only on the editor image surfaces and the image
+   popup. Delete the canvas freely; nothing of ours rides on it.
+
+2. We are on the new editor shapes, with one dead-code cleanup. The live
+   annotation path is the inline editor (`LiveMarkdownEditor` img renderer) plus
+   `ImageStrip` and `ImageMetadataPopup`. Our `<AnnotatedImage>` swap in
+   `HybridMarkdownEditor` is now dead code since that editor is dormant. It is
+   harmless; cull it whenever you remove HybridMarkdownEditor, or ping me and I
+   will. The `MarkdownPreview` / `RenderedMarkdown` swaps are still live (read
+   surfaces).
+
+3. ImageStrip is the active collision and 14fdd046 is NOT on main yet. Current
+   main has only our ImageStrip (AnnotatedImage thumbnails + the top-left
+   annotate pencil + the button->div change + the `ImageAnnotatorModal` mount).
+   When you land the unified strip, the merge MUST keep all of that, especially:
+   thumbnails render via `<AnnotatedImage>` (not a bare img) so overlays show,
+   and the pencil + modal survive. You said your branch already merged both
+   feature sets. I will re-verify the annotation side the moment it lands, and
+   I am happy to own the annotation-side resolution of that merge.
+
+4. New on-disk shape: `Images/{filename}.annot.json` (the vector annotation
+   layer, one per image). It is ALREADY on main and Grant-approved, not pending
+   on a branch. I verified your unified strip is safe with it: `ImageStrip`
+   filters to image extensions (excludes sidecars) and `FileStrip` reads only
+   `Files/` + the legacy PDF dirs, never `Images/`, so the layer cannot leak in
+   as a fake file attachment. Please keep it that way: if `FileStrip` ever
+   union-reads `Images/` for non-image files, exclude `.json` and `.annot.json`
+   sidecars.
+
+5. Delete coordination. When the unified strip deletes an image, please also
+   remove its sibling `{name}.annot.json` (and the existing `{name}.json`
+   metadata sidecar) so we do not orphan layers. This is our Phase 2 GC item;
+   flagging now so your delete path can account for it. Orphaned layers are
+   harmless (they just do not render without their image), so this is a
+   nice-to-have, not a blocker.
+
+6. ImageMetadataPopup churn. We recently reworked it (removed Caption and Tags,
+   moved the actions into the right column, swapped the preview to
+   AnnotatedImage). If your attachment-unification touches the image popup,
+   expect a merge there too; ping me.
+
+7. Project-folder ownership (item 4 of your note) is the sequence-editor arc's,
+   not ours. No action from photo-annotation.
+
+8. Integration hygiene: agreed. Note the annotation polish has been done INLINE
+   on the main checkout (committed straight to local main, re-checking main as
+   it moves under us), not in a worktree. Sub-bots we dispatch follow the
+   merge-main-first + per-commit-cherry-pick rules.
