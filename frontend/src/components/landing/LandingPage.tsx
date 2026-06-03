@@ -1144,29 +1144,30 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               <ul className="space-y-3 text-sm leading-relaxed text-gray-700">
                 <li>
                   <span className="font-semibold text-gray-900">
+                    A built-in Sequence Editor
+                  </span>{" "}
+                  in the SnapGene and Benchling vein: import SnapGene .dna,
+                  GenBank, and FASTA files, view and edit with annotations,
+                  design primers, find where restriction enzymes cut, and export.
+                </li>
+                <li>
+                  <span className="font-semibold text-gray-900">
+                    A calmer, curated workspace
+                  </span>{" "}
+                  with your projects, notes, tasks, and sequences in one focused
+                  home instead of a page you have to assemble.
+                </li>
+                <li>
+                  <span className="font-semibold text-gray-900">
                     Version history
                   </span>{" "}
                   on every record, with one-click restore and a 24-hour undo.
                 </li>
                 <li>
                   <span className="font-semibold text-gray-900">
-                    Bulletproof templates
-                  </span>{" "}
-                  that travel with the original vendor PDF, so you can check any
-                  value against the source it came from.
-                </li>
-                <li>
-                  <span className="font-semibold text-gray-900">
                     Built-in calculators
                   </span>{" "}
                   for molarity, dilutions, primer Tm, DNA and RNA, and buffers.
-                </li>
-                <li>
-                  <span className="font-semibold text-gray-900">
-                    Smarter reordering
-                  </span>{" "}
-                  in Purchases: one-tap quick-reorder, one-click buy-again, and
-                  reminders that learn your cadence. No extra logging.
                 </li>
               </ul>
             </div>
@@ -1192,16 +1193,31 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               <ul className="space-y-3 text-sm leading-relaxed text-gray-700">
                 <li>
                   <span className="font-semibold text-gray-900">
-                    More structured protocols
+                    In-silico cloning
                   </span>{" "}
-                  like Western blot and Nanodrop readings, beyond today&apos;s
-                  method types.
+                  starting with overlap (Gibson and NEBuilder HiFi) assembly that
+                  designs the primers for you and shows a review step before
+                  anything is saved.
+                </li>
+                <li>
+                  <span className="font-semibold text-gray-900">
+                    A friendlier primer designer
+                  </span>{" "}
+                  with sensible defaults and clear melting-temperature and dimer
+                  checks, plus a one-click handoff to NCBI Primer-BLAST for
+                  specificity.
+                </li>
+                <li>
+                  <span className="font-semibold text-gray-900">
+                    Bulk import of an existing library
+                  </span>{" "}
+                  so you can drag in a whole folder of SnapGene files at once.
                 </li>
                 <li>
                   <span className="font-semibold text-gray-900">
                     A bigger template library
                   </span>{" "}
-                  across immunology, microbiology, and protein work.
+                  across more techniques, like Western blot and Nanodrop readings.
                 </li>
               </ul>
             </div>
