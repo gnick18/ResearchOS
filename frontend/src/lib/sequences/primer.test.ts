@@ -11,6 +11,7 @@ import {
   predictTm,
   findBindingSites,
 } from "./primer";
+import { nearestNeighborTm } from "../calculators/tm-nn";
 import {
   documentToGenbank,
   documentFromDetail,
@@ -83,8 +84,11 @@ describe("tmNearestNeighbor", () => {
     const highGc = tmNearestNeighbor("GCGCGCGCGCGCGCGCGCGC");
     expect(highGc).toBeGreaterThan(lowGc);
   });
-  it("falls back to basic for very short oligos", () => {
+  it("falls back to basic for very short oligos (< 8 nt boundary)", () => {
+    // The NN model only scores oligos >= 8 nt; below that we keep the familiar
+    // Wallace 2-4 estimate. A 4-mer therefore equals tmBasic exactly.
     expect(tmNearestNeighbor("ATGC")).toBe(tmBasic("ATGC"));
+    expect(tmNearestNeighbor("ATGCATG")).toBe(tmBasic("ATGCATG")); // 7 nt: still basic
   });
   it("sanitizes ambiguity codes out before computing (N is dropped, not fatal)", () => {
     // sanitizePrimer strips N, so the NN calc runs on the cleaned ACGT-only oligo.
@@ -93,6 +97,25 @@ describe("tmNearestNeighbor", () => {
   it("predictTm delegates to nearest-neighbor", () => {
     const s = "GTAAAACGACGGCCAGTGCC";
     expect(predictTm(s)).toBe(tmNearestNeighbor(s));
+  });
+});
+
+describe("Tm UNIFICATION — editor primer Tm == calculator nearestNeighborTm", () => {
+  // The editor's primer dialog (predictTm/tmNearestNeighbor) and the Scientific
+  // calculator's primer-Tm tool MUST report the SAME number for the same oligo.
+  // Both now route through lib/calculators/tm-nn.ts:nearestNeighborTm with the
+  // shared default conditions (50 mM Na, 250 nM oligo, no Mg/dNTP).
+  it("editor Tm equals nearestNeighborTm with the shared defaults for a 20-mer", () => {
+    const oligo = "GTAAAACGACGGCCAGTGCC"; // M13 -20 forward, a real primer
+    const calc = nearestNeighborTm(oligo, { na: 50, oligoNanomolar: 250 });
+    expect(calc).not.toBeNull();
+    expect(predictTm(oligo)).toBe(calc!.tm);
+    expect(tmNearestNeighbor(oligo)).toBe(calc!.tm);
+  });
+  it("agrees for the calculator's own documented reference oligo", () => {
+    const oligo = "CGTTCCAAAGATGTGGGCATGAGCTTAC"; // 28-mer, Biopython docstring
+    const calc = nearestNeighborTm(oligo, { na: 50, oligoNanomolar: 250 });
+    expect(predictTm(oligo)).toBe(calc!.tm);
   });
 });
 

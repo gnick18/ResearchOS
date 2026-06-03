@@ -1,14 +1,20 @@
 // sequence Phase 2e bot — PURE primer biology (SnapGene "Add Primer" parity).
 //
-// Self-contained string/complement math + Tm. Nothing here imports SeqViz or
-// lib/calculators/** (the lab-calculators arc owns its own NN-Tm and is in flux;
-// see the report note about unifying later). The Tm here is OUR implementation.
+// Self-contained string/complement math. The NEAREST-NEIGHBOR Tm is NOT a second
+// implementation: it delegates to the lab-calculators arc's rigorous
+// Biopython-Tm_NN-parity model (lib/calculators/tm-nn.ts) so the editor and the
+// Scientific calculator report the SAME number for the same oligo. See the
+// `tmNearestNeighbor` doc-comment for the default conditions and the short-oligo
+// fallback. Only the basic (Wallace / salt-adjusted GC) Tm is local, kept as the
+// fallback for oligos the NN model cannot score (< 8 nt or degenerate bases).
 //
 // Coordinates: a binding SITE is reported as 0-based [start, end) on the FORWARD
 // (top) strand, regardless of which strand the primer anneals to. `direction`
 // records the strand the primer's 3' end extends along (1 = forward, -1 = reverse),
 // which is what SeqViz's `primers` prop wants and what a primer_bind feature's
 // strand encodes.
+
+import { nearestNeighborTm } from "@/lib/calculators/tm-nn";
 
 /** Complement of a single IUPAC base (uppercased). Unknown chars map to "N". */
 const COMPLEMENT: Record<string, string> = {
@@ -76,74 +82,58 @@ export function tmBasic(seq: string): number {
   return 64.9 + (41 * (gc - 16.4)) / n;
 }
 
-// SantaLucia 1998 unified nearest-neighbor parameters.
-// dH in kcal/mol, dS in cal/(K·mol), keyed by the 5'->3' dinucleotide.
-const NN_DH: Record<string, number> = {
-  AA: -7.9, AT: -7.2, AC: -8.4, AG: -7.8,
-  TA: -7.2, TT: -7.9, TC: -8.2, TG: -8.5,
-  CA: -8.5, CT: -7.8, CC: -8.0, CG: -10.6,
-  GA: -8.2, GT: -8.4, GC: -9.8, GG: -8.0,
-};
-const NN_DS: Record<string, number> = {
-  AA: -22.2, AT: -20.4, AC: -22.4, AG: -21.0,
-  TA: -21.3, TT: -22.2, TC: -22.2, TG: -22.7,
-  CA: -22.7, CT: -21.0, CC: -19.9, CG: -27.2,
-  GA: -22.2, GT: -22.4, GC: -24.4, GG: -19.9,
-};
+/**
+ * The default reaction conditions the editor's NN-Tm assumes when the caller
+ * gives no explicit values. These MUST match the Scientific calculator's
+ * primer-Tm defaults (CalculatorsButton.tsx) so the editor and the calculator
+ * report the SAME Tm for the same oligo: 50 mM monovalent salt, 0.25 uM (250 nM)
+ * total oligo, no Mg2+ / dNTPs.
+ */
+const EDITOR_TM_NA_MM = 50;
+const EDITOR_TM_OLIGO_NM = 250;
+
+/** Below this length the NN model is least reliable and the calculator's table
+ *  still works but the editor historically fell back to the Wallace rule; we
+ *  keep that fallback boundary so a short oligo's Tm is the basic 2-4 estimate. */
+const NN_MIN_LENGTH = 8;
 
 /**
- * NEAREST-NEIGHBOR Tm (SantaLucia 1998), salt-adjusted (Owczarzy-style simple
- * correction via the standard 16.6*log10([Na+]) term). Returns the Tm in °C.
+ * NEAREST-NEIGHBOR Tm in °C — the SINGLE SOURCE OF TRUTH delegated to the lab-
+ * calculators arc's `nearestNeighborTm` (Biopython Tm_NN parity: DNA_NN3, Allawi
+ * & SantaLucia 1997, SantaLucia 1998 salt correction). Because both the editor's
+ * primer dialog and the Scientific calculator compute through the same function
+ * with the same default conditions, they report identical numbers.
  *
- * @param seq      primer sequence (T/U accepted; U treated as T)
- * @param oligoMolarity  total strand concentration in mol/L (default 0.25 µM, the
- *                       SnapGene-ish default for the lower-strand-in-excess case;
- *                       we use the symmetric CT/4 term)
- * @param naMolarity     monovalent cation in mol/L (default 50 mM)
+ * @param seq          primer sequence (T/U accepted; U folded to T)
+ * @param oligoMolarity total strand concentration in mol/L (default 0.25 uM;
+ *                       converted to nM for the calculator call)
+ * @param naMolarity    monovalent cation in mol/L (default 50 mM; converted to mM)
  *
  * Falls back to the basic formula for oligos < 8 nt or with non-ACGT bases (the
- * NN tables only cover unambiguous DNA dinucleotides).
+ * NN model and its dinucleotide table only cover unambiguous DNA >= 2 nt; we cap
+ * the fallback at < 8 nt so short oligos keep their familiar Wallace estimate).
  */
 export function tmNearestNeighbor(
   seq: string,
-  oligoMolarity = 0.25e-6,
-  naMolarity = 0.05,
+  oligoMolarity = EDITOR_TM_OLIGO_NM * 1e-9,
+  naMolarity = EDITOR_TM_NA_MM * 1e-3,
 ): number {
   const s = sanitizePrimer(seq).replace(/U/g, "T");
   const n = s.length;
-  if (n < 8 || /[^ACGT]/.test(s)) return tmBasic(seq);
+  if (n < NN_MIN_LENGTH || /[^ACGT]/.test(s)) return tmBasic(seq);
 
-  // Initiation terms (SantaLucia 1998 unified): a fixed initiation plus an
-  // end-penalty for terminal A·T pairs (5' and 3').
-  let dH = 0.2; // kcal/mol initiation (with terminal G·C handled below)
-  let dS = -5.7; // cal/(K·mol) initiation
-  // Terminal penalties: G·C init dH +0.2/dS -5.7 already applied; add A·T ends.
-  const ends = [s[0], s[n - 1]];
-  for (const e of ends) {
-    if (e === "A" || e === "T") {
-      dH += 2.2;
-      dS += 6.9;
-    }
-  }
-
-  for (let i = 0; i < n - 1; i += 1) {
-    const pair = s.slice(i, i + 2);
-    dH += NN_DH[pair];
-    dS += NN_DS[pair];
-  }
-
-  const R = 1.987; // cal/(K·mol)
-  // Symmetric duplex correction: CT/4 for non-self-complementary primers.
-  const ct = oligoMolarity / 4;
-  // Tm in Kelvin: dH*1000 / (dS + R*ln(CT/4)), then to Celsius.
-  const tmK = (dH * 1000) / (dS + R * Math.log(ct));
-  let tmC = tmK - 273.15;
-  // Salt correction (SantaLucia 1998): +16.6 * log10([Na+] / 1.0) relative to 1 M.
-  tmC += 16.6 * Math.log10(naMolarity);
-  return tmC;
+  const result = nearestNeighborTm(s, {
+    na: naMolarity * 1e3, // mol/L -> mM
+    oligoNanomolar: oligoMolarity * 1e9, // mol/L -> nM
+  });
+  // nearestNeighborTm returns null only for inputs we've already excluded above
+  // (< 2 nt / non-positive salt); fall back to basic to stay total.
+  return result ? result.tm : tmBasic(seq);
 }
 
-/** Default Tm used by the dialog: nearest-neighbor when applicable, else basic. */
+/** Default Tm used by the dialog: nearest-neighbor when applicable, else basic.
+ *  Routes through `tmNearestNeighbor`, i.e. the calculator's model, so the editor
+ *  and the Scientific calculator agree on the same oligo. */
 export function predictTm(seq: string): number {
   return tmNearestNeighbor(seq);
 }

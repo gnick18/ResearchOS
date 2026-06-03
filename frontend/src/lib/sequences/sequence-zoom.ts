@@ -132,6 +132,59 @@ export function viewportWindow(opts: {
 }
 
 /**
+ * seq pinch bot — CURSOR-ANCHORED ZOOM math (pure).
+ *
+ * SeqViz's linear viewer wraps the sequence into stacked rows and scrolls
+ * VERTICALLY (there is no horizontal scroll), so the meaningful anchor axis is
+ * the cursor's Y, not its X: the visible vertical fraction maps linearly to the
+ * bp fraction (the same relationship viewportWindow / bpToScrollTop rely on).
+ *
+ * Step 1 (BEFORE zoom): from the cursor's Y offset inside the scroller and the
+ * pre-zoom geometry, recover the bp sitting under the cursor.
+ */
+export function bpUnderCursor(opts: {
+  cursorY: number;
+  scrollTop: number;
+  scrollHeight: number;
+  seqLength: number;
+}): number {
+  const { cursorY, scrollTop, scrollHeight, seqLength } = opts;
+  if (!Number.isFinite(seqLength) || seqLength <= 0) return 0;
+  if (!Number.isFinite(scrollHeight) || scrollHeight <= 0) return 0;
+  const y = (Number.isFinite(scrollTop) ? scrollTop : 0) + (Number.isFinite(cursorY) ? cursorY : 0);
+  const frac = Math.max(0, Math.min(1, y / scrollHeight));
+  return Math.round(frac * seqLength);
+}
+
+/**
+ * Step 2 (AFTER zoom, with the NEW scrollHeight): what scrollTop puts `bp` back
+ * under the cursor's Y? Solve (scrollTop + cursorY) / newScrollHeight == bp/len
+ * for scrollTop, then clamp to [0, maxScroll]. This is the linear adjustment that
+ * keeps the row under the pointer fixed across a zoom step.
+ *
+ * NOTE (honest limitation): because the layout is row-wrapped, only the VERTICAL
+ * (which-row) position is anchored exactly; the horizontal column within a row
+ * shifts slightly when bases-per-row changes on zoom. There is no horizontal
+ * scroll to correct that, so sub-row drift of a few bases is expected and is the
+ * closest practical anchoring for this renderer.
+ */
+export function anchorScrollTopForBp(opts: {
+  bp: number;
+  cursorY: number;
+  newScrollHeight: number;
+  clientHeight: number;
+  seqLength: number;
+}): number {
+  const { bp, cursorY, newScrollHeight, clientHeight, seqLength } = opts;
+  if (!Number.isFinite(seqLength) || seqLength <= 0) return 0;
+  if (!Number.isFinite(newScrollHeight) || newScrollHeight <= 0) return 0;
+  const frac = Math.max(0, Math.min(1, bp / seqLength));
+  const desired = frac * newScrollHeight - (Number.isFinite(cursorY) ? cursorY : 0);
+  const maxScroll = Math.max(0, newScrollHeight - Math.max(0, clientHeight));
+  return Math.max(0, Math.min(maxScroll, Math.round(desired)));
+}
+
+/**
  * Inverse of viewportWindow's start: given a target bp (the desired center or
  * top of the window), what scrollTop positions the main view there? Used when
  * the user drags the overview viewport box. Clamped to [0, maxScroll].
@@ -165,4 +218,31 @@ export function bpToTrackX(bp: number, trackWidth: number, seqLength: number): n
   if (!Number.isFinite(seqLength) || seqLength <= 0) return 0;
   const frac = Math.max(0, Math.min(1, bp / seqLength));
   return frac * trackWidth;
+}
+
+/** A feature spanning at least this fraction of the whole sequence counts as a
+ *  "whole-span" feature for the overview mini-map filter (the GenBank `source`
+ *  feature, or any annotation drawn end-to-end, paints a full-width bar that just
+ *  clutters the map). 0.99 = covers ~the entire sequence. */
+export const OVERVIEW_WHOLE_SPAN_FRACTION = 0.99;
+
+/**
+ * MINI-MAP-ONLY predicate: should this feature be shown as a tick on the overview
+ * bar? Returns false for GenBank `source` features and for any feature whose span
+ * covers >= ~99% of the sequence (a near-full-width bar that adds no navigational
+ * value). Everything else is kept. This does NOT touch the main viewer, the
+ * FeaturesPanel, or the underlying data — it is purely a render filter for the
+ * overview strip.
+ *
+ * Pure + DOM-free so it is unit-testable in isolation.
+ */
+export function showInOverview(
+  feature: { type?: string; start: number; end: number },
+  seqLength: number,
+): boolean {
+  if ((feature.type ?? "").trim().toLowerCase() === "source") return false;
+  if (!Number.isFinite(seqLength) || seqLength <= 0) return true;
+  const span = feature.end - feature.start;
+  if (!Number.isFinite(span) || span <= 0) return true;
+  return span / seqLength < OVERVIEW_WHOLE_SPAN_FRACTION;
 }

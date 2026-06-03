@@ -18,7 +18,7 @@
 // renders nothing when there is no sequence.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { bpToTrackX, trackXToBp } from "@/lib/sequences/sequence-zoom";
+import { bpToTrackX, trackXToBp, showInOverview } from "@/lib/sequences/sequence-zoom";
 
 export interface OverviewFeature {
   name: string;
@@ -27,6 +27,9 @@ export interface OverviewFeature {
   /** 1 = forward (arrow points right), -1 = reverse (points left). */
   direction: 1 | -1;
   color?: string;
+  /** GenBank feature type (e.g. "CDS", "source"). Used only to keep the
+   *  whole-span `source` feature off the mini-map; see showInOverview. */
+  type?: string;
 }
 
 export interface SequenceOverviewBarProps {
@@ -145,6 +148,9 @@ export default function SequenceOverviewBar({
     if (trackWidth <= 0 || seqLength <= 0) return [];
     return features
       .filter((f) => f.end > f.start)
+      // Keep the whole-span `source` feature (and any end-to-end annotation) off
+      // the mini-map: a full-width bar adds no navigational value, just clutter.
+      .filter((f) => showInOverview(f, seqLength))
       .map((f, i) => {
         const x0 = TRACK_PAD_X + bpToTrackX(f.start, trackWidth, seqLength);
         const x1 = TRACK_PAD_X + bpToTrackX(f.end, trackWidth, seqLength);

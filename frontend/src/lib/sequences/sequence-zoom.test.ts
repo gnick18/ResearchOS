@@ -15,6 +15,10 @@ import {
   bpToTrackX,
   pinchDeltaToZoom,
   PINCH_ZOOM_SENSITIVITY,
+  bpUnderCursor,
+  anchorScrollTopForBp,
+  showInOverview,
+  OVERVIEW_WHOLE_SPAN_FRACTION,
 } from "./sequence-zoom";
 
 describe("initialLinearZoom", () => {
@@ -167,5 +171,107 @@ describe("trackXToBp / bpToTrackX round-trip", () => {
     expect(trackXToBp(9999, 600, 60000)).toBe(60000);
     expect(bpToTrackX(-5, 600, 60000)).toBe(0);
     expect(bpToTrackX(99999, 600, 60000)).toBe(600);
+  });
+});
+
+describe("cursor-anchored zoom math (bpUnderCursor / anchorScrollTopForBp)", () => {
+  it("recovers the bp under the cursor from scroll + cursor Y", () => {
+    // scrollHeight 1000 px maps 0..10000 bp; cursor 200 px below a 300 px scroll
+    // sits at y=500 -> half-way -> 5000 bp.
+    expect(
+      bpUnderCursor({ cursorY: 200, scrollTop: 300, scrollHeight: 1000, seqLength: 10000 }),
+    ).toBe(5000);
+    // top of an unscrolled view -> bp 0.
+    expect(
+      bpUnderCursor({ cursorY: 0, scrollTop: 0, scrollHeight: 1000, seqLength: 10000 }),
+    ).toBe(0);
+  });
+  it("clamps the cursor bp into [0, seqLength]", () => {
+    expect(
+      bpUnderCursor({ cursorY: 9999, scrollTop: 9999, scrollHeight: 1000, seqLength: 10000 }),
+    ).toBe(10000);
+  });
+  it("solves the scrollTop that puts a bp back under the cursor on a new layout", () => {
+    // After zoom the layout doubled to 2000 px tall. To put bp 5000 (frac 0.5,
+    // i.e. y=1000) under a cursor 200 px down, scrollTop = 1000 - 200 = 800.
+    expect(
+      anchorScrollTopForBp({
+        bp: 5000,
+        cursorY: 200,
+        newScrollHeight: 2000,
+        clientHeight: 600,
+        seqLength: 10000,
+      }),
+    ).toBe(800);
+  });
+  it("clamps the anchored scrollTop to [0, maxScroll]", () => {
+    // Desired scrollTop would be negative near the top -> clamp to 0.
+    expect(
+      anchorScrollTopForBp({
+        bp: 0,
+        cursorY: 200,
+        newScrollHeight: 2000,
+        clientHeight: 600,
+        seqLength: 10000,
+      }),
+    ).toBe(0);
+    // Near the end, desired exceeds maxScroll (2000-600=1400) -> clamp to 1400.
+    expect(
+      anchorScrollTopForBp({
+        bp: 10000,
+        cursorY: 0,
+        newScrollHeight: 2000,
+        clientHeight: 600,
+        seqLength: 10000,
+      }),
+    ).toBe(1400);
+  });
+  it("round-trips: bp under cursor before == bp under cursor after a zoom", () => {
+    const seqLength = 8000;
+    // Before zoom: scrollHeight 1000, scrolled to 250, cursor 250 px down.
+    const before = { scrollTop: 250, scrollHeight: 1000, cursorY: 250 };
+    const bp = bpUnderCursor({ ...before, seqLength });
+    // After zoom: layout grew to 4000 px. Apply the anchor.
+    const newScrollHeight = 4000;
+    const newScrollTop = anchorScrollTopForBp({
+      bp,
+      cursorY: before.cursorY,
+      newScrollHeight,
+      clientHeight: 600,
+      seqLength,
+    });
+    // The bp now under the cursor should match the original bp (within rounding).
+    const after = bpUnderCursor({
+      cursorY: before.cursorY,
+      scrollTop: newScrollTop,
+      scrollHeight: newScrollHeight,
+      seqLength,
+    });
+    expect(after).toBeCloseTo(bp, -1); // within ~a few bp (sub-row drift aside)
+  });
+});
+
+describe("showInOverview — mini-map whole-span / source filter", () => {
+  const len = 10000;
+  it("hides GenBank `source` features (any case)", () => {
+    expect(showInOverview({ type: "source", start: 0, end: 100 }, len)).toBe(false);
+    expect(showInOverview({ type: "SOURCE", start: 0, end: 100 }, len)).toBe(false);
+    expect(showInOverview({ type: " Source ", start: 0, end: 100 }, len)).toBe(false);
+  });
+  it("hides any feature spanning >= ~99% of the sequence", () => {
+    expect(showInOverview({ type: "CDS", start: 0, end: len }, len)).toBe(false);
+    expect(showInOverview({ type: "misc_feature", start: 0, end: 9950 }, len)).toBe(false);
+    expect(showInOverview({ start: 50, end: len }, len)).toBe(false); // 99.5%
+  });
+  it("keeps ordinary sub-span features", () => {
+    expect(showInOverview({ type: "CDS", start: 100, end: 900 }, len)).toBe(true);
+    expect(showInOverview({ type: "gene", start: 0, end: 9000 }, len)).toBe(true); // 90%
+  });
+  it("is permissive when seqLength is unknown / non-positive", () => {
+    expect(showInOverview({ type: "CDS", start: 0, end: 100 }, 0)).toBe(true);
+    expect(showInOverview({ type: "CDS", start: 0, end: 100 }, NaN)).toBe(true);
+  });
+  it("the threshold constant is ~99%", () => {
+    expect(OVERVIEW_WHOLE_SPAN_FRACTION).toBeCloseTo(0.99, 5);
   });
 });

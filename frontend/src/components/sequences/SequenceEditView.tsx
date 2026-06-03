@@ -67,6 +67,8 @@ import {
   viewportWindow,
   bpToScrollTop,
   pinchDeltaToZoom,
+  bpUnderCursor,
+  anchorScrollTopForBp,
 } from "@/lib/sequences/sequence-zoom";
 import {
   EditMenuDropdown,
@@ -506,10 +508,90 @@ export default function SequenceEditView({
   // circular zoom view-state the slider uses. A PLAIN wheel (no ctrlKey) is left
   // untouched so SeqViz's own scroller keeps scrolling the sequence as today.
   //
-  // Zoom is CENTERED (not cursor-anchored): SeqViz owns its own vertical scroll
-  // model and re-renders its scroller subtree on every zoom change, so there is
-  // no stable bp-under-cursor handle to pin to. Cursor-anchored zoom is noted as
-  // a follow-up. We still nudge the scroll so the current top stays roughly put.
+  // Zoom is CURSOR-ANCHORED on the linear viewer: the bp under the pointer stays
+  // under the pointer across a zoom step (SnapGene / map-app feel). SeqViz wraps
+  // the sequence into stacked rows and scrolls VERTICALLY (no horizontal scroll),
+  // so the meaningful anchor axis is the pointer's Y. At wheel time we capture the
+  // bp under the pointer (bpUnderCursor) into pendingAnchorRef; a follow-up effect
+  // re-applies scrollTop (anchorScrollTopForBp) once SeqViz re-lays-out the rows
+  // with the new scrollHeight. Only the WHICH-ROW position is anchored exactly;
+  // the column within a row can drift a few bases when bases-per-row changes (no
+  // horizontal scroll exists to correct it) — this is the closest practical
+  // anchoring for a row-wrapped renderer. The circular viewer has no scroll model
+  // to anchor, so it stays centered. A PLAIN wheel (no ctrlKey) is untouched.
+  // Resolve the live linear scroller: prefer the cached ref, but fall back to a
+  // direct DOM query so a not-yet-attached ref never silently disables anchoring.
+  const resolveScroller = useCallback((): HTMLElement | null => {
+    if (scrollerRef.current && scrollerRef.current.isConnected) return scrollerRef.current;
+    const found = viewerRef.current?.querySelector<HTMLElement>(".la-vz-linear-scroller") ?? null;
+    if (found) scrollerRef.current = found;
+    return found;
+  }, []);
+
+  // seq pinch bot — kick off the CURSOR-ANCHOR re-assert loop from the wheel/
+  // gesture handler itself (NOT a zoom-keyed effect, which proved fragile: the
+  // effect did not reliably re-run on the zoom change). We capture the bp under
+  // the pointer NOW (pre-zoom geometry), then re-assert the anchored scrollTop on
+  // every animation frame for a short window. SeqViz re-renders its scroller
+  // subtree asynchronously AND restores its own scrollTop on its update cycle
+  // (InfiniteScroll.scrollToCentralIndex) a frame or two later, so a one-shot set
+  // gets clobbered; re-asserting against the live scrollHeight each frame wins and
+  // recomputes correctly as the row layout grows/shrinks. Only the WHICH-ROW
+  // (vertical) position is anchored exactly; the column within a row can drift a
+  // few bases when bases-per-row changes (no horizontal scroll exists to correct
+  // it) — the closest practical anchoring for a row-wrapped renderer.
+  const anchorRafRef = useRef(0);
+  const anchorTimerRef = useRef(0);
+  const startCursorAnchor = useCallback((clientY: number) => {
+    const sc = resolveScroller();
+    if (!sc) return;
+    const rect = sc.getBoundingClientRect();
+    const cursorY = clientY - rect.top;
+    const bp = bpUnderCursor({
+      cursorY,
+      scrollTop: sc.scrollTop,
+      scrollHeight: sc.scrollHeight,
+      seqLength: doc.seq.length,
+    });
+    cancelAnimationFrame(anchorRafRef.current);
+    window.clearTimeout(anchorTimerRef.current);
+    const start = performance.now();
+    const reassert = () => {
+      const s = resolveScroller();
+      if (!s) return;
+      const target = anchorScrollTopForBp({
+        bp,
+        cursorY,
+        newScrollHeight: s.scrollHeight,
+        clientHeight: s.clientHeight,
+        seqLength: doc.seq.length,
+      });
+      if (Math.abs(s.scrollTop - target) > 1) s.scrollTop = target;
+      if (performance.now() - start < 320) {
+        // Re-assert next frame. rAF is the smooth foreground path; a setTimeout
+        // schedules the SAME single continuation so the loop survives frames where
+        // rAF is starved (heavy SeqViz commit) or paused (background tab) — only
+        // one of the two will win the next tick because each re-cancels the other.
+        cancelAnimationFrame(anchorRafRef.current);
+        window.clearTimeout(anchorTimerRef.current);
+        anchorRafRef.current = requestAnimationFrame(reassert);
+        anchorTimerRef.current = window.setTimeout(reassert, 32);
+      } else {
+        recomputeWindow();
+      }
+    };
+    anchorRafRef.current = requestAnimationFrame(reassert);
+    anchorTimerRef.current = window.setTimeout(reassert, 32);
+  }, [doc.seq.length, resolveScroller, recomputeWindow]);
+
+  useEffect(
+    () => () => {
+      cancelAnimationFrame(anchorRafRef.current);
+      window.clearTimeout(anchorTimerRef.current);
+    },
+    [],
+  );
+
   useEffect(() => {
     const el = viewerRef.current;
     if (!el) return;
@@ -519,6 +601,7 @@ export default function SequenceEditView({
       if (!e.ctrlKey) return;
       e.preventDefault();
       e.stopPropagation();
+      if (isLinearViewer) startCursorAnchor(e.clientY);
       setView((v) => {
         if (isLinearViewer) {
           const current = v.linearZoom ?? autoLinearZoom;
@@ -531,13 +614,14 @@ export default function SequenceEditView({
     };
     // Safari (some builds) fires gesture* instead of ctrl+wheel. Handle if present.
     const onGesture = (e: Event) => {
-      const ge = e as Event & { scale?: number };
+      const ge = e as Event & { scale?: number; clientY?: number };
       if (typeof ge.scale !== "number") return;
       e.preventDefault();
       // gesturechange `scale` is relative to gesturestart (1 == no change, >1
       // spread/zoom-in, <1 pinch/zoom-out). Map to a deltaY-equivalent so we
       // reuse the same scaling: scale 1.1 -> ~ -10 deltaY (zoom in).
       const deltaY = (1 - ge.scale) * 100;
+      if (isLinearViewer && typeof ge.clientY === "number") startCursorAnchor(ge.clientY);
       setView((v) => {
         if (isLinearViewer) {
           const current = v.linearZoom ?? autoLinearZoom;
@@ -556,7 +640,7 @@ export default function SequenceEditView({
       el.removeEventListener("gesturechange", onGesture as EventListener);
       el.removeEventListener("gestureend", onGesture as EventListener);
     };
-  }, [isLinearViewer, autoLinearZoom]);
+  }, [isLinearViewer, autoLinearZoom, startCursorAnchor]);
 
   // Drag the overview viewport box -> scroll the main view so `bp` is at top.
   const scrollMainToBp = useCallback(
@@ -594,6 +678,7 @@ export default function SequenceEditView({
           end: a.end,
           direction: (a.direction === -1 ? -1 : 1) as 1 | -1,
           color: a.color,
+          type: a.type,
         })),
     [docAnnotations, view],
   );
