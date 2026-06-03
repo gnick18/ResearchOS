@@ -14,9 +14,10 @@
  *
  * The cursor doesn't fire a click on these beats. The spotlight does
  * the work — the user sees the section, hears the explanation, and
- * clicks Got-it to advance. Three of the beats are conditional:
+ * clicks Got-it to advance. Two of the beats are conditional
+ * (`settings-tour-calendar` was retired 2026-05-27 and deleted
+ * 2026-06-03):
  *
- *   - `settings-tour-calendar`     gates on `picks.calendar === "yes"`
  *   - `settings-tour-telegram`     gates on `picks.telegram === "yes"`
  *   - `settings-tour-account-type-toggle` gates on `picks.account_type === "solo"`
  *
@@ -59,30 +60,11 @@ export const settingsTourFolderStep = buildWalkthroughStep({
   expectedRoute: "/settings",
 });
 
-/** §6.10b — Calendar feeds narration (gated on Q3=yes).
- *
- *  Speech-honesty fix (Settings fix manager R1, 2026-05-22): no
- *  dedicated calendar-feeds section exists on /settings yet, so the
- *  prior speech ("Calendar feeds live here, paste any .ics URL...")
- *  narrated UI the user couldn't see. Feed management actually lives
- *  on the /calendar page via CalendarFeedsButton. Reworked the speech
- *  to point users at the Calendar tab instead of pretending Settings
- *  owns the surface.
- *
- *  FOLLOW-UP: when the Settings page grows a "Calendar feeds" section,
- *  stamp `data-tour-target="settings-calendar-feeds-section"` on the
- *  SectionShell, add `targetSelector: targetSelector(TOUR_TARGETS.settingsCalendarFeeds)`
- *  here, and restore the "paste any .ics URL" framing. */
-export const settingsTourCalendarStep = buildWalkthroughStep({
-  id: "settings-tour-calendar",
-  speech:
-    "Calendar feeds aren't managed here in Settings. Head over to the actual Calendar tab when you're ready to paste in your link.",
-  pose: "pointing",
-  // FOLLOW-UP: no anchor until Settings grows a calendar-feeds section.
-  completion: manualAdvance("Got it, next"),
-  conditionalOn: (picks: FeaturePicks | null) => picks?.calendar === "yes",
-  expectedRoute: "/settings",
-});
+// §6.10b — Calendar feeds narration (`settings-tour-calendar`, gated on
+// Q3=yes) retired 2026-05-27 (Grant hand-walk) and deleted 2026-06-03
+// (HR / tour-cleanup): no dedicated calendar-feeds section exists on
+// /settings, so the beat narrated UI the user couldn't see. Feed
+// management lives on the /calendar page via CalendarFeedsButton.
 
 /** §6.10c — Telegram narration (gated on Q5=yes). Anchors on the
  *  BehaviorSection which already carries `id="telegram"` for deep-

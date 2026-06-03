@@ -65,28 +65,6 @@ export const wikiPointerIconSpotlightStep = buildWalkthroughStep({
   completion: manualAdvance("Got it, next"),
 });
 
-/**
- * @deprecated 2026-05-22 (Wiki pointer manager): retired by the §6.12
- * redesign. Replaced by the cluster above (`wiki-pointer-intro` ->
- * `wiki-pointer-icon-spotlight`, collapsed to 2 awareness beats
- * 2026-06-03 by HR / tour-simplification). Kept in tree for git-history
- * reference and to avoid breaking any external importer; removed from
- * `step-registry.ts` and `TOUR_STEP_ORDER` so the controller never lands
- * on it.
- *
- * Original body: a single glide-only beat that landed the cursor on the
- * `?` icon as a visual anchor with no click. Speech read "If you ever get
- * stuck, the Wiki tab up here has guides. Come back to it anytime."
- */
-export const wikiPointerStep = buildWalkthroughStep({
-  id: "wiki-pointer",
-  speech:
-    "If you ever get stuck, the Wiki tab up here has guides. Come back to it anytime.",
-  pose: "pointing-up",
-  targetSelector: targetSelector(TOUR_TARGETS.wikiNavTab),
-  completion: manualAdvance("Got it, next"),
-});
-
 // Helper retained in this module so tests / debug surfaces can import
 // the function used to resolve the wiki target from the current path.
 // Re-export keeps `appRouteToWikiRoute` import-tree-discoverable

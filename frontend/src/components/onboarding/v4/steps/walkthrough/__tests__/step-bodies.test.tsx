@@ -134,7 +134,6 @@ import { animationPickerStep } from "../AnimationPickerStep";
 import { settingsColorStep } from "../SettingsColorStep";
 import {
   settingsTourFolderStep,
-  settingsTourCalendarStep,
   settingsTourTelegramStep,
   settingsTourAccountTypeToggleStep,
   settingsTourVisibleTabsStep,
@@ -147,8 +146,8 @@ import { settingsAiHelperUseCaseAgenticStep } from "../SettingsAiHelperUseCaseAg
 import { searchStep } from "../SearchStep";
 // §6.12 Wiki pointer redesign 2026-05-22 (Wiki pointer manager),
 // collapsed to 2 beats 2026-06-03 (HR / tour-simplification). Legacy
-// `wikiPointerStep` stays retired from ALL_STEPS / expected-ids; the two
-// cursor navigation demos (click-demo, back-demo) were cut. The two
+// `wikiPointerStep` body was deleted 2026-06-03 (HR / tour-cleanup); the
+// two cursor navigation demos (click-demo, back-demo) were cut. The two
 // surviving awareness beats are imported below.
 import {
   wikiPointerIntroStep,
@@ -241,7 +240,6 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   // ALL_STEPS so the contract sweep doesn't re-evaluate retired bodies.
   settingsColorStep,
   settingsTourFolderStep,
-  settingsTourCalendarStep,
   settingsTourTelegramStep,
   settingsTourAccountTypeToggleStep,
   settingsTourVisibleTabsStep,
@@ -327,7 +325,6 @@ describe("P5 step bodies — universal contract", () => {
       // §6.10 Settings phase redesign 2026-05-22 (Settings manager).
       "personalization-color",
       "settings-tour-folder",
-      "settings-tour-calendar",
       "settings-tour-telegram",
       "settings-tour-account-type-toggle",
       "settings-tour-visible-tabs",

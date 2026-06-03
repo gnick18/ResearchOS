@@ -31,7 +31,7 @@ export const settingsAiHelperSizeDiffStep = buildWalkthroughStep({
         notebook, the more each conversation costs you.
       </p>
       <p>
-        That&apos;s why the AI Helper exists: it generates a system
+        That&apos;s why the AI Helper exists. It generates a system
         prompt about how your notebook is structured, sized to fit how
         much you&apos;re willing to spend per chat.
       </p>

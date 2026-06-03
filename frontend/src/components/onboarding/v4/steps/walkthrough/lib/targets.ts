@@ -91,8 +91,8 @@ export const TOUR_TARGETS = {
   // the prior 7-tile hover sweep with two focused builder demos (PCR +
   // LC Gradient). The cursor clicks INTO each builder and exercises
   // ~3-4 affordances so users see that these editors are interactive
-  // (not text forms). See MethodsBreadthStep / MethodsPcrEditStep /
-  // MethodsPcrAddCycleStep / MethodsLcDemoStep for the per-step bodies.
+  // (not text forms). The per-step PCR / LC builder bodies were retired
+  // 2026-06-03 (HR / tour-simplification); these target keys remain.
   // PCR editor (InteractiveGradientEditor.tsx) affordances:
   methodsTypePcrTile: "method-type-pcr",
   methodsTypeLcGradientTile: "method-type-lc-gradient",

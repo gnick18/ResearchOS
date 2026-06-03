@@ -49,9 +49,9 @@ export const settingsAiHelperUseCasePasteStep = buildWalkthroughStep({
   speech: (
     <>
       <p className="mb-2">
-        The simplest way to use this: copy the prompt, paste it as the
-        first message in a new chat with Claude, ChatGPT, or Gemini,
-        then ask your question.
+        The simplest way to use this is to copy the prompt and paste it
+        as the first message in a new chat with Claude, ChatGPT, or
+        Gemini, then ask your question.
       </p>
       <p>
         The model now has context on how your notebook is structured.

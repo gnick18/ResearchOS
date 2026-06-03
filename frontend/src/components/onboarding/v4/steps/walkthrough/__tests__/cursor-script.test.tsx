@@ -1012,45 +1012,6 @@ describe("tourClickWithLockBypass() — §6.2b R4 helper", () => {
   });
 });
 
-describe("§6.4b step bodies declare the expected viewportAnchor — Bug A", () => {
-  /**
-   * Per Grant's brief, the 5 §6.4b sub-steps must declare a
-   * `viewportAnchor` so the controller scrolls the larger builder card
-   * into view before the cursor demo runs. Catches a regression where
-   * a future maintainer drops the field by accident.
-   */
-  // 2026-06-03 (HR / tour-simplification): the PCR builder demo
-  // (methodsBreadthStep / methods-type-tour) and the LC Gradient demo
-  // (methodsLcDemoStep / methods-lc-demo) were cut and their source files
-  // deleted. The viewport-anchor sweep no longer covers them; the dormant
-  // PCR sub-step bodies below still declare their anchors.
-  it("methodsPcrEditStep anchors the PCR editor wrapper", async () => {
-    const { methodsPcrEditStep } = await import("../MethodsPcrEditStep");
-    expect(methodsPcrEditStep.viewportAnchor).toBe(
-      '[data-tour-target="pcr-editor-wrapper"]',
-    );
-  });
-  it("methodsPcrAddCycleStep anchors the PCR editor wrapper", async () => {
-    const { methodsPcrAddCycleStep } = await import(
-      "../MethodsPcrAddCycleStep"
-    );
-    expect(methodsPcrAddCycleStep.viewportAnchor).toBe(
-      '[data-tour-target="pcr-editor-wrapper"]',
-    );
-  });
-  it("methodsPcrConfirmCycleStep anchors the PCR editor wrapper", async () => {
-    const { methodsPcrConfirmCycleStep } = await import(
-      "../MethodsPcrConfirmCycleStep"
-    );
-    expect(methodsPcrConfirmCycleStep.viewportAnchor).toBe(
-      '[data-tour-target="pcr-editor-wrapper"]',
-    );
-  });
-  // §6.4b LC Gradient deep-demo removed entirely (Grant 2026-05-26,
-  // methods-cluster sub-bot). The viewport-anchor sweep above used to
-  // cover `methodsLcDemoStep` here; the step body file is gone.
-});
-
 describe("targetSelector + TOUR_TARGETS", () => {
   it("wraps a target name into the [data-tour-target='...'] form", () => {
     expect(targetSelector(TOUR_TARGETS.homeNewProject)).toBe(

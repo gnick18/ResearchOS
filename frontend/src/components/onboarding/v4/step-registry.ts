@@ -299,9 +299,9 @@ import { searchStep } from "./steps/walkthrough/SearchStep";
 // intro (speech) -> icon spotlight (spotlight the `?` icon + awareness of
 // what clicking it does). The two cursor navigation demos
 // (wikiPointerClickDemoStep, wikiPointerBackDemoStep) were cut; the
-// click-and-return behavior folded into the icon-spotlight speech. Those
-// bodies remain in WikiPointerStep.tsx but no longer wire through the
-// registry, alongside the long-retired single `wikiPointerStep`.
+// click-and-return behavior folded into the icon-spotlight speech. The
+// long-retired single `wikiPointerStep` body was deleted 2026-06-03
+// (HR / tour-cleanup).
 import {
   wikiPointerIntroStep,
   wikiPointerIconSpotlightStep,

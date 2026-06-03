@@ -29,7 +29,7 @@ export const settingsIntroStep = buildWalkthroughStep({
     <>
       <p className="mb-2">
         Last stop: Settings. This is where everything about your
-        account lives: how the app looks, which tabs are visible, your
+        account lives, how the app looks, which tabs are visible, your
         integrations, your AI Helper prompt, and the option to re-run
         this tour later.
       </p>

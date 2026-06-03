@@ -22,7 +22,7 @@ export const ganttIntroStep = buildWalkthroughStep({
         plan backward from a deadline.
       </p>
       <p>
-        We'll cover three things here: rescheduling work by dragging bars
+        We'll cover three things here. Rescheduling work by dragging bars
         around, wiring up dependencies between tasks, and sharing
         experiments with your lab.
       </p>

@@ -107,8 +107,8 @@ export const workbenchListsIntroStep = buildWalkthroughStep({
       <p className="mb-2">
         A list is a lightweight task with a checklist inside. Reach for
         one when the work is just &quot;do these things and check them
-        off&quot;: a reagent restock, errands before a deadline, items
-        to bring to a conference.
+        off&quot;, like a reagent restock, errands before a deadline, or
+        items to bring to a conference.
       </p>
       <p>No protocol, no results section. Just a name and a set of boxes to tick.</p>
     </>
