@@ -1193,10 +1193,10 @@ describe("TourController — cursor-script invocation", () => {
     const { result } = renderHook(() => useTourController(), {
       wrapper: wrapper(),
     });
-    // Wave 2A speech rewrite (v4 tour speech manager — A, 2026-05-27):
-    // the BEAKERBOT_DEMO cursorScript moved off project-overview-prose
-    // (now pure narration) onto the new project-overview-typing-demo
-    // step. Start there so the cursor-script effect fires.
+    // 2026-06-03 (HR / tour-simplification): the four §6.2 beats collapsed
+    // into the single project-overview-typing-demo beat, which owns the
+    // BEAKERBOT_DEMO cursorScript. Start there so the cursor-script effect
+    // fires.
     act(() => result.current.start("project-overview-typing-demo"));
     await waitFor(() => {
       expect(cursorRunScriptMock).toHaveBeenCalledTimes(1);
@@ -1210,10 +1210,10 @@ describe("TourController — cursor-script invocation", () => {
     const { result } = renderHook(() => useTourController(), {
       wrapper: wrapper(),
     });
-    // Wave 2A speech rewrite (v4 tour speech manager — A, 2026-05-27):
-    // the BEAKERBOT_DEMO cursorScript moved off project-overview-prose
-    // (now pure narration) onto the new project-overview-typing-demo
-    // step. Start there so the cursor-script effect fires.
+    // 2026-06-03 (HR / tour-simplification): the four §6.2 beats collapsed
+    // into the single project-overview-typing-demo beat, which owns the
+    // BEAKERBOT_DEMO cursorScript. Start there so the cursor-script effect
+    // fires.
     act(() => result.current.start("project-overview-typing-demo"));
     await waitFor(() => {
       expect(cursorRunScriptMock).toHaveBeenCalledTimes(1);
@@ -1248,10 +1248,10 @@ describe("TourController — cursor-script invocation", () => {
     const { result } = renderHook(() => useTourController(), {
       wrapper: wrapper(),
     });
-    // Wave 2A speech rewrite (v4 tour speech manager — A, 2026-05-27):
-    // the BEAKERBOT_DEMO cursorScript moved off project-overview-prose
-    // (now pure narration) onto the new project-overview-typing-demo
-    // step. Start there so the cursor-script effect fires.
+    // 2026-06-03 (HR / tour-simplification): the four §6.2 beats collapsed
+    // into the single project-overview-typing-demo beat, which owns the
+    // BEAKERBOT_DEMO cursorScript. Start there so the cursor-script effect
+    // fires.
     act(() => result.current.start("project-overview-typing-demo"));
     // The lock should appear in the document before / while the
     // cursor script runs. Even if runScript resolves quickly under
@@ -1274,10 +1274,10 @@ describe("TourController — cursor-script invocation", () => {
     const { result } = renderHook(() => useTourController(), {
       wrapper: wrapper(),
     });
-    // Wave 2A speech rewrite (v4 tour speech manager — A, 2026-05-27):
-    // the BEAKERBOT_DEMO cursorScript moved off project-overview-prose
-    // (now pure narration) onto the new project-overview-typing-demo
-    // step. Start there so the cursor-script effect fires.
+    // 2026-06-03 (HR / tour-simplification): the four §6.2 beats collapsed
+    // into the single project-overview-typing-demo beat, which owns the
+    // BEAKERBOT_DEMO cursorScript. Start there so the cursor-script effect
+    // fires.
     act(() => result.current.start("project-overview-typing-demo"));
     await waitFor(() => {
       expect(cursorRunScriptMock).toHaveBeenCalledTimes(1);

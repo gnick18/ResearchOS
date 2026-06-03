@@ -121,14 +121,13 @@ function placeholderStep(id: TourStepId): TourStep {
 // beat import (`homeOpenProjectsWidgetStep`) is removed with that retired step.
 import { homeCreateProjectStep } from "./steps/walkthrough/HomeCreateProjectStep";
 import { homeCreateProjectFillStep } from "./steps/walkthrough/HomeCreateProjectFillStep";
-import { projectOverviewNavStep } from "./steps/walkthrough/ProjectOverviewNavStep";
-import { projectOverviewStep } from "./steps/walkthrough/ProjectOverviewStep";
-// v4 tour structural manager (Wave 1, 2026-05-27): the
-// `project-overview-typing-demo` skeleton split off the BEAKERBOT_DEMO
-// half of `project-overview-prose` (it types into the Overview
-// textarea). Wave 2 filled in speech + cursor scripts.
+// 2026-06-03 (HR / tour-simplification): the four §6.2 project-page beats
+// (project-overview-nav, project-overview-prose, this typing demo,
+// project-overview-context) collapsed into the SINGLE beat below. The
+// typing demo survived because it owns the cursor typing, the
+// PLACEHOLDER_HYPOTHESIS export, and the overview_prose cleanup wiring;
+// it absorbed the orientation + Overview-box copy from the deleted beats.
 import { projectOverviewTypingDemoStep } from "./steps/walkthrough/ProjectOverviewTypingDemoStep";
-import { projectOverviewContextStep } from "./steps/walkthrough/ProjectOverviewContextStep";
 // 2026-06-03 (tour-merge): the `project-overview-exit` step was removed.
 // It glided to the notification bell with no click, then duplicated by
 // `notifications-intro`. Its route handoff (/workbench) + lead-in framing
@@ -335,13 +334,11 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   // is a persistent toolbar button, not a widget popup.
   [homeCreateProjectStep.id]: homeCreateProjectStep,
   [homeCreateProjectFillStep.id]: homeCreateProjectFillStep,
-  [projectOverviewNavStep.id]: projectOverviewNavStep,
-  [projectOverviewStep.id]: projectOverviewStep,
-  // v4 tour structural manager (Wave 1, 2026-05-27): the
-  // `project-overview-typing-demo` skeleton split off the prose step's
-  // BEAKERBOT_DEMO half.
+  // 2026-06-03 (HR / tour-simplification): the four §6.2 beats collapsed
+  // into this single project-page beat. project-overview-nav,
+  // project-overview-prose, and project-overview-context were deleted;
+  // project-overview-typing-demo absorbed their copy.
   [projectOverviewTypingDemoStep.id]: projectOverviewTypingDemoStep,
-  [projectOverviewContextStep.id]: projectOverviewContextStep,
   // 2026-06-03 (tour-merge): `project-overview-exit` removed; its route
   // handoff + lead-in framing folded into `notifications-intro` below.
   // v4 tour structural manager (Wave 1, 2026-05-27): the

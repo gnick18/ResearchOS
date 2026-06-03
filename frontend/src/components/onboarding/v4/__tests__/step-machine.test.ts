@@ -70,6 +70,16 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER.indexOf("home-create-project-fill")).toBe(
       TOUR_STEP_ORDER.indexOf("home-create-project") + 1,
     );
+    // 2026-06-03 (HR / tour-simplification): the four §6.2 project-page
+    // beats collapsed into the single project-overview-typing-demo beat.
+    // The other three ids are fully removed.
+    expect(TOUR_STEP_ORDER).toContain("project-overview-typing-demo");
+    expect(TOUR_STEP_ORDER).not.toContain("project-overview-nav");
+    expect(TOUR_STEP_ORDER).not.toContain("project-overview-prose");
+    expect(TOUR_STEP_ORDER).not.toContain("project-overview-context");
+    expect(TOUR_STEP_ORDER.indexOf("project-overview-typing-demo")).toBe(
+      TOUR_STEP_ORDER.indexOf("home-create-project-fill") + 1,
+    );
     // Widget-framework teardown v2 (2026-06-02): the §6.2b Home widgets
     // cluster (5 sub-steps) was removed with the customizable widget canvas.
     expect(TOUR_STEP_ORDER).not.toContain("home-widgets-canvas-intro");
@@ -197,14 +207,16 @@ describe("TOUR_STEP_ORDER", () => {
     expect(duplicates, `TOUR_STEP_ORDER contains duplicate ids: ${duplicates.join(", ")}`).toEqual([]);
   });
 
-  it("hands project-overview-context straight to notifications-intro (tour-merge 2026-06-03 removed the redundant project-overview-exit beat)", () => {
-    // Tour-merge: the `project-overview-exit` beat glided the cursor to the
-    // notification bell with no click, then notifications-intro re-explained
-    // that same bell with no cursor. The exit beat was removed; its route
-    // handoff + lead-in framing folded into notifications-intro, so the §6.2
-    // context beat now flows directly into the §6.3 notifications framing.
+  it("hands project-overview-typing-demo straight to notifications-intro (tour-simplification 2026-06-03 collapsed the §6.2 cluster + removed the redundant project-overview-exit beat)", () => {
+    // 2026-06-03 (HR / tour-simplification): the four §6.2 beats collapsed
+    // into the single project-overview-typing-demo beat. The earlier
+    // tour-merge had already removed the `project-overview-exit` beat (it
+    // glided the cursor to the notification bell with no click, then
+    // notifications-intro re-explained that same bell). With both changes
+    // landed, the single project beat now flows directly into the §6.3
+    // notifications framing.
     const order = [
-      "project-overview-context",
+      "project-overview-typing-demo",
       "notifications-intro",
       "notifications-bell",
     ];
@@ -470,12 +482,12 @@ describe("TOUR_STEP_ORDER", () => {
       // OPEN-WIDGET beat is retired).
       "home-create-project",
       "home-create-project-fill",
-      "project-overview-nav",
-      "project-overview-prose",
+      // 2026-06-03 (HR / tour-simplification): the four §6.2 beats collapsed
+      // into the single project-overview-typing-demo beat.
       "project-overview-typing-demo",
-      "project-overview-context",
       // Tour-merge (2026-06-03): the redundant `project-overview-exit` beat
-      // was removed; context hands straight to the notifications framing.
+      // was removed; the project beat hands straight to the notifications
+      // framing.
       "notifications-intro",
       "notifications-bell",
       "notifications-silence",

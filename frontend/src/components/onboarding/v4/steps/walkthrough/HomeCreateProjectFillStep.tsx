@@ -108,6 +108,7 @@ export const homeCreateProjectFillStep = buildWalkthroughStep({
   // Re-homed to /workbench (the universal create surface) so the form
   // anchor resolves on refresh. On a successful create, NewProjectButton
   // navigates to the new project's page, which the next beat
-  // (`project-overview-nav`) narrates.
+  // (`project-overview-typing-demo`, the single project-page beat after
+  // the 2026-06-03 tour-simplification collapse) frames and types into.
   expectedRoute: "/workbench",
 });

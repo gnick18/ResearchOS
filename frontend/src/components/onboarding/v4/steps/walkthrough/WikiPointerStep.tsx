@@ -33,9 +33,9 @@
  * OnboardingProvider inside the `isWikiRoute` branch when a real
  * signed-in user is present, so the tour controller survives the round
  * trip to `/wiki/*` and back. Click-demo + back-demo therefore run
- * real navigations the same way `project-overview-nav` does, with
- * `expectedRoute` declared so a refresh mid-cluster lands the user on
- * the right page on resume.
+ * real navigations the same way the route-bearing beats do (for
+ * example `home-create-project-fill`), with `expectedRoute` declared so
+ * a refresh mid-cluster lands the user on the right page on resume.
  *
  * Per the universal pacing rule (Grant 2026-05-22), every beat in this
  * cluster uses `manualAdvance("Got it, next")` so the user controls the

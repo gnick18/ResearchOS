@@ -19,12 +19,13 @@ const P5_STEP_IDS = [
   // that the create affordance is a persistent top-level toolbar button.
   "home-create-project",
   "home-create-project-fill",
-  "project-overview-nav",
-  "project-overview-prose",
+  // 2026-06-03 (HR / tour-simplification): the four §6.2 beats
+  // (project-overview-nav / -prose / this typing demo / -context)
+  // collapsed into the single project-overview-typing-demo beat.
   "project-overview-typing-demo",
-  "project-overview-context",
   // Tour-merge (2026-06-03): the redundant `project-overview-exit` beat
-  // was removed; context hands straight to the notifications framing.
+  // was removed; the project beat hands straight to the notifications
+  // framing.
   "notifications-intro",
   "notifications-bell",
   "notifications-silence",

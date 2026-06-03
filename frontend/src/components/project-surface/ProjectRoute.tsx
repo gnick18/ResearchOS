@@ -508,11 +508,12 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
       <div
         className="sticky top-0 z-10 bg-white border-b border-gray-200"
         data-testid="project-route-topbar"
-        // Onboarding v4 §6.2 context sub-step anchor. The
-        // `project-overview-context` step spotlights this topbar so
-        // BeakerBot can narrate the metadata strip (name, tags, action
-        // icons) without dimming the Overview textarea below. Selector
-        // wired via `targets.ts` → projectOverviewTopbar.
+        // Onboarding v4 §6.2 topbar anchor (now orphaned). It used to
+        // back the `project-overview-context` step, which the 2026-06-03
+        // tour-simplification collapse removed (the four §6.2 beats folded
+        // into the single `project-overview-typing-demo` beat). The stamp
+        // is kept harmless rather than touching the page markup. Selector
+        // wired via `targets.ts` -> projectOverviewTopbar.
         data-tour-target="project-overview-topbar"
       >
         <div className="px-6 pt-4 pb-3 flex flex-col gap-3">
@@ -1221,9 +1222,9 @@ function OverviewSection({ project, ownerHint, editOwner, readOnly }: OverviewSe
           }
           disabled={readOnly}
           // Onboarding v4 §6.2 spotlight + typewriter anchor. The
-          // walkthrough's ProjectOverviewStep types a placeholder
-          // hypothesis here via the cursor script (see
-          // steps/walkthrough/lib/targets.ts → projectOverviewTextarea).
+          // walkthrough's project-overview-typing-demo beat types a
+          // placeholder hypothesis here via the cursor script (see
+          // steps/walkthrough/lib/targets.ts -> projectOverviewTextarea).
           data-tour-target="project-overview-textarea"
           className="w-full min-h-[180px] p-3 text-sm text-gray-800 border border-gray-200 rounded-md resize-y focus:outline-none focus:ring-1 focus:ring-blue-300"
         />

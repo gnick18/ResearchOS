@@ -357,14 +357,16 @@ export function watchHomeCreateModalOpened(
 
 /**
  * Watch for the project route to mount. `ProjectRoute.tsx` dispatches
- * `tour:project-route-entered` on mount, so the §6.2 NAV sub-step
- * (`project-overview-nav`) can advance the moment the cursor's click on
- * the home-page project card lands on `/workbench/projects/<id>`. The
- * follow-up PROSE sub-step (`project-overview-prose`) then runs its
- * typing cursor script on the project page, with a fresh
- * `InProductWalkthroughOverlay` mount and a fresh cursor ref. This is
- * the same trigger-then-action split §6.1 used to dodge the
- * cursor-cannot-cross-navigation problem.
+ * `tour:project-route-entered` on mount when the user lands on
+ * `/workbench/projects/<id>`.
+ *
+ * History: §6.2 used to be a trigger-then-action split (a NAV sub-step
+ * that advanced on this event, then a PROSE/typing sub-step). The
+ * 2026-06-03 tour-simplification collapse folded the §6.2 cluster into
+ * the single `project-overview-typing-demo` beat, and the §6.1 FILL
+ * create now routes straight to the project page, so no surviving step
+ * gates on this event today. The watcher is retained as a stable util
+ * for any future project-route-entry gating.
  *
  * A DOM-mount fallback watches for the Overview textarea anchor so a
  * future refactor that drops the explicit dispatch (e.g. moves the route

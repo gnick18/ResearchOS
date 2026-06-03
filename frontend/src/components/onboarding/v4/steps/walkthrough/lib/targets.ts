@@ -38,12 +38,14 @@ export const TOUR_TARGETS = {
   // gone from TOUR_STEP_ORDER and the `project-overview-rollup-sections`
   // anchor was stripped from ProjectRoute.tsx, so this constant is
   // deleted rather than left dangling.
-  // §6.2c project route topbar — sticky header containing the project
-  // name, tags, and action buttons (edit, share, archive, delete). The
-  // §6.2 context sub-step (`project-overview-context`) spotlights this
-  // so BeakerBot can call out "your project's tags, name, and shape live
-  // here" alongside the Overview textarea below. Anchor lives in
-  // `ProjectRoute.tsx` on the sticky topbar div that already has
+  // §6.2c project route topbar: sticky header containing the project
+  // name, tags, and action buttons (edit, share, archive, delete). This
+  // anchor used to back the `project-overview-context` beat, which the
+  // 2026-06-03 tour-simplification collapse removed (the four §6.2 beats
+  // folded into the single `project-overview-typing-demo` beat). The
+  // anchor is now orphaned but kept harmless so the project page div
+  // stamp does not need touching. Anchor lives in `ProjectRoute.tsx` on
+  // the sticky topbar div that already has
   // `data-testid="project-route-topbar"`.
   projectOverviewTopbar: "project-overview-topbar",
 

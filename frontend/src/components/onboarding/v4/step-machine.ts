@@ -110,49 +110,32 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   //     button; advance when the form opens (`tour:home-create-modal-opened`).
   //   FILL (`home-create-project-fill`): explain name + color; advance on
   //     `projectsApi.create` (`tour:project-created`).
-  // On create, an auto Single Project widget pinned to the new project appears
-  // on the dashboard; the following `project-overview-nav` beat clicks THAT
-  // tile to open the project page. See HomeCreateProjectStep.tsx +
-  // ProjectOverviewNavStep.tsx.
+  // On create, the §6.1 FILL beat's create routes the user straight to
+  // the new project's page (NewProjectButton.onCreated calls
+  // router.push), so the next beat runs on /workbench/projects/<id>.
+  // See HomeCreateProjectFillStep.tsx.
   "home-create-project",
   "home-create-project-fill",
-  // Project route Overview prose (§6.2). Split into NAV (cursor clicks
-  // the project card on home + advances on `tour:project-route-entered`)
-  // + PROSE (cursor types the placeholder hypothesis into the Overview
-  // textarea on the project page). The split mirrors §6.1's trigger /
-  // fill pattern; a single cursor script can't span the navigation
-  // because the in-product overlay unmounts on route change. See
-  // ProjectOverviewNavStep.tsx for the split rationale.
-  "project-overview-nav",
-  // 2026-05-27 (v4 tour structural manager, Wave 1): the prior
-  // `project-page-intro` page-transition beat is retired. Grant's
-  // script rewrite reshapes the §6.2 opening so `project-overview-nav`
-  // carries the page-context framing directly.
-  "project-overview-prose",
-  // 2026-05-27 (v4 tour structural manager, Wave 1): split off the
-  // BEAKERBOT_DEMO portion of `project-overview-prose` (the cursor
-  // typing demo) into `project-overview-typing-demo`.
-  // 2026-06-03: the old `project-overview-rollup` narration beat
-  // (which described Results / Methods / Activity rolling up
-  // automatically) was removed. Those sections became hide-when-empty
-  // tabs in the real-tabs redesign, so on a fresh project the step
-  // spotlighted nothing and read as broken. Neighbors auto-stitch.
-  // Position: prose → typing-demo → context.
+  // Project route Overview (§6.2). 2026-06-03 (HR / tour-simplification):
+  // Grant hand-walked the project click-through and found it overbuilt.
+  // The four §6.2 beats (project-overview-nav narration,
+  // project-overview-prose "four sections", this typing demo,
+  // project-overview-context topbar) collapsed into a SINGLE beat on
+  // project-overview-typing-demo. It carries the orientation line, says
+  // the page fills in on its own as you add work, explains the Overview
+  // box is the part you write yourself, and BeakerBot types a sample.
+  // The §6.1 FILL create routes straight to /workbench/projects/<id>, so
+  // there is no navigation beat to span. Neighbors auto-stitch:
+  // home-create-project-fill -> project-overview-typing-demo ->
+  // notifications-intro.
   "project-overview-typing-demo",
-  // Context narration (Grant 2026-05-22, v4 §6.2 overview teach sub-bot):
-  // BeakerBot points at the sticky project topbar and narrates the
-  // metadata strip (name, tags, action icons) so the user knows where
-  // a project's shape lives at a glance. Pure narration — no cursor
-  // demo, manual advance. See ProjectOverviewContextStep.tsx for the
-  // rationale.
-  "project-overview-context",
   // 2026-06-03 (tour-merge): the old `project-overview-exit` transition
   // beat was removed. It glided the cursor to the notification bell with
   // no click, then `notifications-intro` re-explained that same bell with
   // no cursor — a redundant pair. The exit step's job (route handoff to
   // /workbench, the lead-in framing) folded into `notifications-intro`,
   // which now carries `expectedRoute: "/workbench"` and spotlights the
-  // bell. Neighbors auto-stitch: context → notifications-intro.
+  // bell. Neighbors auto-stitch: typing-demo -> notifications-intro.
   // 2026-05-27 (v4 tour structural manager, Wave 1): the
   // `notifications-intro` narration beat sits before the click-the-bell
   // user-action so BeakerBot can frame the top-bar bell + inbox pair

@@ -65,7 +65,7 @@ import styles from "./BeakerBot.module.css";
  *                       hand. The other arm rests against the body
  *                       silhouette (not drawn, same convention as the
  *                       regular `typing` pose). Used by the v4
- *                       walkthrough project-overview-prose step.
+ *                       walkthrough project-overview-typing-demo step.
  *                       Redesigned 2026-05-22 from a two-arm hammer
  *                       layout (Grant: the two-hand version read as
  *                       awkward / disconcerting).

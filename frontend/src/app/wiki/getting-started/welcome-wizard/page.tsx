@@ -223,26 +223,14 @@ export default function WelcomeWizardPage() {
       </p>
       <Steps>
         <Step>
-          <strong>project-overview-nav.</strong> Cursor clicks the new project
-          card and the controller navigates to the project route.
-        </Step>
-        <Step>
-          <strong>project-overview-prose.</strong> BeakerBot introduces the
-          project page and explains the Overview box as the anchor you come
-          back to when you are deep in the weeds. Narration only, manual
-          advance.
-        </Step>
-        <Step>
-          <strong>project-overview-typing-demo.</strong> Cursor types a
-          placeholder hypothesis into the Overview textarea so you can see
-          how the live render lands.
-        </Step>
-        <Step>
-          <strong>project-overview-context.</strong> BeakerBot points at the
-          sticky project top-bar and narrates the metadata strip (name, tags,
-          action icons) so you know where a project&apos;s shape lives at a
-          glance. Pure narration, manual advance. Hands straight off to the
-          notifications walkthrough.
+          <strong>project-overview-typing-demo.</strong> A single beat for the
+          whole project page. BeakerBot orients you (every experiment, method,
+          and task attaches to a project, and this page is where it comes back
+          together), explains the page fills in on its own as you add work, and
+          explains the Overview box up top is the part you write yourself
+          (hypothesis, motivation, why the project exists). It then types a
+          sample into the Overview textarea so you can see how the live render
+          lands, then hands straight off to the notifications walkthrough.
         </Step>
       </Steps>
 
