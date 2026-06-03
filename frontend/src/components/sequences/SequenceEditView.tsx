@@ -2295,6 +2295,7 @@ export default function SequenceEditView({
         selection={sel.hasRange ? { start: sel.lo, end: sel.hi } : null}
         onApply={setActiveEnzymes}
         onClose={() => setEnzymePickerOpen(false)}
+        username={currentUser ?? undefined}
       />
 
       {/* Phase 2e — primer design dialog (Tm / GC / binding site / alignment). */}

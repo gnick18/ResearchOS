@@ -7,13 +7,20 @@
 // COMPUTED presets. The chosen set applies to the map LIVE. A small digest
 // summary (cut sites + fragment sizes) sits alongside.
 //
-// SCOPE GUARD: nothing here is persisted to disk. The active selection lives in
-// the editor's in-session state only; persistent user-named saved sets are a
-// follow-up. All cut search reuses the vendored digest via enzyme-filters.ts;
-// no enzyme data or recognition-site logic is reimplemented here. Inline SVG
-// icons only (no emoji), <Tooltip> for icon-only buttons, no em-dashes.
+// enzyme sets bot — PERSISTENT user-named "Saved sets" (SnapGene's "Save…" /
+// named "Chosen Enzymes" sets). The "Saved sets" control near the chosen-set
+// area loads / saves / renames / deletes USER-level sets that persist across
+// sequences via `lib/sequences/enzyme-sets.ts`. The BUILT-IN computed presets
+// (above) stay separate from these user-saved sets. Loading a set then editing
+// the selection leaves it as an "unsaved" modification until re-saved.
+//
+// SCOPE GUARD: the only persistence here is the saved-sets sidecar (its own
+// user-level JSON). The active selection still lives in the editor's in-session
+// state. All cut search reuses the vendored digest via enzyme-filters.ts; no
+// enzyme data or recognition-site logic is reimplemented here. Inline SVG icons
+// only (no emoji), <Tooltip> for icon-only buttons, no em-dashes.
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Tooltip from "@/components/Tooltip";
 import type { SeqType } from "@/vendor/seqviz/elements";
 import {
@@ -28,6 +35,13 @@ import {
   type CutCountFilter,
   type Overhang,
 } from "@/lib/sequences/enzyme-filters";
+import {
+  listEnzymeSets,
+  saveEnzymeSet,
+  renameEnzymeSet,
+  deleteEnzymeSet,
+  type EnzymeSet,
+} from "@/lib/sequences/enzyme-sets";
 
 // ── icons (inline SVG only) ───────────────────────────────────────────────────
 function IconClose({ className }: { className?: string }) {
@@ -46,6 +60,36 @@ function IconScissors({ className }: { className?: string }) {
       <path d="M20 4L8.12 15.88" />
       <path d="M14.47 14.48L20 20" />
       <path d="M8.12 8.12L12 12" />
+    </svg>
+  );
+}
+function IconBookmark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+function IconPencil({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" />
+    </svg>
+  );
+}
+function IconTrash({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    </svg>
+  );
+}
+function IconCheck({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <polyline points="20 6 9 17 4 12" />
     </svg>
   );
 }
@@ -76,6 +120,19 @@ export interface EnzymePickerProps {
   /** live-apply the chosen enzyme keys to the map. */
   onApply: (keys: string[]) => void;
   onClose: () => void;
+  /** the current user's folder name — the owner of the saved-sets sidecar.
+   *  Saved sets are USER-level and reusable across every sequence. When blank
+   *  (no connected user) the Saved-sets control is hidden. */
+  username?: string;
+}
+
+/** Order-independent equality of two enzyme-key collections. */
+function sameKeys(a: Iterable<string>, b: Iterable<string>): boolean {
+  const sa = new Set(a);
+  const sb = new Set(b);
+  if (sa.size !== sb.size) return false;
+  for (const k of sa) if (!sb.has(k)) return false;
+  return true;
 }
 
 export default function EnzymePickerDialog({
@@ -87,6 +144,7 @@ export default function EnzymePickerDialog({
   selection,
   onApply,
   onClose,
+  username,
 }: EnzymePickerProps) {
   const [filter, setFilter] = useState<EnzymeFilterState>(DEFAULT_FILTER_STATE);
   // Scope the digest to the current selection vs. the whole sequence.
@@ -94,11 +152,52 @@ export default function EnzymePickerDialog({
   // Working copy of the active set, applied live as it changes.
   const [selected, setSelected] = useState<Set<string>>(new Set(active));
 
-  // Re-seed the working set whenever the dialog (re)opens.
+  // ── Saved sets (user-level, persistent) ──────────────────────────────────
+  const canSaveSets = !!username && username.trim().length > 0;
+  const [savedSets, setSavedSets] = useState<EnzymeSet[]>([]);
+  // The id of the saved set currently LOADED (so we can show its name +
+  // detect unsaved edits). null = the active set is not tied to a saved set.
+  const [loadedSetId, setLoadedSetId] = useState<string | null>(null);
+  // The key-list snapshot of the loaded set, to detect "unsaved modifications".
+  const loadedKeysRef = useRef<string[] | null>(null);
+  // Inline "Save as…" / rename editor state.
+  const [savePromptOpen, setSavePromptOpen] = useState(false);
+  const [saveName, setSaveName] = useState("");
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [setsBusy, setSetsBusy] = useState(false);
+
+  const refreshSets = useCallback(async () => {
+    if (!canSaveSets || !username) return;
+    try {
+      const list = await listEnzymeSets(username);
+      setSavedSets(list);
+    } catch (err) {
+      console.warn("[enzyme-sets] failed to list sets", err);
+    }
+  }, [canSaveSets, username]);
+
+  // Re-seed the working set whenever the dialog (re)opens, and (re)load the
+  // saved-set library. Opening does NOT auto-bind to any saved set.
   useEffect(() => {
-    if (open) setSelected(new Set(active));
+    if (open) {
+      setSelected(new Set(active));
+      setLoadedSetId(null);
+      loadedKeysRef.current = null;
+      setSavePromptOpen(false);
+      setRenamingId(null);
+      void refreshSets();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // The loaded set has unsaved edits when the live selection diverges from the
+  // snapshot we loaded. Pure derived value (no extra state to drift).
+  const loadedSet = savedSets.find((s) => s.id === loadedSetId) ?? null;
+  const hasUnsavedChanges =
+    loadedSet != null &&
+    loadedKeysRef.current != null &&
+    !sameKeys(selected, loadedKeysRef.current);
 
   const hasSelection = !!selection && selection.end > selection.start;
   const scope = inSelection && hasSelection ? selection : null;
@@ -149,6 +248,104 @@ export default function EnzymePickerDialog({
   };
 
   const patch = (p: Partial<EnzymeFilterState>) => setFilter((f) => ({ ...f, ...p }));
+
+  // ── Saved-set actions ─────────────────────────────────────────────────────
+  // Loading a set applies its enzymes live, binds the loaded id, and snapshots
+  // its keys so later edits register as "unsaved".
+  const loadSet = (set: EnzymeSet) => {
+    apply(new Set(set.enzymeKeys));
+    setLoadedSetId(set.id);
+    loadedKeysRef.current = [...set.enzymeKeys];
+    setSavePromptOpen(false);
+    setRenamingId(null);
+  };
+
+  const beginSaveAs = () => {
+    setSaveName(loadedSet ? loadedSet.name : "");
+    setSavePromptOpen(true);
+    setRenamingId(null);
+  };
+
+  const commitSaveAs = async () => {
+    const name = saveName.trim();
+    if (!name || !username) return;
+    setSetsBusy(true);
+    try {
+      const saved = await saveEnzymeSet(username, {
+        name,
+        enzymeKeys: Array.from(selected),
+      });
+      await refreshSets();
+      setLoadedSetId(saved.id);
+      loadedKeysRef.current = [...saved.enzymeKeys];
+      setSavePromptOpen(false);
+      setSaveName("");
+    } catch (err) {
+      console.warn("[enzyme-sets] save failed", err);
+    } finally {
+      setSetsBusy(false);
+    }
+  };
+
+  // "Update" overwrites the currently-loaded set with the live selection.
+  const updateLoadedSet = async () => {
+    if (!username || !loadedSet) return;
+    setSetsBusy(true);
+    try {
+      const saved = await saveEnzymeSet(username, {
+        id: loadedSet.id,
+        name: loadedSet.name,
+        enzymeKeys: Array.from(selected),
+      });
+      await refreshSets();
+      loadedKeysRef.current = [...saved.enzymeKeys];
+    } catch (err) {
+      console.warn("[enzyme-sets] update failed", err);
+    } finally {
+      setSetsBusy(false);
+    }
+  };
+
+  const beginRename = (set: EnzymeSet) => {
+    setRenamingId(set.id);
+    setRenameValue(set.name);
+    setSavePromptOpen(false);
+  };
+
+  const commitRename = async () => {
+    const name = renameValue.trim();
+    if (!name || !username || !renamingId) {
+      setRenamingId(null);
+      return;
+    }
+    setSetsBusy(true);
+    try {
+      await renameEnzymeSet(username, renamingId, name);
+      await refreshSets();
+    } catch (err) {
+      console.warn("[enzyme-sets] rename failed", err);
+    } finally {
+      setRenamingId(null);
+      setSetsBusy(false);
+    }
+  };
+
+  const removeSet = async (set: EnzymeSet) => {
+    if (!username) return;
+    setSetsBusy(true);
+    try {
+      await deleteEnzymeSet(username, set.id);
+      await refreshSets();
+      if (loadedSetId === set.id) {
+        setLoadedSetId(null);
+        loadedKeysRef.current = null;
+      }
+    } catch (err) {
+      console.warn("[enzyme-sets] delete failed", err);
+    } finally {
+      setSetsBusy(false);
+    }
+  };
 
   if (!open) return null;
 
@@ -205,6 +402,177 @@ export default function EnzymePickerDialog({
             Clear
           </button>
         </div>
+
+        {/* Saved sets row (enzyme sets bot) — USER-level, persistent, reusable
+            across every sequence. Distinct from the computed presets above. */}
+        {canSaveSets && (
+          <div
+            className="flex flex-wrap items-center gap-2 border-b border-gray-100 bg-sky-50/40 px-5 py-2.5"
+            data-testid="enzyme-saved-sets"
+          >
+            <span className="flex items-center gap-1.5 text-xs font-medium text-gray-500">
+              <IconBookmark className="h-3.5 w-3.5 text-sky-500" />
+              Saved sets:
+            </span>
+
+            {savedSets.length === 0 && !savePromptOpen && (
+              <span className="text-xs text-gray-400">
+                None yet. Save the current selection as a reusable set.
+              </span>
+            )}
+
+            {/* The saved-set chips: click to load. Rename / delete inline. */}
+            {savedSets.map((set) => {
+              const isLoaded = set.id === loadedSetId;
+              if (renamingId === set.id) {
+                return (
+                  <span
+                    key={set.id}
+                    className="flex items-center gap-1 rounded-full border border-sky-300 bg-white px-1.5 py-0.5"
+                  >
+                    <input
+                      autoFocus
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") void commitRename();
+                        if (e.key === "Escape") setRenamingId(null);
+                      }}
+                      className="w-28 rounded px-1 py-0.5 text-xs text-gray-800 focus:outline-none"
+                      aria-label="New set name"
+                    />
+                    <Tooltip label="Save name">
+                      <button
+                        type="button"
+                        onClick={() => void commitRename()}
+                        disabled={setsBusy || !renameValue.trim()}
+                        className="flex h-5 w-5 items-center justify-center rounded text-emerald-600 hover:bg-emerald-50 disabled:opacity-40"
+                        aria-label="Save name"
+                      >
+                        <IconCheck className="h-3.5 w-3.5" />
+                      </button>
+                    </Tooltip>
+                  </span>
+                );
+              }
+              return (
+                <span
+                  key={set.id}
+                  className={`group flex items-center gap-1 rounded-full border py-0.5 pl-2.5 pr-1 text-xs transition-colors ${
+                    isLoaded
+                      ? "border-sky-300 bg-sky-100 text-sky-800"
+                      : "border-gray-200 bg-white text-gray-600 hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
+                  }`}
+                  data-testid="enzyme-saved-set-chip"
+                >
+                  <Tooltip
+                    label={`Load "${set.name}" (${set.enzymeKeys.length} enzyme${set.enzymeKeys.length === 1 ? "" : "s"})`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => loadSet(set)}
+                      className="max-w-[10rem] truncate font-medium"
+                    >
+                      {set.name}
+                      {isLoaded && hasUnsavedChanges ? (
+                        <span className="ml-1 text-[10px] font-normal text-sky-500">
+                          (edited)
+                        </span>
+                      ) : null}
+                    </button>
+                  </Tooltip>
+                  <Tooltip label="Rename set">
+                    <button
+                      type="button"
+                      onClick={() => beginRename(set)}
+                      className="flex h-5 w-5 items-center justify-center rounded text-gray-400 hover:bg-white hover:text-gray-600"
+                      aria-label={`Rename ${set.name}`}
+                    >
+                      <IconPencil className="h-3 w-3" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip label="Delete set">
+                    <button
+                      type="button"
+                      onClick={() => void removeSet(set)}
+                      disabled={setsBusy}
+                      className="flex h-5 w-5 items-center justify-center rounded text-gray-400 hover:bg-white hover:text-rose-600 disabled:opacity-40"
+                      aria-label={`Delete ${set.name}`}
+                    >
+                      <IconTrash className="h-3 w-3" />
+                    </button>
+                  </Tooltip>
+                </span>
+              );
+            })}
+
+            {/* Update-loaded shortcut, shown only when the loaded set has edits. */}
+            {loadedSet && hasUnsavedChanges && (
+              <Tooltip label={`Overwrite "${loadedSet.name}" with the current selection`}>
+                <button
+                  type="button"
+                  onClick={() => void updateLoadedSet()}
+                  disabled={setsBusy}
+                  className="rounded-full border border-sky-300 bg-white px-2.5 py-1 text-xs font-medium text-sky-700 hover:bg-sky-50 disabled:opacity-40"
+                >
+                  Update
+                </button>
+              </Tooltip>
+            )}
+
+            {/* Save as… inline name prompt, or the button that opens it. */}
+            {savePromptOpen ? (
+              <span className="ml-auto flex items-center gap-1 rounded-full border border-sky-300 bg-white px-1.5 py-0.5">
+                <input
+                  autoFocus
+                  value={saveName}
+                  onChange={(e) => setSaveName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void commitSaveAs();
+                    if (e.key === "Escape") setSavePromptOpen(false);
+                  }}
+                  placeholder="Name this set"
+                  className="w-36 rounded px-1.5 py-0.5 text-xs text-gray-800 focus:outline-none"
+                  aria-label="Name this enzyme set"
+                />
+                <Tooltip label="Save set">
+                  <button
+                    type="button"
+                    onClick={() => void commitSaveAs()}
+                    disabled={setsBusy || !saveName.trim()}
+                    className="flex h-5 w-5 items-center justify-center rounded text-emerald-600 hover:bg-emerald-50 disabled:opacity-40"
+                    aria-label="Save set"
+                  >
+                    <IconCheck className="h-3.5 w-3.5" />
+                  </button>
+                </Tooltip>
+                <Tooltip label="Cancel">
+                  <button
+                    type="button"
+                    onClick={() => setSavePromptOpen(false)}
+                    className="flex h-5 w-5 items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                    aria-label="Cancel"
+                  >
+                    <IconClose className="h-3 w-3" />
+                  </button>
+                </Tooltip>
+              </span>
+            ) : (
+              <Tooltip label="Save the current selection as a reusable named set">
+                <button
+                  type="button"
+                  onClick={beginSaveAs}
+                  disabled={selected.size === 0}
+                  className="ml-auto flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  data-testid="enzyme-save-set-button"
+                >
+                  <IconBookmark className="h-3.5 w-3.5" />
+                  Save…
+                </button>
+              </Tooltip>
+            )}
+          </div>
+        )}
 
         {/* Body: filters | list | summary */}
         <div className="flex min-h-0 flex-1">
@@ -426,7 +794,13 @@ export default function EnzymePickerDialog({
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-gray-100 px-5 py-2.5 text-xs text-gray-400">
           <span>
-            Active set is not saved to disk; it resets when you close the sequence.
+            {canSaveSets
+              ? loadedSet
+                ? hasUnsavedChanges
+                  ? `Editing "${loadedSet.name}" (unsaved changes). Use Save… to keep them.`
+                  : `Loaded "${loadedSet.name}". The active set applies live to the map.`
+                : "Save the active selection as a named set to reuse it across sequences."
+              : "Active set is not saved to disk; it resets when you close the sequence."}
           </span>
           <button
             type="button"
