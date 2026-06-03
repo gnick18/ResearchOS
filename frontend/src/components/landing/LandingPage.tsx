@@ -528,9 +528,10 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             </h1>
             <p className="max-w-2xl text-base leading-relaxed text-slate-300 md:text-lg">
               ResearchOS is a free electronic lab notebook that lives as a plain
-              folder on your own computer. No account, no cloud lock-in, no
-              per-seat fees. Just your data, version-controlled and private, with
-              a friendly guide to walk you through all of it.
+              folder on your own computer. There is no account to set up and
+              nothing gets uploaded to a cloud, so you will never see a per-seat
+              fee. Your data stays private and version-controlled, and a friendly
+              guide helps you get started.
             </p>
           </div>
 
