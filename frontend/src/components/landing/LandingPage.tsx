@@ -1162,6 +1162,13 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                 </li>
                 <li>
                   <span className="font-semibold text-gray-900">
+                    Bulk sequence import
+                  </span>{" "}
+                  drag in a whole folder of SnapGene files at once, straight into
+                  a project collection.
+                </li>
+                <li>
+                  <span className="font-semibold text-gray-900">
                     A calmer, curated workspace
                   </span>{" "}
                   with your projects, notes, tasks, and sequences in one focused
@@ -1216,12 +1223,6 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                   with sensible defaults and clear melting-temperature and dimer
                   checks, plus a one-click handoff to NCBI Primer-BLAST for
                   specificity.
-                </li>
-                <li>
-                  <span className="font-semibold text-gray-900">
-                    Bulk import of an existing library
-                  </span>{" "}
-                  so you can drag in a whole folder of SnapGene files at once.
                 </li>
                 <li>
                   <span className="font-semibold text-gray-900">
