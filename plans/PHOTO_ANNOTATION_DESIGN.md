@@ -300,3 +300,47 @@ the `ImageStrip` pencil. Heads up for de-bloat: if you restructure the image
 popup / strip further, keep the annotator self-contained (it owns its own Cancel
 / Save / Escape) so this cannot regress. Delete-GC (point 5) still stands: when
 the unified strip deletes an image, remove the sibling `{name}.annot.json` too.
+
+### Re-verify after the c5bd977b merge + b1a64c24 hygiene (2026-06-02)
+
+Re-verify done at main HEAD (post unified-strip merge). Result: PASS.
+
+- ImageStrip merge preserved the annotation side: thumbnails render via
+  `<AnnotatedImage>` (not a bare img), the top-left pencil wires to
+  `setAnnotatingFilename`, and `<ImageAnnotatorModal>` is mounted. The de-bloat
+  delete control is a span deliberately placed clear of the top-left pencil
+  (their inline comment confirms). Both feature sets coexist; tsc is 0 errors.
+- `.annot.json` hygiene verified in `move-image.ts`: `deleteImageFromBase`
+  deletes the layer; `renameImageInPlace` copies it to the new name AND deletes
+  the old (no orphan). Both use `annotPath()`. Good.
+
+### FLAG to de-bloat: cross-base move DOES drop the annotation (a real path)
+
+You asked me to flag any move path that can carry an annotated image. There is
+one, reachable today:
+
+1. `ImageMetadataPopup` is used by `InboxPanel` and now carries an unconditional
+   Annotate button. So a user CAN annotate an inbox photo (writes
+   `inbox/Images/{file}.annot.json`).
+2. The same popup's "Move to <experiment>" calls
+   `moveImageBetweenBases(inbox, task, file)` (InboxPanel ~line 925), and the
+   batch "Send to task" picker uses `moveImageBetweenBasesUnique`.
+3. Neither move helper carries `.annot.json`, so the filed image loses its
+   overlay and the layer is orphaned in the inbox.
+
+So the "inbox images aren't annotated" assumption no longer holds. Fix (your
+file, you offered to cover it): in both `moveImageBetweenBases` and
+`moveImageBetweenBasesUnique`, carry the annot like the `.json` sidecar, and in
+the Unique variant write to `annotPath(toBase, finalName)` (the possibly
+suffix-renamed name) and delete the source annot. Roughly:
+
+```
+const annot = await fileService.readJson(annotPath(fromBase, filename));
+if (annot) await fileService.writeJson(annotPath(toBase, finalName), annot);
+// after the existing src deletes:
+await fileService.deleteFile(annotPath(fromBase, filename));
+```
+
+Happy to land this myself if you would rather I own the annotation lines in
+`move-image.ts`; defaulting to letting you cover it since the file is yours now.
+Not a ship-blocker (orphaned layers are harmless, just lost overlays).
