@@ -111,8 +111,8 @@ export default function DayDetailDrawer({
       >
         <div className="px-5 py-4 border-b border-gray-100 bg-gray-50 flex items-start justify-between">
           <div>
-            <h3 className="text-base font-semibold text-gray-900">{heading}</h3>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <h3 className="text-title font-semibold text-gray-900">{heading}</h3>
+            <p className="text-meta text-gray-500 mt-0.5">
               {totalCount === 0
                 ? "No events"
                 : `${totalCount} event${totalCount === 1 ? "" : "s"}`}
@@ -131,13 +131,13 @@ export default function DayDetailDrawer({
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
           {totalCount === 0 && (
             <div className="text-center py-8">
-              <p className="text-sm text-gray-400">Nothing scheduled.</p>
+              <p className="text-body text-gray-400">Nothing scheduled.</p>
             </div>
           )}
 
           {allDay.length > 0 && (
             <section>
-              <h4 className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
+              <h4 className="text-meta font-semibold uppercase tracking-wide text-gray-400 mb-2">
                 All-day
               </h4>
               <ul className="space-y-1.5">
@@ -156,7 +156,7 @@ export default function DayDetailDrawer({
 
           {timed.length > 0 && (
             <section>
-              <h4 className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
+              <h4 className="text-meta font-semibold uppercase tracking-wide text-gray-400 mb-2">
                 Scheduled
               </h4>
               <ul className="space-y-1.5">
@@ -177,7 +177,7 @@ export default function DayDetailDrawer({
         <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 flex justify-end">
           <button
             onClick={() => onCreate(dateStr)}
-            className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="px-3 py-1.5 text-body bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             + New event on this day
           </button>
@@ -242,7 +242,7 @@ function DayDetailRow({
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <p className="text-sm font-medium text-gray-900 truncate">
+            <p className="text-body font-medium text-gray-900 truncate">
               {item.event.title}
             </p>
             {item.kind === "external" && (
@@ -265,9 +265,9 @@ function DayDetailRow({
               </span>
             )}
           </div>
-          <p className="text-xs text-gray-500 mt-0.5">{timeLabel}</p>
+          <p className="text-meta text-gray-500 mt-0.5">{timeLabel}</p>
           {item.event.location && (
-            <p className="text-xs text-gray-400 mt-0.5 truncate">
+            <p className="text-meta text-gray-400 mt-0.5 truncate">
               {item.event.location}
             </p>
           )}

@@ -177,12 +177,12 @@ export default function ImageMetadataPopup({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-          <h3 className="text-base font-semibold text-gray-900 truncate" title={filename}>
+          <h3 className="text-title font-semibold text-gray-900 truncate" title={filename}>
             {filename}
           </h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-700 text-xl leading-none"
+            className="text-gray-400 hover:text-gray-700 text-heading leading-none"
             aria-label="Close"
           >
             ×
@@ -204,19 +204,19 @@ export default function ImageMetadataPopup({
                 className="max-w-full max-h-[60vh] object-contain"
               />
             ) : (
-              <span className="text-xs text-gray-400">Loading preview…</span>
+              <span className="text-meta text-gray-400">Loading preview…</span>
             )}
           </div>
 
           {/* Metadata + actions */}
           <div className="w-1/2 px-5 py-4 flex flex-col overflow-y-auto max-h-[60vh]">
             {!loaded ? (
-              <p className="text-sm text-gray-500">Loading…</p>
+              <p className="text-body text-gray-500">Loading…</p>
             ) : (
               <>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                    <label className="block text-meta font-medium text-gray-500 mb-1">
                       Description
                     </label>
                     <textarea
@@ -224,12 +224,12 @@ export default function ImageMetadataPopup({
                       onChange={(e) => setDescription(e.target.value)}
                       rows={4}
                       placeholder="What does this image show? Conditions, time, etc."
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
                     />
                   </div>
                   {onRename && (
                     <div className="pt-2 border-t border-gray-100">
-                      <label className="block text-xs font-medium text-gray-500 mb-1">
+                      <label className="block text-meta font-medium text-gray-500 mb-1">
                         Filename
                       </label>
                       <div className="flex items-center gap-2">
@@ -240,24 +240,24 @@ export default function ImageMetadataPopup({
                             setRenameInput(e.target.value);
                             setRenameError(null);
                           }}
-                          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-body font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                         <button
                           type="button"
                           onClick={handleRename}
                           disabled={renaming || renameInput.trim() === filename || !renameInput.trim()}
-                          className="px-3 py-2 text-xs text-white bg-gray-700 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-40"
+                          className="px-3 py-2 text-meta text-white bg-gray-700 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-40"
                         >
                           {renaming ? "Renaming…" : "Rename"}
                         </button>
                       </div>
                       {renameError && (
-                        <p className="mt-1 text-xs text-red-600">{renameError}</p>
+                        <p className="mt-1 text-meta text-red-600">{renameError}</p>
                       )}
                     </div>
                   )}
                   {sidecar?.source && (
-                    <div className="text-xs text-gray-400 pt-1 space-y-0.5">
+                    <div className="text-meta text-gray-400 pt-1 space-y-0.5">
                       <p>
                         Source: <span className="font-mono">{sidecar.source}</span>
                       </p>
@@ -275,7 +275,7 @@ export default function ImageMetadataPopup({
                     type="button"
                     onClick={() => setAnnotating(true)}
                     disabled={!loaded || !previewUrl}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-body font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
                   >
                     {/* Pencil icon (custom inline SVG, no icon library). */}
                     <svg
@@ -303,7 +303,7 @@ export default function ImageMetadataPopup({
                         ? "Scroll the rendered note to this image"
                         : "This image isn't in the note yet — drag it in first"
                     }
-                    className="w-full px-4 py-2 text-sm text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="w-full px-4 py-2 text-body text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     ↪ Jump to occurrence in note
                   </button>
@@ -312,7 +312,7 @@ export default function ImageMetadataPopup({
                       type="button"
                       onClick={handleDelete}
                       disabled={deleting}
-                      className="w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
+                      className="w-full px-4 py-2 text-body text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
                     >
                       {deleting ? "Deleting…" : "Delete file"}
                     </button>
@@ -330,7 +330,7 @@ export default function ImageMetadataPopup({
                 onClick={handleMoveToActive}
                 disabled={moving || !loaded}
                 title={`File this image into Experiment ${activeTask.id} (${activeTask.name})`}
-                className="px-4 py-2 text-sm text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-50 font-medium"
+                className="px-4 py-2 text-body text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-50 font-medium"
               >
                 {moving ? "Moving…" : `Move to ${activeTask.name}`}
               </button>
@@ -338,7 +338,7 @@ export default function ImageMetadataPopup({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+              className="px-4 py-2 text-body text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
             >
               Cancel
             </button>
@@ -346,7 +346,7 @@ export default function ImageMetadataPopup({
               type="button"
               onClick={handleSave}
               disabled={saving || !loaded}
-              className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+              className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
             >
               {saving ? "Saving…" : "Save"}
             </button>

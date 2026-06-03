@@ -628,12 +628,12 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
           <div className="w-16 h-16 rounded bg-gray-100 flex-shrink-0" />
         )}
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-800 truncate" title={entry.name}>
+          <p className="text-body font-medium text-gray-800 truncate" title={entry.name}>
             {caption ?? <span className="italic text-gray-400">No caption</span>}
           </p>
-          <p className="text-xs text-gray-400 truncate">{entry.name}</p>
+          <p className="text-meta text-gray-400 truncate">{entry.name}</p>
           {entry.sidecar?.receivedAt && (
-            <p className="text-xs text-gray-400">
+            <p className="text-meta text-gray-400">
               {new Date(entry.sidecar.receivedAt).toLocaleString()}
             </p>
           )}
@@ -681,7 +681,7 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
                 anchorEntry: entry,
               });
             }}
-            className="opacity-0 group-hover:opacity-100 focus:opacity-100 px-2 py-1.5 text-xs text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-all"
+            className="opacity-0 group-hover:opacity-100 focus:opacity-100 px-2 py-1.5 text-meta text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-all"
             data-force-hover-controls-target
           >
             ⋯
@@ -690,7 +690,7 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
             type="button"
             disabled={busy === entry.name || batchBusy}
             onClick={() => deleteInbox(entry)}
-            className="px-2 py-1.5 text-xs text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-40"
+            className="px-2 py-1.5 text-meta text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-40"
           >
             Delete
           </button>
@@ -720,8 +720,8 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
       >
         <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
           <div>
-            <h3 className="text-base font-semibold text-gray-900">Inbox</h3>
-            <p className="text-xs text-gray-500">
+            <h3 className="text-title font-semibold text-gray-900">Inbox</h3>
+            <p className="text-meta text-gray-500">
               Photos sent via Telegram while no experiment was open. Albums sent
               together are grouped. Shift-click or Cmd/Ctrl-click to select
               multiple (or "Select all" on an album), then right-click to file
@@ -730,7 +730,7 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-700 text-xl leading-none"
+            className="text-gray-400 hover:text-gray-700 text-heading leading-none"
             aria-label="Close"
           >
             ×
@@ -739,9 +739,9 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
 
         <div className="flex-1 overflow-y-auto p-4" onClick={handleBodyClick}>
           {loading ? (
-            <p className="text-sm text-gray-500 text-center py-8">Loading…</p>
+            <p className="text-body text-gray-500 text-center py-8">Loading…</p>
           ) : entries.length === 0 ? (
-            <p className="text-sm text-gray-400 italic text-center py-8">
+            <p className="text-body text-gray-400 italic text-center py-8">
               Inbox is empty. Telegram photos sent with no experiment open land here.
             </p>
           ) : (
@@ -757,7 +757,7 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
                         together via the right-click menu. */}
                     <div className="rounded-lg border border-blue-100 bg-blue-50/30 p-2">
                       <div className="flex items-center justify-between px-1 pb-1.5">
-                        <span className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-blue-500">
+                        <span className="inline-flex items-center gap-1.5 text-meta font-medium uppercase tracking-wide text-blue-500">
                           <BatchIcon />
                           Telegram album · {row.entries.length} photos
                         </span>
@@ -768,7 +768,7 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
                             e.stopPropagation();
                             selectBatch(row.entries);
                           }}
-                          className="text-[11px] font-medium text-blue-600 hover:text-blue-800 disabled:opacity-40"
+                          className="text-meta font-medium text-blue-600 hover:text-blue-800 disabled:opacity-40"
                         >
                           Select all
                         </button>
@@ -810,7 +810,7 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
               setContextMenu(null);
               setPickerOpen(true);
             }}
-            className="w-full text-left px-3 py-1.5 text-sm text-gray-800 hover:bg-blue-50"
+            className="w-full text-left px-3 py-1.5 text-body text-gray-800 hover:bg-blue-50"
           >
             {sendMenuLabel}
           </button>
@@ -823,7 +823,7 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
               setContextMenu(null);
               setNotePickerOpen(true);
             }}
-            className="w-full text-left px-3 py-1.5 text-sm text-gray-800 hover:bg-blue-50"
+            className="w-full text-left px-3 py-1.5 text-body text-gray-800 hover:bg-blue-50"
           >
             {sendNoteMenuLabel}
           </button>
@@ -835,7 +835,7 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
               setContextMenu(null);
               void moveToActive(contextMenu.anchorEntry, activeTask);
             }}
-            className="w-full text-left px-3 py-1.5 text-sm text-gray-800 hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full text-left px-3 py-1.5 text-body text-gray-800 hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {activeTask ? `Move to active (${activeTask.name})` : "Move to active"}
           </button>
@@ -850,7 +850,7 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
                 setContextMenu(null);
                 void moveToActiveNote(contextMenu.anchorEntry, activeNote);
               }}
-              className="w-full text-left px-3 py-1.5 text-sm text-gray-800 hover:bg-blue-50"
+              className="w-full text-left px-3 py-1.5 text-body text-gray-800 hover:bg-blue-50"
             >
               {`Move to active note (${activeNote.title})`}
             </button>
@@ -862,7 +862,7 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
               setContextMenu(null);
               void deleteInbox(contextMenu.anchorEntry);
             }}
-            className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+            className="w-full text-left px-3 py-1.5 text-body text-red-600 hover:bg-red-50"
           >
             Delete
           </button>
@@ -897,7 +897,7 @@ export default function InboxPanel({ onClose }: InboxPanelProps) {
 
       {toast && (
         <div
-          className="fixed z-[120] right-6 bottom-6 max-w-sm rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 shadow-lg pointer-events-none"
+          className="fixed z-[120] right-6 bottom-6 max-w-sm rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-body text-emerald-900 shadow-lg pointer-events-none"
           role="status"
         >
           {toast}
@@ -1004,7 +1004,7 @@ function MoveToActiveControl({
         type="button"
         disabled
         title="Open an experiment or a note first"
-        className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        className="px-3 py-1.5 text-meta text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
         Move to active
       </button>
@@ -1019,7 +1019,7 @@ function MoveToActiveControl({
         disabled={busy}
         onClick={() => onMoveToTask(activeTask)}
         title={`Move to Experiment ${activeTask.id} (${activeTask.name})`}
-        className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        className="px-3 py-1.5 text-meta text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
         Move to active
       </button>
@@ -1034,7 +1034,7 @@ function MoveToActiveControl({
         disabled={busy}
         onClick={() => onMoveToNote(activeNote)}
         title={`Move to note "${activeNote.title}"`}
-        className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        className="px-3 py-1.5 text-meta text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
         Move to active note
       </button>
@@ -1058,10 +1058,10 @@ function MoveToActiveControl({
         aria-haspopup="menu"
         aria-expanded={dropdownOpen}
         title="Move to active…"
-        className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+        className="px-3 py-1.5 text-meta text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
       >
         <span>Move to active</span>
-        <span aria-hidden className="text-[10px] leading-none">▾</span>
+        <span aria-hidden className="text-meta leading-none">▾</span>
       </button>
       {dropdownOpen && activeTask && activeNote && (
         <div
@@ -1073,9 +1073,9 @@ function MoveToActiveControl({
             type="button"
             role="menuitem"
             onClick={() => onMoveToTask(activeTask)}
-            className="w-full text-left px-3 py-1.5 text-xs text-gray-800 hover:bg-blue-50"
+            className="w-full text-left px-3 py-1.5 text-meta text-gray-800 hover:bg-blue-50"
           >
-            <span className="block text-[10px] uppercase tracking-wide text-gray-400">
+            <span className="block text-meta uppercase tracking-wide text-gray-400">
               Experiment
             </span>
             <span className="block truncate">{activeTask.name}</span>
@@ -1084,9 +1084,9 @@ function MoveToActiveControl({
             type="button"
             role="menuitem"
             onClick={() => onMoveToNote(activeNote)}
-            className="w-full text-left px-3 py-1.5 text-xs text-gray-800 hover:bg-blue-50"
+            className="w-full text-left px-3 py-1.5 text-meta text-gray-800 hover:bg-blue-50"
           >
-            <span className="block text-[10px] uppercase tracking-wide text-gray-400">
+            <span className="block text-meta uppercase tracking-wide text-gray-400">
               Note
             </span>
             <span className="block truncate">{activeNote.title}</span>

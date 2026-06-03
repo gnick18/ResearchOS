@@ -126,17 +126,17 @@ export default function LeaveDemoModal({ isOpen, onClose }: Props) {
       >
         <h2
           id="leave-demo-title"
-          className="text-xl font-bold text-white mb-2"
+          className="text-heading font-bold text-white mb-2"
         >
           {title}
         </h2>
-        <p className="text-sm text-slate-300 mb-5">{body}</p>
+        <p className="text-body text-slate-300 mb-5">{body}</p>
 
         <div className="flex flex-col gap-3">
           <button
             type="button"
             onClick={goHome}
-            className="w-full py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors"
+            className="w-full py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-white text-body font-medium rounded-lg transition-colors"
           >
             {confirmLabel}
           </button>
@@ -144,7 +144,7 @@ export default function LeaveDemoModal({ isOpen, onClose }: Props) {
           <button
             type="button"
             onClick={onClose}
-            className="w-full py-2 text-xs text-slate-400 hover:text-white transition-colors"
+            className="w-full py-2 text-meta text-slate-400 hover:text-white transition-colors"
           >
             {cancelLabel}
           </button>

@@ -1392,7 +1392,7 @@ export default function GanttChart({
 
   if (filteredTasks.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
+      <div className="flex-1 flex items-center justify-center text-gray-400 text-body">
         {isLabMode
           ? "No tasks yet. They appear here once people create them."
           : "No tasks yet. Create a project and add tasks to see them here."}
@@ -1409,11 +1409,11 @@ export default function GanttChart({
             <h4 className="text-lg font-semibold text-orange-800 mb-2">
               This change will affect {shiftResult.affected_tasks.length} task(s)
             </h4>
-            <p className="text-sm text-gray-600 mb-3">
+            <p className="text-body text-gray-600 mb-3">
               Moving this task will also shift its dependent tasks.
             </p>
             <div className="max-h-40 overflow-y-auto mb-3 bg-gray-50 rounded-lg p-3">
-              <ul className="text-xs text-gray-700 space-y-1">
+              <ul className="text-meta text-gray-700 space-y-1">
                 {shiftResult.affected_tasks.map((t) => (
                   <li key={t.task_id} className="flex justify-between">
                     <span className="font-medium">{t.name}</span>
@@ -1424,8 +1424,8 @@ export default function GanttChart({
             </div>
             {shiftResult.warnings.length > 0 && (
               <div className="mb-3 bg-red-50 rounded-lg p-3">
-                <p className="text-xs font-medium text-red-700 mb-1">Warnings:</p>
-                <ul className="text-xs text-red-600 space-y-1">
+                <p className="text-meta font-medium text-red-700 mb-1">Warnings:</p>
+                <ul className="text-meta text-red-600 space-y-1">
                   {shiftResult.warnings.map((w, i) => (
                     <li key={i}>{w.message}</li>
                   ))}
@@ -1439,13 +1439,13 @@ export default function GanttChart({
                   setShiftResult(null);
                   setPendingMove(null);
                 }}
-                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+                className="px-4 py-2 text-body text-gray-600 hover:bg-gray-100 rounded-lg"
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmShift}
-                className="px-4 py-2 text-sm text-white bg-orange-600 hover:bg-orange-700 rounded-lg"
+                className="px-4 py-2 text-body text-white bg-orange-600 hover:bg-orange-700 rounded-lg"
               >
                 Apply Changes
               </button>
@@ -1471,10 +1471,10 @@ export default function GanttChart({
             <h4 className="text-lg font-semibold text-gray-900 mb-2">
               Create Dependency?
             </h4>
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-body text-gray-600 mb-4">
               <strong>{depChildTask.name}</strong> will be linked to <strong>{depParentTask.name}</strong>
             </p>
-            <p className="text-xs text-gray-500 mb-4">
+            <p className="text-meta text-gray-500 mb-4">
               How should these tasks be scheduled?
             </p>
             <div className="space-y-2">
@@ -1483,24 +1483,24 @@ export default function GanttChart({
                 data-tour-target="gantt-dep-picker-start-same"
                 className="w-full text-left px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
               >
-                <p className="text-sm font-medium text-blue-900">Start at same time</p>
-                <p className="text-xs text-blue-600">Both tasks begin on the same day</p>
+                <p className="text-body font-medium text-blue-900">Start at same time</p>
+                <p className="text-meta text-blue-600">Both tasks begin on the same day</p>
               </button>
               <button
                 onClick={() => handleCreateDependency("FS")}
                 data-tour-target="gantt-dep-picker-start-after"
                 className="w-full text-left px-4 py-3 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors"
               >
-                <p className="text-sm font-medium text-green-900">Start after</p>
-                <p className="text-xs text-green-600">{depChildTask.name} starts after {depParentTask.name} ends</p>
+                <p className="text-body font-medium text-green-900">Start after</p>
+                <p className="text-meta text-green-600">{depChildTask.name} starts after {depParentTask.name} ends</p>
               </button>
               <button
                 onClick={() => handleCreateDependency("SF")}
                 data-tour-target="gantt-dep-picker-start-before"
                 className="w-full text-left px-4 py-3 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors"
               >
-                <p className="text-sm font-medium text-purple-900">Finish before</p>
-                <p className="text-xs text-purple-600">{depChildTask.name} finishes before {depParentTask.name} starts</p>
+                <p className="text-body font-medium text-purple-900">Finish before</p>
+                <p className="text-meta text-purple-600">{depChildTask.name} finishes before {depParentTask.name} starts</p>
               </button>
             </div>
             <div className="flex justify-end mt-4">
@@ -1510,7 +1510,7 @@ export default function GanttChart({
                   setDepParentTask(null);
                   setDepChildTask(null);
                 }}
-                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+                className="px-4 py-2 text-body text-gray-600 hover:bg-gray-100 rounded-lg"
               >
                 Cancel
               </button>
@@ -1534,7 +1534,7 @@ export default function GanttChart({
         return (
           <div key={weekIdx} className="mb-6 relative" style={{ zIndex: 1 }}>
             {/* Week header */}
-            <div className="text-xs font-semibold text-gray-500 mb-2 px-1">
+            <div className="text-meta font-semibold text-gray-500 mb-2 px-1">
               {weekLabel}
             </div>
 
@@ -1607,7 +1607,7 @@ export default function GanttChart({
                         onMouseLeave={() => setHoveredGoal(null)}
                       >
                         {/* Hover tooltip */}
-                        <div className="absolute left-0 top-full mt-1 bg-gray-900 text-white text-xs px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none" data-force-hover-controls-target>
+                        <div className="absolute left-0 top-full mt-1 bg-gray-900 text-white text-meta px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none" data-force-hover-controls-target>
                           <div className="font-medium">{goal.name}</div>
                           <div className={isOverdue ? 'text-red-300' : isUrgent ? 'text-yellow-300' : 'text-gray-300'}>
                             {isOverdue 
@@ -1659,7 +1659,7 @@ export default function GanttChart({
                     data-tour-target={
                       isLaterMarker ? "gantt-later-date-marker" : undefined
                     }
-                    className={`relative px-2 py-1.5 text-center text-xs font-medium transition-colors ${
+                    className={`relative px-2 py-1.5 text-center text-meta font-medium transition-colors ${
                       isDropTarget
                         ? "bg-blue-200 text-blue-800"
                         : isToday
@@ -1702,7 +1702,7 @@ export default function GanttChart({
             <div className="bg-white border border-gray-200 border-t-0 rounded-b-lg overflow-hidden relative">
               {weekTasks.length === 0 ? (
                 <div
-                  className="h-20 flex items-center justify-center text-xs text-gray-300 cursor-pointer hover:bg-gray-50"
+                  className="h-20 flex items-center justify-center text-meta text-gray-300 cursor-pointer hover:bg-gray-50"
                   onDoubleClick={isLabMode ? undefined : () => handleDoubleClick(weekStart)}
                 >
                   {isLabMode ? "No tasks this week" : "Double-click to add a task"}
@@ -1953,7 +1953,7 @@ export default function GanttChart({
                                     onTaskClick(tk);
                                   }
                                 }}
-                                className={`absolute inset-x-0 top-1 bottom-1 rounded-lg cursor-pointer flex items-center px-3 text-white text-xs font-medium truncate shadow-sm hover:shadow-md transition-all overflow-hidden ${
+                                className={`absolute inset-x-0 top-1 bottom-1 rounded-lg cursor-pointer flex items-center px-3 text-white text-meta font-medium truncate shadow-sm hover:shadow-md transition-all overflow-hidden ${
                                   isTaskDragged ? "opacity-50 scale-95" : ""
                                 } ${dragOverTask !== null && taskKey(dragOverTask) === tk ? "ring-2 ring-orange-400 ring-offset-1" : ""} ${
                                   isHoveredChainMember ? "z-10" : ""
@@ -2013,7 +2013,7 @@ export default function GanttChart({
                                       }}
                                     />
                                     {/* Checklist icon indicator - right side */}
-                                    <div className="absolute top-0.5 right-1.5 text-[10px] opacity-80">
+                                    <div className="absolute top-0.5 right-1.5 text-meta opacity-80">
                                       ☰
                                     </div>
                                   </>
@@ -2036,7 +2036,7 @@ export default function GanttChart({
                                       }}
                                     />
                                     {/* Dollar sign indicator - bigger */}
-                                    <div className="absolute top-0 right-1 text-xs opacity-70 font-bold">
+                                    <div className="absolute top-0 right-1 text-meta opacity-70 font-bold">
                                       $
                                     </div>
                                   </>
@@ -2126,7 +2126,7 @@ export default function GanttChart({
                                 
                                 {/* Progress indicator - shows completion count for subtasks */}
                                 {task.sub_tasks && task.sub_tasks.length > 0 && !task.is_complete && (
-                                  <span className="absolute bottom-0.5 left-3 text-[9px] opacity-70 z-10">
+                                  <span className="absolute bottom-0.5 left-3 text-meta opacity-70 z-10">
                                     {task.sub_tasks.filter(st => st.is_complete).length}/{task.sub_tasks.length}
                                   </span>
                                 )}
@@ -2141,7 +2141,7 @@ export default function GanttChart({
                                   })()}
                                   {/* Shared experiment owner initial indicator (non-lab mode) */}
                                   {!isLabMode && task.owner && (task.is_shared_with_me || (task.shared_with && task.shared_with.length > 0)) && (
-                                    <span className="mr-1 opacity-70 text-[10px]" title={`Shared by: ${task.owner}`}>
+                                    <span className="mr-1 opacity-70 text-meta" title={`Shared by: ${task.owner}`}>
                                       [{task.owner.charAt(0).toUpperCase()}]
                                     </span>
                                   )}
@@ -2166,12 +2166,12 @@ export default function GanttChart({
 
       {/* Drag hint - hidden in lab mode */}
       {!isLabMode && (
-        <p className="text-xs text-gray-400 mt-3 text-center">
+        <p className="text-meta text-gray-400 mt-3 text-center">
           Drag tasks to reschedule. Drop on another task to create a dependency. Double-click to create a new task.
         </p>
       )}
       {isLabMode && (
-        <p className="text-xs text-gray-400 mt-3 text-center">
+        <p className="text-meta text-gray-400 mt-3 text-center">
           Lab Mode: View-only. Tasks are colored by user.
         </p>
       )}
@@ -2199,7 +2199,7 @@ export default function GanttChart({
             role="menuitem"
             onClick={handlePtoToggle}
             data-testid="pto-context-menu-toggle"
-            className="block w-full px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-sky-50"
+            className="block w-full px-3 py-1.5 text-left text-body text-gray-700 hover:bg-sky-50"
           >
             {ptoSet.has(ptoMenu.date)
               ? `Unmark ${ptoMenu.date} as PTO`

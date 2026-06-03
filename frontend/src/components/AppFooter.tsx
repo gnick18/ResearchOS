@@ -33,7 +33,7 @@ export default function AppFooter({ className = "" }: { className?: string }) {
             className="h-12 w-auto"
           />
         </div>
-        <p className="text-sm text-gray-500">
+        <p className="text-body text-gray-500">
           Funded by the UW-Madison RISE Initiative. Free and open source on{" "}
           <a
             href={GITHUB_URL}
@@ -46,7 +46,7 @@ export default function AppFooter({ className = "" }: { className?: string }) {
           </a>
           .
         </p>
-        <p className="text-xs text-gray-400" data-testid="app-footer-author">
+        <p className="text-meta text-gray-400" data-testid="app-footer-author">
           Built by Dr. Grant R. Nickles, PhD.
         </p>
         {/* Subtle credit link: ResearchOS stands on a lot of open-source work
@@ -54,7 +54,7 @@ export default function AppFooter({ className = "" }: { className?: string }) {
             and carries the full attribution. */}
         <Link
           href="/open-source"
-          className="text-xs text-gray-400 underline-offset-2 hover:text-gray-600 hover:underline"
+          className="text-meta text-gray-400 underline-offset-2 hover:text-gray-600 hover:underline"
           data-testid="app-footer-open-source"
         >
           Built on open source

@@ -220,7 +220,7 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
         <div className="px-6 py-4 border-b border-white/10 flex items-start justify-between">
           <div>
             <h3 className="text-lg font-semibold text-white">Account password</h3>
-            <p className="text-xs text-slate-400 mt-0.5">for {username}</p>
+            <p className="text-meta text-slate-400 mt-0.5">for {username}</p>
           </div>
           <Tooltip label="Close" placement="bottom">
             <button
@@ -239,7 +239,7 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
           </div>
         ) : (
           <div className="px-6 py-5 space-y-4">
-            <p className="text-xs text-slate-400 leading-relaxed">
+            <p className="text-meta text-slate-400 leading-relaxed">
               A password blocks accidental sign-in to this account from inside
               the app. It does not encrypt your files on disk — anyone with
               access to the shared folder can still read raw markdown and
@@ -255,7 +255,7 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
                     resetForm();
                     setDone(null);
                   }}
-                  className={`flex-1 py-2 text-xs rounded-lg border transition-colors ${
+                  className={`flex-1 py-2 text-meta rounded-lg border transition-colors ${
                     mode === "change"
                       ? "bg-blue-500/20 border-blue-400/40 text-blue-200"
                       : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"
@@ -270,7 +270,7 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
                     resetForm();
                     setDone(null);
                   }}
-                  className={`flex-1 py-2 text-xs rounded-lg border transition-colors ${
+                  className={`flex-1 py-2 text-meta rounded-lg border transition-colors ${
                     mode === "remove"
                       ? "bg-red-500/20 border-red-400/40 text-red-200"
                       : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"
@@ -283,14 +283,14 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
 
             {(mode === "change" || mode === "remove") && (
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
+                <label className="block text-meta font-medium text-slate-300 mb-1">
                   Current password
                 </label>
                 <input
                   type="password"
                   value={currentInput}
                   onChange={(e) => setCurrentInput(e.target.value)}
-                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-body"
                   autoComplete="current-password"
                   autoFocus
                 />
@@ -301,7 +301,7 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
               <>
                 <div>
                   <div className="flex items-center gap-1.5 mb-1">
-                    <label className="text-xs font-medium text-slate-300">
+                    <label className="text-meta font-medium text-slate-300">
                       {mode === "set" ? "New password" : "New password"}
                     </label>
                     <Tooltip
@@ -311,7 +311,7 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
                       <button
                         type="button"
                         aria-label="Where does this go?"
-                        className="text-slate-500 hover:text-slate-300 text-[11px] leading-none"
+                        className="text-slate-500 hover:text-slate-300 text-meta leading-none"
                       >
                         (?)
                       </button>
@@ -321,13 +321,13 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
                     type="password"
                     value={newInput}
                     onChange={(e) => setNewInput(e.target.value)}
-                    className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-body"
                     autoComplete="new-password"
                     autoFocus={mode === "set"}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                  <label className="block text-meta font-medium text-slate-300 mb-1">
                     Confirm new password
                   </label>
                   <input
@@ -337,7 +337,7 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
                     onKeyDown={(e) => {
                       if (e.key === "Enter") handleSubmit();
                     }}
-                    className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-body"
                     autoComplete="new-password"
                   />
                 </div>
@@ -346,12 +346,12 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
 
             {error && (
               <div className="p-2 bg-red-500/20 border border-red-500/30 rounded-lg">
-                <p className="text-xs text-red-300">{error}</p>
+                <p className="text-meta text-red-300">{error}</p>
               </div>
             )}
             {done && !error && (
               <div className="p-2 bg-emerald-500/20 border border-emerald-500/30 rounded-lg">
-                <p className="text-xs text-emerald-300">{done}</p>
+                <p className="text-meta text-emerald-300">{done}</p>
               </div>
             )}
 
@@ -359,7 +359,7 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
               <button
                 type="button"
                 onClick={() => setShowForgot(true)}
-                className="text-xs text-blue-400 hover:text-blue-300 underline"
+                className="text-meta text-blue-400 hover:text-blue-300 underline"
               >
                 Forgot your password?
               </button>
@@ -369,14 +369,14 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
               <button
                 onClick={onClose}
                 disabled={busy}
-                className="flex-1 py-2 text-sm bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 rounded-lg disabled:opacity-50"
+                className="flex-1 py-2 text-body bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 rounded-lg disabled:opacity-50"
               >
                 Close
               </button>
               <button
                 onClick={handleSubmit}
                 disabled={busy}
-                className={`flex-1 py-2 text-sm rounded-lg font-medium disabled:opacity-50 ${
+                className={`flex-1 py-2 text-body rounded-lg font-medium disabled:opacity-50 ${
                   mode === "remove"
                     ? "bg-red-600 hover:bg-red-700 text-white"
                     : "bg-blue-600 hover:bg-blue-700 text-white"
@@ -421,12 +421,12 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
                 </button>
               </Tooltip>
             </div>
-            <p className="text-sm text-slate-300 mb-3 leading-relaxed">
+            <p className="text-body text-slate-300 mb-3 leading-relaxed">
               Since ResearchOS stores everything locally, there&apos;s no
               recovery email or reset link. To clear the password and sign in
               again:
             </p>
-            <ol className="text-sm text-slate-300 space-y-2 list-decimal list-inside mb-4">
+            <ol className="text-body text-slate-300 space-y-2 list-decimal list-inside mb-4">
               <li>Open your shared data folder (e.g. in OneDrive or Finder).</li>
               <li>
                 Go into <code className="px-1 py-0.5 bg-white/10 rounded text-blue-300">users/{username}/</code>.
@@ -436,14 +436,14 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
               </li>
               <li>Return to ResearchOS and sign in normally.</li>
             </ol>
-            <p className="text-xs text-slate-400 mb-4">
+            <p className="text-meta text-slate-400 mb-4">
               A lab admin (or anyone with access to the folder) can also do
               this for you. Your other notes and files are not affected.
             </p>
             <div className="flex justify-end">
               <button
                 onClick={() => setShowForgot(false)}
-                className="px-4 py-2 text-sm bg-white/10 hover:bg-white/20 text-white rounded-lg"
+                className="px-4 py-2 text-body bg-white/10 hover:bg-white/20 text-white rounded-lg"
               >
                 Got it
               </button>

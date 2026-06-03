@@ -47,7 +47,7 @@ export default function BulkMoveModal() {
           Confirm Bulk Move
         </h3>
 
-        <p className="text-sm text-gray-600 mb-4">
+        <p className="text-body text-gray-600 mb-4">
           This move affects{" "}
           <span className="font-bold text-gray-900">
             {bulkMoveData.affectedCount}
@@ -58,11 +58,11 @@ export default function BulkMoveModal() {
 
         {bulkMoveData.warnings.length > 0 && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
-            <p className="text-xs font-semibold text-amber-700 mb-1">
+            <p className="text-meta font-semibold text-amber-700 mb-1">
               ⚠ Warnings
             </p>
             {bulkMoveData.warnings.map((w, i) => (
-              <p key={i} className="text-xs text-amber-600">
+              <p key={i} className="text-meta text-amber-600">
                 {w}
               </p>
             ))}
@@ -72,13 +72,13 @@ export default function BulkMoveModal() {
         <div className="flex gap-3 justify-end">
           <button
             onClick={handleCancel}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors"
+            className="px-4 py-2 text-body text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleConfirm}
-            className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+            className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
           >
             Confirm
           </button>

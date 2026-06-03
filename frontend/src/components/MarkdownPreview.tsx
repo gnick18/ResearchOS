@@ -96,10 +96,10 @@ export default function MarkdownPreview({
       <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full mx-4 max-h-[80vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">
+            <h3 className="text-body font-semibold text-gray-900">
               {sourcePath.split("/").pop()}
             </h3>
-            <p className="text-xs text-gray-400 mt-0.5">{sourcePath}</p>
+            <p className="text-meta text-gray-400 mt-0.5">{sourcePath}</p>
           </div>
           <Tooltip label="Close" placement="bottom">
             <button
@@ -113,9 +113,9 @@ export default function MarkdownPreview({
 
         <div className="flex-1 overflow-y-auto px-6 py-4">
           {loading && (
-            <p className="text-sm text-gray-400 animate-pulse">Loading...</p>
+            <p className="text-body text-gray-400 animate-pulse">Loading...</p>
           )}
-          {error && <p className="text-sm text-red-500">{error}</p>}
+          {error && <p className="text-body text-red-500">{error}</p>}
           {!loading && !error && (
             <div className="prose prose-sm prose-gray max-w-none">
               <ReactMarkdown

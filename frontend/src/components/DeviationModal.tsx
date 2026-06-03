@@ -98,14 +98,14 @@ export default function DeviationModal({
         <h3 className="text-lg font-semibold text-gray-900 mb-1">
           Note Deviations
         </h3>
-        <p className="text-xs text-gray-400 mb-4">
+        <p className="text-meta text-gray-400 mb-4">
           Task: {task.name}
           {method && ` · Method: ${method.name}`}
         </p>
 
         {/* Deviation text */}
         <div className="mb-4">
-          <label className="block text-xs font-medium text-gray-500 mb-1">
+          <label className="block text-meta font-medium text-gray-500 mb-1">
             What was different during this run?
           </label>
           <textarea
@@ -113,7 +113,7 @@ export default function DeviationModal({
             onChange={(e) => setDeviations(e.target.value)}
             placeholder="Describe any protocol deviations, altered steps, or unexpected changes..."
             rows={5}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
           />
         </div>
 
@@ -124,10 +124,10 @@ export default function DeviationModal({
               onClick={() => setMode("save")}
               className="w-full text-left px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
             >
-              <p className="text-sm font-medium text-gray-900">
+              <p className="text-body font-medium text-gray-900">
                 Save to task results only
               </p>
-              <p className="text-xs text-gray-400 mt-0.5">
+              <p className="text-meta text-gray-400 mt-0.5">
                 Deviations are recorded in this task&apos;s log but the method
                 stays unchanged.
               </p>
@@ -137,10 +137,10 @@ export default function DeviationModal({
                 onClick={() => setMode("fork")}
                 className="w-full text-left px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
               >
-                <p className="text-sm font-medium text-gray-900">
+                <p className="text-body font-medium text-gray-900">
                   Fork as new method
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">
+                <p className="text-meta text-gray-400 mt-0.5">
                   Create a new method file with these deviations baked in.
                   Becomes a child of &ldquo;{method.name}&rdquo;.
                 </p>
@@ -152,7 +152,7 @@ export default function DeviationModal({
         {/* Fork name input */}
         {mode === "fork" && (
           <div className="mb-4">
-            <label className="block text-xs font-medium text-gray-500 mb-1">
+            <label className="block text-meta font-medium text-gray-500 mb-1">
               New method name
             </label>
             <input
@@ -160,7 +160,7 @@ export default function DeviationModal({
               value={forkName}
               onChange={(e) => setForkName(e.target.value)}
               placeholder={`${method?.name} v2`}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
         )}
@@ -169,7 +169,7 @@ export default function DeviationModal({
         <div className="flex gap-3 justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors"
+            className="px-4 py-2 text-body text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors"
           >
             Cancel
           </button>
@@ -177,7 +177,7 @@ export default function DeviationModal({
             <button
               onClick={handleSaveToTask}
               disabled={saving || !deviations.trim()}
-              className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+              className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
             >
               {saving ? "Saving..." : "Save to Task"}
             </button>
@@ -186,7 +186,7 @@ export default function DeviationModal({
             <button
               onClick={handleForkMethod}
               disabled={saving || !deviations.trim() || !forkName.trim()}
-              className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+              className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
             >
               {saving ? "Forking..." : "Fork Method"}
             </button>
@@ -194,7 +194,7 @@ export default function DeviationModal({
           {mode === "choose" && !deviations.trim() && (
             <button
               disabled
-              className="px-4 py-2 text-sm text-white bg-gray-300 rounded-lg cursor-not-allowed"
+              className="px-4 py-2 text-body text-white bg-gray-300 rounded-lg cursor-not-allowed"
             >
               Enter deviations first
             </button>

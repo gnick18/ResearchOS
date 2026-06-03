@@ -94,8 +94,8 @@ export default function CalendarRemindersModal({ onClose }: Props) {
       >
         <div className="px-5 py-4 border-b border-gray-100 bg-gray-50 flex items-start justify-between">
           <div>
-            <h3 className="text-base font-semibold text-gray-900">Event Reminders</h3>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <h3 className="text-title font-semibold text-gray-900">Event Reminders</h3>
+            <p className="text-meta text-gray-500 mt-0.5">
               Get a heads-up before timed events start.
             </p>
           </div>
@@ -111,7 +111,7 @@ export default function CalendarRemindersModal({ onClose }: Props) {
 
         <div className="px-5 py-4 space-y-5">
           {loading ? (
-            <p className="text-sm text-gray-500 py-4 text-center">Loading…</p>
+            <p className="text-body text-gray-500 py-4 text-center">Loading…</p>
           ) : (
             <>
               {/* Enabled toggle */}
@@ -123,10 +123,10 @@ export default function CalendarRemindersModal({ onClose }: Props) {
                   className="mt-0.5"
                 />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-body font-medium text-gray-900">
                     Enable reminders
                   </p>
-                  <p className="text-[11px] text-gray-500 mt-0.5">
+                  <p className="text-meta text-gray-500 mt-0.5">
                     A reminder lands in your inbox (bell icon) at the chosen
                     time before each event with a start time. All-day events
                     don&apos;t produce reminders.
@@ -136,7 +136,7 @@ export default function CalendarRemindersModal({ onClose }: Props) {
 
               {/* Offset selector */}
               <div className={prefs.enabled ? "" : "opacity-50 pointer-events-none"}>
-                <label className="block text-xs font-medium text-gray-500 mb-1">
+                <label className="block text-meta font-medium text-gray-500 mb-1">
                   Remind me
                 </label>
                 <select
@@ -144,7 +144,7 @@ export default function CalendarRemindersModal({ onClose }: Props) {
                   onChange={(e) =>
                     save({ ...prefs, offsetMinutes: parseInt(e.target.value, 10) })
                   }
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {OFFSET_CHOICES.map((c) => (
                     <option key={c.value} value={c.value}>
@@ -156,43 +156,43 @@ export default function CalendarRemindersModal({ onClose }: Props) {
 
               {/* Browser permission */}
               <div className="border-t border-gray-100 pt-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                <p className="text-meta font-semibold uppercase tracking-wide text-gray-500 mb-2">
                   OS popups (optional)
                 </p>
-                <p className="text-[11px] text-gray-500 mb-3">
+                <p className="text-meta text-gray-500 mb-3">
                   In-app reminders always work while a ResearchOS tab is open.
                   Granting browser permission also raises a system-level
                   notification so you don&apos;t miss it on another tab.
                 </p>
                 {permission === "unsupported" && (
-                  <p className="text-xs text-amber-600">
+                  <p className="text-meta text-amber-600">
                     This browser doesn&apos;t support the Notification API.
                   </p>
                 )}
                 {permission === "default" && (
                   <button
                     onClick={handleRequestPermission}
-                    className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    className="px-3 py-1.5 text-meta bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                   >
                     Enable browser notifications
                   </button>
                 )}
                 {permission === "granted" && (
                   <div className="flex items-center gap-3">
-                    <span className="text-xs text-emerald-600 inline-flex items-center gap-1">
+                    <span className="text-meta text-emerald-600 inline-flex items-center gap-1">
                       <span className="w-2 h-2 rounded-full bg-emerald-500" />
                       Browser notifications on
                     </span>
                     <button
                       onClick={handleTest}
-                      className="text-xs text-blue-600 hover:underline"
+                      className="text-meta text-blue-600 hover:underline"
                     >
                       Send test
                     </button>
                   </div>
                 )}
                 {permission === "denied" && (
-                  <p className="text-xs text-red-600">
+                  <p className="text-meta text-red-600">
                     Browser notifications are blocked. Re-enable them in your
                     browser&apos;s site settings.
                   </p>
@@ -200,7 +200,7 @@ export default function CalendarRemindersModal({ onClose }: Props) {
               </div>
 
               {/* Status / heads-up */}
-              <p className="text-[11px] text-gray-400 italic border-t border-gray-100 pt-3">
+              <p className="text-meta text-gray-400 italic border-t border-gray-100 pt-3">
                 Reminders fire only while a ResearchOS tab is open. If it&apos;s
                 closed, you&apos;ll still see in-app notifications when you
                 return, just not a real-time alert.
@@ -212,7 +212,7 @@ export default function CalendarRemindersModal({ onClose }: Props) {
         <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+            className="px-4 py-1.5 text-body text-gray-600 hover:bg-gray-100 rounded-lg"
           >
             Done
           </button>

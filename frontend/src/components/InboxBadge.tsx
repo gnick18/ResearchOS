@@ -50,7 +50,7 @@ export default function InboxBadge() {
         onClick={() => setOpen(true)}
         title={count > 0 ? `${count} photo${count === 1 ? "" : "s"} in Telegram image inbox` : "Telegram image inbox"}
         data-tour-target="inbox-badge"
-        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-meta font-medium border transition-colors ${
           count > 0
             ? "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100"
             : "border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100"
@@ -58,7 +58,7 @@ export default function InboxBadge() {
       >
         Inbox
         {count > 0 && (
-          <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-amber-200 text-amber-900">
+          <span className="px-1.5 py-0.5 text-meta font-semibold rounded-full bg-amber-200 text-amber-900">
             {count}
           </span>
         )}

@@ -210,8 +210,8 @@ export default function CalendarFeedsModal({ onClose }: Props) {
       >
         <div className="px-5 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
           <div>
-            <h3 className="text-base font-semibold text-gray-900">Linked Calendars</h3>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <h3 className="text-title font-semibold text-gray-900">Linked Calendars</h3>
+            <p className="text-meta text-gray-500 mt-0.5">
               Subscribe to Google, Outlook, or iCloud calendars via their public
               iCal URL. Read-only overlay alongside ResearchOS events.
             </p>
@@ -229,13 +229,13 @@ export default function CalendarFeedsModal({ onClose }: Props) {
         <div className="overflow-y-auto px-5 py-4 space-y-6">
           {/* Connected feeds */}
           <div>
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+            <h4 className="text-meta font-semibold uppercase tracking-wide text-gray-500 mb-2">
               Connected ({feeds.length})
             </h4>
             {loading ? (
-              <p className="text-sm text-gray-500 py-4">Loading…</p>
+              <p className="text-body text-gray-500 py-4">Loading…</p>
             ) : feeds.length === 0 ? (
-              <p className="text-sm text-gray-400 italic py-2">
+              <p className="text-body text-gray-400 italic py-2">
                 No linked calendars yet. Paste an iCal URL below to subscribe.
               </p>
             ) : (
@@ -265,23 +265,23 @@ export default function CalendarFeedsModal({ onClose }: Props) {
                           className="inline-block w-2 h-2 rounded-full"
                           style={{ backgroundColor: feed.color }}
                         />
-                        <span className="text-sm font-medium text-gray-900 truncate">
+                        <span className="text-body font-medium text-gray-900 truncate">
                           {feed.label}
                         </span>
-                        <span className="text-[10px] uppercase tracking-wide text-gray-400">
+                        <span className="text-meta uppercase tracking-wide text-gray-400">
                           {PROVIDER_LABELS[feed.provider]}
                         </span>
                       </div>
                       {feed.icsUrl && (
                         <p
-                          className="text-xs text-gray-400 truncate mt-0.5"
+                          className="text-meta text-gray-400 truncate mt-0.5"
                           title={feed.icsUrl}
                         >
                           {feed.icsUrl}
                         </p>
                       )}
                       {feed.lastSyncAt && (
-                        <p className="text-[10px] text-gray-400 mt-0.5">
+                        <p className="text-meta text-gray-400 mt-0.5">
                           Last synced {new Date(feed.lastSyncAt).toLocaleString()}
                         </p>
                       )}
@@ -294,13 +294,13 @@ export default function CalendarFeedsModal({ onClose }: Props) {
                           onChange={() => handleToggle(feed)}
                           className="rounded"
                         />
-                        <span className="text-xs text-gray-600">
+                        <span className="text-meta text-gray-600">
                           {feed.enabled ? "On" : "Off"}
                         </span>
                       </label>
                       <button
                         onClick={() => handleDelete(feed)}
-                        className="text-[11px] text-red-500 hover:underline"
+                        className="text-meta text-red-500 hover:underline"
                       >
                         Remove
                       </button>
@@ -313,10 +313,10 @@ export default function CalendarFeedsModal({ onClose }: Props) {
 
           {/* ICS URL form */}
           <div className="border-t border-gray-100 pt-5">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
+            <h4 className="text-meta font-semibold uppercase tracking-wide text-gray-500 mb-3">
               Add a calendar subscription
             </h4>
-            <p className="text-[11px] text-gray-500 mb-3">
+            <p className="text-meta text-gray-500 mb-3">
               Works with any public iCal / ICS URL. Every Google, Outlook, and
               iCloud calendar exposes one (sometimes called &ldquo;secret iCal
               address&rdquo; or &ldquo;publish&rdquo;). See the help below for
@@ -325,13 +325,13 @@ export default function CalendarFeedsModal({ onClose }: Props) {
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                  <label className="block text-meta font-medium text-gray-500 mb-1">
                     Provider
                   </label>
                   <select
                     value={draftProvider}
                     onChange={(e) => setDraftProvider(e.target.value as CalendarFeedProvider)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="icloud">iCloud / Apple Calendar</option>
                     <option value="google">Google Calendar</option>
@@ -340,7 +340,7 @@ export default function CalendarFeedsModal({ onClose }: Props) {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                  <label className="block text-meta font-medium text-gray-500 mb-1">
                     Label
                   </label>
                   <input
@@ -348,13 +348,13 @@ export default function CalendarFeedsModal({ onClose }: Props) {
                     value={draftLabel}
                     onChange={(e) => setDraftLabel(e.target.value)}
                     placeholder={`e.g. ${PROVIDER_LABELS[draftProvider]}`}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
               <div>
                 <div className="flex items-center gap-1.5 mb-1">
-                  <label className="text-xs font-medium text-gray-500">
+                  <label className="text-meta font-medium text-gray-500">
                     ICS URL
                   </label>
                   <Tooltip
@@ -364,7 +364,7 @@ export default function CalendarFeedsModal({ onClose }: Props) {
                     <button
                       type="button"
                       aria-label="Where does this go?"
-                      className="text-gray-400 hover:text-gray-600 text-[11px] leading-none"
+                      className="text-gray-400 hover:text-gray-600 text-meta leading-none"
                     >
                       (?)
                     </button>
@@ -375,15 +375,15 @@ export default function CalendarFeedsModal({ onClose }: Props) {
                   value={draftUrl}
                   onChange={(e) => setDraftUrl(e.target.value)}
                   placeholder="https://calendar.google.com/calendar/ical/.../basic.ics"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <p className="mt-1 text-[11px] text-amber-600">
+                <p className="mt-1 text-meta text-amber-600">
                   This URL grants read access to your calendar events to anyone who has
                   it. ResearchOS stores it in your private data folder.
                 </p>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">
+                <label className="block text-meta font-medium text-gray-500 mb-1">
                   Color
                 </label>
                 <div className="flex gap-2">
@@ -407,7 +407,7 @@ export default function CalendarFeedsModal({ onClose }: Props) {
                 </div>
               </div>
               {draftError && (
-                <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded p-2">
+                <p className="text-meta text-red-600 bg-red-50 border border-red-100 rounded p-2">
                   {draftError}
                 </p>
               )}
@@ -416,7 +416,7 @@ export default function CalendarFeedsModal({ onClose }: Props) {
                   onClick={() =>
                     setShowHelp(showHelp === draftProvider ? null : draftProvider)
                   }
-                  className="text-xs text-blue-600 hover:underline"
+                  className="text-meta text-blue-600 hover:underline"
                   type="button"
                 >
                   {showHelp === draftProvider ? "Hide" : "Where do I find this URL?"}
@@ -424,13 +424,13 @@ export default function CalendarFeedsModal({ onClose }: Props) {
                 <button
                   onClick={handleAdd}
                   disabled={testing || !draftUrl.trim()}
-                  className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+                  className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
                 >
                   {testing ? "Testing…" : "Add Calendar"}
                 </button>
               </div>
               {showHelp === draftProvider && (
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs text-gray-700 space-y-2">
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-meta text-gray-700 space-y-2">
                   <HelpContent provider={draftProvider} />
                 </div>
               )}
@@ -438,7 +438,7 @@ export default function CalendarFeedsModal({ onClose }: Props) {
           </div>
         </div>
 
-        <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 text-[11px] text-gray-500">
+        <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 text-meta text-gray-500">
           All linked calendars are read-only. To edit an event, open it in the
           source calendar — your change shows up here within 15 minutes.
         </div>

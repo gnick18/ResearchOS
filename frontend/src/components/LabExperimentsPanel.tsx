@@ -183,7 +183,7 @@ export default function LabExperimentsPanel({
 
   if (experiments.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center text-gray-400 text-sm bg-white rounded-xl p-8 border border-gray-200">
+      <div className="flex-1 flex items-center justify-center text-gray-400 text-body bg-white rounded-xl p-8 border border-gray-200">
         No experiments found for selected users.
       </div>
     );
@@ -272,14 +272,14 @@ export default function LabExperimentsPanel({
           <h2 className="text-lg font-semibold text-gray-900">
             {viewMode === "compare" ? "Comparing by method" : "Experiments"}
           </h2>
-          <p className="text-sm text-gray-500">
+          <p className="text-body text-gray-500">
             {viewMode === "compare"
               ? "Grouped by method to compare replicates."
               : "Outcome cards led by results.md content or the first image in each task's Images folder."}
           </p>
         </div>
 
-        <div className="inline-flex items-center bg-gray-100 rounded-lg p-1 text-sm">
+        <div className="inline-flex items-center bg-gray-100 rounded-lg p-1 text-body">
           <button
             type="button"
             onClick={() => setAndPersistMode("gallery")}
@@ -352,13 +352,13 @@ function GalleryLayout({
         return (
           <section key={key}>
             <div className="flex items-baseline justify-between mb-3">
-              <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+              <h3 className="text-body font-semibold text-gray-900 uppercase tracking-wide">
                 {SECTION_LABEL[key]}
                 <span className="ml-2 text-gray-400 normal-case font-normal">
                   ({items.length})
                 </span>
               </h3>
-              <span className="text-xs text-gray-400">{SECTION_HELP[key]}</span>
+              <span className="text-meta text-gray-400">{SECTION_HELP[key]}</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {items.map(cardFor)}
@@ -423,7 +423,7 @@ function CompareLayout({
       {sortedGroups.map((group) => (
         <section key={group.key}>
           <div className="flex items-baseline justify-between mb-3">
-            <h3 className="text-sm font-semibold text-gray-900">
+            <h3 className="text-body font-semibold text-gray-900">
               {group.label}
               <span className="ml-2 text-gray-400 font-normal">
                 {group.entries.length} run

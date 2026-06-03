@@ -252,7 +252,7 @@ export default function ImageStrip({
   if (entries.length === 0) {
     return (
       <div className={wrapperClass} data-tour-target="hybrid-editor-image-strip">
-        <p className="text-xs text-gray-400 italic px-3 py-2 bg-gray-50 border-t border-gray-200">
+        <p className="text-meta text-gray-400 italic px-3 py-2 bg-gray-50 border-t border-gray-200">
           No images linked to this {recordType} yet. Send one via Telegram or drag a file in.
         </p>
       </div>
@@ -264,7 +264,7 @@ export default function ImageStrip({
   return (
     <div className={wrapperClass} data-tour-target="hybrid-editor-image-strip">
       <div className="flex items-center gap-2 px-3 py-2 overflow-x-auto bg-gray-50 border-t border-gray-200">
-        <span className="text-xs text-gray-500 font-medium flex-shrink-0 mr-1">
+        <span className="text-meta text-gray-500 font-medium flex-shrink-0 mr-1">
           {entries.length} image{entries.length === 1 ? "" : "s"}
           {linkedOnlyCount > 0 && (
             <span className="ml-1 text-blue-600">({linkedOnlyCount} new)</span>
@@ -403,7 +403,7 @@ export default function ImageStrip({
                   <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               </span>
-              <span className="absolute inset-x-0 bottom-0 px-1 py-0.5 text-[9px] text-white bg-black/60 truncate opacity-0 group-hover:opacity-100 transition-opacity" data-force-hover-controls-target>
+              <span className="absolute inset-x-0 bottom-0 px-1 py-0.5 text-meta text-white bg-black/60 truncate opacity-0 group-hover:opacity-100 transition-opacity" data-force-hover-controls-target>
                 {entry.filename}
               </span>
             </div>

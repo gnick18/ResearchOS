@@ -147,12 +147,12 @@ export default function InboxToast() {
                 />
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-800 truncate">
+                <p className="text-meta font-medium text-gray-800 truncate">
                   {item.caption ?? filenameToCaptionStem(item.filename) ?? (
                     <span className="italic text-gray-400">No caption</span>
                   )}
                 </p>
-                <p className="text-[10px] text-gray-400">
+                <p className="text-meta text-gray-400">
                   Inbox — {activeTask ? `file to ${activeTask.name}?` : "no experiment open"}
                 </p>
               </div>
@@ -162,7 +162,7 @@ export default function InboxToast() {
                     type="button"
                     onClick={() => void fileToActive(item)}
                     disabled={filing}
-                    className="px-2 py-1 text-[11px] text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-50"
+                    className="px-2 py-1 text-meta text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-50"
                   >
                     {filing ? "Filing…" : "File here"}
                   </button>
@@ -170,7 +170,7 @@ export default function InboxToast() {
                   <button
                     type="button"
                     onClick={() => setPanelOpen(true)}
-                    className="px-2 py-1 text-[11px] text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
+                    className="px-2 py-1 text-meta text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
                   >
                     Open inbox
                   </button>
@@ -178,7 +178,7 @@ export default function InboxToast() {
                 <button
                   type="button"
                   onClick={() => dismiss(item.id)}
-                  className="px-2 py-0.5 text-[11px] text-gray-400 hover:text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+                  className="px-2 py-0.5 text-meta text-gray-400 hover:text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
                 >
                   ✕
                 </button>

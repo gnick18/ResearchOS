@@ -300,7 +300,7 @@ export default function DevForceWalkthroughButton({
       className="absolute bottom-full right-0 mb-2 w-72 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden z-[200]"
     >
       <div className="px-3 py-2 border-b border-gray-100 bg-gray-50">
-        <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+        <p className="text-meta font-semibold text-gray-700 uppercase tracking-wide">
           Dev: force walkthrough
         </p>
       </div>
@@ -310,10 +310,10 @@ export default function DevForceWalkthroughButton({
         onClick={() => openMode("folder")}
         className="w-full text-left px-3 py-2.5 hover:bg-sky-50 transition-colors border-b border-gray-100"
       >
-        <p className="text-sm font-medium text-gray-900">
+        <p className="text-body font-medium text-gray-900">
           Folder setup walkthrough
         </p>
-        <p className="mt-0.5 text-xs text-gray-500 leading-snug">
+        <p className="mt-0.5 text-meta text-gray-500 leading-snug">
           Tests the folder-connection flow
         </p>
       </button>
@@ -323,10 +323,10 @@ export default function DevForceWalkthroughButton({
         onClick={() => openMode("user")}
         className="w-full text-left px-3 py-2.5 hover:bg-sky-50 transition-colors border-b border-gray-100"
       >
-        <p className="text-sm font-medium text-gray-900">
+        <p className="text-body font-medium text-gray-900">
           User setup walkthrough
         </p>
-        <p className="mt-0.5 text-xs text-gray-500 leading-snug">
+        <p className="mt-0.5 text-meta text-gray-500 leading-snug">
           Tests the v4 walkthrough on a fresh test user
         </p>
       </button>
@@ -336,8 +336,8 @@ export default function DevForceWalkthroughButton({
         onClick={() => openMode("landing")}
         className="w-full text-left px-3 py-2.5 hover:bg-sky-50 transition-colors"
       >
-        <p className="text-sm font-medium text-gray-900">Landing page</p>
-        <p className="mt-0.5 text-xs text-gray-500 leading-snug">
+        <p className="text-body font-medium text-gray-900">Landing page</p>
+        <p className="mt-0.5 text-meta text-gray-500 leading-snug">
           Re-shows the first-time-visitor sell page
         </p>
       </button>
@@ -395,7 +395,7 @@ export default function DevForceWalkthroughButton({
                   />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  <span className="text-meta font-medium text-gray-500 uppercase tracking-wide">
                     Dev only
                   </span>
                   <h2 className="mt-1 text-lg font-semibold text-gray-900">
@@ -409,14 +409,14 @@ export default function DevForceWalkthroughButton({
               </div>
             </div>
 
-            <div className="px-6 py-4 text-sm text-gray-700 leading-relaxed">
+            <div className="px-6 py-4 text-body text-gray-700 leading-relaxed">
               {mode === "folder" ? (
                 <>
                   <p>
                     This will disconnect your current folder. Your data is
                     safe but you&apos;ll need to reconnect.
                   </p>
-                  <p className="mt-2 text-xs text-gray-500">
+                  <p className="mt-2 text-meta text-gray-500">
                     After disconnecting, you&apos;ll land on the
                     pre-onboarding folder picker so you can re-test the
                     first-time connection flow.
@@ -428,7 +428,7 @@ export default function DevForceWalkthroughButton({
                     This will disconnect your current folder. Your data is
                     safe but you&apos;ll need to reconnect afterward.
                   </p>
-                  <p className="mt-2 text-xs text-gray-500">
+                  <p className="mt-2 text-meta text-gray-500">
                     Clears the &ldquo;seen landing&rdquo; flag and resets to a
                     truly-new state so the first-time-visitor sell page shows
                     again.
@@ -440,7 +440,7 @@ export default function DevForceWalkthroughButton({
                     Creates a temporary test account. Your existing accounts
                     won&apos;t be touched.
                   </p>
-                  <p className="mt-2 text-xs text-gray-500">
+                  <p className="mt-2 text-meta text-gray-500">
                     A new <code className="px-1 bg-gray-100 rounded">Test-N</code>{" "}
                     user will be created in this folder and signed in.
                   </p>
@@ -450,7 +450,7 @@ export default function DevForceWalkthroughButton({
 
             {error && (
               <div className="px-6 pb-3">
-                <div className="p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                <div className="p-2 bg-red-50 border border-red-200 rounded text-meta text-red-700">
                   {error}
                 </div>
               </div>
@@ -461,7 +461,7 @@ export default function DevForceWalkthroughButton({
                 type="button"
                 onClick={closeDialog}
                 disabled={busy}
-                className="px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-body font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -473,7 +473,7 @@ export default function DevForceWalkthroughButton({
                   else void handleConfirmUser();
                 }}
                 disabled={busy}
-                className="px-4 py-2 text-sm font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2"
+                className="px-4 py-2 text-body font-medium bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2"
               >
                 {busy ? (
                   <>

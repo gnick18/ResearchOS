@@ -144,11 +144,11 @@ export default function DuplicateUploadDialog({
         <div className="px-5 py-4 border-b border-gray-100 bg-gray-50">
           <h2
             id="dup-upload-title"
-            className="text-base font-semibold text-gray-900"
+            className="text-title font-semibold text-gray-900"
           >
             A file with this name already exists
           </h2>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-meta text-gray-500 mt-1">
             Choose what to do with the file you just added.
           </p>
         </div>
@@ -157,7 +157,7 @@ export default function DuplicateUploadDialog({
         <div className="px-5 py-4 space-y-3">
           {/* Existing file at the destination */}
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-            <p className="text-[11px] uppercase tracking-wide text-amber-700 font-medium mb-1">
+            <p className="text-meta uppercase tracking-wide text-amber-700 font-medium mb-1">
               Already in this folder
             </p>
             <div className="flex items-center gap-2">
@@ -165,7 +165,7 @@ export default function DuplicateUploadDialog({
                 {isImage ? <ImageIcon className="w-4 h-4 text-gray-400" /> : <PaperclipIcon className="w-4 h-4 text-gray-400" />}
               </Tooltip>
               <span
-                className="text-sm font-mono text-gray-800 truncate"
+                className="text-body font-mono text-gray-800 truncate"
                 title={current.existingName}
               >
                 {current.existingName}
@@ -175,7 +175,7 @@ export default function DuplicateUploadDialog({
 
           {/* The dropped file */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-[11px] uppercase tracking-wide text-blue-700 font-medium mb-1">
+            <p className="text-meta uppercase tracking-wide text-blue-700 font-medium mb-1">
               File you just added
             </p>
             <div className="flex items-center gap-2">
@@ -183,13 +183,13 @@ export default function DuplicateUploadDialog({
                 {isImage ? <ImageIcon className="w-4 h-4 text-gray-400" /> : <PaperclipIcon className="w-4 h-4 text-gray-400" />}
               </Tooltip>
               <span
-                className="text-sm font-mono text-gray-800 truncate"
+                className="text-body font-mono text-gray-800 truncate"
                 title={current.file.name}
               >
                 {current.file.name}
               </span>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-meta text-gray-500 mt-1">
               {size}
               {modified ? ` • Modified ${modified}` : ""}
             </p>
@@ -202,24 +202,24 @@ export default function DuplicateUploadDialog({
             ref={renameButtonRef}
             type="button"
             onClick={() => handleClick("rename")}
-            className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
+            className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white text-body font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
           >
             Save as{" "}
-            <span className="font-mono text-xs bg-blue-700 px-1.5 py-0.5 rounded">
+            <span className="font-mono text-meta bg-blue-700 px-1.5 py-0.5 rounded">
               {current.suggestedName}
             </span>
           </button>
           <button
             type="button"
             onClick={() => handleClick("replace")}
-            className="w-full py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-medium rounded-lg transition-colors"
+            className="w-full py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 text-body font-medium rounded-lg transition-colors"
           >
             Replace existing
           </button>
           <button
             type="button"
             onClick={() => handleClick("cancel")}
-            className="w-full py-2 px-4 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+            className="w-full py-2 px-4 text-meta text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
           >
             Cancel
           </button>
@@ -235,7 +235,7 @@ export default function DuplicateUploadDialog({
                 onChange={(e) => setApplyToAll(e.target.checked)}
                 className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
-              <span className="text-xs text-gray-600">
+              <span className="text-meta text-gray-600">
                 Apply this choice to the other {remainingCount} file
                 {remainingCount === 1 ? "" : "s"} with name collisions
               </span>

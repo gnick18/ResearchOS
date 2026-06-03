@@ -297,11 +297,11 @@ export default function DemoPurchasesViewer({
           demo" so users don't mistake Alex's data for their own. */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-amber-200 bg-amber-50 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-2 px-2.5 py-1 text-xs font-medium bg-amber-100 text-amber-800 rounded-full">
+          <span className="inline-flex items-center gap-2 px-2.5 py-1 text-meta font-medium bg-amber-100 text-amber-800 rounded-full">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
             Demo view
           </span>
-          <p className="text-sm text-amber-900">
+          <p className="text-body text-amber-900">
             You&apos;re looking at Alex&apos;s account — read-only fake data.
           </p>
         </div>
@@ -310,7 +310,7 @@ export default function DemoPurchasesViewer({
           onClick={onClose}
           data-tour-target="demo-purchases-back-button"
           data-testid="demo-purchases-back-button"
-          className="px-3 py-1.5 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
+          className="px-3 py-1.5 text-body bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
         >
           Back to my page
         </button>
@@ -325,10 +325,10 @@ export default function DemoPurchasesViewer({
       >
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">
+            <h2 className="text-heading font-semibold text-gray-900">
               Purchases <span className="text-gray-400">/ Alex (demo)</span>
             </h2>
-            <p className="text-sm text-gray-400 mt-0.5">
+            <p className="text-body text-gray-400 mt-0.5">
               {purchaseTasks.length} purchase order
               {purchaseTasks.length !== 1 ? "s" : ""} · $
               {grandTotal.toFixed(2)} total
@@ -338,14 +338,14 @@ export default function DemoPurchasesViewer({
 
         {loading ? (
           <div className="text-center py-16">
-            <p className="text-sm text-gray-400">Loading demo data…</p>
+            <p className="text-body text-gray-400">Loading demo data…</p>
           </div>
         ) : sortedTasks.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-lg text-gray-400 mb-2">
               No demo purchases available
             </p>
-            <p className="text-sm text-gray-300">
+            <p className="text-body text-gray-300">
               The demo fixtures didn&apos;t include any purchase tasks. The
               spending dashboard below will show zeroed totals.
             </p>
@@ -380,16 +380,16 @@ export default function DemoPurchasesViewer({
                         }`}
                       />
                       <div>
-                        <h3 className="text-sm font-semibold text-gray-900">
+                        <h3 className="text-body font-semibold text-gray-900">
                           {task.name}
                         </h3>
-                        <p className="text-xs text-gray-400">
+                        <p className="text-meta text-gray-400">
                           {projectDisplayName} · {task.start_date} ·{" "}
                           {items.length} item{items.length !== 1 ? "s" : ""}
                         </p>
                       </div>
                     </div>
-                    <span className="text-sm font-semibold text-gray-700">
+                    <span className="text-body font-semibold text-gray-700">
                       ${taskTotal.toFixed(2)}
                     </span>
                   </div>

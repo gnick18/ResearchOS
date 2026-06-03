@@ -25,8 +25,8 @@ export default function LoadingOverlay({ message }: LoadingOverlayProps) {
         
         {/* Message */}
         <div className="text-center">
-          <p className="text-sm font-medium text-gray-900">{displayMessage}</p>
-          <p className="text-xs text-gray-500 mt-1">Please do not click any buttons</p>
+          <p className="text-body font-medium text-gray-900">{displayMessage}</p>
+          <p className="text-meta text-gray-500 mt-1">Please do not click any buttons</p>
         </div>
       </div>
     </div>

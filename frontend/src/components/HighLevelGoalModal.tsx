@@ -222,13 +222,13 @@ export default function HighLevelGoalModal({
         <div className="space-y-4">
           {/* Project */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
+            <label className="block text-meta font-medium text-gray-500 mb-1">
               Category
             </label>
             <select
               value={projectId === null ? "personal" : projectId}
               onChange={(e) => setProjectId(e.target.value === "personal" ? null : Number(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={isEditing}
             >
               <option value="personal">Personal</option>
@@ -239,7 +239,7 @@ export default function HighLevelGoalModal({
               ))}
             </select>
             {hasSharedProjects && (
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-meta text-gray-400 mt-1">
                 Shared projects aren&apos;t listed here. Goals are always your own; open the shared project to track work there.
               </p>
             )}
@@ -247,7 +247,7 @@ export default function HighLevelGoalModal({
 
           {/* Name */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
+            <label className="block text-meta font-medium text-gray-500 mb-1">
               Goal Name
             </label>
             <input
@@ -255,7 +255,7 @@ export default function HighLevelGoalModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Complete thesis chapter"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               autoFocus
             />
           </div>
@@ -263,32 +263,32 @@ export default function HighLevelGoalModal({
           {/* Date Range */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
+              <label className="block text-meta font-medium text-gray-500 mb-1">
                 Start Date
               </label>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
+              <label className="block text-meta font-medium text-gray-500 mb-1">
                 End Date
               </label>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
 
           {/* Days remaining indicator */}
           {daysRemaining !== null && (
-            <div className={`text-sm font-medium ${
+            <div className={`text-body font-medium ${
               daysRemaining < 0 
                 ? "text-red-600" 
                 : daysRemaining < 7 
@@ -305,7 +305,7 @@ export default function HighLevelGoalModal({
 
           {/* Color picker */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-2">
+            <label className="block text-meta font-medium text-gray-500 mb-2">
               Color
             </label>
             <div className="flex gap-2">
@@ -327,7 +327,7 @@ export default function HighLevelGoalModal({
 
           {/* SMART Goals */}
           <div className="border-t border-gray-100 pt-4">
-            <label className="block text-xs font-medium text-gray-500 mb-2">
+            <label className="block text-meta font-medium text-gray-500 mb-2">
               SMART Sub-Goals
             </label>
             
@@ -365,11 +365,11 @@ export default function HighLevelGoalModal({
                           handleCancelEditSmartGoal();
                         }
                       }}
-                      className="flex-1 px-2 py-1 text-sm border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="flex-1 px-2 py-1 text-body border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   ) : (
                     <span 
-                      className={`flex-1 text-sm cursor-pointer ${
+                      className={`flex-1 text-body cursor-pointer ${
                         sg.is_complete ? "text-green-700 line-through" : "text-gray-700"
                       }`}
                       onDoubleClick={() => handleStartEditSmartGoal(sg)}
@@ -382,7 +382,7 @@ export default function HighLevelGoalModal({
                     <button
                       type="button"
                       onClick={() => handleDeleteSmartGoal(sg.id)}
-                      className="text-gray-400 hover:text-red-500 text-xs"
+                      className="text-gray-400 hover:text-red-500 text-meta"
                     >
                       ✕
                     </button>
@@ -398,7 +398,7 @@ export default function HighLevelGoalModal({
                 value={newSmartGoalText}
                 onChange={(e) => setNewSmartGoalText(e.target.value)}
                 placeholder="Add a sub-goal..."
-                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
@@ -410,7 +410,7 @@ export default function HighLevelGoalModal({
                 type="button"
                 onClick={handleAddSmartGoal}
                 disabled={!newSmartGoalText.trim()}
-                className="px-3 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Add
               </button>
@@ -420,7 +420,7 @@ export default function HighLevelGoalModal({
           {/* Progress indicator */}
           {smartGoals.length > 0 && (
             <div className="bg-gray-50 rounded-lg p-3">
-              <div className="flex justify-between text-xs text-gray-500 mb-1">
+              <div className="flex justify-between text-meta text-gray-500 mb-1">
                 <span>Progress</span>
                 <span>{smartGoals.filter(sg => sg.is_complete).length} / {smartGoals.length} complete</span>
               </div>
@@ -455,7 +455,7 @@ export default function HighLevelGoalModal({
               <button
                 type="button"
                 onClick={() => onDeleteGoal(editingGoal)}
-                className="px-4 py-2 text-sm text-red-600 hover:text-white hover:bg-red-600 border border-red-300 rounded-lg transition-colors"
+                className="px-4 py-2 text-body text-red-600 hover:text-white hover:bg-red-600 border border-red-300 rounded-lg transition-colors"
               >
                 Delete Goal
               </button>
@@ -465,14 +465,14 @@ export default function HighLevelGoalModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors"
+              className="px-4 py-2 text-body text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving || !name.trim() || !startDate || !endDate}
-              className="px-4 py-2 text-sm text-white bg-amber-600 hover:bg-amber-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 text-body text-white bg-amber-600 hover:bg-amber-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? "Saving..." : isEditing ? "Update Goal" : "Create Goal"}
             </button>

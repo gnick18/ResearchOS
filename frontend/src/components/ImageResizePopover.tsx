@@ -133,7 +133,7 @@ export default function ImageResizePopover({
         className="flex items-center justify-between px-2 py-1.5 border-b border-gray-100 cursor-move bg-gray-50 rounded-t-lg"
         title="Drag to move"
       >
-        <span className="text-[11px] uppercase tracking-wide text-gray-500">
+        <span className="text-meta uppercase tracking-wide text-gray-500">
           Image size
         </span>
         <svg
@@ -161,7 +161,7 @@ export default function ImageResizePopover({
               type="button"
               onClick={() => onSelect(pct)}
               data-tour-target={`hybrid-editor-resize-percent-${pct}`}
-              className={`flex items-center gap-2 px-2 py-1 rounded text-left text-xs transition-colors ${
+              className={`flex items-center gap-2 px-2 py-1 rounded text-left text-meta transition-colors ${
                 isCurrent
                   ? "bg-blue-50 text-blue-700 font-medium"
                   : "text-gray-700 hover:bg-blue-50"
@@ -191,7 +191,7 @@ export default function ImageResizePopover({
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
                 )}
             </span>
-            <label className="text-xs text-gray-700 shrink-0">Custom</label>
+            <label className="text-meta text-gray-700 shrink-0">Custom</label>
             <input
               type="number"
               min={CUSTOM_MIN}
@@ -207,13 +207,13 @@ export default function ImageResizePopover({
               }}
               placeholder="%"
               aria-label="Custom width percentage"
-              className="w-12 px-1.5 py-0.5 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
+              className="w-12 px-1.5 py-0.5 text-meta border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
             />
-            <span className="text-xs text-gray-400">%</span>
+            <span className="text-meta text-gray-400">%</span>
             <button
               type="button"
               onClick={applyCustom}
-              className="ml-auto px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition-colors"
+              className="ml-auto px-2 py-0.5 text-meta rounded bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition-colors"
             >
               Set
             </button>
@@ -223,7 +223,7 @@ export default function ImageResizePopover({
           <button
             type="button"
             onClick={() => onSelect(null)}
-            className="flex items-center gap-2 px-2 py-1 mt-1 pt-1.5 rounded text-left text-xs text-gray-700 hover:bg-blue-50 border-t border-gray-100 transition-colors"
+            className="flex items-center gap-2 px-2 py-1 mt-1 pt-1.5 rounded text-left text-meta text-gray-700 hover:bg-blue-50 border-t border-gray-100 transition-colors"
           >
             <span className="w-3 h-3 inline-flex items-center justify-center rounded-full border border-gray-300" />
             <span>Remove width</span>
@@ -233,7 +233,7 @@ export default function ImageResizePopover({
           <button
             type="button"
             onClick={onAnnotate}
-            className="flex items-center gap-2 px-2 py-1.5 mt-1 pt-1.5 rounded text-left text-xs font-medium text-blue-700 hover:bg-blue-50 border-t border-gray-100 transition-colors"
+            className="flex items-center gap-2 px-2 py-1.5 mt-1 pt-1.5 rounded text-left text-meta font-medium text-blue-700 hover:bg-blue-50 border-t border-gray-100 transition-colors"
           >
             {/* Pencil icon (custom inline SVG, no icon library). */}
             <svg

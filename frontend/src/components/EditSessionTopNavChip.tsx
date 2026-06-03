@@ -77,7 +77,7 @@ export default function EditSessionTopNavChip() {
           aria-expanded={open}
           aria-label={`Edit session: ${remaining} remaining`}
           data-testid="edit-session-chip"
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-xs font-medium transition-colors"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-meta font-medium transition-colors"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -112,10 +112,10 @@ export default function EditSessionTopNavChip() {
           className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden"
         >
           <div className="px-3 py-2 bg-amber-50 border-b border-amber-100">
-            <p className="text-xs text-amber-900">
+            <p className="text-meta text-amber-900">
               <span className="font-semibold">Edit session active</span>
             </p>
-            <p className="text-[11px] text-amber-700 mt-0.5">
+            <p className="text-meta text-amber-700 mt-0.5">
               <span className="font-mono tabular-nums">{remaining}</span>{" "}
               remaining for{" "}
               <span className="font-medium">@{session.active.username}</span>
@@ -127,7 +127,7 @@ export default function EditSessionTopNavChip() {
             onClick={() => {
               extendEditSession();
             }}
-            className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+            className="w-full text-left px-3 py-2 text-body text-gray-700 hover:bg-gray-50 flex items-center gap-2"
             data-testid="edit-session-chip-extend"
           >
             <svg
@@ -154,7 +154,7 @@ export default function EditSessionTopNavChip() {
               endEditSession();
               setOpen(false);
             }}
-            className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-t border-gray-100"
+            className="w-full text-left px-3 py-2 text-body text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-t border-gray-100"
             data-testid="edit-session-chip-lock"
           >
             <svg

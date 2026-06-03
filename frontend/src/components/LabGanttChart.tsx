@@ -346,16 +346,16 @@ export default function LabGanttChart({
 
   if (filteredTasks.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-gray-400 text-sm bg-white rounded-xl p-8 border border-gray-200">
+      <div className="flex-1 flex flex-col items-center justify-center text-gray-400 text-body bg-white rounded-xl p-8 border border-gray-200">
         <p className="mb-2">No tasks to display.</p>
-        <p className="text-xs text-gray-500">
+        <p className="text-meta text-gray-500">
           {tasks.length === 0 
             ? "No tasks found in the database." 
             : selectedUsernames.size === 0 
               ? "Select users to view their tasks."
               : "All tasks are filtered out (lists are hidden from GANTT)."}
         </p>
-        <p className="text-xs text-gray-500 mt-2">
+        <p className="text-meta text-gray-500 mt-2">
           Total tasks: {tasks.length} | Selected users: {selectedUsernames.size} | Filtered: {filteredTasks.length}
         </p>
       </div>
@@ -373,13 +373,13 @@ export default function LabGanttChart({
     <div className="flex-1 overflow-auto bg-white rounded-xl p-4 relative border border-gray-200">
       {/* View mode selector */}
       <div className="mb-4 flex items-center gap-2">
-        <span className="text-xs text-gray-500">View:</span>
+        <span className="text-meta text-gray-500">View:</span>
         <div className="flex gap-1">
           {["1week", "2week", "3week", "1month", "3month", "6month", "1year"].map((mode) => (
             <button
               key={mode}
               onClick={() => useAppStore.getState().setViewMode(mode as "1week" | "2week" | "3week" | "1month" | "3month" | "6month" | "1year" | "all")}
-              className={`px-2 py-1 text-xs rounded transition-colors ${
+              className={`px-2 py-1 text-meta rounded transition-colors ${
                 viewMode === mode
                   ? "bg-emerald-100 text-emerald-700"
                   : "bg-gray-100 text-gray-500 hover:text-gray-900"
@@ -405,7 +405,7 @@ export default function LabGanttChart({
         return (
           <div key={weekIdx} className="mb-6 relative" style={{ zIndex: 1 }}>
             {/* Week header */}
-            <div className="text-xs font-semibold text-gray-500 mb-2 px-1">
+            <div className="text-meta font-semibold text-gray-500 mb-2 px-1">
               {weekLabel}
             </div>
 
@@ -420,7 +420,7 @@ export default function LabGanttChart({
                 return (
                   <div
                     key={`header-${weekIdx}-${ds}`}
-                    className={`px-2 py-1.5 text-center text-xs font-medium transition-colors ${
+                    className={`px-2 py-1.5 text-center text-meta font-medium transition-colors ${
                       isToday
                         ? "bg-red-500 text-white"
                         : isWeekendDay
@@ -437,7 +437,7 @@ export default function LabGanttChart({
             {/* Task rows */}
             <div className="bg-white border border-gray-200 border-t-0 rounded-b-lg overflow-hidden relative">
               {weekTasks.length === 0 ? (
-                <div className="h-12 flex items-center justify-center text-xs text-gray-400">
+                <div className="h-12 flex items-center justify-center text-meta text-gray-400">
                   No tasks this week
                 </div>
               ) : (
@@ -542,7 +542,7 @@ export default function LabGanttChart({
                                     ? "lab-mode-gantt-first-bar"
                                     : undefined
                                 }
-                                className="absolute inset-x-0 top-1 bottom-1 rounded-lg cursor-pointer flex items-center px-2 text-white text-xs font-medium truncate shadow-sm hover:shadow-md transition-all overflow-hidden group"
+                                className="absolute inset-x-0 top-1 bottom-1 rounded-lg cursor-pointer flex items-center px-2 text-white text-meta font-medium truncate shadow-sm hover:shadow-md transition-all overflow-hidden group"
                                 style={{
                                   background: barBackground,
                                   opacity: task.is_complete ? completedOpacity : 1,
@@ -551,7 +551,7 @@ export default function LabGanttChart({
                               >
                                 {/* Username indicator - first letter badge */}
                                 <div 
-                                  className="absolute left-0 top-0 bottom-0 w-5 flex items-center justify-center bg-black/20 text-[10px] font-bold"
+                                  className="absolute left-0 top-0 bottom-0 w-5 flex items-center justify-center bg-black/20 text-meta font-bold"
                                   style={{ borderRadius: "0.5rem 0 0 0.5rem" }}
                                 >
                                   {task.username.charAt(0).toUpperCase()}
@@ -559,7 +559,7 @@ export default function LabGanttChart({
 
                                 {/* Task type indicator — bar color already differentiates type; badge removed */}
                                 {task.task_type === "purchase" && (
-                                  <div className="absolute top-0 right-0 w-4 h-4 flex items-center justify-center text-[8px] bg-black/20 rounded-bl-lg">
+                                  <div className="absolute top-0 right-0 w-4 h-4 flex items-center justify-center text-meta bg-black/20 rounded-bl-lg">
                                     $
                                   </div>
                                 )}
@@ -629,7 +629,7 @@ export default function LabGanttChart({
                                 )}
 
                                 {/* Hover tooltip */}
-                                <div className="absolute left-0 top-full mt-1 bg-gray-900 text-white text-xs px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none" data-force-hover-controls-target>
+                                <div className="absolute left-0 top-full mt-1 bg-gray-900 text-white text-meta px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none" data-force-hover-controls-target>
                                   <div className="font-medium">{task.name}</div>
                                   <div className="text-gray-300">{task.username} • {getProjectName(task.project_id, task.username)}</div>
                                   <div className="text-gray-400">{task.start_date} → {task.end_date}</div>
@@ -649,7 +649,7 @@ export default function LabGanttChart({
       })}
 
       {/* Legend */}
-      <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-gray-500">
+      <div className="mt-4 flex flex-wrap items-center gap-4 text-meta text-gray-500">
         <span>Tasks colored by user:</span>
         {Array.from(selectedUsernames).map(username => {
           const user = users.find(u => u.username === username);

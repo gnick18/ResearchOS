@@ -180,7 +180,7 @@ export default function CommentsThread({
           <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h6m-7 9l4-4h10a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h1v4z" />
           </svg>
-          <span className="text-sm font-semibold text-gray-700">
+          <span className="text-body font-semibold text-gray-700">
             Lab comments
             {comments.length > 0 && (
               <span className="ml-1 text-gray-400 font-normal">({comments.length})</span>
@@ -201,13 +201,13 @@ export default function CommentsThread({
       {!collapsed && (
         <div className="mt-3">
           {!isShared && notSharedHint && (
-            <div className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-3 mb-3">
+            <div className="text-meta text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-3 mb-3">
               {notSharedHint}
             </div>
           )}
 
           {comments.length === 0 ? (
-            <p className="text-xs text-gray-400 mb-3">No comments yet.</p>
+            <p className="text-meta text-gray-400 mb-3">No comments yet.</p>
           ) : (
             <ul className="space-y-3 mb-3">
               {sortedRoots.map((c) => {
@@ -253,7 +253,7 @@ export default function CommentsThread({
                 }}
               />
             ) : (
-              <div className="text-xs text-gray-500 bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <div className="text-meta text-gray-500 bg-amber-50 border border-amber-200 rounded-lg p-3">
                 Set a main user to comment as yourself (Settings → Main User).
               </div>
             )
@@ -379,7 +379,7 @@ function CommentRow({
               <button
                 type="button"
                 onClick={() => setReplyingTo(comment.id)}
-                className="text-xs text-emerald-700 hover:text-emerald-800 font-medium"
+                className="text-meta text-emerald-700 hover:text-emerald-800 font-medium"
               >
                 Reply
               </button>
@@ -422,11 +422,11 @@ function CommentBody({
     <div className="flex gap-2.5">
       <UserAvatar username={comment.author} size="sm" />
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 text-xs text-gray-500">
+        <div className="flex items-center gap-2 text-meta text-gray-500">
           <span className={nameClass}>{displayName}</span>
           {isPI && !departed && (
             <span
-              className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-100 text-amber-800"
+              className="px-1.5 py-0.5 text-meta font-semibold rounded bg-amber-100 text-amber-800"
               title="PI"
             >
               PI
@@ -446,7 +446,7 @@ function CommentBody({
             </button>
           )}
         </div>
-        <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">
+        <p className="text-body text-gray-800 whitespace-pre-wrap break-words">
           <CommentText text={comment.text} profileMap={profileMap} />
         </p>
       </div>
@@ -698,14 +698,14 @@ function CommentComposer({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           rows={compact ? 1 : 2}
-          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y"
+          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y"
         />
         <div className="flex flex-col gap-1 self-start">
           <button
             type="button"
             onClick={() => void handleSubmit()}
             disabled={!draft.trim() || posting}
-            className="px-3 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-2 bg-emerald-600 text-white rounded-lg text-body hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {posting ? "Posting…" : compact ? "Reply" : "Post"}
           </button>
@@ -713,7 +713,7 @@ function CommentComposer({
             <button
               type="button"
               onClick={onCancel}
-              className="px-3 py-1 text-xs text-gray-500 hover:text-gray-700"
+              className="px-3 py-1 text-meta text-gray-500 hover:text-gray-700"
             >
               Cancel
             </button>

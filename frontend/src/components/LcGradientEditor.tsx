@@ -325,12 +325,12 @@ export function LcGradientEditor(props: LcGradientEditorProps) {
 
       {/* Gradient steps table */}
       <div>
-        <h4 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">
+        <h4 className="text-meta font-semibold text-gray-500 mb-2 uppercase tracking-wide">
           Gradient steps
         </h4>
         <div className="border border-gray-200 rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-xs text-gray-500">
+          <table className="w-full text-body">
+            <thead className="bg-gray-50 text-meta text-gray-500">
               <tr>
                 <th className="px-3 py-2 text-left font-medium">Time (min)</th>
                 <th className="px-3 py-2 text-left font-medium">% A</th>
@@ -377,7 +377,7 @@ export function LcGradientEditor(props: LcGradientEditorProps) {
             <button
               onClick={addStep}
               data-tour-target="lc-add-step"
-              className="w-full py-2 text-xs text-blue-600 hover:bg-blue-50 border-t border-gray-200"
+              className="w-full py-2 text-meta text-blue-600 hover:bg-blue-50 border-t border-gray-200"
             >
               + Add step
             </button>
@@ -387,7 +387,7 @@ export function LcGradientEditor(props: LcGradientEditorProps) {
 
       {/* Column + detection */}
       <div>
-        <h4 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">
+        <h4 className="text-meta font-semibold text-gray-500 mb-2 uppercase tracking-wide">
           Column &amp; detection
         </h4>
         <div className="grid grid-cols-2 gap-3">
@@ -441,7 +441,7 @@ export function LcGradientEditor(props: LcGradientEditorProps) {
       {/* Description */}
       {(onDescriptionChange || (description && description.trim())) && (
         <div>
-          <h4 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">
+          <h4 className="text-meta font-semibold text-gray-500 mb-2 uppercase tracking-wide">
             Description
           </h4>
           {editable && onDescriptionChange ? (
@@ -450,26 +450,26 @@ export function LcGradientEditor(props: LcGradientEditorProps) {
               onChange={(e) => onDescriptionChange(e.target.value || null)}
               rows={2}
               placeholder="Optional notes about the method (sample type, expected analytes, references)…"
-              className={`w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              className={`w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                 originalDescription !== undefined && (description ?? "") !== (originalDescription ?? "")
                   ? MODIFIED_CELL_CLASSES
                   : ""
               }`}
             />
           ) : (
-            <p className="text-sm text-gray-600 whitespace-pre-wrap">{description}</p>
+            <p className="text-body text-gray-600 whitespace-pre-wrap">{description}</p>
           )}
         </div>
       )}
 
       {/* Ingredients */}
       <div>
-        <h4 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">
+        <h4 className="text-meta font-semibold text-gray-500 mb-2 uppercase tracking-wide">
           Ingredients
         </h4>
         <div className="border border-gray-200 rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-xs text-gray-500">
+          <table className="w-full text-body">
+            <thead className="bg-gray-50 text-meta text-gray-500">
               <tr>
                 <th className="px-3 py-2 text-left font-medium">Name</th>
                 <th className="px-3 py-2 text-left font-medium">Role</th>
@@ -512,7 +512,7 @@ export function LcGradientEditor(props: LcGradientEditorProps) {
           {editable && (
             <button
               onClick={addIngredient}
-              className="w-full py-2 text-xs text-blue-600 hover:bg-blue-50 border-t border-gray-200"
+              className="w-full py-2 text-meta text-blue-600 hover:bg-blue-50 border-t border-gray-200"
             >
               + Add ingredient
             </button>
@@ -587,7 +587,7 @@ function StepRow({
           <Tooltip label="Remove step" placement="left">
             <button
               onClick={onRemove}
-              className="text-gray-400 hover:text-red-500 text-sm"
+              className="text-gray-400 hover:text-red-500 text-body"
             >
               ✕
             </button>
@@ -617,7 +617,7 @@ function NumericCell({
       value={fmtNumber(value)}
       step="0.01"
       onChange={(e) => onChange(parseNumberOrNull(e.target.value))}
-      className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+      className="w-full px-2 py-1 border border-gray-200 rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-500"
     />
   ) : (
     <span className="text-gray-700">{value}</span>
@@ -657,13 +657,13 @@ function FieldRow({
       value={value}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
-      className={`w-full px-2 py-1.5 border border-gray-200 rounded text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+      className={`w-full px-2 py-1.5 border border-gray-200 rounded text-body text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
         modified ? MODIFIED_CELL_CLASSES : ""
       }`}
     />
   );
   return (
-    <label className="block text-xs font-medium text-gray-500 space-y-1">
+    <label className="block text-meta font-medium text-gray-500 space-y-1">
       <span>{label}</span>
       {editable ? (
         modified ? (
@@ -674,7 +674,7 @@ function FieldRow({
           input
         )
       ) : (
-        <span className="block text-sm text-gray-700">{value || "—"}</span>
+        <span className="block text-body text-gray-700">{value || "—"}</span>
       )}
     </label>
   );
@@ -701,13 +701,13 @@ function NumericFieldRow({
       value={fmtNumber(value)}
       step="0.01"
       onChange={(e) => onChange(parseNumberOrNull(e.target.value))}
-      className={`w-full px-2 py-1.5 border border-gray-200 rounded text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+      className={`w-full px-2 py-1.5 border border-gray-200 rounded text-body text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
         modified ? MODIFIED_CELL_CLASSES : ""
       }`}
     />
   );
   return (
-    <label className="block text-xs font-medium text-gray-500 space-y-1">
+    <label className="block text-meta font-medium text-gray-500 space-y-1">
       <span>{label}</span>
       {editable ? (
         modified ? (
@@ -718,7 +718,7 @@ function NumericFieldRow({
           input
         )
       ) : (
-        <span className="block text-sm text-gray-700">
+        <span className="block text-body text-gray-700">
           {value === null || value === undefined ? "—" : value}
         </span>
       )}
@@ -758,7 +758,7 @@ function IngredientRow({
       type="text"
       value={ing.name}
       onChange={(e) => onUpdate("name", e.target.value)}
-      className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+      className="w-full px-2 py-1 border border-gray-200 rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-500"
     />
   ) : (
     <span className="text-gray-700">{ing.name}</span>
@@ -767,7 +767,7 @@ function IngredientRow({
     <select
       value={ing.role}
       onChange={(e) => onUpdate("role", e.target.value as LCIngredientRole)}
-      className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+      className="w-full px-2 py-1 border border-gray-200 rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
     >
       {ROLE_OPTIONS.map((r) => (
         <option key={r} value={r}>
@@ -784,7 +784,7 @@ function IngredientRow({
       value={ing.concentration ?? ""}
       onChange={(e) => onUpdate("concentration", e.target.value)}
       placeholder="e.g. 0.1%, 10 mM"
-      className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+      className="w-full px-2 py-1 border border-gray-200 rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-500"
     />
   ) : (
     <span className="text-gray-700">{ing.concentration || "—"}</span>
@@ -794,7 +794,7 @@ function IngredientRow({
       type="text"
       value={ing.notes ?? ""}
       onChange={(e) => onUpdate("notes", e.target.value)}
-      className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+      className="w-full px-2 py-1 border border-gray-200 rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-500"
     />
   ) : (
     <span className="text-gray-700">{ing.notes || ""}</span>
@@ -847,7 +847,7 @@ function IngredientRow({
           <Tooltip label="Remove ingredient" placement="left">
             <button
               onClick={onRemove}
-              className="text-gray-400 hover:text-red-500 text-sm"
+              className="text-gray-400 hover:text-red-500 text-body"
             >
               ✕
             </button>

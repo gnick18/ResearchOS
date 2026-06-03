@@ -154,23 +154,23 @@ export default function CalendarSidebar() {
       <aside className="w-64 border-r border-gray-200 bg-white overflow-y-auto flex-shrink-0">
         {/* Linked Calendars */}
         <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+          <h2 className="text-meta font-bold text-gray-400 uppercase tracking-widest">
             Calendars
           </h2>
           <div className="flex items-center gap-2">
             <Tooltip label="Configure event reminders" placement="bottom">
               <button
                 onClick={() => setRemindersModalOpen(true)}
-                className="text-[11px] text-blue-600 hover:underline"
+                className="text-meta text-blue-600 hover:underline"
               >
                 Reminders
               </button>
             </Tooltip>
-            <span className="text-[10px] text-gray-300">·</span>
+            <span className="text-meta text-gray-300">·</span>
             <Tooltip label="Manage linked calendars" placement="bottom">
               <button
                 onClick={() => setFeedsModalOpen(true)}
-                className="text-[11px] text-blue-600 hover:underline"
+                className="text-meta text-blue-600 hover:underline"
               >
                 Manage
               </button>
@@ -186,7 +186,7 @@ export default function CalendarSidebar() {
             onRecolor={handleRecolorNative}
           />
           {feeds.length === 0 ? (
-            <p className="text-[11px] text-gray-400 italic px-1 pt-2">
+            <p className="text-meta text-gray-400 italic px-1 pt-2">
               No linked calendars.
               <button
                 onClick={() => setFeedsModalOpen(true)}
@@ -212,18 +212,18 @@ export default function CalendarSidebar() {
 
         {/* Upcoming */}
         <div className="px-4 py-2 border-t border-gray-100 flex items-center justify-between">
-          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+          <h2 className="text-meta font-bold text-gray-400 uppercase tracking-widest">
             Upcoming
           </h2>
           {totalEnabled > 0 && (
-            <span className="text-[10px] text-gray-300">
+            <span className="text-meta text-gray-300">
               {totalEnabled} feed{totalEnabled === 1 ? "" : "s"} on
             </span>
           )}
         </div>
         <div className="p-3 space-y-3">
           {grouped.size === 0 ? (
-            <p className="text-[11px] text-gray-300 italic px-1">
+            <p className="text-meta text-gray-300 italic px-1">
               Nothing in the next {UPCOMING_DAYS} days.
             </p>
           ) : (
@@ -359,19 +359,19 @@ function FeedRow({
       </Tooltip>
       <div className="flex-1 min-w-0 pointer-events-none">
         <p
-          className={`text-xs font-medium truncate ${
+          className={`text-meta font-medium truncate ${
             enabled ? "text-gray-700" : "text-gray-400"
           }`}
         >
           {label}
         </p>
-        <p className="text-[10px] uppercase tracking-wide text-gray-300">
+        <p className="text-meta uppercase tracking-wide text-gray-300">
           {description}
         </p>
       </div>
       {interactive && (
         <span
-          className={`text-[10px] pointer-events-none ${
+          className={`text-meta pointer-events-none ${
             enabled ? "text-gray-400" : "text-gray-300"
           }`}
         >
@@ -467,7 +467,7 @@ function DayGroup({
   return (
     <div>
       <p
-        className={`text-[10px] font-bold uppercase tracking-widest mb-1.5 px-1 ${
+        className={`text-meta font-bold uppercase tracking-widest mb-1.5 px-1 ${
           dateStr === today ? "text-blue-600" : "text-gray-400"
         }`}
       >
@@ -512,7 +512,7 @@ function UpcomingRow({
             style={{ backgroundColor: color }}
           />
           <div className="flex-1 min-w-0">
-            <p className="text-xs text-gray-800 truncate flex items-center gap-1">
+            <p className="text-meta text-gray-800 truncate flex items-center gap-1">
               {item.kind === "external" && (
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -533,7 +533,7 @@ function UpcomingRow({
               )}
               <span className="truncate">{item.event.title}</span>
             </p>
-            <p className="text-[10px] text-gray-400 mt-0.5">
+            <p className="text-meta text-gray-400 mt-0.5">
               {timeLabel ?? "All-day"}
               {item.event.location && (
                 <span className="ml-1 truncate">· {item.event.location}</span>

@@ -80,7 +80,7 @@ export default function BuyAgainButton({
   if (done) {
     return (
       <span
-        className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600"
+        className="inline-flex items-center gap-1 text-meta font-medium text-emerald-600"
         data-testid="buy-again-done"
       >
         <CheckIcon />
@@ -101,7 +101,7 @@ export default function BuyAgainButton({
         data-testid="buy-again-button"
         className={
           size === "label"
-            ? "inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            ? "inline-flex items-center gap-1 px-2 py-1 text-meta font-medium rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             : "inline-flex items-center justify-center text-gray-400 hover:text-amber-600 transition-colors disabled:opacity-40"
         }
       >

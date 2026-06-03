@@ -148,7 +148,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
             return (
               <div
                 key={tabKey}
-                className={`group relative flex items-center gap-1 px-3 py-2 rounded-t-lg text-sm font-medium cursor-pointer transition-colors min-w-[120px] max-w-[200px] ${
+                className={`group relative flex items-center gap-1 px-3 py-2 rounded-t-lg text-body font-medium cursor-pointer transition-colors min-w-[120px] max-w-[200px] ${
                   isActive
                     ? "bg-white text-gray-900 shadow-sm border-t border-l border-r border-gray-200"
                     : "bg-gray-200 text-gray-600 hover:bg-gray-300"
@@ -157,7 +157,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
               >
                 {/* Tab type badge — text-only, no emoji */}
                 {method?.method_type && (
-                  <span className="text-[9px] font-mono uppercase tracking-wide bg-gray-200 group-[.active-tab]:bg-gray-100 rounded px-1 py-0.5 text-gray-500 shrink-0">
+                  <span className="text-meta font-mono uppercase tracking-wide bg-gray-200 group-[.active-tab]:bg-gray-100 rounded px-1 py-0.5 text-gray-500 shrink-0">
                     {method.method_type === "lc_gradient" ? "LC" :
                      method.method_type === "qpcr_analysis" ? "qPCR" :
                      method.method_type === "mass_spec" ? "MS" :
@@ -204,7 +204,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
               <button
                 onClick={() => setShowMethodSelector(true)}
                 data-tour-target="experiment-attach-method"
-                className="flex items-center justify-center px-3 py-2 rounded-t-lg text-sm text-gray-500 hover:bg-gray-200 transition-colors"
+                className="flex items-center justify-center px-3 py-2 rounded-t-lg text-body text-gray-500 hover:bg-gray-200 transition-colors"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 5v14M5 12h14"/>
@@ -267,8 +267,8 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
               <line x1="12" y1="18" x2="12" y2="12"/>
               <line x1="9" y1="15" x2="15" y2="15"/>
             </svg>
-            <p className="mt-2 text-sm">No methods attached</p>
-            <p className="mt-1 text-xs text-gray-300">Click the + button above to add a method</p>
+            <p className="mt-2 text-body">No methods attached</p>
+            <p className="mt-1 text-meta text-gray-300">Click the + button above to add a method</p>
           </div>
         ) : (
           (() => {

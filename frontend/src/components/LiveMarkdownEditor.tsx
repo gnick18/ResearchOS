@@ -1889,7 +1889,7 @@ export default function LiveMarkdownEditor({
                 data-testid="editor-mode-inline"
                 onClick={() => setMode("inline")}
                 disabled={disabled}
-                className={`px-2.5 py-1 text-xs rounded transition-colors ${
+                className={`px-2.5 py-1 text-meta rounded transition-colors ${
                   currentMode !== "preview"
                     ? "bg-white text-gray-800 font-medium shadow-sm"
                     : "text-gray-500 hover:text-gray-700"
@@ -1903,7 +1903,7 @@ export default function LiveMarkdownEditor({
                 type="button"
                 onClick={() => setMode("preview")}
                 disabled={disabled}
-                className={`px-2.5 py-1 text-xs rounded transition-colors ${
+                className={`px-2.5 py-1 text-meta rounded transition-colors ${
                   currentMode === "preview"
                     ? "bg-white text-gray-800 font-medium shadow-sm"
                     : "text-gray-500 hover:text-gray-700"
@@ -1951,7 +1951,7 @@ export default function LiveMarkdownEditor({
               type="button"
               onClick={handleAddImageClick}
               disabled={disabled}
-              className="px-2.5 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors disabled:opacity-50"
+              className="px-2.5 py-1 text-meta bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors disabled:opacity-50"
             >
               {allowAnyFileType ? "Add File" : "Add Image"}
             </button>
@@ -1964,7 +1964,7 @@ export default function LiveMarkdownEditor({
                 type="button"
                 onClick={onBrowseImages}
                 disabled={disabled}
-                className="px-2.5 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors disabled:opacity-50"
+                className="px-2.5 py-1 text-meta bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors disabled:opacity-50"
               >
                 Browse
               </button>
@@ -1987,7 +1987,7 @@ export default function LiveMarkdownEditor({
             <button
               type="button"
               onClick={() => setShowAttachmentStrip((v) => !v)}
-              className={`px-2.5 py-1 text-xs rounded transition-colors ${
+              className={`px-2.5 py-1 text-meta rounded transition-colors ${
                 showAttachmentStrip
                   ? "bg-blue-100 text-blue-700"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -2292,7 +2292,7 @@ export default function LiveMarkdownEditor({
                   </ReactMarkdown>
                 </div>
               ) : (
-                <p className="text-sm text-gray-300 italic">
+                <p className="text-body text-gray-300 italic">
                   {placeholder || "Nothing to preview."}
                 </p>
               )}
@@ -2380,7 +2380,7 @@ export default function LiveMarkdownEditor({
             <button
               type="button"
               onClick={() => setActiveAttachmentTab("images")}
-              className={`px-2.5 py-1 text-xs rounded-t transition-colors ${
+              className={`px-2.5 py-1 text-meta rounded-t transition-colors ${
                 activeAttachmentTab === "images"
                   ? "bg-white text-gray-800 font-medium border border-gray-200 border-b-transparent"
                   : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
@@ -2391,7 +2391,7 @@ export default function LiveMarkdownEditor({
             <button
               type="button"
               onClick={() => setActiveAttachmentTab("files")}
-              className={`px-2.5 py-1 text-xs rounded-t transition-colors ${
+              className={`px-2.5 py-1 text-meta rounded-t transition-colors ${
                 activeAttachmentTab === "files"
                   ? "bg-white text-gray-800 font-medium border border-gray-200 border-b-transparent"
                   : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
@@ -2475,16 +2475,16 @@ export default function LiveMarkdownEditor({
               <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
-              <p className="text-xs font-medium text-red-800">
+              <p className="text-meta font-medium text-red-800">
                 {currentBrokenImage.kind === "file" ? "File Not Found" : "Image Not Found"}
               </p>
               {brokenImageQueue.length > 0 && (
-                <span className="ml-auto text-xs text-red-600 bg-red-100 px-1.5 py-0.5 rounded">
+                <span className="ml-auto text-meta text-red-600 bg-red-100 px-1.5 py-0.5 rounded">
                   +{brokenImageQueue.length} more
                 </span>
               )}
             </div>
-            <p className="text-xs text-red-600 mt-1 truncate" title={currentBrokenImage.originalSrc}>
+            <p className="text-meta text-red-600 mt-1 truncate" title={currentBrokenImage.originalSrc}>
               {currentBrokenImage.originalSrc}
             </p>
           </div>
@@ -2495,14 +2495,14 @@ export default function LiveMarkdownEditor({
               // searchFileByFilename API, and the typical recovery for a
               // dangling [name](Files/foo.pdf) is to remove the link.
               <div className="py-4 text-center">
-                <p className="text-xs text-gray-500">This file isn&apos;t in the notes folder.</p>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-meta text-gray-500">This file isn&apos;t in the notes folder.</p>
+                <p className="text-meta text-gray-400 mt-1">
                   It may have been deleted or moved.
                 </p>
                 <button
                   type="button"
                   onClick={removeBrokenReference}
-                  className="mt-3 px-3 py-1.5 text-xs bg-red-500 hover:bg-red-600 text-white rounded transition-colors"
+                  className="mt-3 px-3 py-1.5 text-meta bg-red-500 hover:bg-red-600 text-white rounded transition-colors"
                 >
                   Remove reference from note
                 </button>
@@ -2510,11 +2510,11 @@ export default function LiveMarkdownEditor({
             ) : isSearchingImage ? (
               <div className="flex items-center justify-center py-4">
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
-                <span className="ml-2 text-xs text-gray-500">Searching for image...</span>
+                <span className="ml-2 text-meta text-gray-500">Searching for image...</span>
               </div>
             ) : imageSearchResults.length > 0 ? (
               <>
-                <p className="text-xs text-gray-600 mb-2">
+                <p className="text-meta text-gray-600 mb-2">
                   Found {imageSearchResults.length} matching image{imageSearchResults.length > 1 ? 's' : ''}. Click to fix:
                 </p>
                 <div className="space-y-1 max-h-48 overflow-y-auto">
@@ -2523,10 +2523,10 @@ export default function LiveMarkdownEditor({
                       <button
                         type="button"
                         onClick={() => applyImageCorrection(result.path)}
-                        className="w-full px-2 py-2 text-left text-xs bg-gray-50 hover:bg-blue-50 hover:text-blue-700 rounded border border-gray-200 hover:border-blue-300 transition-colors"
+                        className="w-full px-2 py-2 text-left text-meta bg-gray-50 hover:bg-blue-50 hover:text-blue-700 rounded border border-gray-200 hover:border-blue-300 transition-colors"
                       >
                         <div className="font-medium truncate">{result.filename}</div>
-                        <div className="text-gray-400 truncate text-[10px] mt-0.5">
+                        <div className="text-gray-400 truncate text-meta mt-0.5">
                           {result.match_type === 'exact' ? '✓ Exact match' : '○ Similar name'}
                         </div>
                       </button>
@@ -2548,14 +2548,14 @@ export default function LiveMarkdownEditor({
               // available as a fallback for users who decide the image is
               // unrecoverable.
               <div className="py-2">
-                <p className="text-xs text-gray-600">
+                <p className="text-meta text-gray-600">
                   This image was imported from LabArchives but kept online-only. Open it in LabArchives to find the original, then drop the saved copy back in here.
                 </p>
                 <div className="mt-3 flex flex-col gap-2">
                   <button
                     type="button"
                     onClick={findOnLabArchives}
-                    className="w-full px-3 py-2 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors flex items-center justify-center gap-1.5"
+                    className="w-full px-3 py-2 text-meta bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors flex items-center justify-center gap-1.5"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -2566,7 +2566,7 @@ export default function LiveMarkdownEditor({
                     type="button"
                     onClick={triggerReplaceFromDisk}
                     disabled={isReplacingFromDisk}
-                    className="w-full px-3 py-2 text-xs bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded transition-colors flex items-center justify-center gap-1.5"
+                    className="w-full px-3 py-2 text-meta bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded transition-colors flex items-center justify-center gap-1.5"
                   >
                     {isReplacingFromDisk ? (
                       <>
@@ -2586,7 +2586,7 @@ export default function LiveMarkdownEditor({
                     type="button"
                     onClick={removeBrokenReference}
                     disabled={isReplacingFromDisk}
-                    className="w-full px-3 py-1.5 text-xs text-red-600 hover:text-red-800 disabled:text-gray-400 transition-colors"
+                    className="w-full px-3 py-1.5 text-meta text-red-600 hover:text-red-800 disabled:text-gray-400 transition-colors"
                   >
                     Remove reference from note
                   </button>
@@ -2601,14 +2601,14 @@ export default function LiveMarkdownEditor({
               </div>
             ) : (
               <div className="py-4 text-center">
-                <p className="text-xs text-gray-500">No matching images found.</p>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-meta text-gray-500">No matching images found.</p>
+                <p className="text-meta text-gray-400 mt-1">
                   The image may have been deleted or moved.
                 </p>
                 <button
                   type="button"
                   onClick={removeBrokenReference}
-                  className="mt-3 px-3 py-1.5 text-xs bg-red-500 hover:bg-red-600 text-white rounded transition-colors"
+                  className="mt-3 px-3 py-1.5 text-meta bg-red-500 hover:bg-red-600 text-white rounded transition-colors"
                 >
                   Remove reference from note
                 </button>
@@ -2621,7 +2621,7 @@ export default function LiveMarkdownEditor({
               <button
                 type="button"
                 onClick={skipCurrentBrokenImage}
-                className="px-3 py-1 text-xs text-blue-600 hover:text-blue-800 transition-colors"
+                className="px-3 py-1 text-meta text-blue-600 hover:text-blue-800 transition-colors"
               >
                 Skip ({brokenImageQueue.length} remaining)
               </button>
@@ -2634,7 +2634,7 @@ export default function LiveMarkdownEditor({
                   <button
                     type="button"
                     onClick={removeBrokenReference}
-                    className="text-xs text-red-600 hover:text-red-800 transition-colors"
+                    className="text-meta text-red-600 hover:text-red-800 transition-colors"
                   >
                     Remove reference
                   </button>
@@ -2643,7 +2643,7 @@ export default function LiveMarkdownEditor({
               <button
                 type="button"
                 onClick={() => dismissBrokenImagePopup(true)}
-                className="px-3 py-1 text-xs text-gray-600 hover:text-gray-800 transition-colors"
+                className="px-3 py-1 text-meta text-gray-600 hover:text-gray-800 transition-colors"
               >
                 Dismiss all
               </button>
@@ -2659,7 +2659,7 @@ export default function LiveMarkdownEditor({
         // Same emerald styling as `TaskDetailPopup`'s universal-drop toast
         // so the success affordance feels familiar.
         <div
-          className="fixed bottom-6 right-6 z-50 max-w-sm rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 shadow-lg pointer-events-none"
+          className="fixed bottom-6 right-6 z-50 max-w-sm rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-body text-emerald-900 shadow-lg pointer-events-none"
           role="status"
           aria-live="polite"
         >
@@ -2719,7 +2719,7 @@ export default function LiveMarkdownEditor({
               data-testid="editor-mode-inline-focus"
               onClick={() => setMode("inline")}
               disabled={disabled}
-              className={`px-2.5 py-1 text-xs rounded transition-colors ${
+              className={`px-2.5 py-1 text-meta rounded transition-colors ${
                 currentMode !== "preview"
                   ? "bg-white text-gray-800 font-medium shadow-sm"
                   : "text-gray-500 hover:text-gray-700"
@@ -2731,7 +2731,7 @@ export default function LiveMarkdownEditor({
               type="button"
               onClick={() => setMode("preview")}
               disabled={disabled}
-              className={`px-2.5 py-1 text-xs rounded transition-colors ${
+              className={`px-2.5 py-1 text-meta rounded transition-colors ${
                 currentMode === "preview"
                   ? "bg-white text-gray-800 font-medium shadow-sm"
                   : "text-gray-500 hover:text-gray-700"
@@ -2746,7 +2746,7 @@ export default function LiveMarkdownEditor({
           <button
             type="button"
             onClick={() => setShowAttachmentStrip((v) => !v)}
-            className={`px-2.5 py-1 text-xs rounded transition-colors ${
+            className={`px-2.5 py-1 text-meta rounded transition-colors ${
               showAttachmentStrip
                 ? "bg-blue-100 text-blue-700"
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -2822,7 +2822,7 @@ export default function LiveMarkdownEditor({
                 }}
                 disabled={disabled}
                 aria-label="Save"
-                className="px-3 py-1.5 text-xs font-medium rounded-md shadow-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
+                className="px-3 py-1.5 text-meta font-medium rounded-md shadow-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
               >
                 Save
               </button>

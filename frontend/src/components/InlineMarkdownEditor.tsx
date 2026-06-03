@@ -460,7 +460,7 @@ export default function InlineMarkdownEditor({
           className="cm-inline-editor min-h-[12rem] rounded-md border border-gray-200 bg-white"
         />
         {!loaded && (
-          <p className="px-6 py-4 text-sm text-gray-400 italic">
+          <p className="px-6 py-4 text-body text-gray-400 italic">
             {placeholder ? `Loading editor for: ${placeholder}` : "Loading editor..."}
           </p>
         )}

@@ -272,7 +272,7 @@ export default function FileStrip({
   if (entries.length === 0) {
     return (
       <div className={wrapperClass}>
-        <p className="text-xs text-gray-400 italic px-3 py-2 bg-gray-50 border-t border-gray-200">
+        <p className="text-meta text-gray-400 italic px-3 py-2 bg-gray-50 border-t border-gray-200">
           No files attached to this {recordType} yet. Drag a file in or use the Add File button.
         </p>
       </div>
@@ -284,7 +284,7 @@ export default function FileStrip({
   return (
     <div className={wrapperClass}>
       <div className="flex items-center gap-2 px-3 py-2 overflow-x-auto bg-gray-50 border-t border-gray-200">
-        <span className="text-xs text-gray-500 font-medium flex-shrink-0 mr-1">
+        <span className="text-meta text-gray-500 font-medium flex-shrink-0 mr-1">
           {entries.length} file{entries.length === 1 ? "" : "s"}
           {linkedOnlyCount > 0 && (
             <span className="ml-1 text-blue-600">({linkedOnlyCount} unlinked)</span>
@@ -332,7 +332,7 @@ export default function FileStrip({
               title={tooltip}
             >
               <FileExtBadge filename={entry.filename} />
-              <span className="text-[10px] text-gray-700 truncate flex-1" title={entry.filename}>
+              <span className="text-meta text-gray-700 truncate flex-1" title={entry.filename}>
                 {entry.filename}
               </span>
               {!entry.inDocument && entry.source === "files" && (

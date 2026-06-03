@@ -112,7 +112,7 @@ export default function FileTrashDropZone({
         <path d="M14 11v6" />
         <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
       </svg>
-      <span className="text-[10px] text-red-700 font-medium mt-1">
+      <span className="text-meta text-red-700 font-medium mt-1">
         Drop to delete
       </span>
     </div>

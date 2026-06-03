@@ -158,8 +158,8 @@ export default function ImageGalleryPopup({
       <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div>
-            <h3 className="text-base font-semibold text-gray-900">Image Gallery</h3>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <h3 className="text-title font-semibold text-gray-900">Image Gallery</h3>
+            <p className="text-meta text-gray-400 mt-0.5">
               {experimentName} · {experimentDate}
             </p>
           </div>
@@ -175,15 +175,15 @@ export default function ImageGalleryPopup({
             {loading ? (
               <div className="flex items-center justify-center h-48">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                <span className="ml-3 text-sm text-gray-500">Loading images...</span>
+                <span className="ml-3 text-body text-gray-500">Loading images...</span>
               </div>
             ) : error ? (
               <div className="flex flex-col items-center justify-center h-48 text-center">
-                <span className="text-3xl mb-2">⚠️</span>
-                <p className="text-sm text-red-500">{error}</p>
+                <span className="text-display mb-2">⚠️</span>
+                <p className="text-body text-red-500">{error}</p>
                 <button
                   onClick={loadImages}
-                  className="mt-2 px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200"
+                  className="mt-2 px-3 py-1.5 text-meta bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200"
                 >
                   Retry
                 </button>
@@ -191,8 +191,8 @@ export default function ImageGalleryPopup({
             ) : images.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 text-center">
                 <ImageIcon className="w-10 h-10 text-gray-300 mb-3" />
-                <p className="text-sm text-gray-500 mb-1">No images attached yet</p>
-                <p className="text-xs text-gray-400">
+                <p className="text-body text-gray-500 mb-1">No images attached yet</p>
+                <p className="text-meta text-gray-400">
                   Upload images using the &quot;Add Image&quot; button in the editor
                 </p>
               </div>
@@ -222,12 +222,12 @@ export default function ImageGalleryPopup({
 
                     <div className="p-2 border-t border-gray-100">
                       <p
-                        className="text-xs font-medium text-gray-700 truncate"
+                        className="text-meta font-medium text-gray-700 truncate"
                         title={image.filename}
                       >
                         {image.filename}
                       </p>
-                      <p className="text-[10px] text-gray-400 mt-0.5">{formatFileSize(image.size)}</p>
+                      <p className="text-meta text-gray-400 mt-0.5">{formatFileSize(image.size)}</p>
                     </div>
 
                     <button
@@ -238,7 +238,7 @@ export default function ImageGalleryPopup({
                       className="absolute inset-0 bg-blue-500/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                       data-force-hover-controls-target
                     >
-                      <span className="text-white text-sm font-medium px-3 py-1.5 bg-white/20 rounded-lg">
+                      <span className="text-white text-body font-medium px-3 py-1.5 bg-white/20 rounded-lg">
                         Click to Insert
                       </span>
                     </button>
@@ -251,7 +251,7 @@ export default function ImageGalleryPopup({
           {selectedImage && (
             <div className="w-64 border-l border-gray-100 flex flex-col bg-gray-50">
               <div className="p-3 border-b border-gray-100">
-                <p className="text-xs font-medium text-gray-700">Preview</p>
+                <p className="text-meta font-medium text-gray-700">Preview</p>
               </div>
 
               <div className="flex-1 flex items-center justify-center p-3 overflow-hidden">
@@ -266,19 +266,19 @@ export default function ImageGalleryPopup({
 
               <div className="p-3 border-t border-gray-100 space-y-2">
                 <div>
-                  <p className="text-[10px] text-gray-400 uppercase">Filename</p>
-                  <p className="text-xs text-gray-700 truncate" title={selectedImage.filename}>
+                  <p className="text-meta text-gray-400 uppercase">Filename</p>
+                  <p className="text-meta text-gray-700 truncate" title={selectedImage.filename}>
                     {selectedImage.filename}
                   </p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-gray-400 uppercase">Size</p>
-                  <p className="text-xs text-gray-700">{formatFileSize(selectedImage.size)}</p>
+                  <p className="text-meta text-gray-400 uppercase">Size</p>
+                  <p className="text-meta text-gray-700">{formatFileSize(selectedImage.size)}</p>
                 </div>
                 {selectedImage.lastModified > 0 && (
                   <div>
-                    <p className="text-[10px] text-gray-400 uppercase">Modified</p>
-                    <p className="text-xs text-gray-700">
+                    <p className="text-meta text-gray-400 uppercase">Modified</p>
+                    <p className="text-meta text-gray-700">
                       {new Date(selectedImage.lastModified).toLocaleDateString()}
                     </p>
                   </div>
@@ -286,7 +286,7 @@ export default function ImageGalleryPopup({
 
                 <button
                   onClick={() => handleInsertImage(selectedImage)}
-                  className="w-full mt-2 px-3 py-2 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+                  className="w-full mt-2 px-3 py-2 text-meta font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   Insert into Document
                 </button>
@@ -296,12 +296,12 @@ export default function ImageGalleryPopup({
         </div>
 
         <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100 bg-gray-50">
-          <p className="text-xs text-gray-400">
+          <p className="text-meta text-gray-400">
             {images.length} image{images.length !== 1 ? "s" : ""} found
           </p>
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 text-meta text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
             Close
           </button>

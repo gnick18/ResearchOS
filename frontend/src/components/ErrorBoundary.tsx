@@ -81,13 +81,13 @@ export default class ErrorBoundary extends Component<Props, State> {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Something went wrong</h2>
-            <p className="text-gray-600 text-sm mb-4">
+            <h2 className="text-heading font-bold text-gray-900 mb-2">Something went wrong</h2>
+            <p className="text-gray-600 text-body mb-4">
               An unexpected error occurred. Please try refreshing the page.
             </p>
             {this.state.error && (
               <div className="bg-red-50 rounded-lg p-3 mb-4 text-left">
-                <p className="text-xs text-red-800 font-mono break-all">
+                <p className="text-meta text-red-800 font-mono break-all">
                   {this.state.error.message}
                 </p>
               </div>
@@ -96,13 +96,13 @@ export default class ErrorBoundary extends Component<Props, State> {
               <div className="flex gap-3">
                 <button
                   onClick={this.handleRetry}
-                  className="flex-1 px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="flex-1 px-4 py-2 text-body text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   Try Again
                 </button>
                 <button
                   onClick={() => window.location.reload()}
-                  className="flex-1 px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                  className="flex-1 px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
                 >
                   Refresh Page
                 </button>
@@ -116,7 +116,7 @@ export default class ErrorBoundary extends Component<Props, State> {
                   work from any state. (feedback polish R1) */}
               <button
                 onClick={this.handleSendBugReport}
-                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
+                className="px-4 py-2 text-body text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
               >
                 Send Bug Report
               </button>

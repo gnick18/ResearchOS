@@ -78,10 +78,10 @@ export default function FileRenamePopup({
           <div className="flex items-center gap-3">
             {isImage ? <ImageIcon className="w-6 h-6 text-gray-400" /> : <PaperclipIcon className="w-6 h-6 text-gray-400" />}
             <div>
-              <h3 className="text-base font-semibold text-gray-900">
+              <h3 className="text-title font-semibold text-gray-900">
                 Rename {isImage ? "Image" : "File"}?
               </h3>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-meta text-gray-500 mt-0.5">
                 Give it a clearer name before uploading.
               </p>
             </div>
@@ -104,10 +104,10 @@ export default function FileRenamePopup({
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-700 truncate" title={file.name}>
+                <p className="text-body font-medium text-gray-700 truncate" title={file.name}>
                   {file.name}
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">
+                <p className="text-meta text-gray-400 mt-0.5">
                   {formatFileSize(file.size)} • {file.type || "Unknown type"}
                 </p>
               </div>
@@ -117,7 +117,7 @@ export default function FileRenamePopup({
 
         {/* Rename input */}
         <div className="px-5 py-4">
-          <label className="block text-xs font-medium text-gray-500 mb-2">
+          <label className="block text-meta font-medium text-gray-500 mb-2">
             New filename (without extension)
           </label>
           <div className="flex items-center gap-2">
@@ -128,13 +128,13 @@ export default function FileRenamePopup({
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Enter filename..."
-              className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
-            <span className="text-sm text-gray-400 flex-shrink-0">
+            <span className="text-body text-gray-400 flex-shrink-0">
               {originalExtension}
             </span>
           </div>
-          <p className="text-xs text-gray-400 mt-2">
+          <p className="text-meta text-gray-400 mt-2">
             Press Enter to confirm, Escape to cancel
           </p>
         </div>
@@ -143,21 +143,21 @@ export default function FileRenamePopup({
         <div className="px-5 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between gap-2">
           <button
             onClick={onCancel}
-            className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            className="px-4 py-2 text-body text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
           >
             Cancel
           </button>
           <div className="flex items-center gap-2">
             <button
               onClick={onSkip}
-              className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              className="px-4 py-2 text-body text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
             >
               Keep Original
             </button>
             <button
               onClick={handleConfirm}
               disabled={!newName.trim()}
-              className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Rename & Upload
             </button>

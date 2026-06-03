@@ -68,8 +68,8 @@ export default function AttributionChip({
 
   const isoTimestamp = editedAt;
   const sizeClass = small
-    ? "text-[11px] leading-4"
-    : "text-xs leading-5";
+    ? "text-meta leading-4"
+    : "text-meta leading-5";
   const colorClass = "text-stone-500 dark:text-stone-400";
 
   if (showFull) {
@@ -207,7 +207,7 @@ export function StampsRow({
   if (!showCreated && !showEdited) return null;
 
   return (
-    <div className="flex flex-col gap-0.5 text-xs text-stone-500 dark:text-stone-400">
+    <div className="flex flex-col gap-0.5 text-meta text-stone-500 dark:text-stone-400">
       {showCreated && (
         <Tooltip label={createdAt as string}>
           <div className="inline-flex items-center gap-1">

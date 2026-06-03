@@ -111,7 +111,7 @@ export default function AttachmentViewerModal({
       >
         {/* Header */}
         <div className="flex items-center gap-2 px-6 py-3 border-b border-gray-100">
-          <span className="text-sm font-medium text-gray-700 truncate flex-1" title={name}>
+          <span className="text-body font-medium text-gray-700 truncate flex-1" title={name}>
             {name}
           </span>
           <Tooltip label="Close" placement="bottom">
@@ -132,7 +132,7 @@ export default function AttachmentViewerModal({
         {/* Body */}
         <div className="flex-1 overflow-hidden">
           {failed ? (
-            <div className="p-6 text-sm text-gray-500">Failed to load this file.</div>
+            <div className="p-6 text-body text-gray-500">Failed to load this file.</div>
           ) : isMarkdown ? (
             markdownContent !== null ? (
               <div className="h-full overflow-y-auto p-6 prose prose-sm prose-gray max-w-none">

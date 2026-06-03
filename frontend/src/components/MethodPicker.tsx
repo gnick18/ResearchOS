@@ -551,11 +551,11 @@ export default function MethodPicker({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search methods by name or #tag…"
-            className="flex-1 text-sm outline-none placeholder-gray-400"
+            className="flex-1 text-body outline-none placeholder-gray-400"
           />
           <button
             onClick={onClose}
-            className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 border border-gray-200 rounded"
+            className="text-meta text-gray-400 hover:text-gray-600 px-2 py-1 border border-gray-200 rounded"
             aria-label="Close picker"
           >
             Esc
@@ -565,19 +565,19 @@ export default function MethodPicker({
         <div className="flex-1 flex overflow-hidden">
         <div ref={listRef} className="w-full md:w-[560px] md:shrink-0 overflow-y-auto bg-gray-50/40 md:border-r md:border-gray-100">
           {isLoading ? (
-            <div className="px-4 py-8 text-center text-sm text-gray-400">
+            <div className="px-4 py-8 text-center text-body text-gray-400">
               Loading methods…
             </div>
           ) : allMethods.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-gray-400">
+            <div className="px-4 py-8 text-center text-body text-gray-400">
               No methods available. Create some in the Methods section first.
             </div>
           ) : methods.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-gray-400">
+            <div className="px-4 py-8 text-center text-body text-gray-400">
               All methods are already attached.
             </div>
           ) : flatRows.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-gray-400">
+            <div className="px-4 py-8 text-center text-body text-gray-400">
               No methods match &ldquo;{query}&rdquo;. Try a different search or
               clear the input.
             </div>
@@ -604,10 +604,10 @@ export default function MethodPicker({
                       row.sectionKey === "own-section" ||
                       row.sectionKey === "shared-section";
                     const headerCls = isPinned
-                      ? "col-span-full sticky top-0 z-10 bg-blue-50/95 backdrop-blur px-1 py-2 text-[11px] uppercase tracking-wide font-semibold text-blue-700 border-b border-blue-200"
+                      ? "col-span-full sticky top-0 z-10 bg-blue-50/95 backdrop-blur px-1 py-2 text-meta uppercase tracking-wide font-semibold text-blue-700 border-b border-blue-200"
                       : isSection
-                        ? "col-span-full px-1 pt-2 pb-1 text-xs uppercase tracking-wide font-bold text-gray-800 border-b border-gray-300"
-                        : "col-span-full px-1 py-1.5 text-[11px] uppercase tracking-wide font-semibold text-gray-500";
+                        ? "col-span-full px-1 pt-2 pb-1 text-meta uppercase tracking-wide font-bold text-gray-800 border-b border-gray-300"
+                        : "col-span-full px-1 py-1.5 text-meta uppercase tracking-wide font-semibold text-gray-500";
                     return (
                       <div key={`h:${row.sectionKey}`} className={headerCls}>
                         {row.label}
@@ -660,7 +660,7 @@ export default function MethodPicker({
         </div>
         </div>
 
-        <div className="flex items-center gap-4 px-4 py-2 border-t border-gray-100 text-[11px] text-gray-400 bg-gray-50">
+        <div className="flex items-center gap-4 px-4 py-2 border-t border-gray-100 text-meta text-gray-400 bg-gray-50">
           <span>
             <kbd className="px-1 py-0.5 bg-white border border-gray-200 rounded text-gray-600">
               ↑
@@ -747,7 +747,7 @@ function MethodPreview({ method }: { method: Method | null }) {
 
   if (!method) {
     return (
-      <div className="h-full flex items-center justify-center p-8 text-center text-sm text-gray-400">
+      <div className="h-full flex items-center justify-center p-8 text-center text-body text-gray-400">
         Hover or use ↑↓ to preview a method here.
       </div>
     );
@@ -761,16 +761,16 @@ function MethodPreview({ method }: { method: Method | null }) {
     <div className="h-full flex flex-col overflow-hidden">
       <div className="px-5 pt-4 pb-3 border-b border-gray-100 bg-white">
         <div className="flex items-center gap-2 flex-wrap">
-          <h3 className="text-sm font-semibold text-gray-900 truncate">
+          <h3 className="text-body font-semibold text-gray-900 truncate">
             {method.name}
           </h3>
           {isPcr && (
-            <span className="text-xs px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded shrink-0">
+            <span className="text-meta px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded shrink-0">
               PCR
             </span>
           )}
           {isLc && (
-            <span className="text-xs px-1.5 py-0.5 bg-sky-100 text-sky-600 rounded shrink-0">
+            <span className="text-meta px-1.5 py-0.5 bg-sky-100 text-sky-600 rounded shrink-0">
               LC
             </span>
           )}
@@ -783,14 +783,14 @@ function MethodPreview({ method }: { method: Method | null }) {
             const meta = getMethodTypeMeta(typeId);
             return (
               <span
-                className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${meta.color.bg} ${meta.color.text}`}
+                className={`text-meta px-1.5 py-0.5 rounded shrink-0 ${meta.color.bg} ${meta.color.text}`}
               >
                 {meta.shortLabel}
               </span>
             );
           })()}
           {method.folder_path && (
-            <span className="text-xs text-gray-400 truncate">
+            <span className="text-meta text-gray-400 truncate">
               {method.folder_path}
             </span>
           )}
@@ -800,7 +800,7 @@ function MethodPreview({ method }: { method: Method | null }) {
             {method.tags.map((tag) => (
               <span
                 key={tag}
-                className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded"
+                className="text-meta px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded"
               >
                 #{tag}
               </span>
@@ -810,35 +810,35 @@ function MethodPreview({ method }: { method: Method | null }) {
       </div>
       <div className="flex-1 flex flex-col overflow-hidden">
         {isPcr ? (
-          <div className="overflow-y-auto px-5 py-4 text-sm text-gray-500">
+          <div className="overflow-y-auto px-5 py-4 text-body text-gray-500">
             PCR protocol — select the method to view and edit its gradient and
             recipe.
           </div>
         ) : isLc ? (
-          <div className="overflow-y-auto px-5 py-4 text-sm text-gray-500">
+          <div className="overflow-y-auto px-5 py-4 text-body text-gray-500">
             LC gradient — select the method to view its solvent gradient, column,
             and ingredients.
           </div>
         ) : isPlate ? (
-          <div className="overflow-y-auto px-5 py-4 text-sm text-gray-500">
+          <div className="overflow-y-auto px-5 py-4 text-body text-gray-500">
             Plate layout — select the method to view the plate grid and any
             pre-labeled regions.
           </div>
         ) : isCellCulture ? (
-          <div className="overflow-y-auto px-5 py-4 text-sm text-gray-500">
+          <div className="overflow-y-auto px-5 py-4 text-body text-gray-500">
             Cell culture passaging — select the method to view its schedule,
             media, and planned cadence.
           </div>
         ) : !canFetchFile ? (
-          <div className="overflow-y-auto px-5 py-4 text-sm text-gray-500">
+          <div className="overflow-y-auto px-5 py-4 text-body text-gray-500">
             No content available.
           </div>
         ) : isLoading ? (
-          <div className="overflow-y-auto px-5 py-4 text-sm text-gray-400 animate-pulse">
+          <div className="overflow-y-auto px-5 py-4 text-body text-gray-400 animate-pulse">
             Loading preview…
           </div>
         ) : isError ? (
-          <div className="overflow-y-auto px-5 py-4 text-sm text-red-600">
+          <div className="overflow-y-auto px-5 py-4 text-body text-red-600">
             Couldn&rsquo;t load preview.
           </div>
         ) : isPdf ? (
@@ -849,7 +849,7 @@ function MethodPreview({ method }: { method: Method | null }) {
               title={method.name}
             />
           ) : (
-            <div className="overflow-y-auto px-5 py-4 text-sm text-gray-500">
+            <div className="overflow-y-auto px-5 py-4 text-body text-gray-500">
               Unable to display PDF.
             </div>
           )

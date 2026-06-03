@@ -53,7 +53,7 @@ export default function EditSessionBanner({
     <div
       role="status"
       aria-live="polite"
-      className="flex items-center justify-between gap-3 px-4 py-2 bg-amber-50 border-b border-amber-200 text-amber-900 text-xs"
+      className="flex items-center justify-between gap-3 px-4 py-2 bg-amber-50 border-b border-amber-200 text-amber-900 text-meta"
       data-testid="edit-session-banner"
     >
       <div className="flex items-center gap-2 min-w-0">
@@ -94,7 +94,7 @@ export default function EditSessionBanner({
           endEditSession();
           onEnd?.();
         }}
-        className="flex-shrink-0 px-2 py-0.5 rounded text-xs font-medium text-amber-900 hover:bg-amber-100 border border-amber-300"
+        className="flex-shrink-0 px-2 py-0.5 rounded text-meta font-medium text-amber-900 hover:bg-amber-100 border border-amber-300"
       >
         End session
       </button>

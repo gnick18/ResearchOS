@@ -161,17 +161,17 @@ export default function LabHeadPasswordModal({
         <div>
           <h2
             id="lab-head-password-modal-title"
-            className="text-base font-semibold text-gray-900"
+            className="text-title font-semibold text-gray-900"
           >
             {mode === "reset" ? "Set a new edit password" : "Unlock edit mode"}
           </h2>
           {targetLabel ? (
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-meta text-gray-500 mt-1">
               Editing <span className="font-medium text-gray-700">{targetLabel}</span>.
               All changes are attributed to you with a timestamp.
             </p>
           ) : (
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-meta text-gray-500 mt-1">
               Editing another lab member&apos;s record. All changes are attributed
               to you with a timestamp.
             </p>
@@ -179,7 +179,7 @@ export default function LabHeadPasswordModal({
         </div>
 
         {mode === "unlock" && firstUse === true && (
-          <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
+          <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-meta text-amber-900">
             <p className="font-medium">First time unlocking edit mode.</p>
             <p className="mt-1">
               For convenience, your edit-mode password starts out the same as
@@ -191,7 +191,7 @@ export default function LabHeadPasswordModal({
         )}
 
         {mode === "reset" && (
-          <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
+          <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-meta text-amber-900">
             <p className="font-medium">Set a new edit password.</p>
             <p className="mt-1">
               This unlock is an intentionality check, not a security lock:
@@ -204,7 +204,7 @@ export default function LabHeadPasswordModal({
         <div>
           <label
             htmlFor="lab-head-password-modal-input"
-            className="block text-xs font-medium text-gray-700 mb-1"
+            className="block text-meta font-medium text-gray-700 mb-1"
           >
             {mode === "reset"
               ? "New edit password"
@@ -226,12 +226,12 @@ export default function LabHeadPasswordModal({
             }}
             disabled={busy}
             autoComplete={mode === "reset" ? "new-password" : "current-password"}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-gray-50 disabled:text-gray-400"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-gray-50 disabled:text-gray-400"
           />
         </div>
 
         {error && (
-          <p className="text-xs text-red-600" role="alert">
+          <p className="text-meta text-red-600" role="alert">
             {error}
           </p>
         )}
@@ -245,7 +245,7 @@ export default function LabHeadPasswordModal({
               setMode(mode === "reset" ? "unlock" : "reset");
             }}
             disabled={busy}
-            className="text-xs text-gray-500 hover:text-gray-700 underline-offset-2 hover:underline disabled:opacity-50"
+            className="text-meta text-gray-500 hover:text-gray-700 underline-offset-2 hover:underline disabled:opacity-50"
           >
             {mode === "reset" ? "Back to unlock" : "Forgot or reset password?"}
           </button>
@@ -254,7 +254,7 @@ export default function LabHeadPasswordModal({
               type="button"
               onClick={onClose}
               disabled={busy}
-              className="px-3 py-1.5 rounded-md text-xs text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+              className="px-3 py-1.5 rounded-md text-meta text-gray-600 hover:bg-gray-100 disabled:opacity-50"
             >
               Cancel
             </button>
@@ -264,7 +264,7 @@ export default function LabHeadPasswordModal({
                 void (mode === "reset" ? handleReset() : handleSubmit())
               }
               disabled={busy || !password}
-              className="px-3 py-1.5 rounded-md text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 rounded-md text-meta font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {busy
                 ? mode === "reset"

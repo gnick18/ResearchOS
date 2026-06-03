@@ -70,7 +70,7 @@ export default function ErrorReportConfirmDialog({
                 <h2 className="text-lg font-bold text-gray-900">
                   Caught a bug
                 </h2>
-                <p className="text-xs text-gray-500">
+                <p className="text-meta text-gray-500">
                   Want to send this bug report?
                 </p>
               </div>
@@ -98,20 +98,20 @@ export default function ErrorReportConfirmDialog({
         </div>
 
         <div className="p-6 space-y-3">
-          <p className="text-sm text-gray-600">
+          <p className="text-body text-gray-600">
             We caught an error in the background. Send the details to the
             team so we can fix it, or dismiss to keep working.
           </p>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">
+            <label className="block text-meta font-medium text-gray-500 mb-1.5">
               Error
             </label>
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 max-h-32 overflow-y-auto">
-              <p className="text-sm text-red-800 font-mono break-all">
+              <p className="text-body text-red-800 font-mono break-all">
                 {error.message}
               </p>
               {error.stack && (
-                <pre className="text-xs text-red-600 mt-2 whitespace-pre-wrap">
+                <pre className="text-meta text-red-600 mt-2 whitespace-pre-wrap">
                   {error.stack.split("\n").slice(0, 4).join("\n")}
                 </pre>
               )}
@@ -122,13 +122,13 @@ export default function ErrorReportConfirmDialog({
         <div className="p-4 border-t border-gray-100 bg-gray-50 flex gap-3 justify-end">
           <button
             onClick={onDismiss}
-            className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
+            className="px-4 py-2 text-body text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
           >
             Dismiss
           </button>
           <button
             onClick={onSend}
-            className="px-4 py-2 text-sm text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors"
+            className="px-4 py-2 text-body text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors"
           >
             Send Report
           </button>

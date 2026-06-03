@@ -270,7 +270,7 @@ export default function CellCultureScheduleEditor(props: CellCultureScheduleEdit
 
       {/* Cell line metadata */}
       <div>
-        <h4 className="text-sm font-semibold text-gray-700 mb-2">Cell line</h4>
+        <h4 className="text-body font-semibold text-gray-700 mb-2">Cell line</h4>
         <div className="grid grid-cols-2 gap-3">
           <CellLineField
             label="Name"
@@ -309,7 +309,7 @@ export default function CellCultureScheduleEditor(props: CellCultureScheduleEdit
 
       {/* Media composition */}
       <div>
-        <h4 className="text-sm font-semibold text-gray-700 mb-2">Media</h4>
+        <h4 className="text-body font-semibold text-gray-700 mb-2">Media</h4>
         <div className="grid grid-cols-3 gap-3 mb-3">
           <CellLineField
             label="Base medium"
@@ -320,13 +320,13 @@ export default function CellCultureScheduleEditor(props: CellCultureScheduleEdit
             editable={editable}
           />
           <div className="flex flex-col">
-            <label className="text-xs text-gray-500 mb-1">Serum (%)</label>
+            <label className="text-meta text-gray-500 mb-1">Serum (%)</label>
             <input
               type="number"
               value={fmtNumber(media.serum_percent)}
               onChange={(e) => updateMedia("serum_percent", parseNumberOrNull(e.target.value))}
               readOnly={!editable}
-              className={`px-2 py-1 text-sm border border-gray-200 rounded ${
+              className={`px-2 py-1 text-body border border-gray-200 rounded ${
                 originalMedia &&
                 (media.serum_percent ?? null) !== (originalMedia.serum_percent ?? null)
                   ? MODIFIED_CELL_CLASSES
@@ -337,13 +337,13 @@ export default function CellCultureScheduleEditor(props: CellCultureScheduleEdit
             {originalMedia &&
               (media.serum_percent ?? null) !== (originalMedia.serum_percent ?? null) && (
                 <Tooltip label={originalValueTooltip(fmtNumber(originalMedia.serum_percent) || "—")} placement="bottom">
-                  <span className="text-[10px] text-amber-700 mt-0.5">Modified</span>
+                  <span className="text-meta text-amber-700 mt-0.5">Modified</span>
                 </Tooltip>
               )}
           </div>
         </div>
         <div className="border border-gray-200 rounded-lg overflow-hidden">
-          <table className="w-full text-xs">
+          <table className="w-full text-meta">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-3 py-2 text-left font-medium text-gray-600">Supplement</th>
@@ -355,7 +355,7 @@ export default function CellCultureScheduleEditor(props: CellCultureScheduleEdit
             <tbody>
               {supplements.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-3 py-3 text-center text-gray-400 text-xs">
+                  <td colSpan={4} className="px-3 py-3 text-center text-gray-400 text-meta">
                     No supplements yet.
                   </td>
                 </tr>
@@ -412,7 +412,7 @@ export default function CellCultureScheduleEditor(props: CellCultureScheduleEdit
           {editable && (
             <button
               onClick={addSupplement}
-              className="w-full py-2 text-xs text-blue-600 hover:bg-blue-50 border-t border-gray-200"
+              className="w-full py-2 text-meta text-blue-600 hover:bg-blue-50 border-t border-gray-200"
             >
               + Add supplement
             </button>
@@ -422,9 +422,9 @@ export default function CellCultureScheduleEditor(props: CellCultureScheduleEdit
 
       {/* Planned events table */}
       <div>
-        <h4 className="text-sm font-semibold text-gray-700 mb-2">Planned events</h4>
+        <h4 className="text-body font-semibold text-gray-700 mb-2">Planned events</h4>
         <div className="border border-gray-200 rounded-lg overflow-hidden">
-          <table className="w-full text-xs">
+          <table className="w-full text-meta">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-3 py-2 text-left font-medium text-gray-600 w-24">Day offset</th>
@@ -437,7 +437,7 @@ export default function CellCultureScheduleEditor(props: CellCultureScheduleEdit
             <tbody>
               {plannedEvents.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-3 text-center text-gray-400 text-xs">
+                  <td colSpan={5} className="px-3 py-3 text-center text-gray-400 text-meta">
                     No planned events yet.
                   </td>
                 </tr>
@@ -469,7 +469,7 @@ export default function CellCultureScheduleEditor(props: CellCultureScheduleEdit
                               label={originalValueTooltip(orig!.day_offset)}
                               placement="top"
                             >
-                              <span className="text-[10px] text-amber-700">●</span>
+                              <span className="text-meta text-amber-700">●</span>
                             </Tooltip>
                           )}
                         </div>
@@ -497,7 +497,7 @@ export default function CellCultureScheduleEditor(props: CellCultureScheduleEdit
                               label={originalValueTooltip(EVENT_TYPE_LABELS[orig!.event_type])}
                               placement="top"
                             >
-                              <span className="text-[10px] text-amber-700">●</span>
+                              <span className="text-meta text-amber-700">●</span>
                             </Tooltip>
                           )}
                         </div>
@@ -549,7 +549,7 @@ export default function CellCultureScheduleEditor(props: CellCultureScheduleEdit
           {editable && (
             <button
               onClick={addEvent}
-              className="w-full py-2 text-xs text-blue-600 hover:bg-blue-50 border-t border-gray-200"
+              className="w-full py-2 text-meta text-blue-600 hover:bg-blue-50 border-t border-gray-200"
             >
               + Add planned event
             </button>
@@ -559,7 +559,7 @@ export default function CellCultureScheduleEditor(props: CellCultureScheduleEdit
 
       {/* Timeline strip */}
       <div>
-        <h4 className="text-sm font-semibold text-gray-700 mb-2">Schedule timeline</h4>
+        <h4 className="text-body font-semibold text-gray-700 mb-2">Schedule timeline</h4>
         <TimelineStrip
           events={plannedEvents}
           min={timelineExtent.min}
@@ -569,13 +569,13 @@ export default function CellCultureScheduleEditor(props: CellCultureScheduleEdit
 
       {/* Description */}
       <div>
-        <h4 className="text-sm font-semibold text-gray-700 mb-2">Description (optional)</h4>
+        <h4 className="text-body font-semibold text-gray-700 mb-2">Description (optional)</h4>
         <textarea
           value={description ?? ""}
           onChange={(e) => onDescriptionChange?.(e.target.value || null)}
           readOnly={!editable}
           rows={2}
-          className={`w-full px-3 py-2 text-sm border border-gray-200 rounded-lg ${
+          className={`w-full px-3 py-2 text-body border border-gray-200 rounded-lg ${
             originalDescription !== undefined &&
             (description ?? "") !== (originalDescription ?? "")
               ? MODIFIED_CELL_CLASSES
@@ -602,7 +602,7 @@ function CellLineField({ label, value, onChange, originalValue, placeholder, edi
     originalValue !== undefined && (originalValue ?? "") !== value;
   return (
     <div className="flex flex-col">
-      <label className="text-xs text-gray-500 mb-1">{label}</label>
+      <label className="text-meta text-gray-500 mb-1">{label}</label>
       <div className="flex items-center gap-1">
         <input
           type="text"
@@ -610,13 +610,13 @@ function CellLineField({ label, value, onChange, originalValue, placeholder, edi
           onChange={(e) => onChange(e.target.value)}
           readOnly={!editable}
           placeholder={placeholder}
-          className={`flex-1 px-2 py-1 text-sm border border-gray-200 rounded ${
+          className={`flex-1 px-2 py-1 text-body border border-gray-200 rounded ${
             modified ? MODIFIED_CELL_CLASSES : ""
           }`}
         />
         {modified && originalValue && (
           <Tooltip label={originalValueTooltip(originalValue || "—")} placement="left">
-            <span className="text-[10px] text-amber-700">●</span>
+            <span className="text-meta text-amber-700">●</span>
           </Tooltip>
         )}
       </div>
@@ -697,7 +697,7 @@ function TimelineStrip({ events, min, max }: TimelineStripProps) {
           );
         })}
       </svg>
-      <div className="flex items-center gap-3 mt-1 text-[10px] text-gray-500">
+      <div className="flex items-center gap-3 mt-1 text-meta text-gray-500">
         {EVENT_TYPE_OPTIONS.map((opt) => (
           <span key={opt} className="inline-flex items-center gap-1">
             <span

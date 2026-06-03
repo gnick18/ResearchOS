@@ -93,14 +93,14 @@ export default function CodingWorkflowEditor({
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Language</label>
+          <label className="block text-meta font-medium text-gray-500 mb-1">Language</label>
           <select
             value={language}
             onChange={(e) =>
               onLanguageChange?.(e.target.value as CodingWorkflowLanguage)
             }
             disabled={readOnly || !onLanguageChange}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
           >
             {LANGUAGE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -111,7 +111,7 @@ export default function CodingWorkflowEditor({
         </div>
         {language === "other" && (
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
+            <label className="block text-meta font-medium text-gray-500 mb-1">
               Language label
             </label>
             <input
@@ -122,14 +122,14 @@ export default function CodingWorkflowEditor({
               }
               disabled={readOnly || !onLanguageLabelChange}
               placeholder="e.g. Snakemake, Nextflow"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
             />
           </div>
         )}
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1">
+        <label className="block text-meta font-medium text-gray-500 mb-1">
           Description (optional)
         </label>
         <textarea
@@ -138,12 +138,12 @@ export default function CodingWorkflowEditor({
           disabled={readOnly || !onDescriptionChange}
           rows={2}
           placeholder="One-line summary of what this script does — surfaced in the methods list."
-          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
+          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
         />
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1">
+        <label className="block text-meta font-medium text-gray-500 mb-1">
           Embedded code
         </label>
         <textarea
@@ -153,9 +153,9 @@ export default function CodingWorkflowEditor({
           rows={14}
           spellCheck={false}
           placeholder="# Paste your script here, or leave blank and set External path below."
-          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
+          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-meta font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
         />
-        <p className="text-xs text-gray-400 mt-1">
+        <p className="text-meta text-gray-400 mt-1">
           Plain textarea — no inline editor by design (Q-B5 lock). Edit
           externally and paste here, or use the External path below for the
           open-in-editor handoff.
@@ -163,7 +163,7 @@ export default function CodingWorkflowEditor({
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1">
+        <label className="block text-meta font-medium text-gray-500 mb-1">
           External path (optional)
         </label>
         <input
@@ -172,9 +172,9 @@ export default function CodingWorkflowEditor({
           onChange={(e) => onExternalPathChange?.(e.target.value || null)}
           disabled={readOnly || !onExternalPathChange}
           placeholder="e.g. /Users/you/scripts/qc.py or analyses/growth-curve.ipynb"
-          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 font-mono"
+          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 font-mono"
         />
-        <p className="text-xs text-gray-400 mt-1">
+        <p className="text-meta text-gray-400 mt-1">
           Free-text path on your machine. ResearchOS does not open this for
           you (the browser FSA has no access outside the data folder); copy
           it into your editor manually.
@@ -182,10 +182,10 @@ export default function CodingWorkflowEditor({
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1">
+        <label className="block text-meta font-medium text-gray-500 mb-1">
           Inline preview renderer
         </label>
-        <div className="flex items-center gap-3 text-xs">
+        <div className="flex items-center gap-3 text-meta">
           <label className="inline-flex items-center gap-1 cursor-pointer">
             <input
               type="radio"
@@ -218,7 +218,7 @@ export default function CodingWorkflowEditor({
           </label>
         </div>
         {showIpynbHint && (
-          <p className="text-xs text-cyan-600 mt-1">
+          <p className="text-meta text-cyan-600 mt-1">
             Paste the .ipynb JSON into the Embedded code field above —
             cells will render stacked with their last-saved outputs.
           </p>
@@ -227,10 +227,10 @@ export default function CodingWorkflowEditor({
 
       {previewMarkdown && outputRenderer === "syntax-highlight" && (
         <div className="border border-gray-100 rounded-lg overflow-hidden">
-          <div className="text-xs px-3 py-1.5 bg-gray-50 text-gray-500 border-b border-gray-100">
+          <div className="text-meta px-3 py-1.5 bg-gray-50 text-gray-500 border-b border-gray-100">
             Preview
           </div>
-          <div className="p-3 text-xs overflow-x-auto">
+          <div className="p-3 text-meta overflow-x-auto">
             <ReactMarkdown
               rehypePlugins={[[rehypeSanitize, markdownSanitizeSchema], rehypeHighlight]}
             >

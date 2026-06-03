@@ -139,7 +139,7 @@ export default function MarkdownShortcutsSidebar({
             <button
               type="button"
               onClick={() => setTab("shortcuts")}
-              className={`flex-1 px-2 py-1 text-xs rounded-md transition-colors ${
+              className={`flex-1 px-2 py-1 text-meta rounded-md transition-colors ${
                 tab === "shortcuts"
                   ? "bg-white text-gray-800 font-medium shadow-sm"
                   : "text-gray-500 hover:text-gray-700"
@@ -150,7 +150,7 @@ export default function MarkdownShortcutsSidebar({
             <button
               type="button"
               onClick={() => setTab("styleguide")}
-              className={`flex-1 px-2 py-1 text-xs rounded-md transition-colors ${
+              className={`flex-1 px-2 py-1 text-meta rounded-md transition-colors ${
                 tab === "styleguide"
                   ? "bg-white text-gray-800 font-medium shadow-sm"
                   : "text-gray-500 hover:text-gray-700"
@@ -167,10 +167,10 @@ export default function MarkdownShortcutsSidebar({
                   key={row.label}
                   className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group"
                 >
-                  <span className="text-xs text-gray-600 group-hover:text-gray-800">
+                  <span className="text-meta text-gray-600 group-hover:text-gray-800">
                     {row.label}
                   </span>
-                  <span className="text-xs font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
+                  <span className="text-meta font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
                     {IS_MAC ? row.keyMac : row.keyOther}
                   </span>
                 </div>
@@ -188,10 +188,10 @@ export default function MarkdownShortcutsSidebar({
                     className="px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group cursor-pointer"
                     onClick={() => onInsertSyntax?.(item.syntax)}
                   >
-                    <div className="text-xs font-mono text-gray-700 group-hover:text-blue-600 bg-gray-50 px-1.5 py-0.5 rounded mb-0.5">
+                    <div className="text-meta font-mono text-gray-700 group-hover:text-blue-600 bg-gray-50 px-1.5 py-0.5 rounded mb-0.5">
                       {item.syntax}
                     </div>
-                    <div className="text-[10px] text-gray-400 group-hover:text-gray-500">
+                    <div className="text-meta text-gray-400 group-hover:text-gray-500">
                       {item.description}
                     </div>
                   </div>

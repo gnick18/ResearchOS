@@ -166,7 +166,7 @@ function CalculatorsModal({ onClose }: { onClose: () => void }) {
                 type="button"
                 onClick={() => setTab(t.id)}
                 className={
-                  "px-3 py-1.5 text-sm font-medium rounded-t-lg transition-colors border-b-2 -mb-px " +
+                  "px-3 py-1.5 text-body font-medium rounded-t-lg transition-colors border-b-2 -mb-px " +
                   (active
                     ? "border-sky-500 text-sky-700 bg-sky-50"
                     : "border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-50")
@@ -189,7 +189,7 @@ function CalculatorsModal({ onClose }: { onClose: () => void }) {
           {tab === "buffer" && <BufferTab />}
         </div>
 
-        <p className="px-6 py-3 text-[11px] text-gray-400 border-t border-gray-100">
+        <p className="px-6 py-3 text-meta text-gray-400 border-t border-gray-100">
           Quick bench math, computed live in your browser. Nothing here is
           saved.
         </p>
@@ -204,16 +204,16 @@ function CalculatorsModal({ onClose }: { onClose: () => void }) {
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-xs font-semibold text-gray-600 mb-1">
+    <label className="block text-meta font-semibold text-gray-600 mb-1">
       {children}
     </label>
   );
 }
 
 const inputCls =
-  "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-400";
+  "w-full rounded-lg border border-gray-300 px-3 py-2 text-body text-gray-900 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-400";
 const selectCls =
-  "rounded-lg border border-gray-300 px-2 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-400";
+  "rounded-lg border border-gray-300 px-2 py-2 text-body text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-400";
 
 function NumberWithUnit<U extends string>({
   label,
@@ -286,7 +286,7 @@ function PlainNumber({
           placeholder={placeholder}
           className={inputCls}
         />
-        {suffix && <span className="text-xs text-gray-500 whitespace-nowrap">{suffix}</span>}
+        {suffix && <span className="text-meta text-gray-500 whitespace-nowrap">{suffix}</span>}
       </div>
     </div>
   );
@@ -295,8 +295,8 @@ function PlainNumber({
 function ResultRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline justify-between gap-3 py-1">
-      <span className="text-sm text-gray-600">{label}</span>
-      <span className="text-base font-semibold text-gray-900 tabular-nums">{value}</span>
+      <span className="text-body text-gray-600">{label}</span>
+      <span className="text-title font-semibold text-gray-900 tabular-nums">{value}</span>
     </div>
   );
 }
@@ -310,7 +310,7 @@ function ResultCard({
 }) {
   if (empty) {
     return (
-      <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-400">
+      <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-body text-gray-400">
         Enter the values above to see results.
       </div>
     );
@@ -351,7 +351,7 @@ function CalcKey({
       type="button"
       onClick={onPress}
       aria-label={ariaLabel}
-      className={`rounded-lg py-2.5 text-sm font-medium tabular-nums transition-colors select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 ${variants[variant]} ${className}`}
+      className={`rounded-lg py-2.5 text-body font-medium tabular-nums transition-colors select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 ${variants[variant]} ${className}`}
     >
       {label}
     </button>
@@ -478,7 +478,7 @@ function ScientificCalcTab() {
 
       {/* Angle mode + memory */}
       <div className="flex items-center justify-between gap-2">
-        <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden text-xs font-semibold">
+        <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden text-meta font-semibold">
           {(["deg", "rad"] as AngleMode[]).map((m) => (
             <button
               key={m}
@@ -497,7 +497,7 @@ function ScientificCalcTab() {
           ))}
         </div>
         <div className="flex items-center gap-1">
-          <span className="text-[11px] text-gray-400 px-1 tabular-nums">M={memory}</span>
+          <span className="text-meta text-gray-400 px-1 tabular-nums">M={memory}</span>
           <CalcKey label="MC" variant="muted" ariaLabel="memory clear" onPress={() => setMemory(0)} className="px-2.5 py-1" />
           <CalcKey label="MR" variant="muted" ariaLabel="memory recall" onPress={() => insert("M")} className="px-2.5 py-1" />
           <CalcKey
@@ -552,7 +552,7 @@ function ScientificCalcTab() {
         </div>
       </div>
 
-      <p className="text-[11px] text-gray-500">
+      <p className="text-meta text-gray-500">
         Computed live as you type. Type directly (Enter sets Ans, Esc clears) or
         use the keys. sin / cos / tan and inverses, ln, log (base 10), sqrt,
         powers (^), factorial (!), pi, e. Nothing here is saved.
@@ -603,7 +603,7 @@ function MolarityTab() {
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-gray-500">
+      <p className="text-meta text-gray-500">
         Uses n = m / MW and C = n / V. Enter molecular weight, then a target
         concentration and volume to get the mass to weigh out (or enter a mass
         to get moles and concentration).
@@ -660,7 +660,7 @@ function DilutionTab() {
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-gray-500">
+      <p className="text-meta text-gray-500">
         C1 V1 = C2 V2. Enter your stock concentration, the final concentration
         you want, and the final volume; this solves for how much stock to add.
       </p>
@@ -672,7 +672,7 @@ function DilutionTab() {
 
       <ResultCard empty={v1L === null}>
         {v1L !== null && overflow && (
-          <p className="text-sm text-amber-700">
+          <p className="text-body text-amber-700">
             The final concentration is higher than the stock; check your inputs.
           </p>
         )}
@@ -715,7 +715,7 @@ function SerialTab() {
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-gray-500">
+      <p className="text-meta text-gray-500">
         Each tube takes a fixed transfer of the previous tube and tops up with
         diluent to the per-tube volume, giving an equal fold dilution per step.
       </p>
@@ -730,7 +730,7 @@ function SerialTab() {
         <ResultCard empty />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-sky-100">
-          <table className="w-full text-sm">
+          <table className="w-full text-body">
             <thead className="bg-sky-50 text-gray-600">
               <tr>
                 <th className="px-3 py-2 text-left font-semibold">Tube</th>
@@ -823,7 +823,7 @@ function TmTab() {
       </div>
       <div>
         <PlainNumber label="Monovalent salt [Na+ / K+]" value={salt} onValue={setSalt} placeholder="50 (assumed)" suffix="mM" />
-        <p className="mt-1 text-[11px] text-gray-500">
+        <p className="mt-1 text-meta text-gray-500">
           Only the sequence is required. If you know your salt, or Mg2+ / dNTP /
           oligo concentration (under Advanced), enter them for a more accurate
           Tm; standard defaults are assumed until then.
@@ -835,7 +835,7 @@ function TmTab() {
           type="button"
           onClick={() => setShowAdvanced((s) => !s)}
           aria-expanded={showAdvanced}
-          className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-700 transition-colors"
+          className="flex items-center gap-1.5 text-meta font-semibold text-gray-500 hover:text-gray-700 transition-colors"
         >
           <svg
             viewBox="0 0 20 20"
@@ -882,7 +882,7 @@ function TmTab() {
           {shortOligo && wallace !== null && (
             <ResultRow label="Tm (Wallace, short oligo)" value={`${formatNum(wallace, 4)} °C`} />
           )}
-          <p className="mt-2 text-[11px] text-gray-500">
+          <p className="mt-2 text-meta text-gray-500">
             Nearest-neighbor (SantaLucia), the model IDT and Primer3 use, at{" "}
             {conditionsUsed}.{" "}
             {usingDefaults
@@ -951,7 +951,7 @@ function NucleicTab() {
       </div>
 
       <div className="rounded-xl border border-gray-100 p-4 space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+        <p className="text-meta font-semibold uppercase tracking-wide text-gray-400">
           Mass to moles
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -966,7 +966,7 @@ function NucleicTab() {
       </div>
 
       <div className="rounded-xl border border-gray-100 p-4 space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+        <p className="text-meta font-semibold uppercase tracking-wide text-gray-400">
           A260 to concentration
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1032,7 +1032,7 @@ function BufferTab() {
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-gray-500">
+      <p className="text-meta text-gray-500">
         For each component, volume of stock = (final concentration x total
         volume) / stock concentration. The leftover is your diluent.
       </p>
@@ -1073,7 +1073,7 @@ function BufferTab() {
       <button
         type="button"
         onClick={() => setRows((prev) => [...prev, newRow()])}
-        className="text-sm font-medium text-sky-700 hover:text-sky-900 inline-flex items-center gap-1.5"
+        className="text-body font-medium text-sky-700 hover:text-sky-900 inline-flex items-center gap-1.5"
       >
         <svg aria-hidden className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v14M5 12h14" />
@@ -1086,7 +1086,7 @@ function BufferTab() {
       ) : (
         <ResultCard>
           {result.overflows && (
-            <p className="mb-2 text-sm text-amber-700">
+            <p className="mb-2 text-body text-amber-700">
               The stock volumes add up to more than the total volume; check your
               inputs.
             </p>

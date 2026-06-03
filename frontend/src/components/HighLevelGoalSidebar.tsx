@@ -106,11 +106,11 @@ export default function HighLevelGoalSidebar({
     return (
       <div className="w-72 bg-white border-l border-gray-200 p-4 flex flex-col">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-gray-700">
+          <h3 className="text-body font-semibold text-gray-700">
             High Level Goals
           </h3>
         </div>
-        <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
+        <div className="flex-1 flex items-center justify-center text-gray-400 text-body">
           No active goals
         </div>
       </div>
@@ -120,10 +120,10 @@ export default function HighLevelGoalSidebar({
   return (
     <div className="w-72 bg-white border-l border-gray-200 flex flex-col overflow-hidden">
       <div className="p-4 border-b border-gray-100">
-        <h3 className="text-sm font-semibold text-gray-700">
+        <h3 className="text-body font-semibold text-gray-700">
           High Level Goals
         </h3>
-        <p className="text-xs text-gray-400 mt-1">
+        <p className="text-meta text-gray-400 mt-1">
           {activeGoals.length} active
         </p>
       </div>
@@ -198,18 +198,18 @@ export default function HighLevelGoalSidebar({
 
               <div className="p-3 pr-8">
                 <div className="flex items-center gap-2">
-                  <h4 className="text-sm font-medium text-gray-900 truncate">
+                  <h4 className="text-body font-medium text-gray-900 truncate">
                     {goal.name}
                   </h4>
                   {goal.project_id === null && (
-                    <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded flex-shrink-0">
+                    <span className="text-meta px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded flex-shrink-0">
                       Personal
                     </span>
                   )}
                 </div>
 
                 <div
-                  className={`text-xs font-medium mt-1 ${
+                  className={`text-meta font-medium mt-1 ${
                     isOverdue
                       ? "text-red-600"
                       : isUrgent
@@ -226,7 +226,7 @@ export default function HighLevelGoalSidebar({
 
                 {totalCount > 0 && (
                   <div className="mt-2">
-                    <div className="flex justify-between text-xs text-gray-500 mb-1">
+                    <div className="flex justify-between text-meta text-gray-500 mb-1">
                       <span>Progress</span>
                       <span>
                         {completedCount}/{totalCount}
@@ -262,7 +262,7 @@ export default function HighLevelGoalSidebar({
                           className="mt-0.5 w-3.5 h-3.5 text-green-600 border-gray-300 rounded focus:ring-green-500 flex-shrink-0"
                         />
                         <span
-                          className={`text-xs flex-1 ${
+                          className={`text-meta flex-1 ${
                             sg.is_complete
                               ? "text-gray-400 line-through"
                               : "text-gray-600"
@@ -289,7 +289,7 @@ export default function HighLevelGoalSidebar({
                   </div>
                 )}
 
-                <div className="text-xs text-gray-400 mt-2">
+                <div className="text-meta text-gray-400 mt-2">
                   {goal.start_date} &rarr; {goal.end_date}
                 </div>
               </div>

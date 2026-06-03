@@ -512,7 +512,7 @@ export default function ImageAnnotatorModal({
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-700 bg-gray-900">
         <div className="flex items-center gap-2 min-w-0">
           <IconPencil className="text-sky-400 flex-shrink-0" />
-          <h3 className="text-sm font-medium text-gray-100 truncate" title={filename}>
+          <h3 className="text-body font-medium text-gray-100 truncate" title={filename}>
             Annotate: {filename}
           </h3>
         </div>
@@ -520,7 +520,7 @@ export default function ImageAnnotatorModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-1.5 text-sm text-gray-300 hover:text-white hover:bg-gray-700 rounded-md transition-colors"
+            className="px-3 py-1.5 text-body text-gray-300 hover:text-white hover:bg-gray-700 rounded-md transition-colors"
           >
             Cancel
           </button>
@@ -528,7 +528,7 @@ export default function ImageAnnotatorModal({
             type="button"
             onClick={() => void handleSave()}
             disabled={saving || !img}
-            className="px-4 py-1.5 text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 rounded-md transition-colors disabled:opacity-50"
+            className="px-4 py-1.5 text-body font-medium text-white bg-sky-600 hover:bg-sky-700 rounded-md transition-colors disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save"}
           </button>
@@ -587,13 +587,13 @@ export default function ImageAnnotatorModal({
 
         {/* Stroke width */}
         <div className="flex items-center gap-1">
-          <span className="text-[11px] uppercase tracking-wide text-gray-400">Stroke</span>
+          <span className="text-meta uppercase tracking-wide text-gray-400">Stroke</span>
           {STROKE_WIDTHS.map((w) => (
             <button
               key={w}
               type="button"
               onClick={() => applyStrokeWidth(w)}
-              className={`px-2 py-1 text-xs rounded transition-colors ${
+              className={`px-2 py-1 text-meta rounded transition-colors ${
                 effStroke === w
                   ? "bg-sky-600 text-white"
                   : "text-gray-300 hover:bg-gray-700"
@@ -608,7 +608,7 @@ export default function ImageAnnotatorModal({
             max={40}
             value={effStroke}
             onChange={(e) => applyStrokeWidth(Number(e.target.value))}
-            className="w-12 px-1 py-1 text-xs rounded bg-gray-700 text-gray-100 text-center outline-none focus:ring-1 focus:ring-sky-500"
+            className="w-12 px-1 py-1 text-meta rounded bg-gray-700 text-gray-100 text-center outline-none focus:ring-1 focus:ring-sky-500"
             aria-label="Custom stroke width"
           />
         </div>
@@ -617,13 +617,13 @@ export default function ImageAnnotatorModal({
 
         {/* Font size */}
         <div className="flex items-center gap-1">
-          <span className="text-[11px] uppercase tracking-wide text-gray-400">Text</span>
+          <span className="text-meta uppercase tracking-wide text-gray-400">Text</span>
           {FONT_SIZES.map((f) => (
             <button
               key={f}
               type="button"
               onClick={() => applyFontSize(f)}
-              className={`px-2 py-1 text-xs rounded transition-colors ${
+              className={`px-2 py-1 text-meta rounded transition-colors ${
                 effFontSize === f
                   ? "bg-sky-600 text-white"
                   : "text-gray-300 hover:bg-gray-700"
@@ -638,7 +638,7 @@ export default function ImageAnnotatorModal({
             max={200}
             value={effFontSize}
             onChange={(e) => applyFontSize(Number(e.target.value))}
-            className="w-12 px-1 py-1 text-xs rounded bg-gray-700 text-gray-100 text-center outline-none focus:ring-1 focus:ring-sky-500"
+            className="w-12 px-1 py-1 text-meta rounded bg-gray-700 text-gray-100 text-center outline-none focus:ring-1 focus:ring-sky-500"
             aria-label="Custom text size"
           />
         </div>
@@ -667,9 +667,9 @@ export default function ImageAnnotatorModal({
       {/* Stage area */}
       <div ref={containerRef} className="flex-1 flex items-center justify-center overflow-hidden p-4">
         {imgError ? (
-          <p className="text-sm text-gray-300">Could not load the image.</p>
+          <p className="text-body text-gray-300">Could not load the image.</p>
         ) : !img ? (
-          <p className="text-sm text-gray-300">Loading image...</p>
+          <p className="text-body text-gray-300">Loading image...</p>
         ) : (
           <div className="shadow-2xl" style={{ width: stageSize.width, height: stageSize.height }}>
             <Stage

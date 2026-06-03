@@ -572,8 +572,8 @@ function SaveChrome({
           aria-label="Save"
           className={
             dirty
-              ? "px-3 py-1.5 text-xs font-medium rounded-md shadow-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-              : "px-3 py-1.5 text-xs font-medium rounded-md shadow-sm bg-gray-100 text-gray-400 cursor-not-allowed transition-colors"
+              ? "px-3 py-1.5 text-meta font-medium rounded-md shadow-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+              : "px-3 py-1.5 text-meta font-medium rounded-md shadow-sm bg-gray-100 text-gray-400 cursor-not-allowed transition-colors"
           }
         >
           Save
@@ -621,25 +621,25 @@ function UnsavedChangesModal({
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-5">
         <h2
           id="hybrid-editor-unsaved-title"
-          className="text-base font-semibold text-gray-900 mb-2"
+          className="text-title font-semibold text-gray-900 mb-2"
         >
           Unsaved changes
         </h2>
-        <p className="text-sm text-gray-600 mb-5">
+        <p className="text-body text-gray-600 mb-5">
           Save before leaving? Your edits have not been committed yet.
         </p>
         <div className="flex justify-end gap-2">
           <button
             type="button"
             onClick={onCancel}
-            className="px-3 py-1.5 text-xs font-medium rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+            className="px-3 py-1.5 text-meta font-medium rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={onDiscard}
-            className="px-3 py-1.5 text-xs font-medium rounded-md bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
+            className="px-3 py-1.5 text-meta font-medium rounded-md bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
           >
             Discard
           </button>
@@ -647,7 +647,7 @@ function UnsavedChangesModal({
             type="button"
             data-testid="hybrid-editor-unsaved-save"
             onClick={onSave}
-            className="px-3 py-1.5 text-xs font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+            className="px-3 py-1.5 text-meta font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors"
           >
             Save
           </button>
@@ -2597,7 +2597,7 @@ export default function HybridMarkdownEditor({
               onChange={handleEditChange}
               onKeyDown={handleEditKeyDown}
               disabled={disabled}
-              className="w-full p-3 text-sm font-mono text-gray-800 bg-white border border-blue-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent resize-none overflow-hidden"
+              className="w-full p-3 text-body font-mono text-gray-800 bg-white border border-blue-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent resize-none overflow-hidden"
               style={{ lineHeight: "1.6", minHeight: "60px" }}
               placeholder="Type here..."
             />
@@ -2615,7 +2615,7 @@ export default function HybridMarkdownEditor({
                     e.stopPropagation();
                     handleSplitHere();
                   }}
-                  className="absolute -top-2 -right-2 px-2 py-0.5 text-[10px] text-blue-700 bg-white border border-blue-300 rounded-full shadow-sm hover:bg-blue-50 z-10"
+                  className="absolute -top-2 -right-2 px-2 py-0.5 text-meta text-blue-700 bg-white border border-blue-300 rounded-full shadow-sm hover:bg-blue-50 z-10"
                 >
                   Split here
                 </button>
@@ -2703,7 +2703,7 @@ export default function HybridMarkdownEditor({
                   handleBlockEdit(block, e);
                 }}
                 title="Edit (or double-click the block)"
-                className="px-1.5 py-0.5 text-[10px] text-blue-700 hover:bg-blue-50 rounded-full"
+                className="px-1.5 py-0.5 text-meta text-blue-700 hover:bg-blue-50 rounded-full"
               >
                 Edit
               </button>
@@ -2715,7 +2715,7 @@ export default function HybridMarkdownEditor({
                   deleteBlockByOffset(block.startOffset);
                 }}
                 title="Delete (or press Delete/Backspace)"
-                className="px-1.5 py-0.5 text-[10px] text-red-600 hover:bg-red-50 rounded-full"
+                className="px-1.5 py-0.5 text-meta text-red-600 hover:bg-red-50 rounded-full"
               >
                 Delete
               </button>
@@ -2850,7 +2850,7 @@ export default function HybridMarkdownEditor({
               </ReactMarkdown>
             </div>
           ) : (
-            <span className="text-gray-300 italic text-sm">
+            <span className="text-gray-300 italic text-body">
               {placeholder || "Click to add content..."}
             </span>
           )}
@@ -2925,7 +2925,7 @@ export default function HybridMarkdownEditor({
                   <button
                     type="button"
                     onClick={() => setHelperTab("shortcuts")}
-                    className={`flex-1 px-2 py-1 text-xs rounded-md transition-colors ${
+                    className={`flex-1 px-2 py-1 text-meta rounded-md transition-colors ${
                       helperTab === "shortcuts"
                         ? "bg-white text-gray-800 font-medium shadow-sm"
                         : "text-gray-500 hover:text-gray-700"
@@ -2936,7 +2936,7 @@ export default function HybridMarkdownEditor({
                   <button
                     type="button"
                     onClick={() => setHelperTab("styleguide")}
-                    className={`flex-1 px-2 py-1 text-xs rounded-md transition-colors ${
+                    className={`flex-1 px-2 py-1 text-meta rounded-md transition-colors ${
                       helperTab === "styleguide"
                         ? "bg-white text-gray-800 font-medium shadow-sm"
                         : "text-gray-500 hover:text-gray-700"
@@ -2949,18 +2949,18 @@ export default function HybridMarkdownEditor({
                 {helperTab === "shortcuts" ? (
                   <div className="space-y-1">
                     <div className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group">
-                      <span className="text-xs text-gray-600 group-hover:text-gray-800">
+                      <span className="text-meta text-gray-600 group-hover:text-gray-800">
                         Save
                       </span>
-                      <span className="text-xs font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
+                      <span className="text-meta font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
                         {IS_MAC ? "⌘S" : "Ctrl+S"}
                       </span>
                     </div>
                     <div className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group">
-                      <span className="text-xs text-gray-600 group-hover:text-gray-800">
+                      <span className="text-meta text-gray-600 group-hover:text-gray-800">
                         Focus mode
                       </span>
-                      <span className="text-xs font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
+                      <span className="text-meta font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
                         {IS_MAC ? "⌘⇧F" : "Ctrl+Shift+F"}
                       </span>
                     </div>
@@ -2969,35 +2969,35 @@ export default function HybridMarkdownEditor({
                         key={shortcut.key + shortcut.shiftKey}
                         className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group"
                       >
-                        <span className="text-xs text-gray-600 group-hover:text-gray-800">
+                        <span className="text-meta text-gray-600 group-hover:text-gray-800">
                           {shortcut.description}
                         </span>
-                        <span className="text-xs font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
+                        <span className="text-meta font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
                           {shortcut.label}
                         </span>
                       </div>
                     ))}
                     <div className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group">
-                      <span className="text-xs text-gray-600 group-hover:text-gray-800">
+                      <span className="text-meta text-gray-600 group-hover:text-gray-800">
                         Headings 1-6
                       </span>
-                      <span className="text-xs font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
+                      <span className="text-meta font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
                         {IS_MAC ? "⌘1-6" : "Ctrl+1-6"}
                       </span>
                     </div>
                     <div className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group">
-                      <span className="text-xs text-gray-600 group-hover:text-gray-800">
+                      <span className="text-meta text-gray-600 group-hover:text-gray-800">
                         Heading Up
                       </span>
-                      <span className="text-xs font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
+                      <span className="text-meta font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
                         {IS_MAC ? "⌘⌃+" : "Ctrl+Alt++"}
                       </span>
                     </div>
                     <div className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group">
-                      <span className="text-xs text-gray-600 group-hover:text-gray-800">
+                      <span className="text-meta text-gray-600 group-hover:text-gray-800">
                         Heading Down
                       </span>
-                      <span className="text-xs font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
+                      <span className="text-meta font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
                         {IS_MAC ? "⌘⌃-" : "Ctrl+Alt+-"}
                       </span>
                     </div>
@@ -3011,10 +3011,10 @@ export default function HybridMarkdownEditor({
                         onClick={() => handleInsertSyntax(item.syntax)}
                         title={`Click to insert: ${item.syntax}`}
                       >
-                        <div className="text-xs font-mono text-gray-700 group-hover:text-blue-600 bg-gray-50 px-1.5 py-0.5 rounded mb-0.5">
+                        <div className="text-meta font-mono text-gray-700 group-hover:text-blue-600 bg-gray-50 px-1.5 py-0.5 rounded mb-0.5">
                           {item.syntax}
                         </div>
-                        <div className="text-[10px] text-gray-400 group-hover:text-gray-500">
+                        <div className="text-meta text-gray-400 group-hover:text-gray-500">
                           {item.description}
                         </div>
                       </div>
@@ -3073,12 +3073,12 @@ export default function HybridMarkdownEditor({
               onChange={handleEditChange}
               onKeyDown={handleEditKeyDown}
               disabled={disabled}
-              className="w-full p-3 text-sm font-mono text-gray-800 bg-white border border-blue-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent resize-none overflow-hidden"
+              className="w-full p-3 text-body font-mono text-gray-800 bg-white border border-blue-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent resize-none overflow-hidden"
               style={{ lineHeight: "1.6", minHeight: "60px" }}
               placeholder={placeholder || "Type here..."}
             />
           ) : (
-            <p className="text-sm text-gray-300 italic">
+            <p className="text-body text-gray-300 italic">
               {placeholder || "Click to start writing..."}
             </p>
           )}
@@ -3101,7 +3101,7 @@ export default function HybridMarkdownEditor({
                 placeholder="Search language..."
                 value={languageSearch}
                 onChange={(e) => setLanguageSearch(e.target.value)}
-                className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded focus:outline-none focus:border-blue-400"
+                className="w-full px-2 py-1.5 text-meta border border-gray-200 rounded focus:outline-none focus:border-blue-400"
                 autoFocus
               />
             </div>
@@ -3112,16 +3112,16 @@ export default function HybridMarkdownEditor({
                     key={lang.code}
                     type="button"
                     onClick={() => handleLanguageSelect(lang.code)}
-                    className="w-full px-3 py-2 text-left text-xs hover:bg-blue-50 hover:text-blue-700 transition-colors flex items-center justify-between"
+                    className="w-full px-3 py-2 text-left text-meta hover:bg-blue-50 hover:text-blue-700 transition-colors flex items-center justify-between"
                   >
                     <span>{lang.label}</span>
                     {lang.code && (
-                      <span className="text-gray-400 font-mono text-[10px]">{lang.code}</span>
+                      <span className="text-gray-400 font-mono text-meta">{lang.code}</span>
                     )}
                   </button>
                 ))
               ) : (
-                <div className="px-3 py-2 text-xs text-gray-400 text-center">
+                <div className="px-3 py-2 text-meta text-gray-400 text-center">
                   No languages found
                 </div>
               )}
@@ -3177,7 +3177,7 @@ export default function HybridMarkdownEditor({
                 <button
                   type="button"
                   onClick={() => setHelperTab("shortcuts")}
-                  className={`flex-1 px-2 py-1 text-xs rounded-md transition-colors ${
+                  className={`flex-1 px-2 py-1 text-meta rounded-md transition-colors ${
                     helperTab === "shortcuts"
                       ? "bg-white text-gray-800 font-medium shadow-sm"
                       : "text-gray-500 hover:text-gray-700"
@@ -3188,7 +3188,7 @@ export default function HybridMarkdownEditor({
                 <button
                   type="button"
                   onClick={() => setHelperTab("styleguide")}
-                  className={`flex-1 px-2 py-1 text-xs rounded-md transition-colors ${
+                  className={`flex-1 px-2 py-1 text-meta rounded-md transition-colors ${
                     helperTab === "styleguide"
                       ? "bg-white text-gray-800 font-medium shadow-sm"
                       : "text-gray-500 hover:text-gray-700"
@@ -3201,18 +3201,18 @@ export default function HybridMarkdownEditor({
               {helperTab === "shortcuts" ? (
                 <div className="space-y-1">
                   <div className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group">
-                    <span className="text-xs text-gray-600 group-hover:text-gray-800">
+                    <span className="text-meta text-gray-600 group-hover:text-gray-800">
                       Save
                     </span>
-                    <span className="text-xs font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
+                    <span className="text-meta font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
                       {IS_MAC ? "⌘S" : "Ctrl+S"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group">
-                    <span className="text-xs text-gray-600 group-hover:text-gray-800">
+                    <span className="text-meta text-gray-600 group-hover:text-gray-800">
                       Focus mode
                     </span>
-                    <span className="text-xs font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
+                    <span className="text-meta font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
                       {IS_MAC ? "⌘⇧F" : "Ctrl+Shift+F"}
                     </span>
                   </div>
@@ -3221,35 +3221,35 @@ export default function HybridMarkdownEditor({
                       key={shortcut.key + shortcut.shiftKey}
                       className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group"
                     >
-                      <span className="text-xs text-gray-600 group-hover:text-gray-800">
+                      <span className="text-meta text-gray-600 group-hover:text-gray-800">
                         {shortcut.description}
                       </span>
-                      <span className="text-xs font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
+                      <span className="text-meta font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
                         {shortcut.label}
                       </span>
                     </div>
                   ))}
                   <div className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group">
-                    <span className="text-xs text-gray-600 group-hover:text-gray-800">
+                    <span className="text-meta text-gray-600 group-hover:text-gray-800">
                       Headings 1-6
                     </span>
-                    <span className="text-xs font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
+                    <span className="text-meta font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
                       {IS_MAC ? "⌘1-6" : "Ctrl+1-6"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group">
-                    <span className="text-xs text-gray-600 group-hover:text-gray-800">
+                    <span className="text-meta text-gray-600 group-hover:text-gray-800">
                       Heading Up
                     </span>
-                    <span className="text-xs font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
+                    <span className="text-meta font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
                       {IS_MAC ? "⌘⌃+" : "Ctrl+Alt++"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group">
-                    <span className="text-xs text-gray-600 group-hover:text-gray-800">
+                    <span className="text-meta text-gray-600 group-hover:text-gray-800">
                       Heading Down
                     </span>
-                    <span className="text-xs font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
+                    <span className="text-meta font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
                       {IS_MAC ? "⌘⌃-" : "Ctrl+Alt+-"}
                     </span>
                   </div>
@@ -3263,10 +3263,10 @@ export default function HybridMarkdownEditor({
                       onClick={() => handleInsertSyntax(item.syntax)}
                       title={`Click to insert: ${item.syntax}`}
                     >
-                      <div className="text-xs font-mono text-gray-700 group-hover:text-blue-600 bg-gray-50 px-1.5 py-0.5 rounded mb-0.5">
+                      <div className="text-meta font-mono text-gray-700 group-hover:text-blue-600 bg-gray-50 px-1.5 py-0.5 rounded mb-0.5">
                         {item.syntax}
                       </div>
-                      <div className="text-[10px] text-gray-400 group-hover:text-gray-500">
+                      <div className="text-meta text-gray-400 group-hover:text-gray-500">
                         {item.description}
                       </div>
                     </div>
@@ -3345,7 +3345,7 @@ export default function HybridMarkdownEditor({
                 }
               }, 0);
             }}
-            className="mt-2 w-full py-2 text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded border border-dashed border-gray-200 hover:border-gray-300 transition-colors"
+            className="mt-2 w-full py-2 text-meta text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded border border-dashed border-gray-200 hover:border-gray-300 transition-colors"
           >
             + Add paragraph
           </button>
@@ -3369,7 +3369,7 @@ export default function HybridMarkdownEditor({
               placeholder="Search language..."
               value={languageSearch}
               onChange={(e) => setLanguageSearch(e.target.value)}
-              className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded focus:outline-none focus:border-blue-400"
+              className="w-full px-2 py-1.5 text-meta border border-gray-200 rounded focus:outline-none focus:border-blue-400"
               autoFocus
             />
           </div>
@@ -3380,16 +3380,16 @@ export default function HybridMarkdownEditor({
                   key={lang.code}
                   type="button"
                   onClick={() => handleLanguageSelect(lang.code)}
-                  className="w-full px-3 py-2 text-left text-xs hover:bg-blue-50 hover:text-blue-700 transition-colors flex items-center justify-between"
+                  className="w-full px-3 py-2 text-left text-meta hover:bg-blue-50 hover:text-blue-700 transition-colors flex items-center justify-between"
                 >
                   <span>{lang.label}</span>
                   {lang.code && (
-                    <span className="text-gray-400 font-mono text-[10px]">{lang.code}</span>
+                    <span className="text-gray-400 font-mono text-meta">{lang.code}</span>
                   )}
                 </button>
               ))
             ) : (
-              <div className="px-3 py-2 text-xs text-gray-400 text-center">
+              <div className="px-3 py-2 text-meta text-gray-400 text-center">
                 No languages found
               </div>
             )}

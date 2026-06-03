@@ -148,15 +148,15 @@ export default function CodingWorkflowViewer({
       <div className="flex flex-col h-full">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">{currentMethod.name}</h3>
-            <p className="text-xs text-gray-400 mt-0.5">{meta.label}</p>
+            <h3 className="text-body font-semibold text-gray-900">{currentMethod.name}</h3>
+            <p className="text-meta text-gray-400 mt-0.5">{meta.label}</p>
           </div>
           <div className="flex items-center gap-2">
             {canModify && !currentMethod.is_shared_with_me && (
               <Tooltip label="Share method" placement="bottom">
                 <button
                   onClick={() => setShowSharePopup(true)}
-                  className={`px-3 py-1.5 text-xs rounded-lg ${
+                  className={`px-3 py-1.5 text-meta rounded-lg ${
                     isWholeLab
                       ? "bg-green-50 text-green-600 hover:bg-green-100"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -172,7 +172,7 @@ export default function CodingWorkflowViewer({
             {canModify && (
               <button
                 onClick={() => onDelete(currentMethod.id)}
-                className="px-3 py-1.5 text-xs text-red-500 rounded-lg hover:bg-red-50"
+                className="px-3 py-1.5 text-meta text-red-500 rounded-lg hover:bg-red-50"
               >
                 Delete
               </button>
@@ -180,7 +180,7 @@ export default function CodingWorkflowViewer({
             <button
               onClick={handleSaveAll}
               disabled={saving || loading || protocolId === null}
-              className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+              className="px-3 py-1.5 text-meta text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
             >
               {saving ? "Saving…" : "Save"}
             </button>
@@ -196,10 +196,10 @@ export default function CodingWorkflowViewer({
         </div>
         <div className="flex-1 overflow-y-auto p-6">
           {loading ? (
-            <p className="text-sm text-gray-400 animate-pulse">Loading coding workflow…</p>
+            <p className="text-body text-gray-400 animate-pulse">Loading coding workflow…</p>
           ) : !protocol ? (
             <div className="text-center py-8">
-              <p className="text-sm text-gray-500">
+              <p className="text-body text-gray-500">
                 Coding workflow not found. It may have been deleted.
               </p>
             </div>
@@ -274,10 +274,10 @@ export function CodingWorkflowRenderer({
   return (
     <div className="space-y-4">
       {description && (
-        <p className="text-sm text-gray-600">{description}</p>
+        <p className="text-body text-gray-600">{description}</p>
       )}
       {externalPath && (
-        <div className="rounded-lg border border-cyan-100 bg-cyan-50/60 px-3 py-2 text-xs">
+        <div className="rounded-lg border border-cyan-100 bg-cyan-50/60 px-3 py-2 text-meta">
           <div className="font-medium text-cyan-700">Open in your editor</div>
           <code className="block mt-0.5 font-mono text-cyan-800 break-all">
             {externalPath}
@@ -289,12 +289,12 @@ export function CodingWorkflowRenderer({
         </div>
       )}
       {!embeddedCode && !externalPath && (
-        <p className="text-xs text-gray-400 italic">
+        <p className="text-meta text-gray-400 italic">
           No embedded code or external path set yet.
         </p>
       )}
       {outputRenderer === "syntax-highlight" && embeddedCode && (
-        <div className="text-xs overflow-x-auto">
+        <div className="text-meta overflow-x-auto">
           <ReactMarkdown
             rehypePlugins={[[rehypeSanitize, markdownSanitizeSchema], rehypeHighlight]}
           >
@@ -318,7 +318,7 @@ function NotebookRender({
 }) {
   if (result.error) {
     return (
-      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700">
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-meta text-amber-700">
         Could not parse notebook: {result.error}
       </div>
     );
@@ -328,7 +328,7 @@ function NotebookRender({
   return (
     <div className="space-y-3">
       {warnings.length > 0 && (
-        <details className="text-xs text-amber-700">
+        <details className="text-meta text-amber-700">
           <summary className="cursor-pointer">
             {warnings.length} parse warning{warnings.length === 1 ? "" : "s"}
           </summary>
@@ -361,7 +361,7 @@ function NotebookCell({ cell, hint }: { cell: ParsedNbCell; hint: string }) {
   }
   if (cell.cellType === "raw") {
     return (
-      <pre className="text-xs bg-gray-50 border border-gray-100 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap">
+      <pre className="text-meta bg-gray-50 border border-gray-100 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap">
         {cell.source}
       </pre>
     );
@@ -369,12 +369,12 @@ function NotebookCell({ cell, hint }: { cell: ParsedNbCell; hint: string }) {
   // code cell
   return (
     <div className="rounded-lg border border-gray-200 overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-1 bg-gray-50 border-b border-gray-200 text-xs text-gray-500">
+      <div className="flex items-center gap-2 px-3 py-1 bg-gray-50 border-b border-gray-200 text-meta text-gray-500">
         <span className="font-mono">
           In [{cell.executionCount ?? " "}]:
         </span>
       </div>
-      <div className="text-xs overflow-x-auto">
+      <div className="text-meta overflow-x-auto">
         <ReactMarkdown
           rehypePlugins={[[rehypeSanitize, markdownSanitizeSchema], rehypeHighlight]}
         >
@@ -410,7 +410,7 @@ function NotebookOutputView({ output }: { output: ParsedNbOutput }) {
     // markdown body uses — keeps notebook outputs at the same trust
     // boundary as user-authored markdown.
     return (
-      <div className="p-3 text-xs overflow-x-auto">
+      <div className="p-3 text-meta overflow-x-auto">
         <ReactMarkdown
           rehypePlugins={[[rehypeSanitize, markdownSanitizeSchema]]}
         >
@@ -423,7 +423,7 @@ function NotebookOutputView({ output }: { output: ParsedNbOutput }) {
   const isStderr = output.mimeType === "stderr";
   return (
     <pre
-      className={`text-xs p-3 overflow-x-auto whitespace-pre-wrap ${
+      className={`text-meta p-3 overflow-x-auto whitespace-pre-wrap ${
         isStderr ? "text-red-700 bg-red-50/40" : "text-gray-700"
       }`}
     >

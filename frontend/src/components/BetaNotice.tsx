@@ -14,10 +14,10 @@ export default function BetaNotice({ className = "" }: { className?: string }) {
       data-testid="beta-notice"
       className={`rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-left ${className}`}
     >
-      <p className="text-xs font-semibold text-amber-300 mb-1">
+      <p className="text-meta font-semibold text-amber-300 mb-1">
         ResearchOS is in beta
       </p>
-      <p className="text-xs text-slate-300 leading-relaxed">
+      <p className="text-meta text-slate-300 leading-relaxed">
         You will run into the occasional bug while we keep polishing, and we are
         working hard to fix them. Thank you for being an early user! Please
         report anything that breaks, and we would love to hear what is and

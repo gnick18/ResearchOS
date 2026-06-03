@@ -186,8 +186,8 @@ export default function ImportExperimentDialog({
 
         <div className="px-6 pt-5 pb-3 border-b border-gray-100 flex items-center justify-between gap-4">
           <div>
-            <h2 className="text-base font-semibold text-gray-900">Import experiment</h2>
-            <p className="text-xs text-gray-500 mt-1">
+            <h2 className="text-title font-semibold text-gray-900">Import experiment</h2>
+            <p className="text-meta text-gray-500 mt-1">
               Bring an experiment shared by another ResearchOS user into your workspace.
             </p>
           </div>
@@ -232,14 +232,14 @@ export default function ImportExperimentDialog({
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900"
+              className="px-3 py-2 text-body text-gray-600 hover:text-gray-900"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={onConfirmImport}
-              className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+              className="px-4 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
             >
               Import experiment
             </button>
@@ -250,7 +250,7 @@ export default function ImportExperimentDialog({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+              className="px-4 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
             >
               Done
             </button>
@@ -264,14 +264,14 @@ export default function ImportExperimentDialog({
 function PickerStage({ onPick }: { onPick: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-8">
-      <p className="text-sm text-gray-700 text-center max-w-md">
-        Select a <code className="px-1 py-0.5 bg-gray-100 rounded text-[11px]">-raw.zip</code> bundle
+      <p className="text-body text-gray-700 text-center max-w-md">
+        Select a <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">-raw.zip</code> bundle
         exported by another ResearchOS user. You&apos;ll review what gets created before anything is written.
       </p>
       <button
         type="button"
         onClick={onPick}
-        className="mt-2 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+        className="mt-2 px-4 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
       >
         Choose .zip file
       </button>
@@ -283,7 +283,7 @@ function SpinnerStage({ label }: { label: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-12">
       <div className="h-6 w-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-      <p className="text-sm text-gray-600">{label}</p>
+      <p className="text-body text-gray-600">{label}</p>
     </div>
   );
 }
@@ -291,12 +291,12 @@ function SpinnerStage({ label }: { label: string }) {
 function ErrorStage({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <div className="py-6">
-      <p className="text-sm text-red-700 font-medium">Import failed</p>
-      <p className="text-sm text-red-600 mt-2 whitespace-pre-line break-words">{message}</p>
+      <p className="text-body text-red-700 font-medium">Import failed</p>
+      <p className="text-body text-red-600 mt-2 whitespace-pre-line break-words">{message}</p>
       <button
         type="button"
         onClick={onRetry}
-        className="mt-4 px-3 py-2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg"
+        className="mt-4 px-3 py-2 text-body bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg"
       >
         Try another file
       </button>
@@ -309,16 +309,16 @@ function SuccessStage({ result }: { result: ImportResult }) {
     <div className="py-6">
       <div className="flex items-center gap-2">
         <span className="text-emerald-600 text-lg">✓</span>
-        <p className="text-sm font-medium text-gray-900">Imported successfully</p>
+        <p className="text-body font-medium text-gray-900">Imported successfully</p>
       </div>
-      <p className="text-sm text-gray-600 mt-2">
+      <p className="text-body text-gray-600 mt-2">
         New task id <strong>{result.newTaskId}</strong> created in your workspace.
         {result.newProjectId !== null && (
           <> Linked to project id <strong>{result.newProjectId}</strong>.</>
         )}
       </p>
       {Object.keys(result.importedMethodIds).length > 0 && (
-        <p className="text-xs text-gray-500 mt-2">
+        <p className="text-meta text-gray-500 mt-2">
           {Object.keys(result.importedMethodIds).length} method{Object.keys(result.importedMethodIds).length === 1 ? "" : "s"} resolved.
         </p>
       )}
@@ -356,19 +356,19 @@ function ReviewStage({
   return (
     <div className="space-y-5">
       <div>
-        <p className="text-xs uppercase tracking-wide text-gray-500 font-medium">Experiment</p>
-        <p className="text-sm text-gray-900 mt-1">
+        <p className="text-meta uppercase tracking-wide text-gray-500 font-medium">Experiment</p>
+        <p className="text-body text-gray-900 mt-1">
           <strong>{taskName}</strong>{" "}
           <span className="text-gray-500">from {sourceOwner || "(unknown user)"}</span>
         </p>
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-meta text-gray-500 mt-1">
           A new task will be created in your workspace. Notes, results, files, and images come along.
         </p>
       </div>
 
       <div>
-        <p className="text-xs uppercase tracking-wide text-gray-500 font-medium">Project</p>
-        <p className="text-sm text-gray-700 mt-1">
+        <p className="text-meta uppercase tracking-wide text-gray-500 font-medium">Project</p>
+        <p className="text-body text-gray-700 mt-1">
           Source: <strong>{plan.project.sourceProjectName}</strong>
         </p>
         <div className="mt-2 space-y-2">
@@ -385,7 +385,7 @@ function ReviewStage({
               <select
                 value={plan.project.existingProjectId ?? ""}
                 onChange={(e) => setProjectDecision("use-existing", Number(e.target.value))}
-                className="ml-2 text-xs border border-gray-200 rounded px-2 py-1"
+                className="ml-2 text-meta border border-gray-200 rounded px-2 py-1"
               >
                 {plan.project.candidates.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
@@ -399,7 +399,7 @@ function ReviewStage({
           >
             Create a new project
             {plan.project.decision === "import-new" && (
-              <span className="ml-2 text-xs text-gray-500">→ &ldquo;{projectImportedName}&rdquo;</span>
+              <span className="ml-2 text-meta text-gray-500">→ &ldquo;{projectImportedName}&rdquo;</span>
             )}
           </DecisionRow>
           <DecisionRow
@@ -413,7 +413,7 @@ function ReviewStage({
 
       {plan.methods.length > 0 && (
         <div>
-          <p className="text-xs uppercase tracking-wide text-gray-500 font-medium">
+          <p className="text-meta uppercase tracking-wide text-gray-500 font-medium">
             Methods ({plan.methods.length})
           </p>
           <div className="mt-2 space-y-3">
@@ -424,9 +424,9 @@ function ReviewStage({
               const importNewDisabled = isPcr && !pcrProtocolBundled;
               return (
                 <div key={`${m.sourceMethodId}:${idx}`} className="rounded-lg border border-gray-200 p-3">
-                  <p className="text-sm text-gray-900">
+                  <p className="text-body text-gray-900">
                     <strong>{m.sourceMethodName}</strong>
-                    <span className="ml-2 text-xs text-gray-500">
+                    <span className="ml-2 text-meta text-gray-500">
                       ({m.sourceMethodType ?? "unknown type"})
                     </span>
                   </p>
@@ -444,7 +444,7 @@ function ReviewStage({
                         <select
                           value={m.existingMethodId ?? ""}
                           onChange={(e) => setMethodDecision(idx, "use-existing", Number(e.target.value))}
-                          className="ml-2 text-xs border border-gray-200 rounded px-2 py-1"
+                          className="ml-2 text-meta border border-gray-200 rounded px-2 py-1"
                         >
                           {m.candidates.map((c) => (
                             <option key={c.id} value={c.id}>{c.name}</option>
@@ -461,7 +461,7 @@ function ReviewStage({
                         ? "Import as new (this bundle didn't carry the PCR protocol record)"
                         : "Import as a new method"}
                       {m.decision === "import-new" && methodImportedNames[idx] && (
-                        <span className="ml-2 text-xs text-gray-500">→ &ldquo;{methodImportedNames[idx]}&rdquo;</span>
+                        <span className="ml-2 text-meta text-gray-500">→ &ldquo;{methodImportedNames[idx]}&rdquo;</span>
                       )}
                     </DecisionRow>
                     <DecisionRow
@@ -479,7 +479,7 @@ function ReviewStage({
       )}
 
       {droppedUnattached.length > 0 && (
-        <p className="text-xs text-slate-500 flex items-start gap-1.5">
+        <p className="text-meta text-slate-500 flex items-start gap-1.5">
           <svg
             aria-hidden
             className="w-3.5 h-3.5 flex-shrink-0 mt-0.5"
@@ -519,7 +519,7 @@ function DecisionRow({
 }) {
   return (
     <label
-      className={`flex items-center gap-2 text-sm cursor-pointer ${
+      className={`flex items-center gap-2 text-body cursor-pointer ${
         disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50"
       } rounded px-2 py-1`}
     >

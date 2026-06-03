@@ -273,7 +273,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 proposal §6.1. Hidden when current_count is 0, when the
                 user has disabled streaks in Settings, or pre-login. */}
             <StreakBadge username={currentUser} />
-            <h1 className="text-base font-bold text-gray-900 tracking-tight leading-none">
+            <h1 className="text-title font-bold text-gray-900 tracking-tight leading-none">
               ResearchOS
             </h1>
           </div>
@@ -322,11 +322,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               // anchor for "where am I." Active stays full-opacity with
               // its normal selected styling; inactive dims to opacity-50.
               const inactiveStyle = tinted
-                ? "px-3 py-1.5 text-sm rounded-full shadow-sm bg-white/75 text-gray-700 opacity-50"
-                : "px-3 py-1.5 text-sm rounded-lg text-gray-500 opacity-50";
+                ? "px-3 py-1.5 text-body rounded-full shadow-sm bg-white/75 text-gray-700 opacity-50"
+                : "px-3 py-1.5 text-body rounded-lg text-gray-500 opacity-50";
               const activeStyle = tinted
-                ? "px-3 py-1.5 text-sm rounded-full shadow-sm bg-white text-gray-900 font-medium"
-                : "px-3 py-1.5 text-sm rounded-lg bg-blue-50 text-blue-700 font-medium";
+                ? "px-3 py-1.5 text-body rounded-full shadow-sm bg-white text-gray-900 font-medium"
+                : "px-3 py-1.5 text-body rounded-lg bg-blue-50 text-blue-700 font-medium";
               return (
                 <button
                   key={item.href}
@@ -357,7 +357,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   key={item.href}
                   href={item.href}
                   data-tour-target={tourTarget}
-                  className={`px-3 py-1.5 text-sm rounded-full transition-colors shadow-sm ${
+                  className={`px-3 py-1.5 text-body rounded-full transition-colors shadow-sm ${
                     isActive
                       ? "bg-white text-gray-900 font-medium"
                       : "bg-white/75 text-gray-700 hover:bg-white"
@@ -372,7 +372,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 key={item.href}
                 href={item.href}
                 data-tour-target={tourTarget}
-                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                className={`px-3 py-1.5 text-body rounded-lg transition-colors ${
                   isActive
                     ? "bg-blue-50 text-blue-700 font-medium"
                     : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
@@ -668,20 +668,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium">An error occurred</p>
-            <p className="text-xs opacity-90 truncate">{currentError.message}</p>
+            <p className="text-body font-medium">An error occurred</p>
+            <p className="text-meta opacity-90 truncate">{currentError.message}</p>
           </div>
           <div className="flex gap-2">
             <button
               onClick={reportCurrentError}
-              className="text-xs bg-white/20 hover:bg-white/30 px-2 py-1 rounded transition-colors"
+              className="text-meta bg-white/20 hover:bg-white/30 px-2 py-1 rounded transition-colors"
             >
               Report
             </button>
             <button
               onClick={dismissErrorToast}
               aria-label="Dismiss error toast"
-              className="text-xs hover:bg-white/20 px-1 rounded transition-colors"
+              className="text-meta hover:bg-white/20 px-1 rounded transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

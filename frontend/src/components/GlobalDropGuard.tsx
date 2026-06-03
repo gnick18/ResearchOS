@@ -66,7 +66,7 @@ export default function GlobalDropGuard() {
   if (!toast) return null;
   return (
     <div
-      className="fixed z-[60] max-w-sm rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-lg pointer-events-none"
+      className="fixed z-[60] max-w-sm rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-body text-amber-900 shadow-lg pointer-events-none"
       style={{
         left: Math.max(8, Math.min(toast.x + 12, (typeof window !== "undefined" ? window.innerWidth : 1024) - 400)),
         top: Math.max(8, Math.min(toast.y + 12, (typeof window !== "undefined" ? window.innerHeight : 768) - 100)),

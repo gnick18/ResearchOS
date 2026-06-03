@@ -77,7 +77,7 @@ export default function AuditTrailNotice({
   const dateStr = formatAuditDate(latest.timestamp);
 
   return (
-    <div className="mt-1 text-[11px] text-gray-500 italic">
+    <div className="mt-1 text-meta text-gray-500 italic">
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
@@ -109,7 +109,7 @@ export default function AuditTrailNotice({
               key={e.id}
               className="border-l-2 border-amber-300 pl-2 text-gray-600"
             >
-              <div className="text-[10px] text-gray-500">
+              <div className="text-meta text-gray-500">
                 <span className="font-medium text-amber-700">{e.actor}</span>{" "}
                 — {formatAuditDate(e.timestamp)}
                 {!fieldPath && (
@@ -119,7 +119,7 @@ export default function AuditTrailNotice({
                   </>
                 )}
               </div>
-              <div className="text-[11px] mt-0.5">
+              <div className="text-meta mt-0.5">
                 <span className="text-red-600 line-through">
                   {formatAuditValue(e.old_value)}
                 </span>

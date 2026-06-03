@@ -43,7 +43,7 @@ export default function BetaDonationButton({ variant = "floating" }: BetaDonatio
         <button
           type="button"
           onClick={() => setShowModal(true)}
-          className="text-slate-500 hover:text-white text-xs transition-colors inline-flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 rounded"
+          className="text-slate-500 hover:text-white text-meta transition-colors inline-flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 rounded"
         >
           <HeartIcon className="w-3.5 h-3.5" />
           Support this project
@@ -105,7 +105,7 @@ function DonationModal({ onClose }: { onClose: () => void }) {
       <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <h2 className="text-heading font-bold text-gray-900 flex items-center gap-2">
               <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-rose-100 text-rose-600">
                 <HeartIcon className="w-4 h-4" />
               </span>
@@ -123,15 +123,15 @@ function DonationModal({ onClose }: { onClose: () => void }) {
             </button>
           </div>
 
-          <p className="text-gray-600 text-sm mb-5">
+          <p className="text-gray-600 text-body mb-5">
             {DONATION_CONFIG.message}
           </p>
 
           <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 mb-5">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <p className="mb-3 text-meta font-semibold uppercase tracking-wide text-gray-500">
               How ResearchOS stays free
             </p>
-            <ul className="space-y-2.5 text-sm text-gray-700">
+            <ul className="space-y-2.5 text-body text-gray-700">
               <li>
                 <span className="font-semibold text-gray-900">
                   Free for every lab.
@@ -164,7 +164,7 @@ function DonationModal({ onClose }: { onClose: () => void }) {
             </ul>
           </div>
 
-          <p className="text-sm text-gray-600">
+          <p className="text-body text-gray-600">
             There is nothing to pay, not now and never as a requirement. The best
             way to support ResearchOS today is to use it, tell another lab about
             it, and send us feedback.

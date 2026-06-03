@@ -105,7 +105,7 @@ export default function FileViewerModal({
           <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
               <FileIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
-              <h3 className="text-sm font-semibold text-gray-900 truncate" title={filename}>
+              <h3 className="text-body font-semibold text-gray-900 truncate" title={filename}>
                 {filename}
               </h3>
             </div>
@@ -113,21 +113,21 @@ export default function FileViewerModal({
               <button
                 type="button"
                 onClick={handleDownload}
-                className="px-3 py-1.5 text-xs text-gray-700 bg-white border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
+                className="px-3 py-1.5 text-meta text-gray-700 bg-white border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
               >
                 Download
               </button>
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+                className="px-3 py-1.5 text-meta text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
               >
                 Close
               </button>
             </div>
           </div>
           <div className="flex-1 min-h-0 overflow-auto bg-gray-50">
-            <pre className="m-0 p-4 text-xs font-mono text-gray-800 whitespace-pre-wrap break-words">
+            <pre className="m-0 p-4 text-meta font-mono text-gray-800 whitespace-pre-wrap break-words">
               <code>{text}</code>
             </pre>
           </div>
@@ -152,10 +152,10 @@ export default function FileViewerModal({
           <div className="flex items-center gap-3">
             <FileIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
             <div className="min-w-0">
-              <h3 className="text-base font-semibold text-gray-900 truncate" title={filename}>
+              <h3 className="text-title font-semibold text-gray-900 truncate" title={filename}>
                 {filename}
               </h3>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-meta text-gray-500 mt-0.5">
                 {kind === "pdf" ? "PDF document" : "Text file"}
               </p>
             </div>
@@ -166,12 +166,12 @@ export default function FileViewerModal({
           {step === "loading" ? (
             <div className="flex items-center justify-center py-3">
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500" />
-              <span className="ml-2 text-xs text-gray-500">Loading file…</span>
+              <span className="ml-2 text-meta text-gray-500">Loading file…</span>
             </div>
           ) : step === "error" ? (
-            <p className="text-xs text-red-600">{errorMessage || "Something went wrong."}</p>
+            <p className="text-meta text-red-600">{errorMessage || "Something went wrong."}</p>
           ) : (
-            <p className="text-xs text-gray-600">
+            <p className="text-meta text-gray-600">
               {kind === "pdf"
                 ? "Open this PDF in a new browser tab, or download a copy."
                 : "Open the contents in a viewer, or download a copy."}
@@ -183,7 +183,7 @@ export default function FileViewerModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            className="px-4 py-2 text-body text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
           >
             Cancel
           </button>
@@ -192,7 +192,7 @@ export default function FileViewerModal({
               type="button"
               onClick={handleDownload}
               disabled={step === "loading"}
-              className="px-4 py-2 text-sm text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 text-body text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Download
             </button>
@@ -200,7 +200,7 @@ export default function FileViewerModal({
               type="button"
               onClick={handleView}
               disabled={step === "loading"}
-              className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               View
             </button>

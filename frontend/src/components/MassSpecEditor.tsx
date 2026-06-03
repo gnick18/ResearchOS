@@ -145,8 +145,8 @@ export default function MassSpecEditor({
   };
 
   const inputCls =
-    "w-full px-2 py-1 border border-gray-200 rounded text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:bg-gray-50 disabled:text-gray-500";
-  const labelCls = "block text-xs font-medium text-gray-500 mb-1";
+    "w-full px-2 py-1 border border-gray-200 rounded text-meta text-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:bg-gray-50 disabled:text-gray-500";
+  const labelCls = "block text-meta font-medium text-gray-500 mb-1";
 
   return (
     <div className="space-y-6">
@@ -215,8 +215,8 @@ export default function MassSpecEditor({
       </div>
 
       <div className="flex items-center justify-between border-t border-gray-100 pt-3">
-        <h4 className="text-sm font-semibold text-gray-700">Source params</h4>
-        <label className="flex items-center gap-2 text-xs text-gray-500 cursor-pointer">
+        <h4 className="text-body font-semibold text-gray-700">Source params</h4>
+        <label className="flex items-center gap-2 text-meta text-gray-500 cursor-pointer">
           <input
             type="checkbox"
             checked={showAllFields}
@@ -375,7 +375,7 @@ export default function MassSpecEditor({
 
       {/* Scan params — always shown */}
       <div className="border-t border-gray-100 pt-3">
-        <h4 className="text-sm font-semibold text-gray-700 mb-3">Scan params</h4>
+        <h4 className="text-body font-semibold text-gray-700 mb-3">Scan params</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className={labelCls}>m/z range (low)</label>
@@ -424,7 +424,7 @@ export default function MassSpecEditor({
           </div>
         </div>
 
-        <label className="flex items-center gap-2 mt-3 text-xs text-gray-700 cursor-pointer">
+        <label className="flex items-center gap-2 mt-3 text-meta text-gray-700 cursor-pointer">
           <input
             type="checkbox"
             checked={scan.is_msms}
@@ -466,7 +466,7 @@ export default function MassSpecEditor({
 
       {/* Calibration — always shown */}
       <div className="border-t border-gray-100 pt-3">
-        <h4 className="text-sm font-semibold text-gray-700 mb-3">Calibration</h4>
+        <h4 className="text-body font-semibold text-gray-700 mb-3">Calibration</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className={labelCls}>Reference standard</label>

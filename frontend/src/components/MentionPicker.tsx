@@ -165,15 +165,15 @@ export default function MentionPicker({
             >
               <UserAvatar username={m.username} size="sm" />
               <div className="flex-1 min-w-0">
-                <div className="text-sm text-gray-900 truncate">{label}</div>
+                <div className="text-body text-gray-900 truncate">{label}</div>
                 {m.displayName && m.displayName.trim() && (
-                  <div className="text-xs text-gray-500 truncate">
+                  <div className="text-meta text-gray-500 truncate">
                     @{m.username}
                   </div>
                 )}
               </div>
               {m.account_type === "lab_head" && (
-                <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-100 text-amber-800">
+                <span className="px-1.5 py-0.5 text-meta font-semibold rounded bg-amber-100 text-amber-800">
                   PI
                 </span>
               )}
