@@ -10,12 +10,12 @@ import {
   serialDilution,
   sequenceStats,
   tmWallace,
-  tmSaltAdjusted,
   naMolesFromMass,
   concFromA260,
   bufferRecipe,
   type NucleicAcidKind,
 } from "@/lib/calculators/calculators";
+import { nearestNeighborTm } from "@/lib/calculators/tm-nn";
 import {
   parseNum,
   formatNum,
@@ -521,12 +521,33 @@ function SerialTab() {
 function TmTab() {
   const [seq, setSeq] = useState("");
   const [salt, setSalt] = useState("50");
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [oligo, setOligo] = useState("0.25");
+  const [oligoUnit, setOligoUnit] = useState<"uM" | "nM">("uM");
+  const [mg, setMg] = useState("0");
+  const [dntp, setDntp] = useState("0");
 
   const stats = useMemo(() => sequenceStats(seq), [seq]);
-  const saltN = parseNum(salt); // in mM
-  const wallace = tmWallace(seq);
+  const saltN = parseNum(salt); // monovalent [Na+/K+] in mM
+  const oligoN = parseNum(oligo);
+  // Total oligo strand concentration in nM (IDT default 0.25 uM if blank).
+  const oligoNm = oligoN !== null ? concToBase(oligoN, oligoUnit) * 1e9 : 250;
+  const mgN = parseNum(mg) ?? 0;
+  const dntpN = parseNum(dntp) ?? 0;
+
   const nn =
-    saltN !== null ? tmSaltAdjusted(seq, concToBase(saltN, "mM")) : null;
+    saltN !== null
+      ? nearestNeighborTm(seq, {
+          na: saltN,
+          mg: mgN,
+          dntps: dntpN,
+          oligoNanomolar: oligoNm,
+        })
+      : null;
+  // Wallace 2-4 rule only earns a line for very short oligos, where the
+  // nearest-neighbor model is least reliable and the rule of thumb still helps.
+  const wallace = tmWallace(seq);
+  const shortOligo = stats.length > 0 && stats.length < 14;
 
   const hasSeq = stats.length > 0;
 
@@ -542,7 +563,43 @@ function TmTab() {
           className={inputCls + " font-mono resize-y"}
         />
       </div>
-      <PlainNumber label="Monovalent salt [Na+]" value={salt} onValue={setSalt} placeholder="e.g. 50" suffix="mM" />
+      <PlainNumber label="Monovalent salt [Na+ / K+]" value={salt} onValue={setSalt} placeholder="e.g. 50" suffix="mM" />
+
+      <div>
+        <button
+          type="button"
+          onClick={() => setShowAdvanced((s) => !s)}
+          aria-expanded={showAdvanced}
+          className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-700 transition-colors"
+        >
+          <svg
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            className={`w-3.5 h-3.5 transition-transform ${showAdvanced ? "rotate-90" : ""}`}
+            aria-hidden="true"
+          >
+            <path d="M7 5l6 5-6 5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Advanced (oligo conc, Mg2+, dNTP)
+        </button>
+        {showAdvanced && (
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <NumberWithUnit
+              label="Oligo conc"
+              value={oligo}
+              onValue={setOligo}
+              unit={oligoUnit}
+              onUnit={setOligoUnit}
+              units={["uM", "nM"] as const}
+              placeholder="0.25"
+            />
+            <PlainNumber label="Mg2+" value={mg} onValue={setMg} placeholder="0" suffix="mM" />
+            <PlainNumber label="dNTPs" value={dntp} onValue={setDntp} placeholder="0" suffix="mM" />
+          </div>
+        )}
+      </div>
 
       {!hasSeq ? (
         <ResultCard empty />
@@ -553,16 +610,18 @@ function TmTab() {
             label="GC content"
             value={stats.gcPercent !== null ? `${formatNum(stats.gcPercent, 3)} %` : "-"}
           />
-          {wallace !== null && (
-            <ResultRow label="Tm (Wallace 2-4 rule)" value={`${formatNum(wallace, 4)} C`} />
-          )}
-          {nn !== null && (
-            <ResultRow label="Tm (salt-adjusted)" value={`${formatNum(nn, 4)} C`} />
+          <ResultRow
+            label="Tm (nearest-neighbor)"
+            value={nn !== null ? `${nn.tm.toFixed(1)} °C` : stats.length < 2 ? "needs 2+ bases" : "-"}
+          />
+          {shortOligo && wallace !== null && (
+            <ResultRow label="Tm (Wallace, short oligo)" value={`${formatNum(wallace, 4)} °C`} />
           )}
           <p className="mt-2 text-[11px] text-gray-500">
-            Wallace rule suits short oligos (under ~14 nt). The salt-adjusted
-            estimate (81.5 + 16.6 log[Na+] + 0.41 %GC - 600/length) is better
-            for longer sequences.
+            Nearest-neighbor (SantaLucia) with salt correction, the model IDT and
+            Primer3 use. Set monovalent salt, and Mg2+ / dNTP / oligo
+            concentration under Advanced, to match your reaction conditions. The
+            Wallace 2-4 rule is shown only for very short oligos (under ~14 nt).
           </p>
         </ResultCard>
       )}
