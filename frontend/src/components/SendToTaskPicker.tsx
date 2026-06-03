@@ -155,8 +155,8 @@ export default function SendToTaskPicker({
       >
         <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
           <div>
-            <h3 className="text-base font-semibold text-gray-900">{headerLabel}</h3>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <h3 className="text-title font-semibold text-gray-900">{headerLabel}</h3>
+            <p className="text-meta text-gray-500 mt-0.5">
               Files land in the task&apos;s{" "}
               {subTab === "notes" ? "Lab Notes" : "Results"} folder.
             </p>
@@ -164,7 +164,7 @@ export default function SendToTaskPicker({
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-700 text-xl leading-none p-1"
+            className="text-gray-400 hover:text-gray-700 text-heading leading-none p-1"
             aria-label="Close"
           >
             ×
@@ -183,7 +183,7 @@ export default function SendToTaskPicker({
               type="button"
               aria-pressed={subTab === "notes"}
               onClick={() => setSubTab("notes")}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+              className={`px-3 py-1 text-meta font-medium rounded-md transition-colors ${
                 subTab === "notes"
                   ? "bg-white text-gray-900 shadow-sm"
                   : "text-gray-500 hover:text-gray-700"
@@ -195,7 +195,7 @@ export default function SendToTaskPicker({
               type="button"
               aria-pressed={subTab === "results"}
               onClick={() => setSubTab("results")}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+              className={`px-3 py-1 text-meta font-medium rounded-md transition-colors ${
                 subTab === "results"
                   ? "bg-white text-gray-900 shadow-sm"
                   : "text-gray-500 hover:text-gray-700"
@@ -213,21 +213,21 @@ export default function SendToTaskPicker({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search tasks…"
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+            className="w-full px-3 py-2 text-body border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
           />
         </div>
 
         <div className="flex-1 overflow-y-auto px-2 py-2">
           {tasksLoading ? (
-            <p className="text-sm text-gray-500 text-center py-6">Loading…</p>
+            <p className="text-body text-gray-500 text-center py-6">Loading…</p>
           ) : visible.length === 0 ? (
-            <p className="text-sm text-gray-400 italic text-center py-6">
+            <p className="text-body text-gray-400 italic text-center py-6">
               {trimmed ? "No tasks match." : "No experiment tasks yet."}
             </p>
           ) : (
             <ul className="space-y-1">
               {!trimmed && (
-                <li className="px-3 pt-1 pb-1 text-[10px] font-medium uppercase tracking-wide text-gray-400">
+                <li className="px-3 pt-1 pb-1 text-meta font-medium uppercase tracking-wide text-gray-400">
                   Recent
                 </li>
               )}
@@ -248,10 +248,10 @@ export default function SendToTaskPicker({
                         aria-hidden
                       />
                       <span className="flex-1 min-w-0">
-                        <span className="block text-sm text-gray-900 truncate">
+                        <span className="block text-body text-gray-900 truncate">
                           {t.name}
                         </span>
-                        <span className="block text-xs text-gray-500 truncate">
+                        <span className="block text-meta text-gray-500 truncate">
                           {proj ? proj.name : "No project"}
                           {t.is_shared_with_me ? ` · shared by ${t.owner}` : ""}
                           {" · "}
@@ -267,7 +267,7 @@ export default function SendToTaskPicker({
                   <button
                     type="button"
                     onClick={() => setShowAll(true)}
-                    className="text-xs text-blue-600 hover:text-blue-700"
+                    className="text-meta text-blue-600 hover:text-blue-700"
                   >
                     See all {filtered.length} tasks…
                   </button>

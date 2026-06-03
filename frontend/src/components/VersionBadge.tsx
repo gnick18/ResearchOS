@@ -25,7 +25,7 @@ export default function VersionBadge({
   return (
     <span
       data-testid="app-version-badge"
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium tracking-wide ${toneClass} ${className}`}
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-meta font-medium tracking-wide ${toneClass} ${className}`}
     >
       {APP_VERSION_LABEL}
     </span>

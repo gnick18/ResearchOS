@@ -278,11 +278,11 @@ export default function QpcrAnalysisEditor({
 
       {/* Section 1: chemistry + description + ΔΔCq toggle */}
       <section className="space-y-3">
-        <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+        <h4 className="text-meta font-semibold text-gray-600 uppercase tracking-wider">
           Chemistry &amp; protocol
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <label className="text-xs text-gray-600 space-y-1">
+          <label className="text-meta text-gray-600 space-y-1">
             <span className="block">Chemistry</span>
             <select
               value={chemistry}
@@ -305,7 +305,7 @@ export default function QpcrAnalysisEditor({
             </select>
           </label>
           {chemistry === "other" && (
-            <label className="text-xs text-gray-600 space-y-1">
+            <label className="text-meta text-gray-600 space-y-1">
               <span className="block">Chemistry label (free text)</span>
               <input
                 type="text"
@@ -320,7 +320,7 @@ export default function QpcrAnalysisEditor({
             </label>
           )}
         </div>
-        <label className="text-xs text-gray-600 block space-y-1">
+        <label className="text-meta text-gray-600 block space-y-1">
           <span>Description</span>
           <textarea
             value={description ?? ""}
@@ -333,7 +333,7 @@ export default function QpcrAnalysisEditor({
             }`}
           />
         </label>
-        <label className="flex items-center gap-2 text-xs text-gray-700">
+        <label className="flex items-center gap-2 text-meta text-gray-700">
           <input
             type="checkbox"
             checked={useDeltaDeltaCq}
@@ -350,26 +350,26 @@ export default function QpcrAnalysisEditor({
       {/* Section 2: targets / references table */}
       <section className="space-y-2">
         <div className="flex items-center justify-between">
-          <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+          <h4 className="text-meta font-semibold text-gray-600 uppercase tracking-wider">
             Targets &amp; reference genes
           </h4>
           {!readOnly && onReferencesChange && (
             <Tooltip label="Add target row" placement="left">
               <button
                 onClick={addReference}
-                className="px-2 py-1 text-xs rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
+                className="px-2 py-1 text-meta rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
               >
                 + Target
               </button>
             </Tooltip>
           )}
         </div>
-        <p className="text-[11px] text-gray-500">
+        <p className="text-meta text-gray-500">
           The row marked &ldquo;Reference?&rdquo; is the housekeeping gene for ΔΔCq. The other rows are the
           experimental targets whose fold-change you want to compute.
         </p>
         <div className="border border-gray-200 rounded-lg overflow-hidden">
-          <table className="w-full text-xs">
+          <table className="w-full text-meta">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-2 py-1.5 text-left font-medium text-gray-600">Target gene</th>
@@ -481,7 +481,7 @@ export default function QpcrAnalysisEditor({
                     {r.is_reference ? "ref" : ""}
                   </td>
                   <td className="px-2 py-1 line-through text-gray-500">{fmtNumber(r.expected_cq)}</td>
-                  <td className="px-2 py-1 text-center text-[10px] text-gray-400">removed</td>
+                  <td className="px-2 py-1 text-center text-meta text-gray-400">removed</td>
                 </tr>
               ))}
             </tbody>
@@ -493,10 +493,10 @@ export default function QpcrAnalysisEditor({
       <section className="space-y-2">
         <div className="flex items-center justify-between">
           <div>
-            <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+            <h4 className="text-meta font-semibold text-gray-600 uppercase tracking-wider">
               Standard curve (optional)
             </h4>
-            <p className="text-[11px] text-gray-500 mt-0.5">
+            <p className="text-meta text-gray-500 mt-0.5">
               Dilution-series Cq readouts used to derive primer efficiency. Leave empty when efficiency
               isn&rsquo;t being computed for this protocol.
             </p>
@@ -505,7 +505,7 @@ export default function QpcrAnalysisEditor({
             <Tooltip label="Add curve point" placement="left">
               <button
                 onClick={addCurvePoint}
-                className="px-2 py-1 text-xs rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
+                className="px-2 py-1 text-meta rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
               >
                 + Point
               </button>
@@ -514,7 +514,7 @@ export default function QpcrAnalysisEditor({
         </div>
         {standardCurve.length > 0 && (
           <div className="border border-gray-200 rounded-lg overflow-hidden">
-            <table className="w-full text-xs">
+            <table className="w-full text-meta">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-2 py-1.5 text-left font-medium text-gray-600 w-32">log₁₀(quantity)</th>
@@ -586,17 +586,17 @@ export default function QpcrAnalysisEditor({
           </div>
         )}
         {standardCurveModified && (
-          <p className="text-[11px] text-amber-700">Standard curve modified from source.</p>
+          <p className="text-meta text-amber-700">Standard curve modified from source.</p>
         )}
       </section>
 
       {/* Section 4: melt-curve sweep */}
       <section className="space-y-2">
         <div className="flex items-center justify-between">
-          <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+          <h4 className="text-meta font-semibold text-gray-600 uppercase tracking-wider">
             Melt-curve sweep
           </h4>
-          <label className="flex items-center gap-1.5 text-xs text-gray-600">
+          <label className="flex items-center gap-1.5 text-meta text-gray-600">
             <input
               type="checkbox"
               checked={meltCurve !== null}
@@ -608,7 +608,7 @@ export default function QpcrAnalysisEditor({
         </div>
         {meltCurve && (
           <div className={`grid grid-cols-1 md:grid-cols-3 gap-3 ${meltCurveModified ? "ring-1 ring-amber-200 rounded p-2" : ""}`}>
-            <label className="text-xs text-gray-600 space-y-1">
+            <label className="text-meta text-gray-600 space-y-1">
               <span>Start (°C)</span>
               <input
                 type="number"
@@ -621,7 +621,7 @@ export default function QpcrAnalysisEditor({
                 className="w-full px-2 py-1.5 border border-gray-200 rounded"
               />
             </label>
-            <label className="text-xs text-gray-600 space-y-1">
+            <label className="text-meta text-gray-600 space-y-1">
               <span>End (°C)</span>
               <input
                 type="number"
@@ -634,7 +634,7 @@ export default function QpcrAnalysisEditor({
                 className="w-full px-2 py-1.5 border border-gray-200 rounded"
               />
             </label>
-            <label className="text-xs text-gray-600 space-y-1">
+            <label className="text-meta text-gray-600 space-y-1">
               <span>Ramp rate (°C/sec)</span>
               <input
                 type="number"

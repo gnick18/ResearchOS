@@ -87,11 +87,11 @@ export default function SidebarContentsPopup({ onClose, anchorRef }: Props) {
       className="absolute left-full top-0 ml-2 w-72 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden"
     >
       <div className="px-4 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-900">Sidebar contents</h3>
+        <h3 className="text-body font-semibold text-gray-900">Sidebar contents</h3>
         <Tooltip label="Close" placement="bottom">
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-base"
+            className="text-gray-400 hover:text-gray-600 text-title"
           >
             ✕
           </button>
@@ -106,8 +106,8 @@ export default function SidebarContentsPopup({ onClose, anchorRef }: Props) {
             onChange={(e) => void save({ sidebarShowTasks: e.target.checked })}
             className="accent-blue-600"
           />
-          <span className="text-xs text-gray-800">Tasks</span>
-          <span className="ml-auto text-[10px] text-gray-400">
+          <span className="text-meta text-gray-800">Tasks</span>
+          <span className="ml-auto text-meta text-gray-400">
             today · overdue · upcoming
           </span>
         </label>
@@ -121,12 +121,12 @@ export default function SidebarContentsPopup({ onClose, anchorRef }: Props) {
             }
             className="accent-blue-600"
           />
-          <span className="text-xs text-gray-800">Calendar events</span>
-          <span className="ml-auto text-[10px] text-gray-400">today and beyond</span>
+          <span className="text-meta text-gray-800">Calendar events</span>
+          <span className="ml-auto text-meta text-gray-400">today and beyond</span>
         </label>
 
         <div className={showEvents ? "" : "opacity-50 pointer-events-none"}>
-          <label className="block text-[11px] font-medium text-gray-600 mb-1">
+          <label className="block text-meta font-medium text-gray-600 mb-1">
             How much calendar to show
           </label>
           <select
@@ -135,7 +135,7 @@ export default function SidebarContentsPopup({ onClose, anchorRef }: Props) {
             onChange={(e) =>
               void save({ sidebarEventsHorizonDays: parseInt(e.target.value, 10) })
             }
-            className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
+            className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-meta bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
           >
             {SIDEBAR_HORIZON_CHOICES.map((c) => (
               <option key={c.value} value={c.value}>
@@ -146,7 +146,7 @@ export default function SidebarContentsPopup({ onClose, anchorRef }: Props) {
         </div>
 
         {bothOff && (
-          <p className="text-[11px] text-amber-600">
+          <p className="text-meta text-amber-600">
             Both off — the sidebar will be empty.
           </p>
         )}
@@ -156,11 +156,11 @@ export default function SidebarContentsPopup({ onClose, anchorRef }: Props) {
         <Link
           href="/settings"
           onClick={onClose}
-          className="text-[11px] text-blue-600 hover:underline"
+          className="text-meta text-blue-600 hover:underline"
         >
           Open full settings →
         </Link>
-        <span className="text-[10px] text-gray-400">Auto-saves</span>
+        <span className="text-meta text-gray-400">Auto-saves</span>
       </div>
     </div>
   );

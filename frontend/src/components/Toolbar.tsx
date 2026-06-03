@@ -241,7 +241,7 @@ export default function Toolbar({
           aria-expanded={showProjectFilter}
           aria-haspopup="listbox"
           className={`
-            px-2.5 py-1.5 text-xs rounded-lg border transition-colors flex items-center gap-1.5
+            px-2.5 py-1.5 text-meta rounded-lg border transition-colors flex items-center gap-1.5
             ${
               projectFilterMode === "explicit"
                 ? "border-blue-300 bg-blue-50 text-blue-700"
@@ -300,7 +300,7 @@ export default function Toolbar({
             className="absolute top-full left-0 mt-1 w-72 bg-white border border-gray-200 rounded-lg shadow-lg z-30"
           >
             <div className="flex items-center justify-between px-3 pt-2.5 pb-1.5 border-b border-gray-100">
-              <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">
+              <span className="text-meta font-medium text-gray-500 uppercase tracking-wide">
                 Filter by project
               </span>
               <div className="flex items-center gap-2">
@@ -308,7 +308,7 @@ export default function Toolbar({
                   type="button"
                   onClick={() => setProjectFilterMode("all")}
                   disabled={projectFilterMode === "all"}
-                  className="text-xs text-blue-600 hover:text-blue-800 hover:underline disabled:text-gray-300 disabled:cursor-default disabled:hover:no-underline"
+                  className="text-meta text-blue-600 hover:text-blue-800 hover:underline disabled:text-gray-300 disabled:cursor-default disabled:hover:no-underline"
                 >
                   Select all
                 </button>
@@ -320,7 +320,7 @@ export default function Toolbar({
                     setSelectedProjects([]);
                   }}
                   disabled={projectFilterMode === "explicit" && selectedProjectIds.length === 0}
-                  className="text-xs text-blue-600 hover:text-blue-800 hover:underline disabled:text-gray-300 disabled:cursor-default disabled:hover:no-underline"
+                  className="text-meta text-blue-600 hover:text-blue-800 hover:underline disabled:text-gray-300 disabled:cursor-default disabled:hover:no-underline"
                 >
                   Unselect all
                 </button>
@@ -333,12 +333,12 @@ export default function Toolbar({
                 onChange={(e) => setProjectFilterQuery(e.target.value)}
                 placeholder="Search projects..."
                 aria-label="Search projects"
-                className="w-full px-2 py-1 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-2 py-1 text-meta border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div className="max-h-[300px] overflow-y-auto py-1.5">
               {filteredProjects.length === 0 ? (
-                <p className="px-3 py-2 text-xs text-gray-400">
+                <p className="px-3 py-2 text-meta text-gray-400">
                   No projects match &ldquo;{projectFilterQuery}&rdquo;.
                 </p>
               ) : (
@@ -361,7 +361,7 @@ export default function Toolbar({
                       role="option"
                       aria-selected={isSelected}
                       onClick={() => toggleProject(pKey)}
-                      className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left hover:bg-gray-50 focus:outline-none focus:bg-gray-50"
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-meta text-left hover:bg-gray-50 focus:outline-none focus:bg-gray-50"
                     >
                       <span
                         className={`
@@ -418,7 +418,7 @@ export default function Toolbar({
                       }
                       onClick={() => toggleProject(STANDALONE_FILTER_KEY)}
                       data-tour-target="gantt-project-filter-standalone"
-                      className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left hover:bg-gray-50 focus:outline-none focus:bg-gray-50"
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-meta text-left hover:bg-gray-50 focus:outline-none focus:bg-gray-50"
                     >
                       <span
                         className={`
@@ -454,19 +454,19 @@ export default function Toolbar({
                         aria-hidden="true"
                       />
                       <span className="truncate text-gray-700">Standalone</span>
-                      <span className="ml-auto text-[10px] text-gray-400 italic">no project</span>
+                      <span className="ml-auto text-meta text-gray-400 italic">no project</span>
                     </button>
                   </Tooltip>
                 </>
               )}
             </div>
             {projectFilterMode === "all" && (
-              <p className="px-3 py-1.5 text-[11px] text-gray-400 border-t border-gray-100">
+              <p className="px-3 py-1.5 text-meta text-gray-400 border-t border-gray-100">
                 Showing all projects. Click a row to scope the Gantt.
               </p>
             )}
             {projectFilterMode === "explicit" && selectedProjectIds.length === 0 && (
-              <p className="px-3 py-1.5 text-[11px] text-gray-400 border-t border-gray-100">
+              <p className="px-3 py-1.5 text-meta text-gray-400 border-t border-gray-100">
                 Showing no projects. Pick rows or click Select all to reset.
               </p>
             )}
@@ -477,7 +477,7 @@ export default function Toolbar({
       {/* Tag filter pills */}
       {allTags.length > 0 && (
         <div className="flex items-center gap-1.5">
-          <span className="text-xs text-gray-400 font-medium mr-1">Tags:</span>
+          <span className="text-meta text-gray-400 font-medium mr-1">Tags:</span>
           {allTags.map((tag) => {
             const isSelected = selectedTags.includes(tag);
             return (
@@ -485,7 +485,7 @@ export default function Toolbar({
                 key={tag}
                 onClick={() => toggleTag(tag)}
                 className={`
-                  px-2.5 py-1 text-xs rounded-full transition-colors
+                  px-2.5 py-1 text-meta rounded-full transition-colors
                   ${
                     isSelected
                       ? "bg-emerald-100 text-emerald-700 font-medium"
@@ -505,7 +505,7 @@ export default function Toolbar({
         <button
           onClick={() => setShowShared(!showShared)}
           className={`
-            px-2.5 py-1 text-xs rounded-full transition-colors flex items-center gap-1
+            px-2.5 py-1 text-meta rounded-full transition-colors flex items-center gap-1
             ${
               showShared
                 ? "bg-purple-100 text-purple-700 font-medium"
@@ -535,7 +535,7 @@ export default function Toolbar({
             key={vm.value}
             onClick={() => setViewMode(vm.value)}
             className={`
-              px-2.5 py-1 text-xs rounded-md transition-colors
+              px-2.5 py-1 text-meta rounded-md transition-colors
               ${
                 viewMode === vm.value
                   ? "bg-white text-gray-900 shadow-sm font-medium"
@@ -552,7 +552,7 @@ export default function Toolbar({
       <button
         onClick={onCreateGoal}
         data-tour-target="gantt-goals-button"
-        className="px-3 py-1.5 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors flex items-center gap-1"
+        className="px-3 py-1.5 text-body bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors flex items-center gap-1"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="10"/>
@@ -566,7 +566,7 @@ export default function Toolbar({
       <button
         onClick={onCreateTask}
         data-tour-target="gantt-new-task-button"
-        className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        className="px-3 py-1.5 text-body bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
       >
         + Task
       </button>
@@ -577,7 +577,7 @@ export default function Toolbar({
         <Tooltip label="Go back 1 week" placement="bottom">
           <button
             onClick={() => ganttNavigateWeeks(-1)}
-            className="px-2 py-1.5 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors flex items-center"
+            className="px-2 py-1.5 text-body bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors flex items-center"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -591,7 +591,7 @@ export default function Toolbar({
             type="date"
             value={displayStartDate}
             onChange={handleCalendarChange}
-            className="px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-32"
+            className="px-2 py-1 text-meta border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-32"
             title="Select a Monday to start from (will be adjusted to nearest Monday)"
           />
         </div>
@@ -600,7 +600,7 @@ export default function Toolbar({
         <Tooltip label="Go forward 1 week" placement="bottom">
           <button
             onClick={() => ganttNavigateWeeks(1)}
-            className="px-2 py-1.5 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors flex items-center"
+            className="px-2 py-1.5 text-body bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors flex items-center"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -612,7 +612,7 @@ export default function Toolbar({
         {ganttStartDate && (
           <button
             onClick={handleResetToToday}
-            className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+            className="px-2 py-1 text-meta text-blue-600 hover:text-blue-800 hover:underline"
             title="Reset to current week"
           >
             Today
@@ -620,7 +620,7 @@ export default function Toolbar({
         )}
 
         {/* Date range display */}
-        <span className="text-xs text-gray-500 ml-1">
+        <span className="text-meta text-gray-500 ml-1">
           {formatMonthLabel(displayDateRange.start)} – {formatMonthLabel(displayDateRange.end)}
         </span>
       </div>

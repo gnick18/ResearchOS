@@ -145,15 +145,15 @@ export default function QpcrAnalysisViewer({
       <div className="flex flex-col h-full">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">{currentMethod.name}</h3>
-            <p className="text-xs text-gray-400 mt-0.5">qPCR analysis</p>
+            <h3 className="text-body font-semibold text-gray-900">{currentMethod.name}</h3>
+            <p className="text-meta text-gray-400 mt-0.5">qPCR analysis</p>
           </div>
           <div className="flex items-center gap-2">
             {canModify && !currentMethod.is_shared_with_me && (
               <Tooltip label="Share method" placement="bottom">
                 <button
                   onClick={() => setShowSharePopup(true)}
-                  className={`px-3 py-1.5 text-xs rounded-lg ${
+                  className={`px-3 py-1.5 text-meta rounded-lg ${
                     isWholeLab
                       ? "bg-green-50 text-green-600 hover:bg-green-100"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -169,7 +169,7 @@ export default function QpcrAnalysisViewer({
             {canModify && (
               <button
                 onClick={() => onDelete(currentMethod.id)}
-                className="px-3 py-1.5 text-xs text-red-500 rounded-lg hover:bg-red-50"
+                className="px-3 py-1.5 text-meta text-red-500 rounded-lg hover:bg-red-50"
               >
                 Delete
               </button>
@@ -177,7 +177,7 @@ export default function QpcrAnalysisViewer({
             <button
               onClick={handleSaveAll}
               disabled={saving || loading || qpcrId === null}
-              className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+              className="px-3 py-1.5 text-meta text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
             >
               {saving ? "Saving…" : "Save"}
             </button>
@@ -193,10 +193,10 @@ export default function QpcrAnalysisViewer({
         </div>
         <div className="flex-1 overflow-y-auto p-6">
           {loading ? (
-            <p className="text-sm text-gray-400 animate-pulse">Loading qPCR analysis…</p>
+            <p className="text-body text-gray-400 animate-pulse">Loading qPCR analysis…</p>
           ) : !protocol ? (
             <div className="text-center py-8">
-              <p className="text-sm text-gray-500">
+              <p className="text-body text-gray-500">
                 qPCR analysis protocol not found. It may have been deleted.
               </p>
             </div>

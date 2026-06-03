@@ -703,7 +703,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
               className="w-8 h-8 text-white"
             />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">ResearchOS</h1>
+          <h1 className="text-display font-bold text-white mb-2">ResearchOS</h1>
           <p className="text-slate-400">Select your account to continue</p>
         </div>
 
@@ -725,11 +725,11 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                 Back to users
               </button>
 
-              <h2 className="text-xl font-semibold text-white mb-4">Create New User</h2>
+              <h2 className="text-heading font-semibold text-white mb-4">Create New User</h2>
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                  <label className="block text-body font-medium text-slate-300 mb-1.5">
                     Username
                   </label>
                   <input
@@ -741,14 +741,14 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                     className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     autoFocus
                   />
-                  <p className="text-xs text-slate-400 mt-1.5">
+                  <p className="text-meta text-slate-400 mt-1.5">
                     Letters, numbers, and underscores only
                   </p>
                 </div>
 
                 {error && (
                   <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
-                    <p className="text-sm text-red-300">{error}</p>
+                    <p className="text-body text-red-300">{error}</p>
                   </div>
                 )}
 
@@ -775,7 +775,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
               {/* Error message */}
               {error && (
                 <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
-                  <p className="text-sm text-red-300">{error}</p>
+                  <p className="text-body text-red-300">{error}</p>
                 </div>
               )}
 
@@ -882,7 +882,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                               // badge is orthogonal (laptop owner) and shows
                               // alongside when both apply.
                               <span
-                                className="shrink-0 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-100 text-amber-800"
+                                className="shrink-0 px-1.5 py-0.5 text-meta font-semibold rounded bg-amber-100 text-amber-800"
                                 title="PI"
                               >
                                 PI
@@ -897,14 +897,14 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                               // returning postdoc can re-login without PI
                               // help — design decision #2, Grant 2026-05-23).
                               <span
-                                className="shrink-0 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-slate-200 text-slate-600"
+                                className="shrink-0 px-1.5 py-0.5 text-meta font-semibold rounded bg-slate-200 text-slate-600"
                                 title="Archived account — hidden by default"
                               >
                                 Archived
                               </span>
                             )}
                             {mainUser === user && (
-                              <span className="shrink-0 text-xs text-amber-400 font-normal">(Main)</span>
+                              <span className="shrink-0 text-meta text-amber-400 font-normal">(Main)</span>
                             )}
                           </div>
                           
@@ -922,7 +922,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
                                 </svg>
                               </button>
-                              <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap px-2 py-1 text-[10px] font-medium rounded bg-slate-900/95 text-slate-100 border border-white/10 opacity-0 group-hover/icon:opacity-100 transition-opacity z-10">
+                              <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap px-2 py-1 text-meta font-medium rounded bg-slate-900/95 text-slate-100 border border-white/10 opacity-0 group-hover/icon:opacity-100 transition-opacity z-10">
                                 Set as main
                               </span>
                             </div>
@@ -941,7 +941,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                               </svg>
                             </button>
-                            <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap px-2 py-1 text-[10px] font-medium rounded bg-slate-900/95 text-slate-100 border border-white/10 opacity-0 group-hover/icon:opacity-100 transition-opacity z-10">
+                            <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap px-2 py-1 text-meta font-medium rounded bg-slate-900/95 text-slate-100 border border-white/10 opacity-0 group-hover/icon:opacity-100 transition-opacity z-10">
                               Rename
                             </span>
                           </div>
@@ -974,7 +974,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                                 </svg>
                               )}
                             </button>
-                            <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap px-2 py-1 text-[10px] font-medium rounded bg-slate-900/95 text-slate-100 border border-white/10 opacity-0 group-hover/icon:opacity-100 transition-opacity z-10">
+                            <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap px-2 py-1 text-meta font-medium rounded bg-slate-900/95 text-slate-100 border border-white/10 opacity-0 group-hover/icon:opacity-100 transition-opacity z-10">
                               {lockedUsers.has(user) ? "Password set — manage" : "Set password"}
                             </span>
                           </div>
@@ -992,7 +992,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                               </svg>
                             </button>
-                            <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap px-2 py-1 text-[10px] font-medium rounded bg-slate-900/95 text-slate-100 border border-white/10 opacity-0 group-hover/icon:opacity-100 transition-opacity z-10">
+                            <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap px-2 py-1 text-meta font-medium rounded bg-slate-900/95 text-slate-100 border border-white/10 opacity-0 group-hover/icon:opacity-100 transition-opacity z-10">
                               Delete user
                             </span>
                           </div>
@@ -1022,7 +1022,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                     type="button"
                     onClick={() => setShowArchived((v) => !v)}
                     disabled={loggingIn !== null}
-                    className="text-xs text-slate-400 hover:text-slate-200 underline-offset-2 hover:underline transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="text-meta text-slate-400 hover:text-slate-200 underline-offset-2 hover:underline transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     aria-pressed={showArchived}
                     data-testid="login-show-archived-toggle"
                   >
@@ -1039,7 +1039,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                   <div className="absolute inset-0 flex items-center">
                     <div className="w-full border-t border-white/10"></div>
                   </div>
-                  <div className="relative flex justify-center text-sm">
+                  <div className="relative flex justify-center text-body">
                     <span className="px-2 bg-transparent text-slate-400">or</span>
                   </div>
                 </div>
@@ -1061,7 +1061,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-slate-500 text-sm mt-6">
+        <p className="text-center text-slate-500 text-body mt-6">
           Your data is stored locally in the folder you picked
         </p>
       </div>
@@ -1082,11 +1082,11 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                     Delete User Profile
                   </h3>
                   {deleteConfirmStep === 1 ? (
-                    <p className="text-slate-300 text-sm">
+                    <p className="text-slate-300 text-body">
                       Are you sure you want to delete <span className="font-semibold text-white">{deleteUserSelected}</span>? This action cannot be undone.
                     </p>
                   ) : (
-                    <p className="text-slate-300 text-sm">
+                    <p className="text-slate-300 text-body">
                       Final confirmation: Permanently delete <span className="font-semibold text-white">{deleteUserSelected}</span>?
                     </p>
                   )}
@@ -1102,7 +1102,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                       onChange={(e) => setDeleteUserArchive(e.target.checked)}
                       className="w-4 h-4 rounded border-slate-500 bg-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-0"
                     />
-                    <span className="text-sm text-slate-300">
+                    <span className="text-body text-slate-300">
                       Archive data before deletion (recommended)
                     </span>
                   </label>
@@ -1111,21 +1111,21 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
 
               {error && (
                 <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
-                  <p className="text-sm text-red-300">{error}</p>
+                  <p className="text-body text-red-300">{error}</p>
                 </div>
               )}
 
               {isArchivingUser && (
                 <div className="mt-4 p-3 bg-blue-500/20 rounded-lg flex items-center gap-2">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400"></div>
-                  <span className="text-sm text-blue-300">Creating archive...</span>
+                  <span className="text-body text-blue-300">Creating archive...</span>
                 </div>
               )}
 
               {isDeletingUser && (
                 <div className="mt-4 p-3 bg-red-500/20 rounded-lg flex items-center gap-2">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-400"></div>
-                  <span className="text-sm text-red-300">Deleting user...</span>
+                  <span className="text-body text-red-300">Deleting user...</span>
                 </div>
               )}
 
@@ -1166,7 +1166,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
           >
             <div className="px-6 py-4 border-b border-white/10">
               <h3 className="text-lg font-semibold text-white">Enter password</h3>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-meta text-slate-400 mt-0.5">
                 Sign in to {passwordGate.username}
               </p>
             </div>
@@ -1181,27 +1181,27 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                   if (e.key === "Escape") cancelPasswordGate();
                 }}
                 disabled={verifyingPassword}
-                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-body"
                 autoComplete="current-password"
                 placeholder="Password"
               />
               {error && (
                 <div className="p-2 bg-red-500/20 border border-red-500/30 rounded-lg">
-                  <p className="text-xs text-red-300">{error}</p>
+                  <p className="text-meta text-red-300">{error}</p>
                 </div>
               )}
               <div className="flex gap-2 pt-1">
                 <button
                   onClick={cancelPasswordGate}
                   disabled={verifyingPassword}
-                  className="flex-1 py-2 text-sm bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 rounded-lg disabled:opacity-50"
+                  className="flex-1 py-2 text-body bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 rounded-lg disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSubmitPassword}
                   disabled={verifyingPassword || !passwordInput}
-                  className="flex-1 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg disabled:opacity-50"
+                  className="flex-1 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg disabled:opacity-50"
                 >
                   {verifyingPassword ? "Verifying..." : "Sign in"}
                 </button>
@@ -1227,7 +1227,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
               <h3 className="text-lg font-semibold text-white">
                 Set a PI password
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-meta text-slate-400 mt-0.5">
                 {forcePasswordGate.username} runs a lab, so a password is
                 required to sign in.
               </p>
@@ -1239,7 +1239,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                 value={forceNewPassword}
                 onChange={(e) => setForceNewPassword(e.target.value)}
                 disabled={savingForcedPassword}
-                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-body"
                 autoComplete="new-password"
                 placeholder="New password"
                 data-testid="force-pi-password-input"
@@ -1253,17 +1253,17 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                   if (e.key === "Escape") cancelForcePasswordGate();
                 }}
                 disabled={savingForcedPassword}
-                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-body"
                 autoComplete="new-password"
                 placeholder="Confirm password"
                 data-testid="force-pi-password-confirm-input"
               />
               {error && (
                 <div className="p-2 bg-red-500/20 border border-red-500/30 rounded-lg">
-                  <p className="text-xs text-red-300">{error}</p>
+                  <p className="text-meta text-red-300">{error}</p>
                 </div>
               )}
-              <p className="text-[11px] text-slate-400 leading-relaxed">
+              <p className="text-meta text-slate-400 leading-relaxed">
                 Stored only on your disk, hashed with PBKDF2-SHA-256.
                 Never sent to any server.
               </p>
@@ -1271,7 +1271,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                 <button
                   onClick={cancelForcePasswordGate}
                   disabled={savingForcedPassword}
-                  className="flex-1 py-2 text-sm bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 rounded-lg disabled:opacity-50"
+                  className="flex-1 py-2 text-body bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 rounded-lg disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -1282,7 +1282,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                     !forceNewPassword ||
                     !forceConfirmPassword
                   }
-                  className="flex-1 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg disabled:opacity-50"
+                  className="flex-1 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg disabled:opacity-50"
                   data-testid="force-pi-password-submit"
                 >
                   {savingForcedPassword ? "Saving…" : "Set & sign in"}
@@ -1326,7 +1326,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4 flex-wrap justify-center max-w-[90vw]">
         <a
           href="/wiki/getting-started/creating-a-user"
-          className="text-slate-400 hover:text-white text-xs transition-colors flex items-center gap-1"
+          className="text-slate-400 hover:text-white text-meta transition-colors flex items-center gap-1"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
             <circle cx="12" cy="12" r="10" />
@@ -1337,7 +1337,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         </a>
         <a
           href="/wiki/shared-lab-accounts"
-          className="text-slate-400 hover:text-white text-xs transition-colors flex items-center gap-1"
+          className="text-slate-400 hover:text-white text-meta transition-colors flex items-center gap-1"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-5.13a4 4 0 11-8 0 4 4 0 018 0zm6 0a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -1346,7 +1346,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         </a>
         <button
           onClick={openBugReport}
-          className="text-slate-500 hover:text-white text-xs transition-colors flex items-center gap-1"
+          className="text-slate-500 hover:text-white text-meta transition-colors flex items-center gap-1"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />

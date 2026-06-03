@@ -69,7 +69,7 @@ function HighlightList({ highlights }: { highlights: string[] }) {
   return (
     <ul className="mt-2 space-y-1.5">
       {highlights.map((h, i) => (
-        <li key={i} className="flex gap-2 text-sm text-gray-700 leading-snug">
+        <li key={i} className="flex gap-2 text-body text-gray-700 leading-snug">
           <span
             aria-hidden="true"
             className="mt-1.5 h-1.5 w-1.5 flex-none rounded-full bg-sky-400"
@@ -93,11 +93,11 @@ function ReleaseMessage({
     <div className="mt-2 space-y-3">
       {message.map((block, i) =>
         block.kind === "para" ? (
-          <p key={i} className="text-sm text-gray-700 leading-relaxed">
+          <p key={i} className="text-body text-gray-700 leading-relaxed">
             {block.text}
           </p>
         ) : (
-          <div key={i} className="text-sm text-gray-700 leading-relaxed">
+          <div key={i} className="text-body text-gray-700 leading-relaxed">
             <span className="font-semibold text-gray-900">{block.title}</span>{" "}
             {block.text}
             {block.items && block.items.length > 0 && (
@@ -124,10 +124,10 @@ function ReleaseBlock({ release }: { release: ReleaseNote }) {
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3">
-        <h3 className="text-base font-semibold text-gray-900">
+        <h3 className="text-title font-semibold text-gray-900">
           {releaseHeading(release.version)}
         </h3>
-        <span className="text-xs text-gray-400 whitespace-nowrap">
+        <span className="text-meta text-gray-400 whitespace-nowrap">
           {formatDate(release.date)}
         </span>
       </div>
@@ -227,7 +227,7 @@ export default function WhatsNewModal({
             >
               What&apos;s new
             </p>
-            <p className="text-xs text-gray-500">
+            <p className="text-meta text-gray-500">
               Here is what changed since you were last in.
             </p>
           </div>
@@ -241,7 +241,7 @@ export default function WhatsNewModal({
                 type="button"
                 onClick={() => setExpanded(true)}
                 data-testid="whats-new-view-all"
-                className="text-sm font-medium text-sky-600 hover:text-sky-700 hover:underline"
+                className="text-body font-medium text-sky-600 hover:text-sky-700 hover:underline"
               >
                 View all {releases.length} updates
               </button>
@@ -265,7 +265,7 @@ export default function WhatsNewModal({
               type="button"
               onClick={onDismiss}
               data-testid="whats-new-got-it"
-              className="w-full py-2.5 px-4 bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium rounded-lg transition-colors"
+              className="w-full py-2.5 px-4 bg-sky-600 hover:bg-sky-700 text-white text-body font-medium rounded-lg transition-colors"
             >
               Got it
             </button>

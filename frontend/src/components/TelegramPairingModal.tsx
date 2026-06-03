@@ -272,29 +272,29 @@ export default function TelegramPairingModal({
   const cardBody = (
     <>
       <div className="px-5 py-4 border-b border-gray-100 bg-gray-50">
-          <h3 className="text-base font-semibold text-gray-900">Connect Telegram</h3>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <h3 className="text-title font-semibold text-gray-900">Connect Telegram</h3>
+          <p className="text-meta text-gray-500 mt-0.5">
             Send lab-bench photos straight into the open experiment.
           </p>
         </div>
 
         {step.kind === "loading" && (
-          <div className="px-5 py-8 text-center text-sm text-gray-500">Loading…</div>
+          <div className="px-5 py-8 text-center text-body text-gray-500">Loading…</div>
         )}
 
         {step.kind === "alreadyPaired" && (
           <div className="px-5 py-4 space-y-4">
             <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
-              <p className="text-sm text-emerald-800">
+              <p className="text-body text-emerald-800">
                 Paired with{" "}
                 <span className="font-medium">@{step.pairing.botUsername}</span> since{" "}
                 {new Date(step.pairing.pairedAt).toLocaleDateString()}.
               </p>
-              <p className="text-xs text-emerald-700 mt-1">
+              <p className="text-meta text-emerald-700 mt-1">
                 Chat id: {step.pairing.chatId}
               </p>
             </div>
-            <div className="text-xs text-gray-600 space-y-2">
+            <div className="text-meta text-gray-600 space-y-2">
               <p>
                 Send a photo to{" "}
                 <span className="font-medium">@{step.pairing.botUsername}</span>{" "}
@@ -319,18 +319,18 @@ export default function TelegramPairingModal({
               <button
                 onClick={handleDisconnect}
                 disabled={disconnecting}
-                className="px-3 py-2 text-xs text-red-600 border border-red-200 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                className="px-3 py-2 text-meta text-red-600 border border-red-200 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
               >
                 {disconnecting ? "Disconnecting…" : "Disconnect bot"}
               </button>
               <button
                 onClick={handleCancel}
-                className="px-5 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors font-medium"
+                className="px-5 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors font-medium"
               >
                 Keep paired
               </button>
             </div>
-            <p className="text-[10px] text-gray-400 text-center pt-1">
+            <p className="text-meta text-gray-400 text-center pt-1">
               &quot;Keep paired&quot; just closes this dialog — your connection stays active.
             </p>
           </div>
@@ -338,7 +338,7 @@ export default function TelegramPairingModal({
 
         {step.kind === "enterToken" && (
           <div className="px-5 py-4 space-y-4">
-            <ol className="text-xs text-gray-600 space-y-1 list-decimal list-inside">
+            <ol className="text-meta text-gray-600 space-y-1 list-decimal list-inside">
               <li>
                 Open Telegram on your phone and message{" "}
                 <span className="font-mono">@BotFather</span>.
@@ -351,7 +351,7 @@ export default function TelegramPairingModal({
             </ol>
             <div>
               <div className="flex items-center gap-1.5 mb-2">
-                <label className="text-xs font-medium text-gray-500">
+                <label className="text-meta font-medium text-gray-500">
                   Bot token
                 </label>
                 <Tooltip
@@ -361,7 +361,7 @@ export default function TelegramPairingModal({
                   <button
                     type="button"
                     aria-label="Where does this go?"
-                    className="text-gray-400 hover:text-gray-600 text-[11px] leading-none"
+                    className="text-gray-400 hover:text-gray-600 text-meta leading-none"
                   >
                     (?)
                   </button>
@@ -378,7 +378,7 @@ export default function TelegramPairingModal({
                   placeholder="123456:ABC-DEF…"
                   autoFocus
                   autoComplete="off"
-                  className={`w-full pl-3 pr-10 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500${!showToken ? " [-webkit-text-security:disc]" : ""}`}
+                  className={`w-full pl-3 pr-10 py-2 border border-gray-200 rounded-lg text-body font-mono focus:outline-none focus:ring-2 focus:ring-blue-500${!showToken ? " [-webkit-text-security:disc]" : ""}`}
                 />
                 <button
                   type="button"
@@ -403,7 +403,7 @@ export default function TelegramPairingModal({
                 </button>
               </div>
               {step.error && (
-                <p className="mt-2 text-xs text-red-600">{step.error}</p>
+                <p className="mt-2 text-meta text-red-600">{step.error}</p>
               )}
             </div>
             {passwordGateExists ? (
@@ -423,7 +423,7 @@ export default function TelegramPairingModal({
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-medium text-gray-700">
+                      <span className="text-meta font-medium text-gray-700">
                         Save encrypted backup for auto-reconnect
                       </span>
                       <Tooltip
@@ -433,14 +433,14 @@ export default function TelegramPairingModal({
                         <button
                           type="button"
                           aria-label="What does this do?"
-                          className="text-gray-400 hover:text-gray-600 text-[11px] leading-none"
+                          className="text-gray-400 hover:text-gray-600 text-meta leading-none"
                         >
                           (?)
                         </button>
                       </Tooltip>
                     </div>
                     {!saveBackup && (
-                      <p className="mt-1 text-[11px] italic text-amber-600">
+                      <p className="mt-1 text-meta italic text-amber-600">
                         You&apos;ll need to re-paste your bot token if the
                         local pairing file is lost.
                       </p>
@@ -449,7 +449,7 @@ export default function TelegramPairingModal({
                 </label>
                 {saveBackup && (
                   <div className="ml-5">
-                    <label className="text-[11px] font-medium text-gray-500">
+                    <label className="text-meta font-medium text-gray-500">
                       Account password
                     </label>
                     <div className="relative mt-1">
@@ -465,7 +465,7 @@ export default function TelegramPairingModal({
                         }}
                         autoComplete="off"
                         placeholder="Required once to encrypt the backup"
-                        className={`w-full pl-3 pr-10 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500${!showPassword ? " [-webkit-text-security:disc]" : ""}`}
+                        className={`w-full pl-3 pr-10 py-1.5 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500${!showPassword ? " [-webkit-text-security:disc]" : ""}`}
                       />
                       <button
                         type="button"
@@ -490,13 +490,13 @@ export default function TelegramPairingModal({
                       </button>
                     </div>
                     {passwordError && (
-                      <p className="mt-1 text-xs text-red-600">{passwordError}</p>
+                      <p className="mt-1 text-meta text-red-600">{passwordError}</p>
                     )}
                   </div>
                 )}
               </div>
             ) : (
-              <p className="text-[11px] italic text-amber-600">
+              <p className="text-meta italic text-amber-600">
                 You&apos;ll need to re-paste your bot token if the local
                 pairing file is lost. (Set an account password in Settings
                 to unlock the encrypted-backup option.)
@@ -505,7 +505,7 @@ export default function TelegramPairingModal({
             <div className="flex items-center justify-end gap-2">
               <button
                 onClick={handleCancel}
-                className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                className="px-4 py-2 text-body text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 Cancel
               </button>
@@ -516,7 +516,7 @@ export default function TelegramPairingModal({
                   validating ||
                   (saveBackup && passwordGateExists && !passwordInput)
                 }
-                className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
               >
                 {validating ? "Checking…" : "Connect"}
               </button>
@@ -526,11 +526,11 @@ export default function TelegramPairingModal({
 
         {step.kind === "waitForStart" && (
           <div className="px-5 py-6 space-y-4 text-center">
-            <p className="text-sm text-gray-700">
+            <p className="text-body text-gray-700">
               Token accepted for{" "}
               <span className="font-medium">@{step.botUsername}</span>.
             </p>
-            <p className="text-sm text-gray-600">
+            <p className="text-body text-gray-600">
               Open Telegram on your phone, message{" "}
               <span className="font-medium">@{step.botUsername}</span>, and send{" "}
               <span className="font-mono">/start</span> (or any message).
@@ -538,12 +538,12 @@ export default function TelegramPairingModal({
             <div className="flex justify-center">
               <span className="inline-flex h-3 w-3 animate-pulse rounded-full bg-blue-400" />
             </div>
-            <p className="text-[11px] text-amber-600">
+            <p className="text-meta text-amber-600">
               Pairing isn&apos;t saved until your bot receives a message.
             </p>
             <button
               onClick={handleCancel}
-              className="text-xs text-gray-400 hover:text-gray-600 underline"
+              className="text-meta text-gray-400 hover:text-gray-600 underline"
             >
               Cancel pairing
             </button>
@@ -552,7 +552,7 @@ export default function TelegramPairingModal({
 
         {step.kind === "success" && (
           <div className="px-5 py-6 space-y-3 text-center">
-            <p className="text-sm font-medium text-emerald-700">
+            <p className="text-body font-medium text-emerald-700">
               Paired with{" "}
               <span className="font-semibold">@{step.pairing.botUsername}</span>.
             </p>

@@ -28,7 +28,7 @@ const GITHUB_URL = "https://github.com/gnick18/ResearchOS";
 export default function RiseCredentialsStamp() {
   return (
     <div
-      className="pointer-events-none fixed bottom-4 right-4 z-40 flex flex-col items-end gap-1 text-right text-[10px] text-slate-300"
+      className="pointer-events-none fixed bottom-4 right-4 z-40 flex flex-col items-end gap-1 text-right text-meta text-slate-300"
       data-testid="rise-credentials-stamp"
     >
       {/* Logo on a tight white panel so the cream shield + red field

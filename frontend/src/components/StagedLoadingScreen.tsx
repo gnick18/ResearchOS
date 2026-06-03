@@ -106,15 +106,15 @@ export default function StagedLoadingScreen({
             so skip the generic subtitle there to avoid saying the same
             thing twice. */}
         {subtitle && stage !== "opening-picker" && (
-          <p className="text-base text-slate-200 mb-5 leading-relaxed">{subtitle}</p>
+          <p className="text-title text-slate-200 mb-5 leading-relaxed">{subtitle}</p>
         )}
 
         {stage === "opening-picker" && (
           <div className="mb-5 rounded-lg border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-left">
-            <p className="text-base font-semibold text-amber-300 mb-1">
+            <p className="text-title font-semibold text-amber-300 mb-1">
               ⚠️ Don&apos;t refresh the page
             </p>
-            <p className="text-sm text-amber-100/90 leading-relaxed">
+            <p className="text-body text-amber-100/90 leading-relaxed">
               The OS folder picker may look frozen — there is no spinner in the
               system dialog. This is normal for OneDrive / iCloud / Dropbox
               folders. Refreshing will throw away progress and you&apos;ll have
@@ -123,7 +123,7 @@ export default function StagedLoadingScreen({
           </div>
         )}
 
-        <div className="flex items-center justify-center gap-3 text-sm text-slate-300 mb-3">
+        <div className="flex items-center justify-center gap-3 text-body text-slate-300 mb-3">
           {showReadCount && (
             <span className="px-3 py-1 bg-slate-800/60 rounded-full">
               {readCount} {readCount === 1 ? "file" : "files"} read
@@ -135,7 +135,7 @@ export default function StagedLoadingScreen({
         </div>
 
         {showReassurance && (
-          <p className="text-sm text-slate-300 italic mt-6 transition-opacity duration-300">
+          <p className="text-body text-slate-300 italic mt-6 transition-opacity duration-300">
             {REASSURANCE_MESSAGES[reassuranceIdx]}
           </p>
         )}

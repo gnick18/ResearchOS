@@ -70,17 +70,17 @@ export default function NoteListRow({ note, onClick, isLabMode = false }: NoteLi
           muted and hidden on very narrow widths so the title always wins. */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="font-medium text-sm text-gray-900 truncate group-hover:text-emerald-700 transition-colors">
+          <span className="font-medium text-body text-gray-900 truncate group-hover:text-emerald-700 transition-colors">
             {note.title || "Untitled"}
           </span>
           {isShared && (
-            <span className="flex-shrink-0 px-2 py-0.5 text-[10px] bg-emerald-100 text-emerald-700 rounded-full">
+            <span className="flex-shrink-0 px-2 py-0.5 text-meta bg-emerald-100 text-emerald-700 rounded-full">
               Shared with lab
             </span>
           )}
         </div>
         {note.description && (
-          <span className="block text-xs text-gray-400 truncate">{note.description}</span>
+          <span className="block text-meta text-gray-400 truncate">{note.description}</span>
         )}
       </div>
 
@@ -88,13 +88,13 @@ export default function NoteListRow({ note, onClick, isLabMode = false }: NoteLi
           (lab mode) the author avatar. Hidden progressively on small widths. */}
       <div className="flex items-center gap-3 flex-shrink-0">
         {note.is_running_log && entryCount > 0 && (
-          <span className="hidden sm:inline text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
+          <span className="hidden sm:inline text-meta text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
             {entryCount} {entryCount === 1 ? "entry" : "entries"}
           </span>
         )}
         {commentCount > 0 && (
           <span
-            className="hidden sm:inline-flex items-center gap-1 text-xs text-gray-500"
+            className="hidden sm:inline-flex items-center gap-1 text-meta text-gray-500"
             title={`${commentCount} comment${commentCount === 1 ? "" : "s"}`}
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -103,7 +103,7 @@ export default function NoteListRow({ note, onClick, isLabMode = false }: NoteLi
             {commentCount}
           </span>
         )}
-        <span className="text-xs text-gray-400 whitespace-nowrap w-[88px] text-right">
+        <span className="text-meta text-gray-400 whitespace-nowrap w-[88px] text-right">
           {formatDate(note.updated_at)}
         </span>
         {isLabMode && isLabNote(note) && (

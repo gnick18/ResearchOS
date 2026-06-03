@@ -264,7 +264,7 @@ export default function Tooltip({
             // BeakerBot header strip + "Got it" CTA at the bottom, so
             // the auto-opened tooltip reads as a deliberate guided
             // moment instead of an accidental hover hint. Larger
-            // typography (text-xs instead of text-[11px]), a stronger
+            // typography (text-meta instead of text-meta), a stronger
             // shadow + sky ring, and `pointer-events: auto` so the
             // CTA is clickable. Uses the same positioning math as the
             // default variant.
@@ -282,7 +282,7 @@ export default function Tooltip({
                 zIndex: 1000,
                 maxWidth: 300,
               }}
-              className="rounded-lg bg-white text-gray-800 text-xs shadow-xl ring-1 ring-sky-300 overflow-hidden"
+              className="rounded-lg bg-white text-gray-800 text-meta shadow-xl ring-1 ring-sky-300 overflow-hidden"
             >
               {/* Header strip — sky tint + inline BeakerBot mark.
                   Matches the project's BeakerBot color (sky-500) so the
@@ -329,12 +329,12 @@ export default function Tooltip({
                   <path d="M14 26 L15.5 26" />
                   <path d="M24.5 26 L26 26" />
                 </svg>
-                <span className="text-[10px] uppercase tracking-wide font-semibold text-sky-700">
+                <span className="text-meta uppercase tracking-wide font-semibold text-sky-700">
                   Quick tip
                 </span>
               </div>
               <div className="px-3 pt-2.5 pb-2">
-                <span className="block font-semibold text-gray-900 mb-1 text-xs">
+                <span className="block font-semibold text-gray-900 mb-1 text-meta">
                   {label}
                 </span>
                 <span className="block font-normal text-gray-600 leading-snug">
@@ -349,7 +349,7 @@ export default function Tooltip({
                       e.stopPropagation();
                       onPrimaryAction();
                     }}
-                    className="text-[11px] font-medium text-sky-700 hover:text-sky-900 bg-sky-50 hover:bg-sky-100 px-2 py-0.5 rounded transition-colors"
+                    className="text-meta font-medium text-sky-700 hover:text-sky-900 bg-sky-50 hover:bg-sky-100 px-2 py-0.5 rounded transition-colors"
                   >
                     Got it
                   </button>
@@ -377,8 +377,8 @@ export default function Tooltip({
               }}
               className={
                 body
-                  ? "rounded-md bg-gray-900 text-white text-[11px] font-medium px-2.5 py-1.5 shadow-lg leading-snug"
-                  : "whitespace-nowrap rounded-md bg-gray-900 text-white text-[11px] font-medium px-2 py-1 shadow-lg"
+                  ? "rounded-md bg-gray-900 text-white text-meta font-medium px-2.5 py-1.5 shadow-lg leading-snug"
+                  : "whitespace-nowrap rounded-md bg-gray-900 text-white text-meta font-medium px-2 py-1 shadow-lg"
               }
             >
               {body ? (

@@ -106,7 +106,7 @@ export default function NoteCard({ note, onClick, isLabMode = false, tourTarget 
               own view; static label in lab mode (can't flip others' notes). */}
           {isLabMode ? (
             note.is_shared && (
-              <span className="px-2 py-0.5 text-xs bg-emerald-100 text-emerald-700 rounded-full">
+              <span className="px-2 py-0.5 text-meta bg-emerald-100 text-emerald-700 rounded-full">
                 Shared with lab
               </span>
             )
@@ -118,7 +118,7 @@ export default function NoteCard({ note, onClick, isLabMode = false, tourTarget 
                 toggleShareMutation.mutate(!note.is_shared);
               }}
               disabled={toggleShareMutation.isPending}
-              className={`px-2 py-0.5 text-xs rounded-full transition-colors ${
+              className={`px-2 py-0.5 text-meta rounded-full transition-colors ${
                 note.is_shared
                   ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
                   : "bg-gray-100 text-gray-500 hover:bg-gray-200"
@@ -136,7 +136,7 @@ export default function NoteCard({ note, onClick, isLabMode = false, tourTarget 
         
         {/* Running log entry count */}
         {note.is_running_log && note.entries && (
-          <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
+          <span className="text-meta text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
             {note.entries.length} {note.entries.length === 1 ? "entry" : "entries"}
           </span>
         )}
@@ -149,16 +149,16 @@ export default function NoteCard({ note, onClick, isLabMode = false, tourTarget 
 
       {/* Description */}
       {note.description && (
-        <p className="text-sm text-gray-500 mb-3 line-clamp-2">{note.description}</p>
+        <p className="text-body text-gray-500 mb-3 line-clamp-2">{note.description}</p>
       )}
 
       {/* Footer with date and user info */}
       <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-100">
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400">{getLatestEntryDate()}</span>
+          <span className="text-meta text-gray-400">{getLatestEntryDate()}</span>
           {note.comments && note.comments.length > 0 && (
             <span
-              className="inline-flex items-center gap-1 text-xs text-gray-500"
+              className="inline-flex items-center gap-1 text-meta text-gray-500"
               title={`${note.comments.length} comment${note.comments.length === 1 ? "" : "s"}`}
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -173,7 +173,7 @@ export default function NoteCard({ note, onClick, isLabMode = false, tourTarget 
         {isLabMode && isLabNote(note) && (
           <div className="flex items-center gap-1.5">
             <UserAvatar username={note.username} size="xs" />
-            <span className="text-xs text-gray-500">{note.username}</span>
+            <span className="text-meta text-gray-500">{note.username}</span>
           </div>
         )}
       </div>

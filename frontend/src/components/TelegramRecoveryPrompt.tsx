@@ -192,7 +192,7 @@ export default function TelegramRecoveryPrompt() {
   return (
     <div
       role="status"
-      className="w-full bg-blue-50 border-b border-blue-200 text-blue-950 text-sm px-4 py-2"
+      className="w-full bg-blue-50 border-b border-blue-200 text-blue-950 text-body px-4 py-2"
     >
       <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
@@ -229,7 +229,7 @@ export default function TelegramRecoveryPrompt() {
             <button
               type="button"
               onClick={handleRetry}
-              className="px-3 py-1 text-xs font-medium text-blue-700 border border-blue-300 hover:bg-blue-100 rounded-md transition-colors"
+              className="px-3 py-1 text-meta font-medium text-blue-700 border border-blue-300 hover:bg-blue-100 rounded-md transition-colors"
             >
               Retry
             </button>
@@ -250,7 +250,7 @@ export default function TelegramRecoveryPrompt() {
             <button
               type="button"
               onClick={handleSetUpNew}
-              className="px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 rounded-md transition-colors"
+              className="px-3 py-1 text-meta font-medium text-blue-700 hover:bg-blue-100 rounded-md transition-colors"
             >
               Set up new bot
             </button>
@@ -273,7 +273,7 @@ function ReconnectButton({
       type="button"
       onClick={onClick}
       disabled={offlineMode}
-      className="px-3 py-1 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      className="px-3 py-1 text-meta font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
     >
       Reconnect
     </button>

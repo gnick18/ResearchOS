@@ -93,7 +93,7 @@ export default function NoteDeleteUndoToast() {
         <polyline points="3 6 5 6 21 6" />
         <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" />
       </svg>
-      <span className="text-sm flex-1 truncate">
+      <span className="text-body flex-1 truncate">
         Deleted{" "}
         <span className="font-medium">
           {toast.noteTitle || `note ${toast.noteId}`}
@@ -103,7 +103,7 @@ export default function NoteDeleteUndoToast() {
         type="button"
         onClick={() => void handleUndo()}
         disabled={restoring}
-        className="text-xs font-semibold text-amber-300 hover:text-amber-200 underline-offset-2 hover:underline disabled:opacity-50"
+        className="text-meta font-semibold text-amber-300 hover:text-amber-200 underline-offset-2 hover:underline disabled:opacity-50"
         data-testid="note-delete-undo-button"
       >
         {restoring ? "Restoring…" : "Undo"}

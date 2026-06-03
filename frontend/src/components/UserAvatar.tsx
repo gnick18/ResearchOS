@@ -25,11 +25,11 @@ interface UserAvatarProps {
 }
 
 const SIZE_CLASS: Record<AvatarSize, string> = {
-  xs: "w-5 h-5 text-[10px]",
-  sm: "w-7 h-7 text-xs",
-  md: "w-10 h-10 text-sm",
-  lg: "w-12 h-12 text-base",
-  xl: "w-16 h-16 text-xl",
+  xs: "w-5 h-5 text-meta",
+  sm: "w-7 h-7 text-meta",
+  md: "w-10 h-10 text-body",
+  lg: "w-12 h-12 text-title",
+  xl: "w-16 h-16 text-heading",
 };
 
 /**

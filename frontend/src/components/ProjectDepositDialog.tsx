@@ -135,12 +135,12 @@ function StepRail({ step }: { step: Step }) {
         return (
           <div key={s} className="flex items-center gap-2">
             <div
-              className={`flex items-center gap-1.5 text-xs font-medium ${
+              className={`flex items-center gap-1.5 text-meta font-medium ${
                 active ? "text-blue-700" : done ? "text-gray-500" : "text-gray-400"
               }`}
             >
               <span
-                className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[11px] ${
+                className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-meta ${
                   active
                     ? "bg-blue-600 text-white"
                     : done
@@ -387,10 +387,10 @@ export default function ProjectDepositDialog({
         <div className="px-6 pt-5 pb-3 border-b border-gray-100">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <h2 className="text-base font-semibold text-gray-900 line-clamp-2">
+              <h2 className="text-title font-semibold text-gray-900 line-clamp-2">
                 Deposit to a repository
               </h2>
-              <p className="text-xs text-gray-500 mt-1 line-clamp-1">
+              <p className="text-meta text-gray-500 mt-1 line-clamp-1">
                 {project.name}
               </p>
             </div>
@@ -414,12 +414,12 @@ export default function ProjectDepositDialog({
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
           {loading ? (
-            <div className="flex items-center gap-2 text-sm text-gray-500 py-8 justify-center">
+            <div className="flex items-center gap-2 text-body text-gray-500 py-8 justify-center">
               <Spinner />
               Reading the project...
             </div>
           ) : loadError ? (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-body text-red-800">
               {loadError}
             </div>
           ) : step === "select" && prefill ? (
@@ -460,7 +460,7 @@ export default function ProjectDepositDialog({
             />
           ) : null}
           {buildError ? (
-            <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-body text-red-800">
               {buildError}
             </div>
           ) : null}
@@ -479,7 +479,7 @@ export default function ProjectDepositDialog({
               } else onClose();
             }}
             disabled={building}
-            className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50"
+            className="px-3 py-1.5 text-body text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50"
           >
             {step === "select" ? "Cancel" : built ? "Build again" : "Back"}
           </button>
@@ -490,7 +490,7 @@ export default function ProjectDepositDialog({
                 type="button"
                 disabled={loading || !hasSelection}
                 onClick={() => setStep("metadata")}
-                className="px-4 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-1.5 text-body font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 data-testid="project-deposit-to-metadata"
               >
                 Next: metadata ({selectionCount})
@@ -500,7 +500,7 @@ export default function ProjectDepositDialog({
                 type="button"
                 disabled={!handoffReady}
                 onClick={() => setStep("handoff")}
-                className="px-4 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-1.5 text-body font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 data-testid="project-deposit-to-handoff"
               >
                 Next: hand off
@@ -510,7 +510,7 @@ export default function ProjectDepositDialog({
                 type="button"
                 disabled={building}
                 onClick={handleBuild}
-                className="inline-flex items-center gap-2 px-4 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-2 px-4 py-1.5 text-body font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 data-testid="project-deposit-build-bundle"
               >
                 {building ? <Spinner /> : null}
@@ -521,7 +521,7 @@ export default function ProjectDepositDialog({
                 href={repo.uploadUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 text-body font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
               >
                 Open {repo.name}
                 <ExternalLinkIcon />
@@ -530,7 +530,7 @@ export default function ProjectDepositDialog({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
+                className="px-4 py-1.5 text-body font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
               >
                 Done
               </button>
@@ -565,7 +565,7 @@ function SelectStep({
 }) {
   return (
     <div className="space-y-4">
-      <div className="rounded-lg bg-blue-50 border border-blue-100 px-3 py-2 text-xs text-blue-800 leading-relaxed">
+      <div className="rounded-lg bg-blue-50 border border-blue-100 px-3 py-2 text-meta text-blue-800 leading-relaxed">
         A project deposit is one dataset with one DOI. Pick the experiments and
         notes that belong in the public record. Each item is exported
         individually, plus one combined PDF that ties them together.
@@ -573,11 +573,11 @@ function SelectStep({
 
       {/* Experiments */}
       <div>
-        <div className="text-xs font-medium text-gray-700 mb-1.5">
+        <div className="text-meta font-medium text-gray-700 mb-1.5">
           Experiments ({prefill.experiments.length})
         </div>
         {prefill.experiments.length === 0 ? (
-          <div className="text-xs text-gray-400 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+          <div className="text-meta text-gray-400 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
             This project has no experiments yet.
           </div>
         ) : (
@@ -595,15 +595,15 @@ function SelectStep({
                     onChange={() => toggleExp(exp.id)}
                     data-testid={`project-deposit-exp-${exp.id}`}
                   />
-                  <span className="flex-1 min-w-0 text-sm text-gray-800 truncate">
+                  <span className="flex-1 min-w-0 text-body text-gray-800 truncate">
                     {exp.name || `Experiment ${exp.id}`}
                   </span>
                   {exp.is_complete ? (
-                    <span className="text-[10px] text-green-700 bg-green-50 border border-green-200 rounded px-1.5 py-0.5">
+                    <span className="text-meta text-green-700 bg-green-50 border border-green-200 rounded px-1.5 py-0.5">
                       complete
                     </span>
                   ) : (
-                    <span className="text-[10px] text-gray-500 bg-gray-50 border border-gray-200 rounded px-1.5 py-0.5">
+                    <span className="text-meta text-gray-500 bg-gray-50 border border-gray-200 rounded px-1.5 py-0.5">
                       in progress
                     </span>
                   )}
@@ -616,11 +616,11 @@ function SelectStep({
 
       {/* Notes */}
       <div>
-        <div className="text-xs font-medium text-gray-700 mb-1.5">
+        <div className="text-meta font-medium text-gray-700 mb-1.5">
           Notes ({prefill.notes.length})
         </div>
         {prefill.notes.length === 0 ? (
-          <div className="text-xs text-gray-400 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+          <div className="text-meta text-gray-400 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
             No notes to attach.
           </div>
         ) : (
@@ -638,11 +638,11 @@ function SelectStep({
                     onChange={() => toggleNote(note.id)}
                     data-testid={`project-deposit-note-${note.id}`}
                   />
-                  <span className="flex-1 min-w-0 text-sm text-gray-800 truncate">
+                  <span className="flex-1 min-w-0 text-body text-gray-800 truncate">
                     {note.title || `Note ${note.id}`}
                   </span>
                   {note.is_running_log ? (
-                    <span className="text-[10px] text-gray-500 bg-gray-50 border border-gray-200 rounded px-1.5 py-0.5">
+                    <span className="text-meta text-gray-500 bg-gray-50 border border-gray-200 rounded px-1.5 py-0.5">
                       running log
                     </span>
                   ) : null}
@@ -655,7 +655,7 @@ function SelectStep({
 
       {/* Per-item presentation format */}
       <div>
-        <div className="text-xs font-medium text-gray-700 mb-1.5">
+        <div className="text-meta font-medium text-gray-700 mb-1.5">
           Per-item format
         </div>
         <div className="flex gap-2">
@@ -670,7 +670,7 @@ function SelectStep({
               key={fmt}
               type="button"
               onClick={() => setBundleFormat(fmt)}
-              className={`px-3 py-1.5 text-xs rounded-lg border ${
+              className={`px-3 py-1.5 text-meta rounded-lg border ${
                 bundleFormat === fmt
                   ? "border-blue-500 bg-blue-50 text-blue-700 font-medium"
                   : "border-gray-200 text-gray-600 hover:border-gray-300"
@@ -680,7 +680,7 @@ function SelectStep({
             </button>
           ))}
         </div>
-        <p className="text-[11px] text-gray-400 mt-1.5">
+        <p className="text-meta text-gray-400 mt-1.5">
           How each experiment is rendered in the bundle. The combined navigable
           PDF and the raw re-importable bundles are always included as well.
         </p>
@@ -702,15 +702,15 @@ function FieldLabel({
 }) {
   return (
     <div className="flex items-baseline justify-between">
-      <label className="text-xs font-medium text-gray-700">{children}</label>
-      {hint ? <span className="text-[11px] text-gray-400">{hint}</span> : null}
+      <label className="text-meta font-medium text-gray-700">{children}</label>
+      {hint ? <span className="text-meta text-gray-400">{hint}</span> : null}
     </div>
   );
 }
 
 function PrefilledBadge() {
   return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-green-700 bg-green-50 border border-green-200 rounded px-1.5 py-0.5">
+    <span className="inline-flex items-center gap-1 text-meta font-medium text-green-700 bg-green-50 border border-green-200 rounded px-1.5 py-0.5">
       <CheckIcon />
       prefilled
     </span>
@@ -767,7 +767,7 @@ function MetadataStep({
         <FieldLabel hint="from the project name">
           Title <PrefilledBadge />
         </FieldLabel>
-        <div className="text-sm text-gray-900 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+        <div className="text-body text-gray-900 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
           {metadata.titles[0]?.title}
         </div>
       </div>
@@ -777,7 +777,7 @@ function MetadataStep({
         <FieldLabel hint="from your profile">
           Creator {prefill.ownerOrcid ? <PrefilledBadge /> : null}
         </FieldLabel>
-        <div className="text-sm text-gray-900 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+        <div className="text-body text-gray-900 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
           {prefill.ownerDisplayName}
         </div>
         <div className="mt-1.5">
@@ -791,7 +791,7 @@ function MetadataStep({
                 if (n) setOrcidDraft(n);
               }}
               placeholder="ORCID iD, e.g. 0000-0002-1825-0097"
-              className="w-full text-sm rounded-lg border border-gray-300 px-3 py-2 pr-9 focus:border-blue-400 focus:ring-1 focus:ring-blue-300 outline-none"
+              className="w-full text-body rounded-lg border border-gray-300 px-3 py-2 pr-9 focus:border-blue-400 focus:ring-1 focus:ring-blue-300 outline-none"
               data-testid="project-deposit-orcid"
             />
             {orcidDraft.trim().length > 0 ? (
@@ -805,7 +805,7 @@ function MetadataStep({
             ) : null}
           </div>
           {issues.orcidInvalid ? (
-            <p className="text-[11px] text-amber-600 mt-1">
+            <p className="text-meta text-amber-600 mt-1">
               This does not match the ORCID checksum. It will still be saved, but
               double-check the digits.
             </p>
@@ -814,7 +814,7 @@ function MetadataStep({
               href={orcidUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:underline mt-1"
+              className="inline-flex items-center gap-1 text-meta text-blue-600 hover:underline mt-1"
             >
               View ORCID record <ExternalLinkIcon />
             </a>
@@ -830,11 +830,11 @@ function MetadataStep({
           onChange={(e) => setAbstract(e.target.value)}
           rows={4}
           placeholder="A short summary of the dataset for the repository record."
-          className="w-full text-sm rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-400 focus:ring-1 focus:ring-blue-300 outline-none resize-y"
+          className="w-full text-body rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-400 focus:ring-1 focus:ring-blue-300 outline-none resize-y"
           data-testid="project-deposit-abstract"
         />
         {issues.abstractMissing ? (
-          <p className="text-[11px] text-gray-400">
+          <p className="text-meta text-gray-400">
             Optional, but a description helps people find and reuse your data.
           </p>
         ) : null}
@@ -851,13 +851,13 @@ function MetadataStep({
               metadata.subjects.map((s) => (
                 <span
                   key={s.subject}
-                  className="text-[11px] bg-white border border-gray-200 rounded px-1.5 py-0.5 text-gray-700"
+                  className="text-meta bg-white border border-gray-200 rounded px-1.5 py-0.5 text-gray-700"
                 >
                   {s.subject}
                 </span>
               ))
             ) : (
-              <span className="text-[11px] text-gray-400 self-center">
+              <span className="text-meta text-gray-400 self-center">
                 No tags on this project.
               </span>
             )}
@@ -869,7 +869,7 @@ function MetadataStep({
             type="date"
             value={publicationDate}
             onChange={(e) => setPublicationDate(e.target.value)}
-            className="w-full text-sm rounded-lg border border-gray-300 px-3 py-[0.4rem] focus:border-blue-400 focus:ring-1 focus:ring-blue-300 outline-none"
+            className="w-full text-body rounded-lg border border-gray-300 px-3 py-[0.4rem] focus:border-blue-400 focus:ring-1 focus:ring-blue-300 outline-none"
           />
         </div>
       </div>
@@ -885,35 +885,35 @@ function MetadataStep({
             {fundingRefs.map((funding, i) => (
               <div
                 key={`${funding.funderName}-${funding.awardNumber ?? ""}-${i}`}
-                className="text-sm text-gray-900 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 space-y-0.5"
+                className="text-body text-gray-900 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 space-y-0.5"
               >
                 <div className="flex items-center gap-2">
                   <span className="font-medium">{funding.funderName}</span>
                   {i === 0 && prefill.primaryFundingAccount ? (
-                    <span className="text-[10px] text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5">
+                    <span className="text-meta text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5">
                       primary
                     </span>
                   ) : (
-                    <span className="text-[10px] text-purple-700 bg-purple-50 border border-purple-200 rounded px-1.5 py-0.5">
+                    <span className="text-meta text-purple-700 bg-purple-50 border border-purple-200 rounded px-1.5 py-0.5">
                       charged
                     </span>
                   )}
                 </div>
                 {funding.awardNumber ? (
-                  <div className="text-xs text-gray-600">
+                  <div className="text-meta text-gray-600">
                     Award {funding.awardNumber}
                     {funding.awardTitle ? ` - ${funding.awardTitle}` : ""}
                   </div>
                 ) : null}
                 {funding.funderIdentifier ? (
-                  <div className="text-[11px] text-gray-400">
+                  <div className="text-meta text-gray-400">
                     {funding.funderIdentifierType ?? "ID"}: {funding.funderIdentifier}
                   </div>
                 ) : null}
               </div>
             ))}
             {derivedFunderCount > 0 ? (
-              <p className="text-[11px] text-gray-400">
+              <p className="text-meta text-gray-400">
                 {derivedFunderCount} additional{" "}
                 {derivedFunderCount === 1 ? "grant" : "grants"} derived from
                 purchases charged in this project.
@@ -921,7 +921,7 @@ function MetadataStep({
             ) : null}
           </div>
         ) : (
-          <div className="text-xs text-gray-400 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+          <div className="text-meta text-gray-400 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
             {hasDerived
               ? "Grants were charged in this project but carry no funder name or award number yet. Add award metadata in Purchases & Funding to prefill funding."
               : "No grant is linked to this project and nothing was charged. Add a grant in the project settings to prefill funding, or leave it out."}
@@ -948,7 +948,7 @@ function MetadataStep({
         <select
           value={licenseChoice}
           onChange={(e) => setLicenseChoice(e.target.value)}
-          className="w-full text-sm rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-400 focus:ring-1 focus:ring-blue-300 outline-none bg-white"
+          className="w-full text-body rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-400 focus:ring-1 focus:ring-blue-300 outline-none bg-white"
           data-testid="project-deposit-license"
         >
           <option value="" disabled>
@@ -970,17 +970,17 @@ function MetadataStep({
             value={licenseCustom}
             onChange={(e) => setLicenseCustom(e.target.value)}
             placeholder="License name or SPDX id, e.g. ODbL-1.0"
-            className="w-full text-sm rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-400 focus:ring-1 focus:ring-blue-300 outline-none"
+            className="w-full text-body rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-400 focus:ring-1 focus:ring-blue-300 outline-none"
             data-testid="project-deposit-license-custom"
           />
         ) : null}
         {selectedLicense ? (
-          <p className="text-[11px] text-gray-500 leading-relaxed">
+          <p className="text-meta text-gray-500 leading-relaxed">
             {selectedLicense.explainer}
           </p>
         ) : null}
         {issues.licenseMissing ? (
-          <p className="text-[11px] text-amber-600">
+          <p className="text-meta text-amber-600">
             A license is required before you can hand off. NIH expects shared
             data to carry one. CC BY 4.0 or CC0 are safe defaults.
           </p>
@@ -1003,7 +1003,7 @@ function HandoffPickStep({
 }) {
   return (
     <div className="space-y-3">
-      <p className="text-xs text-gray-500 leading-relaxed">
+      <p className="text-meta text-gray-500 leading-relaxed">
         Pick where this dataset will live. ResearchOS builds a ready-to-upload
         bundle and the metadata file. The repository mints the DOI; ResearchOS
         does not.
@@ -1027,19 +1027,19 @@ function HandoffPickStep({
             />
             <span className="min-w-0">
               <span className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-900">
+                <span className="text-body font-medium text-gray-900">
                   {r.name}
                 </span>
                 {r.oneClickComingSoon ? (
-                  <span className="text-[10px] font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded px-1.5 py-0.5">
+                  <span className="text-meta font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded px-1.5 py-0.5">
                     one-click publishing coming soon
                   </span>
                 ) : null}
               </span>
-              <span className="block text-xs text-gray-500 mt-0.5">
+              <span className="block text-meta text-gray-500 mt-0.5">
                 {r.blurb}
               </span>
-              <span className="block text-[11px] text-gray-400 mt-1">
+              <span className="block text-meta text-gray-400 mt-1">
                 {r.guidedNote}
               </span>
             </span>
@@ -1068,13 +1068,13 @@ function HandoffDownloadStep({
   const repo = findRepository(repoId);
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 text-sm text-green-800 flex items-start gap-2">
+      <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 text-body text-green-800 flex items-start gap-2">
         <span className="text-green-600 mt-0.5">
           <CheckIcon />
         </span>
         <div>
           <div className="font-medium">Bundle downloaded</div>
-          <div className="text-xs mt-0.5">
+          <div className="text-meta mt-0.5">
             <span className="font-mono">{built.filename}</span> is in your
             downloads. It contains each selected item exported individually, the
             combined PDF, the raw re-importable bundles, and{" "}
@@ -1083,7 +1083,7 @@ function HandoffDownloadStep({
         </div>
       </div>
 
-      <ol className="space-y-2 text-sm text-gray-700">
+      <ol className="space-y-2 text-body text-gray-700">
         <li className="flex gap-2">
           <span className="font-medium text-gray-400">1.</span>
           <span>
@@ -1110,13 +1110,13 @@ function HandoffDownloadStep({
 
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <span className="text-xs font-medium text-gray-700">
+          <span className="text-meta font-medium text-gray-700">
             Prefilled metadata (datacite.json)
           </span>
           <button
             type="button"
             onClick={onCopy}
-            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-gray-200 text-gray-600 hover:border-gray-300"
+            className="inline-flex items-center gap-1.5 text-meta px-2.5 py-1 rounded-md border border-gray-200 text-gray-600 hover:border-gray-300"
           >
             {copied ? (
               <>
@@ -1131,7 +1131,7 @@ function HandoffDownloadStep({
           </button>
         </div>
         <pre
-          className="text-[11px] bg-gray-900 text-gray-100 rounded-lg p-3 overflow-auto max-h-52 leading-relaxed"
+          className="text-meta bg-gray-900 text-gray-100 rounded-lg p-3 overflow-auto max-h-52 leading-relaxed"
           data-testid="project-deposit-metadata-json"
         >
           {built.metadataJson}

@@ -488,7 +488,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             Cannot Create Task
           </h3>
-          <p className="text-sm text-gray-600 mb-4">
+          <p className="text-body text-gray-600 mb-4">
             You need an active project first. Create one or unarchive an existing project, then add tasks.
           </p>
           <div className="flex justify-end">
@@ -497,7 +497,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
                 setIsCreatingTask(false);
                 resetForm();
               }}
-              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors"
+              className="px-4 py-2 text-body text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors"
             >
               Close
             </button>
@@ -525,12 +525,12 @@ export default function TaskModal({ projects }: TaskModalProps) {
             <h3 className="text-lg font-semibold text-red-600 mb-4">
               Duplicate Task Name Detected
             </h3>
-            <p className="text-sm text-gray-600 mb-3">
+            <p className="text-body text-gray-600 mb-3">
               A task with the same name already exists in this project with the same task type:
             </p>
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
               {duplicateWarning.matching_tasks.map((task) => (
-                <div key={task.id} className="text-sm text-red-700 mb-2">
+                <div key={task.id} className="text-body text-red-700 mb-2">
                   <strong>{task.name}</strong>
                   <span className="text-red-500 ml-2">
                     (Started: {task.start_date}, {task.is_complete ? "Completed" : "In Progress"})
@@ -538,7 +538,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
                 </div>
               ))}
             </div>
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-body text-gray-600 mb-4">
               Rename it, or create it anyway?
             </p>
             <div className="flex gap-3 justify-end">
@@ -547,7 +547,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
                   setDuplicateWarning(null);
                   // Focus back on the name input
                 }}
-                className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
               >
                 Change Name
               </button>
@@ -556,7 +556,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
                   setDuplicateWarning(null);
                   createTask();
                 }}
-                className="px-4 py-2 text-sm text-red-600 border border-red-300 hover:bg-red-50 rounded-lg transition-colors"
+                className="px-4 py-2 text-body text-red-600 border border-red-300 hover:bg-red-50 rounded-lg transition-colors"
               >
                 Create Anyway
               </button>
@@ -565,7 +565,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
                   setIsCreatingTask(false);
                   resetForm();
                 }}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors"
+                className="px-4 py-2 text-body text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors"
               >
                 Cancel
               </button>
@@ -592,14 +592,14 @@ export default function TaskModal({ projects }: TaskModalProps) {
           {/* Task Type Toggle - only show if not restricted */}
           {!restrictedTaskType && (
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-2">
+              <label className="block text-meta font-medium text-gray-500 mb-2">
                 Task Type
               </label>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => setTaskType("list")}
-                  className={`flex-1 px-3 py-2.5 text-sm rounded-lg border transition-colors ${
+                  className={`flex-1 px-3 py-2.5 text-body rounded-lg border transition-colors ${
                     taskType === "list"
                       ? "bg-blue-50 border-blue-300 text-blue-700 font-medium"
                       : "border-gray-200 text-gray-500 hover:bg-gray-50"
@@ -610,7 +610,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
                 <button
                   type="button"
                   onClick={() => setTaskType("experiment")}
-                  className={`flex-1 px-3 py-2.5 text-sm rounded-lg border transition-colors ${
+                  className={`flex-1 px-3 py-2.5 text-body rounded-lg border transition-colors ${
                     taskType === "experiment"
                       ? "bg-purple-50 border-purple-300 text-purple-700 font-medium"
                       : "border-gray-200 text-gray-500 hover:bg-gray-50"
@@ -621,7 +621,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
                 <button
                   type="button"
                   onClick={() => setTaskType("purchase")}
-                  className={`flex-1 px-3 py-2.5 text-sm rounded-lg border transition-colors ${
+                  className={`flex-1 px-3 py-2.5 text-body rounded-lg border transition-colors ${
                     taskType === "purchase"
                       ? "bg-amber-50 border-amber-300 text-amber-700 font-medium"
                       : "border-gray-200 text-gray-500 hover:bg-gray-50"
@@ -635,13 +635,13 @@ export default function TaskModal({ projects }: TaskModalProps) {
 
           {/* Project */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
+            <label className="block text-meta font-medium text-gray-500 mb-1">
               Project
             </label>
             <select
               value={projectId}
               onChange={(e) => setProjectId(Number(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               data-tour-target="workbench-experiment-project-select"
             >
               {activeProjects.map((p) => (
@@ -651,12 +651,12 @@ export default function TaskModal({ projects }: TaskModalProps) {
               ))}
             </select>
             {projectId === 0 && (
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-meta text-gray-400 mt-1">
                 Standalone tasks are for daily lists, quick notes, or anything not tied to a research project.
               </p>
             )}
             {hasSharedProjects && (
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-meta text-gray-400 mt-1">
                 Shared projects aren&apos;t listed here. Open the project&apos;s page to add a task to it.
               </p>
             )}
@@ -664,7 +664,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
 
           {/* Name */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
+            <label className="block text-meta font-medium text-gray-500 mb-1">
               Task Name
             </label>
             <input
@@ -676,7 +676,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
                   ? "e.g. Western Blot - Sample A"
                   : "e.g. Write literature review"
               }
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               autoFocus
               data-tour-target="workbench-experiment-name-input"
             />
@@ -685,7 +685,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
           {/* Sub-tasks for List type */}
           {taskType === "list" && (
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-2">
+              <label className="block text-meta font-medium text-gray-500 mb-2">
                 List Items
               </label>
               <div className="bg-gray-50 rounded-lg p-3 space-y-2">
@@ -700,12 +700,12 @@ export default function TaskModal({ projects }: TaskModalProps) {
                         <div className="w-5 h-5 rounded border-2 border-gray-300 flex items-center justify-center flex-shrink-0">
                           {/* Empty checkbox - just visual */}
                         </div>
-                        <span className="flex-1 text-sm text-gray-700">{st.text}</span>
+                        <span className="flex-1 text-body text-gray-700">{st.text}</span>
                         <Tooltip label="Remove item" placement="left">
                           <button
                             type="button"
                             onClick={() => handleDeleteSubTask(st.id)}
-                            className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 text-xs transition-opacity"
+                            className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 text-meta transition-opacity"
                             data-force-hover-controls-target
                           >
                             ✕
@@ -724,14 +724,14 @@ export default function TaskModal({ projects }: TaskModalProps) {
                     onChange={(e) => setNewSubTaskText(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddSubTask())}
                     placeholder="Add a list item..."
-                    className="flex-1 px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                    className="flex-1 px-3 py-1.5 text-body border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
                     data-tour-target="workbench-list-modal-item-input"
                   />
                   <button
                     type="button"
                     onClick={handleAddSubTask}
                     disabled={!newSubTaskText.trim()}
-                    className="px-3 py-1.5 text-sm bg-gradient-to-r from-orange-500 to-yellow-400 text-white rounded-lg hover:from-orange-600 hover:to-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 text-body bg-gradient-to-r from-orange-500 to-yellow-400 text-white rounded-lg hover:from-orange-600 hover:to-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     data-tour-target="workbench-list-modal-item-add"
                   >
                     Add
@@ -739,7 +739,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
                 </div>
                 
                 {subTasks.length === 0 && (
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="text-meta text-gray-400 mt-1">
                     Add items now or after creating the task.
                   </p>
                 )}
@@ -757,14 +757,14 @@ export default function TaskModal({ projects }: TaskModalProps) {
               snap back to date mode (handled by the effect below). */}
           {taskType === "experiment" ? (
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-2">
+              <label className="block text-meta font-medium text-gray-500 mb-2">
                 Scheduling
               </label>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => setSchedulingMode("date")}
-                  className={`flex-1 px-4 py-2.5 text-sm rounded-lg border transition-colors ${
+                  className={`flex-1 px-4 py-2.5 text-body rounded-lg border transition-colors ${
                     schedulingMode === "date"
                       ? "bg-purple-50 border-purple-300 text-purple-700 font-medium"
                       : "border-gray-200 text-gray-500 hover:bg-gray-50"
@@ -775,7 +775,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
                 <button
                   type="button"
                   onClick={() => setSchedulingMode("dependency")}
-                  className={`flex-1 px-4 py-2.5 text-sm rounded-lg border transition-colors ${
+                  className={`flex-1 px-4 py-2.5 text-body rounded-lg border transition-colors ${
                     schedulingMode === "dependency"
                       ? "bg-orange-50 border-orange-300 text-orange-700 font-medium"
                       : "border-gray-200 text-gray-500 hover:bg-gray-50"
@@ -791,18 +791,18 @@ export default function TaskModal({ projects }: TaskModalProps) {
           {schedulingMode === "date" && (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">
+                <label className="block text-meta font-medium text-gray-500 mb-1">
                   Start Date
                 </label>
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">
+                <label className="block text-meta font-medium text-gray-500 mb-1">
                   Duration (days)
                 </label>
                 <input
@@ -810,7 +810,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
                   min={1}
                   value={durationDays}
                   onChange={(e) => setDurationDays(Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
@@ -820,23 +820,23 @@ export default function TaskModal({ projects }: TaskModalProps) {
           {schedulingMode === "dependency" && (
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">
+                <label className="block text-meta font-medium text-gray-500 mb-1">
                   Depends on Task
                 </label>
                 {selectedParentTask ? (
-                  <div className="flex items-center justify-between gap-2 px-3 py-2 border border-gray-200 rounded-lg bg-white text-sm">
+                  <div className="flex items-center justify-between gap-2 px-3 py-2 border border-gray-200 rounded-lg bg-white text-body">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="font-medium text-gray-900 truncate">
                         {selectedParentTask.name}
                       </span>
-                      <span className="text-xs text-gray-400 shrink-0">
+                      <span className="text-meta text-gray-400 shrink-0">
                         {selectedParentTask.start_date} → {selectedParentTask.end_date}
                       </span>
                     </div>
                     <button
                       type="button"
                       onClick={() => setShowParentPicker(true)}
-                      className="text-xs text-gray-500 hover:text-gray-700 shrink-0"
+                      className="text-meta text-gray-500 hover:text-gray-700 shrink-0"
                     >
                       Change
                     </button>
@@ -846,7 +846,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
                     type="button"
                     onClick={() => setShowParentPicker(true)}
                     disabled={availableParentTasks.length === 0}
-                    className="w-full text-left px-3 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-blue-400 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full text-left px-3 py-2 border border-dashed border-gray-300 rounded-lg text-body text-gray-500 hover:border-blue-400 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {availableParentTasks.length === 0
                       ? "No eligible experiments to depend on"
@@ -868,13 +868,13 @@ export default function TaskModal({ projects }: TaskModalProps) {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">
+                <label className="block text-meta font-medium text-gray-500 mb-1">
                   Dependency Type
                 </label>
                 <select
                   value={depType}
                   onChange={(e) => setDepType(e.target.value as "FS" | "SS" | "SF")}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="FS">Start after (after parent ends)</option>
                   <option value="SS">Start at same time (as parent)</option>
@@ -883,7 +883,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">
+                <label className="block text-meta font-medium text-gray-500 mb-1">
                   Duration (days)
                 </label>
                 <input
@@ -891,17 +891,17 @@ export default function TaskModal({ projects }: TaskModalProps) {
                   min={1}
                   value={durationDays}
                   onChange={(e) => setDurationDays(Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               {/* Show calculated start date */}
               {selectedParentTask && (
                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                  <p className="text-xs text-orange-700">
+                  <p className="text-meta text-orange-700">
                     <strong>Calculated Start Date:</strong> {suggestedStartDate}
                   </p>
-                  <p className="text-xs text-orange-600 mt-1">
+                  <p className="text-meta text-orange-600 mt-1">
                     {depType === "FS" && `Starts the day after "${selectedParentTask.name}" ends (${selectedParentTask.end_date})`}
                     {depType === "SS" && `Starts at the same time as "${selectedParentTask.name}" (${selectedParentTask.start_date})`}
                     {depType === "SF" && `Starts ${durationDays} day(s) before "${selectedParentTask.name}" begins`}
@@ -914,7 +914,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
           {/* Method selection (experiment only) */}
           {taskType === "experiment" && (
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
+              <label className="block text-meta font-medium text-gray-500 mb-1">
                 Linked Method
               </label>
               {(() => {
@@ -929,7 +929,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
                     ) ?? null
                   : null;
                 return selectedMethod ? (
-                  <div className="flex items-center justify-between gap-2 px-3 py-2 border border-gray-200 rounded-lg bg-white text-sm">
+                  <div className="flex items-center justify-between gap-2 px-3 py-2 border border-gray-200 rounded-lg bg-white text-body">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="font-medium text-gray-900 truncate">
                         {selectedMethod.name}
@@ -937,7 +937,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
                       {selectedMethod.method_type && selectedMethod.method_type !== "markdown" && (() => {
                         const meta = getMethodTypeMeta(selectedMethod.method_type);
                         return (
-                          <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${meta.color.bg} ${meta.color.text}`}>
+                          <span className={`text-meta px-1.5 py-0.5 rounded shrink-0 ${meta.color.bg} ${meta.color.text}`}>
                             {meta.shortLabel}
                           </span>
                         );
@@ -947,7 +947,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
                       <button
                         type="button"
                         onClick={() => setShowMethodPicker(true)}
-                        className="text-xs text-gray-500 hover:text-gray-700"
+                        className="text-meta text-gray-500 hover:text-gray-700"
                       >
                         Change
                       </button>
@@ -957,7 +957,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
                           setMethodId(null);
                           setMethodOwner(null);
                         }}
-                        className="text-xs text-gray-400 hover:text-gray-600"
+                        className="text-meta text-gray-400 hover:text-gray-600"
                       >
                         Clear
                       </button>
@@ -967,13 +967,13 @@ export default function TaskModal({ projects }: TaskModalProps) {
                   <button
                     type="button"
                     onClick={() => setShowMethodPicker(true)}
-                    className="w-full text-left px-3 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-blue-400 hover:text-gray-700"
+                    className="w-full text-left px-3 py-2 border border-dashed border-gray-300 rounded-lg text-body text-gray-500 hover:border-blue-400 hover:text-gray-700"
                   >
                     + Link a method (optional)
                   </button>
                 );
               })()}
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-meta text-gray-400 mt-1">
                 Link a protocol from the Methods library. Edits can be saved as
                 notes or forked into a new method.
               </p>
@@ -994,7 +994,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
           {/* Experiment info box */}
           {taskType === "experiment" && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-              <p className="text-xs text-green-700">
+              <p className="text-meta text-green-700">
                 <strong>Experiment tasks</strong> include lab notes (Markdown
                 with images), results tracking, and method deviations. Add notes
                 and results after creating the task.
@@ -1005,7 +1005,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
           {/* Purchase info box */}
           {taskType === "purchase" && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-              <p className="text-xs text-amber-700">
+              <p className="text-meta text-amber-700">
                 <strong>Purchase tasks</strong> track items to buy. Open the
                 task to add quantities, prices, and links. Past purchases are
                 suggested as you type.
@@ -1021,7 +1021,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
               setIsCreatingTask(false);
               resetForm();
             }}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors"
+            className="px-4 py-2 text-body text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors"
           >
             Cancel
           </button>
@@ -1033,7 +1033,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
             // standalone is an intended outcome. Only the name is required.
             disabled={isCheckingDuplicate || !name.trim()}
             data-tour-target="workbench-experiment-submit"
-            className={`px-4 py-2 text-sm text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+            className={`px-4 py-2 text-body text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
               taskType === "experiment"
                 ? "bg-green-600 hover:bg-green-700"
                 : taskType === "purchase"

@@ -218,7 +218,7 @@ export default function TaskPicker({
         onClick={(e) => e.stopPropagation()}
       >
         {title && (
-          <div className="px-4 pt-3 pb-1 text-xs uppercase tracking-wide font-semibold text-gray-500">
+          <div className="px-4 pt-3 pb-1 text-meta uppercase tracking-wide font-semibold text-gray-500">
             {title}
           </div>
         )}
@@ -242,11 +242,11 @@ export default function TaskPicker({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={placeholder}
-            className="flex-1 text-sm outline-none placeholder-gray-400"
+            className="flex-1 text-body outline-none placeholder-gray-400"
           />
           <button
             onClick={onClose}
-            className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 border border-gray-200 rounded"
+            className="text-meta text-gray-400 hover:text-gray-600 px-2 py-1 border border-gray-200 rounded"
             aria-label="Close picker"
           >
             Esc
@@ -255,11 +255,11 @@ export default function TaskPicker({
 
         <div ref={listRef} className="flex-1 overflow-y-auto">
           {availableTasks.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-gray-400">
+            <div className="px-4 py-8 text-center text-body text-gray-400">
               No eligible experiments available.
             </div>
           ) : flatRows.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-gray-400">
+            <div className="px-4 py-8 text-center text-body text-gray-400">
               No experiments match &ldquo;{query}&rdquo;. Try a different search
               or clear the input.
             </div>
@@ -269,7 +269,7 @@ export default function TaskPicker({
                 return (
                   <div
                     key={`h:${row.sectionKey}`}
-                    className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur px-4 py-1.5 text-[11px] uppercase tracking-wide font-semibold text-gray-500 border-b border-gray-100"
+                    className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur px-4 py-1.5 text-meta uppercase tracking-wide font-semibold text-gray-500 border-b border-gray-100"
                   >
                     {row.label}
                     <span className="ml-2 text-gray-400 normal-case tracking-normal font-normal">
@@ -296,17 +296,17 @@ export default function TaskPicker({
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <span
-                        className={`text-sm font-medium truncate ${
+                        className={`text-body font-medium truncate ${
                           t.is_complete ? "text-gray-400 line-through" : "text-gray-900"
                         }`}
                       >
                         {t.name}
                       </span>
                       {t.is_complete && (
-                        <span className="text-xs text-green-600 shrink-0">✓</span>
+                        <span className="text-meta text-green-600 shrink-0">✓</span>
                       )}
                     </div>
-                    <span className="text-xs text-gray-400 shrink-0 whitespace-nowrap">
+                    <span className="text-meta text-gray-400 shrink-0 whitespace-nowrap">
                       {formatDate(t.start_date)} → {formatDate(t.end_date)}
                     </span>
                   </div>
@@ -315,7 +315,7 @@ export default function TaskPicker({
                       {t.tags.map((tag) => (
                         <span
                           key={tag}
-                          className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded"
+                          className="text-meta px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded"
                         >
                           #{tag}
                         </span>
@@ -328,7 +328,7 @@ export default function TaskPicker({
           )}
         </div>
 
-        <div className="flex items-center gap-4 px-4 py-2 border-t border-gray-100 text-[11px] text-gray-400 bg-gray-50">
+        <div className="flex items-center gap-4 px-4 py-2 border-t border-gray-100 text-meta text-gray-400 bg-gray-50">
           <span>
             <kbd className="px-1 py-0.5 bg-white border border-gray-200 rounded text-gray-600">
               ↑

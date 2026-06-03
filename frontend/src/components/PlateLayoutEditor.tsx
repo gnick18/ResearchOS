@@ -407,10 +407,10 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
   // Cell + header sizing scales down for the 16x24 (384-well) grid so it stays
   // usable; 12/24/48/96 keep their original sizing untouched.
   const wellSizeClass = !dense
-    ? "w-8 h-8 text-[10px]"
+    ? "w-8 h-8 text-meta"
     : compact
       ? "w-4 h-4"
-      : "w-6 h-6 text-[8px]";
+      : "w-6 h-6 text-meta";
   const colHeaderClass = !dense ? "w-8" : compact ? "w-4" : "w-6";
   const rowHeaderClass = !dense ? "w-6" : compact ? "w-4" : "w-6";
   const showWellLabels = !compact;
@@ -426,9 +426,9 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
       {/* Top controls — plate size + clear */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
-          <label className="text-xs font-medium text-gray-500">Plate size</label>
+          <label className="text-meta font-medium text-gray-500">Plate size</label>
           {lockPlateSize || !onPlateSizeChange ? (
-            <span className="text-sm font-semibold text-gray-700">{plateSize}-well</span>
+            <span className="text-body font-semibold text-gray-700">{plateSize}-well</span>
           ) : (
             <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
               {PLATE_SIZE_OPTIONS.map((s) => (
@@ -436,7 +436,7 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
                   key={s}
                   type="button"
                   onClick={() => onPlateSizeChange(s)}
-                  className={`px-3 py-1.5 text-xs ${
+                  className={`px-3 py-1.5 text-meta ${
                     s === plateSize
                       ? "bg-emerald-100 text-emerald-700 font-medium"
                       : "bg-white text-gray-600 hover:bg-gray-50"
@@ -454,7 +454,7 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
               <button
                 type="button"
                 onClick={() => setCompact((v) => !v)}
-                className="px-2 py-1 text-xs rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
+                className="px-2 py-1 text-meta rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
               >
                 {compact ? "Comfortable cells" : "Compact cells"}
               </button>
@@ -462,7 +462,7 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
             <button
               type="button"
               onClick={() => setShowRowLabels((v) => !v)}
-              className={`px-2 py-1 text-xs rounded border ${
+              className={`px-2 py-1 text-meta rounded border ${
                 showRowLabels
                   ? "border-emerald-300 bg-emerald-50 text-emerald-700"
                   : "border-gray-200 text-gray-600 hover:bg-gray-50"
@@ -472,7 +472,7 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
             </button>
             <button
               onClick={handleClearAll}
-              className="px-2 py-1 text-xs text-red-500 hover:bg-red-50 rounded"
+              className="px-2 py-1 text-meta text-red-500 hover:bg-red-50 rounded"
             >
               Clear all wells
             </button>
@@ -483,7 +483,7 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
       {/* Brush palette */}
       {editable && (
         <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
-          <p className="text-xs font-medium text-gray-500 mb-2">
+          <p className="text-meta font-medium text-gray-500 mb-2">
             Pick a brush, then click (or drag) wells to paint them. Hold Shift to erase.
           </p>
           <div className="flex flex-wrap gap-2 items-center">
@@ -492,7 +492,7 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
                 key={role}
                 type="button"
                 onClick={() => setBrush(role)}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs ${
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-meta ${
                   brush === role
                     ? `${ROLE_BG[role]} ring-2 ${ROLE_RING[role]} font-medium`
                     : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
@@ -506,37 +506,37 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
           {/* Inputs for sample / custom brushes */}
           <div className="mt-2 flex flex-wrap gap-3 items-center">
             {brush === "sample" && (
-              <label className="flex items-center gap-1 text-xs text-gray-600">
+              <label className="flex items-center gap-1 text-meta text-gray-600">
                 Sample identifier
                 <input
                   type="text"
                   value={sampleInput}
                   onChange={(e) => setSampleInput(e.target.value)}
                   placeholder="e.g. Sample 5 @ 10 µM"
-                  className="px-2 py-1 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 w-56"
+                  className="px-2 py-1 border border-gray-200 rounded text-meta focus:outline-none focus:ring-1 focus:ring-emerald-500 w-56"
                 />
               </label>
             )}
             {brush === "custom" && (
-              <label className="flex items-center gap-1 text-xs text-gray-600">
+              <label className="flex items-center gap-1 text-meta text-gray-600">
                 Custom label
                 <input
                   type="text"
                   value={customInput}
                   onChange={(e) => setCustomInput(e.target.value)}
                   placeholder="e.g. Strain ΔADE2"
-                  className="px-2 py-1 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-fuchsia-500 w-56"
+                  className="px-2 py-1 border border-gray-200 rounded text-meta focus:outline-none focus:ring-1 focus:ring-fuchsia-500 w-56"
                 />
               </label>
             )}
-            <label className="flex items-center gap-1 text-xs text-gray-600">
+            <label className="flex items-center gap-1 text-meta text-gray-600">
               Replicate #
               <input
                 type="text"
                 value={replicateInput}
                 onChange={(e) => setReplicateInput(e.target.value)}
                 placeholder="optional"
-                className="px-2 py-1 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 w-20"
+                className="px-2 py-1 border border-gray-200 rounded text-meta focus:outline-none focus:ring-1 focus:ring-emerald-500 w-20"
               />
             </label>
           </div>
@@ -551,7 +551,7 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
               <th className="p-0.5 w-7"></th>
               {editable && showRowLabels && (
                 <th className="p-0.5 text-left">
-                  <span className="text-[10px] font-medium text-gray-500 pl-1">
+                  <span className="text-meta font-medium text-gray-500 pl-1">
                     Row sample id
                   </span>
                 </th>
@@ -562,13 +562,13 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
                     <Tooltip label={`Fill column ${c + 1}`} placement="top">
                       <button
                         onClick={() => fillColumn(c)}
-                        className={`${colHeaderClass} ${dense ? "text-[8px]" : "text-[10px]"} font-medium text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded px-0.5 py-0.5`}
+                        className={`${colHeaderClass} ${dense ? "text-meta" : "text-meta"} font-medium text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded px-0.5 py-0.5`}
                       >
                         {c + 1}
                       </button>
                     </Tooltip>
                   ) : (
-                    <span className="text-[10px] font-medium text-gray-500">{c + 1}</span>
+                    <span className="text-meta font-medium text-gray-500">{c + 1}</span>
                   )}
                 </th>
               ))}
@@ -582,13 +582,13 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
                     <Tooltip label={`Fill row ${rowLabel(r)} with the current brush`} placement="right">
                       <button
                         onClick={() => fillRow(r)}
-                        className={`${rowHeaderClass} text-[10px] font-medium text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded px-0.5 py-0.5`}
+                        className={`${rowHeaderClass} text-meta font-medium text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded px-0.5 py-0.5`}
                       >
                         {rowLabel(r)}
                       </button>
                     </Tooltip>
                   ) : (
-                    <span className="text-[10px] font-medium text-gray-500">{rowLabel(r)}</span>
+                    <span className="text-meta font-medium text-gray-500">{rowLabel(r)}</span>
                   )}
                 </th>
                 {editable && showRowLabels && (
@@ -608,7 +608,7 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
                         }}
                         placeholder={`Row ${rowLabel(r)}`}
                         aria-label={`Sample id for row ${rowLabel(r)}`}
-                        className="w-28 px-1.5 py-0.5 border border-gray-200 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        className="w-28 px-1.5 py-0.5 border border-gray-200 rounded text-meta focus:outline-none focus:ring-1 focus:ring-emerald-500"
                       />
                       <Tooltip label={`Label all of row ${rowLabel(r)} as this sample`} placement="right">
                         <button
@@ -674,7 +674,7 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
       {/* Description */}
       {(onDescriptionChange || (description && description.trim())) && (
         <div>
-          <h4 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">
+          <h4 className="text-meta font-semibold text-gray-500 mb-2 uppercase tracking-wide">
             Description
           </h4>
           {editable && onDescriptionChange ? (
@@ -683,14 +683,14 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
               onChange={(e) => onDescriptionChange(e.target.value || null)}
               rows={2}
               placeholder="Optional notes about the plate (assay type, expected readout, references)…"
-              className={`w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+              className={`w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
                 originalDescription !== undefined && (description ?? "") !== (originalDescription ?? "")
                   ? MODIFIED_CELL_CLASSES
                   : ""
               }`}
             />
           ) : (
-            <p className="text-sm text-gray-600 whitespace-pre-wrap">{description}</p>
+            <p className="text-body text-gray-600 whitespace-pre-wrap">{description}</p>
           )}
         </div>
       )}
@@ -719,13 +719,13 @@ function PlateAnnotationSummary({
   const total = Object.values(counts).reduce((s, n) => s + n, 0);
   if (total === 0 && !originalWells) {
     return (
-      <p className="text-xs text-gray-400">
+      <p className="text-meta text-gray-400">
         No wells annotated yet. Pick a brush above and click any well to start.
       </p>
     );
   }
   return (
-    <div className="flex flex-wrap gap-3 text-xs text-gray-600">
+    <div className="flex flex-wrap gap-3 text-meta text-gray-600">
       {(Object.keys(ROLE_LABELS) as PlateWellRole[]).map((role) => (
         <span key={role} className="inline-flex items-center gap-1">
           <span className={`inline-block w-2.5 h-2.5 rounded-full ${ROLE_BG[role]}`} />

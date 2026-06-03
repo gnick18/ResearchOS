@@ -410,7 +410,7 @@ export default function NotesPanel({
         onClick={() => setActiveNotebookId(null)}
         aria-pressed={activeNotebook === null}
         data-testid="notebook-switch-personal"
-        className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+        className={`px-3 py-1.5 text-body rounded-lg transition-colors ${
           activeNotebook === null
             ? "bg-emerald-100 text-emerald-700"
             : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -430,7 +430,7 @@ export default function NotesPanel({
             onClick={() => setActiveNotebookId(nb.id)}
             aria-pressed={isActive}
             data-testid={`notebook-switch-${nb.id}`}
-            className={`px-3 py-1.5 text-sm rounded-lg transition-colors max-w-[220px] truncate ${
+            className={`px-3 py-1.5 text-body rounded-lg transition-colors max-w-[220px] truncate ${
               isActive
                 ? "bg-sky-100 text-sky-700"
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -444,7 +444,7 @@ export default function NotesPanel({
         type="button"
         onClick={() => setShowStartDialog(true)}
         data-testid="notebook-start-button"
-        className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-dashed border-gray-300 text-gray-600 hover:border-sky-400 hover:text-sky-600 transition-colors"
+        className="flex items-center gap-1.5 px-3 py-1.5 text-body rounded-lg border border-dashed border-gray-300 text-gray-600 hover:border-sky-400 hover:text-sky-600 transition-colors"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -570,8 +570,8 @@ export default function NotesPanel({
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
-                <span className="text-sm font-semibold text-gray-700">{group.label}</span>
-                <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                <span className="text-body font-semibold text-gray-700">{group.label}</span>
+                <span className="text-meta text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
                   {group.notes.length}
                 </span>
               </button>
@@ -623,7 +623,7 @@ export default function NotesPanel({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search notes..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 text-sm"
+            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 text-body"
           />
         </div>
 
@@ -634,7 +634,7 @@ export default function NotesPanel({
           <div className="flex items-center gap-2">
           <button
             onClick={() => setFilterType("all")}
-            className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+            className={`px-3 py-1.5 text-body rounded-lg transition-colors ${
               filterType === "all"
                 ? "bg-emerald-100 text-emerald-700"
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -644,7 +644,7 @@ export default function NotesPanel({
           </button>
           <button
             onClick={() => setFilterType("single")}
-            className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+            className={`px-3 py-1.5 text-body rounded-lg transition-colors ${
               filterType === "single"
                 ? "bg-blue-100 text-blue-700"
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -654,7 +654,7 @@ export default function NotesPanel({
           </button>
           <button
             onClick={() => setFilterType("running")}
-            className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+            className={`px-3 py-1.5 text-body rounded-lg transition-colors ${
               filterType === "running"
                 ? "bg-purple-100 text-purple-700"
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -669,7 +669,7 @@ export default function NotesPanel({
             onClick={() => setSharedOnly((v) => !v)}
             aria-pressed={sharedOnly}
             data-testid="notes-filter-shared"
-            className={`flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg transition-colors ${
+            className={`flex items-center gap-1 px-3 py-1.5 text-body rounded-lg transition-colors ${
               sharedOnly
                 ? "bg-emerald-100 text-emerald-700"
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -692,7 +692,7 @@ export default function NotesPanel({
             value={sortKey}
             onChange={(e) => setSortKey(e.target.value as SortKey)}
             data-testid="notes-sort"
-            className="px-2 py-1.5 text-sm rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 border-none focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer"
+            className="px-2 py-1.5 text-body rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 border-none focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer"
           >
             <option value="updated">Recently updated</option>
             <option value="created">Recently created</option>
@@ -706,7 +706,7 @@ export default function NotesPanel({
             value={groupBy}
             onChange={(e) => setGroupBy(e.target.value as GroupBy)}
             data-testid="notes-group"
-            className="px-2 py-1.5 text-sm rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 border-none focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer"
+            className="px-2 py-1.5 text-body rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 border-none focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer"
           >
             <option value="none">No grouping</option>
             <option value="month">By month</option>
@@ -766,7 +766,7 @@ export default function NotesPanel({
             <button
               onClick={() => setShowNewNoteDropdown(!showNewNoteDropdown)}
               data-tour-target="workbench-new-note-button"
-              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center gap-2 text-sm"
+              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center gap-2 text-body"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -778,7 +778,7 @@ export default function NotesPanel({
               <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 min-w-[180px]">
                 <button
                   onClick={() => handleCreateNote(false)}
-                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                  className="w-full px-4 py-2 text-left text-body text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                 >
                   <div className="w-6 h-6 rounded bg-blue-100 flex items-center justify-center">
                     <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -787,12 +787,12 @@ export default function NotesPanel({
                   </div>
                   <div>
                     <p className="font-medium">Single Note</p>
-                    <p className="text-xs text-gray-400">One-time meeting notes</p>
+                    <p className="text-meta text-gray-400">One-time meeting notes</p>
                   </div>
                 </button>
                 <button
                   onClick={() => handleCreateNote(true)}
-                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                  className="w-full px-4 py-2 text-left text-body text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                 >
                   <div className="w-6 h-6 rounded bg-purple-100 flex items-center justify-center">
                     <svg className="w-3 h-3 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -801,7 +801,7 @@ export default function NotesPanel({
                   </div>
                   <div>
                     <p className="font-medium">Running Log</p>
-                    <p className="text-xs text-gray-400">Multiple timestamped entries</p>
+                    <p className="text-meta text-gray-400">Multiple timestamped entries</p>
                   </div>
                 </button>
               </div>
@@ -829,7 +829,7 @@ export default function NotesPanel({
                 : "No notes yet"}
             </p>
             {!isLabMode && !searchQuery && filterType === "all" && !sharedOnly && (
-              <p className="text-sm text-gray-400 mb-4">
+              <p className="text-body text-gray-400 mb-4">
                 Add a note to see it here
               </p>
             )}
@@ -848,7 +848,7 @@ export default function NotesPanel({
                 type="button"
                 onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
                 data-testid="notes-show-more"
-                className="px-4 py-2 text-sm rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                className="px-4 py-2 text-body rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
               >
                 Show more ({totalNotes - visibleCount} more)
               </button>

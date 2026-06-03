@@ -880,7 +880,7 @@ export default function TaskDetailPopup({
                   </svg>
                 </span>
               )}
-              <h3 className={`text-base font-semibold truncate min-w-0 ${task.is_complete ? "text-gray-400 line-through" : "text-gray-900"}`}>
+              <h3 className={`text-title font-semibold truncate min-w-0 ${task.is_complete ? "text-gray-400 line-through" : "text-gray-900"}`}>
                 {task.name}
               </h3>
             </div>
@@ -1022,7 +1022,7 @@ export default function TaskDetailPopup({
                   {task.name}
                 </h3>
                 <span
-                  className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide ${
+                  className={`inline-flex items-center px-1.5 py-0.5 rounded text-meta font-medium uppercase tracking-wide ${
                     isExperiment
                       ? "bg-purple-50 text-purple-700"
                       : isPurchase
@@ -1041,7 +1041,7 @@ export default function TaskDetailPopup({
                     label={`Click X to remove from ${task.external_project.owner}'s project`}
                     placement="bottom"
                   >
-                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-meta font-medium text-amber-700">
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         width="11"
@@ -1087,7 +1087,7 @@ export default function TaskDetailPopup({
                   </Tooltip>
                 )}
               </div>
-              <div className="mt-1 flex items-center flex-wrap gap-x-1.5 gap-y-1 text-xs text-gray-500">
+              <div className="mt-1 flex items-center flex-wrap gap-x-1.5 gap-y-1 text-meta text-gray-500">
                 {project?.name && (
                   <>
                     <span className="font-medium text-gray-600">{project.name}</span>
@@ -1216,7 +1216,7 @@ export default function TaskDetailPopup({
                       alert("Failed to update task");
                     }
                   }}
-                  className={`group/complete inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  className={`group/complete inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-meta font-medium transition-colors ${
                     task.is_complete
                       ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 ring-1 ring-emerald-200"
                       : "bg-white text-gray-700 hover:text-emerald-700 hover:bg-emerald-50 ring-1 ring-gray-200 hover:ring-emerald-200"
@@ -1244,7 +1244,7 @@ export default function TaskDetailPopup({
                 </button>
               </Tooltip>
             ) : task.is_complete ? (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-meta font-medium bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20 6L9 17l-5-5" />
                 </svg>
@@ -1310,7 +1310,7 @@ export default function TaskDetailPopup({
                       }
                       disabled={!canRestore || restoreBusy}
                       data-testid="task-undo-restore-button"
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-meta font-medium rounded-lg transition-colors ${
                         canRestore && !restoreBusy
                           ? "text-amber-700 bg-amber-50 hover:bg-amber-100"
                           : "text-gray-400 bg-gray-50 cursor-not-allowed"
@@ -1483,7 +1483,7 @@ export default function TaskDetailPopup({
             />
           )}
           {task.assignee && task.assignee !== task.owner && (
-            <div className="flex items-center gap-2 text-xs">
+            <div className="flex items-center gap-2 text-meta">
               <span className="text-gray-500">Assigned to</span>
               <span
                 className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-medium border border-emerald-200"
@@ -1537,7 +1537,7 @@ export default function TaskDetailPopup({
                         ? "experiment-results-tab"
                         : undefined
                 }
-                className={`relative px-3.5 py-3 text-sm font-medium transition-colors -mb-px ${
+                className={`relative px-3.5 py-3 text-body font-medium transition-colors -mb-px ${
                   isActive
                     ? "text-blue-600"
                     : "text-gray-500 hover:text-gray-800"
@@ -1572,7 +1572,7 @@ export default function TaskDetailPopup({
             {restoreError && (
               <p
                 data-testid="task-restore-error"
-                className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug"
+                className="text-meta text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug"
               >
                 {restoreError}
               </p>
@@ -1580,7 +1580,7 @@ export default function TaskDetailPopup({
             {undoConfirmPending && (
               <div
                 data-testid="task-undo-confirm"
-                className="mt-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug"
+                className="mt-2 text-meta text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug"
               >
                 <p>
                   You have edited this experiment since the restore. Undoing will
@@ -1592,7 +1592,7 @@ export default function TaskDetailPopup({
                     onClick={() => void confirmUndoRestore()}
                     disabled={restoreBusy}
                     data-testid="task-undo-confirm-button"
-                    className="px-2.5 py-1 text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-60 rounded-md transition-colors"
+                    className="px-2.5 py-1 text-meta font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-60 rounded-md transition-colors"
                   >
                     {restoreBusy ? "Undoing..." : "Discard edits and undo"}
                   </button>
@@ -1601,7 +1601,7 @@ export default function TaskDetailPopup({
                     onClick={dismissUndoConfirm}
                     disabled={restoreBusy}
                     data-testid="task-undo-cancel-button"
-                    className="px-2.5 py-1 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:opacity-60 rounded-md transition-colors"
+                    className="px-2.5 py-1 text-meta font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:opacity-60 rounded-md transition-colors"
                   >
                     Keep editing
                   </button>
@@ -1628,7 +1628,7 @@ export default function TaskDetailPopup({
                   />
                 </div>
               ) : (
-                <div className="flex items-center justify-center h-full text-gray-400 text-sm p-6">
+                <div className="flex items-center justify-center h-full text-gray-400 text-body p-6">
                   <p>Select a version to preview it here.</p>
                 </div>
               )
@@ -1737,7 +1737,7 @@ export default function TaskDetailPopup({
 
         {universalDropToast && (
           <div
-            className="fixed z-50 max-w-sm rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm text-emerald-900 shadow-lg pointer-events-none flex items-center gap-2"
+            className="fixed z-50 max-w-sm rounded-lg border border-emerald-200 bg-white px-3 py-2 text-body text-emerald-900 shadow-lg pointer-events-none flex items-center gap-2"
             style={{
               left: Math.max(8, Math.min(universalDropToast.x + 12, (typeof window !== "undefined" ? window.innerWidth : 1024) - 400)),
               top: Math.max(8, Math.min(universalDropToast.y + 12, (typeof window !== "undefined" ? window.innerHeight : 768) - 100)),
@@ -1900,7 +1900,7 @@ function SimpleTaskChecklist({
                 )}
               </button>
             </Tooltip>
-            <span className={`flex-1 text-sm ${st.is_complete ? "line-through text-gray-400" : "text-gray-700"}`}>
+            <span className={`flex-1 text-body ${st.is_complete ? "line-through text-gray-400" : "text-gray-700"}`}>
               {st.text}
             </span>
             {!readOnly && (
@@ -1930,13 +1930,13 @@ function SimpleTaskChecklist({
             onKeyDown={(e) => e.key === "Enter" && handleAddSubTask()}
             placeholder="Add item..."
             data-tour-target="workbench-list-add-item-input"
-            className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+            className="flex-1 px-3 py-2 text-body border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
           />
           <Tooltip label="Add item" placement="bottom">
             <button
               onClick={handleAddSubTask}
               disabled={!newSubTaskText.trim() || saving}
-              className="px-3 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-2 text-body bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               +
             </button>
@@ -1970,30 +1970,30 @@ function PropertyGrid({
     <div className="space-y-5">
       <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
         <div>
-          <dt className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Project</dt>
-          <dd className="text-sm text-gray-900 mt-1">
+          <dt className="text-meta font-medium text-gray-500 uppercase tracking-wide">Project</dt>
+          <dd className="text-body text-gray-900 mt-1">
             {project?.name || (task.is_shared_with_me ? `Shared project (by ${task.owner})` : "—")}
           </dd>
         </div>
         <div>
-          <dt className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Type</dt>
-          <dd className="text-sm text-gray-900 mt-1 capitalize">{task.task_type}</dd>
+          <dt className="text-meta font-medium text-gray-500 uppercase tracking-wide">Type</dt>
+          <dd className="text-body text-gray-900 mt-1 capitalize">{task.task_type}</dd>
         </div>
         {!hasDependencies && (
           <>
             <div>
-              <dt className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Start</dt>
-              <dd className="text-sm text-gray-900 mt-1 font-mono">{task.start_date}</dd>
+              <dt className="text-meta font-medium text-gray-500 uppercase tracking-wide">Start</dt>
+              <dd className="text-body text-gray-900 mt-1 font-mono">{task.start_date}</dd>
             </div>
             <div>
-              <dt className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">End</dt>
-              <dd className="text-sm text-gray-900 mt-1 font-mono">{task.end_date}</dd>
+              <dt className="text-meta font-medium text-gray-500 uppercase tracking-wide">End</dt>
+              <dd className="text-body text-gray-900 mt-1 font-mono">{task.end_date}</dd>
             </div>
           </>
         )}
         <div>
-          <dt className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Duration</dt>
-          <dd className="text-sm text-gray-900 mt-1">
+          <dt className="text-meta font-medium text-gray-500 uppercase tracking-wide">Duration</dt>
+          <dd className="text-body text-gray-900 mt-1">
             {task.duration_days} day{task.duration_days !== 1 ? "s" : ""}
           </dd>
         </div>
@@ -2002,7 +2002,7 @@ function PropertyGrid({
             would be a duplicate signal. */}
       </dl>
       {task.weekend_override && (
-        <div className="flex items-start gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+        <div className="flex items-start gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-meta text-amber-800">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-700 flex-shrink-0 mt-0.5">
             <rect x="3" y="4" width="18" height="18" rx="2" />
             <line x1="16" y1="2" x2="16" y2="6" />
@@ -2014,12 +2014,12 @@ function PropertyGrid({
       )}
       {task.tags && task.tags.length > 0 && (
         <div>
-          <dt className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-1.5">Tags</dt>
+          <dt className="text-meta font-medium text-gray-500 uppercase tracking-wide mb-1.5">Tags</dt>
           <div className="flex gap-1 flex-wrap">
             {task.tags.map((tag) => (
               <span
                 key={tag}
-                className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded"
+                className="text-meta px-2 py-0.5 bg-gray-100 text-gray-700 rounded"
               >
                 #{tag}
               </span>
@@ -2029,7 +2029,7 @@ function PropertyGrid({
       )}
       {task.deviation_log && (
         <div>
-          <dt className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-1.5">
+          <dt className="text-meta font-medium text-gray-500 uppercase tracking-wide mb-1.5">
             Deviation log
           </dt>
           <div className="prose prose-sm prose-gray max-w-none bg-amber-50 border border-amber-100 rounded-lg p-3">
@@ -2859,15 +2859,15 @@ function DetailsTab({
               </svg>
             </div>
             <div className="flex-1 min-w-0">
-              <h4 className="text-sm font-semibold text-rose-900">
+              <h4 className="text-body font-semibold text-rose-900">
                 Duplicate task name
               </h4>
-              <p className="text-xs text-rose-800 mt-0.5">
+              <p className="text-meta text-rose-800 mt-0.5">
                 A task with this name already exists in this project:
               </p>
               <ul className="mt-2 space-y-1">
                 {duplicateWarning.matching_tasks.map((t) => (
-                  <li key={t.id} className="text-xs text-rose-800 flex items-center gap-2 bg-white border border-rose-100 rounded-lg px-2 py-1">
+                  <li key={t.id} className="text-meta text-rose-800 flex items-center gap-2 bg-white border border-rose-100 rounded-lg px-2 py-1">
                     <strong className="text-rose-900">{t.name}</strong>
                     <span className="text-rose-500">
                       Started {t.start_date} · {t.is_complete ? "Completed" : "In Progress"}
@@ -2878,13 +2878,13 @@ function DetailsTab({
               <div className="flex gap-2 mt-3">
                 <button
                   onClick={() => setDuplicateWarning(null)}
-                  className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                  className="px-3 py-1.5 text-meta font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
                 >
                   Change name
                 </button>
                 <button
                   onClick={handleProceedWithDuplicate}
-                  className="px-3 py-1.5 text-xs font-medium text-rose-700 ring-1 ring-rose-300 hover:bg-rose-100 rounded-lg transition-colors"
+                  className="px-3 py-1.5 text-meta font-medium text-rose-700 ring-1 ring-rose-300 hover:bg-rose-100 rounded-lg transition-colors"
                 >
                   Save anyway
                 </button>
@@ -2907,13 +2907,13 @@ function DetailsTab({
               </svg>
             </div>
             <div className="flex-1 min-w-0">
-              <h4 className="text-sm font-semibold text-rose-900">
+              <h4 className="text-body font-semibold text-rose-900">
                 Convert task type
               </h4>
-              <p className="text-xs text-rose-800 mt-0.5">
+              <p className="text-meta text-rose-800 mt-0.5">
                 Converting from <strong className="capitalize">{task.task_type}</strong> will permanently delete type-specific data:
               </p>
-              <ul className="mt-2 space-y-1 text-xs text-rose-700">
+              <ul className="mt-2 space-y-1 text-meta text-rose-700">
                 {getConversionWarnings(task.task_type).map((warning, i) => (
                   <li key={i} className="flex items-start gap-2">
                     <span aria-hidden className="mt-1 w-1 h-1 rounded-full bg-rose-400 flex-shrink-0" />
@@ -2921,17 +2921,17 @@ function DetailsTab({
                   </li>
                 ))}
               </ul>
-              <p className="text-xs text-rose-800 mt-3">
+              <p className="text-meta text-rose-800 mt-3">
                 <strong>Kept:</strong> name, dates, duration, project, completion status, and tags.
               </p>
               <div className="mt-3">
-                <label className="block text-[11px] font-medium text-rose-700 uppercase tracking-wide mb-1">
+                <label className="block text-meta font-medium text-rose-700 uppercase tracking-wide mb-1">
                   Convert to
                 </label>
                 <select
                   value={convertToType}
                   onChange={(e) => setConvertToType(e.target.value as "experiment" | "purchase" | "list")}
-                  className="w-full px-3 py-2 bg-white border border-rose-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-400"
+                  className="w-full px-3 py-2 bg-white border border-rose-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-rose-400"
                 >
                   {availableConversionTypes.map((type) => (
                     <option key={type.value} value={type.value}>
@@ -2943,14 +2943,14 @@ function DetailsTab({
               <div className="flex gap-2 mt-3">
                 <button
                   onClick={() => setShowConvertModal(false)}
-                  className="px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="px-3 py-1.5 text-meta font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleConvertTaskType}
                   disabled={converting}
-                  className="px-3 py-1.5 text-xs font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors disabled:opacity-50"
+                  className="px-3 py-1.5 text-meta font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors disabled:opacity-50"
                 >
                   {converting ? "Converting..." : "Convert task"}
                 </button>
@@ -2964,9 +2964,9 @@ function DetailsTab({
       {task.task_type === "list" && (
         <section className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="flex items-baseline justify-between mb-4">
-            <h4 className="text-base font-semibold text-gray-900">Sub-tasks</h4>
+            <h4 className="text-title font-semibold text-gray-900">Sub-tasks</h4>
             {subTasks.length > 0 && (
-              <span className="text-xs text-gray-500">
+              <span className="text-meta text-gray-500">
                 {subTasks.filter(st => st.is_complete).length} of {subTasks.length} complete
               </span>
             )}
@@ -3020,7 +3020,7 @@ function DetailsTab({
                     )}
                   </button>
                 </Tooltip>
-                <span className={`flex-1 text-sm ${st.is_complete ? "line-through text-gray-400" : "text-gray-700"}`}>
+                <span className={`flex-1 text-body ${st.is_complete ? "line-through text-gray-400" : "text-gray-700"}`}>
                   {st.text}
                 </span>
                 <Tooltip label="Delete sub-task" placement="bottom">
@@ -3049,12 +3049,12 @@ function DetailsTab({
               onKeyDown={(e) => e.key === "Enter" && handleAddSubTask()}
               placeholder="Add a sub-task..."
               data-tour-target="workbench-list-add-item-input"
-              className="flex-1 px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="flex-1 px-3 py-1.5 text-body border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
             <button
               onClick={handleAddSubTask}
               disabled={!newSubTaskText.trim() || saving}
-              className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 text-body bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Add
             </button>
@@ -3074,12 +3074,12 @@ function DetailsTab({
               </svg>
             </div>
             <div className="flex-1 min-w-0">
-              <h4 className="text-sm font-semibold text-amber-900">
+              <h4 className="text-body font-semibold text-amber-900">
                 This change will affect {shiftResult.affected_tasks.length} task{shiftResult.affected_tasks.length !== 1 ? "s" : ""}
               </h4>
               <div className="max-h-40 overflow-y-auto mt-2 space-y-1">
                 {shiftResult.affected_tasks.map((t) => (
-                  <div key={t.task_id} className="text-xs text-amber-800 flex items-center gap-2 bg-white border border-amber-100 rounded-lg px-2 py-1">
+                  <div key={t.task_id} className="text-meta text-amber-800 flex items-center gap-2 bg-white border border-amber-100 rounded-lg px-2 py-1">
                     <strong className="text-amber-900">{t.name}</strong>
                     <span className="text-amber-600">{t.old_start} → {t.new_start}</span>
                   </div>
@@ -3087,8 +3087,8 @@ function DetailsTab({
               </div>
               {shiftResult.warnings.length > 0 && (
                 <div className="mt-3 border-t border-amber-200 pt-3">
-                  <p className="text-xs font-medium text-rose-700 mb-1">Warnings</p>
-                  <ul className="text-xs text-rose-600 space-y-1">
+                  <p className="text-meta font-medium text-rose-700 mb-1">Warnings</p>
+                  <ul className="text-meta text-rose-600 space-y-1">
                     {shiftResult.warnings.map((w, i) => (
                       <li key={i}>{w.message}</li>
                     ))}
@@ -3102,14 +3102,14 @@ function DetailsTab({
                     setShiftResult(null);
                     setPendingStartDate(null);
                   }}
-                  className="px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-white rounded-lg transition-colors"
+                  className="px-3 py-1.5 text-meta font-medium text-gray-700 hover:bg-white rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleConfirmShift}
                   disabled={saving}
-                  className="px-3 py-1.5 text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors disabled:opacity-50"
+                  className="px-3 py-1.5 text-meta font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors disabled:opacity-50"
                 >
                   {saving ? "Applying..." : "Apply changes"}
                 </button>
@@ -3123,8 +3123,8 @@ function DetailsTab({
       {hasDependencies && (
         <section className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="flex items-baseline justify-between mb-4">
-            <h4 className="text-base font-semibold text-gray-900">Dependency chain</h4>
-            <span className="text-xs text-gray-500">
+            <h4 className="text-title font-semibold text-gray-900">Dependency chain</h4>
+            <span className="text-meta text-gray-500">
               {dependencyChainLevels.flat().length} task{dependencyChainLevels.flat().length !== 1 ? "s" : ""} linked
             </span>
           </div>
@@ -3169,7 +3169,7 @@ function DetailsTab({
                               styling was competing visually with the
                               actionable nodes around it. */}
                           <div
-                            className={`relative px-4 py-2 rounded-lg text-sm transition-all ${
+                            className={`relative px-4 py-2 rounded-lg text-body transition-all ${
                               isCurrentTask
                                 ? "bg-blue-50 text-blue-700 font-medium ring-1 ring-blue-200"
                                 : "bg-white text-gray-700 border border-gray-200 hover:border-blue-400 hover:shadow-md cursor-pointer hover:bg-blue-50"
@@ -3185,7 +3185,7 @@ function DetailsTab({
                               <span className={`w-2 h-2 rounded-full ${isCurrentTask ? "bg-blue-500" : "bg-gray-400"}`} />
                               <span className="max-w-[200px] truncate">{chainTask.name}</span>
                               {isCurrentTask && (
-                                <span className="text-xs opacity-75">(this task)</span>
+                                <span className="text-meta opacity-75">(this task)</span>
                               )}
                               {!isCurrentTask && onNavigateToTask && (
                                 <svg className="w-3 h-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -3243,14 +3243,14 @@ function DetailsTab({
                 }}
                 className="w-4 h-4 text-red-500 border-gray-300 rounded focus:ring-red-500"
               />
-              <span className="text-sm text-red-600 font-medium">
+              <span className="text-body text-red-600 font-medium">
                 Remove from dependency chain
               </span>
             </label>
 
             {showRemoveFromChain && (
               <div className="mt-3 pl-6 space-y-2">
-                <p className="text-xs text-gray-500">
+                <p className="text-meta text-gray-500">
                   This task will become standalone. Set its new start date:
                 </p>
                 <div className="flex items-center gap-2">
@@ -3258,13 +3258,13 @@ function DetailsTab({
                     type="date"
                     value={removeStartDate}
                     onChange={(e) => setRemoveStartDate(e.target.value)}
-                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-body transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   />
                   <button
                     type="button"
                     onClick={handleRemoveFromChain}
                     disabled={saving}
-                    className="px-3 py-1.5 text-xs text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50"
+                    className="px-3 py-1.5 text-meta text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50"
                   >
                     {saving ? "Removing..." : "Remove from Chain"}
                   </button>
@@ -3290,10 +3290,10 @@ function DetailsTab({
             here because they're scoped to the in-card form state. */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
           <div className="flex items-center gap-3">
-            <h4 className="text-base font-semibold text-gray-900">Properties</h4>
+            <h4 className="text-title font-semibold text-gray-900">Properties</h4>
             {!editing && (
               <span
-                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium ${
+                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-meta font-medium ${
                   task.is_complete
                     ? "bg-emerald-50 text-emerald-700"
                     : "bg-blue-50 text-blue-700"
@@ -3307,12 +3307,12 @@ function DetailsTab({
               </span>
             )}
             {editing && (
-              <span className="text-xs text-gray-500">Editing — Save when done</span>
+              <span className="text-meta text-gray-500">Editing — Save when done</span>
             )}
           </div>
           <div className="flex items-center gap-2">
             {hasUnsavedChanges && (
-              <span className="inline-flex items-center gap-1 text-xs text-amber-700 font-medium">
+              <span className="inline-flex items-center gap-1 text-meta text-amber-700 font-medium">
                 <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                 Unsaved
               </span>
@@ -3321,7 +3321,7 @@ function DetailsTab({
               <>
                 <button
                   onClick={handleCancelEdit}
-                  className="px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="px-3 py-1.5 text-meta font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
@@ -3329,7 +3329,7 @@ function DetailsTab({
                   onClick={handleSave}
                   disabled={saving || !hasUnsavedChanges}
                   data-tour-target="task-popup-save-button"
-                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                  className={`px-3 py-1.5 text-meta font-medium rounded-lg transition-colors ${
                     hasUnsavedChanges && !saving
                       ? "text-white bg-blue-600 hover:bg-blue-700"
                       : "text-gray-400 bg-gray-100 cursor-not-allowed"
@@ -3346,7 +3346,7 @@ function DetailsTab({
       {editing ? (
         <div className="space-y-4">
           <div>
-            <label className="block text-[11px] font-medium text-gray-600 uppercase tracking-wide mb-1.5">
+            <label className="block text-meta font-medium text-gray-600 uppercase tracking-wide mb-1.5">
               Task Name
             </label>
             <input
@@ -3354,7 +3354,7 @@ function DetailsTab({
               value={name}
               onChange={(e) => setName(e.target.value)}
               data-tour-target="task-popup-name-input"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-body transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
 
@@ -3362,7 +3362,7 @@ function DetailsTab({
               projects appear under "Share into…" and trigger a confirmation
               modal on save. */}
           <div>
-            <label className="block text-[11px] font-medium text-gray-600 uppercase tracking-wide mb-1.5">
+            <label className="block text-meta font-medium text-gray-600 uppercase tracking-wide mb-1.5">
               Project
             </label>
             <select
@@ -3387,7 +3387,7 @@ function DetailsTab({
                   setProjectId(Number.isFinite(nextId) ? nextId : 0);
                 }
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-body transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <optgroup label="My projects">
                 {projects
@@ -3418,7 +3418,7 @@ function DetailsTab({
               )}
             </select>
             {isSelectedProjectForeign && (
-              <p className="mt-1 text-xs text-amber-600">
+              <p className="mt-1 text-meta text-amber-600">
                 This task will be shared into {selectedProjectInfo.owner}&apos;s project.
                 It stays in your library; {selectedProjectInfo.owner} will see it on their Gantt.
               </p>
@@ -3429,17 +3429,17 @@ function DetailsTab({
             {/* Hide start date field if task has parent dependencies */}
             {parentTasks.length === 0 && (
               <div>
-                <label className="block text-[11px] font-medium text-gray-600 uppercase tracking-wide mb-1.5">
+                <label className="block text-meta font-medium text-gray-600 uppercase tracking-wide mb-1.5">
                   Start Date
                 </label>
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-body transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
                 {dependentTasks.length > 0 && startDate !== task.start_date && (
-                  <p className="text-xs text-amber-600 mt-1 inline-flex items-center gap-1">
+                  <p className="text-meta text-amber-600 mt-1 inline-flex items-center gap-1">
                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0" aria-hidden>
                       <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                       <line x1="12" y1="9" x2="12" y2="13" />
@@ -3451,7 +3451,7 @@ function DetailsTab({
               </div>
             )}
             <div className={parentTasks.length > 0 ? "col-span-2" : ""}>
-              <label className="block text-[11px] font-medium text-gray-600 uppercase tracking-wide mb-1.5">
+              <label className="block text-meta font-medium text-gray-600 uppercase tracking-wide mb-1.5">
                 Duration (days)
               </label>
               <input
@@ -3459,7 +3459,7 @@ function DetailsTab({
                 min={1}
                 value={durationDays}
                 onChange={(e) => setDurationDays(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-body transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
           </div>
@@ -3467,24 +3467,24 @@ function DetailsTab({
           {/* Add Dependency Section - only for experiment tasks */}
           {canHaveDependencies && (
             <div className="border-t border-gray-100 pt-4">
-              <label className="block text-[11px] font-medium text-gray-600 uppercase tracking-wide mb-2">
+              <label className="block text-meta font-medium text-gray-600 uppercase tracking-wide mb-2">
                 Add Dependency (optional)
               </label>
               <div className="space-y-2">
                 {selectedNewParent ? (
-                  <div className="flex items-center justify-between gap-2 px-3 py-2 border border-gray-200 rounded-lg bg-white text-sm">
+                  <div className="flex items-center justify-between gap-2 px-3 py-2 border border-gray-200 rounded-lg bg-white text-body">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="font-medium text-gray-900 truncate">
                         {selectedNewParent.name}
                       </span>
-                      <span className="text-xs text-gray-400 shrink-0">
+                      <span className="text-meta text-gray-400 shrink-0">
                         {selectedNewParent.start_date} → {selectedNewParent.end_date}
                       </span>
                     </div>
                     <button
                       type="button"
                       onClick={() => setNewParentTaskId(null)}
-                      className="text-xs text-gray-400 hover:text-gray-600 shrink-0"
+                      className="text-meta text-gray-400 hover:text-gray-600 shrink-0"
                     >
                       Change
                     </button>
@@ -3494,7 +3494,7 @@ function DetailsTab({
                     type="button"
                     onClick={() => setShowParentPicker(true)}
                     disabled={availableParentTasks.length === 0}
-                    className="w-full text-left px-3 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-blue-400 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full text-left px-3 py-2 border border-dashed border-gray-300 rounded-lg text-body text-gray-500 hover:border-blue-400 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {availableParentTasks.length === 0
                       ? "No eligible experiments to depend on"
@@ -3507,7 +3507,7 @@ function DetailsTab({
                     <select
                       value={newDepType}
                       onChange={(e) => setNewDepType(e.target.value as "FS" | "SS" | "SF")}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-body transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="FS">Start after (after parent ends)</option>
                       <option value="SS">Start at same time (as parent)</option>
@@ -3520,10 +3520,10 @@ function DetailsTab({
                         legacy orange. Same amber semantic = "heads-up,
                         confirm before applying". */}
                     <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
-                      <p className="text-xs text-amber-800">
+                      <p className="text-meta text-amber-800">
                         <strong>New Start Date:</strong> {suggestedNewStartDate}
                       </p>
-                      <p className="text-xs text-amber-700 mt-1">
+                      <p className="text-meta text-amber-700 mt-1">
                         {newDepType === "FS" && `Will start after "${selectedNewParent?.name}" ends`}
                         {newDepType === "SS" && `Will start at same time as "${selectedNewParent?.name}"`}
                         {newDepType === "SF" && `Will finish when "${selectedNewParent?.name}" starts`}
@@ -3534,7 +3534,7 @@ function DetailsTab({
                       type="button"
                       onClick={handleAddDependency}
                       disabled={saving}
-                      className="px-3 py-1.5 text-xs text-white bg-amber-600 hover:bg-amber-700 rounded-lg disabled:opacity-50"
+                      className="px-3 py-1.5 text-meta text-white bg-amber-600 hover:bg-amber-700 rounded-lg disabled:opacity-50"
                     >
                       {saving ? "Adding..." : "Add Dependency"}
                     </button>
@@ -3571,10 +3571,10 @@ function DetailsTab({
                     className="w-4 h-4 text-amber-600 border-amber-300 rounded focus:ring-amber-500 mt-0.5"
                   />
                   <div>
-                    <span className="text-sm text-amber-800 font-medium">
+                    <span className="text-body text-amber-800 font-medium">
                       I&apos;m okay with working on the weekend
                     </span>
-                    <p className="text-xs text-amber-600 mt-0.5">
+                    <p className="text-meta text-amber-600 mt-0.5">
                       By default, tasks that span weekends show weekend days as non-working. 
                       Check this to indicate you plan to work on weekends.
                     </p>
@@ -3606,7 +3606,7 @@ function DetailsTab({
               setConvertToType(availableConversionTypes[0]?.value || "list");
               setShowConvertModal(true);
             }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium text-gray-600 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition-colors"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="17 1 21 5 17 9" />
@@ -3629,7 +3629,7 @@ function DetailsTab({
               disabled={task.is_shared_with_me}
               onClick={handleDelete}
               data-tour-target="task-popup-delete-button"
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium rounded-lg transition-colors ${
                 task.is_shared_with_me
                   ? "text-gray-300 cursor-not-allowed"
                   : "text-gray-600 hover:text-rose-700 hover:bg-rose-50"
@@ -3674,16 +3674,16 @@ function DetailsTab({
                 </svg>
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="text-base font-semibold text-gray-900">
+                <h3 className="text-title font-semibold text-gray-900">
                   Share into {pendingShareTarget.owner}&apos;s project?
                 </h3>
-                <p className="text-sm text-gray-600 mt-0.5">
+                <p className="text-body text-gray-600 mt-0.5">
                   <strong>{pendingShareTarget.name}</strong> belongs to{" "}
                   <strong>{pendingShareTarget.owner}</strong>.
                 </p>
               </div>
             </div>
-            <ul className="text-sm text-gray-700 space-y-2 mb-4 bg-gray-50 rounded-lg p-3 border border-gray-100">
+            <ul className="text-body text-gray-700 space-y-2 mb-4 bg-gray-50 rounded-lg p-3 border border-gray-100">
               <li className="flex items-start gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 mt-0.5 flex-shrink-0" aria-hidden>
                   <polyline points="20 6 9 17 4 12" />
@@ -3712,7 +3712,7 @@ function DetailsTab({
                 type="button"
                 disabled={sharingIntoProject}
                 onClick={() => setPendingShareTarget(null)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-body font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -3720,7 +3720,7 @@ function DetailsTab({
                 type="button"
                 disabled={sharingIntoProject}
                 onClick={handleConfirmShareIntoProject}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-body font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
               >
                 {sharingIntoProject ? "Sharing..." : "Share into project"}
               </button>
@@ -4221,7 +4221,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
             void handleSave(latest);
           }}
           disabled={saving || (!hasUnsavedChanges && !editorDirty)}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium rounded-lg transition-colors ${
             (hasUnsavedChanges || editorDirty) && !saving
               ? "text-white bg-blue-600 hover:bg-blue-700"
               : "text-gray-400 bg-gray-100 cursor-not-allowed"
@@ -4254,7 +4254,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                     <line x1="12" y1="17" x2="12.01" y2="17" />
                   </svg>
                   <div className="flex-1">
-                    <p className="text-sm text-amber-800">{uploadWarning}</p>
+                    <p className="text-body text-amber-800">{uploadWarning}</p>
                   </div>
                   <Tooltip label="Dismiss warning" placement="bottom">
                     <button
@@ -4302,12 +4302,12 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                     />
                   </svg>
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-amber-900">
+                    <p className="text-body font-medium text-amber-900">
                       {missingInline.length} inline image
                       {missingInline.length === 1 ? "" : "s"} from your
                       LabArchives import didn&apos;t come through
                     </p>
-                    <p className="text-xs text-amber-800 mt-0.5">
+                    <p className="text-meta text-amber-800 mt-0.5">
                       They were stored online by LabArchives and weren&apos;t bundled in
                       the offline ZIP. Pull them in now so they render inline.
                     </p>
@@ -4320,7 +4320,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                       type="button"
                       onClick={() => setRehydrateModalOpen(true)}
                       disabled={hasUnsavedChanges}
-                      className="shrink-0 px-3 py-1.5 text-xs font-medium bg-amber-600 hover:bg-amber-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="shrink-0 px-3 py-1.5 text-meta font-medium bg-amber-600 hover:bg-amber-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Pull them in →
                     </button>
@@ -4815,7 +4815,7 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
             void handleSave(latest);
           }}
           disabled={saving || (!hasUnsavedChanges && !editorDirty)}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium rounded-lg transition-colors ${
             (hasUnsavedChanges || editorDirty) && !saving
               ? "text-white bg-blue-600 hover:bg-blue-700"
               : "text-gray-400 bg-gray-100 cursor-not-allowed"
@@ -4847,7 +4847,7 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
                   <line x1="12" y1="17" x2="12.01" y2="17" />
                 </svg>
                 <div className="flex-1">
-                  <p className="text-sm text-amber-800">{uploadWarning}</p>
+                  <p className="text-body text-amber-800">{uploadWarning}</p>
                 </div>
                 <Tooltip label="Dismiss warning" placement="bottom">
                   <button

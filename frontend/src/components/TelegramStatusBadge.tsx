@@ -154,12 +154,12 @@ export default function TelegramStatusBadge() {
       type="button"
       onClick={() => setModalOpen(true)}
       title={detailTitle}
-      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${toneClass}`}
+      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-meta font-medium border transition-colors ${toneClass}`}
     >
       <span className={`inline-block w-2 h-2 rounded-full ${presentation.dot}`} />
       {paired ? "Telegram" : "Connect Telegram"}
       {paired && presentation.label && (
-        <span className="ml-1 text-[10px] uppercase tracking-wide">
+        <span className="ml-1 text-meta uppercase tracking-wide">
           {presentation.label}
         </span>
       )}
@@ -179,7 +179,7 @@ export default function TelegramStatusBadge() {
             <button
               type="button"
               onClick={() => requestTakeover()}
-              className="px-2 py-1 text-[11px] font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-2 py-1 text-meta font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               Switch to this tab
             </button>

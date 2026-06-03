@@ -201,7 +201,7 @@ export default function TelegramEncryptedRecoveryPrompt() {
         aria-live="polite"
         className="fixed bottom-6 right-6 z-[120] pointer-events-none"
       >
-        <div className="pointer-events-auto flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-xl shadow-lg shadow-emerald-100/60 text-emerald-800 text-sm">
+        <div className="pointer-events-auto flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-xl shadow-lg shadow-emerald-100/60 text-emerald-800 text-body">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="16"
@@ -225,7 +225,7 @@ export default function TelegramEncryptedRecoveryPrompt() {
   return (
     <div
       role="status"
-      className="w-full bg-amber-50 border-b border-amber-200 text-amber-950 text-sm px-4 py-2"
+      className="w-full bg-amber-50 border-b border-amber-200 text-amber-950 text-body px-4 py-2"
     >
       <div className="max-w-4xl mx-auto flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex-1 min-w-0">
@@ -252,12 +252,12 @@ export default function TelegramEncryptedRecoveryPrompt() {
                 }}
                 autoComplete="off"
                 placeholder="Account password"
-                className={`pl-3 pr-12 py-1 border border-amber-300 rounded-md text-xs bg-white focus:outline-none focus:ring-2 focus:ring-amber-500${!showPassword ? " [-webkit-text-security:disc]" : ""}`}
+                className={`pl-3 pr-12 py-1 border border-amber-300 rounded-md text-meta bg-white focus:outline-none focus:ring-2 focus:ring-amber-500${!showPassword ? " [-webkit-text-security:disc]" : ""}`}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-1 top-1/2 -translate-y-1/2 px-1 text-[10px] text-amber-700 hover:text-amber-900"
+                className="absolute right-1 top-1/2 -translate-y-1/2 px-1 text-meta text-amber-700 hover:text-amber-900"
                 aria-label={showPassword ? "Hide password" : "Show password"}
                 aria-pressed={showPassword}
               >
@@ -268,14 +268,14 @@ export default function TelegramEncryptedRecoveryPrompt() {
               type="button"
               onClick={() => void handleRestore()}
               disabled={!passwordInput}
-              className="px-3 py-1 text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-md transition-colors disabled:opacity-50"
+              className="px-3 py-1 text-meta font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-md transition-colors disabled:opacity-50"
             >
               Restore
             </button>
             <button
               type="button"
               onClick={() => void handleForget()}
-              className="px-3 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100 rounded-md transition-colors"
+              className="px-3 py-1 text-meta font-medium text-amber-700 hover:bg-amber-100 rounded-md transition-colors"
               title="Delete the encrypted backup and re-pair from scratch"
             >
               Forget
@@ -283,7 +283,7 @@ export default function TelegramEncryptedRecoveryPrompt() {
             <button
               type="button"
               onClick={handleDismiss}
-              className="px-2 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100 rounded-md transition-colors"
+              className="px-2 py-1 text-meta font-medium text-amber-700 hover:bg-amber-100 rounded-md transition-colors"
               aria-label="Dismiss"
             >
               ×

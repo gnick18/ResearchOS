@@ -995,14 +995,14 @@ export default function NoteDetailPopup({
                   onChange={(e) => setTitle(e.target.value)}
                   onBlur={saveTitle}
                   onKeyDown={(e) => e.key === "Enter" && saveTitle()}
-                  className="text-xl font-bold text-gray-900 w-full border-b-2 border-emerald-500 focus:outline-none bg-transparent"
+                  className="text-heading font-bold text-gray-900 w-full border-b-2 border-emerald-500 focus:outline-none bg-transparent"
                   autoFocus
                   disabled={readOnly}
                 />
               ) : (
                 <h2
                   onClick={() => !readOnly && setEditingTitle(true)}
-                  className={`text-xl font-bold text-gray-900 ${
+                  className={`text-heading font-bold text-gray-900 ${
                     !readOnly ? "cursor-pointer hover:text-emerald-600" : ""
                   }`}
                 >
@@ -1019,14 +1019,14 @@ export default function NoteDetailPopup({
                   onBlur={saveDescription}
                   onKeyDown={(e) => e.key === "Enter" && saveDescription()}
                   placeholder="Add a description..."
-                  className="text-sm text-gray-500 w-full border-b-2 border-emerald-500 focus:outline-none bg-transparent mt-1"
+                  className="text-body text-gray-500 w-full border-b-2 border-emerald-500 focus:outline-none bg-transparent mt-1"
                   autoFocus
                   disabled={readOnly}
                 />
               ) : (
                 <p
                   onClick={() => !readOnly && setEditingDescription(true)}
-                  className={`text-sm text-gray-500 mt-1 ${
+                  className={`text-body text-gray-500 mt-1 ${
                     !readOnly ? "cursor-pointer hover:text-emerald-600" : ""
                   }`}
                 >
@@ -1046,7 +1046,7 @@ export default function NoteDetailPopup({
               {restoreError && (
                 <p
                   data-testid="note-restore-error"
-                  className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug"
+                  className="mt-2 text-meta text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug"
                 >
                   {restoreError}
                 </p>
@@ -1061,7 +1061,7 @@ export default function NoteDetailPopup({
               {undoConfirmPending && (
                 <div
                   data-testid="note-undo-confirm"
-                  className="mt-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug"
+                  className="mt-2 text-meta text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug"
                 >
                   <p>
                     You have edited this note since the restore. Undoing will
@@ -1074,7 +1074,7 @@ export default function NoteDetailPopup({
                       onClick={() => void confirmUndoRestore()}
                       disabled={restoreBusy}
                       data-testid="note-undo-confirm-button"
-                      className="px-2.5 py-1 text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-60 rounded-md transition-colors"
+                      className="px-2.5 py-1 text-meta font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-60 rounded-md transition-colors"
                     >
                       {restoreBusy ? "Undoing..." : "Discard edits and undo"}
                     </button>
@@ -1083,7 +1083,7 @@ export default function NoteDetailPopup({
                       onClick={dismissUndoConfirm}
                       disabled={restoreBusy}
                       data-testid="note-undo-cancel-button"
-                      className="px-2.5 py-1 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:opacity-60 rounded-md transition-colors"
+                      className="px-2.5 py-1 text-meta font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:opacity-60 rounded-md transition-colors"
                     >
                       Keep editing
                     </button>
@@ -1171,7 +1171,7 @@ export default function NoteDetailPopup({
                       // busy; this is the UX layer over that guard.
                       disabled={!canRestore || restoreBusy}
                       data-testid="note-undo-restore-button"
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-meta font-medium rounded-lg transition-colors ${
                         canRestore && !restoreBusy
                           ? "text-amber-700 bg-amber-50 hover:bg-amber-100"
                           : "text-gray-400 bg-gray-50 cursor-not-allowed"
@@ -1314,7 +1314,7 @@ export default function NoteDetailPopup({
               <button
                 onClick={toggleSharing}
                 disabled={saving}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-body transition-colors ${
                   isShared
                     ? "bg-emerald-100 text-emerald-700"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -1343,7 +1343,7 @@ export default function NoteDetailPopup({
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-body bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors disabled:opacity-50"
               >
                 {uploading ? "Uploading..." : "Add File"}
               </button>
@@ -1361,7 +1361,7 @@ export default function NoteDetailPopup({
               {/* Save-in-progress indicator (note-save manager): shown while
                   an explicit save (or title / sharing write) is in flight. */}
               {saving && (
-                <span className="text-xs text-gray-400 flex items-center gap-1">
+                <span className="text-meta text-gray-400 flex items-center gap-1">
                   <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -1390,7 +1390,7 @@ export default function NoteDetailPopup({
                     <button
                       key={entry.id}
                       onClick={() => switchToTab(entry.id)}
-                      className={`px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-colors ${
+                      className={`px-3 py-1.5 rounded-lg text-body whitespace-nowrap transition-colors ${
                         activeTab === entry.id
                           ? "bg-emerald-100 text-emerald-700 font-medium"
                           : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -1404,7 +1404,7 @@ export default function NoteDetailPopup({
                 {!readOnly && (
                   <button
                     onClick={() => setShowNewEntryForm(true)}
-                    className="px-3 py-1.5 rounded-lg text-sm bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors flex items-center gap-1"
+                    className="px-3 py-1.5 rounded-lg text-body bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors flex items-center gap-1"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1463,14 +1463,14 @@ export default function NoteDetailPopup({
                     onChange={(e) => setEntryTitle(e.target.value)}
                     onBlur={saveEntryTitle}
                     onKeyDown={(e) => e.key === "Enter" && saveEntryTitle()}
-                    className="text-sm font-medium text-gray-700 border-b-2 border-emerald-500 focus:outline-none bg-transparent"
+                    className="text-body font-medium text-gray-700 border-b-2 border-emerald-500 focus:outline-none bg-transparent"
                     autoFocus
                     disabled={readOnly}
                   />
                 ) : (
                   <span
                     onClick={startEditingEntryTitle}
-                    className={`text-sm font-medium text-gray-700 ${
+                    className={`text-body font-medium text-gray-700 ${
                       !readOnly ? "cursor-pointer hover:text-emerald-600" : ""
                     }`}
                     title={!readOnly ? "Click to edit title" : ""}
@@ -1487,14 +1487,14 @@ export default function NoteDetailPopup({
                     onChange={(e) => setEntryDate(e.target.value)}
                     onBlur={saveEntryDate}
                     onKeyDown={(e) => e.key === "Enter" && saveEntryDate()}
-                    className="text-sm text-gray-500 border-b-2 border-emerald-500 focus:outline-none bg-transparent"
+                    className="text-body text-gray-500 border-b-2 border-emerald-500 focus:outline-none bg-transparent"
                     autoFocus
                     disabled={readOnly}
                   />
                 ) : (
                   <span
                     onClick={startEditingEntryDate}
-                    className={`text-sm text-gray-500 ${
+                    className={`text-body text-gray-500 ${
                       !readOnly ? "cursor-pointer hover:text-emerald-600" : ""
                     }`}
                     title={!readOnly ? "Click to edit date" : ""}
@@ -1502,14 +1502,14 @@ export default function NoteDetailPopup({
                     {formatDate(currentEntry.date)}
                   </span>
                 )}
-                <span className="text-xs text-gray-400">
+                <span className="text-meta text-gray-400">
                   Updated: {formatDate(currentEntry.updated_at)}
                 </span>
               </div>
               {!readOnly && entries.length > 1 && (
                 <button
                   onClick={() => deleteEntry(currentEntry.id)}
-                  className="text-xs text-red-500 hover:text-red-700 transition-colors"
+                  className="text-meta text-red-500 hover:text-red-700 transition-colors"
                 >
                   Delete Entry
                 </button>
@@ -1527,7 +1527,7 @@ export default function NoteDetailPopup({
             <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-100 flex-shrink-0">
               <div className="flex-1" />
               {(hasUnsavedChanges || editorDirty) && (
-                <span className="inline-flex items-center gap-1 text-xs text-amber-700 font-medium">
+                <span className="inline-flex items-center gap-1 text-meta text-amber-700 font-medium">
                   <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                   Unsaved changes
                 </span>
@@ -1542,7 +1542,7 @@ export default function NoteDetailPopup({
                   if (activeTab) void saveEntryContent(activeTab, latest);
                 }}
                 disabled={saving || readOnly || (!hasUnsavedChanges && !editorDirty)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                className={`px-3 py-1.5 text-meta font-medium rounded-lg transition-colors ${
                   (hasUnsavedChanges || editorDirty) && !saving
                     ? "text-white bg-blue-600 hover:bg-blue-700"
                     : "text-gray-400 bg-gray-100 cursor-not-allowed"
@@ -1566,7 +1566,7 @@ export default function NoteDetailPopup({
                 />
               </div>
             ) : historyOpen ? (
-              <div className="flex items-center justify-center h-full text-gray-400 text-sm p-6">
+              <div className="flex items-center justify-center h-full text-gray-400 text-body p-6">
                 <p>Select a version to preview it here.</p>
               </div>
             ) : note.is_running_log ? (
@@ -1663,7 +1663,7 @@ export default function NoteDetailPopup({
         {/* Footer */}
         {!readOnly && (
           <div className="p-4 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
-            <div className="text-xs text-gray-400">
+            <div className="text-meta text-gray-400">
               Created: {note.created_at ? formatDate(note.created_at) : "—"} • Updated: {formatDate(note.updated_at)}
             </div>
             {/* VCP R1 OQ9 (2026-05-26): owner-only Delete. Shared-edit
@@ -1674,7 +1674,7 @@ export default function NoteDetailPopup({
             {canDeleteNote && (
               <button
                 onClick={handleDeleteNote}
-                className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                className="px-4 py-2 text-body text-red-600 hover:bg-red-50 rounded-lg transition-colors"
               >
                 Delete Note
               </button>

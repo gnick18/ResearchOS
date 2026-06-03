@@ -560,7 +560,7 @@ export default function NewPurchaseModal({
         </h3>
 
         {error && (
-          <div className="mb-4 px-3 py-2 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700">
+          <div className="mb-4 px-3 py-2 bg-rose-50 border border-rose-200 rounded-lg text-meta text-rose-700">
             {error}
           </div>
         )}
@@ -568,7 +568,7 @@ export default function NewPurchaseModal({
         <div className="space-y-4">
           {recentItems.length > 0 && (
             <div data-tour-target="purchases-form-reorder">
-              <p className="block text-xs font-medium text-gray-500 mb-1.5">
+              <p className="block text-meta font-medium text-gray-500 mb-1.5">
                 Reorder a recent item
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -587,7 +587,7 @@ export default function NewPurchaseModal({
                         .filter(Boolean)
                         .join(" · ") || undefined
                     }
-                    className="inline-flex items-center max-w-[14rem] gap-1 px-2.5 py-1 rounded-full border border-amber-200 bg-amber-50 text-amber-800 text-xs font-medium hover:bg-amber-100 hover:border-amber-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                    className="inline-flex items-center max-w-[14rem] gap-1 px-2.5 py-1 rounded-full border border-amber-200 bg-amber-50 text-amber-800 text-meta font-medium hover:bg-amber-100 hover:border-amber-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
                   >
                     <svg
                       aria-hidden
@@ -610,7 +610,7 @@ export default function NewPurchaseModal({
           )}
 
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
+            <label className="block text-meta font-medium text-gray-500 mb-1">
               Item Name
             </label>
             <input
@@ -644,7 +644,7 @@ export default function NewPurchaseModal({
                 }
               }}
               placeholder="e.g. 12-well plates"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500"
               autoFocus
               data-tour-target="purchases-form-name"
             />
@@ -667,14 +667,14 @@ export default function NewPurchaseModal({
               ))}
             </datalist>
             {priorItems.length > 0 && (
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-meta text-gray-400 mt-1">
                 Pick a past item to fill in vendor and price automatically.
               </p>
             )}
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
+            <label className="block text-meta font-medium text-gray-500 mb-1">
               Vendor
             </label>
             <input
@@ -682,7 +682,7 @@ export default function NewPurchaseModal({
               value={form.vendor}
               onChange={(e) => handleField("vendor", e.target.value)}
               placeholder="e.g. Sigma-Aldrich"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500"
               data-tour-target="purchases-form-vendor"
             />
           </div>
@@ -690,7 +690,7 @@ export default function NewPurchaseModal({
           <div>
             <label
               htmlFor="new-purchase-category"
-              className="block text-xs font-medium text-gray-500 mb-1"
+              className="block text-meta font-medium text-gray-500 mb-1"
             >
               Category
             </label>
@@ -698,7 +698,7 @@ export default function NewPurchaseModal({
               id="new-purchase-category"
               value={form.category}
               onChange={(e) => handleField("category", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
               data-tour-target="purchases-form-category"
             >
               {userProjects.map((p) => (
@@ -708,7 +708,7 @@ export default function NewPurchaseModal({
               ))}
               <option value={MISC_CATEGORY_LABEL}>{MISC_CATEGORY_LABEL}</option>
             </select>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-meta text-gray-400 mt-1">
               Pick a project, or use Miscellaneous for one-off purchases
               like conference travel.
             </p>
@@ -716,7 +716,7 @@ export default function NewPurchaseModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
+              <label className="block text-meta font-medium text-gray-500 mb-1">
                 Price per unit
               </label>
               <input
@@ -725,12 +725,12 @@ export default function NewPurchaseModal({
                 value={form.price}
                 onChange={(e) => handleField("price", e.target.value)}
                 placeholder="0.00"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500"
                 data-tour-target="purchases-form-price"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
+              <label className="block text-meta font-medium text-gray-500 mb-1">
                 Quantity
               </label>
               <input
@@ -739,14 +739,14 @@ export default function NewPurchaseModal({
                 value={form.quantity}
                 onChange={(e) => handleField("quantity", e.target.value)}
                 placeholder="1"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500"
                 data-tour-target="purchases-form-quantity"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
+            <label className="block text-meta font-medium text-gray-500 mb-1">
               Funding string
             </label>
             <input
@@ -760,7 +760,7 @@ export default function NewPurchaseModal({
                 handleField("fundingString", e.target.value);
               }}
               placeholder="e.g. NIH-R01-12345"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500"
               data-tour-target="purchases-form-funding"
             />
             <datalist id={FUNDING_DATALIST_ID}>
@@ -768,7 +768,7 @@ export default function NewPurchaseModal({
                 <option key={acc.id} value={acc.name} />
               ))}
             </datalist>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-meta text-gray-400 mt-1">
               Pick an existing funding line or type a new one. New ones start
               at zero budget; configure them later.
             </p>
@@ -780,7 +780,7 @@ export default function NewPurchaseModal({
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
+            className="px-4 py-2 text-body text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
@@ -788,7 +788,7 @@ export default function NewPurchaseModal({
             type="submit"
             disabled={saving || !form.name.trim()}
             data-tour-target="purchases-form-submit"
-            className="px-4 py-2 text-sm text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-body text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? "Saving..." : "Save"}
           </button>

@@ -145,7 +145,7 @@ export default function QpcrAnalysisViz({ protocol, snapshot }: QpcrAnalysisVizP
 
   if (cqBarData.length === 0) {
     return (
-      <p className="text-sm text-gray-400">
+      <p className="text-body text-gray-400">
         No targets defined yet — add at least one in the editor above.
       </p>
     );
@@ -155,7 +155,7 @@ export default function QpcrAnalysisViz({ protocol, snapshot }: QpcrAnalysisVizP
     <div className="space-y-6">
       {/* Cq bar chart */}
       <div>
-        <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
+        <h4 className="text-meta font-semibold text-gray-600 uppercase tracking-wider mb-2">
           Per-target Cq{hasAnyCq ? "" : " (no readouts entered yet)"}
         </h4>
         <div className="border border-gray-200 rounded-lg p-3 bg-white" style={{ height: 220 }}>
@@ -177,7 +177,7 @@ export default function QpcrAnalysisViz({ protocol, snapshot }: QpcrAnalysisVizP
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <p className="text-[11px] text-gray-400 mt-1">
+        <p className="text-meta text-gray-400 mt-1">
           Amber bars = reference / housekeeping target. Blue bars = experimental targets.
         </p>
       </div>
@@ -185,7 +185,7 @@ export default function QpcrAnalysisViz({ protocol, snapshot }: QpcrAnalysisVizP
       {/* Standard curve scatter + fit line */}
       {standardCurveData.points.length > 0 && (
         <div>
-          <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
+          <h4 className="text-meta font-semibold text-gray-600 uppercase tracking-wider mb-2">
             Standard curve
             {standardCurveData.fit && (
               <span className="ml-2 font-normal text-gray-500">
@@ -243,11 +243,11 @@ export default function QpcrAnalysisViz({ protocol, snapshot }: QpcrAnalysisVizP
       {/* ΔΔCq fold-change readouts */}
       {deltaRows.length > 0 && (
         <div>
-          <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
+          <h4 className="text-meta font-semibold text-gray-600 uppercase tracking-wider mb-2">
             ΔΔCq fold-change vs {referenceTarget?.target || "reference"}
           </h4>
           <div className="border border-gray-200 rounded-lg overflow-hidden">
-            <table className="w-full text-xs">
+            <table className="w-full text-meta">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-3 py-1.5 text-left font-medium text-gray-600">Target</th>
@@ -272,7 +272,7 @@ export default function QpcrAnalysisViz({ protocol, snapshot }: QpcrAnalysisVizP
               </tbody>
             </table>
           </div>
-          <p className="text-[11px] text-gray-400 mt-1">
+          <p className="text-meta text-gray-400 mt-1">
             v2 ΔΔCq treats a single experimental condition vs the reference target. Multi-condition
             comparisons (induced vs uninduced sample-level fold change) live in v2.1.
           </p>
@@ -282,11 +282,11 @@ export default function QpcrAnalysisViz({ protocol, snapshot }: QpcrAnalysisVizP
       {/* Melt-curve Tm readouts (when entered) */}
       {snapshot?.melt_tms && Object.keys(snapshot.melt_tms).length > 0 && (
         <div>
-          <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
+          <h4 className="text-meta font-semibold text-gray-600 uppercase tracking-wider mb-2">
             Melt-curve Tm readouts
           </h4>
           <div className="border border-gray-200 rounded-lg overflow-hidden">
-            <table className="w-full text-xs">
+            <table className="w-full text-meta">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-3 py-1.5 text-left font-medium text-gray-600">Target</th>

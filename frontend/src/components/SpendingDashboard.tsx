@@ -372,7 +372,7 @@ export default function SpendingDashboard({
           <h3 className="text-lg font-semibold text-gray-900">
             Spending dashboard
           </h3>
-          <p className="text-xs text-gray-400 mt-0.5">
+          <p className="text-meta text-gray-400 mt-0.5">
             ${totalSpent.toFixed(2)} across {filteredItems.length} item
             {filteredItems.length === 1 ? "" : "s"} in window
           </p>
@@ -381,7 +381,7 @@ export default function SpendingDashboard({
           <button
             onClick={handleExportCsv}
             disabled={exportDisabled}
-            className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
+            className={`px-3 py-1.5 text-meta rounded-lg transition-colors ${
               exportDisabled
                 ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                 : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
@@ -399,14 +399,14 @@ export default function SpendingDashboard({
 
       {/* Top controls: time range + project-filter override */}
       <div className="flex flex-wrap items-center gap-4 mb-6 p-3 bg-gray-50 rounded-lg">
-        <label className="flex items-center gap-2 text-xs text-gray-600">
+        <label className="flex items-center gap-2 text-meta text-gray-600">
           <span>Time range:</span>
           <select
             value={timeRangeOption}
             onChange={(e) =>
               setTimeRangeOption(e.target.value as TimeRangeOption)
             }
-            className="px-2 py-1 border border-gray-300 rounded text-xs bg-white"
+            className="px-2 py-1 border border-gray-300 rounded text-meta bg-white"
           >
             {(Object.keys(TIME_RANGE_LABELS) as TimeRangeOption[]).map(
               (opt) => (
@@ -418,14 +418,14 @@ export default function SpendingDashboard({
           </select>
         </label>
         {timeRangeOption === "custom" && (
-          <div className="flex items-center gap-2 text-xs text-gray-600">
+          <div className="flex items-center gap-2 text-meta text-gray-600">
             <label className="flex items-center gap-1">
               <span>From:</span>
               <input
                 type="date"
                 value={customFrom}
                 onChange={(e) => setCustomFrom(e.target.value)}
-                className="px-2 py-1 border border-gray-300 rounded text-xs bg-white"
+                className="px-2 py-1 border border-gray-300 rounded text-meta bg-white"
               />
             </label>
             <label className="flex items-center gap-1">
@@ -434,12 +434,12 @@ export default function SpendingDashboard({
                 type="date"
                 value={customTo}
                 onChange={(e) => setCustomTo(e.target.value)}
-                className="px-2 py-1 border border-gray-300 rounded text-xs bg-white"
+                className="px-2 py-1 border border-gray-300 rounded text-meta bg-white"
               />
             </label>
           </div>
         )}
-        <label className="flex items-center gap-2 text-xs text-gray-600">
+        <label className="flex items-center gap-2 text-meta text-gray-600">
           <input
             type="checkbox"
             checked={!respectGlobalProjectFilter}
@@ -459,11 +459,11 @@ export default function SpendingDashboard({
 
       {/* FUNDING ACCOUNTS — meaningful even at zero state. */}
       <section className="mb-8">
-        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
+        <h4 className="text-meta font-bold text-gray-400 uppercase tracking-wider mb-3">
           Funding accounts
         </h4>
         {fundingAccounts.length === 0 && uncategorizedFundingTotal === 0 ? (
-          <p className="text-xs text-gray-400 italic">
+          <p className="text-meta text-gray-400 italic">
             No funding accounts yet — add one from the manager above.
           </p>
         ) : (
@@ -481,10 +481,10 @@ export default function SpendingDashboard({
                   key={acc.id}
                   className="p-3 bg-white border border-gray-200 rounded-lg"
                 >
-                  <p className="text-sm font-semibold text-gray-900 truncate">
+                  <p className="text-body font-semibold text-gray-900 truncate">
                     {acc.name}
                   </p>
-                  <p className="text-xs text-gray-500 mt-0.5">
+                  <p className="text-meta text-gray-500 mt-0.5">
                     ${spent.toFixed(2)} / ${acc.total_budget.toFixed(2)}
                   </p>
                   <div className="mt-2 h-2 bg-gray-100 rounded overflow-hidden">
@@ -495,7 +495,7 @@ export default function SpendingDashboard({
                       style={{ width: `${pct}%` }}
                     />
                   </div>
-                  <p className="text-[10px] text-gray-400 mt-1">
+                  <p className="text-meta text-gray-400 mt-1">
                     {pct.toFixed(0)}%
                     {overBudget && (
                       <span className="ml-1 text-red-500">over budget</span>
@@ -506,13 +506,13 @@ export default function SpendingDashboard({
             })}
             {uncategorizedFundingTotal > 0 && (
               <div className="p-3 bg-gray-50 border border-dashed border-gray-300 rounded-lg">
-                <p className="text-sm font-semibold text-gray-600 truncate">
+                <p className="text-body font-semibold text-gray-600 truncate">
                   Uncategorized
                 </p>
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className="text-meta text-gray-500 mt-0.5">
                   ${uncategorizedFundingTotal.toFixed(2)} · no funding string
                 </p>
-                <p className="text-[10px] text-gray-400 mt-2 italic">
+                <p className="text-meta text-gray-400 mt-2 italic">
                   Items without a funding account assigned.
                 </p>
               </div>
@@ -524,7 +524,7 @@ export default function SpendingDashboard({
       {isEmpty ? (
         <section className="mb-8">
           <div className="p-8 bg-white border border-dashed border-gray-300 rounded-lg text-center">
-            <p className="text-sm text-gray-500">
+            <p className="text-body text-gray-500">
               Add a purchase to see spend breakdowns here.
             </p>
           </div>
@@ -533,12 +533,12 @@ export default function SpendingDashboard({
         <>
           {/* SPEND OVER TIME */}
           <section className="mb-8">
-            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
+            <h4 className="text-meta font-bold text-gray-400 uppercase tracking-wider mb-3">
               Spend over time
             </h4>
             {spendOverTimeData.length === 0 ? (
               <div className="p-6 bg-white border border-dashed border-gray-300 rounded-lg text-center">
-                <p className="text-xs text-gray-400">
+                <p className="text-meta text-gray-400">
                   No items match the current time range.
                 </p>
               </div>
@@ -599,11 +599,11 @@ export default function SpendingDashboard({
           {/* BREAKDOWN BY [lens] */}
           <section className="mb-8">
             <div className="flex items-center justify-between mb-3">
-              <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+              <h4 className="text-meta font-bold text-gray-400 uppercase tracking-wider">
                 Breakdown by {breakdownLensLabel[breakdownLens]}
               </h4>
               <div
-                className="inline-flex bg-gray-100 rounded-lg p-0.5 text-xs"
+                className="inline-flex bg-gray-100 rounded-lg p-0.5 text-meta"
                 data-tour-target="spending-breakdown-lens-toggle"
               >
                 {(Object.keys(breakdownLensLabel) as BreakdownLens[]).map(
@@ -626,7 +626,7 @@ export default function SpendingDashboard({
             </div>
             {breakdownData.length === 0 ? (
               <div className="p-6 bg-white border border-dashed border-gray-300 rounded-lg text-center">
-                <p className="text-xs text-gray-400">
+                <p className="text-meta text-gray-400">
                   No items match the current time range.
                 </p>
               </div>
@@ -711,7 +711,7 @@ export default function SpendingDashboard({
                 : "cursor-default"
             }`}
           >
-            <p className="text-xs text-amber-800">
+            <p className="text-meta text-amber-800">
               <span className="font-semibold">
                 Items on non-purchase tasks:
               </span>{" "}
@@ -720,13 +720,13 @@ export default function SpendingDashboard({
               {nonPurchaseTaskTotal.toFixed(2)}
             </p>
             {nonPurchaseTaskItems.length > 0 && (
-              <span className="text-amber-700 text-xs">
+              <span className="text-amber-700 text-meta">
                 {nonPurchaseExpanded ? "▲ hide" : "▼ show"}
               </span>
             )}
           </button>
           {nonPurchaseTaskItems.length > 0 && !nonPurchaseExpanded && (
-            <p className="text-[10px] text-amber-700 mt-1">
+            <p className="text-meta text-amber-700 mt-1">
               These items live on tasks not typed as &ldquo;purchase&rdquo; — they still
               count toward spend totals. Click a row to open the parent task
               and reclassify or move them.
@@ -734,9 +734,9 @@ export default function SpendingDashboard({
           )}
           {nonPurchaseExpanded && nonPurchaseTaskItems.length > 0 && (
             <div className="mt-3 border-t border-amber-200 pt-3">
-              <table className="w-full text-xs">
+              <table className="w-full text-meta">
                 <thead>
-                  <tr className="text-left text-[10px] uppercase tracking-wider text-amber-700">
+                  <tr className="text-left text-meta uppercase tracking-wider text-amber-700">
                     <th className="pb-1.5 pr-3 font-semibold">Item</th>
                     <th className="pb-1.5 pr-3 font-semibold">Host task</th>
                     <th className="pb-1.5 font-semibold text-right">Amount</th>
@@ -763,7 +763,7 @@ export default function SpendingDashboard({
                         <td className="py-1.5 pr-3 text-gray-600">
                           {task?.name ?? "(missing task)"}
                           {task && (
-                            <span className="ml-1 text-[10px] text-gray-400">
+                            <span className="ml-1 text-meta text-gray-400">
                               · {task.task_type}
                             </span>
                           )}
@@ -776,7 +776,7 @@ export default function SpendingDashboard({
                   })}
                 </tbody>
               </table>
-              <p className="text-[10px] text-amber-700 mt-2 italic">
+              <p className="text-meta text-amber-700 mt-2 italic">
                 Tip: click a row to open the host task and either reclassify
                 it as a purchase or move the items to a proper purchase
                 order.

@@ -128,7 +128,7 @@ export default function TaskQuickPopup({
           {isExperiment && (
             <div className="w-2 h-2 rounded-full bg-purple-500 flex-shrink-0" />
           )}
-          <span className="text-sm text-gray-700 truncate" title={task.name}>
+          <span className="text-body text-gray-700 truncate" title={task.name}>
             {task.name}
           </span>
         </div>

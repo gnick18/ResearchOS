@@ -44,7 +44,7 @@ export default function RequestEditButton({
   const [open, setOpen] = useState(false);
 
   const baseClasses =
-    "inline-flex items-center gap-1.5 rounded-md text-xs font-medium transition-colors";
+    "inline-flex items-center gap-1.5 rounded-md text-meta font-medium transition-colors";
   const classes =
     variant === "primary"
       ? `${baseClasses} px-3 py-1.5 bg-amber-600 text-white hover:bg-amber-700`
