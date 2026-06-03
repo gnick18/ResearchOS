@@ -919,18 +919,13 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
               when the project has no funding. Kept at the top of the body so it
               frames whichever section is active. */}
           <ProjectFundingSection project={project} />
-          {/**
-            * Onboarding v4 §6.2 spotlight anchor for the
-            * `project-overview-rollup` narration beat (v4 tour structural
-            * manager, Wave 1, 2026-05-27). With real tabs (beta bug #4) only
-            * the active section renders here, but the anchor is preserved on
-            * this wrapper so the tour can still resolve its spotlight rect.
-            * See targets.ts → projectOverviewRollupSections.
-            */}
-          <div
-            data-tour-target="project-overview-rollup-sections"
-            className="flex flex-col gap-10"
-          >
+          {/* Active project tab body. The Results / Methods / Activity
+              sections are hide-when-empty tabs (beta bug #4), so only the
+              selected section renders here. The onboarding v4
+              `project-overview-rollup` narration beat that used to spotlight
+              this wrapper was removed in the real-tabs redesign (tour-teardown
+              audit 2026-06-03), so the dead spotlight anchor is gone. */}
+          <div className="flex flex-col gap-10">
             {effectiveTab === "overview" && (
               <OverviewSection
                 project={project}

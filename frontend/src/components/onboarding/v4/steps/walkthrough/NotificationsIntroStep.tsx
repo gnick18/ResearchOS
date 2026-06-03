@@ -8,7 +8,14 @@
  * Voice classification per Grant's 2026-05-27 script: NARRATION
  * Spotlight: none (framing-only beat; no rect needed)
  * Completion: manual ("Got it, next")
- * ExpectedRoute: "/"
+ * ExpectedRoute: "/workbench"
+ *
+ * Tour-teardown audit (2026-06-03): expectedRoute was "/", but "/" is now
+ * a pure role redirect that the tour-active guard suppresses (see
+ * page-landing-redirect.ts), so it parked the user on a blank spinner.
+ * The preceding project-overview-exit step now lands on /workbench, and
+ * the bell + inbox this beat narrates live in the top nav on /workbench
+ * too, so the route is realigned to /workbench.
  *
  * v4 tour speech manager — A
  */
@@ -36,5 +43,5 @@ export const notificationsIntroStep = buildWalkthroughStep({
   ),
   pose: "pointing",
   completion: manualAdvance("Got it, next"),
-  expectedRoute: "/",
+  expectedRoute: "/workbench",
 });

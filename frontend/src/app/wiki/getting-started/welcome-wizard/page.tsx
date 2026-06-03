@@ -216,29 +216,21 @@ export default function WelcomeWizardPage() {
         The project page is where every experiment, method, and task you
         attach to a project comes back together in one view. The Overview
         box at the top is yours to fill in (hypothesis, motivation, why
-        this project exists); the Results, Methods, and Activity sections
-        below fill themselves in automatically as you work. This cluster
-        introduces both halves before handing the canvas back to you.
+        this project exists); the Results, Methods, and Activity tabs next
+        to it surface automatically once you have something to show, and
+        stay hidden while a project is still empty. This cluster introduces
+        the Overview box, then hands you off to notifications.
       </p>
       <Steps>
         <Step>
           <strong>project-overview-nav.</strong> Cursor clicks the new project
-          card on Home and the controller navigates to the project route.
+          card and the controller navigates to the project route.
         </Step>
         <Step>
           <strong>project-overview-prose.</strong> BeakerBot introduces the
-          four sections of the project page and explains the Overview box as
-          the anchor you come back to when you are deep in the weeds.
-          Narration only, manual advance.
-        </Step>
-        <Step>
-          <strong>project-overview-rollup.</strong> Spotlight shifts to the
-          Results, Methods, and Activity sections below the Overview
-          textarea. BeakerBot explains that this page is a live roll-up of
-          everything happening across the project: drop an image in any
-          experiment&apos;s Results tab and it shows up here, attach a method
-          to an experiment and it lands here too. You never curate this page
-          by hand.
+          project page and explains the Overview box as the anchor you come
+          back to when you are deep in the weeds. Narration only, manual
+          advance.
         </Step>
         <Step>
           <strong>project-overview-typing-demo.</strong> Cursor types a
@@ -252,44 +244,11 @@ export default function WelcomeWizardPage() {
           glance. Pure narration, manual advance.
         </Step>
         <Step>
-          <strong>project-overview-exit.</strong> Cursor glides to the Home nav
-          tab and the controller navigates back to <code>/</code> so the next
-          cluster fires from Home, not from inside the project page. The
-          speech is dynamic: off-home users get a "let me take us back home"
-          beat, already-home users get a straight "let me show you your
-          dashboard" beat.
-        </Step>
-      </Steps>
-
-      <h4>Home widgets</h4>
-      <p>
-        New accounts land on Home with two default widgets pre-pinned:
-        Upcoming tasks and Today&apos;s events. This cluster teaches the
-        canvas itself, that each tile is a snapshot that expands into a
-        full popup, and that the layout is per-user.
-      </p>
-      <Steps>
-        <Step>
-          <strong>home-widgets-canvas-intro.</strong> Spotlight on the whole
-          widget canvas while BeakerBot explains that Home is a per-user
-          dashboard.
-        </Step>
-        <Step>
-          <strong>home-widgets-tile-anatomy.</strong> Cursor clicks a tile,
-          its popup opens, you read a beat, the cursor dismisses the popup.
-        </Step>
-        <Step>
-          <strong>home-widgets-add.</strong> Cursor clicks &quot;+ Add
-          widget&quot;, the catalog opens, and BeakerBot adds a new tile to
-          the canvas.
-        </Step>
-        <Step>
-          <strong>home-widgets-reorder.</strong> Cursor drags one tile to a
-          different slot so you can see the layout shift live.
-        </Step>
-        <Step>
-          <strong>home-widgets-exit.</strong> Cursor pulls toward the
-          notifications bell, telegraphing the next section.
+          <strong>project-overview-exit.</strong> Cursor glides to the
+          notification bell in the top bar while the controller navigates to
+          your Workbench, so the next cluster fires from a real page instead
+          of from inside the project. Manual advance hands off to the
+          notifications walkthrough.
         </Step>
       </Steps>
 

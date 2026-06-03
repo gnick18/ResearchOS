@@ -1,35 +1,44 @@
 /**
  * §6.2 → §6.3 transition (Grant 2026-05-21 feedback; widget-framework
- * teardown v2, 2026-06-02).
+ * teardown v2, 2026-06-02; tour-teardown audit 2026-06-03).
  *
  * The previous flow jumped straight from typing into the project's
  * Overview field to BeakerBot announcing notifications, visually
  * jarring because the user was still parked inside the project page.
  * This step gives the route change a visible beat:
  *
- *   1. BeakerBot says he's heading back to the user's home surface and
+ *   1. BeakerBot says he's heading back out of the project page and
  *      telegraphs notifications next.
- *   2. The cursor glides to the Home tab in the top navbar (no click;
- *      the AppShell nav is disabled during walkthrough mode anyway).
- *   3. expectedRoute "/" fires the TourController's router.push so the
- *      browser navigates while the cursor is at the Home tab. The
- *      tour-active guard keeps "/" from bouncing the user to a role
- *      surface mid-tour, so the next beat (notifications-intro) fires
- *      from "/" as before.
+ *   2. The cursor glides to the notification bell in the top navbar.
+ *   3. expectedRoute "/workbench" fires the TourController's router.push
+ *      so the browser navigates while the cursor is at the bell. The
+ *      next beat (notifications-intro) then frames the bell + inbox from
+ *      /workbench.
  *   4. Manual advance into `notifications-intro` once the user clicks
  *      Got it, next.
  *
- * Widget-framework teardown v2 (2026-06-02): the §6.2b Home widgets
- * cluster that used to follow this step was removed with the customizable
- * widget canvas. The handoff now telegraphs notifications directly (the
- * next beat is notifications-intro).
+ * Tour-teardown audit (2026-06-03): the prior version glided to
+ * `homeOrLabOverviewNavSelector()` and set `expectedRoute: "/"`. Both
+ * broke in the widget-framework teardown:
+ *   - The member/solo Home nav tab was removed (only lab_head gets a
+ *     "Lab Overview" tab), so the glide target resolved to nothing for
+ *     most users and the cursor stranded mid-screen.
+ *   - "/" became a pure role redirect that is SUPPRESSED while the tour
+ *     is active (see page-landing-redirect.ts `tourActive` guard), so
+ *     pushing to "/" parked the user on a blank spinner page.
+ * The fix repoints the glide to the notification bell (rendered in the
+ * top nav on EVERY page, every account type) and lands the user on
+ * /workbench (a real page for members, solo, and PIs). The notifications
+ * cluster (bell -> silence -> delete) declares no route of its own, so it
+ * fires cleanly from /workbench; the following workbench-create-experiment
+ * cluster is already rooted there too, so the handoff stays on one page.
  *
- * Classification: BEAKERBOT DEMO (speech says "I'll head back home"; the
- * cursor performs the glide). No click action because:
- *   - the AppShell nav-item is a `<button disabled>` during walkthroughs
- *     (L23 gate), so dispatching a click would be a visual no-op anyway.
+ * Classification: BEAKERBOT DEMO (speech says "let me head back out"; the
+ * cursor performs the glide to the bell). No click action because:
+ *   - the notification bell opening belongs to the user in the next beat
+ *     (notifications-bell), so this step only directs the eye.
  *   - the TourController's expectedRoute effect does the actual nav via
- *     `router.push`, which bypasses the disabled gate by design.
+ *     `router.push`.
  *
  * Pose: pointing (BeakerBot is directing the user's eye to the navbar).
  */
@@ -42,40 +51,45 @@ import {
   manualAdvance,
   buildWalkthroughStep,
 } from "./lib/step-helpers";
-import { homeOrLabOverviewNavSelector } from "./lib/targets";
+import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 
-// panel copy polish 2026-05-26: literal-reader bot flagged the prior
-// "Let me take us back home" copy as confusing when the step fires
-// while the user is already on Home (race + back-button cases). Gate
-// the "back home" phrasing on the actual pathname so the speech only
-// promises a navigation when one is actually about to happen.
+const bellSelector = targetSelector(TOUR_TARGETS.notificationsBell);
+
+// panel copy polish 2026-05-26 / teardown audit 2026-06-03: the prior
+// "back home" phrasing promised a Home surface that members no longer
+// have. The copy now telegraphs notifications directly and gates the
+// "let me head back out" framing on whether the user is still inside a
+// project page (the common case for this step).
 function exitSpeech(): string {
-  if (typeof window !== "undefined" && window.location?.pathname === "/") {
-    return "Great. Next, let me show you how notifications keep you in the loop.";
+  const onProject =
+    typeof window !== "undefined" &&
+    (window.location?.pathname ?? "").startsWith("/workbench/projects/");
+  if (onProject) {
+    return "Great. Let me head back out so I can show you how notifications keep you in the loop.";
   }
-  return "Great. Let me head back so I can show you how notifications keep you in the loop.";
+  return "Great. Next, let me show you how notifications keep you in the loop.";
 }
 
 export const projectOverviewExitStep = buildWalkthroughStep({
   id: "project-overview-exit",
   speech: () => exitSpeech(),
   pose: "pointing",
-  // PI Home migration (pi-walkthrough hardening, 2026-05-29): glide to /
-  // spotlight the Home tab for members + solo accounts, OR the Lab
-  // Overview tab for lab_head (PI) accounts whose Home tab is hidden.
-  // The combined selector lets DOM presence decide (see
-  // `homeOrLabOverviewNavSelector`), so the cursor never anchors to a
-  // tab that the PI Home migration removed from the navbar.
-  targetSelector: homeOrLabOverviewNavSelector(),
+  // Tour-teardown audit (2026-06-03): glide to the notification bell,
+  // which AppShell renders in the top-right cluster on every page for
+  // every account type. Replaces the removed Home / Lab Overview nav-tab
+  // glide that resolved to nothing for members + solo accounts.
+  targetSelector: bellSelector,
   cursorScript: cursorScript(async () => {
-    const glide = await safeGlideToElementAction(
-      homeOrLabOverviewNavSelector(),
-    );
+    const glide = await safeGlideToElementAction(bellSelector);
     return compactScript([glide]);
   }),
-  // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
-  // expectedRoute still drives the actual navigation; the cursor glides
-  // to the Home tab and the router.push fires while the user reads.
+  // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the
+  // user to click before advancing. expectedRoute drives the actual
+  // navigation; the cursor glides to the bell and the router.push fires
+  // while the user reads.
   completion: manualAdvance("Got it, next"),
-  expectedRoute: "/",
+  // Tour-teardown audit (2026-06-03): land on /workbench (a real page for
+  // every account type) instead of "/" (a pure redirect that the tour
+  // guard suppresses, leaving a blank spinner).
+  expectedRoute: "/workbench",
 });

@@ -24,18 +24,20 @@ import {
 
 /**
  * §6.2→6.3 transition step (`project-overview-exit`) target coverage
- * (pi-walkthrough hardening, 2026-05-29).
+ * (tour-teardown audit, 2026-06-03).
  *
- * After the PI Home migration the Home top-nav tab is hidden for
- * lab_head accounts, so the exit step's cursor glide / spotlight must
- * anchor to whichever "back to Home" tab is actually rendered:
- *   - member / solo  → home-nav-tab
- *   - PI (Home hidden) → lab-overview-nav-tab
+ * The widget-framework teardown removed the member/solo Home nav tab and
+ * turned "/" into a pure role redirect that the tour-active guard
+ * suppresses. So the exit step no longer glides to a (now-absent) Home /
+ * Lab Overview tab nor pushes to "/". It now:
+ *   - glides to the notification bell (rendered in the top nav on every
+ *     page for every account type), and
+ *   - lands the user on /workbench (a real page for member, solo, and PI)
+ * so the following notifications cluster fires cleanly.
  *
- * The step uses `homeOrLabOverviewNavSelector()`, a combined selector
- * resolved by DOM presence (document.querySelector returns the first
- * match in document order). These tests prove the selector shape and
- * that DOM presence picks the right tab per account type.
+ * The `homeOrLabOverviewNavSelector()` helper is still exported (other
+ * call sites / back-compat), so its DOM-resolution behavior is still
+ * covered by the second describe block below.
  */
 
 afterEach(() => {
@@ -46,19 +48,17 @@ describe("project-overview-exit step shape", () => {
   it("keeps its id, pose, route, and manual completion", () => {
     expect(projectOverviewExitStep.id).toBe("project-overview-exit");
     expect(projectOverviewExitStep.pose).toBe("pointing");
-    expect(projectOverviewExitStep.expectedRoute).toBe("/");
+    // Tour-teardown audit (2026-06-03): lands on /workbench, not "/".
+    expect(projectOverviewExitStep.expectedRoute).toBe("/workbench");
     expect(projectOverviewExitStep.completion.type).toBe("manual");
   });
 
-  it("targets the combined Home / Lab Overview nav selector", () => {
+  it("targets the notification bell (present on every page)", () => {
+    // Tour-teardown audit (2026-06-03): the removed Home / Lab Overview
+    // nav-tab glide is replaced with the always-present notification bell.
     expect(projectOverviewExitStep.targetSelector).toBe(
-      homeOrLabOverviewNavSelector(),
+      targetSelector(TOUR_TARGETS.notificationsBell),
     );
-    // The combined selector references BOTH tab anchors so DOM presence
-    // can decide which one the cursor lands on.
-    const sel = projectOverviewExitStep.targetSelector!;
-    expect(sel).toContain(targetSelector(TOUR_TARGETS.homeNavTab));
-    expect(sel).toContain(targetSelector(TOUR_TARGETS.labOverviewNavTab));
   });
 });
 

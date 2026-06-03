@@ -1287,12 +1287,19 @@ describe("TourController — cursor-script invocation", () => {
     // its cursorScript (it is pure narration now that the create flow routes
     // straight to the project page). Use project-overview-exit instead — it
     // still carries a glide cursorScript and keeps the test scoped to
-    // "transition between two cursor-script steps re-invokes runScript". Its
-    // glide build waits for the Home nav tab, so plant that element here so
-    // the build resolves promptly instead of timing out.
-    const homeNavTab = document.createElement("button");
-    homeNavTab.setAttribute("data-tour-target", "home-nav-tab");
-    document.body.appendChild(homeNavTab);
+    // "transition between two cursor-script steps re-invokes runScript".
+    // Tour-teardown audit (2026-06-03): the exit glide now waits for the
+    // notification bell (the removed Home nav tab no longer renders), so
+    // plant that element here for the build to resolve promptly.
+    const bell = document.createElement("button");
+    bell.setAttribute("data-tour-target", "notifications-bell");
+    document.body.appendChild(bell);
+    // The exit step's expectedRoute is now /workbench. Put the pathname on
+    // route first so waitForPathnameSettle resolves immediately instead of
+    // burning its 1500ms timeout (the mocked router.push doesn't move
+    // window.location), which would otherwise outlast waitFor's timeout.
+    window.history.pushState({}, "", "/workbench");
+    setMockPathname("/workbench");
     try {
       act(() => {
         result.current.start("project-overview-exit");
@@ -1301,7 +1308,7 @@ describe("TourController — cursor-script invocation", () => {
         expect(cursorRunScriptMock).toHaveBeenCalledTimes(1);
       });
     } finally {
-      homeNavTab.remove();
+      bell.remove();
     }
   });
 });
