@@ -534,16 +534,17 @@ export default function SequencesPage() {
         >
         <aside className="flex h-full w-full flex-col rounded-lg border border-gray-200 bg-white">
           <div className="border-b border-gray-100 px-4 py-3">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <h1 className="text-lg font-semibold text-gray-800">Sequences</h1>
+            {/* Stack the title + description above the actions so they get the
+                full sidebar width (no truncated title / thin wrapped text); the
+                action buttons sit on their own row below. Calm, Apple-ish. */}
+            <div className="flex flex-col gap-3">
+              <div>
+                <h1 className="text-lg font-semibold text-gray-900">Sequences</h1>
                 <p className="mt-0.5 text-xs text-gray-500">
                   Your plasmids and sequences, organized by project.
                 </p>
               </div>
-              {/* Primary entry-path actions: New + Import. Labeled, calm,
-                  Benchling-spirit. */}
-              <div className="flex shrink-0 items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => setNewOpen(true)}
@@ -696,31 +697,12 @@ export default function SequencesPage() {
               <div className="px-4 py-6 text-sm text-gray-400">Loading…</div>
             ) : sorted.length === 0 ? (
               sequences.length === 0 ? (
-                <div className="flex flex-col items-center gap-3 px-6 py-10 text-center">
+                <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
                   <p className="text-sm font-medium text-gray-600">No sequences yet</p>
                   <p className="text-xs leading-relaxed text-gray-400">
-                    Create a new sequence from scratch, or import a GenBank,
-                    FASTA, or SnapGene file.
+                    Use New, Assemble, or Import above to create a sequence or
+                    bring in a GenBank, FASTA, or SnapGene file.
                   </p>
-                  <div className="mt-1 flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setNewOpen(true)}
-                      className="flex items-center gap-1 rounded-md bg-sky-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-sky-700"
-                    >
-                      <PlusIcon className="h-3.5 w-3.5" />
-                      New sequence
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={importing}
-                      className="flex items-center gap-1 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:opacity-50"
-                    >
-                      <ImportIcon className="h-3.5 w-3.5" />
-                      Import
-                    </button>
-                  </div>
                 </div>
               ) : (
                 <div className="px-4 py-6 text-sm text-gray-400">
