@@ -94,8 +94,17 @@ export default function NotesPanel({
   const [sortKey, setSortKey] = useState<SortKey>("updated");
   const [groupBy, setGroupBy] = useState<GroupBy>("none");
   const [sharedOnly, setSharedOnly] = useState(false);
-  // Folded group keys (month grouping). Default: all expanded.
+  // Folded group keys (month grouping). We DON'T seed this set; instead the
+  // effective collapsed state is derived (see `isGroupCollapsed`): every month
+  // group EXCEPT the newest defaults to collapsed so a multi-year library opens
+  // as a tidy list of month headers rather than a long scroll. Once the user
+  // explicitly toggles a group its key lands in `userToggledGroups` and the
+  // derived default no longer applies to it: their manual state (tracked in
+  // `collapsedGroups`) wins from then on.
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  // Keys the user has explicitly expanded/collapsed. Manual toggles always win
+  // over the newest-month-only default below.
+  const [userToggledGroups, setUserToggledGroups] = useState<Set<string>>(new Set());
   // Incremental render window: how many notes are currently mounted.
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
@@ -311,10 +320,34 @@ export default function NotesPanel({
   // next PAGE_SIZE. The slicing is order-stable, so groups fill top-to-bottom.
   const totalNotes = sortedNotes.length;
   const hasMore = visibleCount < totalNotes;
+
+  // The newest month group (descending sort puts it first). Used by the
+  // default-collapse rule: only this group is expanded until the user says
+  // otherwise.
+  const newestGroupKey = monthGroups?.[0]?.key ?? null;
+
+  // Effective collapsed state for a month group. If the user has explicitly
+  // toggled the group, their choice (recorded in `collapsedGroups`) wins.
+  // Otherwise the default is: the newest month is expanded, every older month
+  // (and the "Undated" bucket, whose key sorts last) is collapsed.
+  const isGroupCollapsed = (key: string): boolean =>
+    userToggledGroups.has(key)
+      ? collapsedGroups.has(key)
+      : key !== newestGroupKey;
+
   const toggleGroup = (key: string) => {
+    // Capture the CURRENT effective state so the first manual toggle flips what
+    // the user actually sees (the derived default), not an empty baseline.
+    const currentlyCollapsed = isGroupCollapsed(key);
+    setUserToggledGroups((prev) => {
+      if (prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
     setCollapsedGroups((prev) => {
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
+      if (currentlyCollapsed) next.delete(key);
       else next.add(key);
       return next;
     });
@@ -519,7 +552,7 @@ export default function NotesPanel({
             (n) => (indexOf.get(n) ?? 0) < visibleCount,
           );
           if (visibleInGroup.length === 0) return null;
-          const collapsed = collapsedGroups.has(group.key);
+          const collapsed = isGroupCollapsed(group.key);
           return (
             <div key={group.key} data-testid={`notes-group-${group.key}`}>
               <button
@@ -565,10 +598,13 @@ export default function NotesPanel({
   return (
     <div className="h-full flex flex-col">
       {notebookSwitcher}
-      {/* Header with search and filters */}
-      <div className="flex items-center justify-between mb-4 gap-4">
+      {/* Header with search and filters. Wraps gracefully on tablet widths:
+          the row flex-wraps, and the related controls are kept in coherent
+          clusters (type filters; sort + group-by + view toggle) so the wrap
+          reads tidy rather than ragged. New Note stays reachable. */}
+      <div className="flex items-center justify-between mb-4 gap-x-4 gap-y-3 flex-wrap">
         {/* Search */}
-        <div className="relative flex-1 max-w-md">
+        <div className="relative flex-1 min-w-[200px] max-w-md">
           <svg
             className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
             fill="none"
@@ -591,8 +627,11 @@ export default function NotesPanel({
           />
         </div>
 
-        {/* Filter buttons */}
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* Filter + arrange controls. Two coherent clusters that wrap as
+            units: the type/shared filters, then sort + group-by + view. */}
+        <div className="flex items-center gap-x-3 gap-y-2 flex-wrap">
+          {/* Cluster 1: type + shared filters */}
+          <div className="flex items-center gap-2">
           <button
             onClick={() => setFilterType("all")}
             className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
@@ -641,9 +680,11 @@ export default function NotesPanel({
             </svg>
             Shared with lab
           </button>
+          </div>
 
-          <span className="w-px h-6 bg-gray-200 mx-0.5" aria-hidden="true" />
-
+          {/* Cluster 2: sort + group-by selects kept together, with the
+              grid/list view toggle next to them. */}
+          <div className="flex items-center gap-2">
           {/* Sort control (notes-scale bot) */}
           <label className="sr-only" htmlFor="notes-sort">Sort notes</label>
           <select
@@ -716,6 +757,7 @@ export default function NotesPanel({
               </button>
             </Tooltip>
           </div>
+          </div>
         </div>
 
         {/* New note button (not in Lab Mode) */}
@@ -778,7 +820,9 @@ export default function NotesPanel({
               </svg>
             </div>
             <p className="text-gray-500 mb-2">
-              {searchQuery || filterType !== "all" || sharedOnly
+              {sharedOnly
+                ? "No notes shared with the lab match your filters"
+                : searchQuery || filterType !== "all"
                 ? "No notes match your filters"
                 : isLabMode
                 ? "No shared notes found"
