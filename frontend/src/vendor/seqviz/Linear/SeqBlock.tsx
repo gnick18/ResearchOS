@@ -487,26 +487,33 @@ export class SeqBlock extends React.PureComponent<SeqBlockProps> {
             {seq.split("").map(this.seqTextSpan)}
           </text>
         ) : null}
-        {/* sequence-view legibility bot — SnapGene-style GRADUATED STRAND RULER
-            with DYNAMIC tick-level shedding. A tick sits in the seam between the
-            top sequence row and the complement row, with length keyed to ABSOLUTE
-            base position (1-based) so the marks line up to real bp counts across
-            blocks. Three levels: minor every bp (subtle), medium every 5 bp
-            (longer), major every 10 bp (longest, darkest, thickest landmark).
+        {/* spacing + ruler redesign bot — SnapGene-style MEASURING-TAPE strand
+            ruler. A faint horizontal BASELINE runs through the seam between the
+            top sequence row and the complement row, with short vertical TICKS
+            crossing it at each base. This reads like SnapGene's "+-+-+-" tape:
+            crisp marks crossing a thin rule, not a cramped band.
 
-            DYNAMIC: rather than always drawing a tick per base (which squishes
-            into a faint band at low zoom), we shed whole tick LEVELS as the
-            spacing gets too tight. charWidth is pixels-per-base and grows on zoom
-            in. We pick the active MINIMUM unit (1, 5, 10, or none) from how many
-            pixels each level's spacing occupies, gated by MIN_TICK_GAP_PX:
-              - charWidth >= gap        : unit 1   (all 1s + 5s + 10s, as before)
+            GRADUATED: ticks are keyed to ABSOLUTE base position (1-based) so the
+            marks line up to real bp counts across blocks. Multiples of 5 are
+            taller, multiples of 10 are tallest and slightly higher contrast, the
+            per-bp minor ticks stay short and low contrast. No numeric labels:
+            the IndexRow owns the numbers.
+
+            DYNAMIC level-shedding (kept from the prior design): rather than
+            always drawing a tick per base (which squishes into a faint band at
+            low zoom), we shed whole tick LEVELS as the spacing gets too tight.
+            charWidth is pixels-per-base and grows on zoom in. We pick the active
+            MINIMUM unit (1, 5, 10, or none) from how many pixels each level's
+            spacing occupies, gated by MIN_TICK_GAP_PX:
+              - charWidth >= gap        : unit 1   (all 1s + 5s + 10s)
               - charWidth * 5 >= gap    : unit 5   (drop per-bp minor, keep 5s+10s)
-              - charWidth * 10 >= gap   : unit 10  (only the 10s major landmarks)
-              - else                    : unit 0   (render nothing, stay clean)
+              - charWidth * 10 >= gap   : unit 10  (only the 10s landmarks)
+              - else                    : unit 0   (ticks gone; the bare baseline
+                                                    still reads as the seam rule)
             A column is drawn only when pos % unit === 0, and every drawn tick
-            keeps its OWN level's height/contrast (a 10 stays major even in
-            5s-mode, a 5 stays medium). As the user zooms, charWidth changes, the
-            active set changes, and levels appear/disappear smoothly. */}
+            keeps its OWN level's height/contrast (a 10 stays tallest even in
+            5s-mode, a 5 stays medium). With the wider charWidth from the spacing
+            change, the per-bp ticks now have room to read cleanly. */}
         {(() => {
           if (!(compSeq && zoomed && showComplement && seqType !== "aa")) return null;
 
@@ -516,7 +523,8 @@ export class SeqBlock extends React.PureComponent<SeqBlockProps> {
           const MIN_TICK_GAP_PX = 11;
 
           // active minimum spacing unit, chosen from the widest level that still
-          // clears the readability gap. unit === 0 means draw nothing.
+          // clears the readability gap. unit === 0 means ticks are shed but the
+          // baseline rule still draws (the seam stays visible at any zoom).
           let unit: number;
           if (charWidth >= MIN_TICK_GAP_PX) {
             unit = 1;
@@ -528,7 +536,9 @@ export class SeqBlock extends React.PureComponent<SeqBlockProps> {
             unit = 0;
           }
 
-          if (unit === 0) return null;
+          // baseline runs the full rendered span of this block (one charWidth
+          // per base), centered on the seam at compYDiff.
+          const baselineWidth = charWidth * seq.length;
 
           return (
             <g
@@ -536,42 +546,58 @@ export class SeqBlock extends React.PureComponent<SeqBlockProps> {
               data-testid="la-vz-strand-connector"
               fill="none"
             >
-              {seq.split("").map((_, i) => {
-                // pos is the 1-based absolute bp this column maps to.
-                const pos = firstBase + i + 1;
-                // skip columns that are not on the active minimum spacing.
-                if (pos % unit !== 0) return null;
+              {/* the measuring-tape rule: a thin, low-contrast horizontal line
+                  through the seam that the ticks cross. */}
+              <line
+                stroke="#94a3b8"
+                strokeOpacity={0.45}
+                strokeWidth={0.6}
+                x1={0}
+                x2={baselineWidth}
+                y1={compYDiff}
+                y2={compYDiff}
+              />
+              {unit === 0
+                ? null
+                : seq.split("").map((_, i) => {
+                    // pos is the 1-based absolute bp this column maps to.
+                    const pos = firstBase + i + 1;
+                    // skip columns that are not on the active minimum spacing.
+                    if (pos % unit !== 0) return null;
 
-                const cx = charWidth * (i + 0.5);
-                const isMajor = pos % 10 === 0;
-                const isMedium = !isMajor && pos % 5 === 0;
-                // tick half-length as a fraction of lineHeight, centered on the
-                // seam (symmetric above and below compYDiff). Major > medium > minor.
-                const half = isMajor
-                  ? lineHeight * 0.34
-                  : isMedium
-                    ? lineHeight * 0.22
-                    : lineHeight * 0.12;
-                // progressively higher contrast: minor ticks stay subtle slate,
-                // medium read clearly, major are the darkest, thickest landmarks.
-                // In 10s-only mode the majors carry the whole ruler, so nudge
-                // their contrast up a touch so they read without becoming a grid.
-                const stroke = isMajor ? "#475569" : isMedium ? "#94a3b8" : "#cbd5e1";
-                const strokeOpacity = isMajor ? 0.9 : isMedium ? 0.7 : 0.5;
-                const strokeWidth = isMajor ? 0.9 : isMedium ? 0.6 : 0.5;
-                return (
-                  <line
-                    key={`conn-${id}-${i}`}
-                    stroke={stroke}
-                    strokeOpacity={strokeOpacity}
-                    strokeWidth={strokeWidth}
-                    x1={cx}
-                    x2={cx}
-                    y1={compYDiff - half}
-                    y2={compYDiff + half}
-                  />
-                );
-              })}
+                    const cx = charWidth * (i + 0.5);
+                    const isMajor = pos % 10 === 0;
+                    const isMedium = !isMajor && pos % 5 === 0;
+                    // tick half-length as a fraction of lineHeight, centered on
+                    // the baseline (symmetric above and below compYDiff). Tens
+                    // are tallest, fives medium, per-bp short. Tuned against the
+                    // SnapGene reference so the marks cross the rule cleanly
+                    // without reaching the glyph rows.
+                    const half = isMajor
+                      ? lineHeight * 0.3
+                      : isMedium
+                        ? lineHeight * 0.19
+                        : lineHeight * 0.09;
+                    // low-contrast but legible, calm-theme friendly. Tens are
+                    // the darkest landmarks, fives read clearly, per-bp stay
+                    // faint so the tape never becomes a grid. In 10s-only mode
+                    // the tens carry the ruler, so their contrast is enough.
+                    const stroke = isMajor ? "#64748b" : isMedium ? "#94a3b8" : "#cbd5e1";
+                    const strokeOpacity = isMajor ? 0.85 : isMedium ? 0.65 : 0.45;
+                    const strokeWidth = isMajor ? 0.85 : isMedium ? 0.6 : 0.5;
+                    return (
+                      <line
+                        key={`conn-${id}-${i}`}
+                        stroke={stroke}
+                        strokeOpacity={strokeOpacity}
+                        strokeWidth={strokeWidth}
+                        x1={cx}
+                        x2={cx}
+                        y1={compYDiff - half}
+                        y2={compYDiff + half}
+                      />
+                    );
+                  })}
             </g>
           );
         })()}

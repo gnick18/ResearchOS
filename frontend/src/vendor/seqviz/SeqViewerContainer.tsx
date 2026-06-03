@@ -186,8 +186,20 @@ class SeqViewerContainer extends React.Component<SeqViewerContainerProps, SeqVie
     const seqFontSize = Math.min(Math.round(zoom * 0.1 + 9.5), 18); // max 18px
 
     // otherwise the sequence needs to be cut into smaller subsequences
-    // a sliding scale in width related to the degree of zoom currently active
-    let bpsPerBlock = Math.round((size.width / seqFontSize) * 1.4) || 1; // width / 1 * seqFontSize
+    // a sliding scale in width related to the degree of zoom currently active.
+    //
+    // ── RESEARCHOS MODIFICATION (spacing + ruler redesign bot) ───────────────
+    // DNA density multiplier. charWidth ends up == size.width / bpsPerBlock, so
+    // with multiplier m we get charWidth ~= seqFontSize / m. The vendor default
+    // of 1.4 packed bases tightly (charWidth ~= 0.71 * fontSize). We lower it to
+    // 0.95 for a SnapGene-style roomy layout (charWidth ~= 1.05 * fontSize):
+    // clearly more gap between letters, fewer bases per row, more vertical
+    // scroll. The amino-acid branch keeps its own / 3 spacing and therefore
+    // rides this wider base width self-consistently. bpsPerBlock and charWidth
+    // feed the overview box, the coordinate / selection readouts, and the
+    // dynamic strand-ruler thresholds, all of which recompute from these values.
+    const DNA_DENSITY = 0.95;
+    let bpsPerBlock = Math.round((size.width / seqFontSize) * DNA_DENSITY) || 1; // width / 1 * seqFontSize
     if (seqType === "aa") {
       bpsPerBlock = Math.round(bpsPerBlock / 3); // more space for each amino acid
     }
