@@ -19,20 +19,43 @@
 //   - HOVER a cut-site (label or tick) to highlight ALL sites of the SAME enzyme
 //     in red.
 //
-// REUSE: the bp -> x mapping is the SAME fit-to-width scaling the overview strip
-// uses (bpToTrackX from sequence-zoom). Cut sites come from the vendored digest
-// via digestEnzymes (the active enzyme set passed in). Features/primers come
-// straight from the editor's existing memos (no recompute, no on-disk change).
-// Label packing is the unit-tested pure helper layoutLabels.
+// ZOOM + NAVIGATOR (linear-map zoom bot): the map owns a VISIBLE WINDOW
+// [winStart, winEnd] (bp). Default is the whole molecule (exactly the original
+// fit-to-width view). A zoom SLIDER (with -/+ buttons) shrinks the window down to
+// a MIN_WINDOW_BP cap (it stays a MAP even at max zoom, never base letters). The
+// window, not the whole molecule, spans the track; only items overlapping the
+// window draw, and a straddling feature box is clipped to the window edge. A "…"
+// cue marks each off-screen end. A bottom CONTEXT NAVIGATOR (a mini whole-molecule
+// strip with a draggable viewport box) shows + drives where the window sits. The
+// window is the single source of truth shared by the map, the slider, and the
+// navigator. All zoom math is the unit-tested pure helper linear-map-window.
+//
+// REUSE: at default zoom the bp -> x mapping equals the original fit-to-width
+// scaling. Cut sites come from the vendored digest via digestEnzymes (the active
+// enzyme set passed in). Features/primers come straight from the editor's existing
+// memos (no recompute, no on-disk change). Label packing is the unit-tested pure
+// helper layoutLabels, now applied over the VISIBLE items only.
 //
 // INTERACTION: double-clicking a feature opens the feature editor; double-
 // clicking a primer opens the Edit Primer dialog — both routed through the same
 // handlers the SeqViz path uses (onAnnotationDoubleClick / onPrimerDoubleClick).
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { bpToTrackX } from "@/lib/sequences/sequence-zoom";
 import { digestEnzymes } from "@/lib/sequences/enzyme-filters";
 import { layoutLabels, tierCount, type LabelItem } from "@/lib/sequences/label-layout";
+import {
+  MIN_WINDOW_BP,
+  clampSpan,
+  sliderToSpan,
+  spanToSlider,
+  windowAroundCenter,
+  fullWindow,
+  spanOverlapsWindow,
+  clipSpanToWindow,
+  rulerStepForSpan,
+} from "@/lib/sequences/linear-map-window";
+import Tooltip from "@/components/Tooltip";
+import LinearMapNavigator from "./LinearMapNavigator";
 import type { SeqType } from "@/vendor/seqviz/elements";
 
 /** A feature to draw below the line. Mirrors the editor's annotation shape. */
@@ -122,16 +145,6 @@ function comma(n: number): string {
   return Math.round(n).toLocaleString();
 }
 
-/** Pick "nice" ruler tick step so we get ~6-10 labeled ticks across the width. */
-function rulerStep(seqLength: number): number {
-  if (seqLength <= 0) return 1;
-  const target = seqLength / 8; // aim for ~8 intervals
-  const pow = Math.pow(10, Math.floor(Math.log10(target)));
-  const candidates = [1, 2, 5, 10].map((m) => m * pow);
-  for (const c of candidates) if (c >= target) return c;
-  return candidates[candidates.length - 1];
-}
-
 export default function LinearMap({
   seq,
   seqType,
@@ -150,6 +163,18 @@ export default function LinearMap({
   // enzyme highlight together — SnapGene behavior).
   const [hoverEnzyme, setHoverEnzyme] = useState<string | null>(null);
 
+  // ── VISIBLE WINDOW (single source of truth for zoom + the navigator) ───────
+  // [winStart, winEnd] in bp. Default = whole molecule, i.e. exactly the original
+  // fit-to-width view. Zoom shrinks the span (down to MIN_WINDOW_BP); the navigator
+  // pans / resizes it; the slider position is derived from the span on every render.
+  const [win, setWin] = useState<{ start: number; end: number }>(() => fullWindow(seqLength));
+
+  // Reset the window to whole-molecule whenever the molecule length changes (a
+  // different sequence opened). Keeps the default-zoom guarantee per molecule.
+  useEffect(() => {
+    setWin(fullWindow(seqLength));
+  }, [seqLength]);
+
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
@@ -161,7 +186,26 @@ export default function LinearMap({
   }, []);
 
   const trackWidth = Math.max(0, width - PAD_X * 2);
-  const bpX = (bp: number) => PAD_X + bpToTrackX(bp, trackWidth, seqLength);
+  const winStart = win.start;
+  const winEnd = Math.max(win.start + 1, win.end);
+  const winSpan = winEnd - winStart;
+  // The WINDOW (not the whole molecule) spans the track now.
+  const bpX = (bp: number) => PAD_X + ((bp - winStart) / winSpan) * trackWidth;
+
+  // Zoom controls. The slider runs 0 (whole molecule) .. 1 (max zoom). Span maps
+  // log-scaled so the control feels smooth; zoom keeps the window CENTER stable.
+  const sliderPos = spanToSlider(winSpan, seqLength);
+  const setSpanKeepingCenter = (span: number) => {
+    const center = (winStart + winEnd) / 2;
+    setWin(windowAroundCenter(center, clampSpan(span, seqLength), seqLength));
+  };
+  const onSlider = (pos: number) => setSpanKeepingCenter(sliderToSpan(pos, seqLength));
+  // +/- step by a fixed zoom RATIO (one "click" = ~1.6x), respecting the cap.
+  const ZOOM_STEP = 1.6;
+  const canZoomIn = winSpan > MIN_WINDOW_BP;
+  const canZoomOut = winSpan < seqLength;
+  const zoomIn = () => setSpanKeepingCenter(winSpan / ZOOM_STEP);
+  const zoomOut = () => setSpanKeepingCenter(winSpan * ZOOM_STEP);
 
   // ── ENZYME CUT SITES (above the line) ────────────────────────────────────
   // Reuse the vendored digest via digestEnzymes; flatten to one item per cut.
@@ -188,9 +232,14 @@ export default function LinearMap({
     primerRef?: { name: string; start: number; end: number };
   }
 
+  // Only items overlapping the VISIBLE WINDOW draw. Cut sites are points, so a
+  // cut shows when its position is inside the window; a primer shows when its
+  // span overlaps the window. (The id keeps the original index so highlight +
+  // double-click routing stay stable across zoom.)
   const aboveSources: AboveSource[] = useMemo(() => {
     const src: AboveSource[] = [];
     cuts.forEach((c, i) => {
+      if (c.pos < winStart || c.pos > winEnd) return;
       src.push({
         id: `enz-${i}`,
         kind: "enzyme",
@@ -205,10 +254,15 @@ export default function LinearMap({
       primers.forEach((p, i) => {
         const lo = Math.min(p.start, p.end);
         const hi = Math.max(p.start, p.end);
+        if (!spanOverlapsWindow(lo, hi, winStart, winEnd)) return;
+        // Anchor the leader at the primer's visible midpoint so an off-screen-end
+        // primer still drops its tick inside the window.
+        const visLo = Math.max(lo, winStart);
+        const visHi = Math.min(hi, winEnd);
         src.push({
           id: `prm-${i}`,
           kind: "primer",
-          anchorBp: (lo + hi) / 2,
+          anchorBp: (visLo + visHi) / 2,
           label: `${p.name} (${comma(lo)}..${comma(hi)})`,
           color: PRIMER_PINK,
           primerRef: { name: p.name, start: p.start, end: p.end },
@@ -216,7 +270,7 @@ export default function LinearMap({
       });
     }
     return src;
-  }, [cuts, primers, showPrimers]);
+  }, [cuts, primers, showPrimers, winStart, winEnd]);
 
   // Pack the above-line labels into tiers. maxNudge 0 keeps each label centered
   // over its tick (cut sites are points; we want the leader to drop straight
@@ -229,7 +283,7 @@ export default function LinearMap({
         width: estTextWidth(s.label, ABOVE_LABEL_FONT),
       })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [aboveSources, trackWidth, seqLength],
+    [aboveSources, trackWidth, winStart, winEnd],
   );
 
   const abovePlaced = useMemo(
@@ -243,17 +297,26 @@ export default function LinearMap({
   // feature spans a range — the label just needs to read as "this feature").
   const featureItems: LabelItem[] = useMemo(
     () =>
-      features.map((f, i) => {
-        const lo = Math.min(f.start, f.end);
-        const hi = Math.max(f.start, f.end);
-        return {
-          id: `feat-${i}`,
-          anchorX: bpX((lo + hi) / 2),
-          width: estTextWidth(f.name || "feature", FEATURE_LABEL_FONT),
-        };
-      }),
+      features
+        .map((f, i) => ({ f, i }))
+        .filter(({ f }) => {
+          const lo = Math.min(f.start, f.end);
+          const hi = Math.max(f.start, f.end);
+          return spanOverlapsWindow(lo, hi, winStart, winEnd);
+        })
+        .map(({ f, i }) => {
+          // Anchor the label at the feature's VISIBLE-span midpoint so a feature
+          // that straddles a window edge still labels inside the window.
+          const lo = Math.max(Math.min(f.start, f.end), winStart);
+          const hi = Math.min(Math.max(f.start, f.end), winEnd);
+          return {
+            id: `feat-${i}`,
+            anchorX: bpX((lo + hi) / 2),
+            width: estTextWidth(f.name || "feature", FEATURE_LABEL_FONT),
+          };
+        }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [features, trackWidth, seqLength],
+    [features, trackWidth, winStart, winEnd],
   );
 
   const featurePlaced = useMemo(
@@ -284,27 +347,75 @@ export default function LinearMap({
   const totalH =
     featureLabelTop + (featureLabelTiers > 0 ? featureLabelTiers * FEATURE_LABEL_H : 0) + 8;
 
-  // Ruler ticks.
+  // Ruler ticks. The step recomputes from the VISIBLE span so a zoomed window
+  // shows finer ticks; only ticks INSIDE the window draw. The molecule start (1)
+  // and end labels are forced when those positions fall in the window.
   const ticks = useMemo(() => {
     if (seqLength <= 0 || trackWidth <= 0) return [];
-    const step = rulerStep(seqLength);
+    const step = rulerStepForSpan(winSpan);
     const out: { bp: number; label: string }[] = [];
-    for (let bp = 0; bp < seqLength; bp += step) {
-      out.push({ bp, label: bp === 0 ? "1" : comma(bp) });
+    if (winStart <= 0) out.push({ bp: 0, label: "1" });
+    const first = Math.ceil(winStart / step) * step;
+    for (let bp = first; bp < seqLength && bp <= winEnd; bp += step) {
+      if (bp <= 0) continue; // 0 already added as "1"
+      out.push({ bp, label: comma(bp) });
     }
-    // Always label the end.
-    out.push({ bp: seqLength, label: comma(seqLength) });
+    // Label the molecule end only when it is visible.
+    if (winEnd >= seqLength) out.push({ bp: seqLength, label: comma(seqLength) });
     return out;
-  }, [seqLength, trackWidth]);
+  }, [seqLength, trackWidth, winStart, winEnd, winSpan]);
 
   if (!seqLength) return null;
 
   return (
-    <div
-      ref={wrapRef}
-      className="relative min-h-0 w-full flex-1 overflow-auto bg-white"
-      aria-label="Linear map"
-    >
+    <div className="relative flex min-h-0 w-full flex-1 flex-col bg-white" aria-label="Linear map">
+      {/* ── compact zoom control row: -/+ buttons, log slider, readouts ── */}
+      <div className="flex shrink-0 items-center gap-2 border-b border-slate-100 px-3 py-1.5 text-[11px] text-slate-500">
+        <Tooltip label="Zoom out">
+          <button
+            type="button"
+            onClick={zoomOut}
+            disabled={!canZoomOut}
+            aria-label="Zoom out"
+            className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+              <line x1="2.5" y1="6" x2="9.5" y2="6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </button>
+        </Tooltip>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.001}
+          value={sliderPos}
+          onChange={(e) => onSlider(Number(e.target.value))}
+          aria-label="Zoom level"
+          className="h-1 w-32 cursor-pointer accent-blue-500"
+        />
+        <Tooltip label="Zoom in">
+          <button
+            type="button"
+            onClick={zoomIn}
+            disabled={!canZoomIn}
+            aria-label="Zoom in"
+            className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+              <line x1="2.5" y1="6" x2="9.5" y2="6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              <line x1="6" y1="2.5" x2="6" y2="9.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </button>
+        </Tooltip>
+        <span className="ml-1 tabular-nums font-medium text-slate-600">{comma(winSpan)} bp</span>
+        <span className="tabular-nums text-slate-400">
+          {comma(winStart + 1)} .. {comma(winEnd)}
+        </span>
+      </div>
+
+      {/* ── the map itself (scrollable; wrapRef measures the track width) ── */}
+      <div ref={wrapRef} className="relative min-h-0 flex-1 overflow-auto">
       {trackWidth > 0 ? (
         <svg width="100%" height={totalH} className="block select-none" style={{ minHeight: totalH }}>
           {/* ── strand baseline ── */}
@@ -318,10 +429,38 @@ export default function LinearMap({
             opacity={0.5}
           />
 
+          {/* ── "more sequence off-screen" ellipsis cues at the strand ends ── */}
+          {winStart > 0 ? (
+            <text
+              x={PAD_X - 2}
+              y={baselineY + RULER_FONT / 2 - 1}
+              fontSize={ABOVE_LABEL_FONT + 2}
+              fill={STRAND_COLOR}
+              textAnchor="end"
+              fontWeight={700}
+            >
+              {"…"}
+            </text>
+          ) : null}
+          {winEnd < seqLength ? (
+            <text
+              x={PAD_X + trackWidth + 2}
+              y={baselineY + RULER_FONT / 2 - 1}
+              fontSize={ABOVE_LABEL_FONT + 2}
+              fill={STRAND_COLOR}
+              textAnchor="start"
+              fontWeight={700}
+            >
+              {"…"}
+            </text>
+          ) : null}
+
           {/* ── ruler ticks + labels ── */}
           {ticks.map((t, i) => {
             const x = bpX(t.bp);
-            const anchor = i === 0 ? "start" : t.bp === seqLength ? "end" : "middle";
+            // First/last MOLECULE-end labels anchor inward so they are not clipped
+            // at the strand ends; interior ticks center on their position.
+            const anchor = t.bp <= 0 ? "start" : t.bp >= seqLength ? "end" : "middle";
             return (
               <g key={`tick-${i}`}>
                 <line
@@ -401,6 +540,9 @@ export default function LinearMap({
           {features.map((f, i) => {
             const lo = Math.min(f.start, f.end);
             const hi = Math.max(f.start, f.end);
+            // Skip features fully outside the visible window (their labels were
+            // already filtered out of featureItems by the same predicate).
+            if (!spanOverlapsWindow(lo, hi, winStart, winEnd)) return null;
             const color = f.color || "#94a3b8";
             const segs =
               f.segments && f.segments.length > 1
@@ -411,7 +553,12 @@ export default function LinearMap({
             const placed = placedById.get(`feat-${i}`);
             const labelTierY =
               featureLabelTop + (placed ? placed.tier : 0) * FEATURE_LABEL_H + FEATURE_LABEL_FONT;
-            const labelX = placed ? placed.labelX : bpX((lo + hi) / 2);
+            // visible-span midpoint for the (fallback) label + connector anchor.
+            const visMidBp = (Math.max(lo, winStart) + Math.min(hi, winEnd)) / 2;
+            const labelX = placed ? placed.labelX : bpX(visMidBp);
+            // The intron connector is clipped to the window so it never overshoots
+            // the strand ends.
+            const introClip = clipSpanToWindow(lo, hi, winStart, winEnd);
 
             return (
               <g
@@ -421,13 +568,13 @@ export default function LinearMap({
                   onFeatureDoubleClick({ name: f.name, start: f.start, end: f.end, direction: f.direction })
                 }
               >
-                {/* dashed intron connector spanning the whole feature (drawn first,
-                    so exon boxes sit on top) */}
-                {segs.length > 1 ? (
+                {/* dashed intron connector spanning the visible feature (drawn
+                    first, so exon boxes sit on top) */}
+                {segs.length > 1 && introClip ? (
                   <line
-                    x1={bpX(lo)}
+                    x1={bpX(introClip.lo)}
                     y1={featureRowY}
-                    x2={bpX(hi)}
+                    x2={bpX(introClip.hi)}
                     y2={featureRowY}
                     stroke={color}
                     strokeWidth={1}
@@ -436,13 +583,23 @@ export default function LinearMap({
                   />
                 ) : null}
                 {/* exon boxes (or the single span); the LAST exon in the reading
-                    direction carries the arrowhead */}
+                    direction carries the arrowhead. Each exon is CLIPPED to the
+                    window; an exon whose arrowhead tip is off-screen draws flat. */}
                 {segs.map((s, si) => {
-                  const x0 = bpX(s.start);
-                  const x1 = Math.max(x0 + MIN_FEATURE_PX, bpX(s.end));
+                  const clip = clipSpanToWindow(s.start, s.end, winStart, winEnd);
+                  if (!clip) return null; // exon fully off-screen
+                  const x0 = bpX(clip.lo);
+                  const x1 = Math.max(x0 + MIN_FEATURE_PX, bpX(clip.hi));
                   const isHeadExon =
                     f.direction === -1 ? si === 0 : si === segs.length - 1;
-                  if (isHeadExon && segs.length > 1) {
+                  // The arrowhead only draws when the exon's reading-direction TIP
+                  // is inside the window (forward: end not clipped; reverse: start
+                  // not clipped). A clipped tip means "more sequence off-screen", so
+                  // we draw a flat box instead of a misleading arrowhead.
+                  const tipVisible =
+                    f.direction === -1 ? clip.lo <= s.start : clip.hi >= s.end;
+                  const drawArrow = isHeadExon && tipVisible;
+                  if (drawArrow) {
                     return (
                       <polygon
                         key={si}
@@ -452,17 +609,7 @@ export default function LinearMap({
                       />
                     );
                   }
-                  if (segs.length === 1) {
-                    return (
-                      <polygon
-                        key={si}
-                        points={featureArrowPoints(x0, x1, featureRowY, f.direction)}
-                        fill={color}
-                        opacity={0.92}
-                      />
-                    );
-                  }
-                  // interior / non-head exon: plain box
+                  // interior / non-head exon, or a clipped head: plain box.
                   return (
                     <rect
                       key={si}
@@ -477,9 +624,9 @@ export default function LinearMap({
                 })}
                 {/* feature label (de-collided tier) + a thin connector when the
                     label was nudged away from the feature center */}
-                {Math.abs(labelX - bpX((lo + hi) / 2)) > 2 ? (
+                {Math.abs(labelX - bpX(visMidBp)) > 2 ? (
                   <line
-                    x1={bpX((lo + hi) / 2)}
+                    x1={bpX(visMidBp)}
                     y1={featureRowY + FEATURE_ARROW_H / 2}
                     x2={labelX}
                     y2={labelTierY - FEATURE_LABEL_FONT + 2}
@@ -501,6 +648,19 @@ export default function LinearMap({
             );
           })}
         </svg>
+      ) : null}
+      </div>
+
+      {/* ── bottom CONTEXT NAVIGATOR: whole-molecule strip + draggable box ── */}
+      {width > 0 ? (
+        <div className="shrink-0 border-t border-slate-100 px-0 py-1">
+          <LinearMapNavigator
+            seqLength={seqLength}
+            width={width}
+            window={{ start: winStart, end: winEnd }}
+            onWindowChange={setWin}
+          />
+        </div>
       ) : null}
     </div>
   );

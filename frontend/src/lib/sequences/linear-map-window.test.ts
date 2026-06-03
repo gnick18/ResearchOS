@@ -1,0 +1,168 @@
+// linear-map zoom bot — unit tests for the linear map's visible-window math.
+import { describe, expect, it } from "vitest";
+import {
+  MIN_WINDOW_BP,
+  clampSpan,
+  sliderToSpan,
+  spanToSlider,
+  windowAroundCenter,
+  fullWindow,
+  panWindow,
+  resizeWindowEdge,
+  spanOverlapsWindow,
+  clipSpanToWindow,
+  rulerStepForSpan,
+} from "./linear-map-window";
+
+describe("clampSpan", () => {
+  it("floors the span at MIN_WINDOW_BP", () => {
+    expect(clampSpan(10, 5000)).toBe(MIN_WINDOW_BP);
+    expect(clampSpan(MIN_WINDOW_BP - 1, 5000)).toBe(MIN_WINDOW_BP);
+  });
+  it("caps the span at the molecule length", () => {
+    expect(clampSpan(99999, 5000)).toBe(5000);
+  });
+  it("passes a valid span through (rounded)", () => {
+    expect(clampSpan(200.4, 5000)).toBe(200);
+  });
+  it("never lets the cap drop below MIN even for tiny molecules", () => {
+    expect(clampSpan(10, 30)).toBe(MIN_WINDOW_BP);
+  });
+});
+
+describe("sliderToSpan / spanToSlider", () => {
+  const len = 10000;
+  it("pos 0 = whole molecule, pos 1 = MIN_WINDOW_BP", () => {
+    expect(sliderToSpan(0, len)).toBe(len);
+    expect(sliderToSpan(1, len)).toBe(MIN_WINDOW_BP);
+  });
+  it("is monotonic decreasing in pos", () => {
+    let prev = Infinity;
+    for (let p = 0; p <= 1.0001; p += 0.1) {
+      const s = sliderToSpan(p, len);
+      expect(s).toBeLessThanOrEqual(prev + 1e-6);
+      prev = s;
+    }
+  });
+  it("is a roughly log scale: equal pos steps give ~constant span ratio", () => {
+    const a = sliderToSpan(0.25, len);
+    const b = sliderToSpan(0.5, len);
+    const c = sliderToSpan(0.75, len);
+    const r1 = a / b;
+    const r2 = b / c;
+    // ratios within ~5% of each other (rounding noise aside)
+    expect(Math.abs(r1 - r2) / r1).toBeLessThan(0.05);
+  });
+  it("round-trips span -> slider -> span within rounding", () => {
+    for (const p of [0, 0.2, 0.4, 0.6, 0.8, 1]) {
+      const span = sliderToSpan(p, len);
+      const back = spanToSlider(span, len);
+      const span2 = sliderToSpan(back, len);
+      expect(Math.abs(span2 - span)).toBeLessThanOrEqual(2);
+    }
+  });
+  it("pins to molecule length when too small to zoom", () => {
+    expect(sliderToSpan(0, 40)).toBe(MIN_WINDOW_BP);
+    expect(sliderToSpan(1, 40)).toBe(MIN_WINDOW_BP);
+    expect(spanToSlider(MIN_WINDOW_BP, 40)).toBe(0);
+  });
+});
+
+describe("windowAroundCenter", () => {
+  it("centers a window on the given bp", () => {
+    expect(windowAroundCenter(5000, 200, 10000)).toEqual({ start: 4900, end: 5100 });
+  });
+  it("clamps a window that runs off the left", () => {
+    expect(windowAroundCenter(10, 200, 10000)).toEqual({ start: 0, end: 200 });
+  });
+  it("clamps a window that runs off the right", () => {
+    expect(windowAroundCenter(9990, 200, 10000)).toEqual({ start: 9800, end: 10000 });
+  });
+  it("keeps the full span when clamped", () => {
+    const w = windowAroundCenter(0, 200, 10000);
+    expect(w.end - w.start).toBe(200);
+  });
+  it("never exceeds the molecule for a span larger than it", () => {
+    const w = windowAroundCenter(50, 99999, 1000);
+    expect(w).toEqual({ start: 0, end: 1000 });
+  });
+});
+
+describe("fullWindow", () => {
+  it("is the whole molecule", () => {
+    expect(fullWindow(1800)).toEqual({ start: 0, end: 1800 });
+  });
+});
+
+describe("panWindow", () => {
+  const len = 10000;
+  it("slides the window right keeping its span", () => {
+    expect(panWindow({ start: 100, end: 300 }, 50, len)).toEqual({ start: 150, end: 350 });
+  });
+  it("clamps at the left edge", () => {
+    expect(panWindow({ start: 100, end: 300 }, -500, len)).toEqual({ start: 0, end: 200 });
+  });
+  it("clamps at the right edge", () => {
+    expect(panWindow({ start: 9700, end: 9900 }, 500, len)).toEqual({ start: 9800, end: 10000 });
+  });
+});
+
+describe("resizeWindowEdge", () => {
+  const len = 10000;
+  it("moves the start edge keeping the end fixed", () => {
+    expect(resizeWindowEdge({ start: 4000, end: 6000 }, "start", 4500, len)).toEqual({
+      start: 4500,
+      end: 6000,
+    });
+  });
+  it("moves the end edge keeping the start fixed", () => {
+    expect(resizeWindowEdge({ start: 4000, end: 6000 }, "end", 5500, len)).toEqual({
+      start: 4000,
+      end: 5500,
+    });
+  });
+  it("enforces the MIN_WINDOW_BP floor on start drag", () => {
+    const w = resizeWindowEdge({ start: 4000, end: 6000 }, "start", 5990, len);
+    expect(w.end - w.start).toBe(MIN_WINDOW_BP);
+    expect(w.end).toBe(6000);
+  });
+  it("enforces the MIN_WINDOW_BP floor on end drag", () => {
+    const w = resizeWindowEdge({ start: 4000, end: 6000 }, "end", 4010, len);
+    expect(w.end - w.start).toBe(MIN_WINDOW_BP);
+    expect(w.start).toBe(4000);
+  });
+  it("clamps to molecule bounds", () => {
+    expect(resizeWindowEdge({ start: 4000, end: 6000 }, "end", 99999, len).end).toBe(len);
+    expect(resizeWindowEdge({ start: 4000, end: 6000 }, "start", -50, len).start).toBe(0);
+  });
+});
+
+describe("spanOverlapsWindow / clipSpanToWindow", () => {
+  it("detects overlap including touching endpoints", () => {
+    expect(spanOverlapsWindow(100, 200, 150, 250)).toBe(true);
+    expect(spanOverlapsWindow(100, 150, 150, 250)).toBe(true);
+    expect(spanOverlapsWindow(100, 149, 150, 250)).toBe(false);
+    expect(spanOverlapsWindow(300, 400, 150, 250)).toBe(false);
+  });
+  it("clips a straddling span to the window edges", () => {
+    expect(clipSpanToWindow(100, 300, 150, 250)).toEqual({ lo: 150, hi: 250 });
+    expect(clipSpanToWindow(180, 220, 150, 250)).toEqual({ lo: 180, hi: 220 });
+  });
+  it("returns null when fully outside", () => {
+    expect(clipSpanToWindow(0, 50, 150, 250)).toBeNull();
+  });
+});
+
+describe("rulerStepForSpan", () => {
+  it("gives finer ticks for a small visible span", () => {
+    // a 200 bp window targets 25/interval -> snaps to 50
+    expect(rulerStepForSpan(200)).toBe(50);
+  });
+  it("gives coarse ticks for the whole molecule", () => {
+    expect(rulerStepForSpan(60000)).toBe(10000);
+  });
+  it("never returns below 1", () => {
+    expect(rulerStepForSpan(60)).toBeGreaterThanOrEqual(1);
+    expect(rulerStepForSpan(8)).toBeGreaterThanOrEqual(1);
+  });
+});
