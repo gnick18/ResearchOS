@@ -759,30 +759,40 @@ function SerialTab() {
 
 function TmTab() {
   const [seq, setSeq] = useState("");
-  const [salt, setSalt] = useState("50");
+  const [salt, setSalt] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [oligo, setOligo] = useState("0.25");
+  const [oligo, setOligo] = useState("");
   const [oligoUnit, setOligoUnit] = useState<"uM" | "nM">("uM");
-  const [mg, setMg] = useState("0");
-  const [dntp, setDntp] = useState("0");
+  const [mg, setMg] = useState("");
+  const [dntp, setDntp] = useState("");
 
   const stats = useMemo(() => sequenceStats(seq), [seq]);
-  const saltN = parseNum(salt); // monovalent [Na+/K+] in mM
+  const saltN = parseNum(salt); // monovalent [Na+/K+] in mM (blank => assume 50)
   const oligoN = parseNum(oligo);
-  // Total oligo strand concentration in nM (IDT default 0.25 uM if blank).
-  const oligoNm = oligoN !== null ? concToBase(oligoN, oligoUnit) * 1e9 : 250;
   const mgN = parseNum(mg) ?? 0;
   const dntpN = parseNum(dntp) ?? 0;
 
-  const nn =
-    saltN !== null
-      ? nearestNeighborTm(seq, {
-          na: saltN,
-          mg: mgN,
-          dntps: dntpN,
-          oligoNanomolar: oligoNm,
-        })
-      : null;
+  // Only the sequence is required. Every reaction condition has a standard
+  // default, so a sequence alone yields a Tm; entering real values sharpens it.
+  const naUsed = saltN ?? 50; // mM
+  const oligoNm = oligoN !== null ? concToBase(oligoN, oligoUnit) * 1e9 : 250; // nM
+  const oligoUsedLabel = oligoN !== null ? `${formatNum(oligoN, 3)} ${oligoUnit}` : "0.25 uM";
+
+  const nn = nearestNeighborTm(seq, {
+    na: naUsed,
+    mg: mgN,
+    dntps: dntpN,
+    oligoNanomolar: oligoNm,
+  });
+
+  // What the user actually supplied vs what we assumed, so we can tell them
+  // how to make the prediction more accurate.
+  const usingDefaults = saltN === null && mgN === 0 && dntpN === 0 && oligoN === null;
+  const conditionsUsed =
+    `${naUsed} mM salt, ${oligoUsedLabel} oligo` +
+    (mgN > 0 ? `, ${formatNum(mgN, 3)} mM Mg2+` : "") +
+    (dntpN > 0 ? `, ${formatNum(dntpN, 3)} mM dNTP` : "");
+
   // Wallace 2-4 rule only earns a line for very short oligos, where the
   // nearest-neighbor model is least reliable and the rule of thumb still helps.
   const wallace = tmWallace(seq);
@@ -802,7 +812,14 @@ function TmTab() {
           className={inputCls + " font-mono resize-y"}
         />
       </div>
-      <PlainNumber label="Monovalent salt [Na+ / K+]" value={salt} onValue={setSalt} placeholder="e.g. 50" suffix="mM" />
+      <div>
+        <PlainNumber label="Monovalent salt [Na+ / K+]" value={salt} onValue={setSalt} placeholder="50 (assumed)" suffix="mM" />
+        <p className="mt-1 text-[11px] text-gray-500">
+          Only the sequence is required. If you know your salt, or Mg2+ / dNTP /
+          oligo concentration (under Advanced), enter them for a more accurate
+          Tm; standard defaults are assumed until then.
+        </p>
+      </div>
 
       <div>
         <button
@@ -857,10 +874,12 @@ function TmTab() {
             <ResultRow label="Tm (Wallace, short oligo)" value={`${formatNum(wallace, 4)} °C`} />
           )}
           <p className="mt-2 text-[11px] text-gray-500">
-            Nearest-neighbor (SantaLucia) with salt correction, the model IDT and
-            Primer3 use. Set monovalent salt, and Mg2+ / dNTP / oligo
-            concentration under Advanced, to match your reaction conditions. The
-            Wallace 2-4 rule is shown only for very short oligos (under ~14 nt).
+            Nearest-neighbor (SantaLucia), the model IDT and Primer3 use, at{" "}
+            {conditionsUsed}.{" "}
+            {usingDefaults
+              ? "Those are standard defaults; enter your reaction's salt and Mg2+ / dNTP / oligo concentration for a more accurate value."
+              : "Add any remaining conditions you know for an even closer match."}
+            {shortOligo ? " The Wallace 2-4 rule is shown for this short oligo." : ""}
           </p>
         </ResultCard>
       )}
