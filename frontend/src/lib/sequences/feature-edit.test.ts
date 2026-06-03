@@ -10,6 +10,17 @@ import {
   setTypeColor,
   featureTypes,
   featureLength,
+  segmentsOf,
+  normalizeSegments,
+  splitSegment,
+  mergeSegment,
+  deleteSegment,
+  qualifiersFromNotes,
+  notesFromQualifiers,
+  readNoteFlag,
+  withNoteFlag,
+  TRANSLATE_NOTE_KEY,
+  PRIORITIZE_NOTE_KEY,
   type FeatureDraft,
 } from "./feature-edit";
 import {
@@ -207,3 +218,178 @@ function meta(): SequenceMeta {
     seq_type: "dna",
   };
 }
+
+// --- SEGMENT TABLE: split / merge / delete (Phase 2c2) ----------------------
+
+describe("segment operations", () => {
+  it("segmentsOf returns one row for a single-segment feature", () => {
+    expect(segmentsOf({ start: 3, end: 30 })).toEqual([{ start: 3, end: 30 }]);
+  });
+  it("segmentsOf returns the locations for a multi-segment feature", () => {
+    const locs = [
+      { start: 3, end: 12 },
+      { start: 20, end: 30 },
+    ];
+    expect(segmentsOf({ start: 3, end: 30, locations: locs })).toEqual(locs);
+  });
+
+  it("splitSegment splits one segment into a join() of two", () => {
+    const out = splitSegment([{ start: 0, end: 30 }], 0);
+    expect(out).toHaveLength(2);
+    expect(out[0]).toMatchObject({ start: 0, end: 15 });
+    expect(out[1]).toMatchObject({ start: 15, end: 30 });
+  });
+  it("splitSegment refuses to split a 1-bp segment", () => {
+    const segs = [{ start: 5, end: 6 }];
+    expect(splitSegment(segs, 0)).toEqual(segs);
+  });
+
+  it("mergeSegment combines a segment with the next one", () => {
+    const out = mergeSegment(
+      [
+        { start: 0, end: 10 },
+        { start: 20, end: 30 },
+      ],
+      0,
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ start: 0, end: 30 });
+  });
+
+  it("deleteSegment removes a row but never the last one", () => {
+    const two = [
+      { start: 0, end: 10 },
+      { start: 20, end: 30 },
+    ];
+    expect(deleteSegment(two, 0)).toEqual([{ start: 20, end: 30 }]);
+    expect(deleteSegment([{ start: 0, end: 10 }], 0)).toEqual([{ start: 0, end: 10 }]);
+  });
+
+  it("normalizeSegments clamps, sorts, drops empties and computes the span", () => {
+    const r = normalizeSegments(
+      [
+        { start: 40, end: 30 }, // inverted -> swapped to 30..40
+        { start: 5, end: 5 }, // empty -> dropped
+        { start: 0, end: 10 },
+      ],
+      100,
+    );
+    expect(r.segments).toEqual([
+      { start: 0, end: 10, color: undefined },
+      { start: 30, end: 40, color: undefined },
+    ]);
+    expect(r.start).toBe(0);
+    expect(r.end).toBe(40);
+  });
+
+  it("editing a feature with a 2-segment draft writes a join()", () => {
+    const f = feat({ start: 0, end: 30 });
+    const d = updateFeature(doc([f]), 0, draft({
+      start: 0,
+      end: 30,
+      segments: [
+        { start: 0, end: 10 },
+        { start: 20, end: 30 },
+      ],
+    }));
+    expect(d.features[0].locations).toHaveLength(2);
+    expect(d.features[0].start).toBe(0);
+    expect(d.features[0].end).toBe(30);
+    const gb = documentToGenbank(d)!;
+    expect(gb).toContain("join(");
+  });
+
+  it("collapsing a multi-segment draft to one segment drops locations", () => {
+    const f = feat({ start: 0, end: 30, locations: [
+      { start: 0, end: 10 },
+      { start: 20, end: 30 },
+    ] });
+    const d = updateFeature(doc([f]), 0, draft({
+      start: 0,
+      end: 30,
+      segments: [{ start: 0, end: 30 }],
+    }));
+    expect(d.features[0].locations).toBeUndefined();
+  });
+});
+
+// --- QUALIFIERS: notes <-> rows + .gb round-trip (Phase 2c2) -----------------
+
+describe("qualifier editing", () => {
+  it("qualifiersFromNotes flattens notes, hiding reserved keys", () => {
+    const rows = qualifiersFromNotes({
+      product: ["DNA polymerase"],
+      note: ["two", "lines"],
+      ApEinfo_fwdcolor: ["#ff0000"],
+      [TRANSLATE_NOTE_KEY]: ["1"],
+    });
+    expect(rows).toEqual([
+      { key: "product", value: "DNA polymerase" },
+      { key: "note", value: "two" },
+      { key: "note", value: "lines" },
+    ]);
+  });
+
+  it("notesFromQualifiers groups repeated keys and preserves reserved keys", () => {
+    const out = notesFromQualifiers(
+      [
+        { key: "note", value: "a" },
+        { key: "note", value: "b" },
+        { key: "gene", value: "abc1" },
+        { key: "", value: "ignored" },
+      ],
+      { ApEinfo_fwdcolor: ["#00ff00"] },
+    );
+    expect(out).toMatchObject({
+      note: ["a", "b"],
+      gene: ["abc1"],
+      ApEinfo_fwdcolor: ["#00ff00"],
+    });
+  });
+
+  it("toggle flags read/write through notes", () => {
+    const on = withNoteFlag(undefined, TRANSLATE_NOTE_KEY, true);
+    expect(readNoteFlag(on, TRANSLATE_NOTE_KEY)).toBe(true);
+    const off = withNoteFlag(on, TRANSLATE_NOTE_KEY, false);
+    expect(readNoteFlag(off, TRANSLATE_NOTE_KEY)).toBe(false);
+  });
+
+  it("a qualifier survives jsonToGenbank -> genbankToJson round-trip", () => {
+    const f = feat({ start: 0, end: 30 });
+    const d = updateFeature(doc([f]), 0, draft({
+      start: 0,
+      end: 30,
+      name: "polA",
+      type: "CDS",
+      qualifiers: [
+        { key: "product", value: "DNA polymerase I" },
+        { key: "note", value: "added in edit" },
+        { key: "gene", value: "polA" },
+      ],
+    }));
+    const gb = documentToGenbank(d)!;
+    expect(gb).toContain("/product=");
+    const detail2 = genbankToDetail(gb, meta())!;
+    const d2 = documentFromDetail({ ...detail2, genbank: gb } as SequenceDetail);
+    const notes = (d2.features[0].notes || {}) as Record<string, unknown>;
+    const rows = qualifiersFromNotes(notes);
+    expect(rows).toContainEqual({ key: "product", value: "DNA polymerase I" });
+    expect(rows).toContainEqual({ key: "note", value: "added in edit" });
+    expect(rows).toContainEqual({ key: "gene", value: "polA" });
+  });
+
+  it("the translate toggle survives a .gb round-trip", () => {
+    const f = feat({ start: 0, end: 30, type: "CDS" });
+    const d = updateFeature(doc([f]), 0, draft({
+      start: 0,
+      end: 30,
+      type: "CDS",
+      qualifiers: [],
+      translate: true,
+    }));
+    const gb = documentToGenbank(d)!;
+    const detail2 = genbankToDetail(gb, meta())!;
+    const d2 = documentFromDetail({ ...detail2, genbank: gb } as SequenceDetail);
+    expect(readNoteFlag(d2.features[0].notes, TRANSLATE_NOTE_KEY)).toBe(true);
+  });
+});

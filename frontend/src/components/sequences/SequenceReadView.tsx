@@ -9,12 +9,23 @@
 // the shared selection readout (coords / length bp / GC%) so viewers can probe
 // a region without entering edit mode (Grant ask).
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import type { SequenceDetail } from "@/lib/types";
 import type { AnnotationProp } from "@/vendor/seqviz/elements";
 import type { Selection } from "@/vendor/seqviz/selectionContext";
 import SequenceSelectionReadout from "./SequenceSelectionReadout";
+import FeatureEditorDialog, {
+  type FeatureEditorRequest,
+} from "./FeatureEditorDialog";
+import { documentFromDetail } from "@/lib/sequences/edit-model";
+import {
+  segmentsOf,
+  qualifiersFromNotes,
+  readNoteFlag,
+  TRANSLATE_NOTE_KEY,
+  PRIORITIZE_NOTE_KEY,
+} from "@/lib/sequences/feature-edit";
 
 // Dynamically import the vendored SeqViz client-only. The default export is the
 // SeqViz React component.
@@ -30,6 +41,8 @@ const SeqViz = dynamic(() => import("@/vendor/seqviz"), {
 export default function SequenceReadView({ sequence }: { sequence: SequenceDetail }) {
   // Track the live SeqViz selection so the readout can show coords / bp / GC%.
   const [selection, setSelection] = useState<Selection | null>(null);
+  // READ-ONLY feature popup, opened by double-clicking a feature on the map.
+  const [featureView, setFeatureView] = useState<FeatureEditorRequest | null>(null);
 
   const annotations: AnnotationProp[] = useMemo(
     () =>
@@ -41,6 +54,45 @@ export default function SequenceReadView({ sequence }: { sequence: SequenceDetai
         color: a.color,
       })),
     [sequence.annotations],
+  );
+
+  // A full document (re-parsed from the .gb) so the read-only popup can surface
+  // qualifiers, multi-segment locations, and the per-feature display flags that
+  // the lossy `annotations` summary drops.
+  const doc = useMemo(() => documentFromDetail(sequence), [sequence]);
+
+  // DOUBLE-CLICK A FEATURE -> open the READ-ONLY info popup. Match the clicked
+  // annotation back to its feature by (name, start, end), with name/start
+  // fallbacks (mirrors the edit view's resolver).
+  const handleAnnotationDoubleClick = useCallback(
+    (range: { name: string; start: number; end: number; direction?: number }) => {
+      let index = doc.features.findIndex(
+        (f) => f.name === range.name && f.start === range.start && f.end === range.end,
+      );
+      if (index < 0) index = doc.features.findIndex((f) => f.name === range.name);
+      if (index < 0) index = doc.features.findIndex((f) => f.start === range.start);
+      if (index < 0) return;
+      const f = doc.features[index];
+      setFeatureView({
+        mode: "view",
+        seqLength: doc.seq.length,
+        seq: doc.seq,
+        initial: {
+          name: f.name,
+          type: f.type || "misc_feature",
+          strand: f.strand === -1 ? -1 : 1,
+          start: f.start,
+          end: f.end,
+          color: f.color,
+          segments: segmentsOf(f),
+          qualifiers: qualifiersFromNotes(f.notes),
+          translate: readNoteFlag(f.notes, TRANSLATE_NOTE_KEY),
+          prioritize: readNoteFlag(f.notes, PRIORITIZE_NOTE_KEY),
+        },
+        onCancel: () => setFeatureView(null),
+      });
+    },
+    [doc],
   );
 
   // Plasmids (circular) read best as "both" (circular map + linear track);
@@ -58,6 +110,7 @@ export default function SequenceReadView({ sequence }: { sequence: SequenceDetai
           primers={[]}
           viewer={viewer}
           onSelection={setSelection}
+          onAnnotationDoubleClick={handleAnnotationDoubleClick}
           showComplement
           showIndex
           disableExternalFonts
@@ -66,6 +119,8 @@ export default function SequenceReadView({ sequence }: { sequence: SequenceDetai
       </div>
       {/* Shared live selection readout (coords / length bp / GC%). */}
       <SequenceSelectionReadout selection={selection} seq={sequence.seq} />
+      {/* Read-only feature info popup (double-click a feature on the map). */}
+      <FeatureEditorDialog request={featureView} />
     </div>
   );
 }

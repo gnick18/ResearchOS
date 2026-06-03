@@ -30,6 +30,11 @@ import {
   deleteFeature,
   setFeatureColor,
   setTypeColor,
+  segmentsOf,
+  qualifiersFromNotes,
+  readNoteFlag,
+  TRANSLATE_NOTE_KEY,
+  PRIORITIZE_NOTE_KEY,
   type FeatureDraft,
 } from "@/lib/sequences/feature-edit";
 import { colorForType } from "@/lib/sequences/feature-colors";
@@ -250,18 +255,20 @@ export default function SequenceEditView({
   // tracks, which is the only translation primitive the renderer exposes.
   const translations: TranslationProp[] = useMemo(() => {
     const out: TranslationProp[] = [];
-    if (view.showTranslation) {
-      for (const f of doc.features) {
-        const t = (f.type || "").toLowerCase();
-        if (t === "cds" || t === "gene" || t === "mat_peptide") {
-          out.push({
-            start: f.start,
-            end: f.end,
-            direction: f.strand === -1 ? -1 : 1,
-            name: f.name,
-            color: colorForType(f.type),
-          });
-        }
+    for (const f of doc.features) {
+      const t = (f.type || "").toLowerCase();
+      const cdsLike = t === "cds" || t === "gene" || t === "mat_peptide";
+      // A feature is translated when the GLOBAL toggle is on (all CDS-like), OR
+      // when its PER-FEATURE "translate in sequence view" flag is set.
+      const perFeature = readNoteFlag(f.notes, TRANSLATE_NOTE_KEY);
+      if ((view.showTranslation && cdsLike) || perFeature) {
+        out.push({
+          start: f.start,
+          end: f.end,
+          direction: f.strand === -1 ? -1 : 1,
+          name: f.name,
+          color: colorForType(f.type),
+        });
       }
     }
     if (view.showOrfs) {
@@ -357,6 +364,7 @@ export default function SequenceEditView({
       setFeatureEditor({
         mode: "edit",
         seqLength: doc.seq.length,
+        seq: doc.seq,
         initial: {
           name: f.name,
           type: f.type || "misc_feature",
@@ -364,6 +372,10 @@ export default function SequenceEditView({
           start: f.start,
           end: f.end,
           color: f.color,
+          segments: segmentsOf(f),
+          qualifiers: qualifiersFromNotes(f.notes),
+          translate: readNoteFlag(f.notes, TRANSLATE_NOTE_KEY),
+          prioritize: readNoteFlag(f.notes, PRIORITIZE_NOTE_KEY),
         },
         onSubmit: (draft: FeatureDraft) => {
           editor.applyDocEdit((prev) => updateFeature(prev, index, draft));
