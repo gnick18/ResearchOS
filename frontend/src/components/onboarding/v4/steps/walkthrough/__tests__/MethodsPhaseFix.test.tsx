@@ -53,8 +53,58 @@ import { methodsBreadthStep } from "../MethodsBreadthStep";
 import {
   methodsCreateStep,
   METHODS_CREATE_PAUSE_MS,
+  FUNNY_METHOD_BODY,
 } from "../MethodsCreateStep";
 import { TOUR_TARGETS } from "../lib/targets";
+
+/**
+ * Helper — build the methods-create cursor script with the always-present
+ * tour targets + the body wrapper stubbed, then PLAY every callbackAction
+ * so the deferred body-fill actually runs in jsdom. Returns nothing; the
+ * caller asserts on side effects (the dispatched `tour:fill-method-body`
+ * event). Mirrors how InProductWalkthroughOverlay drives the script at
+ * playback (each callbackAction's `run` is invoked in order).
+ */
+async function playMethodsCreateScript(): Promise<void> {
+  const stubIds = [
+    TOUR_TARGETS.methodsTypeMarkdown,
+    TOUR_TARGETS.methodsCreateNameInput,
+    TOUR_TARGETS.methodsCreateCategoryInput,
+    TOUR_TARGETS.methodsCreateBodyInput,
+    TOUR_TARGETS.methodsCreateSubmit,
+  ];
+  const stubs: HTMLElement[] = [];
+  for (const id of stubIds) {
+    const el = document.createElement("div");
+    el.setAttribute("data-tour-target", id);
+    document.body.appendChild(el);
+    stubs.push(el);
+  }
+  // jsdom doesn't implement Element.scrollIntoView; the scrollToBody beat
+  // calls it. Define a no-op so the script plays through to the body fill.
+  const proto = HTMLElement.prototype as unknown as {
+    scrollIntoView?: () => void;
+  };
+  const hadScroll = "scrollIntoView" in proto;
+  if (!hadScroll) proto.scrollIntoView = () => {};
+  try {
+    if (!methodsCreateStep.cursorScript) {
+      throw new Error("methods-create step is missing a cursorScript");
+    }
+    const actions = (await methodsCreateStep.cursorScript()) as ReadonlyArray<{
+      type: string;
+      fn?: (signal?: AbortSignal) => Promise<void> | void;
+    }>;
+    for (const action of actions) {
+      if (action.type === "callback" && typeof action.fn === "function") {
+        await action.fn();
+      }
+    }
+  } finally {
+    if (!hadScroll) delete proto.scrollIntoView;
+    for (const el of stubs) el.remove();
+  }
+}
 
 /**
  * Helper — pull a cursor script's actions out of a step body. Returns
@@ -107,24 +157,19 @@ describe("Methods phase — pacing (P1, Grant 2026-05-22)", () => {
     expect(METHODS_CATEGORY_PAUSE_MS).toBe(800);
   });
 
-  it("methods-create demo cursor script interleaves callback pauses between 6+ visible actions", async () => {
-    // Stub the 4 stamped tour targets + a real <textarea> descendant
-    // inside the body-input wrapper (the body's safeTypeAction targets
-    // a CSS combinator `[data-tour-target="methods-create-body-input"]
-    // textarea`, not the wrapper itself). Without the textarea, the
-    // body typing action drops via compactScript and we lose 1 pause.
-    //
-    // methods-create body-typing fix manager 2026-05-27: also stub
-    // the editor's Save button (`data-testid="hybrid-editor-save"`)
-    // inside the body wrapper. The new save beat between body-typing
-    // and Create-Method-submit clicks this button to flush the
-    // buffered typed content into the parent's `mdContent` under the
-    // editor's manual-save model. Without the stub, `saveBody` drops
-    // from compactScript and we lose the new visible action.
+  it("methods-create demo cursor script interleaves callback pauses between its visible actions", async () => {
+    // methods-create-inline-typing bot 2026-06-03: the body editor is now
+    // the inline CodeMirror 6 surface (no <textarea>, no hybrid-editor-save
+    // button). The former click-body-wrapper / type-body / click-save trio
+    // collapsed into a single `fillBody` beat that points the cursor at the
+    // body wrapper and dispatches a `tour:fill-method-body` window event the
+    // modal listens for. So we stub only the always-present tour targets
+    // plus the body wrapper (no textarea / save-button descendants).
     const stubIds = [
       TOUR_TARGETS.methodsTypeMarkdown,
       TOUR_TARGETS.methodsCreateNameInput,
       TOUR_TARGETS.methodsCreateCategoryInput,
+      TOUR_TARGETS.methodsCreateBodyInput,
       TOUR_TARGETS.methodsCreateSubmit,
     ];
     const stubs: HTMLElement[] = [];
@@ -134,55 +179,37 @@ describe("Methods phase — pacing (P1, Grant 2026-05-22)", () => {
       document.body.appendChild(el);
       stubs.push(el);
     }
-    // Body wrapper + textarea descendant + Save button descendant —
-    // matches the combinator selectors the production script uses
-    // for both the body-typing target and the new save-flush target.
-    const bodyWrapper = document.createElement("div");
-    bodyWrapper.setAttribute("data-tour-target", "methods-create-body-input");
-    const bodyTextarea = document.createElement("textarea");
-    bodyWrapper.appendChild(bodyTextarea);
-    const saveButton = document.createElement("button");
-    saveButton.setAttribute("data-testid", "hybrid-editor-save");
-    bodyWrapper.appendChild(saveButton);
-    document.body.appendChild(bodyWrapper);
-    stubs.push(bodyWrapper);
 
     try {
       if (!methodsCreateStep.cursorScript) {
         throw new Error("methods-create step is missing a cursorScript");
       }
-      // 20s timeout for the type actions (safeTypeAction's
-      // waitForElement default is generous; we just need the script
-      // to build, not actually run the keystrokes).
       const actions = (await methodsCreateStep.cursorScript()) as ReadonlyArray<{
         type: string;
       }>;
-      // 7 visible actions: click-tile → type-name → type-category →
-      // click-body-wrapper → type-body → click-save → click-submit.
-      // Pacing rule: a callback pause sits between each pair, so a
-      // fully resolved script has 7 visible + 6 pauses = 13 entries.
+      // 6 visible actions: click-tile → type-name → type-category →
+      // scroll-to-body → fill-body → click-submit. Pacing rule: a callback
+      // pause sits between each pair, so a fully resolved script has 6
+      // visible + 5 pauses = 11 entries.
       //
-      // Hand-walk fix 2026-05-27 (third pass): every action AFTER
-      // pickMarkdown is now a callbackAction (deferred to playback,
-      // matches the workbench-create-experiment-open +
-      // workbench-list-create-shell + post-pickMarkdown body actions
-      // pattern). So intent-actions and pause-actions BOTH have
-      // type === "callback"; only pickMarkdown stays as a "click".
-      // We can't distinguish them by `type` anymore, so the shape
-      // assertion checks the total entry count instead.
-      expect(actions.length).toBeGreaterThanOrEqual(13);
+      // Every action AFTER pickMarkdown is a callbackAction (deferred to
+      // playback), so intent-actions and pause-actions BOTH report
+      // type === "callback"; only pickMarkdown stays as a "click". We
+      // assert on the total entry count + the callback bulk.
+      expect(actions.length).toBeGreaterThanOrEqual(11);
       // First action is the markdown-tile click (still a safeClickAction
       // — the picker tile is reliably present at build time since the
       // modal stays open from the previous step). Second is the first
       // read-then-watch pause (a callbackAction).
       expect(actions[0]?.type).toBe("click");
       expect(actions[1]?.type).toBe("callback");
-      // The remaining 11 entries are all callbackActions (6 intent +
-      // 5 more pauses interleaved). No "type" actions remain because
-      // typeName / typeCategory / typeBody all use setNativeFieldValue
-      // inside the callback rather than the cursor's type action.
+      // The remaining entries are all callbackActions (5 intent + 5
+      // pauses interleaved). No "type" actions remain because typeName /
+      // typeCategory use setNativeFieldValue inside the callback rather
+      // than the cursor's type action, and the body fill dispatches a
+      // window event rather than typing.
       const callbacks = actions.filter((a) => a.type === "callback");
-      expect(callbacks.length).toBeGreaterThanOrEqual(12);
+      expect(callbacks.length).toBeGreaterThanOrEqual(10);
     } finally {
       for (const el of stubs) el.remove();
     }
@@ -191,6 +218,29 @@ describe("Methods phase — pacing (P1, Grant 2026-05-22)", () => {
   it("methods-create demo uses the canonical 800ms read-then-watch pause", () => {
     expect(METHODS_CREATE_PAUSE_MS).toBe(800);
   });
+
+  it("methods-create body fill dispatches tour:fill-method-body with FUNNY_METHOD_BODY (inline-editor fill)", async () => {
+    // methods-create-inline-typing bot 2026-06-03: the inline-editor body
+    // fill works by dispatching a `tour:fill-method-body` window event the
+    // CreateMethodModal listens for (it sets `mdContent` from the detail,
+    // which both renders the text and enables Create Method). This test
+    // plays the whole script and asserts the event fires exactly once with
+    // the funny coffee body — the contract the modal's listener consumes.
+    let received: string | null = null;
+    let count = 0;
+    const handler = (evt: Event) => {
+      count += 1;
+      received = (evt as CustomEvent<{ body?: string }>).detail?.body ?? null;
+    };
+    window.addEventListener("tour:fill-method-body", handler);
+    try {
+      await playMethodsCreateScript();
+    } finally {
+      window.removeEventListener("tour:fill-method-body", handler);
+    }
+    expect(count).toBe(1);
+    expect(received).toBe(FUNNY_METHOD_BODY);
+  }, 30000);
 });
 
 describe("Methods phase — completion contract (P1, Grant 2026-05-22)", () => {

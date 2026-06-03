@@ -188,6 +188,28 @@ export function CreateMethodModal({
 
   // Markdown state
   const [mdContent, setMdContent] = useState("");
+
+  // Onboarding v4 §6.4d tour-only body fill (methods-create-inline-typing
+  // bot, 2026-06-03). The body editor is now the inline CodeMirror 6
+  // surface (no <textarea>), so the old cursor script — which poked a
+  // textarea + clicked a hybrid-editor-save button — no longer fills
+  // anything. Instead the cursor script dispatches a `tour:fill-method-body`
+  // window event carrying the funny markdown; we set `mdContent` directly,
+  // which (a) feeds LiveMarkdownEditor's controlled `value` so the text is
+  // visible, and (b) satisfies the Create-Method enable condition
+  // (`mdContent.trim()`), so no editor-save flush is needed. The listener
+  // is inert outside the tour: the event only ever fires from the cursor
+  // script, and the cost when no tour runs is one passive listener.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = (evt: Event) => {
+      const detail = (evt as CustomEvent<{ body?: string }>).detail;
+      if (typeof detail?.body !== "string") return;
+      setMdContent(detail.body);
+    };
+    window.addEventListener("tour:fill-method-body", handler);
+    return () => window.removeEventListener("tour:fill-method-body", handler);
+  }, []);
   // Imperative flush handle published by the embedded markdown editor. Calling
   // it commits the in-flight block buffer, fires onChange, and returns the
   // freshest full-document string, so performSave can write the very latest

@@ -214,42 +214,39 @@ export const methodsCreateStep = buildWalkthroughStep({
       wrapper.scrollIntoView({ behavior: "smooth", block: "center" });
     });
 
-    const clickBodyWrapper = callbackAction(async () => {
+    // methods-create-inline-typing bot 2026-06-03: the body editor is now
+    // the inline CodeMirror 6 surface (LiveMarkdownEditor default = inline,
+    // no <textarea>, no hybrid-editor-save button). The old
+    // clickBodyWrapper + typeBody (poke a textarea) + saveBody (click the
+    // hybrid-save button) chain targeted DOM that no longer exists, so the
+    // demo typed NOTHING and Create Method stayed disabled. Replace all
+    // three with a single fillBody action: point BeakerBot's cursor at the
+    // body wrapper (so the fill reads as the cursor's doing), then dispatch
+    // the `tour:fill-method-body` window event the modal listens for. The
+    // modal sets its controlled `mdContent` state from the event detail,
+    // which both renders the text in the inline editor AND satisfies the
+    // Create-Method enable condition (`mdContent.trim()`). No editor-save
+    // flush is needed: setting `mdContent` is the source of truth that
+    // performSave writes and that lights the submit button.
+    const fillBody = callbackAction(async () => {
       if (typeof document === "undefined") return;
       const wrapper = await waitForElement(
         targetSelector(TOUR_TARGETS.methodsCreateBodyInput),
         3000,
       );
       if (!(wrapper instanceof HTMLElement)) return;
+      // Visibly anchor the cursor on the body before it fills. The lock
+      // bypass keeps the page-lock from swallowing the gesture; the click
+      // itself is cosmetic here (the inline editor needs no click to
+      // accept the event-driven fill).
       tourClickWithLockBypass(wrapper);
-    });
-
-    const typeBody = callbackAction(async () => {
-      if (typeof document === "undefined") return;
-      // Wait for the body wrapper's nested textarea to mount. The
-      // HybridMarkdownEditor's autoStartEditing seeds the textarea on
-      // mount for empty value; if it isn't there yet, the prior wrapper
-      // click should have triggered the editor to mount one.
-      const textarea = await waitForElement(
-        '[data-tour-target="methods-create-body-input"] textarea',
-        3000,
-      );
-      if (!(textarea instanceof HTMLTextAreaElement)) return;
-      setNativeFieldValue(textarea, FUNNY_METHOD_BODY);
-    });
-
-    const saveBody = callbackAction(async () => {
-      if (typeof document === "undefined") return;
-      // The Save button (SaveChrome inside the editor) carries
-      // data-testid="hybrid-editor-save". Enabled once the editor is
-      // dirty, which it becomes on the first keystroke (or the
-      // setNativeFieldValue input event above).
-      const saveBtn = await waitForElement(
-        '[data-tour-target="methods-create-body-input"] [data-testid="hybrid-editor-save"]',
-        3000,
-      );
-      if (!(saveBtn instanceof HTMLElement)) return;
-      tourClickWithLockBypass(saveBtn);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("tour:fill-method-body", {
+            detail: { body: FUNNY_METHOD_BODY },
+          }),
+        );
+      }
     });
 
     const submit = callbackAction(async () => {
@@ -265,12 +262,15 @@ export const methodsCreateStep = buildWalkthroughStep({
     // Methods fix manager 2026-05-22: interleave 800ms read-then-watch
     // pauses between each visible action so the user can register one
     // beat (markdown tile picked → name typed → category typed → body
-    // clicked → body typed → body saved → submit) before the next one
-    // fires. Pattern matches §6.10 SettingsAiHelperSizeDiffStep's
-    // Full → pause → Medium → pause → Minimal cycle. The pauses run
-    // at PLAYBACK time via callbackAction (not build time) so each
-    // pause resolves AFTER the preceding click / type has visibly
-    // landed.
+    // filled → submit) before the next one fires. Pattern matches §6.10
+    // SettingsAiHelperSizeDiffStep's Full → pause → Medium → pause →
+    // Minimal cycle. The pauses run at PLAYBACK time via callbackAction
+    // (not build time) so each pause resolves AFTER the preceding click /
+    // type has visibly landed.
+    // methods-create-inline-typing bot 2026-06-03: the former body-click /
+    // body-type / body-save trio is now the single `fillBody` beat (event
+    // hook into the inline editor); the dropped hybrid-editor-save click is
+    // gone because setting `mdContent` is what enables Create Method.
     return compactScript([
       pickMarkdown,
       callbackAction(() => pause(METHODS_CREATE_PAUSE_MS)),
@@ -280,11 +280,7 @@ export const methodsCreateStep = buildWalkthroughStep({
       callbackAction(() => pause(METHODS_CREATE_PAUSE_MS)),
       scrollToBody,
       callbackAction(() => pause(METHODS_CREATE_PAUSE_MS)),
-      clickBodyWrapper,
-      callbackAction(() => pause(METHODS_CREATE_PAUSE_MS)),
-      typeBody,
-      callbackAction(() => pause(METHODS_CREATE_PAUSE_MS)),
-      saveBody,
+      fillBody,
       callbackAction(() => pause(METHODS_CREATE_PAUSE_MS)),
       submit,
     ]);
