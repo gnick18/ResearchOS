@@ -15,6 +15,9 @@ import SequenceNewDialog, {
   type NewSequenceSubmit,
 } from "@/components/sequences/SequenceNewDialog";
 import SequenceDropZone from "@/components/sequences/SequenceDropZone";
+import SequenceImportTargetDialog, {
+  type ImportTargetRequest,
+} from "@/components/sequences/SequenceImportTargetDialog";
 import CloningWorkspace from "@/components/sequences/CloningWorkspace";
 import { sequencesApi, projectsApi } from "@/lib/local-api";
 import {
@@ -175,6 +178,9 @@ export default function SequencesPage() {
   // Transient status line under the toolbar (import counts / parse errors).
   const [status, setStatus] = useState<{ text: string; tone: "ok" | "error" } | null>(null);
   const [importMenuOpen, setImportMenuOpen] = useState(false);
+  // "Import into" chooser request, set when an import target is ambiguous
+  // (All Sequences / Unfiled). Null when no chooser is open.
+  const [importTarget, setImportTarget] = useState<ImportTargetRequest | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const importMenuRef = useRef<HTMLDivElement>(null);
@@ -339,14 +345,50 @@ export default function SequencesPage() {
     [persistNew, activeProjectIds],
   );
 
+  // Resolve a collection id (a stringified project id) to its display name, for
+  // the destination-named status line. Falls back to "Unfiled" for null / no
+  // match (the All / Unfiled views, or a project that has since disappeared).
+  const destinationName = useCallback(
+    (projectId: string | null): string => {
+      if (!projectId) return "Unfiled";
+      const proj = projects.find((p) => String(p.id) === projectId);
+      return proj ? proj.name : "Unfiled";
+    },
+    [projects],
+  );
+
+  // Persist gathered imports into a chosen target and report a destination-named
+  // status line. `projectId` is null for Unfiled, or a stringified project id.
+  // Shared by the direct (project-active) path and the chooser confirm.
+  const finishImport = useCallback(
+    async (imports: ImportedSequence[], projectId: string | null, skipped: number) => {
+      setImporting(true);
+      try {
+        await persistNew(imports, projectId ? [projectId] : []);
+        setStatus({
+          text: importStatusText(imports.length, skipped, destinationName(projectId)),
+          tone: "ok",
+        });
+      } finally {
+        setImporting(false);
+      }
+    },
+    [persistNew, destinationName],
+  );
+
   // IMPORT flow (shared core): filter the gathered files to importable
   // sequence extensions (folder pick + drag-drop hand us EVERY file, so the
   // filter happens here, not the input's `accept`), then read each kept file
   // (text for .gb/.fasta, bytes for .dna), parse via the vendored bio-parsers,
-  // convert to GenBank, and create — landing in the active collection. Reports
-  // how many non-sequence files were skipped. `filtered` is false for the
-  // single-/multi-file picker (its `accept` already constrained the choice),
-  // so a deliberately-picked non-sequence file still surfaces a parse error.
+  // convert to GenBank, and create. `filtered` is false for the single-/multi-
+  // file picker (its `accept` already constrained the choice), so a deliberately
+  // -picked non-sequence file still surfaces a parse error.
+  //
+  // Destination: when a specific project collection is active, the target is
+  // unambiguous, so import straight into it. When the active collection is All
+  // Sequences / Unfiled, the target is AMBIGUOUS, so open the "Import into"
+  // chooser (defaulting to Unfiled) instead of silently dropping the files. All
+  // three entry paths (file picker, folder picker, drag-drop) funnel here.
   const handleImport = useCallback(
     async (incoming: File[], opts?: { filtered?: boolean }) => {
       if (incoming.length === 0) return;
@@ -387,16 +429,32 @@ export default function SequencesPage() {
           });
           return;
         }
-        await persistNew(allImports, activeProjectIds);
-        setStatus({
-          text: importStatusText(allImports.length, skipped),
-          tone: "ok",
+        // Specific project active ⇒ unambiguous, import straight in.
+        if (activeProjectIds.length > 0) {
+          await finishImport(allImports, activeProjectIds[0], skipped);
+          return;
+        }
+        // Ambiguous (All / Unfiled) ⇒ ask which collection to file into. The
+        // chooser owns the rest of the flow (persist on Import, abort on
+        // Cancel).
+        setImportTarget({
+          count: allImports.length,
+          skipped,
+          projects: projects.map((p) => ({ id: String(p.id), name: p.name })),
+          onConfirm: (projectId) => {
+            setImportTarget(null);
+            void finishImport(allImports, projectId, skipped);
+          },
+          onCancel: () => setImportTarget(null),
         });
       } finally {
+        // Release the import lock. The direct-import path already finished via
+        // finishImport (which manages its own lock); the chooser path hands off
+        // to onConfirm/onCancel, so the toolbar must be interactive meanwhile.
         setImporting(false);
       }
     },
-    [persistNew, activeProjectIds],
+    [activeProjectIds, finishImport, projects],
   );
 
   // File picker (single / multi): the input `accept` already constrains the
@@ -743,6 +801,11 @@ export default function SequencesPage() {
           )}
         </section>
       </div>
+
+      {/* "Import into" chooser — shown only when the active collection is
+          ambiguous (All Sequences / Unfiled). Picks the destination project (or
+          Unfiled) before the gathered sequences are persisted. */}
+      <SequenceImportTargetDialog request={importTarget} />
 
       <SequenceNewDialog
         open={newOpen}

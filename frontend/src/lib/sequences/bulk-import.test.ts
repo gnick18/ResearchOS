@@ -96,6 +96,35 @@ describe("importStatusText", () => {
       "Imported 2 sequences (skipped 1 non-sequence file).",
     );
   });
+
+  it("names the destination collection when given", () => {
+    expect(importStatusText(71, 0, "Plasmid library construction")).toBe(
+      "Imported 71 sequences into Plasmid library construction.",
+    );
+    expect(importStatusText(3, 0, "Unfiled")).toBe(
+      "Imported 3 sequences into Unfiled.",
+    );
+    expect(importStatusText(1, 0, "Unfiled")).toBe(
+      "Imported 1 sequence into Unfiled.",
+    );
+  });
+
+  it("weaves the destination in before the skip note", () => {
+    expect(importStatusText(71, 2, "Plasmid library construction")).toBe(
+      "Imported 71 sequences into Plasmid library construction (skipped 2 non-sequence files).",
+    );
+    expect(importStatusText(5, 1, "Unfiled")).toBe(
+      "Imported 5 sequences into Unfiled (skipped 1 non-sequence file).",
+    );
+  });
+
+  it("ignores an empty or whitespace destination", () => {
+    expect(importStatusText(4, 0, "")).toBe("Imported 4 sequences.");
+    expect(importStatusText(4, 0, "   ")).toBe("Imported 4 sequences.");
+    expect(importStatusText(4, 2, "")).toBe(
+      "Imported 4 sequences (skipped 2 non-sequence files).",
+    );
+  });
 });
 
 describe("IMPORT_ACCEPT_ATTR", () => {

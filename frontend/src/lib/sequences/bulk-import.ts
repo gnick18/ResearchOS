@@ -52,12 +52,23 @@ export function partitionImportableFiles<T extends { name: string }>(
   return { kept, skipped };
 }
 
-/** Build the post-import status line, reporting any skipped non-sequence files.
+/** Build the post-import status line, reporting any skipped non-sequence files
+ *  and, when given, the collection the sequences landed in.
  *  `imported` = sequences successfully created; `skipped` = files dropped by the
- *  extension filter. Used by both bulk paths so the wording stays consistent. */
-export function importStatusText(imported: number, skipped: number): string {
+ *  extension filter; `destination` = the named collection (a project name, or
+ *  "Unfiled"). Omit `destination` to keep the plain wording. The destination
+ *  name is woven in BEFORE the skip note so the sentence reads naturally, e.g.
+ *  "Imported 71 sequences into Plasmid library construction (skipped 2 ...)."
+ *  Used by every import path so the wording stays consistent. */
+export function importStatusText(
+  imported: number,
+  skipped: number,
+  destination?: string,
+): string {
   const noun = imported === 1 ? "sequence" : "sequences";
-  const base = `Imported ${imported} ${noun}`;
+  let base = `Imported ${imported} ${noun}`;
+  const dest = destination?.trim();
+  if (dest) base += ` into ${dest}`;
   if (skipped <= 0) return `${base}.`;
   const fileNoun = skipped === 1 ? "file" : "files";
   return `${base} (skipped ${skipped} non-sequence ${fileNoun}).`;
