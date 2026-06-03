@@ -26,6 +26,8 @@ describe("calm default", () => {
     expect(DEFAULT_VIEW_STATE.showTranslation).toBe(false);
     expect(DEFAULT_VIEW_STATE.showOrfs).toBe(false);
     expect(DEFAULT_VIEW_STATE.showComplement).toBe(false);
+    expect(DEFAULT_VIEW_STATE.showPrimers).toBe(false);
+    expect(DEFAULT_VIEW_STATE.forceLinear).toBe(false);
   });
 });
 

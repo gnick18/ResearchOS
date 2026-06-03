@@ -23,6 +23,13 @@ export interface SequenceViewState {
   showComplement: boolean;
   /** Show the index / ruler row. */
   showIndex: boolean;
+  /** Show primer-binding annotations (the toggle / track; the full primer popup
+   *  is Phase 2e). When off we feed SeqViz an empty primer list. */
+  showPrimers: boolean;
+  /** Render the molecule as LINEAR even when it is a circular plasmid. null /
+   *  false => use the molecule's own topology (circular plasmids show the
+   *  circular+linear "both" view). The topology toggle in the rail flips this. */
+  forceLinear: boolean;
 }
 
 /** The CALM default: features + ruler visible, every heavier layer off. */
@@ -35,6 +42,8 @@ export const DEFAULT_VIEW_STATE: SequenceViewState = {
   showOrfs: false,
   showComplement: false,
   showIndex: true,
+  showPrimers: false,
+  forceLinear: false,
 };
 
 /** A small, common enzyme set surfaced by the simple "Show cut sites" toggle.

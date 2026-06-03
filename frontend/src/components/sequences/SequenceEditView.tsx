@@ -13,7 +13,10 @@ import type { SequenceDetail } from "@/lib/types";
 import type { SeqEdit } from "@/vendor/seqviz/EventHandler";
 import type { AnnotationProp, TranslationProp } from "@/vendor/seqviz/elements";
 import type { Selection } from "@/vendor/seqviz/selectionContext";
-import { gcPercent } from "@/lib/sequences/edit-model";
+import {
+  deriveSelectionReadout,
+  SelectionReadoutContent,
+} from "./SequenceSelectionReadout";
 import {
   clipSelection,
   affectedFeatures,
@@ -40,6 +43,7 @@ import SequenceConfirmDialog, {
   type SequenceConfirmRequest,
 } from "./SequenceConfirmDialog";
 import FeaturesPanel from "./FeaturesPanel";
+import ViewControlRail from "./ViewControlRail";
 import FeatureEditorDialog, {
   type FeatureEditorRequest,
 } from "./FeatureEditorDialog";
@@ -246,7 +250,9 @@ export default function SequenceEditView({
     [view.showEnzymes],
   );
 
-  const viewer = doc.circular ? "both" : "linear";
+  // The topology toggle in the rail can force a circular plasmid to render as
+  // linear; a genuinely linear molecule always renders linear.
+  const viewer = doc.circular && !view.forceLinear ? "both" : "linear";
 
   const handleSave = useCallback(async () => {
     const { documentToGenbank } = await import("@/lib/sequences/edit-model");
@@ -538,25 +544,12 @@ export default function SequenceEditView({
     return () => el.removeEventListener("keydown", onKey);
   }, [undo, redo, handleSave, doCopy, doCut, doPaste, sel.hasRange]);
 
-  // Selection readout values.
-  type Readout =
-    | { kind: "caret"; caret: number }
-    | { kind: "range"; lo: number; hi: number; len: number; gc: number };
-  const readout = useMemo<Readout | null>(() => {
-    if (!selection || typeof selection.start !== "number" || typeof selection.end !== "number") {
-      return null;
-    }
-    const lo = Math.min(selection.start, selection.end);
-    const hi = Math.max(selection.start, selection.end);
-    const len = hi - lo;
-    if (len <= 0) {
-      // A bare caret: show the caret position only.
-      return { kind: "caret", caret: lo };
-    }
-    const gc = gcPercent(doc.seq, lo, hi);
-    // SnapGene shows 1-based inclusive coordinates (e.g. "5..10").
-    return { kind: "range", lo: lo + 1, hi, len, gc };
-  }, [selection, doc.seq]);
+  // Selection readout values (shared with the read view via the extracted
+  // helper; edit-mode behavior is identical to before).
+  const readout = useMemo(
+    () => deriveSelectionReadout(selection, doc.seq),
+    [selection, doc.seq],
+  );
 
   return (
     <div ref={containerRef} className="flex h-full w-full flex-col" tabIndex={-1}>
@@ -597,8 +590,9 @@ export default function SequenceEditView({
         </div>
       </div>
 
-      {/* Editable viewer + features/display panel */}
+      {/* Icon rail + editable viewer + features/display panel */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
+        <ViewControlRail view={view} onViewChange={setView} circular={doc.circular} />
         <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
           <SeqViz
             key={sequence.id}
@@ -642,27 +636,7 @@ export default function SequenceEditView({
 
       {/* Live selection readout */}
       <div className="flex items-center gap-4 border-t border-gray-100 bg-gray-50 px-3 py-1.5 text-xs text-gray-600">
-        {readout == null ? (
-          <span className="text-gray-400">Click or select bases to see coordinates.</span>
-        ) : readout.kind === "caret" ? (
-          <span>
-            Caret at <span className="font-medium text-gray-800">{(readout.caret + 1).toLocaleString()}</span>
-          </span>
-        ) : (
-          <>
-            <span>
-              <span className="font-medium text-gray-800">
-                {readout.lo.toLocaleString()}..{readout.hi.toLocaleString()}
-              </span>
-            </span>
-            <span>
-              <span className="font-medium text-gray-800">{readout.len.toLocaleString()}</span> bp
-            </span>
-            <span>
-              <span className="font-medium text-gray-800">{readout.gc.toFixed(0)}%</span> GC
-            </span>
-          </>
-        )}
+        <SelectionReadoutContent readout={readout} />
       </div>
 
       {/* Confirmation dialog for Cut / chunk-delete / Paste / feature delete. */}

@@ -88,40 +88,6 @@ function IconChevron({ open, className }: { open: boolean; className?: string })
   );
 }
 
-/** A reusable on/off switch (calm pill style). */
-function Toggle({
-  checked,
-  onChange,
-  label,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className="flex w-full items-center justify-between gap-2 py-1 text-left text-sm text-gray-700"
-    >
-      <span>{label}</span>
-      <span
-        className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors ${
-          checked ? "bg-sky-500" : "bg-gray-300"
-        }`}
-      >
-        <span
-          className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${
-            checked ? "translate-x-3.5" : "translate-x-0.5"
-          }`}
-        />
-      </span>
-    </button>
-  );
-}
-
 /** A small popover-free inline color swatch row for picking a color. */
 function ColorSwatches({
   value,
@@ -402,15 +368,11 @@ export default function FeaturesPanel({
         <SectionHeader title="Display" open={displayOpen} onToggle={() => setDisplayOpen((v) => !v)} />
         {displayOpen ? (
           <div className="max-h-[55vh] overflow-y-auto px-3 pb-3">
-            {/* layers */}
-            <div className="space-y-0.5">
-              <Toggle label="Features" checked={view.showFeatures} onChange={(v) => setView({ showFeatures: v })} />
-              <Toggle label="Translation (CDS)" checked={view.showTranslation} onChange={(v) => setView({ showTranslation: v })} />
-              <Toggle label="Open reading frames" checked={view.showOrfs} onChange={(v) => setView({ showOrfs: v })} />
-              <Toggle label="Restriction sites" checked={view.showEnzymes} onChange={(v) => setView({ showEnzymes: v })} />
-              <Toggle label="Complement strand" checked={view.showComplement} onChange={(v) => setView({ showComplement: v })} />
-              <Toggle label="Ruler / index" checked={view.showIndex} onChange={(v) => setView({ showIndex: v })} />
-            </div>
+            {/* The layer toggles (Features / Translation / ORFs / Restriction /
+                Complement / Ruler / Primers / topology) now live in the
+                left-edge icon rail (ViewControlRail). This Display section keeps
+                only the per-type visibility + color controls, which are
+                feature-list specific. */}
 
             {/* per-type visibility + color */}
             {typesPresent.length > 0 ? (
