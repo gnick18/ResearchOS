@@ -50,7 +50,13 @@ export function useLabUserProfileMap(): LabUserProfileMap {
     queryFn: async () => {
       if (!fileService.isConnected()) return {} as LabUserProfileMap;
       const meta = await readAllUserMetadata();
-      const usernames = Object.keys(meta);
+      // Exclude soft-deleted (tombstoned) accounts. A username with
+      // `deleted_at` set in _user_metadata.json is a deleted account whose
+      // folder still lives on disk (e.g. it persists in OneDrive). The
+      // active-profile map must skip them so deleted test/old accounts don't
+      // leak into rosters like Trainee notes & goals. Archived/deleted users
+      // have their own surface (useArchivedUsers).
+      const usernames = Object.keys(meta).filter((u) => !meta[u]?.deleted_at);
       const out: LabUserProfileMap = {};
       // Read each user's settings.json in parallel. A 404 / parse error
       // falls back to the safe default below so a single broken settings
