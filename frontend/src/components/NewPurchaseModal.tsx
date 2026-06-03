@@ -153,6 +153,35 @@ export function buildPriorItemEntries(
   );
 }
 
+/**
+ * Reorder quick-pick (purchase-consolidate bot, 2026-06-02): the most
+ * recently ordered distinct items, newest first, capped at `limit`.
+ *
+ * Reuses the exact same de-duped per-name entries that back the Item
+ * Name datalist (no new data layer): `buildPriorItemEntries` already
+ * keeps one entry per name pinned to its most-recent record (highest
+ * id = newest, vendor + price reflect the latest order). Here we just
+ * re-rank those entries by recency (descending sourceId) instead of
+ * alphabetically and take the top few for a one-tap reorder row.
+ *
+ * Exported so the reorder-row test can pin the recency contract
+ * without rendering the whole modal.
+ */
+export function buildRecentItemEntries(
+  items: ReadonlyArray<{
+    id: number;
+    item_name: string;
+    vendor: string | null;
+    price_per_unit: number | null;
+  }>,
+  limit = 5,
+): PriorItemEntry[] {
+  return buildPriorItemEntries(items)
+    .slice()
+    .sort((a, b) => b.sourceId - a.sourceId)
+    .slice(0, limit);
+}
+
 function todayLocal(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -344,6 +373,25 @@ export default function NewPurchaseModal({
     () => buildPriorItemEntries(priorItemsRaw),
     [priorItemsRaw],
   );
+  // The most-recently-ordered distinct items, newest first. Powers the
+  // one-tap reorder row above the Item Name field.
+  const recentItems = useMemo(
+    () => buildRecentItemEntries(priorItemsRaw),
+    [priorItemsRaw],
+  );
+
+  // One-tap reorder: pre-fill name + vendor + price from a past item's
+  // most-recent record. No typing. Mirrors the autocomplete's exact-match
+  // prefill (quantity stays at the default 1; funding string stays
+  // untouched so a re-bill can target a different grant).
+  const applyReorder = useCallback((entry: PriorItemEntry) => {
+    setForm((prev) => ({
+      ...prev,
+      name: entry.itemName,
+      vendor: entry.vendor ?? prev.vendor,
+      price: entry.pricePerUnit ? entry.pricePerUnit.toFixed(2) : prev.price,
+    }));
+  }, []);
 
   const handleField = useCallback(
     <K extends keyof NewPurchaseFormState>(
@@ -518,6 +566,49 @@ export default function NewPurchaseModal({
         )}
 
         <div className="space-y-4">
+          {recentItems.length > 0 && (
+            <div data-tour-target="purchases-form-reorder">
+              <p className="block text-xs font-medium text-gray-500 mb-1.5">
+                Reorder a recent item
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {recentItems.map((entry) => (
+                  <button
+                    key={entry.sourceId}
+                    type="button"
+                    onClick={() => applyReorder(entry)}
+                    title={
+                      [
+                        entry.vendor ? `from ${entry.vendor}` : null,
+                        entry.pricePerUnit
+                          ? `$${entry.pricePerUnit.toFixed(2)}`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ") || undefined
+                    }
+                    className="inline-flex items-center max-w-[14rem] gap-1 px-2.5 py-1 rounded-full border border-amber-200 bg-amber-50 text-amber-800 text-xs font-medium hover:bg-amber-100 hover:border-amber-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                  >
+                    <svg
+                      aria-hidden
+                      className="w-3 h-3 shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M3 2v6h6" />
+                      <path d="M3 13a9 9 0 1 0 3-7.7L3 8" />
+                    </svg>
+                    <span className="truncate">{entry.itemName}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">
               Item Name

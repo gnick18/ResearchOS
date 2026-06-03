@@ -20,7 +20,6 @@ import UserAvatar from "./UserAvatar";
 import FeedbackButton from "./FeedbackButton";
 import BetaDonationButton from "./BetaDonationButton";
 import CalculatorsButton from "./CalculatorsButton";
-import QuickReorderButton from "./QuickReorderButton";
 import DevTestNotificationButton from "./DevTestNotificationButton";
 import DevDemoToggleButton from "./DevDemoToggleButton";
 import DevBeakerBotGalleryButton from "./DevBeakerBotGalleryButton";
@@ -632,8 +631,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <DevTestNotificationButton />
 
         <DevDemoToggleButton />
-
-        <QuickReorderButton />
 
         <CalculatorsButton />
 

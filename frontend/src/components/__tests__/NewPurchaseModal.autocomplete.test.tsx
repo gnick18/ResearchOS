@@ -127,7 +127,10 @@ vi.mock("@/lib/purchases/misc-project", async () => {
   };
 });
 
-import NewPurchaseModal, { buildPriorItemEntries } from "../NewPurchaseModal";
+import NewPurchaseModal, {
+  buildPriorItemEntries,
+  buildRecentItemEntries,
+} from "../NewPurchaseModal";
 
 function renderModal() {
   const client = new QueryClient({
@@ -142,6 +145,14 @@ function renderModal() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // The modal persists a draft to sessionStorage; clear it so a filled
+  // form from one test (e.g. the reorder-row click) never restores into
+  // the next test's fresh render.
+  try {
+    window.sessionStorage.clear();
+  } catch {
+    /* jsdom may not expose sessionStorage in every config; ignore. */
+  }
   fetchAllProjectsIncludingShared.mockResolvedValue([realProject]);
   ensureMiscProject.mockResolvedValue(null);
   purchasesApiListAll.mockResolvedValue(priorItems);
@@ -181,6 +192,75 @@ describe("buildPriorItemEntries — pure dedupe contract", () => {
     const entries = buildPriorItemEntries(priorItems);
     const names = entries.map((e) => e.itemName);
     expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
+  });
+});
+
+describe("buildRecentItemEntries — recency quick-pick contract", () => {
+  it("ranks distinct items newest-first by most-recent record id", () => {
+    const recent = buildRecentItemEntries(priorItems);
+    // Coffee's newest record is id=5 (> 12-well plates' id=3), so coffee
+    // leads. The collapsed coffee entry carries the id=5 record's exact
+    // (lowercase) name, since the highest-id record wins the dedupe.
+    expect(recent.map((e) => e.itemName)).toEqual([
+      "premium costa rica coffee beans",
+      "12-well plates",
+    ]);
+    // The pinned vendor/price reflect the most-recent coffee record (id=5).
+    expect(recent[0].vendor).toBe("BeakerBot's Boutique v2");
+    expect(recent[0].pricePerUnit).toBe(19.5);
+  });
+
+  it("caps the list at the requested limit", () => {
+    const many = Array.from({ length: 9 }, (_, i) => ({
+      id: i + 1,
+      item_name: `Item ${i + 1}`,
+      vendor: null,
+      price_per_unit: i,
+    }));
+    expect(buildRecentItemEntries(many, 5)).toHaveLength(5);
+    // Newest ids lead.
+    expect(buildRecentItemEntries(many, 3).map((e) => e.itemName)).toEqual([
+      "Item 9",
+      "Item 8",
+      "Item 7",
+    ]);
+  });
+});
+
+describe("NewPurchaseModal — one-tap reorder row", () => {
+  it("renders a reorder chip per recent item and fills the form on tap", async () => {
+    renderModal();
+    await waitFor(() => {
+      expect(purchasesApiListAll).toHaveBeenCalled();
+    });
+    const row = await waitFor(() => {
+      const el = document.querySelector(
+        '[data-tour-target="purchases-form-reorder"]',
+      );
+      expect(el).toBeTruthy();
+      return el as HTMLElement;
+    });
+    const chips = row.querySelectorAll("button");
+    expect(chips.length).toBe(2);
+
+    act(() => {
+      fireEvent.click(chips[0]);
+    });
+
+    await waitFor(() => {
+      const name = document.querySelector(
+        '[data-tour-target="purchases-form-name"]',
+      ) as HTMLInputElement | null;
+      const vendor = document.querySelector(
+        '[data-tour-target="purchases-form-vendor"]',
+      ) as HTMLInputElement | null;
+      const price = document.querySelector(
+        '[data-tour-target="purchases-form-price"]',
+      ) as HTMLInputElement | null;
+      expect(name?.value).toBe("premium costa rica coffee beans");
+      expect(vendor?.value).toBe("BeakerBot's Boutique v2");
+      expect(price?.value).toBe("19.50");
+    });
   });
 });
 
