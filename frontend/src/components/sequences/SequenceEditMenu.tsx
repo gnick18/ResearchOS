@@ -32,6 +32,8 @@ export interface EditMenuItem {
    *  when true / shown, slashed eye when false / hidden). `onRun` flips state.
    *  Non-toggle rows leave this undefined and render no indicator. */
   checked?: boolean;
+  /** Optional leading color swatch (e.g. a feature-type color dot). */
+  color?: string;
   onRun: () => void;
 }
 
@@ -116,7 +118,16 @@ function MenuItems({ items, onAfterRun }: { items: EditMenuItem[]; onAfterRun: (
                   : "text-gray-700 hover:bg-gray-50"
             }`}
           >
-            <span className="truncate">{it.label}</span>
+            <span className="flex min-w-0 items-center gap-2">
+              {it.color ? (
+                <span
+                  aria-hidden="true"
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: it.color }}
+                />
+              ) : null}
+              <span className="truncate">{it.label}</span>
+            </span>
             {it.checked !== undefined ? (
               it.checked ? (
                 <IconEye className="h-3.5 w-3.5 shrink-0 text-sky-600" />

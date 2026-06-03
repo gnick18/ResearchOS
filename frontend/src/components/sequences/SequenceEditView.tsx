@@ -2026,6 +2026,7 @@ export default function SequenceEditView({
           label: k,
           enabled: true,
           checked: !view.hiddenTypes[k],
+          color: colorForType(k),
           ...(i === 0 ? { group: true } : {}),
           onRun: () =>
             setView((v) => ({ ...v, hiddenTypes: { ...v.hiddenTypes, [k]: !v.hiddenTypes[k] } })),
