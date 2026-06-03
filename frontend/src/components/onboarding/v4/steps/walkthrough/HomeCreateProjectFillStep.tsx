@@ -69,9 +69,10 @@ export const homeCreateProjectFillStep = buildWalkthroughStep({
   // the form was dismissed mid-step, the recovery banner fell back to
   // the generic "the button you clicked before" — which has no
   // referent (the last button was the tour's own Next). Anchor the
-  // recovery copy to the real re-entry button on Home.
+  // recovery copy to the real re-entry button (widget-framework teardown
+  // v2: now the Workbench header New Project button).
   recoveryHint: {
-    buttonLabel: "the + New Project button at the top of your dashboard",
+    buttonLabel: "the + New Project button in your Workbench header",
   },
   // Intentionally no cursorScript — BeakerBot speaks; the user fills.
   // A typed-name cursor demo would be wrong here because the user is
@@ -104,6 +105,9 @@ export const homeCreateProjectFillStep = buildWalkthroughStep({
     // persisting (test fixtures + the _no_user_ sentinel both no-op).
     await flushPendingArtifacts(STEP_ID);
   },
-  // Auto-navigate to home so the form anchor resolves on refresh.
-  expectedRoute: "/",
+  // Re-homed to /workbench (the universal create surface) so the form
+  // anchor resolves on refresh. On a successful create, NewProjectButton
+  // navigates to the new project's page, which the next beat
+  // (`project-overview-nav`) narrates.
+  expectedRoute: "/workbench",
 });

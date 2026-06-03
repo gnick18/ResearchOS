@@ -70,14 +70,13 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER.indexOf("home-create-project-fill")).toBe(
       TOUR_STEP_ORDER.indexOf("home-create-project") + 1,
     );
-    // §6.2b Home widgets walkthrough (home widgets §6.2b step bodies
-    // manager, 2026-05-25). 5 universal sub-steps between
-    // project-overview-exit and notifications-bell.
-    expect(TOUR_STEP_ORDER).toContain("home-widgets-canvas-intro");
-    expect(TOUR_STEP_ORDER).toContain("home-widgets-tile-anatomy");
-    expect(TOUR_STEP_ORDER).toContain("home-widgets-add");
-    expect(TOUR_STEP_ORDER).toContain("home-widgets-reorder");
-    expect(TOUR_STEP_ORDER).toContain("home-widgets-exit");
+    // Widget-framework teardown v2 (2026-06-02): the §6.2b Home widgets
+    // cluster (5 sub-steps) was removed with the customizable widget canvas.
+    expect(TOUR_STEP_ORDER).not.toContain("home-widgets-canvas-intro");
+    expect(TOUR_STEP_ORDER).not.toContain("home-widgets-tile-anatomy");
+    expect(TOUR_STEP_ORDER).not.toContain("home-widgets-add");
+    expect(TOUR_STEP_ORDER).not.toContain("home-widgets-reorder");
+    expect(TOUR_STEP_ORDER).not.toContain("home-widgets-exit");
     expect(TOUR_STEP_ORDER).toContain("methods-open-picker");
     expect(TOUR_STEP_ORDER).toContain("methods-create");
     // §6.7 hybrid editor cluster. Inline-editor collapse (onboarding-inline
@@ -198,21 +197,12 @@ describe("TOUR_STEP_ORDER", () => {
     expect(duplicates, `TOUR_STEP_ORDER contains duplicate ids: ${duplicates.join(", ")}`).toEqual([]);
   });
 
-  it("inserts the §6.2b Home widgets cluster between project-overview-exit and notifications-intro (home widgets §6.2b step bodies manager 2026-05-25; notifications-intro inserted by Wave 1 2026-05-27)", () => {
-    // 5 universal sub-steps between the §6.2 exit beat (which has just
-    // pushed the browser back to "/") and the §6.3 notifications cluster.
-    // Order matters because each step builds on the prior one's DOM
-    // state (add enters edit mode; reorder depends on edit mode being on).
-    // v4 tour structural manager (Wave 1, 2026-05-27): `notifications-intro`
-    // now sits between `home-widgets-exit` and `notifications-bell` so the
-    // §6.3 BeakerBot framing has its own beat.
+  it("hands project-overview-exit straight to notifications-intro (widget-framework teardown v2 2026-06-02 removed the §6.2b Home widgets cluster)", () => {
+    // Widget-framework teardown v2: the 5-step §6.2b Home widgets cluster
+    // that taught the customizable widget canvas was removed. The §6.2 exit
+    // beat now flows directly into the §6.3 notifications framing.
     const order = [
       "project-overview-exit",
-      "home-widgets-canvas-intro",
-      "home-widgets-tile-anatomy",
-      "home-widgets-add",
-      "home-widgets-reorder",
-      "home-widgets-exit",
       "notifications-intro",
       "notifications-bell",
     ];
@@ -228,30 +218,15 @@ describe("TOUR_STEP_ORDER", () => {
     });
   });
 
-  it("the §6.2b Home widgets cluster is universal (no feature_picks gating)", () => {
-    // All five steps fire for every user — the widget canvas exists on
-    // /home regardless of account_type / purchases / calendar / any
-    // other pick. Verify with two contrasting pick configs.
-    const universal = [
+  it("the §6.2b Home widgets cluster ids are fully removed (widget-framework teardown v2)", () => {
+    for (const id of [
       "home-widgets-canvas-intro",
       "home-widgets-tile-anatomy",
       "home-widgets-add",
       "home-widgets-reorder",
       "home-widgets-exit",
-    ];
-    const allYes = picks({
-      account_type: "lab",
-      purchases: "yes",
-      calendar: "yes",
-      goals: "yes",
-      telegram: "yes",
-      ai_helper: "full",
-    });
-    const allNo = picks();
-    for (const id of universal) {
-      expect(isStepGatedOut(id, allYes)).toBe(false);
-      expect(isStepGatedOut(id, allNo)).toBe(false);
-      expect(isStepGatedOut(id, null)).toBe(false);
+    ]) {
+      expect(TOUR_STEP_ORDER).not.toContain(id);
     }
   });
 
@@ -499,11 +474,8 @@ describe("TOUR_STEP_ORDER", () => {
       "project-overview-typing-demo",
       "project-overview-context",
       "project-overview-exit",
-      "home-widgets-canvas-intro",
-      "home-widgets-tile-anatomy",
-      "home-widgets-add",
-      "home-widgets-reorder",
-      "home-widgets-exit",
+      // Widget-framework teardown v2 (2026-06-02): the §6.2b Home widgets
+      // cluster was removed here; exit hands straight to notifications.
       "notifications-intro",
       "notifications-bell",
       "notifications-silence",
@@ -1009,13 +981,10 @@ describe("getNextStep — forward traversal", () => {
     expect(visited).toContain("settings-tour-rerun");
     // Always includes core walkthrough
     expect(visited).toContain("home-create-project");
-    // §6.2b Home widgets walkthrough (home widgets §6.2b step bodies
-    // manager, 2026-05-25): 5 universal steps fire on both paths.
-    expect(visited).toContain("home-widgets-canvas-intro");
-    expect(visited).toContain("home-widgets-tile-anatomy");
-    expect(visited).toContain("home-widgets-add");
-    expect(visited).toContain("home-widgets-reorder");
-    expect(visited).toContain("home-widgets-exit");
+    // Widget-framework teardown v2 (2026-06-02): the §6.2b Home widgets
+    // cluster was removed, so it never appears on either path.
+    expect(visited).not.toContain("home-widgets-canvas-intro");
+    expect(visited).not.toContain("home-widgets-exit");
     expect(visited).toContain("methods-open-picker");
     expect(visited).toContain("methods-create");
     // §6.7 hybrid editor cluster. Inline-editor collapse (onboarding-inline

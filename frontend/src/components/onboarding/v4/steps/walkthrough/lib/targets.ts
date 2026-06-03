@@ -423,61 +423,11 @@ export const TOUR_TARGETS = {
   // See `homeOrLabOverviewNavSelector` below.
   labOverviewNavTab: "lab-overview-nav-tab",
 
-  // §6.2b Home widgets walkthrough (home widgets surface-prep manager,
-  // 2026-05-25). Anchors for the 5-step section that introduces the
-  // per-user widget canvas between project-overview-exit and
-  // notifications-bell. See HOME_WIDGETS_WALKTHROUGH_PROPOSAL.md §5.
-  //
-  // The `home-widget-tile-` and `home-widget-catalog-item-` ids are
-  // prefix-matched — the dynamic suffix is the widget id (e.g.
-  // `home-widget-tile-announcements`) or the catalog entry's widget id.
-  // Step bodies select via `[data-tour-target^='home-widget-tile-']` or
-  // a fully-qualified id when they need a specific widget.
-  /** The /home page's widget grid container (the SnapshotCanvas mount
-   *  inside HomeCanvas). The §6.2b canvas-intro step spotlights this
-   *  entire section. */
-  homeWidgetCanvas: "home-widget-canvas",
-  /** Each rendered widget tile on the home canvas — the wrapper div in
-   *  SnapshotCanvas's grid map. The §6.2b tile-anatomy step picks the
-   *  first widget with content; the §6.2b reorder demo drags one tile
-   *  by its handle. Prefix match: `[data-tour-target^='home-widget-tile-']`. */
-  homeWidgetTile: "home-widget-tile-",
-  /** The "+ Add widget" button on the home canvas toolbar. The §6.2b
-   *  add step clicks this to open the catalog. */
-  homeWidgetAddButton: "home-widget-add-button",
-  /** The Add-widget catalog popup root (the absolute-positioned div
-   *  that opens when showPalette is true on the home canvas). The
-   *  §6.2b add step spotlights this after the cursor opens it. */
-  homeWidgetCatalog: "home-widget-catalog",
-  /** Each catalog entry button inside the popup. Prefix match:
-   *  `[data-tour-target^='home-widget-catalog-item-']`. The §6.2b add
-   *  step picks one entry by id (or by index) for the demo click. */
-  homeWidgetCatalogItem: "home-widget-catalog-item-",
-  /** The drag affordance inside each home tile's header (the
-   *  Widget-component drag-handle grip glyph + header bar). Visible
-   *  only when the canvas is in Edit mode. The §6.2b reorder step
-   *  ensures Edit is on, then drags the handle. */
-  homeWidgetDragHandle: "home-widget-drag-handle",
-  /** The Edit-layout / Done toggle button in the home canvas toolbar.
-   *  Stamps only on the /home mount. Renders text "Edit layout" when
-   *  the canvas is locked and "Done" when in edit mode (same button,
-   *  swapped label). The §6.2b exit step's onEnter uses this anchor to
-   *  click the toggle if the canvas is still in edit mode after the
-   *  reorder demo, so the user lands in Step 5 (and onwards into §6.3)
-   *  with the toolbar back to its lock state. */
-  homeWidgetEditToggle: "home-widget-edit-toggle",
-  /** The tile-click-to-expand affordance. Documented constant for
-   *  Chip B / future step bodies: NO dedicated expand-button exists on
-   *  the home canvas — the tile root absorbs the click, so this
-   *  constant intentionally aliases the per-tile prefix
-   *  (`home-widget-tile-`). A single node carries one
-   *  `data-tour-target`, so the expand-click selector IS the tile
-   *  selector. The §6.2b tile-anatomy step opens the expanded popup
-   *  by clicking the same node returned by the tile prefix match.
-   *  Kept as a named export so the step body reads as
-   *  intent-documenting (`TOUR_TARGETS.homeWidgetExpandButton`) rather
-   *  than the bare prefix string. */
-  homeWidgetExpandButton: "home-widget-tile-",
+  // Widget-framework teardown v2 (2026-06-02): the §6.2b Home widgets
+  // walkthrough anchors (homeWidgetCanvas / homeWidgetTile /
+  // homeWidgetAddButton / homeWidgetCatalog / homeWidgetCatalogItem /
+  // homeWidgetDragHandle / homeWidgetEditToggle / homeWidgetExpandButton)
+  // were removed with the customizable widget canvas they targeted.
 
   // §6.14 Purchases — anchors for the BeakerBot cursor-driven demo on
   // /purchases (HR sub-bot 2026-05-22 R2 rebuild). The demo clicks

@@ -436,11 +436,10 @@ describe("P5 step bodies — universal contract", () => {
     // beat actually plays. This is the symmetric guard for the
     // user-action steps that explicitly drop cursorScript.
     const DEMO_STEPS_WITH_CURSOR_SCRIPT = [
-      // Top-level New Project rework (dashboard-newproject-tour bot,
-      // 2026-05-29): the §6.2 NAV beat's cursor clicks the auto-created Single
-      // Project widget tile to navigate. BeakerBot-led demo, so it retains a
-      // cursorScript and uses manual completion (universal pacing rule).
-      projectOverviewNavStep,
+      // Widget-framework teardown v2 (2026-06-02): the §6.2 NAV beat lost its
+      // cursorScript (it is pure narration now that the create flow routes
+      // straight to the project page), so projectOverviewNavStep is no longer
+      // in this list.
       // Wave 2A speech rewrite (v4 tour speech manager — A, 2026-05-27):
       // the BEAKERBOT_DEMO typing portion split off project-overview-prose
       // into its own step (project-overview-typing-demo). The prose step
@@ -538,20 +537,20 @@ describe("HomeCreateProjectStep (§6.1 trigger)", () => {
     expect(homeCreateProjectStep.completion.type).toBe("event");
   });
   it("targets the home new-project button selector", () => {
-    // Top-level New Project rework (dashboard-newproject-tour bot,
-    // 2026-05-29): the `home-new-project` anchor moved onto the persistent
-    // top-level toolbar button (DashboardNewProject.tsx).
+    // Widget-framework teardown v2 (2026-06-02): the `home-new-project`
+    // anchor lives on the shared NewProjectButton, now hosted in the
+    // Workbench header (and the curated Lab Overview header).
     expect(homeCreateProjectStep.targetSelector).toBe(
       "[data-tour-target=\"home-new-project\"]",
     );
   });
-  it("speech directs the user to the top-level New Project button", () => {
-    // Top-level New Project rework (dashboard-newproject-tour bot,
-    // 2026-05-29): speech points at the persistent New Project button at the
-    // top of the dashboard, not a widget popup button.
+  it("speech directs the user to the Workbench New Project button", () => {
+    // Widget-framework teardown v2 (2026-06-02): speech points at the
+    // New Project button in the Workbench header (the widget canvas that
+    // used to host the only create affordance was removed).
     const text = renderSpeech(homeCreateProjectStep);
     expect(text).toMatch(/New Project button/);
-    expect(text).toMatch(/top of your dashboard/);
+    expect(text).toMatch(/Workbench header/);
   });
   it("has no cursorScript (user-action step, Grant 2026-05-21)", () => {
     // Cursor responsibility audit: BeakerBot tells the user to click
@@ -630,35 +629,31 @@ describe("HomeCreateProjectFillStep (§6.1 fill)", () => {
 });
 
 describe("ProjectOverviewNavStep (§6.2 nav)", () => {
-  it("declares manual completion (universal pacing rule, Grant 2026-05-22)", () => {
-    // Universal pacing: BeakerBot's cursor clicks the project card to
-    // drive the route change; the user clicks "Got it, next" when they
-    // see the project route land. Previously event-driven on
-    // `tour:project-route-entered`.
+  // Widget-framework teardown v2 (2026-06-02): this beat used to glide the
+  // cursor to the auto-pinned Single Project widget tile and click it to
+  // navigate into the project. The widget canvas (and that tile) were
+  // removed. The §6.1 FILL beat's create now routes straight to the
+  // project page, so this beat is pure narration framing the page.
+  it("declares manual completion", () => {
     expect(projectOverviewNavStep.completion.type).toBe("manual");
   });
-  it("has no targetSelector (the cursor click on the tile is the cue)", () => {
-    // A spotlight would dim the rest of the dashboard and steal focus from
-    // the cursor's click animation. The Single Project widget tile is
-    // anchored via `data-tour-target`.
+  it("has no targetSelector (pure narration, nothing to spotlight)", () => {
     expect(projectOverviewNavStep.targetSelector).toBeUndefined();
   });
-  it("uses pose: pointing (click-affordance pose)", () => {
+  it("uses pose: pointing", () => {
     expect(projectOverviewNavStep.pose).toBe("pointing");
   });
-  it("speech sets up the project page concept and signals the navigation", () => {
-    // Wave 2A speech rewrite (v4 tour speech manager — A, 2026-05-27):
-    // new copy frames why projects matter ("Every experiment, method,
-    // and task you create gets attached to a project") and announces
-    // the navigation ("Let's open the one you just made") instead of
-    // the prior one-liner promise.
+  it("speech frames the project page concept", () => {
     const text = renderSpeech(projectOverviewNavStep);
     expect(text).toMatch(/experiment/);
-    expect(text).toMatch(/project page/);
-    expect(text).toMatch(/Let's open the one you just made/);
+    expect(text).toMatch(/project you just made/);
   });
-  it("expectedRoute is `/` so refresh lands the user back on home", () => {
-    expect(projectOverviewNavStep.expectedRoute).toBe("/");
+  it("has no expectedRoute (the create flow already routed to /workbench/projects/<id>)", () => {
+    // A bare `/workbench/projects` auto-nav would 404; the create flow
+    // landed the user on a project-specific path the controller can't
+    // reconstruct, so the beat declares no expectedRoute (same pattern as
+    // the PROSE beat that follows).
+    expect(projectOverviewNavStep.expectedRoute).toBeUndefined();
   });
   it("uses the 'Got it, next' button label (universal pacing rule)", () => {
     if (projectOverviewNavStep.completion.type !== "manual") {
@@ -666,39 +661,8 @@ describe("ProjectOverviewNavStep (§6.2 nav)", () => {
     }
     expect(projectOverviewNavStep.completion.buttonLabel).toBe("Got it, next");
   });
-  it("cursor script issues a glide-then-playback-resolved click against the Single Project tile", async () => {
-    // §6.2 NAV root cause manager 2026-05-23: the script uses
-    // `safeNavClickAction` which expands to a glide action (visual cue to
-    // where the tile sits) PLUS a callback action that re-resolves the
-    // selector at PLAYBACK time and calls `.click()` on the fresh node. So
-    // the action list is [glide, callback], not [click].
-    //
-    // Top-level New Project rework (dashboard-newproject-tour bot,
-    // 2026-05-29): the target is now the auto-created Single Project widget
-    // tile (`home-single-project-open-<owner>-<id>`), not a project card.
-    const tile = document.createElement("button");
-    tile.setAttribute("data-tour-target", "home-single-project-open-alex-42");
-    document.body.appendChild(tile);
-    try {
-      expect(projectOverviewNavStep.cursorScript).toBeDefined();
-      const actions = await projectOverviewNavStep.cursorScript!();
-      expect(actions).toHaveLength(2);
-      expect(actions[0]).toMatchObject({ type: "glide" });
-      expect(actions[1]).toMatchObject({ type: "callback" });
-
-      // Exercise the playback-time callback: clicking it should route
-      // through `.click()` on the re-resolved tile. Attach a click listener
-      // to verify.
-      let clicked = false;
-      tile.addEventListener("click", () => {
-        clicked = true;
-      });
-      const cbAction = actions[1] as { type: "callback"; fn: () => void | Promise<void> };
-      await cbAction.fn();
-      expect(clicked).toBe(true);
-    } finally {
-      tile.remove();
-    }
+  it("has no cursor script (nothing to click; the create flow navigated here)", () => {
+    expect(projectOverviewNavStep.cursorScript).toBeUndefined();
   });
 });
 

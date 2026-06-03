@@ -133,15 +133,10 @@ import { projectOverviewRollupStep } from "./steps/walkthrough/ProjectOverviewRo
 import { projectOverviewTypingDemoStep } from "./steps/walkthrough/ProjectOverviewTypingDemoStep";
 import { projectOverviewContextStep } from "./steps/walkthrough/ProjectOverviewContextStep";
 import { projectOverviewExitStep } from "./steps/walkthrough/ProjectOverviewExitStep";
-// §6.2b Home widgets walkthrough (home widgets §6.2b step bodies
-// manager, 2026-05-25). 5 universal sub-steps inserted between
-// project-overview-exit and notifications-bell. Each step body file
-// owns its own contracts; the registry wires them by id.
-import { homeWidgetsCanvasIntroStep } from "./steps/walkthrough/HomeWidgetsCanvasIntroStep";
-import { homeWidgetsTileAnatomyStep } from "./steps/walkthrough/HomeWidgetsTileAnatomyStep";
-import { homeWidgetsAddStep } from "./steps/walkthrough/HomeWidgetsAddStep";
-import { homeWidgetsReorderStep } from "./steps/walkthrough/HomeWidgetsReorderStep";
-import { homeWidgetsExitStep } from "./steps/walkthrough/HomeWidgetsExitStep";
+// Widget-framework teardown v2 (2026-06-02): the §6.2b Home widgets
+// walkthrough (5 sub-steps) taught the customizable widget canvas, which
+// was removed. The step bodies + their ids are gone; the cluster used to
+// sit between project-overview-exit and notifications-intro.
 // v4 tour structural manager (Wave 1, 2026-05-27): new
 // `notifications-intro` narration beat sits before notifications-bell so
 // BeakerBot can frame the bell + inbox pair before the user has to click.
@@ -354,14 +349,9 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [projectOverviewTypingDemoStep.id]: projectOverviewTypingDemoStep,
   [projectOverviewContextStep.id]: projectOverviewContextStep,
   [projectOverviewExitStep.id]: projectOverviewExitStep,
-  // §6.2b Home widgets walkthrough (home widgets §6.2b step bodies
-  // manager, 2026-05-25). 5 sub-steps between project-overview-exit
-  // and notifications-bell, ordering driven by TOUR_STEP_ORDER.
-  [homeWidgetsCanvasIntroStep.id]: homeWidgetsCanvasIntroStep,
-  [homeWidgetsTileAnatomyStep.id]: homeWidgetsTileAnatomyStep,
-  [homeWidgetsAddStep.id]: homeWidgetsAddStep,
-  [homeWidgetsReorderStep.id]: homeWidgetsReorderStep,
-  [homeWidgetsExitStep.id]: homeWidgetsExitStep,
+  // Widget-framework teardown v2 (2026-06-02): the §6.2b Home widgets
+  // cluster (5 sub-steps) was removed along with the customizable widget
+  // canvas it taught.
   // v4 tour structural manager (Wave 1, 2026-05-27): new
   // `notifications-intro` narration beat sits before notifications-bell.
   [notificationsIntroStep.id]: notificationsIntroStep,

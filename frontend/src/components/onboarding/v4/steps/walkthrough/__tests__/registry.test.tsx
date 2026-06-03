@@ -25,14 +25,8 @@ const P5_STEP_IDS = [
   "project-overview-typing-demo",
   "project-overview-context",
   "project-overview-exit",
-  // §6.2b Home widgets walkthrough (home widgets §6.2b step bodies
-  // manager, 2026-05-25). 5 universal sub-steps between
-  // project-overview-exit and notifications-bell.
-  "home-widgets-canvas-intro",
-  "home-widgets-tile-anatomy",
-  "home-widgets-add",
-  "home-widgets-reorder",
-  "home-widgets-exit",
+  // Widget-framework teardown v2 (2026-06-02): the §6.2b Home widgets
+  // cluster (5 sub-steps) was removed with the customizable widget canvas.
   "notifications-intro",
   "notifications-bell",
   "notifications-silence",

@@ -6,7 +6,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import DailyTasksSidebar from "./DailyTasksSidebar";
 import CalendarSidebar from "./CalendarSidebar";
-import CustomizableSidebar from "./lab-overview/CustomizableSidebar";
 import TelegramStatusBadge from "./TelegramStatusBadge";
 import InboxBadge from "./InboxBadge";
 import InboxToast from "./InboxToast";
@@ -144,13 +143,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // "solo") have no lab to belong to and never get the tab. The composer
   // + metrics gate themselves internally on account_type === "lab_head".
   //
-  // Dashboard unification (dashboard-unification build, 2026-05-29): Home
-  // and Lab Overview collapsed into ONE dashboard at "/". There is a
-  // single nav entry for the dashboard whose LABEL is account-aware:
-  // "Lab Overview" for a lab_head (PI), "Home" for solo + member. This
-  // mirrors the existing "Links" vs "Lab Links" account-aware label
-  // pattern. `/lab-overview` is now a redirect to "/", so it is no longer
-  // a separate nav entry.
+  // Widget-framework teardown v2 (2026-06-02): there is one dashboard nav
+  // entry (href "/") whose LABEL is account-aware: "Lab Overview" for a
+  // lab_head (PI), "Home" for solo + member. Clicking it lands on "/",
+  // which is now a pure router that bounces to the role surface
+  // (/lab-overview for a PI, /workbench for everyone else). Keeping the
+  // single "/" entry preserves the always-reachable landing tab + the "/"
+  // deep-link handlers. This mirrors the "Links" vs "Lab Links"
+  // account-aware label pattern.
   //
   // `accountType === undefined` (settings read in flight) is treated the
   // same as "not lab_head" → the label resolves to "Home" until the read
@@ -556,7 +556,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           the active record). */}
       <EditSessionBanner />
 
-      {/* Main content with route-specific sidebar */}
+      {/* Main content with route-specific sidebar.
+       *
+       * Widget-framework teardown v2 (2026-06-02): the lab_head ->
+       * CustomizableSidebar branch is removed (the customizable widget rail
+       * was deleted with the rest of the framework). Sidebar selection is
+       * now purely route-based:
+       *   - /calendar      : CalendarSidebar (its own date rail).
+       *   - /lab-overview  : NO sidebar. The curated Lab Overview page is a
+       *                      wide, max-w-6xl, action-first layout that reads
+       *                      better full-width than squeezed beside a rail.
+       *   - everything else: DailyTasksSidebar (every account type). */}
       <div className="flex flex-1 overflow-hidden">
         {pathname?.startsWith("/sequences") ? (
           /* Sequence editor is a full-bleed FOCUS surface (Grant
@@ -570,21 +580,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         ) : pathname === "/calendar" ? (
           <CalendarSidebar />
         ) : pathname === "/lab-overview" ? (
-          /* Lab Overview owns its own customizable widget rail via
-           *  SidebarWidgetRail rendered inside the page body. Render
-           *  nothing here so we don't double-stack two sidebars on
-           *  that route (Grant 2026-05-23 — R2 widget framework). */
           null
-        ) : accountType === "lab_head" ? (
-          /* Customizable PI sidebar (#146 customizable PI sidebar
-           *  manager, 2026-05-23): lab heads get the always-on
-           *  customizable widget rail in place of the default
-           *  DailyTasksSidebar. The two carve-outs above
-           *  (/calendar + /lab-overview) take priority — calendar
-           *  keeps its own sidebar, and /lab-overview renders its
-           *  rail in-page. Members fall through to DailyTasksSidebar
-           *  unchanged. */
-          <CustomizableSidebar />
         ) : (
           <DailyTasksSidebar />
         )}

@@ -355,9 +355,11 @@ describe("TourBootstrap:v4 mid-tour resume", () => {
         await waitFor(() => {
           expect(setHref).toHaveBeenCalledTimes(1);
         });
-        // home-create-project has expectedRoute "/" (it's a home-screen
-        // step), so the hard-reload target falls back to "/".
-        expect(setHref).toHaveBeenCalledWith("/");
+        // Widget-framework teardown v2 (2026-06-02): home-create-project was
+        // re-homed from "/" to "/workbench" (the New Project button moved off
+        // the deleted widget canvas onto the Workbench header), so the
+        // hard-reload target is now "/workbench".
+        expect(setHref).toHaveBeenCalledWith("/workbench");
         // The auto-resume flag was written so the post-reload mount can
         // skip the modal and start at the saved step directly.
         expect(sessionStorage.getItem("v4_auto_resume_on_next_mount")).toBe(

@@ -1,12 +1,14 @@
-// Project-create modal (newproject-modal-tour-fix bot, 2026-05-29).
+// Project-create modal (newproject-modal-tour-fix bot, 2026-05-29;
+// widget-framework teardown v2, 2026-06-02).
 //
 // Pins Grant's correction to the §6.1 dashboard rework: the "+ New Project"
 // button opens the FULL create popup (name + COLOR + TAGS + weekend toggle),
 // not the prior cramped inline strip. Asserts:
 //   1. The modal renders all four fields + carries the §6.1 tour anchors.
-//   2. Submit routes through `createProjectWithDashboardWidget` with the FULL
-//      field set (so the auto Single Project widget is still pinned in color),
-//      parsing comma-separated tags + the weekend toggle.
+//   2. Submit creates DIRECTLY via `projectsApi.create` with the FULL field
+//      set (the widget canvas was torn down in Phase 2, so there is no
+//      auto-pinned widget any more), parsing comma-separated tags + the
+//      weekend toggle, and hands the created project to onCreated.
 //   3. A blank name keeps Create disabled (projectsApi.create throws on empty).
 //   4. Backdrop click + Cancel close without creating.
 
@@ -14,15 +16,12 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-const { createProjectWithDashboardWidget } = vi.hoisted(() => ({
-  createProjectWithDashboardWidget: vi.fn(async () => ({
-    project: { id: 7, owner: "mira" },
-    widgetInstanceId: "single-project-mira-7",
-  })),
+const { create } = vi.hoisted(() => ({
+  create: vi.fn(async () => ({ id: 7, owner: "mira" })),
 }));
 
-vi.mock("@/lib/lab-overview/create-project-with-widget", () => ({
-  createProjectWithDashboardWidget,
+vi.mock("@/lib/local-api", () => ({
+  projectsApi: { create },
 }));
 vi.mock("@/components/Tooltip", () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -47,7 +46,7 @@ function renderModal(onCreated = vi.fn(), onClose = vi.fn()) {
 }
 
 beforeEach(() => {
-  createProjectWithDashboardWidget.mockClear();
+  create.mockClear();
 });
 
 describe("ProjectCreateModal: fields + tour anchors", () => {
@@ -91,7 +90,7 @@ describe("ProjectCreateModal: submit", () => {
     expect(submit).not.toBeDisabled();
   });
 
-  it("submit calls createProjectWithDashboardWidget with the FULL field set", async () => {
+  it("submit calls projectsApi.create with the FULL field set", async () => {
     const { onCreated, onClose } = renderModal();
     fireEvent.change(screen.getByTestId("project-create-name"), {
       target: { value: "  CRISPR Study  " },
@@ -104,17 +103,16 @@ describe("ProjectCreateModal: submit", () => {
     fireEvent.click(screen.getByTestId("project-create-weekend"));
     fireEvent.click(screen.getByTestId("project-create-submit"));
 
-    await waitFor(() =>
-      expect(createProjectWithDashboardWidget).toHaveBeenCalledTimes(1),
-    );
-    expect(createProjectWithDashboardWidget).toHaveBeenCalledWith({
-      username: "mira",
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+    expect(create).toHaveBeenCalledWith({
       name: "CRISPR Study",
       color: "#ef4444",
       tags: ["sequencing", "LC-MS", "cell-culture"],
       weekend_active: true,
     });
+    // onCreated receives the created project so the caller can navigate to it.
     await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
+    expect(onCreated).toHaveBeenCalledWith({ id: 7, owner: "mira" });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
@@ -124,7 +122,7 @@ describe("ProjectCreateModal: close", () => {
     const { onClose } = renderModal();
     fireEvent.click(screen.getByText("Cancel"));
     expect(onClose).toHaveBeenCalledTimes(1);
-    expect(createProjectWithDashboardWidget).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
   });
 
   it("backdrop click closes; a click inside the panel does not", () => {

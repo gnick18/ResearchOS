@@ -5,16 +5,14 @@ import {
 } from "../page-landing-redirect";
 
 /**
- * Unit coverage for the dashboard's one-shot landing-tab redirect
- * decision.
+ * Unit coverage for the "/" landing-tab redirect decision.
  *
- * Dashboard unification (dashboard-unification build, 2026-05-29): Home
- * and Lab Overview collapsed into ONE dashboard at "/", so the old
- * lab_head -> /lab-overview landing special-case (and the
- * `showHomeForLabHead` opt-back-in) are gone. Every account type now
- * lands on "/" unless they set an explicit non-"/" default landing tab.
- * The v4-walkthrough guard is retained: a user walking the tour must NOT
- * be bounced off "/" while the tour is on its dashboard phase.
+ * Widget-framework teardown v2 (2026-06-02): "/" stopped rendering the
+ * widget canvas, so it is now a pure router. A lab_head bounces to the
+ * curated /lab-overview; everyone else bounces to /workbench. An explicit
+ * non-"/" default landing tab still wins over the role default. The
+ * v4-walkthrough guard is retained: a user walking the tour must NOT be
+ * bounced off "/" while the tour drives the browser there.
  */
 
 function input(over: Partial<LandingRedirectInput> = {}): LandingRedirectInput {
@@ -48,24 +46,32 @@ describe("decideLandingRedirect — in-flight / one-shot guards", () => {
   });
 });
 
-describe("decideLandingRedirect — everyone lands on the one dashboard", () => {
-  it("keeps a lab_head on the dashboard (no /lab-overview bounce anymore)", () => {
+describe("decideLandingRedirect — role-based bounce", () => {
+  it("bounces a lab_head to the curated /lab-overview", () => {
     const d = decideLandingRedirect(input({ accountType: "lab_head" }));
-    expect(d).toEqual({ kind: "none", markOneShot: true });
+    expect(d).toEqual({
+      kind: "replace",
+      to: "/lab-overview",
+      markOneShot: true,
+    });
   });
 
-  it("keeps a member on the dashboard", () => {
+  it("bounces a member to /workbench", () => {
     const d = decideLandingRedirect(input({ accountType: "member" }));
-    expect(d).toEqual({ kind: "none", markOneShot: true });
-  });
-
-  it("an explicit non-'/' landing tab wins for a PI too", () => {
-    const d = decideLandingRedirect(
-      input({ accountType: "lab_head", defaultLandingTab: "/workbench" }),
-    );
     expect(d).toEqual({
       kind: "replace",
       to: "/workbench",
+      markOneShot: true,
+    });
+  });
+
+  it("an explicit non-'/' landing tab wins over the role default", () => {
+    const d = decideLandingRedirect(
+      input({ accountType: "lab_head", defaultLandingTab: "/methods" }),
+    );
+    expect(d).toEqual({
+      kind: "replace",
+      to: "/methods",
       markOneShot: true,
     });
   });
@@ -85,7 +91,7 @@ describe("decideLandingRedirect — v4 walkthrough guard", () => {
     expect(d).toEqual({ kind: "none", markOneShot: false });
   });
 
-  it("resumes the explicit-tab redirect normally once the tour ends", () => {
+  it("resumes the redirect normally once the tour ends", () => {
     const d = decideLandingRedirect(
       input({
         accountType: "lab_head",
@@ -101,12 +107,34 @@ describe("decideLandingRedirect — v4 walkthrough guard", () => {
   });
 });
 
-describe("decideLandingRedirect — ?from sentinel", () => {
-  it("honors a ?from bounce-source (stay on the dashboard, mark one-shot)", () => {
+describe("decideLandingRedirect — ?from sentinel loop guard", () => {
+  it("a non-PI bounced off /lab-overview lands on the role default /workbench", () => {
     const d = decideLandingRedirect(
-      input({ accountType: "lab_head", fromRedirect: "lab-overview" }),
+      input({ accountType: "member", fromRedirect: "lab-overview" }),
     );
-    expect(d).toEqual({ kind: "none", markOneShot: true });
+    expect(d).toEqual({
+      kind: "replace",
+      to: "/workbench",
+      markOneShot: true,
+    });
+  });
+
+  it("ignores an explicit landing tab that equals the bounce-source (avoids ping-pong)", () => {
+    // A member who configured /lab-overview as their landing tab but is
+    // not a PI gets bounced off it; the explicit-tab rule must not send
+    // them straight back. Falls through to the role default.
+    const d = decideLandingRedirect(
+      input({
+        accountType: "member",
+        defaultLandingTab: "/lab-overview",
+        fromRedirect: "lab-overview",
+      }),
+    );
+    expect(d).toEqual({
+      kind: "replace",
+      to: "/workbench",
+      markOneShot: true,
+    });
   });
 
   it("the tour guard still wins over a ?from sentinel", () => {
@@ -117,9 +145,15 @@ describe("decideLandingRedirect — ?from sentinel", () => {
   });
 });
 
-describe("decideLandingRedirect — default landing tab '/' ", () => {
-  it("stays on the dashboard + marks one-shot when default is '/'", () => {
-    const d = decideLandingRedirect(input({ defaultLandingTab: "/" }));
-    expect(d).toEqual({ kind: "none", markOneShot: true });
+describe("decideLandingRedirect — default landing tab '/'", () => {
+  it("treats default '/' as no explicit tab and applies the role default", () => {
+    const d = decideLandingRedirect(
+      input({ accountType: "member", defaultLandingTab: "/" }),
+    );
+    expect(d).toEqual({
+      kind: "replace",
+      to: "/workbench",
+      markOneShot: true,
+    });
   });
 });

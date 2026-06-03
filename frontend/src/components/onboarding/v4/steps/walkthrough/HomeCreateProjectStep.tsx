@@ -1,19 +1,24 @@
 /**
- * §6.1 Home page + first project — TRIGGER sub-step.
+ * §6.1 First project — TRIGGER sub-step.
  *
- * First of two §6.1 sub-steps. BeakerBot points to the persistent top-level
- * "+ New Project" button on the dashboard toolbar and waits for the user to
- * open the create-project form. Advances the moment
- * `tour:home-create-modal-opened` fires (dispatched by `DashboardNewProject.tsx`
- * on the button's onClick).
+ * First of two §6.1 sub-steps. BeakerBot points to the "+ New Project" button
+ * in the Workbench header and waits for the user to open the create-project
+ * form. Advances the moment `tour:home-create-modal-opened` fires (dispatched
+ * by `NewProjectButton.tsx` on the button's onClick).
+ *
+ * Widget-framework teardown v2 (2026-06-02): the customizable widget canvas
+ * that used to host the only "+ New Project" affordance was removed. Project
+ * creation now lives on the Workbench header (and the curated Lab Overview
+ * header) via the shared `NewProjectButton`, which still carries the
+ * `home-new-project` anchor + dispatches `tour:home-create-modal-opened`. The
+ * beat re-homes to `/workbench` (the universal surface every account type can
+ * reach) so the spotlight resolves on a real button regardless of role.
  *
  * Top-level New Project rework (dashboard-newproject-tour bot, 2026-05-29):
- * Grant's decided model replaced the "open the Projects Overview widget, then
- * create inside it" flow with a persistent, widget-independent New Project
- * button on the dashboard header. The prior OPEN-WIDGET beat
- * (`home-open-projects-widget`) is retired; this TRIGGER beat now leads the
- * §6.1 cluster and spotlights the toolbar button directly (the
- * `home-new-project` anchor moved onto it).
+ * Grant's model replaced the "open the Projects Overview widget, then create
+ * inside it" flow with a persistent, widget-independent New Project button.
+ * This TRIGGER beat leads the §6.1 cluster and spotlights that button (the
+ * `home-new-project` anchor lives on it).
  *
  * Split rationale: Grant's v4 §6.1 walkthrough surfaced that BeakerBot's
  * speech never updated between "click the button" and "the project is
@@ -45,12 +50,11 @@ import { watchHomeCreateModalOpened } from "./lib/tour-events";
 
 export const homeCreateProjectStep = buildWalkthroughStep({
   id: "home-create-project",
-  // Top-level New Project rework (dashboard-newproject-tour bot, 2026-05-29):
-  // the New Project button is a persistent affordance at the top of the
-  // dashboard toolbar (DashboardNewProject.tsx), independent of any widget.
-  // Speech points the user at that toolbar button; pose stays "pointing".
+  // Widget-framework teardown v2 (2026-06-02): the New Project button now
+  // lives in the Workbench header (NewProjectButton.tsx), independent of any
+  // widget. Speech points the user at that button; pose stays "pointing".
   speech:
-    "Let's make your first project. Click the New Project button at the top of your dashboard. Every project starts with just a name and a color.",
+    "Let's make your first project. Click the New Project button in your Workbench header. Every project starts with just a name and a color.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.homeNewProject),
   // Intentionally no cursorScript: BeakerBot tells the user to click;
@@ -58,8 +62,7 @@ export const homeCreateProjectStep = buildWalkthroughStep({
   // remove the user's agency on a simple first action. The spotlight
   // does the visual work.
   completion: advanceOnEvent(watchHomeCreateModalOpened),
-  // Auto-navigate to the home page when a refresh lands the user
-  // somewhere else (Grant's refresh-mid-tour bug: BeakerBot pointed at
-  // a "New Project" button that wasn't on the project page he was on).
-  expectedRoute: "/",
+  // Re-homed to /workbench (the universal create surface) so the
+  // `home-new-project` anchor resolves on a real button after a refresh.
+  expectedRoute: "/workbench",
 });

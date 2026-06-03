@@ -156,26 +156,10 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // telegraphs the widgets beat ("how the canvas works") because §6.2b
   // sits between this step and §6.3.
   "project-overview-exit",
-  // §6.2b Home widgets walkthrough (home widgets §6.2b step bodies
-  // manager, 2026-05-25). Five universal sub-steps that introduce the
-  // per-user widget canvas BETWEEN project-overview-exit (which has
-  // just pushed the browser back to "/") and notifications-bell.
-  //
-  // None of these steps gate out under any feature_picks shape —
-  // every user has a widget canvas on /home, so the cluster is fully
-  // universal. See HOME_WIDGETS_WALKTHROUGH_PROPOSAL.md §3-§4 for the
-  // per-step contracts.
-  //
-  //   1. canvas-intro    — narration + spotlight on the whole canvas
-  //   2. tile-anatomy    — cursor click expands a tile into a popup
-  //   3. add             — cursor opens the catalog + adds a tile
-  //   4. reorder         — cursor drags a tile to a new slot
-  //   5. exit            — cursor pulls back toward the bell (§6.3)
-  "home-widgets-canvas-intro",
-  "home-widgets-tile-anatomy",
-  "home-widgets-add",
-  "home-widgets-reorder",
-  "home-widgets-exit",
+  // Widget-framework teardown v2 (2026-06-02): the §6.2b Home widgets
+  // walkthrough (5 sub-steps: canvas-intro / tile-anatomy / add / reorder
+  // / exit) taught the customizable widget canvas, which was removed.
+  // project-overview-exit now hands straight off to notifications-intro.
   // 2026-05-27 (v4 tour structural manager, Wave 1): new
   // `notifications-intro` narration beat sits before the click-the-bell
   // user-action so BeakerBot can frame the top-bar bell + inbox pair

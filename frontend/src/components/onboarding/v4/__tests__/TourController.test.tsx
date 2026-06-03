@@ -1283,20 +1283,26 @@ describe("TourController — cursor-script invocation", () => {
       expect(cursorRunScriptMock).toHaveBeenCalledTimes(1);
     });
     cursorRunScriptMock.mockClear();
-    // Use project-overview-nav (has cursorScript and its target —
-    // `[data-tour-target^='home-single-project-open-']` — is mounted in this
-    // suite's beforeEach as `home-single-project-open-test`). Previously this
-    // used `notifications`, but the 2026-05-21 §6.3 split dropped the
-    // cursor script from every notifications sub-step (all three are
-    // user-action now). Picking project-overview-nav keeps the test
-    // scoped to "transition between two cursor-script steps actually
-    // re-invokes runScript" without needing fresh fixture targets.
-    act(() => {
-      result.current.start("project-overview-nav");
-    });
-    await waitFor(() => {
-      expect(cursorRunScriptMock).toHaveBeenCalledTimes(1);
-    });
+    // Widget-framework teardown v2 (2026-06-02): project-overview-nav lost
+    // its cursorScript (it is pure narration now that the create flow routes
+    // straight to the project page). Use project-overview-exit instead — it
+    // still carries a glide cursorScript and keeps the test scoped to
+    // "transition between two cursor-script steps re-invokes runScript". Its
+    // glide build waits for the Home nav tab, so plant that element here so
+    // the build resolves promptly instead of timing out.
+    const homeNavTab = document.createElement("button");
+    homeNavTab.setAttribute("data-tour-target", "home-nav-tab");
+    document.body.appendChild(homeNavTab);
+    try {
+      act(() => {
+        result.current.start("project-overview-exit");
+      });
+      await waitFor(() => {
+        expect(cursorRunScriptMock).toHaveBeenCalledTimes(1);
+      });
+    } finally {
+      homeNavTab.remove();
+    }
   });
 });
 
@@ -1456,6 +1462,12 @@ describe("TourController — expectedRoute auto-navigation", () => {
   });
 
   it("does NOT call router.push when already on the expected route", () => {
+    // Widget-framework teardown v2 (2026-06-02): home-create-project was
+    // re-homed from "/" to "/workbench" (the New Project button moved off
+    // the deleted widget canvas onto the Workbench header). Start already on
+    // /workbench so no push fires.
+    window.history.pushState({}, "", "/workbench");
+    setMockPathname("/workbench");
     const { result } = renderHook(() => useTourController(), {
       wrapper: wrapper(),
     });
@@ -1473,12 +1485,15 @@ describe("TourController — expectedRoute auto-navigation", () => {
   });
 
   it("calls router.push when expectedRoute does NOT match current path", () => {
-    window.history.pushState({}, "", "/workbench/projects/42");
+    // home-create-project re-homed to /workbench (widget-framework teardown
+    // v2). From a non-matching nested route the controller pushes there.
+    window.history.pushState({}, "", "/gantt");
+    setMockPathname("/gantt");
     const { result } = renderHook(() => useTourController(), {
       wrapper: wrapper(),
     });
     act(() => result.current.start("home-create-project"));
-    expect(pushMock).toHaveBeenCalledWith("/");
+    expect(pushMock).toHaveBeenCalledWith("/workbench");
   });
 
   it("calls router.push for a methods-page step from elsewhere", () => {
@@ -1506,6 +1521,10 @@ describe("TourController — expectedRoute auto-navigation", () => {
   });
 
   it("re-runs against the new step's expectedRoute after advance", () => {
+    // home-create-project-fill re-homed to /workbench (widget-framework
+    // teardown v2). Start there so the first render does not push.
+    window.history.pushState({}, "", "/workbench");
+    setMockPathname("/workbench");
     const { result } = renderHook(() => useTourController(), {
       wrapper: wrapper(),
     });
@@ -1522,21 +1541,24 @@ describe("TourController — expectedRoute auto-navigation", () => {
   // effect didn't re-fire; with `pathname` in the dep array it auto-
   // corrects back to expectedRoute on the next render cycle.
   it("auto-corrects when the user navigates away from expectedRoute mid-step", () => {
+    // home-create-project re-homed to /workbench (widget-framework teardown
+    // v2). Start already on /workbench so the initial render does not push.
+    window.history.pushState({}, "", "/workbench");
+    setMockPathname("/workbench");
     const { result, rerender } = renderHook(() => useTourController(), {
       wrapper: wrapper(),
     });
     act(() => result.current.start("home-create-project"));
     expect(pushMock).not.toHaveBeenCalled();
-    // Simulate a mid-step nav-escape: pathname changes (the user
-    // clicked a project card), window.location updates, but the step
-    // is still home-create-project. The pathname dep should trigger
-    // the auto-correct effect.
+    // Simulate a mid-step nav-escape to a route OUTSIDE /workbench (so the
+    // prefix match fails), but the step is still home-create-project. The
+    // pathname dep should trigger the auto-correct effect back to /workbench.
     act(() => {
-      window.history.pushState({}, "", "/workbench/projects/42");
-      setMockPathname("/workbench/projects/42");
+      window.history.pushState({}, "", "/gantt");
+      setMockPathname("/gantt");
     });
     rerender();
-    expect(pushMock).toHaveBeenCalledWith("/");
+    expect(pushMock).toHaveBeenCalledWith("/workbench");
   });
 
   // §6.1 nav fix (2026-05-25): the §6.2 NAV step's cursor click pushes
@@ -1547,6 +1569,10 @@ describe("TourController — expectedRoute auto-navigation", () => {
   // §6.2 PROSE would activate with the user stuck on home and trigger
   // the target-detach recovery hint inappropriately.
   it("does NOT auto-correct when the cursor script just navigated", () => {
+    // Start on /workbench (home-create-project's re-homed expectedRoute) so
+    // the initial render does not push (widget-framework teardown v2).
+    window.history.pushState({}, "", "/workbench");
+    setMockPathname("/workbench");
     const { result, rerender } = renderHook(() => useTourController(), {
       wrapper: wrapper(),
     });
@@ -1592,12 +1618,18 @@ describe("TourController — expectedRoute auto-navigation", () => {
   //   4. running flag is FALSE but pending-nav flag is TRUE
   //   5. auto-nav effect consumes the pending-nav flag and bails
   it("does NOT auto-correct when the cursor's async router.push lands AFTER the running flag has cleared (pending-navigation flag)", () => {
+    // Widget-framework teardown v2 (2026-06-02): the §6.2 NAV beat no longer
+    // uses safeNavClickAction (it is pure narration now), so this test uses
+    // home-create-project (expectedRoute /workbench) as a generic fixture for
+    // the pending-navigation flag mechanism. Start on /workbench so the
+    // initial render does not push.
+    window.history.pushState({}, "", "/workbench");
+    setMockPathname("/workbench");
     const { result, rerender } = renderHook(() => useTourController(), {
       wrapper: wrapper(),
     });
-    act(() => result.current.start("project-overview-nav"));
-    // project-overview-nav has expectedRoute "/" but pathname is "/"
-    // already, so no push.
+    act(() => result.current.start("home-create-project"));
+    // expectedRoute /workbench, pathname /workbench already, so no push.
     expect(pushMock).not.toHaveBeenCalled();
     // Simulate the cursor script's `safeNavClickAction` callback:
     // running flag cleared synchronously (the click + finally
@@ -1607,11 +1639,11 @@ describe("TourController — expectedRoute auto-navigation", () => {
     (window as unknown as { __beakerBotCursorPendingNavigation?: boolean })
       .__beakerBotCursorPendingNavigation = true;
     try {
-      // Now the async router.push commits — pathname observes the
-      // new route.
+      // Now the async router.push commits to a route OUTSIDE /workbench
+      // (so the prefix match fails and the effect would otherwise bounce).
       act(() => {
-        window.history.pushState({}, "", "/workbench/projects/42");
-        setMockPathname("/workbench/projects/42");
+        window.history.pushState({}, "", "/gantt");
+        setMockPathname("/gantt");
       });
       rerender();
       // No bounce-back: the pending-nav flag tells the effect this

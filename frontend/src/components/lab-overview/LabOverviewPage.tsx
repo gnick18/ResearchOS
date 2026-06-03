@@ -40,6 +40,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAccountType } from "@/hooks/useAccountType";
 import { useLabData } from "@/hooks/useLabData";
 
+import NewProjectButton from "./NewProjectButton";
 import { ExpandedView as AnnouncementsBody } from "./widgets/AnnouncementsWidget";
 import { ExpandedView as LabActivityBody } from "./widgets/LabActivityWidget";
 import { ExpandedView as CalendarEventsTodayBody } from "./widgets/CalendarEventsTodayWidget";
@@ -442,14 +443,25 @@ function SectionCard({ title, description, children, className }: SectionCardPro
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function LabOverviewPage() {
+  const { currentUser } = useCurrentUser();
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 p-6">
       <div className="space-y-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Lab Overview</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Everything that needs you, plus what your lab has been up to.
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Lab Overview</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              Everything that needs you, plus what your lab has been up to.
+            </p>
+          </div>
+          {/* Project creation moved here from the retired widget canvas
+              (widget-framework teardown v2). Stable tour anchor for §6.1. */}
+          {currentUser && (
+            <NewProjectButton
+              username={currentUser}
+              tourTarget="create-project-button"
+            />
+          )}
         </div>
         <ActionBar />
         <LinkOuts />

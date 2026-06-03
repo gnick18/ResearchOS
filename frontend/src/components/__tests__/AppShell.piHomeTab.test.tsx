@@ -77,15 +77,13 @@ vi.mock("@/hooks/useErrorReporting", () => ({
   }),
 }));
 
-// Inert stubs for every heavy AppShell child. The lab_head branch renders
-// CustomizableSidebar in place of DailyTasksSidebar, so it gets stubbed
-// too; the edit-session banner + chip subscribe to a module-scoped
-// session and are likewise stubbed.
+// Inert stubs for every heavy AppShell child. The edit-session banner +
+// chip subscribe to a module-scoped session and are likewise stubbed.
+// Widget-framework teardown v2 (2026-06-02): the lab_head ->
+// CustomizableSidebar branch was removed, so there is no CustomizableSidebar
+// to stub any more (every account type gets DailyTasksSidebar off /calendar).
 vi.mock("@/components/DailyTasksSidebar", () => ({ default: () => null }));
 vi.mock("@/components/CalendarSidebar", () => ({ default: () => null }));
-vi.mock("@/components/lab-overview/CustomizableSidebar", () => ({
-  default: () => null,
-}));
 vi.mock("@/components/TelegramStatusBadge", () => ({ default: () => null }));
 vi.mock("@/components/InboxBadge", () => ({ default: () => null }));
 vi.mock("@/components/InboxToast", () => ({ default: () => null }));

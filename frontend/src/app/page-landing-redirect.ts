@@ -6,12 +6,13 @@
 // redirect effect wires the live inputs in and acts on the returned
 // directive.
 //
-// Dashboard unification (dashboard-unification build, 2026-05-29): Home
-// and Lab Overview collapsed into ONE dashboard at "/". Everyone lands at
-// "/", so the old lab_head -> /lab-overview landing special-case (and the
-// `showHomeForLabHead` opt-back-in it depended on) are gone. The decision
-// now only honors an explicit non-"/" default landing tab, a `?from=`
-// bounce sentinel, and the tour-active guard.
+// Widget-framework teardown v2 (2026-06-02): the customizable widget
+// dashboard that "/" used to render is gone. "/" is now a pure router: it
+// bounces to the surface that owns the account type. A lab_head lands on
+// the curated /lab-overview; everyone else lands on /workbench. An explicit
+// non-"/" default landing tab still wins over the role default. The
+// deep-link handlers (?openTask= / ?openProject=) run on "/" before the
+// bounce, and the `?from=` sentinel + tour-active guard are preserved.
 
 import type { AccountType } from "@/lib/settings/user-settings";
 
@@ -56,18 +57,19 @@ export type LandingRedirectDecision =
  *   0b. v4 walkthrough / preview active → do nothing AND do NOT mark the
  *      one-shot flag, so once the tour ends the normal landing redirect
  *      can still fire on the next clean landing.
- *   1. `?from=` sentinel → honor the bounce-source's choice (stay on the
- *      dashboard, strip the sentinel), mark the one-shot flag.
+ *   1. `?from=` sentinel → a surface bounced us to "/" deliberately
+ *      (e.g. /lab-overview bouncing a non-PI). Stay on "/" so we don't
+ *      bounce straight back into a loop; strip the sentinel; mark the
+ *      one-shot flag.
  *   2. Explicit non-"/" default landing tab → replace with it (wins for
  *      every account type, including a PI who picked /workbench).
- *   3. default landing tab is "/" or no explicit tab → stay on the
- *      dashboard, mark the one-shot flag.
+ *   3. Role default → lab_head bounces to /lab-overview, everyone else to
+ *      /workbench. "/" no longer renders anything itself.
  *
- * Dashboard unification (dashboard-unification build, 2026-05-29): the
- * old lab_head -> /lab-overview landing special-case is removed — everyone
- * lands on the one dashboard at "/". The `accountType` input is retained
- * (the effect still waits for the read to settle, keeping the one-shot
- * timing stable) but no longer drives a bounce.
+ * Widget-framework teardown v2 (2026-06-02): "/" stopped rendering the
+ * widget canvas, so there is no "stay on the dashboard" terminal state any
+ * more. The account type now DRIVES the bounce (it used to only gate the
+ * one-shot timing).
  */
 export function decideLandingRedirect(
   input: LandingRedirectInput,
@@ -81,21 +83,39 @@ export function decideLandingRedirect(
     return { kind: "none", markOneShot: false };
   }
 
-  // Tour-active guard. The v4 walkthrough's dashboard phase navigates to
-  // "/" via the controller's router.push. Suppress the redirect entirely
-  // while the tour runs and leave the one-shot flag UNSET so the normal
-  // landing behavior resumes once the walkthrough ends.
+  // Tour-active guard. The v4 walkthrough drives the browser to "/" and to
+  // the create surfaces itself. Suppress the redirect entirely while the
+  // tour runs and leave the one-shot flag UNSET so the normal landing
+  // behavior resumes once the walkthrough ends.
   if (input.tourActive) return { kind: "none", markOneShot: false };
 
-  if (input.fromRedirect) {
-    // The bounce-source already chose the dashboard as the destination.
+  if (input.defaultLandingTab && input.defaultLandingTab !== "/") {
+    // An explicit landing tab wins, EXCEPT when it is the very surface
+    // that just bounced us here (that would ping-pong). In that case fall
+    // through to the role default below.
+    if (
+      !input.fromRedirect ||
+      `/${input.fromRedirect}` !== input.defaultLandingTab
+    ) {
+      return {
+        kind: "replace",
+        to: input.defaultLandingTab,
+        markOneShot: true,
+      };
+    }
+  }
+
+  // Role default. "/" renders nothing now, so always bounce somewhere. The
+  // `?from=` sentinel only matters here as a loop guard: a non-PI bounced
+  // off /lab-overview lands on /workbench (the role default already differs
+  // from /lab-overview, so there is no ping-pong).
+  const roleDefault =
+    input.accountType === "lab_head" ? "/lab-overview" : "/workbench";
+  if (input.fromRedirect && `/${input.fromRedirect}` === roleDefault) {
+    // Defensive: the bounce-source equals our role default. Stay on "/"
+    // to break the loop (no current caller hits this, but it keeps the
+    // router total).
     return { kind: "none", markOneShot: true };
   }
-
-  if (input.defaultLandingTab && input.defaultLandingTab !== "/") {
-    return { kind: "replace", to: input.defaultLandingTab, markOneShot: true };
-  }
-
-  // Either defaultLandingTab === "/" or no explicit tab: stay.
-  return { kind: "none", markOneShot: true };
+  return { kind: "replace", to: roleDefault, markOneShot: true };
 }

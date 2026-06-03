@@ -316,15 +316,19 @@ describe("TourBeakerBotOverlay — anchor flips when interaction target overlaps
     // viewport. We mock the target element's getBoundingClientRect to
     // return a deterministic bottom-right rect (jsdom layouts to 0x0
     // by default, which would never trigger the predicate).
-    const homeWidgetAddBtn = document.createElement("button");
-    homeWidgetAddBtn.setAttribute("data-tour-target", "home-widget-add-button");
-    // Wrap in a popup ancestor so the popup-detection path also lights
-    // up — exercising both the spotlight-rect and popup-rect targets
-    // in one spec.
+    //
+    // Widget-framework teardown v2 (2026-06-02): the prior fixture used the
+    // deleted `home-widgets-add` step (target `home-widget-add-button`). Use
+    // the surviving §6.1 FILL beat instead — its spotlight points at the
+    // create-project form (data-tour-target="home-project-create-form").
+    const createForm = document.createElement("div");
+    createForm.setAttribute("data-tour-target", "home-project-create-form");
+    // Wrap in a dialog ancestor so the popup-detection path also lights up,
+    // exercising both the spotlight-rect and popup-rect targets in one spec.
     const popupAncestor = document.createElement("div");
     popupAncestor.setAttribute("role", "dialog");
-    popupAncestor.setAttribute("data-tour-target", "home-widget-catalog");
-    popupAncestor.appendChild(homeWidgetAddBtn);
+    popupAncestor.setAttribute("data-tour-target", "home-project-create-form");
+    popupAncestor.appendChild(createForm);
     document.body.appendChild(popupAncestor);
 
     const targetRect = {
@@ -349,7 +353,7 @@ describe("TourBeakerBotOverlay — anchor flips when interaction target overlaps
       y: VH - 600,
       toJSON: () => ({}),
     } as DOMRect;
-    vi.spyOn(homeWidgetAddBtn, "getBoundingClientRect").mockReturnValue(
+    vi.spyOn(createForm, "getBoundingClientRect").mockReturnValue(
       targetRect,
     );
     vi.spyOn(popupAncestor, "getBoundingClientRect").mockReturnValue(popupRect);
@@ -358,11 +362,12 @@ describe("TourBeakerBotOverlay — anchor flips when interaction target overlaps
       const { result } = renderHook(() => useTourController(), {
         wrapper: wrapper(picks()),
       });
-      // `home-widgets-add` is the step whose spotlight points at the
-      // +Add widget button (data-tour-target="home-widget-add-button")
-      // — the same selector our planted element carries. Start the
-      // tour at this step so the overlay reads our planted DOM.
-      act(() => result.current.start("home-widgets-add"));
+      // `home-create-project-fill` is the surviving step whose spotlight
+      // points at the create-project form
+      // (data-tour-target="home-project-create-form") — the same selector
+      // our planted element carries. Start the tour at this step so the
+      // overlay reads our planted DOM.
+      act(() => result.current.start("home-create-project-fill"));
       // The hook schedules its first compute via rAF. Allow a couple
       // of frames + microtasks to land so the MutationObserver +
       // initial rAF fire and the side state settles.

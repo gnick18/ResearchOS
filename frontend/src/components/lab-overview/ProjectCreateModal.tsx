@@ -3,36 +3,38 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import Tooltip from "@/components/Tooltip";
-import { createProjectWithDashboardWidget } from "@/lib/lab-overview/create-project-with-widget";
+import { projectsApi } from "@/lib/local-api";
+import type { Project } from "@/lib/types";
 
 /**
- * Full project-create modal (newproject-modal-tour-fix bot, 2026-05-29).
+ * Full project-create modal (newproject-modal-tour-fix bot, 2026-05-29;
+ * widget-framework teardown v2, 2026-06-02).
  *
  * Grant's correction to the §6.1 dashboard rework: the "+ New Project" button
  * must open the FULL project-create popup the old Home page used, NOT the
- * cramped inline strip (a color swatch + a name only). This is that popup,
- * lifted from `02efe403~1:frontend/src/app/page.tsx`'s create form into a
- * clean, reusable overlay dialog: name + COLOR (swatch row) + TAGS
- * (comma-separated) + the seven-day-week (WEEKEND_ACTIVE) toggle.
+ * cramped inline strip (a color swatch + a name only). This is that popup:
+ * name + COLOR (swatch row) + TAGS (comma-separated) + the seven-day-week
+ * (WEEKEND_ACTIVE) toggle.
  *
- * Reuses `createProjectWithDashboardWidget` so a create from this modal still
- * auto-pins a Single Project widget to the dashboard in the project color
- * (the §6.1 NAV beat then clicks that tile). The widget helper is the single
- * chokepoint, so the modal passes the full field set (color + tags +
- * weekend_active) through to it.
+ * Teardown rewrite: the customizable widget dashboard (canvas + Single Project
+ * widget + layout-persistence) was removed in Phase 2. The modal now creates
+ * the project DIRECTLY via `projectsApi.create` (which dispatches
+ * `tour:project-created` itself, so the §6.1 FILL beat still advances) and
+ * hands the created project back to its caller via `onCreated(project)` so the
+ * new homes (the curated Lab Overview header button and the Workbench header
+ * button) can navigate to it. No auto-pinned widget is appended any more
+ * (there is no canvas).
  *
- * Modal chrome mirrors the house pattern (SnapshotTilePopup): fixed inset
- * overlay, backdrop dim, click-outside + Escape close, focus restore on
- * unmount. Custom inline SVG, project `<Tooltip>`, no native title=, no
- * emojis, no em-dashes.
+ * Modal chrome mirrors the house popup pattern: fixed inset overlay, backdrop
+ * dim, click-outside + Escape close, focus restore on unmount. Custom inline
+ * SVG, project `<Tooltip>`, no native title=, no emojis, no em-dashes.
  *
  * TOUR (§6.1): the FILL beat spotlights `home-project-create-form` (the modal
  * panel) and the trigger beat's `tour:home-create-modal-opened` event is
- * dispatched by the OPENER (DashboardNewProject / the walkthrough step), not
- * here, so the event fires exactly once on open. The name input carries
+ * dispatched by the OPENER (the New Project buttons / the walkthrough step),
+ * not here, so the event fires exactly once on open. The name input carries
  * `home-project-name-input`, the submit button `home-project-create-submit`,
- * and the panel `home-project-create-form` so the cursor script + spotlights
- * still resolve.
+ * and the panel `home-project-create-form` so the spotlights still resolve.
  */
 
 /** The same swatch palette the old Home create form offered. */
@@ -68,18 +70,18 @@ const CLOSE_SVG = (
 );
 
 export interface ProjectCreateModalProps {
-  /** The dashboard owner (current user) whose layout receives the auto
-   *  Single Project widget. */
+  /** The creating user (current user). Retained on the props for callers
+   *  that pass it through; the create itself runs as the active user. */
   username: string;
   /** Close the modal without creating (backdrop click, Escape, Cancel). */
   onClose: () => void;
-  /** Called after a successful create so the caller can refresh its view.
-   *  The created project is passed for callers that want to react to it. */
-  onCreated: () => void;
+  /** Called after a successful create with the created project, so the
+   *  caller can refresh its view and/or navigate to the new project. */
+  onCreated: (project: Project) => void;
 }
 
 export default function ProjectCreateModal({
-  username,
+  username: _username,
   onClose,
   onCreated,
 }: ProjectCreateModalProps) {
@@ -119,8 +121,11 @@ export default function ProjectCreateModal({
     if (!trimmed || saving) return;
     setSaving(true);
     try {
-      await createProjectWithDashboardWidget({
-        username,
+      // Create directly through the data layer. `projectsApi.create`
+      // dispatches `tour:project-created` itself, so the §6.1 FILL beat still
+      // advances. The widget canvas (and its auto-pinned Single Project tile)
+      // were removed in the Phase 2 teardown, so there is nothing to append.
+      const project = await projectsApi.create({
         name: trimmed,
         color,
         tags: tags
@@ -129,13 +134,13 @@ export default function ProjectCreateModal({
           .filter(Boolean),
         weekend_active: weekendActive,
       });
-      // Refresh both the widget reads and any legacy project consumers so the
-      // new project + its auto-widget show everywhere without a reload.
+      // Refresh project consumers so the new project shows everywhere without
+      // a reload.
       await queryClient.invalidateQueries({
         queryKey: ["lab", "projects-with-progress"],
       });
       await queryClient.invalidateQueries({ queryKey: ["projects"] });
-      onCreated();
+      onCreated(project);
       onClose();
     } catch {
       // projectsApi.create throws on empty names; the guard above blocks that,

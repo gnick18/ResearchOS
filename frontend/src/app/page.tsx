@@ -10,7 +10,6 @@ import {
 import AppShell from "@/components/AppShell";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import UserLoginScreen from "@/components/UserLoginScreen";
-import DashboardCanvas from "@/components/home/HomeCanvas";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useAppStore } from "@/lib/store";
 import { useAccountType } from "@/hooks/useAccountType";
@@ -19,17 +18,14 @@ import { V4_PREVIEW_STICKY_KEY } from "@/lib/file-system/wiki-capture-mock";
 import { decideLandingRedirect } from "./page-landing-redirect";
 import type { Task } from "@/lib/types";
 
-// Dashboard unification (dashboard-unification build, 2026-05-29): Home
-// (route "/") and Lab Overview ("/lab-overview", now a redirect to "/")
-// collapsed into ONE per-user widget dashboard. This page renders ONLY the
-// widget canvas (`<DashboardCanvas>`). The hardcoded "Research Project
-// Overview" grid + its "+ New Project" button + the active/archived
-// project cards are GONE. Their job moves to the seeded Projects Overview
-// widget (which has its own inline New Project flow), so no creation
-// affordance is lost and the page is now structurally identical to what
-// Lab Overview used to be: a single widget canvas, nothing hardcoded on
-// top. The account-aware nav label + the unified `dashboard_layout`
-// persistence make this one concept for every account type.
+// Widget-framework teardown v2 (2026-06-02): the customizable widget
+// dashboard that "/" used to render is GONE. "/" is now a pure router: it
+// resolves the user, runs the ?openTask= / ?openProject= deep-link
+// handlers, then bounces to the surface that owns the account type
+// (lab_head -> /lab-overview, everyone else -> /workbench) via
+// decideLandingRedirect. It renders no canvas of its own, only the login
+// gate, the deep-link TaskDetailPopup, and a light spinner while the
+// bounce resolves.
 
 // Only redirect to the user's default landing tab once per tab/session. If
 // they manually navigate back to "/" later, we respect that.
@@ -174,8 +170,12 @@ export default function HomePage() {
 
   return (
     <AppShell>
-      <div className="flex-1 overflow-auto p-6">
-        {currentUser && <DashboardCanvas username={currentUser} />}
+      {/* "/" renders no surface of its own any more (widget-framework
+          teardown v2): it is a router that bounces to the role landing.
+          A light spinner fills the brief window before the redirect lands
+          (or while a deep-link popup is open). */}
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
       </div>
 
       {/* Task Detail Popup (deep-link `?openTask=`). */}
