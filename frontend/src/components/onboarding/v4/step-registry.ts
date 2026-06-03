@@ -257,11 +257,10 @@ import { settingsIntroStep } from "./steps/walkthrough/SettingsIntroStep";
 import { animationPickerStep } from "./steps/walkthrough/AnimationPickerStep";
 import {
   settingsColorStep,
-  // settingsMoreStep is retained in the SettingsColorStep.tsx export
-  // surface with @deprecated JSDoc (Settings manager 2026-05-22 §6.10
-  // phase redesign) but NOT wired into the registry — the seven new
-  // settings-tour-* beats replace its single pointer beat with per-
-  // surface narration.
+  // The legacy settingsMoreStep export was deleted 2026-06-03 (dead +
+  // unreachable; Settings manager 2026-05-22 §6.10 phase redesign). The
+  // seven settings-tour-* beats replaced its single pointer beat with
+  // per-surface narration.
 } from "./steps/walkthrough/SettingsColorStep";
 // §6.10 Settings phase redesign 2026-05-22 (Settings manager). Seven
 // new narration beats spotlight each Settings surface (folder /
@@ -439,8 +438,9 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   // §6.10 Settings phase redesign 2026-05-22 (Settings manager): the
   // prior single `settings-more` + `ai-helper-deep-explain` cluster is
   // replaced by 7 settings-tour-* narration beats + 3 ai-helper-* beats.
-  // The legacy bodies survive with @deprecated tags in their files but
-  // are NOT mapped here.
+  // The `settings-more` body was deleted 2026-06-03 (dead); the
+  // `ai-helper-deep-explain` body survives @deprecated. Neither is
+  // mapped here.
   [settingsColorStep.id]: settingsColorStep,
   [settingsTourFolderStep.id]: settingsTourFolderStep,
   // settingsTourCalendarStep retired 2026-05-27 (Grant hand-walk).

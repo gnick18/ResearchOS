@@ -29,7 +29,7 @@
  */
 import { readUserSettings } from "@/lib/settings/user-settings";
 import { getCurrentUserCached } from "@/lib/storage/json-store";
-import { manualAdvance, buildWalkthroughStep, autoAdvanceAfter } from "./lib/step-helpers";
+import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 import { flushPendingArtifacts, pendingArtifactStore } from "./lib/artifacts";
 
@@ -151,28 +151,5 @@ export const settingsColorStep = buildWalkthroughStep({
     preChangeSnapshot = null;
     await flushPendingArtifacts(STEP_ID);
   },
-  expectedRoute: "/settings",
-});
-
-/**
- * @deprecated 2026-05-22 (Settings manager, §6.10 phase redesign).
- *
- * The "more in settings" pointer is replaced by the seven
- * `settings-tour-*` narration beats in `SettingsTourBeats.tsx`. Each
- * new beat anchors on a specific Settings surface (folder, calendar,
- * telegram, account-type toggle, visible tabs, streak counter, re-run
- * welcome tour) and explains its purpose in 1-2 sentences.
- *
- * This export survives for git-history reference and so any code that
- * imports `settingsMoreStep` directly (e.g. external tests, dev
- * tools) keeps compiling. The step is NOT in TOUR_STEP_ORDER, so the
- * machine never lands on it.
- */
-export const settingsMoreStep = buildWalkthroughStep({
-  id: "settings-more",
-  speech:
-    "Settings has plenty more to explore later. There's a streak counter that starts when you begin saving work. It's private to you, and you can turn it off here. Let me scroll down to one more thing.",
-  pose: "thinking",
-  completion: autoAdvanceAfter(3500),
   expectedRoute: "/settings",
 });

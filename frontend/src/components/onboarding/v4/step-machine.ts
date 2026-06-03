@@ -399,10 +399,10 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   //
   // The 3 ai-helper-* beats inherit the prior single-id gate
   // (picks.ai_helper ∈ {full, medium, minimal}); see
-  // `isStepGatedOut` below for the predicate. Legacy ids
-  // (`settings-more`, `ai-helper-deep-explain`) survive in the
-  // step body files with @deprecated JSDoc tags but are NOT in
-  // TOUR_STEP_ORDER, so the machine never lands on them.
+  // `isStepGatedOut` below for the predicate. The legacy
+  // `settings-more` body was deleted 2026-06-03 (dead);
+  // `ai-helper-deep-explain` survives @deprecated in its file.
+  // Neither is in TOUR_STEP_ORDER, so the machine never lands on them.
   "personalization-color",
   "settings-tour-folder",
   // settings-tour-calendar retired 2026-05-27 (Grant hand-walk): step

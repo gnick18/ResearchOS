@@ -7,16 +7,15 @@
  * header with my color" toggle, runs entirely user-paced (no cursor
  * demo), and lets the user toggle, tweak colors, or just continue.
  *
- * The legacy `settingsMoreStep` survives in the file with @deprecated
- * JSDoc but is no longer in TOUR_STEP_ORDER. Tests for that body are
- * intentionally dropped here.
+ * The legacy `settingsMoreStep` body was deleted 2026-06-03 (dead,
+ * unreachable, superseded by the live settings-tour-streak beat).
+ * Its absence from TOUR_STEP_ORDER is guarded in step-machine.test.ts.
  */
 import { describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
 import type { TourStep } from "../../../step-types";
 import {
   settingsColorStep,
-  settingsMoreStep,
   SETTINGS_COLOR_PAGE_LOCK_ALLOW_LIST,
 } from "../SettingsColorStep";
 
@@ -96,16 +95,5 @@ describe("personalization-color (refined, §6.10 phase redesign)", () => {
     expect(SETTINGS_COLOR_PAGE_LOCK_ALLOW_LIST).toBe(
       settingsColorStep.pageLock?.allowList,
     );
-  });
-});
-
-describe("@deprecated settings-more step body (retained for back-compat)", () => {
-  it("still exports under the legacy id", () => {
-    // Regression guard: the @deprecated body survives in the file so
-    // git history + back-compat importers stay compiling. The body is
-    // NOT in TOUR_STEP_ORDER, so the machine never lands on it. This
-    // assertion just confirms the file still exports the symbol.
-    expect(settingsMoreStep.id).toBe("settings-more");
-    expect(settingsMoreStep.completion.type).toBe("auto");
   });
 });

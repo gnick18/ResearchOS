@@ -135,11 +135,11 @@ import {
 import { ganttGoalsStep } from "../GanttGoalsStep";
 import { animationPickerStep } from "../AnimationPickerStep";
 // §6.10 Settings phase redesign 2026-05-22 (Settings manager):
-// `settingsMoreStep` + `settingsAiHelperStep` survive in their files
-// with @deprecated tags but are no longer in TOUR_STEP_ORDER. The
-// imports below cover the new 11-step Settings cluster; legacy bodies
-// are NOT included in ALL_STEPS to keep the universal-contract sweep
-// from re-evaluating retired step bodies.
+// `settingsMoreStep` was deleted 2026-06-03 (dead); `settingsAiHelperStep`
+// survives in its file with @deprecated tags but is no longer in
+// TOUR_STEP_ORDER. The imports below cover the new 11-step Settings
+// cluster; legacy bodies are NOT included in ALL_STEPS to keep the
+// universal-contract sweep from re-evaluating retired step bodies.
 import { settingsColorStep } from "../SettingsColorStep";
 import {
   settingsTourFolderStep,
@@ -254,8 +254,8 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   animationPickerStep,
   // §6.10 Settings phase redesign 2026-05-22 (Settings manager): the
   // 11-step Settings cluster replaces the prior triplet. Legacy
-  // `settingsMoreStep` + `settingsAiHelperStep` survive in their
-  // files with @deprecated tags but are intentionally absent from
+  // `settingsMoreStep` was deleted 2026-06-03 (dead); `settingsAiHelperStep`
+  // survives @deprecated in its file but is intentionally absent from
   // ALL_STEPS so the contract sweep doesn't re-evaluate retired bodies.
   settingsColorStep,
   settingsTourFolderStep,
