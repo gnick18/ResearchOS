@@ -124,10 +124,14 @@ import {
   selectionToProteinFasta,
   exportMapImage,
   sanitizeFilename,
+  mapImageFilename,
+  mapImageAltText,
   downloadText,
   downloadDataUrl,
   downloadBlob,
 } from "@/lib/sequences/export";
+import SendToNotePicker from "@/components/SendToNotePicker";
+import { attachImageToNote } from "@/lib/attachments/attach-image";
 import {
   copyBottomStrand,
   copyAminoAcids,
@@ -303,6 +307,22 @@ export default function SequenceEditView({
   const [findActive, setFindActive] = useState(0);
   const [selectRangeOpen, setSelectRangeOpen] = useState(false);
   const [goToOpen, setGoToOpen] = useState(false);
+
+  // map to note bot — "Send map image to a note" flow. `mapToNotePng` holds the
+  // captured PNG data URL while the note picker is open (null = picker closed).
+  // `mapToNoteStatus` drives the calm success banner after the attach lands.
+  const [mapToNotePng, setMapToNotePng] = useState<string | null>(null);
+  const [mapToNoteBusy, setMapToNoteBusy] = useState(false);
+  const [mapToNoteStatus, setMapToNoteStatus] = useState<
+    { noteTitle: string } | null
+  >(null);
+  // Auto-dismiss the success banner after a few seconds (the user can also
+  // dismiss it manually). Re-armed on each new success.
+  useEffect(() => {
+    if (!mapToNoteStatus) return;
+    const t = setTimeout(() => setMapToNoteStatus(null), 6000);
+    return () => clearTimeout(t);
+  }, [mapToNoteStatus]);
 
   // Normalized [lo, hi) of the current selection, and the caret (paste point).
   const sel = useMemo(() => {
@@ -1792,6 +1812,58 @@ export default function SequenceEditView({
     [doc.name, sequence.display_name],
   );
 
+  // map to note bot — capture the live map as a PNG and open the note picker.
+  // Reuses exportMapImage (the same SVG->PNG path the Export menu's "Map image
+  // (PNG)" item uses); the picker then routes to attachImageToNote.
+  const captureMapForNote = useCallback(async () => {
+    setMapToNoteStatus(null);
+    const out = await exportMapImage(viewerRef.current);
+    if (!out) {
+      alert("Could not capture the map view.");
+      return;
+    }
+    if (!out.png) {
+      // PNG rasterization unavailable (no canvas): the SVG-only fallback the
+      // download path uses doesn't apply here since notes embed a raster image.
+      alert(
+        "Could not rasterize the map to PNG in this browser. Try the SVG/PNG download from the Export menu instead.",
+      );
+      return;
+    }
+    setMapToNotePng(out.png);
+  }, []);
+
+  // map to note bot — attach the captured PNG to the chosen note via the
+  // EXISTING note image-attachment path (attachImageToNote: writes the blob to
+  // `users/<owner>/notes/<id>/Images/` and appends a markdown link to the
+  // note's latest entry — the same path the inbox photo router uses). Convert
+  // the PNG data URL to a Blob with fetch (browser-native, no canvas re-encode).
+  const attachMapToNote = useCallback(
+    async (note: { id: number; owner: string; title: string }) => {
+      if (!mapToNotePng || mapToNoteBusy) return;
+      setMapToNoteBusy(true);
+      try {
+        const blob = await fetch(mapToNotePng).then((r) => r.blob());
+        const seqName = doc.name || sequence.display_name || "sequence";
+        await attachImageToNote({
+          ownerUsername: note.owner,
+          noteId: note.id,
+          blob,
+          suggestedFilename: mapImageFilename(seqName),
+          altText: mapImageAltText(seqName),
+        });
+        setMapToNotePng(null);
+        setMapToNoteStatus({ noteTitle: note.title || "note" });
+      } catch (err) {
+        console.error("[sequence] send map to note failed", err);
+        alert("Failed to attach the map image to that note.");
+      } finally {
+        setMapToNoteBusy(false);
+      }
+    },
+    [mapToNotePng, mapToNoteBusy, doc.name, sequence.display_name],
+  );
+
   const exportMenuItems = useMemo<ExportMenuItem[]>(() => {
     const items: ExportMenuItem[] = [];
 
@@ -1894,8 +1966,21 @@ export default function SequenceEditView({
       },
     });
 
+    // map to note bot — file the current map straight into a lab note as a PNG
+    // (no download / re-upload round-trip). Reuses the same map capture; the
+    // note picker + attachImageToNote do the rest.
+    items.push({
+      id: "map-to-note",
+      label: "Send map image to a note…",
+      enabled: true,
+      group: true,
+      onRun: () => {
+        void captureMapForNote();
+      },
+    });
+
     return items;
-  }, [doc, sel, isNucleotide, baseFileName]);
+  }, [doc, sel, isNucleotide, baseFileName, captureMapForNote]);
 
   return (
     <div ref={containerRef} className="flex h-full w-full flex-col" tabIndex={-1}>
@@ -2251,6 +2336,64 @@ export default function SequenceEditView({
         onConfirm={applyGoTo}
         onClose={() => setGoToOpen(false)}
       />
+
+      {/* map to note bot — note picker for "Send map image to a note". The
+          captured PNG lives in mapToNotePng while this is open; picking a note
+          (or "New note") attaches it via attachImageToNote. */}
+      <SendToNotePicker
+        isOpen={mapToNotePng !== null}
+        selectedCount={1}
+        headerLabel="Send map image to a note"
+        subLabel={`Adds "${mapImageAltText(doc.name || sequence.display_name || "sequence")}" to the note's latest entry.`}
+        ctaLabel={mapToNoteBusy ? "Adding…" : "Add map here"}
+        allowCreateNew
+        newNoteTitle={`${doc.name || sequence.display_name || "Sequence"} map`}
+        onClose={() => {
+          if (mapToNoteBusy) return;
+          setMapToNotePng(null);
+        }}
+        onPick={(note) => {
+          void attachMapToNote(note);
+        }}
+      />
+
+      {/* map to note bot — calm success banner after the map lands in a note.
+          aria-live so a screen reader announces it; a link jumps to the
+          Workbench Notes tab where the note is listed. */}
+      {mapToNoteStatus ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-4 left-1/2 z-[120] -translate-x-1/2 flex items-center gap-3 rounded-lg border border-emerald-200 bg-white px-4 py-2.5 text-sm shadow-lg"
+        >
+          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3" aria-hidden="true">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </span>
+          <span className="text-gray-700">
+            Map added to{" "}
+            <span className="font-medium text-gray-900">{mapToNoteStatus.noteTitle}</span>
+          </span>
+          <a
+            href="/workbench?tab=notes"
+            className="font-medium text-sky-600 hover:text-sky-700"
+          >
+            Open in Workbench
+          </a>
+          <button
+            type="button"
+            onClick={() => setMapToNoteStatus(null)}
+            className="text-gray-400 hover:text-gray-700"
+            aria-label="Dismiss"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

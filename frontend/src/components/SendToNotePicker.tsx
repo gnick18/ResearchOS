@@ -33,6 +33,24 @@ interface SendToNotePickerProps {
   selectedCount: number;
   onClose: () => void;
   onPick: (note: { id: number; owner: string; title: string }) => void;
+  /** Override the modal header (e.g. "Send map image to a note"). Defaults to
+   *  the inbox's "Send to note" / "Send N items to note" copy. */
+  headerLabel?: string;
+  /** Override the per-row call-to-action label (e.g. "Add map here"). Defaults
+   *  to the inbox's "Move here" / "Move N here". */
+  ctaLabel?: string;
+  /** Override the sub-header explainer line. */
+  subLabel?: string;
+  /** When provided, renders a "New note" row at the top of the list. Clicking
+   *  it creates a fresh note (titled `newNoteTitle`, falling back to "New
+   *  note") via `notesApi.create`, then routes the new note through `onPick`
+   *  exactly like an existing row. The sequence editor's "Send map image to a
+   *  note" flow sets this so the user can file the map into a brand-new note
+   *  without leaving the picker. Omitting it preserves the inbox's
+   *  existing-notes-only behavior. */
+  allowCreateNew?: boolean;
+  /** Default title for a note created via the "New note" row. */
+  newNoteTitle?: string;
 }
 
 const RECENT_LIMIT = 20;
@@ -63,10 +81,18 @@ export default function SendToNotePicker({
   selectedCount,
   onClose,
   onPick,
+  headerLabel: headerLabelProp,
+  ctaLabel: ctaLabelProp,
+  subLabel,
+  allowCreateNew = false,
+  newNoteTitle = "New note",
 }: SendToNotePickerProps) {
   const { currentUser: providerCurrentUser } = useCurrentUser();
   const currentUser = providerCurrentUser ?? "";
   const [query, setQuery] = useState("");
+  // True while a "New note" create+attach round-trip is in flight, so the row
+  // disables and shows a working label instead of firing twice.
+  const [creating, setCreating] = useState(false);
 
   // Reuse the dashboard's notes query key so React Query hands us the
   // already-populated cache. NotesPanel uses `["notes"]` for the current
@@ -82,7 +108,28 @@ export default function SendToNotePicker({
   useEffect(() => {
     if (!isOpen) return;
     setQuery("");
+    setCreating(false);
   }, [isOpen]);
+
+  // "New note" row handler: create a fresh note in the current user's folder
+  // then route it through `onPick` exactly like an existing row. The created
+  // note carries one empty entry dated today so attachImageToNote appends the
+  // map link to that entry instead of synthesizing a "Photos" entry.
+  const handleCreateNew = async () => {
+    if (creating) return;
+    setCreating(true);
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const created = await notesApi.create({
+        title: newNoteTitle,
+        entries: [{ title: newNoteTitle, date: today }],
+      });
+      onPick({ id: created.id, owner: created.username, title: created.title });
+    } catch {
+      alert("Failed to create the note.");
+      setCreating(false);
+    }
+  };
 
   // Esc-to-close.
   useEffect(() => {
@@ -132,7 +179,12 @@ export default function SendToNotePicker({
   if (!isOpen) return null;
 
   const headerLabel =
-    selectedCount === 1 ? "Send to note" : `Send ${selectedCount} items to note`;
+    headerLabelProp ??
+    (selectedCount === 1 ? "Send to note" : `Send ${selectedCount} items to note`);
+  const subLabelText =
+    subLabel ?? "Each photo appends a markdown link to the note's latest entry.";
+  const rowCtaLabel =
+    ctaLabelProp ?? (selectedCount <= 1 ? "Move here" : `Move ${selectedCount} here`);
 
   return (
     <div
@@ -150,9 +202,7 @@ export default function SendToNotePicker({
         <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
           <div>
             <h3 className="text-base font-semibold text-gray-900">{headerLabel}</h3>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Each photo appends a markdown link to the note&apos;s latest entry.
-            </p>
+            <p className="text-xs text-gray-500 mt-0.5">{subLabelText}</p>
           </div>
           <button
             type="button"
@@ -176,12 +226,49 @@ export default function SendToNotePicker({
         </div>
 
         <div className="flex-1 overflow-y-auto px-2 py-2">
+          {/* "New note" row: shown above the list (and on its own when the user
+              has no notes yet) whenever the caller opts in. Search does not
+              hide it — typing then picking "New note" creates the note with
+              the picker's default title, not the query. */}
+          {allowCreateNew && !notesLoading && (
+            <ul className="space-y-1 mb-1" data-testid="send-to-note-picker-create">
+              <li>
+                <button
+                  type="button"
+                  disabled={creating}
+                  data-testid="send-to-note-picker-new"
+                  onClick={handleCreateNew}
+                  className="w-full text-left px-3 py-2 rounded-md hover:bg-emerald-50 focus:bg-emerald-50 focus:outline-none flex items-center gap-3 disabled:opacity-50 disabled:cursor-wait"
+                >
+                  <span
+                    className="inline-flex w-5 h-5 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 flex-shrink-0"
+                    aria-hidden
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+                      <line x1="12" y1="5" x2="12" y2="19" />
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-sm font-medium text-gray-900 truncate">
+                      {creating ? "Creating note…" : "New note"}
+                    </span>
+                    <span className="block text-xs text-gray-500 truncate">
+                      Create &ldquo;{newNoteTitle}&rdquo; and add the map
+                    </span>
+                  </span>
+                </button>
+              </li>
+            </ul>
+          )}
           {notesLoading ? (
             <p className="text-sm text-gray-500 text-center py-6">Loading…</p>
           ) : visible.length === 0 ? (
-            <p className="text-sm text-gray-400 italic text-center py-6">
-              {trimmed ? "No notes match." : "No notes yet."}
-            </p>
+            allowCreateNew ? null : (
+              <p className="text-sm text-gray-400 italic text-center py-6">
+                {trimmed ? "No notes match." : "No notes yet."}
+              </p>
+            )
           ) : (
             <ul className="space-y-1" data-testid="send-to-note-picker-list">
               {!trimmed && (
@@ -191,8 +278,7 @@ export default function SendToNotePicker({
               )}
               {visible.map((n) => {
                 const snippet = snippetFromNote(n);
-                const ctaLabel =
-                  selectedCount <= 1 ? "Move here" : `Move ${selectedCount} here`;
+                const ctaLabel = rowCtaLabel;
                 return (
                   <li key={n.id}>
                     <button

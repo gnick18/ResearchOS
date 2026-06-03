@@ -13,6 +13,8 @@ import {
   selectionToProteinFasta,
   normalizeRange,
   sanitizeFilename,
+  mapImageFilename,
+  mapImageAltText,
 } from "./export";
 
 function makeDoc(seq: string, features: SeqDocument["features"] = []): SeqDocument {
@@ -49,6 +51,43 @@ describe("toFasta", () => {
 
   it("defaults the name when missing", () => {
     expect(toFasta({ sequence: "ACGT" }).split("\n")[0]).toBe(">Untitled_Sequence");
+  });
+});
+
+describe("mapImageFilename (send-map-to-note default name)", () => {
+  it("appends _map.png to the sanitized sequence name", () => {
+    expect(mapImageFilename("pDEMO-fluo")).toBe("pDEMO-fluo_map.png");
+  });
+
+  it("sanitizes spaces and path-illegal chars", () => {
+    expect(mapImageFilename("my plasmid/v2")).toBe("my_plasmid_v2_map.png");
+  });
+
+  it("falls back to sequence when the name is blank", () => {
+    expect(mapImageFilename("")).toBe("sequence_map.png");
+    expect(mapImageFilename("   ")).toBe("sequence_map.png");
+  });
+
+  it("matches the download path's base-name convention", () => {
+    // The Export menu downloads `${sanitizeFilename(name)}_map.png`; the
+    // send-to-note filename must be byte-identical so the two paths agree.
+    const name = "pTest plasmid";
+    expect(mapImageFilename(name)).toBe(`${sanitizeFilename(name)}_map.png`);
+  });
+});
+
+describe("mapImageAltText (in-note caption)", () => {
+  it("appends ' map' to the original (un-sanitized) display name", () => {
+    expect(mapImageAltText("pDEMO-fluo")).toBe("pDEMO-fluo map");
+  });
+
+  it("trims surrounding whitespace but keeps inner spaces", () => {
+    expect(mapImageAltText("  my plasmid  ")).toBe("my plasmid map");
+  });
+
+  it("falls back to 'sequence map' when blank", () => {
+    expect(mapImageAltText("")).toBe("sequence map");
+    expect(mapImageAltText("   ")).toBe("sequence map");
   });
 });
 

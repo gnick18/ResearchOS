@@ -28,6 +28,27 @@ export function sanitizeFilename(name: string, fallback = "sequence"): string {
   return cleaned || fallback;
 }
 
+/**
+ * The on-disk filename for a sequence's map image when it is attached to a lab
+ * note: `<sanitized sequence name>_map.png`. Mirrors the download path
+ * (`${baseFileName}_map.png`) so a sent-to-note image and a downloaded one are
+ * named identically. Falls back to `sequence` when the name is empty.
+ */
+export function mapImageFilename(seqName: string): string {
+  return `${sanitizeFilename(seqName)}_map.png`;
+}
+
+/**
+ * The human-readable alt-text / caption for a sequence's map image inside a
+ * note: `<sequence name> map`. Keeps the original (un-sanitized) display name
+ * so the in-note markdown reads naturally (e.g. "pDEMO-fluo map"), with a
+ * `sequence map` fallback when the name is blank.
+ */
+export function mapImageAltText(seqName: string): string {
+  const trimmed = (seqName || "").trim();
+  return trimmed ? `${trimmed} map` : "sequence map";
+}
+
 // ---------------------------------------------------------------------------
 // FASTA serialization
 // ---------------------------------------------------------------------------
