@@ -525,7 +525,16 @@ export async function installWikiCaptureFixture(
 
   for (const [path, content] of fixtures) {
     const norm = normalizePath(path);
-    files.set(norm, content);
+    // Raw-TEXT fixtures (e.g. sequence `.gb` GenBank files, read via
+    // `fileService.readText`) must land in the text-file store, not the JSON
+    // store, or the sequence store's `readText` would miss them while
+    // `listFiles` still enumerated them. Route string values for known
+    // text-file extensions accordingly; everything else stays JSON.
+    if (typeof content === "string" && /\.(gb|gbk|genbank)$/i.test(norm)) {
+      textFiles.set(norm, content);
+    } else {
+      files.set(norm, content);
+    }
     addParentDirs(norm, dirs);
   }
 

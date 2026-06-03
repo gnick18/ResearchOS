@@ -21,6 +21,8 @@ import genbankToJsonRaw from "./genbankToJson";
 import jsonToGenbankRaw from "./jsonToGenbank";
 // @ts-ignore - vendored JS
 import fastaToJsonRaw from "./fastaToJson";
+// @ts-ignore - vendored JS (SnapGene .dna binary reader; no-install vendoring)
+import snapgeneToJsonRaw from "./snapgeneToJson";
 
 /** A single parsed feature/annotation from a GenBank record. */
 export interface ParsedFeature {
@@ -77,6 +79,29 @@ export function genbankToJson(gbString: string, options: ParseOptions = {}): Par
  */
 export function fastaToJson(fastaString: string, options: ParseOptions = {}): ParseResult[] {
   return fastaToJsonRaw(fastaString, options) as ParseResult[];
+}
+
+interface SnapgeneParseOptions extends ParseOptions {
+  /** Used to derive the fallback display name and the protein flag. */
+  fileName?: string;
+  isProtein?: boolean;
+}
+
+/**
+ * Parse a SnapGene `.dna` BINARY file into one or more sequence records.
+ *
+ * Unlike the GenBank / FASTA readers (which take a string), this takes the raw
+ * bytes — an `ArrayBuffer` or `Uint8Array` (read the file with
+ * `file.arrayBuffer()`, not `file.text()`). Async because the upstream
+ * algorithm is async. The vendored reader uses only browser primitives
+ * (DataView / TextDecoder / DOMParser), so it runs fully client-side with no
+ * extra dependencies. Returns the same `ParseResult[]` shape as the others.
+ */
+export function snapgeneToJson(
+  bytes: ArrayBuffer | Uint8Array,
+  options: SnapgeneParseOptions = {},
+): Promise<ParseResult[]> {
+  return snapgeneToJsonRaw(bytes, options) as Promise<ParseResult[]>;
 }
 
 interface GenbankWriteOptions {

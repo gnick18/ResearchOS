@@ -6,12 +6,21 @@
 // editing, enzymes, primers, or cloning (Phases 2-3). New top-level route is
 // excluded from the wiki-coverage gate pending a Phase 4 wiki page.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import AppShell from "@/components/AppShell";
+import Tooltip from "@/components/Tooltip";
 import SequenceReadView from "@/components/sequences/SequenceReadView";
 import SequenceEditView from "@/components/sequences/SequenceEditView";
+import SequenceNewDialog, {
+  type NewSequenceSubmit,
+} from "@/components/sequences/SequenceNewDialog";
 import { sequencesApi, projectsApi } from "@/lib/local-api";
+import {
+  importSequenceFile,
+  buildNewSequence,
+  type ImportedSequence,
+} from "@/lib/sequences/import";
 import type { SequenceRecord, SeqType } from "@/lib/types";
 
 type SortKey = "name" | "type" | "length" | "added";
@@ -58,6 +67,27 @@ function MoleculeIcon({ circular, className }: { circular: boolean; className?: 
   );
 }
 
+/** Plus glyph for the New action. Inline SVG (no emojis). */
+function PlusIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+
+/** Upload / import glyph (tray with an up-arrow). Inline SVG (no emojis). */
+function ImportIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 9 12 4 17 9" />
+      <line x1="12" y1="4" x2="12" y2="16" />
+    </svg>
+  );
+}
+
 function SortHeader({
   label,
   col,
@@ -96,6 +126,11 @@ export default function SequencesPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [mode, setMode] = useState<Mode>("read");
   const [saving, setSaving] = useState(false);
+  const [newOpen, setNewOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  // Transient status line under the toolbar (import counts / parse errors).
+  const [status, setStatus] = useState<{ text: string; tone: "ok" | "error" } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
   const { data: sequences = [], isLoading } = useQuery({
@@ -210,16 +245,159 @@ export default function SequencesPage() {
     [selectedId, queryClient],
   );
 
+  // Create one-or-more sequences via the store, refresh the library, and select
+  // the first newly-created one. Shared by the import + new-from-paste paths.
+  const persistNew = useCallback(
+    async (
+      imports: ImportedSequence[],
+      projectIds: string[],
+    ): Promise<number | null> => {
+      let firstId: number | null = null;
+      for (const imp of imports) {
+        const rec = await sequencesApi.create({
+          display_name: imp.display_name,
+          genbank: imp.genbank,
+          seq_type: imp.seq_type,
+          project_ids: projectIds,
+        });
+        if (rec && firstId == null) firstId = rec.id;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["sequences"] });
+      if (firstId != null) setSelectedId(firstId);
+      return firstId;
+    },
+    [queryClient],
+  );
+
+  // When a project collection is active, new sequences land in it; otherwise
+  // they are Unfiled (All / Unfiled views ⇒ no project link).
+  const activeProjectIds = useMemo(
+    () => (collection === "all" || collection === "unfiled" ? [] : [collection]),
+    [collection],
+  );
+
+  // NEW flow: build a sequence from pasted bases (or a blank one).
+  const handleNewSubmit = useCallback(
+    async (data: NewSequenceSubmit) => {
+      setNewOpen(false);
+      const imp = buildNewSequence({
+        name: data.name,
+        seqType: data.seqType,
+        rawSequence: data.rawSequence,
+        allowEmpty: data.allowEmpty,
+      });
+      if (!imp) {
+        setStatus({ text: "Could not create the sequence — no valid bases.", tone: "error" });
+        return;
+      }
+      const id = await persistNew([imp], activeProjectIds);
+      if (id != null) {
+        setStatus({ text: `Created "${imp.display_name}".`, tone: "ok" });
+      }
+    },
+    [persistNew, activeProjectIds],
+  );
+
+  // IMPORT flow: read each picked file (text for .gb/.fasta, bytes for .dna),
+  // parse via the vendored bio-parsers, convert to GenBank, and create.
+  const handleFilesPicked = useCallback(
+    async (files: FileList | null) => {
+      if (!files || files.length === 0) return;
+      setImporting(true);
+      setStatus(null);
+      try {
+        const allImports: ImportedSequence[] = [];
+        const messages: string[] = [];
+        for (const file of Array.from(files)) {
+          try {
+            const bytes = await file.arrayBuffer();
+            const res = await importSequenceFile(file.name, bytes);
+            allImports.push(...res.sequences);
+            messages.push(...res.messages);
+          } catch {
+            messages.push(`Failed to read "${file.name}".`);
+          }
+        }
+        if (allImports.length === 0) {
+          setStatus({
+            text: messages[0] ?? "No sequences could be imported.",
+            tone: "error",
+          });
+          return;
+        }
+        await persistNew(allImports, activeProjectIds);
+        const noun = allImports.length === 1 ? "sequence" : "sequences";
+        setStatus({ text: `Imported ${allImports.length} ${noun}.`, tone: "ok" });
+      } finally {
+        setImporting(false);
+        // Reset the input so re-picking the same file fires onChange again.
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    },
+    [persistNew, activeProjectIds],
+  );
+
+  // Clear the transient status after a short delay.
+  useEffect(() => {
+    if (!status) return;
+    const t = setTimeout(() => setStatus(null), 6000);
+    return () => clearTimeout(t);
+  }, [status]);
+
   return (
     <AppShell>
       <div className="flex h-[calc(100vh-7rem)] gap-4 px-4 pb-4">
         {/* LEFT: working tree / library */}
         <aside className="flex w-[22rem] shrink-0 flex-col rounded-lg border border-gray-200 bg-white">
           <div className="border-b border-gray-100 px-4 py-3">
-            <h1 className="text-lg font-semibold text-gray-800">Sequences</h1>
-            <p className="mt-0.5 text-xs text-gray-500">
-              Your plasmids and sequences, organized by project.
-            </p>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h1 className="text-lg font-semibold text-gray-800">Sequences</h1>
+                <p className="mt-0.5 text-xs text-gray-500">
+                  Your plasmids and sequences, organized by project.
+                </p>
+              </div>
+              {/* Primary entry-path actions: New + Import. Labeled, calm,
+                  Benchling-spirit. */}
+              <div className="flex shrink-0 items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setNewOpen(true)}
+                  className="flex items-center gap-1 rounded-md bg-sky-600 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-sky-700"
+                >
+                  <PlusIcon className="h-3.5 w-3.5" />
+                  New
+                </button>
+                <Tooltip label="Import a GenBank (.gb), FASTA, or SnapGene (.dna) file">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={importing}
+                    className="flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:opacity-50"
+                  >
+                    <ImportIcon className="h-3.5 w-3.5" />
+                    {importing ? "Importing…" : "Import"}
+                  </button>
+                </Tooltip>
+              </div>
+            </div>
+            {status ? (
+              <p
+                className={`mt-2 text-[11px] ${
+                  status.tone === "error" ? "text-rose-600" : "text-emerald-600"
+                }`}
+              >
+                {status.text}
+              </p>
+            ) : null}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".gb,.gbk,.genbank,.ape,.fasta,.fa,.fna,.ffn,.faa,.frn,.seq,.dna,.prot"
+              className="hidden"
+              onChange={(e) => handleFilesPicked(e.target.files)}
+            />
           </div>
 
           {/* Collection selector */}
@@ -269,11 +447,38 @@ export default function SequencesPage() {
             {isLoading ? (
               <div className="px-4 py-6 text-sm text-gray-400">Loading…</div>
             ) : sorted.length === 0 ? (
-              <div className="px-4 py-6 text-sm text-gray-400">
-                {sequences.length === 0
-                  ? "No sequences yet."
-                  : "No sequences match this filter."}
-              </div>
+              sequences.length === 0 ? (
+                <div className="flex flex-col items-center gap-3 px-6 py-10 text-center">
+                  <p className="text-sm font-medium text-gray-600">No sequences yet</p>
+                  <p className="text-xs leading-relaxed text-gray-400">
+                    Create a new sequence from scratch, or import a GenBank,
+                    FASTA, or SnapGene file.
+                  </p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setNewOpen(true)}
+                      className="flex items-center gap-1 rounded-md bg-sky-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-sky-700"
+                    >
+                      <PlusIcon className="h-3.5 w-3.5" />
+                      New sequence
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={importing}
+                      className="flex items-center gap-1 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:opacity-50"
+                    >
+                      <ImportIcon className="h-3.5 w-3.5" />
+                      Import
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="px-4 py-6 text-sm text-gray-400">
+                  No sequences match this filter.
+                </div>
+              )
             ) : (
               <ul>
                 {sorted.map((s) => (
@@ -370,6 +575,12 @@ export default function SequencesPage() {
           )}
         </section>
       </div>
+
+      <SequenceNewDialog
+        open={newOpen}
+        onCancel={() => setNewOpen(false)}
+        onSubmit={handleNewSubmit}
+      />
     </AppShell>
   );
 }
