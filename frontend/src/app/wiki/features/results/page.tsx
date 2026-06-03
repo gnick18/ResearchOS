@@ -14,9 +14,9 @@ export default function ResultsFeaturePage() {
         <Link href="/wiki/features/experiments">Workbench</Link>, where the
         bulk of the old page&apos;s content lives. No data moved on disk:
         every task lives at{" "}
-        <code>users/&lt;owner&gt;/results/task-&lt;id&gt;/</code>. After the
-        hybrid editor, new file attachments land in per-tab subdirectories:
-        notes files go to <code>notes/Files/</code> and results files go to{" "}
+        <code>users/&lt;owner&gt;/results/task-&lt;id&gt;/</code>. New file
+        attachments land in per-tab subdirectories: notes files go to{" "}
+        <code>notes/Files/</code> and results files go to{" "}
         <code>results/Files/</code>, rather than a flat <code>Files/</code>{" "}
         folder at the task root.
       </Callout>
