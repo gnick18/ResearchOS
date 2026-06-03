@@ -412,6 +412,8 @@ For deeper design context, see `LAB_MODE_RETIREMENT_PROPOSAL.md`, `STREAK_AND_MI
 
 ## 8. Open backlog / things worth queuing
 
+> **PARALLEL SESSIONS ACTIVE (2026-06-02).** Several manager sessions are working this repo at once: a minimalism/de-bloat arc, a sequence-editor ("Benchling-type") arc, and a photo-annotation arc. Before building, read **`docs/proposals/MINIMALISM_ARC_COORDINATION.md`** (what the de-bloat arc has landed and is tearing down) and **`docs/proposals/SEQUENCE_EDITOR_PROPOSAL.md`**. **The customizable widget-dashboard framework (`components/lab-overview/**`, the `/` home canvas, `/lab-overview`) is being DELETED. Do NOT build new features on it.** The editor stack (`LiveMarkdownEditor`/`InlineMarkdownEditor`/`TaskDetailPopup`/`ImageStrip`/`FileStrip`) and project-folder/Workbench territory are active collision zones. Integrate via per-commit `git cherry-pick`, never a stale-anchor tree-merge. The "Active workstreams" snapshot just below is stale (2026-05-23); trust the coordination docs for current state.
+
 ### Active workstreams in flight (as of 2026-05-23)
 
 - **R3 widget catalog port** (Lab Mode retirement): sub-bot porting the widget set onto the R2 react-grid-layout canvas. Touches `frontend/src/components/widgets/` and `app/lab-overview/`.
