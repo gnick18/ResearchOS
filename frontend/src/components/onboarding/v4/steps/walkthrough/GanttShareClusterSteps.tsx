@@ -41,9 +41,14 @@ import {
   spawnGanttShareBeakerBot,
   shareCoffeeExperimentWithUser,
   ensureBeakerBotUser,
+  appendBeakerBotNote,
   SHARE_DEMO_EXPERIMENT_NAME,
 } from "./lib/gantt-share-helpers";
-import { closeAnyOpenTaskPopup } from "./lib/on-enter-helpers";
+import {
+  closeAnyOpenTaskPopup,
+  ensureGanttSharePopupOpen,
+  ensureShareDialogOpen,
+} from "./lib/on-enter-helpers";
 import { sharingApi, tasksApi } from "@/lib/local-api";
 import { getCurrentUserCached } from "@/lib/storage/json-store";
 import { BEAKERBOT_LAB_USERNAME } from "../lab/lib/lab-fake-user";
@@ -52,6 +57,7 @@ import {
   spawnGanttRedesignFakeTasks,
 } from "./lib/gantt-redesign-helpers";
 import { ensureFirstExperimentExists } from "./lib/ensure-helpers";
+import { BEAKERBOT_NOTE_TEXT } from "./GanttShareProfileSwitchStep";
 
 // =============================================================================
 // 1. gantt-share-intro — pure narration
@@ -205,6 +211,24 @@ export const ganttShareUserExploresStep = buildWalkthroughStep({
   id: "gantt-share-user-explores",
   speech: () => <ShareExploreSpeech />,
   pose: "thinking",
+  // gantt-share-resilience bot 2026-06-03: REFRESH GUARD. This step's
+  // speech ("this is your view of my shared experiment") assumes the
+  // SHARED coffee experiment's TaskDetailPopup is open — it was opened by
+  // the prior beat's (`gantt-share-beakerbot-shares`) cursor click on the
+  // shared bar. A mid-cluster refresh lands the tour here with that popup
+  // closed (portal state, not a route). Re-establish the prerequisite
+  // chain (BeakerBot + coffee experiment + the share, all idempotent on
+  // name) so the shared bar exists, then reopen the popup by clicking the
+  // same `gantt-bar-shared-experiment` bar the open beat uses. On the
+  // canonical (non-refresh) path the popup is already mounted, so the
+  // reopen no-ops. Best-effort: a failure degrades to the pre-existing
+  // "explore the timeline" read; the manualAdvance still advances.
+  onEnter: async (ctx) => {
+    if (!ctx.username) return;
+    await spawnGanttShareBeakerBot(ctx.username);
+    await shareCoffeeExperimentWithUser(ctx.username);
+    await ensureGanttSharePopupOpen(TOUR_TARGETS.ganttBarSharedExperiment);
+  },
   completion: manualAdvance("Got it, next"),
   // Gantt fix manager R2 (option 1): close BeakerBot's coffee-experiment
   // popup before transitioning. The NEXT step (share-back) is about Fake
@@ -371,6 +395,20 @@ export const ganttShareUserClicksShareStep = buildWalkthroughStep({
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.taskPopupShareButton),
   // No cursorScript: USER_ACTION beat. The user clicks Share themselves.
+  // gantt-share-resilience bot 2026-06-03: REFRESH GUARD. This beat
+  // spotlights the Share button inside FAKE A's TaskDetailPopup, which the
+  // prior beat (5a) opened by the user clicking the Fake A bar. A
+  // mid-cluster refresh closes that popup (portal state). Re-ensure Fake A
+  // exists (idempotent; covers a seed-jump past the spawn cluster), then
+  // reopen its popup by clicking the `gantt-bar-fake-a` bar — the same
+  // trigger 5a uses. On the canonical path the popup is already open from
+  // 5a, so the reopen no-ops and the user's surface is untouched.
+  onEnter: async (ctx) => {
+    await ensureBeakerBotUser();
+    await ensureFirstExperimentExists();
+    await spawnGanttRedesignFakeTasks(ctx);
+    await ensureGanttSharePopupOpen(TOUR_TARGETS.ganttBarFakeA);
+  },
   completion: advanceOnEvent(watchShareDialogOpened),
   // Allow-list: the share button (the click that opens the dialog).
   // Fake A's bar stays allowed (harmless once the popup is up) so a user
@@ -421,8 +459,21 @@ export const ganttShareUserFillsDialogStep = buildWalkthroughStep({
   // too so it is in the "Pick a user" dropdown no matter how the user
   // reached the share-back sequence (canonical flow, Settings re-run, or
   // skip). Idempotent; canonical flow no-ops.
-  onEnter: async () => {
+  //
+  // gantt-share-resilience bot 2026-06-03: REFRESH GUARD. This beat
+  // spotlights the "Pick a user" row INSIDE the ShareDialog, which is
+  // itself inside Fake A's popup. A mid-cluster refresh closes both.
+  // `ensureShareDialogOpen` re-establishes the whole open chain: it
+  // reopens Fake A's popup (clicking the bar) if needed, then clicks the
+  // popup's Share button to remount the dialog, awaiting the `share-dialog`
+  // anchor. Ensure Fake A exists first (idempotent) so the bar is present
+  // for the reopen. On the canonical path the dialog is already open from
+  // 5b, so the reopen no-ops and the user's in-dialog state is untouched.
+  onEnter: async (ctx) => {
     await ensureBeakerBotUser();
+    await ensureFirstExperimentExists();
+    await spawnGanttRedesignFakeTasks(ctx);
+    await ensureShareDialogOpen();
   },
   // No cursorScript: USER_ACTION beat. The user drives the dialog.
   completion: advanceOnEvent((advance) =>
@@ -473,6 +524,22 @@ export const ganttShareUserSavesDialogStep = buildWalkthroughStep({
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.shareDialogConfirm),
   // No cursorScript: USER_ACTION beat. The user clicks Save themselves.
+  // gantt-share-resilience bot 2026-06-03: REFRESH GUARD. This beat
+  // spotlights the Save button inside the ShareDialog. A mid-cluster
+  // refresh closes the dialog + popup. `ensureShareDialogOpen` reopens the
+  // whole chain (Fake A bar → popup → Share button → dialog). Ensure Fake
+  // A exists first (idempotent). NOTE: if the refresh happened AFTER the
+  // user already clicked Save (the share persisted to disk), the
+  // completion poll below detects the persisted share and advances this
+  // beat immediately, so the reopened dialog is transient and the user is
+  // never asked to re-Save a share that already landed. On the canonical
+  // path the dialog is already open from 5c, so the reopen no-ops.
+  onEnter: async (ctx) => {
+    await ensureBeakerBotUser();
+    await ensureFirstExperimentExists();
+    await spawnGanttRedesignFakeTasks(ctx);
+    await ensureShareDialogOpen();
+  },
   completion: advanceOnEvent((advance) => {
     // Polling-based completion: detect when Fake A in the user's
     // namespace has BeakerBot in its `shared_with` list with permission
@@ -609,6 +676,23 @@ export const ganttShareUserSeesEditStep = buildWalkthroughStep({
   // disk. Idempotent / safe when nothing is open (querySelector returns
   // null). Routed through tourClickWithLockBypass so the InputLockOverlay
   // capture-phase blocker does not swallow the X.
+  //
+  // gantt-share-resilience bot 2026-06-03: TAIL GRACEFUL RECOVERY. This is
+  // the profile-switch tail. The note BeakerBot "writes" lives on Fake A's
+  // notes.md / results.md (appendBeakerBotNote, fired during
+  // `gantt-share-profile-switch`). On the canonical path that write has
+  // already landed before this step. But a mid-cluster refresh that
+  // resumes the tour DIRECTLY on this step (or a seed-jump that skipped the
+  // profile-switch beat) would leave the promised note absent and the
+  // user's "you should see the edit I just made" read into an empty notes
+  // tab. Rather than a fragile cross-mount restore of the faked switch, we
+  // RE-ESTABLISH what is reconstructable: re-run the idempotent
+  // `appendBeakerBotNote` here so the note genuinely exists on disk before
+  // the user reopens Fake A. The write skips when the note text is already
+  // present (idempotency contract), so the canonical path is a cheap
+  // no-op. This step's completion is a bare `manualAdvance` (no
+  // disabledUntilEvent), so the user can ALWAYS advance — the tail can
+  // never soft-block, even if the note write best-effort-fails.
   onEnter: async (ctx) => {
     if (typeof document !== "undefined") {
       const closeBtn = document.querySelector<HTMLElement>(
@@ -618,6 +702,10 @@ export const ganttShareUserSeesEditStep = buildWalkthroughStep({
     }
     await ensureFirstExperimentExists();
     await spawnGanttRedesignFakeTasks(ctx);
+    // Best-effort: re-establish BeakerBot's note so the "see my edit"
+    // promise holds on a refresh/seed-jump that landed here without the
+    // profile-switch write having run. Idempotent on the note text.
+    await appendBeakerBotNote(BEAKERBOT_NOTE_TEXT);
   },
   completion: manualAdvance("Got it, next"),
   expectedRoute: "/gantt",

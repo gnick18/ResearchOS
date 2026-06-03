@@ -113,6 +113,10 @@ import {
   ensureCreateExperimentModalOpen,
   withCreateExperimentModalOpen,
   rehydrateExperimentSubmitGate,
+  ensureGanttSharePopupOpen,
+  withGanttSharePopupOpen,
+  ensureShareDialogOpen,
+  withShareDialogOpen,
 } from "../lib/on-enter-helpers";
 
 describe("on-enter-helpers defensive guards (Wave 1 sidecar hardening v2)", () => {
@@ -660,5 +664,169 @@ describe("rehydrateExperimentSubmitGate (refresh-after-create gate fix)", () => 
       window.removeEventListener("tour:experiment-created", handler);
     }
     expect(events).toHaveLength(0);
+  });
+});
+
+/**
+ * gantt-share-resilience bot 2026-06-03: the §6.8 lab-mode share cluster's
+ * mid-cluster surfaces are a Gantt TaskDetailPopup (opened from a Gantt
+ * bar) and the ShareDialog opened from inside it. A mid-cluster refresh
+ * closes them (portal state, not a route). ensureGanttSharePopupOpen
+ * reopens the popup by clicking the cluster's open bar;
+ * ensureShareDialogOpen reopens the whole chain (bar → popup → Share
+ * button → dialog). Mirrors the ensureExperimentPopupOpen tests.
+ */
+describe("ensureGanttSharePopupOpen (gantt-share-resilience §6.8)", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  });
+
+  /** Mount a fake task popup (the close button is the stable open-marker). */
+  function mountPopup(): void {
+    const close = document.createElement("button");
+    close.setAttribute("data-tour-target", "task-popup-close");
+    document.body.appendChild(close);
+  }
+
+  /** Mount a Gantt bar that opens the popup on click. */
+  function mountBar(barTarget: string): HTMLElement {
+    const bar = document.createElement("div");
+    bar.setAttribute("data-tour-target", barTarget);
+    document.body.appendChild(bar);
+    return bar;
+  }
+
+  it("no-ops when a popup is already open (canonical path)", async () => {
+    mountPopup();
+    let clicked = false;
+    const bar = mountBar("gantt-bar-fake-a");
+    bar.addEventListener("click", () => {
+      clicked = true;
+    });
+    await ensureGanttSharePopupOpen("gantt-bar-fake-a");
+    expect(clicked).toBe(false);
+  });
+
+  it("reopens the popup by clicking the Gantt bar when closed", async () => {
+    const bar = mountBar("gantt-bar-fake-a");
+    let clicked = false;
+    bar.addEventListener("click", () => {
+      clicked = true;
+      mountPopup(); // simulate TaskDetailPopup mounting on the bar click
+    });
+    await ensureGanttSharePopupOpen("gantt-bar-fake-a");
+    expect(clicked).toBe(true);
+    expect(
+      document.querySelector('[data-tour-target="task-popup-close"]'),
+    ).not.toBeNull();
+  });
+
+  it("reopens the SHARED-experiment popup via its own bar target", async () => {
+    const bar = mountBar("gantt-bar-shared-experiment");
+    let clicked = false;
+    bar.addEventListener("click", () => {
+      clicked = true;
+      mountPopup();
+    });
+    await ensureGanttSharePopupOpen("gantt-bar-shared-experiment");
+    expect(clicked).toBe(true);
+  });
+
+  it("does not throw when the bar never mounts (best-effort)", async () => {
+    await expect(
+      ensureGanttSharePopupOpen("gantt-bar-fake-a"),
+    ).resolves.toBeUndefined();
+  });
+
+  it("withGanttSharePopupOpen runs the reopen first, then the inner onEnter", async () => {
+    mountPopup(); // already open -> reopen no-op
+    const inner = vi.fn(async () => undefined);
+    await withGanttSharePopupOpen("gantt-bar-fake-a", inner)({ username: "alex" });
+    expect(inner).toHaveBeenCalledWith({ username: "alex" });
+  });
+});
+
+describe("ensureShareDialogOpen (gantt-share-resilience §6.8)", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  });
+
+  function mountPopup(withShareButton: boolean): void {
+    const close = document.createElement("button");
+    close.setAttribute("data-tour-target", "task-popup-close");
+    document.body.appendChild(close);
+    if (withShareButton) {
+      const share = document.createElement("button");
+      share.setAttribute("data-tour-target", "task-popup-share-button");
+      share.addEventListener("click", () => {
+        const dialog = document.createElement("div");
+        dialog.setAttribute("data-tour-target", "share-dialog");
+        document.body.appendChild(dialog);
+      });
+      document.body.appendChild(share);
+    }
+  }
+
+  it("no-ops when the share dialog is already open (canonical path)", async () => {
+    mountPopup(true);
+    const dialog = document.createElement("div");
+    dialog.setAttribute("data-tour-target", "share-dialog");
+    document.body.appendChild(dialog);
+    let shareClicked = false;
+    document
+      .querySelector('[data-tour-target="task-popup-share-button"]')
+      ?.addEventListener("click", () => {
+        shareClicked = true;
+      });
+    await ensureShareDialogOpen();
+    expect(shareClicked).toBe(false);
+  });
+
+  it("reopens the dialog by clicking the popup's Share button when the popup is open but the dialog is closed", async () => {
+    mountPopup(true); // popup open, share button wired to mount the dialog
+    await ensureShareDialogOpen();
+    expect(
+      document.querySelector('[data-tour-target="share-dialog"]'),
+    ).not.toBeNull();
+  });
+
+  it("reopens the whole chain (bar -> popup -> Share button -> dialog) when everything is closed", async () => {
+    // Only the Gantt bar is present; clicking it mounts the popup (with a
+    // wired Share button) which then mounts the dialog on its own click.
+    const bar = document.createElement("div");
+    bar.setAttribute("data-tour-target", "gantt-bar-fake-a");
+    bar.addEventListener("click", () => {
+      mountPopup(true);
+    });
+    document.body.appendChild(bar);
+
+    await ensureShareDialogOpen();
+    expect(
+      document.querySelector('[data-tour-target="task-popup-close"]'),
+    ).not.toBeNull();
+    expect(
+      document.querySelector('[data-tour-target="share-dialog"]'),
+    ).not.toBeNull();
+  });
+
+  it("does not throw when the popup can't be reopened (best-effort)", async () => {
+    // No bar, no popup -> the popup reopen times out and we return quietly
+    // without clicking into nothing.
+    await expect(ensureShareDialogOpen()).resolves.toBeUndefined();
+    expect(
+      document.querySelector('[data-tour-target="share-dialog"]'),
+    ).toBeNull();
+  });
+
+  it("withShareDialogOpen runs the reopen first, then the inner onEnter", async () => {
+    mountPopup(true);
+    const dialog = document.createElement("div");
+    dialog.setAttribute("data-tour-target", "share-dialog");
+    document.body.appendChild(dialog); // already open -> reopen no-op
+    const inner = vi.fn(async () => undefined);
+    await withShareDialogOpen(inner)({ username: "alex" });
+    expect(inner).toHaveBeenCalledWith({ username: "alex" });
   });
 });

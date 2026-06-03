@@ -644,6 +644,187 @@ export function withCreateExperimentModalOpen(
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// gantt-share-resilience bot 2026-06-03: §6.8 lab-mode share cluster.
+// The mid-cluster surfaces are a Gantt TaskDetailPopup (opened from a
+// Gantt bar) and the ShareDialog opened from inside that popup. Both are
+// portal / React state, not routes, so a mid-cluster refresh closes them
+// and the next step's spotlight fires into nothing. These helpers mirror
+// ensureExperimentPopupOpen's shape exactly:
+//   - typeof-window guard + try/catch (best-effort; never wedge the tour)
+//   - detect-open by querying a stable DOM anchor the surface stamps
+//   - when closed, REOPEN by reusing the same trigger the cluster's "open"
+//     step uses (click the Gantt bar; click the popup's Share button)
+//   - a `withXOpen(inner)` composer mirroring withExperimentPopupOpen so
+//     dependent steps that already declare an onEnter compose cleanly.
+// The cluster's open trigger is a Gantt bar's React onClick (GanttChart
+// lab-mode → onTaskClickLab → mounts TaskDetailPopup). A synthetic
+// `.click()` on the bar element fires that same onClick.
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Detect-open anchor for the §6.8 Gantt TaskDetailPopup. The popup
+ * header always renders its close button (`task-popup-close`,
+ * TaskDetailPopup.tsx ~line 1449) for every task — owned, shared,
+ * experiment, or list — so it is the one anchor reliably present the
+ * whole time ANY task popup is open. We deliberately do NOT key off the
+ * share button (`task-popup-share-button`), which only renders for owned,
+ * non-shared tasks: the §6.8 explore beat opens the SHARED-to-me coffee
+ * experiment, whose popup has no share button.
+ */
+const GANTT_SHARE_POPUP_OPEN_SELECTOR = targetSelector(
+  TOUR_TARGETS.taskPopupClose,
+);
+
+/** True when a Gantt TaskDetailPopup is currently mounted. */
+function isGanttSharePopupOpen(): boolean {
+  if (typeof document === "undefined") return false;
+  return document.querySelector(GANTT_SHARE_POPUP_OPEN_SELECTOR) !== null;
+}
+
+/**
+ * Reopen a §6.8 Gantt TaskDetailPopup if a mid-cluster refresh closed it.
+ *
+ * The cluster opens these popups by clicking a Gantt bar:
+ *   - `gantt-share-user-explores` (beat 4) reads on the SHARED coffee
+ *     experiment's popup, opened by `gantt-share-beakerbot-shares`'s
+ *     cursor click on `gantt-bar-shared-experiment`.
+ *   - `gantt-share-user-clicks-share` (5b) spotlights the Share button in
+ *     FAKE A's popup, opened when the user clicks `gantt-bar-fake-a` in 5a.
+ *
+ * A refresh on 4 / 5b lands the tour on a popup-dependent step with the
+ * popup closed. This helper reopens it by DOM-clicking the bar that the
+ * cluster's open step uses (`barTarget`), which fires the bar's real
+ * React onClick → `onTaskClickLab` → TaskDetailPopup mounts. The caller
+ * is responsible for first re-running the idempotent spawn/share helpers
+ * so the bar actually exists (the beats already do this in their onEnter).
+ *
+ * No-op when a popup is already open (canonical, non-refresh path: the
+ * prior beat's click left it mounted). Best-effort: guarded + try/catch +
+ * tolerant of a missing bar (waitForElement times out → return quietly).
+ * A failure degrades to the pre-existing "spotlight finds nothing"
+ * behavior rather than wedging the tour.
+ *
+ * @param barTarget the Gantt bar's `data-tour-target` (e.g.
+ *   `gantt-bar-fake-a` or `gantt-bar-shared-experiment`).
+ */
+export async function ensureGanttSharePopupOpen(
+  barTarget: TourTargetName,
+): Promise<void> {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  try {
+    if (isGanttSharePopupOpen()) return;
+    // Closed (refresh mid-cluster). Reopen by clicking the same Gantt bar
+    // the cluster's open step clicks. The bars only render on /gantt; the
+    // dependent beats declare `expectedRoute: "/gantt"` so the route is
+    // already settled before onEnter runs.
+    const bar = await waitForElement(targetSelector(barTarget), 3000);
+    if (!(bar instanceof HTMLElement)) return;
+    // The bar's onClick is a plain React handler with no capture-phase
+    // blocker, but these are USER_ACTION beats whose page lock may be
+    // arming; route through the lock-bypass click so the InputLockOverlay
+    // doesn't swallow the synthetic click.
+    tourClickWithLockBypass(bar);
+    // Await the popup header's close button so the step's spotlight (which
+    // runs after onEnter) resolves against a present DOM.
+    await waitForElement(GANTT_SHARE_POPUP_OPEN_SELECTOR, 3000);
+  } catch (err) {
+    console.warn("[onboarding-v4] ensureGanttSharePopupOpen failed", err);
+  }
+}
+
+/**
+ * Detect-open anchor for the §6.8 ShareDialog. The dialog stamps
+ * `share-dialog` on its root (ShareDialog.tsx) and that anchor exists
+ * nowhere else, present the whole time the dialog is open.
+ */
+const SHARE_DIALOG_OPEN_SELECTOR = targetSelector(TOUR_TARGETS.shareDialog);
+
+/** True when the §6.8 ShareDialog is currently mounted. */
+function isShareDialogOpen(): boolean {
+  if (typeof document === "undefined") return false;
+  return document.querySelector(SHARE_DIALOG_OPEN_SELECTOR) !== null;
+}
+
+/**
+ * Reopen the §6.8 ShareDialog (over FAKE A's popup) if a mid-cluster
+ * refresh closed it.
+ *
+ * The dialog is opened by `gantt-share-user-clicks-share` (5b): the user
+ * clicks the Share button in Fake A's popup, which sets `showSharePopup`
+ * and mounts ShareDialog. The dependent beats `gantt-share-user-fills-
+ * dialog` (5c) and `gantt-share-user-saves-dialog` (5d) spotlight the
+ * picker / Add / Save affordances INSIDE the dialog. A refresh on 5c / 5d
+ * closes both the dialog AND the underlying popup.
+ *
+ * Reopen path mirrors the cluster's open chain exactly: first ensure Fake
+ * A's popup is open (reuse `ensureGanttSharePopupOpen(gantt-bar-fake-a)`),
+ * then DOM-click the popup's Share button (`task-popup-share-button`, the
+ * same trigger 5b's spotlight points at), then await the `share-dialog`
+ * anchor. Clicking the Share button also re-dispatches
+ * `tour:share-dialog-opened`, matching the canonical open path.
+ *
+ * No-op when the dialog is already open (canonical, non-refresh path).
+ * Best-effort: guarded + try/catch + tolerant of a missing trigger.
+ */
+export async function ensureShareDialogOpen(): Promise<void> {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  try {
+    if (isShareDialogOpen()) return;
+    // The dialog lives inside Fake A's popup — make sure that popup is up
+    // first (reopens it via the Gantt bar if a refresh closed it too).
+    await ensureGanttSharePopupOpen(TOUR_TARGETS.ganttBarFakeA);
+    // Re-check: a failed popup reopen means we cannot reach the Share
+    // button. Degrade quietly rather than clicking into nothing.
+    if (!isGanttSharePopupOpen()) return;
+    const shareBtn = await waitForElement(
+      targetSelector(TOUR_TARGETS.taskPopupShareButton),
+      3000,
+    );
+    if (!(shareBtn instanceof HTMLElement)) return;
+    tourClickWithLockBypass(shareBtn);
+    await waitForElement(SHARE_DIALOG_OPEN_SELECTOR, 3000);
+  } catch (err) {
+    console.warn("[onboarding-v4] ensureShareDialogOpen failed", err);
+  }
+}
+
+/**
+ * Compose the Gantt-share popup reopen-guard ahead of an existing step
+ * `onEnter`. Mirrors withExperimentPopupOpen: reopen FIRST (so the popup
+ * is back before the original hook resolves popup-internal anchors), then
+ * run the step's original onEnter. Both best-effort.
+ *
+ * Note: the dependent beats' existing onEnter ALSO re-runs the idempotent
+ * spawn/ensure helpers (closeAnyOpenTaskPopup is the exception — the OPEN
+ * beat 5a uses that, and is NOT wrapped here). The composer runs the
+ * reopen first so the bar exists by the time it clicks; the beats that
+ * spawn the bar in their inner onEnter are wrapped with the spawn running
+ * BEFORE via a custom closure rather than this generic composer.
+ */
+export function withGanttSharePopupOpen(
+  barTarget: TourTargetName,
+  inner?: (ctx: { username: string | null }) => void | Promise<void>,
+): (ctx: { username: string | null }) => Promise<void> {
+  return async (ctx) => {
+    await ensureGanttSharePopupOpen(barTarget);
+    if (inner) await inner(ctx);
+  };
+}
+
+/**
+ * Compose the ShareDialog reopen-guard ahead of an existing step
+ * `onEnter`. Mirrors withExperimentPopupOpen.
+ */
+export function withShareDialogOpen(
+  inner?: (ctx: { username: string | null }) => void | Promise<void>,
+): (ctx: { username: string | null }) => Promise<void> {
+  return async (ctx) => {
+    await ensureShareDialogOpen();
+    if (inner) await inner(ctx);
+  };
+}
+
 /**
  * Resolve the "active project" for the walkthrough by listing all
  * projects and returning the most-recently-created one. Returns `null`
