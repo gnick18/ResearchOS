@@ -53,6 +53,7 @@ import FeatureEditorDialog, {
   type FeatureEditorRequest,
 } from "./FeatureEditorDialog";
 import EnzymePickerDialog from "./EnzymePickerDialog";
+import PrimerDialog, { type PrimerDialogRequest } from "./PrimerDialog";
 import {
   DEFAULT_VIEW_STATE,
   isFeatureVisible,
@@ -136,6 +137,16 @@ function IconFeaturesList({ className }: { className?: string }) {
     </svg>
   );
 }
+// Primer dialog opener — a 5'->3' arrow over a strand line.
+function IconPrimerTool({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <line x1="3" y1="16" x2="21" y2="16" />
+      <path d="M4 9h12" />
+      <path d="M13 6l3 3-3 3" />
+    </svg>
+  );
+}
 // Enzyme picker opener — scissors (restriction cut site).
 function IconEnzymePicker({ className }: { className?: string }) {
   return (
@@ -212,6 +223,8 @@ export default function SequenceEditView({
   // drives the SnapGene-style chooser dialog.
   const [enzymePickerOpen, setEnzymePickerOpen] = useState(false);
   const [activeEnzymes, setActiveEnzymes] = useState<string[] | null>(null);
+  // Phase 2e — the primer-design dialog (SnapGene "Add Primer"). null = closed.
+  const [primerRequest, setPrimerRequest] = useState<PrimerDialogRequest | null>(null);
   // When a feature row is clicked we drive the viewer selection to zoom it.
   const [externalSel, setExternalSel] = useState<{ start: number; end: number } | null>(null);
 
@@ -294,12 +307,61 @@ export default function SequenceEditView({
     [view.showEnzymes, activeEnzymes],
   );
 
+  // PRIMERS layer (Phase 2e): primers persist as standard GenBank primer_bind
+  // features, so we derive the SeqViz `primers` prop from those features at their
+  // binding-site coordinates + strand. The rail's `showPrimers` toggle is the
+  // visibility lever (it was wired earlier as a forward hook fed primers={[]}).
+  const primers = useMemo(() => {
+    if (!view.showPrimers) return [] as { name: string; start: number; end: number; direction: 1 | -1 }[];
+    return doc.features
+      .filter((f) => (f.type || "").toLowerCase() === "primer_bind")
+      .map((f) => ({
+        name: f.name,
+        start: f.start,
+        end: f.end,
+        direction: (f.strand === -1 ? -1 : 1) as 1 | -1,
+      }));
+  }, [doc.features, view.showPrimers]);
+
   // Opening the enzyme picker also turns the cut-site layer on, so the chosen
   // enzymes are immediately visible on the map.
   const openEnzymePicker = useCallback(() => {
     setView((v) => (v.showEnzymes ? v : { ...v, showEnzymes: true }));
     setEnzymePickerOpen(true);
   }, []);
+
+  // PRIMER DESIGN: open the dialog, seeding the primer field from the current
+  // selection's bases (if any). On submit, persist the primer as a primer_bind
+  // feature at its binding site (strand = which template strand it anneals to),
+  // storing the primer's own 5'->3' sequence as a /note qualifier so a primer
+  // with a non-annealing 5' tail round-trips into the .gb. Turning the Primers
+  // layer on so the new primer is immediately visible on the map.
+  const openPrimerDialog = useCallback(() => {
+    const seedSeq = sel.hasRange ? doc.seq.slice(sel.lo, sel.hi) : "";
+    setPrimerRequest({
+      template: doc.seq,
+      seedSeq,
+      seedName: "",
+      onSubmit: ({ name, primerSeq, site }) => {
+        editor.applyDocEdit((prev) =>
+          addFeature(prev, {
+            name: name || "primer",
+            type: "primer_bind",
+            strand: site.direction === -1 ? -1 : 1,
+            start: site.start,
+            end: site.end,
+            qualifiers: [
+              { key: "note", value: `primer ${primerSeq}` },
+              { key: "label", value: name || "primer" },
+            ],
+          }),
+        );
+        setView((v) => (v.showPrimers ? v : { ...v, showPrimers: true }));
+        setPrimerRequest(null);
+      },
+      onCancel: () => setPrimerRequest(null),
+    });
+  }, [doc.seq, sel, editor]);
 
   // The topology toggle in the rail can force a circular plasmid to render as
   // linear; a genuinely linear molecule always renders linear.
@@ -680,6 +742,17 @@ export default function SequenceEditView({
             <span className="hidden sm:inline">Enzymes</span>
           </button>
         </Tooltip>
+        <Tooltip label="Design a primer (Tm, GC, binding site, alignment)">
+          <button
+            type="button"
+            onClick={openPrimerDialog}
+            aria-haspopup="dialog"
+            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100"
+          >
+            <IconPrimerTool className="h-4 w-4" />
+            <span className="hidden sm:inline">Primer</span>
+          </button>
+        </Tooltip>
         <div className="mx-1 h-5 w-px bg-gray-200" />
         <ToolbarButton label="Save (Cmd+S)" onClick={handleSave} disabled={!dirty || saving} primary>
           <IconSave className="h-4 w-4" />
@@ -703,7 +776,7 @@ export default function SequenceEditView({
             annotations={annotations}
             translations={translations}
             enzymes={enzymes}
-            primers={[]}
+            primers={primers}
             viewer={viewer}
             editable
             onEdit={requestEdit}
@@ -763,6 +836,9 @@ export default function SequenceEditView({
         onApply={setActiveEnzymes}
         onClose={() => setEnzymePickerOpen(false)}
       />
+
+      {/* Phase 2e — primer design dialog (Tm / GC / binding site / alignment). */}
+      <PrimerDialog request={primerRequest} />
     </div>
   );
 }

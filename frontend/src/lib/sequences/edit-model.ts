@@ -53,7 +53,13 @@ export interface SeqDocument {
  *  Save round-trip. Falls back to the SequenceDetail fields if the parse fails.
  */
 export function documentFromDetail(detail: SequenceDetail): SeqDocument {
-  const parsed = genbankToJson(detail.genbank, {}).find(
+  // `primersAsFeatures: true` keeps primer_bind features INSIDE `features`
+  // rather than being split out into a separate top-level `primers` array
+  // (the bio-parsers default). The editable model treats primers as ordinary
+  // features (the Primers view layer + the feature list both derive from
+  // `doc.features`), so without this flag a saved primer_bind would vanish from
+  // the document on the next load. See SEQUENCE_EDITOR_PROPOSAL primer design.
+  const parsed = genbankToJson(detail.genbank, { primersAsFeatures: true }).find(
     (r) => r.success && r.parsedSequence,
   );
   if (parsed?.parsedSequence) {
