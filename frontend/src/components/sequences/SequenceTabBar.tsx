@@ -135,7 +135,7 @@ export default function SequenceTabBar({
               role="tab"
               aria-selected={selected}
               onClick={() => onChange(t.id)}
-              className={`relative flex items-center gap-1.5 rounded-t-md px-3 py-1.5 text-[13px] font-medium transition-colors ${
+              className={`relative flex items-center gap-1.5 rounded-t-md px-3 py-1.5 text-xs font-medium transition-colors ${
                 selected
                   ? "bg-white text-sky-700 shadow-[inset_0_-2px_0_0_#0284c7]"
                   : "text-gray-500 hover:bg-white/70 hover:text-gray-700"
@@ -145,7 +145,7 @@ export default function SequenceTabBar({
               <span>{t.label}</span>
               {typeof t.count === "number" ? (
                 <span
-                  className={`ml-0.5 rounded-full px-1.5 text-[10px] font-semibold leading-4 ${
+                  className={`ml-0.5 rounded-full px-1.5 text-xs font-semibold leading-4 ${
                     selected ? "bg-sky-100 text-sky-700" : "bg-gray-200 text-gray-500"
                   }`}
                 >

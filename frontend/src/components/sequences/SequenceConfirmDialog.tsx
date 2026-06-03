@@ -101,7 +101,7 @@ export default function SequenceConfirmDialog({ request }: { request: SequenceCo
                   <li key={`${f.name}-${i}`} className="flex items-center justify-between text-sm">
                     <span className="truncate text-gray-700">{f.name}</span>
                     <span
-                      className={`ml-3 shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${
+                      className={`ml-3 shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${
                         f.effect === "removed" ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700"
                       }`}
                     >

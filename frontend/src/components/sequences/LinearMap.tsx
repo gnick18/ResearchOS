@@ -110,9 +110,11 @@ const FEATURE_ARROWHEAD = 7;
 const ABOVE_TICK_H = 7; // tick mark length above the baseline (enzyme/primer)
 const ABOVE_LEADER_BASE = 10; // first leader-line segment length above the tick
 const ABOVE_TIER_H = 15; // vertical step between stacked label tiers
-const ABOVE_LABEL_FONT = 10;
-const FEATURE_LABEL_FONT = 11;
-const RULER_FONT = 9;
+// SVG map-label type scale (constant pair): coordinate / ruler numbers = 10,
+// feature / primer / enzyme labels = 11. Keep these two values only.
+const ABOVE_LABEL_FONT = 11; // enzyme / source labels above the strand (label tier)
+const FEATURE_LABEL_FONT = 11; // feature name labels (label tier)
+const RULER_FONT = 10; // ruler coordinate numbers (number tier)
 const MIN_FEATURE_PX = 3; // minimum drawn width for a tiny feature
 // navigator pin bot — reserved height (px) for the bottom navigator slot. Matches
 // the navigator SVG height (LinearMapNavigator navH ~= 36) plus its py-1 wrapper
@@ -451,7 +453,7 @@ export default function LinearMap({
   return (
     <div className="relative flex h-full min-h-0 w-full flex-1 flex-col bg-white" aria-label="Linear map">
       {/* ── compact zoom control row: -/+ buttons, log slider, readouts ── */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-slate-100 px-3 py-1.5 text-[11px] text-slate-500">
+      <div className="flex shrink-0 items-center gap-2 border-b border-slate-100 px-3 py-1.5 text-xs text-slate-500">
         <Tooltip label="Zoom out">
           <button
             type="button"
@@ -762,7 +764,7 @@ export default function LinearMap({
             </div>
           ) : null}
         </div>
-        <div className="px-3 pb-1 text-[10px] tabular-nums text-slate-400">
+        <div className="px-3 pb-1 text-xs tabular-nums text-slate-400">
           Whole molecule ({comma(seqLength)} bp)
         </div>
       </div>

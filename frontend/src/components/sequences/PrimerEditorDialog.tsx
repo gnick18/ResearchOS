@@ -99,9 +99,9 @@ function IconTrash({ className }: { className?: string }) {
 function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
   return (
     <div className="rounded-md bg-gray-50 px-2.5 py-1.5">
-      <div className="text-[10px] font-medium uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-xs font-medium uppercase tracking-wide text-gray-400">{label}</div>
       <div className="text-sm font-semibold text-gray-800">{value}</div>
-      {hint ? <div className="text-[10px] text-gray-400">{hint}</div> : null}
+      {hint ? <div className="text-xs text-gray-400">{hint}</div> : null}
     </div>
   );
 }
@@ -268,7 +268,7 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
           <h2 className="text-base font-semibold text-gray-900">
             {readOnly ? "Primer" : "Edit primer"}
           </h2>
-          <span className="ml-auto text-[11px] text-gray-400">
+          <span className="ml-auto text-xs text-gray-400">
             Template {template.length.toLocaleString()} bp
           </span>
         </div>
@@ -315,7 +315,7 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
                   <button
                     type="button"
                     onClick={() => setRaw((r) => reverseComplement(sanitizePrimer(r)))}
-                    className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100"
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100"
                   >
                     <IconSwap className="h-3.5 w-3.5" />
                     Reverse complement
@@ -324,7 +324,7 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
               ) : null}
             </div>
             <div className="flex items-center gap-2">
-              <span className="select-none text-[11px] font-medium text-gray-400">5&apos;</span>
+              <span className="select-none text-xs font-medium text-gray-400">5&apos;</span>
               <textarea
                 ref={seqRef}
                 value={raw}
@@ -335,7 +335,7 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
                 spellCheck={false}
                 className="w-full resize-y rounded-md border border-gray-200 px-2.5 py-2 font-mono text-sm tracking-wide text-gray-800 focus:border-sky-400 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
               />
-              <span className="select-none text-[11px] font-medium text-gray-400">3&apos;</span>
+              <span className="select-none text-xs font-medium text-gray-400">3&apos;</span>
             </div>
           </div>
 
@@ -366,17 +366,17 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
           <div>
             <span className="mb-1 block text-xs font-medium text-gray-500">Binding</span>
             {length === 0 ? (
-              <p className="rounded-md border border-dashed border-gray-200 px-2.5 py-2 text-[11px] text-gray-400">
+              <p className="rounded-md border border-dashed border-gray-200 px-2.5 py-2 text-xs text-gray-400">
                 Enter a sequence to see where it anneals.
               </p>
             ) : sites.length === 0 ? (
-              <p className="rounded-md border border-dashed border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-700">
+              <p className="rounded-md border border-dashed border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-700">
                 This oligo does not anneal to the template. Saving keeps the
                 primer&apos;s current position on the map.
               </p>
             ) : (
               <div className="space-y-1.5">
-                <p className="text-[11px] text-gray-500">
+                <p className="text-xs text-gray-500">
                   {sites.length} binding {sites.length === 1 ? "site" : "sites"} on this template.
                 </p>
                 {sites.length > 1 ? (
@@ -386,7 +386,7 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
                         key={`${s.start}-${s.end}-${s.direction}`}
                         type="button"
                         onClick={() => setSiteIdx(i)}
-                        className={`rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                        className={`rounded-md px-2 py-0.5 text-xs font-medium transition-colors ${
                           i === siteIdx
                             ? "bg-pink-600 text-white"
                             : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -422,7 +422,7 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
                 Annealing (primer over template)
               </span>
               <BindingViz template={template} site={site} />
-              <p className="mt-1 text-[11px] text-gray-400">
+              <p className="mt-1 text-xs text-gray-400">
                 The thin bracket marks the annealed bases; the hook points toward the
                 primer&apos;s 3&apos; end.
               </p>

@@ -107,7 +107,7 @@ export default function FeatureSegmentDiagram({
                   textAnchor="middle"
                   dominantBaseline="central"
                   className="select-none"
-                  fontSize={10}
+                  fontSize={11}
                   fontWeight={600}
                   fill="#fff"
                   style={{ paintOrder: "stroke" }}
@@ -122,16 +122,16 @@ export default function FeatureSegmentDiagram({
         })}
 
         {/* span coordinate labels (1-based inclusive) */}
-        <text x={PAD} y={TRACK_Y + 18} textAnchor="start" fontSize={9.5} fill="#6b7280">
+        <text x={PAD} y={TRACK_Y + 18} textAnchor="start" fontSize={10} fill="#6b7280">
           {(layout.spanStart + 1).toLocaleString()}
         </text>
-        <text x={WIDTH - PAD} y={TRACK_Y + 18} textAnchor="end" fontSize={9.5} fill="#6b7280">
+        <text x={WIDTH - PAD} y={TRACK_Y + 18} textAnchor="end" fontSize={10} fill="#6b7280">
           {layout.spanEnd.toLocaleString()}
         </text>
       </svg>
 
       {/* SnapGene-style summary line */}
-      <div className="mt-0.5 text-center text-[11px] font-medium text-gray-500">
+      <div className="mt-0.5 text-center text-xs font-medium text-gray-500">
         {layout.summary}
       </div>
     </div>

@@ -273,7 +273,7 @@ export default function SequenceHistoryPanel({
       <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-2.5">
         <IconHistory className="h-4 w-4 text-gray-500" />
         <h3 className="text-sm font-semibold text-gray-800">Version history</h3>
-        <span className="ml-auto text-[11px] text-gray-400">
+        <span className="ml-auto text-xs text-gray-400">
           {model?.totalVersions} {model?.totalVersions === 1 ? "version" : "versions"}
         </span>
       </div>
@@ -281,7 +281,7 @@ export default function SequenceHistoryPanel({
       <div className="min-h-0 flex-1 overflow-y-auto">
         {model?.days.map((day) => (
           <div key={day.dayKey}>
-            <div className="sticky top-0 z-10 border-b border-gray-100 bg-gray-50/95 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400 backdrop-blur">
+            <div className="sticky top-0 z-10 border-b border-gray-100 bg-gray-50/95 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400 backdrop-blur">
               {day.label}
             </div>
             {day.sessions.map((session, si) => {
@@ -310,7 +310,7 @@ export default function SequenceHistoryPanel({
                     <button
                       type="button"
                       onClick={() => toggleSession(sessionKey)}
-                      className="flex w-full items-center gap-1 px-4 pt-2 text-[11px] text-gray-400 hover:text-gray-600"
+                      className="flex w-full items-center gap-1 px-4 pt-2 text-xs text-gray-400 hover:text-gray-600"
                     >
                       <IconChevron className="h-3 w-3 rotate-90" />
                       {resolved.label}, {session.versions.length} versions
@@ -340,7 +340,7 @@ export default function SequenceHistoryPanel({
         {model?.summarized && (
           <div className="border-t border-gray-100 bg-amber-50/40 px-4 py-3">
             <p className="text-xs font-medium text-gray-600">Earlier versions (summarized)</p>
-            <p className="mt-1 text-[11px] leading-snug text-gray-500">
+            <p className="mt-1 text-xs leading-snug text-gray-500">
               {model.summarized.compactedRowCount} intermediate saves before{" "}
               {model.summarized.dayLabel} were summarized to keep history fast. Row by row
               detail stops here.
@@ -402,18 +402,18 @@ function SequenceVersionRow({
         <span className="flex items-center gap-1.5">
           <span className="truncate text-xs font-medium text-gray-800">{label}</span>
           {entry.isHead && (
-            <span className="flex-shrink-0 text-[10px] font-semibold uppercase tracking-wide text-emerald-600">
+            <span className="flex-shrink-0 text-xs font-semibold uppercase tracking-wide text-emerald-600">
               Current version
             </span>
           )}
         </span>
         {/* Delta summary (e.g. "+12 bp, +1 feature") + the absolute digest. */}
-        <span className="block truncate text-[11px] font-medium text-gray-600">
+        <span className="block truncate text-xs font-medium text-gray-600">
           {entry.summary}
         </span>
-        {digest && <span className="block truncate text-[11px] text-gray-400">{digest}</span>}
+        {digest && <span className="block truncate text-xs text-gray-400">{digest}</span>}
         <Tooltip label={`${formatFullDate(entry.ts)} · ${entry.ts}`} placement="bottom">
-          <span className="block w-fit text-[11px] text-gray-400">{formatRelative(entry.ts)}</span>
+          <span className="block w-fit text-xs text-gray-400">{formatRelative(entry.ts)}</span>
         </Tooltip>
 
         {/* Inline restore (NON-HEAD + write access). The confirm is inline, not
@@ -423,7 +423,7 @@ function SequenceVersionRow({
             type="button"
             onClick={onStartConfirm}
             data-testid="sequence-restore-button"
-            className="mt-1 inline-flex items-center gap-1 rounded-md border border-emerald-200 px-2 py-0.5 text-[11px] font-medium text-emerald-700 transition-colors hover:bg-emerald-50"
+            className="mt-1 inline-flex items-center gap-1 rounded-md border border-emerald-200 px-2 py-0.5 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-50"
           >
             <IconRestore className="h-3 w-3" />
             Restore this version
@@ -436,7 +436,7 @@ function SequenceVersionRow({
               onClick={onConfirmRestore}
               disabled={restoring}
               data-testid="sequence-restore-confirm-button"
-              className="rounded-md bg-emerald-600 px-2 py-0.5 text-[11px] font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
+              className="rounded-md bg-emerald-600 px-2 py-0.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
             >
               {restoring ? "Restoring..." : "Restore"}
             </button>
@@ -444,7 +444,7 @@ function SequenceVersionRow({
               type="button"
               onClick={onCancelConfirm}
               disabled={restoring}
-              className="rounded-md bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600 transition-colors hover:bg-gray-200 disabled:opacity-60"
+              className="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200 disabled:opacity-60"
             >
               Cancel
             </button>

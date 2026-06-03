@@ -129,7 +129,7 @@ function ColorSwatches({
           className="h-5 w-5 cursor-pointer opacity-0"
           aria-label="Custom color"
         />
-        <span className="pointer-events-none absolute text-[9px] font-bold text-gray-500">+</span>
+        <span className="pointer-events-none absolute text-xs font-bold text-gray-500">+</span>
       </label>
     </div>
   );
@@ -294,7 +294,7 @@ export default function FeaturesPanel({
       {featuresOpen ? (
         <div className="min-h-0 flex-1 overflow-y-auto">
           {/* sort header */}
-          <div className="flex items-center gap-1 border-y border-gray-50 px-3 py-1 text-[10px] uppercase tracking-wide text-gray-400">
+          <div className="flex items-center gap-1 border-y border-gray-50 px-3 py-1 text-xs uppercase tracking-wide text-gray-400">
             <span className="mr-auto">Sort</span>
             {(["order", "name", "type", "start", "length"] as SortKey[]).map((k) => (
               <button
@@ -365,7 +365,7 @@ export default function FeaturesPanel({
                         <span className={`block truncate text-sm ${hidden ? "text-gray-400 line-through" : "text-gray-800"}`}>
                           {f.name}
                         </span>
-                        <span className="block text-[10px] text-gray-400">
+                        <span className="block text-xs text-gray-400">
                           {(f.type || "misc_feature")} · {(f.start + 1).toLocaleString()}..{f.end.toLocaleString()} ·{" "}
                           {len.toLocaleString()} bp · {f.strand === -1 ? "-" : "+"}
                           {f.locations && f.locations.length > 1 ? ` · ${f.locations.length} segments` : ""}

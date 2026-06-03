@@ -475,7 +475,7 @@ export default function EnzymePickerDialog({
                     >
                       {set.name}
                       {isLoaded && hasUnsavedChanges ? (
-                        <span className="ml-1 text-[10px] font-normal text-sky-500">
+                        <span className="ml-1 text-xs font-normal text-sky-500">
                           (edited)
                         </span>
                       ) : null}
@@ -761,7 +761,7 @@ export default function EnzymePickerDialog({
 
             {summary.chosen.length > 0 && (
               <>
-                <h4 className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                <h4 className="mt-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
                   Cut sites
                 </h4>
                 <ul className="mt-1 space-y-0.5 text-xs text-gray-600" data-testid="digest-cut-list">
@@ -776,7 +776,7 @@ export default function EnzymePickerDialog({
                     ))}
                 </ul>
 
-                <h4 className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                <h4 className="mt-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
                   Fragments ({summary.sizes.length})
                 </h4>
                 <ul className="mt-1 flex flex-wrap gap-1 text-xs text-gray-600">

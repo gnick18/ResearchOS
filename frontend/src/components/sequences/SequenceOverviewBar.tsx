@@ -210,13 +210,13 @@ export default function SequenceOverviewBar({
           style={{ cursor: "grab" }}
         />
         {/* start / end labels */}
-        <text x={TRACK_PAD_X} y={BAR_HEIGHT - 3} fontSize={9} fill="#94a3b8">
+        <text x={TRACK_PAD_X} y={BAR_HEIGHT - 3} fontSize={10} fill="#94a3b8">
           1
         </text>
         <text
           x={TRACK_PAD_X + trackWidth}
           y={BAR_HEIGHT - 3}
-          fontSize={9}
+          fontSize={10}
           fill="#94a3b8"
           textAnchor="end"
         >

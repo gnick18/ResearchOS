@@ -139,7 +139,7 @@ export default function SequenceNewDialog({
                 Sequence (optional)
               </label>
               {raw.trim().length > 0 ? (
-                <span className="text-[11px] text-gray-400">
+                <span className="text-xs text-gray-400">
                   {cleanedLength.toLocaleString()} {unit}
                 </span>
               ) : null}
@@ -156,7 +156,7 @@ export default function SequenceNewDialog({
               spellCheck={false}
               className="w-full rounded-md border border-gray-200 px-3 py-2 font-mono text-xs leading-relaxed text-gray-800 placeholder:font-sans placeholder:text-gray-400 focus:border-sky-400 focus:outline-none"
             />
-            <p className="mt-1 text-[11px] text-gray-400">
+            <p className="mt-1 text-xs text-gray-400">
               Whitespace, line numbers, and characters outside the {seqType.toUpperCase()} alphabet are removed automatically.
             </p>
           </div>

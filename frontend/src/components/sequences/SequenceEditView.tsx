@@ -3,8 +3,25 @@
 // sequence Phase 2a bot — EDITABLE SeqViz view. Same renderer as the read view
 // (single-renderer principle), with `editable` turned on so keystrokes splice
 // the host-owned document. Layers on a minimal calm toolbar (undo / redo / save)
-// and a live selection readout (start..end, length bp, GC%). No autosave — Save
+// and a live selection readout (start..end, length bp, GC%). No autosave: Save
 // is an explicit checkpoint.
+//
+// ── SEQUENCE EDITOR TYPE SCALE (one size per role, SnapGene-calm) ────────────
+// Keep every UI text usage on exactly one of these four roles. Similar things
+// share a size; do not reintroduce arbitrary text-[Npx] one-offs.
+//   TITLE     text-base (16px), semibold where present. Panel / section titles,
+//             the sequence name header. (One exception: the top-most page
+//             heading "Sequences" may stay text-lg.)
+//   BODY      text-sm (14px). List items, menu items, toolbar / button labels,
+//             dialog body text, form controls, primary interactive labels.
+//   META      text-xs (12px). Grey subtitles, dates, captions, tab labels,
+//             coordinate / selection readouts, helper text, badges, small chrome
+//             controls. This tier absorbs all the former 9-13px one-offs.
+//   SVG MAP   fontSize 10 = ruler / coordinate numbers, fontSize 11 = feature /
+//             primer / enzyme labels. Constant pair, no other SVG label sizes.
+// NOTE: the monospace SEQUENCE BASES font is SeqViz-owned (zoom-driven) and is
+// out of this scale; do not retune it here. Icon sizes (h-4 w-4 etc.) are not
+// font sizes and are unaffected.
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
@@ -2569,7 +2586,7 @@ export default function SequenceEditView({
                 // nav polish bot — circular molecule in Map view: the ring IS the
                 // whole-molecule map, so the circular zoom slider is irrelevant.
                 // Mirror the linear Map cluster with the same calm indicator.
-                <div className="flex items-center gap-2 border-t border-gray-100 bg-white px-3 py-2 text-[12px] text-gray-500">
+                <div className="flex items-center gap-2 border-t border-gray-100 bg-white px-3 py-2 text-xs text-gray-500">
                   <svg
                     viewBox="0 0 24 24"
                     fill="none"

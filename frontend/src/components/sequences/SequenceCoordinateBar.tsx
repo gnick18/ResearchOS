@@ -173,7 +173,7 @@ export default function SequenceCoordinateBar({
   // Sequence view. (No emoji; inline SVG glyph; the tab bar is unchanged.)
   if (mapMode) {
     return (
-      <div className="flex items-center gap-2 border-t border-gray-100 bg-white px-3 py-2 text-[12px] text-gray-500">
+      <div className="flex items-center gap-2 border-t border-gray-100 bg-white px-3 py-2 text-xs text-gray-500">
         <svg
           viewBox="0 0 24 24"
           fill="none"
@@ -212,7 +212,7 @@ export default function SequenceCoordinateBar({
       <div className="h-5 w-px bg-gray-200" />
 
       {/* editable bp-in-view field */}
-      <label className="flex items-center gap-1.5 text-[11px] text-gray-500">
+      <label className="flex items-center gap-1.5 text-xs text-gray-500">
         <span className="hidden sm:inline">bp in view</span>
         <input
           type="text"
@@ -234,12 +234,12 @@ export default function SequenceCoordinateBar({
             }
           }}
           aria-label="Bases in view (type a span to set the zoom)"
-          className="w-20 rounded border border-gray-200 px-1.5 py-0.5 text-right font-mono text-[12px] text-gray-700 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-200"
+          className="w-20 rounded border border-gray-200 px-1.5 py-0.5 text-right font-mono text-xs text-gray-700 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-200"
         />
       </label>
 
       {/* exact visible-window readout (1-based, comma-grouped) */}
-      <div className="hidden whitespace-nowrap font-mono text-[12px] text-gray-500 md:block">
+      <div className="hidden whitespace-nowrap font-mono text-xs text-gray-500 md:block">
         bp = {(win.start + 1).toLocaleString()} .. {win.end.toLocaleString()}
       </div>
 
@@ -276,7 +276,7 @@ export default function SequenceCoordinateBar({
               <text
                 x={Math.min(Math.max(t.x, 10), TICK_PAD_X + trackWidth - 2)}
                 y={34}
-                fontSize={8}
+                fontSize={10}
                 fill="#94a3b8"
                 textAnchor={i === 0 ? "start" : i === ticks.length - 1 ? "end" : "middle"}
               >
