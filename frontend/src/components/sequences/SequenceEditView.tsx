@@ -67,6 +67,24 @@ import {
   viewportWindow,
   bpToScrollTop,
 } from "@/lib/sequences/sequence-zoom";
+import {
+  EditMenuDropdown,
+  SequenceContextMenu,
+  SequencePromptDialog,
+  SequenceFindBox,
+  type EditMenuItem,
+} from "./SequenceEditMenu";
+import {
+  copyBottomStrand,
+  copyAminoAcids,
+  reverseComplementClip,
+  invertSelection,
+  parseSelectRange,
+  parseGoTo,
+  caseTransform,
+} from "@/lib/sequences/edit-ops";
+import { getMolecularClip } from "@/lib/sequences/molecular-clipboard";
+import type { Range as SeqVizRange } from "@/vendor/seqviz/elements";
 
 const SeqViz = dynamic(() => import("@/vendor/seqviz"), {
   ssr: false,
@@ -241,6 +259,17 @@ export default function SequenceEditView({
   const [primerRequest, setPrimerRequest] = useState<PrimerDialogRequest | null>(null);
   // When a feature row is clicked we drive the viewer selection to zoom it.
   const [externalSel, setExternalSel] = useState<{ start: number; end: number } | null>(null);
+
+  // seq editops bot — Edit-menu plumbing. The right-click context menu position
+  // (null = closed), the Find box (open + query + match results + active match),
+  // and the Select Range / Go To prompt dialogs.
+  const [contextMenuAt, setContextMenuAt] = useState<{ x: number; y: number } | null>(null);
+  const [findOpen, setFindOpen] = useState(false);
+  const [findQuery, setFindQuery] = useState("");
+  const [findMatches, setFindMatches] = useState<SeqVizRange[]>([]);
+  const [findActive, setFindActive] = useState(0);
+  const [selectRangeOpen, setSelectRangeOpen] = useState(false);
+  const [goToOpen, setGoToOpen] = useState(false);
 
   // Normalized [lo, hi) of the current selection, and the caret (paste point).
   const sel = useMemo(() => {
@@ -786,6 +815,189 @@ export default function SequenceEditView({
     }
   }, [molClip, pasteMolecular, pasteRawText]);
 
+  // --- EDIT-MENU OPERATIONS (seq editops bot) --------------------------------
+
+  // Is this a nucleotide sequence (complement / translate are meaningful)?
+  const isNucleotide = doc.seqType !== "protein";
+
+  // Write text to the OS clipboard, swallowing permission/focus errors (the same
+  // best-effort pattern as doCopy). Returns the text written (or "").
+  const writeOsClipboard = useCallback((text: string): string => {
+    if (text && navigator.clipboard?.writeText) {
+      void navigator.clipboard.writeText(text).catch(() => {
+        /* clipboard may be blocked (no focus / permissions) */
+      });
+    }
+    return text;
+  }, []);
+
+  // COPY BOTTOM STRAND: reverse-complement of the selection (5'->3' bottom) -> OS
+  // clipboard only (it is a strand readout, not an annotated molecular payload).
+  const copyBottom = useCallback(() => {
+    if (!sel.hasRange || !isNucleotide) return;
+    writeOsClipboard(copyBottomStrand(doc.seq.slice(sel.lo, sel.hi), doc.seqType));
+  }, [sel, isNucleotide, doc.seq, doc.seqType, writeOsClipboard]);
+
+  // COPY AMINO ACIDS: frame-1 translation of the selection -> OS clipboard.
+  const copyAA = useCallback(() => {
+    if (!sel.hasRange) return;
+    writeOsClipboard(copyAminoAcids(doc.seq.slice(sel.lo, sel.hi), doc.seqType));
+  }, [sel, doc.seq, doc.seqType, writeOsClipboard]);
+
+  // PASTE REVERSE COMPLEMENT: reverse-complement the molecular clip (bases +
+  // carried features rebased onto the flipped frame), else the raw OS-clipboard
+  // text, then paste at the caret through the same confirmation path.
+  const pasteRevComp = useCallback(() => {
+    const at = sel.caret;
+    const clip = getMolecularClip();
+    if (clip) {
+      const rc = reverseComplementClip(clip);
+      const n = rc.seq.length;
+      const m = rc.features.length;
+      const featPart = m === 0 ? "" : ` and ${m.toLocaleString()} ${m === 1 ? "feature" : "features"}`;
+      setConfirm({
+        tone: "paste",
+        title: "Paste reverse complement",
+        summary: `Insert ${n.toLocaleString()} bp${featPart} (reverse complement) at position ${(at + 1).toLocaleString()}.`,
+        confirmLabel: "Insert",
+        onConfirm: () => {
+          editor.applyDocEdit((prev) => pasteClip(prev, at, rc));
+          placeCaret(at + n);
+          setConfirm(null);
+        },
+        onCancel: () => setConfirm(null),
+      });
+      return;
+    }
+    // No molecular clip: fall back to OS clipboard text, reverse-complemented.
+    if (!navigator.clipboard?.readText) return;
+    void (async () => {
+      let text = "";
+      try {
+        text = await navigator.clipboard.readText();
+      } catch {
+        return;
+      }
+      const { bases, dropped } = sanitizeRawSequence(text, doc.seqType);
+      if (!bases) return;
+      const rcBases = isNucleotide
+        ? reverseComplementClip({ seq: bases, features: [], seqType: doc.seqType, sourceName: "" }).seq
+        : bases;
+      setConfirm({
+        tone: "paste",
+        title: "Paste reverse complement",
+        summary: `Insert ${rcBases.length.toLocaleString()} bp (reverse complement) at position ${(at + 1).toLocaleString()}.`,
+        note:
+          dropped > 0
+            ? `${dropped.toLocaleString()} non-sequence ${dropped === 1 ? "character was" : "characters were"} skipped.`
+            : undefined,
+        confirmLabel: "Insert",
+        onConfirm: () => {
+          applyEdit({ type: "insert", at, text: rcBases });
+          placeCaret(at + rcBases.length);
+          setConfirm(null);
+        },
+        onCancel: () => setConfirm(null),
+      });
+    })();
+  }, [sel, doc.seqType, isNucleotide, editor, applyEdit, placeCaret]);
+
+  // SELECT ALL / SELECT RANGE / INVERT SELECTION. Selecting drives the viewer's
+  // external selection (which also feeds the readout + every selection-aware op).
+  const selectSpan = useCallback((start: number, end: number) => {
+    setSelection({ clockwise: true, start, end, type: "SEQ" });
+    setExternalSel({ start, end });
+  }, []);
+
+  const selectAll = useCallback(() => {
+    if (doc.seq.length > 0) selectSpan(0, doc.seq.length);
+  }, [doc.seq.length, selectSpan]);
+
+  const applySelectRange = useCallback(
+    (span: { start: number; end: number }) => {
+      selectSpan(span.start, span.end);
+      setSelectRangeOpen(false);
+    },
+    [selectSpan],
+  );
+
+  const invertSel = useCallback(() => {
+    const { span } = invertSelection(sel.lo, sel.hi, doc.seq.length);
+    if (span) selectSpan(span.start, span.end);
+  }, [sel, doc.seq.length, selectSpan]);
+
+  // MAKE UPPERCASE / MAKE LOWERCASE — case-transform the selected bases (an edit
+  // joining the undo stack; no coordinate shift).
+  const makeCase = useCallback(
+    (to: "upper" | "lower") => {
+      if (!sel.hasRange) return;
+      editor.applyDocEdit((prev) => caseTransform(prev, sel.lo, sel.hi, to));
+    },
+    [sel, editor],
+  );
+
+  // FIND — drive the SeqViz `search` prop; the `onSearch` callback feeds matches
+  // back. Cycling prev/next moves the active match and selects it in the viewer.
+  const openFind = useCallback(() => {
+    setFindOpen(true);
+  }, []);
+
+  const goToMatch = useCallback(
+    (idx: number) => {
+      if (findMatches.length === 0) return;
+      const i = ((idx % findMatches.length) + findMatches.length) % findMatches.length;
+      setFindActive(i);
+      const m = findMatches[i];
+      selectSpan(Math.min(m.start, m.end), Math.max(m.start, m.end));
+    },
+    [findMatches, selectSpan],
+  );
+
+  // GO TO — jump/scroll the view to a coordinate and place the caret there,
+  // reusing the nav's bp<->scroll math (scrollMainToBp).
+  const applyGoTo = useCallback(
+    (index: number) => {
+      placeCaret(index);
+      setExternalSel({ start: index, end: index });
+      scrollMainToBp(index);
+      setGoToOpen(false);
+    },
+    [placeCaret, scrollMainToBp],
+  );
+
+  // When the find query clears or shortens below the searchable minimum, drop
+  // any stale matches so the readout + cycling reset cleanly.
+  useEffect(() => {
+    if (findQuery.trim().length < 2) {
+      setFindMatches([]);
+      setFindActive(0);
+    }
+  }, [findQuery]);
+
+  // The SeqViz search prop (only active while the Find box is open with a real
+  // query, so the digest/search recompute doesn't run otherwise).
+  const searchProp = useMemo(
+    () =>
+      findOpen && findQuery.trim().length >= 2
+        ? { query: findQuery.trim(), mismatch: 0 }
+        : { query: "", mismatch: 0 },
+    [findOpen, findQuery],
+  );
+
+  // SeqViz reports its match list here. We jump to the first match (and select
+  // it) when the result set changes, mirroring a "find next" on submit.
+  const onSearchResults = useCallback(
+    (results: SeqVizRange[]) => {
+      setFindMatches(results);
+      if (results.length > 0) {
+        setFindActive(0);
+        const m = results[0];
+        selectSpan(Math.min(m.start, m.end), Math.max(m.start, m.end));
+      }
+    },
+    [selectSpan],
+  );
+
   // Intercept edit intents from SeqViz: a chunk DELETE (a selected range, i.e.
   // count > 1) routes through the confirmation dialog so the user sees which
   // features it touches; single-char Backspace/Delete and all inserts/replaces
@@ -813,6 +1025,21 @@ export default function SequenceEditView({
       const mod = e.metaKey || e.ctrlKey;
       if (!mod) return;
       const k = e.key.toLowerCase();
+      // NON-MUTATING shortcuts available in BOTH modes: Copy, Select All, Find,
+      // Go To. (Read-only still selects, searches, and navigates.)
+      if (k === "a") {
+        e.preventDefault();
+        selectAll();
+        return;
+      } else if (k === "f") {
+        e.preventDefault();
+        openFind();
+        return;
+      } else if (k === "g") {
+        e.preventDefault();
+        setGoToOpen(true);
+        return;
+      }
       // Read-only surface: allow Copy (non-mutating); ignore all edit shortcuts.
       if (readOnly) {
         if (k === "c") {
@@ -840,12 +1067,26 @@ export default function SequenceEditView({
         }
       } else if (k === "v") {
         e.preventDefault();
-        doPaste();
+        // Shift+Cmd+V = Paste Reverse Complement; Cmd+V = ordinary paste.
+        if (e.shiftKey) pasteRevComp();
+        else doPaste();
       }
     };
     el.addEventListener("keydown", onKey);
     return () => el.removeEventListener("keydown", onKey);
-  }, [undo, redo, handleSave, doCopy, doCut, doPaste, sel.hasRange, readOnly]);
+  }, [
+    undo,
+    redo,
+    handleSave,
+    doCopy,
+    doCut,
+    doPaste,
+    pasteRevComp,
+    selectAll,
+    openFind,
+    sel.hasRange,
+    readOnly,
+  ]);
 
   // Selection readout values (shared with the read view via the extracted
   // helper; edit-mode behavior is identical to before).
@@ -853,6 +1094,78 @@ export default function SequenceEditView({
     () => deriveSelectionReadout(selection, doc.seq),
     [selection, doc.seq],
   );
+
+  // The shared Edit-menu action list (one source of truth for the toolbar
+  // dropdown AND the right-click context menu). Destructive ops (Cut, Paste,
+  // Paste RC, Delete, case-change) are OMITTED entirely on the read-only surface.
+  const hasClip = !!molClip;
+  const editMenuItems = useMemo<EditMenuItem[]>(() => {
+    const items: EditMenuItem[] = [];
+    // --- Clipboard group -----------------------------------------------------
+    items.push({ id: "copy", label: "Copy", shortcut: "Cmd C", enabled: sel.hasRange, onRun: doCopy });
+    items.push({
+      id: "copy-bottom",
+      label: "Copy Bottom Strand",
+      enabled: sel.hasRange && isNucleotide,
+      onRun: copyBottom,
+    });
+    items.push({
+      id: "copy-aa",
+      label: "Copy Amino Acids",
+      enabled: sel.hasRange,
+      onRun: copyAA,
+    });
+    if (!readOnly) {
+      items.push({ id: "cut", label: "Cut", shortcut: "Cmd X", enabled: sel.hasRange, destructive: true, onRun: doCut });
+      items.push({ id: "paste", label: "Paste", shortcut: "Cmd V", enabled: true, onRun: doPaste });
+      items.push({
+        id: "paste-rc",
+        label: "Paste Reverse Complement",
+        shortcut: "Shift Cmd V",
+        enabled: true,
+        onRun: pasteRevComp,
+      });
+      items.push({
+        id: "delete",
+        label: "Delete Bases",
+        enabled: sel.hasRange,
+        destructive: true,
+        onRun: () => requestRangeDelete(sel.lo, sel.hi),
+      });
+    }
+    // --- Selection group -----------------------------------------------------
+    items.push({ id: "select-all", label: "Select All", shortcut: "Cmd A", enabled: doc.seq.length > 0, group: true, onRun: selectAll });
+    items.push({ id: "select-range", label: "Select Range…", enabled: doc.seq.length > 0, onRun: () => setSelectRangeOpen(true) });
+    items.push({ id: "invert", label: "Invert Selection", enabled: doc.seq.length > 0, onRun: invertSel });
+    // --- Case group (edit only) ---------------------------------------------
+    if (!readOnly) {
+      items.push({ id: "upper", label: "Make Uppercase", enabled: sel.hasRange, group: true, onRun: () => makeCase("upper") });
+      items.push({ id: "lower", label: "Make Lowercase", enabled: sel.hasRange, onRun: () => makeCase("lower") });
+    }
+    // --- Find / navigate group ----------------------------------------------
+    items.push({ id: "find", label: "Find…", shortcut: "Cmd F", enabled: true, group: true, onRun: openFind });
+    items.push({ id: "goto", label: "Go To…", shortcut: "Cmd G", enabled: doc.seq.length > 0, onRun: () => setGoToOpen(true) });
+    return items;
+  }, [
+    readOnly,
+    sel.hasRange,
+    sel.lo,
+    sel.hi,
+    isNucleotide,
+    doc.seq.length,
+    hasClip,
+    doCopy,
+    copyBottom,
+    copyAA,
+    doCut,
+    doPaste,
+    pasteRevComp,
+    requestRangeDelete,
+    selectAll,
+    invertSel,
+    makeCase,
+    openFind,
+  ]);
 
   return (
     <div ref={containerRef} className="flex h-full w-full flex-col" tabIndex={-1}>
@@ -892,6 +1205,9 @@ export default function SequenceEditView({
             </ToolbarButton>
           </>
         ) : null}
+        {/* seq editops bot — the visible "Edit" dropdown (third home for the
+            ops; right-click menu + keyboard shortcuts are the other two). */}
+        <EditMenuDropdown items={editMenuItems} />
         <div className="mx-1 h-5 w-px bg-gray-200" />
         <Tooltip label={featuresPanelOpen ? "Hide the feature list" : "Show the feature list"}>
           <button
@@ -972,7 +1288,31 @@ export default function SequenceEditView({
               onScrollToBp={scrollMainToBp}
             />
           ) : null}
-          <div ref={viewerRef} className="min-h-0 min-w-0 flex-1 overflow-hidden">
+          <div
+            ref={viewerRef}
+            className="relative min-h-0 min-w-0 flex-1 overflow-hidden"
+            onContextMenu={(e) => {
+              // Right-click anywhere on the sequence surface opens the Edit menu
+              // (the primary, selection-aware home for these ops).
+              e.preventDefault();
+              setContextMenuAt({ x: e.clientX, y: e.clientY });
+            }}
+          >
+          {/* seq editops bot — inline Find box (Cmd+F), anchored top-right. */}
+          {findOpen ? (
+            <SequenceFindBox
+              query={findQuery}
+              onQueryChange={setFindQuery}
+              matchCount={findMatches.length}
+              activeIndex={findActive}
+              onPrev={() => goToMatch(findActive - 1)}
+              onNext={() => goToMatch(findActive + 1)}
+              onClose={() => {
+                setFindOpen(false);
+                setFindQuery("");
+              }}
+            />
+          ) : null}
           <SeqViz
             key={sequence.id}
             name={sequence.locus_name || sequence.display_name}
@@ -982,6 +1322,8 @@ export default function SequenceEditView({
             translations={translations}
             enzymes={enzymes}
             primers={primers}
+            search={searchProp}
+            onSearch={onSearchResults}
             viewer={viewer}
             zoom={{ linear: linearZoom, circular: view.circularZoom }}
             editable={!readOnly}
@@ -1047,6 +1389,39 @@ export default function SequenceEditView({
 
       {/* Phase 2e — primer design dialog (Tm / GC / binding site / alignment). */}
       <PrimerDialog request={primerRequest} />
+
+      {/* seq editops bot — right-click Edit context menu (selection-aware home). */}
+      <SequenceContextMenu
+        at={contextMenuAt}
+        items={editMenuItems}
+        onClose={() => setContextMenuAt(null)}
+      />
+
+      {/* seq editops bot — Select Range… prompt (1-based start..end). */}
+      <SequencePromptDialog<{ start: number; end: number }>
+        open={selectRangeOpen}
+        title="Select Range"
+        label="Range (1-based)"
+        placeholder="e.g. 100..240"
+        helper="Enter start and end positions, e.g. 100..240 or 100-240."
+        confirmLabel="Select"
+        parse={(raw) => parseSelectRange(raw, doc.seq.length)}
+        onConfirm={applySelectRange}
+        onClose={() => setSelectRangeOpen(false)}
+      />
+
+      {/* seq editops bot — Go To… prompt (1-based coordinate; reuses nav math). */}
+      <SequencePromptDialog<number>
+        open={goToOpen}
+        title="Go To Position"
+        label="Position (1-based)"
+        placeholder={`1 - ${doc.seq.length.toLocaleString()}`}
+        helper={`Jump to a base between 1 and ${doc.seq.length.toLocaleString()}.`}
+        confirmLabel="Go"
+        parse={(raw) => parseGoTo(raw, doc.seq.length)}
+        onConfirm={applyGoTo}
+        onClose={() => setGoToOpen(false)}
+      />
     </div>
   );
 }
