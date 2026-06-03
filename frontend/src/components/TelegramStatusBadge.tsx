@@ -29,10 +29,10 @@ const STALE_TOOLTIP_LABEL =
 // Copy shown on hover when another open tab is the active poller. Calm and
 // reassuring on purpose: with one stable leader tab, multiple tabs just work
 // (the inbound image lands in your shared local data either way), so there is
-// nothing to close and nothing to fix. The adjacent "Use this tab" button is
-// the only action, for when the user wants THIS tab to do the polling.
+// nothing to close and nothing to fix. The adjacent "Switch to this tab" button
+// is the only action, for when the user wants THIS tab to do the polling.
 const STANDBY_TOOLTIP_LABEL =
-  "Telegram is running in another open tab. This tab is on standby — your messages still come through, so there is nothing to close. Click \"Use this tab\" to handle them here instead.";
+  "Telegram is running in another open tab. This tab is on standby — your messages still come through, so there is nothing to close. Click \"Switch to this tab\" to handle them here instead.";
 
 export default function TelegramStatusBadge() {
   const { currentUser } = useCurrentUser();
@@ -175,13 +175,15 @@ export default function TelegramStatusBadge() {
         // work, so this is purely informational.
         <span className="flex items-center gap-1.5">
           <Tooltip label={STANDBY_TOOLTIP_LABEL}>{badgeButton}</Tooltip>
-          <button
-            type="button"
-            onClick={() => requestTakeover()}
-            className="text-[11px] text-gray-500 underline underline-offset-2 hover:text-gray-700"
-          >
-            Use this tab
-          </button>
+          <Tooltip label="Move the live Telegram connection to this browser tab so messages arrive here.">
+            <button
+              type="button"
+              onClick={() => requestTakeover()}
+              className="px-2 py-1 text-[11px] font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              Switch to this tab
+            </button>
+          </Tooltip>
         </span>
       ) : staleSignal.isStale ? (
         // Hover-only surface — touch devices and keyboard users still see
