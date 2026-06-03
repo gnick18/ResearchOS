@@ -295,8 +295,24 @@ class SeqViewerContainer extends React.Component<SeqViewerContainerProps, SeqVie
     const beta = Math.exp(Math.log(50 / seqLength) / -(100 ** exp)); // beta coefficient (b in fig)
     const bpsOnArc = seqLength * beta; // calc using the full expression
 
-    // scale the radius so only (bpsOnArc) many bps are shown
-    const radius = limitingDim * 0.34;
+    // ── RESEARCHOS MODIFICATION (ring fill bot) ──────────────────────────────
+    // Upstream SeqViz uses `radius = limitingDim * 0.34`. That factor is tuned
+    // for the "both" layout, where the ring only gets HALF the container width
+    // and shares the box with the linear panel; at full size it leaves a large
+    // dead margin, so a standalone circular Map looks small and adrift.
+    //
+    // For a STANDALONE circular viewer (viewer === "circular", our Map tab) we
+    // size the ring to FILL the box: take half the limiting dimension and
+    // reserve only the band the outer feature/primer labels actually need
+    // (Labels.tsx places names at radius + lineHeight*3.5 for short plasmids,
+    // plus a little for the leading text). This makes the ring as large as fits
+    // and stays centered (center is width/2, height/2). The "both"/"both_flip"
+    // and "linear" layouts keep the original 0.34 factor untouched.
+    const isStandaloneCircular = viewer === "circular";
+    const LABEL_BAND = 56; // px reserved outside the ring for outer labels + ticks
+    const radius = isStandaloneCircular
+      ? Math.max(1, limitingDim / 2 - LABEL_BAND)
+      : limitingDim * 0.34;
 
     return {
       ...this.props,

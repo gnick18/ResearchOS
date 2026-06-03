@@ -410,13 +410,22 @@ export default class Circular extends React.Component<CircularProps, CircularSta
 }
 
 /**
- * RESEARCHOS (primer style bot): Circular primer markers.
+ * RESEARCHOS (primer style bot, directional fix by ring fill bot):
+ * Circular primer markers.
  *
- * SnapGene-style: a primer on the circular/map view is NOT a big block arc; it
- * is a small marker at its binding position — a short radial tick from the
- * plasmid edge, a dot, and the name + coordinates label. Each marker is rotated
- * to the primer's midpoint index using the same getRotation/findCoor the rest of
- * the circular viewer uses, so it stays pinned as the plasmid is scrolled.
+ * SnapGene-style: a primer on the circular/map view is a small DIRECTIONAL
+ * marker at its binding midpoint — a short radial stem from the plasmid edge
+ * with an arrowhead that points ALONG the ring (tangent), clockwise for a
+ * forward (+) primer and counter-clockwise for a reverse (-) primer, i.e. in
+ * the direction the primer reads (5'->3') around the wheel. The name label
+ * sits just outside.
+ *
+ * Geometry note (ring fill bot): like the Arc/Annotation layers, each marker is
+ * BUILT at the top of the ring (index 0, where the tangent is horizontal) and
+ * then rotated into place with getRotation(mid). At the top, "clockwise around
+ * the ring" points in +x (to the right) and "counter-clockwise" points in -x.
+ * We draw the arrowhead accordingly, so after the rotation it always points the
+ * way the wheel turns for that strand.
  */
 const CircularPrimers = (props: {
   findCoor: (index: number, radius: number, rotate?: boolean) => { x: number; y: number };
@@ -433,9 +442,15 @@ const CircularPrimers = (props: {
   const onAnnotationDoubleClick = React.useContext(AnnotationDoubleClickContext);
   if (!primers || !primers.length || !seqLength) return null;
 
-  const tickInner = radius - 2; // tick starts just inside the plasmid edge
-  const tickOuter = radius + 9; // and reaches outward
-  const labelRadius = radius + 13; // label sits just past the tick
+  const stemInner = radius - 2; // stem starts just inside the plasmid edge
+  const stemOuter = radius + 7; // and reaches outward to where the arrowhead sits
+  const labelRadius = radius + 12; // label sits just past the arrowhead
+
+  // Top-of-ring anchor (index 0). findCoor(0, r) returns the point at the top
+  // of the circle; the tangent there is horizontal, so a clockwise arrow points
+  // +x and a counter-clockwise arrow points -x.
+  const HEAD_LEN = 6; // arrowhead length along the tangent (px)
+  const HEAD_HALF = 3.2; // arrowhead half-height across the tangent (px)
 
   return (
     <g className="la-vz-circular-primers">
@@ -445,18 +460,33 @@ const CircularPrimers = (props: {
         if (end < p.start) end += seqLength;
         const mid = ((p.start + end) / 2) % seqLength;
 
-        const inner = findCoor(mid, tickInner);
-        const outer = findCoor(mid, tickOuter);
-        const labelCoor = findCoor(mid, labelRadius);
+        // Forward (+1) reads clockwise (increasing index); reverse (-1) reads
+        // counter-clockwise. Default to forward when direction is absent.
+        const fwd = (p.direction ?? 1) >= 0;
+        const dir = fwd ? 1 : -1; // +x for clockwise, -x for counter-clockwise
 
-        // keep the label upright + readable: anchor it away from the tick based
-        // on which half of the circle it sits in.
-        const onLeft = labelCoor.x < props.findCoor(0, 0).x;
-        const anchor = onLeft ? "end" : "start";
+        // Build at the top of the ring, then rotate into place via getRotation.
+        const stemTop = findCoor(0, stemInner); // inner end of the radial stem
+        const headBase = findCoor(0, stemOuter); // where stem meets arrowhead
+        const labelCoor = findCoor(0, labelRadius);
+
+        // Arrowhead triangle, tangent to the ring at the top: the tip is shifted
+        // along x by dir*HEAD_LEN; the two back corners straddle the tangent.
+        const tip = { x: headBase.x + dir * HEAD_LEN, y: headBase.y };
+        const backTop = { x: headBase.x, y: headBase.y - HEAD_HALF };
+        const backBot = { x: headBase.x, y: headBase.y + HEAD_HALF };
+        const headPath = `M ${tip.x} ${tip.y} L ${backTop.x} ${backTop.y} L ${backBot.x} ${backBot.y} Z`;
 
         const color = p.color || "#f472b6";
         const id = p.id || `circular-primer-${p.name}-${p.start}-${p.end}-${i}`;
-        const coordLabel = `${p.name} (${p.start + 1}..${p.end})`;
+        const coordLabel = `${p.name} (${p.start + 1}..${p.end}, ${fwd ? "fwd" : "rev"})`;
+
+        // The label group is also rotated to mid; keep the text upright and
+        // anchored away from the ring. At the top (after rotation) the label
+        // start-anchored to the right reads outward for the upper half; mirror
+        // for the lower half so names never run back across the ring.
+        const onUpper = mid % seqLength < seqLength / 2;
+        const anchor = onUpper ? "start" : "end";
 
         const handleDoubleClick = (e: React.MouseEvent) => {
           if (!onAnnotationDoubleClick) return;
@@ -481,12 +511,14 @@ const CircularPrimers = (props: {
               stroke={color}
               strokeLinecap="round"
               strokeWidth={1.5}
-              x1={inner.x}
-              x2={outer.x}
-              y1={inner.y}
-              y2={outer.y}
+              x1={stemTop.x}
+              x2={headBase.x}
+              y1={stemTop.y}
+              y2={headBase.y}
             />
-            <circle cx={outer.x} cy={outer.y} fill={color} r={2.2} stroke="none" />
+            {/* directional arrowhead: tangent to the ring, points the way the
+                primer reads (clockwise for fwd, counter-clockwise for rev). */}
+            <path className="la-vz-circular-primer-arrow" cursor="pointer" d={headPath} fill={color} stroke="none" />
             <text
               className="la-vz-circular-primer-label"
               cursor="pointer"
