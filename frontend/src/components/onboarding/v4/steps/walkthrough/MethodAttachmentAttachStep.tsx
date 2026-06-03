@@ -1,46 +1,52 @@
 /**
  * §6.7d Method attachment ATTACH sub-step (FINAL restructure
- * 2026-05-27; hand-walk USER_ACTION pivot 2026-05-27).
+ * 2026-05-27; hand-walk USER_ACTION pivot 2026-05-27; spotlight +
+ * cursor REMOVED 2026-06-03).
  *
- * Hand-walk pivot 2026-05-27 (Grant): "prompt the user to try
- * attaching it. This should simplify things." BeakerBot now sets up
- * the surface (re-opens the experiment popup + activates the Methods
- * tab), then hands control to the user to click + and pick the method
- * themselves. Reduces the "cursor flicker through 4 things" feel of
- * the prior auto-demo and gives the user a sense of authorship.
+ * Pure narration + onEnter-staged surface. `onEnter` re-opens the
+ * experiment popup on the Methods tab (and idempotently ensures an
+ * experiment + a method exist), then hands full control to the user:
+ * they click the + button to open the method picker and click Attach
+ * on the markdown method themselves. The speech tells them exactly
+ * what to do.
+ *
+ * NO targetSelector / NO cursorScript (attach-step-unblock bot
+ * 2026-06-03, Grant live-walk): "it won't let me click anything, the
+ * blue hover shouldn't be here" + "he tried to click something on this
+ * step, remove that."
+ *   - The old `targetSelector` spotlighted the + button. When the user
+ *     clicked + and the method-picker modal opened OVER that button,
+ *     the spotlight's dimming backdrop (InputLockOverlay) sat on top of
+ *     the picker and BLOCKED the Attach click, while the blue glow
+ *     mis-rendered onto the picker's METHODS header + card. Dropping
+ *     the targetSelector removes the backdrop and the stray glow, so
+ *     the picker is fully clickable. (TourController only paints the
+ *     spotlight + lock overlay when a step has a targetSelector.)
+ *   - The old `cursorScript` re-clicked the experiment row + Methods
+ *     tab, which `onEnter` already does. The redundant BeakerBot cursor
+ *     demo was the "he tried to click something" the user flagged.
  *
  * Navigation hook shape:
  *   1. `expectedRoute: "/workbench"` — TourController auto-pushes the
  *      browser back to /workbench on step entry. The home → /methods
  *      detour during the methods cluster is undone here.
- *   2. Cursor script clicks the experiment row to re-open the
- *      TaskDetailPopup.
- *   3. Cursor clicks the Methods tab so the Attach affordance mounts
- *      and the user lands on the right surface (not Lab Notes, which
- *      is the default).
- *   4. Cursor stops. The user clicks the + Attach Method button and
- *      picks the markdown method themselves.
+ *   2. `onEnter` re-opens the TaskDetailPopup on the Methods tab so the
+ *      Attach affordance is mounted and the user lands on the right
+ *      surface (not Lab Notes, the default).
+ *   3. The user clicks the + Attach Method button and picks the
+ *      markdown method themselves. No spotlight, no cursor.
  *
  * Completion: manual ("Got it, next"). The user advances when they're
  * done attaching. No event-driven completion because the user may
  * also want to read or experiment with the attached method before
  * clicking next.
  *
- * Classification: BEAKERBOT SETUP + USER_ACTION (BeakerBot navigates,
- * user attaches).
+ * Classification: USER_ACTION narration (onEnter stages, user attaches).
  *
- * Pose: `pointing` (click-affordance pose).
+ * Pose: `pointing` (click-affordance pose, no cursor demo).
  */
-import {
-  cursorScript,
-  safeClickAction,
-  callbackAction,
-  compactScript,
-  waitForElement,
-  tourClickWithLockBypass,
-} from "./lib/cursor-script";
 import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
-import { TOUR_TARGETS, targetSelector } from "./lib/targets";
+import { TOUR_TARGETS } from "./lib/targets";
 import {
   ensureFirstExperimentExists,
   ensureFirstMethodExists,
@@ -68,67 +74,38 @@ export const methodAttachmentAttachStep = buildWalkthroughStep({
     </>
   ),
   pose: "pointing",
-  targetSelector: targetSelector(TOUR_TARGETS.experimentAttachMethod),
+  // NO targetSelector (attach-step-unblock bot 2026-06-03): a spotlight
+  // here anchors to the + button; the moment the user clicks + and the
+  // method-picker modal opens over it, the spotlight's dimming backdrop
+  // sits on top of the picker and blocks the Attach click, and the blue
+  // glow mis-paints onto the picker. TourController only renders the
+  // spotlight + InputLockOverlay when a step has a targetSelector, so
+  // dropping it makes the picker fully clickable with no stray glow.
+  //
   // Tour robustification 2026-05-27 (tour robustification manager):
-  // ensure BOTH an experiment AND a method exist before this step's
-  // cursor re-stages the surface. A seed-jump past §6.5 + §6.7c
-  // (methods-create) leaves the user with nothing to attach. Both
-  // ensure helpers are idempotent — canonical flow hits the no-op
-  // branch.
+  // ensure BOTH an experiment AND a method exist before the surface is
+  // staged. A seed-jump past §6.5 + §6.7c (methods-create) leaves the
+  // user with nothing to attach. Both ensure helpers are idempotent —
+  // the canonical flow hits the no-op branch.
   // tour-popup-resilience bot 2026-06-03: reopen the experiment popup AND
   // activate the Methods tab if a mid-tour refresh closed it (portal state,
   // not a route) BEFORE the existing experiment/method ensures run. The
-  // + Attach button this beat spotlights lives on the popup's Methods tab,
-  // which the popup does not show by default after a reopen. The cursor
-  // script below also re-stages the surface (row-click + Methods tab) as a
-  // belt-and-suspenders fallback, but reopening in onEnter lets the
-  // spotlight land without waiting on the cursor. No-op on the canonical
-  // path where the popup is already open.
+  // + Attach button this beat points at lives on the popup's Methods tab,
+  // which the popup does not show by default after a reopen. Reopening in
+  // onEnter lands the user on the right surface with no cursor demo. No-op
+  // on the canonical path where the popup is already open.
   onEnter: async () => {
     await ensureExperimentPopupOpen(TOUR_TARGETS.experimentMethodsTab);
     await ensureFirstExperimentExists();
     await ensureFirstMethodExists();
   },
-  cursorScript: cursorScript(async () => {
-    // Hand-walk pivot 2026-05-27: cursor only re-stages the surface
-    // (reopen popup + activate Methods tab). The user then clicks
-    // Attach + picks the method themselves.
-    //
-    // 1. Click the experiment row to re-open the popup. The
-    //    expectedRoute /workbench push has already returned the
-    //    browser to /workbench by the time this script runs.
-    const reopenRowClick = await safeClickAction(
-      "[data-tour-target^='workbench-experiment-row-']",
-      3000,
-    );
-    // 2. Click the Methods tab inside the freshly-opened popup. The
-    //    popup opens to Details by default (hand-walk fix 2026-05-27),
-    //    so we always click the Methods tab to land the user on the
-    //    correct surface for the attach action they're about to do.
-    //
-    //    Defer-to-playback (third pattern application, same root-cause
-    //    class as workbench-create-experiment-open / list-create-shell
-    //    / methods-create): the Methods tab is INSIDE the popup, and
-    //    the popup hasn't been re-opened yet at BUILD time. Calling
-    //    safeClickAction at build resolves nothing (popup unmounted),
-    //    waitForElement times out, action becomes null → tab click
-    //    silently drops. Wrap in callbackAction so the selector
-    //    resolves AFTER reopenRowClick plays.
-    //
-    //    tourClickWithLockBypass is needed in case any tour pageLock
-    //    is active (downstream variants of this step may add one).
-    const methodsTabClick = callbackAction(async () => {
-      if (typeof document === "undefined") return;
-      const tab = await waitForElement(
-        targetSelector(TOUR_TARGETS.experimentMethodsTab),
-        3000,
-      );
-      if (!(tab instanceof HTMLElement)) return;
-      tourClickWithLockBypass(tab);
-    });
-    return compactScript([reopenRowClick, methodsTabClick]);
-  }),
-  // Universal pacing (Grant 2026-05-22): BeakerBot demo steps wait for the user to click before advancing.
+  // NO cursorScript (attach-step-unblock bot 2026-06-03): onEnter already
+  // reopens the popup + activates the Methods tab, so the redundant
+  // row-click + Methods-tab cursor demo (the "he tried to click something"
+  // the user flagged) is gone. This is a plain narration step — the user
+  // clicks + and Attach themselves.
+  //
+  // Universal pacing (Grant 2026-05-22): the step waits for the user to click before advancing.
   completion: manualAdvance("Got it, next"),
   // FINAL reorder manager 2026-05-27: keep expectedRoute on /workbench
   // even though the user just left /methods. The TourController's

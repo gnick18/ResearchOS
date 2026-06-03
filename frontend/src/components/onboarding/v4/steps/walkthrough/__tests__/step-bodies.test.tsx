@@ -460,7 +460,14 @@ describe("P5 step bodies — universal contract", () => {
       // and are intentionally EXCLUDED from this demo-with-cursor list.
       methodAttachmentOpenStep,
       methodAttachmentTabStep,
-      methodAttachmentAttachStep,
+      // attach-step-unblock bot (2026-06-03, Grant live-walk):
+      // `experiment-attach-method-attach` dropped its cursorScript (and
+      // its targetSelector). The old cursor demo re-clicked the row +
+      // Methods tab, which onEnter already does, and the spotlight's
+      // dimming backdrop blocked the user's Attach click in the method
+      // picker. The step is now pure narration + onEnter-staged surface,
+      // so it is EXCLUDED from this demo-with-cursor list (asserted
+      // undefined in the attach sub-step describe block above).
       // experiment-flow fix manager (2026-05-27): the
       // experiment-attach-method-notes cursorScript was dropped per
       // Grant's hand-walk simplification: spotlight + speech is enough,
@@ -1226,10 +1233,15 @@ describe("MethodAttachment split sub-steps (§6.6 popup-mount split, 2026-05-21)
   it("attach sub-step declares manual completion (universal pacing rule, Grant 2026-05-22)", () => {
     expect(methodAttachmentAttachStep.completion.type).toBe("manual");
   });
-  it("attach sub-step targets experiment-attach-method anchor", () => {
-    expect(methodAttachmentAttachStep.targetSelector).toBe(
-      "[data-tour-target=\"experiment-attach-method\"]",
-    );
+  it("attach sub-step has NO targetSelector so the picker is clickable (attach-step-unblock bot 2026-06-03)", () => {
+    // Grant live-walk: a spotlight on the + button put its dimming
+    // backdrop over the method-picker modal that opens on top of it,
+    // blocking the Attach click and mis-glowing onto the picker. The
+    // step is now plain narration; onEnter stages the surface.
+    expect(methodAttachmentAttachStep.targetSelector).toBeUndefined();
+  });
+  it("attach sub-step has NO cursorScript (redundant re-staging removed; onEnter handles it)", () => {
+    expect(methodAttachmentAttachStep.cursorScript).toBeUndefined();
   });
   it("attach sub-step expectedRoute is /workbench so the navigation hook can return after the methods detour (FINAL reorder manager 2026-05-27)", () => {
     // FINAL restructure: this step now runs after the methods cluster
