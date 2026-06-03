@@ -42,9 +42,9 @@ A pure module, e.g. `frontend/src/lib/align/`:
 - Optional `alignSemiGlobal` (glocal: a short query end-to-end against a region of
   a long target without end-gap penalties) — the natural fit for "align this whole
   primer/oligo into the template."
-- Scoring is pluggable: a DNA scoring scheme (match / mismatch, optionally
-  IUPAC-degenerate-aware) and a protein scheme (BLOSUM62). Same DP core, different
-  substitution scoring, so one engine covers DNA and protein.
+- Scoring is pluggable: a DNA scoring scheme (match / mismatch, IUPAC-degenerate-
+  aware from the start, see decision below) and a protein scheme (BLOSUM62). Same
+  DP core, different substitution scoring, so one engine covers DNA and protein.
 - Returns a structured result: score, aligned ranges in a and b, percent identity,
   and an op list (match / mismatch / insertion / deletion) suitable for rendering
   the alignment (and for a CIGAR-like string).
@@ -108,9 +108,9 @@ Build later (each reuses the same engine):
 
 ## 7. MVP recommendation
 
-Build first: the pure `align/` engine (local + global + semi-global, DNA scoring,
-affine gaps) with thorough tests, the k-mer seed-and-extend wrapper for
-short-query-vs-large-target, and the wiring that makes primer binding
+Build first: the pure `align/` engine (local + global + semi-global, IUPAC-aware
+DNA scoring, affine gaps) with thorough tests, the k-mer seed-and-extend wrapper
+for short-query-vs-large-target, and the wiring that makes primer binding
 mismatch-tolerant (so the primer dialogs match SnapGene, including mismatches +
 auto-direction).
 
@@ -118,10 +118,17 @@ Build later, in priority order: protein scoring (BLOSUM62); the mismatch-toleran
 specificity upgrade; the Compare/Align-two-sequences view; mutagenesis primer
 visualization; homology-based annotation.
 
-## 8. Open decisions
+## 8. Decisions (locked 2026-06-03, Grant)
 
-- DNA scoring: simple match/mismatch to start, IUPAC-degenerate-aware as a flag?
-  (Recommend simple first, IUPAC as a follow-up.)
-- Do we want the Compare/Align-two-sequences feature on the near roadmap, or is the
-  engine + primer upgrade enough for now?
-- Pure JS now (recommended) with WASM only if a real perf ceiling appears.
+- DNA scoring: IUPAC-DEGENERATE-AWARE FROM THE START (build the endgame, not a
+  match/mismatch stopgap). A degenerate position scores as a match when the target
+  base is in its IUPAC set (N matches anything; R = A/G; Y = C/T; etc.). SnapGene
+  supports IUPAC ambiguity codes in both Find and primer design, so this is the
+  correct target behavior. Plain match/mismatch is just the degenerate case where
+  every code is a single base.
+- Compare/Align-two-sequences: DEFERRED. The MVP is the engine + the mismatch-
+  tolerant primer-binding upgrade. Compare/Align (identity + alignment view /
+  dotplot) comes later, once the engine is proven.
+- Pure JS now; a WASM port only if a real performance ceiling appears.
+- BUILD STATUS: design locked, but HOLD dispatch until Grant gives an explicit go
+  ("ask me before starting"). Do not start the build bot without that go-ahead.
