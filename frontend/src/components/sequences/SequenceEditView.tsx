@@ -208,6 +208,25 @@ function IconPasteTool({ className }: { className?: string }) {
     </svg>
   );
 }
+// feature/primer menus bot — toolbar glyphs for the Feature and Primer
+// dropdowns. A tag for features, a forward-arrow oligo for primers. Inline SVG
+// only (no emojis), matching the rest of the toolbar icon set.
+function IconFeatureTag({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+      <line x1="7" y1="7" x2="7.01" y2="7" />
+    </svg>
+  );
+}
+function IconPrimer({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <line x1="3" y1="12" x2="17" y2="12" />
+      <polyline points="13 7 18 12 13 17" />
+    </svg>
+  );
+}
 function ToolbarButton({
   label,
   onClick,
@@ -1943,6 +1962,81 @@ export default function SequenceEditView({
     openFind,
   ]);
 
+  // feature/primer menus bot — two discoverable toolbar dropdowns ("Feature"
+  // and "Primer") that mirror the Edit/Export shells. Add is always enabled;
+  // Edit / Duplicate / Remove are greyed out until a feature (or primer) is the
+  // current selection. Primers ARE features of type primer_bind, so both menus
+  // read the shared selectedFeatureIdx and split on the selected type.
+  const selFeat = selectedFeatureIdx != null ? doc.features[selectedFeatureIdx] : null;
+  const selIsPrimer = !!selFeat && (selFeat.type || "").toLowerCase() === "primer_bind";
+  const selIsFeature = !!selFeat && !selIsPrimer;
+
+  const featureMenuItems = useMemo<EditMenuItem[]>(() => {
+    const idx = selectedFeatureIdx;
+    return [
+      { id: "feat-add", label: "Add Feature…", enabled: true, onRun: openAddFeature },
+      {
+        id: "feat-edit",
+        label: "Edit Feature…",
+        enabled: selIsFeature,
+        group: true,
+        onRun: () => {
+          if (idx != null) openEditFeature(idx);
+        },
+      },
+      {
+        id: "feat-dup",
+        label: "Duplicate Feature",
+        enabled: selIsFeature,
+        onRun: () => {
+          if (idx != null) duplicateFeatureAt(idx);
+        },
+      },
+      {
+        id: "feat-remove",
+        label: "Remove Feature",
+        enabled: selIsFeature,
+        destructive: true,
+        onRun: () => {
+          if (idx != null) deleteFeatureAt(idx);
+        },
+      },
+    ];
+  }, [selectedFeatureIdx, selIsFeature, openAddFeature, openEditFeature, duplicateFeatureAt, deleteFeatureAt]);
+
+  const primerMenuItems = useMemo<EditMenuItem[]>(() => {
+    const idx = selectedFeatureIdx;
+    return [
+      { id: "primer-add", label: "Add Primer…", enabled: true, onRun: openPrimerDialog },
+      {
+        id: "primer-edit",
+        label: "Edit Primer…",
+        enabled: selIsPrimer,
+        group: true,
+        onRun: () => {
+          if (idx != null) openEditPrimer(idx);
+        },
+      },
+      {
+        id: "primer-dup",
+        label: "Duplicate Primer",
+        enabled: selIsPrimer,
+        onRun: () => {
+          if (idx != null) duplicateFeatureAt(idx);
+        },
+      },
+      {
+        id: "primer-remove",
+        label: "Remove Primer",
+        enabled: selIsPrimer,
+        destructive: true,
+        onRun: () => {
+          if (idx != null) deleteFeatureAt(idx);
+        },
+      },
+    ];
+  }, [selectedFeatureIdx, selIsPrimer, openPrimerDialog, openEditPrimer, duplicateFeatureAt, deleteFeatureAt]);
+
   // seq export bot — the Export dropdown. Read-only download of the whole
   // sequence (GenBank/FASTA), the current selection (DNA .gb/FASTA + frame-1
   // protein FASTA), and the live map image (SVG always; PNG best-effort via
@@ -2164,6 +2258,25 @@ export default function SequenceEditView({
         {/* seq editops bot — the visible "Edit" dropdown (third home for the
             ops; right-click menu + keyboard shortcuts are the other two). */}
         <EditMenuDropdown items={editMenuItems} />
+        {/* feature/primer menus bot — two discoverable dropdowns next to Edit.
+            Add is always live; Edit / Duplicate / Remove grey out until a
+            feature (or primer) is selected. Mutation-only, so edit mode only. */}
+        {!readOnly ? (
+          <>
+            <EditMenuDropdown
+              items={featureMenuItems}
+              label="Feature"
+              testId="sequence-feature-button"
+              icon={<IconFeatureTag className="h-4 w-4" />}
+            />
+            <EditMenuDropdown
+              items={primerMenuItems}
+              label="Primer"
+              testId="sequence-primer-button"
+              icon={<IconPrimer className="h-4 w-4" />}
+            />
+          </>
+        ) : null}
         {/* seq export bot — the Export dropdown (download .gb / .fasta /
             selected DNA + protein / map image). Available in read-only too. */}
         <ExportMenuDropdown items={exportMenuItems} />

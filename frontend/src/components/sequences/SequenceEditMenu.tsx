@@ -14,7 +14,7 @@
 // component for any icon-only control. Destructive actions are simply omitted
 // from the list by the caller in readOnly mode (we render whatever we are given).
 
-import { useEffect, useId, useRef, useState } from "react";
+import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 
 /** A single Edit-menu action. Groups draw a divider before the next group. */
 export interface EditMenuItem {
@@ -107,8 +107,26 @@ function MenuItems({ items, onAfterRun }: { items: EditMenuItem[]; onAfterRun: (
   );
 }
 
-/** The visible "Edit" toolbar dropdown. */
-export function EditMenuDropdown({ items }: { items: EditMenuItem[] }) {
+/**
+ * The visible toolbar dropdown. Defaults to the "Edit" menu, but the label, an
+ * optional leading icon, a test id, and the trigger width can be overridden so
+ * the same shell powers the "Feature" and "Primer" menus next to it (feature/
+ * primer menus bot). `MenuItems` already greys out and blocks any item whose
+ * `enabled` is false-y, which is the selection gating Grant asked for.
+ */
+export function EditMenuDropdown({
+  items,
+  label = "Edit",
+  icon,
+  testId,
+  width = "w-60",
+}: {
+  items: EditMenuItem[];
+  label?: string;
+  icon?: ReactNode;
+  testId?: string;
+  width?: string;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
 
@@ -138,17 +156,19 @@ export function EditMenuDropdown({ items }: { items: EditMenuItem[] }) {
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
+        data-testid={testId}
         className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
           open ? "bg-gray-100 text-gray-800" : "text-gray-600 hover:bg-gray-100"
         }`}
       >
-        <span>Edit</span>
+        {icon ?? null}
+        <span>{label}</span>
         <Chevron className="h-3.5 w-3.5" />
       </button>
       {open ? (
         <div
           role="menu"
-          className="absolute left-0 top-full z-50 mt-1 w-60 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+          className={`absolute left-0 top-full z-50 mt-1 ${width} rounded-lg border border-gray-200 bg-white py-1 shadow-lg`}
         >
           <MenuItems items={items} onAfterRun={() => setOpen(false)} />
         </div>
