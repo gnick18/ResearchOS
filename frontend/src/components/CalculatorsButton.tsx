@@ -1,7 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Tooltip from "@/components/Tooltip";
+import {
+  evaluateExpression,
+  type AngleMode,
+} from "@/lib/calculators/scientific";
 import {
   molesFromMass,
   massFromConcVolumeMw,
@@ -93,6 +97,7 @@ export default function CalculatorsButton() {
 // ---------------------------------------------------------------------------
 
 type TabId =
+  | "scientific"
   | "molarity"
   | "dilution"
   | "serial"
@@ -101,6 +106,7 @@ type TabId =
   | "buffer";
 
 const TABS: { id: TabId; label: string }[] = [
+  { id: "scientific", label: "Scientific" },
   { id: "molarity", label: "Molarity" },
   { id: "dilution", label: "Dilution" },
   { id: "serial", label: "Serial dilution" },
@@ -110,7 +116,7 @@ const TABS: { id: TabId; label: string }[] = [
 ];
 
 function CalculatorsModal({ onClose }: { onClose: () => void }) {
-  const [tab, setTab] = useState<TabId>("molarity");
+  const [tab, setTab] = useState<TabId>("scientific");
 
   return (
     <div
@@ -174,6 +180,7 @@ function CalculatorsModal({ onClose }: { onClose: () => void }) {
 
         {/* Body */}
         <div className="p-6 overflow-y-auto">
+          {tab === "scientific" && <ScientificCalcTab />}
           {tab === "molarity" && <MolarityTab />}
           {tab === "dilution" && <DilutionTab />}
           {tab === "serial" && <SerialTab />}
@@ -310,6 +317,238 @@ function ResultCard({
   }
   return (
     <div className="rounded-xl border border-sky-100 bg-sky-50/60 p-4">{children}</div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 0. Scientific calculator (general-purpose, on mathjs)
+// ---------------------------------------------------------------------------
+
+type KeyVariant = "digit" | "fn" | "op" | "accent" | "muted";
+
+function CalcKey({
+  label,
+  onPress,
+  ariaLabel,
+  variant = "digit",
+  className = "",
+}: {
+  label: React.ReactNode;
+  onPress: () => void;
+  ariaLabel?: string;
+  variant?: KeyVariant;
+  className?: string;
+}) {
+  const variants: Record<KeyVariant, string> = {
+    digit: "bg-gray-50 text-gray-900 hover:bg-gray-100",
+    fn: "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50",
+    op: "bg-sky-50 text-sky-700 hover:bg-sky-100",
+    accent: "bg-sky-600 text-white hover:bg-sky-700",
+    muted: "bg-gray-100 text-gray-600 hover:bg-gray-200",
+  };
+  return (
+    <button
+      type="button"
+      onClick={onPress}
+      aria-label={ariaLabel}
+      className={`rounded-lg py-2.5 text-sm font-medium tabular-nums transition-colors select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 ${variants[variant]} ${className}`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function ScientificCalcTab() {
+  const [expr, setExpr] = useState("");
+  const [angleMode, setAngleMode] = useState<AngleMode>("rad");
+  const [ans, setAns] = useState(0);
+  const [memory, setMemory] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const result = useMemo(
+    () => evaluateExpression(expr, { angleMode, ans, memory }),
+    [expr, angleMode, ans, memory],
+  );
+
+  const focusCaret = (pos: number) => {
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(pos, pos);
+    });
+  };
+
+  const insert = (text: string) => {
+    const el = inputRef.current;
+    const start = el?.selectionStart ?? expr.length;
+    const end = el?.selectionEnd ?? expr.length;
+    setExpr(expr.slice(0, start) + text + expr.slice(end));
+    focusCaret(start + text.length);
+  };
+
+  const backspace = () => {
+    const el = inputRef.current;
+    const start = el?.selectionStart ?? expr.length;
+    const end = el?.selectionEnd ?? expr.length;
+    if (start === end) {
+      if (start === 0) return;
+      setExpr(expr.slice(0, start - 1) + expr.slice(end));
+      focusCaret(start - 1);
+    } else {
+      setExpr(expr.slice(0, start) + expr.slice(end));
+      focusCaret(start);
+    }
+  };
+
+  const clearAll = () => {
+    setExpr("");
+    focusCaret(0);
+  };
+
+  const commit = () => {
+    if (!result.ok) return;
+    setAns(result.value);
+    setExpr(result.display);
+    focusCaret(result.display.length);
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      commit();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      clearAll();
+    }
+  };
+
+  // [display label, text to insert, accessible name]
+  const FN_KEYS: [string, string, string][] = [
+    ["sin", "sin(", "sine"],
+    ["cos", "cos(", "cosine"],
+    ["tan", "tan(", "tangent"],
+    ["ln", "ln(", "natural log"],
+    ["log", "log10(", "log base 10"],
+    ["asin", "asin(", "inverse sine"],
+    ["acos", "acos(", "inverse cosine"],
+    ["atan", "atan(", "inverse tangent"],
+    ["√", "sqrt(", "square root"],
+    ["x^y", "^", "power"],
+    ["(", "(", "open parenthesis"],
+    [")", ")", "close parenthesis"],
+    ["π", "pi", "pi"],
+    ["e", "e", "euler's number"],
+    ["x!", "!", "factorial"],
+  ];
+
+  const showResult = result.ok || expr.trim() !== "";
+
+  return (
+    <div className="space-y-4">
+      {/* Display */}
+      <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+        <input
+          ref={inputRef}
+          value={expr}
+          onChange={(e) => setExpr(e.target.value)}
+          onKeyDown={onKeyDown}
+          placeholder="Type an expression, e.g. sqrt(2) * sin(45)"
+          aria-label="Expression"
+          autoComplete="off"
+          spellCheck={false}
+          className="w-full bg-transparent text-lg font-mono text-gray-900 placeholder:text-gray-400 focus:outline-none"
+        />
+        <div
+          className="mt-1 text-right text-2xl font-semibold tabular-nums min-h-[2rem]"
+          aria-live="polite"
+        >
+          {result.ok ? (
+            <span className="text-gray-900">= {result.display}</span>
+          ) : showResult ? (
+            <span className="text-gray-300">=</span>
+          ) : (
+            <span className="text-gray-300">0</span>
+          )}
+        </div>
+      </div>
+
+      {/* Angle mode + memory */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden text-xs font-semibold">
+          {(["deg", "rad"] as AngleMode[]).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setAngleMode(m)}
+              aria-pressed={angleMode === m}
+              className={
+                "px-3 py-1.5 transition-colors " +
+                (angleMode === m
+                  ? "bg-sky-600 text-white"
+                  : "bg-white text-gray-500 hover:bg-gray-50")
+              }
+            >
+              {m.toUpperCase()}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-[11px] text-gray-400 px-1 tabular-nums">M={memory}</span>
+          <CalcKey label="MC" variant="muted" ariaLabel="memory clear" onPress={() => setMemory(0)} className="px-2.5 py-1" />
+          <CalcKey label="MR" variant="muted" ariaLabel="memory recall" onPress={() => insert("M")} className="px-2.5 py-1" />
+          <CalcKey
+            label="M+"
+            variant="muted"
+            ariaLabel="memory add"
+            onPress={() => {
+              if (result.ok) setMemory((v) => v + result.value);
+            }}
+            className="px-2.5 py-1"
+          />
+        </div>
+      </div>
+
+      {/* Function keys */}
+      <div className="grid grid-cols-5 gap-1.5">
+        {FN_KEYS.map(([label, text, aria], i) => (
+          <CalcKey key={i} label={label} variant="fn" ariaLabel={aria} onPress={() => insert(text)} />
+        ))}
+      </div>
+
+      {/* Number pad + operators */}
+      <div className="grid grid-cols-4 gap-1.5">
+        <CalcKey label="AC" variant="muted" ariaLabel="clear all" onPress={clearAll} />
+        <CalcKey label="⌫" variant="muted" ariaLabel="backspace" onPress={backspace} />
+        <CalcKey label="Ans" variant="muted" ariaLabel="last answer" onPress={() => insert("Ans")} />
+        <CalcKey label="÷" variant="op" ariaLabel="divide" onPress={() => insert("/")} />
+
+        <CalcKey label="7" onPress={() => insert("7")} />
+        <CalcKey label="8" onPress={() => insert("8")} />
+        <CalcKey label="9" onPress={() => insert("9")} />
+        <CalcKey label="×" variant="op" ariaLabel="multiply" onPress={() => insert("*")} />
+
+        <CalcKey label="4" onPress={() => insert("4")} />
+        <CalcKey label="5" onPress={() => insert("5")} />
+        <CalcKey label="6" onPress={() => insert("6")} />
+        <CalcKey label="−" variant="op" ariaLabel="subtract" onPress={() => insert("-")} />
+
+        <CalcKey label="1" onPress={() => insert("1")} />
+        <CalcKey label="2" onPress={() => insert("2")} />
+        <CalcKey label="3" onPress={() => insert("3")} />
+        <CalcKey label="+" variant="op" ariaLabel="add" onPress={() => insert("+")} />
+
+        <CalcKey label="0" onPress={() => insert("0")} className="col-span-2" />
+        <CalcKey label="." onPress={() => insert(".")} />
+        <CalcKey label="=" variant="accent" ariaLabel="equals" onPress={commit} />
+      </div>
+
+      <p className="text-[11px] text-gray-500">
+        Computed live with mathjs. Type directly (Enter sets Ans, Esc clears) or
+        use the keys. sin / cos / tan and inverses, ln, log (base 10), sqrt,
+        powers (^), factorial (!), pi, e. Nothing here is saved.
+      </p>
+    </div>
   );
 }
 
