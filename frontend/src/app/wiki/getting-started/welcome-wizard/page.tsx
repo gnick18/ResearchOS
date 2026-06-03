@@ -278,17 +278,9 @@ export default function WelcomeWizardPage() {
       <Steps>
         <Step>
           <strong>methods-category-prompt.</strong> BeakerBot asks what kind of
-          technique you run (interactive picker, your answer shapes the
-          demo&apos;s framing).
-        </Step>
-        <Step>
-          <strong>methods-category-open.</strong> You click &quot;+ New
-          Category&quot; to open the modal. Wrong clicks elsewhere on the
-          page get a flash and a nudge back to the right button.
-        </Step>
-        <Step>
-          <strong>methods-category.</strong> Cursor types the picked label and
-          clicks Create Empty.
+          technique you run (interactive picker). Your pick is filed as the
+          folder for your first method a moment later, so categories form
+          from real work instead of an empty placeholder.
         </Step>
         <Step>
           <strong>methods-open-picker.</strong> Cursor clicks &quot;+ New

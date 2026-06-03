@@ -30,9 +30,11 @@ const P5_STEP_IDS = [
   // 2026-06-03 (HR / tour-simplification): notifications-silence +
   // notifications-delete cut; awareness folded into the bell beat.
   "notifications-bell",
+  // Tour simplification pass 3 2026-06-03 (needs-care, CASE 1): the
+  // methods-category-open + methods-category beats were cut (categories
+  // are free-text folders, no record needed). The picker beat survives
+  // and records the folder label methods-create files into.
   "methods-category-prompt",
-  "methods-category-open",
-  "methods-category",
   // 2026-06-03 (HR / tour-simplification): methods-builder demos 3 to 1.
   // methods-type-tour + methods-lc-demo cut; methods-open-picker is the
   // single awareness beat.

@@ -407,21 +407,16 @@ function isCategoryModalOpen(): boolean {
 /**
  * Reopen the §6.4 New Category modal if a mid-tour refresh closed it.
  *
- * `methods-category-open` (MethodsCategoryOpenStep) is the bridge step:
- * the user clicks `methods-add-category` ("+ New Category"), which sets
- * `creatingCategory` and dispatches `tour:methods-category-modal-opened`.
- * The dependent beats `methods-category` (MethodsCategoryStep: cursor
- * types the picked label + clicks Create Empty, spotlights
- * `methods-category-name-input`) and `methods-category-prompt`
- * (MethodsCategoryPromptStep) assume the modal is up. A refresh closes
- * the modal (local React state, not a route).
+ * History: the `methods-category-open` + `methods-category` beats that
+ * drove the New Category modal were retired in tour simplification pass 3
+ * 2026-06-03 (CASE 1: categories are free-text folders, no record
+ * needed). This helper + `withCategoryModalOpen` are no longer wired into
+ * a live step, but are kept (and tested) as a general modal-reopen guard
+ * in case a future step needs the New Category modal.
  *
- * Reopen path mirrors the bridge: the dependent steps declare
- * `expectedRoute: "/methods"` (so the route is already settled), then
- * DOM-click `methods-add-category` (the same trigger the bridge step's
- * spotlight points at) and await the name input. Clicking the trigger
- * also re-dispatches `tour:methods-category-modal-opened`, matching the
- * canonical open path exactly.
+ * Reopen path: DOM-click `methods-add-category` ("+ New Category", which
+ * sets `creatingCategory` and dispatches
+ * `tour:methods-category-modal-opened`), then await the name input.
  *
  * No-op when already open. Best-effort guarded / try-catch / tolerant
  * of a missing trigger.

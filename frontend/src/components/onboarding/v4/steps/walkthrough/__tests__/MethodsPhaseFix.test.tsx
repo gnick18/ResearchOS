@@ -11,10 +11,9 @@
  *
  *   P1 — page lock: every Methods step declares either a declarative
  *        `pageLock` slot (BeakerBot demo + picker steps) OR mounts an
- *        imperative `setPageLock` via the step's speech component (the
- *        methods-category-open user-action step). The lock prevents
- *        the user from accidentally clicking outside the methods modal
- *        / category builder and soft-walking themselves out of the tour.
+ *        imperative `setPageLock` via the step's speech component. The
+ *        lock prevents the user from accidentally clicking outside the
+ *        methods modal and soft-walking themselves out of the tour.
  *
  * Tests are intentionally per-step so a regression points at exactly
  * which body lost its pacing or its lock. The "all cursor-led methods
@@ -40,11 +39,6 @@ vi.mock("../../../TourController", () => ({
 }));
 
 import { methodsCategoryPromptStep } from "../MethodsCategoryPromptStep";
-import { methodsCategoryOpenStep } from "../MethodsCategoryOpenStep";
-import {
-  methodsCategoryStep,
-  METHODS_CATEGORY_PAUSE_MS,
-} from "../MethodsCategoryStep";
 import { methodsOpenPickerStep } from "../MethodsOpenPickerStep";
 // v4 tour structural manager (Wave 1, 2026-05-27): methodsFileVsMarkdownStep
 // retired; the step body file is deleted. Tests that referenced it are
@@ -108,57 +102,15 @@ async function playMethodsCreateScript(): Promise<void> {
   }
 }
 
-/**
- * Helper — pull a cursor script's actions out of a step body. Returns
- * an empty array when the step is narration-only (no cursorScript).
- * Stubs the methodsCreateForm + per-target DOM elements so the
- * `safeClickAction` / `safeTypeAction` await-resolution succeeds inside
- * jsdom (without these, the `waitForElement` calls would time out and
- * the script would degrade to `[]`).
- */
-async function runScript(
-  step: { cursorScript?: () => Promise<unknown> | unknown },
-  targetIds: ReadonlyArray<string>,
-): Promise<ReadonlyArray<{ type: string }>> {
-  if (!step.cursorScript) return [];
-  const stubs: HTMLElement[] = [];
-  for (const id of targetIds) {
-    const el = document.createElement("div");
-    el.setAttribute("data-tour-target", id);
-    // Provide a non-zero box so ensureInViewport doesn't bail on a
-    // 0x0 rect; jsdom returns zeros by default but the helpers still
-    // resolve the element first.
-    document.body.appendChild(el);
-    stubs.push(el);
-  }
-  try {
-    const actions = (await step.cursorScript()) as ReadonlyArray<{
-      type: string;
-    }>;
-    return actions;
-  } finally {
-    for (const el of stubs) el.remove();
-  }
-}
+// Tour simplification pass 3 2026-06-03 (needs-care, CASE 1): the
+// generic `runScript` helper was removed with the methods-category demo
+// pacing test (its only caller). The surviving methods-create pacing test
+// stubs its own DOM targets inline.
 
 describe("Methods phase — pacing (P1, Grant 2026-05-22)", () => {
-  it("methods-category demo cursor script has a callback pause between type and submit", async () => {
-    const actions = await runScript(methodsCategoryStep, [
-      TOUR_TARGETS.methodsCategoryNameInput,
-      TOUR_TARGETS.methodsCategoryCreateEmpty,
-    ]);
-    // type → callback (pause) → click. Three actions, middle is the
-    // read-then-watch pause.
-    expect(actions).toHaveLength(3);
-    expect(actions[0]?.type).toBe("type");
-    expect(actions[1]?.type).toBe("callback");
-    expect(actions[2]?.type).toBe("click");
-  });
-
-  it("methods-category demo uses the canonical 800ms read-then-watch pause", () => {
-    expect(METHODS_CATEGORY_PAUSE_MS).toBe(800);
-  });
-
+  // Tour simplification pass 3 2026-06-03 (needs-care, CASE 1): the
+  // methods-category demo cursor-script pacing tests were removed with
+  // the demo beat (categories are free-text folders, no record needed).
   it("methods-create demo cursor script interleaves callback pauses between its visible actions", async () => {
     // methods-create-inline-typing bot 2026-06-03: the body editor is now
     // the inline CodeMirror 6 surface (no <textarea>, no hybrid-editor-save
@@ -247,11 +199,11 @@ describe("Methods phase — pacing (P1, Grant 2026-05-22)", () => {
 
 describe("Methods phase — completion contract (P1, Grant 2026-05-22)", () => {
   it.each([
-    ["methods-category", methodsCategoryStep],
     ["methods-open-picker", methodsOpenPickerStep],
     // v4 tour structural manager (Wave 1, 2026-05-27):
     // methods-file-vs-markdown retired. 2026-06-03 (HR /
-    // tour-simplification): methods-type-tour cut.
+    // tour-simplification): methods-type-tour cut. Tour simplification
+    // pass 3 2026-06-03 (needs-care, CASE 1): methods-category demo cut.
     ["methods-create", methodsCreateStep],
   ])("%s uses manualAdvance per the universal pacing rule", (_id, step) => {
     expect(step.completion.type).toBe("manual");
@@ -268,24 +220,9 @@ describe("Methods phase — page lock (P1, Grant 2026-05-22)", () => {
     expect(methodsCategoryPromptStep.pageLock?.pillLabel).toBeTruthy();
   });
 
-  it("methods-category-open uses the imperative setPageLock pattern (speech is a function, hooks via TourController)", () => {
-    // The user-action step relies on the inline speech component to
-    // wire `controller.setPageLock(allowList, wrongClickFlash)` on
-    // mount. We assert the speech is a function (so the component
-    // mounts inside the bubble) rather than re-implementing the
-    // controller stub here — the GanttDepsUserStep test suite already
-    // pins the imperative pattern shape; this just confirms the step
-    // body opted into it.
-    expect(typeof methodsCategoryOpenStep.speech).toBe("function");
-    // No declarative pageLock — the imperative path owns the lock.
-    expect(methodsCategoryOpenStep.pageLock).toBeUndefined();
-  });
-
-  it("methods-category demo declares a full page-lock", () => {
-    expect(methodsCategoryStep.pageLock).toBeDefined();
-    expect(methodsCategoryStep.pageLock?.allowList).toEqual([]);
-    expect(methodsCategoryStep.pageLock?.pillLabel).toBeTruthy();
-  });
+  // Tour simplification pass 3 2026-06-03 (needs-care, CASE 1): the
+  // methods-category-open + methods-category page-lock tests were removed
+  // with their beats (categories are free-text folders, no record needed).
 
   it("methods-open-picker declares a page-lock that allows the CreateMethodModal subtree", () => {
     // 2026-06-03 (HR / tour-simplification): methods-open-picker is now the

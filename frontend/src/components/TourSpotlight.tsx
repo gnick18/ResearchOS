@@ -387,8 +387,8 @@ export default function TourSpotlight({
   // occluding popup existed, which was right for the SnapshotTilePopup
   // case (the spotlight target is a dashboard tile BEHIND the popup, no
   // longer the active surface). It is wrong for a USER_ACTION beat that
-  // spotlights an element INSIDE the popup, e.g. the Project dropdown
-  // inside the New Experiment modal (workbench-create-experiment-project):
+  // spotlights an element INSIDE the popup, e.g. the Create Experiment
+  // button inside the New Experiment modal (workbench-create-experiment-submit):
   // there the target IS the active surface and the ring should show.
   // The spotlight z-index (440) is above the modal (z-50), so the ring
   // draws on top of the in-modal target.

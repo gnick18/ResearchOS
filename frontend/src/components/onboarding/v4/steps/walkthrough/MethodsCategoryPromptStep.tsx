@@ -4,27 +4,26 @@
  * §6.4a-prompt Methods page — interactive category-type picker (v4 sec
  * 6.4 redesign per Grant 2026-05-21 feedback).
  *
- * Splits the original §6.4 `methods-category` cursor demo into two beats:
+ * This beat (`methods-category-prompt`): BeakerBot asks the user
+ * "what's a common type of technique you do in the lab?" and shows
+ * four to six labeled buttons (chemistry / molecular biology /
+ * bioinformatics / microbiology / cell biology) plus an Other option
+ * that opens a small text input below the buttons. No cursor, no
+ * spotlight — pure modal-style picker overlay inside the speech bubble.
  *
- *   1. THIS STEP (`methods-category-prompt`): BeakerBot asks the user
- *      "what's a common type of technique you do in the lab?" and shows
- *      four to six labeled buttons (chemistry / molecular biology /
- *      bioinformatics / microbiology / cell biology) plus an Other
- *      option that opens a small text input below the buttons. No
- *      cursor, no spotlight — pure modal-style picker overlay inside the
- *      speech bubble.
- *
- *   2. NEXT STEP (`methods-category-demo`, in MethodsCategoryDemoStep.tsx):
- *      BeakerBot reads the user's pick out of localStorage and demos
- *      typing it into the New Category modal. Cursor script clicks the
- *      "+ New Category" button, types the picked label, and the
- *      methods page dispatches `tour:methods-category-created` to
- *      advance the demo step.
+ * Tour simplification pass 3 2026-06-03 (needs-care, CASE 1): the prior
+ * `methods-category-open` (open the New Category modal) + `methods-
+ * category` (type the label + Create Empty) beats are cut. Categories in
+ * the data model are free-text `folder_path` strings on methods, so no
+ * pre-existing category RECORD is needed: the later `methods-create`
+ * beat reads this picked label and types it into the method's Folder
+ * field, and the category materializes when the method is saved. This
+ * beat's only job is to RECORD the pick.
  *
  * State-sharing mechanism: localStorage key
  * `V4_METHODS_CATEGORY_PICK_KEY`. The picker writes on advance; the
- * demo reads on entry. Cleared by the demo step after its cursor
- * script kicks off so a re-run of the tour starts fresh.
+ * `methods-create` beat reads it at playback to fill the Folder field,
+ * then clears it on exit so a re-run of the tour starts fresh.
  *
  * Why localStorage (vs a module singleton or React context):
  *
@@ -92,9 +91,9 @@ export function readMethodsCategoryPick(): string | null {
   }
 }
 
-/** Clear the pick after the demo step consumes it. Called on Beat 2's
- *  exit hook + on tour exit so a fresh run of the tour starts with no
- *  stale value. */
+/** Clear the pick after the methods-create beat consumes it. Called on
+ *  that beat's exit hook + on tour exit so a fresh run of the tour starts
+ *  with no stale value. */
 export function clearMethodsCategoryPick(): void {
   if (typeof window === "undefined") return;
   try {
@@ -150,8 +149,9 @@ function MethodsCategoryPromptInner() {
       </p>
       <p className="leading-relaxed">
         To keep the library navigable, methods get sorted into categories.
-        Let&apos;s start one based on work you actually do. What&apos;s a
-        common technique in your lab?
+        Pick one based on work you actually do and we&apos;ll file your
+        first method into it in a moment. What&apos;s a common technique in
+        your lab?
       </p>
       <div className="flex flex-col gap-1.5">
         {METHODS_CATEGORY_PICKER_OPTIONS.map((label) => (

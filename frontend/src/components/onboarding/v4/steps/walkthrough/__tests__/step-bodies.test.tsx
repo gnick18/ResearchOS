@@ -44,7 +44,9 @@ import { notificationsBellStep } from "../NotificationsBellStep";
 // 2026-06-03 (HR / tour-simplification): NotificationsSilenceStep +
 // NotificationsDeleteStep were deleted; their awareness folded into the
 // bell speech.
-import { methodsCategoryStep } from "../MethodsCategoryStep";
+// Tour simplification pass 3 2026-06-03 (needs-care, CASE 1): the
+// methods-category demo (MethodsCategoryStep) + methods-category-open
+// beats were cut; categories are free-text folders, no record needed.
 import { methodsCategoryPromptStep } from "../MethodsCategoryPromptStep";
 import { methodsOpenPickerStep } from "../MethodsOpenPickerStep";
 // 2026-06-03 (HR / tour-simplification): the methods-builder demos
@@ -54,13 +56,13 @@ import { methodsOpenPickerStep } from "../MethodsOpenPickerStep";
 import { methodsCreateStep, FUNNY_METHOD_NAME } from "../MethodsCreateStep";
 import {
   workbenchCreateExperimentOpenStep,
-  workbenchCreateExperimentNameStep,
-  workbenchCreateExperimentProjectStep,
   workbenchCreateExperimentSubmitStep,
 } from "../WorkbenchCreateExperimentOpenStep";
-// USER_ACTION refactor 2026-05-27 (Grant hand-walk): the single
-// BeakerBot-demo open step is now a four-beat user-driven sequence
-// (open, name, project, submit). All four export from
+// USER_ACTION flow 2026-05-27 (Grant hand-walk): the single
+// BeakerBot-demo open step became a guided user-driven sequence.
+// Tour simplification pass 3 2026-06-03 (needs-care): the per-field name
+// + project spotlight beats were cut, folding their guidance into the
+// submit beat, so two beats export (open, submit) from
 // WorkbenchCreateExperimentOpenStep.tsx.
 // §6.6 method-attachment split (2026-05-21, HR-dispatched): the
 // original single `methodAttachmentStep` was split into 4 sub-steps to
@@ -191,7 +193,9 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   notificationsIntroStep,
   notificationsBellStep,
   methodsCategoryPromptStep,
-  methodsCategoryStep,
+  // Tour simplification pass 3 2026-06-03 (needs-care, CASE 1):
+  // methodsCategoryStep (+ methods-category-open) cut; categories are
+  // free-text folders, no record needed.
   // 2026-06-03 (HR / tour-simplification): methods-builder demos 3 to 1.
   // methods-open-picker is the single awareness beat; the PCR + LC tile
   // demos (methodsBreadthStep, methodsLcDemoStep) were cut.
@@ -277,8 +281,10 @@ describe("P5 step bodies — universal contract", () => {
       // 2026-06-03 (HR / tour-simplification): notifications-silence +
       // notifications-delete cut; awareness folded into the bell beat.
       "notifications-bell",
+      // Tour simplification pass 3 2026-06-03 (needs-care, CASE 1):
+      // methods-category-open + methods-category cut; the picker beat
+      // records the folder label and methods-create files into it.
       "methods-category-prompt",
-      "methods-category",
       // 2026-06-03 (HR / tour-simplification): methods-builder demos 3 to 1
       // (methods-type-tour + methods-lc-demo cut).
       "methods-open-picker",
@@ -414,7 +420,11 @@ describe("P5 step bodies — universal contract", () => {
       // §6.3 notifications sub-steps are all USER-ACTION per Grant's
       // 2026-05-21 split (the user clicks bell, silence, and delete
       // themselves); they're absent from this list deliberately.
-      methodsCategoryStep,
+      // Tour simplification pass 3 2026-06-03 (needs-care, CASE 1): the
+      // methods-category demo (cursor type + Create Empty) was cut, so it
+      // is gone from this list. Categories are free-text folders, no
+      // record needed; the picker beat records the folder label and
+      // methods-create files into it.
       // 2026-06-03 (HR / tour-simplification): methods-open-picker keeps its
       // single opening cursor (opens the catalog, then the user explores).
       // The PCR + LC tile demos (methodsBreadthStep, methodsLcDemoStep) were
@@ -424,12 +434,13 @@ describe("P5 step bodies — universal contract", () => {
       // v4 tour structural manager (Wave 1, 2026-05-27):
       // workbench-create-experiment retired (Grant's [DROP] marker).
       // experiment-tabs-overview retired.
-      // USER_ACTION refactor 2026-05-27 (Grant hand-walk): the
-      // workbench-create-experiment cluster (open, name, project,
-      // submit) is now four USER_ACTION beats with NO cursorScript.
-      // They're covered by their own describe block + the
-      // "no beat declares a pageLock" / "no cursor" assertions there,
-      // and are intentionally EXCLUDED from this demo-with-cursor list.
+      // USER_ACTION flow 2026-05-27 (Grant hand-walk): the
+      // workbench-create-experiment cluster is USER_ACTION beats with NO
+      // cursorScript. Tour simplification pass 3 2026-06-03 (needs-care)
+      // cut the name + project field beats; the open + submit beats are
+      // covered by their own describe block + the "no beat declares a
+      // pageLock" / "no cursor" assertions there, and are intentionally
+      // EXCLUDED from this demo-with-cursor list.
       methodAttachmentOpenStep,
       // 2026-06-03 (HR / tour-simplification): methodAttachmentTabStep
       // (experiment-attach-method-tab) was cut, so it's gone from this list.
@@ -717,14 +728,11 @@ describe("MethodsCategoryPromptStep (§6.7c FINAL pedagogical opener)", () => {
 });
 
 describe("Methods steps (§6.4)", () => {
-  it("category demo step uses manual completion (universal pacing rule, Grant 2026-05-22)", () => {
-    // The category-created event still fires (the onEnter listener
-    // captures the picked label for the cleanup artifact), but the step
-    // advances on the user's manual click rather than the event. This
-    // matches the universal pacing rule: BeakerBot-led demo steps wait
-    // for the user.
-    expect(methodsCategoryStep.completion.type).toBe("manual");
-  });
+  // Tour simplification pass 3 2026-06-03 (needs-care, CASE 1): the
+  // methods-category demo completion test was removed with the demo beat.
+  // Categories are free-text folders (no record needed), so the open +
+  // demo beats were cut; the picker beat records the folder label and the
+  // methods-create beat files into it.
   // 2026-06-03 (HR / tour-simplification): the methods-builder demos
   // collapsed 3 to 1. The PCR builder demo (methods-type-tour /
   // methodsBreadthStep) and the LC Gradient demo (methods-lc-demo /
@@ -741,10 +749,13 @@ describe("Methods steps (§6.4)", () => {
   });
   it("methods-create onExit clears the methods-category picker hand-off (experiment-flow fix manager 2026-05-27)", async () => {
     // Bug B in the hand-walk brief: the funny markdown method was
-    // landing in the "Methods" fallback folder because
-    // `MethodsCategoryStep.onExit` cleared the picker localStorage
+    // landing in the "Methods" fallback folder because the (now-cut)
+    // methods-category demo step's onExit cleared the picker localStorage
     // before this step's cursor could read it. The clear moved here so
-    // the read-then-clear ordering matches the step traversal.
+    // the read-then-clear ordering matches the step traversal. This is
+    // the load-bearing hand-off after the CASE 1 cut of the demo beats:
+    // the picker WRITES the folder label, methods-create READS it here,
+    // then clears.
     const { V4_METHODS_CATEGORY_PICK_KEY, readMethodsCategoryPick } =
       await import("../MethodsCategoryPromptStep");
     window.localStorage.setItem(V4_METHODS_CATEGORY_PICK_KEY, "Molecular Biology");
@@ -802,12 +813,16 @@ describe("MethodsOpenPickerStep (§6.7c single awareness beat)", () => {
   });
 });
 
-describe("WorkbenchCreateExperiment 4-beat sequence (§6.5, USER_ACTION refactor 2026-05-27)", () => {
+describe("WorkbenchCreateExperiment 2-beat sequence (§6.5, USER_ACTION 2026-05-27)", () => {
   // Grant hand-walk: the prior single BeakerBot-demo step (cursor
   // opened + filled + submitted the modal) kept regressing on
   // DOM-mount timing / react-query cache / option-render races. Flipped
-  // to four guided USER_ACTION beats: the user does the work, BeakerBot
-  // spotlights each affordance. NONE of the four carry a cursorScript.
+  // to guided USER_ACTION beats: the user does the work, BeakerBot
+  // spotlights each affordance, NONE carry a cursorScript.
+  //
+  // Tour simplification pass 3 2026-06-03 (needs-care): the per-field
+  // name + project spotlight beats were cut, their guidance folded into
+  // the submit beat. Two beats remain (open, submit).
 
   it("beat 1 (open) has id, targets New Experiment, advances on modal-opened event, no cursor", () => {
     expect(workbenchCreateExperimentOpenStep.id).toBe(
@@ -828,29 +843,14 @@ describe("WorkbenchCreateExperiment 4-beat sequence (§6.5, USER_ACTION refactor
     expect(workbenchCreateExperimentOpenStep.exactRoute).toBe(true);
   });
 
-  it("beat 2 (name) spotlights the Name input, manual advance, no cursor", () => {
-    expect(workbenchCreateExperimentNameStep.id).toBe(
-      "workbench-create-experiment-name",
-    );
-    expect(workbenchCreateExperimentNameStep.targetSelector).toBe(
-      "[data-tour-target=\"workbench-experiment-name-input\"]",
-    );
-    expect(workbenchCreateExperimentNameStep.completion.type).toBe("manual");
-    expect(workbenchCreateExperimentNameStep.cursorScript).toBeUndefined();
+  it("submit beat speech folds in the name + project guidance (cut field beats)", () => {
+    const speech = renderSpeech(workbenchCreateExperimentSubmitStep);
+    expect(speech).toMatch(/name/i);
+    expect(speech).toMatch(/project/i);
+    expect(speech).toMatch(/standalone/i);
   });
 
-  it("beat 3 (project) spotlights the Project dropdown, manual advance, no cursor", () => {
-    expect(workbenchCreateExperimentProjectStep.id).toBe(
-      "workbench-create-experiment-project",
-    );
-    expect(workbenchCreateExperimentProjectStep.targetSelector).toBe(
-      "[data-tour-target=\"workbench-experiment-project-select\"]",
-    );
-    expect(workbenchCreateExperimentProjectStep.completion.type).toBe("manual");
-    expect(workbenchCreateExperimentProjectStep.cursorScript).toBeUndefined();
-  });
-
-  it("beat 4 (submit) spotlights Create Experiment, gated on tour:experiment-created, no cursor", () => {
+  it("beat 2 (submit) spotlights Create Experiment, gated on tour:experiment-created, no cursor", () => {
     expect(workbenchCreateExperimentSubmitStep.id).toBe(
       "workbench-create-experiment-submit",
     );
@@ -870,11 +870,9 @@ describe("WorkbenchCreateExperiment 4-beat sequence (§6.5, USER_ACTION refactor
     expect(workbenchCreateExperimentSubmitStep.cursorScript).toBeUndefined();
   });
 
-  it("all four beats use pose pointing (USER_ACTION click-affordance pose)", () => {
+  it("both beats use pose pointing (USER_ACTION click-affordance pose)", () => {
     for (const step of [
       workbenchCreateExperimentOpenStep,
-      workbenchCreateExperimentNameStep,
-      workbenchCreateExperimentProjectStep,
       workbenchCreateExperimentSubmitStep,
     ]) {
       expect(step.pose).toBe("pointing");
@@ -884,8 +882,6 @@ describe("WorkbenchCreateExperiment 4-beat sequence (§6.5, USER_ACTION refactor
   it("no beat declares a pageLock (USER_ACTION, the user drives the form)", () => {
     for (const step of [
       workbenchCreateExperimentOpenStep,
-      workbenchCreateExperimentNameStep,
-      workbenchCreateExperimentProjectStep,
       workbenchCreateExperimentSubmitStep,
     ]) {
       expect(step.pageLock).toBeUndefined();

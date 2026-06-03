@@ -142,9 +142,17 @@ import { notificationsBellStep } from "./steps/walkthrough/NotificationsBellStep
 // can be marked read or dismissed) folded into the bell beat's speech.
 // The NotificationsSilenceStep.tsx / NotificationsDeleteStep.tsx source
 // files were deleted with the beats.
+// Tour simplification pass 3 2026-06-03 (needs-care, CASE 1): the
+// methods-category cluster collapsed 3 to 1. The picker beat
+// (methodsCategoryPromptStep) records the user's category pick; the
+// `methods-category-open` (open the New Category modal) +
+// `methods-category` (type the label + Create Empty) beats were cut
+// because the later methods-create beat types the picked label into the
+// method's free-text Folder field and the category materializes on save,
+// so no pre-existing category RECORD is needed. The
+// MethodsCategoryOpenStep.tsx / MethodsCategoryStep.tsx source files were
+// deleted with the beats.
 import { methodsCategoryPromptStep } from "./steps/walkthrough/MethodsCategoryPromptStep";
-import { methodsCategoryOpenStep } from "./steps/walkthrough/MethodsCategoryOpenStep";
-import { methodsCategoryStep } from "./steps/walkthrough/MethodsCategoryStep";
 import { methodsOpenPickerStep } from "./steps/walkthrough/MethodsOpenPickerStep";
 // 2026-06-03 (HR / tour-simplification): collapsed the methods-builder
 // demos 3 to 1. `methods-open-picker` is now the single awareness beat for
@@ -158,14 +166,15 @@ import { methodsCreateStep } from "./steps/walkthrough/MethodsCreateStep";
 // retired (page framing folded into workbench-create-experiment-open) +
 // `workbench-create-experiment` retired (Grant's explicit `[DROP]` marker
 // in the new script). Only the user-action open step survives.
-// USER_ACTION refactor 2026-05-27 (Grant hand-walk): the single
-// `workbench-create-experiment-open` step is now the FIRST of four
-// user-driven beats (open, name, project, submit). All four exports
-// live in WorkbenchCreateExperimentOpenStep.tsx.
+// USER_ACTION flow 2026-05-27 (Grant hand-walk): the single
+// `workbench-create-experiment-open` step opens the form. Tour
+// simplification pass 3 2026-06-03 (needs-care) cut the per-field name +
+// project spotlight beats and folded their guidance into the submit beat
+// (the user dwells there while filling the form), leaving two user-driven
+// beats (open, submit). Both exports live in
+// WorkbenchCreateExperimentOpenStep.tsx.
 import {
   workbenchCreateExperimentOpenStep,
-  workbenchCreateExperimentNameStep,
-  workbenchCreateExperimentProjectStep,
   workbenchCreateExperimentSubmitStep,
 } from "./steps/walkthrough/WorkbenchCreateExperimentOpenStep";
 // §6.6 method-attachment split (2026-05-21): the original
@@ -339,9 +348,10 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   // 2026-06-03 (HR / tour-simplification): notifications-silence +
   // notifications-delete cut; awareness folded into the bell speech.
   [notificationsBellStep.id]: notificationsBellStep,
+  // Tour simplification pass 3 2026-06-03 (needs-care, CASE 1): the
+  // methods-category-open + methods-category beats were cut; the picker
+  // beat alone records the pick that methods-create folders into.
   [methodsCategoryPromptStep.id]: methodsCategoryPromptStep,
-  [methodsCategoryOpenStep.id]: methodsCategoryOpenStep,
-  [methodsCategoryStep.id]: methodsCategoryStep,
   // 2026-06-03 (HR / tour-simplification): methods-builder demos 3 to 1.
   // methods-open-picker is the single awareness beat; methodsBreadthStep
   // (methods-type-tour) + methodsLcDemoStep (methods-lc-demo) were cut.
@@ -350,9 +360,9 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   // v4 tour structural manager (Wave 1, 2026-05-27): `workbench-page-intro`
   // and `workbench-create-experiment` retired. Only the user-action
   // open-click survives in TOUR_STEP_ORDER.
+  // Tour simplification pass 3 2026-06-03 (needs-care): name + project
+  // field-spotlight beats cut, their guidance folded into the submit beat.
   [workbenchCreateExperimentOpenStep.id]: workbenchCreateExperimentOpenStep,
-  [workbenchCreateExperimentNameStep.id]: workbenchCreateExperimentNameStep,
-  [workbenchCreateExperimentProjectStep.id]: workbenchCreateExperimentProjectStep,
   [workbenchCreateExperimentSubmitStep.id]: workbenchCreateExperimentSubmitStep,
   // 2026-06-03 (HR / tour-simplification): method-attach framing 4 to 3.
   // experiment-attach-method-open is the single framing beat;

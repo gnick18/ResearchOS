@@ -169,18 +169,20 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // body owns the auto-fill artifact creation but is no longer a tour
   // step.
   "workbench-create-experiment-open",  // §6.5a (user clicks + New Experiment)
-  // USER_ACTION refactor 2026-05-27 (Grant hand-walk): the prior single
+  // USER_ACTION flow 2026-05-27 (Grant hand-walk): the prior single
   // BeakerBot demo step that filled + submitted the form kept regressing
   // (cursor scripting depended on DOM mount timing, react-query cache
-  // freshness, option rendering races). Replaced with three guided
-  // USER_ACTION beats so the user does the work themselves. Each beat
-  // spotlights one affordance: name input, project dropdown, submit
-  // button. Manual advance between them. The submit beat's advance is
+  // freshness, option rendering races). Replaced with guided USER_ACTION
+  // beats so the user does the work themselves.
+  //
+  // Tour simplification pass 3 2026-06-03 (needs-care): the separate
+  // name + project field-spotlight beats are cut. The user dwells on the
+  // submit beat while filling the form, so the name + project guidance is
+  // folded into the submit beat's speech. The submit beat's advance is
   // gated on tour:experiment-created so the user cannot race past the
-  // button click. See WorkbenchCreateExperimentOpenStep.tsx for the
-  // step bodies.
-  "workbench-create-experiment-name",    // §6.5b (user types a name)
-  "workbench-create-experiment-project", // §6.5c (user picks a project, or skips)
+  // button click, and that beat owns the experiment artifact capture
+  // (load-bearing for the gantt + method-attach beats). See
+  // WorkbenchCreateExperimentOpenStep.tsx for the step bodies.
   "workbench-create-experiment-submit",  // §6.5d (user clicks Create Experiment)
   // §6.6 Experiment detail intro + Methods tab framing.
   //
@@ -283,21 +285,22 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // method (§6.7d below). The §6.7c rename in the FINAL script
   // reflects this new ordering inside the §6.7 family.
   //
-  // sec 6.4 redesign (Grant 2026-05-21): split the original
-  // category step into a prompt (BeakerBot asks the user what kind of
-  // technique they do) + a demo (cursor types the user's pick and
-  // saves). The picker lives in MethodsCategoryPromptStep.tsx; the
-  // demo retains the `methods-category` id.
-  // Then the open-picker beat (Grant 2026-05-21) bridges to the type-
-  // breadth wall of speech by having BeakerBot click "+ New Method" so
-  // the modal mounts before the next step fires.
-  "methods-category-prompt", // §6.7c-prompt (interactive picker)
-  // Grant 2026-05-21 rethink: separate the user-action open-click from
-  // BeakerBot's type+submit demo. The user clicks "+ New Category"
-  // themselves; the cursor then takes over to type the picked label and
-  // click Create Empty.
-  "methods-category-open",   // §6.7c-open (user opens the modal)
-  "methods-category",        // §6.7c-demo (cursor types + clicks Create Empty)
+  // sec 6.4 redesign (Grant 2026-05-21): the interactive picker beat
+  // (BeakerBot asks what kind of technique the user does) lives in
+  // MethodsCategoryPromptStep.tsx and records the user's pick to
+  // localStorage (V4_METHODS_CATEGORY_PICK_KEY).
+  //
+  // Tour simplification pass 3 2026-06-03 (needs-care, CASE 1): the
+  // `methods-category-open` (user opens the New Category modal) and
+  // `methods-category` (cursor types the label + clicks Create Empty)
+  // beats are cut. Categories in the data model are just free-text
+  // `folder_path` strings on methods (see app/methods/page.tsx's
+  // groupOwnMethodsByFolder + CreateMethodModal's free-text Folder
+  // input), so no pre-existing category RECORD is required: the later
+  // `methods-create` beat types the picked label into the method's
+  // Folder field and the category materializes on save. The picker beat
+  // still writes the pick, so the hand-off to methods-create survives.
+  "methods-category-prompt", // §6.7c-prompt (interactive picker, records the pick)
   // 2026-06-03 (HR / tour-simplification): collapsed the methods-builder
   // demos 3 to 1. `methods-open-picker` is now the single awareness beat
   // for the purpose-built PCR / LC editors. Its cursor opens the +New

@@ -434,12 +434,13 @@ describe("TourController — noteInteraction / noteEventFired / noteManualAdvanc
     const { result } = renderHook(() => useTourController(), {
       wrapper: wrapper(),
     });
-    // §6.4 methods-category ships a `manual` completion ("Got it, next")
-    // per P5; using it here keeps the test honest about which steps
-    // accept manual advance. This test calls noteManualAdvance directly
-    // (bypassing the button's cursor-demo gate added in Fix 4), so
-    // methods-category's cursor script doesn't block the assertion.
-    act(() => result.current.start("methods-category"));
+    // §6.4 methods-create ships a `manual` completion ("Got it, next");
+    // using it here keeps the test honest about which steps accept manual
+    // advance. This test calls noteManualAdvance directly (bypassing the
+    // button's cursor-demo gate added in Fix 4), so the cursor script
+    // doesn't block the assertion. (Tour simplification pass 3 2026-06-03,
+    // needs-care: was methods-category before that demo beat was cut.)
+    act(() => result.current.start("methods-create"));
     const start = result.current.currentStep;
     act(() => result.current.noteManualAdvance());
     // Effect-driven advance fires synchronously inside the same act.
@@ -1288,18 +1289,18 @@ describe("TourController — cursor-script invocation", () => {
     cursorRunScriptMock.mockClear();
     // Tour-merge (2026-06-03): the project-overview-exit step (a single
     // glide-to-the-bell demo) was removed, so this transition now targets
-    // another BEAKERBOT-demo step that still carries a glide cursorScript:
-    // methods-category. Its builder types the picked label into the New
-    // Category modal name input, then clicks Create Empty, so plant both
-    // anchors here for the build to resolve promptly. Keeps the test scoped
-    // to "transition between two cursor-script steps re-invokes runScript".
-    const categoryNameInput = document.createElement("input");
-    categoryNameInput.setAttribute("data-tour-target", "methods-category-name-input");
-    document.body.appendChild(categoryNameInput);
-    const createEmptyButton = document.createElement("button");
-    createEmptyButton.setAttribute("data-tour-target", "methods-category-create-empty");
-    document.body.appendChild(createEmptyButton);
-    // The methods-category step's expectedRoute is /methods. Put the
+    // another BEAKERBOT-demo step that still carries a cursorScript.
+    // Tour simplification pass 3 2026-06-03 (needs-care): was
+    // methods-category before that demo beat was cut; methods-create is
+    // the surviving methods cursor-demo. Its script's first action clicks
+    // the Standard Markdown tile, so plant that anchor (the rest of the
+    // script defers to playback via callbackActions). Keeps the test
+    // scoped to "transition between two cursor-script steps re-invokes
+    // runScript".
+    const markdownTile = document.createElement("button");
+    markdownTile.setAttribute("data-tour-target", "method-type-markdown");
+    document.body.appendChild(markdownTile);
+    // The methods-create step's expectedRoute is /methods. Put the
     // pathname on route first so waitForPathnameSettle resolves immediately
     // instead of burning its 1500ms timeout (the mocked router.push doesn't
     // move window.location), which would otherwise outlast waitFor's timeout.
@@ -1307,14 +1308,13 @@ describe("TourController — cursor-script invocation", () => {
     setMockPathname("/methods");
     try {
       act(() => {
-        result.current.start("methods-category");
+        result.current.start("methods-create");
       });
       await waitFor(() => {
         expect(cursorRunScriptMock).toHaveBeenCalledTimes(1);
       });
     } finally {
-      categoryNameInput.remove();
-      createEmptyButton.remove();
+      markdownTile.remove();
     }
   });
 });
@@ -1489,11 +1489,15 @@ describe("TourController — expectedRoute auto-navigation", () => {
   });
 
   it("does NOT call router.push when on a prefix-matching nested route", () => {
+    // Tour simplification pass 3 2026-06-03 (needs-care): was
+    // methods-category before that demo beat was cut. methods-category-prompt
+    // also declares expectedRoute "/methods" (not exactRoute), so a nested
+    // /methods/... route prefix-matches and no push fires.
     window.history.pushState({}, "", "/methods/structured/pcr-builder");
     const { result } = renderHook(() => useTourController(), {
       wrapper: wrapper(),
     });
-    act(() => result.current.start("methods-category"));
+    act(() => result.current.start("methods-category-prompt"));
     expect(pushMock).not.toHaveBeenCalled();
   });
 
@@ -1543,7 +1547,10 @@ describe("TourController — expectedRoute auto-navigation", () => {
     });
     act(() => result.current.start("home-create-project-fill"));
     expect(pushMock).not.toHaveBeenCalled();
-    act(() => result.current.start("methods-category"));
+    // Tour simplification pass 3 2026-06-03 (needs-care): was
+    // methods-category before that demo beat was cut; methods-category-prompt
+    // is the surviving /methods step.
+    act(() => result.current.start("methods-category-prompt"));
     expect(pushMock).toHaveBeenCalledWith("/methods");
   });
 

@@ -308,11 +308,14 @@ describe("TOUR_STEP_ORDER", () => {
     // cluster collapsed to its two explanation beats, so the methods
     // cluster now follows workbench-lists-intro directly (was
     // workbench-list-mark-done).
+    //
+    // Tour simplification pass 3 2026-06-03 (needs-care, CASE 1): the
+    // methods-category-open + methods-category beats were cut (categories
+    // are free-text folders, no record needed), so the picker beat is
+    // followed directly by methods-open-picker.
     const order = [
       "workbench-lists-intro",
       "methods-category-prompt",
-      "methods-category-open",
-      "methods-category",
       "methods-open-picker",
       "methods-create",
       "experiment-attach-method-attach",
@@ -333,15 +336,17 @@ describe("TOUR_STEP_ORDER", () => {
 
   it("places experiment-attach-method-open immediately before the hybrid editor cluster (FINAL reorder manager 2026-05-27)", () => {
     // FINAL restructure: the §6.6 experiment-detail framing beat stays
-    // right after the §6.5 experiment-create cluster (open, name, project,
-    // submit), so BeakerBot can frame the experiment popup + Methods tab
-    // before the §6.7 hybrid editor deep-dive. The attach + notes beats
-    // moved to §6.7d (after methods cluster).
+    // right after the §6.5 experiment-create cluster (open, submit), so
+    // BeakerBot can frame the experiment popup + Methods tab before the
+    // §6.7 hybrid editor deep-dive. The attach + notes beats moved to
+    // §6.7d (after methods cluster).
     //
-    // USER_ACTION refactor 2026-05-27: the single
-    // `workbench-create-experiment-open` beat became four
-    // (open, name, project, submit). Order assertion requires the FULL
-    // four-beat cluster comes first.
+    // USER_ACTION flow 2026-05-27: the single
+    // `workbench-create-experiment-open` beat became a guided cluster.
+    //
+    // Tour simplification pass 3 2026-06-03 (needs-care): the per-field
+    // name + project spotlight beats were cut, folding their guidance into
+    // the submit beat. The cluster is now two beats (open, submit).
     //
     // 2026-06-03 (HR / tour-simplification): the §6.6 framing merged 4 to 3;
     // `experiment-attach-method-tab` was cut, so the open framing beat now
@@ -349,8 +354,6 @@ describe("TOUR_STEP_ORDER", () => {
     // must be contiguous in TOUR_STEP_ORDER (no other ids in between).
     const order = [
       "workbench-create-experiment-open",
-      "workbench-create-experiment-name",
-      "workbench-create-experiment-project",
       "workbench-create-experiment-submit",
       "experiment-attach-method-open",
       "hybrid-notes-vs-results",
@@ -551,17 +554,23 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER[0]).toBe("welcome");
   });
 
-  it("places methods-open-picker between methods-category and methods-create (tour-simplification 2026-06-03)", () => {
-    // §6.7c open-picker beat sits between finishing the category and the
+  it("places methods-open-picker between the category picker and methods-create (tour-simplification 2026-06-03)", () => {
+    // §6.7c open-picker beat sits between the category pick and the
     // markdown method build. 2026-06-03 (HR / tour-simplification): the
     // methods-builder demos collapsed 3 to 1. methods-open-picker is now
     // the single awareness beat (its cursor opens the catalog, the user
     // explores), and methods-create follows it directly.
-    const categoryIdx = TOUR_STEP_ORDER.indexOf("methods-category");
+    //
+    // Tour simplification pass 3 2026-06-03 (needs-care, CASE 1): the
+    // methods-category-open + methods-category beats were cut, so the
+    // anchor is now the surviving methods-category-prompt picker beat.
+    const promptIdx = TOUR_STEP_ORDER.indexOf("methods-category-prompt");
     const openPickerIdx = TOUR_STEP_ORDER.indexOf("methods-open-picker");
     const createIdx = TOUR_STEP_ORDER.indexOf("methods-create");
-    expect(categoryIdx).toBeGreaterThanOrEqual(0);
-    expect(openPickerIdx).toBeGreaterThan(categoryIdx);
+    expect(promptIdx).toBeGreaterThanOrEqual(0);
+    expect(TOUR_STEP_ORDER).not.toContain("methods-category-open");
+    expect(TOUR_STEP_ORDER).not.toContain("methods-category");
+    expect(openPickerIdx).toBeGreaterThan(promptIdx);
     expect(createIdx).toBe(openPickerIdx + 1);
   });
 
@@ -1176,10 +1185,10 @@ describe("getPreviousStep — backward traversal", () => {
     // Belt-and-suspenders coverage: assert NOT inside the methods cluster
     // (which would be the symptom of the bug) AND assert that the back-
     // step lands precisely on experiment-attach-method-open.
+    // Tour simplification pass 3 2026-06-03 (needs-care, CASE 1):
+    // methods-category-open + methods-category cut.
     const methodsClusterIds = new Set([
       "methods-category-prompt",
-      "methods-category-open",
-      "methods-category",
       "methods-open-picker",
       "methods-create",
     ]);

@@ -693,12 +693,13 @@ export default function MethodsPage() {
       }
       return prev;
     });
-    // Onboarding v4 §6.4 demo step (`methods-category`) advances on
-    // this DOM event. Categories are local-state only (no API call),
-    // so this is the only completion signal the demo step can listen
-    // for. Dispatched unconditionally: when no tour is active, the
-    // listener set is empty and the cost is one ignored
-    // `dispatchEvent` call.
+    // The onboarding v4 §6.4 demo step (`methods-category`) used to
+    // advance on this DOM event. That step was retired in tour
+    // simplification pass 3 2026-06-03 (CASE 1: categories are free-text
+    // folders, no record needed), so there is no tour listener anymore.
+    // Kept as a harmless unconditional dispatch in case any future
+    // listener wants the signal; the cost is one ignored `dispatchEvent`
+    // call when nothing is listening.
     if (typeof window !== "undefined") {
       window.dispatchEvent(
         new CustomEvent("tour:methods-category-created", {
@@ -857,9 +858,11 @@ export default function MethodsPage() {
             <button
               onClick={() => {
                 setCreatingCategory(true);
-                // Onboarding v4 §6.4: the new methods-category-open
-                // sub-step waits for this DOM event to advance. Cheap
-                // no-op when no tour is active (one ignored dispatch).
+                // Onboarding v4 §6.4: the `methods-category-open`
+                // sub-step used to wait for this DOM event to advance.
+                // That step was retired in tour simplification pass 3
+                // 2026-06-03 (CASE 1), so there is no tour listener now.
+                // Cheap no-op dispatch when nothing is listening.
                 if (typeof window !== "undefined") {
                   window.dispatchEvent(
                     new CustomEvent("tour:methods-category-modal-opened"),

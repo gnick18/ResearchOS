@@ -1,18 +1,20 @@
 /**
- * Onboarding v4 sec 6.4 redesign tests — picker step + picker-to-demo
+ * Onboarding v4 sec 6.4 picker-step tests + the picker-to-method-create
  * hand-off via localStorage.
  *
  * The picker (`methods-category-prompt`) renders 4-6 category buttons
  * plus an Other text input. Clicking a button writes the picked label
  * to localStorage under `V4_METHODS_CATEGORY_PICK_KEY` and calls the
- * controller's `noteManualAdvance()` so the demo step takes over.
+ * controller's `noteManualAdvance()`.
  *
- * The demo step (`methods-category`, exported as
- * `methodsCategoryDemoStep`) reads the same localStorage key on
- * cursorScript build; the cursor types the picked label into the New
- * Category modal's name input. We assert the read + the typed action
- * payload in isolation here; the methods-page DOM event hand-off lives
- * in the step-bodies completion test.
+ * Tour simplification pass 3 2026-06-03 (needs-care, CASE 1): the
+ * `methods-category-open` + `methods-category` (demo) beats were cut
+ * because categories are free-text folders (no record needed). The
+ * `methods-create` beat reads the picked label and types it into the
+ * method's Folder field. The hand-off this file must protect is the
+ * picker WRITE to localStorage; the methods-create READ is covered in
+ * MethodsPhaseFix.test.tsx. The demo-step assertions that used to live
+ * here were removed with the step.
  */
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
@@ -39,11 +41,6 @@ import MethodsCategoryPromptInner, {
   readMethodsCategoryPick,
   clearMethodsCategoryPick,
 } from "../MethodsCategoryPromptStep";
-import {
-  methodsCategoryDemoStep,
-  METHODS_CATEGORY_FALLBACK,
-  resolvePickedCategoryLabel,
-} from "../MethodsCategoryStep";
 
 beforeEach(() => {
   noteManualAdvance.mockReset();
@@ -154,123 +151,25 @@ describe("MethodsCategoryPromptStep (v4 sec 6.4 redesign)", () => {
   });
 });
 
-describe("MethodsCategoryDemoStep (v4 sec 6.4 redesign)", () => {
-  it("falls back to 'My First Methods' when no pick was written", () => {
-    clearMethodsCategoryPick();
-    expect(resolvePickedCategoryLabel()).toBe(METHODS_CATEGORY_FALLBACK);
-  });
-
-  it("reads the picked label written by the picker step", () => {
-    window.localStorage.setItem(V4_METHODS_CATEGORY_PICK_KEY, "Bioinformatics");
-    expect(resolvePickedCategoryLabel()).toBe("Bioinformatics");
-  });
-
-  it("trims whitespace around the persisted label", () => {
-    window.localStorage.setItem(
-      V4_METHODS_CATEGORY_PICK_KEY,
-      "  Microbiology  ",
+describe("Picker-to-method-create hand-off (CASE 1 cut of the demo beats)", () => {
+  it("the picker WRITE survives so methods-create can read the folder label", async () => {
+    // Tour simplification pass 3 2026-06-03 (needs-care, CASE 1): the
+    // demo beats that created an empty category record were cut. The
+    // load-bearing contract is now JUST the localStorage write the picker
+    // performs, which the methods-create beat reads to fill the Folder
+    // field. Assert the write round-trips through the picker's own
+    // read helper.
+    render(<MethodsCategoryPromptInner />);
+    await userEvent.setup().click(
+      screen.getByRole("button", { name: "Bioinformatics" }),
     );
-    expect(resolvePickedCategoryLabel()).toBe("Microbiology");
+    expect(readMethodsCategoryPick()).toBe("Bioinformatics");
   });
 
-  it("speech reads the picked label", () => {
-    window.localStorage.setItem(V4_METHODS_CATEGORY_PICK_KEY, "Chemistry");
-    const speech = methodsCategoryDemoStep.speech;
-    if (typeof speech !== "function") {
-      throw new Error("expected demo speech to be a function");
-    }
-    const node = speech();
-    // speech() returns a string; render directly into a fragment to
-    // pull textContent out without re-implementing the speech contract.
-    const { container, unmount } = render(<>{node}</>);
-    expect(container.textContent).toMatch(/Chemistry/);
-    unmount();
-  });
-
-  it("cursor script types the picked label, pauses, and clicks Create Empty (no open-click)", async () => {
-    window.localStorage.setItem(V4_METHODS_CATEGORY_PICK_KEY, "Cell Biology");
-    // Grant 2026-05-21 rethink: the new methods-category-open user-action
-    // step opens the modal; the demo step is ONLY responsible for type +
-    // submit. No open-click in the script.
-    //
-    // Methods fix manager 2026-05-22 update: an 800ms read-then-watch
-    // pause now sits between the type and submit actions so the cursor
-    // doesn't blow through faster than the user can read the typed
-    // label.
-    const nameInput = document.createElement("input");
-    nameInput.setAttribute("data-tour-target", "methods-category-name-input");
-    const submitBtn = document.createElement("button");
-    submitBtn.setAttribute("data-tour-target", "methods-category-create-empty");
-    document.body.appendChild(nameInput);
-    document.body.appendChild(submitBtn);
-    try {
-      const actions = await methodsCategoryDemoStep.cursorScript!();
-      expect(actions).toHaveLength(3);
-      expect(actions[0]).toMatchObject({
-        type: "type",
-        target: nameInput,
-        text: "Cell Biology",
-      });
-      expect(actions[1]).toMatchObject({ type: "callback" });
-      expect(actions[2]).toMatchObject({
-        type: "click",
-        target: submitBtn,
-      });
-    } finally {
-      nameInput.remove();
-      submitBtn.remove();
-    }
-  });
-
-  it("demo step uses manual completion (universal pacing rule, Grant 2026-05-22)", () => {
-    // Was event-driven on `tour:methods-category-created`. The
-    // category-created event still fires; the demo step's onEnter
-    // listener captures the user-picked label out of the event detail
-    // for the cleanup artifact, but advance is now manual.
-    if (methodsCategoryDemoStep.completion.type !== "manual") {
-      throw new Error("completion contract changed shape; update test");
-    }
-    expect(methodsCategoryDemoStep.completion.buttonLabel).toBe("Got it, next");
-  });
-
-  it("onExit does NOT clear the picker hand-off (experiment-flow fix manager 2026-05-27)", async () => {
-    // Hand-walk fix: the clear was moved to MethodsCreateStep's onExit
-    // because §6.4d methods-create reads the picked label to type into
-    // the Folder input. Clearing here wiped the value before that read
-    // could happen, so the funny markdown method landed in the
-    // fallback folder instead of the user's category. The clear still
-    // runs end-of-flow, just one step later (covered by MethodsCreateStep
-    // tests).
-    window.localStorage.setItem(V4_METHODS_CATEGORY_PICK_KEY, "Chemistry");
-    await methodsCategoryDemoStep.onExit?.();
-    expect(readMethodsCategoryPick()).toBe("Chemistry");
-  });
-
-  it("demo step keeps the original `methods-category` id for backward compat", () => {
-    expect(methodsCategoryDemoStep.id).toBe("methods-category");
-  });
-
-  it("spotlight targets the modal name input, not the +New Category button (R2 chip E Fix 2)", () => {
-    // Regression: the previous beat (`methods-category-open`) already
-    // opened the modal, so by the time this demo step runs the cursor
-    // action happens inside the modal. The spotlight ring should be on
-    // the input where the action is, not the page-header button that
-    // is no longer the locus of activity.
-    expect(methodsCategoryDemoStep.targetSelector).toBe(
-      '[data-tour-target="methods-category-name-input"]',
-    );
-    expect(methodsCategoryDemoStep.targetSelector).not.toBe(
-      '[data-tour-target="methods-add-category"]',
-    );
-  });
-});
-
-describe("Step-machine ordering: prompt before demo", () => {
-  it("methods-category-prompt is positioned before methods-category in TOUR_STEP_ORDER", async () => {
+  it("methods-category is no longer in TOUR_STEP_ORDER, prompt still is", async () => {
     const { TOUR_STEP_ORDER } = await import("../../../step-machine");
-    const promptIdx = TOUR_STEP_ORDER.indexOf("methods-category-prompt");
-    const demoIdx = TOUR_STEP_ORDER.indexOf("methods-category");
-    expect(promptIdx).toBeGreaterThanOrEqual(0);
-    expect(demoIdx).toBeGreaterThan(promptIdx);
+    expect(TOUR_STEP_ORDER).toContain("methods-category-prompt");
+    expect(TOUR_STEP_ORDER).not.toContain("methods-category");
+    expect(TOUR_STEP_ORDER).not.toContain("methods-category-open");
   });
 });
