@@ -47,6 +47,7 @@ import ViewControlRail from "./ViewControlRail";
 import FeatureEditorDialog, {
   type FeatureEditorRequest,
 } from "./FeatureEditorDialog";
+import EnzymePickerDialog from "./EnzymePickerDialog";
 import {
   DEFAULT_VIEW_STATE,
   isFeatureVisible,
@@ -130,6 +131,18 @@ function IconFeaturesList({ className }: { className?: string }) {
     </svg>
   );
 }
+// Enzyme picker opener — scissors (restriction cut site).
+function IconEnzymePicker({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <circle cx="6" cy="6" r="3" />
+      <circle cx="6" cy="18" r="3" />
+      <path d="M20 4L8.12 15.88" />
+      <path d="M14.47 14.48L20 20" />
+      <path d="M8.12 8.12L12 12" />
+    </svg>
+  );
+}
 
 function ToolbarButton({
   label,
@@ -188,6 +201,12 @@ export default function SequenceEditView({
   const [featuresPanelOpen, setFeaturesPanelOpen] = useState(false);
   const [featureEditor, setFeatureEditor] = useState<FeatureEditorRequest | null>(null);
   const [selectedFeatureIdx, setSelectedFeatureIdx] = useState<number | null>(null);
+  // Phase 2d — the restriction-enzyme picker. `activeEnzymes` is the in-session
+  // chosen set (lowercase keys); null means "use the small common default".
+  // NOT persisted to disk (out of scope for this chip). `enzymePickerOpen`
+  // drives the SnapGene-style chooser dialog.
+  const [enzymePickerOpen, setEnzymePickerOpen] = useState(false);
+  const [activeEnzymes, setActiveEnzymes] = useState<string[] | null>(null);
   // When a feature row is clicked we drive the viewer selection to zoom it.
   const [externalSel, setExternalSel] = useState<{ start: number; end: number } | null>(null);
 
@@ -259,12 +278,21 @@ export default function SequenceEditView({
     return out;
   }, [doc.features, doc.seq, view.showTranslation, view.showOrfs]);
 
-  // Restriction-enzyme cut sites: the simple show/hide lever (the full picker is
-  // Phase 2d). We pass a small common set; SeqViz runs the digest itself.
+  // Restriction-enzyme cut sites. `showEnzymes` (the rail toggle) is the master
+  // visibility lever; the Phase 2d picker chooses WHICH enzymes are active.
+  // When the user hasn't opened the picker, fall back to the small common set.
+  // SeqViz runs the digest itself from the keys we feed it.
   const enzymes = useMemo(
-    () => (view.showEnzymes ? COMMON_ENZYMES : []),
-    [view.showEnzymes],
+    () => (view.showEnzymes ? (activeEnzymes ?? COMMON_ENZYMES) : []),
+    [view.showEnzymes, activeEnzymes],
   );
+
+  // Opening the enzyme picker also turns the cut-site layer on, so the chosen
+  // enzymes are immediately visible on the map.
+  const openEnzymePicker = useCallback(() => {
+    setView((v) => (v.showEnzymes ? v : { ...v, showEnzymes: true }));
+    setEnzymePickerOpen(true);
+  }, []);
 
   // The topology toggle in the rail can force a circular plasmid to render as
   // linear; a genuinely linear molecule always renders linear.
@@ -629,6 +657,17 @@ export default function SequenceEditView({
             <span className="hidden sm:inline">Features</span>
           </button>
         </Tooltip>
+        <Tooltip label="Choose restriction enzymes">
+          <button
+            type="button"
+            onClick={openEnzymePicker}
+            aria-haspopup="dialog"
+            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100"
+          >
+            <IconEnzymePicker className="h-4 w-4" />
+            <span className="hidden sm:inline">Enzymes</span>
+          </button>
+        </Tooltip>
         <div className="mx-1 h-5 w-px bg-gray-200" />
         <ToolbarButton label="Save (Cmd+S)" onClick={handleSave} disabled={!dirty || saving} primary>
           <IconSave className="h-4 w-4" />
@@ -700,6 +739,18 @@ export default function SequenceEditView({
 
       {/* Add / edit feature dialog. */}
       <FeatureEditorDialog request={featureEditor} />
+
+      {/* Phase 2d — restriction-enzyme chooser. Applies the active set live. */}
+      <EnzymePickerDialog
+        open={enzymePickerOpen}
+        seq={doc.seq}
+        seqType={doc.seqType === "protein" ? "aa" : doc.seqType}
+        circular={doc.circular}
+        active={activeEnzymes ?? COMMON_ENZYMES}
+        selection={sel.hasRange ? { start: sel.lo, end: sel.hi } : null}
+        onApply={setActiveEnzymes}
+        onClose={() => setEnzymePickerOpen(false)}
+      />
     </div>
   );
 }
