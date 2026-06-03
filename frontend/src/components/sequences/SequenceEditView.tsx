@@ -764,7 +764,19 @@ export default function SequenceEditView({
     const onWheel = (e: WheelEvent) => {
       // Only a pinch (ctrl/⌘+wheel) zooms; everything else falls through to the
       // SeqViz scroller as a normal scroll.
-      if (!e.ctrlKey) return;
+      if (!e.ctrlKey) {
+        // A PLAIN wheel over the circular plasmid rotates it (SeqViz's
+        // rotateOnScroll). Consume the scroll there so the PAGE does not also
+        // scroll while the user is spinning the plasmid. We only block over the
+        // circular SVG itself, so the linear-detail half (and the linear view)
+        // keep their normal scroll. SeqViz's own onWheel still fires to rotate;
+        // preventDefault only stops the page-scroll default, not other handlers.
+        const target = e.target as Element | null;
+        if (target?.closest?.('[data-testid="la-vz-viewer-circular"]')) {
+          e.preventDefault();
+        }
+        return;
+      }
       e.preventDefault();
       e.stopPropagation();
       if (isLinearViewer) {
