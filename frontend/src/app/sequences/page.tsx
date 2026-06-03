@@ -6,15 +6,17 @@
 // editing, enzymes, primers, or cloning (Phases 2-3). New top-level route is
 // excluded from the wiki-coverage gate pending a Phase 4 wiki page.
 
-import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import AppShell from "@/components/AppShell";
 import SequenceReadView from "@/components/sequences/SequenceReadView";
+import SequenceEditView from "@/components/sequences/SequenceEditView";
 import { sequencesApi, projectsApi } from "@/lib/local-api";
 import type { SequenceRecord, SeqType } from "@/lib/types";
 
 type SortKey = "name" | "type" | "length" | "added";
 type SortDir = "asc" | "desc";
+type Mode = "read" | "edit";
 
 // "all" | "unfiled" | a project id (as string)
 type Collection = "all" | "unfiled" | string;
@@ -92,6 +94,9 @@ export default function SequencesPage() {
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [mode, setMode] = useState<Mode>("read");
+  const [saving, setSaving] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data: sequences = [], isLoading } = useQuery({
     queryKey: ["sequences"],
@@ -178,6 +183,32 @@ export default function SequencesPage() {
     queryFn: () => (selectedId == null ? null : sequencesApi.get(selectedId)),
     enabled: selectedId != null,
   });
+
+  // Switching the selected sequence drops back to read mode (you re-enter the
+  // workshop deliberately per sequence).
+  useEffect(() => {
+    setMode("read");
+  }, [selectedId]);
+
+  // Persist the edited GenBank back to disk (atomic .gb rewrite via the store),
+  // then refresh the summary + detail queries so the library and header update.
+  const handleSave = useCallback(
+    async (genbank: string): Promise<boolean> => {
+      if (selectedId == null) return false;
+      setSaving(true);
+      try {
+        await sequencesApi.update(selectedId, { genbank });
+        await queryClient.invalidateQueries({ queryKey: ["sequence", selectedId] });
+        await queryClient.invalidateQueries({ queryKey: ["sequences"] });
+        return true;
+      } catch {
+        return false;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [selectedId, queryClient],
+  );
 
   return (
     <AppShell>
@@ -293,12 +324,41 @@ export default function SequencesPage() {
                     {selected.feature_count === 1 ? "feature" : "features"}
                   </p>
                 </div>
-                <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-gray-500">
-                  Read only
-                </span>
+                {/* Read | Edit toggle (same renderer underneath, single-renderer principle) */}
+                <div className="flex shrink-0 items-center rounded-md border border-gray-200 p-0.5 text-xs font-medium">
+                  <button
+                    type="button"
+                    onClick={() => setMode("read")}
+                    className={`rounded px-2.5 py-1 ${
+                      mode === "read" ? "bg-sky-600 text-white" : "text-gray-600 hover:bg-gray-100"
+                    }`}
+                  >
+                    Read
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMode("edit")}
+                    className={`rounded px-2.5 py-1 ${
+                      mode === "edit" ? "bg-sky-600 text-white" : "text-gray-600 hover:bg-gray-100"
+                    }`}
+                  >
+                    Edit
+                  </button>
+                </div>
               </div>
-              <div className="min-h-0 flex-1 overflow-hidden p-2">
-                <SequenceReadView key={selected.id} sequence={selected} />
+              <div className="min-h-0 flex-1 overflow-hidden">
+                {mode === "edit" ? (
+                  <SequenceEditView
+                    key={`edit-${selected.id}`}
+                    sequence={selected}
+                    onSave={handleSave}
+                    saving={saving}
+                  />
+                ) : (
+                  <div className="h-full w-full p-2">
+                    <SequenceReadView key={selected.id} sequence={selected} />
+                  </div>
+                )}
               </div>
             </>
           ) : (

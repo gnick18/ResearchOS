@@ -18,6 +18,7 @@ import {
   SeqType,
   TranslationProp,
 } from "./elements";
+import debounce from "./debounce";
 import { isEqual } from "./isEqual";
 import search from "./search";
 import { ExternalSelection, Selection } from "./selectionContext";
@@ -34,6 +35,14 @@ export interface SeqVizProps {
 
   /** a list of annotations to render to the viewer */
   annotations?: AnnotationProp[];
+
+  /** sequence Phase 2a bot — when true, the viewer accepts keystroke editing
+   *  (type-to-insert, Backspace/Delete, selection-replace) at the caret and
+   *  reports each change through `onEdit`. The host owns the document. */
+  editable?: boolean;
+
+  /** sequence Phase 2a bot — called with each edit intent when `editable`. */
+  onEdit?: (edit: import("./EventHandler").SeqEdit) => void;
 
   /**
    * an iGEM backbone to render within the viewer
@@ -220,6 +229,26 @@ export default class SeqViz extends React.Component<SeqVizProps, SeqVizState> {
   }
 
   /**
+   * sequence Phase 2a bot — PERF: while editing, every keystroke changes `seq`,
+   * which would re-run digest()/search() (and SeqViz's deep-equality compare) on
+   * each keypress — the one real cost the proposal flags for 5-15 kb plasmids.
+   * We debounce the heavy recompute: the cheap seq/compSeq/annotations update
+   * lands immediately (canvas stays responsive), and cut sites + search results
+   * recompute on the trailing edge once typing pauses (160ms). Uses SeqViz's own
+   * `debounce` util. Non-editing prop changes recompute synchronously as before.
+   */
+  recomputeDerivedDebounced = debounce(
+    (seq: string, seqType: SeqType) => {
+      this.setState({
+        ...this.search(this.props, seq),
+        ...this.cut(seq, seqType),
+      });
+    },
+    160,
+    false, // trailing edge only
+  );
+
+  /**
    * If an accession was provided, query it here.
    */
   componentDidMount(): void {
@@ -283,6 +312,20 @@ export default class SeqViz extends React.Component<SeqVizProps, SeqVizState> {
       (this.props.seqType && this.props.seqType !== seqType)
     ) {
       const input = this.parseInput();
+      // sequence Phase 2a bot — in editable mode, push the cheap derived state
+      // (bases, complement, annotations) immediately and DEBOUNCE the expensive
+      // digest/search recompute so typing stays smooth on large plasmids.
+      if (this.props.editable) {
+        this.setState({
+          annotations: input.annotations,
+          compSeq: input.compSeq,
+          name: input.name,
+          seq: input.seq,
+          seqType: input.seqType,
+        });
+        this.recomputeDerivedDebounced(input.seq, input.seqType);
+        return;
+      }
       this.setState({
         annotations: input.annotations,
         compSeq: input.compSeq,

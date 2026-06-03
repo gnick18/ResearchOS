@@ -5,6 +5,14 @@ import CentralIndexContext from "./centralIndexContext";
 import debounce from "./debounce";
 import { Selection } from "./selectionContext";
 
+// sequence Phase 2a bot — an edit intent emitted by the EventHandler when the
+// viewer is `editable` and the user types/deletes at the caret or selection.
+// The host (ResearchOS edit view) owns the document and applies these.
+export type SeqEdit =
+  | { type: "insert"; at: number; text: string }
+  | { type: "delete"; from: number; count: number }
+  | { type: "replace"; from: number; to: number; text: string };
+
 export interface EventsHandlerProps {
   bpsPerBlock: number;
   children: React.ReactNode;
@@ -14,6 +22,11 @@ export interface EventsHandlerProps {
   selection: Selection;
   seq: string;
   setSelection: (selection: Selection) => void;
+  /** sequence Phase 2a bot — when true, printable keys / Backspace / Delete
+   *  produce edits via `onEdit` instead of falling through. */
+  editable?: boolean;
+  /** sequence Phase 2a bot — host callback fired with an edit intent. */
+  onEdit?: (edit: SeqEdit) => void;
 }
 
 /**
@@ -31,12 +44,87 @@ export class EventHandler extends React.PureComponent<EventsHandlerProps> {
    * action handler for a keyboard keypresses.
    */
   handleKeyPress = (e: React.KeyboardEvent<HTMLElement>) => {
+    // sequence Phase 2a bot — in editable mode, handle the keys that upstream
+    // SeqViz lets fall through: printable bases (insert/replace) and Backspace/
+    // Delete. Copy/SelectAll/arrows still route through keypressMap below, so
+    // existing selection + navigation behavior is unchanged.
+    if (this.props.editable && this.handleEditKey(e)) {
+      return;
+    }
+
     const keyType = this.keypressMap(e);
     if (!keyType) {
       return; // not recognized key
     }
     e.preventDefault();
     this.handleSeqInteraction(keyType);
+  };
+
+  /**
+   * sequence Phase 2a bot — edit-mode key handling. Returns true if the key was
+   * consumed as an edit. Emits an edit intent through `onEdit`; the host applies
+   * it to the document and feeds the new `seq`/`annotations` back as props.
+   */
+  handleEditKey = (e: React.KeyboardEvent<HTMLElement>): boolean => {
+    const { onEdit, selection, setSelection } = this.props;
+    if (!onEdit) return false;
+
+    // Never swallow modifier combos (copy, select-all, paste, undo, etc.).
+    if (e.metaKey || e.ctrlKey || e.altKey) return false;
+
+    const start = typeof selection.start === "number" ? selection.start : 0;
+    const end = typeof selection.end === "number" ? selection.end : start;
+    const lo = Math.min(start, end);
+    const hi = Math.max(start, end);
+    const hasRange = hi > lo;
+
+    // Collapse the internal selection to a caret at a given index. Keeps the
+    // caret tracking the edit so the next keystroke lands in the right place.
+    const placeCaret = (pos: number) => {
+      setSelection({ clockwise: true, end: pos, start: pos, type: "SEQ" });
+    };
+
+    if (e.key === "Backspace") {
+      e.preventDefault();
+      if (hasRange) {
+        onEdit({ type: "delete", from: lo, count: hi - lo });
+        placeCaret(lo);
+      } else if (lo > 0) {
+        // delete the base BEFORE the caret
+        onEdit({ type: "delete", from: lo - 1, count: 1 });
+        placeCaret(lo - 1);
+      }
+      return true;
+    }
+
+    if (e.key === "Delete") {
+      e.preventDefault();
+      if (hasRange) {
+        onEdit({ type: "delete", from: lo, count: hi - lo });
+        placeCaret(lo);
+      } else if (lo < this.props.seq.length) {
+        // delete the base AT the caret (forward delete); caret stays put
+        onEdit({ type: "delete", from: lo, count: 1 });
+        placeCaret(lo);
+      }
+      return true;
+    }
+
+    // Printable single character: a base to type. Reject anything that isn't a
+    // lone printable key (e.g. "Enter", "Tab", "ArrowLeft" have length > 1).
+    if (e.key.length === 1 && !/\s/.test(e.key)) {
+      e.preventDefault();
+      if (hasRange) {
+        onEdit({ type: "replace", from: lo, to: hi, text: e.key });
+        placeCaret(lo + e.key.length);
+      } else {
+        onEdit({ type: "insert", at: lo, text: e.key });
+        placeCaret(lo + e.key.length);
+      }
+      return true;
+    }
+
+    return false;
   };
 
   /**

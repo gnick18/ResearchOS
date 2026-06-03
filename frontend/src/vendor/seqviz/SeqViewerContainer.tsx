@@ -59,6 +59,9 @@ interface SeqViewerContainerProps {
   viewer: "linear" | "circular" | "both" | "both_flip";
   width: number;
   zoom: { circular: number; linear: number };
+  /** sequence Phase 2a bot — editable mode + edit callback (threaded to EventHandler). */
+  editable?: boolean;
+  onEdit?: (edit: import("./EventHandler").SeqEdit) => void;
 }
 
 export interface SeqViewerContainerState {
@@ -303,7 +306,9 @@ class SeqViewerContainer extends React.Component<SeqViewerContainerProps, SeqVie
                 <EventHandler
                   bpsPerBlock={linearProps.bpsPerBlock}
                   copyEvent={this.props.copyEvent}
+                  editable={this.props.editable}
                   handleMouseEvent={handleMouseEvent}
+                  onEdit={this.props.onEdit}
                   selectAllEvent={this.props.selectAllEvent}
                   selection={mergedSelection}
                   seq={seq}
