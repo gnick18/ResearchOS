@@ -12,6 +12,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { matchesAnyProjectFilter } from "@/lib/search/filterKey";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import TaskModal from "@/components/TaskModal";
+import Tooltip from "@/components/Tooltip";
 import SharedFromPill from "@/components/workbench/SharedFromPill";
 import ExperimentResultCard, {
   type ExperimentCardMethod,
@@ -44,6 +45,17 @@ const SECTION_ORDER: WorkbenchSection[] = [
   "running",
   "awaiting",
   "recent",
+];
+
+// The four in-flight pipeline stages rendered as a side-by-side kanban
+// row (experiments-kanban density redesign, 2026-06-02). "recent" is NOT
+// a board column — it lives in the results zone below the board with its
+// project-grouped wide grid.
+const BOARD_STAGES: WorkbenchSection[] = [
+  "ready",
+  "blocked",
+  "running",
+  "awaiting",
 ];
 
 const SECTION_LABEL: Record<WorkbenchSection, string> = {
@@ -363,7 +375,7 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
 
   const totalCount = visibleEntries.length;
 
-  const renderCard = (entry: SectionEntry) => {
+  const renderCard = (entry: SectionEntry, compact = false) => {
     const t = entry.task;
     const cardMethods: ExperimentCardMethod[] = (t.method_ids ?? [])
       .map((mid) => methodLookup(t, mid))
@@ -414,6 +426,7 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
           freshnessLabel={fresh.label}
           onClick={() => setSelectedTask(t)}
           sharedIndicator={sharedIndicator}
+          compact={compact}
         />
         {entry.section === "blocked" && entry.blockingParents.length > 0 && (
           <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1 leading-snug flex items-start gap-1">
@@ -484,118 +497,179 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
 
   return (
     <div data-current-tab="experiments" data-tour-target="workbench-shared-experiments">
-      <div className="flex justify-end mb-4">
-        <button
-          onClick={handleCreateExperiment}
-          data-tour-target="workbench-new-experiment"
-          className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-        >
-          + New Experiment
-        </button>
-      </div>
-
       {totalCount === 0 ? (
-        <div className="text-center py-16">
-          <p className="text-lg text-gray-400 mb-2">No experiments yet</p>
-          <p className="text-sm text-gray-300 mb-6">
-            Create an experiment task to see it here
-          </p>
-          <button
-            onClick={handleCreateExperiment}
-            data-tour-target="workbench-new-experiment"
-            className="px-6 py-3 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            + New Experiment
-          </button>
-        </div>
+        <>
+          <div className="flex justify-end mb-4">
+            <button
+              onClick={handleCreateExperiment}
+              data-tour-target="workbench-new-experiment"
+              className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              + New Experiment
+            </button>
+          </div>
+          <div className="text-center py-16">
+            <p className="text-lg text-gray-400 mb-2">No experiments yet</p>
+            <p className="text-sm text-gray-300 mb-6">
+              Create an experiment task to see it here
+            </p>
+            <button
+              onClick={handleCreateExperiment}
+              data-tour-target="workbench-new-experiment"
+              className="px-6 py-3 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              + New Experiment
+            </button>
+          </div>
+        </>
       ) : (
         <div className="space-y-8">
-          {SECTION_ORDER.map((key) => {
-            const items = grouped.get(key) ?? [];
-            if (items.length === 0 && key !== "awaiting") return null;
+          {/* Pipeline board: the four in-flight stages as a side-by-side
+              kanban row. + New Experiment is folded into this leading
+              header so it no longer eats a standalone row. */}
+          <section>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+                Pipeline
+                <span className="ml-2 text-gray-400 normal-case font-normal">
+                  ({BOARD_STAGES.reduce(
+                    (n, key) => n + (grouped.get(key)?.length ?? 0),
+                    0,
+                  )})
+                </span>
+              </h2>
+              <button
+                onClick={handleCreateExperiment}
+                data-tour-target="workbench-new-experiment"
+                className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                + New Experiment
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+              {BOARD_STAGES.map((key) => {
+                const items = grouped.get(key) ?? [];
+                return (
+                  <div key={key} className="flex flex-col">
+                    <div className="flex items-center gap-1.5 mb-3">
+                      <h3 className="text-xs font-semibold text-gray-900 uppercase tracking-wide">
+                        {SECTION_LABEL[key]}
+                        <span className="ml-1.5 text-gray-400 normal-case font-normal">
+                          ({items.length})
+                        </span>
+                      </h3>
+                      <Tooltip label={SECTION_HELP[key]} placement="top">
+                        <span
+                          className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-gray-300 hover:text-gray-500 cursor-help"
+                          aria-label={SECTION_HELP[key]}
+                        >
+                          <svg
+                            className="w-3.5 h-3.5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            strokeWidth={2}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                        </span>
+                      </Tooltip>
+                    </div>
+                    {items.length === 0 ? (
+                      key === "awaiting" ? (
+                        <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">
+                          All recent experiments have results logged.
+                        </div>
+                      ) : (
+                        <p className="text-xs text-gray-300">Nothing here</p>
+                      )
+                    ) : (
+                      <div className="space-y-3">
+                        {items.map((e) => renderCard(e, true))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Recent results zone: project-grouped, wide grid, full
+              (non-compact) cards since results carry media. */}
+          {(() => {
+            const items = grouped.get("recent") ?? [];
+            if (items.length === 0) return null;
+            // Project-grouped layout (Recent results only).
+            const groups = new Map<string, SectionEntry[]>();
+            for (const e of items) {
+              const pk = `${e.task.owner}:${e.task.project_id}`;
+              if (!groups.has(pk)) groups.set(pk, []);
+              groups.get(pk)!.push(e);
+            }
+            const sortedProjectKeys = Array.from(groups.keys()).sort(
+              (a, b) => {
+                // Most-recent-result-within-project first
+                // (smallest daysFromEnd wins).
+                const aMin = Math.min(
+                  ...groups.get(a)!.map((e) => e.daysFromEnd ?? Infinity),
+                );
+                const bMin = Math.min(
+                  ...groups.get(b)!.map((e) => e.daysFromEnd ?? Infinity),
+                );
+                return aMin - bMin;
+              },
+            );
+            const showProjectHeaders = sortedProjectKeys.length >= 2;
             return (
-              <section key={key}>
+              <section>
                 <div className="flex items-baseline justify-between mb-3">
                   <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
-                    {SECTION_LABEL[key]}
+                    {SECTION_LABEL.recent}
                     <span className="ml-2 text-gray-400 normal-case font-normal">
                       ({items.length})
                     </span>
                   </h3>
                   <span className="text-xs text-gray-400">
-                    {SECTION_HELP[key]}
+                    {SECTION_HELP.recent}
                   </span>
                 </div>
-                {items.length === 0 && key === "awaiting" ? (
-                  <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2 inline-block">
-                    All recent experiments have results logged.
-                  </div>
-                ) : key === "recent" ? (
-                  (() => {
-                    // Project-grouped layout (Recent results only).
-                    // Other stage-organized sections stay priority-ordered.
-                    const groups = new Map<string, SectionEntry[]>();
-                    for (const e of items) {
-                      const pk = `${e.task.owner}:${e.task.project_id}`;
-                      if (!groups.has(pk)) groups.set(pk, []);
-                      groups.get(pk)!.push(e);
-                    }
-                    const sortedProjectKeys = Array.from(groups.keys()).sort(
-                      (a, b) => {
-                        // Most-recent-result-within-project first
-                        // (smallest daysFromEnd wins).
-                        const aMin = Math.min(
-                          ...groups.get(a)!.map((e) => e.daysFromEnd ?? Infinity),
-                        );
-                        const bMin = Math.min(
-                          ...groups.get(b)!.map((e) => e.daysFromEnd ?? Infinity),
-                        );
-                        return aMin - bMin;
-                      },
-                    );
-                    const showProjectHeaders = sortedProjectKeys.length >= 2;
+                <div className="space-y-5">
+                  {sortedProjectKeys.map((pk) => {
+                    const projectEntries = groups.get(pk)!;
+                    const firstTask = projectEntries[0].task;
+                    const pName = projectNameFor(firstTask);
+                    const pColor = projectColors[pk] ?? DEFAULT_COLORS[0];
                     return (
-                      <div className="space-y-5">
-                        {sortedProjectKeys.map((pk) => {
-                          const projectEntries = groups.get(pk)!;
-                          const firstTask = projectEntries[0].task;
-                          const pName = projectNameFor(firstTask);
-                          const pColor =
-                            projectColors[pk] ?? DEFAULT_COLORS[0];
-                          return (
-                            <div key={pk}>
-                              {showProjectHeaders && (
-                                <div className="flex items-center gap-2 mb-2">
-                                  <span
-                                    className="w-2 h-2 rounded-full flex-shrink-0"
-                                    style={{ backgroundColor: pColor }}
-                                    aria-hidden
-                                  />
-                                  <span className="text-xs font-medium text-gray-600">
-                                    {pName}
-                                  </span>
-                                  <span className="text-xs text-gray-400">
-                                    ({projectEntries.length})
-                                  </span>
-                                </div>
-                              )}
-                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                                {projectEntries.map(renderCard)}
-                              </div>
-                            </div>
-                          );
-                        })}
+                      <div key={pk}>
+                        {showProjectHeaders && (
+                          <div className="flex items-center gap-2 mb-2">
+                            <span
+                              className="w-2 h-2 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: pColor }}
+                              aria-hidden
+                            />
+                            <span className="text-xs font-medium text-gray-600">
+                              {pName}
+                            </span>
+                            <span className="text-xs text-gray-400">
+                              ({projectEntries.length})
+                            </span>
+                          </div>
+                        )}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                          {projectEntries.map((e) => renderCard(e))}
+                        </div>
                       </div>
                     );
-                  })()
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {items.map(renderCard)}
-                  </div>
-                )}
+                  })}
+                </div>
               </section>
             );
-          })}
+          })()}
           {earlierEntries.length > 0 && (
             <section>
               <div className="flex items-baseline justify-between mb-3">
@@ -633,7 +707,7 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
               </div>
               {earlierLayout === "flat" ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {earlierEntries.map(renderCard)}
+                  {earlierEntries.map((e) => renderCard(e))}
                 </div>
               ) : (
                 (() => {
@@ -671,7 +745,7 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
                               </span>
                             </h4>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                              {projectEntries.map(renderCard)}
+                              {projectEntries.map((e) => renderCard(e))}
                             </div>
                           </div>
                         );

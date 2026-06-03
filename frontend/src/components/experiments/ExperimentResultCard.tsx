@@ -51,6 +51,24 @@ interface ExperimentResultCardProps {
    * the future /workbench will populate it for shared-into-me tasks.
    */
   sharedIndicator?: ReactNode;
+  /**
+   * Density variant (experiments-kanban density redesign, 2026-06-02).
+   * Opt-in for the Workbench pipeline board, where cards stack vertically
+   * inside narrow kanban columns and most in-flight experiments have no
+   * media yet. Default `false` preserves the byte-for-byte original card:
+   * the /lab Experiments gallery (LabExperimentsPanel) never passes it, so
+   * that surface keeps its 128px hero + "No image or write-up yet"
+   * placeholder unchanged.
+   *
+   * When `compact` is true:
+   *  - no image AND no preview -> the 128px hero is dropped entirely in
+   *    favor of a thin (~6px) full-width color strip tinted with the
+   *    task's `experiment_color` (same source the hero gradient uses), so
+   *    media-less in-flight cards collapse to a tight title/footer row.
+   *  - image OR preview present -> a shorter 96px (h-24) hero instead of
+   *    the full 128px (h-32).
+   */
+  compact?: boolean;
 }
 
 /**
@@ -76,8 +94,15 @@ export default function ExperimentResultCard({
   onClick,
   onAvatarClick,
   sharedIndicator,
+  compact = false,
 }: ExperimentResultCardProps) {
   const heroBg = task.experiment_color ?? "#9ca3af";
+
+  // Compact + media-less: the 128px hero is overkill for a narrow board
+  // column, so it collapses to a thin color strip. Any image/preview still
+  // earns a hero, just shorter (h-24 vs h-32).
+  const hasMedia = Boolean(heroImagePath || resultsPreview);
+  const stripOnly = compact && !hasMedia;
 
   return (
     <button
@@ -91,41 +116,60 @@ export default function ExperimentResultCard({
       data-tour-target={`workbench-experiment-row-${task.id}`}
       className="group text-left bg-white rounded-xl border border-gray-200 overflow-hidden hover:border-emerald-300 hover:shadow-sm transition flex flex-col"
     >
-      <div
-        className="relative h-32 w-full overflow-hidden flex items-center justify-center"
-        style={{
-          background:
-            heroImagePath
-              ? "#0b0b0b"
-              : `linear-gradient(135deg, ${heroBg}22 0%, ${heroBg}11 100%)`,
-        }}
-      >
-        {heroImagePath ? (
-          <HeroImage path={heroImagePath} alt={task.name} />
-        ) : resultsPreview ? (
-          <MarkdownPreview content={resultsPreview} />
-        ) : (
-          <div className="flex flex-col items-center justify-center text-gray-400 text-xs">
-            <svg
-              className="w-8 h-8 mb-1 opacity-50"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-            <span>No image or write-up yet</span>
-          </div>
-        )}
-        {sharedIndicator ? (
-          <div className="absolute top-2 right-2">{sharedIndicator}</div>
-        ) : null}
-      </div>
+      {stripOnly ? (
+        // Thin color strip stands in for the dropped hero. Same
+        // experiment_color tint source the gradient hero uses, rendered
+        // as a ~6px full-width bar at the card top. The shared indicator
+        // (if any) still needs a home, so it floats over the strip.
+        <div className="relative">
+          <div
+            className="h-1.5 w-full"
+            style={{
+              background: `linear-gradient(90deg, ${heroBg}cc 0%, ${heroBg}66 100%)`,
+            }}
+            aria-hidden
+          />
+          {sharedIndicator ? (
+            <div className="absolute top-2 right-2">{sharedIndicator}</div>
+          ) : null}
+        </div>
+      ) : (
+        <div
+          className={`relative ${compact ? "h-24" : "h-32"} w-full overflow-hidden flex items-center justify-center`}
+          style={{
+            background:
+              heroImagePath
+                ? "#0b0b0b"
+                : `linear-gradient(135deg, ${heroBg}22 0%, ${heroBg}11 100%)`,
+          }}
+        >
+          {heroImagePath ? (
+            <HeroImage path={heroImagePath} alt={task.name} />
+          ) : resultsPreview ? (
+            <MarkdownPreview content={resultsPreview} />
+          ) : (
+            <div className="flex flex-col items-center justify-center text-gray-400 text-xs">
+              <svg
+                className="w-8 h-8 mb-1 opacity-50"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+              <span>No image or write-up yet</span>
+            </div>
+          )}
+          {sharedIndicator ? (
+            <div className="absolute top-2 right-2">{sharedIndicator}</div>
+          ) : null}
+        </div>
+      )}
 
       <div className="p-3 flex flex-col gap-2 flex-1">
         <div className="flex items-start gap-2 min-w-0">
