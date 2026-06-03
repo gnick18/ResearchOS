@@ -29,7 +29,13 @@
  *
  * HR-dispatched: v4 onEnter wiring sub-bot 2026-05-21.
  */
-import { dependenciesApi, goalsApi, projectsApi, tasksApi } from "@/lib/local-api";
+import {
+  dependenciesApi,
+  fetchAllTasks,
+  goalsApi,
+  projectsApi,
+  tasksApi,
+} from "@/lib/local-api";
 import { patchOnboarding } from "@/lib/onboarding/sidecar";
 import { appQueryClient } from "@/lib/query-client";
 import type { Project, Task } from "@/lib/types";
@@ -278,6 +284,284 @@ export function withExperimentPopupOpen(
 ): (ctx: { username: string | null }) => Promise<void> {
   return async (ctx) => {
     await ensureExperimentPopupOpen();
+    if (inner) await inner(ctx);
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// tour-modal-resilience bot 2026-06-03: the experiment TaskDetailPopup
+// resilience above (ensureExperimentPopupOpen) hardened ONE modal against
+// the mid-tour-refresh soft-block (a refresh closes the portal-rendered
+// modal, the next step spotlights an element inside it, the spotlight
+// fires into nothing). Grant approved a single comprehensive pass to do
+// the SAME for every other reopenable walkthrough modal. Each helper
+// below mirrors ensureExperimentPopupOpen's shape exactly:
+//   - typeof-window guard + try/catch (best-effort; never wedge the tour)
+//   - detect-open by querying a stable DOM anchor the modal stamps
+//   - when closed, REOPEN by reusing the same trigger the tour's "open"
+//     bridge step uses (navigate to the surface, click the open trigger,
+//     await the anchor)
+//   - a `withXModalOpen(inner)` composer mirroring withExperimentPopupOpen
+//     so dependent steps that already declare an onEnter compose cleanly.
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Detect-open anchor for the §6.4 New Method modal (CreateMethodModal).
+ * The modal's outer card stamps `methods-create-form`
+ * (CreateMethodModal.tsx ~line 767) and that anchor exists nowhere else.
+ * It is present the WHOLE time the modal is open — from the type-picker
+ * stage through the per-type form — so it is a reliable open-marker for
+ * both `methods-open-picker` (picker) and `methods-create` (markdown
+ * form) dependents.
+ */
+const NEW_METHOD_MODAL_OPEN_SELECTOR = targetSelector(
+  TOUR_TARGETS.methodsCreateForm,
+);
+
+/** True when the New Method modal (CreateMethodModal) is mounted. */
+function isNewMethodModalOpen(): boolean {
+  if (typeof document === "undefined") return false;
+  return document.querySelector(NEW_METHOD_MODAL_OPEN_SELECTOR) !== null;
+}
+
+/**
+ * Reopen the §6.4 New Method modal if a mid-tour refresh closed it.
+ *
+ * THE MODAL GRANT HIT (2026-06-03 live walk): `methods-open-picker`
+ * (MethodsOpenPickerStep) is the bridge step that opens the modal by
+ * clicking `methods-new-method-button`. Every dependent beat after it
+ * lives INSIDE the modal: `methods-type-tour` / `methods-pcr-*` /
+ * `methods-lc-demo` exercise the type-picker + per-type builders, and
+ * `methods-create` (MethodsCreateStep) spotlights `methods-create-form`
+ * and drives the whole markdown form. The modal is portal state, not a
+ * route, so a refresh closes it and the dependent step's spotlight /
+ * cursor fire into nothing.
+ *
+ * Reopen path mirrors the bridge step exactly: ensure we are on
+ * `/methods` is implicit (the dependent steps all declare
+ * `expectedRoute: "/methods"`, so the TourController has already
+ * navigated there before onEnter runs), then DOM-click the
+ * `methods-new-method-button` trigger (same one `methods-open-picker`'s
+ * cursor clicks) and await `methods-create-form`.
+ *
+ * No-op when the modal is already open (canonical, non-refresh path).
+ * Best-effort: guarded + try/catch + tolerant of a missing trigger
+ * (waitForElement times out -> return quietly). A failure degrades to
+ * the pre-existing "spotlight finds nothing" behavior; it never throws
+ * into the TourController (which also catches onEnter throws).
+ */
+export async function ensureNewMethodModalOpen(): Promise<void> {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  try {
+    if (isNewMethodModalOpen()) return;
+    // Closed (refresh mid-sequence). Reopen via the documented bridge
+    // path: click the "+ New Method" button the methods-open-picker step
+    // uses. The button only renders on /methods; the dependent steps'
+    // expectedRoute has already settled the route before onEnter runs.
+    const trigger = await waitForElement(
+      targetSelector(TOUR_TARGETS.methodsNewMethodButton),
+      3000,
+    );
+    if (!(trigger instanceof HTMLElement)) return;
+    trigger.click();
+    // Await the modal card so the dependent step's spotlight + cursor
+    // (which run after onEnter) resolve against a present DOM.
+    await waitForElement(NEW_METHOD_MODAL_OPEN_SELECTOR, 3000);
+  } catch (err) {
+    console.warn("[onboarding-v4] ensureNewMethodModalOpen failed", err);
+  }
+}
+
+/**
+ * Compose the New Method modal reopen-guard ahead of an existing step
+ * `onEnter`. Mirrors withExperimentPopupOpen: reopen FIRST (so the modal
+ * is back before the original hook resolves modal-internal anchors),
+ * then run the step's original onEnter. Both best-effort.
+ */
+export function withNewMethodModalOpen(
+  inner?: (ctx: { username: string | null }) => void | Promise<void>,
+): (ctx: { username: string | null }) => Promise<void> {
+  return async (ctx) => {
+    await ensureNewMethodModalOpen();
+    if (inner) await inner(ctx);
+  };
+}
+
+/**
+ * Detect-open anchor for the §6.4 New Category modal (the inline
+ * `CategoryModal` in app/methods/page.tsx). The modal stamps its name
+ * input `methods-category-name-input` (page.tsx ~line 1196); that anchor
+ * exists nowhere else and only while the modal is open, so it is a
+ * reliable open-marker.
+ */
+const CATEGORY_MODAL_OPEN_SELECTOR = targetSelector(
+  TOUR_TARGETS.methodsCategoryNameInput,
+);
+
+/** True when the New Category modal is mounted. */
+function isCategoryModalOpen(): boolean {
+  if (typeof document === "undefined") return false;
+  return document.querySelector(CATEGORY_MODAL_OPEN_SELECTOR) !== null;
+}
+
+/**
+ * Reopen the §6.4 New Category modal if a mid-tour refresh closed it.
+ *
+ * `methods-category-open` (MethodsCategoryOpenStep) is the bridge step:
+ * the user clicks `methods-add-category` ("+ New Category"), which sets
+ * `creatingCategory` and dispatches `tour:methods-category-modal-opened`.
+ * The dependent beats `methods-category` (MethodsCategoryStep: cursor
+ * types the picked label + clicks Create Empty, spotlights
+ * `methods-category-name-input`) and `methods-category-prompt`
+ * (MethodsCategoryPromptStep) assume the modal is up. A refresh closes
+ * the modal (local React state, not a route).
+ *
+ * Reopen path mirrors the bridge: the dependent steps declare
+ * `expectedRoute: "/methods"` (so the route is already settled), then
+ * DOM-click `methods-add-category` (the same trigger the bridge step's
+ * spotlight points at) and await the name input. Clicking the trigger
+ * also re-dispatches `tour:methods-category-modal-opened`, matching the
+ * canonical open path exactly.
+ *
+ * No-op when already open. Best-effort guarded / try-catch / tolerant
+ * of a missing trigger.
+ */
+export async function ensureCategoryModalOpen(): Promise<void> {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  try {
+    if (isCategoryModalOpen()) return;
+    const trigger = await waitForElement(
+      targetSelector(TOUR_TARGETS.methodsAddCategory),
+      3000,
+    );
+    if (!(trigger instanceof HTMLElement)) return;
+    trigger.click();
+    await waitForElement(CATEGORY_MODAL_OPEN_SELECTOR, 3000);
+  } catch (err) {
+    console.warn("[onboarding-v4] ensureCategoryModalOpen failed", err);
+  }
+}
+
+/**
+ * Compose the New Category modal reopen-guard ahead of an existing step
+ * `onEnter`. Mirrors withExperimentPopupOpen.
+ */
+export function withCategoryModalOpen(
+  inner?: (ctx: { username: string | null }) => void | Promise<void>,
+): (ctx: { username: string | null }) => Promise<void> {
+  return async (ctx) => {
+    await ensureCategoryModalOpen();
+    if (inner) await inner(ctx);
+  };
+}
+
+/**
+ * Detect-open anchor for the §6.5 Create Experiment modal (TaskModal).
+ * The modal's name input stamps `workbench-experiment-name-input`
+ * (TaskModal.tsx ~line 681); the input exists only while the create-task
+ * modal is open, so it is a reliable open-marker for the
+ * name / project / submit dependent beats.
+ */
+const CREATE_EXPERIMENT_MODAL_OPEN_SELECTOR = targetSelector(
+  TOUR_TARGETS.workbenchExperimentNameInput,
+);
+
+/** True when the Create Experiment modal (TaskModal) is mounted. */
+function isCreateExperimentModalOpen(): boolean {
+  if (typeof document === "undefined") return false;
+  return (
+    document.querySelector(CREATE_EXPERIMENT_MODAL_OPEN_SELECTOR) !== null
+  );
+}
+
+/**
+ * True when the user already has an experiment task on disk. Used to
+ * SUPPRESS a confusing reopen on the §6.5 create-experiment beats: if a
+ * mid-tour refresh happened AFTER the experiment was created, reopening
+ * a fresh empty modal would dump the user back at a blank form they
+ * already finished. Scans ALL of the user's own tasks (not just the
+ * active project) because the §6.5 user-action flow lets the experiment
+ * land in a project, Miscellaneous, OR Standalone. Best-effort: a list
+ * failure returns false so the caller falls back to the reopen branch
+ * (better a spurious reopen than a wedged dead step on the canonical
+ * pre-create path).
+ */
+async function anyExperimentExists(): Promise<boolean> {
+  try {
+    const all = await fetchAllTasks();
+    return all.some(
+      (t) => t.task_type === "experiment" && !t.is_shared_with_me,
+    );
+  } catch (err) {
+    console.warn("[onboarding-v4] anyExperimentExists probe failed", err);
+    return false;
+  }
+}
+
+/**
+ * Reopen the §6.5 Create Experiment modal (TaskModal) if a mid-tour
+ * refresh closed it.
+ *
+ * `workbench-create-experiment-open` (WorkbenchCreateExperimentOpenStep
+ * beat 1) is the bridge step: the user clicks `workbench-new-experiment`
+ * ("+ New Experiment") on the Experiments sub-tab, which opens TaskModal
+ * with the task type restricted to "experiment". The dependent beats
+ * `workbench-create-experiment-name` / `-project` spotlight inputs INSIDE
+ * that modal. The modal is portal state, not a route, so a refresh
+ * closes it.
+ *
+ * CAUTION (per the brief): these are USER-ACTION beats and the §6.5d
+ * `-submit` beat is gated on `tour:experiment-created`. Reopening a
+ * FRESH modal after the experiment was already created would be
+ * confusing (blank form the user already submitted). So this helper
+ * reopens ONLY when the modal is closed AND no experiment exists yet.
+ * When an experiment already exists, we no-op: the user is past the
+ * create and the reopen would be noise. Reopening a fresh modal does
+ * lose any half-typed name on the pre-create path, but that is strictly
+ * better than a dead spotlight (the user just retypes a name, which is
+ * exactly what the name beat asks for).
+ *
+ * Reopen path mirrors the bridge: switch to the Experiments sub-tab
+ * (the "+ New Experiment" button only renders there — see
+ * WorkbenchCreateExperimentOpenStep's own onEnter), DOM-click
+ * `workbench-new-experiment`, await the name input. The dependent beats
+ * inherit `/workbench` so the route is already settled.
+ *
+ * No-op when already open. Best-effort guarded / try-catch / tolerant of
+ * a missing trigger.
+ */
+export async function ensureCreateExperimentModalOpen(): Promise<void> {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  try {
+    if (isCreateExperimentModalOpen()) return;
+    // Suppress the reopen once the experiment is created: the user is
+    // past the form and a fresh blank modal would only confuse.
+    if (await anyExperimentExists()) return;
+    // Closed AND no experiment yet (refresh on the pre-create beats).
+    // Reopen via the bridge path: the + New Experiment button only
+    // renders on the Experiments sub-tab.
+    switchWorkbenchTab(TOUR_TARGETS.workbenchExperimentsTab);
+    const trigger = await waitForElement(
+      targetSelector(TOUR_TARGETS.workbenchNewExperiment),
+      3000,
+    );
+    if (!(trigger instanceof HTMLElement)) return;
+    trigger.click();
+    await waitForElement(CREATE_EXPERIMENT_MODAL_OPEN_SELECTOR, 3000);
+  } catch (err) {
+    console.warn("[onboarding-v4] ensureCreateExperimentModalOpen failed", err);
+  }
+}
+
+/**
+ * Compose the Create Experiment modal reopen-guard ahead of an existing
+ * step `onEnter`. Mirrors withExperimentPopupOpen.
+ */
+export function withCreateExperimentModalOpen(
+  inner?: (ctx: { username: string | null }) => void | Promise<void>,
+): (ctx: { username: string | null }) => Promise<void> {
+  return async (ctx) => {
+    await ensureCreateExperimentModalOpen();
     if (inner) await inner(ctx);
   };
 }

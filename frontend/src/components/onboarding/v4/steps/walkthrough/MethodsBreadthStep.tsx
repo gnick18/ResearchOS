@@ -37,6 +37,7 @@ import {
 } from "./lib/cursor-script";
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
+import { ensureNewMethodModalOpen } from "./lib/on-enter-helpers";
 
 /**
  * The tiles the breadth-step demo visits. PCR-only: the LC Gradient
@@ -113,6 +114,12 @@ export const methodsBreadthStep = buildWalkthroughStep({
   // they want, then clicks Got it, next to advance to methods-lc-demo.
   completion: manualAdvance("Got it, next"),
   expectedRoute: "/methods",
+  // tour-modal-resilience bot 2026-06-03: this beat lives INSIDE the New
+  // Method modal (CreateMethodModal), which a mid-tour refresh closes
+  // (portal state, not a route). Reopen it before the cursor waits for
+  // the type-picker. No-op when already open (canonical path); best-
+  // effort otherwise.
+  onEnter: () => ensureNewMethodModalOpen(),
   // Allow-list lock so the user can play inside the CreateMethodModal
   // (per the speech "Try adjusting one of the gradient steps") without
   // accidentally clicking out of the tour.

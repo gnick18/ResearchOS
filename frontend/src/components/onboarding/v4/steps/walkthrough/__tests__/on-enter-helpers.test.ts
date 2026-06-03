@@ -28,6 +28,7 @@ const tasksListMock = vi.fn();
 const goalsListMock = vi.fn();
 const goalsCreateMock = vi.fn();
 const depsCreateMock = vi.fn();
+const fetchAllTasksMock = vi.fn().mockResolvedValue([]);
 const patchOnboardingMock = vi.fn().mockResolvedValue(undefined);
 const refetchQueriesMock = vi.fn().mockResolvedValue(undefined);
 const spawnDemoDependencyTasksMock = vi.fn();
@@ -46,6 +47,7 @@ vi.mock("@/lib/local-api", () => ({
     list: () => goalsListMock(),
     create: (data: unknown) => goalsCreateMock(data),
   },
+  fetchAllTasks: () => fetchAllTasksMock(),
 }));
 
 vi.mock("@/lib/onboarding/sidecar", () => ({
@@ -104,6 +106,12 @@ import {
   GANTT_DEMO_GOAL_NAME,
   ensureExperimentPopupOpen,
   withExperimentPopupOpen,
+  ensureNewMethodModalOpen,
+  withNewMethodModalOpen,
+  ensureCategoryModalOpen,
+  withCategoryModalOpen,
+  ensureCreateExperimentModalOpen,
+  withCreateExperimentModalOpen,
 } from "../lib/on-enter-helpers";
 
 describe("on-enter-helpers defensive guards (Wave 1 sidecar hardening v2)", () => {
@@ -115,6 +123,8 @@ describe("on-enter-helpers defensive guards (Wave 1 sidecar hardening v2)", () =
     goalsListMock.mockReset();
     goalsCreateMock.mockReset();
     depsCreateMock.mockReset();
+    fetchAllTasksMock.mockReset();
+    fetchAllTasksMock.mockResolvedValue([]);
     patchOnboardingMock.mockClear();
     refetchQueriesMock.mockClear();
     spawnDemoDependencyTasksMock.mockReset();
@@ -342,5 +352,209 @@ describe("ensureExperimentPopupOpen (tour-popup-resilience)", () => {
     await withExperimentPopupOpen(inner)({ username: "alex" });
     expect(inner).toHaveBeenCalledWith({ username: "alex" });
     expect(order).toEqual(["inner"]);
+  });
+});
+
+/**
+ * tour-modal-resilience bot 2026-06-03: mirror the experiment-popup
+ * resilience tests for the §6.4 New Method modal (CreateMethodModal),
+ * the §6.4 New Category modal, and the §6.5 Create Experiment modal
+ * (TaskModal). Each helper detects-open by a stable DOM anchor and, when
+ * closed, reopens via the same trigger the tour's "open" bridge step
+ * uses. Tests assert no-op-when-open, reopen-when-closed, and the
+ * with*Open composer ordering.
+ */
+describe("ensureNewMethodModalOpen (tour-modal-resilience §6.4)", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  });
+
+  /** Mount the New Method modal card (the stable open-marker). */
+  function mountModal(): void {
+    const card = document.createElement("div");
+    card.setAttribute("data-tour-target", "methods-create-form");
+    document.body.appendChild(card);
+  }
+
+  it("no-ops when the modal is already open", async () => {
+    mountModal();
+    // A trigger is present; if the helper tried to reopen it would click.
+    const trigger = document.createElement("button");
+    trigger.setAttribute("data-tour-target", "methods-new-method-button");
+    let clicked = false;
+    trigger.addEventListener("click", () => {
+      clicked = true;
+    });
+    document.body.appendChild(trigger);
+
+    await ensureNewMethodModalOpen();
+    expect(clicked).toBe(false);
+  });
+
+  it("reopens by clicking + New Method when closed", async () => {
+    const trigger = document.createElement("button");
+    trigger.setAttribute("data-tour-target", "methods-new-method-button");
+    let clicked = false;
+    trigger.addEventListener("click", () => {
+      clicked = true;
+      mountModal(); // simulate the modal mounting on the click
+    });
+    document.body.appendChild(trigger);
+
+    await ensureNewMethodModalOpen();
+    expect(clicked).toBe(true);
+    expect(
+      document.querySelector('[data-tour-target="methods-create-form"]'),
+    ).not.toBeNull();
+  });
+
+  it("does not throw when no trigger ever mounts (best-effort)", async () => {
+    await expect(ensureNewMethodModalOpen()).resolves.toBeUndefined();
+  });
+
+  it("withNewMethodModalOpen runs the reopen first, then the inner onEnter", async () => {
+    mountModal(); // already open -> reopen no-op
+    const inner = vi.fn(async () => undefined);
+    await withNewMethodModalOpen(inner)({ username: "alex" });
+    expect(inner).toHaveBeenCalledWith({ username: "alex" });
+  });
+});
+
+describe("ensureCategoryModalOpen (tour-modal-resilience §6.4)", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  });
+
+  function mountModal(): void {
+    const input = document.createElement("input");
+    input.setAttribute("data-tour-target", "methods-category-name-input");
+    document.body.appendChild(input);
+  }
+
+  it("no-ops when the category modal is already open", async () => {
+    mountModal();
+    const trigger = document.createElement("button");
+    trigger.setAttribute("data-tour-target", "methods-add-category");
+    let clicked = false;
+    trigger.addEventListener("click", () => {
+      clicked = true;
+    });
+    document.body.appendChild(trigger);
+
+    await ensureCategoryModalOpen();
+    expect(clicked).toBe(false);
+  });
+
+  it("reopens by clicking + New Category when closed", async () => {
+    const trigger = document.createElement("button");
+    trigger.setAttribute("data-tour-target", "methods-add-category");
+    let clicked = false;
+    trigger.addEventListener("click", () => {
+      clicked = true;
+      mountModal();
+    });
+    document.body.appendChild(trigger);
+
+    await ensureCategoryModalOpen();
+    expect(clicked).toBe(true);
+    expect(
+      document.querySelector('[data-tour-target="methods-category-name-input"]'),
+    ).not.toBeNull();
+  });
+
+  it("withCategoryModalOpen runs the reopen first, then the inner onEnter", async () => {
+    mountModal();
+    const inner = vi.fn(async () => undefined);
+    await withCategoryModalOpen(inner)({ username: "alex" });
+    expect(inner).toHaveBeenCalledWith({ username: "alex" });
+  });
+});
+
+describe("ensureCreateExperimentModalOpen (tour-modal-resilience §6.5)", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    fetchAllTasksMock.mockReset();
+    fetchAllTasksMock.mockResolvedValue([]);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  });
+
+  /** Mount the Create Experiment modal name input (the open-marker). */
+  function mountModal(): void {
+    const input = document.createElement("input");
+    input.setAttribute("data-tour-target", "workbench-experiment-name-input");
+    document.body.appendChild(input);
+  }
+
+  /** Mount the Experiments-tab button + the +New Experiment trigger. */
+  function mountTrigger(onClick: () => void): void {
+    const tab = document.createElement("button");
+    tab.setAttribute("data-tour-target", "workbench-experiments-tab");
+    document.body.appendChild(tab);
+    const trigger = document.createElement("button");
+    trigger.setAttribute("data-tour-target", "workbench-new-experiment");
+    trigger.addEventListener("click", onClick);
+    document.body.appendChild(trigger);
+  }
+
+  it("no-ops when the modal is already open", async () => {
+    mountModal();
+    let clicked = false;
+    mountTrigger(() => {
+      clicked = true;
+    });
+    await ensureCreateExperimentModalOpen();
+    expect(clicked).toBe(false);
+  });
+
+  it("reopens when closed AND no experiment exists yet (pre-create refresh)", async () => {
+    fetchAllTasksMock.mockResolvedValue([]); // no experiment yet
+    let clicked = false;
+    mountTrigger(() => {
+      clicked = true;
+      mountModal();
+    });
+    await ensureCreateExperimentModalOpen();
+    expect(clicked).toBe(true);
+    expect(
+      document.querySelector(
+        '[data-tour-target="workbench-experiment-name-input"]',
+      ),
+    ).not.toBeNull();
+  });
+
+  it("SUPPRESSES the reopen once an experiment exists (post-create refresh)", async () => {
+    // An experiment already landed on disk -> a fresh blank modal would
+    // be confusing, so the helper must NOT reopen.
+    fetchAllTasksMock.mockResolvedValue([
+      { id: 5, task_type: "experiment", is_shared_with_me: false },
+    ]);
+    let clicked = false;
+    mountTrigger(() => {
+      clicked = true;
+      mountModal();
+    });
+    await ensureCreateExperimentModalOpen();
+    expect(clicked).toBe(false);
+    expect(
+      document.querySelector(
+        '[data-tour-target="workbench-experiment-name-input"]',
+      ),
+    ).toBeNull();
+  });
+
+  it("does not throw when no trigger ever mounts (best-effort)", async () => {
+    fetchAllTasksMock.mockResolvedValue([]);
+    await expect(
+      ensureCreateExperimentModalOpen(),
+    ).resolves.toBeUndefined();
+  });
+
+  it("withCreateExperimentModalOpen runs the reopen first, then the inner onEnter", async () => {
+    mountModal(); // already open -> reopen no-op
+    const inner = vi.fn(async () => undefined);
+    await withCreateExperimentModalOpen(inner)({ username: "alex" });
+    expect(inner).toHaveBeenCalledWith({ username: "alex" });
   });
 });

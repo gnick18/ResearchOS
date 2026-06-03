@@ -58,6 +58,7 @@ import {
 } from "./lib/cursor-script";
 import { manualAdvance, buildWalkthroughStep } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
+import { withNewMethodModalOpen } from "./lib/on-enter-helpers";
 import { TOUR_DOM_EVENTS } from "./lib/tour-events";
 import {
   clearMethodsCategoryPick,
@@ -313,7 +314,15 @@ export const methodsCreateStep = buildWalkthroughStep({
   // decodeMethodSource — keeps the v3 + v4 grid display consistent.
   // cleanup_default "discard" because BeakerBot wrote a funny coffee
   // method, not real lab content (per the brief).
-  onEnter: () => {
+  // tour-modal-resilience bot 2026-06-03: this beat spotlights
+  // `methods-create-form` and drives the WHOLE markdown form INSIDE the
+  // New Method modal (CreateMethodModal), which a mid-tour refresh closes
+  // (portal state, not a route). Compose the modal-reopen guard AHEAD of
+  // the existing method-created listener so the modal is back before the
+  // cursor (which runs after onEnter) clicks the markdown tile. Mirrors
+  // the experiment-popup `withExperimentPopupOpen` composition; both are
+  // best-effort. Reopen is a no-op on the canonical (non-refresh) path.
+  onEnter: withNewMethodModalOpen(() => {
     if (typeof window === "undefined") return;
     const handler = (evt: Event) => {
       const id = (evt as CustomEvent<{ id?: number }>).detail?.id;
@@ -326,7 +335,7 @@ export const methodsCreateStep = buildWalkthroughStep({
       window.removeEventListener(TOUR_DOM_EVENTS.methodCreated, handler);
     };
     window.addEventListener(TOUR_DOM_EVENTS.methodCreated, handler);
-  },
+  }),
   onExit: async () => {
     await flushPendingArtifacts(STEP_ID);
     // experiment-flow fix manager 2026-05-27: clear the picked category

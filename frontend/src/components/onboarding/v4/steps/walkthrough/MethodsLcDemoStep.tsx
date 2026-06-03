@@ -35,6 +35,7 @@ import {
 } from "./lib/cursor-script";
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { TOUR_TARGETS, targetSelector } from "./lib/targets";
+import { ensureNewMethodModalOpen } from "./lib/on-enter-helpers";
 
 /** Read-then-watch pause between the cursor's visible actions, matched
  *  to the breadth step's cadence so the cluster reads consistently. */
@@ -85,6 +86,11 @@ export const methodsLcDemoStep = buildWalkthroughStep({
   // wait for the user. The chart is now visible; the user pokes the
   // gradient table values if they want, then clicks Got it, next.
   completion: manualAdvance("Got it, next"),
+  // tour-modal-resilience bot 2026-06-03: this beat clicks the LC tile
+  // INSIDE the New Method modal (CreateMethodModal), which a mid-tour
+  // refresh closes (portal state, not a route). Reopen it before the
+  // cursor clicks the tile. No-op when already open; best-effort.
+  onEnter: () => ensureNewMethodModalOpen(),
   // Allow-list lock so the user can play with the LC editor (per
   // speech "click around") without accidentally walking off the tour.
   // methodsCreateForm covers the whole CreateMethodModal subtree

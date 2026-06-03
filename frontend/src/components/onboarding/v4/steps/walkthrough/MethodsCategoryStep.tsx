@@ -55,6 +55,7 @@ import { TOUR_TARGETS, targetSelector } from "./lib/targets";
 import { TOUR_DOM_EVENTS } from "./lib/tour-events";
 import { readMethodsCategoryPick } from "./MethodsCategoryPromptStep";
 import { flushPendingArtifacts, pendingArtifactStore } from "./lib/artifacts";
+import { withCategoryModalOpen } from "./lib/on-enter-helpers";
 
 const STEP_ID = "methods-category";
 
@@ -148,7 +149,16 @@ export const methodsCategoryDemoStep = buildWalkthroughStep({
   // renders "Method folder: <label>" from this. cleanup_default "keep"
   // because the user picked the label themselves (per the methods-
   // category-prompt beat).
-  onEnter: () => {
+  // tour-modal-resilience bot 2026-06-03: this demo types into the New
+  // Category modal's name input (`methods-category-name-input`) and
+  // clicks Create Empty; the modal is opened by the prior
+  // `methods-category-open` bridge step. The modal is local React state
+  // (not a route), so a mid-tour refresh closes it and this beat's
+  // cursor + spotlight fire into nothing. Compose the modal-reopen guard
+  // AHEAD of the existing category-created listener (mirrors the
+  // experiment-popup `withExperimentPopupOpen` composition). Both best-
+  // effort; reopen is a no-op on the canonical (non-refresh) path.
+  onEnter: withCategoryModalOpen(() => {
     if (typeof window === "undefined") return;
     const handler = (evt: Event) => {
       const detail = (evt as CustomEvent<{ categoryName?: string }>).detail;
@@ -168,7 +178,7 @@ export const methodsCategoryDemoStep = buildWalkthroughStep({
       TOUR_DOM_EVENTS.methodsCategoryCreated,
       handler,
     );
-  },
+  }),
   onExit: async () => {
     // Persist the captured category artifact to the sidecar so the
     // Phase 4 cleanup grid (P8) lists it under "Methods" with the

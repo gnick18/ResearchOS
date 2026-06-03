@@ -51,7 +51,9 @@ import {
 import { flushPendingArtifacts, pendingArtifactStore } from "./lib/artifacts";
 import {
   closeNotificationsPopup,
+  ensureCreateExperimentModalOpen,
   switchWorkbenchTab,
+  withCreateExperimentModalOpen,
 } from "./lib/on-enter-helpers";
 import {
   ensureFirstProjectExists as canonicalEnsureFirstProjectExists,
@@ -133,6 +135,15 @@ export const workbenchCreateExperimentNameStep = buildWalkthroughStep({
     "Give your experiment a name. Something descriptive, but it can be short. You can always rename later.",
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.workbenchExperimentNameInput),
+  // tour-modal-resilience bot 2026-06-03: this beat spotlights the Name
+  // input INSIDE the Create Experiment modal (TaskModal), which a mid-
+  // tour refresh closes (portal state, not a route). Reopen it first.
+  // The helper suppresses the reopen once an experiment already exists
+  // on disk, so it never dumps the user back at a blank form they
+  // already submitted; reopening on the pre-create path loses any half-
+  // typed name (acceptable, better than a dead spotlight, and this beat
+  // asks the user to type a name anyway). No-op on the canonical path.
+  onEnter: () => ensureCreateExperimentModalOpen(),
   completion: manualAdvance("Got it, next"),
 });
 
@@ -157,6 +168,11 @@ export const workbenchCreateExperimentProjectStep = buildWalkthroughStep({
   ),
   pose: "pointing",
   targetSelector: targetSelector(TOUR_TARGETS.workbenchExperimentProjectSelect),
+  // tour-modal-resilience bot 2026-06-03: same as the name beat, this
+  // spotlights the Project dropdown INSIDE the Create Experiment modal
+  // (TaskModal). Reopen the modal first (suppressed once an experiment
+  // exists). No-op on the canonical path.
+  onEnter: () => ensureCreateExperimentModalOpen(),
   completion: manualAdvance("Got it, next"),
 });
 
@@ -202,7 +218,20 @@ export const workbenchCreateExperimentSubmitStep = buildWalkthroughStep({
   // Capture the created task id from the `tour:experiment-created`
   // event detail. Same shape as the home-create-project-fill artifact
   // capture (project id from `tour:project-created`).
-  onEnter: () => {
+  // tour-modal-resilience bot 2026-06-03: compose the Create Experiment
+  // modal-reopen guard AHEAD of the existing experiment-created listener
+  // (mirrors the experiment-popup `withExperimentPopupOpen` composition).
+  // The guard reopens ONLY when the modal is closed AND no experiment
+  // exists yet, so a refresh AFTER the experiment was created no-ops
+  // (no confusing blank-form reopen). FLAG (see report): the
+  // `disabledUntilEvent: experimentCreated` gate on this beat's manual
+  // advance does NOT survive a refresh (the event fired before reload),
+  // so a refresh on this exact beat AFTER creating the experiment leaves
+  // "Got it, next" disabled even though the work is done. That is a
+  // pre-existing gate-persistence gap, orthogonal to the modal-reopen
+  // pass, and is left for master to decide (would need the gate to
+  // re-check on-disk experiment existence, not just the live event).
+  onEnter: withCreateExperimentModalOpen(() => {
     if (typeof window === "undefined") return;
     const handler = (evt: Event) => {
       const id = (evt as CustomEvent<{ id?: number }>).detail?.id;
@@ -215,7 +244,7 @@ export const workbenchCreateExperimentSubmitStep = buildWalkthroughStep({
       window.removeEventListener(TOUR_DOM_EVENTS.experimentCreated, handler);
     };
     window.addEventListener(TOUR_DOM_EVENTS.experimentCreated, handler);
-  },
+  }),
   onExit: async () => {
     await flushPendingArtifacts(SUBMIT_STEP_ID);
   },
