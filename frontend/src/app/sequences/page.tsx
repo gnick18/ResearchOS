@@ -14,12 +14,18 @@ import SequenceEditView from "@/components/sequences/SequenceEditView";
 import SequenceNewDialog, {
   type NewSequenceSubmit,
 } from "@/components/sequences/SequenceNewDialog";
+import SequenceDropZone from "@/components/sequences/SequenceDropZone";
 import { sequencesApi, projectsApi } from "@/lib/local-api";
 import {
   importSequenceFile,
   buildNewSequence,
   type ImportedSequence,
 } from "@/lib/sequences/import";
+import {
+  IMPORT_ACCEPT_ATTR,
+  partitionImportableFiles,
+  importStatusText,
+} from "@/lib/sequences/bulk-import";
 import type { SequenceRecord, SeqType } from "@/lib/types";
 
 type SortKey = "name" | "type" | "length" | "added";
@@ -86,6 +92,34 @@ function ImportIcon({ className }: { className?: string }) {
   );
 }
 
+/** Downward chevron for the Import split-menu. Inline SVG (no emojis). */
+function ChevronDownIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
+/** Folder glyph for the "Choose folder…" import action. Inline SVG (no emojis). */
+function FolderIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+/** File glyph for the "Choose files…" import action. Inline SVG (no emojis). */
+function FileIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+    </svg>
+  );
+}
+
 function SortHeader({
   label,
   col,
@@ -127,7 +161,10 @@ export default function SequencesPage() {
   const [importing, setImporting] = useState(false);
   // Transient status line under the toolbar (import counts / parse errors).
   const [status, setStatus] = useState<{ text: string; tone: "ok" | "error" } | null>(null);
+  const [importMenuOpen, setImportMenuOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+  const importMenuRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
   const { data: sequences = [], isLoading } = useQuery({
@@ -289,17 +326,38 @@ export default function SequencesPage() {
     [persistNew, activeProjectIds],
   );
 
-  // IMPORT flow: read each picked file (text for .gb/.fasta, bytes for .dna),
-  // parse via the vendored bio-parsers, convert to GenBank, and create.
-  const handleFilesPicked = useCallback(
-    async (files: FileList | null) => {
-      if (!files || files.length === 0) return;
+  // IMPORT flow (shared core): filter the gathered files to importable
+  // sequence extensions (folder pick + drag-drop hand us EVERY file, so the
+  // filter happens here, not the input's `accept`), then read each kept file
+  // (text for .gb/.fasta, bytes for .dna), parse via the vendored bio-parsers,
+  // convert to GenBank, and create — landing in the active collection. Reports
+  // how many non-sequence files were skipped. `filtered` is false for the
+  // single-/multi-file picker (its `accept` already constrained the choice),
+  // so a deliberately-picked non-sequence file still surfaces a parse error.
+  const handleImport = useCallback(
+    async (incoming: File[], opts?: { filtered?: boolean }) => {
+      if (incoming.length === 0) return;
       setImporting(true);
       setStatus(null);
       try {
+        let files = incoming;
+        let skipped = 0;
+        if (opts?.filtered) {
+          const part = partitionImportableFiles(incoming);
+          files = part.kept;
+          skipped = part.skipped;
+          if (files.length === 0) {
+            const noun = skipped === 1 ? "file" : "files";
+            setStatus({
+              text: `No sequence files found (skipped ${skipped} non-sequence ${noun}).`,
+              tone: "error",
+            });
+            return;
+          }
+        }
         const allImports: ImportedSequence[] = [];
         const messages: string[] = [];
-        for (const file of Array.from(files)) {
+        for (const file of files) {
           try {
             const bytes = await file.arrayBuffer();
             const res = await importSequenceFile(file.name, bytes);
@@ -317,15 +375,53 @@ export default function SequencesPage() {
           return;
         }
         await persistNew(allImports, activeProjectIds);
-        const noun = allImports.length === 1 ? "sequence" : "sequences";
-        setStatus({ text: `Imported ${allImports.length} ${noun}.`, tone: "ok" });
+        setStatus({
+          text: importStatusText(allImports.length, skipped),
+          tone: "ok",
+        });
       } finally {
         setImporting(false);
-        // Reset the input so re-picking the same file fires onChange again.
-        if (fileInputRef.current) fileInputRef.current.value = "";
       }
     },
     [persistNew, activeProjectIds],
+  );
+
+  // File picker (single / multi): the input `accept` already constrains the
+  // choice, so no extension filter — funnel straight through the import core.
+  const handleFilesPicked = useCallback(
+    async (files: FileList | null) => {
+      if (!files || files.length === 0) return;
+      try {
+        await handleImport(Array.from(files));
+      } finally {
+        // Reset so re-picking the same file fires onChange again.
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    },
+    [handleImport],
+  );
+
+  // Folder picker (webkitdirectory): grabs EVERY file in the folder; the
+  // `accept` attribute is ignored for directory mode, so we filter in code.
+  const handleFolderPicked = useCallback(
+    async (files: FileList | null) => {
+      if (!files || files.length === 0) return;
+      try {
+        await handleImport(Array.from(files), { filtered: true });
+      } finally {
+        if (folderInputRef.current) folderInputRef.current.value = "";
+      }
+    },
+    [handleImport],
+  );
+
+  // Drag-and-drop: the drop zone hands us a flat File[] (folders recursed); the
+  // mix is unknown, so filter in code like the folder picker.
+  const handleDroppedFiles = useCallback(
+    (files: File[]) => {
+      void handleImport(files, { filtered: true });
+    },
+    [handleImport],
   );
 
   // Clear the transient status after a short delay.
@@ -335,11 +431,37 @@ export default function SequencesPage() {
     return () => clearTimeout(t);
   }, [status]);
 
+  // Close the Import menu on outside click / Escape.
+  useEffect(() => {
+    if (!importMenuOpen) return;
+    const onPointer = (e: MouseEvent) => {
+      if (!importMenuRef.current?.contains(e.target as Node)) {
+        setImportMenuOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setImportMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [importMenuOpen]);
+
   return (
     <AppShell>
       <div className="flex h-[calc(100vh-7rem)] gap-4 px-4 pb-4">
-        {/* LEFT: working tree / library */}
-        <aside className="flex w-[22rem] shrink-0 flex-col rounded-lg border border-gray-200 bg-white">
+        {/* LEFT: working tree / library. Wrapped in a drag-and-drop target so a
+            user can drop files or a whole folder anywhere on the library to
+            bulk-import (folders recursed; non-sequence files skipped). */}
+        <SequenceDropZone
+          onFiles={handleDroppedFiles}
+          disabled={importing}
+          className="flex w-[22rem] shrink-0 flex-col"
+        >
+        <aside className="flex h-full w-full flex-col rounded-lg border border-gray-200 bg-white">
           <div className="border-b border-gray-100 px-4 py-3">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
@@ -359,17 +481,56 @@ export default function SequencesPage() {
                   <PlusIcon className="h-3.5 w-3.5" />
                   New
                 </button>
-                <Tooltip label="Import a GenBank (.gb), FASTA, or SnapGene (.dna) file">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={importing}
-                    className="flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:opacity-50"
-                  >
-                    <ImportIcon className="h-3.5 w-3.5" />
-                    {importing ? "Importing…" : "Import"}
-                  </button>
-                </Tooltip>
+                {/* Import split-menu: pick files, or pick a whole folder
+                    (e.g. a SnapGene collection). Drag-and-drop also works
+                    anywhere on the library. */}
+                <div className="relative" ref={importMenuRef}>
+                  <Tooltip label="Import files or a whole folder. You can also drag files or a folder onto the library.">
+                    <button
+                      type="button"
+                      onClick={() => setImportMenuOpen((o) => !o)}
+                      disabled={importing}
+                      aria-haspopup="menu"
+                      aria-expanded={importMenuOpen}
+                      className="flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:opacity-50"
+                    >
+                      <ImportIcon className="h-3.5 w-3.5" />
+                      {importing ? "Importing…" : "Import"}
+                      <ChevronDownIcon className="h-3 w-3 text-gray-400" />
+                    </button>
+                  </Tooltip>
+                  {importMenuOpen ? (
+                    <div
+                      role="menu"
+                      className="absolute right-0 z-30 mt-1 w-48 overflow-hidden rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setImportMenuOpen(false);
+                          fileInputRef.current?.click();
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-gray-100"
+                      >
+                        <FileIcon className="h-3.5 w-3.5 text-gray-400" />
+                        Choose files…
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setImportMenuOpen(false);
+                          folderInputRef.current?.click();
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-gray-100"
+                      >
+                        <FolderIcon className="h-3.5 w-3.5 text-gray-400" />
+                        Choose folder…
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
               </div>
             </div>
             {status ? (
@@ -385,9 +546,21 @@ export default function SequencesPage() {
               ref={fileInputRef}
               type="file"
               multiple
-              accept=".gb,.gbk,.genbank,.ape,.fasta,.fa,.fna,.ffn,.faa,.frn,.seq,.dna,.prot"
+              accept={IMPORT_ACCEPT_ATTR}
               className="hidden"
               onChange={(e) => handleFilesPicked(e.target.files)}
+            />
+            {/* Folder picker. webkitdirectory grabs every file in the chosen
+                folder (accept is ignored for directory mode), so the kept set
+                is filtered in code by handleFolderPicked. */}
+            <input
+              ref={folderInputRef}
+              type="file"
+              multiple
+              // Non-standard attributes for directory selection (cast for TS).
+              {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
+              className="hidden"
+              onChange={(e) => handleFolderPicked(e.target.files)}
             />
           </div>
 
@@ -503,6 +676,7 @@ export default function SequencesPage() {
             )}
           </div>
         </aside>
+        </SequenceDropZone>
 
         {/* RIGHT: the single fluid editor surface. No Read|Edit modal toggle —
             you select / inspect (readout) / edit / double-click a feature all in
