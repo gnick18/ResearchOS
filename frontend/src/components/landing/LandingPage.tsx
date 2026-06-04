@@ -30,7 +30,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import BeakerBot from "../BeakerBot";
-import BeakerBotMouseWaveScene from "../BeakerBotMouseWaveScene";
 import BetaNotice from "../BetaNotice";
 import VersionBadge from "../VersionBadge";
 import AppFooter from "../AppFooter";
@@ -427,15 +426,16 @@ function ComparisonRow({
 }
 
 /** Brand wordmark for the top nav: the BeakerBot mark beside a bold
- *  "ResearchOS", mirroring the AppShell brand lockup. Static (no easter egg)
- *  so it reads as a logo, not an interactive toy, on the sell page. */
+ *  "ResearchOS", mirroring the AppShell brand lockup. Visually static (no idle
+ *  motion) so it reads as a logo, but clicking the mark still pops the heart
+ *  easter egg, the playful touch carries everywhere BeakerBot shows up. */
 function Wordmark() {
   return (
     <div className="flex items-center gap-2">
       <BeakerBot
         pose="idle"
         animated={false}
-        easterEgg="none"
+        easterEgg="heart"
         ariaLabel="ResearchOS BeakerBot logo"
         className="h-7 w-7 shrink-0 text-sky-500"
       />
@@ -728,8 +728,13 @@ function ScrollHint() {
 export default function LandingPage({ onGetStarted }: LandingPageProps) {
   const router = useRouter();
 
-  // Hi-wave greeting: fires once on mount from the bottom-right corner.
+  // Hi-wave greeting: the hero BeakerBot waves on landing, then settles into
+  // its alive idle. waveActive drives the hero pose; a one-shot timer ends it.
   const [waveActive, setWaveActive] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setWaveActive(false), 2600);
+    return () => clearTimeout(t);
+  }, []);
 
   // Expandable-screenshot lightbox: null when closed, the image when open.
   const [lightbox, setLightbox] = useState<LightboxImage | null>(null);
@@ -769,12 +774,6 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
       data-testid="landing-page"
       className="min-h-screen w-full overflow-y-auto bg-white text-gray-900"
     >
-      {/* Hi-wave greeting. Anchored bottom-right, fires once on mount. */}
-      <BeakerBotMouseWaveScene
-        active={waveActive}
-        onComplete={() => setWaveActive(false)}
-      />
-
       {/* Subtle "scroll for more" cue at the bottom of the first screen. */}
       <ScrollHint />
 
@@ -835,7 +834,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             className="drop-shadow-[0_10px_28px_rgba(26,160,230,0.22)]"
           >
             <BeakerBot
-              pose="idle"
+              pose={waveActive ? "waving" : "idle"}
               alive
               className="h-28 w-28 text-sky-500 md:h-36 md:w-36"
             />
@@ -885,10 +884,10 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
           </div>
 
           <p className="max-w-xl text-body leading-relaxed text-gray-500">
-            Made for the people who actually run the science. Grad students and
-            postdocs at the bench, the PI keeping an eye on the whole lab, a
-            small research group or core facility with no IT department behind
-            it.
+            Made for the people who actually run the science, the grad students
+            and postdocs at the bench, the PIs keeping an eye on the whole lab,
+            and the small groups and core facilities with no IT department to
+            lean on.
           </p>
 
           <VersionBadge className="mt-1" />
