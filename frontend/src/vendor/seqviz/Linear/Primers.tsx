@@ -312,8 +312,9 @@ const SingleNamedElement = (props: {
   // the strand it hugs: up for forward, down for reverse) and sweeps forward to a
   // point in the reading direction. Drawn only when the 3' end lands in this block;
   // otherwise the body runs flat into the next block (the primer continues).
-  const headLen = Math.min(charWidth * 0.9, baseFontSize + 3); // forward reach of the tip
-  const barbRise = boxH * 0.55; // how far the barb pulls back off the body
+  const headLen = Math.min(charWidth * 1.25, baseFontSize * 1.7); // forward reach of the tip
+  const barbRise = boxH * 0.85; // how far the barb pulls back off the body (chunky, SnapGene-like)
+  const borderW = 2.25; // thicker colored outline so the primer reads as a primer
   const arrowRight = forward && endFWD;
   const arrowLeft = reverse && endREV;
   const annealBoxPath = (() => {
@@ -366,10 +367,13 @@ const SingleNamedElement = (props: {
             className={`${element.id} la-vz-primer`}
             cursor="pointer"
             d={annealBoxPath}
-            fill="none"
+            // primer bases — fill the primer body BLACK so the green bases pop on
+            // the editor's light background (SnapGene-style chip), with a thicker
+            // colored border. The bases render on top of this fill.
+            fill="#000000"
             id={element.id}
             stroke={primerColor}
-            strokeWidth={1.5}
+            strokeWidth={borderW}
             strokeLinejoin="round"
             strokeLinecap="round"
             style={annotation}
@@ -391,9 +395,9 @@ const SingleNamedElement = (props: {
             width={Math.abs(tailX1 - tailX0)}
             height={boxH}
             rx={2.5}
-            fill="none"
+            fill="#000000"
             stroke={primerColor}
-            strokeWidth={1.5}
+            strokeWidth={borderW}
             strokeLinejoin="round"
             onDoubleClick={handleDoubleClick}
             onMouseOut={() => hoverOtherPrimerRows(element.id, 0.7)}

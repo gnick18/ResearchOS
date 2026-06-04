@@ -56,7 +56,7 @@ export const primerRowHeight = (
   if (!zoomed) return elementHeight;
   const box = primerBaseFont(seqFontSize, charWidth) + 6; // one base box (glyph + padding)
   const label = seqFontSize + 4; // the name lane
-  const barb = Math.round(box * 0.55); // headroom for the 3' arrowhead's pull-back
+  const barb = Math.round(box * 0.85); // headroom for the 3' arrowhead's pull-back (chunky)
   return Math.round(label + barb + box * (hasTail ? 2 : 1) + 5); // + a small strand margin
 };
 
