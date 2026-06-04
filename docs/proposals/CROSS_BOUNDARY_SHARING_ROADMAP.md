@@ -68,6 +68,33 @@ Recommendation, ship always-new first (it covers "here is my project, take a cop
 
 ---
 
+## Beyond copies, Collaborate mode (live sessions)
+
+Everything above is a copy, a snapshot handed across the boundary. Collaborate mode is the live complement, and it is a distinct, later, larger feature.
+
+The idea, a user temporarily promotes a note, method, or experiment to a live shared session hosted in the cloud, invites N people, and everyone edits it together in real time like a Google Doc, changes rendering on every screen with no manual refresh. When the work is done the doc is retired from collab mode, which writes a permanent local copy into every collaborator's own folder and deletes the cloud copy.
+
+Why this stays true to the tenets, the cloud state is ephemeral (it exists only for the duration of the session and is deleted on retire) and it always ends up local (retire materializes a copy for each collaborator). So it is a temporary shared scratchpad that dissolves back into local copies, not a hosted backend that owns anyone's research data.
+
+The resource model, a live session spends the same per-user storage budget that the async inbox uses. One budget, two uses. Live text is tiny, attachments are the real cost, so it prices naturally.
+
+The technical shape,
+- Conflict-free concurrent editing needs a CRDT. Yjs (MIT) is the standard and binds to the CodeMirror 6 editor the project is adopting, with presence and cursors via its awareness protocol. Notes and markdown methods are the natural first collab targets.
+- The realtime hub is the piece Vercel is poorly suited to (its functions do not hold long-lived sockets). Cloudflare Durable Objects are the canonical home for Yjs over Cloudflare, one object per live doc holding session state and fanning edits out over WebSockets. Matches the Cloudflare infra and stays cheap.
+- Invites and auth reuse the identity system, gate the socket on a signed token from the sharing identity, and wrap a per-doc symmetric key to each collaborator's X25519 key (the same wrapped-key idea as the project share manifest).
+
+The hard parts and the scoping,
+- This is the largest feature in the arc and a different system from the store-and-forward relay. It comes after the copy-based tiers are solid.
+- Text-first is tractable (Yjs text CRDT is mature). Structured records (experiments, PCR and plate protocols) are a harder follow-on because their shapes must be mapped onto CRDT types.
+- To keep clone-and-run-local honest, the collab worker should be self-hostable, and collab should degrade gracefully when no hub is present (live editing is lost, everything local still works).
+
+The open fork to settle at build time,
+
+**Does the hub see plaintext during a live session, or stay blind?**
+
+- E2E-blind (recommended), the hub relays ENCRYPTED Yjs updates and clients merge locally, so the server never sees plaintext even while editing. Consistent with the never-store-plaintext stance, but more work (blind persistence and compaction of encrypted updates).
+- Server-side merge, the hub holds the plaintext doc during the session and merges centrally. Simpler, but the hub sees research data for the session's duration, which cuts against the project's privacy posture.
+
 ## Summary
 
 | Tier | What it is | New problem it introduces | Reuses |
@@ -77,5 +104,6 @@ Recommendation, ship always-new first (it covers "here is my project, take a cop
 | Experiments | composite subtree (small) | walking a subtree, composite import | import/apply id-remap |
 | Projects | composite subtree (large) | scale (manifest + per-file sealing), import semantics | import/apply id-remap, manifest format |
 | Bulk | many independent items | none (multi-select + loop) | single-item send |
+| Collaborate mode | temporary live shared session, retire-to-local | realtime hub (Yjs + Cloudflare Durable Objects), CRDT, presence, E2E-blind relay | identity/auth, wrapped-key model, import/apply for retire-to-local |
 
 The rails are done and entity-agnostic. The roadmap is a sequence of richer adapters plus, at the project tier, the share-manifest packaging decided here.
