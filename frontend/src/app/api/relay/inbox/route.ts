@@ -1,0 +1,66 @@
+// Cross-boundary sharing, relay inbox-listing route (Phase 2a-ii).
+//
+// POST a RECIPIENT's signed request (action "inbox"). The relay verifies the
+// caller's Ed25519 signature, then returns the metadata of their non-expired
+// pending bundles, never any content. The caller can only list their own inbox,
+// the listing is keyed by the hash derived from the signed-and-verified email,
+// so a signature does not let one user read another user's mailbox.
+//
+// Reads env: SHARING_ENABLED, DIRECTORY_HMAC_PEPPER, DATABASE_URL,
+// KV_REST_API_URL, KV_REST_API_TOKEN.
+
+import { getIpLimiter } from "@/lib/sharing/directory/ratelimit";
+import {
+  extractClientIp,
+  getPepper,
+  isSharingEnabled,
+  json,
+} from "@/lib/sharing/directory/guard";
+import { verifyRelayRequest } from "@/lib/sharing/relay/auth";
+import {
+  ensureRelaySchema,
+  listInboxByRecipient,
+} from "@/lib/sharing/relay/db";
+
+export const runtime = "nodejs";
+
+const GENERIC_FAILURE = { error: "inbox failed" } as const;
+
+export async function POST(request: Request): Promise<Response> {
+  if (!isSharingEnabled()) {
+    return json(404, { error: "not found" });
+  }
+
+  const ip = extractClientIp(request.headers);
+  const ipVerdict = await getIpLimiter().limit(ip);
+  if (!ipVerdict.success) {
+    return json(429, { error: "rate limited" });
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    body = null;
+  }
+
+  await ensureRelaySchema();
+
+  const verified = await verifyRelayRequest(body, "inbox", getPepper());
+  if (!verified) {
+    return json(400, GENERIC_FAILURE);
+  }
+
+  // The listing is keyed by the caller's own verified hash, so it only ever
+  // returns their mailbox. Metadata only, the sealed bytes are never exposed.
+  const entries = await listInboxByRecipient(verified.emailHash);
+  const items = entries.map((e) => ({
+    bundleId: e.bundleId,
+    senderEmailHash: e.senderEmailHash,
+    sizeBytes: e.sizeBytes,
+    createdAt: e.createdAt,
+    expiresAt: e.expiresAt,
+  }));
+
+  return json(200, { items });
+}
