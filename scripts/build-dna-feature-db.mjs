@@ -519,6 +519,165 @@ const TARGETS = [
       !/^complement\(/.test(f.location),
     note: "Shine-Dalgarno ribosome-binding sequence extracted from a real E. coli gene 5'UTR in the pBR322 record (J01749), not recited.",
   },
+
+  // -------------------------------------------------------------------------
+  // v3 additions: mammalian / lentiviral elements (close the top coverage gaps
+  // a detector validation pass found). The v2 pass deferred these as
+  // "mammalian-expression". v3 pins modern, SnapGene-style synthetic-construct
+  // and expression-vector records that annotate each element as a clean
+  // coordinate range, so every sequence is still EXTRACTED by coordinates
+  // (method A), never recited.
+  // -------------------------------------------------------------------------
+
+  // --- Mammalian polyA signals (FULL regions, not the bare hexamer) ---
+  {
+    id: "regulatory_sv40_late_polya_region",
+    name: "SV40 late polyA signal (full region)",
+    category: "regulatory",
+    accession: "MZ648044.1",
+    license: "Public domain sequence facts (GenBank/NCBI).",
+    match: (f) =>
+      f.type === "regulatory" &&
+      f.qualifiers.regulatory_class === "polyA_signal_sequence" &&
+      /^SV40 polyadenylation signal; SV40 poly\(A\) signal$/i.test(
+        f.qualifiers.note || ""
+      ),
+    note: "SV40 late polyadenylation signal as the FULL functional region (not the bare AATAAA hexamer), annotated as a clean range in a SnapGene-style lentiviral expression vector record (MZ648044). This is the standard 3' polyA of most mammalian/lentiviral expression cassettes. Distinct from regulatory_sv40_polya, which is the bare hexamer signal extracted from the primary SV40 genome (J02400).",
+  },
+  {
+    id: "regulatory_bgh_polya",
+    name: "BGH polyA signal (bovine growth hormone)",
+    category: "regulatory",
+    accession: "LC897330.1",
+    license: "Public domain sequence facts (GenBank/NCBI).",
+    // Annotated with regulatory_class "terminator" in this record but the /note
+    // states it is the bovine growth hormone polyadenylation signal; match by note.
+    match: (f) =>
+      f.type === "regulatory" &&
+      /^bovine growth hormone \(bGH\) polyadenylation signal$/i.test(
+        f.qualifiers.note || ""
+      ),
+    note: "Bovine growth hormone (BGH) polyadenylation signal, the standard 3' polyA of pcDNA3-family mammalian expression vectors, annotated as a clean range in an expression-vector record (LC897330, Oxtr-3xALFA vector).",
+  },
+
+  // --- Mammalian / Pol-III promoters ---
+  {
+    id: "promoter_ef1a_core",
+    name: "EF-1alpha core promoter (human elongation factor 1-alpha)",
+    category: "promoter",
+    accession: "MZ648044.1",
+    license: "Public domain sequence facts (GenBank/NCBI).",
+    match: (f) =>
+      f.type === "regulatory" &&
+      f.qualifiers.regulatory_class === "promoter" &&
+      /^core promoter for human elongation factor EF-1-alpha$/i.test(
+        f.qualifiers.note || ""
+      ),
+    note: "Core promoter for human elongation factor 1-alpha (EF-1alpha / EF1a), a strong ubiquitous mammalian Pol II promoter common in lentiviral vectors, annotated as a clean range in a SnapGene-style lentiviral vector record (MZ648044).",
+  },
+  {
+    id: "promoter_pgk",
+    name: "PGK promoter (mouse phosphoglycerate kinase 1)",
+    category: "promoter",
+    accession: "MH325103.1",
+    license: "Public domain sequence facts (GenBank/NCBI).",
+    match: (f) =>
+      f.type === "regulatory" &&
+      f.qualifiers.regulatory_class === "promoter" &&
+      /^mouse phosphoglycerate kinase 1 promoter; label: PGK promoter$/i.test(
+        f.qualifiers.note || ""
+      ),
+    note: "Phosphoglycerate kinase 1 (PGK) promoter, a moderate ubiquitous mammalian promoter widely used in lentiviral and knock-in vectors, annotated as a clean range in a synthetic-construct record (MH325103). This record's element is the mouse PGK1 promoter; the human and mouse PGK promoters are closely related and used interchangeably as the lab 'PGK promoter'.",
+  },
+  {
+    id: "promoter_u6",
+    name: "U6 promoter (human U6 snRNA, RNA Pol III)",
+    category: "promoter",
+    accession: "MN811116.1",
+    license: "Public domain sequence facts (GenBank/NCBI).",
+    match: (f) =>
+      f.type === "misc_feature" && /^U6 promoter$/i.test(f.qualifiers.note || ""),
+    note: "U6 snRNA RNA Pol III promoter, the standard driver of shRNA and sgRNA cassettes, annotated as an explicit coordinate range (misc_feature 'U6 promoter') in a synthetic-construct record (MN811116).",
+  },
+  {
+    id: "promoter_h1",
+    name: "H1 promoter (human RNASEH1 / H1 RNA, RNA Pol III)",
+    category: "promoter",
+    accession: "DQ465352.1",
+    license: "Public domain sequence facts (GenBank/NCBI).",
+    match: (f) =>
+      f.type === "regulatory" &&
+      f.qualifiers.regulatory_class === "promoter" &&
+      /^H1 promoter$/i.test(f.qualifiers.note || ""),
+    note: "H1 RNA Pol III promoter, a common alternative to U6 for shRNA/sgRNA expression, annotated as a clean range in a synthetic-construct record (DQ465352).",
+  },
+  {
+    id: "promoter_sv40_early",
+    name: "SV40 promoter (enhancer and early promoter)",
+    category: "promoter",
+    accession: "PP539716.1",
+    license: "Public domain sequence facts (GenBank/NCBI).",
+    match: (f) =>
+      f.type === "regulatory" &&
+      f.qualifiers.regulatory_class === "promoter" &&
+      /^SV40 enhancer and early promoter$/i.test(f.qualifiers.note || ""),
+    note: "SV40 enhancer and early promoter, the small ubiquitous promoter that drives selection markers in many mammalian vectors, annotated as a clean range in a SnapGene-style mammalian expression vector record (PP539716).",
+  },
+
+  // --- Origins ---
+  {
+    id: "ori_f1_phage",
+    name: "f1 / M13 phage origin of replication",
+    category: "origin",
+    accession: "PP539716.1",
+    license: "Public domain sequence facts (GenBank/NCBI).",
+    match: (f) =>
+      f.type === "rep_origin" &&
+      /^f1 bacteriophage origin of replication$/i.test(f.qualifiers.note || ""),
+    note: "f1 (M13) filamentous-phage origin of replication, the single-strand rescue origin of phagemids, annotated as a clean rep_origin range (complement strand) in a SnapGene-style mammalian expression vector record (PP539716).",
+  },
+  {
+    id: "ori_rk2_oriv",
+    name: "RK2 / oriV origin of vegetative replication",
+    category: "origin",
+    accession: "U75327.1",
+    license: "Public domain sequence facts (GenBank/NCBI).",
+    match: (f) =>
+      f.type === "misc_feature" &&
+      /^origin of vegetative replication from RK2; oriV$/i.test(
+        f.qualifiers.note || ""
+      ),
+    note: "RK2 oriV, the vegetative origin of the broad-host-range RK2/RP4 incP plasmid family, annotated as an explicit coordinate range (misc_feature) in a broad-host-range vector record (U75327).",
+  },
+
+  // --- High-value bonus regulatory elements (same SnapGene-style records) ---
+  {
+    id: "regulatory_wpre",
+    name: "WPRE (woodchuck hepatitis posttranscriptional regulatory element)",
+    category: "regulatory",
+    accession: "MZ648044.1",
+    license: "Public domain sequence facts (GenBank/NCBI).",
+    match: (f) =>
+      f.type === "misc_feature" &&
+      /^woodchuck hepatitis virus posttranscriptional regulatory element; WPRE$/i.test(
+        f.qualifiers.note || ""
+      ),
+    note: "Woodchuck hepatitis virus posttranscriptional regulatory element (WPRE), which boosts transgene expression in nearly every modern lentiviral vector, annotated as a clean range in a SnapGene-style lentiviral vector record (MZ648044).",
+  },
+  {
+    id: "regulatory_ires2_emcv",
+    name: "IRES (EMCV internal ribosome entry site, IRES2)",
+    category: "regulatory",
+    accession: "PP539716.1",
+    license: "Public domain sequence facts (GenBank/NCBI).",
+    match: (f) =>
+      f.type === "regulatory" &&
+      f.qualifiers.regulatory_class === "ribosome_binding_site" &&
+      /internal ribosome entry site \(IRES2\) of the encephalomyocarditis virus/i.test(
+        f.qualifiers.note || ""
+      ),
+    note: "Encephalomyocarditis virus (EMCV) internal ribosome entry site (IRES2), the standard element for cap-independent translation of a second ORF from one transcript, annotated as a clean range in a SnapGene-style mammalian expression vector record (PP539716).",
+  },
 ];
 
 // Targets from the curation brief that were investigated against specific NCBI
@@ -544,7 +703,7 @@ const DOCUMENTED_OMISSIONS = [
     id: "ori_f1_m13",
     name: "f1 / M13 origin",
     reason:
-      "Out of scope for this v2 pass (the brief targets bacterial-cloning origins). The classic M13 genome record (V00604) does not annotate the f1 intergenic origin as a feature; it appears only inside a gene II /note with no extractable coordinates. A future pass can pin a SnapGene-style record that annotates an 'f1 ori' range.",
+      "COVERED in v3, not omitted. Shipped as ori_f1_phage (PP539716.1 rep_origin complement(3427..3882), /note 'f1 bacteriophage origin of replication'). The v2 note below was the v2-era status; the f1/M13 phage origin is now extracted by coordinates from a SnapGene-style record that annotates it as a clean range.",
   },
   {
     id: "promoter_arabad",
@@ -553,16 +712,28 @@ const DOCUMENTED_OMISSIONS = [
       "Not in the v2 brief target list and not pursued here. Records that annotate a pBAD/araBAD promoter range exist (e.g. PV588693.1), so it is a clean future addition, not a fabrication risk.",
   },
   {
-    id: "promoter_ef1a_cag_pgk_u6",
-    name: "EF-1alpha / CAG / hPGK / U6 promoters",
+    id: "promoter_ef1a_pgk_u6_h1_sv40",
+    name: "EF-1alpha / PGK / U6 / H1 / SV40 promoters",
     reason:
-      "Out of scope for this bacterial-cloning v2 pass (these are mammalian/Pol III promoters). Not extracted to avoid mislabeling; deferred to a mammalian-expression curation pass.",
+      "COVERED in v3, not omitted. Shipped as promoter_ef1a_core (MZ648044.1), promoter_pgk (MH325103.1), promoter_u6 (MN811116.1), promoter_h1 (DQ465352.1) and promoter_sv40_early (PP539716.1), each extracted by coordinates from a record that annotates it as a clean range. CAG is NOT shipped: it is a composite (CMV enhancer + chicken beta-actin promoter + rabbit beta-globin intron) whose annotation varies by record, so it was not extracted to avoid mislabeling a partial span; deferred.",
   },
   {
-    id: "terminator_bgh_polya",
-    name: "BGH polyA",
+    id: "promoter_minp",
+    name: "minimal promoter (minP / minimal CMV / TATA minimal promoter)",
     reason:
-      "Out of scope for this bacterial-cloning v2 pass (mammalian polyadenylation signal); deferred to a mammalian-expression curation pass.",
+      "OMITTED, not guessed. No surveyed synthetic-construct record annotated a feature whose /note was a clean, unambiguous 'minimal promoter' / 'minP' / 'minimal CMV promoter' range during this pass. minP is a very short synthetic element with many near-identical variants, so a wrong pick would mislabel. Deferred until a record cleanly annotates a specific minP variant as a coordinate range.",
+  },
+  {
+    id: "ori_yeast_2micron_cen_ars",
+    name: "yeast 2-micron origin / CEN / ARS",
+    reason:
+      "OMITTED, not guessed. Surveyed S. cerevisiae shuttle-vector searches did not surface a record annotating the 2-micron origin, a CEN element, or an ARS as a clean extractable coordinate range during this pass. Not extracted to avoid guessing a span; deferred to a dedicated yeast-vector curation pass.",
+  },
+  {
+    id: "marker_sv40_neo_dna_variant",
+    name: "SV40-neo DNA coding variant (divergent NeoR)",
+    reason:
+      "Handled in the PROTEIN database, not here. The divergent NeoR/KanR variant requested by the validation pass is shipped as a protein entry (marker_neor_aph3i, aph(3')-I / aphA1, UniProt P00551) in protein-features.json, alongside the existing aph(3')-II. DNA-level neo coding sequences are detected via the protein detector; no separate DNA entry is added.",
   },
   {
     id: "regulatory_shine_dalgarno_skip",
@@ -871,6 +1042,10 @@ function buildDnaSection(counts, total, omitted) {
   lines.push("");
   lines.push(
     "All DNA element sequences were extracted from public GenBank records fetched from the NCBI E-utilities efetch endpoint (https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi, db=nuccore, rettype=gb). NCBI/GenBank places no copyright restrictions on the sequence data itself; the sequence facts are freely usable and redistributable. See the NCBI policies page (https://www.ncbi.nlm.nih.gov/home/about/policies/). Each entry stores the source accession, the exact 1-based feature coordinates used for extraction, the matched feature /note, and the efetch source URL, so every extraction is independently auditable. Please cite the underlying GenBank accessions when reusing these sequences."
+  );
+  lines.push("");
+  lines.push(
+    "GenBank accessions used: J02400 (SV40 genome: SV40 core and auxiliary origins, late polyA hexamer), J01749 (pBR322: Shine-Dalgarno), X02981 (phage T3: T3 promoter), PZ020853 (CMV promoter and enhancer), PX994934 (T7 promoter, lac promoter, ColE1/pUC origin, lac operator), PP098726 (pET28a: T7-promoter cross-confirmation), LR588434 (SP6 promoter), MT321292 (tac promoter), KX682239 (trc promoter), PZ005984 (p15A origin), PV807101 (pSC101 origin), PV231317 (rrnB T1 terminator), OZ375372 (T7 terminator), OQ295986 (lambda tL3 terminator). v3 mammalian/lentiviral additions: MZ648044 (EF-1alpha core promoter, SV40 late polyA full region, WPRE), LC897330 (BGH polyA), MH325103 (PGK promoter), MN811116 (U6 promoter), DQ465352 (H1 promoter), PP539716 (SV40 enhancer/early promoter, f1 phage origin, EMCV IRES2), U75327 (RK2 oriV)."
   );
   lines.push("");
   lines.push("## Extraction method (verified, not recited)");

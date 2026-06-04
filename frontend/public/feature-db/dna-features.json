@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-04T02:43:46.795Z",
+  "generatedAt": "2026-06-04T03:13:47.672Z",
   "sources": [
     {
       "name": "NCBI GenBank (nuccore)",
@@ -8,11 +8,11 @@
     }
   ],
   "method": "Each sequence is the substring of a fetched GenBank record at the coordinates of a feature whose type and /note match the target (method A, coordinate extraction). complement() locations are reverse-complemented. Some entries additionally carry a cross-confirmation (matchedInAccession) recording a second fetched record in which the extracted sequence was found verbatim. No sequence is written, completed, or recalled from memory.",
-  "count": 19,
+  "count": 30,
   "countsByCategory": {
-    "origin": 5,
-    "promoter": 7,
-    "regulatory": 4,
+    "origin": 7,
+    "promoter": 12,
+    "regulatory": 8,
     "terminator": 3
   },
   "entries": [
@@ -28,6 +28,19 @@
       "coords": "8031..8619",
       "license": "Public domain sequence facts (GenBank/NCBI).",
       "note": "High-copy-number ColE1/pMB1/pBR322/pUC replication origin, annotated as a clean rep_origin range in a SnapGene-style synthetic-construct record (PX994934). This is the single shared origin region of the pUC, pBR322, pMB1 and ColE1 plasmid family; pBR322 and pMB1 are NOT stored as separate sequences because they ARE this same element. Extracted feature: rep_origin; record /note: \"high-copy-number ColE1/pMB1/pBR322/pUC origin of replication; pUC_ori\"."
+    },
+    {
+      "id": "ori_f1_phage",
+      "name": "f1 / M13 phage origin of replication",
+      "category": "origin",
+      "sequenceType": "dna",
+      "seq": "ACGCGCCCTGTAGCGGCGCATTAAGCGCGGCGGGTGTGGTGGTTACGCGCAGCGTGACCGCTACACTTGCCAGCGCCCTAGCGCCCGCTCCTTTCGCTTTCTTCCCTTCCTTTCTCGCCACGTTCGCCGGCTTTCCCCGTCAAGCTCTAAATCGGGGGCTCCCTTTAGGGTTCCGATTTAGTGCTTTACGGCACCTCGACCCCAAAAAACTTGATTAGGGTGATGGTTCACGTAGTGGGCCATCGCCCTGATAGACGGTTTTTCGCCCTTTGACGTTGGAGTCCACGTTCTTTAATAGTGGACTCTTGTTCCAAACTGGAACAACACTCAACCCTATCTCGGTCTATTCTTTTGATTTATAAGGGATTTTGCCGATTTCGGCCTATTGGTTAAAAAATGAGCTGATTTAACAAAAATTTAACGCGAATTTTAACAAAATATTAACGCTTACAATTT",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=PP539716.1&rettype=gb&retmode=text",
+      "accession": "PP539716.1",
+      "coords": "complement(3427..3882)",
+      "license": "Public domain sequence facts (GenBank/NCBI).",
+      "note": "f1 (M13) filamentous-phage origin of replication, the single-strand rescue origin of phagemids, annotated as a clean rep_origin range (complement strand) in a SnapGene-style mammalian expression vector record (PP539716). Extracted feature: rep_origin; record /note: \"f1 bacteriophage origin of replication\"."
     },
     {
       "id": "ori_p15a",
@@ -54,6 +67,19 @@
       "coords": "complement(6062..6763)",
       "license": "Public domain sequence facts (GenBank/NCBI).",
       "note": "pSC101 (low-copy) replication origin, annotated as an explicit coordinate range (misc_feature 'pSC101 ori') in a synthetic-construct record (PV807101, pHY702). Extracted feature: misc_feature; record /note: \"pSC101 ori\"."
+    },
+    {
+      "id": "ori_rk2_oriv",
+      "name": "RK2 / oriV origin of vegetative replication",
+      "category": "origin",
+      "sequenceType": "dna",
+      "seq": "GGGCCGCCGGCGTTGTGGATACCACGCGGAAAACTTGGCCCTCACTGACAGATGAGGGGCGGACGTTGACACTTGAGGGGCCGACTCACCCGGCGCGGCGTTGACAGATGAGGGGCAGGCTCGATTTCGGCCGGCGACGTGGAGCTGGCCAGCCTCGCAAATCGGCGAAAACGCCTGATTTTACGCGAGTTTCCCACAGATGATGTGGACAAGCCTGGGGATAAGTGCCCTGCGGTATTGACACTTGAGGGGCGCGACTACTGACAGATGAGGGGCGCGATCCTTGACACTTGAGGGGCAGAGTGATGACAGATGAGGGGCGCACCTATTGACATTTGAGGGGCTGTCCACAGGCAGAAAATCCAGCATTTGCAAGGGTTTCCGCCCGTTTTTCGGCCACCGCTAACCTGTCTTTTAACCTGCTTTTAAACCAATATTTATAAACCTTGTTTTTAACCAGGGCTGCGCCCTGGCGCGTGACCGCGCACGCCGAAGGGGGGTGCCCCCCCTTCTCGAACCCTCCCGG",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=U75327.1&rettype=gb&retmode=text",
+      "accession": "U75327.1",
+      "coords": "3263..3788",
+      "license": "Public domain sequence facts (GenBank/NCBI).",
+      "note": "RK2 oriV, the vegetative origin of the broad-host-range RK2/RP4 incP plasmid family, annotated as an explicit coordinate range (misc_feature) in a broad-host-range vector record (U75327). Extracted feature: misc_feature; record /note: \"origin of vegetative replication from RK2; oriV\"."
     },
     {
       "id": "ori_sv40_aux",
@@ -95,6 +121,32 @@
       "note": "CMV immediate-early promoter, annotated as a clean range in a GenBank expression-vector record (pcDNA3.1 derivative). Extracted feature: regulatory; record /note: \"CMV promoter\"."
     },
     {
+      "id": "promoter_ef1a_core",
+      "name": "EF-1alpha core promoter (human elongation factor 1-alpha)",
+      "category": "promoter",
+      "sequenceType": "dna",
+      "seq": "GGGCAGAGCGCACATCGCCCACAGTCCCCGAGAAGTTGGGGGGAGGGGTCGGCAATTGAACGGGTGCCTAGAGAAGGTGGCGCGGGGTAAACTGGGAAAGTGATGTCGTGTACTGGCTCCGCCTTTTTCCCGAGGGTGGGGGAGAACCGTATATAAGTGCAGTAGTCGCCGTGAACGTTCTTTTTCGCAACGGGTTTGCCGCCAGAACACAG",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=MZ648044.1&rettype=gb&retmode=text",
+      "accession": "MZ648044.1",
+      "coords": "3674..3885",
+      "license": "Public domain sequence facts (GenBank/NCBI).",
+      "note": "Core promoter for human elongation factor 1-alpha (EF-1alpha / EF1a), a strong ubiquitous mammalian Pol II promoter common in lentiviral vectors, annotated as a clean range in a SnapGene-style lentiviral vector record (MZ648044). Extracted feature: regulatory; record /note: \"core promoter for human elongation factor EF-1-alpha\"."
+    },
+    {
+      "id": "promoter_h1",
+      "name": "H1 promoter (human RNASEH1 / H1 RNA, RNA Pol III)",
+      "category": "promoter",
+      "sequenceType": "dna",
+      "seq": "GAATTCGAACGCTGACGTCATCAACCCGCTCCAAGGAATCGCGGGCCCAGTGTCACTAGGCGGGAACACCCAGCGCGCGTGCGCCCTGGCAGGAAGATGGCTGTGAGGGACAGGGGAGTGGCGCCCTGCAATATTTGCATGTCGCTATGTGTTCTGGGAAATCACCATAAACGTGAAATGTCTTTGGATTTGGGAATCTTATAAGTTCCCTATCAGTGATAG",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=DQ465352.1&rettype=gb&retmode=text",
+      "accession": "DQ465352.1",
+      "coords": "5..226",
+      "license": "Public domain sequence facts (GenBank/NCBI).",
+      "note": "H1 RNA Pol III promoter, a common alternative to U6 for shRNA/sgRNA expression, annotated as a clean range in a synthetic-construct record (DQ465352). Extracted feature: regulatory; record /note: \"H1 promoter\"."
+    },
+    {
       "id": "promoter_lac",
       "name": "lac promoter (E. coli lac operon promoter)",
       "category": "promoter",
@@ -108,6 +160,19 @@
       "note": "E. coli lac operon promoter, annotated as a clean range in a SnapGene-style synthetic-construct record (PX994934). Extracted feature: regulatory; record /note: \"promoter for the E. coli lac operon; lac promoter\"."
     },
     {
+      "id": "promoter_pgk",
+      "name": "PGK promoter (mouse phosphoglycerate kinase 1)",
+      "category": "promoter",
+      "sequenceType": "dna",
+      "seq": "GGGTAGGGGAGGCGCTTTTCCCAAGGCAGTCTGGAGCATGCGCTTTAGCAGCCCCGCTGGGCACTTGGCGCTACACAAGTGGCCTCTGGCCTCGCACACATTCCACATCCACCGGTAGGCGCCAACCGGCTCCGTTCTTTGGTGGCCCCTTCGCGCCACCTTCTACTCCTCCCCTAGTCAGGAAGTTCCCCCCCGCCCCGCAGCTCGCGTCGTGCAGGACGTGACAAATGGAAGTAGCACGTCTCACTAGTCTCGTGCAGATGGACAGCACCGCTGAGCAATGGAAGCGGGTAGGCCTTTGGGGCAGCGGCCAATAGCAGCTTTGCTCCTTCGCTTTCTGGGCTCAGAGGCTGGGAAGGGGTGGGTCCGGGGGCGGGCTCAGGGGCGGGCTCAGGGGCGGGGCGGGCGCCCGAAGGTCCTCCGGAGGCCCGGCATTCTGCACGCTTCAAAAGCGCACGTCTGCCGCGCTGTTCTCCTCTTCCTCATCTCCGGGCCTTTCG",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=MH325103.1&rettype=gb&retmode=text",
+      "accession": "MH325103.1",
+      "coords": "3417..3916",
+      "license": "Public domain sequence facts (GenBank/NCBI).",
+      "note": "Phosphoglycerate kinase 1 (PGK) promoter, a moderate ubiquitous mammalian promoter widely used in lentiviral and knock-in vectors, annotated as a clean range in a synthetic-construct record (MH325103). This record's element is the mouse PGK1 promoter; the human and mouse PGK promoters are closely related and used interchangeably as the lab 'PGK promoter'. Extracted feature: regulatory; record /note: \"mouse phosphoglycerate kinase 1 promoter; label: PGK promoter\"."
+    },
+    {
       "id": "promoter_sp6",
       "name": "SP6 promoter (for SP6 RNA polymerase)",
       "category": "promoter",
@@ -119,6 +184,19 @@
       "coords": "1063..1080",
       "license": "Public domain sequence facts (GenBank/NCBI).",
       "note": "Promoter for SP6 RNA polymerase, annotated as a clean range in a cloning-vector record (LR588434, AbVec2.1-mIglc2). Extracted feature: regulatory; record /note: \"SP6 promoter\"."
+    },
+    {
+      "id": "promoter_sv40_early",
+      "name": "SV40 promoter (enhancer and early promoter)",
+      "category": "promoter",
+      "sequenceType": "dna",
+      "seq": "CTGAGGCGGAAAGAACCAGCTGTGGAATGTGTGTCAGTTAGGGTGTGGAAAGTCCCCAGGCTCCCCAGCAGGCAGAAGTATGCAAAGCATGCATCTCAATTAGTCAGCAACCAGGTGTGGAAAGTCCCCAGGCTCCCCAGCAGGCAGAAGTATGCAAAGCATGCATCTCAATTAGTCAGCAACCATAGTCCCGCCCCTAACTCCGCCCATCCCGCCCCTAACTCCGCCCAGTTCCGCCCATTCTCCGCCCCATGGCTGACTAATTTTTTTTATTTATGCAGAGGCCGAGGCCGCCTCGGCCTCTGAGCTATTCCAGAAGTAGTGAGGAGGCTTTTTTGGAGGCCTAGGCTTTTGCAAA",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=PP539716.1&rettype=gb&retmode=text",
+      "accession": "PP539716.1",
+      "coords": "4015..4372",
+      "license": "Public domain sequence facts (GenBank/NCBI).",
+      "note": "SV40 enhancer and early promoter, the small ubiquitous promoter that drives selection markers in many mammalian vectors, annotated as a clean range in a SnapGene-style mammalian expression vector record (PP539716). Extracted feature: regulatory; record /note: \"SV40 enhancer and early promoter\"."
     },
     {
       "id": "promoter_t3",
@@ -174,6 +252,19 @@
       "note": "trc promoter, a strong hybrid of the trp and lacUV5 promoters (one bp spacing differs from tac), annotated as a clean range in a synthetic-construct record (KX682239, pGC014.mod). Extracted feature: regulatory; record /note: \"hybrid between the trp and lac UV5 promoters; strong E. coli promoter; trc promoter\"."
     },
     {
+      "id": "promoter_u6",
+      "name": "U6 promoter (human U6 snRNA, RNA Pol III)",
+      "category": "promoter",
+      "sequenceType": "dna",
+      "seq": "GAGGGCCTATTTCCCATGATTCCTTCATATTTGCATATACGATACAAGGCTGTTAGAGAGATAATTGGAATTAATTTGACTGTAAACACAAAGATATTAGTACAAAATACGTGACGTAGAAAGTAATAATTTCTTGGGTAGTTTGCAGTTTTAAAATTATGTTTTAAAATGGACTATCATATGCTTACCGTAACTTGAAAGTATTTCGATTTCTTGGCTTTATATATCTTGTGGAAAGGAC",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=MN811116.1&rettype=gb&retmode=text",
+      "accession": "MN811116.1",
+      "coords": "7..247",
+      "license": "Public domain sequence facts (GenBank/NCBI).",
+      "note": "U6 snRNA RNA Pol III promoter, the standard driver of shRNA and sgRNA cassettes, annotated as an explicit coordinate range (misc_feature 'U6 promoter') in a synthetic-construct record (MN811116). Extracted feature: misc_feature; record /note: \"U6 promoter\"."
+    },
+    {
       "id": "promoter_cmv_enhancer",
       "name": "CMV enhancer (human cytomegalovirus immediate-early)",
       "category": "regulatory",
@@ -185,6 +276,32 @@
       "coords": "235..614",
       "license": "Public domain sequence facts (GenBank/NCBI).",
       "note": "CMV immediate-early enhancer; pairs with the CMV promoter in mammalian expression vectors. Extracted feature: regulatory; record /note: \"CMV enhancer\"."
+    },
+    {
+      "id": "regulatory_bgh_polya",
+      "name": "BGH polyA signal (bovine growth hormone)",
+      "category": "regulatory",
+      "sequenceType": "dna",
+      "seq": "GAGCACCGTCCAGACTCGAAGAGGAGCTGAGACGGAGGCTCACTGAATGAGCGGCCGCTCGAGTCTAGAGGGCCCGTTTAAACCCGCTGATCAGCCTCGACTGTGCCTTCTAGTTGCCAGCCATCTGTTGTTTGCCCCTCCCCCGTGCCTTCCTTGACCCTGGAAGGTGCCACTCCCACTGTCCTTTCCTAATAAAATGAGGAAATTGCATCGCATTGTCTGAGTAGGTGTCATTCTATTCTGGGGGGTGGGGTGGGGCAGGACAGCAAGGGGGAGGATTGGGAAGACAATAGCAGGCATGCTGGGGATGCGGTGGGCTCTATGG",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=LC897330.1&rettype=gb&retmode=text",
+      "accession": "LC897330.1",
+      "coords": "2238..2562",
+      "license": "Public domain sequence facts (GenBank/NCBI).",
+      "note": "Bovine growth hormone (BGH) polyadenylation signal, the standard 3' polyA of pcDNA3-family mammalian expression vectors, annotated as a clean range in an expression-vector record (LC897330, Oxtr-3xALFA vector). Extracted feature: regulatory; record /note: \"bovine growth hormone (bGH) polyadenylation signal\"."
+    },
+    {
+      "id": "regulatory_ires2_emcv",
+      "name": "IRES (EMCV internal ribosome entry site, IRES2)",
+      "category": "regulatory",
+      "sequenceType": "dna",
+      "seq": "CCCCTCTCCCTCCCCCCCCCCTAACGTTACTGGCCGAAGCCGCTTGGAATAAGGCCGGTGTGCGTTTGTCTATATGTTATTTTCCACCATATTGCCGTCTTTTGGCAATGTGAGGGCCCGGAAACCTGGCCCTGTCTTCTTGACGAGCATTCCTAGGGGTCTTTCCCCTCTCGCCAAAGGAATGCAAGGTCTGTTGAATGTCGTGAAGGAAGCAGTTCCTCTGGAAGCTTCTTGAAGACAAACAACGTCTGTAGCGACCCTTTGCAGGCAGCGGAACCCCCCACCTGGCGACAGGTGCCTCTGCGGCCAAAAGCCACGTGTATAAGATACACCTGCAAAGGCGGCACAACCCCAGTGCCACGTTGTGAGTTGGATAGTTGTGGAAAGAGTCAAATGGCTCTCCTCAAGCGTATTCAACAAGGGGCTGAAGGATGCCCAGAAGGTACCCCATTGTATGGGATCTGATCTGGGGCCTCGGTACACATGCTTTACATGTGTTTAGTCGAGGTTAAAAAAACGTCTAGGCCCCCCGAACCACGGGGACGTGGTTTTCCTTTGAAAAACACGATGATAATATGGCCACAACC",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=PP539716.1&rettype=gb&retmode=text",
+      "accession": "PP539716.1",
+      "coords": "1871..2457",
+      "license": "Public domain sequence facts (GenBank/NCBI).",
+      "note": "Encephalomyocarditis virus (EMCV) internal ribosome entry site (IRES2), the standard element for cap-independent translation of a second ORF from one transcript, annotated as a clean range in a SnapGene-style mammalian expression vector record (PP539716). Extracted feature: regulatory; record /note: \"internal ribosome entry site (IRES2) of the encephalomyocarditis virus (ECMV)\"."
     },
     {
       "id": "regulatory_lac_operator",
@@ -213,6 +330,19 @@
       "note": "Shine-Dalgarno ribosome-binding sequence extracted from a real E. coli gene 5'UTR in the pBR322 record (J01749), not recited. Extracted feature: regulatory; record /note: \"Shine-Dalgarno sequence\"."
     },
     {
+      "id": "regulatory_sv40_late_polya_region",
+      "name": "SV40 late polyA signal (full region)",
+      "category": "regulatory",
+      "sequenceType": "dna",
+      "seq": "AACTTGTTTATTGCAGCTTATAATGGTTACAAATAAAGCAATAGCATCACAAATTTCACAAATAAAGCATTTTTTTCACTGCATTCTAGTTGTGGTTTGTCCAAACTCATCAATGTATCTTA",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=MZ648044.1&rettype=gb&retmode=text",
+      "accession": "MZ648044.1",
+      "coords": "5766..5887",
+      "license": "Public domain sequence facts (GenBank/NCBI).",
+      "note": "SV40 late polyadenylation signal as the FULL functional region (not the bare AATAAA hexamer), annotated as a clean range in a SnapGene-style lentiviral expression vector record (MZ648044). This is the standard 3' polyA of most mammalian/lentiviral expression cassettes. Distinct from regulatory_sv40_polya, which is the bare hexamer signal extracted from the primary SV40 genome (J02400). Extracted feature: regulatory; record /note: \"SV40 polyadenylation signal; SV40 poly(A) signal\"."
+    },
+    {
       "id": "regulatory_sv40_polya",
       "name": "SV40 late polyA signal",
       "category": "regulatory",
@@ -224,6 +354,19 @@
       "coords": "2657..2662",
       "license": "Public domain sequence facts (GenBank/NCBI).",
       "note": "SV40 late mRNA polyadenylation signal (the hexamer signal), from the primary SV40 genome record (J02400). Extracted feature: regulatory; record /note: \"late mRNA polyadenyation signal; 0.17 [23],[68], [120]\"."
+    },
+    {
+      "id": "regulatory_wpre",
+      "name": "WPRE (woodchuck hepatitis posttranscriptional regulatory element)",
+      "category": "regulatory",
+      "sequenceType": "dna",
+      "seq": "AATCAACCTCTGGATTACAAAATTTGTGAAAGATTGACTGGTATTCTTAACTATGTTGCTCCTTTTACGCTATGTGGATACGCTGCTTTAATGCCTTTGTATCATGCTATTGCTTCCCGTATGGCTTTCATTTTCTCCTCCTTGTATAAATCCTGGTTGCTGTCTCTTTATGAGGAGTTGTGGCCCGTTGTCAGGCAACGTGGCGTGGTGTGCACTGTGTTTGCTGACGCAACCCCCACTGGTTGGGGCATTGCCACCACCTGTCAGCTCCTTTCCGGGACTTTCGCTTTCCCCCTCCCTATTGCCACGGCGGAACTCATCGCCGCCTGCCTTGCCCGCTGCTGGACAGGGGCTCGGCTGTTGGGCACTGACAATTCCGTGGTGTTGTCGGGGAAATCATCGTCCTTTCCTTGGCTGCTCGCCTGTGTTGCCACCTGGATTCTGCGCGGGACGTCCTTCTGCTACGTCCCTTCGGCCCTCAATCCAGCGGACCTTCCTTCCCGCGGCCTGCTGCCGGCTCTGCGGCCTCTTCCGCGTCTTCGCCTTCGCCCTCAGACGAGTCGGATCTCCCTTTGGGCCGCCTCCCCGC",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=MZ648044.1&rettype=gb&retmode=text",
+      "accession": "MZ648044.1",
+      "coords": "4799..5387",
+      "license": "Public domain sequence facts (GenBank/NCBI).",
+      "note": "Woodchuck hepatitis virus posttranscriptional regulatory element (WPRE), which boosts transgene expression in nearly every modern lentiviral vector, annotated as a clean range in a SnapGene-style lentiviral vector record (MZ648044). Extracted feature: misc_feature; record /note: \"woodchuck hepatitis virus posttranscriptional regulatory element; WPRE\"."
     },
     {
       "id": "terminator_lambda_tl3",

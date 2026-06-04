@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-04T01:50:37.015Z",
+  "generatedAt": "2026-06-04T03:13:47.622Z",
   "sources": [
     {
       "name": "FPbase",
@@ -17,12 +17,12 @@
       "url": "https://www.uniprot.org/help/tags"
     }
   ],
-  "count": 41,
+  "count": 45,
   "countsByCategory": {
     "epitope_tag": 10,
     "fluorescent_protein": 21,
     "fusion_tag": 3,
-    "resistance_marker": 7
+    "resistance_marker": 11
   },
   "entries": [
     {
@@ -411,6 +411,17 @@
       "accession": "P62593"
     },
     {
+      "id": "marker_bsd",
+      "name": "BSD (blasticidin S deaminase, bsd/bsr)",
+      "category": "resistance_marker",
+      "sequenceType": "protein",
+      "seq": "MPLSQEESTLIERATATINSIPISEDYSVASAALSSDGRIFTGVNVYHFTGGPCAELVVLGTAAAAAAGNLTCIVAIGNENRGILSPCGRCRQVLLDLHPGIKAIVKDSDGQPTAVGIRELLPSGYVWEG",
+      "source": "UniProt (Swiss-Prot, reviewed)",
+      "sourceUrl": "https://www.uniprot.org/uniprotkb/P0C2P0/entry",
+      "license": "CC BY 4.0",
+      "accession": "P0C2P0"
+    },
+    {
       "id": "marker_cmr_cat",
       "name": "CmR (cat, chloramphenicol acetyltransferase)",
       "category": "resistance_marker",
@@ -420,6 +431,17 @@
       "sourceUrl": "https://www.uniprot.org/uniprotkb/P00484/entry",
       "license": "CC BY 4.0",
       "accession": "P00484"
+    },
+    {
+      "id": "marker_gentr_aac3",
+      "name": "GentR (aac(3), aacC1, gentamicin 3-N-acetyltransferase)",
+      "category": "resistance_marker",
+      "sequenceType": "protein",
+      "seq": "MLRSSNDVTQQGSRPKTKLGGSSMGIIRTCRLGPDQVKSMRAALDLFGREFGDVATYSQHQPDSDYLGNLLRSKTFIALAAFDQEAVVGALAAYVLPRFEQPRSEIYIYDLAVSGEHRRQGIATALINLLKHEANALGAYVIYVQADYGDDPAVALYTKLGIREEVMHFDIDPSTAT",
+      "source": "UniProt (Swiss-Prot, reviewed)",
+      "sourceUrl": "https://www.uniprot.org/uniprotkb/P23181/entry",
+      "license": "CC BY 4.0",
+      "accession": "P23181"
     },
     {
       "id": "marker_hygr",
@@ -442,6 +464,17 @@
       "sourceUrl": "https://www.uniprot.org/uniprotkb/P00552/entry",
       "license": "CC BY 4.0",
       "accession": "P00552"
+    },
+    {
+      "id": "marker_neor_aph3i",
+      "name": "NeoR / KanR (aph(3')-I, aphA1, Tn903 variant)",
+      "category": "resistance_marker",
+      "sequenceType": "protein",
+      "seq": "MSHIQRETSCSRPRLNSNLDADLYGYKWARDNVGQSGATIYRLYGKPDAPELFLKHGKGSVANDVTDEMVRLNWLTEFMPLPTIKHFIRTPDDAWLLTTAIPGKTAFQVLEEYPDSGENIVDALAVFLRRLHSIPVCNCPFNSDRVFRLAQAQSRMNNGLVDASDFDDERNGWPVEQVWKEMHKLLPFSPDSVVTHGDFSLDNLIFDEGKLIGCIDVGRVGIADRYQDLAILWNCLGEFSPSLQKRLFQKYGIDNPDMNKLQFHLMLDEFF",
+      "source": "UniProt (Swiss-Prot, reviewed)",
+      "sourceUrl": "https://www.uniprot.org/uniprotkb/P00551/entry",
+      "license": "CC BY 4.0",
+      "accession": "P00551"
     },
     {
       "id": "marker_puror_pac",
@@ -475,6 +508,17 @@
       "sourceUrl": "https://www.uniprot.org/uniprotkb/P95524/entry",
       "license": "CC BY 4.0",
       "accession": "P95524"
+    },
+    {
+      "id": "marker_zeor_shble",
+      "name": "ZeoR / BleoR (Sh ble, Streptoalloteichus bleomycin/zeocin resistance)",
+      "category": "resistance_marker",
+      "sequenceType": "protein",
+      "seq": "MAKLTSAVPVLTARDVAGAVEFWTDRLGFSRDFVEDDFAGVVRDDVTLFISAVQDQVVPDNTLAWVWVRGLDELYAEWSEVVSTNFRDASGPAMTEIGEQPWGREFALRDPAGNCVHFVAEEQD",
+      "source": "UniProt (Swiss-Prot, reviewed)",
+      "sourceUrl": "https://www.uniprot.org/uniprotkb/P17493/entry",
+      "license": "CC BY 4.0",
+      "accession": "P17493"
     }
   ]
 }

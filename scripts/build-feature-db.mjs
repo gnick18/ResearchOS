@@ -209,6 +209,41 @@ const UNIPROT_SPECS = [
     category: "resistance_marker",
     query: '"dihydrofolate reductase" AND trimethoprim AND reviewed:true',
   },
+  // v2 additions (close detector coverage gaps a validation pass found).
+  // A second, highly divergent NeoR/KanR variant. The existing marker_kanr_neor
+  // is aph(3')-II (nptII, Tn5; P00552). This one is aph(3')-I (aphA1, Tn903;
+  // P00551), the variant used in many lentiviral/mammalian neo cassettes. The
+  // two share only a few percent naive identity, so a detector keyed on one will
+  // miss the other; both are needed. Pinned by accession to guarantee the
+  // divergent ortholog rather than a phrase-query first hit.
+  {
+    id: "marker_neor_aph3i",
+    name: "NeoR / KanR (aph(3')-I, aphA1, Tn903 variant)",
+    category: "resistance_marker",
+    query: "accession:P00551",
+  },
+  {
+    id: "marker_bsd",
+    name: "BSD (blasticidin S deaminase, bsd/bsr)",
+    category: "resistance_marker",
+    // Aspergillus terreus blasticidin-S deaminase, the bsd selection marker used
+    // in mammalian/plant blasticidin selection cassettes.
+    query: "accession:P0C2P0",
+  },
+  {
+    id: "marker_gentr_aac3",
+    name: "GentR (aac(3), aacC1, gentamicin 3-N-acetyltransferase)",
+    category: "resistance_marker",
+    query: "accession:P23181",
+  },
+  {
+    id: "marker_zeor_shble",
+    name: "ZeoR / BleoR (Sh ble, Streptoalloteichus bleomycin/zeocin resistance)",
+    category: "resistance_marker",
+    // Streptoalloteichus hindustanus ble; confers resistance to the
+    // bleomycin/phleomycin family including Zeocin.
+    query: "accession:P17493",
+  },
   // C. Large fusion tags
   {
     id: "tag_mbp",
@@ -435,6 +470,10 @@ function buildAttribution(counts, total) {
   lines.push("");
   lines.push(
     "Resistance markers and large fusion tags (MBP, GST, SUMO) were fetched from the UniProt REST API (https://rest.uniprot.org/uniprotkb/search), restricted to reviewed Swiss-Prot entries. UniProt data is distributed under the Creative Commons Attribution 4.0 International (CC BY 4.0) license. Please cite: The UniProt Consortium, UniProt: the Universal Protein Knowledgebase, Nucleic Acids Research. Each entry stores its UniProt accession and canonical entry URL."
+  );
+  lines.push("");
+  lines.push(
+    "UniProt accessions used: AmpR/bla (P62593), CmR/cat (P00484), HygR/hph (P00557), KanR/NeoR aph(3')-II nptII (P00552), the divergent NeoR/KanR aph(3')-I aphA1 Tn903 variant (P00551), PuroR/pac (P13249), SpecR/aadA (P0AG06), TmpR/dhfr (P95524), BSD blasticidin-S deaminase (P0C2P0), GentR aac(3)/aacC1 (P23181), ZeoR/BleoR Sh ble (P17493), MBP/MalE (UniProt MalE record), GST (UniProt S. japonicum record), SUMO1 (P63165)."
   );
   lines.push("");
   lines.push("### Standard epitope and purification tags");
