@@ -13,8 +13,17 @@
 
 import JSZip from "jszip";
 
-/** The artifact kinds a bundle can carry. */
-export type EntityType = "note" | "method" | "project";
+/**
+ * The artifact kinds a bundle can carry.
+ *
+ * "note" / "method" / "project" travel as the RO-Crate-in-BagIt bundle this
+ * engine builds and verifies. "experiment" is different, it rides the relay as
+ * the existing `researchos-experiment` export zip (a raw bundle from
+ * export/raw.ts), NOT an RO-Crate crate, so it never passes through buildBundle
+ * / readBundle here. It is listed so the relay layer and the inbox can dispatch
+ * on a single shared entity-type vocabulary. See experiment-transfer.ts.
+ */
+export type EntityType = "note" | "method" | "project" | "experiment";
 
 /** A single attached file (image, PDF, ...). */
 export interface BundleAttachment {
@@ -101,6 +110,10 @@ const VOCAB_TERM: Record<EntityType, string> = {
   note: "Note",
   method: "Method",
   project: "Project",
+  // Experiments never pass through buildBundle (they ride the relay as the raw
+  // researchos-experiment export zip), so this term is only here to keep the
+  // record exhaustive over EntityType. It is not emitted into any crate.
+  experiment: "Experiment",
 };
 
 function utf8(s: string): Uint8Array {

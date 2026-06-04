@@ -281,6 +281,150 @@ export async function sendShare(
 }
 
 // ---------------------------------------------------------------------------
+// sendRawShare. Relays an OPAQUE sealed payload, not the RO-Crate bundle.
+//
+// The note path (sendShare above) builds an RO-Crate-in-BagIt bundle and seals
+// it. Experiments are different, the payload is the existing
+// researchos-experiment export zip (export/raw.ts), which is NOT an RO-Crate
+// crate. sendRawShare reuses the exact same directory lookup, sealed-box
+// encryption, and four signed relay routes, but takes the already-built payload
+// bytes from the caller and never touches buildBundle. The relay is byte-
+// agnostic, so the only difference from sendShare is what goes inside the
+// sealed envelope. See experiment-transfer.ts for the experiment caller.
+// ---------------------------------------------------------------------------
+
+/** Params for sendRawShare. */
+export interface SendRawShareParams {
+  /** The sender's own canonical email (the identity making the request). */
+  email: string;
+  /** The recipient's email, resolved against the directory. */
+  recipientEmail: string;
+  /** The raw payload bytes to seal and relay verbatim (e.g. an export zip). */
+  payload: Uint8Array;
+}
+
+/**
+ * Sends one sealed OPAQUE payload to a recipient. Same send sequence as
+ * sendShare (lookup, seal, reserve, PUT, confirm), but the sealed bytes are the
+ * caller's payload verbatim rather than a freshly built RO-Crate bundle. Throws
+ * the same errors as sendShare (RecipientNotFoundError, NoLocalIdentityError,
+ * RelayError).
+ */
+export async function sendRawShare(
+  params: SendRawShareParams,
+): Promise<SendShareResult> {
+  const identity = await requireIdentity();
+
+  // 1. Resolve the recipient's keys from the directory.
+  const lookup = await postJson<LookupResponse>("/api/directory/lookup", {
+    email: params.recipientEmail,
+  });
+  if (!lookup.found) {
+    throw new RecipientNotFoundError(params.recipientEmail);
+  }
+
+  // 2. Seal the caller's payload bytes directly. Opaque to the relay.
+  const recipientPublicKey = decodePublicKey(lookup.x25519PublicKey);
+  const sealed = sealToRecipient(params.payload, recipientPublicKey);
+
+  // 3. Sign a "send" request and reserve a bundle id plus an upload URL.
+  const body = signRelayRequest(
+    {
+      action: "send",
+      email: params.email,
+      issuedAt: nowIso(),
+      recipientEmail: params.recipientEmail,
+      sizeBytes: sealed.length,
+    },
+    identity.keys.signing.privateKey,
+  );
+  const reserved = await postJson<{
+    bundleId: string;
+    uploadUrl: string;
+    expiresAt: string;
+  }>("/api/relay/send", body);
+
+  // 4. PUT the sealed bytes directly to the presigned URL.
+  const putRes = await fetch(reserved.uploadUrl, {
+    method: "PUT",
+    body: sealed as unknown as BodyInit,
+  });
+  if (!putRes.ok) {
+    throw new RelayError("Failed to upload the sealed bundle", putRes.status);
+  }
+
+  // 5. Confirm so the relay flips the row to ready and it becomes visible.
+  const confirmBody = signRelayRequest(
+    {
+      action: "confirm",
+      email: params.email,
+      issuedAt: nowIso(),
+      bundleId: reserved.bundleId,
+    },
+    identity.keys.signing.privateKey,
+  );
+  await postJson<{ ok: true }>("/api/relay/confirm", confirmBody);
+
+  return { bundleId: reserved.bundleId, expiresAt: reserved.expiresAt };
+}
+
+// ---------------------------------------------------------------------------
+// receiveRawShare. Fetches + decrypts the sealed bytes WITHOUT readBundle.
+//
+// receiveShare (above) opens the sealed bytes and runs readBundle, which only
+// understands the RO-Crate-in-BagIt format. An experiment's payload is the raw
+// researchos-experiment export zip, which is not a BagIt bag, so readBundle
+// would reject it. receiveRawShare stops one step earlier, it fetches and
+// openSeals, then hands back the decrypted bytes verbatim for the caller (the
+// experiment import flow) to parse with the existing import pipeline. It does
+// NOT ack, same ACK-AFTER-WRITE rule as receiveShare.
+// ---------------------------------------------------------------------------
+
+/** The decrypted, still-opaque bytes of a received payload. */
+export interface ReceiveRawShareResult {
+  /** The decrypted payload bytes exactly as the sender sealed them. */
+  payload: Uint8Array;
+}
+
+/**
+ * Fetches and decrypts one bundle, returning the raw decrypted bytes without
+ * the RO-Crate parse/verify step. Use this for payloads that are not RO-Crate
+ * bundles (the researchos-experiment export zip). Like receiveShare it does NOT
+ * ack, the caller files the data locally first, then calls ackShare.
+ *
+ * Throws NoLocalIdentityError if this device has no identity, RelayError on any
+ * HTTP failure, and openSealed throws on tamper or a wrong key.
+ */
+export async function receiveRawShare(
+  params: ReceiveShareParams,
+): Promise<ReceiveRawShareResult> {
+  const identity = await requireIdentity();
+
+  // 1. Sign a "fetch" request and get a presigned download URL.
+  const body = signRelayRequest(
+    { action: "fetch", email: params.email, issuedAt: nowIso(), bundleId: params.bundleId },
+    identity.keys.signing.privateKey,
+  );
+  const { downloadUrl } = await postJson<{ downloadUrl: string }>(
+    "/api/relay/fetch",
+    body,
+  );
+
+  // 2. GET the sealed bytes directly from the presigned URL.
+  const getRes = await fetch(downloadUrl);
+  if (!getRes.ok) {
+    throw new RelayError("Failed to download the sealed bundle", getRes.status);
+  }
+  const sealed = new Uint8Array(await getRes.arrayBuffer());
+
+  // 3. Open with the local X25519 private key. No readBundle, the payload is
+  //    an opaque export zip the caller will parse itself.
+  const payload = openSealed(sealed, identity.keys.encryption.privateKey);
+
+  return { payload };
+}
+
+// ---------------------------------------------------------------------------
 // listInbox.
 // ---------------------------------------------------------------------------
 

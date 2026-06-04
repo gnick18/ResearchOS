@@ -32,16 +32,23 @@ import { useSharingIdentity } from "@/hooks/useSharingIdentity";
 import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
 import {
   listInbox,
-  receiveShare,
+  receiveRawShare,
   ackShare,
   type InboxItem,
   type ReceiveShareResult,
 } from "@/lib/sharing/relay/client";
-import type { BundleSender } from "@/lib/sharing/bundle";
+import { readBundle, type BundleSender } from "@/lib/sharing/bundle";
 import { importNoteBundle } from "@/lib/sharing/note-transfer";
+import {
+  sniffSharePayload,
+  experimentPayloadToFile,
+  type SharePayloadKind,
+} from "@/lib/sharing/experiment-transfer";
+import ImportExperimentDialog from "@/components/ImportExperimentDialog";
 import { recordNoteHistory } from "@/lib/history";
 import { fileService } from "@/lib/file-system/file-service";
 import type { Note } from "@/lib/types";
+import type { ImportResult } from "@/lib/import/types";
 
 // ── Sender label ─────────────────────────────────────────────────────────────
 // The only sender identifier on the wire is the hash. Show a short, stable label
@@ -246,15 +253,17 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
+                    {/* The relay is blind to the entity type, it never records
+                        whether a sealed item is a note or an experiment. The
+                        kind is only known after Review decrypts and sniffs the
+                        bundle, so the row shows a neutral "Shared item" badge
+                        and the modal reveals note-vs-experiment. */}
                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-meta font-semibold uppercase tracking-wide bg-violet-100 text-violet-700">
-                      <NoteIcon className="w-3 h-3" />
-                      Note
+                      <InboxArrowIcon className="w-3 h-3" />
+                      Shared item
                     </span>
                     <span className="text-body font-medium text-gray-800 truncate">
-                      {/* The title lives inside the encrypted bundle; it is only
-                          known after Review decrypts it. Show a neutral
-                          placeholder until then. */}
-                      Encrypted note
+                      Encrypted item
                     </span>
                   </div>
                   <p className="text-meta text-gray-500 truncate">
@@ -302,10 +311,10 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
               prev[bundleId] === sender ? prev : { ...prev, [bundleId]: sender },
             )
           }
-          onImported={(bundleId) => {
+          onImported={(bundleId, message) => {
             dropRow(bundleId);
             setReviewItem(null);
-            setToast("Imported into your notes.");
+            setToast(message ?? "Imported into your workspace.");
           }}
           onDeclined={(item) => void handleDecline(item)}
         />
@@ -325,17 +334,24 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
 
 // ─── Review-and-import modal ──────────────────────────────────────────────────
 //
-// On open it calls receiveShare to fetch + decrypt + parse the bundle, then
-// shows a provenance header, a read-only preview, and the attachment list.
-// Import writes the note (importNoteBundle), seeds the version-control baseline,
-// then acks the relay (ONLY after the import resolves), then removes the row.
+// On open it calls receiveRawShare to fetch + decrypt the sealed bytes, then
+// SNIFFS the decrypted payload to decide its kind (the relay is blind, it never
+// records the entity type). It then DISPATCHES BY TYPE,
+//   - note       -> readBundle the bytes (the RO-Crate path), show the read-only
+//                   preview, and import via importNoteBundle (unchanged path).
+//   - experiment -> hand the decrypted export zip to the EXISTING import
+//                   resolution flow (ImportExperimentDialog, the same project +
+//                   per-method resolution UI the local file-import uses), then
+//                   ack the relay only after that import resolves.
+// Either way the relay ack happens ONLY after the local write resolves
+// (ACK-AFTER-WRITE), so a crash mid-import leaves the bundle to retry.
 
 interface ReviewImportModalProps {
   item: InboxItem;
   email: string;
   currentUser: string;
   onClose: () => void;
-  onImported: (bundleId: string) => void;
+  onImported: (bundleId: string, message?: string) => void;
   onDeclined: (item: InboxItem) => void;
   /** Bubble the bundle's verified sender block up so the row can upgrade. */
   onResolveSender: (bundleId: string, sender: BundleSender) => void;
@@ -355,29 +371,58 @@ function ReviewImportModal({
   const [error, setError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
 
+  // The sniffed payload kind, and for an experiment the decrypted bytes wrapped
+  // as a File for the existing import dialog. kind stays null until the decrypt
+  // resolves.
+  const [kind, setKind] = useState<SharePayloadKind | null>(null);
+  const [experimentFile, setExperimentFile] = useState<File | null>(null);
+
   // Keep onResolveSender out of the decrypt effect's deps so the inline parent
   // callback can't retrigger a re-fetch / re-decrypt on every render.
   const onResolveSenderRef = useRef(onResolveSender);
   onResolveSenderRef.current = onResolveSender;
 
-  // Fetch + decrypt on mount.
+  // Fetch + decrypt + sniff on mount.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
       setError(null);
       try {
-        const result = await receiveShare({ email, bundleId: item.bundleId });
-        if (!cancelled) {
+        const { payload } = await receiveRawShare({ email, bundleId: item.bundleId });
+        const sniffed = await sniffSharePayload(payload);
+        if (cancelled) return;
+        setKind(sniffed);
+
+        if (sniffed === "note") {
+          // Parse + verify the RO-Crate bundle from the bytes we already have,
+          // so the note preview + import path is byte-for-byte the same as
+          // before (no second fetch). readBundle returns the verified entity,
+          // attachments, and embedded sender block.
+          const bundle = await readBundle(payload);
+          if (cancelled) return;
+          const result: ReceiveShareResult = {
+            valid: bundle.valid,
+            shareUuid: bundle.shareUuid,
+            version: bundle.version,
+            entityType: bundle.entityType,
+            entity: bundle.entity,
+            attachments: bundle.attachments,
+            sender: bundle.sender,
+          };
           setReceived(result);
-          // Upgrade the row to the verified email once we have decrypted the
-          // sender block (a pre-sender bundle leaves result.sender undefined).
           if (result.sender?.email) {
             onResolveSenderRef.current(item.bundleId, result.sender);
           }
+        } else if (sniffed === "experiment") {
+          // Hand the decrypted export zip to the existing import resolution
+          // flow. The export manifest carries the source owner, the embedded
+          // sender block is a note-only RO-Crate concept, so the experiment
+          // provenance comes from the relay key hash here.
+          setExperimentFile(experimentPayloadToFile(payload));
         }
       } catch (err) {
-        console.error("[inbox] receiveShare failed", err);
+        console.error("[inbox] receiveRawShare failed", err);
         if (!cancelled) {
           setError(
             "Could not open this item. It may have expired, or it could not be decrypted with your key.",
@@ -391,6 +436,48 @@ function ReviewImportModal({
       cancelled = true;
     };
   }, [email, item.bundleId]);
+
+  // ── Experiment branch ──────────────────────────────────────────────────────
+  // Once decrypted, drive the EXISTING import resolution dialog directly. It
+  // owns its own project + per-method resolution UI and applyImportPlan call,
+  // we only ack the relay after it reports a successful import and surface the
+  // notCarried report (dropped links / method references) in the toast.
+  const handleExperimentImported = useCallback(
+    async (result: ImportResult) => {
+      try {
+        // ACK-AFTER-WRITE: the experiment is on disk now, delete the relay copy.
+        await ackShare({ email, bundleId: item.bundleId });
+      } catch (err) {
+        // The import succeeded locally; a failed ack only means the relay copy
+        // lingers until its TTL. Don't block the user, just log.
+        console.warn("[inbox] ack after experiment import failed", err);
+      }
+      const dropped =
+        result.notCarried.dependencies.length +
+        result.notCarried.methodRefs.length;
+      const message =
+        dropped > 0
+          ? "Experiment imported. Some links or method references were not carried over, see the import summary."
+          : "Experiment imported into your workspace.";
+      onImported(item.bundleId, message);
+    },
+    [email, item.bundleId, onImported],
+  );
+
+  const experimentSenderLabel =
+    received?.sender?.email ?? senderLabel(item.senderEmailHash);
+
+  if (kind === "experiment" && experimentFile) {
+    return (
+      <ImportExperimentDialog
+        isOpen
+        initialFile={experimentFile}
+        provenanceLabel={experimentSenderLabel}
+        onClose={onClose}
+        onImported={(result) => void handleExperimentImported(result)}
+      />
+    );
+  }
 
   // The bundle entity, projected for the read-only preview. Notes only.
   const preview = useMemo(() => {
@@ -463,7 +550,7 @@ function ReviewImportModal({
       // copy. A crash before this point leaves the bundle to retry.
       await ackShare({ email, bundleId: item.bundleId });
 
-      onImported(item.bundleId);
+      onImported(item.bundleId, "Note imported into your notes.");
     } catch (err) {
       console.error("[inbox] import failed", err);
       setError(
@@ -474,7 +561,9 @@ function ReviewImportModal({
     }
   }, [received, item, email, currentUser, onImported]);
 
-  const unsupported = received != null && received.entityType !== "note";
+  // Unsupported = decrypted to a kind we cannot import here. (Experiments are
+  // handled by the early-return above, so by this point kind is note/unknown.)
+  const unsupported = kind === "unknown";
 
   return (
     <div
@@ -532,8 +621,8 @@ function ReviewImportModal({
             <p className="text-body text-red-600 text-center py-6">{error}</p>
           ) : unsupported ? (
             <p className="text-body text-gray-600 text-center py-6">
-              Unsupported item type. ResearchOS can import notes here; this item
-              is a different kind. You can decline it.
+              Unsupported item type. ResearchOS can import notes and experiments
+              here; this item is a different kind. You can decline it.
             </p>
           ) : preview ? (
             <>
@@ -627,24 +716,6 @@ function ReviewImportModal({
 }
 
 // ─── Inline SVG icons (project rule: no emoji / no icon-font deps) ────────────
-
-function NoteIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      className={className}
-    >
-      <path d="M4 2.5h6l2.5 2.5v8.5H4z" />
-      <path d="M6 6.5h4M6 9h4M6 11.5h2.5" />
-    </svg>
-  );
-}
 
 function InboxArrowIcon({ className }: { className?: string }) {
   return (

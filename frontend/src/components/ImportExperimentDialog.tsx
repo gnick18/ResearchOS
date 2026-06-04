@@ -21,17 +21,35 @@ interface ImportExperimentDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onImported?: (result: ImportResult) => void;
+  /**
+   * Pre-load this bundle instead of showing the file picker. The cross-boundary
+   * inbox uses this to drive a decrypted shared-experiment bundle through the
+   * exact same parse + resolve + apply pipeline without a manual file pick.
+   * When set, the dialog opens straight into review (or error). Additive, the
+   * settings-page caller omits it and keeps the file-picker entry point.
+   */
+  initialFile?: File | null;
+  /**
+   * Optional provenance line shown in the review and success stages, for
+   * example the verified email of the sender when the bundle arrived through
+   * cross-boundary sharing. Omitted for the local file-picker import.
+   */
+  provenanceLabel?: string;
 }
 
 export default function ImportExperimentDialog({
   isOpen,
   onClose,
   onImported,
+  initialFile,
+  provenanceLabel,
 }: ImportExperimentDialogProps) {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const [stage, setStage] = useState<Stage>("picker");
+  // Start in "loading" when a bundle was pre-supplied (the inbox path) so the
+  // file-picker stage never flashes before the auto-load effect runs.
+  const [stage, setStage] = useState<Stage>(initialFile ? "loading" : "picker");
   const [plan, setPlan] = useState<ImportPlan | null>(null);
   const [projectImportedName, setProjectImportedName] = useState<string>("");
   const [methodImportedNames, setMethodImportedNames] = useState<string[]>([]);
@@ -103,6 +121,22 @@ export default function ImportExperimentDialog({
     },
     [handleFile],
   );
+
+  // Cross-boundary inbox path, auto-load a pre-supplied bundle (the decrypted
+  // shared experiment) the moment the dialog opens, so the user lands in review
+  // without a file pick. Guarded so it fires once per (open + file) pair and
+  // never while a load/review is already in flight from a prior render.
+  const autoLoadedRef = useRef<File | null>(null);
+  useEffect(() => {
+    if (!isOpen) {
+      autoLoadedRef.current = null;
+      return;
+    }
+    if (!initialFile) return;
+    if (autoLoadedRef.current === initialFile) return;
+    autoLoadedRef.current = initialFile;
+    void handleFile(initialFile);
+  }, [isOpen, initialFile, handleFile]);
 
   const setProjectDecision = useCallback(
     (next: ProjectDecision, existingId: number | null = null) => {
@@ -214,6 +248,7 @@ export default function ImportExperimentDialog({
               methodImportedNames={methodImportedNames}
               setProjectDecision={setProjectDecision}
               setMethodDecision={setMethodDecision}
+              provenanceLabel={provenanceLabel}
             />
           )}
           {stage === "success" && result && <SuccessStage result={result} />}
@@ -305,10 +340,16 @@ function ErrorStage({ message, onRetry }: { message: string; onRetry: () => void
 }
 
 function SuccessStage({ result }: { result: ImportResult }) {
+  const droppedDeps = result.notCarried.dependencies.length;
+  const droppedMethods = result.notCarried.methodRefs.length;
+  const hasNotCarried = droppedDeps > 0 || droppedMethods > 0;
+
   return (
     <div className="py-6">
       <div className="flex items-center gap-2">
-        <span className="text-emerald-600 text-lg">✓</span>
+        <span className="text-emerald-600">
+          <CheckGlyph className="w-5 h-5" />
+        </span>
         <p className="text-body font-medium text-gray-900">Imported successfully</p>
       </div>
       <p className="text-body text-gray-600 mt-2">
@@ -322,7 +363,57 @@ function SuccessStage({ result }: { result: ImportResult }) {
           {Object.keys(result.importedMethodIds).length} method{Object.keys(result.importedMethodIds).length === 1 ? "" : "s"} resolved.
         </p>
       )}
+
+      {/* notCarried notice. The import never silently severs a link or leaves a
+          dangling foreign-method reference, anything it could not carry over is
+          dropped and reported here verbatim so the recipient knows. Empty on a
+          clean (lossless) import, the normal single-experiment case for self-
+          contained experiments. */}
+      {hasNotCarried && (
+        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+          <p className="text-meta font-medium text-amber-800">
+            Some links or method references were not carried over
+          </p>
+          <ul className="mt-1.5 space-y-1 text-meta text-amber-700">
+            {droppedDeps > 0 && (
+              <li>
+                {droppedDeps} task {droppedDeps === 1 ? "link was" : "links were"} dropped
+                because the other experiment {droppedDeps === 1 ? "was" : "were"} not
+                included in this share. {droppedDeps === 1 ? "It links" : "They link"} to
+                an experiment you did not receive, so {droppedDeps === 1 ? "it" : "they"}{" "}
+                could not be recreated.
+              </li>
+            )}
+            {droppedMethods > 0 && (
+              <li>
+                {droppedMethods} method reference
+                {droppedMethods === 1 ? " was" : "s were"} dropped because the method
+                content was not bundled, so {droppedMethods === 1 ? "it" : "they"} could
+                not be recreated locally.
+              </li>
+            )}
+          </ul>
+        </div>
+      )}
     </div>
+  );
+}
+
+function CheckGlyph({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
   );
 }
 
@@ -332,15 +423,19 @@ function ReviewStage({
   methodImportedNames,
   setProjectDecision,
   setMethodDecision,
+  provenanceLabel,
 }: {
   plan: ImportPlan;
   projectImportedName: string;
   methodImportedNames: string[];
   setProjectDecision: (next: ProjectDecision, existingId?: number | null) => void;
   setMethodDecision: (idx: number, next: MethodDecision, existingId?: number | null) => void;
+  provenanceLabel?: string;
 }) {
   const taskName = plan.payload.task.name;
-  const sourceOwner = plan.payload.manifest.source_owner;
+  // Prefer the cross-boundary sender label (the verified email) when present,
+  // else fall back to the manifest's source-owner (the local file-picker path).
+  const sourceOwner = provenanceLabel || plan.payload.manifest.source_owner;
 
   // Orphan method-origin attachments (i.e. `methods/unattached/<filename>` in
   // the raw bundle) have no method id to bind to, so the apply pipeline drops
