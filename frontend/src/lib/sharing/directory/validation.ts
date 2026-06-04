@@ -88,6 +88,54 @@ export function parseVerifyBody(body: unknown): VerifyBody | null {
   };
 }
 
+/** The fields an OAuth key-bind request carries. */
+export interface OAuthBindBody {
+  x25519PublicKey: string;
+  ed25519PublicKey: string;
+  keyBackupBlob: string | null;
+  signature: string;
+  issuedAt: string;
+}
+
+/**
+ * Validates an OAuth-bind body. This is the OAuth equivalent of parseVerifyBody,
+ * but it carries NO email and NO otp. The verified email comes from the Auth.js
+ * session in the route handler, never from the request body, so a caller cannot
+ * bind keys to an address they have not proven they own. Requires two hex public
+ * keys, a hex signature, and a round-tripping ISO-8601 issuedAt (the bytes the
+ * client signed, reconstructed by buildBindingPayload). keyBackupBlob is an
+ * optional opaque client blob, coerced to null when absent. Returns null on any
+ * shape failure so the route returns a single generic error.
+ */
+export function parseOAuthBindBody(body: unknown): OAuthBindBody | null {
+  if (typeof body !== "object" || body === null) return null;
+  const b = body as Record<string, unknown>;
+
+  if (!isNonEmptyString(b.x25519PublicKey) || !HEX_RE.test(b.x25519PublicKey)) {
+    return null;
+  }
+  if (!isNonEmptyString(b.ed25519PublicKey) || !HEX_RE.test(b.ed25519PublicKey)) {
+    return null;
+  }
+  if (!isNonEmptyString(b.signature) || !HEX_RE.test(b.signature)) return null;
+
+  if (!isNonEmptyString(b.issuedAt) || !isIsoTimestamp(b.issuedAt)) return null;
+
+  let keyBackupBlob: string | null = null;
+  if (b.keyBackupBlob !== undefined && b.keyBackupBlob !== null) {
+    if (!isNonEmptyString(b.keyBackupBlob)) return null;
+    keyBackupBlob = b.keyBackupBlob;
+  }
+
+  return {
+    x25519PublicKey: b.x25519PublicKey,
+    ed25519PublicKey: b.ed25519PublicKey,
+    keyBackupBlob,
+    signature: b.signature,
+    issuedAt: b.issuedAt,
+  };
+}
+
 /**
  * Accepts a value as an ISO-8601 timestamp only if it round-trips, the string
  * parses to a real date AND re-serializes to the same string. This rejects junk
