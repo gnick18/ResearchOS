@@ -160,18 +160,16 @@ export default class Index extends React.PureComponent<IndexProps> {
   // every 10. The coordinate number sits at each 10-tick on the seam (the only
   // number source in State A; the separate bottom index row is hidden there).
   renderTape = () => {
-    const { charWidth, firstBase, lineHeight, seq, seqFontSize } = this.props;
+    const { charWidth, firstBase, lineHeight, seq } = this.props;
     const half = lineHeight ?? 14; // seam half-height fallback if not provided
 
-    // ruler center bot — optical centering of the 10s number in the seam lane.
-    // y=0 here is the midpoint between the two strand text BASELINES. The lane's
-    // facing edges are the top strand's lower edge (its baseline, at y=0 side)
-    // and the bottom strand's upper edge (a cap-height above its baseline). The
-    // true center of that visible gap is half a strand cap-height ABOVE y=0, so
-    // we shift the number up by that amount. Roboto Mono cap height is ~0.72em.
-    // (Negative y is up in this SVG.) Falls back to a sane default font size.
-    const strandFont = seqFontSize ?? 12;
-    const numberCenterY = -(strandFont * 0.72) / 2;
+    // ruler center bot — the ENTIRE tape group is lifted to the visible gap
+    // center by render() (it translates by seamYDiff minus half a strand
+    // cap-height), so here y=0 already IS that center. The baseline line, ticks,
+    // and 10s numbers all share it, so the whole ruler reads as one unit centered
+    // between the two rows of letters (previously only the number was lifted, so
+    // it floated apart from the ticks).
+    const numberCenterY = 0;
 
     // tick half-lengths above/below the baseline, graduated by landmark level.
     const minorHalf = half * 0.16;
@@ -252,14 +250,23 @@ export default class Index extends React.PureComponent<IndexProps> {
   };
 
   render() {
-    const { baseLegible, findXAndWidth, firstBase, lastBase, lineHeight, seamYDiff, showIndex, yDiff } = this.props;
+    const { baseLegible, findXAndWidth, firstBase, lastBase, lineHeight, seamYDiff, seqFontSize, showIndex, yDiff } =
+      this.props;
 
     if (!showIndex) return null;
 
     // State A: the in-seam measuring tape. Active only when bases are legible
     // and the seam position is known. One hard swap, no fade.
     if (baseLegible && typeof seamYDiff === "number" && typeof lineHeight === "number") {
-      return <g transform={`translate(0, ${seamYDiff})`}>{this.renderTape()}</g>;
+      // ruler center bot — seamYDiff is the midpoint between the two strand
+      // BASELINES, but the visible white gap's center sits half a strand
+      // cap-height ABOVE that (the top strand's letters end at its baseline; the
+      // bottom strand's letters start a cap-height above ITS baseline). Lift the
+      // WHOLE tape (baseline line + ticks + numbers, as one unit) by that amount
+      // so the entire ruler reads centered between the two rows of letters.
+      // Roboto Mono cap height ~0.72em; negative y is up.
+      const tapeLift = ((seqFontSize ?? 12) * 0.72) / 2;
+      return <g transform={`translate(0, ${seamYDiff - tapeLift})`}>{this.renderTape()}</g>;
     }
 
     // State B: the numbered interval ruler in its original position.
