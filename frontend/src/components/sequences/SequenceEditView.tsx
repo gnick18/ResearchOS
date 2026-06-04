@@ -1087,8 +1087,10 @@ export default function SequenceEditView({
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       // Only a pinch (ctrl/⌘+wheel) zooms; everything else falls through to the
-      // SeqViz scroller as a normal scroll.
-      if (!e.ctrlKey) {
+      // SeqViz scroller as a normal scroll. A macOS trackpad pinch surfaces as a
+      // wheel event with ctrlKey true; we also accept metaKey to mirror the Map's
+      // pinch handler (LinearMap.tsx) and cover stray ⌘+wheel configs.
+      if (!e.ctrlKey && !e.metaKey) {
         // A PLAIN wheel over the circular plasmid rotates it (SeqViz's
         // rotateOnScroll). Consume the scroll there so the PAGE does not also
         // scroll while the user is spinning the plasmid. We only block over the
@@ -1110,7 +1112,12 @@ export default function SequenceEditView({
       setView((v) => {
         if (isLinearViewer) {
           const current = v.linearZoom ?? autoLinearZoom;
-          const next = pinchDeltaToZoom(current, e.deltaY);
+          // Floor the pinch result to the Sequence view's range (the SAME clamp the
+          // slider uses) so pinch and slider stay perfectly in sync. Without this,
+          // a long contig (whose auto zoom can be < SEQUENCE_MIN_LINEAR_ZOOM) lets
+          // the stored zoom sink into the 1..11 band that clampSequenceZoom pins at
+          // the floor — so pinching produced NO visible change (the reported bug).
+          const next = clampSequenceZoom(pinchDeltaToZoom(current, e.deltaY));
           return next === current && v.linearZoom !== null ? v : { ...v, linearZoom: next };
         }
         const next = pinchDeltaToZoom(v.circularZoom, e.deltaY);
@@ -1137,7 +1144,8 @@ export default function SequenceEditView({
       setView((v) => {
         if (isLinearViewer) {
           const current = v.linearZoom ?? autoLinearZoom;
-          return { ...v, linearZoom: pinchDeltaToZoom(current, deltaY) };
+          // Same Sequence-view floor as the wheel path so pinch == slider range.
+          return { ...v, linearZoom: clampSequenceZoom(pinchDeltaToZoom(current, deltaY)) };
         }
         return { ...v, circularZoom: pinchDeltaToZoom(v.circularZoom, deltaY) };
       });

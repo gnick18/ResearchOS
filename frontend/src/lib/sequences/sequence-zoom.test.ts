@@ -102,6 +102,37 @@ describe("pinchDeltaToZoom", () => {
   });
 });
 
+// pinch-zoom bot — the SEQUENCE detail viewer composes the trackpad pinch as
+// clampSequenceZoom(pinchDeltaToZoom(current, deltaY)) so a pinch shares the EXACT
+// same [SEQUENCE_MIN_LINEAR_ZOOM, MAX] range the slider uses. This pins that
+// composition and the dead-zone fix: before the floor, a long contig whose zoom
+// sat below the Sequence floor could pinch DOWN into the 1..11 band that the
+// viewer pins at the floor anyway, so the molecule never visibly changed.
+describe("Sequence-view pinch composition: clampSequenceZoom(pinchDeltaToZoom(...))", () => {
+  const seqPinch = (zoom: number, deltaY: number) =>
+    clampSequenceZoom(pinchDeltaToZoom(zoom, deltaY));
+
+  it("zooms IN (negative deltaY) within the Sequence range, matching the slider", () => {
+    const next = seqPinch(50, -30); // +15
+    expect(next).toBe(65);
+    expect(next).toBeGreaterThan(50);
+    expect(next).toBeLessThanOrEqual(MAX_LINEAR_ZOOM);
+  });
+
+  it("zooming OUT never sinks below the Sequence floor (no dead zone)", () => {
+    // A big positive delta would drive raw pinch toward MIN_LINEAR_ZOOM (1), but
+    // the Sequence view floors at SEQUENCE_MIN_LINEAR_ZOOM so pinch == slider.
+    expect(seqPinch(SEQUENCE_MIN_LINEAR_ZOOM, 1000)).toBe(SEQUENCE_MIN_LINEAR_ZOOM);
+    // Even starting BELOW the floor (a long-contig auto zoom), the result is floored.
+    expect(seqPinch(MAP_ZOOM, 100)).toBe(SEQUENCE_MIN_LINEAR_ZOOM);
+    expect(seqPinch(MAP_ZOOM, -100)).toBeGreaterThanOrEqual(SEQUENCE_MIN_LINEAR_ZOOM);
+  });
+
+  it("caps at MAX on a hard zoom-in pinch", () => {
+    expect(seqPinch(MAX_LINEAR_ZOOM, -1000)).toBe(MAX_LINEAR_ZOOM);
+  });
+});
+
 describe("visibleFraction", () => {
   it("is 1 when the whole sequence fits", () => {
     expect(visibleFraction(100, 100)).toBe(1);
