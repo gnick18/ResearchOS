@@ -153,7 +153,18 @@ visualization; homology-based annotation.
   find wiring + new lib/sequences/find.ts; DNA exact + close-match fallback + by-name,
   protein if clean]; (2) COMPARE/ALIGN [a2a43250, claude/compare-align: new
   CompareSequencesDialog + app/sequences/page.tsx entry; alignment view + identity +
-  optional dotplot; do NOT touch SequenceEditView]. WAVE 2 (after wave 1 integrates):
-  (3) MUTAGENESIS primer viz (primer dialogs, frees after #1) + (4) HOMOLOGY auto-
-  annotation (SequenceEditView Feature menu + align a feature/primer library to a seq,
-  frees after #5). Cherry-pick each on report; final full verify.
+  optional dotplot; do NOT touch SequenceEditView]. WAVE 1 ALL MERGED:
+  specificity @ 1abf0011, compare/align @ 03cc508e, enhanced Find @ 25826687.
+  WAVE 2 IN FLIGHT (off main, disjoint): (3) FULL SDM DESIGNER [a4f8fa93, claude/
+  sdm-primer: Grant chose full designer not just viz; new lib/sequences/mutagenesis.ts
+  point/insertion/deletion -> mutagenic primer (mutation centered, Tm-tuned flanks) +
+  Mutagenesis mode in PrimerDialog showing intended mismatch; stays OUT of
+  SequenceEditView]; (4) ANNOTATE-FROM-REFERENCE [a504202b, claude/annotate-ref:
+  Grant asked "most useful to a researcher" -> master chose transfer-from-reference
+  (buildable now, no DB, everyday assembly/derivative workflow) over common-features-DB
+  (needs sourced/licensed feature DB, NO bot-fabricated sequences) and over primer-
+  library; new annotate-from-reference.ts maps reference features through an alignment
+  onto the open seq + AnnotateFromReferenceDialog checklist + SequenceEditView Feature-
+  menu entry]. After wave 2: aligner roadmap COMPLETE except the deferred COMMON-
+  FEATURES DETECTOR (SnapGene "Detect Common Features" -- most useful overall but needs
+  a properly sourced/licensed open feature DB; do NOT have a bot fabricate feature seqs).
