@@ -6,6 +6,26 @@ This revision turns the starter draft into a build-ready spec. Every row, contro
 
 ---
 
+## Decisions, FINAL (Grant, 2026-06-03)
+
+These are the settled calls and they SUPERSEDE the "recommended, pending Grant" defaults written throughout the body. Where the body still says 200 MB, a pending cap of 50, or one combined section, read it as below.
+
+1. Storage budget, 5 GB free per user, pending-share cap 100. This is larger than the body's recommendation on purpose, paired with the usage tracker in item 4 so we can watch real consumption and adjust later. Two code consequences, bump the relay constant `RECIPIENT_QUOTA` from 50 to 100 in `frontend/src/app/api/relay/send/route.ts`, and add an enforced byte budget `FREE_STORAGE_BYTES = 5 GB` (the relay does not enforce bytes today, so this is new enforcement plus the display). Define both, plus the 30-day TTL, as shared constants in `frontend/src/lib/sharing/relay/limits.ts` and have the route import them so display and enforcement cannot drift.
+
+2. Layout, TWO separate sections, "Sharing identity" and "Inbox and storage", not one combined card. Both inserted after `AccountSection` in the Personal stream, identity first. The empty-state handling the body describes for the combined card now applies to the "Inbox and storage" section, it renders a "set up sharing to use the inbox" stub until `status === "ready"`.
+
+3. Lab management, confirmed, local-only roster management plus a read-only "has sharing identity" badge (D5/D6). No capability removed, the badge and limit copy added.
+
+4. Usage tracking, NEW requirement (operator-facing), tied to the generous 5 GB budget. Build a tracker so Grant can see real relay consumption over time and decide later whether to adjust budgets, run a fundraiser, or invest more in hosting. This is DISTINCT from the per-user "Inbox and storage" display. Scope,
+   - Aggregate metrics from the `relay_inbox` table (Neon) and R2, total bytes stored, pending-share count, distinct recipients, oldest pending item, and growth over time.
+   - A protected operator view or a re-runnable script (Grant only), not a user-facing page.
+   - Read-only and lightweight, no PII beyond hashed identifiers (the relay is blind, it only ever holds email hashes).
+   - Sized as its own deferred roadmap task, separate from the Settings build.
+
+Implementation of everything in this doc is a future roadmap task.
+
+---
+
 ## Why Settings has to change, not just grow
 
 Today Settings has a Security section (a local password), a Lab Mode tab (a separate PI password, a lab roster that can archive/restore members, a Member/PI toggle), and Telegram as the only notification channel. None of it knows about the global sharing identity, none of it shows the relay inbox or its limits, and the password and lab-management model still assumes the old "local password is the only gate, a lab head manages member accounts" world. The locked decisions (D1, D5, D6) change that world, so two existing areas must be revised, not merely extended.
@@ -451,13 +471,11 @@ There is no user-facing email setting today (notifications are Telegram only). T
 
 ---
 
-## Decisions to confirm before building
+## Decisions, settled
 
-1. **Storage numbers.** Recommended, pending Grant: free byte budget per user **200 MB** (display-only, the relay does not enforce bytes today), and the pending-share cap shown as **50**, quoted verbatim from the relay constant `RECIPIENT_QUOTA` in `frontend/src/app/api/relay/send/route.ts` line 43. The 30-day TTL (`TTL_MS`, line 46) is also quoted verbatim. Define all three as shared constants so the display and the route cannot drift.
-2. **Lab-management revision (D5/D6 made visible).** Recommended, pending Grant: keep all local roster management, add a read-only `Sharing` badge per row (including archived members), state the limit in the section description, the archive dialog, and the forgot-password copy, and never add any global-account control to the roster. This is a visible behavior change to existing lab-head users (a new badge and new copy), but removes no capability.
-3. **One combined "Sharing" section vs two.** Recommended, pending Grant: **one combined section** with "Your identity" and "Inbox and storage" blocks, inserted after `AccountSection`. Rationale above (the storage block is meaningless before an identity exists, and the combined card keeps the Personal stream shorter per the de-bloat feedback).
+The three product decisions are now SETTLED in "Decisions, FINAL (Grant, 2026-06-03)" at the top of this doc, 5 GB / 100-share budget plus a usage tracker, two separate sections, and local-only lab management with a read-only badge. The "recommended, pending Grant" defaults the body still carries (200 MB, cap 50, one combined section) are superseded by that block. The agent's rationale for the recommendations is left in the body for context only.
 
-Two smaller design tensions are flagged for Grant in line above and are not invented away:
+Two smaller design tensions remain open for Grant and are not invented away:
 - The `View / confirm recovery words` action cannot re-derive the original 12 words from the public sidecar; recommend a confirm-by-re-entry modal (option a) rather than silently dropping the action.
 - Rotating while shares are pending makes those shares unreadable; recommend a loud warning rather than a hard block.
 
