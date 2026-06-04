@@ -62,8 +62,11 @@ against Grant's running dev server.
 ## 3. Where things stand RIGHT NOW (the live thread)
 
 The active arc just finished is the **primer base-render redesign** (making primers look like
-SnapGene's). Grant's last words were **"ya this looks better now"** — so it is APPROVED and landed.
-Top of `main` is `b503a7a1`.
+SnapGene's). Grant's last words were **"ya this looks better now"** — so it is APPROVED and landed at
+`b503a7a1`. A render-level regression guard for it landed after (`534f0ca7`, see section 8). Since
+then `main` has advanced with OTHER workers' commits (the unified-model / Loro spike, settings copy,
+landing-page work), none of which touch the sequence editor. There is no open sequence-editor thread
+mid-flight: the redesign is done and verified, and the rest of this session was handoff prep.
 
 What the primer render now does (zoomed in, base-level):
 
@@ -139,8 +142,9 @@ approved values, so you can reason about or restore them without re-deriving:
   in `Primers.tsx`, change the `0.85` here to match or the barb will clip / float.
 
 Full layout math (`layoutPrimerBases`) is covered by `primer-base-layout.test.ts` (13 cases,
-forward / reverse / tail / mismatch / guards). The whole sequences + align + calculators suite is
-1030 tests green as of this handoff.
+forward / reverse / tail / mismatch / guards), and the render itself by
+`vendor/seqviz/Linear/Primers.render.test.tsx` (4 cases, see section 8). The whole sequences + align
++ calculators + primer-render suite is 1034 tests green as of this handoff.
 
 ---
 
@@ -237,4 +241,6 @@ data). So:
 4. Ask Grant what he wants next. He drives. Recent cadence is tight, screenshot-led polish of the
    sequence editor.
 
-Top of main at handoff: `b503a7a1` (primer redesign approved).
+Sequence-editor anchors at handoff: primer redesign approved at `b503a7a1`, render regression guard
+at `534f0ca7`. `main` HEAD will be past these (other workers' non-sequence commits); the sequence
+editor itself is at a clean, verified stopping point with no thread mid-flight.
