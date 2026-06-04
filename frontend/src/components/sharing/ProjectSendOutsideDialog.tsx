@@ -235,6 +235,8 @@ function SendForm({
       await sendRawShare({ email: senderEmail, recipientEmail, payload });
       setState({ phase: "sent", recipient: recipientEmail });
     } catch (err) {
+      // Surface the real cause, the generic fallback below otherwise swallows it.
+      console.error("[sharing] project send failed:", err);
       if (err instanceof ProjectTooLargeError) {
         setState({
           phase: "error",

@@ -36,7 +36,9 @@ export async function buildRawZip(
     task_id: payload.task.id,
     task_key: taskKey(payload.task),
     project_id: payload.project.id,
-    method_ids: [...payload.task.method_ids],
+    // method_ids can be null/undefined on a task with no methods attached
+    // (the field is optional in practice), guard so the spread never throws.
+    method_ids: [...(payload.task.method_ids ?? [])],
     dependency_ids: dependencies.map((d) => d.id),
   };
 
