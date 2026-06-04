@@ -438,7 +438,10 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
             </ol>
             <p className="text-meta text-slate-400 mb-4">
               A lab admin (or anyone with access to the folder) can also do
-              this for you. Your other notes and files are not affected.
+              this for you. Your other notes and files are not affected. This
+              resets only the offline app password. It does not touch a
+              member&apos;s Google or GitHub sign-in, their sharing keys, or
+              anything sent to them.
             </p>
             <div className="flex justify-end">
               <button
