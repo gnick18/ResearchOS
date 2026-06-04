@@ -2253,6 +2253,18 @@ export interface Note {
   // it. Additive / back-compat: old notes read as `undefined` and stay
   // personal.
   notebook_id?: string;
+  // Cross-boundary sharing (note-transfer adapter, 2026-06-03): provenance
+  // marker stamped ONLY on notes imported from a received bundle (the locked
+  // design in docs/proposals/CROSS_BOUNDARY_SHARING_INBOX_DESIGN.md). They keep
+  // imported items traceable ("received from {email} on {date}") so a recipient
+  // never confuses a foreign note with their own. All three are OPTIONAL and
+  // additive, absent on every locally created note and on every pre-existing
+  // record (graceful degradation, same pattern as created_at above). The send
+  // (collect) path explicitly DROPS these from the shared entity so a re-shared
+  // note never leaks the importer's provenance back out.
+  received_from?: string;             // sender canonical email, set only on imported notes
+  received_from_fingerprint?: string; // sender key fingerprint
+  received_at?: string;               // ISO 8601 timestamp of import
 }
 
 export interface NoteCreate {
