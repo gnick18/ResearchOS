@@ -1,0 +1,71 @@
+// Cross-boundary sharing, the per-user identity sidecar (Phase 1c-i).
+//
+// When a folder-local ResearchOS account claims a global sharing identity, we
+// record the link in a small JSON file inside that user's folder,
+// users/<username>/_sharing_identity.json. Its presence means "this account is
+// claimed", its absence means "not claimed". This mirrors the per-user gate
+// convention already used by _auth.json (see lib/auth/password.ts), a thin
+// File System Access wrapper over fileService.readJson / writeJson.
+//
+// SECURITY, this sidecar holds PUBLIC fields only. Private keys never land here,
+// they live wrapped in the directory backup blob and raw in IndexedDB on the
+// device (the caller's job, see setup.ts and storage.ts). Anyone with the
+// shared folder can read this file, so treat every field as public.
+
+import { fileService } from "../../file-system/file-service";
+
+/**
+ * The per-user identity link. Public fields only, never a private key.
+ *
+ * - email, the canonical address this identity was bound under (lowercased,
+ *   trimmed, see canonicalizeEmail). Stored so the UI can show which address an
+ *   account is claimed under without a directory round-trip.
+ * - x25519PublicKey / ed25519PublicKey, hex-encoded published public keys
+ *   (encodePublicKey convention from identity/keys.ts).
+ * - fingerprint, the grouped safety-check string for this identity.
+ * - claimedAt, ISO-8601 timestamp the identity was claimed on this folder.
+ * - recoveryConfirmedAt, ISO-8601 timestamp the user confirmed they saved their
+ *   Recovery Words, or null if they have not confirmed yet.
+ *
+ * This exact shape was approved by Grant. Do not add private-key fields.
+ */
+export interface SharingIdentitySidecar {
+  version: 1;
+  email: string;
+  x25519PublicKey: string;
+  ed25519PublicKey: string;
+  fingerprint: string;
+  claimedAt: string;
+  recoveryConfirmedAt: string | null;
+}
+
+function sidecarPath(username: string): string {
+  return `users/${username}/_sharing_identity.json`;
+}
+
+/**
+ * Reads the sharing identity for a user. Returns null when the file is absent,
+ * which means the account has not claimed a sharing identity.
+ */
+export async function readSharingIdentity(
+  username: string,
+): Promise<SharingIdentitySidecar | null> {
+  return fileService.readJson<SharingIdentitySidecar>(sidecarPath(username));
+}
+
+/**
+ * Writes (or replaces) the sharing identity sidecar for a user.
+ */
+export async function writeSharingIdentity(
+  username: string,
+  data: SharingIdentitySidecar,
+): Promise<void> {
+  await fileService.writeJson(sidecarPath(username), data);
+}
+
+/**
+ * Whether the user has claimed a sharing identity (the sidecar exists).
+ */
+export async function hasSharingIdentity(username: string): Promise<boolean> {
+  return fileService.fileExists(sidecarPath(username));
+}
