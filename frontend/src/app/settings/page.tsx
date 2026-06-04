@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/AppShell";
@@ -108,6 +108,14 @@ import {
   useSectionSearchState,
   useSettingsSearch,
 } from "./search-context";
+import { useSharingIdentity } from "@/hooks/useSharingIdentity";
+import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
+import SharingSection, {
+  RotateIdentityPopup,
+  RestoreIdentityPopup,
+  DisconnectIdentityPopup,
+} from "@/components/settings/SharingSection";
+import { listInbox } from "@/lib/sharing/relay/client";
 
 const USER_COLOR_PALETTE = [
   "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
@@ -194,6 +202,34 @@ function SettingsBody() {
   const [recentlySaved, setRecentlySaved] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
   const [pwExists, setPwExists] = useState<boolean | null>(null);
+
+  // Cross-boundary sharing identity (Personal-tab "Sharing identity" + "Inbox
+  // and storage" sections). The hook reads the per-user sidecar + the device key
+  // and reports loading / none / needs-restore / ready. The three identity
+  // modals follow the same parent-owns-the-open-state pattern as the password
+  // popup, a section button flips a boolean here.
+  const sharing = useSharingIdentity();
+  const [sharingWizardOpen, setSharingWizardOpen] = useState(false);
+  const [rotateOpen, setRotateOpen] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
+  const [disconnectOpen, setDisconnectOpen] = useState(false);
+  // Pending-share count, surfaced to the rotate / disconnect modals so they can
+  // warn when shares are waiting (sealed to the current key). Only fetched when
+  // ready, a 404 (sharing disabled) or any failure leaves it null so the modals
+  // simply omit the warning rather than block.
+  const sharingInbox = useQuery({
+    queryKey: ["sharing-inbox", sharing.email],
+    queryFn: () => listInbox({ email: sharing.email as string }),
+    enabled: sharing.status === "ready" && !!sharing.email,
+    staleTime: 30_000,
+    retry: false,
+  });
+  const pendingShareCount =
+    sharing.status === "ready" &&
+    !sharingInbox.isError &&
+    sharingInbox.data !== undefined
+      ? sharingInbox.data.length
+      : null;
   // floating-cluster-split bot (2026-06-02): the Data-folder + Switch-user
   // CONFIG actions relocated here from the AppShell floating cluster. Each
   // opens the same self-contained modal/screen the floating buttons used.
@@ -497,6 +533,14 @@ function SettingsBody() {
               currentUser={currentUser}
               onSwitchUser={() => setShowUserSwitch(true)}
             />
+            <SharingSection
+              currentUser={currentUser}
+              sharing={sharing}
+              onSetUp={() => setSharingWizardOpen(true)}
+              onRotate={() => setRotateOpen(true)}
+              onRestore={() => setRestoreOpen(true)}
+              onDisconnect={() => setDisconnectOpen(true)}
+            />
             <ProfileSection
               key={`profile-${currentUser}`}
               settings={settings}
@@ -538,6 +582,52 @@ function SettingsBody() {
           onClose={() => {
             setPwOpen(false);
             void refreshPwExists();
+          }}
+        />
+      )}
+
+      {/* Cross-boundary sharing modals. Each refreshes the identity hook on
+          close so the Sharing identity + Inbox sections re-read. */}
+      {sharingWizardOpen && currentUser && (
+        <SharingSetupWizard
+          username={currentUser}
+          onComplete={() => {
+            void sharing.refresh();
+          }}
+          onClose={() => {
+            setSharingWizardOpen(false);
+            void sharing.refresh();
+          }}
+        />
+      )}
+      {rotateOpen && currentUser && (
+        <RotateIdentityPopup
+          username={currentUser}
+          sidecar={sharing.sidecar}
+          pendingCount={pendingShareCount}
+          onClose={() => {
+            setRotateOpen(false);
+            void sharing.refresh();
+          }}
+        />
+      )}
+      {restoreOpen && currentUser && (
+        <RestoreIdentityPopup
+          username={currentUser}
+          sidecar={sharing.sidecar}
+          onClose={() => {
+            setRestoreOpen(false);
+            void sharing.refresh();
+          }}
+        />
+      )}
+      {disconnectOpen && currentUser && (
+        <DisconnectIdentityPopup
+          username={currentUser}
+          pendingCount={pendingShareCount}
+          onClose={() => {
+            setDisconnectOpen(false);
+            void sharing.refresh();
           }}
         />
       )}

@@ -37,7 +37,13 @@ import {
   countInboxByRecipient,
   ensureRelaySchema,
   insertInboxEntry,
+  sumPendingBytesByRecipient,
 } from "@/lib/sharing/relay/db";
+import {
+  FREE_STORAGE_BYTES,
+  PENDING_SHARE_CAP,
+  TTL_MS,
+} from "@/lib/sharing/relay/limits";
 import { presignUpload } from "@/lib/sharing/relay/storage";
 
 export const runtime = "nodejs";
@@ -46,11 +52,10 @@ export const runtime = "nodejs";
 // signature from a stale request from an unregistered sender.
 const GENERIC_FAILURE = { error: "send failed" } as const;
 
-/** Maximum pending bundles a single recipient mailbox may hold at once. */
-const RECIPIENT_QUOTA = 50;
-
-/** Pending-bundle lifetime, 30 days in milliseconds. */
-const TTL_MS = 30 * 24 * 60 * 60 * 1000;
+// The pending-count cap, the byte budget, and the TTL are shared constants in
+// relay/limits.ts so this enforcement and the Settings "Inbox and storage"
+// display can never drift. PENDING_SHARE_CAP replaces the former in-file
+// RECIPIENT_QUOTA (bumped 50 -> 100 with the 5 GB budget, Grant 2026-06-03).
 
 export async function POST(request: Request): Promise<Response> {
   if (!isSharingEnabled()) {
@@ -91,10 +96,22 @@ export async function POST(request: Request): Promise<Response> {
     return json(404, { error: "recipient is not on ResearchOS" });
   }
 
-  // Per-recipient mailbox quota. Together with the per-IP rate limit this also
+  // Per-recipient mailbox COUNT cap. Together with the per-IP rate limit this also
   // bounds the blast radius of any replay inside the 5-minute signature window.
   const pending = await countInboxByRecipient(recipientHash);
-  if (pending >= RECIPIENT_QUOTA) {
+  if (pending >= PENDING_SHARE_CAP) {
+    return json(429, { error: "recipient mailbox is full" });
+  }
+
+  // Per-recipient BYTE budget. The count cap and the byte budget are two
+  // independent ceilings, whichever fills first stops new shares to a recipient.
+  // Reject when the recipient's existing non-expired bytes plus this incoming
+  // bundle would exceed the free budget. The size is the sender-reported sealed
+  // size, the same value stored on the row, so the running sum and this check use
+  // the same number. A null or absent size is treated as zero here.
+  const incomingBytes = verified.parsed.sizeBytes ?? 0;
+  const existingBytes = await sumPendingBytesByRecipient(recipientHash);
+  if (existingBytes + incomingBytes > FREE_STORAGE_BYTES) {
     return json(429, { error: "recipient mailbox is full" });
   }
 

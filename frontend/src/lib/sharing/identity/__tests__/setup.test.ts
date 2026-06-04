@@ -18,6 +18,7 @@ import {
 } from "../../directory/signature";
 import {
   buildBindRequest,
+  buildRotateRequest,
   createIdentityMaterial,
   restoreFromRecoveryWords,
 } from "../setup";
@@ -144,6 +145,55 @@ describe("buildBindRequest", () => {
       issuedAt,
     });
     expect(a.signature).toBe(b.signature);
+  });
+});
+
+describe("buildRotateRequest", () => {
+  it("signs the NEW binding with the OLD key, verifying against the OLD public key", () => {
+    const oldMaterial = createIdentityMaterial({ params: FAST });
+    const newMaterial = createIdentityMaterial({ params: FAST });
+    const email = "Lab.Member@Example.COM";
+    const issuedAt = "2026-06-03T12:00:00.000Z";
+
+    const body = buildRotateRequest({
+      email,
+      newX25519PublicKey: newMaterial.x25519PublicKey,
+      newEd25519PublicKey: newMaterial.ed25519PublicKey,
+      oldEd25519PrivateKey: oldMaterial.ed25519PrivateKey,
+      backupBlob: newMaterial.backupBlob,
+      issuedAt,
+    });
+
+    expect(body.email).toBe(canonicalizeEmail(email));
+    expect(body.newX25519PublicKey).toBe(newMaterial.x25519PublicKey);
+    expect(body.newEd25519PublicKey).toBe(newMaterial.ed25519PublicKey);
+    expect(body.keyBackupBlob).toBe(newMaterial.backupBlob);
+    expect(body.signature).toMatch(/^[0-9a-f]{128}$/);
+
+    // The route rebuilds the payload over the NEW keys and verifies against the
+    // STORED (old) public key, so a valid signature proves the old-key holder
+    // authorized the new keys.
+    const payload = buildBindingPayload({
+      email: canonicalizeEmail(email),
+      x25519PublicKey: body.newX25519PublicKey,
+      ed25519PublicKey: body.newEd25519PublicKey,
+      issuedAt: body.issuedAt,
+    });
+    const okOld = verifyBindingSignature(
+      payload,
+      hexToBytes(body.signature),
+      hexToBytes(oldMaterial.ed25519PublicKey),
+    );
+    expect(okOld).toBe(true);
+
+    // It must NOT verify against the new key, a stranger cannot self-sign a
+    // replacement of someone else's identity.
+    const okNew = verifyBindingSignature(
+      payload,
+      hexToBytes(body.signature),
+      hexToBytes(newMaterial.ed25519PublicKey),
+    );
+    expect(okNew).toBe(false);
   });
 });
 

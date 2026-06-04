@@ -42,6 +42,7 @@ import {
   insertInboxEntry,
   listInboxByRecipient,
   markInboxEntryReady,
+  sumPendingBytesByRecipient,
   sweepStalePending,
 } from "../db";
 
@@ -149,6 +150,28 @@ describe("getInboxEntry", () => {
   it("returns null when no ready row matches (a pending row reads as absent)", async () => {
     resultQueue = [[]];
     expect(await getInboxEntry("b1")).toBeNull();
+  });
+});
+
+describe("sumPendingBytesByRecipient", () => {
+  it("sums non-expired bytes for a recipient and coerces the bigint sum", async () => {
+    resultQueue = [[{ total: "12345" }]];
+    const total = await sumPendingBytesByRecipient("rh");
+    const q = lastQuery();
+    expect(q.text).toContain("sum(size_bytes)");
+    expect(q.text).toContain("expires_at > now()");
+    expect(q.values).toEqual(["rh"]);
+    expect(total).toBe(12345);
+  });
+
+  it("returns 0 when the mailbox is empty (coalesced null sum)", async () => {
+    resultQueue = [[{ total: null }]];
+    expect(await sumPendingBytesByRecipient("rh")).toBe(0);
+  });
+
+  it("returns 0 when no row comes back at all", async () => {
+    resultQueue = [[]];
+    expect(await sumPendingBytesByRecipient("rh")).toBe(0);
   });
 });
 

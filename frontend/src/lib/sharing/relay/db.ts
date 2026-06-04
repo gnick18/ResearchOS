@@ -257,6 +257,29 @@ export async function countInboxByRecipient(
 }
 
 /**
+ * Sums the stored bytes of a recipient's non-expired bundles, of either status
+ * (a reserved-but-pending row counts the same as a confirmed one, mirroring
+ * countInboxByRecipient). The send route uses this to enforce the FREE_STORAGE_BYTES
+ * budget, summing reservations means a burst of unconfirmed large sends cannot slip
+ * past the byte budget before the grace-window sweep reclaims them. Rows with a null
+ * size_bytes contribute zero (coalesced in SQL). Returns a number, the bigint sum is
+ * coerced the same way mapRow coerces a single size.
+ */
+export async function sumPendingBytesByRecipient(
+  recipientEmailHash: string,
+): Promise<number> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT coalesce(sum(size_bytes), 0)::bigint AS total
+    FROM relay_inbox
+    WHERE recipient_email_hash = ${recipientEmailHash}
+      AND expires_at > now()
+  `) as Array<{ total: number | string | null }>;
+  const total = rows[0]?.total;
+  return total == null ? 0 : Number(total);
+}
+
+/**
  * Normalizes a raw DB row into an InboxEntry. size_bytes is a bigint column, the
  * Neon driver may hand it back as a string, so we coerce to a number (or null).
  */

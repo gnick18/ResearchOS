@@ -176,6 +176,69 @@ export function buildBindRequest(input: BuildBindRequestInput): BindRequestBody 
 }
 
 /**
+ * The request body for the directory rotate route (/api/directory/rotate,
+ * parseRotateBody). It carries the NEW public keys plus a signature, but the
+ * signature is minted with the user's OLD Ed25519 private key, which is what the
+ * route verifies against the currently stored key. The route ignores keyBackupBlob
+ * when null (keeping the stored one), but a rotation hands fresh recovery words so
+ * the caller passes the new wrapped blob.
+ */
+export interface RotateRequestBody {
+  email: string;
+  newX25519PublicKey: string;
+  newEd25519PublicKey: string;
+  keyBackupBlob: string;
+  signature: string;
+  issuedAt: string;
+}
+
+export interface BuildRotateRequestInput {
+  email: string;
+  /** The new (post-rotation) X25519 public key, hex-encoded. */
+  newX25519PublicKey: string;
+  /** The new (post-rotation) Ed25519 public key, hex-encoded. */
+  newEd25519PublicKey: string;
+  /**
+   * The CURRENT (old) Ed25519 private key, raw bytes. The rotate route verifies
+   * the signature against the stored (old) public key, so only the holder of the
+   * existing key can authorize new keys. This is NOT the new private key.
+   */
+  oldEd25519PrivateKey: Uint8Array;
+  /** The new wrapped backup blob (fresh recovery words wrap the new keys). */
+  backupBlob: string;
+  issuedAt: string;
+}
+
+/**
+ * Builds and signs the directory rotate request body. Mirrors buildBindRequest,
+ * except the signed binding payload names the NEW public keys while the signature
+ * is produced with the OLD signing key. The email is canonicalized so the bytes
+ * the client signs match the bytes the server reconstructs from the verified
+ * binding (the rotate route rebuilds the same payload over the new keys).
+ */
+export function buildRotateRequest(
+  input: BuildRotateRequestInput,
+): RotateRequestBody {
+  const canonical = canonicalizeEmail(input.email);
+  const payload = buildBindingPayload({
+    email: canonical,
+    x25519PublicKey: input.newX25519PublicKey,
+    ed25519PublicKey: input.newEd25519PublicKey,
+    issuedAt: input.issuedAt,
+  });
+  const signature = signBinding(payload, input.oldEd25519PrivateKey);
+
+  return {
+    email: canonical,
+    newX25519PublicKey: input.newX25519PublicKey,
+    newEd25519PublicKey: input.newEd25519PublicKey,
+    keyBackupBlob: input.backupBlob,
+    signature: bytesToHex(signature),
+    issuedAt: input.issuedAt,
+  };
+}
+
+/**
  * Rescues an identity from its Recovery Words and the directory backup blob, the
  * cross-device path. Throws if the words are wrong (the Poly1305 tag fails) or
  * the blob is malformed.
