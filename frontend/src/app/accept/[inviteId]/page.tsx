@@ -343,6 +343,13 @@ export default function AcceptInvitePage() {
     load.phase === "ready"
       ? load.manifestSender?.email ?? "an invited share"
       : "an invited share";
+  // The sender's key fingerprint, paired with the label for the on-entity
+  // provenance stamp + the badge hover. Undefined when the bundle carried no
+  // verified sender block.
+  const provenanceFingerprint =
+    load.phase === "ready"
+      ? load.manifestSender?.fingerprint ?? undefined
+      : undefined;
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -422,6 +429,7 @@ export default function AcceptInvitePage() {
             isOpen
             initialFile={importFile}
             provenanceLabel={provenanceLabel}
+            provenanceFingerprint={provenanceFingerprint}
             onClose={() => setLaunchImport(false)}
             onImported={() => void handleDialogImported()}
           />

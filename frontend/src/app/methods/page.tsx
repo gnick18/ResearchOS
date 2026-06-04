@@ -30,6 +30,7 @@ import MethodExperimentsSidebar from "@/components/MethodExperimentsSidebar";
 import { useFileRenamePopup } from "@/components/FileRenamePopup";
 import ShareDialogAdapter from "@/components/sharing/ShareDialogAdapter";
 import MethodSendOutsideDialog from "@/components/sharing/MethodSendOutsideDialog";
+import ReceivedFromBadge from "@/components/ReceivedFromBadge";
 import Tooltip from "@/components/Tooltip";
 import type {
   Method,
@@ -1386,6 +1387,18 @@ function ViewMethodModal({
       <div className="flex bg-white rounded-xl shadow-2xl max-w-[calc(4rem+4rem+72rem)] w-full mx-4 max-h-[85vh]">
         {/* Main content area */}
         <div className="flex-1 flex flex-col overflow-hidden rounded-l-xl">
+          {/* Cross-boundary provenance. Self-hides on a native method
+              (received_from absent), so only a method imported from a received
+              bundle shows "Received from {email}, verified" on the entity. */}
+          {method.received_from && (
+            <div className="px-4 pt-3">
+              <ReceivedFromBadge
+                receivedFrom={method.received_from}
+                fingerprint={method.received_from_fingerprint}
+                receivedAt={method.received_at}
+              />
+            </div>
+          )}
           {/* Action strip for the user's OWN method. "Extend into kit" wraps a
               non-compound method into a new compound; "Share outside this
               folder" sends an encrypted copy to one recipient on ResearchOS

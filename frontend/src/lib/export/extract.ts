@@ -212,6 +212,35 @@ async function resolveProject(
   };
 }
 
+/**
+ * Drop the cross-boundary verified-sender provenance fields (received_from /
+ * received_from_fingerprint / received_at) from a Task or Method before it is
+ * serialized into an export bundle. Mirrors the note tier's collect path, the
+ * provenance describes how THIS recipient acquired the entity, so a re-share must
+ * never leak the importer's provenance back out to the next recipient. A no-op on
+ * a native entity (the fields are absent), so the LOCAL export output is byte-for
+ * byte unchanged for any entity that was never imported.
+ */
+function dropReceivedProvenance<T extends Task | Method>(entity: T): T {
+  if (
+    entity.received_from === undefined &&
+    entity.received_from_fingerprint === undefined &&
+    entity.received_at === undefined
+  ) {
+    return entity;
+  }
+  const {
+    received_from: _rf,
+    received_from_fingerprint: _rff,
+    received_at: _ra,
+    ...rest
+  } = entity;
+  void _rf;
+  void _rff;
+  void _ra;
+  return rest as T;
+}
+
 // Matches `pcr://protocol/{id}` source_path format used throughout the app
 // (methods/page.tsx, MethodTabs.tsx, generate-demo-data.mjs).
 function extractPCRProtocolId(sourcePath: string | null | undefined): number | null {
@@ -563,7 +592,9 @@ async function buildMethodPayload(
 
   return {
     payload: {
-      method,
+      // Strip the importer's provenance so a re-shared method never leaks how
+      // THIS recipient acquired it. No-op on a native method (fields absent).
+      method: dropReceivedProvenance(method),
       bodyMarkdown,
       attachment,
       pcrProtocol,
@@ -777,10 +808,10 @@ export async function buildExperimentPayload(
 
   // Use the filtered attachments in the serialized task too, so the Raw
   // bundle's `task.json` matches the methods/ entries in the same bundle.
-  const consistentTask: Task = {
+  const consistentTask: Task = dropReceivedProvenance({
     ...task,
     method_attachments: methodAttachmentsForTask,
-  };
+  });
 
   const meta: ExperimentExportPayload["meta"] = {
     ownerLabel: task.owner || "—",

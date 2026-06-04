@@ -147,6 +147,21 @@ export interface ImportPlan {
   methods: MethodResolution[];
 }
 
+// Cross-boundary sharing (verified-sender provenance, 2026-06-04). The inbox
+// receive path passes this so an imported EXPERIMENT (task) + its newly imported
+// METHODS carry a "received from {email}, verified" marker on the entity, the
+// same shape the note + project tiers already stamp. UNDEFINED on the LOCAL
+// file-import path (the settings-page file picker), which deliberately stamps
+// NOTHING, so a locally imported bundle reads as a native entity. `sender` is the
+// recipient's best-known label (the verified email when the bundle carried a
+// sender block, else a short relay-hash label). `fingerprint` is the sender's
+// key fingerprint when known, surfaced in the badge hover for out-of-band
+// verification.
+export interface ImportProvenance {
+  sender: string;
+  fingerprint?: string;
+}
+
 export interface ImportProgress {
   phase: "parsing" | "resolving" | "applying" | "done";
   // Human-readable status line for the dialog.

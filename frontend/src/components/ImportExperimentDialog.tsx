@@ -35,8 +35,20 @@ interface ImportExperimentDialogProps {
    * Optional provenance line shown in the review and success stages, for
    * example the verified email of the sender when the bundle arrived through
    * cross-boundary sharing. Omitted for the local file-picker import.
+   *
+   * When set, it ALSO stamps the imported experiment + its newly imported
+   * methods with a verified-sender marker on the entity (commitImport's
+   * `provenance` arg), so the "Received from X, verified" badge survives on the
+   * entity, not just at receive time. The local file-picker import leaves this
+   * undefined, so a locally imported bundle stays native (no stamp, no badge).
    */
   provenanceLabel?: string;
+  /**
+   * The sender's key fingerprint, paired with `provenanceLabel` on the
+   * cross-boundary receive path. Surfaced in the badge hover for out-of-band
+   * verification. Omitted for the local file-picker import.
+   */
+  provenanceFingerprint?: string;
 }
 
 export default function ImportExperimentDialog({
@@ -45,6 +57,7 @@ export default function ImportExperimentDialog({
   onImported,
   initialFile,
   provenanceLabel,
+  provenanceFingerprint,
 }: ImportExperimentDialogProps) {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -179,7 +192,14 @@ export default function ImportExperimentDialog({
     setStage("applying");
     setErrorMsg("");
     try {
-      const r = await commitImport(plan);
+      // Only the cross-boundary inbox supplies provenanceLabel, so only a
+      // received bundle stamps the verified-sender marker onto the imported
+      // entity. The local file-picker import leaves provenanceLabel undefined
+      // and the entity stays native (no stamp, no badge).
+      const provenance = provenanceLabel
+        ? { sender: provenanceLabel, fingerprint: provenanceFingerprint }
+        : undefined;
+      const r = await commitImport(plan, provenance);
       setResult(r);
       setStage("success");
       // Invalidate the main read queries so the new task shows up immediately.
@@ -191,7 +211,7 @@ export default function ImportExperimentDialog({
       setErrorMsg(err instanceof Error ? err.message : "Failed to import the experiment.");
       setStage("error");
     }
-  }, [plan, queryClient, onImported]);
+  }, [plan, queryClient, onImported, provenanceLabel, provenanceFingerprint]);
 
   if (!isOpen) return null;
 

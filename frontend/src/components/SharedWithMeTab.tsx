@@ -564,6 +564,12 @@ function ReviewImportModal({
     manifestSender?.email ??
     senderLabel(item.senderEmailHash);
 
+  // The sender's key fingerprint, paired with the label for the on-entity
+  // provenance stamp + the badge hover. Undefined on a pre-attribution bundle
+  // (the label then carries only the relay-hash sender).
+  const experimentSenderFingerprint =
+    received?.sender?.fingerprint ?? manifestSender?.fingerprint ?? undefined;
+
   // A project bundle drives its own thin import dialog (always-new, no
   // per-method resolution). It owns its parse + applyProjectImportPlan; we ack
   // the relay after it reports success and surface the notCarried report.
@@ -587,6 +593,7 @@ function ReviewImportModal({
         isOpen
         initialFile={experimentFile}
         provenanceLabel={experimentSenderLabel}
+        provenanceFingerprint={experimentSenderFingerprint}
         onClose={onClose}
         onImported={(result) => void handleExperimentImported(result)}
       />

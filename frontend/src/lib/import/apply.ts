@@ -14,15 +14,50 @@ import {
 } from "@/lib/local-api";
 import { getCurrentUserCached } from "@/lib/storage/json-store";
 import { taskNotesBase, taskResultsBase, taskResultsTabBase } from "@/lib/tasks/results-paths";
-import type { Dependency, TaskMethodAttachment } from "@/lib/types";
+import type { Dependency, Method, Task, TaskMethodAttachment } from "@/lib/types";
 import { pickImportedMethodName, pickImportedProjectName } from "./resolve";
 import type {
   ImportMethodEntry,
   ImportNotCarried,
   ImportPayload,
   ImportPlan,
+  ImportProvenance,
   ImportResult,
 } from "./types";
+
+/**
+ * Stamp the verified-sender provenance fields onto an already-created entity
+ * record by overlaying them on the canonical on-disk file. Mirrors the note tier
+ * (note-transfer.ts importNoteBundle), which reads the freshly created record and
+ * writes back the additive received_from / _fingerprint / _at fields directly,
+ * so nothing the create path wrote is lost and the stamp never routes through an
+ * entity `update` (it is set-once provenance, not a content edit, and writing it
+ * directly keeps it out of the version-control delta the way the note tier does).
+ *
+ * A no-op when provenance is undefined, which is the LOCAL file-import path (the
+ * settings-page file picker), so a locally imported experiment / method stays
+ * native (no badge). Only the cross-boundary receive path passes provenance.
+ */
+async function stampImportProvenance(
+  entity: "tasks" | "methods",
+  id: number,
+  currentUser: string,
+  provenance: ImportProvenance | undefined,
+): Promise<void> {
+  if (!provenance) return;
+  const filePath = `users/${currentUser}/${entity}/${id}.json`;
+  const base = await fileService.readJson<Task | Method>(filePath);
+  // The record was just created on disk; if it cannot be read (unexpected),
+  // skip the stamp rather than fabricate a record. The entity still imported.
+  if (!base) return;
+  const stamped = {
+    ...base,
+    received_from: provenance.sender,
+    received_from_fingerprint: provenance.fingerprint,
+    received_at: new Date().toISOString(),
+  };
+  await fileService.writeJson(filePath, stamped);
+}
 
 function slugifyForPath(name: string): string {
   return name
@@ -84,6 +119,8 @@ async function applyProjectResolution(plan: ImportPlan): Promise<number | null> 
  */
 async function applyMethodResolutions(
   plan: ImportPlan,
+  currentUser: string,
+  provenance?: ImportProvenance,
 ): Promise<{
   mapping: Record<number, number>;
   resultMethodIds: number[];
@@ -100,6 +137,9 @@ async function applyMethodResolutions(
       }
       mapping[res.sourceMethodId] = res.existingMethodId;
       resultMethodIds.push(res.existingMethodId);
+      // A "use-existing" match points the task at the recipient's OWN existing
+      // method, so it is never stamped with foreign provenance (it is not a
+      // received entity). Only freshly localized "import-new" methods carry it.
       continue;
     }
     // import-new
@@ -112,6 +152,9 @@ async function applyMethodResolutions(
     if (newId == null) continue; // protocol-less structured method, dropped + warned.
     mapping[res.sourceMethodId] = newId;
     resultMethodIds.push(newId);
+    // Cross-boundary receive only, stamp the freshly imported method with the
+    // verified sender. No-op on the local file-import path (provenance absent).
+    await stampImportProvenance("methods", newId, currentUser, provenance);
   }
 
   return { mapping, resultMethodIds };
@@ -535,13 +578,16 @@ export async function writeNotesResultsAttachments(
  *
  * Routed from applyImportPlan when manifest.kind === "method".
  */
-async function applyMethodOnlyImportPlan(plan: ImportPlan): Promise<ImportResult> {
+async function applyMethodOnlyImportPlan(
+  plan: ImportPlan,
+  provenance?: ImportProvenance,
+): Promise<ImportResult> {
   const currentUser = await getCurrentUserCached();
   if (!currentUser || currentUser === "_no_user_") {
     throw new Error("No active user — sign in before importing.");
   }
 
-  const { mapping } = await applyMethodResolutions(plan);
+  const { mapping } = await applyMethodResolutions(plan, currentUser, provenance);
 
   return {
     // A method import materializes no task — the envelope is dropped, never
@@ -558,13 +604,16 @@ async function applyMethodOnlyImportPlan(plan: ImportPlan): Promise<ImportResult
   };
 }
 
-export async function applyImportPlan(plan: ImportPlan): Promise<ImportResult> {
+export async function applyImportPlan(
+  plan: ImportPlan,
+  provenance?: ImportProvenance,
+): Promise<ImportResult> {
   // A standalone method bundle is experiment-shaped on the wire (a synthetic
   // envelope task carrying the one method) so the unchanged parser can read
   // it. On receive, branch to the method-only apply BEFORE any task or project
   // is created, so the method lands alone with no phantom experiment.
   if (plan.payload.manifest.kind === "method") {
-    return applyMethodOnlyImportPlan(plan);
+    return applyMethodOnlyImportPlan(plan, provenance);
   }
 
   const currentUser = await getCurrentUserCached();
@@ -575,7 +624,11 @@ export async function applyImportPlan(plan: ImportPlan): Promise<ImportResult> {
   const notCarried: ImportNotCarried = { dependencies: [], methodRefs: [] };
 
   const newProjectId = await applyProjectResolution(plan);
-  const { mapping, resultMethodIds } = await applyMethodResolutions(plan);
+  const { mapping, resultMethodIds } = await applyMethodResolutions(
+    plan,
+    currentUser,
+    provenance,
+  );
   void resultMethodIds; // method_ids is recomputed below from the source task.
 
   // Best-effort source-method-id -> name lookup for the notCarried report.
@@ -635,6 +688,11 @@ export async function applyImportPlan(plan: ImportPlan): Promise<ImportResult> {
       is_complete: sourceTask.is_complete,
     });
   }
+
+  // Cross-boundary receive only, stamp the experiment with the verified sender.
+  // No-op on the local file-import path (provenance absent). Done AFTER the
+  // deviation_log update so the overlay write sees the final record.
+  await stampImportProvenance("tasks", newTask.id, currentUser, provenance);
 
   await writeNotesResultsAttachments(newTask.id, currentUser, plan.payload);
 

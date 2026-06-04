@@ -601,6 +601,20 @@ export interface Task {
   // Globally denylisted in canonicalize.ts (FLAG-2) so it never pollutes a
   // delta. Absent on every task that was never restored. Mirrors Note's field.
   revert_undo_window?: RevertUndoWindow;
+  // Cross-boundary EXPERIMENT sharing (provenance, 2026-06-04): verified-sender
+  // marker stamped ONLY on an experiment (task) imported from a received bundle,
+  // the same pattern as Note.received_from. Lets the experiment detail show
+  // "Received from {email}, verified" on the entity itself, not just at receive
+  // time, so a recipient can always tell a foreign experiment from their own.
+  // All three are OPTIONAL and additive, absent on every locally created task,
+  // on every locally file-imported experiment, and on every pre-existing record
+  // (graceful degradation, no migration). The cross-boundary receive path stamps
+  // them; the local export/import path never does. The send (collect) path does
+  // NOT carry them, so a re-shared experiment never leaks the importer's
+  // provenance back out.
+  received_from?: string;             // sender canonical email, set only on imported experiments
+  received_from_fingerprint?: string; // sender key fingerprint
+  received_at?: string;               // ISO 8601 timestamp of import
 }
 
 /**
@@ -926,6 +940,18 @@ export interface Method {
   // read for pre-R3 records; back-fills on next write.
   last_edited_by?: string;
   last_edited_at?: string;
+  // Cross-boundary METHOD sharing (provenance, 2026-06-04): verified-sender
+  // marker stamped ONLY on a method imported from a received bundle, the same
+  // pattern as Note.received_from / Task.received_from. Lets the method viewer
+  // show "Received from {email}, verified" on the entity itself, not just at
+  // receive time. All three are OPTIONAL and additive, absent on every locally
+  // created method, on every locally file-imported method, and on every
+  // pre-existing record (graceful degradation, no migration). Only the
+  // cross-boundary receive path stamps them; the send (collect) path does not
+  // carry them, so a re-shared method never leaks the importer's provenance out.
+  received_from?: string;             // sender canonical email, set only on imported methods
+  received_from_fingerprint?: string; // sender key fingerprint
+  received_at?: string;               // ISO 8601 timestamp of import
 }
 
 export interface MethodCreate {

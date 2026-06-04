@@ -1,7 +1,12 @@
 import { applyImportPlan } from "./apply";
 import { parseImportBundle } from "./parse";
 import { buildImportPlan } from "./resolve";
-import type { ImportPayload, ImportPlan, ImportResult } from "./types";
+import type {
+  ImportPayload,
+  ImportPlan,
+  ImportProvenance,
+  ImportResult,
+} from "./types";
 
 export { ImportParseError } from "./parse";
 export { buildImportPlan, pickImportedMethodName, pickImportedProjectName } from "./resolve";
@@ -26,7 +31,15 @@ export async function previewImport(file: Blob): Promise<{
  * Stage 2: write everything to disk. Takes the (possibly user-edited) plan
  * and persists it. Returns the new task id so the caller can deep-link
  * straight to it.
+ *
+ * `provenance` is passed ONLY by the cross-boundary inbox receive path, so the
+ * imported experiment + its newly imported methods carry a verified-sender
+ * marker on the entity. The LOCAL file-import (settings-page file picker) omits
+ * it, leaving locally imported entities native (no provenance, no badge).
  */
-export async function commitImport(plan: ImportPlan): Promise<ImportResult> {
-  return applyImportPlan(plan);
+export async function commitImport(
+  plan: ImportPlan,
+  provenance?: ImportProvenance,
+): Promise<ImportResult> {
+  return applyImportPlan(plan, provenance);
 }

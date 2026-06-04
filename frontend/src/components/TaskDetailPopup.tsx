@@ -20,6 +20,7 @@ import ShareDialogAdapter from "@/components/sharing/ShareDialogAdapter";
 import SharingChips from "@/components/sharing/SharingChips";
 import { StampsRow } from "@/components/AttributionChip";
 import CommentsThread from "./CommentsThread";
+import ReceivedFromBadge from "./ReceivedFromBadge";
 import Tooltip from "./Tooltip";
 import { useAppStore } from "@/lib/store";
 import { taskKey } from "@/lib/types";
@@ -1033,6 +1034,16 @@ export default function TaskDetailPopup({
                 >
                   {isExperiment ? "Experiment" : isPurchase ? "Purchase" : "Task"}
                 </span>
+                {/* Cross-boundary provenance. Self-hides on a native experiment
+                    (received_from absent), so only an experiment imported from a
+                    received bundle shows "Received from {email}, verified". */}
+                {task.received_from && (
+                  <ReceivedFromBadge
+                    receivedFrom={task.received_from}
+                    fingerprint={task.received_from_fingerprint}
+                    receivedAt={task.received_at}
+                  />
+                )}
                 {/* Cross-owner "shared into project" pill. The X removes the
                     share — both the originating task owner AND the
                     destination project owner are allowed to unshare in v1
