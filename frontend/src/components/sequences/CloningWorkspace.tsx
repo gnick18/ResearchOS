@@ -9,7 +9,9 @@
 // REVIEW the product with its primers / pieces / att-sites + warnings, then
 // Save. On save the product lands as a new sequence in the active collection
 // and (for overlap) the junction primers become an oligo order list (copyable,
-// or saved as primer_bind features).
+// or saved as primer_bind features). Every method renders its product(s) through
+// the shared CloningProductPreview card, with a per-product "Save to library"
+// button on the card and a Back-plus-error-only shared footer.
 //
 // All biology comes from the pure engines (lib/sequences/cloning.ts,
 // cut-ligate.ts, cloning-gateway.ts); this file only orchestrates the picker,
@@ -23,7 +25,6 @@ import { sequencesApi } from "@/lib/local-api";
 import { sanitizeRawSequence } from "@/lib/sequences/import";
 import {
   assembleGibson,
-  productGc,
   DEFAULT_OVERLAP_BP,
   DEFAULT_ANNEAL_TM,
   type Fragment,
@@ -47,15 +48,19 @@ import {
   type GatewaySubstrate,
 } from "@/lib/sequences/cloning-gateway";
 import type { SequenceRecord } from "@/lib/types";
+import CloningProductPreview from "./CloningProductPreview";
 
 /** Which assembly chemistry the workspace is driving. */
 type CloneMethod = "overlap" | "restriction" | "golden-gate" | "gateway";
 
+// Short selector-pill labels (method name only). The chemistry hint
+// (Gibson / NEBuilder, Type IIS, BP / LR) lives in the per-method header
+// subtitle, not crammed into the pill (see L3).
 const METHOD_LABEL: Record<CloneMethod, string> = {
-  overlap: "Overlap (Gibson / NEBuilder)",
-  restriction: "Restriction + ligation",
-  "golden-gate": "Golden Gate (Type IIS)",
-  gateway: "Gateway (BP / LR)",
+  overlap: "Overlap",
+  restriction: "Restriction",
+  "golden-gate": "Golden Gate",
+  gateway: "Gateway",
 };
 
 /** Type IIS enzymes offered for Golden Gate, and common cutters for restriction. */
@@ -105,28 +110,6 @@ interface Props {
   /** Called after a successful save with the new sequence's id, so the library
    *  can select + open it in the editor. */
   onSaved: (newId: number) => void;
-}
-
-// --- monospace sequence preview (wraps; highlights junction seams) -----------
-
-function PreviewBox({ seq, circular }: { seq: string; circular: boolean }) {
-  const shown = seq.length > 4000 ? seq.slice(0, 4000) : seq;
-  return (
-    <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
-      <div className="mb-1 flex items-center justify-between">
-        <span className="text-meta font-medium uppercase tracking-wide text-gray-500">
-          Assembled construct {circular ? "(circular)" : "(linear)"}
-        </span>
-        <span className="text-meta text-gray-500">
-          {seq.length.toLocaleString()} bp · {productGc(seq).toFixed(0)}% GC
-        </span>
-      </div>
-      <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all font-mono text-meta leading-relaxed text-gray-700">
-        {shown}
-        {seq.length > shown.length ? `\n… (${(seq.length - shown.length).toLocaleString()} more bp)` : ""}
-      </pre>
-    </div>
-  );
 }
 
 export default function CloningWorkspace({ open, onClose, activeProjectIds, onSaved }: Props) {
@@ -256,6 +239,19 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
     return assembleGibson(fragments, { circular, overlap, annealTargetTm: DEFAULT_ANNEAL_TM });
   }, [method, fragments, circular, overlap]);
 
+  // Engine warnings for the overlap EMPTY state, so it explains why nothing
+  // assembled the way cut-ligate and Gateway already do (L5). The overlap engine
+  // returns warnings even when it cannot build a usable product (too few or empty
+  // fragments), but `result` above is gated to a valid >=2-fragment product. This
+  // re-reads the SAME engine purely for its diagnostic warning list when there is
+  // no product to show; it never feeds the save path or the populated review.
+  const overlapWarnings: string[] = useMemo(() => {
+    if (method !== "overlap" || result) return [];
+    const usable = fragments.filter((f) => f.seq);
+    if (usable.length === 0) return [];
+    return assembleGibson(fragments, { circular, overlap, annealTargetTm: DEFAULT_ANNEAL_TM }).warnings;
+  }, [method, result, fragments, circular, overlap]);
+
   // Run the pure CUT-LIGATE engine (restriction / golden-gate). Resolved library
   // fragments carry their circular flag from the library record.
   const cutLigateResult: CutLigateResult | null = useMemo(() => {
@@ -361,8 +357,10 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
     cutLigateResult && selectedProduct < cutLigateResult.products.length ? selectedProduct : 0;
 
   // Save a cut-ligate (restriction / golden-gate) product as a new sequence.
-  const handleSaveCutLigate = useCallback(async () => {
-    const prod = cutLigateResult?.products[safeProductIndex];
+  // Each product card saves its own product (per-card Save), so the index is
+  // passed in rather than read from the selected radio.
+  const handleSaveCutLigate = useCallback(async (index: number) => {
+    const prod = cutLigateResult?.products[index];
     if (!prod) return;
     setSaving(true);
     setSaveError(null);
@@ -388,7 +386,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
     } finally {
       setSaving(false);
     }
-  }, [cutLigateResult, safeProductIndex, name, activeProjectIds, onSaved]);
+  }, [cutLigateResult, name, activeProjectIds, onSaved]);
 
   // Save a Gateway product (the desired clone, or the byproduct) as a sequence.
   const saveGatewayProduct = useCallback(
@@ -455,7 +453,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                 ? "Restriction + ligation. Cut fragments with one or more enzymes and ligate the compatible ends."
                 : method === "golden-gate"
                   ? "Golden Gate (Type IIS). One enzyme excises its sites and ligates the parts by defined overhangs, scarlessly."
-                  : "Gateway recombination. att-site BP and LR reactions transfer a gene between vectors with no enzyme digestion or ligation."}
+                  : "Gateway recombination (BP / LR). att-site reactions transfer a gene between vectors with no enzyme digestion or ligation."}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -481,7 +479,8 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
         </div>
       </header>
 
-      {/* Method tabs (overlap / restriction / golden-gate / gateway) */}
+      {/* Method tabs (overlap / restriction / golden-gate / gateway). Flat row,
+          short pill labels; the chemistry hint lives in the header subtitle. */}
       <div className="flex items-center gap-1 border-b border-gray-100 px-5 py-2">
         {(["overlap", "restriction", "golden-gate", "gateway"] as CloneMethod[]).map((m) => (
           <button
@@ -794,21 +793,21 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
               ) : null}
 
               {gatewayResult.products.map((prod, i) => (
-                <div key={i} className="rounded-md border border-gray-200 p-4">
-                  <div className="mb-2 flex items-center justify-between">
-                    <h2 className="text-body font-semibold text-gray-700">
-                      {prod.role === "clone"
-                        ? gatewayReaction === "BP"
-                          ? "Entry clone"
-                          : "Expression clone"
-                        : "Byproduct"}
-                    </h2>
-                    <span className="text-meta text-gray-500">
-                      {prod.circular ? "Circular" : "Linear"} · {prod.seq.length.toLocaleString()} bp ·{" "}
-                      {productGc(prod.seq).toFixed(0)}% GC
-                    </span>
-                  </div>
-                  <div className="mb-2 grid grid-cols-2 gap-2">
+                <CloningProductPreview
+                  key={i}
+                  title={
+                    prod.role === "clone"
+                      ? gatewayReaction === "BP"
+                        ? "Entry clone"
+                        : "Expression clone"
+                      : "Byproduct"
+                  }
+                  seq={prod.seq}
+                  circular={prod.circular}
+                  onSave={() => saveGatewayProduct(i)}
+                  saving={saving}
+                >
+                  <div className="grid grid-cols-2 gap-2">
                     {prod.attSites.map((att, k) => (
                       <div key={k} className="rounded bg-gray-50 px-2 py-1.5">
                         <div className="mb-0.5 font-sans text-meta font-medium text-gray-700">{att.name}</div>
@@ -816,20 +815,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                       </div>
                     ))}
                   </div>
-                  <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-all rounded bg-gray-50 p-2 font-mono text-meta leading-relaxed text-gray-700">
-                    {prod.seq.length > 4000 ? prod.seq.slice(0, 4000) + "\n…" : prod.seq}
-                  </pre>
-                  <div className="mt-3 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => saveGatewayProduct(i)}
-                      disabled={saving}
-                      className="rounded-md bg-sky-600 px-4 py-1.5 text-meta font-medium text-white hover:bg-sky-700 disabled:opacity-50"
-                    >
-                      {saving ? "Saving…" : `Save ${prod.role === "clone" ? "clone" : "byproduct"}`}
-                    </button>
-                  </div>
-                </div>
+                </CloningProductPreview>
               ))}
 
               <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-4">
@@ -885,38 +871,32 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                 </h2>
                 {cutLigateResult.products.length > 1 ? (
                   <p className="mb-2 text-meta text-gray-500">
-                    The overhangs are symmetric, so more than one circular product can form. Pick the one to save.
+                    The overhangs are symmetric, so more than one circular product can form. Save the one you want.
                   </p>
                 ) : null}
                 <div className="space-y-3">
                   {cutLigateResult.products.map((prod, i) => (
-                    <label
+                    <CloningProductPreview
                       key={i}
-                      className={`block cursor-pointer rounded-md border p-3 ${
-                        safeProductIndex === i ? "border-sky-400 ring-1 ring-sky-200" : "border-gray-200"
-                      }`}
+                      title="Assembled product"
+                      seq={prod.seq}
+                      circular={prod.circular}
+                      select={
+                        cutLigateResult.products.length > 1
+                          ? {
+                              name: "cutligate-product",
+                              checked: safeProductIndex === i,
+                              onChange: () => setSelectedProduct(i),
+                            }
+                          : undefined
+                      }
+                      onSave={() => handleSaveCutLigate(i)}
+                      saving={saving}
                     >
-                      <div className="mb-1 flex items-center gap-2">
-                        {cutLigateResult.products.length > 1 ? (
-                          <input
-                            type="radio"
-                            name="cutligate-product"
-                            checked={safeProductIndex === i}
-                            onChange={() => setSelectedProduct(i)}
-                          />
-                        ) : null}
-                        <span className="text-meta font-medium text-gray-700">
-                          {prod.circular ? "Circular" : "Linear"} · {prod.seq.length.toLocaleString()} bp ·{" "}
-                          {productGc(prod.seq).toFixed(0)}% GC
-                        </span>
-                        <span className="text-meta text-gray-400">
-                          junctions: {prod.junctionOverhangs.map((o) => o || "blunt").join(", ")}
-                        </span>
+                      <div className="rounded bg-gray-50 px-2 py-1.5 text-meta text-gray-500">
+                        junctions: {prod.junctionOverhangs.map((o) => o || "blunt").join(", ")}
                       </div>
-                      <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-all font-mono text-meta leading-relaxed text-gray-700">
-                        {prod.seq.length > 4000 ? prod.seq.slice(0, 4000) + "\n…" : prod.seq}
-                      </pre>
-                    </label>
+                    </CloningProductPreview>
                   ))}
                 </div>
               </div>
@@ -952,9 +932,6 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                 <button type="button" onClick={() => setStep("pick")} className="rounded-md border border-gray-200 px-4 py-2 text-body font-medium text-gray-700 hover:bg-gray-100">
                   Back
                 </button>
-                <button type="button" onClick={handleSaveCutLigate} disabled={saving} className="rounded-md bg-sky-600 px-5 py-2 text-body font-medium text-white hover:bg-sky-700 disabled:opacity-50">
-                  {saving ? "Saving…" : "Save product"}
-                </button>
               </div>
             </div>
           ) : (
@@ -985,7 +962,13 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                     className="w-full max-w-md rounded-md border border-gray-200 px-3 py-2 text-body focus:border-sky-400 focus:outline-none"
                   />
                 </label>
-                <PreviewBox seq={result.product.seq} circular={result.product.circular} />
+                <CloningProductPreview
+                  title="Recombinant construct"
+                  seq={result.product.seq}
+                  circular={result.product.circular}
+                  onSave={handleSave}
+                  saving={saving}
+                />
               </div>
 
               {/* Assembly-level notes / warnings */}
@@ -1073,20 +1056,22 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                 </p>
               </div>
 
-              {/* Save */}
+              {/* Footer: Back + error only. Save lives on the product card above. */}
               <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-4">
                 {saveError ? <span className="text-meta text-rose-600">{saveError}</span> : null}
                 <button type="button" onClick={() => setStep("pick")} className="rounded-md border border-gray-200 px-4 py-2 text-body font-medium text-gray-700 hover:bg-gray-100">
                   Back
                 </button>
-                <button type="button" onClick={handleSave} disabled={saving} className="rounded-md bg-sky-600 px-5 py-2 text-body font-medium text-white hover:bg-sky-700 disabled:opacity-50">
-                  {saving ? "Saving…" : "Save construct"}
-                </button>
               </div>
             </div>
           ) : (
-            <div className="flex h-full items-center justify-center text-body text-gray-400">
-              Add at least two fragments to assemble.
+            <div className="flex h-full flex-col items-center justify-center gap-2 text-body text-gray-400">
+              <span>Add at least two fragments to assemble.</span>
+              {overlapWarnings.length ? (
+                <ul className="list-inside list-disc text-meta text-amber-600">
+                  {overlapWarnings.map((w, i) => <li key={i}>{w}</li>)}
+                </ul>
+              ) : null}
             </div>
           )}
         </div>
