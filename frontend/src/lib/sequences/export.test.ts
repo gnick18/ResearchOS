@@ -56,7 +56,7 @@ describe("toFasta", () => {
 
 describe("mapImageFilename (send-map-to-note default name)", () => {
   it("appends _map.png to the sanitized sequence name", () => {
-    expect(mapImageFilename("pDEMO-fluo")).toBe("pDEMO-fluo_map.png");
+    expect(mapImageFilename("pEGFP-N1")).toBe("pEGFP-N1_map.png");
   });
 
   it("sanitizes spaces and path-illegal chars", () => {
@@ -78,7 +78,7 @@ describe("mapImageFilename (send-map-to-note default name)", () => {
 
 describe("mapImageAltText (in-note caption)", () => {
   it("appends ' map' to the original (un-sanitized) display name", () => {
-    expect(mapImageAltText("pDEMO-fluo")).toBe("pDEMO-fluo map");
+    expect(mapImageAltText("pEGFP-N1")).toBe("pEGFP-N1 map");
   });
 
   it("trims surrounding whitespace but keeps inner spaces", () => {

@@ -108,7 +108,7 @@ export default function SequenceNewDialog({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. pDEMO-fluo backbone"
+              placeholder="e.g. pEGFP-N1 backbone"
               className="w-full rounded-md border border-gray-200 px-3 py-2 text-body text-gray-800 placeholder:text-gray-400 focus:border-sky-400 focus:outline-none"
             />
           </div>
