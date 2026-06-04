@@ -88,15 +88,15 @@ Bold, italic, and links never live as markdown control characters inside the Lor
 
 Phase 1 scope for marks is the three the current editor produces (bold, italic, link). Headings, lists, and code fences remain plain markdown in the text layer (they are not concurrency-fragile inline marks); they round-trip as text.
 
-## 9. Persisted-data-shape decisions for Grant (sign-off gate)
+## 9. Persisted-data-shape decisions (SIGNED OFF, Grant 2026-06-04)
 
-These freeze an on-disk contract, so they need explicit approval before code (per the house rule, flag data-shape changes before committing).
+These freeze an on-disk contract. All five are now locked.
 
-1. New hidden sidecar path `users/<owner>/.researchos/notes/<id>.loro` (binary Loro snapshot). Confirm the path and that `.researchos/` is the chosen hidden-dir name (matches the design doc's `.researchos/` idiom).
-2. Note-as-one-doc schema (section 5), entries as a Movable List inside the note doc. Confirm vs entry-as-its-own-doc.
-3. The external-edit conflict-copy naming (`<id> (external edit).json`). Confirm the convention (it mirrors attachment conflict-copy naming).
-4. The seed's fixed actor-id constant and timestamp-derivation rule (section 6). Confirm the approach; the exact constant is an implementation detail.
-5. Coexistence stance, the legacy `_history/notes/<id>.jsonl` engine keeps running untouched alongside the Loro sidecar during the pilot. Confirm we are NOT retiring it in Phase 1.
+1. LOCKED. Hidden sidecar path `users/<owner>/.researchos/notes/<id>.loro` (binary Loro snapshot). The `.researchos/` hidden-dir idiom, deliberately diverging from the existing visible `_history/` convention to keep app-internal binary out of the user's folder listing.
+2. LOCKED. Note-as-one-doc schema (section 5), entries as a Movable List inside the note doc, so entry ordering and add/delete stay mergeable. The editor rebinds to the active entry's Text on entry switch.
+3. LOCKED. External-edit conflict-copy naming `<id> (external edit).json`, naming the cause plainly (mirrors the attachment conflict-copy model).
+4. LOCKED. The seed is deterministic (section 6), fixed actor-id constant + timestamps derived from the note's own `created_at`. No alternative exists; this is mandatory to avoid the fork pitfall.
+5. LOCKED. The legacy `_history/notes/<id>.jsonl` engine keeps running untouched alongside the Loro sidecar during the pilot (two history records coexist). Safest rollback. Phase 2 retires the legacy engine once Loro-native history proves out.
 
 ## 10. Wiring LoroNoteEditor to persist
 
