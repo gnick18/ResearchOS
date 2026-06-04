@@ -220,10 +220,13 @@ function AlignmentView({ model }: { model: CompareModel }) {
 /** An SVG dotplot of shared k-mers (down-sampled grid). Rendered as a readable
  *  square with labelled axes in its own result section. */
 function DotplotView({ a, b }: { a: string; b: string }) {
-  const plot = useMemo(() => {
-    const k = dotplotWordSize(Math.min(a.length, b.length));
-    return computeDotplot(a, b, DOTPLOT_GRID, k);
-  }, [a, b]);
+  const autoK = useMemo(() => dotplotWordSize(Math.min(a.length, b.length)), [a, b]);
+  // The user can override the word size to reveal weaker local similarity: a
+  // smaller k marks shorter exact runs, so divergent sequences (few long exact
+  // matches) light up more. Null = auto.
+  const [kOverride, setKOverride] = useState<number | null>(null);
+  const k = kOverride ?? autoK;
+  const plot = useMemo(() => computeDotplot(a, b, DOTPLOT_GRID, k), [a, b, k]);
 
   const g = plot.size;
   const cell = DOTPLOT_PX / g;
@@ -233,12 +236,32 @@ function DotplotView({ a, b }: { a: string; b: string }) {
       if (plot.cells[row * g + col]) dots.push({ x: col * cell, y: row * cell });
     }
   }
+  const sparse = dots.length < 5;
 
   return (
     <div className="flex flex-col items-start gap-2">
-      <span className="text-meta font-medium uppercase tracking-wide text-gray-400">
-        Dotplot (k = {plot.k})
-      </span>
+      <div className="flex w-full items-center gap-3">
+        <span className="text-meta font-medium uppercase tracking-wide text-gray-400">
+          Dotplot (k = {plot.k})
+        </span>
+        <label className="ml-auto flex items-center gap-1.5 text-meta text-gray-500">
+          <span>Word size</span>
+          <select
+            value={kOverride ?? "auto"}
+            onChange={(e) =>
+              setKOverride(e.target.value === "auto" ? null : Number(e.target.value))
+            }
+            className="rounded border border-gray-300 bg-white px-1.5 py-0.5 text-meta focus:outline-none focus:ring-2 focus:ring-blue-400"
+          >
+            <option value="auto">Auto ({autoK})</option>
+            {[6, 8, 10, 12, 14].map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
       {/* axis labels frame the square: A runs along the top, B down the left */}
       <div className="flex flex-col gap-1">
         <span className="text-meta text-gray-400">A &rarr;</span>
@@ -267,9 +290,28 @@ function DotplotView({ a, b }: { a: string; b: string }) {
                 className="fill-sky-500"
               />
             ))}
+            {dots.length === 0 && (
+              <text
+                x={DOTPLOT_PX / 2}
+                y={DOTPLOT_PX / 2}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fontSize={11}
+                className="fill-gray-400"
+              >
+                No runs of {k} identical bases
+              </text>
+            )}
           </svg>
         </div>
       </div>
+      {sparse && (
+        <p className="max-w-[340px] text-meta text-gray-400">
+          {dots.length === 0 ? "No" : "Few"} exact {k} bp matches, so these
+          sequences share little local identity at this word size. Lower the word
+          size to reveal weaker similarity.
+        </p>
+      )}
     </div>
   );
 }
