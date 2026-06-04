@@ -61,11 +61,16 @@ function getResend(): Resend {
 }
 
 /**
- * The four item kinds an invite can carry. Only the email's noun depends on it,
+ * The item kinds an invite can carry. Only the email's noun depends on it,
  * everything else (the sealed payload, the accept link) is identical. Defaults to
  * "note" wherever omitted, so the original note invite copy is unchanged.
  */
-export type InviteItemKind = "note" | "experiment" | "method" | "project";
+export type InviteItemKind =
+  | "note"
+  | "experiment"
+  | "method"
+  | "project"
+  | "sequence";
 
 /** The bare noun and its article for each kind, used to phrase the email copy. */
 function itemNoun(kind: InviteItemKind | undefined): { article: string; noun: string } {
@@ -76,6 +81,8 @@ function itemNoun(kind: InviteItemKind | undefined): { article: string; noun: st
       return { article: "a", noun: "method" };
     case "project":
       return { article: "a", noun: "project" };
+    case "sequence":
+      return { article: "a", noun: "sequence" };
     case "note":
     default:
       // The original copy says "research note", keep it for the note path.

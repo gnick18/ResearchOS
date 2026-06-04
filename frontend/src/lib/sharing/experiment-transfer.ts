@@ -85,6 +85,7 @@ export type SharePayloadKind =
   | "experiment"
   | "method"
   | "project"
+  | "sequence"
   | "unknown";
 
 /**
@@ -101,11 +102,20 @@ export type SharePayloadKind =
  *                 one manifest field.
  *   - note:       a BagIt bag, `<uuid>/bagit.txt` + `<uuid>/data/
  *                 ro-crate-metadata.json` (bundle.ts), no `_export-manifest.json`.
+ *   - sequence:   a small PLAIN JSON envelope `{ kind: "sequence", ... }`
+ *                 (sequence-transfer.ts), NOT a zip. Detected up front by a cheap
+ *                 JSON probe so it is never confused with the zip-based kinds.
  * Returns "unknown" if the bytes are not a zip or carry neither marker.
  */
 export async function sniffSharePayload(
   bytes: Uint8Array,
 ): Promise<SharePayloadKind> {
+  // A sequence share is a small plain-JSON envelope, not a zip. Probe it FIRST,
+  // cheaply, so a sequence is never run through the (failing) JSZip path. We do
+  // a minimal in-line decode + parse here rather than importing the sequence
+  // module to avoid pulling its local-api dependency into this transport seam.
+  if (looksLikeSequenceEnvelope(bytes)) return "sequence";
+
   let zip: JSZip;
   try {
     zip = await JSZip.loadAsync(bytes);
@@ -172,4 +182,29 @@ export function experimentPayloadToFile(
   const copy = new Uint8Array(bytes.byteLength);
   copy.set(bytes);
   return new File([copy], `${baseName}-raw.zip`, { type: "application/zip" });
+}
+
+/**
+ * Cheap, allocation-light probe for a sequence envelope (sequence-transfer.ts).
+ * A zip starts with the local-file-header magic "PK" (0x50 0x4B), so any zip
+ * fails this and falls through to the zip path. A sequence envelope is a small
+ * UTF-8 JSON object whose first non-whitespace byte is "{". We decode and JSON-
+ * parse only when that cheap byte check passes, and confirm `kind === "sequence"`.
+ * Tolerant, any failure resolves to false (the bytes fall through to the zip path
+ * and ultimately "unknown" if they are neither).
+ */
+function looksLikeSequenceEnvelope(bytes: Uint8Array): boolean {
+  // Skip leading ASCII whitespace, then require the first real byte to be "{".
+  let i = 0;
+  while (i < bytes.length && (bytes[i] === 0x20 || bytes[i] === 0x09 || bytes[i] === 0x0a || bytes[i] === 0x0d)) {
+    i++;
+  }
+  if (i >= bytes.length || bytes[i] !== 0x7b /* { */) return false;
+  try {
+    const text = new TextDecoder().decode(bytes);
+    const parsed = JSON.parse(text) as { kind?: unknown };
+    return !!parsed && parsed.kind === "sequence";
+  } catch {
+    return false;
+  }
 }

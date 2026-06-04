@@ -48,6 +48,7 @@ const ITEM_KINDS: readonly InviteItemKind[] = [
   "experiment",
   "method",
   "project",
+  "sequence",
 ];
 
 function nonEmptyString(v: unknown): v is string {

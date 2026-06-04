@@ -74,6 +74,11 @@ export function genbankToDetail(
     length: seq.length,
     circular: !!p.circular,
     feature_count: annotations.length,
+    // Cross-boundary provenance, carried through from the sidecar (undefined on
+    // a native sequence so the ReceivedFromBadge self-hides).
+    received_from: meta.received_from,
+    received_from_fingerprint: meta.received_from_fingerprint,
+    received_at: meta.received_at,
     genbank,
     seq,
     annotations,
@@ -104,5 +109,8 @@ export function genbankToRecord(
     length: 0,
     circular: false,
     feature_count: 0,
+    received_from: meta.received_from,
+    received_from_fingerprint: meta.received_from_fingerprint,
+    received_at: meta.received_at,
   };
 }

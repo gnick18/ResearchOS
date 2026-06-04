@@ -48,6 +48,12 @@ import {
 } from "@/lib/sharing/experiment-transfer";
 import { methodPayloadToFile } from "@/lib/sharing/method-transfer";
 import { projectPayloadToFile } from "@/lib/sharing/project-transfer";
+import {
+  parseSequencePayload,
+  readSequencePayloadSender,
+  importSequencePayload,
+  type SequenceSharePayload,
+} from "@/lib/sharing/sequence-transfer";
 import { readManifestSenderFromPayload } from "@/lib/sharing/sender-stamp";
 import ReceivedFromBadge from "@/components/ReceivedFromBadge";
 import ImportExperimentDialog from "@/components/ImportExperimentDialog";
@@ -84,6 +90,11 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Human label for a sequence molecule kind (the sequence preview). */
+function seqTypeLabel(t: string): string {
+  return t === "protein" ? "Protein" : t === "rna" ? "RNA" : "DNA";
 }
 
 interface SharedWithMeTabProps {
@@ -198,7 +209,8 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
           <InboxArrowIcon className="w-8 h-8 text-gray-300" />
           <p className="text-body text-gray-600 max-w-xs">
             Set up sharing to receive shared items. You claim an email-linked
-            identity once, then notes and methods other labs send you land here.
+            identity once, then notes, methods, and sequences other labs send you
+            land here.
           </p>
           <button
             type="button"
@@ -400,6 +412,12 @@ function ReviewImportModal({
   const [experimentFile, setExperimentFile] = useState<File | null>(null);
   // A decrypted PROJECT bundle wrapped as a File for the project import dialog.
   const [projectFile, setProjectFile] = useState<File | null>(null);
+  // A decrypted SEQUENCE envelope, parsed for the one-click import. A sequence is
+  // self-contained (nothing to resolve), so it does NOT route through the
+  // experiment/project resolution dialog, it imports in one step from the modal.
+  const [sequencePayload, setSequencePayload] =
+    useState<SequenceSharePayload | null>(null);
+  const [sequenceBytes, setSequenceBytes] = useState<Uint8Array | null>(null);
   // The verified sender read from the decrypted EXPERIMENT / METHOD / PROJECT
   // manifest (the note path uses `received.sender` instead). Populated once the
   // decrypt resolves, so the experiment/method/project provenance label upgrades
@@ -486,6 +504,19 @@ function ReviewImportModal({
             onResolveSenderRef.current(item.bundleId, sender);
           }
           setExperimentFile(methodPayloadToFile(payload));
+        } else if (sniffed === "sequence") {
+          // A sequence is self-contained, so we parse the envelope here and show
+          // a one-click import (no resolution dialog). Read the embedded verified
+          // sender for the label + provenance, exactly like the other tiers.
+          const parsed = parseSequencePayload(payload);
+          if (cancelled) return;
+          const seqSender = readSequencePayloadSender(payload);
+          if (seqSender) {
+            setManifestSender(seqSender);
+            onResolveSenderRef.current(item.bundleId, seqSender);
+          }
+          setSequencePayload(parsed);
+          setSequenceBytes(payload);
         }
       } catch (err) {
         console.error("[inbox] receiveRawShare failed", err);
@@ -554,6 +585,43 @@ function ReviewImportModal({
     },
     [email, item.bundleId, onImported],
   );
+
+  // ── Sequence branch (ONE-CLICK) ─────────────────────────────────────────────
+  // A sequence is self-contained, nothing to resolve. Import in one step,
+  // decrypt (done) -> create in the recipient's folder -> stamp provenance ->
+  // ack the relay (ACK-AFTER-WRITE) -> "Saved to your library" toast. No
+  // resolution dialog. project_ids are dropped on import (it lands Unfiled).
+  const handleSequenceImport = useCallback(async () => {
+    if (!sequenceBytes) return;
+    setImporting(true);
+    setError(null);
+    try {
+      // Prefer the verified identity embedded in the envelope, fall back to the
+      // relay key hash for a pre-attribution bundle.
+      const senderFingerprint =
+        manifestSender?.fingerprint || item.senderEmailHash;
+      const senderEmail =
+        manifestSender?.email || senderLabel(item.senderEmailHash);
+
+      await importSequencePayload(sequenceBytes, {
+        currentUser,
+        senderEmail,
+        senderFingerprint,
+      });
+
+      // ACK-AFTER-WRITE: the sequence pair is on disk now, delete the relay copy.
+      await ackShare({ email, bundleId: item.bundleId });
+
+      onImported(item.bundleId, "Saved to your sequence library.");
+    } catch (err) {
+      console.error("[inbox] sequence import failed", err);
+      setError(
+        "Import failed. Nothing was acknowledged, so this item stays in your inbox to try again.",
+      );
+    } finally {
+      setImporting(false);
+    }
+  }, [sequenceBytes, manifestSender, item, email, currentUser, onImported]);
 
   // Provenance label for the export-zip tiers (experiment / method / project).
   // Prefer the embedded verified sender (note path via `received.sender`,
@@ -745,9 +813,27 @@ function ReviewImportModal({
           ) : unsupported ? (
             <p className="text-body text-gray-600 text-center py-6">
               Unsupported item type. ResearchOS can import notes, experiments,
-              methods, and projects here; this item is a different kind. You can
-              decline it.
+              methods, projects, and sequences here; this item is a different
+              kind. You can decline it.
             </p>
+          ) : kind === "sequence" && sequencePayload ? (
+            <>
+              <p className="text-meta uppercase tracking-wide text-gray-500 font-semibold mb-1">
+                Shared sequence
+              </p>
+              <h4 className="text-heading font-semibold text-gray-900 mb-1">
+                {sequencePayload.display_name || "Untitled sequence"}
+              </h4>
+              <p className="text-body text-gray-600">
+                {seqTypeLabel(sequencePayload.seq_type)} ·{" "}
+                {sequencePayload.circular ? "Circular" : "Linear"}
+              </p>
+              <p className="text-meta text-gray-500 mt-3 leading-relaxed">
+                Saving adds a copy to your sequence library as a new, unfiled
+                sequence. It is not linked to any of the sender&rsquo;s projects,
+                you can file it afterward. Your copy is yours to edit.
+              </p>
+            </>
           ) : preview ? (
             <>
               <h4 className="text-heading font-semibold text-gray-900 mb-2">
@@ -822,16 +908,34 @@ function ReviewImportModal({
           >
             Cancel
           </button>
-          {/* Import is enabled only for a readable, verified note bundle. For
-              v1 this imports as a standalone note; a project target picker is a
-              later enhancement. */}
+          {/* Import. A note imports as a standalone note (handleImport); a
+              sequence imports in ONE CLICK (handleSequenceImport), decrypt ->
+              create -> stamp -> ack, no resolution dialog. Experiment / method /
+              project never reach this footer (they render their own dialog
+              above). Enabled for a readable note OR a parsed sequence. */}
           <button
             type="button"
-            onClick={() => void handleImport()}
-            disabled={importing || loading || !!error || !preview || unsupported}
+            onClick={() =>
+              kind === "sequence"
+                ? void handleSequenceImport()
+                : void handleImport()
+            }
+            disabled={
+              importing ||
+              loading ||
+              !!error ||
+              unsupported ||
+              (kind === "sequence" ? !sequencePayload : !preview)
+            }
             className="px-4 py-1.5 text-meta font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {importing ? "Importing…" : "Import"}
+            {importing
+              ? kind === "sequence"
+                ? "Saving…"
+                : "Importing…"
+              : kind === "sequence"
+                ? "Save to my library"
+                : "Import"}
           </button>
         </div>
       </div>

@@ -23,6 +23,9 @@ import ImportProgressOverlay, {
 } from "@/components/sequences/ImportProgressOverlay";
 import CloningWorkspace from "@/components/sequences/CloningWorkspace";
 import CompareSequencesDialog from "@/components/sequences/CompareSequencesDialog";
+import SequenceSendOutsideDialog from "@/components/sharing/SequenceSendOutsideDialog";
+import ReceivedFromBadge from "@/components/ReceivedFromBadge";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { sequencesApi, projectsApi } from "@/lib/local-api";
 import { emitSequenceDeleted } from "@/lib/sequences/delete-toast-bus";
 import {
@@ -104,6 +107,20 @@ function FocusIcon({ className }: { className?: string }) {
         strokeWidth={2}
         d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
       />
+    </svg>
+  );
+}
+
+/** Share glyph (three nodes connected), for the cross-boundary send action.
+ *  Inline SVG (no emojis). */
+function ShareIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <line x1="8.6" y1="13.5" x2="15.4" y2="17.5" />
+      <line x1="15.4" y1="6.5" x2="8.6" y2="10.5" />
     </svg>
   );
 }
@@ -251,6 +268,8 @@ export default function SequencesPage() {
   const [newOpen, setNewOpen] = useState(false);
   const [assembleOpen, setAssembleOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
+  // Cross-boundary "Share outside this folder" dialog for the open sequence.
+  const [shareOpen, setShareOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   // Structured progress for a MULTI-file import, driving the centered
   // ImportProgressOverlay (+ the beforeunload guard). Null when no multi-file
@@ -282,6 +301,7 @@ export default function SequencesPage() {
   const draggingRef = useRef(false);
 
   const queryClient = useQueryClient();
+  const { currentUser } = useCurrentUser();
 
   const { data: sequences = [], isLoading } = useQuery({
     queryKey: ["sequences"],
@@ -1263,9 +1283,19 @@ export default function SequencesPage() {
             <>
               <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-2.5">
                 <div className="min-w-0">
-                  <h2 className="truncate text-title font-semibold text-gray-800">
-                    {selected.display_name}
-                  </h2>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <h2 className="truncate text-title font-semibold text-gray-800">
+                      {selected.display_name}
+                    </h2>
+                    {/* Provenance, self-hides unless this sequence arrived through
+                        a cross-boundary share (received_from set on import). */}
+                    <ReceivedFromBadge
+                      receivedFrom={selected.received_from}
+                      fingerprint={selected.received_from_fingerprint}
+                      receivedAt={selected.received_at}
+                      small
+                    />
+                  </div>
                   <p className="text-meta text-gray-500">
                     {seqTypeLabel(selected.seq_type)} ·{" "}
                     {selected.circular ? "Circular" : "Linear"} ·{" "}
@@ -1273,6 +1303,20 @@ export default function SequencesPage() {
                     {selected.feature_count === 1 ? "feature" : "features"}
                   </p>
                 </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Tooltip
+                    label="Share outside this folder — send an encrypted copy to someone on ResearchOS"
+                    placement="bottom"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setShareOpen(true)}
+                      aria-label="Share this sequence outside your folder"
+                      className="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                    >
+                      <ShareIcon className="h-4 w-4" />
+                    </button>
+                  </Tooltip>
                 <Tooltip
                   label={
                     listCollapsed
@@ -1297,6 +1341,7 @@ export default function SequencesPage() {
                     <FocusIcon className="h-4 w-4" />
                   </button>
                 </Tooltip>
+                </div>
               </div>
               <div className="min-h-0 flex-1 overflow-hidden">
                 <SequenceEditView
@@ -1336,6 +1381,17 @@ export default function SequencesPage() {
         onClose={() => setCompareOpen(false)}
         defaultAId={selectedId}
       />
+
+      {/* Cross-boundary send. Sends the open sequence as an encrypted copy to
+          someone on ResearchOS (or invites a non-user). Only mounts with a
+          loaded sequence + a resolved user (the export collect context). */}
+      {shareOpen && selected && currentUser && (
+        <SequenceSendOutsideDialog
+          sequence={selected}
+          ownerUsername={currentUser}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
 
       {/* Standalone overlap-assembly (Gibson / NEBuilder HiFi) workspace. The
           saved construct lands in the active collection and opens in the editor. */}

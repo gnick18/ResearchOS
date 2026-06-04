@@ -2570,6 +2570,14 @@ export interface SequenceMeta {
   added_at: string;
   /** Molecule kind, derived from the GenBank LOCUS on create. */
   seq_type: SeqType;
+
+  // Cross-boundary provenance. Additive + optional, set ONLY on a sequence that
+  // arrived through a cross-boundary share (sequence-transfer.ts importSequence).
+  // A native sequence has none of these and the ReceivedFromBadge self-hides.
+  // Same pattern as Note.received_from / Method.received_from.
+  received_from?: string;             // sender canonical email, set only on imported sequences
+  received_from_fingerprint?: string; // sender key fingerprint
+  received_at?: string;               // ISO 8601 import timestamp
 }
 
 /**
@@ -2591,6 +2599,13 @@ export interface SequenceRecord {
   circular: boolean;
   /** Number of annotated features in the GenBank record. */
   feature_count: number;
+
+  // Cross-boundary provenance, carried through from the sidecar so the library
+  // row + viewer can render the ReceivedFromBadge. Optional, absent on a native
+  // sequence (the badge self-hides).
+  received_from?: string;
+  received_from_fingerprint?: string;
+  received_at?: string;
 }
 
 /** A fully-loaded sequence, including the bases + parsed annotations needed by

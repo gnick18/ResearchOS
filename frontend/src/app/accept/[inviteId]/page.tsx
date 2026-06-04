@@ -51,6 +51,12 @@ import {
 } from "@/lib/sharing/experiment-transfer";
 import { methodPayloadToFile } from "@/lib/sharing/method-transfer";
 import { projectPayloadToFile } from "@/lib/sharing/project-transfer";
+import {
+  parseSequencePayload,
+  readSequencePayloadSender,
+  importSequencePayload,
+  type SequenceSharePayload,
+} from "@/lib/sharing/sequence-transfer";
 import { readManifestSenderFromPayload } from "@/lib/sharing/sender-stamp";
 import ImportExperimentDialog from "@/components/ImportExperimentDialog";
 import ProjectImportDialog from "@/components/sharing/ProjectImportDialog";
@@ -84,6 +90,8 @@ function kindNoun(kind: SharePayloadKind): { article: string; noun: string } {
       return { article: "a", noun: "method" };
     case "project":
       return { article: "a", noun: "project" };
+    case "sequence":
+      return { article: "a", noun: "sequence" };
     case "note":
     default:
       return { article: "a", noun: "note" };
@@ -99,12 +107,16 @@ type LoadState =
       kind: SharePayloadKind;
       // The parsed RO-Crate bundle, NOTE path only. Null for the export-zip kinds.
       received: ReceiveShareResult | null;
-      // The decrypted bytes, export-zip kinds only (experiment / method / project).
-      // Null for the note path (received carries everything it needs).
+      // The decrypted bytes, export-zip kinds AND sequence. Null for the note
+      // path (received carries everything it needs). For a sequence these are the
+      // envelope bytes the one-click import re-uses.
       payload: Uint8Array | null;
-      // The verified sender read from the export manifest (export-zip kinds). The
-      // note path reads it from received.sender instead.
+      // The verified sender read from the export manifest (export-zip kinds) or
+      // the sequence envelope. The note path reads it from received.sender instead.
       manifestSender: BundleSender | null;
+      // The parsed sequence envelope, SEQUENCE kind only (null otherwise). A
+      // sequence imports in one click from the bytes, no dialog.
+      sequence: SequenceSharePayload | null;
     };
 
 type ImportPhase =
@@ -173,6 +185,7 @@ export default function AcceptInvitePage() {
             received,
             payload: null,
             manifestSender: null,
+            sequence: null,
           });
           return;
         }
@@ -188,6 +201,25 @@ export default function AcceptInvitePage() {
             received: null,
             payload,
             manifestSender: sender ?? null,
+            sequence: null,
+          });
+          return;
+        }
+
+        if (kind === "sequence") {
+          // A sequence is self-contained, parse the envelope here and keep the
+          // bytes for the one-click import (no dialog). Read the embedded
+          // verified sender for the provenance label.
+          const parsed = parseSequencePayload(payload);
+          const sender = readSequencePayloadSender(payload);
+          if (cancelled) return;
+          setLoad({
+            phase: "ready",
+            kind,
+            received: null,
+            payload,
+            manifestSender: sender ?? null,
+            sequence: parsed,
           });
           return;
         }
@@ -199,6 +231,7 @@ export default function AcceptInvitePage() {
           received: null,
           payload: null,
           manifestSender: null,
+          sequence: null,
         });
       } catch (err) {
         if (cancelled) return;
@@ -322,6 +355,40 @@ export default function AcceptInvitePage() {
     }
   }, [load, currentUser, inviteId]);
 
+  // File the decrypted SEQUENCE into the new user's folder in ONE step (no
+  // dialog), then ack the keyless invite. A sequence has nothing to resolve, so
+  // this mirrors the inbox one-click flow, decrypt (done) -> create -> stamp
+  // provenance -> ACK-AFTER-FILE. project_ids are dropped (lands Unfiled).
+  const handleSequenceImport = useCallback(async () => {
+    if (load.phase !== "ready" || load.kind !== "sequence" || !load.payload) {
+      return;
+    }
+    if (!currentUser) return;
+    setImp({ phase: "importing" });
+    try {
+      const senderFingerprint = load.manifestSender?.fingerprint || "";
+      const senderEmail = load.manifestSender?.email || "an invited share";
+      await importSequencePayload(load.payload, {
+        currentUser,
+        senderEmail,
+        senderFingerprint,
+      });
+      try {
+        await ackInvite(inviteId);
+      } catch (ackErr) {
+        console.warn("[accept] ack after sequence import failed", ackErr);
+      }
+      setImp({ phase: "done" });
+    } catch (err) {
+      console.error("[accept] sequence import failed", err);
+      setImp({
+        phase: "error",
+        message:
+          "Import failed. Nothing was acknowledged, so this invite stays available to try again.",
+      });
+    }
+  }, [load, currentUser, inviteId]);
+
   // The import dialog (experiment / method / project) reports a successful
   // on-disk import. ACK-AFTER-FILE: ack the keyless invite now, then unmount the
   // dialog and show the done state. A failed ack only leaves the relay copy until
@@ -401,10 +468,23 @@ export default function AcceptInvitePage() {
               />
             )}
 
+          {load.phase === "ready" && load.kind === "sequence" && (
+            <SequenceBody
+              sequence={load.sequence}
+              senderEmail={load.manifestSender?.email ?? null}
+              isConnected={isConnected}
+              currentUser={currentUser}
+              identityReady={identity.status === "ready"}
+              imp={imp}
+              onSetUpSharing={() => setWizardOpen(true)}
+              onSave={() => void handleSequenceImport()}
+            />
+          )}
+
           {load.phase === "ready" && load.kind === "unknown" && (
             <NoticeBody
               title="Unsupported item"
-              body="This invite contains an item ResearchOS cannot open here yet. Notes, experiments, methods, and projects are supported."
+              body="This invite contains an item ResearchOS cannot open here yet. Notes, experiments, methods, projects, and sequences are supported."
             />
           )}
         </div>
@@ -740,6 +820,125 @@ function ImportItemBody({
           className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors"
         >
           Review and save this {noun}
+        </button>
+      )}
+    </div>
+  );
+}
+
+// The SEQUENCE kind. Self-contained, so unlike the export-zip kinds there is no
+// import dialog, the visitor saves it in one click straight into their library.
+// Shows the sequence summary + verified sender + the same connect-folder /
+// claim-identity gate, then the one-click "Save to my library" action.
+function SequenceBody({
+  sequence,
+  senderEmail,
+  isConnected,
+  currentUser,
+  identityReady,
+  imp,
+  onSetUpSharing,
+  onSave,
+}: {
+  sequence: SequenceSharePayload | null;
+  senderEmail: string | null;
+  isConnected: boolean;
+  currentUser: string | null;
+  identityReady: boolean;
+  imp: ImportPhase;
+  onSetUpSharing: () => void;
+  onSave: () => void;
+}) {
+  if (imp.phase === "done") {
+    return (
+      <div className="py-6 text-center">
+        <div className="w-12 h-12 mx-auto rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+          <CheckGlyph className="w-6 h-6" />
+        </div>
+        <h2 className="text-title font-semibold text-gray-900 mt-3">
+          Saved to your library
+        </h2>
+        <p className="text-body text-gray-600 mt-1 leading-relaxed">
+          This sequence is now in your library as a new, unfiled sequence. You can
+          open, edit, and file it like any other, your copy is yours.
+        </p>
+      </div>
+    );
+  }
+
+  const senderLabel = senderEmail ?? "Someone on ResearchOS";
+  const name = sequence?.display_name || "Untitled sequence";
+  const typeLabel =
+    sequence?.seq_type === "protein"
+      ? "Protein"
+      : sequence?.seq_type === "rna"
+        ? "RNA"
+        : "DNA";
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3">
+        <p className="text-meta text-gray-500">From</p>
+        <p className="text-body font-medium text-gray-800 break-all">
+          {senderLabel}
+        </p>
+        <p className="text-meta text-emerald-600 mt-1.5">
+          ResearchOS opened this sequence with the invite key and passed its
+          integrity check.
+        </p>
+      </div>
+
+      <div>
+        <p className="text-meta uppercase tracking-wide text-gray-500 font-semibold mb-1">
+          Shared sequence
+        </p>
+        <h2 className="text-heading font-semibold text-gray-900 break-words">
+          {name}
+        </h2>
+        <p className="text-body text-gray-600 mt-1">
+          {typeLabel} · {sequence?.circular ? "Circular" : "Linear"}
+        </p>
+        <p className="text-meta text-gray-500 mt-2 leading-relaxed">
+          Saving adds a copy to your sequence library as a new, unfiled sequence.
+          It is not linked to any of the sender&rsquo;s projects.
+        </p>
+      </div>
+
+      {imp.phase === "error" && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-meta text-red-700 leading-relaxed">{imp.message}</p>
+        </div>
+      )}
+
+      {/* The keep-it gate, identical to the note / export-zip paths. */}
+      {!isConnected || !currentUser ? (
+        <NoticeBody
+          title="Open ResearchOS to keep this sequence"
+          body="To save this sequence you first connect a data folder in ResearchOS (it is free and stays on your own computer). Open the app, connect or create your folder, then return to this link."
+        />
+      ) : !identityReady ? (
+        <div className="space-y-3">
+          <p className="text-body text-gray-600 leading-relaxed">
+            Set up sharing once to claim this email and save the sequence. It
+            proves your address and generates your keypair, so future shares with
+            you stay private end to end.
+          </p>
+          <button
+            type="button"
+            onClick={onSetUpSharing}
+            className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+          >
+            Set up sharing and save the sequence
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={imp.phase === "importing" || !sequence}
+          className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {imp.phase === "importing" ? "Saving…" : "Save to my library"}
         </button>
       )}
     </div>

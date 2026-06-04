@@ -626,7 +626,12 @@ function buildAcceptUrl(inviteId: string, oneTimeKey: Uint8Array): string {
  * relay transport is byte-agnostic. Defaults to "note" everywhere it is omitted,
  * so the original note invite path is unchanged.
  */
-export type InviteItemKind = "note" | "experiment" | "method" | "project";
+export type InviteItemKind =
+  | "note"
+  | "experiment"
+  | "method"
+  | "project"
+  | "sequence";
 
 /** Params for inviteShare. */
 export interface InviteShareParams {
