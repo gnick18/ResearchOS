@@ -1,17 +1,20 @@
 "use client";
 
-// cloning bot — the STANDALONE overlap-assembly workspace (Gibson / NEBuilder
-// HiFi). A full-surface overlay launched from the /sequences library "Assemble"
-// action (NOT an editor tab, NOT a top-nav item). Calm, progressive disclosure,
-// APE-style: pick + order fragments, choose linear / circular, set the overlap
-// (length default, Tm advanced), REVIEW each junction with its primers + the
-// assembled-construct preview + warnings, then Save. On save the product lands
-// as a new sequence in the active collection and the junction primers become an
-// oligo order list (copyable, or saved as primer_bind features).
+// cloning bot — the STANDALONE cloning workspace. A full-surface overlay
+// launched from the /sequences library "Assemble" action (NOT an editor tab,
+// NOT a top-nav item). It drives four assembly chemistries from one method
+// selector: overlap (Gibson / NEBuilder HiFi), restriction + ligation, Golden
+// Gate (Type IIS), and Gateway (BP / LR). Calm, progressive disclosure,
+// APE-style: pick + order fragments / substrates, set the method's options,
+// REVIEW the product with its primers / pieces / att-sites + warnings, then
+// Save. On save the product lands as a new sequence in the active collection
+// and (for overlap) the junction primers become an oligo order list (copyable,
+// or saved as primer_bind features).
 //
-// All biology comes from the pure engine (lib/sequences/cloning.ts); this file
-// only orchestrates the picker, the review, and the save path. No emojis (inline
-// SVG only), no em-dashes, Tooltip component for icon-only buttons.
+// All biology comes from the pure engines (lib/sequences/cloning.ts,
+// cut-ligate.ts, cloning-gateway.ts); this file only orchestrates the picker,
+// the review, and the save path. No emojis (inline SVG only), no em-dashes,
+// Tooltip component for icon-only buttons.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -478,7 +481,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
         </div>
       </header>
 
-      {/* Method tabs (overlap / restriction / golden-gate) */}
+      {/* Method tabs (overlap / restriction / golden-gate / gateway) */}
       <div className="flex items-center gap-1 border-b border-gray-100 px-5 py-2">
         {(["overlap", "restriction", "golden-gate", "gateway"] as CloneMethod[]).map((m) => (
           <button
@@ -698,7 +701,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                     {overlapKind === "tm" ? (
                       <span className="flex items-center gap-1">
                         <input type="number" min={40} max={70} value={overlapTm} onChange={(e) => setOverlapTm(Math.max(40, Math.min(70, Number(e.target.value) || 48)))} className="w-16 rounded-md border border-gray-200 px-2 py-1 text-body focus:border-sky-400 focus:outline-none" />
-                        <span className="text-meta text-gray-500">C</span>
+                        <span className="text-meta text-gray-500">°C</span>
                       </span>
                     ) : null}
                   </div>
@@ -985,11 +988,11 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                 <PreviewBox seq={result.product.seq} circular={result.product.circular} />
               </div>
 
-              {/* Assembly-level warnings */}
+              {/* Assembly-level notes / warnings */}
               {result.warnings.length > 0 ? (
                 <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
                   <div className="mb-1 flex items-center gap-1.5 text-meta font-semibold text-amber-800">
-                    <WarnIcon className="h-4 w-4" /> Assembly warnings
+                    <WarnIcon className="h-4 w-4" /> Notes
                   </div>
                   <ul className="list-inside list-disc space-y-0.5 text-meta text-amber-700">
                     {result.warnings.map((w, i) => <li key={i}>{w}</li>)}
@@ -1011,7 +1014,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                             {up?.fragmentName} <span className="text-gray-400">-&gt;</span> {down?.fragmentName}
                           </span>
                           <span className="text-meta text-gray-500">
-                            overlap {jn.overlapBp} bp · Tm {Number.isFinite(jn.overlapTm) ? jn.overlapTm.toFixed(1) : "—"} C
+                            overlap {jn.overlapBp} bp · Tm {Number.isFinite(jn.overlapTm) ? jn.overlapTm.toFixed(1) : "—"} °C
                           </span>
                         </div>
                         {jn.warning ? (
@@ -1066,7 +1069,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                   </table>
                 </div>
                 <p className="mt-1 text-meta text-gray-400">
-                  Each primer is a 3&apos; annealing region (sized to ~{DEFAULT_ANNEAL_TM} C) plus a 5&apos; homology tail that adds the overlap. Saved with the construct as primer_bind features.
+                  Each primer is a 3&apos; annealing region (sized to ~{DEFAULT_ANNEAL_TM} °C) plus a 5&apos; homology tail that adds the overlap. Saved with the construct as primer_bind features.
                 </p>
               </div>
 
@@ -1105,7 +1108,7 @@ function PrimerCell({ label, primer }: { label: string; primer?: { sequence: str
     <div className="rounded bg-gray-50 px-2 py-1.5">
       <div className="mb-0.5 flex items-center justify-between">
         <span className="font-sans font-medium text-gray-700">{label}</span>
-        <span className="font-sans text-gray-400">{primer.length} nt · anneal {Number.isFinite(primer.annealTm) ? primer.annealTm.toFixed(0) : "—"} C</span>
+        <span className="font-sans text-gray-400">{primer.length} nt · anneal {Number.isFinite(primer.annealTm) ? primer.annealTm.toFixed(0) : "—"} °C</span>
       </div>
       <div className="font-mono break-all">
         {primer.tail ? <span className="text-sky-600">{primer.tail}</span> : null}

@@ -752,10 +752,10 @@ export default function SequencesPage() {
                   <PlusIcon className="h-3.5 w-3.5" />
                   New
                 </button>
-                {/* Assemble: open the standalone overlap-assembly (Gibson /
-                    NEBuilder HiFi) workspace. Combines several library
-                    sequences into a new construct. */}
-                <Tooltip label="Assemble a new construct from fragments (Gibson / NEBuilder HiFi overlap assembly).">
+                {/* Assemble: open the standalone cloning workspace (overlap /
+                    Gibson, restriction + ligation, Golden Gate, Gateway).
+                    Combines several library sequences into a new construct. */}
+                <Tooltip label="Assemble a new construct from fragments (Gibson overlap, restriction, Golden Gate, or Gateway).">
                   <button
                     type="button"
                     onClick={() => setAssembleOpen(true)}
