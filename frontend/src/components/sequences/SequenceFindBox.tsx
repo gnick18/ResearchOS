@@ -7,7 +7,8 @@
 // with an automatic CLOSEST-MATCH fallback via the alignment engine when there
 // is no exact hit), FIND NAME (features / primers / restriction-enzyme sites by
 // name), FIND PROTEIN (translate the forward + reverse frames, exact AA
-// substring; protein close-match is deferred). The box owns the mode + query,
+// substring, with an automatic BLOSUM62 CLOSEST-MATCH fallback when there is no
+// exact frame hit). The box owns the mode + query,
 // runs the pure search functions in lib/sequences/find.ts, and reports the
 // resulting match list upward; the parent keeps prev/next + highlighting.
 //
@@ -22,11 +23,13 @@ import {
   findCloseDna,
   findByName,
   findProtein,
+  findCloseProtein,
   isDnaQuery,
   isProteinQuery,
   type FindMode,
   type FindMatch,
   type CloseDnaMatch,
+  type CloseProteinMatch,
 } from "@/lib/sequences/find";
 
 function IconSearch({ className }: { className?: string }) {
@@ -125,7 +128,22 @@ export function SequenceFindBox({
         return { matches: [] as FindMatch[], isCloseMatch: false, note: "Enter amino acids", invalid: true };
       }
       const m = findProtein(q, seq);
-      return { matches: m, isCloseMatch: false, note: "", invalid: false };
+      if (m.length > 0) {
+        return { matches: m, isCloseMatch: false, note: "", invalid: false };
+      }
+      // No exact frame hit — surface the closest BLOSUM62-scored peptide site(s),
+      // labeled with percent identity, mirroring the DNA closest-match fallback.
+      const close = findCloseProtein(q, seq);
+      if (close.length > 0) {
+        const best = close[0] as CloseProteinMatch;
+        return {
+          matches: close,
+          isCloseMatch: true,
+          note: best.label ?? "closest match",
+          invalid: false,
+        };
+      }
+      return { matches: [] as FindMatch[], isCloseMatch: false, note: "", invalid: false };
     }
     // mode === "dna"
     if (!isDnaQuery(q)) {
@@ -249,9 +267,9 @@ export function SequenceFindBox({
         </Tooltip>
       </div>
 
-      {/* Status line: the closest-match readout (DNA fallback), a "no match"
-          hint, or the protein close-match deferral note. Only shows when there
-          is something to say, so the box stays calm when results are exact. */}
+      {/* Status line: the closest-match readout (DNA or protein BLOSUM62
+          fallback) or a validation hint. Only shows when there is something to
+          say, so the box stays calm when results are exact. */}
       {note ? (
         <div
           data-testid="sequence-find-note"
@@ -268,12 +286,10 @@ export function SequenceFindBox({
         <div className="px-1 text-meta text-gray-400">No match (exact or close)</div>
       ) : null}
 
-      {/* Protein close-match is deferred — be honest about it on a zero-hit AA
-          search rather than silently finding nothing. */}
-      {mode === "protein" && !invalid && query.trim().length >= 1 && matchCount === 0 ? (
-        <div className="px-1 text-meta text-gray-400">
-          No exact frame match (protein close-match not available yet)
-        </div>
+      {/* When protein has no exact frame hit AND no close peptide match either,
+          say so plainly (mirrors the DNA no-match line). */}
+      {mode === "protein" && !invalid && query.trim().length >= 1 && matchCount === 0 && !note ? (
+        <div className="px-1 text-meta text-gray-400">No frame match (exact or close)</div>
       ) : null}
     </div>
   );

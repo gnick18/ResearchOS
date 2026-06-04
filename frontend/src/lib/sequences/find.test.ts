@@ -4,6 +4,7 @@ import {
   findCloseDna,
   findByName,
   findProtein,
+  findCloseProtein,
   isDnaQuery,
   isProteinQuery,
 } from "./find";
@@ -147,6 +148,47 @@ describe("findProtein", () => {
     const seq = "GGTTTCATGG";
     const hits = findProtein("MK", seq, { bothStrands: true });
     expect(hits.some((h) => h.direction === -1)).toBe(true);
+  });
+});
+
+describe("findCloseProtein", () => {
+  // Forward seq encoding peptide MKWL in frame 0:
+  //   M=ATG K=AAA W=TGG L=CTG
+  const MKWL = "ATGAAATGGCTG";
+
+  it("finds a one-residue-off peptide as a close match with identity", () => {
+    // Query MKWV differs from the encoded MKWL only at the last residue (L->V),
+    // so an exact search misses but the close search reports 3/4 = 75% identity.
+    expect(findProtein("MKWV", MKWL, { bothStrands: false })).toHaveLength(0);
+    const close = findCloseProtein("MKWV", MKWL, { bothStrands: false });
+    expect(close.length).toBeGreaterThan(0);
+    const best = close[0];
+    expect(best.identityPct).toBe(75);
+    expect(best.mismatches).toBe(1);
+    expect(best.gaps).toBe(0);
+    expect(best.direction).toBe(1);
+    // The hit spans the 4-codon (12 nt) ORF in forward coordinates.
+    expect(best).toMatchObject({ start: 0, end: 12 });
+    expect(best.label).toContain("75% identity");
+  });
+
+  it("reports a perfect close match (100% identity) for an exact peptide", () => {
+    const close = findCloseProtein("MKWL", MKWL, { bothStrands: false });
+    expect(close[0].identityPct).toBe(100);
+    expect(close[0].mismatches).toBe(0);
+  });
+
+  it("suppresses hits below the identity floor", () => {
+    // A peptide sharing little with MKWL stays under the default 0.6 floor.
+    const close = findCloseProtein("DDDD", MKWL, { bothStrands: false });
+    expect(close).toHaveLength(0);
+  });
+
+  it("finds a close peptide on the reverse strand", () => {
+    // revcomp of MKWL-encoding DNA, padded, so the close hit lands on strand -1.
+    const seq = "GG" + "CAGCCATTTCAT" + "GG"; // revcomp(ATGAAATGGCTG)=CAGCCATTTCAT
+    const close = findCloseProtein("MKWV", seq, { bothStrands: true });
+    expect(close.some((h) => h.direction === -1)).toBe(true);
   });
 });
 

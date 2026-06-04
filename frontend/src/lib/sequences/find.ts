@@ -15,15 +15,25 @@
  *                on the sequence.
  *  - "protein" : translate the 3 forward frames (optionally 3 reverse frames)
  *                and substring-search the amino-acid query, mapping AA hits back
- *                to nucleotide coordinates. Exact only for now (close-match for
- *                protein is deferred, see findProtein doc).
+ *                to nucleotide coordinates. When an exact AA search finds nothing,
+ *                {@link findCloseProtein} runs the alignment engine with BLOSUM62
+ *                scoring over the translated frames to surface the closest
+ *                approximate peptide site, each with a percent identity, mirroring
+ *                the DNA close-match readout.
  *
  * Coordinates are 0-based half-open `[start, end)` in FORWARD-strand sequence
  * space, matching SeqViz's Range. `direction` is +1 for a forward-strand hit,
  * -1 for a reverse-strand hit, mirroring SeqViz's convention so a hit can be fed
  * straight into the viewer's match list.
  */
-import { seedAndExtend, reverseComplement, iupacCompatible } from "@/lib/align";
+import {
+  seedAndExtend,
+  reverseComplement,
+  iupacCompatible,
+  alignSemiGlobal,
+  proteinScoring,
+} from "@/lib/align";
+import type { AlignmentResult } from "@/lib/align";
 import { translateFrame1 } from "./export";
 import { allEnzymeInfos } from "./enzyme-filters";
 import type { EditFeature } from "./edit-model";
@@ -299,11 +309,8 @@ export interface FindProteinOptions {
  * nucleotide span it covers (3 bases per residue), in forward-strand coordinates,
  * tagged with the strand it was found on.
  *
- * Exact AA substring only. Protein CLOSE-MATCH (approximate, BLOSUM-scored) is
- * deferred: the alignment engine's scoring seam is DNA-only today (dnaScoring),
- * so an honest protein approximate search needs a protein substitution matrix
- * that isn't wired yet. The box surfaces "no protein close-match yet" rather than
- * faking one. See SEQUENCE_EDITOR_PROPOSAL for the BLOSUM62 follow-up.
+ * Exact AA substring only. For the approximate, BLOSUM62-scored fallback when
+ * this returns nothing, see {@link findCloseProtein}.
  */
 export function findProtein(
   query: string,
@@ -348,4 +355,150 @@ export function findProtein(
 
   out.sort((a, b) => a.start - b.start || b.direction - a.direction);
   return out;
+}
+
+/** Result of a close (approximate) protein search: best hit(s) + a readout. */
+export interface CloseProteinMatch extends FindMatch {
+  /** Percent IDENTITY (exact same residue) in [0, 100], rounded for display. */
+  identityPct: number;
+  /** Number of aligned columns where the residues differ (substitutions). */
+  mismatches: number;
+  /** Number of gap columns (insertions + deletions) in the alignment. */
+  gaps: number;
+}
+
+/** Options for the close (approximate) protein search. */
+export interface CloseProteinOptions {
+  /** Also translate + align the 3 reverse frames. Default true. */
+  bothStrands?: boolean;
+  /** Max hits to return (best first). Default 3. */
+  maxHits?: number;
+  /**
+   * Floor on residue identity to surface a hit at all, in [0, 1]. Below this the
+   * result is "no close match" rather than a misleading low-identity hit.
+   * Default 0.6.
+   */
+  minIdentity?: number;
+}
+
+/**
+ * True percent identity of a peptide alignment: the fraction of aligned columns
+ * where the two residues are exactly the same letter (case-insensitive). This is
+ * NOT the alignment's match/mismatch op count, which for a BLOSUM-scored protein
+ * alignment counts conservative substitutions as "matches" (positive score).
+ * Returns identity in [0, 1] plus the substitution and gap column counts.
+ */
+function peptideIdentity(r: AlignmentResult): {
+  identity: number;
+  mismatches: number;
+  gaps: number;
+} {
+  let same = 0;
+  let mismatches = 0;
+  let gaps = 0;
+  const len = r.alignedA.length;
+  for (let i = 0; i < len; i++) {
+    const ca = r.alignedA[i];
+    const cb = r.alignedB[i];
+    if (ca === "-" || cb === "-") {
+      gaps++;
+    } else if (ca.toUpperCase() === cb.toUpperCase()) {
+      same++;
+    } else {
+      mismatches++;
+    }
+  }
+  const identity = len === 0 ? 0 : same / len;
+  return { identity, mismatches, gaps };
+}
+
+/**
+ * Approximate ("closest") protein search via the alignment engine, used as the
+ * fallback when {@link findProtein} finds no exact AA substring. Translates the 3
+ * forward frames (and, by default, the 3 reverse frames), aligns the AA query
+ * semi-globally into each frame with BLOSUM62 scoring (so the whole query is
+ * placed and conservative substitutions are rewarded), then reports the best
+ * peptide site(s) with a TRUE residue identity, a substitution count, and a gap
+ * count for the "closest match: X% identity, N mismatches" readout.
+ *
+ * Each AA hit is mapped back to the nucleotide span it covers (3 bases per
+ * residue) in forward-strand coordinates, tagged with the strand it was found on,
+ * mirroring {@link findProtein} and the DNA close-match UX.
+ */
+export function findCloseProtein(
+  query: string,
+  seq: string,
+  options: CloseProteinOptions = {},
+): CloseProteinMatch[] {
+  const q = query.trim().toUpperCase();
+  if (q.length < 2) return [];
+  const fwd = seq.toUpperCase();
+  const n = fwd.length;
+  if (n < 3) return [];
+
+  const bothStrands = options.bothStrands ?? true;
+  const maxHits = options.maxHits ?? 3;
+  const minIdentity = options.minIdentity ?? 0.6;
+  const scoring = proteinScoring();
+
+  const candidates: CloseProteinMatch[] = [];
+
+  const search = (strand: 1 | -1, strandSeq: string) => {
+    for (let frame = 0; frame < 3; frame++) {
+      const aa = translateFrame1(strandSeq.slice(frame));
+      if (aa.length === 0) continue;
+      // Semi-global: the query (second arg) is placed end-to-end into the frame
+      // (first arg), which pays no penalty for the flanking frame residues.
+      const r = alignSemiGlobal(aa, q, { scoring });
+      if (r.ops.length === 0) continue;
+      const { identity, mismatches, gaps } = peptideIdentity(r);
+      if (identity < minIdentity) continue;
+
+      // r.aStart / r.aEnd are AA offsets into `aa`. AA offset p in this frame is
+      // nucleotide offset (frame + p*3) within strandSeq; the AA span covers
+      // [frame + aStart*3, frame + aEnd*3) nucleotides on the strand.
+      const ntStart = frame + r.aStart * 3;
+      const ntEnd = frame + r.aEnd * 3;
+      const identityPct = Math.round(identity * 100);
+      const label = `closest match: ${identityPct}% identity, ${mismatches} mismatch${
+        mismatches === 1 ? "" : "es"
+      }${gaps > 0 ? `, ${gaps} gap${gaps === 1 ? "" : "s"}` : ""}`;
+
+      if (strand === 1) {
+        candidates.push({
+          start: ntStart,
+          end: ntEnd,
+          direction: 1,
+          identityPct,
+          mismatches,
+          gaps,
+          label,
+        });
+      } else {
+        // Map a reverse-strand AA span back to forward coordinates, exactly as
+        // findProtein does for its exact hits.
+        candidates.push({
+          start: n - ntEnd,
+          end: n - ntStart,
+          direction: -1,
+          identityPct,
+          mismatches,
+          gaps,
+          label,
+        });
+      }
+    }
+  };
+
+  search(1, fwd);
+  if (bothStrands) search(-1, reverseComplement(fwd));
+
+  // Best identity first; break ties by fewer mismatches, then earlier position.
+  candidates.sort(
+    (a, b) =>
+      b.identityPct - a.identityPct ||
+      a.mismatches - b.mismatches ||
+      a.start - b.start,
+  );
+  return candidates.slice(0, maxHits);
 }

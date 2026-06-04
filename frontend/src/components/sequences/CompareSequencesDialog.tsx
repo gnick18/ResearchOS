@@ -13,12 +13,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { sequencesApi } from "@/lib/local-api";
-import { alignGlobal, alignLocal, dnaScoring } from "@/lib/align";
+import { alignGlobal, alignLocal, dnaScoring, proteinScoring } from "@/lib/align";
 import type { AlignmentResult } from "@/lib/align";
 import {
   buildCompareModel,
   formatSummaryLine,
   type CompareModel,
+  type AlignmentSummary,
 } from "@/lib/sequences/compare-format";
 import { computeDotplot, dotplotWordSize } from "@/lib/sequences/compare-dotplot";
 import type { SequenceRecord } from "@/lib/types";
@@ -33,6 +34,65 @@ const ROW_WIDTH = 60;
 const DOTPLOT_PX = 220;
 
 type AlignMode = "global" | "local";
+// Which substitution scheme drives the alignment. "dna" is IUPAC-aware DNA
+// (the default); "protein" uses the BLOSUM62 amino-acid matrix.
+type ScoreScheme = "dna" | "protein";
+
+// Letters that are valid DNA / IUPAC codes. A sequence made only of these reads
+// as nucleotide; anything else (E, F, I, L, P, Q, etc.) means amino acids.
+const DNA_LETTERS = /^[ACGTURYSWKMBDHVN]+$/i;
+
+/**
+ * Decide whether a pair of sequences looks like protein rather than DNA. A
+ * sequence is "protein-ish" when, ignoring gaps and whitespace, it contains a
+ * letter that is not a DNA / IUPAC code (E, F, I, L, P, Q, ...). Both sequences
+ * are checked; either one looking like protein flips the auto-detection so a
+ * protein-vs-DNA mismatch still scores on BLOSUM rather than silently using DNA.
+ */
+function looksLikeProtein(a: string, b: string): boolean {
+  const clean = (s: string) => s.replace(/[\s-]/g, "");
+  const ca = clean(a);
+  const cb = clean(b);
+  const isProtein = (s: string) => s.length > 0 && !DNA_LETTERS.test(s);
+  return isProtein(ca) || isProtein(cb);
+}
+
+/**
+ * Recompute the summary stats using TRUE residue identity (exact same letter)
+ * instead of the engine's op-based matches. For BLOSUM62-scored protein
+ * alignments the engine marks conservative substitutions (positive score) as
+ * "match" ops, so its identity overstates real identity; comparing the aligned
+ * characters directly gives the biology-standard percent identity. Mismatch and
+ * gap counts come from the same column walk. Used only in protein mode; DNA mode
+ * keeps the engine summary unchanged.
+ */
+function trueIdentitySummary(
+  result: AlignmentResult,
+  base: AlignmentSummary,
+): AlignmentSummary {
+  let matches = 0;
+  let mismatches = 0;
+  let gaps = 0;
+  const { alignedA, alignedB } = result;
+  for (let i = 0; i < alignedA.length; i++) {
+    const ca = alignedA[i];
+    const cb = alignedB[i];
+    if (ca === "-" || cb === "-") gaps += 1;
+    else if (ca.toUpperCase() === cb.toUpperCase()) matches += 1;
+    else mismatches += 1;
+  }
+  const columns = alignedA.length;
+  const identity = columns === 0 ? 0 : matches / columns;
+  return {
+    ...base,
+    columns,
+    matches,
+    mismatches,
+    gaps,
+    identity,
+    identityPct: Math.round(identity * 100),
+  };
+}
 
 function CompareIcon({ className }: { className?: string }) {
   return (
@@ -214,8 +274,12 @@ export default function CompareSequencesDialog({
   const [aId, setAId] = useState<number | null>(null);
   const [bId, setBId] = useState<number | null>(null);
   const [mode, setMode] = useState<AlignMode>("global");
+  // "auto" sniffs DNA vs protein from the input; "dna" / "protein" force it.
+  const [scheme, setScheme] = useState<"auto" | ScoreScheme>("auto");
   const [iupac, setIupac] = useState(true);
   const [showDotplot, setShowDotplot] = useState(true);
+  // Which scheme actually scored the last run, for the result readout.
+  const [usedScheme, setUsedScheme] = useState<ScoreScheme>("dna");
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<AlignmentResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -273,7 +337,11 @@ export default function CompareSequencesDialog({
         );
         return;
       }
-      const scoring = dnaScoring({ iupac });
+      // Resolve the scoring scheme: "auto" sniffs the input, otherwise honor the
+      // explicit choice. Protein uses BLOSUM62; DNA uses the IUPAC-aware scheme.
+      const resolved: ScoreScheme =
+        scheme === "auto" ? (looksLikeProtein(aSeq, bSeq) ? "protein" : "dna") : scheme;
+      const scoring = resolved === "protein" ? proteinScoring() : dnaScoring({ iupac });
       // Yield a frame so the "Aligning…" state can paint before the DP blocks
       // the thread on a large pair.
       await new Promise((r) => requestAnimationFrame(() => r(null)));
@@ -281,19 +349,28 @@ export default function CompareSequencesDialog({
         ? alignGlobal(aSeq, bSeq, { scoring })
         : alignLocal(aSeq, bSeq, { scoring });
       lastBasesRef.current = { a: aSeq, b: bSeq };
+      setUsedScheme(resolved);
       setResult(res);
     } catch {
       setError("Alignment failed. Try a different pair or a smaller region.");
     } finally {
       setRunning(false);
     }
-  }, [aId, bId, mode, iupac]);
+  }, [aId, bId, mode, iupac, scheme]);
 
-  // The render model (wrapped blocks + summary), capped for huge alignments.
-  const model = useMemo<CompareModel | null>(
-    () => (result ? buildCompareModel(result, ROW_WIDTH) : null),
-    [result],
-  );
+  // The render model (wrapped blocks + summary), capped for huge alignments. In
+  // protein mode the engine summary's "identity" counts conservative BLOSUM
+  // substitutions as matches, so we swap in a true-identity summary (exact
+  // residue equality) for the header readout while leaving the colored blocks
+  // (similar vs not) as the engine produced them.
+  const model = useMemo<CompareModel | null>(() => {
+    if (!result) return null;
+    const m = buildCompareModel(result, ROW_WIDTH);
+    if (usedScheme === "protein") {
+      return { blocks: m.blocks, summary: trueIdentitySummary(result, m.summary) };
+    }
+    return m;
+  }, [result, usedScheme]);
 
   const truncated = !!result && result.ops.length > MAX_RENDER_COLUMNS;
   const visibleModel = useMemo<CompareModel | null>(() => {
@@ -366,14 +443,31 @@ export default function CompareSequencesDialog({
                 <option value="local">Local (best region)</option>
               </select>
             </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-meta font-medium uppercase tracking-wide text-gray-400">
+                Scoring
+              </span>
+              <select
+                value={scheme}
+                onChange={(e) => setScheme(e.target.value as "auto" | ScoreScheme)}
+                className="rounded-md border border-gray-200 bg-white px-2 py-1.5 text-body text-gray-700 focus:border-sky-400 focus:outline-none"
+              >
+                <option value="auto">Auto-detect</option>
+                <option value="dna">DNA (IUPAC)</option>
+                <option value="protein">Protein (BLOSUM62)</option>
+              </select>
+            </label>
             <label className="flex items-center gap-2 self-end pb-1.5 text-body text-gray-700">
               <input
                 type="checkbox"
                 checked={iupac}
+                disabled={scheme === "protein"}
                 onChange={(e) => setIupac(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-400"
+                className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-400 disabled:opacity-50"
               />
-              IUPAC-aware scoring
+              <span className={scheme === "protein" ? "text-gray-400" : undefined}>
+                IUPAC-aware scoring
+              </span>
             </label>
             <label className="flex items-center gap-2 self-end pb-1.5 text-body text-gray-700">
               <input
@@ -418,6 +512,9 @@ export default function CompareSequencesDialog({
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                 <span className="rounded-md bg-sky-50 px-2.5 py-1 text-body font-medium text-sky-700">
                   {formatSummaryLine(visibleModel.summary)}
+                </span>
+                <span className="rounded-md bg-gray-100 px-2 py-0.5 text-meta font-medium text-gray-600">
+                  {usedScheme === "protein" ? "BLOSUM62" : "DNA / IUPAC"}
                 </span>
                 <span className="text-meta text-gray-500">
                   {visibleModel.summary.matches.toLocaleString()} match ·{" "}

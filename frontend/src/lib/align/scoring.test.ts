@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { alignGlobal } from "./core";
-import { dnaScoring, iupacCompatible, reverseComplement } from "./scoring";
+import {
+  dnaScoring,
+  proteinScoring,
+  blosum62,
+  iupacCompatible,
+  reverseComplement,
+} from "./scoring";
 
 describe("iupacCompatible", () => {
   it("treats exact bases as compatible only with themselves", () => {
@@ -94,6 +100,80 @@ describe("IUPAC degeneracy in a real alignment", () => {
     // Only the first A matches; N, R, Y are mismatches.
     expect(r.cigar).toBe("1M3X");
     expect(r.score).toBe(2 - 3); // one match, three mismatches
+  });
+});
+
+describe("proteinScoring / blosum62", () => {
+  const ALL = "ARNDCQEGHILKMFPSTWYVBZX*";
+
+  it("returns the canonical BLOSUM62 values for known diagonal cells", () => {
+    const s = proteinScoring();
+    expect(s("A", "A")).toBe(4);
+    expect(s("W", "W")).toBe(11);
+    expect(s("C", "C")).toBe(9);
+    expect(s("P", "P")).toBe(7);
+  });
+
+  it("returns the canonical BLOSUM62 values for known off-diagonal cells", () => {
+    const s = proteinScoring();
+    expect(s("A", "R")).toBe(-1);
+    expect(s("D", "E")).toBe(2);
+    expect(s("F", "Y")).toBe(3);
+    expect(s("K", "E")).toBe(1);
+  });
+
+  it("returns the canonical negative substitution scores", () => {
+    const s = proteinScoring();
+    expect(s("W", "A")).toBe(-3);
+    expect(s("G", "V")).toBe(-3);
+  });
+
+  it("is symmetric for every ordered pair in the alphabet", () => {
+    for (const x of ALL) {
+      for (const y of ALL) {
+        expect(blosum62(x, y)).toBe(blosum62(y, x));
+      }
+    }
+  });
+
+  it("is case-insensitive", () => {
+    const s = proteinScoring();
+    expect(s("a", "a")).toBe(4);
+    expect(s("w", "W")).toBe(11);
+    expect(s("d", "e")).toBe(2);
+  });
+
+  it("handles the BLOSUM62 extra rows X (any), * (stop), B (Asx), Z (Glx)", () => {
+    const s = proteinScoring();
+    expect(s("X", "X")).toBe(-1); // canonical X/X
+    expect(s("*", "*")).toBe(1); // stop/stop
+    expect(s("*", "A")).toBe(-4); // stop vs any residue
+    expect(s("B", "D")).toBe(4); // Asx ~ Asp
+    expect(s("Z", "E")).toBe(4); // Glx ~ Glu
+  });
+
+  it("maps J / U / O to the X (any) row", () => {
+    const s = proteinScoring();
+    expect(s("J", "A")).toBe(blosum62("X", "A"));
+    expect(s("U", "W")).toBe(blosum62("X", "W"));
+    expect(s("O", "O")).toBe(blosum62("X", "X"));
+  });
+
+  it("routes a truly foreign character through X by default, or uses unknownScore", () => {
+    expect(blosum62("@", "A")).toBe(blosum62("X", "A"));
+    const penalized = proteinScoring({ unknownScore: -9 });
+    expect(penalized("@", "A")).toBe(-9);
+    // Known residues are unaffected by unknownScore.
+    expect(penalized("A", "A")).toBe(4);
+  });
+
+  it("drives a real protein alignment, rewarding a conservative substitution", () => {
+    // KEEP vs KDEP: K=K (5), E vs D (BLOSUM 2, still positive -> a 'match' op),
+    // E=E (5), P=P (7). A pure-identity scheme would mark the E/D column a
+    // mismatch, but BLOSUM scores it positive.
+    const r = alignGlobal("KEEP", "KDEP", { scoring: proteinScoring() });
+    expect(r.cigar).toBe("4M");
+    expect(r.score).toBe(5 + 2 + 5 + 7);
   });
 });
 
