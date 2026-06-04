@@ -165,6 +165,13 @@ visualization; homology-based annotation.
   (needs sourced/licensed feature DB, NO bot-fabricated sequences) and over primer-
   library; new annotate-from-reference.ts maps reference features through an alignment
   onto the open seq + AnnotateFromReferenceDialog checklist + SequenceEditView Feature-
-  menu entry]. After wave 2: aligner roadmap COMPLETE except the deferred COMMON-
-  FEATURES DETECTOR (SnapGene "Detect Common Features" -- most useful overall but needs
-  a properly sourced/licensed open feature DB; do NOT have a bot fabricate feature seqs).
+  menu entry]. WAVE 2 MERGED: homology annotate-from-reference @ e5b6790a, SDM designer @ 4540820f.
+  ALIGNER ROADMAP COMPLETE 2026-06-03 (engine + all 5 roadmap features). Final full
+  verify: tsc 0, 4423 tests. ONLY remaining/deferred = COMMON-FEATURES DETECTOR
+  (SnapGene "Detect Common Features" -- most useful overall but needs a properly
+  sourced/licensed OPEN feature DB; do NOT have a bot fabricate feature seqs; this is
+  the next aligner item whenever we source/curate that dataset).
+  VISUAL-EYEBALL DEBT (bots could not drive the browser; logic unit-tested + builds
+  green, but the rendered UI unconfirmed): primer mismatch-highlight, specificity
+  3-tier panel, Compare dialog, enhanced-Find close-match note, annotate-from-reference
+  checklist, SDM mutagenesis mode. A human pass over these dialogs closes it.
