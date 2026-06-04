@@ -85,6 +85,17 @@ export default function CreatingAUserPage() {
         deterrent on a shared machine.
       </Callout>
 
+      <Callout variant="info" title="PI accounts always have a password">
+        The optional password above is for members and solo accounts. A PI
+        (an account flagged <code>account_type === &quot;lab_head&quot;</code>)
+        is the exception, a PI must set a password during account setup before
+        they can finish, and it&apos;s enforced at login. So there&apos;s never
+        a PI account with no password behind it. See{" "}
+        <Link href="/wiki/features/lab-head/edit-session-and-password">
+          Edit session and password
+        </Link>.
+      </Callout>
+
       <h2>Switching users</h2>
       <p>
         Click your avatar in the top-right of the header, then{" "}

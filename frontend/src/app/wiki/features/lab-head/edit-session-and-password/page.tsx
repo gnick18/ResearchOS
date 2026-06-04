@@ -97,12 +97,13 @@ export default function LabHeadEditSessionPage() {
         does not have your edit window open.
       </p>
 
-      <Callout variant="info" title="Forgot the PI password?">
-        The PI password sidecar lives at the lab folder root. Delete
-        it from Finder or Explorer and the next soft-write affordance will
-        prompt for a fresh password instead. Your data is untouched. As
-        with the account password, this is a deterrent on a shared machine,
-        not encryption.
+      <Callout variant="info" title="Forgot the edit-session password?">
+        The edit-session secret lives at{" "}
+        <code>users/&lt;pi-username&gt;/_lab_head_auth.json</code>. Delete it
+        from Finder or Explorer and the next soft-write affordance falls back
+        to your account password again, then reseeds from there on the next
+        unlock. Your data is untouched. As with the account password, this is
+        a deterrent on a shared machine, not encryption.
       </Callout>
 
       <h2>Other soft-write affordances that use the same session</h2>
@@ -131,13 +132,15 @@ export default function LabHeadEditSessionPage() {
       <p>
         Posting an announcement is the exception. It touches no member&apos;s
         record, so a logged-in PI posts it directly with no edit-session
-        unlock. It still writes an audit row. See{" "}
+        unlock. Because there&apos;s no session behind it, an announcement
+        doesn&apos;t write an audit row either, the post stays attributed to its
+        author and members are notified the usual way. See{" "}
         <Link href="/wiki/features/lab-inbox/announcements">
           Announcements
         </Link>.
       </p>
       <p>
-        Every one of these writes a row to{" "}
+        Every one of the soft-write actions above writes a row to{" "}
         <code>_pi_audit.json</code>. The audit happens whether or not you
         unlocked the session by manual prompt or by an earlier action within
         the 5-minute window, so the trail is complete. See{" "}
