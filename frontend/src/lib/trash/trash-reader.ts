@@ -28,11 +28,14 @@ import {
   removeIndexEntry,
   writeTrashIndex,
 } from "./trash-index";
-import type {
-  TrashEntityType,
-  TrashIndex,
-  TrashIndexEntry,
-  TrashedEntity,
+import {
+  RESTORE_AUDIT_FIELD,
+  displayNameFieldFor,
+  type RestoreAudit,
+  type TrashEntityType,
+  type TrashIndex,
+  type TrashIndexEntry,
+  type TrashedEntity,
 } from "./trash-types";
 
 /** Result of the auto-cleanup pass. Returned so the caller can log a
@@ -81,11 +84,12 @@ export async function restoreEntity<T extends { id: string | number }>(
   username: string,
   entityType: TrashEntityType,
   id: string | number,
+  restoredBy?: string,
 ): Promise<T | null> {
   // seq delete trash bot: sequences split back into a two-file pair on
   // restore, so route them through the sequence-aware path.
   if (entityType === "sequence") {
-    return (await restoreSequenceFromTrash(username, id)) as T | null;
+    return (await restoreSequenceFromTrash(username, id, restoredBy)) as T | null;
   }
   const index = await readOrRebuildTrashIndex(username);
   const entry = index.entries.find(
@@ -101,7 +105,23 @@ export async function restoreEntity<T extends { id: string | number }>(
   }
 
   // Strip `_trash` before writing back to live path.
-  const liveRecord = stripTrashBlock<T>(trashed);
+  const stripped = stripTrashBlock<T>(trashed);
+  // restore audit bot: disambiguate the display name if a LIVE record of the
+  // same type already uses it, then stamp the deleted/restored audit. Both
+  // mutate ONLY metadata — the record's id + content are untouched.
+  const nameField = displayNameFieldFor(entityType);
+  await disambiguateName(
+    username,
+    entityType,
+    id,
+    stripped as Record<string, unknown>,
+    nameField,
+  );
+  const liveRecord = stampRestoreAudit(
+    stripped as Record<string, unknown>,
+    trashed._trash,
+    restoredBy ?? username,
+  ) as T;
   const originalPath = entry.original_path;
   // Ensure parent dir exists; the originalPath always lives under
   // `users/<owner>/<type-dir>/` which the writer is expected to know
@@ -134,6 +154,7 @@ export async function restoreEntity<T extends { id: string | number }>(
 export async function restoreSequenceFromTrash(
   username: string,
   id: string | number,
+  restoredBy?: string,
 ): Promise<Record<string, unknown> | null> {
   const index = await readOrRebuildTrashIndex(username);
   const entry = index.entries.find(
@@ -141,13 +162,14 @@ export async function restoreSequenceFromTrash(
   );
   if (!entry) return null;
   const trashFullPath = `users/${username}/${entry.trash_path}`;
-  const trashed = await fileService.readJson<Record<string, unknown>>(
-    trashFullPath,
-  );
+  const trashed = await fileService.readJson<
+    Record<string, unknown> & { _trash?: TrashedEntity<unknown>["_trash"] }
+  >(trashFullPath);
   if (!trashed) {
     await removeIndexEntry(username, "sequence", id);
     return null;
   }
+  const trashBlock = trashed._trash;
 
   // The `.meta.json` path is the index `original_path`; the `.gb` companion
   // is derived from it. Both live under `users/<owner>/sequences/`.
@@ -163,6 +185,14 @@ export async function restoreSequenceFromTrash(
   const sidecar = { ...trashed };
   delete sidecar[SEQUENCE_GENBANK_FIELD];
   delete sidecar._trash;
+
+  // restore audit bot: rename the sequence's display_name on a live collision,
+  // then stamp the deleted/restored audit into the sidecar. The `.gb` source is
+  // never touched, so the GenBank stays byte-faithful.
+  await disambiguateName(username, "sequence", id, sidecar, "display_name");
+  if (trashBlock) {
+    stampRestoreAudit(sidecar, trashBlock, restoredBy ?? username);
+  }
 
   const parentDir = metaPath.slice(0, metaPath.lastIndexOf("/"));
   await fileService.ensureDir(parentDir);
@@ -307,6 +337,114 @@ function stripTrashBlock<T>(trashed: TrashedEntity<T>): T {
   const { _trash, ...rest } = trashed as TrashedEntity<T> & Record<string, unknown>;
   void _trash;
   return rest as unknown as T;
+}
+
+/** restore audit bot: stamp the deleted/restored audit blob onto a restored
+ *  record. Mutates the record in place (and returns it) so the sequence path,
+ *  which keeps a plain object reference, sees the change. Carries the delete
+ *  attribution forward from the trash block and records who restored + when. */
+function stampRestoreAudit(
+  record: Record<string, unknown>,
+  trashBlock: { deleted_at: string; deleted_by: string },
+  restoredBy: string,
+): Record<string, unknown> {
+  const audit: RestoreAudit = {
+    deleted_at: trashBlock.deleted_at,
+    deleted_by: trashBlock.deleted_by,
+    restored_at: new Date().toISOString(),
+    restored_by: restoredBy,
+  };
+  record[RESTORE_AUDIT_FIELD] = audit;
+  return record;
+}
+
+/** restore audit bot: read the display-name field off a live record, tolerant
+ *  of the per-type field name. Returns "" when absent / non-string. */
+function readDisplayName(
+  record: Record<string, unknown>,
+  field: string,
+): string {
+  const v = record[field];
+  return typeof v === "string" ? v : "";
+}
+
+/** restore audit bot: the set of display names already in use by LIVE records
+ *  of `entityType` (excluding the record being restored, matched by id). Scans
+ *  the live directory the restored record will land in and reads each record's
+ *  name field. Sequences read the `display_name` straight out of the sidecar;
+ *  every other type reads the single `{id}.json`. Best-effort — a corrupt or
+ *  unreadable sibling just doesn't contribute a name. */
+async function collectLiveNames(
+  username: string,
+  entityType: TrashEntityType,
+  selfId: string | number,
+  nameField: string,
+): Promise<Set<string>> {
+  const liveDir = liveRecordPath(username, entityType, selfId).replace(
+    /\/[^/]+$/,
+    "",
+  );
+  const names = new Set<string>();
+  let files: string[] = [];
+  try {
+    files = await fileService.listFiles(liveDir);
+  } catch {
+    return names;
+  }
+  const isSequence = entityType === "sequence";
+  // For sequences the sidecar is `{id}.meta.json`; the restored record's own
+  // file is `{selfId}.meta.json`. For other types it is `{selfId}.json`.
+  const selfFile = isSequence ? `${selfId}.meta.json` : `${selfId}.json`;
+  for (const file of files) {
+    if (file === selfFile) continue;
+    if (isSequence) {
+      if (!file.endsWith(".meta.json")) continue;
+    } else if (!file.endsWith(".json")) {
+      continue;
+    }
+    try {
+      const rec = await fileService.readJson<Record<string, unknown>>(
+        `${liveDir}/${file}`,
+      );
+      if (!rec) continue;
+      const name = readDisplayName(rec, nameField);
+      if (name) names.add(name);
+    } catch {
+      // Skip an unreadable sibling.
+    }
+  }
+  return names;
+}
+
+/** restore audit bot: if the restored record's display name collides with a
+ *  LIVE record of the same type, append " (restored)" — and " (restored 2)",
+ *  " (restored 3)", ... if THAT collides too — until the name is unique.
+ *  Mutates the record's name field in place. No collision means the name is
+ *  left exactly as it was. Only the name field changes; id + content stay put. */
+async function disambiguateName(
+  username: string,
+  entityType: TrashEntityType,
+  selfId: string | number,
+  record: Record<string, unknown>,
+  nameField: string,
+): Promise<void> {
+  const original = readDisplayName(record, nameField);
+  if (!original) return; // Nothing to disambiguate against.
+  const liveNames = await collectLiveNames(
+    username,
+    entityType,
+    selfId,
+    nameField,
+  );
+  if (!liveNames.has(original)) return; // No collision — keep the original name.
+
+  let candidate = `${original} (restored)`;
+  let n = 2;
+  while (liveNames.has(candidate)) {
+    candidate = `${original} (restored ${n})`;
+    n += 1;
+  }
+  record[nameField] = candidate;
 }
 
 // Re-export so call sites only need to import from this one module.

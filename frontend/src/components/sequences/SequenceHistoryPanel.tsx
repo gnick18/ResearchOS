@@ -39,6 +39,7 @@ import {
 import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
 import UserAvatar from "@/components/UserAvatar";
 import Tooltip from "@/components/Tooltip";
+import type { SequenceRestoreAudit } from "@/lib/types";
 
 function IconHistory({ className }: { className?: string }) {
   return (
@@ -74,6 +75,13 @@ export interface SequenceHistoryPanelProps {
   /** Owner folder the history file lives under (the sequence's user). */
   owner: string;
   /**
+   * restore audit bot: the deleted/restored audit blob, present ONLY when this
+   * sequence was restored from Trash. When set, the panel renders a one-line
+   * provenance entry at the top of the timeline (above the version rows). Absent
+   * on a never-trashed sequence (nothing renders).
+   */
+  restoreAudit?: SequenceRestoreAudit | null;
+  /**
    * Canonical tracked state of the LIVE HEAD molecule (canonicalize of the live
    * editor doc, threaded down). The engine needs this to resolve a bare-genesis
    * anchor: a sequence that existed BEFORE its first tracked Save anchors genesis
@@ -104,6 +112,7 @@ export default function SequenceHistoryPanel({
   canRestore = false,
   onRestore,
   now,
+  restoreAudit,
 }: SequenceHistoryPanelProps) {
   const profileMap = useLabUserProfileMap();
   const [rows, setRows] = useState<HistoryRow[] | null>(null);
@@ -243,6 +252,16 @@ export default function SequenceHistoryPanel({
     [onRestore, restoring],
   );
 
+  // restore audit bot: the one-line deleted/restored provenance, surfaced at the
+  // top of the timeline when this sequence came back from Trash. `·` separated,
+  // names resolved through the lab profile map. Absent on a never-trashed seq.
+  const restoreProvenanceLine = useMemo(() => {
+    if (!restoreAudit) return null;
+    const deletedBy = resolveDisplayName(restoreAudit.deleted_by, profileMap).label;
+    const restoredBy = resolveDisplayName(restoreAudit.restored_by, profileMap).label;
+    return `Deleted ${formatFullDate(restoreAudit.deleted_at)} by ${deletedBy} · Restored ${formatFullDate(restoreAudit.restored_at)} by ${restoredBy}`;
+  }, [restoreAudit, profileMap]);
+
   const isEmpty = rows !== null && flatVersions.length === 0;
 
   // ── Empty / loading states ─────────────────────────────────────────────────
@@ -256,14 +275,17 @@ export default function SequenceHistoryPanel({
 
   if (isEmpty) {
     return (
-      <div className="flex h-full w-full flex-col items-center justify-center bg-white px-8 text-center">
-        <IconHistory className="h-10 w-10 text-gray-300" />
-        <p className="mt-3 text-body font-medium text-gray-600">No earlier versions yet</p>
-        <p className="mt-1 max-w-xs text-meta text-gray-400">
-          {loadError
-            ? "This sequence has no readable history."
-            : "Each time you Save this sequence, a version is recorded here so you can compare and restore it later."}
-        </p>
+      <div className="flex h-full w-full flex-col bg-white">
+        {restoreProvenanceLine && <RestoreProvenanceRow line={restoreProvenanceLine} />}
+        <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
+          <IconHistory className="h-10 w-10 text-gray-300" />
+          <p className="mt-3 text-body font-medium text-gray-600">No earlier versions yet</p>
+          <p className="mt-1 max-w-xs text-meta text-gray-400">
+            {loadError
+              ? "This sequence has no readable history."
+              : "Each time you Save this sequence, a version is recorded here so you can compare and restore it later."}
+          </p>
+        </div>
       </div>
     );
   }
@@ -279,6 +301,7 @@ export default function SequenceHistoryPanel({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
+        {restoreProvenanceLine && <RestoreProvenanceRow line={restoreProvenanceLine} />}
         {model?.days.map((day) => (
           <div key={day.dayKey}>
             <div className="sticky top-0 z-10 border-b border-gray-100 bg-gray-50/95 px-4 py-1.5 text-meta font-semibold uppercase tracking-wide text-gray-400 backdrop-blur">
@@ -361,6 +384,26 @@ export default function SequenceHistoryPanel({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** restore audit bot: the deleted/restored provenance entry. Pinned at the top
+ *  of the timeline so the recovery shows alongside the version history. One
+ *  line, `·` separated; amber to match the library RestoredBadge. */
+function RestoreProvenanceRow({ line }: { line: string }) {
+  return (
+    <div
+      className="flex items-start gap-2 border-b border-amber-100 bg-amber-50/50 px-4 py-2.5"
+      data-testid="sequence-restore-provenance"
+    >
+      <IconRestore className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
+      <span className="min-w-0">
+        <span className="block text-meta font-semibold text-amber-800">
+          Restored from Trash
+        </span>
+        <span className="block text-meta text-amber-700">{line}</span>
+      </span>
     </div>
   );
 }

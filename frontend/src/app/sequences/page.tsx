@@ -25,6 +25,7 @@ import CloningWorkspace from "@/components/sequences/CloningWorkspace";
 import CompareSequencesDialog from "@/components/sequences/CompareSequencesDialog";
 import UnifiedShareDialog from "@/components/sharing/UnifiedShareDialog";
 import ReceivedFromBadge from "@/components/ReceivedFromBadge";
+import RestoredBadge from "@/components/RestoredBadge";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { sequencesApi, projectsApi } from "@/lib/local-api";
 import { emitSequenceDeleted } from "@/lib/sequences/delete-toast-bus";
@@ -1215,8 +1216,14 @@ export default function SequencesPage() {
                         }`}
                       />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-body font-medium text-gray-800">
-                          {s.display_name}
+                        <span className="flex items-center gap-1.5 min-w-0">
+                          <span className="block truncate text-body font-medium text-gray-800">
+                            {s.display_name}
+                          </span>
+                          {/* restore audit bot: tiny pill + hover provenance,
+                              self-hides unless this sequence was restored from
+                              Trash. Kept subtle so the row stays uncluttered. */}
+                          <RestoredBadge audit={s._restore_audit} small />
                         </span>
                         <span className="block text-meta text-gray-400">
                           {seqTypeLabel(s.seq_type)} · {s.length.toLocaleString()} bp ·{" "}
@@ -1295,6 +1302,9 @@ export default function SequencesPage() {
                       receivedAt={selected.received_at}
                       small
                     />
+                    {/* restore audit bot: deleted/restored provenance, self-hides
+                        unless this sequence was restored from Trash. */}
+                    <RestoredBadge audit={selected._restore_audit} small />
                   </div>
                   <p className="text-meta text-gray-500">
                     {seqTypeLabel(selected.seq_type)} ·{" "}

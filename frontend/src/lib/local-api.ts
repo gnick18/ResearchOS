@@ -2421,7 +2421,10 @@ export const sequencesApi = {
     owner?: string,
   ): Promise<SequenceRecord | null> => {
     const username = owner ?? (await getCurrentUserCached());
-    const sidecar = await restoreSequenceFromTrash(username, id);
+    // restore audit bot: the acting user (who restored) is the current user;
+    // `username` is the owner folder, which equals the actor on a self-restore.
+    const restoredBy = await getCurrentUserCached();
+    const sidecar = await restoreSequenceFromTrash(username, id, restoredBy);
     if (!sidecar) return null;
     const raw = await sequenceStore.getRawForUser(id, username);
     if (!raw) return null;

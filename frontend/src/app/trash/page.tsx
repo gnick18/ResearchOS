@@ -143,6 +143,7 @@ export default function TrashPage() {
         currentUser,
         entry.entity_type,
         entry.id,
+        currentUser,
       );
       if (!restored) {
         setActionState({ busyId: null, error: "Restore failed" });
@@ -174,6 +175,7 @@ export default function TrashPage() {
               currentUser,
               parentEntry.entity_type,
               parentEntry.id,
+              currentUser,
             );
             if (restoredParent) {
               removedKeys.push({

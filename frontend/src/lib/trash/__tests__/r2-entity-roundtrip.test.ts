@@ -168,8 +168,12 @@ describe("R2: per-entity round-trip", () => {
 
       const restored = await restoreEntity(OWNER, fixture.entityType, id);
       expect(restored).not.toBeNull();
-      // Restored record matches the original (no _trash block).
-      expect(restored).toEqual(live);
+      // Restored record matches the original (no _trash block). The restore
+      // path also stamps a `_restore_audit` blob (restore audit bot) — strip it
+      // before the content-equality check, then assert it separately.
+      const { _restore_audit, ...content } = restored as Record<string, unknown>;
+      expect(content).toEqual(live);
+      expect(_restore_audit).toBeDefined();
       // Trash file is gone.
       expect(findTrashFileFor(fixture.entityType, id)).toBeUndefined();
       // Live file is back.

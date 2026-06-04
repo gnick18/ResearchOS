@@ -117,6 +117,54 @@ export interface TrashIndex {
   last_cleanup_at: string | null;
 }
 
+/** restore audit bot (2026-06-04): the field key for the restore-audit blob
+ *  stamped onto a record when it is restored from trash. Additive + optional —
+ *  a record that was never trashed/restored has no such field. Stored on the
+ *  live record (in the `.meta.json` sidecar for sequences). */
+export const RESTORE_AUDIT_FIELD = "_restore_audit" as const;
+
+/** restore audit bot: the structured audit blob stamped onto a restored
+ *  record. Carries the delete attribution forward from the trash index entry
+ *  plus the restore attribution captured at restore time. Every field is an
+ *  ISO 8601 timestamp / username string so it round-trips through JSON. */
+export interface RestoreAudit {
+  /** ISO 8601 timestamp when the record was originally soft-deleted. Carried
+   *  over from the trash entry's `deleted_at`. */
+  deleted_at: string;
+  /** Username of the actor who issued the delete. From `deleted_by`. */
+  deleted_by: string;
+  /** ISO 8601 timestamp when the record was restored from trash. */
+  restored_at: string;
+  /** Username of the actor who issued the restore. */
+  restored_by: string;
+}
+
+/** restore audit bot: the per-entity-type display-name FIELD. Restore-collision
+ *  disambiguation reads + rewrites THIS field (and only this field) on the
+ *  restored copy. Mirrors how `trashEntity` derives the trash-filename slug from
+ *  the record's title/name. Sequences are handled out of band (the name lives in
+ *  the `.meta.json` sidecar's `display_name`), so they are intentionally absent
+ *  here. */
+export function displayNameFieldFor(
+  entityType: TrashEntityType,
+): "title" | "name" | "item_name" | "display_name" {
+  switch (entityType) {
+    case "note":
+    case "lab_link":
+      return "title";
+    case "purchase_item":
+      return "item_name";
+    case "sequence":
+      return "display_name";
+    case "task":
+    case "method":
+    case "project":
+    case "high_level_goal":
+    case "mass_spec_protocol":
+      return "name";
+  }
+}
+
 /** A far-future sentinel used when the user picked "Never" for cleanup
  *  window. Chosen to be well-formed ISO and beyond any reasonable
  *  cleanup horizon. Read paths just compare against `now()` so any

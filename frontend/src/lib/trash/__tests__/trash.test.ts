@@ -122,7 +122,14 @@ describe("trashEntity + restoreEntity round-trip", () => {
     const restored = await restoreEntity<Note>(OWNER, "note", 47);
 
     expect(restored).not.toBeNull();
-    expect(restored).toEqual(original);
+    // The restore stamps a `_restore_audit` blob (restore audit bot); strip it
+    // before the content-equality check, then assert it landed.
+    const { _restore_audit, ...content } = restored as unknown as Record<
+      string,
+      unknown
+    >;
+    expect(content).toEqual(original);
+    expect(_restore_audit).toBeDefined();
     expect(memFs.has(`users/${OWNER}/notes/47.json`)).toBe(true);
     expect(trashedFilenameFor(47)).toBeUndefined();
     const index = await readTrashIndex(OWNER);

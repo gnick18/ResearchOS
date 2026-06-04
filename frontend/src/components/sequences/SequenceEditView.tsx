@@ -3224,6 +3224,7 @@ export default function SequenceEditView({
               headCanonical={headCanonical}
               canRestore={!readOnly && RESTORE_ENABLED}
               onRestore={handleRestoreVersion}
+              restoreAudit={sequence._restore_audit}
             />
           ) : null}
         </div>

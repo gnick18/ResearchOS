@@ -2578,6 +2578,23 @@ export interface SequenceMeta {
   received_from?: string;             // sender canonical email, set only on imported sequences
   received_from_fingerprint?: string; // sender key fingerprint
   received_at?: string;               // ISO 8601 import timestamp
+
+  // restore audit bot (2026-06-04): deleted/restored provenance. Additive +
+  // optional, stamped ONLY when this sequence was restored from Trash (see
+  // trash-reader.ts restoreSequenceFromTrash). A sequence that was never trashed
+  // has none of this and the RestoredBadge self-hides. The field key is the
+  // shared RESTORE_AUDIT_FIELD ("_restore_audit") from lib/trash.
+  _restore_audit?: SequenceRestoreAudit;
+}
+
+/** restore audit bot: the deleted/restored audit blob persisted on a sequence's
+ *  `.meta.json` sidecar after a Trash restore. Mirrors lib/trash's RestoreAudit
+ *  (duplicated here so lib/types stays free of a lib/trash import cycle). */
+export interface SequenceRestoreAudit {
+  deleted_at: string;
+  deleted_by: string;
+  restored_at: string;
+  restored_by: string;
 }
 
 /**
@@ -2606,6 +2623,11 @@ export interface SequenceRecord {
   received_from?: string;
   received_from_fingerprint?: string;
   received_at?: string;
+
+  // restore audit bot: carried through from the sidecar so the library row +
+  // viewer header can render the RestoredBadge. Absent on a never-trashed
+  // sequence (the badge self-hides).
+  _restore_audit?: SequenceRestoreAudit;
 }
 
 /** A fully-loaded sequence, including the bases + parsed annotations needed by

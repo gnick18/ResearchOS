@@ -79,6 +79,9 @@ export function genbankToDetail(
     received_from: meta.received_from,
     received_from_fingerprint: meta.received_from_fingerprint,
     received_at: meta.received_at,
+    // restore audit bot: deleted/restored provenance, carried from the sidecar
+    // (undefined on a never-trashed sequence so the RestoredBadge self-hides).
+    _restore_audit: meta._restore_audit,
     genbank,
     seq,
     annotations,
@@ -112,5 +115,6 @@ export function genbankToRecord(
     received_from: meta.received_from,
     received_from_fingerprint: meta.received_from_fingerprint,
     received_at: meta.received_at,
+    _restore_audit: meta._restore_audit,
   };
 }

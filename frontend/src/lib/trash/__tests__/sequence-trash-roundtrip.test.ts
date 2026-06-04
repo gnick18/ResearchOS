@@ -127,6 +127,16 @@ function seedSequence(id: number, overrides?: Partial<SequenceSidecar>) {
   return sidecar;
 }
 
+/** restore audit bot: the restore path stamps a `_restore_audit` blob onto the
+ *  restored sidecar / record. Strip it so the content-equality assertions below
+ *  keep proving the ORIGINAL fields round-trip byte-for-byte (the audit is the
+ *  one sanctioned addition). */
+function stripRestoreAudit(rec: unknown): Record<string, unknown> {
+  const { _restore_audit, ...rest } = rec as Record<string, unknown>;
+  void _restore_audit;
+  return rest;
+}
+
 function findSequenceTrashFile(id: number): string | undefined {
   const prefix = `users/${OWNER}/_trash/sequences/${id}-`;
   for (const key of memFs.keys()) {
@@ -196,7 +206,8 @@ describe("seq trash: single round-trip — zero data loss", () => {
     // added_at, the forward-compat custom field) with NO `_trash` /
     // `_sequence_genbank` leakage.
     const restoredSidecar = memFs.get(metaPath(42)) as Record<string, unknown>;
-    expect(restoredSidecar).toEqual(original);
+    expect(stripRestoreAudit(restoredSidecar)).toEqual(original);
+    expect(restoredSidecar._restore_audit).toBeDefined();
     expect(restoredSidecar._trash).toBeUndefined();
     expect(restoredSidecar._sequence_genbank).toBeUndefined();
 
@@ -223,7 +234,7 @@ describe("seq trash: single round-trip — zero data loss", () => {
     expect(sidecar.seq_type).toBe("rna");
     expect(sidecar.display_name).toBe("Important RNA construct");
     expect(sidecar.project_ids).toEqual([]);
-    expect(sidecar).toEqual(original);
+    expect(stripRestoreAudit(sidecar)).toEqual(original);
     // The bases (which determine length) are unchanged.
     expect(memFs.get(gbPath(7))).toBe(beforeGb);
   });
@@ -278,7 +289,7 @@ describe("seq trash: bulk round-trip", () => {
     }
     // Every pair is back + identical.
     for (const id of ids) {
-      expect(memFs.get(metaPath(id))).toEqual(originals.get(id));
+      expect(stripRestoreAudit(memFs.get(metaPath(id)))).toEqual(originals.get(id));
       expect(memFs.get(gbPath(id))).toBe(gbs.get(id));
     }
     // Trash is empty.
@@ -394,7 +405,7 @@ describe("seq trash: regression — single-`.json` entity still round-trips", ()
     expect(memFs.has(`users/${OWNER}/methods/5.gb`)).toBe(false);
 
     const restored = await restoreEntity(OWNER, "method", 5);
-    expect(restored).toEqual(live);
+    expect(stripRestoreAudit(restored)).toEqual(live);
     expect(memFs.has(`users/${OWNER}/methods/5.json`)).toBe(true);
   });
 });
