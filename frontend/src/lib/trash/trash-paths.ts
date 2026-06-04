@@ -37,6 +37,8 @@ export function trashTypeDirName(entityType: TrashEntityType): string {
       return "lab_links";
     case "mass_spec_protocol":
       return "mass_spec_protocols";
+    case "sequence":
+      return "sequences";
   }
 }
 
@@ -114,5 +116,21 @@ export function liveRecordPath(
       // Store prefix is "mass_spec_methods" (legacy name from before
       // the protocol rename). Trash subdir stays "mass_spec_protocols".
       return `users/${username}/mass_spec_methods/${id}.json`;
+    case "sequence":
+      // seq delete trash bot: sequences have NO single `.json` record —
+      // they are a `{id}.gb` + `{id}.meta.json` pair. We anchor the
+      // "live record path" on the `.meta.json` sidecar (the file the live
+      // list scans). The `.gb` companion is derived from this by swapping
+      // the suffix; see `sequenceGenbankPathFor`. The trash writer / reader
+      // never read this path as a single JSON record for sequences — they
+      // take the sequence-aware branch instead.
+      return `users/${username}/sequences/${id}.meta.json`;
   }
+}
+
+/** seq delete trash bot: given a sequence's `.meta.json` live path, derive
+ *  its `.gb` companion (the GenBank source of truth). Centralized so the
+ *  writer + reader agree on the pair layout. */
+export function sequenceGenbankPathFor(metaPath: string): string {
+  return metaPath.replace(/\.meta\.json$/, ".gb");
 }

@@ -9,6 +9,7 @@ import TelegramStatusBadge from "./TelegramStatusBadge";
 import InboxBadge from "./InboxBadge";
 import InboxToast from "./InboxToast";
 import NoteDeleteUndoToast from "./NoteDeleteUndoToast";
+import SequenceDeleteUndoToast from "./SequenceDeleteUndoToast";
 import NotificationBadge from "./NotificationBadge";
 import ReminderRunner from "./ReminderRunner";
 import TelegramRecoveryPrompt from "./TelegramRecoveryPrompt";
@@ -596,6 +597,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
        *  toast via emitNoteDeleted without prop-drilling its own
        *  handler. */}
       <NoteDeleteUndoToast />
+      {/* seq delete trash bot (2026-06-04): the same global Undo toast for
+       *  soft-deleted sequences (single + bulk), driven by
+       *  emitSequenceDeleted. */}
+      <SequenceDeleteUndoToast />
       <ReminderRunner />
 
       {/* Universal floating utility cluster — a single fixed flex row at

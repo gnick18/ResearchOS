@@ -43,6 +43,13 @@ const ALL_ENTITY_TYPES: TrashEntityType[] = [
   "high_level_goal",
   "lab_link",
   "mass_spec_protocol",
+  // seq delete trash bot (2026-06-04): sequences land in `_trash/sequences/`
+  // as a single embedded `.json` record (GenBank inside), so the generic
+  // index scan / rebuild / divergence-count below treats them like any other
+  // single-file type. Omitting this caused the divergence check to see 0
+  // sequence files vs N index entries and rebuild the index WITHOUT the
+  // sequence rows — a silent loss of the trashed-sequence index entries.
+  "sequence",
 ];
 
 /** Read the index from disk. Returns an empty index when the file is

@@ -19,7 +19,9 @@ import {
   trashFilePath,
   trashTypeDirPath,
   liveRecordPath,
+  sequenceGenbankPathFor,
 } from "./trash-paths";
+import { SEQUENCE_GENBANK_FIELD } from "./trash-writer";
 import {
   readOrRebuildTrashIndex,
   readTrashIndex,
@@ -80,6 +82,11 @@ export async function restoreEntity<T extends { id: string | number }>(
   entityType: TrashEntityType,
   id: string | number,
 ): Promise<T | null> {
+  // seq delete trash bot: sequences split back into a two-file pair on
+  // restore, so route them through the sequence-aware path.
+  if (entityType === "sequence") {
+    return (await restoreSequenceFromTrash(username, id)) as T | null;
+  }
   const index = await readOrRebuildTrashIndex(username);
   const entry = index.entries.find(
     (e) => e.entity_type === entityType && e.id === id,
@@ -111,6 +118,69 @@ export async function restoreEntity<T extends { id: string | number }>(
   await fileService.deleteFile(trashFullPath).catch(() => false);
   await removeIndexEntry(username, entityType, id);
   return liveRecord;
+}
+
+/** seq delete trash bot (2026-06-04): restore a trashed SEQUENCE back to its
+ *  two-file pair. Mirrors `restoreEntity` but splits the embedded GenBank
+ *  back into `{id}.gb` and the stripped sidecar back into `{id}.meta.json`.
+ *
+ *  Zero data loss: the GenBank is written verbatim (the exact string that was
+ *  read on trash), and every sidecar field round-trips untouched. The
+ *  `_sequence_genbank` + `_trash` blocks are the ONLY added fields, both
+ *  stripped here before the sidecar is written back.
+ *
+ *  Returns the restored sidecar record (so the caller can re-register it in
+ *  the live list), or null when the trash entry / file is missing. */
+export async function restoreSequenceFromTrash(
+  username: string,
+  id: string | number,
+): Promise<Record<string, unknown> | null> {
+  const index = await readOrRebuildTrashIndex(username);
+  const entry = index.entries.find(
+    (e) => e.entity_type === "sequence" && e.id === id,
+  );
+  if (!entry) return null;
+  const trashFullPath = `users/${username}/${entry.trash_path}`;
+  const trashed = await fileService.readJson<Record<string, unknown>>(
+    trashFullPath,
+  );
+  if (!trashed) {
+    await removeIndexEntry(username, "sequence", id);
+    return null;
+  }
+
+  // The `.meta.json` path is the index `original_path`; the `.gb` companion
+  // is derived from it. Both live under `users/<owner>/sequences/`.
+  const metaPath = entry.original_path;
+  const gbPath = sequenceGenbankPathFor(metaPath);
+
+  // Pull the embedded GenBank out, then strip both the embed + the `_trash`
+  // block so what lands in `.meta.json` is the original sidecar exactly.
+  const genbank =
+    typeof trashed[SEQUENCE_GENBANK_FIELD] === "string"
+      ? (trashed[SEQUENCE_GENBANK_FIELD] as string)
+      : "";
+  const sidecar = { ...trashed };
+  delete sidecar[SEQUENCE_GENBANK_FIELD];
+  delete sidecar._trash;
+
+  const parentDir = metaPath.slice(0, metaPath.lastIndexOf("/"));
+  await fileService.ensureDir(parentDir);
+  try {
+    // Write the GenBank source FIRST (matches sequenceStore.create's ordering
+    // so a torn restore never surfaces a sidecar without its `.gb`).
+    await fileService.writeText(gbPath, genbank);
+    await fileService.writeJson(metaPath, sidecar);
+  } catch (err) {
+    console.warn(
+      "[trash-reader] restoreSequenceFromTrash: writing live pair failed",
+      err,
+    );
+    return null;
+  }
+  await fileService.deleteFile(trashFullPath).catch(() => false);
+  await removeIndexEntry(username, "sequence", id);
+  return sidecar;
 }
 
 /** Permanently delete a trashed entity. Removes the trash file + index

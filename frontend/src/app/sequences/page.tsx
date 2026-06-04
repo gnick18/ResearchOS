@@ -21,6 +21,7 @@ import SequenceImportTargetDialog, {
 import CloningWorkspace from "@/components/sequences/CloningWorkspace";
 import CompareSequencesDialog from "@/components/sequences/CompareSequencesDialog";
 import { sequencesApi, projectsApi } from "@/lib/local-api";
+import { emitSequenceDeleted } from "@/lib/sequences/delete-toast-bus";
 import {
   importSequenceFile,
   buildNewSequence,
@@ -179,6 +180,29 @@ function FileIcon({ className }: { className?: string }) {
   );
 }
 
+/** Trash-can glyph for the per-row + bulk delete actions. Inline SVG (no
+ *  emojis), matching the NoteDeleteUndoToast trash glyph. */
+function TrashIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6M14 11v6" />
+      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+    </svg>
+  );
+}
+
 function SortHeader({
   label,
   col,
@@ -215,6 +239,11 @@ export default function SequencesPage() {
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  // seq delete trash bot: ids checked for bulk delete. A non-empty set shows
+  // the selection action bar; deleting routes each through the recoverable
+  // trash with one shared Undo toast.
+  const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
+  const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [assembleOpen, setAssembleOpen] = useState(false);
@@ -290,6 +319,29 @@ export default function SequencesPage() {
     return arr;
   }, [searched, sortKey, sortDir]);
 
+  // seq delete trash bot: header "select all visible" tri-state. Toggling it
+  // checks/unchecks exactly the currently-visible (filtered + sorted) rows.
+  const visibleCheckedCount = useMemo(
+    () => sorted.reduce((n, s) => n + (checkedIds.has(s.id) ? 1 : 0), 0),
+    [sorted, checkedIds],
+  );
+  const allVisibleChecked = sorted.length > 0 && visibleCheckedCount === sorted.length;
+  const someVisibleChecked = visibleCheckedCount > 0 && !allVisibleChecked;
+
+  const toggleAllVisible = useCallback(() => {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      const everyVisibleChecked =
+        sorted.length > 0 && sorted.every((s) => next.has(s.id));
+      if (everyVisibleChecked) {
+        for (const s of sorted) next.delete(s.id);
+      } else {
+        for (const s of sorted) next.add(s.id);
+      }
+      return next;
+    });
+  }, [sorted]);
+
   // Keep a valid selection: default to the first visible sequence.
   useEffect(() => {
     if (sorted.length === 0) {
@@ -300,6 +352,33 @@ export default function SequencesPage() {
       setSelectedId(sorted[0].id);
     }
   }, [sorted, selectedId]);
+
+  // seq delete trash bot: keep the bulk selection consistent — drop any
+  // checked id that has left the live data set (deleted, or no longer exists).
+  // Filtering by search/collection does NOT clear checks (a user can refine
+  // the view mid-selection), but a gone-from-disk id is pruned.
+  useEffect(() => {
+    setCheckedIds((prev) => {
+      if (prev.size === 0) return prev;
+      const live = new Set(sequences.map((s) => s.id));
+      let changed = false;
+      const next = new Set<number>();
+      for (const id of prev) {
+        if (live.has(id)) next.add(id);
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [sequences]);
+
+  const toggleChecked = useCallback((id: number) => {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   const onSort = (k: SortKey) => {
     if (k === sortKey) {
@@ -348,6 +427,81 @@ export default function SequencesPage() {
     },
     [selectedId, queryClient],
   );
+
+  // seq delete trash bot: soft-delete a set of sequence ids into the
+  // recoverable trash, refresh the list, and pop ONE Undo toast covering the
+  // whole batch. Shared by the per-row delete (single id) and the bulk action
+  // bar (several ids). Recovery is via the toast or the /trash page — nothing
+  // is hard-deleted here. The toast restore re-invalidates the list.
+  const deleteSequences = useCallback(
+    async (ids: number[], label: string) => {
+      if (ids.length === 0 || deleting) return;
+      setDeleting(true);
+      try {
+        const deletedIds: number[] = [];
+        for (const id of ids) {
+          try {
+            const ok = await sequencesApi.delete(id);
+            if (ok) deletedIds.push(id);
+          } catch (err) {
+            console.warn("[sequences] delete failed for id", id, err);
+          }
+        }
+        // Drop the just-deleted ids from the bulk selection + the open viewer.
+        setCheckedIds((prev) => {
+          const next = new Set(prev);
+          for (const id of deletedIds) next.delete(id);
+          return next;
+        });
+        if (selectedId != null && deletedIds.includes(selectedId)) {
+          setSelectedId(null);
+        }
+        await queryClient.invalidateQueries({ queryKey: ["sequences"] });
+        if (deletedIds.length > 0) {
+          emitSequenceDeleted({
+            ids: deletedIds,
+            label,
+            onRestored: () => {
+              void queryClient.invalidateQueries({ queryKey: ["sequences"] });
+            },
+          });
+        }
+      } finally {
+        setDeleting(false);
+      }
+    },
+    [deleting, selectedId, queryClient],
+  );
+
+  // Per-row delete: confirm, then trash the single sequence.
+  const handleDeleteOne = useCallback(
+    (seq: SequenceRecord) => {
+      if (
+        !window.confirm(
+          `Move "${seq.display_name}" to Trash? You can restore it from Trash.`,
+        )
+      ) {
+        return;
+      }
+      void deleteSequences([seq.id], `"${seq.display_name}"`);
+    },
+    [deleteSequences],
+  );
+
+  // Bulk delete: confirm the count, then trash every checked sequence.
+  const handleDeleteChecked = useCallback(() => {
+    const ids = Array.from(checkedIds);
+    if (ids.length === 0) return;
+    const noun = ids.length === 1 ? "sequence" : "sequences";
+    if (
+      !window.confirm(
+        `Move ${ids.length} ${noun} to Trash? You can restore them from Trash.`,
+      )
+    ) {
+      return;
+    }
+    void deleteSequences(ids, `${ids.length} ${noun}`);
+  }, [checkedIds, deleteSequences]);
 
   // Create one-or-more sequences via the store, refresh the library, and select
   // the first newly-created one. Shared by the import + new-from-paste paths.
@@ -895,8 +1049,53 @@ export default function SequencesPage() {
             />
           </div>
 
+          {/* Bulk-select action bar — shown only when one or more rows are
+              checked. "Delete N selected" routes each through the recoverable
+              trash with one shared Undo toast. */}
+          {checkedIds.size > 0 ? (
+            <div className="flex items-center justify-between gap-2 border-b border-gray-100 bg-sky-50 px-3 py-2">
+              <span className="text-meta font-medium text-sky-800">
+                {checkedIds.size} selected
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setCheckedIds(new Set())}
+                  className="rounded-md px-2 py-1 text-meta font-medium text-gray-600 transition-colors hover:bg-white"
+                >
+                  Clear
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteChecked}
+                  disabled={deleting}
+                  className="flex items-center gap-1 rounded-md border border-rose-200 bg-white px-2.5 py-1 text-meta font-medium text-rose-700 transition-colors hover:bg-rose-50 disabled:opacity-50"
+                >
+                  <TrashIcon className="h-3.5 w-3.5" />
+                  {deleting
+                    ? "Deleting…"
+                    : `Delete ${checkedIds.size} selected`}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           {/* Sort header */}
-          <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2 border-b border-gray-100 px-3 py-1.5">
+          <div className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-2 border-b border-gray-100 px-3 py-1.5">
+            <Tooltip
+              label={allVisibleChecked ? "Deselect all" : "Select all visible"}
+            >
+              <input
+                type="checkbox"
+                checked={allVisibleChecked}
+                ref={(el) => {
+                  if (el) el.indeterminate = someVisibleChecked;
+                }}
+                onChange={toggleAllVisible}
+                aria-label="Select all visible sequences"
+                className="h-3.5 w-3.5 cursor-pointer rounded border-gray-300 text-sky-600 focus:ring-sky-400"
+              />
+            </Tooltip>
             <SortHeader label="Name" col="name" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
             <SortHeader label="Type" col="type" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
             <SortHeader label="Length" col="length" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
@@ -922,14 +1121,31 @@ export default function SequencesPage() {
               )
             ) : (
               <ul>
-                {sorted.map((s) => (
-                  <li key={s.id}>
+                {sorted.map((s) => {
+                  const checked = checkedIds.has(s.id);
+                  return (
+                  <li
+                    key={s.id}
+                    className={`group flex items-center gap-1 border-b border-gray-50 pr-2 hover:bg-sky-50 ${
+                      selectedId === s.id ? "bg-sky-50" : ""
+                    } ${checked ? "bg-sky-50/70" : ""}`}
+                  >
+                    {/* Row checkbox for bulk select. Stop propagation so a
+                        check doesn't also change the open viewer selection. */}
+                    <span className="flex shrink-0 items-center pl-3">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleChecked(s.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label={`Select ${s.display_name}`}
+                        className="h-3.5 w-3.5 cursor-pointer rounded border-gray-300 text-sky-600 focus:ring-sky-400"
+                      />
+                    </span>
                     <button
                       type="button"
                       onClick={() => setSelectedId(s.id)}
-                      className={`flex w-full items-center gap-2 border-b border-gray-50 px-3 py-2 text-left hover:bg-sky-50 ${
-                        selectedId === s.id ? "bg-sky-50" : ""
-                      }`}
+                      className="flex min-w-0 flex-1 items-center gap-2 py-2 pl-1 text-left"
                     >
                       <MoleculeIcon
                         circular={s.circular}
@@ -947,8 +1163,22 @@ export default function SequencesPage() {
                         </span>
                       </span>
                     </button>
+                    {/* Per-row delete, revealed on hover / focus. Routes
+                        through the recoverable trash with an Undo toast. */}
+                    <Tooltip label="Move to Trash" placement="left">
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteOne(s)}
+                        disabled={deleting}
+                        aria-label={`Move ${s.display_name} to Trash`}
+                        className="shrink-0 rounded p-1 text-gray-400 opacity-0 transition-opacity hover:bg-rose-50 hover:text-rose-600 focus:opacity-100 group-hover:opacity-100 disabled:opacity-50"
+                      >
+                        <TrashIcon className="h-3.5 w-3.5" />
+                      </button>
+                    </Tooltip>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             )}
           </div>

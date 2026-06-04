@@ -47,6 +47,7 @@ const SECTION_ORDER: Array<{ key: TrashEntityType; label: string }> = [
   { key: "high_level_goal", label: "High-level goals" },
   { key: "lab_link", label: "Lab links" },
   { key: "mass_spec_protocol", label: "Mass spec protocols" },
+  { key: "sequence", label: "Sequences" },
 ];
 
 export default function TrashPage() {

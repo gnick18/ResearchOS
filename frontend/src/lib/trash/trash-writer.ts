@@ -22,6 +22,7 @@ import {
   liveRecordPath,
   trashFilePath,
   trashTypeDirPath,
+  sequenceGenbankPathFor,
 } from "./trash-paths";
 import { appendIndexEntry } from "./trash-index";
 import {
@@ -95,6 +96,23 @@ export async function trashEntity<T extends { id: string | number }>(
   const { owner, entityType, id, nameForSlug, deletedBy, sessionId, parent } =
     args;
 
+  // seq delete trash bot: sequences are a two-file pair, not a single JSON
+  // record. Hand off to the sequence-aware writer, which embeds the GenBank
+  // source INTO the trash `.json` record so the index / storage / cleanup
+  // machinery downstream stays identical to every other entity type.
+  if (entityType === "sequence") {
+    return (await trashSequenceEntity({
+      owner,
+      // Sequence ids are always numeric (per-user counter). Coerce to keep
+      // the two-file paths typed; a string id here is a caller bug.
+      id: typeof id === "number" ? id : Number(id),
+      nameForSlug: nameForSlug ?? null,
+      deletedBy,
+      sessionId: sessionId ?? null,
+      parent,
+    })) as TrashedEntity<T> | null;
+  }
+
   const originalPath = liveRecordPath(owner, entityType, id);
   const live = await fileService.readJson<T>(originalPath);
   if (!live) return null;
@@ -165,6 +183,130 @@ export async function trashEntity<T extends { id: string | number }>(
   if (!removed) {
     console.warn(
       "[trash-writer] trash file written but live file delete failed; live copy still visible",
+    );
+  }
+  return trashed;
+}
+
+/** seq delete trash bot (2026-06-04): the SEQUENCE-aware trash writer.
+ *
+ *  Sequences are stored as a PAIR — `{id}.gb` (the GenBank source of truth)
+ *  + `{id}.meta.json` (the metadata sidecar). The generic writer above
+ *  assumes a single `{id}.json` record, so this branch:
+ *
+ *    1. Reads BOTH live files (sidecar JSON + GenBank text).
+ *    2. Writes ONE trash `.json` record that embeds the GenBank text as a
+ *       `_sequence_genbank` field alongside the sidecar fields + the `_trash`
+ *       block. One file, one index entry — the index / rebuild / cleanup
+ *       machinery is unchanged because the on-disk trash file is still a
+ *       single readable `.json` carrying `id` + `_trash.original_path`.
+ *    3. Deletes BOTH live files atomically (sidecar then `.gb`).
+ *
+ *  Restore (trash-reader `restoreSequenceFromTrash`) reverses this: it splits
+ *  the embedded GenBank back into `{id}.gb` and the stripped sidecar back into
+ *  `{id}.meta.json`. Byte-for-byte for the GenBank, field-for-field for the
+ *  sidecar — zero data loss is proven by the round-trip tests.
+ *
+ *  Failure model mirrors the generic writer: bail before touching live if the
+ *  trash file write fails; best-effort index + live-delete after.
+ */
+export const SEQUENCE_GENBANK_FIELD = "_sequence_genbank" as const;
+
+/** The on-disk trash record shape for a sequence: the sidecar fields, the
+ *  embedded GenBank, and the `_trash` block. */
+export interface TrashedSequenceRecord {
+  id: number;
+  [SEQUENCE_GENBANK_FIELD]: string;
+  // The sidecar fields (display_name, project_ids, added_at, seq_type, …)
+  // are spread in alongside these. Kept loose so a forward-compat sidecar
+  // field survives the round-trip untouched.
+  [key: string]: unknown;
+  _trash: TrashFieldBlock;
+}
+
+async function trashSequenceEntity(args: {
+  owner: string;
+  id: number;
+  nameForSlug: string | null;
+  deletedBy: string;
+  sessionId: string | null;
+  parent?: TrashRestoreMetadata;
+}): Promise<TrashedSequenceRecord | null> {
+  const { owner, id, nameForSlug, deletedBy, sessionId, parent } = args;
+
+  const metaPath = liveRecordPath(owner, "sequence", id);
+  const gbPath = sequenceGenbankPathFor(metaPath);
+
+  // The sidecar is the existence anchor — missing sidecar means nothing to
+  // trash (matches sequenceStore.delete returning hadMeta). The GenBank may
+  // legitimately be empty (a blank scaffold sequence), so default to "".
+  const sidecar = await fileService.readJson<Record<string, unknown>>(metaPath);
+  if (!sidecar) return null;
+  const genbank = (await fileService.readText(gbPath)) ?? "";
+
+  const deletedAt = new Date().toISOString();
+  const cleanupDays = await resolveCleanupDays(owner);
+  const autoExpiresAt = computeAutoExpiresAt(deletedAt, cleanupDays);
+
+  const trashBlock: TrashFieldBlock = {
+    deleted_at: deletedAt,
+    deleted_by: deletedBy,
+    auto_expires_at: autoExpiresAt,
+    original_path: metaPath,
+    ...(sessionId ? { deleted_during_session: sessionId } : {}),
+    ...(parent ? { restore_metadata: parent } : {}),
+  };
+
+  const trashed: TrashedSequenceRecord = {
+    ...(sidecar as Record<string, unknown>),
+    id,
+    [SEQUENCE_GENBANK_FIELD]: genbank,
+    _trash: trashBlock,
+  };
+
+  await fileService.ensureDir(trashTypeDirPath(owner, "sequence"));
+  const slugSource =
+    nameForSlug ??
+    (typeof sidecar.display_name === "string" ? sidecar.display_name : null);
+  const onDiskPath = trashFilePath(owner, "sequence", id, slugSource);
+  try {
+    await fileService.writeJson(onDiskPath, trashed);
+  } catch (err) {
+    console.warn("[trash-writer] failed to write sequence trash file", err);
+    return null;
+  }
+
+  try {
+    await appendIndexEntry(owner, {
+      id,
+      entity_type: "sequence",
+      trash_path: onDiskPath.replace(`users/${owner}/`, ""),
+      original_path: metaPath,
+      deleted_at: deletedAt,
+      deleted_by: deletedBy,
+      auto_expires_at: autoExpiresAt,
+      ...(parent?.parent_id !== undefined ? { parent_id: parent.parent_id } : {}),
+      ...(parent?.parent_entity_type
+        ? { parent_entity_type: parent.parent_entity_type }
+        : {}),
+      ...(parent?.parent_trash_path
+        ? { parent_trash_path: parent.parent_trash_path }
+        : {}),
+    });
+  } catch (err) {
+    console.warn(
+      "[trash-writer] appendIndexEntry failed for sequence (non-fatal)",
+      err,
+    );
+  }
+
+  // Remove BOTH live files. Sidecar first (the list anchor) so a torn delete
+  // never leaves a visible-but-orphaned sequence in the library.
+  const removedMeta = await fileService.deleteFile(metaPath);
+  await fileService.deleteFile(gbPath);
+  if (!removedMeta) {
+    console.warn(
+      "[trash-writer] sequence trash file written but live sidecar delete failed; live copy may still be visible",
     );
   }
   return trashed;

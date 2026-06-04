@@ -30,7 +30,14 @@ export type TrashEntityType =
   | "purchase_item"
   | "high_level_goal"
   | "lab_link"
-  | "mass_spec_protocol";
+  | "mass_spec_protocol"
+  // seq delete trash bot (2026-06-04): sequences are a TWO-FILE shape on
+  // disk (`{id}.gb` + `{id}.meta.json`), unlike every type above which is a
+  // single `{id}.json`. The trash file embeds the GenBank text inside the
+  // `.json` record so the index / storage / cleanup machinery is unchanged;
+  // the write + restore paths carry sequence-aware branches that read both
+  // files and split them back out. See trash-writer.ts / trash-reader.ts.
+  | "sequence";
 
 /** Restore-metadata block on a trashed record. Captures the parent
  *  reference at the time of delete so cascading restore prompts can

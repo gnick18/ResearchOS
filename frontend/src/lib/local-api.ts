@@ -1,7 +1,11 @@
 import { JsonStore, getPublicStore, getLabStore, getCurrentUserCached, clearCurrentUserCache } from "./storage/json-store";
 import { fileService } from "./file-system/file-service";
 import { trashNote, restoreTrashedNote } from "./notes/notes-trash";
-import { trashEntity, type TrashEntityType } from "./trash";
+import {
+  trashEntity,
+  restoreSequenceFromTrash,
+  type TrashEntityType,
+} from "./trash";
 import { recordProjectActivity } from "./project-activity/event-log";
 import { HISTORY_ENGINE_ENABLED, recordNoteHistory, recordTaskHistory, recordProjectHistory } from "./history";
 import type { HistoryEditKind } from "./history";
@@ -2366,10 +2370,56 @@ export const sequencesApi = {
     return genbankToRecord(raw?.genbank ?? "", normalizeSequenceMeta(meta));
   },
 
-  /** Delete a sequence (both .gb and .meta.json). */
-  delete: async (id: number, owner?: string): Promise<boolean> => {
+  /** Soft-delete a sequence into the recoverable trash. seq delete trash bot
+   *  (2026-06-04): this moves BOTH `{id}.gb` + `{id}.meta.json` into
+   *  `_trash/sequences/` (the GenBank embedded inside the trash record) and
+   *  records one index entry. It does NOT hard-delete — recovery is via
+   *  `sequencesApi.restore` (Undo toast) or the /trash page. The owner-only
+   *  delete gate (OQ9) applies: a non-owner without an active PI unlock
+   *  no-ops. The hard `sequenceStore.delete` survives ONLY as the
+   *  trash-expiry purge primitive (runAutoCleanupPass hard-deletes the trash
+   *  `.json`, which carries both files, so no separate purge of the pair is
+   *  needed). Returns true when a sequence was trashed. */
+  delete: async (
+    id: number,
+    owner?: string,
+    options?: { actor?: string; sessionId?: string | null },
+  ): Promise<boolean> => {
+    const currentUser = (await getCurrentUserCached()) ?? "";
+    const targetOwner = owner ?? currentUser;
+    const actor = options?.actor ?? currentUser;
+    const sessionId = options?.sessionId ?? null;
+    const attribution = resolveDeleteAttribution(
+      targetOwner,
+      actor,
+      sessionId,
+      "sequencesApi.delete",
+    );
+    if (!attribution) return false;
+    const trashed = await trashEntity({
+      owner: targetOwner,
+      entityType: "sequence",
+      id,
+      deletedBy: attribution.actor,
+      sessionId: attribution.sessionId,
+    });
+    return trashed != null;
+  },
+
+  /** Inverse of `delete`. Restores both files of a trashed sequence back to
+   *  the live library and returns the refreshed summary record (or null when
+   *  the trash entry was missing). Callers expose this via the Undo toast and
+   *  the /trash page Restore button. */
+  restore: async (
+    id: number,
+    owner?: string,
+  ): Promise<SequenceRecord | null> => {
     const username = owner ?? (await getCurrentUserCached());
-    return sequenceStore.delete(id, username);
+    const sidecar = await restoreSequenceFromTrash(username, id);
+    if (!sidecar) return null;
+    const raw = await sequenceStore.getRawForUser(id, username);
+    if (!raw) return null;
+    return genbankToRecord(raw.genbank, normalizeSequenceMeta(raw.meta));
   },
 };
 
