@@ -28,6 +28,26 @@ export function spanFromShiftClick(anchor: SelRange, clicked: SelRange): SelRang
   return { start: Math.min(a.start, c.start), end: Math.max(a.end, c.end) };
 }
 
+/**
+ * circular qol bot — CIRCULAR PREVIEW / SELECTION ARC LENGTH. On the ring a
+ * selection is drawn CLOCKWISE (forward, increasing index) from `start` through
+ * `end`. A span whose `end` precedes its `start` crosses the zero index (the
+ * origin), so it wraps the long way around (seqLength - start + end). A zero-span
+ * (start === end) over a whole-molecule feature covers the entire circle. This is
+ * the SAME convention the vendored circular Selection uses; extracted here as a
+ * pure, unit-tested helper so the circular hover preview arc's geometry is
+ * verified without rendering SVG. Returns the arc length in bp (always > 0 for a
+ * non-empty molecule), nudged just under a full circle since an SVG arc cannot
+ * draw a complete 360 degrees.
+ */
+export function circularArcLength(start: number, end: number, seqLength: number): number {
+  if (seqLength <= 0) return 0;
+  let len = end >= start ? end - start : seqLength - start + end;
+  if (len === 0) len = seqLength; // whole-molecule feature
+  if (len === seqLength) len -= 0.1; // can't arc a full circle
+  return len;
+}
+
 /** A coding feature (its translation length feeds the aa / kDa readout). */
 function isCodingType(type?: string): boolean {
   const t = (type || "").toLowerCase();

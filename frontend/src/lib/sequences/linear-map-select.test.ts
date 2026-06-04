@@ -4,6 +4,7 @@ import {
   buildFeatureCard,
   selectionBandRect,
   normalizeRange,
+  circularArcLength,
 } from "./linear-map-select";
 
 describe("spanFromShiftClick", () => {
@@ -82,6 +83,32 @@ describe("buildFeatureCard", () => {
   it("comma-groups large coordinates", () => {
     const card = buildFeatureCard({ name: "big", start: 12000, end: 1500000, type: "misc" });
     expect(card.lines[0].value).toBe("12,001 .. 1,500,000");
+  });
+});
+
+describe("circularArcLength (circular qol bot — ring preview/selection arc)", () => {
+  const LEN = 5000;
+
+  it("measures a forward span clockwise start -> end", () => {
+    expect(circularArcLength(1000, 1500, LEN)).toBe(500);
+  });
+
+  it("wraps a zero-crossing span the long way past the origin", () => {
+    // a feature from 4800 -> 200 crosses the origin: 5000 - 4800 + 200 = 400 bp.
+    expect(circularArcLength(4800, 200, LEN)).toBe(400);
+  });
+
+  it("covers the whole circle for a zero-span feature (nudged just under 360)", () => {
+    expect(circularArcLength(123, 123, LEN)).toBeCloseTo(LEN - 0.1, 5);
+  });
+
+  it("nudges a full-circle span just under a complete arc", () => {
+    // start 0, end 5000 -> 5000 bp == seqLength, can't draw a full SVG arc.
+    expect(circularArcLength(0, LEN, LEN)).toBeCloseTo(LEN - 0.1, 5);
+  });
+
+  it("returns 0 for an empty molecule", () => {
+    expect(circularArcLength(0, 0, 0)).toBe(0);
   });
 });
 

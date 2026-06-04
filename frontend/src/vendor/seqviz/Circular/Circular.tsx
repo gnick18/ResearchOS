@@ -14,7 +14,7 @@ import { CutSites } from "./CutSites";
 import { Find } from "./Find";
 import { Index } from "./Index";
 import { Labels } from "./Labels";
-import { Selection } from "./Selection";
+import { CircularPreviewSelection, Selection } from "./Selection";
 
 /** Sequence length cutoff below which the circular viewer's sequence won't be rendered. */
 export const RENDER_SEQ_LENGTH_CUTOFF = 250;
@@ -65,6 +65,10 @@ export interface CircularProps {
   showIndex: boolean;
   size: Size;
   yDiff: number;
+  // circular qol bot — the HOVERED feature range to draw a red PREVIEW arc over
+  // (the circular analogue of the linear red brackets), or null/absent. Threaded
+  // from the host through SeqViz -> SeqViewerContainer -> here.
+  circularPreviewRange?: { start: number; end: number } | null;
 }
 
 interface CircularState {
@@ -391,6 +395,16 @@ export default class Circular extends React.Component<CircularProps, CircularSta
       >
         <g className="la-vz-circular-root" transform={`translate(0, ${yDiff})`}>
           <Selection {...props} seq={seq} totalRows={totalRows} />
+          {/* circular qol bot — red PREVIEW arc over the HOVERED feature's range
+              (the circular analogue of the linear red brackets), drawn just above
+              the live selection band so it reads as "this is what a click selects"
+              without committing. pointer-events:none so it never blocks the arc. */}
+          <CircularPreviewSelection
+            {...props}
+            preview={this.props.circularPreviewRange || null}
+            seq={seq}
+            totalRows={totalRows}
+          />
           <CutSites {...props} cutSites={cutSites} selectionRows={4} />
           <Index
             {...props}

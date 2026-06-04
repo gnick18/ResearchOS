@@ -8,6 +8,7 @@ import Linear, { LinearProps } from "./Linear/Linear";
 import SelectionHandler, { InputRefFunc } from "./SelectionHandler";
 import CentralIndexContext from "./centralIndexContext";
 import AnnotationDoubleClickContext from "./annotationDoubleClickContext";
+import CircularFeatureInteractionContext from "./circularFeatureInteractionContext";
 import { Annotation, CutSite, Highlight, NameRange, Primer, SeqType } from "./elements";
 import { isEqual } from "./isEqual";
 import SelectionContext, { ExternalSelection, Selection, defaultSelection } from "./selectionContext";
@@ -65,6 +66,10 @@ interface SeqViewerContainerProps {
   onEdit?: (edit: import("./EventHandler").SeqEdit) => void;
   /** seq restructure bot — double-click an annotation arrow opens its editor. Provided via context to the deep render trees. */
   onAnnotationDoubleClick?: import("./annotationDoubleClickContext").AnnotationDoubleClickHandler;
+  /** circular qol bot — CIRCULAR map selection QoL (single/shift-click select + hover card/preview). Provided via context to the deep circular Annotations tree. */
+  circularFeatureInteraction?: import("./circularFeatureInteractionContext").CircularFeatureInteraction;
+  /** circular qol bot — the HOVERED feature range to draw a red PREVIEW arc over (the circular analogue of the linear red brackets), or null. Threaded straight to the Circular viewer. */
+  circularPreviewRange?: { start: number; end: number } | null;
 }
 
 export interface SeqViewerContainerState {
@@ -361,6 +366,7 @@ class SeqViewerContainer extends React.Component<SeqViewerContainerProps, SeqVie
       >
         <CentralIndexContext.Provider value={centralIndex}>
          <AnnotationDoubleClickContext.Provider value={this.props.onAnnotationDoubleClick || null}>
+          <CircularFeatureInteractionContext.Provider value={this.props.circularFeatureInteraction || null}>
           <SelectionContext.Provider value={mergedSelection}>
             <SelectionHandler
               bpsPerBlock={linearProps.bpsPerBlock}
@@ -448,6 +454,7 @@ class SeqViewerContainer extends React.Component<SeqViewerContainerProps, SeqVie
               )}
             </SelectionHandler>
           </SelectionContext.Provider>
+          </CircularFeatureInteractionContext.Provider>
          </AnnotationDoubleClickContext.Provider>
         </CentralIndexContext.Provider>
       </div>

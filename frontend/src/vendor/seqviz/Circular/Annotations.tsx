@@ -3,6 +3,7 @@ import * as React from "react";
 
 import { InputRefFunc } from "../SelectionHandler";
 import AnnotationDoubleClickContext from "../annotationDoubleClickContext";
+import CircularFeatureInteractionContext from "../circularFeatureInteractionContext";
 import CentralIndexContext from "../centralIndexContext";
 import { COLOR_BORDER_MAP, darkerColor } from "../colors";
 import { Annotation } from "../elements";
@@ -135,6 +136,30 @@ const SingleAnnotation = (props: SingleAnnotationProps) => {
     });
   };
 
+  // circular qol bot — CIRCULAR map selection QoL, mirroring the LINEAR map
+  // (LinearMap.tsx). SINGLE-click an annotation arc SELECTS its range (the shared
+  // editor selection); a SHIFT-click extends the span from the anchor through it
+  // (the host computes the union via spanFromShiftClick, identical to the
+  // linear/overview handlers). HOVER shows the floating info CARD at the cursor +
+  // the red PREVIEW arc; mouse-leave clears both. stopPropagation so the click /
+  // hover does not also drive SeqViz's native drag-select on the ring SVG. The
+  // double-click (open editor) + native drag-select / rotation stay intact.
+  const featureInteraction = React.useContext(CircularFeatureInteractionContext);
+  const annRange = { name: a.name, start: a.start, end: a.end, direction: a.direction };
+  const handleClick = (e: React.MouseEvent) => {
+    if (!featureInteraction?.onFeatureClick) return;
+    e.stopPropagation();
+    featureInteraction.onFeatureClick(annRange, { shiftKey: e.shiftKey });
+  };
+  const handleHoverMove = (e: React.MouseEvent) => {
+    featureInteraction?.onFeatureHover?.(annRange, e.clientX, e.clientY);
+    hoverAnnotation(a.id, "1.0");
+  };
+  const handleHoverLeave = () => {
+    featureInteraction?.onFeatureHover?.(null, 0, 0);
+    hoverAnnotation(a.id, "0.7");
+  };
+
   // if it crosses the zero index, correct for actual length
   let annLength = a.end >= a.start ? a.end - a.start : seqLength - a.start + a.end;
 
@@ -198,9 +223,11 @@ const SingleAnnotation = (props: SingleAnnotationProps) => {
         onFocus={() => {
           // do nothing
         }}
+        onClick={handleClick}
         onDoubleClick={handleDoubleClick}
-        onMouseOut={() => hoverAnnotation(a.id, "0.7")}
-        onMouseOver={() => hoverAnnotation(a.id, "1.0")}
+        onMouseMove={handleHoverMove}
+        onMouseOut={handleHoverLeave}
+        onMouseOver={handleHoverMove}
       />
       {inlinedAnnotations.includes(a.id) && (
         <text
@@ -210,12 +237,14 @@ const SingleAnnotation = (props: SingleAnnotationProps) => {
           onBlur={() => {
             // do nothing
           }}
+          onClick={handleClick}
           onDoubleClick={handleDoubleClick}
           onFocus={() => {
             // do nothing
           }}
-          onMouseOut={() => hoverAnnotation(a.id, "0.7")}
-          onMouseOver={() => hoverAnnotation(a.id, "1.0")}
+          onMouseMove={handleHoverMove}
+          onMouseOut={handleHoverLeave}
+          onMouseOver={handleHoverMove}
         >
           <textPath
             className="la-vz-annotation-label"

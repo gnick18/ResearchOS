@@ -5,6 +5,12 @@ import { Coor } from "../elements";
 import SelectionContext from "../selectionContext";
 import { selection, selectionEdge } from "../style";
 import { GenArcFunc, RENDER_SEQ_LENGTH_CUTOFF } from "./Circular";
+import { circularArcLength } from "../../../lib/sequences/linear-map-select";
+
+// circular qol bot — red PREVIEW arc color (the circular analogue of the linear
+// map's red hover brackets). Matches LinearMap's HOVER_BRACKET_RED so the
+// preview reads identically across the linear / circular surfaces.
+const PREVIEW_RED = "#dc2626";
 
 interface CircularSelectionProps {
   findCoor: (index: number, radius: number, rotate?: boolean) => Coor;
@@ -116,3 +122,84 @@ export class Selection extends React.PureComponent<CircularSelectionProps> {
     );
   }
 }
+
+interface CircularPreviewSelectionProps {
+  findCoor: (index: number, radius: number, rotate?: boolean) => Coor;
+  genArc: GenArcFunc;
+  getRotation: (index: number) => string;
+  lineHeight: number;
+  radius: number;
+  seq: string;
+  seqLength: number;
+  totalRows: number;
+  /** the HOVERED feature range a click would select, or null when nothing is hovered. */
+  preview: { start: number; end: number } | null;
+}
+
+/**
+ * circular qol bot — PREVIEW SELECTION arc.
+ *
+ * The circular analogue of the linear map's red HOVER BRACKETS: while a feature
+ * arc is HOVERED (before any click), draw a distinct RED arc over the exact range
+ * a click would select, so the user previews the selection without committing to
+ * it. It reuses the SAME arc geometry as the live <Selection> band above (same
+ * radii, same genArc), only restyled red with no fill (a thin contrasting ring)
+ * plus red edge rules at the bounds.
+ *
+ * ORIGIN WRAP: a feature whose end precedes its start crosses the zero index. We
+ * mirror the live selection's wrap handling — the preview is always drawn CLOCKWISE
+ * (forward, increasing index) from start through end, so a start > end span wraps
+ * the long way past the origin exactly like the editor's clockwise selection.
+ */
+export const CircularPreviewSelection = (props: CircularPreviewSelectionProps) => {
+  const { findCoor, genArc, getRotation, lineHeight, preview, radius, seq, seqLength, totalRows } = props;
+  if (!preview) return null;
+
+  const { start, end } = preview;
+  if (typeof start === "undefined" || typeof end === "undefined") return null;
+
+  // length of the previewed region, drawn CLOCKWISE (forward) start -> end, with
+  // a zero-crossing span wrapping past the origin (same convention as the live
+  // Selection above; shared unit-tested helper so the geometry is verified).
+  const selLength = circularArcLength(start, end, seqLength);
+
+  // radii match the live selection band so the preview sits exactly over it.
+  let topR = radius + lineHeight;
+  if (seq.length <= RENDER_SEQ_LENGTH_CUTOFF) {
+    topR += 2 * lineHeight + 3;
+  }
+  const bAdjust = lineHeight * (totalRows - 1);
+  let bottomR = radius - bAdjust;
+  if (bottomR < 0 || topR < 0) {
+    bottomR = 0;
+    topR = radius;
+  }
+
+  const lineTop = findCoor(0, topR);
+  const lineBottom = findCoor(0, bottomR);
+  const edgePath = `M ${lineBottom.x} ${lineBottom.y}
+		L ${lineTop.x} ${lineTop.y}`;
+
+  const lArc = selLength > seqLength / 2;
+
+  return (
+    <g className="la-vz-circular-preview" pointerEvents="none">
+      <path
+        d={genArc({
+          innerRadius: bottomR,
+          largeArc: lArc,
+          length: selLength,
+          outerRadius: topR,
+          sweepFWD: true,
+        })}
+        fill="none"
+        shapeRendering="auto"
+        stroke={PREVIEW_RED}
+        strokeWidth={1.5}
+        transform={getRotation(start)}
+      />
+      <path d={edgePath} fill="none" stroke={PREVIEW_RED} strokeWidth={1.5} transform={getRotation(start)} />
+      <path d={edgePath} fill="none" stroke={PREVIEW_RED} strokeWidth={1.5} transform={getRotation(end)} />
+    </g>
+  );
+};

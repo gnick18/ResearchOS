@@ -49,6 +49,17 @@ export interface SeqVizProps {
    *  the feature editor. Single-click selection behavior is unchanged. */
   onAnnotationDoubleClick?: import("./annotationDoubleClickContext").AnnotationDoubleClickHandler;
 
+  /** circular qol bot — CIRCULAR plasmid map selection QoL. The single/shift-click
+   *  feature SELECT (mirrors the linear Map's shift-span) + the hover info-card /
+   *  preview-arc range come from the host through context; this prop carries the
+   *  callbacks down to the deep circular Annotations tree. */
+  circularFeatureInteraction?: import("./circularFeatureInteractionContext").CircularFeatureInteraction;
+
+  /** circular qol bot — the host's HOVERED feature range, drawn as a red PREVIEW
+   *  arc over the would-be selection (the circular analogue of the linear red
+   *  brackets), or null when nothing is hovered. */
+  circularPreviewRange?: { start: number; end: number } | null;
+
   /**
    * an iGEM backbone to render within the viewer
    *
