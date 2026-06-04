@@ -1,5 +1,19 @@
 # Setting up support@research-os.app (inbound forwarding)
 
+Status, LIVE and verified end to end on 2026-06-04. `support@research-os.app` forwards to `gnickles@wisc.edu` via ForwardEmail on Vercel DNS. A test message from an outside Gmail landed in the inbox within seconds. The address is safe to publish.
+
+As-built records (added in the Vercel team scope `grant-nickles-projects` -> Domains -> research-os.app -> DNS Records, all on the root unless noted):
+
+```
+MX   @        mx1.forwardemail.net.   priority 10
+MX   @        mx2.forwardemail.net.   priority 10
+TXT  @        forward-email=support:gnickles@wisc.edu
+TXT  @        v=spf1 a mx include:spf.forwardemail.net -all
+TXT  _dmarc   v=DMARC1; p=none;
+```
+
+The existing `send.research-os.app` MX (Resend sending) was left untouched.
+
 Goal, make `support@research-os.app` actually receive mail and forward it to a real inbox, so the address can be published (About page, footer, Code of Conduct, abuse contact) without bouncing.
 
 ## Why this approach
