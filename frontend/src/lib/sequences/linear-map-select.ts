@@ -29,6 +29,32 @@ export function spanFromShiftClick(anchor: SelRange, clicked: SelRange): SelRang
 }
 
 /**
+ * map drag bot — CLICK-DRAG range. On the linear Map a click-drag across the
+ * bare track selects a bp RANGE. Given the bp under the drag ORIGIN and the bp
+ * under the CURRENT pointer, return the normalized half-open span
+ * [min, max]. A zero-length drag (origin === current) returns a degenerate
+ * { start: bp, end: bp }; the caller treats that as "no range yet".
+ */
+export function dragSelectRange(originBp: number, currentBp: number): SelRange {
+  return originBp <= currentBp
+    ? { start: originBp, end: currentBp }
+    : { start: currentBp, end: originBp };
+}
+
+/**
+ * map drag bot — CLICK vs DRAG discriminator. A pointer-down followed by an
+ * pointer-up that moved less than `thresholdPx` (Manhattan distance from the
+ * down point) is a CLICK (e.g. empty-track click clears the selection); moving
+ * at or past the threshold is a DRAG (a range select). Keeping the threshold a
+ * pure helper makes the click/drag boundary unit-testable without a DOM. The
+ * default 4 px matches the platform double-click / drag slop so a steady click
+ * never registers as a 1-px drag.
+ */
+export function isDrag(dxPx: number, dyPx: number, thresholdPx = 4): boolean {
+  return Math.abs(dxPx) + Math.abs(dyPx) >= thresholdPx;
+}
+
+/**
  * circular qol bot — CIRCULAR PREVIEW / SELECTION ARC LENGTH. On the ring a
  * selection is drawn CLOCKWISE (forward, increasing index) from `start` through
  * `end`. A span whose `end` precedes its `start` crosses the zero index (the

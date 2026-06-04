@@ -1883,6 +1883,22 @@ export default function SequenceEditView({
     setSelAnchor(null);
   }, []);
 
+  // map drag bot — CLICK-DRAG a bp RANGE on the linear Map. Fires live while
+  // dragging (so the band + base view + overview all follow) and once on
+  // pointer-up to finalize. It writes the SHARED selection (externalSel) so the
+  // range stays in sync everywhere, drops any feature highlight (a freehand range
+  // is not a feature), and sets the span ANCHOR to a zero-width range at the drag
+  // ORIGIN so a later Map shift-click extends from where the drag began. The Map
+  // never changes the view mode.
+  const handleMapDragSelect = useCallback(
+    (range: { start: number; end: number }, anchorBp: number) => {
+      setExternalSel(range);
+      setSelectedFeatureIdx(null);
+      setSelAnchor({ start: anchorBp, end: anchorBp });
+    },
+    [],
+  );
+
   // circular qol bot — resolve a clicked/hovered CIRCULAR annotation range back to
   // its doc-feature INDEX, using the SAME name+range -> name -> start fallback
   // chain as handleMapFeatureClick so a normalized coordinate still maps right.
@@ -3143,6 +3159,7 @@ export default function SequenceEditView({
                     onPrimerDoubleClick={handlePrimerDoubleClick}
                     onFeatureClick={handleMapFeatureClick}
                     onClearSelection={handleMapClearSelection}
+                    onRangeSelect={handleMapDragSelect}
                     selection={mapSelection}
                   />
                 ) : (

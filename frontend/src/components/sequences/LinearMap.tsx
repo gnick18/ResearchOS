@@ -70,7 +70,7 @@ import {
 import Tooltip from "@/components/Tooltip";
 import LinearMapNavigator from "./LinearMapNavigator";
 import MapJogWheel from "./MapJogWheel";
-import { buildFeatureCard, selectionBandRect } from "@/lib/sequences/linear-map-select";
+import { buildFeatureCard, selectionBandRect, dragSelectRange, isDrag } from "@/lib/sequences/linear-map-select";
 import type { SeqType } from "@/vendor/seqviz/elements";
 
 /** A feature to draw below the line. Mirrors the editor's annotation shape. */
@@ -127,6 +127,16 @@ export interface LinearMapProps {
    * CLEAR the selection (deselect). No navigation, no view-mode change.
    */
   onClearSelection?: () => void;
+  /**
+   * map drag bot — CLICK-DRAG a bp RANGE across the bare track / ruler. Fires
+   * continuously while dragging (so the band + base view + overview update live)
+   * and once more on pointer-up to finalize. `range` is the normalized
+   * [start, end] under the drag; `anchorBp` is the drag ORIGIN bp so a later
+   * shift-click extends from where the drag began. The Map NEVER changes the
+   * view mode. A pointer-down with no movement is NOT a drag (it stays a normal
+   * empty-track click that clears the selection via onClearSelection).
+   */
+  onRangeSelect?: (range: { start: number; end: number }, anchorBp: number) => void;
   /**
    * map select bot — the CURRENT editor selection [start, end] (0-based,
    * half-open), or null when nothing is selected. The Map draws a translucent
@@ -232,6 +242,7 @@ export default function LinearMap({
   onPrimerDoubleClick,
   onFeatureClick,
   onClearSelection,
+  onRangeSelect,
   selection,
 }: LinearMapProps) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -316,6 +327,92 @@ export default function LinearMap({
     const x = rect ? clientX - rect.left : clientX;
     return xToBp(x, { padX: PAD_X, trackWidth, winStart, winSpan, seqLength });
   };
+
+  // ── map drag bot — CLICK-DRAG to select a bp RANGE across the bare track ────
+  // A pointer-down on the SVG itself (NOT on a feature arrow / above-line item,
+  // both of which stopPropagation, and NOT on the jog wheel / navigator / zoom
+  // controls, which live OUTSIDE this SVG) starts a candidate drag. We record the
+  // down point + origin bp and capture the pointer so a drag that leaves the SVG
+  // keeps tracking. On move, once the pointer passes the click/drag px threshold,
+  // we report the live [min, max] bp range up to SequenceEditView (which sets the
+  // SAME externalSel the band + base view + overview read, plus the span anchor).
+  // On up, a drag finalizes the range; a no-move pointer-up falls through to the
+  // SVG onClick (empty-track clear), so a steady click still deselects. The live
+  // geometry is read from a ref so a fast drag never acts on a stale window.
+  const dragGeomRef = useRef({ trackWidth, winStart, winSpan, seqLength });
+  dragGeomRef.current = { trackWidth, winStart, winSpan, seqLength };
+  const dragRef = useRef<{
+    pointerId: number;
+    downX: number;
+    downY: number;
+    originBp: number;
+    active: boolean;
+  } | null>(null);
+
+  const bpFromClientX = (clientX: number): number => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    const x = rect ? clientX - rect.left : clientX;
+    const g = dragGeomRef.current;
+    return xToBp(x, { padX: PAD_X, trackWidth: g.trackWidth, winStart: g.winStart, winSpan: g.winSpan, seqLength: g.seqLength });
+  };
+
+  const onTrackPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    // Only a primary (left) button starts a drag; ignore right/middle so a
+    // context menu or middle-click never begins a selection.
+    if (e.button !== 0) return;
+    dragRef.current = {
+      pointerId: e.pointerId,
+      downX: e.clientX,
+      downY: e.clientY,
+      originBp: bpFromClientX(e.clientX),
+      active: false,
+    };
+    try {
+      svgRef.current?.setPointerCapture(e.pointerId);
+    } catch {
+      // setPointerCapture can throw if the pointer is already gone; harmless.
+    }
+  };
+
+  const onTrackPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    const d = dragRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    if (!d.active && !isDrag(e.clientX - d.downX, e.clientY - d.downY)) return;
+    d.active = true;
+    const curBp = bpFromClientX(e.clientX);
+    const range = dragSelectRange(d.originBp, curBp);
+    onRangeSelect?.(range, d.originBp);
+  };
+
+  const onTrackPointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
+    const d = dragRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    dragRef.current = null;
+    try {
+      svgRef.current?.releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore: pointer may already be released.
+    }
+    if (!d.active) return; // no movement -> let onClick run the empty-track clear
+    // A real drag happened: SUPPRESS the click event that the browser fires after
+    // this pointer-up so the SVG onClick does NOT clear the just-made selection.
+    justDraggedRef.current = true;
+    const curBp = bpFromClientX(e.clientX);
+    const range = dragSelectRange(d.originBp, curBp);
+    // A drag that ended without crossing a whole bp (degenerate range) is still a
+    // click, not a selection; let the empty-track clear handle it instead.
+    if (range.start === range.end) {
+      justDraggedRef.current = false;
+      onClearSelection?.();
+      return;
+    }
+    onRangeSelect?.(range, d.originBp);
+  };
+
+  // map drag bot — set true on a drag-ending pointer-up so the trailing synthetic
+  // click on the SVG is swallowed (it would otherwise clear the new selection).
+  const justDraggedRef = useRef(false);
+
   void eventToBp;
 
   // Zoom controls. The slider runs 0 (whole molecule) .. 1 (max zoom). Span maps
@@ -708,7 +805,23 @@ export default function LinearMap({
           // consumed by a feature arrow or an above-line item, both of which
           // stopPropagation) is a click on empty track / ruler / backbone.
           // CLEAR the selection (deselect). No navigation, no view-mode change.
-          onClick={() => onClearSelection?.()}
+          // map drag bot — but if a click-drag JUST finished, swallow the trailing
+          // synthetic click so it does not wipe the range the drag selected.
+          onClick={() => {
+            if (justDraggedRef.current) {
+              justDraggedRef.current = false;
+              return;
+            }
+            onClearSelection?.();
+          }}
+          // map drag bot — CLICK-DRAG range select over the bare track / ruler.
+          // A drag that starts on a feature arrow / above-line item never reaches
+          // here (those stopPropagation their own pointer/click events), so the
+          // drag only begins on empty backbone, exactly as briefed. Pointer
+          // capture keeps tracking even when the drag leaves the SVG.
+          onPointerDown={onTrackPointerDown}
+          onPointerMove={onTrackPointerMove}
+          onPointerUp={onTrackPointerUp}
         >
           {/* ── strand baseline ── */}
           <rect
@@ -861,6 +974,10 @@ export default function LinearMap({
               <g
                 key={p.id}
                 style={{ cursor: isEnzyme ? "pointer" : "pointer" }}
+                // map drag bot — an above-line item (enzyme / primer) is NOT bare
+                // track, so a pointer-down here must NOT begin a range drag. Stop
+                // it from bubbling to the SVG root's drag-start handler.
+                onPointerDown={(e) => e.stopPropagation()}
                 onMouseEnter={() => {
                   if (isEnzyme && src.enzymeName) setHoverEnzyme(src.enzymeName);
                 }}
@@ -943,6 +1060,11 @@ export default function LinearMap({
               <g
                 key={`feat-${i}`}
                 style={{ cursor: "pointer" }}
+                // map drag bot — a feature arrow is NOT bare track, so a
+                // pointer-down on it must NOT begin a range drag. Stop it from
+                // bubbling to the SVG root's drag-start handler; the feature's own
+                // click / shift-click / double-click handlers stay intact.
+                onPointerDown={(e) => e.stopPropagation()}
                 // map select bot — HOVER a feature: track its index + the cursor
                 // so the floating info card follows the pointer and the red
                 // bracket preview draws on the ruler. Clear on mouse-leave.

@@ -5,6 +5,8 @@ import {
   selectionBandRect,
   normalizeRange,
   circularArcLength,
+  dragSelectRange,
+  isDrag,
 } from "./linear-map-select";
 
 describe("spanFromShiftClick", () => {
@@ -34,6 +36,39 @@ describe("spanFromShiftClick", () => {
       start: 100,
       end: 600,
     });
+  });
+});
+
+describe("dragSelectRange", () => {
+  it("returns a forward range when the drag goes left-to-right", () => {
+    expect(dragSelectRange(100, 500)).toEqual({ start: 100, end: 500 });
+  });
+  it("normalizes a right-to-left drag (origin after current)", () => {
+    expect(dragSelectRange(500, 100)).toEqual({ start: 100, end: 500 });
+  });
+  it("returns a degenerate range for a zero-length drag", () => {
+    expect(dragSelectRange(300, 300)).toEqual({ start: 300, end: 300 });
+  });
+});
+
+describe("isDrag", () => {
+  it("treats a steady (no-move) pointer as a click, not a drag", () => {
+    expect(isDrag(0, 0)).toBe(false);
+  });
+  it("treats sub-threshold jitter as a click", () => {
+    // 1 px right + 2 px down = 3 px Manhattan, below the 4 px default.
+    expect(isDrag(1, 2)).toBe(false);
+  });
+  it("treats movement at the threshold as a drag", () => {
+    expect(isDrag(4, 0)).toBe(true);
+    expect(isDrag(-2, 2)).toBe(true); // |−2| + |2| = 4
+  });
+  it("treats movement past the threshold as a drag", () => {
+    expect(isDrag(20, -30)).toBe(true);
+  });
+  it("honors a custom threshold", () => {
+    expect(isDrag(5, 0, 10)).toBe(false);
+    expect(isDrag(10, 0, 10)).toBe(true);
   });
 });
 
