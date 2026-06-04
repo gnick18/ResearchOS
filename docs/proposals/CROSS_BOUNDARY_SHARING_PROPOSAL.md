@@ -31,7 +31,7 @@ ResearchOS is local-first. A "lab" only exists because its members share one clo
 
 ## 3. Architecture at a glance
 
-Three pieces, two send paths.
+Three pieces, one relay path.
 
 **The identity directory** (Vercel + Neon Postgres). Maps a verified email to a handle and two public keys (X25519 for encryption, Ed25519 for signing). Stores nothing else about research. CORS-open for public-key lookup, because public keys are public by definition (the Keybase model).
 
@@ -39,9 +39,9 @@ Three pieces, two send paths.
 
 **The client** (the existing app). Builds the portable bundle, encrypts it, uploads it, polls its own inbox on open, decrypts, and files accepted bundles into the user's folder.
 
-Path 1, registered recipient. Look the recipient up by email, fetch their X25519 public key, encrypt the bundle to that key, drop it in the relay. They see it in their inbox next open. The server never holds a key.
+Registered to registered only. Look the recipient up by email, fetch their X25519 public key, encrypt the bundle to that key, drop it in the relay. They see it in their inbox the next time they open ResearchOS. The server never holds a key. Both people having an account is the only supported relay path.
 
-Path 2, unregistered recipient. Encrypt the bundle under a random passphrase, park it in the relay keyed to the recipient's email, send them an invite email with a link. They open the link, enter the passphrase (shared out of band), and download. If they later register with that email, any parked bundles auto-deliver into the app. This is the Proton Mail password-protected-message model plus Keybase's park-by-email pattern, and it is what makes "send to anyone" actually work.
+Reaching a non-user. There is no in-app email delivery. To send to someone who will not sign up, export the encrypted bundle and email or hand it off yourself (the floor described below). That keeps the system simple and removes the first-contact bootstrapping problem entirely.
 
 ---
 
@@ -132,7 +132,7 @@ Retention and abuse, the load-bearing controls.
 
 ## 8. Send and receive flows
 
-**Send.** Pick an artifact, pick a recipient by email. If they are in the directory, encrypt to their key and relay (Path 1). If not, generate a passphrase, encrypt, park, and email an invite (Path 2). Show the recipient's key fingerprint for optional out-of-band confirmation. The floor option (download the encrypted bundle and hand it off yourself via Web Share, email attachment, or file) is always present, and is the only option when self-hosted with no backend.
+**Send.** Pick an artifact, pick a recipient by email. They must have a ResearchOS account, so the app encrypts to their directory key and drops it in the relay, showing their key fingerprint for optional out-of-band confirmation. If the person is not a registered user, the app offers the floor instead, download the encrypted bundle and email or hand it off yourself. The floor is always available and is the only option when self-hosted with no backend.
 
 **Receive and accept.** On app open the client polls its inbox. New arrivals show as pending inbound shares with sender, provenance, and a preview of what is inside (artifact type, attachment count). The recipient accepts or declines. On accept, they choose where it lands in their own folder (which project, or unfiled), and the bundle is verified (BagIt manifest), decrypted, and imported as their own copy with a new local ID. Per-user ID collisions are handled by minting fresh local IDs on import and keying dedup on the bundle UUID, not the sender's IDs.
 
@@ -157,7 +157,7 @@ The north star, the existing-user upgrade converges on the same end-state as a n
 
 - **Intent-triggered setup, never a launch gate.** The account is created on the first click of "Share outside this folder," not at app open. This is the VS Code Settings Sync model (sign-in surfaces only when a capability needs it), and the just-in-time-provisioning pattern from identity literature. Plus one dismissible announcement banner shown once after the feature ships, with a permanent "never ask."
 - **Additive claim, never destructive.** The existing folder-local account (username, color) keeps working exactly as before. "Claim this profile with a global identity" generates the keypair, publishes public keys, shows the Recovery Kit, and links the global identity to the local account. Skipping it degrades nothing. The cautionary counter-example is 1Password 8, which force-migrated standalone vaults to required cloud accounts and burned trust, we must never version-gate a local feature behind account creation.
-- **The receive chicken-and-egg is solved at registration.** Publishing public keys at signup (the prekey pattern) makes an account immediately reachable, so a sender can park a bundle before the recipient is ever online. For someone with no account at all, Path 2's password envelope plus park-by-email is the universal first-contact fallback, and the parked bundle auto-delivers when they register with that email (the Keybase model).
+- **No receive chicken-and-egg, because relay sharing is registered-to-registered.** Publishing public keys at signup (the prekey pattern) makes an account immediately reachable, so a sender can drop a bundle before the recipient is ever online. To reach someone who has no account, you export and email the bundle yourself, there is no in-app invite path to bootstrap.
 - **Identity anchors to the keypair, not the folder path**, so it survives folder moves and renames, and supports the same person across multiple labs' folders mapping to one global identity by email.
 - **Graceful mixed-state.** A globe icon marks members who have a global identity, none for local-only. Trying to share with a local-only member explains "they have not set up a sharing identity, you can still send a one-time bundle via email." Never silently downgrade, always explain.
 - **Flagged data-shape change.** New fields (email, public keys, global-account-id, key-backup blob, recovery state) land on `_user_metadata.json` or a new sidecar via lazy-normalize-on-read plus a Settings repair button, the codebase's established field-migration pattern. No hard cutover, so shared-folder files from un-upgraded members keep working.
@@ -199,7 +199,7 @@ All forks are now resolved. The funding decision (free for everyone, no per-user
 
 1. **Relay storage, Cloudflare R2.** Its free tier is the floor of the free model and its zero egress fits a relay. Behind a thin adapter so Vercel Blob stays a drop-in fallback.
 2. **Auth, Auth.js plus Resend.** Self-hosted and free, preserves clone-and-run-local, no vendor lock.
-3. **Unregistered-recipient path, ship Path 2 in v1.** Password envelope plus email invite, so "send to anyone" works from launch. Easiest scope to trim if v1 needs to shrink.
+3. **Registered-to-registered only (Grant, 2026-06-03).** Both parties must have an account. No in-app email delivery to non-users. To reach a non-user, export the encrypted bundle and email it yourself (the floor). This removes the password-envelope, email-invite, and park-by-email machinery and the first-contact chicken-and-egg. Email stays as the signup and lookup identity, only the email-as-delivery feature is gone.
 4. **Methods UI, same list with an origin badge and filter.** Received items sit alongside the user's own with clear provenance.
 5. **Bring-your-own-storage, deferred to a later phase.** The escape valve for a lab that outgrows the free pooled inbox, not a v1 feature.
 
@@ -214,8 +214,7 @@ This work touches the methods page, notes, the sharing layer, and attachments, w
 - **Phase 0. Bundle engine, no network.** RO-Crate-in-BagIt build and verify, `age` encrypt and decrypt, export-and-import via file handoff (the floor). Fully testable offline, ships value on its own.
 - **Phase 1. Identity.** Keypair generation, backup and Recovery Words, the directory (signup OTP, lookup, log-backed TOFU), the claim ceremony and migration prompt.
 - **Phase 2. Relay.** R2 adapter, presigned upload and download, the inbox poll, accept-and-file flow, TTL and abuse controls.
-- **Phase 3. Path 2.** Unregistered-recipient password envelope, email invites, park-and-auto-deliver (if approved for v1).
-- **Phase 4. Polish.** Internal-versus-external UI, key-change advisories, provenance display, the privacy policy and AGPL footer.
+- **Phase 3. Polish.** Internal-versus-external UI, key-change advisories, provenance display, the privacy policy and AGPL footer. (The old unregistered-recipient email phase is cut, reaching a non-user is the manual export-and-email floor from Phase 0.)
 
 ---
 

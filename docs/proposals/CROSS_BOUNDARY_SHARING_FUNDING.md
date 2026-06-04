@@ -35,7 +35,7 @@ R2 storage is 0.015 USD per GB-month, egress is free, and the first 10 GB of sto
 The other backend pieces.
 - **Directory and mailbox index (Neon Postgres).** Tiny relational data (emails, keys, bundle rows). The free tier covers it well past 5,000 users. Roughly 0 to 0.50 USD per month.
 - **Relay API (Vercel Functions).** A few function calls per share. Stays inside the Hobby free tier (1 million invocations) at every scale above. ~0 USD.
-- **Transactional email (Resend).** This is the first thing to cost anything. Signup codes plus invites can approach the free tier's 3,000 per month or its 100 per day cap on a busy launch day around the 1,000-user mark. The fix is the 20 USD per month Resend Pro tier (50,000 emails). So 0 USD until roughly 1,000 active users, then up to 20 USD per month.
+- **Transactional email (Resend).** Now only signup verification codes, since the in-app email-invite delivery was cut. Volume is low, one code per new account, so the free tier (3,000 per month, 100 per day) comfortably covers well past 1,000 users. Effectively 0 USD, with the 20 USD Resend Pro tier relevant only at a large signup spike.
 - **Frontend hosting (Vercel).** The existing app, separate from this work. Hobby free or Pro at 20 USD per month, and very likely covered by the Vercel OSS credit below.
 
 **Total realistic backend cost.** Effectively 0 USD per month up to a few hundred users. Around 0 to 20 USD per month at 1,000 users (the 20 being email if volume is high). Around 1 to 35 USD per month at 5,000 users worst case. For an academic tool, this never becomes a meaningful number.
