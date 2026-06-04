@@ -2,12 +2,19 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { signIn } from "next-auth/react";
 import { usersApi } from "@/lib/local-api";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { hasPassword, verifyPassword, setPassword } from "@/lib/auth/password";
 import { performUserDelete } from "@/lib/users/perform-delete";
 import { readUserSettings } from "@/lib/settings/user-settings";
 import { readArchivedSet } from "@/lib/lab/user-archive";
+import {
+  readSharingIdentity,
+  hasSharingIdentity,
+} from "@/lib/sharing/identity/sidecar";
+import { canonicalizeEmail } from "@/lib/sharing/directory/email";
+import { GoogleIcon, GitHubIcon } from "@/components/sharing/icons";
 import {
   createUserMetadataEntry,
   readAllUserMetadata,
@@ -32,6 +39,10 @@ import { useErrorReporting } from "@/hooks/useErrorReporting";
 interface UserLoginScreenProps {
   onLogin: () => void;
 }
+
+// D1 (cross-boundary sharing): the query param the provider-unlock redirect
+// carries back so the resume effect knows which account to unlock and match.
+const UNLOCK_QUERY_PARAM = "sharingUnlock";
 
 export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   const { setCurrentUser, currentUser: contextCurrentUser } = useFileSystem();
@@ -79,6 +90,30 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   const [passwordInput, setPasswordInput] = useState("");
   const [verifyingPassword, setVerifyingPassword] = useState(false);
   const passwordInputRef = useRef<HTMLInputElement>(null);
+
+  // D1 (cross-boundary sharing): provider-unlock alongside the password.
+  // For an account that has CLAIMED a global sharing identity (a
+  // `_sharing_identity.json` sidecar exists for that user), and only when
+  // the app is ONLINE, the password gate additionally offers "Sign in with
+  // Google or GitHub to unlock". A successful provider sign-in whose
+  // verified email matches the account's claimed identity email unlocks the
+  // account, the same effect as a correct password. The local password is
+  // never removed or weakened; it stays the always-available offline
+  // fallback. Offline or unclaimed accounts behave exactly as before.
+  //
+  // `claimedUsers` is the fan-out set of users with a published sidecar,
+  // mirroring `lockedUsers` / `labHeadUsers`. A read failure leaves the user
+  // out of the set, so a missing or unreadable sidecar simply hides the
+  // provider option (the password gate is unchanged).
+  const [claimedUsers, setClaimedUsers] = useState<Set<string>>(new Set());
+  // Online status drives whether the provider buttons render. The provider
+  // unlock needs the network (OAuth redirect + session read), so offline we
+  // show only the password gate, exactly as today.
+  const [isOnline, setIsOnline] = useState(true);
+  // True while we are resolving an OAuth return (reading the session and
+  // matching its email against the claimed identity) so the gate can show a
+  // "verifying" state instead of a bare password prompt.
+  const [unlockingViaProvider, setUnlockingViaProvider] = useState(false);
 
   // Mandatory-password gate for LAB HEADS (pi-password bot, 2026-06-02).
   // A PI account REQUIRES a password to sign in. If a lab_head account
@@ -139,6 +174,26 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     setLockedUsers(next);
   };
 
+  // D1: fan-out read of every user's `_sharing_identity.json` to find
+  // accounts that have CLAIMED a global sharing identity. Mirrors
+  // `refreshLockStatus` — a per-user read failure leaves the user out of the
+  // set, so a missing or unreadable sidecar just means "no provider unlock
+  // offered", which falls back to the unchanged password gate.
+  const refreshClaimedStatus = async (usernames: string[]) => {
+    const next = new Set<string>();
+    await Promise.all(
+      usernames.map(async (u) => {
+        try {
+          if (await hasSharingIdentity(u)) next.add(u);
+        } catch {
+          // Treat as unclaimed on read failure — never show a provider
+          // option we cannot back with a real sidecar.
+        }
+      }),
+    );
+    setClaimedUsers(next);
+  };
+
   // Fan-out read of every user's settings.json to find lab_head accounts.
   // Mirrors the `refreshLockStatus` shape — a failed read leaves the user
   // out of the set (i.e. defaults to member), which is the safe choice
@@ -178,8 +233,26 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       refreshLockStatus(users);
       refreshLabHeadStatus(users);
       refreshArchivedStatus(users);
+      refreshClaimedStatus(users);
     }
   }, [users]);
+
+  // D1: track online status so the provider-unlock buttons only appear when
+  // the network is available. Offline, the password gate stands alone,
+  // exactly as today. We seed from navigator.onLine and follow the events.
+  useEffect(() => {
+    if (typeof navigator !== "undefined") {
+      setIsOnline(navigator.onLine);
+    }
+    const goOnline = () => setIsOnline(true);
+    const goOffline = () => setIsOnline(false);
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, []);
 
   useEffect(() => {
     if (passwordGate && passwordInputRef.current) {
@@ -196,6 +269,85 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   useEffect(() => {
     loadUsers();
   }, []);
+
+  // D1: resume a provider unlock after the OAuth redirect. When the browser
+  // returns from Google or GitHub it carries ?sharingUnlock=<username> and a
+  // signed-in session. We read the verified session email, compare it to
+  // that account's claimed identity (the sidecar email), and on a match
+  // unlock the account, the same effect as a correct password. On a mismatch
+  // we drop the user onto the password gate with a clear message so the
+  // offline fallback is always one step away. We wait for the user list so
+  // the username is valid before signing in, and guard with a ref so a
+  // re-render does not re-run the unlock.
+  const unlockResumeHandled = useRef(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (loading || users.length === 0) return;
+    if (unlockResumeHandled.current) return;
+
+    const url = new URL(window.location.href);
+    const target = url.searchParams.get(UNLOCK_QUERY_PARAM);
+    if (!target) return;
+    unlockResumeHandled.current = true;
+
+    // Strip the flag immediately so a manual refresh never re-runs the
+    // unlock, regardless of how the match resolves.
+    url.searchParams.delete(UNLOCK_QUERY_PARAM);
+    window.history.replaceState(
+      null,
+      "",
+      url.pathname + url.search + url.hash,
+    );
+
+    // An unknown user (deleted/renamed since the redirect) cannot be
+    // unlocked; bail quietly back to the picker.
+    if (!users.includes(target)) return;
+
+    setUnlockingViaProvider(true);
+    setPasswordGate({ username: target, nextAction: "user" });
+    setPasswordInput("");
+    setError(null);
+
+    (async () => {
+      try {
+        const [sessionRes, sidecar] = await Promise.all([
+          fetch("/api/auth/session", { headers: { accept: "application/json" } }),
+          readSharingIdentity(target),
+        ]);
+        const session = (await sessionRes.json()) as {
+          user?: { email?: string | null } | null;
+        } | null;
+        const sessionEmail = canonicalizeEmail(session?.user?.email ?? "");
+        const claimedEmail = canonicalizeEmail(sidecar?.email ?? "");
+
+        if (!sessionEmail) {
+          setError(
+            "Could not confirm your sign-in. Use your password, or try the provider again.",
+          );
+          setUnlockingViaProvider(false);
+          return;
+        }
+        if (!claimedEmail || sessionEmail !== claimedEmail) {
+          setError(
+            "That account does not match this identity. Use the password, or sign in with the email this identity is registered under.",
+          );
+          setUnlockingViaProvider(false);
+          return;
+        }
+        // Verified email matches the claimed identity: unlock, the same
+        // effect as a correct password.
+        setPasswordGate(null);
+        setPasswordInput("");
+        setUnlockingViaProvider(false);
+        await performLogin(target);
+      } catch {
+        setError(
+          "Could not confirm your sign-in. Use your password, or try the provider again.",
+        );
+        setUnlockingViaProvider(false);
+      }
+    })();
+  }, [loading, users]);
 
   // Focus input when entering edit mode
   useEffect(() => {
@@ -344,6 +496,22 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     setVerifyingPassword(false);
     setLoggingIn(null);
     setError(null);
+  };
+
+  // D1: start a provider unlock for a claimed account. OAuth is a full-page
+  // redirect (the same pattern SharingSetupWizard.startOAuth uses), so we
+  // stash WHICH user we are unlocking in the callback URL via
+  // ?sharingUnlock=<username>. When the browser returns, the resume effect
+  // below reads the signed-in session email and matches it against that
+  // user's claimed identity sidecar. This never touches the password path;
+  // a user can still cancel and type their password instead.
+  const startUnlockOAuth = (provider: "google" | "github", username: string) => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    url.searchParams.set(UNLOCK_QUERY_PARAM, username);
+    void signIn(provider, {
+      callbackUrl: url.pathname + url.search + url.hash,
+    });
   };
 
   const handleCreateUser = async () => {
@@ -1171,6 +1339,57 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
               </p>
             </div>
             <div className="px-6 py-5 space-y-3">
+              {/* D1: optional provider unlock, shown ALONGSIDE the password
+                  only for a claimed account (sidecar present) and only when
+                  online. The verified provider email must match the claimed
+                  identity email to unlock. This is clearly secondary; the
+                  password below stays the always-available offline
+                  fallback. Offline or unclaimed, none of this renders and
+                  the gate is exactly as before. */}
+              {claimedUsers.has(passwordGate.username) && isOnline && (
+                <div className="space-y-2">
+                  {unlockingViaProvider ? (
+                    <p className="text-meta text-slate-400 text-center py-1">
+                      Confirming your sign-in...
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-meta text-slate-400">
+                        Unlock with your sharing identity
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          startUnlockOAuth("google", passwordGate.username)
+                        }
+                        disabled={verifyingPassword}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-white text-slate-800 hover:bg-slate-100 font-medium transition-colors disabled:opacity-50"
+                      >
+                        <GoogleIcon className="w-4 h-4" />
+                        Continue with Google
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          startUnlockOAuth("github", passwordGate.username)
+                        }
+                        disabled={verifyingPassword}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-[#24292e] text-white hover:bg-[#2f363d] font-medium transition-colors disabled:opacity-50"
+                      >
+                        <GitHubIcon className="w-4 h-4" />
+                        Continue with GitHub
+                      </button>
+                      <div className="flex items-center gap-3 pt-1">
+                        <div className="h-px flex-1 bg-white/10" />
+                        <span className="text-meta text-slate-500">
+                          or use your password
+                        </span>
+                        <div className="h-px flex-1 bg-white/10" />
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
               <input
                 ref={passwordInputRef}
                 type="password"
@@ -1180,7 +1399,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                   if (e.key === "Enter") handleSubmitPassword();
                   if (e.key === "Escape") cancelPasswordGate();
                 }}
-                disabled={verifyingPassword}
+                disabled={verifyingPassword || unlockingViaProvider}
                 className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-body"
                 autoComplete="current-password"
                 placeholder="Password"

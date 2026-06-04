@@ -6,6 +6,7 @@ import { discoverUsers } from "@/lib/file-system/user-discovery";
 import { readUserSettings, type AccountType } from "@/lib/settings/user-settings";
 import { readOnboarding } from "@/lib/onboarding/sidecar";
 import { archiveUser, restoreUser } from "@/lib/lab/user-archive";
+import { readSharingIdentity } from "@/lib/sharing/identity/sidecar";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAccountType } from "@/hooks/useAccountType";
@@ -13,6 +14,7 @@ import { useEditSession } from "@/hooks/useEditSession";
 import RequestEditButton from "@/components/RequestEditButton";
 import EditSessionBanner from "@/components/EditSessionBanner";
 import UserAvatar from "@/components/UserAvatar";
+import Tooltip from "@/components/Tooltip";
 import { ARCHIVED_USERS_QUERY_KEY } from "@/hooks/useArchivedUsers";
 import { LAB_USER_PROFILES_QUERY_KEY } from "@/hooks/useLabUserProfiles";
 
@@ -49,6 +51,34 @@ interface RosterRow {
   archived: boolean;
   archived_at: string | null;
   archived_by: string | null;
+  // D5/D6 (cross-boundary sharing): whether this member has published a
+  // global sharing identity (a `_sharing_identity.json` sidecar exists).
+  // READ-ONLY signal. A lab head may SEE who has an identity but has no
+  // power over it. The sidecar survives archiving, so this can be true for
+  // archived members too.
+  hasSharingIdentity: boolean;
+}
+
+// D5/D6 read-only badge icon. A small "person plus link" mark for the
+// "has sharing identity" pill. Inline SVG (the project ships no icon-font
+// dependency and every user-facing icon is an inline SVG).
+function SharingIdentityIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="6" cy="4.5" r="2.5" />
+      <path d="M1.5 13.5c0-2.5 2-4 4.5-4 1 0 1.9.24 2.6.66" />
+      <path d="M10.5 11h4M12.5 9v4" />
+    </svg>
+  );
 }
 
 const LAB_ROSTER_QUERY_KEY = ["lab-roster"] as const;
@@ -103,6 +133,18 @@ export default function LabRoster() {
           } catch {
             // Stay on non-archived default.
           }
+          // D5/D6: best-effort read of the member's published sharing
+          // identity sidecar. Wrapped in try/catch like the reads above, so
+          // a missing or unreadable sidecar simply yields `false` (no
+          // badge). This is read-only and informational; the lab head never
+          // gains any control over the member's global identity.
+          let hasSharingIdentity = false;
+          try {
+            const side = await readSharingIdentity(username);
+            hasSharingIdentity = side !== null;
+          } catch {
+            // Stay on "no identity" default.
+          }
           return {
             username,
             displayName,
@@ -110,6 +152,7 @@ export default function LabRoster() {
             archived,
             archived_at,
             archived_by,
+            hasSharingIdentity,
           };
         }),
       );
@@ -172,6 +215,10 @@ export default function LabRoster() {
             Manage which lab members appear in pickers and on the login
             screen. Archive a departed member to hide them from
             day-to-day surfaces while keeping all their data searchable.
+            You manage local accounts only. Sharing identities belong to
+            each member alone, you cannot control, reset, or access them,
+            and resetting a member&apos;s password resets only their
+            offline fallback.
           </p>
         </div>
         {isLabHead && !sessionUnlocked && (
@@ -253,6 +300,32 @@ export default function LabRoster() {
                       <span className="px-1.5 py-0.5 text-meta font-semibold rounded bg-blue-100 text-blue-800">
                         You
                       </span>
+                    )}
+                    {/* D5/D6: read-only "has sharing identity" badge. No
+                        click, no action. A lab head may see who has a
+                        global identity but has no power over it. Muted on
+                        archived rows so it reads as inactive (the sidecar
+                        survives archiving, so the badge can still show). Do
+                        NOT grow this into a "reset/manage/view shares"
+                        affordance — the global identity is the member's
+                        alone (D5/D6). */}
+                    {row.hasSharingIdentity && (
+                      <Tooltip
+                        label="Sharing identity"
+                        body="This member has set up a sharing identity. Only they control it, you cannot manage, reset, or open it."
+                      >
+                        <span
+                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-meta font-semibold rounded ${
+                            row.archived
+                              ? "bg-gray-100 text-gray-400"
+                              : "bg-sky-100 text-sky-800"
+                          }`}
+                          data-testid={`lab-roster-sharing-${row.username}`}
+                        >
+                          <SharingIdentityIcon className="w-3 h-3" />
+                          Sharing
+                        </span>
+                      </Tooltip>
                     )}
                   </div>
                   <div className="text-meta text-gray-500 truncate">
@@ -352,11 +425,21 @@ function ConfirmDialog({
             : `Restore ${label}?`}
         </h2>
         {action.kind === "archive" ? (
-          <p className="text-body text-gray-600">
-            Their data stays searchable; they&apos;re just hidden from the
-            login picker, the @mention picker, the share dialog, and the
-            assignee dropdown. You can restore them any time.
-          </p>
+          <>
+            <p className="text-body text-gray-600">
+              Their data stays searchable; they&apos;re just hidden from the
+              login picker, the @mention picker, the share dialog, and the
+              assignee dropdown. You can restore them any time.
+            </p>
+            {/* D5/D6: archiving is local-only. It never touches the
+                member's global sharing identity or anything sent to them. */}
+            {action.row.hasSharingIdentity && (
+              <p className="text-meta text-gray-500">
+                Archiving hides them locally. It does not affect their
+                sharing identity or anything sent to them.
+              </p>
+            )}
+          </>
         ) : (
           <p className="text-body text-gray-600">
             They&apos;ll reappear in the login picker and all member
