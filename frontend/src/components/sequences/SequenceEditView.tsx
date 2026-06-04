@@ -122,7 +122,7 @@ import SequenceZoomControl from "./SequenceZoomControl";
 import SequenceOverviewBar, { type OverviewFeature } from "./SequenceOverviewBar";
 import SequenceOverviewZoomSlider from "./SequenceOverviewZoomSlider";
 import LinearMap, { type LinearMapFeature } from "./LinearMap";
-import { spanFromShiftClick } from "@/lib/sequences/linear-map-select";
+import { spanFromShiftClick, buildFeatureCard } from "@/lib/sequences/linear-map-select";
 import SequenceTabBar, { type SequenceViewMode } from "./SequenceTabBar";
 import SequenceCoordinateBar from "./SequenceCoordinateBar";
 import SequencePrimersPanel from "./SequencePrimersPanel";
@@ -463,6 +463,19 @@ export default function SequenceEditView({
   // spans from this anchor through the clicked feature. Null when no Map-driven
   // selection is active.
   const [selAnchor, setSelAnchor] = useState<{ start: number; end: number } | null>(null);
+
+  // circular qol bot — HOVER state for the CIRCULAR (plasmid) map, mirroring the
+  // linear Map's hover affordances. While a feature arc on the ring is hovered we
+  // carry the resolved doc-feature INDEX (for the card content + the preview-arc
+  // range) and the card's already-clamped {left, top} (px, relative to the
+  // viewer container) so the floating info card follows the cursor. Null on
+  // mouse-leave clears both the card and the red preview arc.
+  const [circularHover, setCircularHover] = useState<{ idx: number; left: number; top: number } | null>(null);
+  // circular qol bot — drop a lingering hover card / preview arc on a molecule
+  // swap or a tab switch (the ring unmounts, so no mouse-leave would fire).
+  useEffect(() => {
+    setCircularHover(null);
+  }, [sequence.id, viewMode]);
 
   // seq editops bot — Edit-menu plumbing. The right-click context menu position
   // (null = closed), the Find box (open + query + match results + active match),
@@ -1870,6 +1883,89 @@ export default function SequenceEditView({
     setSelAnchor(null);
   }, []);
 
+  // circular qol bot — resolve a clicked/hovered CIRCULAR annotation range back to
+  // its doc-feature INDEX, using the SAME name+range -> name -> start fallback
+  // chain as handleMapFeatureClick so a normalized coordinate still maps right.
+  const resolveCircularFeatureIdx = useCallback(
+    (range: { name: string; start: number; end: number }): number => {
+      let index = doc.features.findIndex(
+        (f) => f.name === range.name && f.start === range.start && f.end === range.end,
+      );
+      if (index < 0) index = doc.features.findIndex((f) => f.name === range.name);
+      if (index < 0) index = doc.features.findIndex((f) => f.start === range.start);
+      return index;
+    },
+    [doc.features],
+  );
+
+  // circular qol bot — HOVER a feature arc on the CIRCULAR ring. Mirrors the
+  // linear Map: it stores the resolved doc-feature index (for the info-card
+  // content + the red preview-arc range) and the card's clamped {left, top}
+  // (px, relative to the viewer container). A null range (mouse-leave) clears
+  // both the card and the preview arc. The card position is clamped on-screen
+  // and flips left near the right edge so it never overflows the viewer.
+  const CIRCULAR_CARD_W = 240;
+  const handleCircularFeatureHover = useCallback(
+    (range: { name: string; start: number; end: number } | null, clientX: number, clientY: number) => {
+      if (!range) {
+        setCircularHover(null);
+        return;
+      }
+      const idx = resolveCircularFeatureIdx(range);
+      if (idx < 0) {
+        setCircularHover(null);
+        return;
+      }
+      const el = viewerRef.current;
+      if (!el) {
+        setCircularHover({ idx, left: 0, top: 0 });
+        return;
+      }
+      const rect = el.getBoundingClientRect();
+      const OFFSET = 14;
+      let left = clientX - rect.left + OFFSET;
+      let top = clientY - rect.top + OFFSET;
+      if (left + CIRCULAR_CARD_W > rect.width) left = clientX - rect.left - CIRCULAR_CARD_W - OFFSET;
+      if (left < 4) left = 4;
+      if (top < 4) top = 4;
+      setCircularHover({ idx, left, top });
+    },
+    [resolveCircularFeatureIdx],
+  );
+
+  // circular qol bot — the interaction object handed to SeqViz's circular tree via
+  // context. The feature CLICK reuses handleMapFeatureClick verbatim, so the
+  // circular shift-span runs the SAME selAnchor + spanFromShiftClick path as the
+  // linear/overview handlers (one shared selection source of truth). The HOVER
+  // drives the card + preview arc.
+  const circularFeatureInteraction = useMemo(
+    () => ({ onFeatureClick: handleMapFeatureClick, onFeatureHover: handleCircularFeatureHover }),
+    [handleMapFeatureClick, handleCircularFeatureHover],
+  );
+
+  // circular qol bot — the hovered feature's range, fed to the circular viewer as
+  // the red PREVIEW arc (the circular analogue of the linear red brackets). Only
+  // active on the circular Map view; null clears the arc.
+  const circularPreviewRange = useMemo(() => {
+    if (!circularHover) return null;
+    const f = doc.features[circularHover.idx];
+    if (!f) return null;
+    return { start: f.start, end: f.end };
+  }, [circularHover, doc.features]);
+
+  // circular qol bot — the hovered feature's info-card content (reuses the SAME
+  // buildFeatureCard the linear Map uses, so the fields read identically). The
+  // doc feature carries note/type for the product + aa/kDa lines.
+  const circularHoverCard = useMemo(() => {
+    if (!circularHover) return null;
+    const f = doc.features[circularHover.idx];
+    if (!f) return null;
+    // Note comes from the SAME product/note/gene qualifier index the linear Map
+    // uses (featureNoteByKey), so the Product line reads identically.
+    const note = featureNoteByKey.get(`${f.name}|${f.start}|${f.end}`);
+    return buildFeatureCard({ name: f.name, start: f.start, end: f.end, type: f.type, note });
+  }, [circularHover, doc.features, featureNoteByKey]);
+
   const duplicateFeatureAt = useCallback(
     (index: number) => editor.applyDocEdit((prev) => duplicateFeature(prev, index)),
     [editor],
@@ -2496,7 +2592,7 @@ export default function SequenceEditView({
       },
       {
         id: "analyze-compare",
-        label: "Compare sequences…",
+        label: "Align sequences…",
         enabled: true,
         group: true,
         onRun: () => setCompareOpen(true),
@@ -3076,6 +3172,14 @@ export default function SequenceEditView({
                   editable={!readOnly && viewMode === "sequence"}
                   onEdit={requestEdit}
                   onAnnotationDoubleClick={handleAnnotationDoubleClick}
+                  // circular qol bot — CIRCULAR map selection QoL: single/shift-click
+                  // a ring feature to select / span (reuses handleMapFeatureClick,
+                  // the SAME selAnchor + spanFromShiftClick path as the linear/
+                  // overview handlers) + the hover card / red preview arc. Threaded
+                  // through context to the deep circular Annotations tree; the
+                  // preview range drives the red arc inside the ring SVG.
+                  circularFeatureInteraction={circularFeatureInteraction}
+                  circularPreviewRange={circularPreviewRange}
                   onSelection={(s) => {
                     setSelection(s);
                     // A user-driven selection takes back control from a feature zoom.
@@ -3113,6 +3217,33 @@ export default function SequenceEditView({
                     container={viewerRef.current}
                     readout={readout}
                   />
+                ) : null}
+                {/* circular qol bot — CIRCULAR map HOVER INFO CARD. The same
+                    floating popover the linear Map shows (name, 1-based range, bp
+                    length, aa/kDa for a coding feature, the product/note), built
+                    from the SHARED buildFeatureCard so the fields read identically.
+                    It is a custom positioned popover (NOT the icon Tooltip),
+                    anchored at the cursor inside this (position: relative) viewer
+                    container, clamped on-screen. pointer-events:none so it never
+                    intercepts the ring click/drag. */}
+                {circularHover && circularHoverCard ? (
+                  <div
+                    role="tooltip"
+                    className="pointer-events-none absolute z-30 rounded-md border border-slate-200 bg-white px-3 py-2 shadow-lg"
+                    style={{ left: circularHover.left, top: circularHover.top, width: CIRCULAR_CARD_W }}
+                  >
+                    <div className="text-body font-semibold text-slate-800">{circularHoverCard.title}</div>
+                    <div className="mt-1 space-y-0.5">
+                      {circularHoverCard.lines.map((line, li) => (
+                        <div key={li} className="text-meta text-slate-600">
+                          {line.label ? (
+                            <span className="font-medium text-slate-500">{line.label} </span>
+                          ) : null}
+                          {line.value}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 ) : null}
               </div>
               {/* BOTTOM COORDINATE / ZOOM CLUSTER (linear only): zoom slider +

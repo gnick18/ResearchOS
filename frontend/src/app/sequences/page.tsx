@@ -162,13 +162,16 @@ function AssembleIcon({ className }: { className?: string }) {
 
 /** Compare glyph: two stacked tracks with offset tick marks, reading as two
  *  sequences laid out for alignment. Inline SVG, stroke-only (no emojis). */
-function CompareIcon({ className }: { className?: string }) {
+/** Align glyph: two sequence lines joined by vertical match columns, reading as
+ *  a pairwise alignment. Inline SVG, stroke-only (no emojis). */
+function AlignIcon({ className }: { className?: string }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
       <line x1="4" y1="8" x2="20" y2="8" />
       <line x1="4" y1="16" x2="20" y2="16" />
-      <line x1="9" y1="5" x2="9" y2="11" />
-      <line x1="15" y1="13" x2="15" y2="19" />
+      <line x1="8" y1="8" x2="8" y2="16" />
+      <line x1="12" y1="8" x2="12" y2="16" />
+      <line x1="16" y1="8" x2="16" y2="16" />
     </svg>
   );
 }
@@ -983,14 +986,14 @@ export default function SequencesPage() {
                 </Tooltip>
                 {/* Compare: align two library sequences and see their percent
                     identity, mismatches, gaps, and a k-mer dotplot. */}
-                <Tooltip label="Compare two sequences: align them and see percent identity, mismatches, gaps, and a dotplot.">
+                <Tooltip label="Align two sequences and see percent identity, mismatches, gaps, and a dotplot.">
                   <button
                     type="button"
                     onClick={() => setCompareOpen(true)}
                     className="flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1.5 text-meta font-medium text-gray-700 transition-colors hover:bg-gray-100"
                   >
-                    <CompareIcon className="h-3.5 w-3.5" />
-                    Compare
+                    <AlignIcon className="h-3.5 w-3.5" />
+                    Align
                   </button>
                 </Tooltip>
                 {/* Import split-menu: pick files, or pick a whole folder
