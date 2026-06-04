@@ -26,7 +26,7 @@ You are inheriting the chat that ran the master-orchestrator **branding / landin
 - Asset render pipeline: Chrome headless `--screenshot` of an HTML/SVG served on localhost; Geist font via Google Fonts with `--virtual-time-budget` so it loads; `--force-device-scale-factor=2` for hi-DPI PNGs.
 - MediaPipe (avatar tool): "dbg is not a function" is a Chrome-EXTENSION environment issue (test in Incognito / a clean profile), not a version or code bug; all tasks-vision versions init cleanly in a clean browser. Use a FRESH FilesetResolver per delegate (GPU then CPU fallback).
 - Verification: screenshot Grant's running `:3000` (read-only GET); NEVER start a second `next dev` against master (corrupts Turbopack's persistent cache, fix is `rm -rf frontend/.next`).
-- Decisions to Grant use AskUserQuestion (clickable options), not prose. He wants to SEE rendered options before deciding visual/copy direction (that is how the hero positioning was chosen, mockups in `tools/beakerbot-avatar/hero-mock.html`, untracked).
+- Decisions to Grant use AskUserQuestion (clickable options), not prose. He wants to SEE rendered options before deciding visual/copy direction (that is how the hero positioning was chosen, mockups in `tools/beakerbot-avatar/hero-mock.html`, ?v=balanced|capability|trust).
 
 ## Status
 Nothing is mid-flight; all sub-bots completed and landed. Branding arc is wrapped. Not pushed to origin (awaits Grant). Pick up from the three open threads above, login-screen redesign is the most likely next ask.
