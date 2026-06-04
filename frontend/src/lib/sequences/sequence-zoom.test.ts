@@ -25,6 +25,9 @@ import {
   achievableSpanRange,
   clampSequenceZoom,
   SEQUENCE_MIN_LINEAR_ZOOM,
+  zoomExtentAroundCursor,
+  panExtent,
+  frameExtentToSelection,
 } from "./sequence-zoom";
 
 describe("initialLinearZoom", () => {
@@ -208,6 +211,172 @@ describe("trackXToBp / bpToTrackX round-trip", () => {
     expect(trackXToBp(9999, 600, 60000)).toBe(60000);
     expect(bpToTrackX(-5, 600, 60000)).toBe(0);
     expect(bpToTrackX(99999, 600, 60000)).toBe(600);
+  });
+});
+
+// overview zoom bot — the extent-aware (non-zero lo) bp<->x mapping that lets the
+// overview bar render a sub-range of the molecule across the full track.
+describe("trackXToBp / bpToTrackX over a non-zero extent [lo, hi]", () => {
+  it("maps the extent domain across the whole track width", () => {
+    const w = 600;
+    const len = 60000;
+    // Extent [10000, 20000] (span 10000) spans the 600px track.
+    expect(trackXToBp(0, w, len, 10000, 20000)).toBe(10000);
+    expect(trackXToBp(w, w, len, 10000, 20000)).toBe(20000);
+    expect(trackXToBp(300, w, len, 10000, 20000)).toBe(15000);
+    expect(bpToTrackX(10000, w, len, 10000, 20000)).toBe(0);
+    expect(bpToTrackX(20000, w, len, 10000, 20000)).toBe(w);
+    expect(bpToTrackX(15000, w, len, 10000, 20000)).toBeCloseTo(300, 5);
+  });
+  it("clamps a bp outside the extent to the nearest track edge", () => {
+    const w = 600;
+    const len = 60000;
+    // bp before lo pins to 0; bp after hi pins to the track width (partial-overlap
+    // features clamp to the edges rather than spilling off-track).
+    expect(bpToTrackX(5000, w, len, 10000, 20000)).toBe(0);
+    expect(bpToTrackX(50000, w, len, 10000, 20000)).toBe(w);
+  });
+  it("is byte-compatible with the 3-arg whole-molecule call", () => {
+    const w = 600;
+    const len = 60000;
+    expect(bpToTrackX(30000, w, len)).toBe(bpToTrackX(30000, w, len, 0, len));
+    expect(trackXToBp(300, w, len)).toBe(trackXToBp(300, w, len, 0, len));
+  });
+});
+
+describe("zoomExtentAroundCursor (independent overview zoom anchor + clamp)", () => {
+  it("keeps the bp under the cursor put while narrowing the span (zoom in)", () => {
+    // Whole molecule, cursor at the center (frac 0.5 -> anchor bp 5000). Halving
+    // the span to 5000 should keep 5000 at the center -> [2500, 7500].
+    const next = zoomExtentAroundCursor({
+      extent: { start: 0, end: 10000 },
+      seqLength: 10000,
+      cursorFraction: 0.5,
+      factor: 0.5,
+      minSpan: 50,
+    });
+    expect(next).toEqual({ start: 2500, end: 7500 });
+  });
+  it("anchors at an off-center cursor", () => {
+    // Cursor a quarter across (frac 0.25 -> anchor bp 2500). Halving span to 5000
+    // keeps 2500 at frac 0.25 -> start = 2500 - 0.25*5000 = 1250.
+    const next = zoomExtentAroundCursor({
+      extent: { start: 0, end: 10000 },
+      seqLength: 10000,
+      cursorFraction: 0.25,
+      factor: 0.5,
+      minSpan: 50,
+    });
+    expect(next).toEqual({ start: 1250, end: 6250 });
+  });
+  it("floors the span at minSpan so it can't invert or get glitchy", () => {
+    const next = zoomExtentAroundCursor({
+      extent: { start: 4000, end: 6000 },
+      seqLength: 10000,
+      cursorFraction: 0.5,
+      factor: 0.001, // would collapse to ~2 bp without the floor
+      minSpan: 200,
+    });
+    expect(next.end - next.start).toBe(200);
+    // still anchored at the center (bp 5000).
+    expect(next.start).toBe(4900);
+    expect(next.end).toBe(5100);
+  });
+  it("caps the span at the whole molecule and clamps the window in-range", () => {
+    const next = zoomExtentAroundCursor({
+      extent: { start: 2000, end: 4000 },
+      seqLength: 10000,
+      cursorFraction: 0.5,
+      factor: 100, // would blow past the molecule without the cap
+      minSpan: 50,
+    });
+    expect(next).toEqual({ start: 0, end: 10000 });
+  });
+  it("shifts (not just clips) the window to stay inside [0, seqLength]", () => {
+    // Widen an extent whose anchored start would overflow the right edge: the
+    // window keeps its span and shifts left to stay inside the molecule.
+    const next = zoomExtentAroundCursor({
+      extent: { start: 9500, end: 9800 },
+      seqLength: 10000,
+      cursorFraction: 1, // anchor bp 9800
+      factor: 10, // span 300 -> 3000
+      minSpan: 50,
+    });
+    expect(next.end - next.start).toBe(3000);
+    // anchored start = 9800 - 3000 = 6800, fits inside [0, 7000] -> unchanged.
+    expect(next).toEqual({ start: 6800, end: 9800 });
+  });
+  it("shifts left when the anchored window would overflow the right edge", () => {
+    const next = zoomExtentAroundCursor({
+      extent: { start: 9000, end: 9900 },
+      seqLength: 10000,
+      cursorFraction: 0, // anchor bp 9000, keep it at the LEFT edge
+      factor: 2, // span 900 -> 1800
+      minSpan: 50,
+    });
+    expect(next.end - next.start).toBe(1800);
+    // anchored start = 9000, but 9000 + 1800 = 10800 > 10000 -> shift to 8200.
+    expect(next).toEqual({ start: 8200, end: 10000 });
+  });
+});
+
+describe("panExtent (pan a zoomed overview without changing its span)", () => {
+  it("shifts the window by the bp delta, preserving the span", () => {
+    expect(panExtent({ start: 2000, end: 4000 }, 500, 10000)).toEqual({
+      start: 2500,
+      end: 4500,
+    });
+  });
+  it("clamps the panned window inside [0, seqLength]", () => {
+    expect(panExtent({ start: 2000, end: 4000 }, -5000, 10000)).toEqual({
+      start: 0,
+      end: 2000,
+    });
+    expect(panExtent({ start: 8000, end: 9500 }, 5000, 10000)).toEqual({
+      start: 8500,
+      end: 10000,
+    });
+  });
+});
+
+describe("frameExtentToSelection (frame the overview to a Map selection)", () => {
+  it("pads a selection by ~40% of its span on each side", () => {
+    // Selection [4000, 5000] (span 1000), 40% pad each side -> span 1800 centered
+    // on 4500 -> [3600, 5400].
+    const ext = frameExtentToSelection({
+      selection: { start: 4000, end: 5000 },
+      seqLength: 10000,
+    });
+    expect(ext).toEqual({ start: 3600, end: 5400 });
+  });
+  it("floors a tiny / 1-bp pick to a readable minimum span", () => {
+    const ext = frameExtentToSelection({
+      selection: { start: 5000, end: 5000 },
+      seqLength: 10000,
+      minSpan: 60,
+    });
+    expect(ext.end - ext.start).toBe(60);
+    // centered on the pick (bp 5000).
+    expect(ext.start).toBe(4970);
+    expect(ext.end).toBe(5030);
+  });
+  it("normalizes a reversed selection and clamps to [0, seqLength]", () => {
+    // Reversed bounds near the start: framing can't go below 0, so it shifts right.
+    const ext = frameExtentToSelection({
+      selection: { start: 500, end: 100 },
+      seqLength: 10000,
+      padFraction: 0.5,
+    });
+    // span = 400 + 2*200 = 800, centered on 300 -> would start at -100 -> clamp 0.
+    expect(ext).toEqual({ start: 0, end: 800 });
+  });
+  it("never frames wider than the whole molecule", () => {
+    const ext = frameExtentToSelection({
+      selection: { start: 0, end: 10000 },
+      seqLength: 10000,
+      padFraction: 0.5,
+    });
+    expect(ext).toEqual({ start: 0, end: 10000 });
   });
 });
 

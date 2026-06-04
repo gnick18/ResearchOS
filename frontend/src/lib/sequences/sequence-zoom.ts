@@ -406,19 +406,149 @@ export function bpToScrollLeft(opts: {
 
 /**
  * Convert an x pixel offset within the overview track (width `trackWidth`) to a
- * base-pair position. The overview lays the whole sequence out left-to-right.
+ * base-pair position. The overview lays the track domain out left-to-right.
+ *
+ * overview zoom bot — the track no longer always spans the WHOLE molecule. The
+ * optional `lo`/`hi` describe the bp DOMAIN the track currently covers (the
+ * overview EXTENT). When omitted they default to `[0, seqLength]`, so every
+ * existing 3-arg call (`trackXToBp(x, width, len)`) is byte-for-byte unchanged.
  */
-export function trackXToBp(x: number, trackWidth: number, seqLength: number): number {
+export function trackXToBp(
+  x: number,
+  trackWidth: number,
+  seqLength: number,
+  lo = 0,
+  hi = seqLength,
+): number {
   if (!Number.isFinite(trackWidth) || trackWidth <= 0) return 0;
+  const span = hi - lo;
+  if (!Number.isFinite(span) || span <= 0) return Math.round(lo);
   const frac = Math.max(0, Math.min(1, x / trackWidth));
-  return Math.round(frac * seqLength);
+  return Math.round(lo + frac * span);
 }
 
-/** Convert a base-pair position to an x pixel offset within the overview track. */
-export function bpToTrackX(bp: number, trackWidth: number, seqLength: number): number {
-  if (!Number.isFinite(seqLength) || seqLength <= 0) return 0;
-  const frac = Math.max(0, Math.min(1, bp / seqLength));
+/**
+ * Convert a base-pair position to an x pixel offset within the overview track.
+ *
+ * overview zoom bot — `lo`/`hi` give the bp DOMAIN the track covers (the overview
+ * EXTENT). Omitted, they default to `[0, seqLength]`, so the existing 3-arg call
+ * (`bpToTrackX(bp, width, len)`) is unchanged. When an extent is supplied, the bp
+ * is projected onto `[lo, hi]` and clamped to the track edges so a bp outside the
+ * extent pins to the nearest edge (partial-overlap features clamp to 0 / width).
+ */
+export function bpToTrackX(
+  bp: number,
+  trackWidth: number,
+  seqLength: number,
+  lo = 0,
+  hi = seqLength,
+): number {
+  const span = hi - lo;
+  if (!Number.isFinite(span) || span <= 0) return 0;
+  const frac = Math.max(0, Math.min(1, (bp - lo) / span));
   return frac * trackWidth;
+}
+
+/**
+ * overview zoom bot — CURSOR-ANCHORED EXTENT ZOOM (pure).
+ *
+ * The overview bar has its OWN zoom, independent of the detail view. A scroll /
+ * pinch over the bar shrinks or grows the visible bp EXTENT `[start, end]`,
+ * anchored so the bp under the cursor stays put. `cursorFraction` is the cursor's
+ * position across the track (0 at the left edge, 1 at the right). `factor` is the
+ * span multiplier (< 1 zooms IN / narrows the extent, > 1 zooms OUT / widens it).
+ *
+ * Anchor: the bp under the cursor is `anchor = start + cursorFraction * span`.
+ * After scaling the span by `factor`, we keep `anchor` at the same fraction:
+ *   newStart = anchor - cursorFraction * newSpan.
+ *
+ * CLAMP:
+ *   - the new span is floored at `minSpan` (so it can't invert or get glitchy)
+ *     and capped at the whole molecule `seqLength`;
+ *   - the resulting window is shifted to stay inside `[0, seqLength]`.
+ * Pure + DOM-free so it is unit-testable in isolation.
+ */
+export function zoomExtentAroundCursor(opts: {
+  extent: { start: number; end: number };
+  seqLength: number;
+  cursorFraction: number;
+  factor: number;
+  minSpan: number;
+}): { start: number; end: number } {
+  const { extent, seqLength, cursorFraction, factor, minSpan } = opts;
+  const len = Number.isFinite(seqLength) && seqLength > 0 ? seqLength : 0;
+  if (len <= 0) return { start: 0, end: 0 };
+  const curStart = Math.max(0, Math.min(len, extent.start));
+  const curEnd = Math.max(curStart, Math.min(len, extent.end));
+  const curSpan = Math.max(1, curEnd - curStart);
+  const frac = Math.max(0, Math.min(1, cursorFraction));
+  const anchor = curStart + frac * curSpan;
+  // Clamp the new span: floored so it can't invert, capped at the whole molecule.
+  const floor = Math.max(1, Math.min(len, Math.round(minSpan)));
+  const f = Number.isFinite(factor) && factor > 0 ? factor : 1;
+  let newSpan = Math.round(curSpan * f);
+  newSpan = Math.max(floor, Math.min(len, newSpan));
+  let start = Math.round(anchor - frac * newSpan);
+  // Shift the window so it stays inside [0, seqLength] without changing its span.
+  start = Math.max(0, Math.min(len - newSpan, start));
+  const end = start + newSpan;
+  return { start, end };
+}
+
+/**
+ * overview zoom bot — PAN a zoomed extent by a bp delta, keeping its span and
+ * staying inside `[0, seqLength]`. Used for horizontal-wheel / drag panning of a
+ * zoomed overview. Pure + DOM-free.
+ */
+export function panExtent(
+  extent: { start: number; end: number },
+  deltaBp: number,
+  seqLength: number,
+): { start: number; end: number } {
+  const len = Number.isFinite(seqLength) && seqLength > 0 ? seqLength : 0;
+  if (len <= 0) return { start: 0, end: 0 };
+  const span = Math.max(1, Math.min(len, extent.end - extent.start));
+  const d = Number.isFinite(deltaBp) ? Math.round(deltaBp) : 0;
+  let start = Math.round(extent.start) + d;
+  start = Math.max(0, Math.min(len - span, start));
+  return { start, end: start + span };
+}
+
+/**
+ * overview zoom bot — FRAME the overview EXTENT to a selected bp range so a Map
+ * selection that lands in Sequence view shows up snugly in the bar.
+ *
+ * The selection `[lo, hi]` is padded by `padFraction` of its OWN span on each
+ * side (default 0.4 == pad 40% per side) so the highlighted region sits with a
+ * little air around it rather than flush to the edges. A `minSpan` floor keeps a
+ * 1-bp pick from framing an unreadably tight window. The framed extent is clamped
+ * to `[0, seqLength]`; if padding would overflow one edge the window is shifted
+ * (not just clipped) so the full padded span is preserved where the molecule
+ * allows. Pure + DOM-free so it is unit-testable.
+ */
+export function frameExtentToSelection(opts: {
+  selection: { start: number; end: number };
+  seqLength: number;
+  padFraction?: number;
+  minSpan?: number;
+}): { start: number; end: number } {
+  const { selection, seqLength, padFraction = 0.4, minSpan = 60 } = opts;
+  const len = Number.isFinite(seqLength) && seqLength > 0 ? seqLength : 0;
+  if (len <= 0) return { start: 0, end: 0 };
+  let selLo = Math.min(selection.start, selection.end);
+  let selHi = Math.max(selection.start, selection.end);
+  selLo = Math.max(0, Math.min(len, selLo));
+  selHi = Math.max(0, Math.min(len, selHi));
+  const selSpan = Math.max(0, selHi - selLo);
+  const pad = Math.max(0, padFraction) * selSpan;
+  let span = selSpan + 2 * pad;
+  // Floor so a tiny / zero-width pick still frames a readable window.
+  span = Math.max(Math.max(1, Math.round(minSpan)), Math.round(span));
+  span = Math.min(len, span);
+  const center = (selLo + selHi) / 2;
+  let start = Math.round(center - span / 2);
+  start = Math.max(0, Math.min(len - span, start));
+  return { start, end: start + span };
 }
 
 /** A feature spanning at least this fraction of the whole sequence counts as a

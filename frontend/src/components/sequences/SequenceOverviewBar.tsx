@@ -3,7 +3,7 @@
 // seq nav bot — the PERSISTENT OVERVIEW / CONTEXT BAR for linear navigation.
 //
 // SeqViz has NO native fixed top strip (its linear viewer stacks rows and
-// scrolls vertically), so this is a CUSTOM lightweight SVG mini-map: the whole
+// scrolls vertically), so this is a CUSTOM lightweight SVG mini-map: the
 // sequence laid out left-to-right as a thin baseline, every visible feature as
 // a small arrow, plus a draggable VIEWPORT BOX showing the current view window.
 //
@@ -14,11 +14,24 @@
 //     the user wants at the top of the main view, which the host turns into a
 //     main-view scroll. So the box both reflects and controls the main view.
 //
+// overview zoom bot — TWO-LEVEL ZOOM (SnapGene-style). The bar now has its OWN
+// independent zoom: a scroll / trackpad pinch OVER THE BAR shrinks or grows the
+// visible bp EXTENT `[start, end]`, decoupled from the detail-view zoom. The
+// detail `window` box is projected onto whatever extent is showing, clamped to
+// the track when the detail window sits partly outside the extent. At the
+// default whole-molecule extent (`[0, seqLength]`) every behavior is unchanged.
+//
 // This bar is LINEAR-only (circular molecules already get the circular map). It
 // renders nothing when there is no sequence.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { bpToTrackX, trackXToBp, showInOverview } from "@/lib/sequences/sequence-zoom";
+import {
+  bpToTrackX,
+  trackXToBp,
+  showInOverview,
+  zoomExtentAroundCursor,
+  panExtent,
+} from "@/lib/sequences/sequence-zoom";
 
 export interface OverviewFeature {
   name: string;
@@ -39,12 +52,27 @@ export interface SequenceOverviewBarProps {
   window: { start: number; end: number };
   /** Scroll the main view so `bp` sits at the top of its viewport. */
   onScrollToBp: (bp: number) => void;
+  /**
+   * overview zoom bot — the bp DOMAIN the bar currently spans (its OWN zoom).
+   * Defaults to the whole molecule when omitted, preserving the original
+   * whole-molecule behavior. Scroll / pinch over the bar changes this via
+   * `onExtentChange`, independent of the detail view's zoom.
+   */
+  extent?: { start: number; end: number };
+  /** Emitted when a scroll / pinch / pan over the bar changes the extent. */
+  onExtentChange?: (extent: { start: number; end: number }) => void;
 }
 
 const BAR_HEIGHT = 46; // px, the whole strip
 const TRACK_PAD_X = 8; // px horizontal inset so the box edges aren't clipped
 const BASELINE_Y = 30; // px, where the sequence baseline sits
 const FEATURE_H = 9; // px, feature arrow height
+
+/** overview zoom bot — how aggressively a plain wheel / pinch step scales the
+ *  extent span. Each unit of wheel deltaY multiplies the span by
+ *  exp(deltaY * SPAN_ZOOM_K); positive deltaY (scroll down / pinch together)
+ *  widens (zoom OUT), negative narrows (zoom IN), matching the LinearMap feel. */
+const SPAN_ZOOM_K = 0.0025;
 
 /** Build an SVG arrow polygon for a feature spanning [x0, x1] at the baseline. */
 function featureArrow(x0: number, x1: number, direction: 1 | -1): string {
@@ -67,12 +95,22 @@ export default function SequenceOverviewBar({
   features,
   window: win,
   onScrollToBp,
+  extent,
+  onExtentChange,
 }: SequenceOverviewBarProps) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [trackWidth, setTrackWidth] = useState(0);
   // While dragging we render the box at the drag position immediately (the host
   // round-trips the scroll on the next frame; this keeps the box from lagging).
   const [dragBp, setDragBp] = useState<number | null>(null);
+
+  // overview zoom bot — resolve the active extent (default whole molecule). lo/hi
+  // are the bp domain the track covers; everything below maps bp<->x over this.
+  const lo = Math.max(0, Math.min(seqLength, extent?.start ?? 0));
+  const hiRaw = extent?.end ?? seqLength;
+  const hi = Math.max(lo + 1, Math.min(seqLength, hiRaw));
+  const extentSpan = Math.max(1, hi - lo);
+  const isZoomed = lo > 0 || hi < seqLength;
 
   // Track the available track width (full width minus the horizontal padding).
   useEffect(() => {
@@ -89,8 +127,13 @@ export default function SequenceOverviewBar({
   // The bp at the top of the visible window (what the box's left edge tracks).
   const effectiveStart = dragBp ?? win.start;
 
-  const boxX = TRACK_PAD_X + bpToTrackX(effectiveStart, trackWidth, seqLength);
-  const boxW = Math.max(6, bpToTrackX(winSpan, trackWidth, seqLength));
+  // overview zoom bot — project the detail window box onto the active extent. The
+  // edges are clamped to the track so a detail window that sits partly (or fully)
+  // outside the extent still shows a clamped box rather than spilling past.
+  const winStartX = bpToTrackX(effectiveStart, trackWidth, seqLength, lo, hi);
+  const winEndX = bpToTrackX(effectiveStart + winSpan, trackWidth, seqLength, lo, hi);
+  const boxX = TRACK_PAD_X + winStartX;
+  const boxW = Math.max(6, winEndX - winStartX);
   // Clamp so the box stays inside the track.
   const clampedBoxX = Math.min(
     TRACK_PAD_X + trackWidth - boxW,
@@ -98,18 +141,20 @@ export default function SequenceOverviewBar({
   );
 
   // Convert a clientX on the track into a target bp (top of window). We aim the
-  // CENTER of the box at the pointer for a natural "drag the box" feel.
+  // CENTER of the box at the pointer for a natural "drag the box" feel. The
+  // pointer bp is read over the ACTIVE EXTENT, so click-to-scroll lands correctly
+  // even when the bar is zoomed in.
   const clientXToBp = useCallback(
     (clientX: number, centerOnPointer: boolean) => {
       const el = wrapRef.current;
       if (!el) return 0;
       const rect = el.getBoundingClientRect();
       const x = clientX - rect.left - TRACK_PAD_X;
-      const bpAtPointer = trackXToBp(x, trackWidth, seqLength);
+      const bpAtPointer = trackXToBp(x, trackWidth, seqLength, lo, hi);
       if (!centerOnPointer) return bpAtPointer;
       return Math.max(0, bpAtPointer - Math.round(winSpan / 2));
     },
-    [trackWidth, seqLength, winSpan],
+    [trackWidth, seqLength, winSpan, lo, hi],
   );
 
   const draggingRef = useRef(false);
@@ -143,7 +188,122 @@ export default function SequenceOverviewBar({
     setDragBp(null);
   }, []);
 
-  // Features mapped to track geometry (memoized; only features within range).
+  // overview zoom bot — INDEPENDENT WHEEL / PINCH ZOOM over the bar. Mirrors the
+  // proven LinearMap handler: a non-passive wheel listener (so preventDefault
+  // works) plus Safari gesture* events. A pinch (ctrl/meta + wheel) OR a plain
+  // vertical wheel zooms the EXTENT anchored at the bp under the cursor; the page
+  // never scrolls. A horizontal wheel (shift+wheel / trackpad sideways) PANS a
+  // zoomed extent. This touches ONLY the overview extent, never the detail view.
+  //
+  // Live values (extent, geometry, callbacks) are read from a ref so the listener
+  // can be attached once and still see the latest state.
+  const zoomStateRef = useRef({
+    lo,
+    hi,
+    seqLength,
+    trackWidth,
+    winSpan,
+    onExtentChange,
+    isZoomed,
+  });
+  zoomStateRef.current = { lo, hi, seqLength, trackWidth, winSpan, onExtentChange, isZoomed };
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+
+    // Min extent span: never tighter than the detail window (so the box stays
+    // meaningful) and never below a small absolute floor.
+    const minSpan = () => {
+      const { winSpan: ws } = zoomStateRef.current;
+      return Math.max(50, ws);
+    };
+
+    const cursorFractionAt = (clientX: number) => {
+      const { trackWidth: tw } = zoomStateRef.current;
+      if (tw <= 0) return 0.5;
+      const rect = el.getBoundingClientRect();
+      return Math.max(0, Math.min(1, (clientX - rect.left - TRACK_PAD_X) / tw));
+    };
+
+    const applyZoom = (deltaY: number, clientX: number) => {
+      const st = zoomStateRef.current;
+      if (st.trackWidth <= 0 || st.seqLength <= 0) return;
+      if (!st.onExtentChange) return;
+      // factor < 1 narrows (zoom IN) on a spread / scroll up; > 1 widens.
+      const factor = Math.exp(deltaY * SPAN_ZOOM_K);
+      const next = zoomExtentAroundCursor({
+        extent: { start: st.lo, end: st.hi },
+        seqLength: st.seqLength,
+        cursorFraction: cursorFractionAt(clientX),
+        factor,
+        minSpan: minSpan(),
+      });
+      if (next.start === st.lo && next.end === st.hi) return;
+      st.onExtentChange(next);
+    };
+
+    const applyPan = (deltaX: number) => {
+      const st = zoomStateRef.current;
+      if (!st.onExtentChange || !st.isZoomed || st.trackWidth <= 0) return;
+      const span = Math.max(1, st.hi - st.lo);
+      // Convert a horizontal pixel delta to a bp delta across the visible extent.
+      const deltaBp = (deltaX / st.trackWidth) * span;
+      const next = panExtent({ start: st.lo, end: st.hi }, deltaBp, st.seqLength);
+      if (next.start === st.lo && next.end === st.hi) return;
+      st.onExtentChange(next);
+    };
+
+    const onWheel = (e: WheelEvent) => {
+      const st = zoomStateRef.current;
+      if (!st.onExtentChange) return;
+      // A dominant horizontal wheel pans a zoomed extent (nice-to-have).
+      if (
+        !e.ctrlKey &&
+        !e.metaKey &&
+        Math.abs(e.deltaX) > Math.abs(e.deltaY) &&
+        st.isZoomed
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        applyPan(e.deltaX);
+        return;
+      }
+      // Otherwise zoom the extent (pinch == ctrl/meta+wheel, or a plain vertical
+      // wheel over the bar). Either way preventDefault so the page never scrolls.
+      e.preventDefault();
+      e.stopPropagation();
+      applyZoom(e.deltaY, e.clientX);
+    };
+
+    // Safari fires gesture* with a relative `scale` (1 == no change, >1 spread /
+    // zoom-in, <1 pinch / zoom-out). Convert to a deltaY-equivalent so we reuse
+    // the same anchored-zoom path (scale 1.1 -> ~ -10 deltaY -> zoom IN).
+    const onGesture = (e: Event) => {
+      const ge = e as Event & { scale?: number; clientX?: number };
+      if (typeof ge.scale !== "number") return;
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const clientX = typeof ge.clientX === "number" ? ge.clientX : rect.left + rect.width / 2;
+      const deltaY = (1 - ge.scale) * 100;
+      applyZoom(deltaY, clientX);
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("gesturestart", onGesture as EventListener);
+    el.addEventListener("gesturechange", onGesture as EventListener);
+    el.addEventListener("gestureend", onGesture as EventListener);
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("gesturestart", onGesture as EventListener);
+      el.removeEventListener("gesturechange", onGesture as EventListener);
+      el.removeEventListener("gestureend", onGesture as EventListener);
+    };
+  }, []);
+
+  // Features mapped to track geometry (memoized). Features fully outside the
+  // active extent are dropped; partially-overlapping ones clamp to the edges via
+  // bpToTrackX's clamp, so a feature straddling the extent edge stays on-screen.
   const arrows = useMemo(() => {
     if (trackWidth <= 0 || seqLength <= 0) return [];
     return features
@@ -151,9 +311,11 @@ export default function SequenceOverviewBar({
       // Keep the whole-span `source` feature (and any end-to-end annotation) off
       // the mini-map: a full-width bar adds no navigational value, just clutter.
       .filter((f) => showInOverview(f, seqLength))
+      // Drop features that don't overlap the visible extent at all.
+      .filter((f) => f.end > lo && f.start < hi)
       .map((f, i) => {
-        const x0 = TRACK_PAD_X + bpToTrackX(f.start, trackWidth, seqLength);
-        const x1 = TRACK_PAD_X + bpToTrackX(f.end, trackWidth, seqLength);
+        const x0 = TRACK_PAD_X + bpToTrackX(f.start, trackWidth, seqLength, lo, hi);
+        const x1 = TRACK_PAD_X + bpToTrackX(f.end, trackWidth, seqLength, lo, hi);
         return {
           key: `${f.name}-${f.start}-${f.end}-${i}`,
           points: featureArrow(x0, x1, f.direction),
@@ -161,9 +323,14 @@ export default function SequenceOverviewBar({
           name: f.name,
         };
       });
-  }, [features, trackWidth, seqLength]);
+  }, [features, trackWidth, seqLength, lo, hi]);
 
   if (!seqLength) return null;
+
+  // Edge labels show the EXTENT bounds (1-based for the left edge, like the
+  // original whole-molecule labels which read "1" .. "seqLength").
+  const leftLabel = (lo + 1).toLocaleString();
+  const rightLabel = hi.toLocaleString();
 
   return (
     <div
@@ -209,9 +376,9 @@ export default function SequenceOverviewBar({
           strokeWidth={1.5}
           style={{ cursor: "grab" }}
         />
-        {/* start / end labels */}
+        {/* start / end labels (the visible EXTENT bounds) */}
         <text x={TRACK_PAD_X} y={BAR_HEIGHT - 3} fontSize={10} fill="#94a3b8">
-          1
+          {leftLabel}
         </text>
         <text
           x={TRACK_PAD_X + trackWidth}
@@ -220,7 +387,7 @@ export default function SequenceOverviewBar({
           fill="#94a3b8"
           textAnchor="end"
         >
-          {seqLength.toLocaleString()}
+          {rightLabel}
         </text>
       </svg>
     </div>

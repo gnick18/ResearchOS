@@ -137,6 +137,7 @@ import {
   anchorScrollTopForBp,
   clampSequenceZoom,
   MAP_ZOOM,
+  frameExtentToSelection,
 } from "@/lib/sequences/sequence-zoom";
 import {
   EditMenuDropdown,
@@ -822,6 +823,15 @@ export default function SequenceEditView({
     start: 0,
     end: doc.seq.length,
   });
+  // overview zoom bot — the overview bar's OWN bp EXTENT (its independent zoom),
+  // decoupled from the detail-view linearZoom. Defaults to the whole molecule so
+  // the bar opens exactly as before. Scroll / pinch over the bar narrows or
+  // widens it (onExtentChange), and a Map selection that lands in Sequence view
+  // FRAMES it around the selected range. Reset to whole-molecule on seq swap.
+  const [overviewExtent, setOverviewExtent] = useState<{ start: number; end: number }>({
+    start: 0,
+    end: doc.seq.length,
+  });
   // seq polish batch bot — FIX 3 (bp-readout flicker): the window above is seeded
   // to the WHOLE molecule, but the true visible window is only known after the
   // SeqViz scroller lays out (a frame or two later). Without gating, the bottom
@@ -880,6 +890,13 @@ export default function SequenceEditView({
   useEffect(() => {
     setWindowMeasured(false);
   }, [sequence.id, viewMode, singleLine]);
+
+  // overview zoom bot — reset the overview bar's independent extent to the whole
+  // molecule whenever the open sequence changes, so a new molecule opens at full
+  // overview rather than inheriting the previous one's zoomed extent.
+  useEffect(() => {
+    setOverviewExtent({ start: 0, end: doc.seq.length });
+  }, [sequence.id, doc.seq.length]);
 
   // Locate the SeqViz linear scroller inside our viewer container and wire a
   // scroll listener + resize observer. SeqViz re-renders its scroll subtree on
@@ -1413,8 +1430,19 @@ export default function SequenceEditView({
       if (!f) return;
       setSelectedFeatureIdx(index);
       setExternalSel({ start: f.start, end: f.end });
+      // overview zoom bot — FRAME the overview bar's independent extent snugly
+      // around the selected feature (padded ~40% of its span per side, floored
+      // so a tiny feature still frames a readable window). So selecting a feature
+      // in the Map and landing in Sequence view zooms the overview to that region
+      // regardless of the feature's size. Whole-molecule reset happens on seq swap.
+      setOverviewExtent(
+        frameExtentToSelection({
+          selection: { start: f.start, end: f.end },
+          seqLength: doc.seq.length,
+        }),
+      );
     },
-    [doc.features],
+    [doc.features, doc.seq.length],
   );
 
   // ADD: open the editor seeded from the current drag-selection (or a 1-bp stub
@@ -1687,6 +1715,16 @@ export default function SequenceEditView({
       setViewMode("sequence");
       placeCaret(clamped);
       setExternalSel({ start: clamped, end: clamped });
+      // overview zoom bot — a plain seek to a bp (click on empty track / ruler)
+      // frames a MODEST window around the target (the frameExtentToSelection
+      // minSpan floor, ~60 bp) rather than leaving the bar at whatever extent it
+      // was, so the overview lands centered on where the detail view jumps.
+      setOverviewExtent(
+        frameExtentToSelection({
+          selection: { start: clamped, end: clamped },
+          seqLength: doc.seq.length,
+        }),
+      );
       requestAnimationFrame(() => scrollMainToBp(clamped));
     },
     [doc.seq.length, placeCaret, scrollMainToBp],
@@ -2719,6 +2757,11 @@ export default function SequenceEditView({
                   features={overviewFeatures}
                   window={overviewWindow}
                   onScrollToBp={scrollMainToBp}
+                  // overview zoom bot — the bar's OWN zoom (independent of the
+                  // detail-view linearZoom). Scroll / pinch over the bar updates
+                  // this extent; it never touches the detail zoom, and vice-versa.
+                  extent={overviewExtent}
+                  onExtentChange={setOverviewExtent}
                 />
               ) : null}
               <div
