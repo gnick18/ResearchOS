@@ -512,7 +512,53 @@ async function writeNotesResultsAttachments(
   }
 }
 
+/**
+ * Apply path for a standalone METHOD bundle (cross-boundary method sharing).
+ *
+ * A shared method rides inside a synthetic "envelope" experiment so the
+ * unchanged experiment parser can read it, but on receive only the method
+ * should land. This path reuses applyMethodResolutions verbatim (protocol
+ * recreation, source_path rewrite, body-file copy, is_public:false) and stops
+ * there. It deliberately creates NO task (the envelope task), NO results
+ * subtree, NO project (the synthetic "(method share)" placeholder), and NO
+ * dependencies, none of which a standalone method has. So a received method
+ * lands as just the method record + its body / protocol / source PDF, with no
+ * phantom experiment alongside it.
+ *
+ * Routed from applyImportPlan when manifest.kind === "method".
+ */
+async function applyMethodOnlyImportPlan(plan: ImportPlan): Promise<ImportResult> {
+  const currentUser = await getCurrentUserCached();
+  if (!currentUser || currentUser === "_no_user_") {
+    throw new Error("No active user — sign in before importing.");
+  }
+
+  const { mapping } = await applyMethodResolutions(plan);
+
+  return {
+    // A method import materializes no task — the envelope is dropped, never
+    // created. null is the method-only marker the success UI branches on.
+    newTaskId: null,
+    newTaskOwner: currentUser,
+    // No project either; the envelope's "(method share)" placeholder is never
+    // created on the receiver side.
+    newProjectId: null,
+    importedMethodIds: mapping,
+    // A standalone method has no task links or foreign method references to
+    // drop, so nothing is ever "not carried" on this path.
+    notCarried: { dependencies: [], methodRefs: [] },
+  };
+}
+
 export async function applyImportPlan(plan: ImportPlan): Promise<ImportResult> {
+  // A standalone method bundle is experiment-shaped on the wire (a synthetic
+  // envelope task carrying the one method) so the unchanged parser can read
+  // it. On receive, branch to the method-only apply BEFORE any task or project
+  // is created, so the method lands alone with no phantom experiment.
+  if (plan.payload.manifest.kind === "method") {
+    return applyMethodOnlyImportPlan(plan);
+  }
+
   const currentUser = await getCurrentUserCached();
   if (!currentUser || currentUser === "_no_user_") {
     throw new Error("No active user — sign in before importing.");

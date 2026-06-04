@@ -193,6 +193,12 @@ export default function ImportExperimentDialog({
 
   if (!isOpen) return null;
 
+  // A standalone-method bundle is experiment-shaped on the wire, the manifest
+  // `kind` is the only honest signal of what the recipient is actually
+  // landing. Drive the dialog copy off it so a method import never claims to
+  // create an experiment / task / project.
+  const isMethod = plan?.payload.manifest.kind === "method";
+
   const handleBackdrop = () => {
     if (stage !== "applying" && stage !== "loading") onClose();
   };
@@ -220,9 +226,13 @@ export default function ImportExperimentDialog({
 
         <div className="px-6 pt-5 pb-3 border-b border-gray-100 flex items-center justify-between gap-4">
           <div>
-            <h2 className="text-title font-semibold text-gray-900">Import experiment</h2>
+            <h2 className="text-title font-semibold text-gray-900">
+              {isMethod ? "Import method" : "Import experiment"}
+            </h2>
             <p className="text-meta text-gray-500 mt-1">
-              Bring an experiment shared by another ResearchOS user into your workspace.
+              {isMethod
+                ? "Bring a method shared by another ResearchOS user into your library."
+                : "Bring an experiment shared by another ResearchOS user into your workspace."}
             </p>
           </div>
           {(stage === "review" || stage === "success" || stage === "error" || stage === "picker") && (
@@ -244,6 +254,7 @@ export default function ImportExperimentDialog({
           {stage === "review" && plan && (
             <ReviewStage
               plan={plan}
+              isMethod={isMethod}
               projectImportedName={projectImportedName}
               methodImportedNames={methodImportedNames}
               setProjectDecision={setProjectDecision}
@@ -276,7 +287,7 @@ export default function ImportExperimentDialog({
               onClick={onConfirmImport}
               className="px-4 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
             >
-              Import experiment
+              {isMethod ? "Import method" : "Import experiment"}
             </button>
           </div>
         )}
@@ -343,6 +354,10 @@ function SuccessStage({ result }: { result: ImportResult }) {
   const droppedDeps = result.notCarried.dependencies.length;
   const droppedMethods = result.notCarried.methodRefs.length;
   const hasNotCarried = droppedDeps > 0 || droppedMethods > 0;
+  // A method-only import (cross-boundary method sharing) lands just the method
+  // and creates no task, so newTaskId is null. Show method-appropriate copy
+  // rather than the experiment "new task id created" line.
+  const isMethodOnly = result.newTaskId === null;
 
   return (
     <div className="py-6">
@@ -352,12 +367,18 @@ function SuccessStage({ result }: { result: ImportResult }) {
         </span>
         <p className="text-body font-medium text-gray-900">Imported successfully</p>
       </div>
-      <p className="text-body text-gray-600 mt-2">
-        New task id <strong>{result.newTaskId}</strong> created in your workspace.
-        {result.newProjectId !== null && (
-          <> Linked to project id <strong>{result.newProjectId}</strong>.</>
-        )}
-      </p>
+      {isMethodOnly ? (
+        <p className="text-body text-gray-600 mt-2">
+          The method was added to your method library.
+        </p>
+      ) : (
+        <p className="text-body text-gray-600 mt-2">
+          New task id <strong>{result.newTaskId}</strong> created in your workspace.
+          {result.newProjectId !== null && (
+            <> Linked to project id <strong>{result.newProjectId}</strong>.</>
+          )}
+        </p>
+      )}
       {Object.keys(result.importedMethodIds).length > 0 && (
         <p className="text-meta text-gray-500 mt-2">
           {Object.keys(result.importedMethodIds).length} method{Object.keys(result.importedMethodIds).length === 1 ? "" : "s"} resolved.
@@ -419,6 +440,7 @@ function CheckGlyph({ className }: { className?: string }) {
 
 function ReviewStage({
   plan,
+  isMethod,
   projectImportedName,
   methodImportedNames,
   setProjectDecision,
@@ -426,6 +448,7 @@ function ReviewStage({
   provenanceLabel,
 }: {
   plan: ImportPlan;
+  isMethod: boolean;
   projectImportedName: string;
   methodImportedNames: string[];
   setProjectDecision: (next: ProjectDecision, existingId?: number | null) => void;
@@ -450,61 +473,78 @@ function ReviewStage({
 
   return (
     <div className="space-y-5">
-      <div>
-        <p className="text-meta uppercase tracking-wide text-gray-500 font-medium">Experiment</p>
-        <p className="text-body text-gray-900 mt-1">
-          <strong>{taskName}</strong>{" "}
-          <span className="text-gray-500">from {sourceOwner || "(unknown user)"}</span>
-        </p>
-        <p className="text-meta text-gray-500 mt-1">
-          A new task will be created in your workspace. Notes, results, files, and images come along.
-        </p>
-      </div>
-
-      <div>
-        <p className="text-meta uppercase tracking-wide text-gray-500 font-medium">Project</p>
-        <p className="text-body text-gray-700 mt-1">
-          Source: <strong>{plan.project.sourceProjectName}</strong>
-        </p>
-        <div className="mt-2 space-y-2">
-          <DecisionRow
-            checked={plan.project.decision === "use-existing"}
-            onSelect={() => {
-              const first = plan.project.candidates[0];
-              if (first) setProjectDecision("use-existing", first.id);
-            }}
-            disabled={plan.project.candidates.length === 0}
-          >
-            Use my existing project
-            {plan.project.decision === "use-existing" && plan.project.candidates.length > 0 && (
-              <select
-                value={plan.project.existingProjectId ?? ""}
-                onChange={(e) => setProjectDecision("use-existing", Number(e.target.value))}
-                className="ml-2 text-meta border border-gray-200 rounded px-2 py-1"
-              >
-                {plan.project.candidates.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            )}
-          </DecisionRow>
-          <DecisionRow
-            checked={plan.project.decision === "import-new"}
-            onSelect={() => setProjectDecision("import-new")}
-          >
-            Create a new project
-            {plan.project.decision === "import-new" && (
-              <span className="ml-2 text-meta text-gray-500">→ &ldquo;{projectImportedName}&rdquo;</span>
-            )}
-          </DecisionRow>
-          <DecisionRow
-            checked={plan.project.decision === "no-project"}
-            onSelect={() => setProjectDecision("no-project")}
-          >
-            Don&apos;t link to a project
-          </DecisionRow>
+      {isMethod ? (
+        // A standalone-method import lands only the method, so the experiment
+        // task + project resolution blocks don't apply. Show a short
+        // provenance line and let the Methods section below drive the import.
+        <div>
+          <p className="text-meta uppercase tracking-wide text-gray-500 font-medium">Method</p>
+          <p className="text-body text-gray-900 mt-1">
+            Shared <span className="text-gray-500">by {sourceOwner || "(unknown user)"}</span>
+          </p>
+          <p className="text-meta text-gray-500 mt-1">
+            The method will be added to your library. No experiment or project is created.
+          </p>
         </div>
-      </div>
+      ) : (
+        <>
+          <div>
+            <p className="text-meta uppercase tracking-wide text-gray-500 font-medium">Experiment</p>
+            <p className="text-body text-gray-900 mt-1">
+              <strong>{taskName}</strong>{" "}
+              <span className="text-gray-500">from {sourceOwner || "(unknown user)"}</span>
+            </p>
+            <p className="text-meta text-gray-500 mt-1">
+              A new task will be created in your workspace. Notes, results, files, and images come along.
+            </p>
+          </div>
+
+          <div>
+            <p className="text-meta uppercase tracking-wide text-gray-500 font-medium">Project</p>
+            <p className="text-body text-gray-700 mt-1">
+              Source: <strong>{plan.project.sourceProjectName}</strong>
+            </p>
+            <div className="mt-2 space-y-2">
+              <DecisionRow
+                checked={plan.project.decision === "use-existing"}
+                onSelect={() => {
+                  const first = plan.project.candidates[0];
+                  if (first) setProjectDecision("use-existing", first.id);
+                }}
+                disabled={plan.project.candidates.length === 0}
+              >
+                Use my existing project
+                {plan.project.decision === "use-existing" && plan.project.candidates.length > 0 && (
+                  <select
+                    value={plan.project.existingProjectId ?? ""}
+                    onChange={(e) => setProjectDecision("use-existing", Number(e.target.value))}
+                    className="ml-2 text-meta border border-gray-200 rounded px-2 py-1"
+                  >
+                    {plan.project.candidates.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                )}
+              </DecisionRow>
+              <DecisionRow
+                checked={plan.project.decision === "import-new"}
+                onSelect={() => setProjectDecision("import-new")}
+              >
+                Create a new project
+                {plan.project.decision === "import-new" && (
+                  <span className="ml-2 text-meta text-gray-500">→ &ldquo;{projectImportedName}&rdquo;</span>
+                )}
+              </DecisionRow>
+              <DecisionRow
+                checked={plan.project.decision === "no-project"}
+                onSelect={() => setProjectDecision("no-project")}
+              >
+                Don&apos;t link to a project
+              </DecisionRow>
+            </div>
+          </div>
+        </>
+      )}
 
       {plan.methods.length > 0 && (
         <div>

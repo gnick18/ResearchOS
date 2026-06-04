@@ -185,7 +185,11 @@ export interface ImportNotCarried {
 }
 
 export interface ImportResult {
-  newTaskId: number;
+  // The receiver-side task id created by an experiment import. null for a
+  // standalone-method import (cross-boundary method sharing), which lands only
+  // the method and deliberately creates no envelope task. The success UI reads
+  // null as the method-only marker.
+  newTaskId: number | null;
   newTaskOwner: string;
   newProjectId: number | null;
   // Map from source method id → receiver-side method id, for diagnostics.
