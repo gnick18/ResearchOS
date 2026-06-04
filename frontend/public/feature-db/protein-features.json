@@ -1,0 +1,480 @@
+{
+  "generatedAt": "2026-06-04T01:50:37.015Z",
+  "sources": [
+    {
+      "name": "FPbase",
+      "license": "Sequence data is copyright-free; attribution requested.",
+      "url": "https://www.fpbase.org"
+    },
+    {
+      "name": "UniProt (Swiss-Prot)",
+      "license": "CC BY 4.0",
+      "url": "https://www.uniprot.org"
+    },
+    {
+      "name": "Standard epitope tags",
+      "license": "public (standard published sequences)",
+      "url": "https://www.uniprot.org/help/tags"
+    }
+  ],
+  "count": 41,
+  "countsByCategory": {
+    "epitope_tag": 10,
+    "fluorescent_protein": 21,
+    "fusion_tag": 3,
+    "resistance_marker": 7
+  },
+  "entries": [
+    {
+      "id": "tag_3xflag",
+      "name": "3xFLAG",
+      "category": "epitope_tag",
+      "sequenceType": "protein",
+      "seq": "DYKDHDGDYKDHDIDYKDDDDK",
+      "source": "standard",
+      "sourceUrl": "https://www.uniprot.org/help/tags (standard published epitope-tag sequences)",
+      "license": "public (standard sequence)",
+      "note": "Standard published epitope-tag sequence; definitional constant, included verbatim."
+    },
+    {
+      "id": "tag_avitag",
+      "name": "AviTag",
+      "category": "epitope_tag",
+      "sequenceType": "protein",
+      "seq": "GLNDIFEAQKIEWHE",
+      "source": "standard",
+      "sourceUrl": "https://www.uniprot.org/help/tags (standard published epitope-tag sequences)",
+      "license": "public (standard sequence)",
+      "note": "Standard published epitope-tag sequence; definitional constant, included verbatim."
+    },
+    {
+      "id": "tag_cmyc",
+      "name": "c-Myc",
+      "category": "epitope_tag",
+      "sequenceType": "protein",
+      "seq": "EQKLISEEDL",
+      "source": "standard",
+      "sourceUrl": "https://www.uniprot.org/help/tags (standard published epitope-tag sequences)",
+      "license": "public (standard sequence)",
+      "note": "Standard published epitope-tag sequence; definitional constant, included verbatim."
+    },
+    {
+      "id": "tag_flag",
+      "name": "FLAG",
+      "category": "epitope_tag",
+      "sequenceType": "protein",
+      "seq": "DYKDDDDK",
+      "source": "standard",
+      "sourceUrl": "https://www.uniprot.org/help/tags (standard published epitope-tag sequences)",
+      "license": "public (standard sequence)",
+      "note": "Standard published epitope-tag sequence; definitional constant, included verbatim."
+    },
+    {
+      "id": "tag_ha",
+      "name": "HA",
+      "category": "epitope_tag",
+      "sequenceType": "protein",
+      "seq": "YPYDVPDYA",
+      "source": "standard",
+      "sourceUrl": "https://www.uniprot.org/help/tags (standard published epitope-tag sequences)",
+      "license": "public (standard sequence)",
+      "note": "Standard published epitope-tag sequence; definitional constant, included verbatim."
+    },
+    {
+      "id": "tag_his6",
+      "name": "His6",
+      "category": "epitope_tag",
+      "sequenceType": "protein",
+      "seq": "HHHHHH",
+      "source": "standard",
+      "sourceUrl": "https://www.uniprot.org/help/tags (standard published epitope-tag sequences)",
+      "license": "public (standard sequence)",
+      "note": "Standard published epitope-tag sequence; definitional constant, included verbatim."
+    },
+    {
+      "id": "tag_his8",
+      "name": "His8",
+      "category": "epitope_tag",
+      "sequenceType": "protein",
+      "seq": "HHHHHHHH",
+      "source": "standard",
+      "sourceUrl": "https://www.uniprot.org/help/tags (standard published epitope-tag sequences)",
+      "license": "public (standard sequence)",
+      "note": "Standard published epitope-tag sequence; definitional constant, included verbatim."
+    },
+    {
+      "id": "tag_strepii",
+      "name": "Strep-II",
+      "category": "epitope_tag",
+      "sequenceType": "protein",
+      "seq": "WSHPQFEK",
+      "source": "standard",
+      "sourceUrl": "https://www.uniprot.org/help/tags (standard published epitope-tag sequences)",
+      "license": "public (standard sequence)",
+      "note": "Standard published epitope-tag sequence; definitional constant, included verbatim."
+    },
+    {
+      "id": "tag_t7",
+      "name": "T7-tag",
+      "category": "epitope_tag",
+      "sequenceType": "protein",
+      "seq": "MASMTGGQQMG",
+      "source": "standard",
+      "sourceUrl": "https://www.uniprot.org/help/tags (standard published epitope-tag sequences)",
+      "license": "public (standard sequence)",
+      "note": "Standard published epitope-tag sequence; definitional constant, included verbatim."
+    },
+    {
+      "id": "tag_v5",
+      "name": "V5",
+      "category": "epitope_tag",
+      "sequenceType": "protein",
+      "seq": "GKPIPNPLLGLDST",
+      "source": "standard",
+      "sourceUrl": "https://www.uniprot.org/help/tags (standard published epitope-tag sequences)",
+      "license": "public (standard sequence)",
+      "note": "Standard published epitope-tag sequence; definitional constant, included verbatim."
+    },
+    {
+      "id": "fp_dtomato",
+      "name": "dTomato",
+      "category": "fluorescent_protein",
+      "sequenceType": "protein",
+      "seq": "MVSKGEEVIKEFMRFKVRMEGSMNGHEFEIEGEGEGRPYEGTQTAKLKVTKGGPLPFAWDILSPQFMYGSKAYVKHPADIPDYKKLSFPEGFKWERVMNFEDGGLVTVTQDSSLQDGTLIYKVKMRGTNFPPDGPVMQKKTMGWEASTERLYPRDGVLKGEIHQALKLKDGGHYLVEFKTIYMAKKPVQLPGYYYVDTKLDITSHNEDYTIVEQYERSEGRHHLFLYGMDELYK",
+      "source": "FPbase",
+      "sourceUrl": "https://www.fpbase.org/api/proteins/?name__iexact=dTomato&format=json",
+      "license": "FPbase (sequence data is copyright-free, attribution requested)",
+      "accession": "FPbase:G1DQY"
+    },
+    {
+      "id": "fp_ebfp2",
+      "name": "EBFP2",
+      "category": "fluorescent_protein",
+      "sequenceType": "protein",
+      "seq": "MVSKGEELFTGVVPILVELDGDVNGHKFSVRGEGEGDATNGKLTLKFICTTGKLPVPWPTLVTTLSHGVQCFARYPDHMKQHDFFKSAMPEGYVQERTIFFKDDGTYKTRAEVKFEGDTLVNRIELKGVDFKEDGNILGHKLEYNFNSHNIYIMAVKQKNGIKVNFKIRHNVEDGSVQLADHYQQNTPIGDGPVLLPDSHYLSTQSVLSKDPNEKRDHMVLLEFRTAAGITLGMDELYK",
+      "source": "FPbase",
+      "sourceUrl": "https://www.fpbase.org/api/proteins/?name__iexact=EBFP2&format=json",
+      "license": "FPbase (sequence data is copyright-free, attribution requested)",
+      "accession": "FPbase:DVMQ7"
+    },
+    {
+      "id": "fp_ecfp",
+      "name": "ECFP",
+      "category": "fluorescent_protein",
+      "sequenceType": "protein",
+      "seq": "MVSKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTLTWGVQCFSRYPDHMKQHDFFKSAMPEGYVQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDFKEDGNILGHKLEYNYISHNVYITADKQKNGIKANFKIRHNIEDGSVQLADHYQQNTPIGDGPVLLPDNHYLSTQSALSKDPNEKRDHMVLLEFVTAAGITLGMDELYK",
+      "source": "FPbase",
+      "sourceUrl": "https://www.fpbase.org/api/proteins/?name__iexact=ECFP&format=json",
+      "license": "FPbase (sequence data is copyright-free, attribution requested)",
+      "accession": "FPbase:27HOS"
+    },
+    {
+      "id": "fp_egfp",
+      "name": "EGFP",
+      "category": "fluorescent_protein",
+      "sequenceType": "protein",
+      "seq": "MVSKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTLTYGVQCFSRYPDHMKQHDFFKSAMPEGYVQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDFKEDGNILGHKLEYNYNSHNVYIMADKQKNGIKVNFKIRHNIEDGSVQLADHYQQNTPIGDGPVLLPDNHYLSTQSALSKDPNEKRDHMVLLEFVTAAGITLGMDELYK",
+      "source": "FPbase",
+      "sourceUrl": "https://www.fpbase.org/api/proteins/?name__iexact=EGFP&format=json",
+      "license": "FPbase (sequence data is copyright-free, attribution requested)",
+      "accession": "FPbase:R9NL8"
+    },
+    {
+      "id": "fp_eyfp",
+      "name": "EYFP",
+      "category": "fluorescent_protein",
+      "sequenceType": "protein",
+      "seq": "MVSKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTFGYGLQCFARYPDHMKQHDFFKSAMPEGYVQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDFKEDGNILGHKLEYNYNSHNVYIMADKQKNGIKVNFKIRHNIEDGSVQLADHYQQNTPIGDGPVLLPDNHYLSYQSALSKDPNEKRDHMVLLEFVTAAGITLGMDELYK",
+      "source": "FPbase",
+      "sourceUrl": "https://www.fpbase.org/api/proteins/?name__iexact=EYFP&format=json",
+      "license": "FPbase (sequence data is copyright-free, attribution requested)",
+      "accession": "FPbase:8DNLG"
+    },
+    {
+      "id": "fp_gfp",
+      "name": "GFP (FPbase: avGFP)",
+      "category": "fluorescent_protein",
+      "sequenceType": "protein",
+      "seq": "MSKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTFSYGVQCFSRYPDHMKQHDFFKSAMPEGYVQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDFKEDGNILGHKLEYNYNSHNVYIMADKQKNGIKVNFKIRHNIEDGSVQLADHYQQNTPIGDGPVLLPDNHYLSTQSALSKDPNEKRDHMVLLEFVTAAGITHGMDELYK",
+      "source": "FPbase",
+      "sourceUrl": "https://www.fpbase.org/api/proteins/?name__iexact=avGFP&format=json",
+      "license": "FPbase (sequence data is copyright-free, attribution requested)",
+      "accession": "FPbase:1XF1B"
+    },
+    {
+      "id": "fp_irfp713",
+      "name": "iRFP713",
+      "category": "fluorescent_protein",
+      "sequenceType": "protein",
+      "seq": "MAEGSVARQPDLLTCDDEPIHIPGAIQPHGLLLALAADMTIVAGSDNLPELTGLAIGALIGRSAADVFDSETHNRLTIALAEPGAAVGAPITVGFTMRKDAGFIGSWHRHDQLIFLELEPPQRDVAEPQAFFRRTNSAIRRLQAAETLESACAAAAQEVRKITGFDRVMIYRFASDFSGEVIAEDRCAEVESKLGLHYPASTVPAQARRLYTINPVRIIPDINYRPVPVTPDLNPVTGRPIDLSFAILRSVSPVHLEFMRNIGMHGTMSISILRGERLWGLIVCHHRTPYYVDLDGRQACELVAQVLAWQIGVMEE",
+      "source": "FPbase",
+      "sourceUrl": "https://www.fpbase.org/api/proteins/?name__iexact=iRFP713&format=json",
+      "license": "FPbase (sequence data is copyright-free, attribution requested)",
+      "accession": "FPbase:DGXFA"
+    },
+    {
+      "id": "fp_mcerulean3",
+      "name": "mCerulean3",
+      "category": "fluorescent_protein",
+      "sequenceType": "protein",
+      "seq": "MVSKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTLSWGVQCFARYPDHMKQHDFFKSAMPEGYVQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDFKEDGNILGHKLEYNAIHGNVYITADKQKNGIKANFGLNCNIEDGSVQLADHYQQNTPIGDGPVLLPDNHYLSTQSKLSKDPNEKRDHMVLLEFVTAAGITLGMDELYK",
+      "source": "FPbase",
+      "sourceUrl": "https://www.fpbase.org/api/proteins/?name__iexact=mCerulean3&format=json",
+      "license": "FPbase (sequence data is copyright-free, attribution requested)",
+      "accession": "FPbase:TWJXO"
+    },
+    {
+      "id": "fp_mcherry",
+      "name": "mCherry",
+      "category": "fluorescent_protein",
+      "sequenceType": "protein",
+      "seq": "MVSKGEEDNMAIIKEFMRFKVHMEGSVNGHEFEIEGEGEGRPYEGTQTAKLKVTKGGPLPFAWDILSPQFMYGSKAYVKHPADIPDYLKLSFPEGFKWERVMNFEDGGVVTVTQDSSLQDGEFIYKVKLRGTNFPSDGPVMQKKTMGWEASSERMYPEDGALKGEIKQRLKLKDGGHYDAEVKTTYKAKKPVQLPGAYNVNIKLDITSHNEDYTIVEQYERAEGRHSTGGMDELYK",
+      "source": "FPbase",
+      "sourceUrl": "https://www.fpbase.org/api/proteins/?name__iexact=mCherry&format=json",
+      "license": "FPbase (sequence data is copyright-free, attribution requested)",
+      "accession": "FPbase:ZERB6"
+    },
+    {
+      "id": "fp_mcitrine",
+      "name": "mCitrine",
+      "category": "fluorescent_protein",
+      "sequenceType": "protein",
+      "seq": "MVSKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTFGYGLMCFARYPDHMKQHDFFKSAMPEGYVQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDFKEDGNILGHKLEYNYNSHNVYIMADKQKNGIKVNFKIRHNIEDGSVQLADHYQQNTPIGDGPVLLPDNHYLSYQSKLSKDPNEKRDHMVLLEFVTAAGITLGMDELYK",
+      "source": "FPbase",
+      "sourceUrl": "https://www.fpbase.org/api/proteins/?name__iexact=mCitrine&format=json",
+      "license": "FPbase (sequence data is copyright-free, attribution requested)",
+      "accession": "FPbase:3Q37R"
+    },
+    {
+      "id": "fp_memerald",
+      "name": "mEmerald",
+      "category": "fluorescent_protein",
+      "sequenceType": "protein",
+      "seq": "MVSKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTLTYGVQCFARYPDHMKQHDFFKSAMPEGYVQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDFKEDGNILGHKLEYNYNSHKVYITADKQKNGIKVNFKTRHNIEDGSVQLADHYQQNTPIGDGPVLLPDNHYLSTQSKLSKDPNEKRDHMVLLEFVTAAGITLGMDELYK",
+      "source": "FPbase",
+      "sourceUrl": "https://www.fpbase.org/api/proteins/?name__iexact=mEmerald&format=json",
+      "license": "FPbase (sequence data is copyright-free, attribution requested)",
+      "accession": "FPbase:AD4BK"
+    },
+    {
+      "id": "fp_mkate2",
+      "name": "mKate2",
+      "category": "fluorescent_protein",
+      "sequenceType": "protein",
+      "seq": "MVSELIKENMHMKLYMEGTVNNHHFKCTSEGEGKPYEGTQTMRIKAVEGGPLPFAFDILATSFMYGSKTFINHTQGIPDFFKQSFPEGFTWERVTTYEDGGVLTATQDTSLQDGCLIYNVKIRGVNFPSNGPVMQKKTLGWEASTETLYPADGGLEGRADMALKLVGGGHLICNLKTTYRSKKPAKNLKMPGVYYVDRRLERIKEADKETYVEQHEVAVARYCDLPSKLGHR",
+      "source": "FPbase",
+      "sourceUrl": "https://www.fpbase.org/api/proteins/?name__iexact=mKate2&format=json",
+      "license": "FPbase (sequence data is copyright-free, attribution requested)",
+      "accession": "FPbase:DBBO8"
+    },
+    {
+      "id": "fp_mneongreen",
+      "name": "mNeonGreen",
+      "category": "fluorescent_protein",
+      "sequenceType": "protein",
+      "seq": "MVSKGEEDNMASLPATHELHIFGSINGVDFDMVGQGTGNPNDGYEELNLKSTKGDLQFSPWILVPHIGYGFHQYLPYPDGMSPFQAAMVDGSGYQVHRTMQFEDGASLTVNYRYTYEGSHIKGEAQVKGTGFPADGPVMTNSLTAADWCRSKKTYPNDKTIISTFKWSYTTGNGKRYRSTARTTYTFAKPMAANYLKNQPMYVFRKTELKHSKTELNFKEWQKAFTDVMGMDELYK",
+      "source": "FPbase",
+      "sourceUrl": "https://www.fpbase.org/api/proteins/?name__iexact=mNeonGreen&format=json",
+      "license": "FPbase (sequence data is copyright-free, attribution requested)",
+      "accession": "FPbase:ZRKRV"
+    },
+    {
+      "id": "fp_morange",
+      "name": "mOrange",
+      "category": "fluorescent_protein",
+      "sequenceType": "protein",
+      "seq": "MVSKGEENNMAIIKEFMRFKVRMEGSVNGHEFEIEGEGEGRPYEGFQTAKLKVTKGGPLPFAWDILSPQFTYGSKAYVKHPADIPDYFKLSFPEGFKWERVMNFEDGGVVTVTQDSSLQDGEFIYKVKLRGTNFPSDGPVMQKKTMGWEASSERMYPEDGALKGEIKMRLKLKDGGHYTSEVKTTYKAKKPVQLPGAYIVGIKLDITSHNEDYTIVEQYERAEGRHSTGGMDELYK",
+      "source": "FPbase",
+      "sourceUrl": "https://www.fpbase.org/api/proteins/?name__iexact=mOrange&format=json",
+      "license": "FPbase (sequence data is copyright-free, attribution requested)",
+      "accession": "FPbase:G6HDH"
+    },
+    {
+      "id": "fp_mruby3",
+      "name": "mRuby3",
+      "category": "fluorescent_protein",
+      "sequenceType": "protein",
+      "seq": "MVSKGEELIKENMRMKVVMEGSVNGHQFKCTGEGEGRPYEGVQTMRIKVIEGGPLPFAFDILATSFMYGSRTFIKYPADIPDFFKQSFPEGFTWERVTRYEDGGVVTVTQDTSLEDGELVYNVKVRGVNFPSNGPVMQKKTKGWEPNTEMMYPADGGLRGYTDIALKVDGGGHLHCNFVTTYRSKKTVGNIKMPGVHAVDHRLERIEESDNETYVVQREVAVAKYSNLGGGMDELYK",
+      "source": "FPbase",
+      "sourceUrl": "https://www.fpbase.org/api/proteins/?name__iexact=mRuby3&format=json",
+      "license": "FPbase (sequence data is copyright-free, attribution requested)",
+      "accession": "FPbase:MZMFB"
+    },
+    {
+      "id": "fp_mscarleti",
+      "name": "mScarlet-I",
+      "category": "fluorescent_protein",
+      "sequenceType": "protein",
+      "seq": "MVSKGEAVIKEFMRFKVHMEGSMNGHEFEIEGEGEGRPYEGTQTAKLKVTKGGPLPFSWDILSPQFMYGSRAFIKHPADIPDYYKQSFPEGFKWERVMNFEDGGAVTVTQDTSLEDGTLIYKVKLRGTNFPPDGPVMQKKTMGWEASTERLYPEDGVLKGDIKMALRLKDGGRYLADFKTTYKAKKPVQMPGAYNVDRKLDITSHNEDYTVVEQYERSEGRHSTGGMDELYK",
+      "source": "FPbase",
+      "sourceUrl": "https://www.fpbase.org/api/proteins/?name__iexact=mScarlet-I&format=json",
+      "license": "FPbase (sequence data is copyright-free, attribution requested)",
+      "accession": "FPbase:6VVTK"
+    },
+    {
+      "id": "fp_mtagbfp2",
+      "name": "mTagBFP2",
+      "category": "fluorescent_protein",
+      "sequenceType": "protein",
+      "seq": "MVSKGEELIKENMHMKLYMEGTVDNHHFKCTSEGEGKPYEGTQTMRIKVVEGGPLPFAFDILATSFLYGSKTFINHTQGIPDFFKQSFPEGFTWERVTTYEDGGVLTATQDTSLQDGCLIYNVKIRGVNFTSNGPVMQKKTLGWEAFTETLYPADGGLEGRNDMALKLVGGSHLIANAKTTYRSKKPAKNLKMPGVYYVDYRLERIKEANNETYVEQHEVAVARYCDLPSKLGHKLN",
+      "source": "FPbase",
+      "sourceUrl": "https://www.fpbase.org/api/proteins/?name__iexact=mTagBFP2&format=json",
+      "license": "FPbase (sequence data is copyright-free, attribution requested)",
+      "accession": "FPbase:ZO7NN"
+    },
+    {
+      "id": "fp_mturquoise2",
+      "name": "mTurquoise2",
+      "category": "fluorescent_protein",
+      "sequenceType": "protein",
+      "seq": "MVSKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTLSWGVQCFARYPDHMKQHDFFKSAMPEGYVQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDFKEDGNILGHKLEYNYFSDNVYITADKQKNGIKANFKIRHNIEDGGVQLADHYQQNTPIGDGPVLLPDNHYLSTQSKLSKDPNEKRDHMVLLEFVTAAGITLGMDELYK",
+      "source": "FPbase",
+      "sourceUrl": "https://www.fpbase.org/api/proteins/?name__iexact=mTurquoise2&format=json",
+      "license": "FPbase (sequence data is copyright-free, attribution requested)",
+      "accession": "FPbase:7AV5G"
+    },
+    {
+      "id": "fp_mvenus",
+      "name": "mVenus",
+      "category": "fluorescent_protein",
+      "sequenceType": "protein",
+      "seq": "MVSKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKLICTTGKLPVPWPTLVTTLGYGLQCFARYPDHMKQHDFFKSAMPEGYVQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDFKEDGNILGHKLEYNYNSHNVYITADKQKNGIKANFKIRHNIEDGGVQLADHYQQNTPIGDGPVLLPDNHYLSYQSKLSKDPNEKRDHMVLLEFVTAAGITLGMDELYK",
+      "source": "FPbase",
+      "sourceUrl": "https://www.fpbase.org/api/proteins/?name__iexact=mVenus&format=json",
+      "license": "FPbase (sequence data is copyright-free, attribution requested)",
+      "accession": "FPbase:WCSN6"
+    },
+    {
+      "id": "fp_sfgfp",
+      "name": "sfGFP (FPbase: Superfolder GFP)",
+      "category": "fluorescent_protein",
+      "sequenceType": "protein",
+      "seq": "MSKGEELFTGVVPILVELDGDVNGHKFSVRGEGEGDATNGKLTLKFICTTGKLPVPWPTLVTTLTYGVQCFSRYPDHMKRHDFFKSAMPEGYVQERTISFKDDGTYKTRAEVKFEGDTLVNRIELKGIDFKEDGNILGHKLEYNFNSHNVYITADKQKNGIKANFKIRHNVEDGSVQLADHYQQNTPIGDGPVLLPDNHYLSTQSVLSKDPNEKRDHMVLLEFVTAAGITHGMDELYK",
+      "source": "FPbase",
+      "sourceUrl": "https://www.fpbase.org/api/proteins/?name__iexact=Superfolder%20GFP&format=json",
+      "license": "FPbase (sequence data is copyright-free, attribution requested)",
+      "accession": "FPbase:B4SOW"
+    },
+    {
+      "id": "fp_tdtomato",
+      "name": "tdTomato",
+      "category": "fluorescent_protein",
+      "sequenceType": "protein",
+      "seq": "MVSKGEEVIKEFMRFKVRMEGSMNGHEFEIEGEGEGRPYEGTQTAKLKVTKGGPLPFAWDILSPQFMYGSKAYVKHPADIPDYKKLSFPEGFKWERVMNFEDGGLVTVTQDSSLQDGTLIYKVKMRGTNFPPDGPVMQKKTMGWEASTERLYPRDGVLKGEIHQALKLKDGGHYLVEFKTIYMAKKPVQLPGYYYVDTKLDITSHNEDYTIVEQYERSEGRHHLFLGHGTGSTGSGSSGTASSEDNNMAVIKEFMRFKVRMEGSMNGHEFEIEGEGEGRPYEGTQTAKLKVTKGGPLPFAWDILSPQFMYGSKAYVKHPADIPDYKKLSFPEGFKWERVMNFEDGGLVTVTQDSSLQDGTLIYKVKMRGTNFPPDGPVMQKKTMGWEASTERLYPRDGVLKGEIHQALKLKDGGHYLVEFKTIYMAKKPVQLPGYYYVDTKLDITSHNEDYTIVEQYERSEGRHHLFLYGMDELYK",
+      "source": "FPbase",
+      "sourceUrl": "https://www.fpbase.org/api/proteins/?name__iexact=tdTomato&format=json",
+      "license": "FPbase (sequence data is copyright-free, attribution requested)",
+      "accession": "FPbase:PGG5S"
+    },
+    {
+      "id": "tag_gst",
+      "name": "GST (glutathione S-transferase, S. japonicum)",
+      "category": "fusion_tag",
+      "sequenceType": "protein",
+      "seq": "MSPILGYWKIKGLVQPTRLLLEYLEEKYEEHLYERDEGDKWRNKKFELGLEFPNLPYYIDGDVKLTQSMAIIRYIADKHNMLGGCPKERAEISMLEGAVLDIRYGVSRIAYSKDFETLKVDFLSKLPEMLKMFEDRLCHKTYLNGDHVTHPDFMLYDALDVVLYMDPMCLDAFPKLVCFKKRIEAIPQIDKYLKSSKYIAWPLQGWQATFGGGDHPPK",
+      "source": "UniProt (Swiss-Prot, reviewed)",
+      "sourceUrl": "https://www.uniprot.org/uniprotkb/P08515/entry",
+      "license": "CC BY 4.0",
+      "accession": "P08515"
+    },
+    {
+      "id": "tag_mbp",
+      "name": "MBP (maltose-binding protein, MalE)",
+      "category": "fusion_tag",
+      "sequenceType": "protein",
+      "seq": "MKIKTGARILALSALTTMMFSASALAKIEEGKLVIWINGDKGYNGLAEVGKKFEKDTGIKVTVEHPDKLEEKFPQVAATGDGPDIIFWAHDRFGGYAQSGLLAEITPDKAFQDKLYPFTWDAVRYNGKLIAYPIAVEALSLIYNKDLLPNPPKTWEEIPALDKELKAKGKSALMFNLQEPYFTWPLIAADGGYAFKYENGKYDIKDVGVDNAGAKAGLTFLVDLIKNKHMNADTDYSIAEAAFNKGETAMTINGPWAWSNIDTSKVNYGVTVLPTFKGQPSKPFVGVLSAGINAASPNKELAKEFLENYLLTDEGLEAVNKDKPLGAVALKSYEEELAKDPRIAATMENAQKGEIMPNIPQMSAFWYAVRTAVINAASGRQTVDEALKDAQTRITK",
+      "source": "UniProt (Swiss-Prot, reviewed)",
+      "sourceUrl": "https://www.uniprot.org/uniprotkb/P0AEX9/entry",
+      "license": "CC BY 4.0",
+      "accession": "P0AEX9"
+    },
+    {
+      "id": "tag_sumo",
+      "name": "SUMO (small ubiquitin-related modifier)",
+      "category": "fusion_tag",
+      "sequenceType": "protein",
+      "seq": "MSDTDTKPSGQDGGDQKDGEYIKLKVIGQDNSEIHFKVKMTTHLKKLKESYSQRQGVHMSTLRFLFEGQRISDNHTPKELGMEDEDVIEVYQEQTGGLRNN",
+      "source": "UniProt (Swiss-Prot, reviewed)",
+      "sourceUrl": "https://www.uniprot.org/uniprotkb/Q9PT08/entry",
+      "license": "CC BY 4.0",
+      "accession": "Q9PT08"
+    },
+    {
+      "id": "marker_ampr_bla",
+      "name": "AmpR (bla, beta-lactamase TEM)",
+      "category": "resistance_marker",
+      "sequenceType": "protein",
+      "seq": "MSIQHFRVALIPFFAAFCLPVFAHPETLVKVKDAEDQLGARVGYIELDLNSGKILESFRPEERFPMMSTFKVLLCGAVLSRVDAGQEQLGRRIHYSQNDLVEYSPVTEKHLTDGMTVRELCSAAITMSDNTAANLLLTTIGGPKELTAFLHNMGDHVTRLDRWEPELNEAIPNDERDTTMPAAMATTLRKLLTGELLTLASRQQLIDWMEADKVAGPLLRSALPAGWFIADKSGAGERGSRGIIAALGPDGKPSRIVVIYTTGSQATMDERNRQIAEIGASLIKHW",
+      "source": "UniProt (Swiss-Prot, reviewed)",
+      "sourceUrl": "https://www.uniprot.org/uniprotkb/P62593/entry",
+      "license": "CC BY 4.0",
+      "accession": "P62593"
+    },
+    {
+      "id": "marker_cmr_cat",
+      "name": "CmR (cat, chloramphenicol acetyltransferase)",
+      "category": "resistance_marker",
+      "sequenceType": "protein",
+      "seq": "MNYTKFDVKNWVRREHFEFYRHRLPCGFSLTSKIDITTLKKSLDDSAYKFYPVMIYLIAQAVNQFDELRMAIKDDELIVWDSVDPQFTVFHQETETFSALSCPYSSDIDQFMVNYLSVMERYKSDTKLFPQGVTPENHLNISALPWVNFDSFNLNVANFTDYFAPIITMAKYQQEGDRLLLPLSVQVHHAVCDGFHVARFINRLQELCNSKLK",
+      "source": "UniProt (Swiss-Prot, reviewed)",
+      "sourceUrl": "https://www.uniprot.org/uniprotkb/P00484/entry",
+      "license": "CC BY 4.0",
+      "accession": "P00484"
+    },
+    {
+      "id": "marker_hygr",
+      "name": "HygR (hph, hygromycin-B 4-O-kinase)",
+      "category": "resistance_marker",
+      "sequenceType": "protein",
+      "seq": "MKKPELTATSVEKFLIEKFDSVSDLMQLSEGEESRAFSFDVGGRGYVLRVNSCADGFYKDRYVYRHFASAALPIPEVLDIGEFSESLTYCISRRAQGVTLQDLPETELPAVLQPVAEAMDAIAAADLSQTSGFGPFGPQGIGQYTTWRDFICAIADPHVYHWQTVMDDTVSASVAQALDELMLWAEDCPEVRHLVHADFGSNNVLTDNGRITAVIDWSEAMFGDSQYEVANIFFWRPWLACMEQQTRYFERRHPELAGSPRLRAYMLRIGLDQLYQSLVDGNFDDAAWAQGRCDAIVRSGAGTVGRTQIARRSAAVWTDGCVEVLADSGNRRPSTRPRAKE",
+      "source": "UniProt (Swiss-Prot, reviewed)",
+      "sourceUrl": "https://www.uniprot.org/uniprotkb/P00557/entry",
+      "license": "CC BY 4.0",
+      "accession": "P00557"
+    },
+    {
+      "id": "marker_kanr_neor",
+      "name": "KanR / NeoR (aph(3')-II, neo)",
+      "category": "resistance_marker",
+      "sequenceType": "protein",
+      "seq": "MIEQDGLHAGSPAAWVERLFGYDWAQQTIGCSDAAVFRLSAQGRPVLFVKTDLSGALNELQDEAARLSWLATTGVPCAAVLDVVTEAGRDWLLLGEVPGQDLLSSHLAPAEKVSIMADAMRRLHTLDPATCPFDHQAKHRIERARTRMEAGLVDQDDLDEEHQGLAPAELFARLKARMPDGEDLVVTHGDACLPNIMVENGRFSGFIDCGRLGVADRYQDIALATRDIAEELGGEWADRFLVLYGIAAPDSQRIAFYRLLDEFF",
+      "source": "UniProt (Swiss-Prot, reviewed)",
+      "sourceUrl": "https://www.uniprot.org/uniprotkb/P00552/entry",
+      "license": "CC BY 4.0",
+      "accession": "P00552"
+    },
+    {
+      "id": "marker_puror_pac",
+      "name": "PuroR (pac, puromycin N-acetyltransferase)",
+      "category": "resistance_marker",
+      "sequenceType": "protein",
+      "seq": "MTEYKPTVRLATRDDVPRAVRTLAAAFADYPATRHTVDPDRHIERVTELQELFLTRVGLDIGKVWVADDGAAVAVWTTPESVEAGAVFAEIGPRMAELSGSRLAAQQQMEGLLAPHRPKEPAWFLATVGVSPDHQGKGLGSAVVLPGVEAAERAGVPAFLETSAPRNLPFYERLGFTVTADVEVPEGPRTWCMTRKPGA",
+      "source": "UniProt (Swiss-Prot, reviewed)",
+      "sourceUrl": "https://www.uniprot.org/uniprotkb/P13249/entry",
+      "license": "CC BY 4.0",
+      "accession": "P13249"
+    },
+    {
+      "id": "marker_specr_aada",
+      "name": "SpecR / aadA (aminoglycoside adenylyltransferase)",
+      "category": "resistance_marker",
+      "sequenceType": "protein",
+      "seq": "MREAVIAEVSTQLSEVVGVIERHLEPTLLAVHLYGSAVDGGLKPHSDIDLLVTVTVRLDETTRRALINDLLETSASPGESEILRAVEVTIVVHDDIIPWRYPAKRELQFGEWQRNDILAGIFEPATIDIDLAILLTKAREHSVALVGPAAEELFDPVPEQDLFEALNETLTLWNSPPDWAGDERNVVLTLSRIWYSAVTGKIAPKDVAADWAMERLPAQYQPVILEARQAYLGQEDRLASRADQLEEFVHYVKGEITKVVGK",
+      "source": "UniProt (Swiss-Prot, reviewed)",
+      "sourceUrl": "https://www.uniprot.org/uniprotkb/P0AG06/entry",
+      "license": "CC BY 4.0",
+      "accession": "P0AG06"
+    },
+    {
+      "id": "marker_tmpr_dhfr",
+      "name": "TmpR (trimethoprim-resistant dihydrofolate reductase)",
+      "category": "resistance_marker",
+      "sequenceType": "protein",
+      "seq": "MKISLMAAVSENGVIGSGLDIPWHVQGEQLLFKAMTYNQWLLVGRKTFDSMGKLPNRKYAVVTRSKIISNDPDVVYFASVESALAYLNNATAHIFVSGGGEIYKALIDQADVIHLSVIHKHISGDVFFPPVPQGFKQTFEQSFSSNIDYTYQIWAKG",
+      "source": "UniProt (Swiss-Prot, reviewed)",
+      "sourceUrl": "https://www.uniprot.org/uniprotkb/P95524/entry",
+      "license": "CC BY 4.0",
+      "accession": "P95524"
+    }
+  ]
+}
