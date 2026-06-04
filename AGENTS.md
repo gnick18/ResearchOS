@@ -2,6 +2,8 @@
 
 This file briefs an orchestrator agent (a "master bot") on what ResearchOS is, how the codebase is organized, and the working conventions established over a long collaboration on it. Read this end-to-end before suggesting work, spawning sub-agents, or committing. For deeper architecture (data flow, FSA wrapper internals, store layout), read `ARCHITECTURE.md` next.
 
+> **Inheriting a live session?** If you are picking up an in-progress orchestrator chat, read the latest dated session handoff first for exactly where work stands and what is in flight: **`docs/HANDOFF_2026-06-04_orchestrator.md`** (current). It covers the live Unified Data Model + Collaborate initiative (locked decisions, the Loro prototype result and the next live-binding spike), what shipped recently, and what is open and ready.
+
 ---
 
 ## 1. What ResearchOS is
