@@ -29,6 +29,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
+import Tooltip from "@/components/Tooltip";
+import { CloseIcon } from "@/components/sharing/icons";
 import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
 import {
   listInbox,
@@ -576,13 +578,15 @@ function ReviewImportModal({
       >
         <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
           <h3 className="text-title font-semibold text-gray-900">Review shared item</h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-700 text-heading leading-none"
-            aria-label="Close"
-          >
-            ×
-          </button>
+          <Tooltip label="Close" placement="bottom">
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-700"
+              aria-label="Close"
+            >
+              <CloseIcon className="w-5 h-5" />
+            </button>
+          </Tooltip>
         </div>
 
         <div className="flex-1 overflow-y-auto p-5">

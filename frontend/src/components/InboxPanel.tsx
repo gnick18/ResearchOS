@@ -15,6 +15,8 @@
 
 import { useEffect, useState } from "react";
 
+import Tooltip from "@/components/Tooltip";
+import { CloseIcon } from "@/components/sharing/icons";
 import PhotosInboxTab from "./PhotosInboxTab";
 import SharedWithMeTab from "./SharedWithMeTab";
 
@@ -68,13 +70,15 @@ export default function InboxPanel({
         <div className="px-5 pt-3 border-b border-gray-100 bg-gray-50">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-title font-semibold text-gray-900">Inbox</h3>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-700 text-heading leading-none"
-              aria-label="Close"
-            >
-              ×
-            </button>
+            <Tooltip label="Close" placement="bottom">
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-gray-700"
+                aria-label="Close"
+              >
+                <CloseIcon className="w-5 h-5" />
+              </button>
+            </Tooltip>
           </div>
           {/* Segmented tabs. The badge count rides on each label. */}
           <div className="flex items-center gap-1" role="tablist">
