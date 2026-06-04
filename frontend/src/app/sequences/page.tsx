@@ -952,7 +952,7 @@ export default function SequencesPage() {
                   {importMenuOpen ? (
                     <div
                       role="menu"
-                      className="absolute right-0 z-30 mt-1 w-48 overflow-hidden rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+                      className="absolute left-0 z-30 mt-1 w-48 overflow-hidden rounded-md border border-gray-200 bg-white py-1 shadow-lg"
                     >
                       <button
                         type="button"
