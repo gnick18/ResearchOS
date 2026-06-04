@@ -35,6 +35,7 @@ import {
   OVERVIEW_MIN_SPAN_FLOOR,
   OVERVIEW_SLIDER_MIN,
   OVERVIEW_SLIDER_MAX,
+  overviewSelectionRect,
 } from "./sequence-zoom";
 
 describe("initialLinearZoom", () => {
@@ -486,6 +487,68 @@ describe("showInOverview — mini-map whole-span / source filter", () => {
   });
   it("the threshold constant is ~99%", () => {
     expect(OVERVIEW_WHOLE_SPAN_FRACTION).toBeCloseTo(0.99, 5);
+  });
+});
+
+describe("overviewSelectionRect (selection band over the overview extent)", () => {
+  const w = 600;
+  const len = 60000;
+
+  it("maps a selection to track x over the WHOLE-molecule extent", () => {
+    // 10000..20000 of a 60000 bp molecule on a 600px track -> 100..200.
+    const r = overviewSelectionRect({
+      selection: { start: 10000, end: 20000 },
+      trackWidth: w,
+      seqLength: len,
+      lo: 0,
+      hi: len,
+    });
+    expect(r).not.toBeNull();
+    expect(r!.x0).toBeCloseTo(100, 5);
+    expect(r!.x1).toBeCloseTo(200, 5);
+    expect(r!.clampedLeft).toBe(false);
+    expect(r!.clampedRight).toBe(false);
+  });
+
+  it("normalizes a reversed selection (start > end)", () => {
+    const a = overviewSelectionRect({ selection: { start: 20000, end: 10000 }, trackWidth: w, seqLength: len, lo: 0, hi: len });
+    const b = overviewSelectionRect({ selection: { start: 10000, end: 20000 }, trackWidth: w, seqLength: len, lo: 0, hi: len });
+    expect(a).toEqual(b);
+  });
+
+  it("maps + CLAMPS over a zoomed extent [lo, hi], flagging the clipped edges", () => {
+    // extent 10000..20000 on a 600px track. A selection 5000..15000 starts BEFORE
+    // the extent (clamps to x0=0) and ends mid-extent (15000 -> 300).
+    const r = overviewSelectionRect({
+      selection: { start: 5000, end: 15000 },
+      trackWidth: w,
+      seqLength: len,
+      lo: 10000,
+      hi: 20000,
+    });
+    expect(r).not.toBeNull();
+    expect(r!.x0).toBe(0); // clamped to the left track edge
+    expect(r!.x1).toBeCloseTo(300, 5);
+    expect(r!.clampedLeft).toBe(true);
+    expect(r!.clampedRight).toBe(false);
+  });
+
+  it("clamps a selection running past the RIGHT edge of the extent", () => {
+    const r = overviewSelectionRect({ selection: { start: 18000, end: 50000 }, trackWidth: w, seqLength: len, lo: 10000, hi: 20000 });
+    expect(r).not.toBeNull();
+    expect(r!.x1).toBe(w);
+    expect(r!.clampedRight).toBe(true);
+  });
+
+  it("returns null when the selection is ENTIRELY outside the extent", () => {
+    expect(overviewSelectionRect({ selection: { start: 100, end: 5000 }, trackWidth: w, seqLength: len, lo: 10000, hi: 20000 })).toBeNull();
+    expect(overviewSelectionRect({ selection: { start: 30000, end: 40000 }, trackWidth: w, seqLength: len, lo: 10000, hi: 20000 })).toBeNull();
+  });
+
+  it("returns null for no selection / zero track width / no sequence", () => {
+    expect(overviewSelectionRect({ selection: null, trackWidth: w, seqLength: len, lo: 0, hi: len })).toBeNull();
+    expect(overviewSelectionRect({ selection: { start: 1, end: 2 }, trackWidth: 0, seqLength: len, lo: 0, hi: len })).toBeNull();
+    expect(overviewSelectionRect({ selection: { start: 1, end: 2 }, trackWidth: w, seqLength: 0, lo: 0, hi: 0 })).toBeNull();
   });
 });
 

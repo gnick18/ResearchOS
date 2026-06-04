@@ -2817,6 +2817,10 @@ export default function SequenceEditView({
                       // updates this extent; it never touches the detail zoom.
                       extent={overviewExtent}
                       onExtentChange={setOverviewExtent}
+                      // overview selband bot — the shared editor selection drawn
+                      // as a blue band on the strip (same range the LinearMap +
+                      // base view highlight), distinct from the viewport box.
+                      selection={mapSelection}
                     />
                   </div>
                   <div className="flex shrink-0 items-center border-l border-gray-100 px-2.5">

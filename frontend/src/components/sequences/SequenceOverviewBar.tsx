@@ -31,7 +31,13 @@ import {
   showInOverview,
   zoomExtentAroundCursor,
   panExtent,
+  overviewSelectionRect,
 } from "@/lib/sequences/sequence-zoom";
+
+/** overview selband bot — the shared editor SELECTION color, matched exactly to
+ *  the LinearMap band (SELECTION_BLUE = sky-500) so a selection reads identically
+ *  across Map / base view / this overview strip. */
+const SELECTION_BLUE = "#0ea5e9"; // sky-500, same as LinearMap.tsx
 
 export interface OverviewFeature {
   name: string;
@@ -61,6 +67,13 @@ export interface SequenceOverviewBarProps {
   extent?: { start: number; end: number };
   /** Emitted when a scroll / pinch / pan over the bar changes the extent. */
   onExtentChange?: (extent: { start: number; end: number }) => void;
+  /**
+   * overview selband bot — the shared editor SELECTION (bp range) to draw as a
+   * translucent BLUE band, matching the LinearMap + base-view selection. Mapped
+   * through the active extent and clamped to the track; omitted (null) when there
+   * is no selection. Distinct from the viewport box (a neutral outline).
+   */
+  selection?: { start: number; end: number } | null;
 }
 
 const BAR_HEIGHT = 46; // px, the whole strip
@@ -97,6 +110,7 @@ export default function SequenceOverviewBar({
   onScrollToBp,
   extent,
   onExtentChange,
+  selection,
 }: SequenceOverviewBarProps) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [trackWidth, setTrackWidth] = useState(0);
@@ -325,6 +339,23 @@ export default function SequenceOverviewBar({
       });
   }, [features, trackWidth, seqLength, lo, hi]);
 
+  // overview selband bot — the shared selection mapped to a clamped pixel band
+  // over the active extent. null when there is no selection or it sits entirely
+  // outside the visible extent. Drawn BEHIND the viewport box (see render order).
+  const selBand = useMemo(() => {
+    const rect = overviewSelectionRect({
+      selection,
+      trackWidth,
+      seqLength,
+      lo,
+      hi,
+    });
+    if (!rect) return null;
+    const x0 = TRACK_PAD_X + rect.x0;
+    const x1 = TRACK_PAD_X + rect.x1;
+    return { x: x0, width: Math.max(2, x1 - x0) };
+  }, [selection, trackWidth, seqLength, lo, hi]);
+
   if (!seqLength) return null;
 
   // Edge labels show the EXTENT bounds (1-based for the left edge, like the
@@ -364,15 +395,35 @@ export default function SequenceOverviewBar({
             <title>{a.name}</title>
           </polygon>
         ))}
-        {/* the viewport box */}
+        {/* overview selband bot — the SELECTION BAND (the shared editor
+            selection, same translucent sky as the LinearMap band + base view).
+            Drawn BEHIND the viewport box so the outlined box reads on top of the
+            blue fill where they overlap; feature ticks stay legible above the low
+            opacity. pointer-events:none so it never swallows the box drag. */}
+        {selBand ? (
+          <rect
+            pointerEvents="none"
+            x={selBand.x}
+            y={6}
+            width={selBand.width}
+            height={BAR_HEIGHT - 12}
+            rx={2}
+            fill={SELECTION_BLUE}
+            opacity={0.18}
+          />
+        ) : null}
+        {/* the VIEWPORT box (where the user is currently looking). A NEUTRAL
+            slate outline with a faint fill, deliberately distinct from the blue
+            selection band: at a glance, blue fill = what's selected, outlined box
+            = where you're looking. Still draggable / click-to-scroll. */}
         <rect
           x={clampedBoxX}
           y={6}
           width={boxW}
           height={BAR_HEIGHT - 12}
           rx={2}
-          fill="rgba(2,132,199,0.10)"
-          stroke="#0284c7"
+          fill="rgba(71,85,105,0.06)"
+          stroke="#475569"
           strokeWidth={1.5}
           style={{ cursor: "grab" }}
         />

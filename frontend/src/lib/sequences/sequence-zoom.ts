@@ -659,6 +659,49 @@ export function frameExtentToSelection(opts: {
   return { start, end: start + span };
 }
 
+/**
+ * overview selband bot — the SELECTION BAND rect for the overview strip.
+ *
+ * The bar draws the shared editor selection (the same range the LinearMap + base
+ * view highlight) as a translucent band so the user sees WHAT IS SELECTED on the
+ * mini-map alongside the viewport box (WHERE they are looking). The selection
+ * `[start, end]` is projected onto the active overview EXTENT `[lo, hi]` via the
+ * extent-aware bpToTrackX, clamped to the track edges so a selection running past
+ * the visible extent pins to the nearest edge.
+ *
+ * Returns null when there is no selection, when the track has no width, or when
+ * the selection lies ENTIRELY outside the visible extent (nothing to draw). The
+ * returned x0/x1 are TRACK-relative (do not include TRACK_PAD_X); the caller adds
+ * the pad. `clampedLeft` / `clampedRight` mark which ends were clipped by the
+ * extent (so the caller can drop an edge rule if the bound is off-screen).
+ *
+ * Pure + DOM-free so it is unit-testable in isolation.
+ */
+export function overviewSelectionRect(opts: {
+  selection: { start: number; end: number } | null | undefined;
+  trackWidth: number;
+  seqLength: number;
+  lo: number;
+  hi: number;
+}): { x0: number; x1: number; clampedLeft: boolean; clampedRight: boolean } | null {
+  const { selection, trackWidth, seqLength, lo, hi } = opts;
+  if (!selection) return null;
+  if (!Number.isFinite(trackWidth) || trackWidth <= 0) return null;
+  if (!Number.isFinite(seqLength) || seqLength <= 0) return null;
+  const selLo = Math.min(selection.start, selection.end);
+  const selHi = Math.max(selection.start, selection.end);
+  // Entirely outside the visible extent -> nothing to draw.
+  if (selHi <= lo || selLo >= hi) return null;
+  const x0 = bpToTrackX(selLo, trackWidth, seqLength, lo, hi);
+  const x1 = bpToTrackX(selHi, trackWidth, seqLength, lo, hi);
+  return {
+    x0,
+    x1,
+    clampedLeft: selLo < lo,
+    clampedRight: selHi > hi,
+  };
+}
+
 /** A feature spanning at least this fraction of the whole sequence counts as a
  *  "whole-span" feature for the overview mini-map filter (the GenBank `source`
  *  feature, or any annotation drawn end-to-end, paints a full-width bar that just
