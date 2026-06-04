@@ -189,14 +189,12 @@ export async function storeCurrentUser(username: string): Promise<void> {
 export async function getCurrentUser(): Promise<string | null> {
   try {
     const user = (await get<string>(CURRENT_USER_KEY)) || null;
-    // Panel investigator follow-up (finding #3): demoted from console.log
-    // to console.debug. The previous log fired before the reconciliation
-    // against discoverUsers() in file-system-context.finishConnect, so a
-    // stale IDB pointer to a now-missing user dir surfaced a confusing
-    // "have user → no user" log sequence. The higher-level signal in
-    // file-system-context is still at console.log; this per-hit signal
-    // is just noise.
-    console.debug("[indexeddb-store.getCurrentUser] Retrieved user from IndexedDB:", user);
+    // seq polish batch bot — removed the per-hit "Retrieved user from IndexedDB"
+    // debug log. getCurrentUser resolves on every storage call (it backs
+    // getCurrentUserCached), so it fired several times per page load + per
+    // sequence op, spamming the console in the editor path. The higher-level
+    // connect signal in file-system-context stays; this per-hit one was noise
+    // (the prior comment already called it that). The error branch is kept.
     return user;
   } catch (err) {
     console.error("[indexeddb-store.getCurrentUser] Error:", err);
@@ -223,7 +221,6 @@ export async function getMainUser(): Promise<string | null> {
 export async function clearCurrentUser(): Promise<void> {
   try {
     await del(CURRENT_USER_KEY);
-    console.log("[indexeddb-store.clearCurrentUser] Cleared current user from IndexedDB");
   } catch (err) {
     console.error("[indexeddb-store.clearCurrentUser] Error:", err);
   }

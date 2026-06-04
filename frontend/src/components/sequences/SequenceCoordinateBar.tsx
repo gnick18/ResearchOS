@@ -46,6 +46,11 @@ export interface SequenceCoordinateBarProps {
    *  / minimap are all irrelevant. The cluster collapses to a simple
    *  "Whole molecule (N bp)" indicator. */
   mapMode?: boolean;
+  /** seq polish batch bot — false until the host has MEASURED the true visible
+   *  window from the live scroller geometry. The `window` prop is seeded to the
+   *  whole molecule, so until this is true the bp readout / bp-in-view field
+   *  would flash that stale span for a frame. We hold both until measured. */
+  measured?: boolean;
 }
 
 export default function SequenceCoordinateBar({
@@ -55,6 +60,7 @@ export default function SequenceCoordinateBar({
   onZoomChange,
   onScrollToBp,
   mapMode = false,
+  measured = true,
 }: SequenceCoordinateBarProps) {
   const span = Math.max(1, win.end - win.start);
 
@@ -63,7 +69,11 @@ export default function SequenceCoordinateBar({
   // actively typing so their keystrokes are not clobbered by scroll/zoom updates.
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
-  const liveValue = span.toLocaleString();
+  // seq polish batch bot — FIX 3: before the host measures the true window, the
+  // `span` is derived from the seeded whole-molecule range. Show a calm placeholder
+  // rather than flash that stale number; the real value lands the same frame the
+  // host finishes measuring.
+  const liveValue = measured ? span.toLocaleString() : "";
   const fieldValue = editing ? draft : liveValue;
 
   // nav polish bot — the span the renderer can actually honor, projected from the
@@ -238,9 +248,12 @@ export default function SequenceCoordinateBar({
         />
       </label>
 
-      {/* exact visible-window readout (1-based, comma-grouped) */}
+      {/* exact visible-window readout (1-based, comma-grouped). Held until the
+          host has measured the true window so it never flashes the seeded span. */}
       <div className="hidden whitespace-nowrap font-mono text-meta text-gray-500 md:block">
-        bp = {(win.start + 1).toLocaleString()} .. {win.end.toLocaleString()}
+        {measured
+          ? `bp = ${(win.start + 1).toLocaleString()} .. ${win.end.toLocaleString()}`
+          : "bp = …"}
       </div>
 
       {/* horizontal coordinate minimap with a draggable viewport box */}

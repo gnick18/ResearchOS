@@ -28,7 +28,6 @@ export async function getCurrentUserCached(): Promise<string> {
 }
 
 export function clearCurrentUserCache(): void {
-  console.log("[clearCurrentUserCache] Clearing cache, was:", currentUserCache);
   currentUserCache = null;
 }
 
@@ -110,15 +109,12 @@ export class JsonStore<T extends { id: number }> {
 
   private async getBasePath(): Promise<string> {
     if (this.storeType === "public") {
-      console.log(`[JsonStore.getBasePath] Store type: public, returning: users/public`);
       return "users/public";
     } else if (this.storeType === "lab") {
-      console.log(`[JsonStore.getBasePath] Store type: lab, returning: users/lab`);
       return "users/lab";
     } else {
       const username = await getCurrentUserCached();
       const path = `users/${username}`;
-      console.log(`[JsonStore.getBasePath] Store type: user, username: ${username}, returning: ${path}`);
       return path;
     }
   }
@@ -164,10 +160,7 @@ export class JsonStore<T extends { id: number }> {
     const basePath = await this.getBasePath();
     const dirPath = `${basePath}/${this.entityName}`;
 
-    console.log(`[JsonStore.listAll] Entity: ${this.entityName}, Reading from: ${dirPath}, fileService connected: ${fileService.isConnected()}`);
-
     const fileNames = await fileService.listFiles(dirPath);
-    console.log(`[JsonStore.listAll] Entity: ${this.entityName}, Found ${fileNames.length} files:`, fileNames);
 
     const records: T[] = [];
 
@@ -175,7 +168,6 @@ export class JsonStore<T extends { id: number }> {
       if (!fileName.endsWith(".json")) continue;
       if (this.shouldSkipSidecarFile(fileName)) continue;
       const filePath = `${dirPath}/${fileName}`;
-      console.log(`[JsonStore.listAll] Reading file: ${filePath}`);
       const record = await fileService.readJson<T>(filePath);
       if (record) {
         records.push(record);
@@ -184,7 +176,6 @@ export class JsonStore<T extends { id: number }> {
       }
     }
 
-    console.log(`[JsonStore.listAll] Entity: ${this.entityName}, Loaded ${records.length} records`);
     return records.sort((a, b) => a.id - b.id);
   }
 
@@ -192,10 +183,7 @@ export class JsonStore<T extends { id: number }> {
     const basePath = `users/${username}`;
     const dirPath = `${basePath}/${this.entityName}`;
 
-    console.log(`[JsonStore.listAllForUser] Entity: ${this.entityName}, Reading from: ${dirPath} for user: ${username}`);
-
     const fileNames = await fileService.listFiles(dirPath);
-    console.log(`[JsonStore.listAllForUser] Entity: ${this.entityName}, Found ${fileNames.length} files for user ${username}`);
 
     const records: T[] = [];
 
@@ -209,7 +197,6 @@ export class JsonStore<T extends { id: number }> {
       }
     }
 
-    console.log(`[JsonStore.listAllForUser] Entity: ${this.entityName}, Loaded ${records.length} records for user ${username}`);
     return records.sort((a, b) => a.id - b.id);
   }
 

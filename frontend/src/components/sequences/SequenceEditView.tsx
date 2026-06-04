@@ -735,6 +735,15 @@ export default function SequenceEditView({
     start: 0,
     end: doc.seq.length,
   });
+  // seq polish batch bot — FIX 3 (bp-readout flicker): the window above is seeded
+  // to the WHOLE molecule, but the true visible window is only known after the
+  // SeqViz scroller lays out (a frame or two later). Without gating, the bottom
+  // bp readout / bp-in-view field flash the whole-molecule span for one frame on
+  // first paint + on every Map<->Sequence toggle, then snap to the measured
+  // window. This flag flips true on the first successful recompute so the readout
+  // can hold until the real window is known. It is reset whenever the renderer is
+  // about to re-measure from scratch (sequence swap / view-mode change).
+  const [windowMeasured, setWindowMeasured] = useState(false);
 
   // ACCURACY FIX: re-resolve the live scroller (its ref can go stale across a
   // SeqViz re-render) and refuse to compute off a not-yet-laid-out subtree
@@ -761,6 +770,7 @@ export default function SequenceEditView({
           seqLength: doc.seq.length,
         }),
       );
+      setWindowMeasured(true);
       return;
     }
     if (!(sc.scrollHeight > 0) || !(sc.clientHeight > 0)) return;
@@ -772,7 +782,17 @@ export default function SequenceEditView({
         seqLength: doc.seq.length,
       }),
     );
+    setWindowMeasured(true);
   }, [doc.seq.length, singleLine]);
+
+  // seq polish batch bot — FIX 3: reset the measured flag whenever the renderer
+  // is about to re-measure from scratch, so the bp readout holds until the new
+  // visible window is known instead of flashing the seeded whole-molecule span.
+  // Triggers: sequence swap, Map<->Sequence toggle, wrap toggle. The rAF burst
+  // below re-measures within a frame or two and flips the flag back on.
+  useEffect(() => {
+    setWindowMeasured(false);
+  }, [sequence.id, viewMode, singleLine]);
 
   // Locate the SeqViz linear scroller inside our viewer container and wire a
   // scroll listener + resize observer. SeqViz re-renders its scroll subtree on
@@ -2517,6 +2537,33 @@ export default function SequenceEditView({
                   setContextMenuAt({ x: e.clientX, y: e.clientY });
                 }}
               >
+                {/* seq polish batch bot — MAP-MODE BADGE. At the slider floor the
+                    Map and Sequence tabs can read as near-identical, so the Map
+                    view carries an explicit, always-on "Map view" badge anchored
+                    top-left of the viewer. Mode-agnostic (linear map + circular
+                    ring both show it); the Sequence view never does, so the two
+                    tabs are unmistakable at a glance. Inline SVG ring, type-meta,
+                    pointer-events:none so it never intercepts a map click. */}
+                {isMapView ? (
+                  <div
+                    className="pointer-events-none absolute left-2 top-2 z-20 inline-flex items-center gap-1.5 rounded-md border border-sky-200 bg-sky-50/90 px-2 py-1 text-meta font-medium text-sky-700 shadow-sm backdrop-blur-sm"
+                    aria-hidden="true"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-3.5 w-3.5"
+                    >
+                      <circle cx="12" cy="12" r="8" />
+                      <path d="M12 4v3M20 12h-3M12 20v-3M4 12h3" />
+                    </svg>
+                    <span>Map view</span>
+                  </div>
+                ) : null}
                 {/* enhanced find bot — inline Find box (Cmd+F), anchored top-right.
                     SnapGene-style modes (DNA / Name / Protein) with a closest-
                     match fallback; it owns mode + query and reports matches up. */}
@@ -2634,6 +2681,11 @@ export default function SequenceEditView({
                   // the window cluster (slider / bp-in-view / readout / minimap)
                   // is stale; collapse it to a "Whole molecule (N bp)" indicator.
                   mapMode={viewMode === "map"}
+                  // seq polish batch bot — FIX 3: hold the bp readout / bp-in-view
+                  // field until the true visible window has been measured, so
+                  // neither flashes the seeded whole-molecule span for a frame on
+                  // first paint or on a view toggle.
+                  measured={windowMeasured}
                 />
               ) : viewMode === "map" ? (
                 // nav polish bot — circular molecule in Map view: the ring IS the
