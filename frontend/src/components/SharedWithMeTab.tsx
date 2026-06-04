@@ -570,36 +570,6 @@ function ReviewImportModal({
   const experimentSenderFingerprint =
     received?.sender?.fingerprint ?? manifestSender?.fingerprint ?? undefined;
 
-  // A project bundle drives its own thin import dialog (always-new, no
-  // per-method resolution). It owns its parse + applyProjectImportPlan; we ack
-  // the relay after it reports success and surface the notCarried report.
-  if (kind === "project" && projectFile) {
-    return (
-      <ProjectImportDialog
-        initialFile={projectFile}
-        provenanceLabel={experimentSenderLabel}
-        onClose={onClose}
-        onImported={(result) => void handleProjectImported(result)}
-      />
-    );
-  }
-
-  // Both an experiment and a standalone-method bundle drive the SAME import
-  // dialog (a method bundle is researchos-experiment-shaped). Reuse the
-  // experiment receive plumbing verbatim for the method case.
-  if ((kind === "experiment" || kind === "method") && experimentFile) {
-    return (
-      <ImportExperimentDialog
-        isOpen
-        initialFile={experimentFile}
-        provenanceLabel={experimentSenderLabel}
-        provenanceFingerprint={experimentSenderFingerprint}
-        onClose={onClose}
-        onImported={(result) => void handleExperimentImported(result)}
-      />
-    );
-  }
-
   // The bundle entity, projected for the read-only preview. Notes only.
   const preview = useMemo(() => {
     if (!received || received.entityType !== "note") return null;
@@ -682,8 +652,38 @@ function ReviewImportModal({
     }
   }, [received, item, email, currentUser, onImported]);
 
-  // Unsupported = decrypted to a kind we cannot import here. (Experiments are
-  // handled by the early-return above, so by this point kind is note/unknown.)
+  // Every hook above runs unconditionally on every render. Only now, after the
+  // last hook, do we branch to the experiment/method/project import dialogs.
+  // These returns MUST stay below the hooks, when they sat above preview +
+  // handleImport, the decrypt transition (kind null -> experiment/project)
+  // dropped two hooks and crashed with "rendered fewer hooks than expected".
+  if (kind === "project" && projectFile) {
+    return (
+      <ProjectImportDialog
+        initialFile={projectFile}
+        provenanceLabel={experimentSenderLabel}
+        onClose={onClose}
+        onImported={(result) => void handleProjectImported(result)}
+      />
+    );
+  }
+
+  if ((kind === "experiment" || kind === "method") && experimentFile) {
+    return (
+      <ImportExperimentDialog
+        isOpen
+        initialFile={experimentFile}
+        provenanceLabel={experimentSenderLabel}
+        provenanceFingerprint={experimentSenderFingerprint}
+        onClose={onClose}
+        onImported={(result) => void handleExperimentImported(result)}
+      />
+    );
+  }
+
+  // Unsupported = decrypted to a kind we cannot import here. (Experiment /
+  // method / project are handled by the returns just above, so by this point
+  // kind is note or unknown.)
   const unsupported = kind === "unknown";
 
   return (
