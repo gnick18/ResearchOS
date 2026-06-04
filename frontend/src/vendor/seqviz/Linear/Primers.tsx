@@ -244,12 +244,12 @@ const SingleNamedElement = (props: {
   // two agree. Zoomed out, none of this runs and the thin arrow + label is used.
   const primerColor = color || "#f472b6";
   // primer bases — the border + arrowhead + name carry the PRIMER's own color
-  // (purple/pink/whatever the user set); the bases INSIDE render in a distinct
-  // green so they stand out against the border the way SnapGene shows them. Green
-  // is tuned to read on the editor's light background (darker than SnapGene's
-  // dark-mode green). Mismatches still override to red.
-  const baseColor = "#15803d"; // green-700 — the in-primer base glyphs
-  const mismatchColor = "#dc2626"; // contrasting red so a mismatch base reads popped
+  // (purple/pink/whatever the user set); the body is filled near-black and the
+  // bases INSIDE render in a bright YELLOW so they read clearly against the dark
+  // fill (green washed out on the dark chip). Mismatches still override to red.
+  const baseColor = "#fde047"; // yellow-300 — the in-primer base glyphs on the dark fill
+  const mismatchColor = "#f87171"; // red-400 — a mismatch base, still readable on dark
+  const boxFill = "#0a0a0a"; // near-black primer body so the yellow bases pop
   const baseCells = (element as { baseCells?: PrimerBaseCell[] }).baseCells;
   const renderBases = zoomed && charWidth > 4 && Array.isArray(baseCells) && baseCells.length > 0;
 
@@ -314,20 +314,23 @@ const SingleNamedElement = (props: {
   // otherwise the body runs flat into the next block (the primer continues).
   const headLen = Math.min(charWidth * 1.25, baseFontSize * 1.7); // forward reach of the tip
   const barbRise = boxH * 0.85; // how far the barb pulls back off the body (chunky, SnapGene-like)
-  const borderW = 2.25; // thicker colored outline so the primer reads as a primer
+  const barbBack = headLen * 0.55; // how far the swept barb overhangs BACK over the shaft
+  const borderW = 3; // thick colored outline so the primer reads as a primer, not a feature
   const arrowRight = forward && endFWD;
   const arrowLeft = reverse && endREV;
   const annealBoxPath = (() => {
     if (!annVis.length) return "";
     if (arrowRight) {
-      // full top edge to the right corner, riser UP (pull back), sweep to the tip,
-      // back down to the bottom-right corner, bottom edge home.
-      return `M ${annX0} ${annTop} L ${annX1} ${annTop} L ${annX1} ${annTop - barbRise} L ${annX1 + headLen} ${annBaseY} L ${annX1} ${annBot} L ${annX0} ${annBot} Z`;
+      // Swept-back arrowhead: from the shaft's top-right corner the barb sweeps UP
+      // and BACK (overhanging the shaft top, at annX1 - barbBack) — that backward
+      // overhang is the SnapGene "pull back" — then forward-down to the tip, then
+      // back to the bottom-right corner and home along the bottom edge.
+      return `M ${annX0} ${annTop} L ${annX1} ${annTop} L ${annX1 - barbBack} ${annTop - barbRise} L ${annX1 + headLen} ${annBaseY} L ${annX1} ${annBot} L ${annX0} ${annBot} Z`;
     }
     if (arrowLeft) {
-      // mirror: full bottom edge to the left corner, riser DOWN (pull back), sweep
-      // to the tip on the left, back up to the top-left corner, top edge home.
-      return `M ${annX1} ${annBot} L ${annX0} ${annBot} L ${annX0} ${annBot + barbRise} L ${annX0 - headLen} ${annBaseY} L ${annX0} ${annTop} L ${annX1} ${annTop} Z`;
+      // mirror: barb sweeps DOWN and BACK (overhanging the shaft bottom, at
+      // annX0 + barbBack) then forward-up to the tip on the left.
+      return `M ${annX1} ${annBot} L ${annX0} ${annBot} L ${annX0 + barbBack} ${annBot + barbRise} L ${annX0 - headLen} ${annBaseY} L ${annX0} ${annTop} L ${annX1} ${annTop} Z`;
     }
     return `M ${annX0} ${annTop} L ${annX1} ${annTop} L ${annX1} ${annBot} L ${annX0} ${annBot} Z`;
   })();
@@ -367,21 +370,19 @@ const SingleNamedElement = (props: {
             className={`${element.id} la-vz-primer`}
             cursor="pointer"
             d={annealBoxPath}
-            // primer bases — fill the primer body BLACK so the green bases pop on
-            // the editor's light background (SnapGene-style chip), with a thicker
-            // colored border. The bases render on top of this fill.
-            fill="#000000"
+            // primer bases — fill the body near-black so the yellow bases pop, with
+            // a thick colored border. NOTE: we deliberately do NOT apply the shared
+            // `annotation` style here — it forces fillOpacity 0.7 (graying the fill)
+            // AND strokeWidth 0.5 (overriding our border thickness). Solid fill +
+            // full-width border instead. Bases render on top of this fill.
+            fill={boxFill}
+            fillOpacity={1}
             id={element.id}
             stroke={primerColor}
             strokeWidth={borderW}
             strokeLinejoin="round"
             strokeLinecap="round"
-            style={annotation}
-            onBlur={() => {}}
             onDoubleClick={handleDoubleClick}
-            onFocus={() => {}}
-            onMouseOut={() => hoverOtherPrimerRows(element.id, 0.7)}
-            onMouseOver={() => hoverOtherPrimerRows(element.id, 1.0)}
           />
         ) : null}
         {/* 5' TAIL box — raised off the template, abutting the annealing box at the
@@ -395,13 +396,12 @@ const SingleNamedElement = (props: {
             width={Math.abs(tailX1 - tailX0)}
             height={boxH}
             rx={2.5}
-            fill="#000000"
+            fill={boxFill}
+            fillOpacity={1}
             stroke={primerColor}
             strokeWidth={borderW}
             strokeLinejoin="round"
             onDoubleClick={handleDoubleClick}
-            onMouseOut={() => hoverOtherPrimerRows(element.id, 0.7)}
-            onMouseOver={() => hoverOtherPrimerRows(element.id, 1.0)}
           />
         ) : null}
         {/* the primer's actual bases, column-aligned over the template (annealing)
