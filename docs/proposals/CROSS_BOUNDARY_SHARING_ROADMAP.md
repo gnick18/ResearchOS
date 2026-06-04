@@ -70,6 +70,8 @@ Recommendation, ship always-new first (it covers "here is my project, take a cop
 
 ## Beyond copies, Collaborate mode (live sessions)
 
+Fleshed out into a build-ready-as-possible design in CROSS_BOUNDARY_SHARING_COLLABORATE.md (architecture, the E2E-blind vs server-merge fork with a recommendation, retire-to-local, cost, phasing, open questions). The sketch below is the summary.
+
 Everything above is a copy, a snapshot handed across the boundary. Collaborate mode is the live complement, and it is a distinct, later, larger feature.
 
 The idea, a user temporarily promotes a note, method, or experiment to a live shared session hosted in the cloud, invites N people, and everyone edits it together in real time like a Google Doc, changes rendering on every screen with no manual refresh. When the work is done the doc is retired from collab mode, which writes a permanent local copy into every collaborator's own folder and deletes the cloud copy.
