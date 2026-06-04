@@ -137,5 +137,13 @@ visualization; homology-based annotation.
   AlignmentResult {score,aStart/aEnd,bStart/bEnd,identity,alignedA/B,ops,cigar};
   index.ts barrel). 34 tests, tsc clean. Protein/BLOSUM62 = clean seam, deferred.
   STAGE 2 (mismatch-tolerant primer binding + show mismatches in the primer
-  dialogs) = next, touches lib/sequences/primer.ts + primer dialogs; must NOT
-  regress exact/clean-primer behavior or existing primer tests.
+  dialogs) MERGED @ 431e2143: BindingSite gained optional mismatches[]/identity/
+  alignedPrimer/alignedTemplate; aligner (seedAndExtend, IUPAC) recovers internal-
+  mismatch hits, fast path unchanged for clean primers (parity unit-tested); gates
+  minIdentity 0.75 + adaptive minAlignedLength; dialogs highlight mismatched bases
+  (rose) + "N/M matched (X%)" stat + mismatch count in site selector. 519 tests.
+  CAVEAT: mismatch-highlight VISUAL unconfirmed (bot could not drive a browser;
+  data contract unit-tested) -> Grant to eyeball a one-off-mismatch primer.
+  ALIGNER MVP NOW COMPLETE. Deferred (build-later): mismatch-tolerant specificity,
+  Compare/Align-two-sequences, mutagenesis primer viz, homology annotation, the
+  enhanced Cmd+F Find with close-match fallback.
