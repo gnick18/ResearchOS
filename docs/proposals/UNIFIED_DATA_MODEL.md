@@ -126,6 +126,61 @@ Both prototypes passed, so section 12 is closed and Loro is the substrate.
 
 Two follow-ups to fold into the phased build, NOT blockers: (1) mount `LoroExtensions` inside ONE real React 19 component behind a flag (the Notes pilot is the natural host) to prove the binding under React 19 concurrent rendering, the spikes proved it in isolation only; (2) the brotli-stream + warm-on-onboarding WASM load strategy. The maturity caveat stands, loro-codemirror is young (single maintainer, the awareness API already churned once from `LoroAwarenessPlugin` to `LoroEphemeralPlugin`), so pin versions and watch the project. This is a governance risk, not a capability risk.
 
+## 12.2 WASM load strategy + version pins
+
+### Load mechanism
+
+loro-crdt 1.12.3 ships four distribution targets. The one bundlers consume automatically is `bundler/` (set as `"module": "bundler/index.js"` in the package exports). That target does a static WASM import:
+
+```js
+import * as rawWasm from "./loro_wasm_bg.wasm";
+```
+
+This is a bundler-native static WASM import, not a `fetch()` call and not a base64-embedded blob. The `loro_wasm_bg.wasm` file is 3.07 MB raw; the spike measured approximately 700 KB after brotli compression. The bundler resolves the import at build time and emits the WASM as a separate asset alongside the JS chunk that references it.
+
+Next.js with Turbopack handles this natively. Turbopack supports static `.wasm` imports without any `asyncWebAssembly: true` webpack experimental flag, so no `next.config.ts` changes are needed. The existing CSP already includes `'wasm-unsafe-eval'` (added for `@react-pdf/renderer`'s yoga-layout dependency), so Loro WASM compiles and instantiates without any security-policy change either.
+
+The `base64/index.js` target (WASM inlined as a base64 string, inflating the bundle to approximately 3 MB) is intentionally NOT used in the app. The spike used it only for a self-contained `file://` demo build where a separate `.wasm` fetch would be blocked. The `web/` target (fetch-based async init) is also out; it requires explicit `initWasm(url)` calls and a manually served `.wasm` file, which the `bundler/` target handles more cleanly.
+
+### Serving and compression
+
+Next.js serves all static assets (JS chunks and any co-located `.wasm` asset the bundler emits) with brotli compression automatically when deployed on Vercel or any server that processes `Accept-Encoding: br`. No manual brotli setup is needed. The WASM asset lands in the browser cache after the first visit, so only the cold first-load pays the approximately 700 KB transfer cost.
+
+The browser's `WebAssembly.compileStreaming` path fires automatically when the WASM asset is served with the correct `application/wasm` content-type. Next.js sets this content-type for `.wasm` assets in its static serving pipeline, so streaming compilation (which overlaps network download with WASM compilation, reducing total latency) is the default behavior.
+
+### Warm-on-onboarding call
+
+The first note open triggers the Loro editor. Without pre-warming, that moment pays the approximately 30ms WASM compile cost in the foreground. The correct warm point is the `setup-wrapup` step, which renders after the user has confirmed their folder connection and feature picks but before they click into the in-product walkthrough. The WASM is useless before folder connect (no documents to open), so firing it earlier wastes memory for users who exit the tour.
+
+Insert a fire-and-forget warm call in `SetupWrapupStep.tsx` (`frontend/src/components/onboarding/v4/steps/setup/SetupWrapupStep.tsx`), inside a `useEffect` that runs once on mount:
+
+```ts
+useEffect(() => {
+  // Pre-warm the Loro WASM module so the first note open
+  // does not pay a foreground compile cost.
+  void import("loro-crdt");
+}, []);
+```
+
+The dynamic import resolves the module (triggering WASM compile and instantiate in the background) without blocking the render. If the user clicks "Give me a tour" before the compile finishes, the first note open will still pay whatever compile time remains, but that window is typically a few hundred milliseconds of tour narration. The warm call is a best-effort optimization, not a gate. It covers both the happy path (user takes the tour) and the skip path (user clicks "Skip for now, take me to home"), because both happen after folder connect and both route to the product where a note open is plausible within seconds.
+
+### Version pins
+
+Pin both packages to exact versions when the Notes pilot adds them to `frontend/package.json`:
+
+- `loro-crdt@1.12.3` -- the version the spike validated. Do not use a caret range; loro-crdt moves fast and the WASM ABI is not stable across minor versions.
+- `loro-codemirror@0.3.3` -- the version the spike validated. The awareness API already churned once between `LoroAwarenessPlugin` (older builds) and `LoroEphemeralPlugin` (0.3.x). Watch the loro-codemirror CHANGELOG before any upgrade; a second rename would be silent at runtime and only caught by TypeScript.
+
+The spike's `spikes/unified-model-loro-binding/package.json` carries the verified pins as a reference.
+
+### What does NOT need to change
+
+- `frontend/next.config.ts` -- no webpack or Turbopack WASM config changes needed. Turbopack handles static `.wasm` imports natively.
+- The CSP in `next.config.ts` -- `'wasm-unsafe-eval'` is already in `script-src`.
+- `frontend/public/` -- no manual `.wasm` copy needed. The bundler emits the asset from the static import in the `bundler/` target.
+- The Vercel deployment config -- brotli serving is automatic on Vercel for all static assets.
+
+
 ## 13. Open decisions for Grant
 
 1. Approve the overall direction, one CRDT-backed model, CRDT-authoritative-with-readable-mirror on disk, linked-per-entity docs.
