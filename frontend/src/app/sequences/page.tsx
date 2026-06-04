@@ -18,6 +18,9 @@ import SequenceDropZone from "@/components/sequences/SequenceDropZone";
 import SequenceImportTargetDialog, {
   type ImportTargetRequest,
 } from "@/components/sequences/SequenceImportTargetDialog";
+import ImportProgressOverlay, {
+  type ImportProgress,
+} from "@/components/sequences/ImportProgressOverlay";
 import CloningWorkspace from "@/components/sequences/CloningWorkspace";
 import CompareSequencesDialog from "@/components/sequences/CompareSequencesDialog";
 import { sequencesApi, projectsApi } from "@/lib/local-api";
@@ -249,6 +252,14 @@ export default function SequencesPage() {
   const [assembleOpen, setAssembleOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [importing, setImporting] = useState(false);
+  // Structured progress for a MULTI-file import, driving the centered
+  // ImportProgressOverlay (+ the beforeunload guard). Null when no multi-file
+  // import is running; a single-file import never sets this (it keeps the
+  // inline status line only). Set at the start of finishImport, advanced by
+  // the per-file onProgress callback, cleared in the finally block.
+  const [importProgress, setImportProgress] = useState<ImportProgress | null>(
+    null,
+  );
   // Transient status line under the toolbar (import counts / parse errors).
   const [status, setStatus] = useState<{ text: string; tone: "ok" | "error" } | null>(null);
   const [importMenuOpen, setImportMenuOpen] = useState(false);
@@ -586,6 +597,11 @@ export default function SequencesPage() {
   const finishImport = useCallback(
     async (imports: ImportedSequence[], projectId: string | null, skipped: number) => {
       setImporting(true);
+      // Show the centered progress overlay only for a real batch (>1 file).
+      // A single-file import keeps the inline status line and never gets the
+      // big modal (or the beforeunload guard).
+      const isMulti = imports.length > 1;
+      if (isMulti) setImportProgress({ done: 0, total: imports.length });
       try {
         await persistNew(
           imports,
@@ -595,6 +611,7 @@ export default function SequencesPage() {
             // working (and the list filling in) rather than a frozen "Import".
             if (total > 1 && doneN < total) {
               setStatus({ text: `Importing ${doneN} of ${total}…`, tone: "ok" });
+              setImportProgress({ done: doneN, total });
             }
           },
         );
@@ -604,6 +621,9 @@ export default function SequencesPage() {
         });
       } finally {
         setImporting(false);
+        // Always clear the overlay (success OR error), so a failed import never
+        // leaves the blocking modal stuck on screen.
+        setImportProgress(null);
       }
     },
     [persistNew, destinationName],
@@ -735,6 +755,23 @@ export default function SequencesPage() {
     return () => clearTimeout(t);
   }, [status]);
 
+  // beforeunload guard: while a multi-file import is in flight, arm the
+  // browser's native "Leave site?" prompt so a refresh / tab-close / external
+  // navigation can't silently abandon a half-written batch. The in-app
+  // ImportProgressOverlay covers the visual / in-app-navigation side; this is
+  // the browser-level protection. Removed the moment importProgress clears
+  // (success or error), so it never lingers past the import.
+  useEffect(() => {
+    if (!importProgress) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // Legacy assignment some browsers still require to trigger the prompt.
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [importProgress]);
+
   // Close the Import menu on outside click / Escape.
   useEffect(() => {
     if (!importMenuOpen) return;
@@ -864,6 +901,10 @@ export default function SequencesPage() {
 
   return (
     <AppShell>
+      {/* Centered, blocking progress overlay for multi-file imports. Portals
+          to document.body; renders only when importProgress is set with
+          total > 1. Single-file imports use the inline status line below. */}
+      <ImportProgressOverlay progress={importProgress} />
       <div
         ref={splitContainerRef}
         className="flex h-[calc(100vh-7rem)] px-4 pb-4"
