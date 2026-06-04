@@ -1,0 +1,17 @@
+{
+  "name": "unified-model-loro-spike",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Throwaway spike proving the unified data model gates on Loro",
+  "scripts": {
+    "gate1": "node gate1-ondisk.mjs",
+    "gate2": "node gate2-history-vc.mjs",
+    "gate4": "node gate4-structured-record.mjs",
+    "gate5": "node gate5-fork-seed.mjs",
+    "all": "node gate1-ondisk.mjs && node gate2-history-vc.mjs && node gate5-fork-seed.mjs && node gate4-structured-record.mjs"
+  },
+  "dependencies": {
+    "loro-crdt": "^1.12.3"
+  }
+}
