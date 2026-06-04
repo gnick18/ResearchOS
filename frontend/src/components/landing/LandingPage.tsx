@@ -379,17 +379,21 @@ interface Cell {
   text: string;
 }
 
-/** One row of the LabArchives comparison. The ResearchOS column is tinted;
- *  both columns carry checks where each tool genuinely has the capability,
- *  so the table reads as an honest side-by-side rather than a hit piece. */
+/** One row of the comparison. The ResearchOS column is tinted; every column
+ *  carries checks where each tool genuinely has the capability, so the table
+ *  reads as an honest three-way side-by-side rather than a hit piece. The
+ *  third column (SnapGene) is optional so legacy two-column rows still work,
+ *  but every row in the live table now passes all three. */
 function ComparisonRow({
   label,
   us,
-  them,
+  labarchives,
+  snapgene,
 }: {
   label: string;
   us: Cell;
-  them: Cell;
+  labarchives: Cell;
+  snapgene?: Cell;
 }) {
   return (
     <tr className="border-b border-gray-100 align-top last:border-0">
@@ -402,11 +406,259 @@ function ComparisonRow({
       </td>
       <td className="px-4 py-3 text-body text-gray-600">
         <span className="flex items-start gap-2">
-          <MarkIcon mark={them.mark} />
-          <span>{them.text}</span>
+          <MarkIcon mark={labarchives.mark} />
+          <span>{labarchives.text}</span>
         </span>
       </td>
+      <td className="px-4 py-3 text-body text-gray-600">
+        {snapgene ? (
+          <span className="flex items-start gap-2">
+            <MarkIcon mark={snapgene.mark} />
+            <span>{snapgene.text}</span>
+          </span>
+        ) : (
+          <span className="text-gray-400" aria-hidden>
+            &middot;
+          </span>
+        )}
+      </td>
     </tr>
+  );
+}
+
+/** Brand wordmark for the top nav: the BeakerBot mark beside a bold
+ *  "ResearchOS", mirroring the AppShell brand lockup. Static (no easter egg)
+ *  so it reads as a logo, not an interactive toy, on the sell page. */
+function Wordmark() {
+  return (
+    <div className="flex items-center gap-2">
+      <BeakerBot
+        pose="idle"
+        animated={false}
+        easterEgg="none"
+        ariaLabel="ResearchOS BeakerBot logo"
+        className="h-7 w-7 shrink-0 text-sky-500"
+      />
+      <span className="text-lg font-bold tracking-tight text-gray-900">
+        ResearchOS
+      </span>
+    </div>
+  );
+}
+
+/** The Google "G" mark as an inline multi-color SVG (no emoji, no icon font). */
+function GoogleMark() {
+  return (
+    <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" aria-hidden>
+      <path
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0012 23z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.84 14.1a6.6 6.6 0 010-4.2V7.06H2.18a11 11 0 000 9.88l3.66-2.84z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84C6.71 7.3 9.14 5.38 12 5.38z"
+      />
+    </svg>
+  );
+}
+
+/** The GitHub mark as an inline SVG (currentColor so it inherits text tint). */
+function GitHubMark() {
+  return (
+    <svg
+      className="h-5 w-5 shrink-0"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+    >
+      <path d="M12 1.5a10.5 10.5 0 00-3.32 20.47c.52.1.71-.23.71-.5v-1.76c-2.89.63-3.5-1.4-3.5-1.4-.47-1.2-1.15-1.52-1.15-1.52-.94-.64.07-.63.07-.63 1.04.07 1.59 1.07 1.59 1.07.93 1.59 2.43 1.13 3.02.86.1-.67.36-1.13.66-1.39-2.31-.26-4.74-1.16-4.74-5.14 0-1.14.4-2.06 1.07-2.79-.11-.26-.46-1.32.1-2.75 0 0 .87-.28 2.85 1.06a9.9 9.9 0 015.2 0c1.98-1.34 2.85-1.06 2.85-1.06.56 1.43.21 2.49.1 2.75.67.73 1.07 1.65 1.07 2.79 0 3.99-2.43 4.87-4.75 5.13.37.32.7.95.7 1.92v2.85c0 .28.19.61.71.5A10.5 10.5 0 0012 1.5z" />
+    </svg>
+  );
+}
+
+/** A Google + GitHub sign-in pair, used at the hero and in the sharing
+ *  section. Both buttons route to the connect screen (same as Get started)
+ *  rather than calling next-auth's signIn directly, because the landing is a
+ *  pre-login surface that cannot assume a SessionProvider wraps it. The
+ *  framing makes clear the notebook itself needs no account. */
+function SignInRow({
+  onSignIn,
+  tone = "light",
+}: {
+  onSignIn: () => void;
+  tone?: "light" | "dark";
+}) {
+  const isDark = tone === "dark";
+  const base =
+    "inline-flex items-center justify-center gap-2.5 rounded-xl border px-5 py-2.5 text-body font-semibold transition-all hover:scale-[1.02]";
+  const cls = isDark
+    ? `${base} border-white/25 bg-white/10 text-white hover:bg-white/15`
+    : `${base} border-gray-200 bg-white text-gray-800 shadow-sm hover:border-gray-300 hover:shadow`;
+  return (
+    <div className="flex flex-col items-center gap-2.5 sm:flex-row">
+      <button
+        type="button"
+        onClick={onSignIn}
+        data-testid="landing-signin-google"
+        className={cls}
+      >
+        <GoogleMark />
+        Continue with Google
+      </button>
+      <button
+        type="button"
+        onClick={onSignIn}
+        data-testid="landing-signin-github"
+        className={isDark ? cls : `${cls} text-gray-900`}
+      >
+        <GitHubMark />
+        Continue with GitHub
+      </button>
+    </div>
+  );
+}
+
+/** A non-photo flagship band: an eyebrow + headline + prose + proof list on
+ *  one side, and a tasteful inline-SVG illustration (no screenshot) on the
+ *  other, framed in the rainbow/brand palette. Used for flagship features
+ *  that do not yet have a privacy-safe fixture screenshot, so nothing ever
+ *  renders a broken <Image>. Mirrors HeroBand's alternating layout. */
+function IllustratedBand({
+  eyebrow,
+  title,
+  imageSide,
+  points,
+  illustration,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  imageSide: "left" | "right";
+  points: string[];
+  illustration: ReactNode;
+  children: ReactNode;
+}) {
+  const text = (
+    <div className="flex flex-col justify-center">
+      <span className="text-body font-semibold uppercase tracking-wide text-sky-600">
+        {eyebrow}
+      </span>
+      <h3 className="mt-2 text-2xl font-bold tracking-tight text-gray-900 sm:text-display">
+        {title}
+      </h3>
+      <p className="mt-3 text-title leading-relaxed text-gray-600">{children}</p>
+      <ul className="mt-5 flex flex-col gap-2.5">
+        {points.map((point) => (
+          <li key={point} className="flex items-start gap-2.5">
+            <svg
+              className="mt-0.5 h-5 w-5 flex-shrink-0 text-sky-600"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+            <span className="text-body leading-relaxed text-gray-700">
+              {point}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+
+  return (
+    <div className="grid items-center gap-8 md:grid-cols-2 md:gap-12">
+      <div className={imageSide === "left" ? "md:order-1" : "md:order-2"}>
+        {illustration}
+      </div>
+      <div className={imageSide === "left" ? "md:order-2" : "md:order-1"}>
+        {text}
+      </div>
+    </div>
+  );
+}
+
+/** Inline-SVG illustration for the Sequence Editor band: a stylized circular
+ *  plasmid map with colored feature arcs and a couple of annotation ticks,
+ *  drawn in the rainbow/brand palette. Decorative, so aria-hidden. */
+function PlasmidIllustration() {
+  return (
+    <div className="relative flex aspect-[16/10] w-full items-center justify-center overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-sky-50 via-white to-purple-50 shadow-sm">
+      <svg
+        viewBox="0 0 200 200"
+        className="h-[78%] w-auto"
+        fill="none"
+        aria-hidden
+      >
+        {/* Backbone circle */}
+        <circle cx="100" cy="100" r="64" stroke="#CBD5E1" strokeWidth="2" />
+        {/* Feature arcs in the brand rainbow */}
+        <path d="M100 36 A64 64 0 0 1 155 68" stroke="#FFD2B0" strokeWidth="9" strokeLinecap="round" />
+        <path d="M158 74 A64 64 0 0 1 158 126" stroke="#B7EBB1" strokeWidth="9" strokeLinecap="round" />
+        <path d="M150 136 A64 64 0 0 1 100 164" stroke="#A6D2F4" strokeWidth="9" strokeLinecap="round" />
+        <path d="M88 163 A64 64 0 0 1 42 120" stroke="#D6B5F0" strokeWidth="9" strokeLinecap="round" />
+        <path d="M40 112 A64 64 0 0 1 64 52" stroke="#FFF1A8" strokeWidth="9" strokeLinecap="round" />
+        {/* Restriction tick marks */}
+        <line x1="100" y1="28" x2="100" y2="44" stroke="#94A3B8" strokeWidth="2" />
+        <line x1="172" y1="100" x2="156" y2="100" stroke="#94A3B8" strokeWidth="2" />
+        <line x1="100" y1="172" x2="100" y2="156" stroke="#94A3B8" strokeWidth="2" />
+        {/* Center label */}
+        <text x="100" y="96" textAnchor="middle" className="fill-gray-500" fontSize="12" fontWeight="600">
+          plasmid
+        </text>
+        <text x="100" y="112" textAnchor="middle" className="fill-gray-400" fontSize="9">
+          5,184 bp
+        </text>
+      </svg>
+    </div>
+  );
+}
+
+/** Inline-SVG illustration for the cross-boundary sharing band: two simple
+ *  user avatars with a sealed-envelope transfer arcing between them, framed
+ *  in the brand palette. The padlock badge signals the encrypted relay.
+ *  Decorative, so aria-hidden. */
+function ShareTransferIllustration() {
+  return (
+    <div className="relative flex aspect-[16/10] w-full items-center justify-center overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-purple-50 via-white to-sky-50 shadow-sm">
+      <svg viewBox="0 0 280 160" className="h-[78%] w-auto" fill="none" aria-hidden>
+        {/* Sender avatar */}
+        <circle cx="46" cy="80" r="26" fill="#A6D2F4" />
+        <circle cx="46" cy="71" r="9" fill="#fff" />
+        <path d="M30 96 a16 16 0 0 1 32 0 z" fill="#fff" />
+        {/* Recipient avatar */}
+        <circle cx="234" cy="80" r="26" fill="#D6B5F0" />
+        <circle cx="234" cy="71" r="9" fill="#fff" />
+        <path d="M218 96 a16 16 0 0 1 32 0 z" fill="#fff" />
+        {/* Transfer arc */}
+        <path
+          d="M78 66 Q140 24 202 66"
+          stroke="#94A3B8"
+          strokeWidth="2"
+          strokeDasharray="5 5"
+        />
+        {/* Sealed envelope at the arc midpoint */}
+        <g>
+          <rect x="122" y="30" width="36" height="26" rx="4" fill="#fff" stroke="#1AA0E6" strokeWidth="2" />
+          <path d="M122 34 L140 47 L158 34" stroke="#1AA0E6" strokeWidth="2" fill="none" />
+          {/* Padlock badge */}
+          <circle cx="158" cy="30" r="9" fill="#1AA0E6" />
+          <rect x="154.5" y="28" width="7" height="5" rx="1" fill="#fff" />
+          <path d="M156 28 v-1.5 a2 2 0 0 1 4 0 V28" stroke="#fff" strokeWidth="1.2" fill="none" />
+        </g>
+      </svg>
+    </div>
   );
 }
 
@@ -499,6 +751,19 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
     router.push("/demo");
   };
 
+  // Google / GitHub sign-in. The landing is a pre-login surface, so we route
+  // to the connect screen (same destination as Get started) rather than
+  // calling next-auth's signIn here, which would need a SessionProvider this
+  // page cannot assume wraps it. The real OAuth choice lives one screen in.
+  const handleSignIn = () => {
+    if (onGetStarted) {
+      onGetStarted();
+      return;
+    }
+    markLandingSeen();
+    router.push("/?connect=1");
+  };
+
   return (
     <div
       data-testid="landing-page"
@@ -513,25 +778,79 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
       {/* Subtle "scroll for more" cue at the bottom of the first screen. */}
       <ScrollHint />
 
-      {/* ── Hero ─────────────────────────────────────────────────────── */}
-      <header className="relative isolate overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-        <div className="mx-auto flex max-w-5xl flex-col items-center gap-8 px-6 py-20 text-center md:py-28">
-          <div aria-hidden className="drop-shadow-[0_8px_24px_rgba(56,189,248,0.25)]">
-            <BeakerBot pose="waving" className="h-32 w-32 text-sky-400 md:h-40 md:w-40" />
+      {/* ── Hero ──────────────────────────────────────────────────────────
+          Light + rainbow brand direction (approved): a thin rainbow ribbon
+          across the very top, a soft rainbow radial bloom behind a centered
+          waving BeakerBot, the wordmark in the top nav, the headline, the two
+          CTAs, a Google/GitHub sign-in row, and the audience line. */}
+      <header className="relative isolate overflow-hidden bg-white">
+        {/* Thin rainbow ribbon pinned to the very top edge. */}
+        <div
+          aria-hidden
+          className="h-1.5 w-full"
+          style={{
+            background:
+              "linear-gradient(90deg, #FFD2B0 0%, #FFF1A8 25%, #B7EBB1 50%, #A6D2F4 75%, #D6B5F0 100%)",
+          }}
+        />
+
+        {/* Soft rainbow radial bloom behind the mascot. Sits behind content
+            (-z-10) and fades to transparent so the page stays bright + light. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute left-1/2 top-24 -z-10 h-[34rem] w-[34rem] -translate-x-1/2 rounded-full opacity-70 blur-3xl"
+          style={{
+            background:
+              "radial-gradient(circle, rgba(255,210,176,0.55) 0%, rgba(255,241,168,0.45) 22%, rgba(183,235,177,0.4) 45%, rgba(166,210,244,0.45) 68%, rgba(214,181,240,0.4) 88%, rgba(255,255,255,0) 100%)",
+          }}
+        />
+
+        {/* Top nav: wordmark left, quiet text links right. */}
+        <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
+          <Wordmark />
+          <div className="hidden items-center gap-6 text-body font-medium text-gray-600 sm:flex">
+            <Link
+              href="/wiki/getting-started"
+              data-testid="landing-read-docs"
+              className="hover:text-sky-600"
+            >
+              Docs
+            </Link>
+            <Link href="/wiki/security" className="hover:text-sky-600">
+              Privacy
+            </Link>
+            <button
+              type="button"
+              onClick={handleGetStarted}
+              className="rounded-lg bg-sky-500 px-4 py-2 font-semibold text-white shadow-sm transition-all hover:scale-[1.02] hover:bg-sky-400"
+            >
+              Get started
+            </button>
+          </div>
+        </nav>
+
+        <div className="mx-auto flex max-w-4xl flex-col items-center gap-7 px-6 pb-20 pt-8 text-center md:pb-28 md:pt-12">
+          <div
+            aria-hidden
+            className="drop-shadow-[0_10px_28px_rgba(26,160,230,0.22)]"
+          >
+            <BeakerBot
+              pose="waving"
+              className="h-28 w-28 text-sky-500 md:h-36 md:w-36"
+            />
           </div>
           <div className="flex flex-col items-center gap-5">
-            <span className="inline-flex items-center gap-2 rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-meta font-medium tracking-wide text-sky-200">
+            <span className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-meta font-semibold tracking-wide text-sky-700">
               Free and open, built by a researcher for academic labs
             </span>
-            <h1 className="max-w-3xl text-4xl font-bold leading-tight tracking-tight text-white md:text-5xl">
-              Your research notebook. On your machine. Yours to keep.
+            <h1 className="max-w-3xl text-4xl font-bold leading-tight tracking-tight text-gray-900 md:text-5xl">
+              Your whole lab, in a notebook you actually own
             </h1>
-            <p className="max-w-2xl text-title leading-relaxed text-slate-300 md:text-lg">
-              ResearchOS is a free electronic lab notebook that lives as a plain
-              folder on your own computer. There is no account to set up and
-              nothing gets uploaded to a cloud, so you will never see a per-seat
-              fee. Your data stays private and version-controlled, and a friendly
-              guide helps you get started.
+            <p className="max-w-2xl text-title leading-relaxed text-gray-600 md:text-lg">
+              Plan experiments, run protocols, design plasmids, and write it all
+              up in one workspace. It is free and local-first, so your data
+              lives as a plain folder on your machine, private and yours to
+              keep.
             </p>
           </div>
 
@@ -542,46 +861,36 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               data-testid="landing-get-started"
               className="rounded-xl bg-sky-500 px-7 py-3 text-title font-semibold text-white shadow-lg transition-all hover:scale-[1.02] hover:bg-sky-400 hover:shadow-xl"
             >
-              Get Started
+              Get started
             </button>
             <button
               type="button"
               onClick={handleTryDemo}
               data-testid="landing-try-demo"
-              className="rounded-xl border border-white/20 bg-white/5 px-7 py-3 text-title font-semibold text-white transition-all hover:bg-white/10"
+              className="rounded-xl border border-gray-200 bg-white px-7 py-3 text-title font-semibold text-gray-800 shadow-sm transition-all hover:scale-[1.02] hover:border-gray-300 hover:shadow"
             >
               Try the demo
             </button>
           </div>
 
-          <p className="max-w-xl text-body leading-relaxed text-slate-400">
+          {/* Headline-level sign-in row. The notebook needs no account; this
+              is only for sharing across labs, made explicit in the label. */}
+          <div className="flex flex-col items-center gap-2.5">
+            <p className="text-body text-gray-500">
+              No account needed to keep your notebook. Or sign in to share
+              across labs.
+            </p>
+            <SignInRow onSignIn={handleSignIn} tone="light" />
+          </div>
+
+          <p className="max-w-xl text-body leading-relaxed text-gray-500">
             Made for the people who actually run the science. Grad students and
             postdocs at the bench, the PI keeping an eye on the whole lab, a
             small research group or core facility with no IT department behind
             it.
           </p>
 
-          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-body text-slate-400">
-            <Link
-              href="/wiki/getting-started"
-              data-testid="landing-read-docs"
-              className="font-medium text-sky-300 underline-offset-4 hover:text-sky-200 hover:underline"
-            >
-              Read the docs
-            </Link>
-            <span aria-hidden className="text-slate-600">
-              •
-            </span>
-            <Link
-              href="/wiki/security"
-              data-testid="landing-how-private"
-              className="font-medium text-sky-300 underline-offset-4 hover:text-sky-200 hover:underline"
-            >
-              How it stays private
-            </Link>
-          </div>
-
-          <VersionBadge tone="onDark" className="mt-2" />
+          <VersionBadge className="mt-1" />
         </div>
       </header>
 
@@ -689,7 +998,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               The features that set us apart
             </span>
             <h2 className="mt-2 text-display font-bold tracking-tight text-gray-900">
-              Two features you would expect to pay for
+              Features you would expect to pay for
             </h2>
             <p className="mt-3 text-title leading-relaxed text-gray-600">
               These are not on a roadmap or behind a paywall. They are built in,
@@ -697,6 +1006,24 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             </p>
           </div>
           <div className="flex flex-col gap-16 md:gap-24">
+            <IllustratedBand
+              eyebrow="Sequence editor"
+              title="A plasmid editor, right inside your notebook"
+              imageSide="left"
+              illustration={<PlasmidIllustration />}
+              points={[
+                "Import SnapGene .dna, GenBank, and FASTA, then view and edit with annotated features",
+                "Find where restriction enzymes cut, and design primers with nearest-neighbor Tm",
+                "In-silico cloning, from Gibson and NEBuilder HiFi overlap to Golden Gate and Gateway",
+              ]}
+            >
+              The kind of sequence work you would open SnapGene or Benchling for
+              now lives in the same place as your protocols and results. Bring
+              in your SnapGene files, edit and annotate, scan for restriction
+              sites, design primers, and assemble constructs in silico with a
+              review step before anything is saved. It is part of the notebook,
+              not a separate subscription.
+            </IllustratedBand>
             <HeroBand
               eyebrow="Version history"
               title="Every change is kept, and you can roll it back"
@@ -813,8 +1140,9 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               alt="The calendar view in ResearchOS"
               title="One calendar for everything"
             >
-              Link your iCloud, Google, or Outlook calendars and see meetings
-              and deadlines right alongside your experiments and cultures.
+              Subscribe to any calendar over ICS, from iCloud to Google to
+              Outlook, and see meetings and deadlines right alongside your
+              experiments and cultures.
             </FeatureCard>
             <FeatureCard
               onExpand={setLightbox}
@@ -886,35 +1214,83 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
         </div>
       </section>
 
-      {/* ── How we compare to LabArchives (features + price) ─────────── */}
+      {/* ── Cross-boundary sharing ────────────────────────────────────── */}
       <section className="bg-slate-50 py-20">
-        <div className="mx-auto max-w-5xl px-6">
-          <div className="mx-auto mb-12 max-w-2xl text-center">
+        <div className="mx-auto max-w-6xl px-6">
+          <div className="mx-auto mb-14 max-w-2xl text-center">
             <span className="text-body font-semibold uppercase tracking-wide text-sky-600">
-              Open source vs per-seat
+              Share beyond your folder
             </span>
             <h2 className="mt-2 text-display font-bold tracking-tight text-gray-900">
-              How we compare to LabArchives
+              Send work to anyone, even a different lab
             </h2>
             <p className="mt-3 text-title leading-relaxed text-gray-600">
-              LabArchives is the incumbent most labs are leaving. Here is the
-              honest side-by-side on the things that matter most.
+              A shared folder is great for your own lab. For everyone else,
+              ResearchOS can send a note, method, experiment, or whole project
+              to someone who does not share your folder at all.
+            </p>
+          </div>
+          <IllustratedBand
+            eyebrow="Cross-boundary sharing"
+            title="A note, a method, or a whole project, sent to anyone"
+            imageSide="right"
+            illustration={<ShareTransferIllustration />}
+            points={[
+              "Reach a collaborator by email, with no shared folder and no copy of their data on our side",
+              "An encrypted transfer that never permanently stores your data, swept after 30 days if unopened",
+              "Identity is verified by signing in with Google or GitHub, the one place an account is used",
+            ]}
+          >
+            Pick what you want to send and address it to a collaborator by
+            email. The data rides through an encrypted relay that holds it only
+            until they pick it up, then lets it go. Nothing is kept permanently
+            on our side. A pending transfer is held for up to 30 days and then
+            swept if no one opens it. This is the only part of ResearchOS that
+            uses an account, and only to prove who is on each end.
+          </IllustratedBand>
+          <div className="mt-10 flex flex-col items-center gap-2.5">
+            <p className="text-body text-gray-500">
+              Sign in once to share across labs. Your notebook still needs no
+              account.
+            </p>
+            <SignInRow onSignIn={handleSignIn} tone="light" />
+          </div>
+        </div>
+      </section>
+
+      {/* ── How we compare (features + price) ────────────────────────── */}
+      <section className="bg-white py-20">
+        <div className="mx-auto max-w-6xl px-6">
+          <div className="mx-auto mb-12 max-w-2xl text-center">
+            <span className="text-body font-semibold uppercase tracking-wide text-sky-600">
+              A full lab suite vs the point tools
+            </span>
+            <h2 className="mt-2 text-display font-bold tracking-tight text-gray-900">
+              How we compare to LabArchives and SnapGene
+            </h2>
+            <p className="mt-3 text-title leading-relaxed text-gray-600">
+              LabArchives is the notebook most labs are leaving and SnapGene is
+              the sequence tool many of them also pay for. Here is the honest
+              three-way on the things that matter most.
             </p>
           </div>
 
           <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] border-collapse text-left">
+              <table className="w-full min-w-[760px] border-collapse text-left">
                 <thead>
                   <tr className="border-b border-gray-200">
-                    <th className="w-[28%] px-4 py-3 text-body font-semibold text-gray-500">
+                    <th className="w-[24%] px-4 py-3 text-body font-semibold text-gray-500">
                       <span className="sr-only">Capability</span>
                     </th>
-                    <th className="w-[36%] bg-sky-50 px-4 py-3 text-body font-bold text-sky-700">
+                    <th className="w-[28%] bg-sky-50 px-4 py-3 text-body font-bold text-sky-700">
                       ResearchOS
                     </th>
-                    <th className="w-[36%] px-4 py-3 text-body font-semibold text-gray-700">
+                    <th className="w-[24%] px-4 py-3 text-body font-semibold text-gray-700">
                       LabArchives (Professional)
+                    </th>
+                    <th className="w-[24%] px-4 py-3 text-body font-semibold text-gray-700">
+                      SnapGene
                     </th>
                   </tr>
                 </thead>
@@ -925,20 +1301,38 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                       mark: "win",
                       text: "Free and open source; hosted free too",
                     }}
-                    them={{
+                    labarchives={{
                       mark: "none",
                       text: "$330+ per user, per year; limited free tier",
+                    }}
+                    snapgene={{
+                      mark: "none",
+                      text: "Paid license per seat; free viewer only",
                     }}
                   />
                   <ComparisonRow
                     label="Per-seat fees"
                     us={{ mark: "win", text: "No per-seat fees, ever" }}
-                    them={{ mark: "none", text: "Charged per user, every year" }}
+                    labarchives={{
+                      mark: "none",
+                      text: "Charged per user, every year",
+                    }}
+                    snapgene={{
+                      mark: "none",
+                      text: "Per-seat license to edit",
+                    }}
                   />
                   <ComparisonRow
                     label="Where your data lives"
                     us={{ mark: "win", text: "A folder on your own machine" }}
-                    them={{ mark: "none", text: "On LabArchives' cloud servers" }}
+                    labarchives={{
+                      mark: "none",
+                      text: "On LabArchives' cloud servers",
+                    }}
+                    snapgene={{
+                      mark: "have",
+                      text: "Files on your machine",
+                    }}
                   />
                   <ComparisonRow
                     label="File formats"
@@ -946,22 +1340,70 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                       mark: "win",
                       text: "Open Markdown and your original files",
                     }}
-                    them={{ mark: "none", text: "Proprietary cloud store" }}
-                  />
-                  <ComparisonRow
-                    label="Own your data, no lock-in"
-                    us={{ mark: "win", text: "You own the folder outright" }}
-                    them={{
-                      mark: "none",
-                      text: "The live copy is theirs while you pay",
+                    labarchives={{ mark: "none", text: "Proprietary cloud store" }}
+                    snapgene={{
+                      mark: "have",
+                      text: "Reads .dna, GenBank, and FASTA",
                     }}
                   />
                   <ComparisonRow
-                    label="Bench tools (PCR, plates, LC, Gantt, purchasing)"
-                    us={{ mark: "win", text: "Built in, first-class" }}
-                    them={{
+                    label="A full lab suite"
+                    us={{
+                      mark: "win",
+                      text: "Notebook, planning, purchasing, sequences, all in one",
+                    }}
+                    labarchives={{
                       mark: "have",
-                      text: "Widgets and third-party add-ons",
+                      text: "Notebook plus widgets and add-ons",
+                    }}
+                    snapgene={{
+                      mark: "none",
+                      text: "Sequences only, not a notebook",
+                    }}
+                  />
+                  <ComparisonRow
+                    label="Sequence editing and annotation"
+                    us={{
+                      mark: "have",
+                      text: "Import, edit, annotate, find restriction sites",
+                    }}
+                    labarchives={{
+                      mark: "none",
+                      text: "No native sequence editor",
+                    }}
+                    snapgene={{
+                      mark: "win",
+                      text: "The deepest editor and visualization here",
+                    }}
+                  />
+                  <ComparisonRow
+                    label="Cloning and primer design"
+                    us={{
+                      mark: "have",
+                      text: "Gibson, NEBuilder, Golden Gate, Gateway, with nearest-neighbor Tm",
+                    }}
+                    labarchives={{
+                      mark: "none",
+                      text: "Not applicable",
+                    }}
+                    snapgene={{
+                      mark: "win",
+                      text: "Industry-leading cloning and primer tools",
+                    }}
+                  />
+                  <ComparisonRow
+                    label="Per-entry version history"
+                    us={{
+                      mark: "win",
+                      text: "Full history with one-click restore, built in",
+                    }}
+                    labarchives={{
+                      mark: "have",
+                      text: "Full revision history on every entry",
+                    }}
+                    snapgene={{
+                      mark: "none",
+                      text: "Per-file saves, no notebook history",
                     }}
                   />
                   <ComparisonRow
@@ -970,29 +1412,8 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                       mark: "win",
                       text: "Imports your Offline Notebook ZIP directly",
                     }}
-                    them={{ mark: "none", text: "Not applicable" }}
-                  />
-                  <ComparisonRow
-                    label="Per-entry revision history"
-                    us={{
-                      mark: "soon",
-                      text: "Append-only audit log now; per-entry revert roadmapped",
-                    }}
-                    them={{
-                      mark: "have",
-                      text: "Full revision history on every entry",
-                    }}
-                  />
-                  <ComparisonRow
-                    label="Repository deposit + DOI"
-                    us={{
-                      mark: "soon",
-                      text: "Export and deposit to a repository yourself",
-                    }}
-                    them={{
-                      mark: "have",
-                      text: "Built-in Figshare export and DOI",
-                    }}
+                    labarchives={{ mark: "none", text: "Not applicable" }}
+                    snapgene={{ mark: "none", text: "Not applicable" }}
                   />
                   <ComparisonRow
                     label="Security certifications"
@@ -1000,9 +1421,13 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                       mark: "none",
                       text: "None by design; published security audit instead",
                     }}
-                    them={{
+                    labarchives={{
                       mark: "have",
                       text: "FedRAMP, SOC 2, ISO 27001, 21 CFR Part 11",
+                    }}
+                    snapgene={{
+                      mark: "none",
+                      text: "Desktop tool, not a hosted service",
                     }}
                   />
                   <ComparisonRow
@@ -1011,9 +1436,13 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                       mark: "none",
                       text: "Your own cloud drive; Chrome or Edge",
                     }}
-                    them={{
+                    labarchives={{
                       mark: "have",
                       text: "Vendor-managed backups; any modern browser",
+                    }}
+                    snapgene={{
+                      mark: "none",
+                      text: "Local files you back up yourself",
                     }}
                   />
                 </tbody>
@@ -1022,8 +1451,11 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
           </div>
 
           <p className="mx-auto mt-6 max-w-2xl text-center text-body leading-relaxed text-gray-500">
-            No electronic notebook is &ldquo;NIH certified&rdquo; (no such
-            thing exists). Want the row-by-row detail?{" "}
+            SnapGene genuinely leads on deep cloning and sequence
+            visualization. ResearchOS wins on price and ownership, and it folds
+            sequence work into a full lab suite instead of a separate tool. No
+            electronic notebook is &ldquo;NIH certified&rdquo; (no such thing
+            exists). Want the row-by-row detail?{" "}
             <Link
               href="/wiki/compliance/labarchives-comparison"
               data-testid="landing-compare-full"
@@ -1156,9 +1588,19 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                   <span className="font-semibold text-gray-900">
                     A built-in Sequence Editor
                   </span>{" "}
-                  in the SnapGene and Benchling vein: import SnapGene .dna,
+                  in the SnapGene and Benchling vein. Import SnapGene .dna,
                   GenBank, and FASTA files, view and edit with annotations,
-                  design primers, find where restriction enzymes cut, and export.
+                  design primers with nearest-neighbor Tm, find where
+                  restriction enzymes cut, and export.
+                </li>
+                <li>
+                  <span className="font-semibold text-gray-900">
+                    In-silico cloning
+                  </span>{" "}
+                  with four chemistries, overlap (Gibson and NEBuilder HiFi),
+                  restriction and ligation, Golden Gate, and Gateway. It designs
+                  the junction primers and shows a review step before anything
+                  is saved.
                 </li>
                 <li>
                   <span className="font-semibold text-gray-900">
@@ -1210,19 +1652,18 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               <ul className="space-y-3 text-body leading-relaxed text-gray-700">
                 <li>
                   <span className="font-semibold text-gray-900">
-                    In-silico cloning
+                    Primer specificity checks
                   </span>{" "}
-                  starting with overlap (Gibson and NEBuilder HiFi) assembly that
-                  designs the primers for you and shows a review step before
-                  anything is saved.
+                  building on the primer designer that already ships, with a
+                  one-click handoff to NCBI Primer-BLAST and clearer dimer
+                  warnings.
                 </li>
                 <li>
                   <span className="font-semibold text-gray-900">
-                    A friendlier primer designer
+                    Repository deposit and DOI
                   </span>{" "}
-                  with sensible defaults and clear melting-temperature and dimer
-                  checks, plus a one-click handoff to NCBI Primer-BLAST for
-                  specificity.
+                  deposit a dataset straight to Zenodo from the notebook and get
+                  a citable DOI back, no manual export step.
                 </li>
                 <li>
                   <span className="font-semibold text-gray-900">
