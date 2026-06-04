@@ -35,3 +35,18 @@ export const TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 /** The 30-day TTL expressed in whole days, for copy that names the number. */
 export const TTL_DAYS = 30;
+
+/**
+ * Maximum non-expired pending invites a single sender may hold at once. This is
+ * a secondary per-sender ceiling alongside the Upstash invite rate limiter (10
+ * per day), so a sender cannot park an unbounded backlog of unaccepted invites.
+ * The same 30-day TTL sweeps an unaccepted invite, freeing the slot.
+ */
+export const PENDING_INVITE_CAP = 50;
+
+/**
+ * Grace window (seconds) for an unconfirmed pending invite, comfortably beyond
+ * the presigned-PUT lifetime so an in-flight upload is never swept. An invite
+ * that reserves a row but never confirms (a closed tab) is reclaimed after this.
+ */
+export const INVITE_PENDING_GRACE_SECONDS = 15 * 60;

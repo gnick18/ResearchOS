@@ -23,6 +23,7 @@ type RatelimitClient = InstanceType<typeof Ratelimit>;
 let redisSingleton: RedisClient | null = null;
 let ipLimiterSingleton: RatelimitClient | null = null;
 let signupLimiterSingleton: RatelimitClient | null = null;
+let inviteLimiterSingleton: RatelimitClient | null = null;
 
 /** The OTP TTL in seconds, the 15-minute expiry from the proposal. */
 export const OTP_TTL_SECONDS = 900;
@@ -76,6 +77,23 @@ export function getSignupLimiter(): RatelimitClient {
     prefix: "directory:signup",
   });
   return signupLimiterSingleton;
+}
+
+/**
+ * Per-sender invite limiter, 10 new-address invites per day. This is the
+ * anti-spam-relay cap from the invite design, an authenticated user can only
+ * invite a bounded number of non-users per day even across rotating IPs, so we
+ * cannot be turned into a bulk email relay. Keyed by the sender's email hash
+ * (not IP) so it follows the identity, not the network path.
+ */
+export function getInviteLimiter(): RatelimitClient {
+  if (inviteLimiterSingleton) return inviteLimiterSingleton;
+  inviteLimiterSingleton = new Ratelimit({
+    redis: getRedis(),
+    limiter: Ratelimit.slidingWindow(10, "86400 s"),
+    prefix: "relay:invite",
+  });
+  return inviteLimiterSingleton;
 }
 
 /** The Redis key holding the pending OTP record for an email hash. */

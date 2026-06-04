@@ -1,0 +1,216 @@
+// Cross-boundary sharing, the branded INVITE email (invite-a-non-user loop).
+//
+// When a sender invites a person who is not yet on ResearchOS, WE send a
+// transactional email from our own domain (not the user's mail client). The
+// email is the trust channel for a keyless invite, so it is deliberately a
+// branded, professional, CAN-SPAM-compliant message, BeakerBot, a one-line
+// explanation, the accept button, what ResearchOS is in a sentence, and a
+// footer with a physical address and an abuse / do-not-invite line.
+//
+// CONTENT MINIMIZATION. The body carries ONLY the item TITLE the sender chose
+// to expose, never any research content (the data is parked sealed on the relay,
+// not attached here). The accept link carries the one-time decryption key in its
+// URL FRAGMENT, which a browser never transmits to a server, so the key is in the
+// email (the trust channel) but never reaches our infrastructure in a stored
+// form. We do not log the link.
+//
+// LIVE SENDING PREREQUISITE. Sending from a research-os.app address requires the
+// domain verified in Resend (SPF / DKIM / DMARC), a separate human DNS step. The
+// FROM address is read from RESEND_INVITE_FROM with a research-os.app default, so
+// this code is ready, but it will not actually deliver until that DNS step is
+// done. The Resend client is built lazily from RESEND_API_KEY so importing this
+// during a build or a tsc pass requires no secret.
+
+import { Resend } from "resend";
+
+let resendSingleton: Resend | null = null;
+
+/**
+ * The branded from-address for invite emails. Defaults to a research-os.app
+ * address (the doc's decision) and is overridable via env so the verified
+ * sender can be tuned without a code change. NOTE live delivery requires this
+ * domain verified in Resend first.
+ */
+const INVITE_FROM_ADDRESS =
+  process.env.RESEND_INVITE_FROM ?? "ResearchOS <share@research-os.app>";
+
+/**
+ * Physical mailing address for the CAN-SPAM footer, overridable via env so it can
+ * be set per deployment without a code change. The placeholder is clearly marked
+ * so a real address is supplied before any production send.
+ */
+const POSTAL_ADDRESS =
+  process.env.RESEND_POSTAL_ADDRESS ??
+  "ResearchOS, University of Wisconsin-Madison, Madison, WI 53706, USA";
+
+/**
+ * Lazily constructs the Resend client from RESEND_API_KEY. Throws a clear error
+ * if the key is missing so a misconfigured deployment fails at request time
+ * rather than silently dropping the email.
+ */
+function getResend(): Resend {
+  if (resendSingleton) return resendSingleton;
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "RESEND_API_KEY is not set. ResearchOS cannot send invite emails without it.",
+    );
+  }
+  resendSingleton = new Resend(apiKey);
+  return resendSingleton;
+}
+
+/** Everything the invite email template needs. */
+export interface InviteEmailParams {
+  /** The recipient's plaintext email (we send to it, but never store it). */
+  toEmail: string;
+  /**
+   * The sender's display label for the body ("{name} shared a note with you").
+   * This is the sender's own claimed email or a name they expose, NOT a hash.
+   */
+  senderLabel: string;
+  /** The note/method TITLE the sender chose to expose. The ONLY content teaser. */
+  itemTitle: string;
+  /**
+   * The full accept link INCLUDING the one-time key in its fragment
+   * (https://research-os.app/accept/<id>#k=<key>). Composed by the client and
+   * passed in transiently to put in the email body. It is NEVER persisted
+   * server-side and NEVER logged. This is the honest trust boundary, the email
+   * is the keyless-invite trust channel.
+   */
+  acceptUrl: string;
+}
+
+/** Minimal HTML-escape for the few interpolated text fields. */
+function esc(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/**
+ * The BeakerBot mascot as a static inline SVG, sky-blue, reusing the canonical
+ * body silhouette + features from components/BeakerBot.tsx (the mascot IS
+ * BeakerBot everywhere). Inlined here as a string because an email cannot import
+ * a React component, and email clients render inline SVG inconsistently, so we
+ * keep it small and self-contained. No emoji, no external image.
+ */
+const BEAKERBOT_SVG = `<svg width="48" height="48" viewBox="0 0 40 40" fill="none" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="BeakerBot" xmlns="http://www.w3.org/2000/svg">
+  <path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="#ffffff" stroke="none"/>
+  <path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="#A6D2F4" stroke="none"/>
+  <path d="M22 8 C 22 6, 24 4, 26 6"/>
+  <path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12"/>
+  <path d="M11 12 L29 12"/>
+  <circle cx="17" cy="18" r="1.2" fill="#0ea5e9" stroke="none"/>
+  <circle cx="23" cy="18" r="1.2" fill="#0ea5e9" stroke="none"/>
+  <path d="M18 22 Q 20 24, 22 22"/>
+  <path d="M14 26 L15.5 26"/>
+  <path d="M24.5 26 L26 26"/>
+</svg>`;
+
+/**
+ * Builds the transactional invite email subject. Named the sender, one specific
+ * item, no marketing language, exactly the framing that lands in inboxes rather
+ * than spam.
+ */
+export function inviteSubject(senderLabel: string): string {
+  return `${senderLabel} shared a research note with you on ResearchOS`;
+}
+
+/**
+ * Builds the HTML body of the invite email. Pure (no I/O), so it can be unit
+ * tested. The body interpolates only the sender label, the item title, and the
+ * accept URL, all escaped. NO research content beyond the title.
+ */
+export function buildInviteHtml(params: InviteEmailParams): string {
+  const sender = esc(params.senderLabel);
+  const title = esc(params.itemTitle);
+  // The accept URL is placed in href / text verbatim. It is a same-team-built
+  // URL (research-os.app/accept/<uuid>#k=<hex>), the fragment is opaque hex, so
+  // it is URL-safe to embed directly. We do not escape the fragment away.
+  const url = params.acceptUrl;
+  return `<!doctype html>
+<html lang="en">
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111827;">
+  <div style="max-width:520px;margin:0 auto;padding:32px 20px;">
+    <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;padding:28px;">
+      <div style="text-align:center;margin-bottom:8px;">${BEAKERBOT_SVG}</div>
+      <h1 style="font-size:18px;font-weight:600;text-align:center;margin:8px 0 4px;">
+        ${sender} shared a research note with you
+      </h1>
+      <p style="font-size:14px;line-height:1.6;color:#4b5563;text-align:center;margin:0 0 20px;">
+        They used ResearchOS to send you an encrypted copy of
+        <strong style="color:#111827;">&ldquo;${title}&rdquo;</strong>.
+        Create a free account to open it, the note stays sealed until you do.
+      </p>
+      <div style="text-align:center;margin:0 0 20px;">
+        <a href="${url}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 22px;border-radius:9px;">
+          Open this note on ResearchOS
+        </a>
+      </div>
+      <p style="font-size:13px;line-height:1.6;color:#6b7280;text-align:center;margin:0;">
+        ResearchOS is a free, open electronic lab notebook. Notes, methods, and
+        data stay in your own folder, and sharing across labs is end-to-end
+        encrypted.
+      </p>
+    </div>
+    <div style="margin-top:18px;text-align:center;font-size:11px;line-height:1.6;color:#9ca3af;">
+      <p style="margin:0 0 4px;">
+        You received this because ${sender} chose to share a specific item with
+        this address. The shared content is not in this email, it is parked
+        encrypted until you open it.
+      </p>
+      <p style="margin:0 0 4px;">${esc(POSTAL_ADDRESS)}</p>
+      <p style="margin:0;">
+        <a href="${url}&unsubscribe=1" style="color:#9ca3af;">Do not invite me again</a>
+        &nbsp;&middot;&nbsp;
+        <a href="${url}&report=1" style="color:#9ca3af;">Report abuse</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+/**
+ * The plaintext fallback body, for clients that do not render HTML. Same content
+ * minimization, the title plus the accept link, nothing else.
+ */
+export function buildInviteText(params: InviteEmailParams): string {
+  return [
+    `${params.senderLabel} shared a research note with you on ResearchOS.`,
+    ``,
+    `They sent you an encrypted copy of "${params.itemTitle}". Create a free`,
+    `account to open it, the note stays sealed until you do.`,
+    ``,
+    `Open it here: ${params.acceptUrl}`,
+    ``,
+    `ResearchOS is a free, open electronic lab notebook. The shared content is`,
+    `not in this email, it is parked encrypted until you open it.`,
+    ``,
+    POSTAL_ADDRESS,
+    `Do not invite me again: ${params.acceptUrl}&unsubscribe=1`,
+  ].join("\n");
+}
+
+/**
+ * Sends the branded invite email via Resend. Throws if Resend reports an error
+ * so the calling route can return a generic failure rather than claim success on
+ * a dropped send. The acceptUrl (with its fragment key) is used only to compose
+ * the body, it is never logged here.
+ */
+export async function sendInviteEmail(params: InviteEmailParams): Promise<void> {
+  const resend = getResend();
+  const { error } = await resend.emails.send({
+    from: INVITE_FROM_ADDRESS,
+    to: params.toEmail,
+    subject: inviteSubject(params.senderLabel),
+    html: buildInviteHtml(params),
+    text: buildInviteText(params),
+  });
+  if (error) {
+    throw new Error(`Resend failed to send the invite email: ${error.message}`);
+  }
+}

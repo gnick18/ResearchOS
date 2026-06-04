@@ -279,6 +279,206 @@ export async function sumPendingBytesByRecipient(
   return total == null ? 0 : Number(total);
 }
 
+// ---------------------------------------------------------------------------
+// PENDING INVITE rows (the invite-a-non-user growth loop).
+//
+// An invite parks a bundle for a person who has NO ResearchOS identity yet, so
+// it cannot live in relay_inbox (which is addressed by a registered recipient
+// key hash and picked up with that key). A pending-invite row instead is
+// addressed by a server-generated invite_id, which doubles as the R2 object key
+// and is the bearer capability the accept page presents to fetch the parked
+// bytes. The row holds ONLY metadata, the peppered recipient and sender email
+// hashes, the size, and the timing. It NEVER holds the one-time symmetric key
+// (that travels only in the accept-link fragment, see encryption.ts) and never
+// a plaintext email.
+//
+// CONFIRM-AFTER-UPLOAD, mirrored from relay_inbox. The send route inserts the
+// row as "pending" (the invite id and presigned PUT are needed before the
+// upload can happen), and only after the client has PUT the sealed bytes does a
+// signed confirm flip it to "ready" and trigger the branded email. A fetch
+// returns "ready" rows only, so an abandoned upload never produces a dead
+// accept link. Pending invites carry the same 30-day TTL as a normal share.
+// ---------------------------------------------------------------------------
+
+/** A pending-invite row as stored. inviteId is the R2 object key + bearer id. */
+export interface InviteEntry {
+  inviteId: string;
+  recipientEmailHash: string;
+  senderEmailHash: string;
+  sizeBytes: number | null;
+  createdAt: string;
+  expiresAt: string;
+}
+
+/** The fields needed to create a pending-invite row. createdAt defaults to now(). */
+export interface NewInviteEntry {
+  inviteId: string;
+  recipientEmailHash: string;
+  senderEmailHash: string;
+  sizeBytes: number | null;
+  expiresAt: string;
+}
+
+/**
+ * Creates the pending-invite table if it does not already exist, plus an index
+ * on sender_email_hash so the per-sender invite rate accounting is a cheap
+ * indexed scan. Idempotent, so every invite route can call it on entry without a
+ * migration step. Kept separate from relay_inbox because the addressing and the
+ * pickup model differ (invite_id bearer vs registered recipient key).
+ */
+export async function ensureInviteSchema(): Promise<void> {
+  const sql = getSql();
+  await sql`
+    CREATE TABLE IF NOT EXISTS relay_invite (
+      invite_id text primary key,
+      recipient_email_hash text not null,
+      sender_email_hash text not null,
+      size_bytes bigint,
+      status text not null default 'pending',
+      created_at timestamptz default now(),
+      expires_at timestamptz not null
+    )
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS relay_invite_sender_idx
+      ON relay_invite (sender_email_hash)
+  `;
+}
+
+/**
+ * Inserts a new pending-invite row. invite_id is the primary key and a
+ * server-generated UUID, so a collision is effectively impossible, but the
+ * insert is plain (no upsert) so any reuse surfaces as an error rather than
+ * clobbering an existing row. The row lands as "pending" and stays unfetchable
+ * (and unemailed) until a confirm flips it to "ready".
+ */
+export async function insertInviteEntry(entry: NewInviteEntry): Promise<void> {
+  const sql = getSql();
+  await sql`
+    INSERT INTO relay_invite
+      (invite_id, recipient_email_hash, sender_email_hash, size_bytes, status,
+       expires_at)
+    VALUES
+      (${entry.inviteId}, ${entry.recipientEmailHash}, ${entry.senderEmailHash},
+       ${entry.sizeBytes}, 'pending', ${entry.expiresAt})
+  `;
+}
+
+/**
+ * Flips a pending invite to "ready" after the sender has uploaded the sealed
+ * bytes, scoped to the sender that reserved it so one user cannot confirm
+ * another's invite. The condition also requires status = 'pending', so the
+ * update is a no-op on an already-ready row (a duplicate confirm) or a swept
+ * one. Returns the flipped row's metadata (so the confirm route can build the
+ * email) or null if no matching pending row was flipped.
+ */
+export async function markInviteReady(
+  inviteId: string,
+  senderEmailHash: string,
+): Promise<InviteEntry | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    UPDATE relay_invite
+       SET status = 'ready'
+     WHERE invite_id = ${inviteId}
+       AND sender_email_hash = ${senderEmailHash}
+       AND status = 'pending'
+    RETURNING invite_id, recipient_email_hash, sender_email_hash, size_bytes,
+              created_at, expires_at
+  `) as Array<{
+    invite_id: string;
+    recipient_email_hash: string;
+    sender_email_hash: string;
+    size_bytes: number | string | null;
+    created_at: string;
+    expires_at: string;
+  }>;
+  if (rows.length === 0) return null;
+  return mapInviteRow(rows[0]);
+}
+
+/**
+ * Fetches a single ready invite by id, or null if there is no such ready row. A
+ * pending row reads as absent, so a fetch against an unconfirmed invite is
+ * rejected exactly like a non-existent one. Returns the row regardless of expiry
+ * so the fetch route can detect an expired invite, sweep it, and return a clean
+ * 410 rather than a confusing 404. There is no ownership check here, the invite
+ * id IS the bearer capability the accept page presents (the recipient has no key
+ * yet), which is exactly the keyless-invite trust model.
+ */
+export async function getInviteEntry(
+  inviteId: string,
+): Promise<InviteEntry | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT invite_id, recipient_email_hash, sender_email_hash, size_bytes,
+           created_at, expires_at
+    FROM relay_invite
+    WHERE invite_id = ${inviteId}
+      AND status = 'ready'
+    LIMIT 1
+  `) as Array<{
+    invite_id: string;
+    recipient_email_hash: string;
+    sender_email_hash: string;
+    size_bytes: number | string | null;
+    created_at: string;
+    expires_at: string;
+  }>;
+  if (rows.length === 0) return null;
+  return mapInviteRow(rows[0]);
+}
+
+/**
+ * Deletes a pending-invite row by id. Called on accept (delete-on-pickup, after
+ * the recipient has filed the data locally) and when sweeping an expired or
+ * abandoned invite. Idempotent at the SQL level, deleting a missing row is a
+ * no-op.
+ */
+export async function deleteInviteEntry(inviteId: string): Promise<void> {
+  const sql = getSql();
+  await sql`DELETE FROM relay_invite WHERE invite_id = ${inviteId}`;
+}
+
+/**
+ * Counts the non-expired invites a sender has outstanding (of either status, so
+ * a reserved-but-pending invite counts the same as a confirmed one). The send
+ * route uses this as a secondary per-sender ceiling alongside the Upstash rate
+ * limit, so a sender cannot park an unbounded backlog of pending invites even
+ * within the rate window. A swept or accepted invite stops counting.
+ */
+export async function countInvitesBySender(
+  senderEmailHash: string,
+): Promise<number> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT count(*)::int AS n
+    FROM relay_invite
+    WHERE sender_email_hash = ${senderEmailHash}
+      AND expires_at > now()
+  `) as Array<{ n: number }>;
+  return rows[0]?.n ?? 0;
+}
+
+/** Normalizes a raw pending-invite DB row into an InviteEntry. */
+function mapInviteRow(r: {
+  invite_id: string;
+  recipient_email_hash: string;
+  sender_email_hash: string;
+  size_bytes: number | string | null;
+  created_at: string;
+  expires_at: string;
+}): InviteEntry {
+  return {
+    inviteId: r.invite_id,
+    recipientEmailHash: r.recipient_email_hash,
+    senderEmailHash: r.sender_email_hash,
+    sizeBytes: r.size_bytes == null ? null : Number(r.size_bytes),
+    createdAt: r.created_at,
+    expiresAt: r.expires_at,
+  };
+}
+
 /**
  * Normalizes a raw DB row into an InboxEntry. size_bytes is a bigint column, the
  * Neon driver may hand it back as a string, so we coerce to a number (or null).

@@ -8,11 +8,20 @@
 // is calling.
 //
 // The signed bytes always include the action ("send" / "confirm" / "inbox" /
-// "fetch" / "ack"), so a signature minted for one action cannot be replayed as
-// another (a captured "send" cannot be turned into a "fetch" that drains a
-// mailbox, nor a "confirm" that reveals an un-uploaded bundle). The bytes also
-// include issuedAt, and the verifier rejects anything older than five minutes or
-// dated in the future, which bounds the replay window.
+// "fetch" / "ack" / "invite" / "invite-confirm"), so a signature minted for one
+// action cannot be replayed as another (a captured "send" cannot be turned into
+// a "fetch" that drains a mailbox, nor a "confirm" that reveals an un-uploaded
+// bundle). The bytes also include issuedAt, and the verifier rejects anything
+// older than five minutes or dated in the future, which bounds the replay
+// window.
+//
+// INVITE ACTIONS. "invite" carries recipientEmail + sizeBytes (the keyless
+// growth-loop send, parked under a one-time key rather than sealed to a
+// recipient key) and "invite-confirm" carries inviteId (the confirm-after-upload
+// flip that also triggers the branded email). Both are signed by the SENDER,
+// exactly like "send" / "confirm", so the relay still proves who is inviting and
+// can rate-limit per sender. The recipient never signs anything, they have no
+// key yet, the accept page fetches by the bearer invite id (see invite/fetch).
 //
 // REPLAY NOTE (v1). Within that 5-minute freshness window an intercepted signed
 // request could in principle be replayed verbatim. For v1 this is bounded by the
@@ -41,15 +50,23 @@ const RELAY_VERSION = "researchos.relay.request.v1";
 /** The freshness window for a signed request, five minutes in milliseconds. */
 const MAX_REQUEST_AGE_MS = 5 * 60 * 1000;
 
-/** The five actions a relay request can authorize. */
-export type RelayAction = "send" | "confirm" | "inbox" | "fetch" | "ack";
+/** The actions a relay request can authorize. */
+export type RelayAction =
+  | "send"
+  | "confirm"
+  | "inbox"
+  | "fetch"
+  | "ack"
+  | "invite"
+  | "invite-confirm";
 
 /**
  * The fields a relay request signs. The common fields (action, email, issuedAt)
  * are always present, the action-specific fields are optional and only set for
- * the actions that carry them, send carries recipientEmail and sizeBytes, confirm
- * and fetch and ack carry bundleId, inbox carries none. Whatever is set becomes
- * part of the signed bytes in a fixed order.
+ * the actions that carry them, send and invite carry recipientEmail and
+ * sizeBytes, confirm and fetch and ack carry bundleId, invite-confirm carries
+ * inviteId, inbox carries none. Whatever is set becomes part of the signed bytes
+ * in a fixed order.
  */
 export interface RelayPayloadInput {
   action: RelayAction;
@@ -57,12 +74,14 @@ export interface RelayPayloadInput {
   email: string;
   /** ISO-8601 timestamp, the verifier rejects stale or future-dated requests. */
   issuedAt: string;
-  /** send only, the recipient's email the bundle is addressed to. */
+  /** send and invite only, the recipient's email the bundle is addressed to. */
   recipientEmail?: string;
-  /** send only, the sealed-bundle size in bytes. */
+  /** send and invite only, the sealed-bundle size in bytes. */
   sizeBytes?: number;
   /** confirm, fetch, and ack only, the server-issued bundle id. */
   bundleId?: string;
+  /** invite-confirm only, the server-issued invite id. */
+  inviteId?: string;
 }
 
 /**
@@ -92,6 +111,9 @@ export function buildRelayPayload(input: RelayPayloadInput): Uint8Array {
   }
   if (input.bundleId !== undefined) {
     lines.push(`bundleId=${input.bundleId}`);
+  }
+  if (input.inviteId !== undefined) {
+    lines.push(`inviteId=${input.inviteId}`);
   }
   return utf8ToBytes(lines.join("\n"));
 }
@@ -134,17 +156,19 @@ export interface ParsedRelayBody {
   recipientEmail?: string;
   sizeBytes?: number;
   bundleId?: string;
+  inviteId?: string;
 }
 
 /**
  * Validates the shape of a relay request body for the expected action, returning
  * the typed fields or null on any failure. This is pure (no I/O), so it is unit
  * testable. It checks the common fields (email, issuedAt, hex signature) and the
- * fields the specific action requires, send needs a plausible recipientEmail and
- * a non-negative integer sizeBytes, confirm and fetch and ack need a non-empty
- * bundleId, inbox needs nothing extra. Action-specific fields for other actions are
- * ignored so a stray field cannot smuggle itself into the signed payload (the
- * route rebuilds the payload from only the fields it parsed).
+ * fields the specific action requires, send and invite need a plausible
+ * recipientEmail and a non-negative integer sizeBytes, confirm and fetch and ack
+ * need a non-empty bundleId, invite-confirm needs a non-empty inviteId, inbox
+ * needs nothing extra. Action-specific fields for other actions are ignored so a
+ * stray field cannot smuggle itself into the signed payload (the route rebuilds
+ * the payload from only the fields it parsed).
  */
 export function parseRelayBody(
   body: unknown,
@@ -170,7 +194,7 @@ export function parseRelayBody(
     signature: b.signature,
   };
 
-  if (expectedAction === "send") {
+  if (expectedAction === "send" || expectedAction === "invite") {
     if (!isNonEmptyString(b.recipientEmail)) return null;
     const recipientEmail = b.recipientEmail.trim();
     if (!EMAIL_RE.test(recipientEmail)) return null;
@@ -184,6 +208,9 @@ export function parseRelayBody(
   ) {
     if (!isNonEmptyString(b.bundleId)) return null;
     parsed.bundleId = b.bundleId;
+  } else if (expectedAction === "invite-confirm") {
+    if (!isNonEmptyString(b.inviteId)) return null;
+    parsed.inviteId = b.inviteId;
   }
   // "inbox" carries no extra fields.
 
@@ -241,6 +268,7 @@ export async function verifyRelayRequest(
     recipientEmail: parsed.recipientEmail,
     sizeBytes: parsed.sizeBytes,
     bundleId: parsed.bundleId,
+    inviteId: parsed.inviteId,
   });
 
   let sigOk = false;

@@ -27,6 +27,7 @@ import { useSharingIdentity } from "@/hooks/useSharingIdentity";
 import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
 import {
   sendShare,
+  inviteShare,
   RecipientNotFoundError,
   RelayError,
 } from "@/lib/sharing/relay/client";
@@ -207,7 +208,13 @@ type SendState =
   | { phase: "idle" }
   | { phase: "sending" }
   | { phase: "sent"; recipient: string }
-  | { phase: "error"; message: string };
+  | { phase: "error"; message: string }
+  // The recipient is not on ResearchOS, offer the invite-a-non-user path
+  // instead of a dead-end. Carries the address so the offer + invite call use
+  // the exact email the lookup rejected.
+  | { phase: "offer-invite"; recipient: string }
+  | { phase: "inviting"; recipient: string }
+  | { phase: "invited"; recipient: string };
 
 function SendForm({
   note,
@@ -241,23 +248,51 @@ function SendForm({
       await sendShare({ email: senderEmail, recipientEmail, bundle });
       setState({ phase: "sent", recipient: recipientEmail });
     } catch (err) {
-      // Recipient-missing is the one error worth its own message. Both the typed
-      // RecipientNotFoundError and a relay 404 mean the same thing to the user,
-      // the person they typed has not set up sharing.
+      // Recipient-missing is no longer a dead-end. Both the typed
+      // RecipientNotFoundError and a relay 404 mean the person is not on
+      // ResearchOS, so we offer the invite-a-non-user path instead of an error.
       if (
         err instanceof RecipientNotFoundError ||
         (err instanceof RelayError && err.status === 404)
       ) {
-        setState({
-          phase: "error",
-          message:
-            "That email is not on ResearchOS yet. Cross-boundary sharing only works between people who have set up sharing.",
-        });
+        setState({ phase: "offer-invite", recipient: recipientEmail });
         return;
       }
       setState({
         phase: "error",
         message: "Could not send, please try again.",
+      });
+    }
+  }, [note, ownerUsername, recipient, senderEmail]);
+
+  // Invite the non-user, seal the note under a one-time key, park it on the
+  // relay, and have ResearchOS send the branded email. The title is the only
+  // content exposed in the email. On success we show the invited confirmation.
+  const handleInvite = useCallback(async () => {
+    if (!senderEmail) {
+      setState({
+        phase: "error",
+        message: "Could not invite, please try again.",
+      });
+      return;
+    }
+    const recipientEmail = recipient.trim();
+    setState({ phase: "inviting", recipient: recipientEmail });
+    try {
+      const bundle = await buildNoteBundleInput(note, ownerUsername);
+      await inviteShare({
+        email: senderEmail,
+        recipientEmail,
+        bundle,
+        itemTitle: note.title || "Untitled note",
+        senderLabel: senderEmail,
+      });
+      setState({ phase: "invited", recipient: recipientEmail });
+    } catch {
+      setState({
+        phase: "error",
+        message:
+          "Could not send the invite. Please try again in a moment.",
       });
     }
   }, [note, ownerUsername, recipient, senderEmail]);
@@ -275,6 +310,96 @@ function SendForm({
           <p className="text-body text-gray-600 mt-1 leading-relaxed">
             They will see it in their inbox. You sent a copy, so any later edits
             you make stay on your version.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+        >
+          Done
+        </button>
+      </div>
+    );
+  }
+
+  // The recipient is not on ResearchOS. Instead of a dead-end, offer to invite
+  // them and share this note. The copy states the lower-assurance trust boundary
+  // honestly, an invite sends the note's unlock key in the email link, so it is
+  // a lower-assurance channel than sending to an existing account.
+  if (state.phase === "offer-invite") {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 text-blue-500">
+            <MailGlyph className="w-5 h-5" />
+          </span>
+          <div>
+            <p className="text-body font-medium text-gray-900">
+              {state.recipient} is not on ResearchOS yet
+            </p>
+            <p className="text-body text-gray-600 mt-1 leading-relaxed">
+              ResearchOS can email them an invitation with a private link to this
+              note. They create a free account to open it, the note stays
+              encrypted until they do.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <span className="text-amber-500 mt-0.5">
+            <WarnGlyph className="w-4 h-4" />
+          </span>
+          <p className="text-meta text-amber-800 leading-relaxed">
+            An invite is a lower-assurance channel than sending to an existing
+            account. The unlock key travels in the email link, so anyone who can
+            read that email can open the note. Only invite an address you trust.
+          </p>
+        </div>
+        <div className="flex gap-2 pt-1">
+          <button
+            type="button"
+            onClick={() => setState({ phase: "idle" })}
+            className="flex-1 py-2 text-body rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+          >
+            Back
+          </button>
+          <button
+            type="button"
+            onClick={handleInvite}
+            className="flex-1 py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+          >
+            Invite and share
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (state.phase === "inviting") {
+    return (
+      <div className="py-8 flex flex-col items-center text-center">
+        <div className="w-9 h-9 rounded-full border-2 border-gray-200 border-t-blue-500 animate-spin" />
+        <p className="text-body text-gray-500 mt-4">
+          Inviting {state.recipient}
+        </p>
+      </div>
+    );
+  }
+
+  if (state.phase === "invited") {
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-col items-center text-center py-2">
+          <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+            <CheckGlyph className="w-6 h-6" />
+          </div>
+          <p className="text-title font-semibold text-gray-900 mt-3">
+            We have invited {state.recipient}
+          </p>
+          <p className="text-body text-gray-600 mt-1 leading-relaxed">
+            They will get an email with a private link to this note. Once they
+            create a free account and open it, it lands in their notes. The note
+            is held encrypted for 30 days.
           </p>
         </div>
         <button
@@ -422,6 +547,25 @@ function KeyGlyph({ className }: GlyphProps) {
       <circle cx="7.5" cy="15.5" r="4.5" />
       <path d="m10.7 12.3 9.6-9.6" />
       <path d="m16 5 3 3" />
+    </svg>
+  );
+}
+
+function MailGlyph({ className }: GlyphProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
     </svg>
   );
 }

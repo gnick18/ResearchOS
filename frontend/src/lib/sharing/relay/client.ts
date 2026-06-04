@@ -55,7 +55,7 @@
 // data is safely on disk.
 
 import { ed25519 } from "@noble/curves/ed25519.js";
-import { bytesToHex } from "@noble/hashes/utils.js";
+import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 
 import {
   buildRelayPayload,
@@ -68,7 +68,11 @@ import {
   type BuildBundleInput,
   type BundleSender,
 } from "@/lib/sharing/bundle";
-import { sealToRecipient, openSealed } from "@/lib/sharing/encryption";
+import {
+  sealToRecipient,
+  openSealed,
+  sealUnderOneTimeKey,
+} from "@/lib/sharing/encryption";
 import { decodePublicKey } from "@/lib/sharing/identity/keys";
 import { loadIdentity } from "@/lib/sharing/identity/storage";
 
@@ -565,4 +569,214 @@ export async function ackShare(params: AckShareParams): Promise<void> {
     identity.keys.signing.privateKey,
   );
   await postJson<{ ok: true }>("/api/relay/ack", body);
+}
+
+// ---------------------------------------------------------------------------
+// INVITE a non-user. The keyless growth-loop path.
+//
+// When the recipient is NOT on ResearchOS, sendShare/sendRawShare throw
+// RecipientNotFoundError. inviteShare is the alternative, it seals the SAME note
+// bundle under a fresh ONE-TIME symmetric key (the recipient has no identity key
+// yet), parks it on the relay as a PENDING INVITE, and has the relay send a
+// branded email with an accept link. The one-time key lives ONLY in the accept
+// link's URL FRAGMENT (#k=<key>), which the browser never transmits to a server,
+// so the relay and our server never see it in a stored form.
+//
+// TRUST BOUNDARY (honest). The link (key in fragment) is composed HERE in the
+// browser and passed to the confirm route purely to put in the email body. We do
+// not persist or upload the key. The email is the trust channel, whoever can read
+// the invite email can open the data, which is inherent to inviting someone who
+// has no key yet. This is a lower-assurance channel than a registered send.
+//
+// SEND SEQUENCE (inviteShare):
+//   1. buildBundle over the note (same portable RO-Crate bag as sendShare).
+//   2. sealUnderOneTimeKey, mints a fresh 32-byte key, returns sealed + key.
+//   3. Sign an "invite" request (recipientEmail + sizeBytes), POST
+//      /api/relay/invite/send. Returns { inviteId, uploadUrl, expiresAt }, the
+//      invite row is reserved "pending" and is not yet fetchable or emailed.
+//   4. HTTP PUT the sealed bytes to uploadUrl (direct to R2).
+//   5. Compose the accept link with the key in the fragment, then sign an
+//      "invite-confirm" request (inviteId) and POST /api/relay/invite/confirm
+//      with the link + delivery fields. The route flips the row to "ready" and
+//      sends the branded email. The confirm AFTER the PUT stops an abandoned
+//      upload from producing a dead accept link.
+// ---------------------------------------------------------------------------
+
+/** The public base URL the accept link points at. Configurable, with a same-origin
+ *  fallback so the link works in any deployment / local run. */
+function acceptBaseUrl(): string {
+  const configured = process.env.NEXT_PUBLIC_APP_ORIGIN;
+  if (configured && configured.length > 0) return configured.replace(/\/$/, "");
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin;
+  }
+  // Last resort, the canonical production origin from the design doc.
+  return "https://research-os.app";
+}
+
+/** Builds the accept link with the one-time key in the URL fragment. The key
+ *  NEVER leaves the fragment, which a browser does not send to servers. */
+function buildAcceptUrl(inviteId: string, oneTimeKey: Uint8Array): string {
+  return `${acceptBaseUrl()}/accept/${inviteId}#k=${bytesToHex(oneTimeKey)}`;
+}
+
+/** Params for inviteShare. */
+export interface InviteShareParams {
+  /** The sender's own canonical email (the identity making the request). */
+  email: string;
+  /** The non-user recipient's email. Not resolved against the directory. */
+  recipientEmail: string;
+  /** Everything buildBundle needs to assemble the portable note bundle. */
+  bundle: BuildBundleInput;
+  /** The item title to expose as the email teaser (no other content is sent). */
+  itemTitle: string;
+  /** The sender's display label for the email body (their claimed email). */
+  senderLabel: string;
+}
+
+/** The result of a successful invite. */
+export interface InviteShareResult {
+  inviteId: string;
+  /** ISO-8601 timestamp the pending invite self-expires (the 30-day TTL). */
+  expiresAt: string;
+}
+
+/**
+ * Invites a non-user and shares one note with them. See the SEND SEQUENCE in the
+ * header. Throws NoLocalIdentityError if this device has no identity (the sender
+ * still needs theirs to sign), RelayError on any HTTP failure.
+ */
+export async function inviteShare(
+  params: InviteShareParams,
+): Promise<InviteShareResult> {
+  const identity = await requireIdentity();
+
+  // 1. Build the portable bundle (identical to sendShare's note bundle).
+  const zipped = await buildBundle(params.bundle);
+
+  // 2. Seal under a fresh one-time symmetric key. The key is held only locally
+  //    and goes only into the accept-link fragment below.
+  const { sealed, key } = sealUnderOneTimeKey(zipped);
+
+  // 3. Sign an "invite" request and reserve an invite id plus an upload URL.
+  const body = signRelayRequest(
+    {
+      action: "invite",
+      email: params.email,
+      issuedAt: nowIso(),
+      recipientEmail: params.recipientEmail,
+      sizeBytes: sealed.length,
+    },
+    identity.keys.signing.privateKey,
+  );
+  const reserved = await postJson<{
+    inviteId: string;
+    uploadUrl: string;
+    expiresAt: string;
+  }>("/api/relay/invite/send", body);
+
+  // 4. PUT the sealed bytes directly to the presigned URL.
+  const putRes = await fetch(reserved.uploadUrl, {
+    method: "PUT",
+    body: sealed as unknown as BodyInit,
+  });
+  if (!putRes.ok) {
+    throw new RelayError("Failed to upload the sealed invite", putRes.status);
+  }
+
+  // 5. Compose the accept link (key in fragment) and confirm. The confirm route
+  //    flips the invite to ready and sends the branded email. The accept URL is
+  //    passed only so the route can put it in the email body, the key in its
+  //    fragment is never stored server-side.
+  const acceptUrl = buildAcceptUrl(reserved.inviteId, key);
+  const confirmBody = signRelayRequest(
+    {
+      action: "invite-confirm",
+      email: params.email,
+      issuedAt: nowIso(),
+      inviteId: reserved.inviteId,
+    },
+    identity.keys.signing.privateKey,
+  );
+  await postJson<{ ok: true }>("/api/relay/invite/confirm", {
+    ...confirmBody,
+    recipientEmail: params.recipientEmail,
+    senderLabel: params.senderLabel,
+    itemTitle: params.itemTitle,
+    acceptUrl,
+  });
+
+  return { inviteId: reserved.inviteId, expiresAt: reserved.expiresAt };
+}
+
+// ---------------------------------------------------------------------------
+// Accept side (the /accept page). KEYLESS, the recipient has no identity key
+// when fetching, the inviteId is the bearer capability and the one-time key
+// comes from the URL fragment, not from a local identity.
+// ---------------------------------------------------------------------------
+
+/** Params for fetchInviteBundle. */
+export interface FetchInviteParams {
+  /** The server-issued invite id, from the accept link path. */
+  inviteId: string;
+  /** The one-time key recovered from the accept link fragment, as hex. */
+  oneTimeKeyHex: string;
+}
+
+/**
+ * Fetches, decrypts, and verifies an invited NOTE bundle on the accept page.
+ *
+ * Unlike receiveShare this requires NO local identity, the recipient is a brand
+ * new user. It POSTs the inviteId to /api/relay/invite/fetch (bearer-by-id) for
+ * a presigned download URL, GETs the sealed bytes, opens them with the one-time
+ * key from the fragment, and parses + verifies the RO-Crate bundle. It does NOT
+ * ack, the accept page files the note locally first, then calls ackInvite
+ * (ACK-AFTER-FILE).
+ *
+ * Throws RelayError on any HTTP failure (including 410 if the invite expired and
+ * 404 if it is missing / unconfirmed), and openWithOneTimeKey throws on tamper or
+ * a wrong key.
+ */
+export async function fetchInviteBundle(
+  params: FetchInviteParams,
+): Promise<ReceiveShareResult> {
+  // Import the one-time-key opener lazily-free, it is a pure crypto helper.
+  const { openWithOneTimeKey } = await import("@/lib/sharing/encryption");
+
+  // 1. Resolve a presigned download URL by the bearer invite id.
+  const { downloadUrl } = await postJson<{ downloadUrl: string }>(
+    "/api/relay/invite/fetch",
+    { inviteId: params.inviteId },
+  );
+
+  // 2. GET the sealed bytes directly from the presigned URL.
+  const getRes = await fetch(downloadUrl);
+  if (!getRes.ok) {
+    throw new RelayError("Failed to download the invited bundle", getRes.status);
+  }
+  const sealed = new Uint8Array(await getRes.arrayBuffer());
+
+  // 3. Open with the one-time key from the fragment, then read + verify.
+  const oneTimeKey = hexToBytes(params.oneTimeKeyHex);
+  const zipped = openWithOneTimeKey(sealed, oneTimeKey);
+  const result = await readBundle(zipped);
+
+  return {
+    valid: result.valid,
+    shareUuid: result.shareUuid,
+    version: result.version,
+    entityType: result.entityType,
+    entity: result.entity,
+    attachments: result.attachments,
+    sender: result.sender,
+  };
+}
+
+/**
+ * Acknowledges pickup of an invite, deleting the sealed bytes and the row from
+ * the relay (delete-on-pickup). Keyless, bearer-by-inviteId. Call this ONLY
+ * after the decrypted note is safely written locally (ACK-AFTER-FILE).
+ */
+export async function ackInvite(inviteId: string): Promise<void> {
+  await postJson<{ ok: true }>("/api/relay/invite/ack", { inviteId });
 }

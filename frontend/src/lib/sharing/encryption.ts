@@ -171,3 +171,79 @@ export function openSealed(
   // Throws on a bad authentication tag (tamper or wrong key). Let it propagate.
   return xchacha20poly1305(key, nonce).decrypt(ciphertext);
 }
+
+// ---------------------------------------------------------------------------
+// One-time symmetric key seal (the INVITE path).
+//
+// The registered-to-registered path above seals to a recipient's X25519 public
+// key, which they have because they have already claimed an identity. An invite
+// goes to a person with NO key yet, so there is nothing to seal to. Instead the
+// sender mints a fresh random 32-byte symmetric key per invite, seals the same
+// bundle under it, and parks the sealed bytes on the relay. The key never
+// reaches the relay or our server in a stored form, it travels ONLY in the
+// accept link's URL fragment (https://research-os.app/accept/<id>#k=<key>),
+// which a browser never transmits to a server. Whoever can read the invite
+// email can open the data, that is the inherent lower-assurance property of
+// inviting a keyless person, and it is stated in the send UI.
+//
+// The construction is the same XChaCha20-Poly1305 AEAD as above, but with the
+// per-message key supplied directly rather than derived from an ECDH. A fresh
+// random 24-byte nonce is generated per seal and prepended, so two seals of the
+// same plaintext under different keys (a new key is minted per invite) never
+// reuse a (key, nonce) pair. Output is nonce (24) || ct.
+// ---------------------------------------------------------------------------
+
+/** A one-time symmetric key, the 32-byte secret that travels in the fragment. */
+const ONE_TIME_KEY_LENGTH = 32;
+
+/** The result of an invite seal, the parked ciphertext and the fragment key. */
+export interface OneTimeSeal {
+  /** nonce (24) || ciphertext, opaque to the relay, parked in R2. */
+  sealed: Uint8Array;
+  /** The 32-byte one-time key. Goes ONLY into the accept-link fragment. */
+  key: Uint8Array;
+}
+
+/**
+ * Seals a plaintext bundle under a freshly minted one-time symmetric key.
+ *
+ * Returns both the sealed bytes (to park on the relay) and the key (to carry in
+ * the accept-link fragment). The caller must never persist or transmit the key
+ * to any server, it belongs only in the URL fragment of the invite link. Two
+ * invites of the same plaintext mint independent keys and nonces, so no
+ * (key, nonce) pair is ever reused.
+ */
+export function sealUnderOneTimeKey(plaintext: Uint8Array): OneTimeSeal {
+  const key = randomBytes(ONE_TIME_KEY_LENGTH);
+  const nonce = randomBytes(NONCE_LENGTH);
+  const ciphertext = xchacha20poly1305(key, nonce).encrypt(plaintext);
+  return { sealed: concatBytes(nonce, ciphertext), key };
+}
+
+/**
+ * Opens bytes sealed by sealUnderOneTimeKey, given the one-time key recovered
+ * from the accept-link fragment. Parses the prepended nonce, then decrypts. The
+ * AEAD verifies the tag, so a tampered ciphertext or a wrong key throws.
+ *
+ * @throws if the input is shorter than the nonce, if the key is not 32 bytes,
+ *   or if decryption fails (tamper or wrong key).
+ */
+export function openWithOneTimeKey(
+  sealed: Uint8Array,
+  oneTimeKey: Uint8Array,
+): Uint8Array {
+  if (oneTimeKey.length !== ONE_TIME_KEY_LENGTH) {
+    throw new Error(
+      `openWithOneTimeKey: key must be ${ONE_TIME_KEY_LENGTH} bytes, got ${oneTimeKey.length}`,
+    );
+  }
+  if (sealed.length < NONCE_LENGTH) {
+    throw new Error(
+      `openWithOneTimeKey: input too short, need at least ${NONCE_LENGTH} bytes, got ${sealed.length}`,
+    );
+  }
+  const nonce = sealed.subarray(0, NONCE_LENGTH);
+  const ciphertext = sealed.subarray(NONCE_LENGTH);
+  // Throws on a bad authentication tag (tamper or wrong key). Let it propagate.
+  return xchacha20poly1305(oneTimeKey, nonce).decrypt(ciphertext);
+}
