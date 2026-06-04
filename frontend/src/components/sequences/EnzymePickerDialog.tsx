@@ -732,8 +732,8 @@ export default function EnzymePickerDialog({
                             className="h-3.5 w-3.5 rounded border-gray-300 text-sky-600 focus:ring-sky-400"
                           />
                           <span className="w-24 shrink-0 font-medium text-gray-800">{d.info.name}</span>
-                          <span className="w-28 shrink-0 font-mono text-meta text-gray-400">{d.info.rseq}</span>
-                          <span className="flex-1 text-right text-meta text-gray-500">
+                          <span className="min-w-0 flex-1 break-all font-mono text-meta text-gray-400">{d.info.rseq}</span>
+                          <span className="shrink-0 whitespace-nowrap text-right text-meta text-gray-500">
                             {d.cutCount === 0 ? (
                               <span className="text-gray-300">no cut</span>
                             ) : (
