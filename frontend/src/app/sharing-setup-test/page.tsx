@@ -14,7 +14,7 @@
 // OAuth path. Without them the wizard still renders, but the publish step will
 // surface a 404 / network error, which is the expected dev behavior.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
@@ -52,6 +52,15 @@ function SharingSetupTestHarness() {
   // folder connected (the publish step then exercises the "local link could not
   // be saved" branch on purpose).
   const username = currentUser ?? "dev-tester";
+
+  // Auto-open the wizard when we return from an OAuth redirect (the callbackUrl
+  // carries ?sharingClaim=1). Otherwise the wizard would not be mounted on
+  // return and its resume effect could never run.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("sharingClaim") === "1") setOpen(true);
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-900 p-6">

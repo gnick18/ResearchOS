@@ -92,20 +92,17 @@ export default function SharingSetupWizard({
   const [localLinkFailed, setLocalLinkFailed] = useState(false);
   const [fingerprint, setFingerprint] = useState<string | null>(null);
 
-  // Guards the once-only OAuth-return resume so a re-render cannot re-trigger.
-  const resumedOAuthRef = useRef(false);
-
   // OAuth-redirect resume. When the page comes back from Google or GitHub it
   // carries ?sharingClaim=1 in the URL and a signed-in session. If both hold we
   // jump straight to the generate step with the OAuth-verified email, then strip
   // the query param so a manual refresh does not re-resume. We read the email by
-  // fetching the session endpoint (no SessionProvider needed).
+  // fetching the session endpoint (no SessionProvider needed). No ref guard, in
+  // React Strict Mode the first mount is cancelled by its cleanup, so a ref that
+  // persisted across the remount would block the real (second) attempt.
   useEffect(() => {
-    if (resumedOAuthRef.current) return;
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
     if (url.searchParams.get(CLAIM_QUERY_PARAM) !== "1") return;
-    resumedOAuthRef.current = true;
 
     let cancelled = false;
     (async () => {
@@ -125,19 +122,19 @@ export default function SharingSetupWizard({
           // "verified via OAuth" on the publish branch.
           setVerifiedVia("google");
           setStep("generate");
+          // Strip the flag only AFTER a successful resume, so a later refresh
+          // does not re-run keygen. We deliberately do NOT strip on a cancelled
+          // or failed run, so Strict Mode's second mount still gets a real try.
+          url.searchParams.delete(CLAIM_QUERY_PARAM);
+          window.history.replaceState(
+            null,
+            "",
+            url.pathname + url.search + url.hash,
+          );
         }
       } catch {
-        // A failed session read just leaves the user on the choose step, which
-        // is a safe place to retry from.
-      } finally {
-        // Strip the flag whether or not the resume succeeded so a refresh does
-        // not loop back through here.
-        url.searchParams.delete(CLAIM_QUERY_PARAM);
-        window.history.replaceState(
-          null,
-          "",
-          url.pathname + url.search + url.hash,
-        );
+        // A failed session read just leaves the user on the choose step, a safe
+        // place to retry from.
       }
     })();
     return () => {
