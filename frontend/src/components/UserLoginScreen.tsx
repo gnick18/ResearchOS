@@ -13,7 +13,7 @@ import {
   readSharingIdentity,
   hasSharingIdentity,
 } from "@/lib/sharing/identity/sidecar";
-import { canonicalizeEmail } from "@/lib/sharing/directory/email";
+import { evaluateUnlockMatch } from "@/lib/sharing/identity/unlock-match";
 import { GoogleIcon, GitHubIcon } from "@/components/sharing/icons";
 import {
   createUserMetadataEntry,
@@ -43,6 +43,30 @@ interface UserLoginScreenProps {
 // D1 (cross-boundary sharing): the query param the provider-unlock redirect
 // carries back so the resume effect knows which account to unlock and match.
 const UNLOCK_QUERY_PARAM = "sharingUnlock";
+
+// D5/D6 read-only badge glyph for the user-switcher tiles. A small
+// "person plus link" mark, matching the same icon used on the Lab Roster
+// "Sharing" pill (lab-head/LabRoster.tsx) so the two surfaces read as one
+// signal. Inline SVG, the project ships no icon-font dependency and every
+// user-facing glyph is an inline SVG.
+function SharingIdentityIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="6" cy="4.5" r="2.5" />
+      <path d="M1.5 13.5c0-2.5 2-4 4.5-4 1 0 1.9.24 2.6.66" />
+      <path d="M10.5 11h4M12.5 9v4" />
+    </svg>
+  );
+}
 
 export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   const { setCurrentUser, currentUser: contextCurrentUser } = useFileSystem();
@@ -317,19 +341,21 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         const session = (await sessionRes.json()) as {
           user?: { email?: string | null } | null;
         } | null;
-        const sessionEmail = canonicalizeEmail(session?.user?.email ?? "");
-        const claimedEmail = canonicalizeEmail(sidecar?.email ?? "");
 
-        if (!sessionEmail) {
+        // The unlock decision (does the verified session email match the
+        // email this account claimed its identity under?) lives in the pure,
+        // unit-tested evaluateUnlockMatch so the security rule is explicit and
+        // covered. A provider sign-in unlocks ONLY the one account bound to its
+        // verified email, never any successful Google or GitHub login.
+        const match = evaluateUnlockMatch(
+          session?.user?.email ?? null,
+          sidecar?.email ?? null,
+        );
+        if (!match.ok) {
           setError(
-            "Could not confirm your sign-in. Use your password, or try the provider again.",
-          );
-          setUnlockingViaProvider(false);
-          return;
-        }
-        if (!claimedEmail || sessionEmail !== claimedEmail) {
-          setError(
-            "That account does not match this identity. Use the password, or sign in with the email this identity is registered under.",
+            match.reason === "no-session-email"
+              ? "Could not confirm your sign-in. Use your password, or try the provider again."
+              : "That account does not match this identity. Use the password, or sign in with the email this identity is registered under.",
           );
           setUnlockingViaProvider(false);
           return;
@@ -1069,6 +1095,27 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                               >
                                 <span className="shrink-0 px-1.5 py-0.5 text-meta font-semibold rounded bg-slate-200 text-slate-600">
                                   Archived
+                                </span>
+                              </Tooltip>
+                            )}
+                            {claimedUsers.has(user) && (
+                              // D5/D6: read-only "has sharing identity" badge.
+                              // Purely informational, no click and no action.
+                              // It mirrors the Lab Roster "Sharing" pill so the
+                              // switcher and manage-members read as one signal.
+                              // Local switching never controls the global
+                              // identity (D5/D6), so do NOT grow this into a
+                              // manage/reset affordance.
+                              <Tooltip
+                                label="Has a sharing identity"
+                                placement="bottom"
+                              >
+                                <span
+                                  className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 text-meta font-semibold rounded bg-sky-100 text-sky-800"
+                                  data-testid={`login-sharing-identity-${user}`}
+                                >
+                                  <SharingIdentityIcon className="w-3 h-3" />
+                                  Sharing
                                 </span>
                               </Tooltip>
                             )}
