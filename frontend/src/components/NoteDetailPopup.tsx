@@ -32,6 +32,7 @@ import AuditTrailNotice from "./AuditTrailNotice";
 import FlagForReviewButton from "./lab-head/FlagForReviewButton";
 import FlagBanner from "./lab-head/FlagBanner";
 import SharingChips from "@/components/sharing/SharingChips";
+import SendOutsideDialog from "@/components/sharing/SendOutsideDialog";
 import { StampsRow } from "@/components/AttributionChip";
 import NoteVersionHistorySidebar, {
   type VersionPreview,
@@ -139,6 +140,10 @@ export default function NoteDetailPopup({
   const [entries, setEntries] = useState<NoteEntry[]>(note.entries);
   const [isShared, setIsShared] = useState(note.is_shared);
   const [saving, setSaving] = useState(false);
+  // Cross-boundary sharing (Phase 2b): the "Share outside this folder" one-time
+  // send. Distinct from the lab-share toggle above, this opens a dialog that
+  // sends an encrypted copy to one recipient on ResearchOS.
+  const [showSendOutside, setShowSendOutside] = useState(false);
   const [showNewEntryForm, setShowNewEntryForm] = useState(false);
   const [newEntryTitle, setNewEntryTitle] = useState("");
   const [newEntryDate, setNewEntryDate] = useState(
@@ -955,6 +960,13 @@ export default function NoteDetailPopup({
     <>
     <FileRenamePopup />
     <DuplicateDialog />
+    {showSendOutside && currentUser && (
+      <SendOutsideDialog
+        note={note}
+        ownerUsername={currentUser}
+        onClose={() => setShowSendOutside(false)}
+      />
+    )}
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
       // Marker for TourSpotlight (popup-occluding sweep manager,
@@ -1357,6 +1369,36 @@ export default function NoteDetailPopup({
                   e.target.value = "";
                 }}
               />
+
+              {/* Cross-boundary sharing (Phase 2b): a one-time send to someone
+                  outside this folder. Styled as an outlined action, not a pill,
+                  so it reads as a distinct action from the lab-share toggle (an
+                  ACL) above. Opens SendOutsideDialog with the current note. */}
+              <Tooltip
+                label="Send an encrypted copy to someone on ResearchOS"
+                placement="top"
+              >
+                <button
+                  onClick={() => setShowSendOutside(true)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-body border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M3 11.5 21 3l-6 18-4.5-7.5L3 11.5Z"
+                    />
+                  </svg>
+                  Share outside this folder
+                </button>
+              </Tooltip>
 
               {/* Save-in-progress indicator (note-save manager): shown while
                   an explicit save (or title / sharing write) is in flight. */}
