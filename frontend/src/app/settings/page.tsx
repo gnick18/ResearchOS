@@ -470,7 +470,10 @@ function SettingsBody() {
   }
 
   return (
-    <div ref={scrollContainerRef} className="flex-1 overflow-y-auto flex flex-col">
+    <div
+      ref={scrollContainerRef}
+      className="min-h-0 flex-1 overflow-y-auto flex flex-col"
+    >
       <div className="max-w-3xl mx-auto w-full px-6 py-8 space-y-8">
         {/* Onboarding v4 §6.10 Settings phase redesign 2026-05-22
             (Settings manager): the page header doubles as the
