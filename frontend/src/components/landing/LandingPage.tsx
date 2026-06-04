@@ -835,7 +835,8 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             className="drop-shadow-[0_10px_28px_rgba(26,160,230,0.22)]"
           >
             <BeakerBot
-              pose="waving"
+              pose="idle"
+              alive
               className="h-28 w-28 text-sky-500 md:h-36 md:w-36"
             />
           </div>

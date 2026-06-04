@@ -704,9 +704,10 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
             data-testid="picker-beakerbot"
           >
             <BeakerBot
-              pose="waving"
+              pose="idle"
+              alive
               className="h-full w-full text-sky-300"
-              ariaLabel="BeakerBot waving hello"
+              ariaLabel="BeakerBot"
             />
           </div>
           {/* Square-ish speech bubble pointing up at BeakerBot. Capped

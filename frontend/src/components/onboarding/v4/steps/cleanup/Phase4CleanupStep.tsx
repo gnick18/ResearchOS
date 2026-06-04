@@ -404,7 +404,7 @@ export default function Phase4CleanupStep({
         {/* Header: tiny BeakerBot in the corner per brief option B. */}
         <header className="flex items-start gap-3 p-5 border-b border-gray-100">
           <div className="shrink-0">
-            <BeakerBot pose="pointing" className="w-12 h-12 text-sky-500" />
+            <BeakerBot pose="pointing" alive className="w-12 h-12 text-sky-500" />
           </div>
           <div className="flex-1 min-w-0">
             <h2 className="text-lg font-semibold text-gray-900">
