@@ -393,11 +393,11 @@
       "name": "SUMO (small ubiquitin-related modifier)",
       "category": "fusion_tag",
       "sequenceType": "protein",
-      "seq": "MSDTDTKPSGQDGGDQKDGEYIKLKVIGQDNSEIHFKVKMTTHLKKLKESYSQRQGVHMSTLRFLFEGQRISDNHTPKELGMEDEDVIEVYQEQTGGLRNN",
+      "seq": "MSDQEAKPSTEDLGDKKEGEYIKLKVIGQDSSEIHFKVKMTTHLKKLKESYCQRQGVPMNSLRFLFEGQRIADNHTPKELGMEEEDVIEVYQEQTGGHSTV",
       "source": "UniProt (Swiss-Prot, reviewed)",
-      "sourceUrl": "https://www.uniprot.org/uniprotkb/Q9PT08/entry",
+      "sourceUrl": "https://www.uniprot.org/uniprotkb/P63165/entry",
       "license": "CC BY 4.0",
-      "accession": "Q9PT08"
+      "accession": "P63165"
     },
     {
       "id": "marker_ampr_bla",

@@ -227,7 +227,9 @@ const UNIPROT_SPECS = [
     id: "tag_sumo",
     name: "SUMO (small ubiquitin-related modifier)",
     category: "fusion_tag",
-    query: "small ubiquitin-related modifier SUMO AND reviewed:true",
+    // Pinned to human SUMO1 (P63165), the canonical SUMO-fusion-tag reference. A
+    // bare phrase query surfaced a non-canonical ortholog first, so pin by accession.
+    query: "accession:P63165",
   },
 ];
 
