@@ -6,9 +6,11 @@
   "description": "THROWAWAY spike: is loro-codemirror mature enough to be the live-editing layer for the unified data model? Headless convergence + cursors + WASM cost + a static no-server browser demo.",
   "scripts": {
     "convergence": "node test/convergence.mjs",
+    "awareness": "node test/awareness.mjs",
     "wasm": "node test/wasm-cost.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "build:demo": "node build-demo.mjs"
+    "build:demo": "node build-demo.mjs",
+    "all": "node test/convergence.mjs && node test/awareness.mjs && node test/wasm-cost.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "6.10.3",

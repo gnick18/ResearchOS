@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Loro CodeMirror live-binding spike</title>
+    <style>
+      :root { color-scheme: light; }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+        background: #f6f7f9;
+        color: #1a1d21;
+      }
+      header {
+        padding: 16px 20px;
+        border-bottom: 1px solid #e3e6ea;
+        background: #fff;
+      }
+      header h1 { margin: 0 0 4px; font-size: 16px; }
+      header p { margin: 0; font-size: 13px; color: #5b626b; max-width: 70ch; }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        padding: 20px;
+      }
+      .pane {
+        background: #fff;
+        border: 1px solid #e3e6ea;
+        border-radius: 8px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .pane .label {
+        padding: 8px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        border-bottom: 1px solid #e3e6ea;
+      }
+      .pane.a .label { color: #1e6fd6; }
+      .pane.b .label { color: #c2356b; }
+      .pane .editor { height: 320px; }
+
+      /* Remote cursor + selection styling, keyed by the colorClassName the demo sets. */
+      .loro-cursor {
+        border-left: 2px solid currentColor;
+        margin-left: -1px;
+        height: 1.2em;
+        display: inline-block;
+        position: relative;
+      }
+      .loro-selection { opacity: 0.35; }
+      .user-a { color: #1e6fd6; background-color: #1e6fd6; }
+      .user-b { color: #c2356b; background-color: #c2356b; }
+      .loro-cursor.user-a, .loro-cursor.user-b { background-color: transparent; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Loro CodeMirror live-binding spike</h1>
+      <p>
+        Two independent CodeMirror 6 editors, each with its own LoroDoc, wired
+        through an in-page byte-pipe that stands in for a Cloudflare Durable
+        Object. Type in either pane and the text plus the remote caret appear
+        live in the other. No server. This file is fully static.
+      </p>
+    </header>
+    <div class="grid">
+      <div class="pane a">
+        <div class="label">Editor A (peer 1)</div>
+        <div class="editor" id="editorA"></div>
+      </div>
+      <div class="pane b">
+        <div class="label">Editor B (peer 2)</div>
+        <div class="editor" id="editorB"></div>
+      </div>
+    </div>
+    <script type="module" src="./demo.js"></script>
+  </body>
+</html>
