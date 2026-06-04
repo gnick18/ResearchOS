@@ -1,0 +1,24 @@
+{
+  "name": "unified-model-loro-binding-spike",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "THROWAWAY spike: is loro-codemirror mature enough to be the live-editing layer for the unified data model? Headless convergence + cursors + WASM cost + a static no-server browser demo.",
+  "scripts": {
+    "convergence": "node test/convergence.mjs",
+    "wasm": "node test/wasm-cost.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build:demo": "node build-demo.mjs"
+  },
+  "dependencies": {
+    "@codemirror/commands": "6.10.3",
+    "@codemirror/state": "6.6.0",
+    "@codemirror/view": "6.43.0",
+    "loro-codemirror": "0.3.3",
+    "loro-crdt": "1.12.3"
+  },
+  "devDependencies": {
+    "esbuild": "0.24.2",
+    "typescript": "5.7.3"
+  }
+}
