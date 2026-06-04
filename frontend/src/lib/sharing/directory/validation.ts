@@ -88,6 +88,67 @@ export function parseVerifyBody(body: unknown): VerifyBody | null {
   };
 }
 
+/** The fields a key-rotation request carries. */
+export interface RotateBody {
+  email: string;
+  newX25519PublicKey: string;
+  newEd25519PublicKey: string;
+  signature: string;
+  issuedAt: string;
+  keyBackupBlob: string | null;
+}
+
+/**
+ * Validates a rotate body. A rotation publishes a NEW key pair for an already
+ * registered email, authorized by a signature from the CURRENT (old) Ed25519
+ * key (the route verifies that signature against the stored key). Requires a
+ * plausible email, the two new hex public keys, a hex signature, and a
+ * round-tripping ISO-8601 issuedAt (the bytes the client signed, reconstructed
+ * by buildBindingPayload over the NEW keys). keyBackupBlob is an optional opaque
+ * client blob, coerced to null when absent. There is no OTP, the current key
+ * holder's signature is the proof. Returns null on any shape failure so the
+ * route returns a single generic error.
+ */
+export function parseRotateBody(body: unknown): RotateBody | null {
+  if (typeof body !== "object" || body === null) return null;
+  const b = body as Record<string, unknown>;
+
+  if (!isNonEmptyString(b.email)) return null;
+  const email = b.email.trim();
+  if (!EMAIL_RE.test(email)) return null;
+
+  if (
+    !isNonEmptyString(b.newX25519PublicKey) ||
+    !HEX_RE.test(b.newX25519PublicKey)
+  ) {
+    return null;
+  }
+  if (
+    !isNonEmptyString(b.newEd25519PublicKey) ||
+    !HEX_RE.test(b.newEd25519PublicKey)
+  ) {
+    return null;
+  }
+  if (!isNonEmptyString(b.signature) || !HEX_RE.test(b.signature)) return null;
+
+  if (!isNonEmptyString(b.issuedAt) || !isIsoTimestamp(b.issuedAt)) return null;
+
+  let keyBackupBlob: string | null = null;
+  if (b.keyBackupBlob !== undefined && b.keyBackupBlob !== null) {
+    if (!isNonEmptyString(b.keyBackupBlob)) return null;
+    keyBackupBlob = b.keyBackupBlob;
+  }
+
+  return {
+    email,
+    newX25519PublicKey: b.newX25519PublicKey,
+    newEd25519PublicKey: b.newEd25519PublicKey,
+    signature: b.signature,
+    issuedAt: b.issuedAt,
+    keyBackupBlob,
+  };
+}
+
 /** The fields an OAuth key-bind request carries. */
 export interface OAuthBindBody {
   x25519PublicKey: string;

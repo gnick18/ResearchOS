@@ -133,6 +133,26 @@ export async function getBindingByHash(
 }
 
 /**
+ * Fetches just the encrypted key-backup blob for an email hash, or null if there
+ * is no binding or the binding stored no blob. The recovery route needs only the
+ * blob, not the key material, so this selects a single column and keeps the two
+ * "no blob to return" cases (no row, null column) collapsed into one null result.
+ * The blob is end-to-end encrypted, the server cannot read it, so returning it on
+ * email-ownership proof is safe.
+ */
+export async function getBackupBlob(emailHash: string): Promise<string | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT key_backup_blob
+    FROM directory_identities
+    WHERE email_hash = ${emailHash}
+    LIMIT 1
+  `) as Array<{ key_backup_blob: string | null }>;
+  if (rows.length === 0) return null;
+  return rows[0].key_backup_blob;
+}
+
+/**
  * Appends a key tuple to the immutable history table. Called after every
  * successful binding so the chain of keys ever bound to an email hash is
  * preserved for a future transparency replay or rotation audit.

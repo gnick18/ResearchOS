@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   parseEmailBody,
+  parseRotateBody,
   parseVerifyBody,
   shapeLookupResult,
 } from "../validation";
@@ -116,6 +117,98 @@ describe("parseVerifyBody", () => {
   it("rejects a non-object body", () => {
     expect(parseVerifyBody(null)).toBeNull();
     expect(parseVerifyBody("nope")).toBeNull();
+  });
+});
+
+function validRotateBody(overrides: Record<string, unknown> = {}) {
+  return {
+    email: "alice@example.com",
+    newX25519PublicKey: HEX64,
+    newEd25519PublicKey: HEX64,
+    signature: SIG,
+    issuedAt: ISSUED_AT,
+    keyBackupBlob: "opaque-blob",
+    ...overrides,
+  };
+}
+
+describe("parseRotateBody", () => {
+  it("accepts a fully valid body", () => {
+    const parsed = parseRotateBody(validRotateBody());
+    expect(parsed).not.toBeNull();
+    expect(parsed?.email).toBe("alice@example.com");
+    expect(parsed?.newX25519PublicKey).toBe(HEX64);
+    expect(parsed?.newEd25519PublicKey).toBe(HEX64);
+    expect(parsed?.signature).toBe(SIG);
+    expect(parsed?.issuedAt).toBe(ISSUED_AT);
+    expect(parsed?.keyBackupBlob).toBe("opaque-blob");
+  });
+
+  it("trims the email", () => {
+    const parsed = parseRotateBody(validRotateBody({ email: " alice@example.com " }));
+    expect(parsed?.email).toBe("alice@example.com");
+  });
+
+  it("coerces an absent backup blob to null", () => {
+    const parsed = parseRotateBody(validRotateBody({ keyBackupBlob: undefined }));
+    expect(parsed?.keyBackupBlob).toBeNull();
+  });
+
+  it("coerces an explicit null backup blob to null", () => {
+    const parsed = parseRotateBody(validRotateBody({ keyBackupBlob: null }));
+    expect(parsed?.keyBackupBlob).toBeNull();
+  });
+
+  it("rejects an empty-string backup blob (must be null or non-empty)", () => {
+    expect(parseRotateBody(validRotateBody({ keyBackupBlob: "" }))).toBeNull();
+  });
+
+  it("rejects a missing or malformed email", () => {
+    expect(parseRotateBody(validRotateBody({ email: undefined }))).toBeNull();
+    expect(parseRotateBody(validRotateBody({ email: "not-an-email" }))).toBeNull();
+    expect(parseRotateBody(validRotateBody({ email: 123 }))).toBeNull();
+  });
+
+  it("rejects a non-hex new public key", () => {
+    expect(
+      parseRotateBody(validRotateBody({ newX25519PublicKey: "ZZZ" })),
+    ).toBeNull();
+    expect(
+      parseRotateBody(validRotateBody({ newEd25519PublicKey: "0xABCD" })),
+    ).toBeNull();
+  });
+
+  it("rejects an uppercase-hex new public key (wire encoding is lowercase)", () => {
+    expect(
+      parseRotateBody(validRotateBody({ newEd25519PublicKey: "ABCD" })),
+    ).toBeNull();
+  });
+
+  it("rejects a missing new public key", () => {
+    expect(
+      parseRotateBody(validRotateBody({ newX25519PublicKey: undefined })),
+    ).toBeNull();
+    expect(
+      parseRotateBody(validRotateBody({ newEd25519PublicKey: "" })),
+    ).toBeNull();
+  });
+
+  it("rejects a non-hex or missing signature", () => {
+    expect(parseRotateBody(validRotateBody({ signature: "xyz" }))).toBeNull();
+    expect(parseRotateBody(validRotateBody({ signature: undefined }))).toBeNull();
+  });
+
+  it("rejects a missing or malformed issuedAt", () => {
+    expect(parseRotateBody(validRotateBody({ issuedAt: undefined }))).toBeNull();
+    expect(parseRotateBody(validRotateBody({ issuedAt: "not-a-date" }))).toBeNull();
+    // A loose form Date would coerce but that does not round-trip is rejected.
+    expect(parseRotateBody(validRotateBody({ issuedAt: "2026-06-03" }))).toBeNull();
+  });
+
+  it("rejects a non-object body", () => {
+    expect(parseRotateBody(null)).toBeNull();
+    expect(parseRotateBody("nope")).toBeNull();
+    expect(parseRotateBody(42)).toBeNull();
   });
 });
 
