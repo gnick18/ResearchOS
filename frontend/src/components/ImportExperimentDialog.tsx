@@ -207,7 +207,7 @@ export default function ImportExperimentDialog({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/30 backdrop-blur-sm"
       // Marker for TourSpotlight (popup-occluding sweep manager,
       // 2026-05-27). Hides the v4 walkthrough ring while this popup
       // is mounted; see SnapshotTilePopup for the canonical example.
@@ -215,7 +215,7 @@ export default function ImportExperimentDialog({
       onClick={handleBackdrop}
     >
       <div
-        className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden"
+        className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <input
@@ -226,7 +226,7 @@ export default function ImportExperimentDialog({
           onChange={onFileInputChange}
         />
 
-        <div className="px-6 pt-5 pb-3 border-b border-gray-100 flex items-center justify-between gap-4">
+        <div className="px-6 pt-5 pb-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between gap-4">
           <div>
             <h2 className="text-title font-semibold text-gray-900">
               {isMethod ? "Import method" : "Import experiment"}
@@ -365,18 +365,18 @@ function SuccessStage({ result }: { result: ImportResult }) {
 
   return (
     <div className="py-6">
-      <div className="flex items-center gap-2">
-        <span className="text-emerald-600">
-          <CheckGlyph className="w-5 h-5" />
-        </span>
-        <p className="text-body font-medium text-gray-900">Imported successfully</p>
+      <div className="text-center">
+        <div className="w-12 h-12 mx-auto rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 mb-3">
+          <CheckGlyph className="w-6 h-6" />
+        </div>
+        <p className="text-title font-semibold text-gray-900">Imported successfully</p>
       </div>
       {isMethodOnly ? (
-        <p className="text-body text-gray-600 mt-2">
+        <p className="text-body text-gray-600 mt-2 text-center">
           The method was added to your method library.
         </p>
       ) : (
-        <p className="text-body text-gray-600 mt-2">
+        <p className="text-body text-gray-600 mt-2 text-center">
           New task id <strong>{result.newTaskId}</strong> created in your workspace.
           {result.newProjectId !== null && (
             <> Linked to project id <strong>{result.newProjectId}</strong>.</>
@@ -384,7 +384,7 @@ function SuccessStage({ result }: { result: ImportResult }) {
         </p>
       )}
       {Object.keys(result.importedMethodIds).length > 0 && (
-        <p className="text-meta text-gray-500 mt-2">
+        <p className="text-meta text-gray-500 mt-2 text-center">
           {Object.keys(result.importedMethodIds).length} method{Object.keys(result.importedMethodIds).length === 1 ? "" : "s"} resolved.
         </p>
       )}

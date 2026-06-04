@@ -193,7 +193,7 @@ function SharingIdentitySection({
       description="Send notes, methods, and files to people outside your folder, and pick up what they send you. Your identity is one verified email plus a keypair that lives on this device."
     >
       {status === "loading" && (
-        <p className="text-body text-gray-500">Checking your sharing setup...</p>
+        <p className="text-body text-gray-500">Checking your sharing setup…</p>
       )}
 
       {status === "none" && (
@@ -511,7 +511,7 @@ function InboxStorageReady({ email }: { email: string }) {
       description="Shares people send you wait in an encrypted inbox until you import them."
     >
       {query.isLoading && (
-        <p className="text-body text-gray-500">Loading your inbox...</p>
+        <p className="text-body text-gray-500">Loading your inbox…</p>
       )}
 
       {unavailable && (
@@ -868,7 +868,7 @@ export function RestoreIdentityPopup({
             disabled={busy}
             className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
           >
-            {busy ? "Sending code..." : "Continue"}
+            {busy ? "Sending code…" : "Continue"}
           </button>
           <p className="text-meta text-slate-500 leading-relaxed">
             We send a 6-digit code to {email || "your email"} to confirm it is you
@@ -909,7 +909,7 @@ export function RestoreIdentityPopup({
         <div className="py-8 flex flex-col items-center text-center">
           <div className="w-10 h-10 rounded-full border-2 border-white/20 border-t-blue-400 animate-spin" />
           <p className="text-body text-slate-300 mt-4 font-medium">
-            Checking your recovery words...
+            Checking your recovery words…
           </p>
         </div>
       )}
@@ -1289,7 +1289,7 @@ export function DisconnectIdentityPopup({
             disabled={busy}
             className="flex-1 py-2 text-body rounded-lg font-medium bg-red-600 hover:bg-red-700 text-white disabled:opacity-50"
           >
-            {busy ? "Disconnecting..." : "Disconnect"}
+            {busy ? "Disconnecting…" : "Disconnect"}
           </button>
         </div>
       </div>

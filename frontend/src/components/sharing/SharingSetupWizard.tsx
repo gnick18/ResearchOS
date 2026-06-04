@@ -536,7 +536,7 @@ function EmailEnterStep({
           disabled={busy}
           className="flex-1 py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
         >
-          {busy ? "Sending..." : "Send code"}
+          {busy ? "Sending…" : "Send code"}
         </button>
       </div>
     </div>

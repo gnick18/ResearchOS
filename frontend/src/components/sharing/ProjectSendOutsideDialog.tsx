@@ -495,7 +495,7 @@ function SendForm({
           disabled={!canSend}
           className="flex-1 py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {sending ? "Sending..." : "Send"}
+          {sending ? "Sending…" : "Send"}
         </button>
       </div>
     </div>
