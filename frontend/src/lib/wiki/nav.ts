@@ -25,6 +25,7 @@ export const APP_ROUTE_TO_WIKI: Record<string, string> = {
   "/links": "/wiki/features/links",
   "/settings": "/wiki/features/settings",
   "/trash": "/wiki/features/trash",
+  "/sequences": "/wiki/features/sequences",
 };
 
 /** Prefix-aware lookup. Tries an exact match first, then walks the
@@ -211,6 +212,11 @@ export const WIKI_NAV: WikiNode[] = [
             blurb: "91 ready-to-use protocol templates by lab task; 33 bundle the verifiable source PDF (rolling out).",
           },
         ],
+      },
+      {
+        href: "/wiki/features/sequences",
+        label: "Sequences",
+        blurb: "View, edit, annotate, and clone DNA, RNA, and protein sequences. Your plasmid library lives alongside your notes and experiments.",
       },
       {
         href: "/wiki/features/purchases",
