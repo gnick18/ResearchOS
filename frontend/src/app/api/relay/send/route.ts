@@ -10,6 +10,13 @@
 // never read them. The mailbox row carries metadata only and self-expires after
 // 30 days.
 //
+// CONFIRM-AFTER-UPLOAD. The row is inserted as "pending" and is invisible to the
+// recipient until the client confirms the upload (POST /api/relay/confirm), which
+// flips it to "ready". This is what keeps a failed or abandoned upload from
+// leaving a phantom inbox row that errors on open. The bundle id and the presign
+// still have to be issued here, before the upload can happen, so the row must
+// exist now, it just stays hidden until the bytes are really in R2.
+//
 // Reads env: SHARING_ENABLED, DIRECTORY_HMAC_PEPPER, DATABASE_URL,
 // KV_REST_API_URL, KV_REST_API_TOKEN, R2_*.
 

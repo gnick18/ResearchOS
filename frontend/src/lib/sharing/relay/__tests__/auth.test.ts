@@ -83,6 +83,22 @@ describe("buildRelayPayload, determinism and field binding", () => {
     expect(bytesToHex(send)).not.toBe(bytesToHex(fetchP));
   });
 
+  it("binds the action into the bytes, confirm and ack differ on the same bundleId", () => {
+    const confirmP = buildRelayPayload({
+      action: "confirm",
+      email: CALLER_EMAIL,
+      issuedAt,
+      bundleId: "abc",
+    });
+    const ackP = buildRelayPayload({
+      action: "ack",
+      email: CALLER_EMAIL,
+      issuedAt,
+      bundleId: "abc",
+    });
+    expect(bytesToHex(confirmP)).not.toBe(bytesToHex(ackP));
+  });
+
   it("includes only the action-specific fields that are set", () => {
     const text = new TextDecoder().decode(
       buildRelayPayload({ action: "inbox", email: CALLER_EMAIL, issuedAt }),
@@ -151,13 +167,17 @@ describe("parseRelayBody, shape validation", () => {
     ).toBeNull();
   });
 
-  it("requires bundleId for fetch and ack", () => {
+  it("requires bundleId for confirm, fetch and ack", () => {
     expect(parseRelayBody({ ...base, action: "fetch" }, "fetch")).toBeNull();
+    expect(parseRelayBody({ ...base, action: "confirm" }, "confirm")).toBeNull();
     expect(
       parseRelayBody({ ...base, action: "fetch", bundleId: "x" }, "fetch"),
     ).not.toBeNull();
     expect(
       parseRelayBody({ ...base, action: "ack", bundleId: "x" }, "ack"),
+    ).not.toBeNull();
+    expect(
+      parseRelayBody({ ...base, action: "confirm", bundleId: "x" }, "confirm"),
     ).not.toBeNull();
   });
 
@@ -236,6 +256,36 @@ describe("verifyRelayRequest, end to end", () => {
     // (action mismatch), and even if reshaped the bytes would not verify.
     const replay = { ...sendBody, action: "fetch", bundleId: "abc" };
     expect(await verifyRelayRequest(replay, "fetch", PEPPER)).toBeNull();
+  });
+
+  it("rejects an ack signature replayed as a confirm", async () => {
+    getBindingByHash.mockResolvedValue({
+      emailHash: "h",
+      x25519PublicKey: "00",
+      ed25519PublicKey: PUB_HEX,
+      fingerprint: "fp",
+      keyBackupBlob: null,
+    });
+    // A valid "ack" body, signed for the ack action over the same bundleId.
+    const ackBody = signedBody("ack", { bundleId: "bundle-x" }, issuedAt);
+    // Re-label it as confirm. parseRelayBody fails on the action mismatch, and
+    // even reshaped the signed bytes would not verify under the confirm action.
+    const replay = { ...ackBody, action: "confirm" };
+    expect(await verifyRelayRequest(replay, "confirm", PEPPER)).toBeNull();
+  });
+
+  it("accepts a good confirm signature carrying a bundleId", async () => {
+    getBindingByHash.mockResolvedValue({
+      emailHash: "h",
+      x25519PublicKey: "00",
+      ed25519PublicKey: PUB_HEX,
+      fingerprint: "fp",
+      keyBackupBlob: null,
+    });
+    const body = signedBody("confirm", { bundleId: "bundle-x" }, issuedAt);
+    const result = await verifyRelayRequest(body, "confirm", PEPPER);
+    expect(result).not.toBeNull();
+    expect(result?.parsed.bundleId).toBe("bundle-x");
   });
 
   it("rejects a stale request", async () => {

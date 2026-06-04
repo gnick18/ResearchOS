@@ -7,11 +7,12 @@
 // Auth.js session, it does not need one, the signed request IS the proof of who
 // is calling.
 //
-// The signed bytes always include the action ("send" / "inbox" / "fetch" /
-// "ack"), so a signature minted for one action cannot be replayed as another
-// (a captured "send" cannot be turned into a "fetch" that drains a mailbox). The
-// bytes also include issuedAt, and the verifier rejects anything older than five
-// minutes or dated in the future, which bounds the replay window.
+// The signed bytes always include the action ("send" / "confirm" / "inbox" /
+// "fetch" / "ack"), so a signature minted for one action cannot be replayed as
+// another (a captured "send" cannot be turned into a "fetch" that drains a
+// mailbox, nor a "confirm" that reveals an un-uploaded bundle). The bytes also
+// include issuedAt, and the verifier rejects anything older than five minutes or
+// dated in the future, which bounds the replay window.
 //
 // REPLAY NOTE (v1). Within that 5-minute freshness window an intercepted signed
 // request could in principle be replayed verbatim. For v1 this is bounded by the
@@ -40,15 +41,15 @@ const RELAY_VERSION = "researchos.relay.request.v1";
 /** The freshness window for a signed request, five minutes in milliseconds. */
 const MAX_REQUEST_AGE_MS = 5 * 60 * 1000;
 
-/** The four actions a relay request can authorize. */
-export type RelayAction = "send" | "inbox" | "fetch" | "ack";
+/** The five actions a relay request can authorize. */
+export type RelayAction = "send" | "confirm" | "inbox" | "fetch" | "ack";
 
 /**
  * The fields a relay request signs. The common fields (action, email, issuedAt)
  * are always present, the action-specific fields are optional and only set for
- * the actions that carry them, send carries recipientEmail and sizeBytes, fetch
- * and ack carry bundleId, inbox carries none. Whatever is set becomes part of
- * the signed bytes in a fixed order.
+ * the actions that carry them, send carries recipientEmail and sizeBytes, confirm
+ * and fetch and ack carry bundleId, inbox carries none. Whatever is set becomes
+ * part of the signed bytes in a fixed order.
  */
 export interface RelayPayloadInput {
   action: RelayAction;
@@ -60,7 +61,7 @@ export interface RelayPayloadInput {
   recipientEmail?: string;
   /** send only, the sealed-bundle size in bytes. */
   sizeBytes?: number;
-  /** fetch and ack only, the server-issued bundle id. */
+  /** confirm, fetch, and ack only, the server-issued bundle id. */
   bundleId?: string;
 }
 
@@ -140,8 +141,8 @@ export interface ParsedRelayBody {
  * the typed fields or null on any failure. This is pure (no I/O), so it is unit
  * testable. It checks the common fields (email, issuedAt, hex signature) and the
  * fields the specific action requires, send needs a plausible recipientEmail and
- * a non-negative integer sizeBytes, fetch and ack need a non-empty bundleId,
- * inbox needs nothing extra. Action-specific fields for other actions are
+ * a non-negative integer sizeBytes, confirm and fetch and ack need a non-empty
+ * bundleId, inbox needs nothing extra. Action-specific fields for other actions are
  * ignored so a stray field cannot smuggle itself into the signed payload (the
  * route rebuilds the payload from only the fields it parsed).
  */
@@ -176,7 +177,11 @@ export function parseRelayBody(
     if (!isNonNegativeInteger(b.sizeBytes)) return null;
     parsed.recipientEmail = recipientEmail;
     parsed.sizeBytes = b.sizeBytes;
-  } else if (expectedAction === "fetch" || expectedAction === "ack") {
+  } else if (
+    expectedAction === "confirm" ||
+    expectedAction === "fetch" ||
+    expectedAction === "ack"
+  ) {
     if (!isNonEmptyString(b.bundleId)) return null;
     parsed.bundleId = b.bundleId;
   }

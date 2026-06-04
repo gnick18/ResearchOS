@@ -20,11 +20,18 @@ import { verifyRelayRequest } from "@/lib/sharing/relay/auth";
 import {
   ensureRelaySchema,
   listInboxByRecipient,
+  sweepStalePending,
 } from "@/lib/sharing/relay/db";
 
 export const runtime = "nodejs";
 
 const GENERIC_FAILURE = { error: "inbox failed" } as const;
+
+// Grace window for an unconfirmed pending row before the listing sweeps it. Set
+// well beyond the presigned-URL lifetime (storage DEFAULT_PRESIGN_TTL_SECONDS,
+// five minutes) so a slow but legitimate upload is never swept mid-flight, while
+// an abandoned upload self-cleans on the recipient's next inbox load.
+const PENDING_GRACE_SECONDS = 15 * 60;
 
 export async function POST(request: Request): Promise<Response> {
   if (!isSharingEnabled()) {
@@ -51,8 +58,15 @@ export async function POST(request: Request): Promise<Response> {
     return json(400, GENERIC_FAILURE);
   }
 
+  // Sweep this recipient's abandoned pending rows (uploads that were never
+  // confirmed past the grace window) before listing, so a failed send self-cleans
+  // and never lingers as a phantom reservation.
+  await sweepStalePending(verified.emailHash, PENDING_GRACE_SECONDS);
+
   // The listing is keyed by the caller's own verified hash, so it only ever
-  // returns their mailbox. Metadata only, the sealed bytes are never exposed.
+  // returns their mailbox. Metadata only, the sealed bytes are never exposed. The
+  // listing already returns "ready" rows only, so any unswept (within-grace)
+  // pending row stays hidden too.
   const entries = await listInboxByRecipient(verified.emailHash);
   const items = entries.map((e) => ({
     bundleId: e.bundleId,

@@ -169,8 +169,8 @@ describe("signRelayRequest, via a real sendShare signature", () => {
   });
 });
 
-describe("sendShare order, lookup then send then PUT", () => {
-  it("calls lookup, then send, then PUTs the sealed bytes to uploadUrl", async () => {
+describe("sendShare order, lookup then send then PUT then confirm", () => {
+  it("calls lookup, send, PUTs the sealed bytes, then confirms the upload", async () => {
     const sealed = new Uint8Array([9, 8, 7]);
     buildBundle.mockResolvedValue(new Uint8Array([1]));
     sealToRecipient.mockReturnValue(sealed);
@@ -194,6 +194,9 @@ describe("sendShare order, lookup then send then PUT", () => {
             expiresAt: "2026-07-03T00:00:00.000Z",
           });
         }
+        if (url === "/api/relay/confirm") {
+          return jsonResponse(200, { ok: true });
+        }
         return okEmpty();
       },
     );
@@ -211,10 +214,12 @@ describe("sendShare order, lookup then send then PUT", () => {
       },
     });
 
+    // Confirm runs last, strictly after the PUT, so a failed upload never reaches it.
     expect(calls).toEqual([
       "POST /api/directory/lookup",
       "POST /api/relay/send",
       "PUT https://r2.example/put-here",
+      "POST /api/relay/confirm",
     ]);
 
     // The PUT body is the sealed bytes.
@@ -228,6 +233,112 @@ describe("sendShare order, lookup then send then PUT", () => {
       bundleId: "bundle-9",
       expiresAt: "2026-07-03T00:00:00.000Z",
     });
+  });
+
+  it("signs the confirm with the same bundleId and does not confirm when the PUT fails", async () => {
+    buildBundle.mockResolvedValue(new Uint8Array([1]));
+    sealToRecipient.mockReturnValue(new Uint8Array([4, 5, 6, 7]));
+
+    // First, a successful send so we can inspect the confirm body.
+    let confirmBody: Record<string, unknown> | null = null;
+    fetchMock.mockImplementation(
+      async (url: string, init?: RequestInit): Promise<Response> => {
+        if (url === "/api/directory/lookup") {
+          return jsonResponse(200, {
+            found: true,
+            x25519PublicKey: RECIPIENT_X25519,
+            ed25519PublicKey: "11".repeat(32),
+            fingerprint: "abcd",
+          });
+        }
+        if (url === "/api/relay/send") {
+          return jsonResponse(200, {
+            bundleId: "bundle-c",
+            uploadUrl: "https://r2.example/put-here",
+            expiresAt: "2026-07-03T00:00:00.000Z",
+          });
+        }
+        if (url === "/api/relay/confirm") {
+          confirmBody = JSON.parse(init!.body as string);
+          return jsonResponse(200, { ok: true });
+        }
+        return okEmpty(); // the PUT
+      },
+    );
+
+    await sendShare({
+      email: SENDER_EMAIL,
+      recipientEmail: RECIPIENT_EMAIL,
+      bundle: {
+        shareUuid: "uuid-c",
+        version: 1,
+        modifiedAt: "2026-06-03T00:00:00.000Z",
+        entityType: "note",
+        entity: {},
+        attachments: [],
+      },
+    });
+
+    expect(confirmBody).not.toBeNull();
+    expect(confirmBody!.action).toBe("confirm");
+    expect(confirmBody!.bundleId).toBe("bundle-c");
+    const payload = buildRelayPayload({
+      action: "confirm",
+      email: confirmBody!.email as string,
+      issuedAt: confirmBody!.issuedAt as string,
+      bundleId: confirmBody!.bundleId as string,
+    });
+    expect(
+      ed25519.verify(
+        hexToBytes(confirmBody!.signature as string),
+        payload,
+        SIGNING_PUB,
+      ),
+    ).toBe(true);
+
+    // Now a failing PUT must throw before confirm is ever called.
+    const seen: string[] = [];
+    fetchMock.mockImplementation(
+      async (url: string): Promise<Response> => {
+        seen.push(url);
+        if (url === "/api/directory/lookup") {
+          return jsonResponse(200, {
+            found: true,
+            x25519PublicKey: RECIPIENT_X25519,
+            ed25519PublicKey: "11".repeat(32),
+            fingerprint: "abcd",
+          });
+        }
+        if (url === "/api/relay/send") {
+          return jsonResponse(200, {
+            bundleId: "bundle-f",
+            uploadUrl: "https://r2.example/put-here",
+            expiresAt: "2026-07-03T00:00:00.000Z",
+          });
+        }
+        if (url === "https://r2.example/put-here") {
+          return jsonResponse(403, { error: "blocked" }); // PUT fails (CSP/CORS)
+        }
+        throw new Error(`unexpected call to ${url}`);
+      },
+    );
+
+    await expect(
+      sendShare({
+        email: SENDER_EMAIL,
+        recipientEmail: RECIPIENT_EMAIL,
+        bundle: {
+          shareUuid: "uuid-f",
+          version: 1,
+          modifiedAt: "2026-06-03T00:00:00.000Z",
+          entityType: "note",
+          entity: {},
+          attachments: [],
+        },
+      }),
+    ).rejects.toBeInstanceOf(RelayError);
+
+    expect(seen).not.toContain("/api/relay/confirm");
   });
 });
 

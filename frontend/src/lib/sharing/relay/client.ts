@@ -29,10 +29,15 @@
 //   3. sealToRecipient with the recipient's decoded X25519 public key. The relay
 //      only ever holds these opaque sealed bytes, never a key.
 //   4. Sign a "send" request with sizeBytes = sealed.length, POST /api/relay/send.
-//      The route returns { bundleId, uploadUrl, expiresAt }.
+//      The route returns { bundleId, uploadUrl, expiresAt }. The mailbox row is
+//      reserved as "pending" here and is not yet visible to the recipient.
 //   5. HTTP PUT the sealed bytes to uploadUrl (direct to object storage, the
 //      bytes never transit the relay function).
-//   6. Return { bundleId, expiresAt }.
+//   6. Sign a "confirm" request with the bundleId, POST /api/relay/confirm. Only
+//      now does the row flip to "ready" and become visible. Doing this AFTER the
+//      PUT resolves is what stops a failed upload (CSP, CORS, a closed tab) from
+//      leaving a phantom inbox row the recipient cannot open.
+//   7. Return { bundleId, expiresAt }.
 //
 // RECEIVE SEQUENCE (listInbox, then receiveShare, then ackShare):
 //   - listInbox signs an "inbox" request, POST /api/relay/inbox, returns the
@@ -256,6 +261,20 @@ export async function sendShare(
       putRes.status,
     );
   }
+
+  // 6. Confirm the upload so the relay flips the row from pending to ready and it
+  //    becomes visible to the recipient. Until this resolves the row stays hidden,
+  //    so a failed PUT above (which threw) never reveals an un-uploaded bundle.
+  const confirmBody = signRelayRequest(
+    {
+      action: "confirm",
+      email: params.email,
+      issuedAt: nowIso(),
+      bundleId: reserved.bundleId,
+    },
+    identity.keys.signing.privateKey,
+  );
+  await postJson<{ ok: true }>("/api/relay/confirm", confirmBody);
 
   return { bundleId: reserved.bundleId, expiresAt: reserved.expiresAt };
 }
