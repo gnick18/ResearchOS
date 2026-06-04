@@ -22,6 +22,8 @@ type RatelimitClient = InstanceType<typeof Ratelimit>;
 
 let redisSingleton: RedisClient | null = null;
 let ipLimiterSingleton: RatelimitClient | null = null;
+let relayIpBackstopSingleton: RatelimitClient | null = null;
+let relayIdentityLimiterSingleton: RatelimitClient | null = null;
 let signupLimiterSingleton: RatelimitClient | null = null;
 let inviteLimiterSingleton: RatelimitClient | null = null;
 
@@ -62,6 +64,53 @@ export function getIpLimiter(): RatelimitClient {
     prefix: "directory:ip",
   });
   return ipLimiterSingleton;
+}
+
+/**
+ * Per-IDENTITY relay limiter, 300 requests per minute, keyed by the caller's
+ * verified email hash. This is the PRIMARY rate limit on every AUTHENTICATED
+ * relay route (inbox, fetch, ack, send, confirm, invite send/confirm).
+ *
+ * Why per identity, not per IP. A whole lab or university sits behind one NAT
+ * IP, and a normal test setup runs two browser contexts on one machine, so a
+ * per-IP cap makes those legitimate signed callers share and collide on one
+ * budget (the live 429 bug). Every authenticated relay request carries a verified
+ * Ed25519 signature whose email hash uniquely identifies the caller, so we limit
+ * per identity and the shared network path no longer matters.
+ *
+ * Why 300/min. Normal use is inbox polling every few minutes from a handful of
+ * tabs and devices plus short fetch/ack/send bursts, on the order of a few dozen
+ * requests per minute at the very most. 300/min sits well above any realistic
+ * single-user traffic while still capping a runaway client or a compromised key
+ * from hammering the relay. The window is one minute so a transient spike clears
+ * quickly rather than locking a user out for an extended period.
+ */
+export function getRelayIdentityLimiter(): RatelimitClient {
+  if (relayIdentityLimiterSingleton) return relayIdentityLimiterSingleton;
+  relayIdentityLimiterSingleton = new Ratelimit({
+    redis: getRedis(),
+    limiter: Ratelimit.slidingWindow(300, "60 s"),
+    prefix: "relay:identity",
+  });
+  return relayIdentityLimiterSingleton;
+}
+
+/**
+ * Very loose per-IP BACKSTOP for the authenticated relay routes, 600 requests
+ * per minute. This is NOT the binding limit on legitimate signed traffic, the
+ * per-identity limiter above is. It only exists to blunt a flood of unsigned or
+ * garbage POSTs from a single source before the (more expensive) signature
+ * verification runs, and its ceiling is set high enough that many real users
+ * behind one shared NAT IP cannot collectively trip it during normal use.
+ */
+export function getRelayIpBackstopLimiter(): RatelimitClient {
+  if (relayIpBackstopSingleton) return relayIpBackstopSingleton;
+  relayIpBackstopSingleton = new Ratelimit({
+    redis: getRedis(),
+    limiter: Ratelimit.slidingWindow(600, "60 s"),
+    prefix: "relay:ip-backstop",
+  });
+  return relayIpBackstopSingleton;
 }
 
 /**

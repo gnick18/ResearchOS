@@ -25,7 +25,10 @@ import {
   hashEmail,
 } from "@/lib/sharing/directory/email";
 import { getBindingByHash } from "@/lib/sharing/directory/db";
-import { getIpLimiter } from "@/lib/sharing/directory/ratelimit";
+import {
+  getRelayIdentityLimiter,
+  getRelayIpBackstopLimiter,
+} from "@/lib/sharing/directory/ratelimit";
 import {
   extractClientIp,
   getPepper,
@@ -62,8 +65,11 @@ export async function POST(request: Request): Promise<Response> {
     return json(404, { error: "not found" });
   }
 
+  // Loose per-IP backstop only, NOT the binding limit on legitimate signed
+  // callers (a whole lab behind one NAT IP would otherwise share this budget).
+  // It just blunts a flood of unsigned garbage before the signature check runs.
   const ip = extractClientIp(request.headers);
-  const ipVerdict = await getIpLimiter().limit(ip);
+  const ipVerdict = await getRelayIpBackstopLimiter().limit(ip);
   if (!ipVerdict.success) {
     return json(429, { error: "rate limited" });
   }
@@ -84,6 +90,17 @@ export async function POST(request: Request): Promise<Response> {
   if (!verified || !verified.parsed.recipientEmail ||
       verified.parsed.sizeBytes === undefined) {
     return json(400, GENERIC_FAILURE);
+  }
+
+  // PRIMARY rate limit, keyed by the verified SENDER identity (email hash), not
+  // the IP. Applied AFTER verification so the budget follows the user across
+  // shared IPs and multiple tabs/devices rather than being shared by everyone
+  // behind one NAT.
+  const identityVerdict = await getRelayIdentityLimiter().limit(
+    verified.emailHash,
+  );
+  if (!identityVerdict.success) {
+    return json(429, { error: "rate limited" });
   }
 
   // Resolve the recipient via the directory. Registered-to-registered only, an

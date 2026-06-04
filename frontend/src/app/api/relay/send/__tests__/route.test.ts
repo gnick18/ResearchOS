@@ -30,7 +30,8 @@ vi.mock("@/lib/sharing/directory/guard", () => ({
 }));
 
 vi.mock("@/lib/sharing/directory/ratelimit", () => ({
-  getIpLimiter: () => ({ limit: async () => ({ success: true }) }),
+  getRelayIpBackstopLimiter: () => ({ limit: async () => ({ success: true }) }),
+  getRelayIdentityLimiter: () => ({ limit: async () => ({ success: true }) }),
 }));
 
 vi.mock("@/lib/sharing/directory/email", () => ({

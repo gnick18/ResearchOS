@@ -29,7 +29,8 @@ import {
 } from "@/lib/sharing/directory/email";
 import {
   getInviteLimiter,
-  getIpLimiter,
+  getRelayIdentityLimiter,
+  getRelayIpBackstopLimiter,
 } from "@/lib/sharing/directory/ratelimit";
 import {
   extractClientIp,
@@ -57,8 +58,11 @@ export async function POST(request: Request): Promise<Response> {
     return json(404, { error: "not found" });
   }
 
+  // Loose per-IP backstop only, NOT the binding limit on legitimate signed
+  // callers (a whole lab behind one NAT IP would otherwise share this budget).
+  // It just blunts a flood of unsigned garbage before the signature check runs.
   const ip = extractClientIp(request.headers);
-  const ipVerdict = await getIpLimiter().limit(ip);
+  const ipVerdict = await getRelayIpBackstopLimiter().limit(ip);
   if (!ipVerdict.success) {
     return json(429, { error: "rate limited" });
   }
@@ -82,6 +86,17 @@ export async function POST(request: Request): Promise<Response> {
     verified.parsed.sizeBytes === undefined
   ) {
     return json(400, GENERIC_FAILURE);
+  }
+
+  // PRIMARY per-request rate limit, keyed by the verified SENDER identity (email
+  // hash), not the IP, so legitimate signed callers behind one shared NAT do not
+  // collide. This is the high-volume per-minute gate. The per-day invite limiter
+  // below is a separate, much stricter anti-spam-relay cap on NEW invites.
+  const identityVerdict = await getRelayIdentityLimiter().limit(
+    verified.emailHash,
+  );
+  if (!identityVerdict.success) {
+    return json(429, { error: "rate limited" });
   }
 
   // Per-sender invite RATE LIMIT (keyed by the sender's email hash, not IP, so it
