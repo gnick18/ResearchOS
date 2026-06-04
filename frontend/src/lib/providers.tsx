@@ -3,7 +3,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useState, useEffect, useRef, type ReactNode } from "react";
 import { appQueryClient } from "@/lib/query-client";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { FileSystemProvider, useFileSystem, isFileSystemAccessSupported } from "@/lib/file-system/file-system-context";
 import {
   isDemoOrWikiCapture,
@@ -11,11 +11,9 @@ import {
 } from "@/lib/file-system/wiki-capture-mock";
 import ResearchFolderSetupNew from "@/components/ResearchFolderSetupNew";
 import BrowserNotSupported from "@/components/BrowserNotSupported";
-import LandingPage from "@/components/landing/LandingPage";
 import {
   shouldShowLanding,
   hasSeenLanding,
-  markLandingSeen,
   hasConnectBypass,
 } from "@/lib/landing/landing-gate";
 import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
@@ -164,11 +162,12 @@ function AppContent({ children }: { children: ReactNode }) {
     availableUsers,
     lastConnectedFolder,
   } = useFileSystem();
+  const router = useRouter();
   const [showSetup, setShowSetup] = useState(false);
-  // Truly-new visitors see the landing once. Clicking "Get Started" flips
-  // this (and persists a localStorage flag via markLandingSeen) so the gate
-  // below falls through to the connect-folder screen.
-  const [landingDismissed, setLandingDismissed] = useState(false);
+  // Belt-and-suspenders: if the router.replace("/welcome") fires but the gate
+  // is somehow re-evaluated before navigation completes, this prevents a
+  // second redirect. In normal flow this stays false.
+  const [landingDismissed] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isConnected) {
@@ -295,16 +294,15 @@ function AppContent({ children }: { children: ReactNode }) {
       connectBypass: hasConnectBypass(),
     })
   ) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        <LandingPage
-          onGetStarted={() => {
-            markLandingSeen();
-            setLandingDismissed(true);
-          }}
-        />
-      </QueryClientProvider>
-    );
+    // Redirect truly-new visitors to /welcome rather than rendering the
+    // landing inline. markLandingSeen is called by the landing itself when
+    // the visitor clicks a CTA (Get Started / Sign in), so a page reload
+    // before any CTA re-shows /welcome as expected. The inline LandingPage
+    // path (onGetStarted prop) is retired for the main gate; /welcome renders
+    // the standalone route and handles its own seen-marking via CTAs that
+    // navigate to /?connect=1.
+    router.replace("/welcome");
+    return null;
   }
 
   // Folder-picker IS the entry surface (rehome 2026-05-25). The retired

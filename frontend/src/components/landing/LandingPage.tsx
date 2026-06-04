@@ -484,16 +484,20 @@ function GitHubMark() {
   );
 }
 
-/** A Google + GitHub sign-in pair, used at the hero and in the sharing
- *  section. Both buttons route to the connect screen (same as Get started)
- *  rather than calling next-auth's signIn directly, because the landing is a
- *  pre-login surface that cannot assume a SessionProvider wraps it. The
- *  framing makes clear the notebook itself needs no account. */
+/** A Google + GitHub sign-in pair plus a "Continue without signing in" link,
+ *  used at the hero and in the sharing section. The OAuth buttons thread the
+ *  chosen provider to the connect screen via `?signIn=google/github`. The
+ *  local-only link routes to `/?connect=1` with no signIn param. The framing
+ *  makes clear the notebook itself needs no account. */
 function SignInRow({
-  onSignIn,
+  onSignInGoogle,
+  onSignInGitHub,
+  onContinueLocal,
   tone = "light",
 }: {
-  onSignIn: () => void;
+  onSignInGoogle: () => void;
+  onSignInGitHub: () => void;
+  onContinueLocal: () => void;
   tone?: "light" | "dark";
 }) {
   const isDark = tone === "dark";
@@ -502,25 +506,38 @@ function SignInRow({
   const cls = isDark
     ? `${base} border-white/25 bg-white/10 text-white hover:bg-white/15`
     : `${base} border-gray-200 bg-white text-gray-800 shadow-sm hover:border-gray-300 hover:shadow`;
+  const localLinkCls = isDark
+    ? "text-meta text-white/60 hover:text-white/90 underline underline-offset-2 transition-colors"
+    : "text-meta text-gray-400 hover:text-gray-600 underline underline-offset-2 transition-colors";
   return (
-    <div className="flex flex-col items-center gap-2.5 sm:flex-row">
+    <div className="flex flex-col items-center gap-3">
+      <div className="flex flex-col items-center gap-2.5 sm:flex-row">
+        <button
+          type="button"
+          onClick={onSignInGoogle}
+          data-testid="landing-signin-google"
+          className={cls}
+        >
+          <GoogleMark />
+          Continue with Google
+        </button>
+        <button
+          type="button"
+          onClick={onSignInGitHub}
+          data-testid="landing-signin-github"
+          className={isDark ? cls : `${cls} text-gray-900`}
+        >
+          <GitHubMark />
+          Continue with GitHub
+        </button>
+      </div>
       <button
         type="button"
-        onClick={onSignIn}
-        data-testid="landing-signin-google"
-        className={cls}
+        onClick={onContinueLocal}
+        data-testid="landing-continue-local"
+        className={localLinkCls}
       >
-        <GoogleMark />
-        Continue with Google
-      </button>
-      <button
-        type="button"
-        onClick={onSignIn}
-        data-testid="landing-signin-github"
-        className={isDark ? cls : `${cls} text-gray-900`}
-      >
-        <GitHubMark />
-        Continue with GitHub
+        Use locally without an account
       </button>
     </div>
   );
@@ -756,17 +773,21 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
     router.push("/demo");
   };
 
-  // Google / GitHub sign-in. The landing is a pre-login surface, so we route
-  // to the connect screen (same destination as Get started) rather than
-  // calling next-auth's signIn here, which would need a SessionProvider this
-  // page cannot assume wraps it. The real OAuth choice lives one screen in.
-  const handleSignIn = () => {
-    if (onGetStarted) {
-      onGetStarted();
-      return;
-    }
+  // Google / GitHub sign-in. The landing is a pre-login surface, so we thread
+  // the chosen provider through the connect screen via the `signIn` query
+  // param rather than calling next-auth's signIn directly (which would require
+  // a SessionProvider this page cannot assume wraps it). ResearchFolderSetupNew
+  // reads `?signIn=google` or `?signIn=github` after folder setup completes
+  // and triggers the OAuth redirect then. A visitor who prefers to stay local
+  // can use "Continue without signing in" which skips the param entirely.
+  const handleSignInGoogle = () => {
     markLandingSeen();
-    router.push("/?connect=1");
+    router.push("/?connect=1&signIn=google");
+  };
+
+  const handleSignInGitHub = () => {
+    markLandingSeen();
+    router.push("/?connect=1&signIn=github");
   };
 
   return (
@@ -880,7 +901,12 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               No account needed to keep your notebook. Or sign in to share
               across labs.
             </p>
-            <SignInRow onSignIn={handleSignIn} tone="light" />
+            <SignInRow
+              onSignInGoogle={handleSignInGoogle}
+              onSignInGitHub={handleSignInGitHub}
+              onContinueLocal={handleGetStarted}
+              tone="light"
+            />
           </div>
 
           <p className="max-w-xl text-body leading-relaxed text-gray-500">
@@ -1253,7 +1279,12 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               Sign in once to share across labs. Your notebook still needs no
               account.
             </p>
-            <SignInRow onSignIn={handleSignIn} tone="light" />
+            <SignInRow
+              onSignInGoogle={handleSignInGoogle}
+              onSignInGitHub={handleSignInGitHub}
+              onContinueLocal={handleGetStarted}
+              tone="light"
+            />
           </div>
         </div>
       </section>

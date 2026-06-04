@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { signIn } from "next-auth/react";
 import { useFileSystem, isFileSystemAccessSupported } from "@/lib/file-system/file-system-context";
 import BrowserNotSupported from "@/components/BrowserNotSupported";
 import BetaDonationButton from "@/components/BetaDonationButton";
@@ -29,6 +31,24 @@ interface ResearchFolderSetupProps {
 }
 
 export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupProps) {
+  const searchParams = useSearchParams();
+
+  // When the user arrived via "Sign in with Google/GitHub" on the landing, the
+  // `signIn` query param carries their OAuth intent through folder setup. After
+  // onComplete() we trigger the OAuth redirect so they land in the app already
+  // signed in for sharing. If the param is absent we call onComplete() as today.
+  const pendingSignInProvider = searchParams?.get("signIn") as
+    | "google"
+    | "github"
+    | null;
+
+  const handleComplete = () => {
+    onComplete();
+    if (pendingSignInProvider === "google" || pendingSignInProvider === "github") {
+      void signIn(pendingSignInProvider, { callbackUrl: "/" });
+    }
+  };
+
   const {
     connect,
     connectWithHandle,
@@ -181,7 +201,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
 
   const handleSelectUser = async (username: string) => {
     await setCurrentUser(username);
-    onComplete();
+    handleComplete();
   };
 
   // Explicit "set as Main" star, mirroring UserLoginScreen. Main is the
@@ -230,7 +250,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
           }
         }
         await setCurrentUser(sanitized);
-        onComplete();
+        handleComplete();
       } else {
         setCreateError("Failed to create user. Please try again.");
       }
@@ -445,7 +465,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
             }
             setPickUserForImportOpen(false);
             await setCurrentUser(username);
-            onComplete();
+            handleComplete();
           }}
           onCreateUser={async (username) => {
             // Same sticky-intent flow as onPickUser. We set the flag
@@ -469,7 +489,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
             }
             setPickUserForImportOpen(false);
             await setCurrentUser(username);
-            onComplete();
+            handleComplete();
             return true;
           }}
           onClose={() => setPickUserForImportOpen(false)}

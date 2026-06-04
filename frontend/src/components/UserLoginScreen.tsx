@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { signIn } from "next-auth/react";
+import { signIn, signOut, useSession } from "next-auth/react";
 import { usersApi } from "@/lib/local-api";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { hasPassword, verifyPassword, setPassword } from "@/lib/auth/password";
@@ -180,6 +180,11 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   // "temporary returner" escape hatch so they can re-login without
   // bugging the PI.
   const [showArchived, setShowArchived] = useState(false);
+
+  // NextAuth session. Used to show/hide the "Enable sharing" OAuth section
+  // in the picker. If authenticated, we show "Signed in as X" instead of the
+  // OAuth buttons so users know their sharing identity is already active.
+  const { data: session, status: sessionStatus } = useSession();
 
   // Bug report state
   const { showBugReport, currentError, openBugReport, closeBugReport } = useErrorReporting();
@@ -1272,6 +1277,74 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                 </svg>
                 Create New User
               </button>
+
+              {/* Sharing OAuth section. Shown when the device is online and no
+                  NextAuth session is active yet. Signing in here enables the
+                  sharing, inbox, and collaboration features; the notebook works
+                  fully without any account. Hidden during the password gate or
+                  the create-user form to keep those flows uncluttered. */}
+              {isOnline && (
+                <div className="mt-6">
+                  <div className="relative mb-4">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-white/10" />
+                    </div>
+                    <div className="relative flex justify-center">
+                      <span className="bg-transparent px-2 text-meta text-slate-400">
+                        for sharing and collaboration
+                      </span>
+                    </div>
+                  </div>
+
+                  {sessionStatus === "authenticated" && session?.user ? (
+                    <div className="flex flex-col items-center gap-1.5 text-center">
+                      <p className="text-meta text-slate-300">
+                        Signed in as{" "}
+                        <span className="font-medium text-white">
+                          {session.user.email ?? session.user.name ?? "unknown"}
+                        </span>
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => void signOut({ callbackUrl: "/" })}
+                        className="text-meta text-slate-400 underline underline-offset-2 hover:text-slate-200 transition-colors"
+                      >
+                        Sign out
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2.5">
+                      <p className="text-meta text-slate-400 text-center mb-1">
+                        Enable sharing, inbox, and collaboration
+                      </p>
+                      <div className="flex flex-col gap-2 w-full sm:flex-row">
+                        <button
+                          type="button"
+                          onClick={() => void signIn("google", { callbackUrl: "/" })}
+                          disabled={loggingIn !== null}
+                          className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white px-4 py-2.5 text-meta font-semibold text-gray-800 shadow-sm transition-all hover:border-white/40 hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <GoogleIcon className="w-4 h-4" />
+                          Sign in with Google
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void signIn("github", { callbackUrl: "/" })}
+                          disabled={loggingIn !== null}
+                          className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-slate-800 px-4 py-2.5 text-meta font-semibold text-white shadow-sm transition-all hover:border-white/40 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <GitHubIcon className="w-4 h-4" />
+                          Sign in with GitHub
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="mt-3 text-center text-meta text-slate-500">
+                    Your notebook works offline without signing in.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
