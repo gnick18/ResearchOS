@@ -51,12 +51,17 @@ interface MethodSendOutsideDialogProps {
   ownerUsername: string;
   /** Dismiss the dialog. */
   onClose: () => void;
+  /** Unified Share entry point (2026-06-04): render only the inner body (no
+   *  overlay, no header) under the UnifiedShareDialog "Outside your lab" tab.
+   *  The compound-method guard is preserved in both modes. */
+  embedded?: boolean;
 }
 
 export default function MethodSendOutsideDialog({
   method,
   ownerUsername,
   onClose,
+  embedded = false,
 }: MethodSendOutsideDialogProps) {
   const identity = useSharingIdentity();
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -66,6 +71,43 @@ export default function MethodSendOutsideDialog({
     setWizardOpen(false);
     await identity.refresh();
   }, [identity]);
+
+  const body = (
+    <>
+      {isCompound ? (
+        <CompoundBody method={method} />
+      ) : (
+        <>
+          {identity.status === "loading" && <LoadingBody />}
+
+          {identity.status === "none" && (
+            <NoIdentityBody onSetUp={() => setWizardOpen(true)} />
+          )}
+
+          {identity.status === "needs-restore" && <NeedsRestoreBody />}
+
+          {identity.status === "ready" && (
+            <SendForm
+              method={method}
+              ownerUsername={ownerUsername}
+              senderEmail={identity.email}
+              onClose={onClose}
+            />
+          )}
+        </>
+      )}
+
+      {wizardOpen && (
+        <SharingSetupWizard
+          username={ownerUsername}
+          onComplete={handleWizardComplete}
+          onClose={() => setWizardOpen(false)}
+        />
+      )}
+    </>
+  );
+
+  if (embedded) return body;
 
   return (
     <div
@@ -96,39 +138,8 @@ export default function MethodSendOutsideDialog({
           </Tooltip>
         </div>
 
-        <div className="px-5 py-5 overflow-y-auto">
-          {isCompound ? (
-            <CompoundBody method={method} />
-          ) : (
-            <>
-              {identity.status === "loading" && <LoadingBody />}
-
-              {identity.status === "none" && (
-                <NoIdentityBody onSetUp={() => setWizardOpen(true)} />
-              )}
-
-              {identity.status === "needs-restore" && <NeedsRestoreBody />}
-
-              {identity.status === "ready" && (
-                <SendForm
-                  method={method}
-                  ownerUsername={ownerUsername}
-                  senderEmail={identity.email}
-                  onClose={onClose}
-                />
-              )}
-            </>
-          )}
-        </div>
+        <div className="px-5 py-5 overflow-y-auto">{body}</div>
       </div>
-
-      {wizardOpen && (
-        <SharingSetupWizard
-          username={ownerUsername}
-          onComplete={handleWizardComplete}
-          onClose={() => setWizardOpen(false)}
-        />
-      )}
     </div>
   );
 }

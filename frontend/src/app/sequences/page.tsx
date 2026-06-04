@@ -23,7 +23,7 @@ import ImportProgressOverlay, {
 } from "@/components/sequences/ImportProgressOverlay";
 import CloningWorkspace from "@/components/sequences/CloningWorkspace";
 import CompareSequencesDialog from "@/components/sequences/CompareSequencesDialog";
-import SequenceSendOutsideDialog from "@/components/sharing/SequenceSendOutsideDialog";
+import UnifiedShareDialog from "@/components/sharing/UnifiedShareDialog";
 import ReceivedFromBadge from "@/components/ReceivedFromBadge";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { sequencesApi, projectsApi } from "@/lib/local-api";
@@ -1304,14 +1304,11 @@ export default function SequencesPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <Tooltip
-                    label="Share outside this folder — send an encrypted copy to someone on ResearchOS"
-                    placement="bottom"
-                  >
+                  <Tooltip label="Share" placement="bottom">
                     <button
                       type="button"
                       onClick={() => setShareOpen(true)}
-                      aria-label="Share this sequence outside your folder"
+                      aria-label="Share"
                       className="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
                     >
                       <ShareIcon className="h-4 w-4" />
@@ -1382,13 +1379,14 @@ export default function SequencesPage() {
         defaultAId={selectedId}
       />
 
-      {/* Cross-boundary send. Sends the open sequence as an encrypted copy to
-          someone on ResearchOS (or invites a non-user). Only mounts with a
-          loaded sequence + a resolved user (the export collect context). */}
+      {/* Unified Share dialog. Sequences have no lab-ACL model, so the dialog
+          shows only the "Outside your lab" tab (the cross-boundary encrypted-copy
+          send / invite). Opens from the same single Share button. Only mounts
+          with a loaded sequence + a resolved user (the export collect context). */}
       {shareOpen && selected && currentUser && (
-        <SequenceSendOutsideDialog
-          sequence={selected}
-          ownerUsername={currentUser}
+        <UnifiedShareDialog
+          isOpen
+          target={{ kind: "sequence", sequence: selected, owner: currentUser }}
           onClose={() => setShareOpen(false)}
         />
       )}

@@ -46,12 +46,16 @@ interface ExperimentSendOutsideDialogProps {
   ownerUsername: string;
   /** Dismiss the dialog. */
   onClose: () => void;
+  /** Unified Share entry point (2026-06-04): render only the inner body (no
+   *  overlay, no header) under the UnifiedShareDialog "Outside your lab" tab. */
+  embedded?: boolean;
 }
 
 export default function ExperimentSendOutsideDialog({
   task,
   ownerUsername,
   onClose,
+  embedded = false,
 }: ExperimentSendOutsideDialogProps) {
   const identity = useSharingIdentity();
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -60,6 +64,37 @@ export default function ExperimentSendOutsideDialog({
     setWizardOpen(false);
     await identity.refresh();
   }, [identity]);
+
+  const body = (
+    <>
+      {identity.status === "loading" && <LoadingBody />}
+
+      {identity.status === "none" && (
+        <NoIdentityBody onSetUp={() => setWizardOpen(true)} />
+      )}
+
+      {identity.status === "needs-restore" && <NeedsRestoreBody />}
+
+      {identity.status === "ready" && (
+        <SendForm
+          task={task}
+          ownerUsername={ownerUsername}
+          senderEmail={identity.email}
+          onClose={onClose}
+        />
+      )}
+
+      {wizardOpen && (
+        <SharingSetupWizard
+          username={ownerUsername}
+          onComplete={handleWizardComplete}
+          onClose={() => setWizardOpen(false)}
+        />
+      )}
+    </>
+  );
+
+  if (embedded) return body;
 
   return (
     <div
@@ -90,33 +125,8 @@ export default function ExperimentSendOutsideDialog({
           </Tooltip>
         </div>
 
-        <div className="px-5 py-5 overflow-y-auto">
-          {identity.status === "loading" && <LoadingBody />}
-
-          {identity.status === "none" && (
-            <NoIdentityBody onSetUp={() => setWizardOpen(true)} />
-          )}
-
-          {identity.status === "needs-restore" && <NeedsRestoreBody />}
-
-          {identity.status === "ready" && (
-            <SendForm
-              task={task}
-              ownerUsername={ownerUsername}
-              senderEmail={identity.email}
-              onClose={onClose}
-            />
-          )}
-        </div>
+        <div className="px-5 py-5 overflow-y-auto">{body}</div>
       </div>
-
-      {wizardOpen && (
-        <SharingSetupWizard
-          username={ownerUsername}
-          onComplete={handleWizardComplete}
-          onClose={() => setWizardOpen(false)}
-        />
-      )}
     </div>
   );
 }

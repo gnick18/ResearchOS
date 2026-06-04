@@ -68,6 +68,11 @@ export interface ShareDialogProps {
   /** Optional flag: viewer is a Lab Head. Shows the implicit-view-all
    *  hint at the top of the dialog. */
   viewerIsLabHead?: boolean;
+  /** Unified Share entry point (2026-06-04): when true, render only the body
+   *  and footer (no overlay, no title header). The UnifiedShareDialog owns the
+   *  modal chrome and renders this as the "In your lab" tab. Defaults to false
+   *  (standalone full-screen dialog). */
+  embedded?: boolean;
 }
 
 export default function ShareDialog({
@@ -81,6 +86,7 @@ export default function ShareDialog({
   onSave,
   viewerUsername,
   viewerIsLabHead = false,
+  embedded = false,
 }: ShareDialogProps) {
   const [users, setUsers] = useState<string[]>([]);
   const archivedSet = useArchivedUsers();
@@ -225,48 +231,12 @@ export default function ShareDialog({
 
   if (!isOpen) return null;
 
-  return (
-    <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]"
-      data-tour-target="share-dialog"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="share-dialog"
-      onClick={(e) => e.stopPropagation()}
-    >
-      <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">
-              Share {labelForType(recordType)}
-            </h2>
-            <Tooltip label="Close" placement="bottom">
-              <button
-                onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-                aria-label="Close share dialog"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </Tooltip>
-          </div>
-          <p className="text-body text-gray-500 mt-1 truncate">{recordName}</p>
-        </div>
-
+  // The body + footer, shared by the standalone full-screen dialog and the
+  // embedded (UnifiedShareDialog "In your lab" tab) mode. In embedded mode the
+  // UnifiedShareDialog renders the outer chrome (overlay + title + close), so we
+  // skip our own header here.
+  const inner = (
+    <>
         {/* PI hint */}
         {viewerIsLabHead && viewerUsername !== ownerUsername && (
           <div className="px-6 py-2 bg-amber-50 border-b border-amber-200">
@@ -472,6 +442,57 @@ export default function ShareDialog({
             {saving ? "Saving…" : "Save"}
           </button>
         </div>
+    </>
+  );
+
+  // Embedded: the UnifiedShareDialog owns the overlay + title + close button, so
+  // we return just the body/footer. The tour markers move to the unified shell.
+  if (embedded) {
+    return <div data-tour-target="share-dialog">{inner}</div>;
+  }
+
+  return (
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]"
+      data-tour-target="share-dialog"
+      // Marker for TourSpotlight (popup-occluding sweep manager,
+      // 2026-05-27). Hides the v4 walkthrough ring while this popup
+      // is mounted; see SnapshotTilePopup for the canonical example.
+      data-tour-popup-occluding="share-dialog"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Share {labelForType(recordType)}
+            </h2>
+            <Tooltip label="Close" placement="bottom">
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Close share dialog"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </Tooltip>
+          </div>
+          <p className="text-body text-gray-500 mt-1 truncate">{recordName}</p>
+        </div>
+        {inner}
       </div>
     </div>
   );

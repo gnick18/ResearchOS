@@ -16,7 +16,7 @@ import PurchaseEditor from "./PurchaseEditor";
 import DynamicAnimation from "./DynamicAnimation";
 import MethodTabs from "./MethodTabs";
 import TaskPicker from "./TaskPicker";
-import ShareDialogAdapter from "@/components/sharing/ShareDialogAdapter";
+import UnifiedShareDialog from "@/components/sharing/UnifiedShareDialog";
 import SharingChips from "@/components/sharing/SharingChips";
 import { StampsRow } from "@/components/AttributionChip";
 import CommentsThread from "./CommentsThread";
@@ -31,7 +31,6 @@ import { exportExperiments, downloadResult } from "@/lib/export/orchestrate";
 import type { ExportFormat } from "@/lib/export/types";
 import ExportFormatDialog from "@/components/ExportFormatDialog";
 import DepositDialog from "@/components/DepositDialog";
-import ExperimentSendOutsideDialog from "@/components/sharing/ExperimentSendOutsideDialog";
 import ProgressEntertainer from "@/components/progress/ProgressEntertainer";
 import { useFileRenamePopup } from "@/components/FileRenamePopup";
 import { useDuplicateResolver } from "@/components/DuplicateUploadDialog";
@@ -1297,7 +1296,6 @@ export default function TaskDetailPopup({
                 </Tooltip>
               )}
               {isExperiment && <TaskExportButton task={task} />}
-              {isExperiment && <TaskShareOutsideButton task={task} />}
               {isExperiment && <TaskDepositButton task={task} />}
               {/* VC Phase 3 (Task): "Undo restore" header button. Visible (flag
                   ON) while a 24h undo window is live for this task. Enabled for
@@ -1385,10 +1383,11 @@ export default function TaskDetailPopup({
                 </button>
               </Tooltip>
               {!readOnly && !task.is_shared_with_me && (
-                <Tooltip label="Share task" placement="bottom">
+                <Tooltip label="Share" placement="bottom">
                   <button
                     onClick={() => setShowSharePopup(true)}
                     data-tour-target="task-popup-share-button"
+                    aria-label="Share"
                     className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1766,16 +1765,16 @@ export default function TaskDetailPopup({
       </div>
 
       {/* Share Popup */}
-      <ShareDialogAdapter
-        isOpen={showSharePopup}
-        onClose={() => setShowSharePopup(false)}
-        recordType="task"
-        recordId={task.id}
-        recordName={task.name}
-        ownerUsername={task.owner}
-        currentSharedWith={task.shared_with || []}
-        onShared={() => queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] })}
-      />
+      {showSharePopup && (
+        <UnifiedShareDialog
+          isOpen
+          target={{ kind: "experiment", task, owner: task.owner }}
+          onClose={() => setShowSharePopup(false)}
+          onShared={() =>
+            queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] })
+          }
+        />
+      )}
       {/* Universal-drop duplicate-name resolver. Inner tabs (LabNotesTab,
           ResultsTab) own their OWN resolver instances since their upload
           handlers are gated on per-tab state. This one fires only for
@@ -5059,51 +5058,6 @@ function TaskExportButton({ task }: { task: Task }) {
  * dialog via useSharingIdentity, so the button always renders for an experiment
  * and the dialog handles setup / restore / send.
  */
-function TaskShareOutsideButton({ task }: { task: Task }) {
-  const [open, setOpen] = useState(false);
-  const { currentUser } = useCurrentUser();
-
-  return (
-    <>
-      <Tooltip
-        label="Send an encrypted copy to someone on ResearchOS"
-        placement="bottom"
-      >
-        <button
-          aria-label="Share outside this folder"
-          onClick={() => setOpen(true)}
-          className="text-gray-400 hover:text-gray-600 p-1"
-        >
-          {/* Paper-plane glyph (inline SVG; no icon library, no emoji), the same
-              send affordance as the note share entry point. */}
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-          >
-            <path d="M3 11.5 21 3l-6 18-4.5-7.5L3 11.5Z" />
-          </svg>
-        </button>
-      </Tooltip>
-
-      {open && currentUser && (
-        <ExperimentSendOutsideDialog
-          task={task}
-          ownerUsername={currentUser}
-          onClose={() => setOpen(false)}
-        />
-      )}
-    </>
-  );
-}
-
 /**
  * Deposit-to-a-repository affordance (guided-deposit bot, 2026-05-28). Sits
  * beside the export button in the experiment popup header. Opens the guided

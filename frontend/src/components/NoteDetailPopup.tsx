@@ -33,7 +33,7 @@ import AuditTrailNotice from "./AuditTrailNotice";
 import FlagForReviewButton from "./lab-head/FlagForReviewButton";
 import FlagBanner from "./lab-head/FlagBanner";
 import SharingChips from "@/components/sharing/SharingChips";
-import SendOutsideDialog from "@/components/sharing/SendOutsideDialog";
+import UnifiedShareDialog from "@/components/sharing/UnifiedShareDialog";
 import { StampsRow } from "@/components/AttributionChip";
 import NoteVersionHistorySidebar, {
   type VersionPreview,
@@ -139,12 +139,13 @@ export default function NoteDetailPopup({
   const [title, setTitle] = useState(note.title);
   const [description, setDescription] = useState(note.description);
   const [entries, setEntries] = useState<NoteEntry[]>(note.entries);
-  const [isShared, setIsShared] = useState(note.is_shared);
   const [saving, setSaving] = useState(false);
-  // Cross-boundary sharing (Phase 2b): the "Share outside this folder" one-time
-  // send. Distinct from the lab-share toggle above, this opens a dialog that
-  // sends an encrypted copy to one recipient on ResearchOS.
-  const [showSendOutside, setShowSendOutside] = useState(false);
+  // Unified Share entry point (2026-06-04): one Share button opens the two-tab
+  // UnifiedShareDialog. The "In your lab" tab is the full per-person ACL
+  // (shareNote, read / edit, whole-lab), which REPLACES the old coarse
+  // is_shared Private / Shared toggle for notes. The "Outside your lab" tab is
+  // the cross-boundary encrypted-copy send that used to be a separate button.
+  const [showShare, setShowShare] = useState(false);
   const [showNewEntryForm, setShowNewEntryForm] = useState(false);
   const [newEntryTitle, setNewEntryTitle] = useState("");
   const [newEntryDate, setNewEntryDate] = useState(
@@ -499,22 +500,6 @@ export default function NoteDetailPopup({
     } catch (error) {
       console.error("Failed to save description:", error);
       setDescription(note.description);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Toggle sharing
-  const toggleSharing = async () => {
-    setSaving(true);
-    try {
-      const updated = await notesApi.update(note.id, { is_shared: !isShared });
-      if (updated) {
-        setIsShared(updated.is_shared);
-        onUpdate(updated);
-      }
-    } catch (error) {
-      console.error("Failed to toggle sharing:", error);
     } finally {
       setSaving(false);
     }
@@ -905,7 +890,6 @@ export default function NoteDetailPopup({
       setTitle(updated.title);
       setDescription(updated.description);
       setEntries(updated.entries);
-      setIsShared(updated.is_shared);
     },
     [onUpdate],
   );
@@ -961,11 +945,17 @@ export default function NoteDetailPopup({
     <>
     <FileRenamePopup />
     <DuplicateDialog />
-    {showSendOutside && currentUser && (
-      <SendOutsideDialog
-        note={note}
-        ownerUsername={currentUser}
-        onClose={() => setShowSendOutside(false)}
+    {showShare && currentUser && (
+      <UnifiedShareDialog
+        isOpen
+        target={{ kind: "note", note, owner: currentUser }}
+        onClose={() => setShowShare(false)}
+        onShared={() => {
+          // Refetch the note so the chips + provenance reflect the new ACL.
+          notesApi.get(note.id).then((updated) => {
+            if (updated) onUpdate(updated);
+          });
+        }}
       />
     )}
     <div
@@ -1333,37 +1323,37 @@ export default function NoteDetailPopup({
             />
           </div>
 
-          {/* Sharing toggle */}
+          {/* Unified Share + Add File actions */}
           {!readOnly && (
             <div className="mt-3 flex items-center gap-2">
-              <button
-                onClick={toggleSharing}
-                disabled={saving}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-body transition-colors ${
-                  isShared
-                    ? "bg-emerald-100 text-emerald-700"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  {isShared ? (
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  ) : (
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                    />
-                  )}
-                </svg>
-                {isShared ? "Shared with lab" : "Private"}
-              </button>
+              {/* One Share button opens the two-tab UnifiedShareDialog (lab ACL
+                  + cross-boundary send), replacing the old Private / Shared
+                  toggle AND the separate "Share outside this folder" button. */}
+              <Tooltip label="Share" placement="top">
+                <button
+                  onClick={() => setShowShare(true)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-body bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                  aria-label="Share"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <circle cx="18" cy="5" r="3" />
+                    <circle cx="6" cy="12" r="3" />
+                    <circle cx="18" cy="19" r="3" />
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                  </svg>
+                  Share
+                </button>
+              </Tooltip>
 
               <button
                 onClick={() => fileInputRef.current?.click()}
@@ -1382,36 +1372,6 @@ export default function NoteDetailPopup({
                   e.target.value = "";
                 }}
               />
-
-              {/* Cross-boundary sharing (Phase 2b): a one-time send to someone
-                  outside this folder. Styled as an outlined action, not a pill,
-                  so it reads as a distinct action from the lab-share toggle (an
-                  ACL) above. Opens SendOutsideDialog with the current note. */}
-              <Tooltip
-                label="Send an encrypted copy to someone on ResearchOS"
-                placement="top"
-              >
-                <button
-                  onClick={() => setShowSendOutside(true)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-body border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M3 11.5 21 3l-6 18-4.5-7.5L3 11.5Z"
-                    />
-                  </svg>
-                  Share outside this folder
-                </button>
-              </Tooltip>
 
               {/* Save-in-progress indicator (note-save manager): shown while
                   an explicit save (or title / sharing write) is in flight. */}

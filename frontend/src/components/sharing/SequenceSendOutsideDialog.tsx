@@ -45,12 +45,18 @@ interface SequenceSendOutsideDialogProps {
   ownerUsername: string;
   /** Dismiss the dialog. */
   onClose: () => void;
+  /** Unified Share entry point (2026-06-04): render only the inner body (no
+   *  overlay, no header) under the UnifiedShareDialog "Outside your lab" tab.
+   *  Sequences have no lab ACL, so this is the only tab the unified dialog
+   *  shows for a sequence. */
+  embedded?: boolean;
 }
 
 export default function SequenceSendOutsideDialog({
   sequence,
   ownerUsername,
   onClose,
+  embedded = false,
 }: SequenceSendOutsideDialogProps) {
   const identity = useSharingIdentity();
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -59,6 +65,37 @@ export default function SequenceSendOutsideDialog({
     setWizardOpen(false);
     await identity.refresh();
   }, [identity]);
+
+  const body = (
+    <>
+      {identity.status === "loading" && <LoadingBody />}
+
+      {identity.status === "none" && (
+        <NoIdentityBody onSetUp={() => setWizardOpen(true)} />
+      )}
+
+      {identity.status === "needs-restore" && <NeedsRestoreBody />}
+
+      {identity.status === "ready" && (
+        <SendForm
+          sequence={sequence}
+          ownerUsername={ownerUsername}
+          senderEmail={identity.email}
+          onClose={onClose}
+        />
+      )}
+
+      {wizardOpen && (
+        <SharingSetupWizard
+          username={ownerUsername}
+          onComplete={handleWizardComplete}
+          onClose={() => setWizardOpen(false)}
+        />
+      )}
+    </>
+  );
+
+  if (embedded) return body;
 
   return (
     <div
@@ -89,33 +126,8 @@ export default function SequenceSendOutsideDialog({
           </Tooltip>
         </div>
 
-        <div className="px-5 py-5 overflow-y-auto">
-          {identity.status === "loading" && <LoadingBody />}
-
-          {identity.status === "none" && (
-            <NoIdentityBody onSetUp={() => setWizardOpen(true)} />
-          )}
-
-          {identity.status === "needs-restore" && <NeedsRestoreBody />}
-
-          {identity.status === "ready" && (
-            <SendForm
-              sequence={sequence}
-              ownerUsername={ownerUsername}
-              senderEmail={identity.email}
-              onClose={onClose}
-            />
-          )}
-        </div>
+        <div className="px-5 py-5 overflow-y-auto">{body}</div>
       </div>
-
-      {wizardOpen && (
-        <SharingSetupWizard
-          username={ownerUsername}
-          onComplete={handleWizardComplete}
-          onClose={() => setWizardOpen(false)}
-        />
-      )}
     </div>
   );
 }

@@ -28,8 +28,7 @@ import RenderedMarkdown from "@/components/RenderedMarkdown";
 import { InteractiveGradientEditor } from "@/components/InteractiveGradientEditor";
 import MethodExperimentsSidebar from "@/components/MethodExperimentsSidebar";
 import { useFileRenamePopup } from "@/components/FileRenamePopup";
-import ShareDialogAdapter from "@/components/sharing/ShareDialogAdapter";
-import MethodSendOutsideDialog from "@/components/sharing/MethodSendOutsideDialog";
+import UnifiedShareDialog from "@/components/sharing/UnifiedShareDialog";
 import ReceivedFromBadge from "@/components/ReceivedFromBadge";
 import Tooltip from "@/components/Tooltip";
 import type {
@@ -1249,69 +1248,6 @@ function CreateCategoryModal({
   );
 }
 
-// ── Share-outside button (cross-boundary sharing, methods tier) ──────────────
-
-/**
- * "Share outside this folder" one-time send for a USER'S OWN method, mirrored
- * from the experiment entry point in TaskDetailPopup. Opens MethodSendOutsideDialog,
- * which builds the existing export bundle for this one method (record + body /
- * structured protocol + bundled source PDF), seals it, and relays an encrypted
- * copy (not live editing) to one recipient on ResearchOS. Identity-gated inside
- * the dialog via useSharingIdentity, so the button always renders for an own
- * method and the dialog handles setup / restore / send (and the deferred
- * compound case). Lives in the method viewer's action strip, where the user
- * looks at their own method outside any experiment.
- */
-function MethodShareOutsideButton({
-  method,
-  currentUser,
-}: {
-  method: Method;
-  currentUser: string;
-}) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <>
-      <Tooltip
-        label="Send an encrypted copy to someone on ResearchOS"
-        placement="bottom"
-      >
-        <button
-          type="button"
-          aria-label="Share outside this folder"
-          onClick={() => setOpen(true)}
-          className="text-gray-400 hover:text-gray-600 p-1"
-        >
-          {/* Paper-plane glyph (inline SVG; no icon library, no emoji), the same
-              send affordance as the note + experiment share entry points. */}
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-          >
-            <path d="M3 11.5 21 3l-6 18-4.5-7.5L3 11.5Z" />
-          </svg>
-        </button>
-      </Tooltip>
-
-      {open && currentUser && (
-        <MethodSendOutsideDialog
-          method={method}
-          ownerUsername={currentUser}
-          onClose={() => setOpen(false)}
-        />
-      )}
-    </>
-  );
-}
 
 // ── View Method Modal ────────────────────────────────────────────────────────
 
@@ -1333,6 +1269,12 @@ function ViewMethodModal({
    *  child's record (or just closes the modal when the compound was empty). */
   onConvertedToChild: (childMethodId: number | null) => void;
 }) {
+  // Unified Share entry point (2026-06-04): one Share button in the action
+  // strip opens the two-tab UnifiedShareDialog (lab ACL + cross-boundary send),
+  // replacing the standalone "Share outside this folder" send button.
+  const [showShare, setShowShare] = useState(false);
+  const queryClient = useQueryClient();
+
   // After wrapping the current method into a compound: close this viewer
   // and reopen on the new compound's edit modal so the user can immediately
   // add the second component.
@@ -1400,17 +1342,46 @@ function ViewMethodModal({
             </div>
           )}
           {/* Action strip for the user's OWN method. "Extend into kit" wraps a
-              non-compound method into a new compound; "Share outside this
-              folder" sends an encrypted copy to one recipient on ResearchOS
-              (cross-boundary sharing, methods tier). Both gate on
-              !is_shared_with_me, a received method is not the user's to wrap or
-              re-share from here. */}
+              non-compound method into a new compound; the unified Share button
+              opens the two-tab dialog (lab ACL + cross-boundary encrypted-copy
+              send). Both gate on !is_shared_with_me, a received method is not the
+              user's to wrap or re-share from here. */}
           {!method.is_shared_with_me && (
             <div className="flex items-center justify-end gap-1 px-4 pt-3 pb-1">
               {method.method_type !== "compound" && (
                 <WrapAsCompoundAction method={method} onWrapped={handleWrapped} />
               )}
-              <MethodShareOutsideButton method={method} currentUser={currentUser} />
+              <Tooltip
+                label="Share"
+                placement="bottom"
+              >
+                <button
+                  type="button"
+                  aria-label="Share"
+                  onClick={() => setShowShare(true)}
+                  className="text-gray-400 hover:text-gray-600 p-1"
+                >
+                  {/* Share-node glyph (inline SVG; no icon library, no emoji). */}
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden
+                  >
+                    <circle cx="18" cy="5" r="3" />
+                    <circle cx="6" cy="12" r="3" />
+                    <circle cx="18" cy="19" r="3" />
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                  </svg>
+                </button>
+              </Tooltip>
             </div>
           )}
           {renderViewer()}
@@ -1418,6 +1389,20 @@ function ViewMethodModal({
         {/* Experiments sidebar */}
         <MethodExperimentsSidebar methodId={method.id} methodName={method.name} />
       </div>
+      {showShare && (
+        <UnifiedShareDialog
+          isOpen
+          target={{
+            kind: "method",
+            method,
+            owner: method.owner || method.created_by || currentUser,
+          }}
+          onClose={() => setShowShare(false)}
+          onShared={() => {
+            queryClient.refetchQueries({ queryKey: ["methods"] });
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -1858,16 +1843,19 @@ function MarkdownMethodViewer({
       </div>
       <FileRenamePopup />
       
-      {/* Share Dialog */}
+      {/* Unified Share dialog. The viewer's Public / Private pill opens this
+          two-tab surface (lab ACL + cross-boundary send) instead of the bare
+          lab-ACL dialog, matching the action-strip Share button. */}
       {showSharePopup && (
-        <ShareDialogAdapter
-          isOpen={showSharePopup}
+        <UnifiedShareDialog
+          isOpen
+          target={{
+            kind: "method",
+            method: currentMethod,
+            owner:
+              currentMethod.owner || currentMethod.created_by || currentUser,
+          }}
           onClose={() => setShowSharePopup(false)}
-          recordType="method"
-          recordId={currentMethod.id}
-          recordName={currentMethod.name}
-          ownerUsername={currentMethod.owner || currentMethod.created_by || currentUser}
-          currentSharedWith={currentMethod.shared_with || []}
           onShared={() => {
             queryClient.refetchQueries({ queryKey: ["methods"] });
             // Update local state
@@ -2009,16 +1997,19 @@ function PdfViewer({
         </div>
       </div>
       
-      {/* Share Dialog */}
+      {/* Unified Share dialog. The viewer's Public / Private pill opens this
+          two-tab surface (lab ACL + cross-boundary send) instead of the bare
+          lab-ACL dialog, matching the action-strip Share button. */}
       {showSharePopup && (
-        <ShareDialogAdapter
-          isOpen={showSharePopup}
+        <UnifiedShareDialog
+          isOpen
+          target={{
+            kind: "method",
+            method: currentMethod,
+            owner:
+              currentMethod.owner || currentMethod.created_by || currentUser,
+          }}
           onClose={() => setShowSharePopup(false)}
-          recordType="method"
-          recordId={currentMethod.id}
-          recordName={currentMethod.name}
-          ownerUsername={currentMethod.owner || currentMethod.created_by || currentUser}
-          currentSharedWith={currentMethod.shared_with || []}
           onShared={() => {
             queryClient.refetchQueries({ queryKey: ["methods"] });
             // Update local state
@@ -2377,16 +2368,19 @@ function PcrViewer({
         </div>
       </div>
       
-      {/* Share Dialog */}
+      {/* Unified Share dialog. The viewer's Public / Private pill opens this
+          two-tab surface (lab ACL + cross-boundary send) instead of the bare
+          lab-ACL dialog, matching the action-strip Share button. */}
       {showSharePopup && (
-        <ShareDialogAdapter
-          isOpen={showSharePopup}
+        <UnifiedShareDialog
+          isOpen
+          target={{
+            kind: "method",
+            method: currentMethod,
+            owner:
+              currentMethod.owner || currentMethod.created_by || currentUser,
+          }}
           onClose={() => setShowSharePopup(false)}
-          recordType="method"
-          recordId={currentMethod.id}
-          recordName={currentMethod.name}
-          ownerUsername={currentMethod.owner || currentMethod.created_by || currentUser}
-          currentSharedWith={currentMethod.shared_with || []}
           onShared={() => {
             queryClient.refetchQueries({ queryKey: ["methods"] });
             // Update local state

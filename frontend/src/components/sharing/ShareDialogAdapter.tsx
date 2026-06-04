@@ -42,6 +42,10 @@ export interface ShareDialogAdapterProps {
   /** Called after the save completes (any case — partial failures still
    *  fire this so the caller refetches). */
   onShared: () => void;
+  /** Unified Share entry point (2026-06-04): forwarded to ShareDialog so the
+   *  body/footer render chromeless under the UnifiedShareDialog "In your lab"
+   *  tab. Defaults to false (standalone dialog). */
+  embedded?: boolean;
 }
 
 export default function ShareDialogAdapter({
@@ -53,6 +57,7 @@ export default function ShareDialogAdapter({
   ownerUsername,
   currentSharedWith,
   onShared,
+  embedded = false,
 }: ShareDialogAdapterProps) {
   const handleSave = useCallback(
     async (
@@ -256,6 +261,7 @@ export default function ShareDialogAdapter({
       ownerUsername={ownerUsername}
       currentSharedWith={currentSharedWith}
       onSave={handleSave}
+      embedded={embedded}
     />
   );
 }

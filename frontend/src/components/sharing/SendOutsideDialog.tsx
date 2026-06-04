@@ -42,6 +42,11 @@ interface SendOutsideDialogProps {
   ownerUsername: string;
   /** Dismiss the dialog. */
   onClose: () => void;
+  /** Unified Share entry point (2026-06-04): when true, render only the inner
+   *  body (the four-state send flow + setup wizard) with no overlay and no
+   *  header. The UnifiedShareDialog owns the modal chrome and renders this body
+   *  under its "Outside your lab" tab. Defaults to false (standalone dialog). */
+  embedded?: boolean;
 }
 
 // A light, permissive email check. The real recipient validation happens server
@@ -56,6 +61,7 @@ export default function SendOutsideDialog({
   note,
   ownerUsername,
   onClose,
+  embedded = false,
 }: SendOutsideDialogProps) {
   const identity = useSharingIdentity();
 
@@ -67,6 +73,42 @@ export default function SendOutsideDialog({
     setWizardOpen(false);
     await identity.refresh();
   }, [identity]);
+
+  // The inner four-state send flow plus the inline setup wizard. Shared by the
+  // standalone dialog and the embedded (UnifiedShareDialog tab) mode.
+  const body = (
+    <>
+      {identity.status === "loading" && <LoadingBody />}
+
+      {identity.status === "none" && (
+        <NoIdentityBody onSetUp={() => setWizardOpen(true)} />
+      )}
+
+      {identity.status === "needs-restore" && <NeedsRestoreBody />}
+
+      {identity.status === "ready" && (
+        <SendForm
+          note={note}
+          ownerUsername={ownerUsername}
+          senderEmail={identity.email}
+          onClose={onClose}
+        />
+      )}
+
+      {wizardOpen && (
+        <SharingSetupWizard
+          username={ownerUsername}
+          onComplete={handleWizardComplete}
+          onClose={() => setWizardOpen(false)}
+        />
+      )}
+    </>
+  );
+
+  if (embedded) {
+    // No overlay, no header — the UnifiedShareDialog owns the chrome.
+    return body;
+  }
 
   return (
     <div
@@ -97,33 +139,8 @@ export default function SendOutsideDialog({
           </Tooltip>
         </div>
 
-        <div className="px-5 py-5 overflow-y-auto">
-          {identity.status === "loading" && <LoadingBody />}
-
-          {identity.status === "none" && (
-            <NoIdentityBody onSetUp={() => setWizardOpen(true)} />
-          )}
-
-          {identity.status === "needs-restore" && <NeedsRestoreBody />}
-
-          {identity.status === "ready" && (
-            <SendForm
-              note={note}
-              ownerUsername={ownerUsername}
-              senderEmail={identity.email}
-              onClose={onClose}
-            />
-          )}
-        </div>
+        <div className="px-5 py-5 overflow-y-auto">{body}</div>
       </div>
-
-      {wizardOpen && (
-        <SharingSetupWizard
-          username={ownerUsername}
-          onComplete={handleWizardComplete}
-          onClose={() => setWizardOpen(false)}
-        />
-      )}
     </div>
   );
 }

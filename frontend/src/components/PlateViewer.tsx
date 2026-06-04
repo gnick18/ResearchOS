@@ -11,7 +11,7 @@ import type {
   PlateSize,
   PlateWellAnnotation,
 } from "@/lib/types";
-import ShareDialogAdapter from "@/components/sharing/ShareDialogAdapter";
+import UnifiedShareDialog from "@/components/sharing/UnifiedShareDialog";
 import Tooltip from "@/components/Tooltip";
 import { GlobeIcon, LockIcon } from "@/lib/utils/icons";
 import PlateLayoutEditor, {
@@ -202,15 +202,20 @@ export default function PlateViewer({
         </div>
       </div>
 
+      {/* Unified Share dialog. The viewer's Public / Private pill opens this
+          two-tab surface (lab ACL + cross-boundary send) instead of the bare
+          lab-ACL dialog, matching the method viewer's action-strip Share
+          button (Unified Share entry point, 2026-06-04). */}
       {showSharePopup && (
-        <ShareDialogAdapter
-          isOpen={showSharePopup}
+        <UnifiedShareDialog
+          isOpen
+          target={{
+            kind: "method",
+            method: currentMethod,
+            owner:
+              currentMethod.owner || currentMethod.created_by || currentUser,
+          }}
           onClose={() => setShowSharePopup(false)}
-          recordType="method"
-          recordId={currentMethod.id}
-          recordName={currentMethod.name}
-          ownerUsername={currentMethod.owner || currentMethod.created_by || currentUser}
-          currentSharedWith={currentMethod.shared_with || []}
           onShared={() => {
             queryClient.refetchQueries({ queryKey: ["methods"] });
             scopedMethodsApi.get(currentMethod.id).then((updatedMethod) => {
