@@ -192,13 +192,15 @@ class SeqViewerContainer extends React.Component<SeqViewerContainerProps, SeqVie
     // DNA density multiplier. charWidth ends up == size.width / bpsPerBlock, so
     // with multiplier m we get charWidth ~= seqFontSize / m. The vendor default
     // of 1.4 packed bases tightly (charWidth ~= 0.71 * fontSize). We lower it to
-    // 0.95 for a SnapGene-style roomy layout (charWidth ~= 1.05 * fontSize):
-    // clearly more gap between letters, fewer bases per row, more vertical
-    // scroll. The amino-acid branch keeps its own / 3 spacing and therefore
-    // rides this wider base width self-consistently. bpsPerBlock and charWidth
-    // feed the overview box, the coordinate / selection readouts, and the
-    // dynamic strand-ruler thresholds, all of which recompute from these values.
-    const DNA_DENSITY = 0.95;
+    // 0.8 for a SnapGene-style roomy layout (charWidth ~= 1.25 * fontSize), which
+    // gives each base clearly more horizontal room so the in-seam ruler number on
+    // a 10-tick reads cleanly and never crowds the letters left and right (Grant:
+    // widen the space between letters so the number is not on top of them). The
+    // amino-acid branch keeps its own / 3 spacing and therefore rides this wider
+    // base width self-consistently. bpsPerBlock and charWidth feed the overview
+    // box, the coordinate / selection readouts, and the dynamic strand-ruler
+    // thresholds, all of which recompute from these values.
+    const DNA_DENSITY = 0.8;
     let bpsPerBlock = Math.round((size.width / seqFontSize) * DNA_DENSITY) || 1; // width / 1 * seqFontSize
     if (seqType === "aa") {
       bpsPerBlock = Math.round(bpsPerBlock / 3); // more space for each amino acid

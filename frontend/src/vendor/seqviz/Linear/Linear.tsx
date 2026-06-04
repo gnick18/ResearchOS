@@ -7,7 +7,7 @@ import { createMultiRows, createSingleRows, stackElements } from "../elementsToR
 import { isEqual } from "../isEqual";
 import { createTranslations } from "../sequence";
 import { InfiniteScroll } from "./InfiniteScroll";
-import { SeqBlock, SeqBlockProps } from "./SeqBlock";
+import { SEAM_GAP, SeqBlock, SeqBlockProps, tapeSeamActive } from "./SeqBlock";
 
 export interface LinearProps {
   annotations: Annotation[];
@@ -156,6 +156,12 @@ export default class Linear extends React.Component<LinearProps> {
       }
       if (zoomed) {
         blockHeight += showComplement ? lineHeight : 0; // double for complement + 2px margin
+      }
+      // ruler spacing bot — reserve the in-seam tape lane in block height under
+      // the EXACT condition SeqBlock opens it (tape state), so stacked blocks do
+      // not clip into each other and the overview/total-height math stays right.
+      if (tapeSeamActive(zoomed, showComplement, seqType)) {
+        blockHeight += SEAM_GAP;
       }
       if (primerFwdRows[i].length) {
         blockHeight += primerFwdRows[i].length * lineHeight;

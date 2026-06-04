@@ -21,6 +21,22 @@ export type FindXAndWidthType = (
   x: number;
 };
 
+// ruler spacing bot — vertical breathing room reserved between the top sequence
+// row and the complement row WHEN the in-seam measuring tape renders (base-level
+// zoom, complement shown, DNA). The coordinate number on each 10-tick is centered
+// in this lane so it sits clear of both strands' letters instead of bleeding onto
+// them. Roughly the number's line-height (fontSize 11 + halo) plus a little air.
+// Exported so Linear.tsx can add the same amount to blockHeight (per block) and
+// keep block stacking, selection, and overview math consistent.
+export const SEAM_GAP = 15;
+
+// ruler spacing bot — single source of truth for "is the in-seam tape active in
+// this block". The tape (and therefore the seam gap) only exists when both
+// strands render and bases are legible (DNA, zoomed, complement shown). Linear.tsx
+// mirrors this exact condition when sizing blockHeight, so the two never drift.
+export const tapeSeamActive = (zoomed: boolean, showComplement: boolean, seqType: SeqType): boolean =>
+  !!zoomed && !!showComplement && seqType !== "aa";
+
 export type FindXAndWidthElementType = (
   i: number,
   element: NameRange,
@@ -293,8 +309,16 @@ export class SeqBlock extends React.PureComponent<SeqBlockProps> {
     const indexYDiff = cutSiteYDiff + cutSiteHeight;
     const indexHeight = seqType === "aa" ? 0 : lineHeight; // if aa, no seq row is shown
 
-    // height and yDiff of the complement strand
-    const compYDiff = indexYDiff + indexHeight;
+    // ruler spacing bot — when the in-seam measuring tape renders, open a real
+    // vertical lane between the top sequence row and the complement row so the
+    // coordinate number (centered in that lane below) sits clear of both strands'
+    // letters. Outside the tape state (zoomed out, no complement, or aa) the gap
+    // is 0 and the layout is byte-identical to before. Linear.tsx adds the same
+    // SEAM_GAP to blockHeight under the same condition.
+    const seamGap = tapeSeamActive(zoomed, showComplement, seqType) ? SEAM_GAP : 0;
+
+    // height and yDiff of the complement strand (pushed down by the seam lane)
+    const compYDiff = indexYDiff + indexHeight + seamGap;
     const compHeight = zoomed && showComplement ? lineHeight : 0;
 
     // height and yDiff of reverse primers
@@ -326,6 +350,7 @@ export class SeqBlock extends React.PureComponent<SeqBlockProps> {
       primerFwdHeight +
       cutSiteHeight +
       indexHeight +
+      seamGap + // ruler spacing bot — selection rect must cover the seam lane too
       compHeight +
       translationHeight +
       annHeight +
@@ -522,7 +547,12 @@ export class SeqBlock extends React.PureComponent<SeqBlockProps> {
             firstBase={firstBase}
             lastBase={lastBase}
             lineHeight={lineHeight}
-            seamYDiff={compYDiff}
+            /* ruler spacing bot — center the tape baseline + 10s number on the
+               visual midpoint BETWEEN the two strand text baselines (top seq at
+               indexYDiff + lineHeight/2, complement at compYDiff + lineHeight/2),
+               which now lands inside the SEAM_GAP lane. The number sits in its own
+               clear band instead of on top of the letters. */
+            seamYDiff={(indexYDiff + compYDiff) / 2 + lineHeight / 2}
             seq={seq}
             seqType={seqType}
             showIndex={showIndex}
