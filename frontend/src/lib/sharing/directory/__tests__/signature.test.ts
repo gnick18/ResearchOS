@@ -14,7 +14,7 @@ function sampleInput(overrides: Partial<BindingInput> = {}): BindingInput {
   const enc = x25519.keygen();
   const sig = ed25519.keygen();
   return {
-    emailHash: "a".repeat(64),
+    email: "user@example.com",
     x25519PublicKey: Buffer.from(enc.publicKey).toString("hex"),
     ed25519PublicKey: Buffer.from(sig.publicKey).toString("hex"),
     issuedAt: "2026-06-03T00:00:00.000Z",

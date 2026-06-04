@@ -21,18 +21,22 @@ import { utf8ToBytes } from "@noble/hashes/utils.js";
 // Bumped only if the field set or encoding changes. An old signature made under
 // v1 will not verify against a v2 payload, which is the intended fail-closed
 // behavior, never a silent cross-version match.
-const BINDING_VERSION = "researchos.directory.binding.v1";
+const BINDING_VERSION = "researchos.directory.binding.v2";
 
 /**
- * The fields a user signs to bind their email hash to their public keys.
+ * The fields a user signs to bind their email to their public keys.
  *
- * - emailHash, the directory key (hashEmail output), never a plaintext email.
+ * - email, the canonical (lowercased, trimmed) email being registered. The
+ *   client signs over the email it controls, NOT the peppered directory hash,
+ *   which the client cannot compute (it never sees the server pepper). The
+ *   server reconstructs the same bytes from the plaintext email in the request,
+ *   verifies, then stores only the hash. The plaintext email never persists.
  * - x25519PublicKey / ed25519PublicKey, hex-encoded public keys (encodePublicKey
  *   convention from identity/keys.ts).
  * - issuedAt, an ISO-8601 timestamp, lets the server reject stale bindings.
  */
 export interface BindingInput {
-  emailHash: string;
+  email: string;
   x25519PublicKey: string;
   ed25519PublicKey: string;
   issuedAt: string;
@@ -46,14 +50,14 @@ export interface BindingInput {
  * labels means the same input always yields the same bytes on every platform,
  * with no dependency on object iteration order or JSON serializer quirks.
  *
- * The values here are all hex or ISO timestamps, none of which contain a
- * newline or an equals sign, so the line-oriented framing is unambiguous for
- * this payload.
+ * These bytes are only ever rebuilt and compared whole, never parsed back into
+ * fields, so the framing just needs to be deterministic. Emails contain no
+ * newlines, so the line-oriented join is stable on both ends.
  */
 export function buildBindingPayload(input: BindingInput): Uint8Array {
   const lines = [
     BINDING_VERSION,
-    `emailHash=${input.emailHash}`,
+    `email=${input.email}`,
     `x25519PublicKey=${input.x25519PublicKey}`,
     `ed25519PublicKey=${input.ed25519PublicKey}`,
     `issuedAt=${input.issuedAt}`,

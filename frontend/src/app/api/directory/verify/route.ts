@@ -97,10 +97,12 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   // OTP is good. Now verify the binding signature over the canonical payload,
-  // using the Ed25519 public key the client claims. A bad signature means we do
-  // not store the binding (the keys were not vouched for by the signing key).
+  // using the Ed25519 public key the client claims. The signed bytes cover the
+  // canonical plaintext email (which the client has), not the peppered hash
+  // (which it does not). A bad signature means we do not store the binding (the
+  // keys were not vouched for by the signing key).
   const payload = buildBindingPayload({
-    emailHash,
+    email: canonical,
     x25519PublicKey: parsed.x25519PublicKey,
     ed25519PublicKey: parsed.ed25519PublicKey,
     issuedAt: parsed.issuedAt,
