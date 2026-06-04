@@ -63,6 +63,12 @@ const COMMIT_SHA = resolveCommitSha();
  *     proxies cover production). The toggle in Settings > Offline Mode
  *     (security affordance #2, d164fd2b) prevents the <Analytics /> wrapper
  *     from mounting at all when on.
+ *   connect-src https://*.r2.cloudflarestorage.com: the cross-boundary sharing
+ *     relay uploads and downloads encrypted bundles directly from the browser
+ *     to Cloudflare R2 via presigned URLs (see lib/sharing/relay/client.ts).
+ *     The host is <bucket>.<account>.r2.cloudflarestorage.com, so the wildcard
+ *     covers any bucket/account. The bytes are sealed client-side and the URL
+ *     is short-lived and presigned, so the relay never sees plaintext.
  *   connect-src data:: @react-pdf/renderer's PDF export path loads its
  *     yoga-layout engine, whose browser build (yoga-layout 3.2.1) ships the
  *     WASM as a `data:application/octet-stream;base64,...` module and loads
@@ -87,7 +93,7 @@ const CSP = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' blob: data:",
   "font-src 'self' data:",
-  "connect-src 'self' https://api.telegram.org https://vitals.vercel-insights.com data:",
+  "connect-src 'self' https://api.telegram.org https://vitals.vercel-insights.com https://*.r2.cloudflarestorage.com data:",
   "frame-src 'self' blob:",
   "frame-ancestors 'none'",
   "object-src 'none'",
