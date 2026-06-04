@@ -782,29 +782,49 @@ function SpecificityResult({
         </p>
       ) : (
         <div className="space-y-1">
-          {report.hits.map((h) => (
-            <div
-              key={`${h.sequenceId}-${h.site.start}-${h.site.end}-${h.site.direction}`}
-              className={`rounded px-2 py-1 text-meta ${
-                h.intended ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
-              }`}
-            >
-              <span className="font-medium">{h.sequenceName}</span>
-              {", "}
-              {h.site.direction === 1 ? "forward" : "reverse"} strand,{" "}
-              {(h.site.start + 1).toLocaleString()}..{h.site.end.toLocaleString()},{" "}
-              {h.site.annealedLength} bp anneal
-              {h.site.fullMatch ? "" : " (3'-anchored)"}
-              {h.intended ? " (intended site)" : " (extra / off-target)"}
-            </div>
-          ))}
+          {report.hits.map((h) => {
+            // Three risk tiers. Intended = the designed perfect site (calm green).
+            // A PERFECT off-target (0 mismatches) is the most dangerous, it primes
+            // as strongly as the intended site (rose). A NEAR off-target (1-2
+            // mismatches) can still cross-prime but binds weaker (amber).
+            const tier = h.intended
+              ? "intended"
+              : h.mismatches === 0
+                ? "perfect"
+                : "near";
+            const tone =
+              tier === "intended"
+                ? "bg-emerald-50 text-emerald-700"
+                : tier === "perfect"
+                  ? "bg-rose-50 text-rose-700"
+                  : "bg-amber-50 text-amber-700";
+            const identityPct = Math.round(h.identity * 100);
+            return (
+              <div
+                key={`${h.sequenceId}-${h.site.start}-${h.site.end}-${h.site.direction}`}
+                className={`rounded px-2 py-1 text-meta ${tone}`}
+              >
+                <span className="font-medium">{h.sequenceName}</span>
+                {", "}
+                {h.site.direction === 1 ? "forward" : "reverse"} strand,{" "}
+                {(h.site.start + 1).toLocaleString()}..{h.site.end.toLocaleString()},{" "}
+                {h.site.annealedLength} bp anneal
+                {h.site.fullMatch ? "" : " (3'-anchored)"}
+                {tier === "intended"
+                  ? " (intended site)"
+                  : tier === "perfect"
+                    ? " (perfect off-target)"
+                    : ` (${h.mismatches} mismatch${h.mismatches === 1 ? "" : "es"}, ${identityPct}% identity)`}
+              </div>
+            );
+          })}
         </div>
       )}
 
       <p className="mt-1.5 text-meta text-gray-400">
         {clean
-          ? "No off-target sites in your library. This is a local check only; it does not see genome-wide off-targets."
-          : "Amber rows are extra sites this primer can also prime. This is a local check only; it does not see genome-wide off-targets."}
+          ? `No off-target sites in your library${report.mismatchTolerant ? `, including near matches down to ${Math.round(report.minIdentity * 100)}% identity` : ""}. This is a local check only; it does not see genome-wide off-targets.`
+          : `Rose rows are perfect off-targets (prime as strongly as the intended site); amber rows are near matches that can still cross-prime${report.mismatchTolerant ? ` (down to ${Math.round(report.minIdentity * 100)}% identity)` : ""}. This is a local check only; it does not see genome-wide off-targets.`}
       </p>
 
       <div className="mt-2 border-t border-gray-100 pt-2">

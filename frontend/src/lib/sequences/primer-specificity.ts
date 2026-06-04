@@ -51,6 +51,19 @@ export interface SpecificityHit {
   /** True when this is the primer's INTENDED designed site (its parent sequence,
    *  full-length match). Everything else is an extra / possibly-unintended site. */
   intended: boolean;
+  /** How many bases in the annealed region do NOT pair (0 = a perfect match). A
+   *  perfect off-target (0 mismatches) is the most dangerous: it primes as well
+   *  as the intended site. Near off-targets (1-2 mismatches) can still prime,
+   *  like the cross-priming Primer-BLAST flags. Always present (0 for exact). */
+  mismatches: number;
+  /** Fraction of the annealed columns that pair, 0..1 (1.0 = perfect). Lets the
+   *  UI show "N mismatches (X% identity)" and rank near hits by how close they
+   *  bind. Always present (1.0 for an exact / 3'-anchored hit). */
+  identity: number;
+  /** True when the hit was recovered by the mismatch-tolerant aligner pass (i.e.
+   *  it binds with at least one internal mismatch / a small indel) rather than the
+   *  exact / 3'-anchored fast path. Lets the UI label NEAR vs EXACT off-targets. */
+  near: boolean;
 }
 
 export interface SpecificityReport {
@@ -66,6 +79,13 @@ export interface SpecificityReport {
   skipped: number;
   /** The minimum annealed bp counted as a real hit (the off-target sensitivity). */
   minAnneal: number;
+  /** Whether the scan ran the mismatch-tolerant aligner pass (near off-targets
+   *  recoverable). Mirrors ScanOptions.mismatchTolerant after defaulting, so the
+   *  UI can honestly say whether near-binding sites were searched for. */
+  mismatchTolerant: boolean;
+  /** The identity floor (0..1) a near off-target had to clear to be reported.
+   *  Surfaced so the UI can explain why weaker matches were not listed. */
+  minIdentity: number;
 }
 
 export interface ScanOptions {
@@ -82,10 +102,21 @@ export interface ScanOptions {
    *  library. When more sequences are supplied than the cap, the extras are
    *  skipped and reported via `skipped`. Default 200. */
   maxSequences?: number;
+  /** Recover NEAR off-targets (sites that bind with 1-2 internal mismatches or a
+   *  small indel) via the alignment engine, like Primer-BLAST's cross-priming
+   *  check, not just exact / 3'-anchored hits. Default true. Set false for the
+   *  legacy exact-only scan. */
+  mismatchTolerant?: boolean;
+  /** Minimum fraction of pairing columns (0..1) for a near off-target to be
+   *  reported, so an unrelated sequence does not flood the list with spurious
+   *  weak alignments. Default 0.8 (a 20-mer tolerates up to ~4 mismatches; in
+   *  practice 1-2 mismatch sites land well above this). */
+  minIdentity?: number;
 }
 
 const DEFAULT_MIN_ANNEAL = 12;
 const DEFAULT_MAX_SEQUENCES = 200;
+const DEFAULT_MIN_IDENTITY = 0.8;
 
 /**
  * Scan `primer` against the user's connected `library` and report every annealing
@@ -98,6 +129,15 @@ const DEFAULT_MAX_SEQUENCES = 200;
  * "Intended" = a FULL-LENGTH match on the primer's parent sequence
  * (`intendedSequenceId`). Designed primers anneal full-length to their template;
  * a partial 3'-anchored hit, or any hit on a DIFFERENT sequence, is an extra site.
+ *
+ * MISMATCH TOLERANCE (default ON). Beyond exact / 3'-anchored hits, the scan runs
+ * `findBindingSites` with `mismatchTolerant` so it also recovers NEAR off-targets,
+ * sites that bind with 1-2 internal mismatches or a small indel, like the
+ * cross-priming Primer-BLAST flags. Each hit carries its `mismatches` count and
+ * `identity`, and `near` distinguishes a mismatch-recovered hit from a perfect
+ * one. Near hits are gated by `minIdentity` so an unrelated sequence does not
+ * flood the report. The intended designation still requires a perfect full-length
+ * match on the parent (a near hit is never "intended").
  */
 export function scanLibrarySpecificity(
   primer: string,
@@ -106,6 +146,8 @@ export function scanLibrarySpecificity(
 ): SpecificityReport {
   const minAnneal = opts.minAnneal ?? DEFAULT_MIN_ANNEAL;
   const maxSequences = opts.maxSequences ?? DEFAULT_MAX_SEQUENCES;
+  const mismatchTolerant = opts.mismatchTolerant ?? true;
+  const minIdentity = opts.minIdentity ?? DEFAULT_MIN_IDENTITY;
 
   // Scan the intended (parent) sequence first so its row sorts to the top, then
   // the rest. Cap the total scanned; report any overflow as skipped.
@@ -123,18 +165,32 @@ export function scanLibrarySpecificity(
     const sites = findBindingSites(primer, lib.seq, {
       allowPartial: true,
       minAnneal,
+      mismatchTolerant,
+      minIdentity,
+      minAlignedLength: minAnneal,
     });
     for (const site of sites) {
       const isParent = lib.id === opts.intendedSequenceId;
-      // The intended site is a full-length anneal on the parent sequence. A
-      // partial hit on the parent (a 3' tail matching elsewhere) is still an
-      // extra site worth flagging.
-      const intended = isParent && site.fullMatch;
+      // A near (aligner-recovered) hit carries mismatch positions + identity; the
+      // exact / 3'-anchored fast path carries neither, which means a perfect
+      // anneal (0 mismatches, 1.0 identity). `near` flags the mismatch-tolerant
+      // hits so the UI can rank a perfect off-target (most dangerous) above a near
+      // one.
+      const near = site.mismatches != null || site.identity != null;
+      const mismatches = site.mismatches?.length ?? 0;
+      const identity = site.identity ?? 1;
+      // The intended site is a PERFECT full-length anneal on the parent. A partial
+      // 3' hit, a near (mismatch) hit, or any hit on a DIFFERENT sequence is an
+      // extra site worth flagging, never the intended one.
+      const intended = isParent && site.fullMatch && !near;
       hits.push({
         sequenceId: lib.id,
         sequenceName: lib.name,
         site,
         intended,
+        mismatches,
+        identity,
+        near,
       });
     }
   }
@@ -150,9 +206,15 @@ export function scanLibrarySpecificity(
     }
   }
 
-  // Sort: intended first, then by sequence name, then by position.
+  // Sort: intended first; then most-dangerous off-targets first (a PERFECT
+  // off-target ranks above a near one, then higher identity, then more bases
+  // annealed); finally by sequence name + position for a stable order.
   hits.sort((a, b) => {
     if (a.intended !== b.intended) return a.intended ? -1 : 1;
+    if (a.near !== b.near) return a.near ? 1 : -1;
+    if (a.identity !== b.identity) return b.identity - a.identity;
+    if (a.site.annealedLength !== b.site.annealedLength)
+      return b.site.annealedLength - a.site.annealedLength;
     if (a.sequenceName !== b.sequenceName)
       return a.sequenceName.localeCompare(b.sequenceName);
     return a.site.start - b.site.start;
@@ -167,6 +229,8 @@ export function scanLibrarySpecificity(
     scanned: toScan.filter((l) => !!l.seq).length,
     skipped,
     minAnneal,
+    mismatchTolerant,
+    minIdentity,
   };
 }
 

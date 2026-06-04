@@ -40,8 +40,15 @@ describe("scanLibrarySpecificity — local-library scan", () => {
     expect(intended[0].site.start).toBe(30);
     expect(intended[0].site.end).toBe(30 + PRIMER.length);
     expect(intended[0].site.direction).toBe(1);
+    // The intended perfect site carries 0 mismatches, full identity, not near.
+    expect(intended[0].mismatches).toBe(0);
+    expect(intended[0].identity).toBe(1);
+    expect(intended[0].near).toBe(false);
     // No off-targets on a clean single-site parent.
     expect(report.offTargets).toHaveLength(0);
+    // The scan ran mismatch-tolerant by default and reports its gate.
+    expect(report.mismatchTolerant).toBe(true);
+    expect(report.minIdentity).toBeCloseTo(0.8);
   });
 
   it("flags an off-target site planted in ANOTHER library sequence", () => {
@@ -61,6 +68,11 @@ describe("scanLibrarySpecificity — local-library scan", () => {
     expect(off.sequenceName).toBe("pOther");
     expect(off.intended).toBe(false);
     expect(off.site.start).toBe(4);
+    // An EXACT off-target: 0 mismatches, full identity, not a near hit. This is
+    // the most dangerous case and must not regress under mismatch tolerance.
+    expect(off.mismatches).toBe(0);
+    expect(off.identity).toBe(1);
+    expect(off.near).toBe(false);
     // Intended row sorts first.
     expect(report.hits[0].intended).toBe(true);
     expect(report.hits[0].sequenceId).toBe(1);
@@ -137,6 +149,101 @@ describe("scanLibrarySpecificity — local-library scan", () => {
     });
     expect(report.scanned).toBe(1);
     expect(report.hits[0].sequenceId).toBe(1);
+    expect(report.hits[0].intended).toBe(true);
+  });
+});
+
+// Mutate one base of `s` at `idx` to a guaranteed-different base.
+function mutate(s: string, idx: number): string {
+  const to = s[idx] === "A" ? "C" : "A";
+  return s.slice(0, idx) + to + s.slice(idx + 1);
+}
+
+describe("scanLibrarySpecificity — mismatch-tolerant near off-targets", () => {
+  it("reports a 1-mismatch off-target as a NEAR hit with the right count + identity", () => {
+    // A second sequence holding the primer with ONE internal mismatch. The exact
+    // fast path would miss this; the aligner pass must catch it.
+    const near = mutate(PRIMER, 10); // mismatch mid-primer
+    const offTarget: LibrarySequence = {
+      id: 2,
+      name: "pNear1",
+      seq: "AAAA" + near + "GGGG",
+    };
+    const report = scanLibrarySpecificity(PRIMER, [parent(), offTarget], {
+      intendedSequenceId: 1,
+    });
+    // Intended perfect site on the parent is still found and not a near hit.
+    const intended = report.hits.find((h) => h.intended);
+    expect(intended).toBeDefined();
+    expect(intended!.near).toBe(false);
+    // The planted 1-mismatch site is reported as a near off-target.
+    const off = report.offTargets.find((h) => h.sequenceId === 2);
+    expect(off).toBeDefined();
+    expect(off!.intended).toBe(false);
+    expect(off!.near).toBe(true);
+    expect(off!.mismatches).toBe(1);
+    expect(off!.identity).toBeCloseTo(0.95, 2); // 19/20
+    expect(off!.site.direction).toBe(1);
+  });
+
+  it("reports a 2-mismatch off-target on the REVERSE strand with 2 mismatches", () => {
+    let near = mutate(PRIMER, 8);
+    near = mutate(near, 14);
+    const rc = reverseComplement(near);
+    const revTarget: LibrarySequence = {
+      id: 3,
+      name: "pNearRev",
+      seq: "CCCC" + rc + "TTTT",
+    };
+    const report = scanLibrarySpecificity(PRIMER, [revTarget], {
+      intendedSequenceId: 1, // parent absent
+    });
+    expect(report.offTargets).toHaveLength(1);
+    const off = report.offTargets[0];
+    expect(off.near).toBe(true);
+    expect(off.mismatches).toBe(2);
+    expect(off.identity).toBeCloseTo(0.9, 2); // 18/20
+    expect(off.site.direction).toBe(-1);
+  });
+
+  it("does NOT spuriously flag a non-homologous sequence (identity gate)", () => {
+    // FILLER_A/FILLER_B share no meaningful homology with the primer; even with
+    // tolerance on, the minIdentity gate must keep them off the report.
+    const unrelated: LibrarySequence[] = [
+      { id: 2, name: "pJunk1", seq: FILLER_A + FILLER_B },
+      { id: 3, name: "pJunk2", seq: FILLER_B + FILLER_A },
+    ];
+    const report = scanLibrarySpecificity(PRIMER, unrelated);
+    expect(report.offTargets).toHaveLength(0);
+    expect(report.hits).toHaveLength(0);
+  });
+
+  it("ranks a PERFECT off-target above a NEAR one (most dangerous first)", () => {
+    const perfect: LibrarySequence = { id: 2, name: "pPerfect", seq: "TT" + PRIMER + "AA" };
+    const near: LibrarySequence = { id: 3, name: "pNear", seq: "GG" + mutate(PRIMER, 9) + "CC" };
+    const report = scanLibrarySpecificity(PRIMER, [near, perfect], {
+      // no intended parent: both are off-targets
+    });
+    expect(report.offTargets).toHaveLength(2);
+    // Perfect (0 mismatches) sorts before the near one.
+    expect(report.offTargets[0].sequenceId).toBe(2);
+    expect(report.offTargets[0].mismatches).toBe(0);
+    expect(report.offTargets[0].near).toBe(false);
+    expect(report.offTargets[1].sequenceId).toBe(3);
+    expect(report.offTargets[1].near).toBe(true);
+  });
+
+  it("mismatchTolerant:false restores the legacy exact-only scan (no near hits)", () => {
+    const near = mutate(PRIMER, 10);
+    const offTarget: LibrarySequence = { id: 2, name: "pNear1", seq: "AAAA" + near + "GGGG" };
+    const report = scanLibrarySpecificity(PRIMER, [parent(), offTarget], {
+      intendedSequenceId: 1,
+      mismatchTolerant: false,
+    });
+    expect(report.mismatchTolerant).toBe(false);
+    // Only the exact intended site survives; the near off-target is invisible.
+    expect(report.offTargets).toHaveLength(0);
+    expect(report.hits).toHaveLength(1);
     expect(report.hits[0].intended).toBe(true);
   });
 });
