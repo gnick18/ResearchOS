@@ -119,24 +119,35 @@ function esc(value: string): string {
 }
 
 /**
- * The BeakerBot mascot as a static inline SVG, sky-blue, reusing the canonical
- * body silhouette + features from components/BeakerBot.tsx (the mascot IS
- * BeakerBot everywhere). Inlined here as a string because an email cannot import
- * a React component, and email clients render inline SVG inconsistently, so we
- * keep it small and self-contained. No emoji, no external image.
+ * Absolute origin that serves the app's /public assets. The header mascot is
+ * loaded as an <img> from here, so the URL MUST be absolute, an email client
+ * cannot resolve a relative or a localhost URL. Read from the SAME env the
+ * accept-URL builder uses (NEXT_PUBLIC_APP_ORIGIN) with the canonical production
+ * default, so the mascot and the accept link always point at the same origin.
+ * Runs server-side (the send path), so there is no window fallback here.
  */
-const BEAKERBOT_SVG = `<svg width="48" height="48" viewBox="0 0 40 40" fill="none" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="BeakerBot" xmlns="http://www.w3.org/2000/svg">
-  <path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="#ffffff" stroke="none"/>
-  <path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="#A6D2F4" stroke="none"/>
-  <path d="M22 8 C 22 6, 24 4, 26 6"/>
-  <path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12"/>
-  <path d="M11 12 L29 12"/>
-  <circle cx="17" cy="18" r="1.2" fill="#0ea5e9" stroke="none"/>
-  <circle cx="23" cy="18" r="1.2" fill="#0ea5e9" stroke="none"/>
-  <path d="M18 22 Q 20 24, 22 22"/>
-  <path d="M14 26 L15.5 26"/>
-  <path d="M24.5 26 L26 26"/>
-</svg>`;
+function assetOrigin(): string {
+  const configured = process.env.NEXT_PUBLIC_APP_ORIGIN;
+  if (configured && configured.length > 0) return configured.replace(/\/$/, "");
+  return "https://research-os.app";
+}
+
+/**
+ * Absolute URL of the real BeakerBot mascot PNG (the pastel-rainbow liquid
+ * mascot, idle pose), committed under public/email/beakerbot.png. It is a RASTER
+ * PNG, not inline SVG, because Gmail and Outlook strip inline SVG, so the old
+ * hand-rolled SVG header never actually rendered in a real inbox. The source is
+ * 192x192 (retina) and the email displays it at 48x48.
+ *
+ * IMPORTANT. This image only renders in real inboxes once the origin above
+ * actually serves /public, i.e. once research-os.app points at the Vercel
+ * deployment (DNS still pending as of this writing). Until then the email shows
+ * the alt text instead, which is why the alt is a clean brand string
+ * ("ResearchOS") and the wordmark sits beside the image as real styled text.
+ */
+function beakerbotImageUrl(): string {
+  return `${assetOrigin()}/email/beakerbot.png`;
+}
 
 /**
  * Builds the transactional invite email subject. Named the sender, one specific
@@ -164,12 +175,27 @@ export function buildInviteHtml(params: InviteEmailParams): string {
   // URL (research-os.app/accept/<uuid>#k=<hex>), the fragment is opaque hex, so
   // it is URL-safe to embed directly. We do not escape the fragment away.
   const url = params.acceptUrl;
+  // Absolute mascot URL, built once for this render. A table-based lockup (mascot
+  // left, "ResearchOS" wordmark beside it) is the reliable cross-client way to
+  // align an image with text, matching the accept-page Header. The alt text is
+  // "ResearchOS" so the lockup still reads as the brand if the image is stripped
+  // or the origin is not yet serving /public.
+  const mascotUrl = beakerbotImageUrl();
   return `<!doctype html>
 <html lang="en">
 <body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111827;">
   <div style="max-width:520px;margin:0 auto;padding:32px 20px;">
     <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;padding:28px;">
-      <div style="text-align:center;margin-bottom:8px;">${BEAKERBOT_SVG}</div>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 12px;">
+        <tr>
+          <td style="vertical-align:middle;padding-right:10px;">
+            <img src="${mascotUrl}" width="48" height="48" alt="ResearchOS" style="display:block;width:48px;height:48px;border:0;outline:none;text-decoration:none;" />
+          </td>
+          <td style="vertical-align:middle;">
+            <span style="font-size:22px;font-weight:700;color:#2563eb;letter-spacing:-0.01em;">ResearchOS</span>
+          </td>
+        </tr>
+      </table>
       <h1 style="font-size:18px;font-weight:600;text-align:center;margin:8px 0 4px;">
         ${sender} shared ${article} ${noun} with you
       </h1>

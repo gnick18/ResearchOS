@@ -68,6 +68,17 @@ describe("buildInviteHtml", () => {
     expect(noteHtml).toContain("Open this research note on ResearchOS");
   });
 
+  it("uses a hosted raster mascot, not inline SVG, in an absolute-URL lockup", () => {
+    const html = buildInviteHtml(PARAMS);
+    // The mascot is an <img> at an absolute https URL under /email, never inline
+    // SVG (Gmail / Outlook strip inline SVG). The wordmark sits beside it as real
+    // styled text, and the alt degrades to the brand string.
+    expect(html).toContain('<img src="https://research-os.app/email/beakerbot.png"');
+    expect(html).toContain('alt="ResearchOS"');
+    expect(html).not.toContain("<svg");
+    expect(html).toContain(">ResearchOS</span>");
+  });
+
   it("escapes HTML in interpolated fields", () => {
     const html = buildInviteHtml({
       ...PARAMS,
