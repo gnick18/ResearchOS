@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-04T02:28:03.643Z",
+  "generatedAt": "2026-06-04T02:43:46.795Z",
   "sources": [
     {
       "name": "NCBI GenBank (nuccore)",
@@ -7,15 +7,54 @@
       "url": "https://www.ncbi.nlm.nih.gov/nuccore/"
     }
   ],
-  "method": "Each sequence is the substring of a fetched GenBank record at the coordinates of a feature whose type and /note match the target. complement() locations are reverse-complemented. No sequence is written, completed, or recalled from memory.",
-  "count": 8,
+  "method": "Each sequence is the substring of a fetched GenBank record at the coordinates of a feature whose type and /note match the target (method A, coordinate extraction). complement() locations are reverse-complemented. Some entries additionally carry a cross-confirmation (matchedInAccession) recording a second fetched record in which the extracted sequence was found verbatim. No sequence is written, completed, or recalled from memory.",
+  "count": 19,
   "countsByCategory": {
-    "origin": 2,
-    "promoter": 2,
-    "regulatory": 3,
-    "terminator": 1
+    "origin": 5,
+    "promoter": 7,
+    "regulatory": 4,
+    "terminator": 3
   },
   "entries": [
+    {
+      "id": "ori_cole1_puc",
+      "name": "ColE1 / pUC (pMB1/pBR322) origin of replication",
+      "category": "origin",
+      "sequenceType": "dna",
+      "seq": "TTGAGATCCTTTTTTTCTGCGCGTAATCTGCTGCTTGCAAACAAAAAAACCACCGCTACCAGCGGTGGTTTGTTTGCCGGATCAAGAGCTACCAACTCTTTTTCCGAAGGTAACTGGCTTCAGCAGAGCGCAGATACCAAATACTGTTCTTCTAGTGTAGCCGTAGTTAGGCCACCACTTCAAGAACTCTGTAGCACCGCCTACATACCTCGCTCTGCTAATCCTGTTACCAGTGGCTGCTGCCAGTGGCGATAAGTCGTGTCTTACCGGGTTGGACTCAAGACGATAGTTACCGGATAAGGCGCAGCGGTCGGGCTGAACGGGGGGTTCGTGCACACAGCCCAGCTTGGAGCGAACGACCTACACCGAACTGAGATACCTACAGCGTGAGCTATGAGAAAGCGCCACGCTTCCCGAAGGGAGAAAGGCGGACAGGTATCCGGTAAGCGGCAGGGTCGGAACAGGAGAGCGCACGAGGGAGCTTCCAGGGGGAAACGCCTGGTATCTTTATAGTCCTGTCGGGTTTCGCCACCTCTGACTTGAGCGTCGATTTTTGTGATGCTCGTCAGGGGGGCGGAGCCTATGGAAA",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=PX994934.1&rettype=gb&retmode=text",
+      "accession": "PX994934.1",
+      "coords": "8031..8619",
+      "license": "Public domain sequence facts (GenBank/NCBI).",
+      "note": "High-copy-number ColE1/pMB1/pBR322/pUC replication origin, annotated as a clean rep_origin range in a SnapGene-style synthetic-construct record (PX994934). This is the single shared origin region of the pUC, pBR322, pMB1 and ColE1 plasmid family; pBR322 and pMB1 are NOT stored as separate sequences because they ARE this same element. Extracted feature: rep_origin; record /note: \"high-copy-number ColE1/pMB1/pBR322/pUC origin of replication; pUC_ori\"."
+    },
+    {
+      "id": "ori_p15a",
+      "name": "p15A origin of replication",
+      "category": "origin",
+      "sequenceType": "dna",
+      "seq": "TTGAGATCGTTTTGGTCTGCGCGTAATCTCTTGCTCTGAAAACGAAAAAACCGCCTTGCAGGGCGGTTTTTCGAAGGTTCTCTGAGCTACCAACTCTTTGAACCGAGGTAACTGGCTTGGAGGAGCGCAGTCACCAAAACTTGTCCTTTCAGTTTAGCCTTAACCGGCGCATGACTTCAAGACTAACTCCTCTAAATCAATTACCAGTGGCTGCTGCCAGTGGTGCTTTTGCATGTCTTTCCGGGTTGGACTCAAGACGATAGTTACCGGATAAGGCGCAGCGGTCGGACTGAACGGGGGGTTCGTGCATACAGTCCAGCTTGGAGCGAACTGCCTACCCGGAACTGAGTGTCAGGCGTGGAATGAGACAAACGCGGCCATAACAGCGGAATGACACCGGTAAACCGAAAGGCAGGAACAGGAGAGCGCACGAGGGAGCCGCCAGGGGGAAACGCCTGGTATCTTTATAGTCCTGTCGGGTTTCGCCACCACTGATTTGAGCGTCAGATTTCGTGATGCTTGTCAGGGGGGCGGAGCCTATGGAAA",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=PZ005984.1&rettype=gb&retmode=text",
+      "accession": "PZ005984.1",
+      "coords": "1..546",
+      "license": "Public domain sequence facts (GenBank/NCBI).",
+      "note": "p15A (medium-copy) replication origin, annotated as a clean rep_origin range in a synthetic-construct record (PZ005984, lacI_IA9_Template). Extracted feature: rep_origin; record /note: \"p15a origin\"."
+    },
+    {
+      "id": "ori_psc101",
+      "name": "pSC101 origin of replication",
+      "category": "origin",
+      "sequenceType": "dna",
+      "seq": "GACAGTAAGACGGGTAAGCCTGTTGATGATACCGCTGCCTTACTGGGTGCATTAGCCAGTCTGAATGACCTGTCACGGGATAATCCGAAGTGGTCAGACTGGAAAATCAGAGGGCAGGAACTGCTGAACAGCAAAAAGTCAGATAGCACCACATAGCAGACCCGCCATAAAACGCCCTGAGAAGCCCGTGACGGGCTTTTCTTGTATTATGGGTAGTTTCCTTGCATGAATCCATAAAAGGCGCCTGTAGTGCCATTTACCCCCATTCACTGCCAGAGCCGTGAGCGCAGCGAACTGAATGTCACGAAAAAGACAGCGACTCAGGTGCCTGATGGTCGGAGACAAAAGGAATATTCAGCGATTTGCCCGAGCTTGCGAGGGTGCTACTTAAGCCTTTAGGGTTTTAAGGTCTGTTTTGTAGAGGAGCAAACAGCGTTTGCGACATCCTTTTGTAATACTGCGGAACTGACTAAAGTAGTGAGTTATACACAGGGCTGGGATCTATTCTTTTTATCTTTTTTTATTCTTTCTTTATTCTATAAATTATAACCACTTGAATATAAACAAAAAAAACACACAAAGGTCTAGCGGAATTTACAGAGGGTCTAGCAGAATTTACAAGTTTTCCAGCAAAGGTCTAGCAGAATTTACAGATACCCAGATCTCCCGGGAAAAGGACTAGTAATTATCATTGACTAGCCC",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=PV807101.1&rettype=gb&retmode=text",
+      "accession": "PV807101.1",
+      "coords": "complement(6062..6763)",
+      "license": "Public domain sequence facts (GenBank/NCBI).",
+      "note": "pSC101 (low-copy) replication origin, annotated as an explicit coordinate range (misc_feature 'pSC101 ori') in a synthetic-construct record (PV807101, pHY702). Extracted feature: misc_feature; record /note: \"pSC101 ori\"."
+    },
     {
       "id": "ori_sv40_aux",
       "name": "SV40 origin of replication (auxiliary region)",
@@ -56,6 +95,32 @@
       "note": "CMV immediate-early promoter, annotated as a clean range in a GenBank expression-vector record (pcDNA3.1 derivative). Extracted feature: regulatory; record /note: \"CMV promoter\"."
     },
     {
+      "id": "promoter_lac",
+      "name": "lac promoter (E. coli lac operon promoter)",
+      "category": "promoter",
+      "sequenceType": "dna",
+      "seq": "TTTACACTTTATGCTTCCGGCTCGTATGTTG",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=PX994934.1&rettype=gb&retmode=text",
+      "accession": "PX994934.1",
+      "coords": "143..173",
+      "license": "Public domain sequence facts (GenBank/NCBI).",
+      "note": "E. coli lac operon promoter, annotated as a clean range in a SnapGene-style synthetic-construct record (PX994934). Extracted feature: regulatory; record /note: \"promoter for the E. coli lac operon; lac promoter\"."
+    },
+    {
+      "id": "promoter_sp6",
+      "name": "SP6 promoter (for SP6 RNA polymerase)",
+      "category": "promoter",
+      "sequenceType": "dna",
+      "seq": "ATTTAGGTGACACTATAG",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=LR588434.1&rettype=gb&retmode=text",
+      "accession": "LR588434.1",
+      "coords": "1063..1080",
+      "license": "Public domain sequence facts (GenBank/NCBI).",
+      "note": "Promoter for SP6 RNA polymerase, annotated as a clean range in a cloning-vector record (LR588434, AbVec2.1-mIglc2). Extracted feature: regulatory; record /note: \"SP6 promoter\"."
+    },
+    {
       "id": "promoter_t3",
       "name": "T3 promoter (for T3 RNA polymerase)",
       "category": "promoter",
@@ -69,6 +134,46 @@
       "note": "Promoter for T3 RNA polymerase, from the bacteriophage T3 gene 1 (RNA polymerase) record (X02981). Extracted feature: regulatory; record /note: \"put. promoter for T3 RNA polymerase\"."
     },
     {
+      "id": "promoter_t7",
+      "name": "T7 promoter (for T7 RNA polymerase, phi10 class)",
+      "category": "promoter",
+      "sequenceType": "dna",
+      "seq": "TAATACGACTCACTATAGG",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=PX994934.1&rettype=gb&retmode=text",
+      "accession": "PX994934.1",
+      "coords": "complement(5173..5191)",
+      "license": "Public domain sequence facts (GenBank/NCBI).",
+      "note": "Promoter for bacteriophage T7 RNA polymerase, annotated as a clean range in a SnapGene-style synthetic-construct record (PX994934). The extracted 19-mer is additionally confirmed present verbatim in the canonical pET28a vector record (PP098726.1). Extracted feature: regulatory; record /note: \"promoter for bacteriophage T7 RNA polymerase; T7 promoter\". Cross-confirmed: the extracted sequence is present verbatim in PP098726.1 at 4984..5002 (https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=PP098726.1&rettype=gb&retmode=text).",
+      "matchedInAccession": "PP098726.1"
+    },
+    {
+      "id": "promoter_tac",
+      "name": "tac promoter (trp/lacUV5 hybrid)",
+      "category": "promoter",
+      "sequenceType": "dna",
+      "seq": "TTGACAATTAATCATCGGCTCGTATAATG",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=MT321292.1&rettype=gb&retmode=text",
+      "accession": "MT321292.1",
+      "coords": "4816..4844",
+      "license": "Public domain sequence facts (GenBank/NCBI).",
+      "note": "tac promoter, a strong hybrid of the trp -35 and lacUV5 -10 elements, annotated as a clean range in a cloning-vector record (MT321292, pMBP-OsD27deltaTP). Extracted feature: regulatory; record /note: \"strong E. coli promoter; hybrid between the trp and lac UV5 promoters; tac promoter\"."
+    },
+    {
+      "id": "promoter_trc",
+      "name": "trc promoter (trp/lacUV5 hybrid)",
+      "category": "promoter",
+      "sequenceType": "dna",
+      "seq": "TTGACAATTAATCATCCGGCTCGTATAATG",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=KX682239.1&rettype=gb&retmode=text",
+      "accession": "KX682239.1",
+      "coords": "complement(6305..6334)",
+      "license": "Public domain sequence facts (GenBank/NCBI).",
+      "note": "trc promoter, a strong hybrid of the trp and lacUV5 promoters (one bp spacing differs from tac), annotated as a clean range in a synthetic-construct record (KX682239, pGC014.mod). Extracted feature: regulatory; record /note: \"hybrid between the trp and lac UV5 promoters; strong E. coli promoter; trc promoter\"."
+    },
+    {
       "id": "promoter_cmv_enhancer",
       "name": "CMV enhancer (human cytomegalovirus immediate-early)",
       "category": "regulatory",
@@ -80,6 +185,19 @@
       "coords": "235..614",
       "license": "Public domain sequence facts (GenBank/NCBI).",
       "note": "CMV immediate-early enhancer; pairs with the CMV promoter in mammalian expression vectors. Extracted feature: regulatory; record /note: \"CMV enhancer\"."
+    },
+    {
+      "id": "regulatory_lac_operator",
+      "name": "lac operator (O1, lacI/LacI binding site)",
+      "category": "regulatory",
+      "sequenceType": "dna",
+      "seq": "TTGTGAGCGGATAACAA",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=PX994934.1&rettype=gb&retmode=text",
+      "accession": "PX994934.1",
+      "coords": "181..197",
+      "license": "Public domain sequence facts (GenBank/NCBI).",
+      "note": "lac operator (the LacI repressor binding site that gates the lac/T7lac/tac promoters), annotated as a clean coordinate range in a SnapGene-style synthetic-construct record (PX994934). Extracted feature: misc_feature; record /note: \"The lac repressor binds to the lac operator to inhibit transcription in E. coli. This inhibition can be relieved by adding lactose or isopropyl-beta-D-thiogalactopyranoside (IPTG).; lac operator; lac repressor encoded by lacI\"."
     },
     {
       "id": "regulatory_shine_dalgarno",
@@ -108,6 +226,19 @@
       "note": "SV40 late mRNA polyadenylation signal (the hexamer signal), from the primary SV40 genome record (J02400). Extracted feature: regulatory; record /note: \"late mRNA polyadenyation signal; 0.17 [23],[68], [120]\"."
     },
     {
+      "id": "terminator_lambda_tl3",
+      "name": "lambda tL3 terminator (from phage lambda)",
+      "category": "terminator",
+      "sequenceType": "dna",
+      "seq": "CGCATCCTCACGATAATATCCGGGTAGGCGCAATCACTTTCGTCTCTACTCCGTTACAAAGCGAGGCTGGGTATTTCCCGGCCTTTCTGTTATCCGAAATCCACTGAAAGCACAGCGGCTGGCTGAGGAGATAAATAATAAACGAGGGGCTGTATGCACAAAGCATCTTCTGTTGAGTTAAGAACGAGTATCGAGATGGCACATAGCCTTGCTCAAATTGGAATCAGGTTTGTGCCAATACCAGTAG",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=OQ295986.1&rettype=gb&retmode=text",
+      "accession": "OQ295986.1",
+      "coords": "5957..6203",
+      "license": "Public domain sequence facts (GenBank/NCBI).",
+      "note": "Phage lambda tL3 transcription terminator, annotated as a clean range in a synthetic-construct record (OQ295986). Extracted feature: regulatory; record /note: \"Lambda tL3 terminator, transcription terminator tL3 from phage lambda\"."
+    },
+    {
       "id": "terminator_rrnb_t1",
       "name": "rrnB T1 terminator (E. coli)",
       "category": "terminator",
@@ -119,6 +250,19 @@
       "coords": "2688..2774",
       "license": "Public domain sequence facts (GenBank/NCBI).",
       "note": "E. coli rrnB T1 transcription terminator, annotated as a clean range with an explicit note in a GenBank vector record (pSEVA251 derivative). Extracted feature: regulatory; record /note: \"rrnB T1 terminator\"."
+    },
+    {
+      "id": "terminator_t7",
+      "name": "T7 terminator (T-phi, from phage T7)",
+      "category": "terminator",
+      "sequenceType": "dna",
+      "seq": "CTAGCATAACCCCTTGGGGCCTCTAAACGGGTCTTGAGGGGTTTTTTG",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=OZ375372.1&rettype=gb&retmode=text",
+      "accession": "OZ375372.1",
+      "coords": "824..871",
+      "license": "Public domain sequence facts (GenBank/NCBI).",
+      "note": "T7 (T-phi) transcription terminator, annotated as a clean range in a synthetic plasmid record (OZ375372, pcrRNA3gfplex). This is the standard downstream terminator of pET-series T7 expression cassettes. Extracted feature: regulatory; record /note: \"T7 terminator\"."
     }
   ]
 }

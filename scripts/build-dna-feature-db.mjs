@@ -335,6 +335,110 @@ const TARGETS = [
     note: "Promoter for T3 RNA polymerase, from the bacteriophage T3 gene 1 (RNA polymerase) record (X02981).",
   },
 
+  // --- v2 additions: common bacterial-cloning workhorse promoters ---
+  // The first pass omitted these because it only looked for a coordinate RANGE
+  // in the classic primary records (phage genomes / lac operon), where they are
+  // annotated as single base points or not at all. v2 instead pins modern,
+  // well-annotated synthetic-construct / cloning-vector records that annotate
+  // each element as a clean coordinate range, so every sequence is still
+  // EXTRACTED by coordinates (method A), never recited.
+  {
+    id: "promoter_t7",
+    name: "T7 promoter (for T7 RNA polymerase, phi10 class)",
+    category: "promoter",
+    accession: "PX994934.1",
+    license: "Public domain sequence facts (GenBank/NCBI).",
+    match: (f) =>
+      f.type === "regulatory" &&
+      f.qualifiers.regulatory_class === "promoter" &&
+      /\bT7 promoter\b/i.test(f.qualifiers.note || ""),
+    note: "Promoter for bacteriophage T7 RNA polymerase, annotated as a clean range in a SnapGene-style synthetic-construct record (PX994934). The extracted 19-mer is additionally confirmed present verbatim in the canonical pET28a vector record (PP098726.1).",
+    // Extra provenance: confirm the extracted seq also appears in a pET vector.
+    confirmIn: "PP098726.1",
+  },
+  {
+    id: "promoter_sp6",
+    name: "SP6 promoter (for SP6 RNA polymerase)",
+    category: "promoter",
+    accession: "LR588434.1",
+    license: "Public domain sequence facts (GenBank/NCBI).",
+    match: (f) =>
+      f.type === "regulatory" &&
+      f.qualifiers.regulatory_class === "promoter" &&
+      /\bSP6 promoter\b/i.test(f.qualifiers.note || ""),
+    note: "Promoter for SP6 RNA polymerase, annotated as a clean range in a cloning-vector record (LR588434, AbVec2.1-mIglc2).",
+  },
+  {
+    id: "promoter_lac",
+    name: "lac promoter (E. coli lac operon promoter)",
+    category: "promoter",
+    accession: "PX994934.1",
+    license: "Public domain sequence facts (GenBank/NCBI).",
+    match: (f) =>
+      f.type === "regulatory" &&
+      f.qualifiers.regulatory_class === "promoter" &&
+      /\blac promoter\b/i.test(f.qualifiers.note || ""),
+    note: "E. coli lac operon promoter, annotated as a clean range in a SnapGene-style synthetic-construct record (PX994934).",
+  },
+  {
+    id: "promoter_tac",
+    name: "tac promoter (trp/lacUV5 hybrid)",
+    category: "promoter",
+    accession: "MT321292.1",
+    license: "Public domain sequence facts (GenBank/NCBI).",
+    match: (f) =>
+      f.type === "regulatory" &&
+      f.qualifiers.regulatory_class === "promoter" &&
+      /\btac promoter\b/i.test(f.qualifiers.note || ""),
+    note: "tac promoter, a strong hybrid of the trp -35 and lacUV5 -10 elements, annotated as a clean range in a cloning-vector record (MT321292, pMBP-OsD27deltaTP).",
+  },
+  {
+    id: "promoter_trc",
+    name: "trc promoter (trp/lacUV5 hybrid)",
+    category: "promoter",
+    accession: "KX682239.1",
+    license: "Public domain sequence facts (GenBank/NCBI).",
+    match: (f) =>
+      f.type === "regulatory" &&
+      f.qualifiers.regulatory_class === "promoter" &&
+      /\btrc promoter\b/i.test(f.qualifiers.note || ""),
+    note: "trc promoter, a strong hybrid of the trp and lacUV5 promoters (one bp spacing differs from tac), annotated as a clean range in a synthetic-construct record (KX682239, pGC014.mod).",
+  },
+
+  // --- v2 additions: origins of replication ---
+  {
+    id: "ori_cole1_puc",
+    name: "ColE1 / pUC (pMB1/pBR322) origin of replication",
+    category: "origin",
+    accession: "PX994934.1",
+    license: "Public domain sequence facts (GenBank/NCBI).",
+    match: (f) =>
+      f.type === "rep_origin" &&
+      /ColE1\/pMB1\/pBR322\/pUC origin/i.test(f.qualifiers.note || ""),
+    note: "High-copy-number ColE1/pMB1/pBR322/pUC replication origin, annotated as a clean rep_origin range in a SnapGene-style synthetic-construct record (PX994934). This is the single shared origin region of the pUC, pBR322, pMB1 and ColE1 plasmid family; pBR322 and pMB1 are NOT stored as separate sequences because they ARE this same element.",
+  },
+  {
+    id: "ori_p15a",
+    name: "p15A origin of replication",
+    category: "origin",
+    accession: "PZ005984.1",
+    license: "Public domain sequence facts (GenBank/NCBI).",
+    match: (f) => f.type === "rep_origin" && /p15a origin/i.test(f.qualifiers.note || ""),
+    note: "p15A (medium-copy) replication origin, annotated as a clean rep_origin range in a synthetic-construct record (PZ005984, lacI_IA9_Template).",
+  },
+  {
+    id: "ori_psc101",
+    name: "pSC101 origin of replication",
+    category: "origin",
+    accession: "PV807101.1",
+    license: "Public domain sequence facts (GenBank/NCBI).",
+    // Annotated as a misc_feature range "pSC101 ori" on the complement strand in
+    // this Wilson-lab synthetic construct. It is an explicit coordinate range
+    // for the origin, so it is extracted as method A.
+    match: (f) => f.type === "misc_feature" && /^pSC101 ori$/i.test(f.qualifiers.note || ""),
+    note: "pSC101 (low-copy) replication origin, annotated as an explicit coordinate range (misc_feature 'pSC101 ori') in a synthetic-construct record (PV807101, pHY702).",
+  },
+
   // --- Terminators ---
   {
     id: "terminator_rrnb_t1",
@@ -349,7 +453,45 @@ const TARGETS = [
     note: "E. coli rrnB T1 transcription terminator, annotated as a clean range with an explicit note in a GenBank vector record (pSEVA251 derivative).",
   },
 
+  // --- v2 additions: terminators ---
+  {
+    id: "terminator_t7",
+    name: "T7 terminator (T-phi, from phage T7)",
+    category: "terminator",
+    accession: "OZ375372.1",
+    license: "Public domain sequence facts (GenBank/NCBI).",
+    match: (f) =>
+      f.type === "regulatory" &&
+      f.qualifiers.regulatory_class === "terminator" &&
+      /\bT7 terminator\b/i.test(f.qualifiers.note || ""),
+    note: "T7 (T-phi) transcription terminator, annotated as a clean range in a synthetic plasmid record (OZ375372, pcrRNA3gfplex). This is the standard downstream terminator of pET-series T7 expression cassettes.",
+  },
+  {
+    id: "terminator_lambda_tl3",
+    name: "lambda tL3 terminator (from phage lambda)",
+    category: "terminator",
+    accession: "OQ295986.1",
+    license: "Public domain sequence facts (GenBank/NCBI).",
+    match: (f) =>
+      f.type === "regulatory" &&
+      f.qualifiers.regulatory_class === "terminator" &&
+      /tL3 terminator/i.test(f.qualifiers.note || ""),
+    note: "Phage lambda tL3 transcription terminator, annotated as a clean range in a synthetic-construct record (OQ295986).",
+  },
+
   // --- Regulatory signals ---
+  {
+    id: "regulatory_lac_operator",
+    name: "lac operator (O1, lacI/LacI binding site)",
+    category: "regulatory",
+    accession: "PX994934.1",
+    license: "Public domain sequence facts (GenBank/NCBI).",
+    // Annotated as a misc_feature whose note ends with "; lac operator; ...".
+    match: (f) =>
+      f.type === "misc_feature" &&
+      /;\s*lac operator\b/i.test(f.qualifiers.note || ""),
+    note: "lac operator (the LacI repressor binding site that gates the lac/T7lac/tac promoters), annotated as a clean coordinate range in a SnapGene-style synthetic-construct record (PX994934).",
+  },
   {
     id: "regulatory_sv40_polya",
     name: "SV40 late polyA signal",
@@ -383,88 +525,62 @@ const TARGETS = [
 // records but could NOT be cleanly extracted, and were therefore omitted rather
 // than guessed. Recorded here (not as guessed sequences) so a future pass can
 // revisit them. The "reason" documents the exact record-level finding.
+//
+// v2 update: the bacterial-cloning workhorse origins (ColE1/pUC, p15A, pSC101),
+// the phage/bacterial promoters (T7, SP6, lac, tac, trc) and the T7 / lambda tL3
+// terminators are NO LONGER omitted. The v1 omissions were a consequence of only
+// searching the classic single-base primary records; v2 pins modern,
+// well-annotated synthetic-construct and cloning-vector records that annotate
+// each as a clean coordinate range, so they are now shipped as method-A
+// extractions above. What remains below is genuinely out of scope or unfound.
 const DOCUMENTED_OMISSIONS = [
   {
-    id: "ori_cole1_puc",
-    name: "ColE1 / pUC origin",
-    reason:
-      "pUC19 (L09137) carries only a bare source feature; the pBR322 origin in J01749 is annotated as a single base point (rep_origin 2535), not a coordinate range, so no span can be extracted without inventing endpoints.",
-  },
-  {
     id: "ori_pbr322",
-    name: "pBR322 origin",
+    name: "pBR322 / pMB1 origin",
     reason:
-      "J01749 annotates the pBR322 origin as a single base (rep_origin 2535) with no range; extracting a span would require guessed endpoints.",
-  },
-  {
-    id: "ori_p15a",
-    name: "p15A origin",
-    reason: "No fetched public-domain primary record annotated a p15A origin as a coordinate range.",
-  },
-  {
-    id: "ori_psc101",
-    name: "pSC101 origin",
-    reason:
-      "Only an indirect reference exists (pBR322 J01749 misc_feature 1636..1762 noted 'from pSC101'); the fragment is not annotated as an origin feature, so it was not extracted as one.",
+      "COVERED, not omitted. pBR322, pMB1, ColE1 and pUC share one and the same replication origin region; it is shipped as ori_cole1_puc (PX994934.1 rep_origin 8031..8619, /note 'high-copy-number ColE1/pMB1/pBR322/pUC origin of replication'). Storing a separate pBR322 sequence would duplicate the same element. The primary pBR322 record J01749 annotates its origin only as a single base (rep_origin 2535), so no distinct range exists there anyway.",
   },
   {
     id: "ori_f1_m13",
     name: "f1 / M13 origin",
     reason:
-      "The M13 genome record (V00604) does not annotate the f1 intergenic origin as a feature; it appears only inside a gene II /note, with no extractable coordinates.",
+      "Out of scope for this v2 pass (the brief targets bacterial-cloning origins). The classic M13 genome record (V00604) does not annotate the f1 intergenic origin as a feature; it appears only inside a gene II /note with no extractable coordinates. A future pass can pin a SnapGene-style record that annotates an 'f1 ori' range.",
   },
   {
-    id: "promoter_t7",
-    name: "T7 promoter (phi10)",
+    id: "promoter_arabad",
+    name: "araBAD / pBAD promoter",
     reason:
-      "The T7 RefSeq genome (NC_001604) annotates the phi10 promoter as a single base (regulatory 22904), not a range; the canonical 23-mer cannot be extracted without inventing endpoints around that point.",
-  },
-  {
-    id: "promoter_sp6",
-    name: "SP6 promoter",
-    reason: "The SP6 RefSeq genome (NC_004831) contains zero regulatory/promoter features.",
-  },
-  {
-    id: "promoter_lac",
-    name: "lac / lacUV5 promoter",
-    reason:
-      "The lac operon record (J01636) annotates the CAP site and the lac operator as ranges but not the -35/-10 promoter as a single clean range, and mixes wild-type vs UV5 variation features; no unambiguous promoter span.",
-  },
-  {
-    id: "promoter_tac_trc_arabad",
-    name: "tac / trc / araBAD promoters",
-    reason:
-      "tac and trc are engineered hybrid promoters with no single primary record; no fetched public-domain record annotated them, or araBAD, as a clean extractable range.",
+      "Not in the v2 brief target list and not pursued here. Records that annotate a pBAD/araBAD promoter range exist (e.g. PV588693.1), so it is a clean future addition, not a fabrication risk.",
   },
   {
     id: "promoter_ef1a_cag_pgk_u6",
     name: "EF-1alpha / CAG / hPGK / U6 promoters",
     reason:
-      "No fetched well-annotated public record exposed these as a single coordinate range with a matching note; not extracted to avoid mislabeling.",
-  },
-  {
-    id: "terminator_t7",
-    name: "T7 terminator (Tphi)",
-    reason:
-      "The T7 RefSeq genome (NC_001604) annotates the Tphi terminator as a single base (regulatory 24210), not a range.",
-  },
-  {
-    id: "terminator_lambda_tl3",
-    name: "lambda tL3 terminator",
-    reason:
-      "The lambda RefSeq genome (NC_001416) annotates operators but no tL3 terminator feature with extractable coordinates.",
+      "Out of scope for this bacterial-cloning v2 pass (these are mammalian/Pol III promoters). Not extracted to avoid mislabeling; deferred to a mammalian-expression curation pass.",
   },
   {
     id: "terminator_bgh_polya",
     name: "BGH polyA",
     reason:
-      "No fetched well-annotated public record exposed the BGH polyadenylation signal as a single coordinate range with a matching note.",
+      "Out of scope for this bacterial-cloning v2 pass (mammalian polyadenylation signal); deferred to a mammalian-expression curation pass.",
+  },
+  {
+    id: "regulatory_shine_dalgarno_skip",
+    name: "Shine-Dalgarno (as a detectable motif)",
+    reason:
+      "SKIP per brief: too short for sequence detection (a 5-6 bp motif needs a motif-scan, not exact-match detection). Note: a single grounded SD instance is already stored (regulatory_shine_dalgarno, extracted from J01749) for reference, but it is not a reliable detection target on its own.",
   },
   {
     id: "regulatory_kozak",
     name: "Kozak sequence",
     reason:
-      "The Kozak consensus is a short motif, not a feature annotated at coordinates in a primary record; extracting a specific instance was out of scope and reciting the consensus is forbidden.",
+      "SKIP per brief: too short for sequence detection and a mammalian motif. The Kozak consensus is a short motif, not a feature annotated at coordinates in a primary record; reciting the consensus from memory is forbidden.",
+  },
+  {
+    id: "regulatory_polya_hexamer_skip",
+    name: "bare polyA hexamer (AATAAA) as a detectable motif",
+    reason:
+      "SKIP per brief: a 6 bp hexamer is too short for exact-match detection (needs a motif-scan). Note: one grounded instance (regulatory_sv40_polya, extracted from J02400) is stored for reference, not as a standalone detection target.",
   },
 ];
 
@@ -494,6 +610,40 @@ function validateEntry(entry) {
     return false;
   }
   return true;
+}
+
+// Method-B style cross-confirmation. Given an extracted sequence and a second
+// accession that is EXPECTED to contain that element verbatim (e.g. confirming
+// an extracted T7 promoter against a canonical pET vector), fetch that record
+// and locate the sequence on either strand. We require a verbatim (exact) hit
+// over the full length; the threshold parameter allows a >=0.95 windowed match
+// for longer elements, but for the short universal motifs here we expect exact.
+// Returns { accession, position } describing where it was found, or null. The
+// worst case for a wrong guess is null (we then drop the cross-confirmation but
+// keep the method-A extraction, which is itself fully grounded).
+async function confirmInRecord(seq, confirmAcc) {
+  let gb;
+  try {
+    gb = await efetchGenbank(confirmAcc);
+  } catch (err) {
+    warn(`confirmIn ${confirmAcc}: fetch failed: ${err.message}`);
+    return null;
+  }
+  const { sequence } = parseGenbank(gb);
+  const fwd = sequence.indexOf(seq);
+  if (fwd >= 0) {
+    return { accession: confirmAcc, position: `${fwd + 1}..${fwd + seq.length}`, strand: "+" };
+  }
+  const rc = revComp(seq);
+  const rev = sequence.indexOf(rc);
+  if (rev >= 0) {
+    return {
+      accession: confirmAcc,
+      position: `complement(${rev + 1}..${rev + rc.length})`,
+      strand: "-",
+    };
+  }
+  return null;
 }
 
 async function buildEntry(target) {
@@ -542,6 +692,21 @@ async function buildEntry(target) {
       feat.qualifiers.note || ""
     }".`,
   };
+  // Optional cross-confirmation in a second expected record (method-B style).
+  if (target.confirmIn) {
+    const hit = await confirmInRecord(seq, target.confirmIn);
+    if (hit) {
+      entry.matchedInAccession = hit.accession;
+      entry.note += ` Cross-confirmed: the extracted sequence is present verbatim in ${hit.accession} at ${hit.position} (${efetchUrl(hit.accession)}).`;
+      log(
+        `  CONFIRM ${target.id}: also present verbatim in ${hit.accession} ${hit.position}`
+      );
+    } else {
+      warn(
+        `${target.id}: cross-confirmation in ${target.confirmIn} did NOT find the extracted sequence (kept method-A extraction without cross-confirm).`
+      );
+    }
+  }
   log(
     `EXTRACT ${target.id}: ${target.accession} ${feat.type} ${coords} -> len ${seq.length} <- ${entry.sourceUrl}`
   );
@@ -585,6 +750,20 @@ async function verifySample(entries, sampleIds) {
         `VERIFY FAILED for ${id}: re-extracted seq does not match stored seq`
       );
     }
+    // If this entry carries a cross-confirmation, independently re-confirm that
+    // the stored sequence is still present verbatim in the matched record.
+    if (e.matchedInAccession) {
+      const hit = await confirmInRecord(e.seq, e.matchedInAccession);
+      if (hit) {
+        log(
+          `  OK ${id}: cross-confirm still present in ${e.matchedInAccession} ${hit.position}`
+        );
+      } else {
+        throw new Error(
+          `VERIFY FAILED for ${id}: stored seq not found in cross-confirm record ${e.matchedInAccession}`
+        );
+      }
+    }
   }
 }
 
@@ -617,8 +796,16 @@ async function main() {
   const counts = {};
   for (const e of all) counts[e.category] = (counts[e.category] || 0) + 1;
 
-  // Spot-check three entries by independent re-fetch + re-extract.
-  const sample = all.slice(0, 3).map((e) => e.id);
+  // Spot-check three entries by independent re-fetch + re-extract. Prefer three
+  // of the NEW v2 entries (covering an origin, a cross-confirmed promoter, and a
+  // terminator) when present, falling back to the first three entries otherwise.
+  const preferredSample = ["ori_cole1_puc", "promoter_t7", "terminator_t7"].filter(
+    (id) => all.some((e) => e.id === id)
+  );
+  const sample =
+    preferredSample.length === 3
+      ? preferredSample
+      : all.slice(0, 3).map((e) => e.id);
   await verifySample(all, sample);
 
   const dataset = {
@@ -632,7 +819,7 @@ async function main() {
       },
     ],
     method:
-      "Each sequence is the substring of a fetched GenBank record at the coordinates of a feature whose type and /note match the target. complement() locations are reverse-complemented. No sequence is written, completed, or recalled from memory.",
+      "Each sequence is the substring of a fetched GenBank record at the coordinates of a feature whose type and /note match the target (method A, coordinate extraction). complement() locations are reverse-complemented. Some entries additionally carry a cross-confirmation (matchedInAccession) recording a second fetched record in which the extracted sequence was found verbatim. No sequence is written, completed, or recalled from memory.",
     count: all.length,
     countsByCategory: counts,
     entries: all,
@@ -689,7 +876,7 @@ function buildDnaSection(counts, total, omitted) {
   lines.push("## Extraction method (verified, not recited)");
   lines.push("");
   lines.push(
-    "For each target element the build script pins a specific, well-annotated GenBank accession and a predicate that selects exactly one feature in that record by feature type plus /note or /regulatory_class. The stored sequence is the substring of the fetched record at that feature's coordinates; complement() locations are reverse-complemented; locations with fuzzy bounds (< or >) are refused. The script independently re-fetches and re-extracts a spot-check sample and aborts if any re-extraction does not match the stored sequence."
+    "For each target element the build script pins a specific, well-annotated GenBank accession and a predicate that selects exactly one feature in that record by feature type plus /note or /regulatory_class. The stored sequence is the substring of the fetched record at that feature's coordinates (method A); complement() locations are reverse-complemented; locations with fuzzy bounds (< or >) are refused. Some entries additionally carry a cross-confirmation (the matchedInAccession field): the extracted sequence was located verbatim in a second fetched record that is expected to contain it (for example, the T7 promoter extracted from a SnapGene-style synthetic construct is cross-confirmed present in the canonical pET28a vector record PP098726.1). This cross-confirmation is method-B style provenance and never a source of sequence data; if a cross-confirmation fails, the method-A extraction is kept and the cross-confirmation is simply dropped. The script independently re-fetches and re-extracts a spot-check sample (and re-checks any cross-confirmation) and aborts if any re-extraction does not match the stored sequence."
   );
   lines.push("");
   lines.push("## No-fabrication guarantee");
@@ -699,10 +886,10 @@ function buildDnaSection(counts, total, omitted) {
   );
   lines.push("");
   if (omitted.length) {
-    lines.push("## Omitted targets (could not cleanly source)");
+    lines.push("## Omitted, covered-by-family, and skipped targets");
     lines.push("");
     lines.push(
-      "The following targets were intentionally omitted because no fetched record annotated them as an unambiguous coordinate range with a matching note. They are recorded here so a future curation pass can revisit them rather than fabricate a sequence."
+      "The following brief targets are NOT shipped as their own entry. Each is one of: covered by an equivalent shipped entry (the same biological element under a family name), out of scope for this bacterial-cloning pass (deferred to a later mammalian-expression pass), or skipped as too short for exact-match sequence detection. None was fabricated; where a sequence was unavailable from a clean annotated range it was omitted rather than guessed. They are recorded here so a future curation pass can revisit them."
     );
     lines.push("");
     for (const o of omitted) {
