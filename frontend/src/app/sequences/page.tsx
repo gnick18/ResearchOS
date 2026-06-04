@@ -19,6 +19,7 @@ import SequenceImportTargetDialog, {
   type ImportTargetRequest,
 } from "@/components/sequences/SequenceImportTargetDialog";
 import CloningWorkspace from "@/components/sequences/CloningWorkspace";
+import CompareSequencesDialog from "@/components/sequences/CompareSequencesDialog";
 import { sequencesApi, projectsApi } from "@/lib/local-api";
 import {
   importSequenceFile,
@@ -109,6 +110,19 @@ function AssembleIcon({ className }: { className?: string }) {
   );
 }
 
+/** Compare glyph: two stacked tracks with offset tick marks, reading as two
+ *  sequences laid out for alignment. Inline SVG, stroke-only (no emojis). */
+function CompareIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <line x1="4" y1="8" x2="20" y2="8" />
+      <line x1="4" y1="16" x2="20" y2="16" />
+      <line x1="9" y1="5" x2="9" y2="11" />
+      <line x1="15" y1="13" x2="15" y2="19" />
+    </svg>
+  );
+}
+
 /** Downward chevron for the Import split-menu. Inline SVG (no emojis). */
 function ChevronDownIcon({ className }: { className?: string }) {
   return (
@@ -176,6 +190,7 @@ export default function SequencesPage() {
   const [saving, setSaving] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [assembleOpen, setAssembleOpen] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   // Transient status line under the toolbar (import counts / parse errors).
   const [status, setStatus] = useState<{ text: string; tone: "ok" | "error" } | null>(null);
@@ -590,6 +605,18 @@ export default function SequencesPage() {
                     Assemble
                   </button>
                 </Tooltip>
+                {/* Compare: align two library sequences and see their percent
+                    identity, mismatches, gaps, and a k-mer dotplot. */}
+                <Tooltip label="Compare two sequences: align them and see percent identity, mismatches, gaps, and a dotplot.">
+                  <button
+                    type="button"
+                    onClick={() => setCompareOpen(true)}
+                    className="flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1.5 text-meta font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                  >
+                    <CompareIcon className="h-3.5 w-3.5" />
+                    Compare
+                  </button>
+                </Tooltip>
                 {/* Import split-menu: pick files, or pick a whole folder
                     (e.g. a SnapGene collection). Drag-and-drop also works
                     anywhere on the library. */}
@@ -817,6 +844,15 @@ export default function SequencesPage() {
         open={newOpen}
         onCancel={() => setNewOpen(false)}
         onSubmit={handleNewSubmit}
+      />
+
+      {/* Compare two sequences: align them (global / local, IUPAC-aware) and
+          show identity, mismatches, gaps, and a dotplot. Seeds Sequence A from
+          the currently selected library item. */}
+      <CompareSequencesDialog
+        open={compareOpen}
+        onClose={() => setCompareOpen(false)}
+        defaultAId={selectedId}
       />
 
       {/* Standalone overlap-assembly (Gibson / NEBuilder HiFi) workspace. The
