@@ -81,12 +81,26 @@ export default function ProjectImportDialog({
   const inventory = useMemo(() => {
     if (!payload) return null;
     const methodIds = new Set<number>();
+    // Count tasks by their actual task_type instead of labeling every task an
+    // "experiment" (a project's list / purchase tasks were miscounted as
+    // experiments). `payload.experiments` is the full task list regardless of
+    // type; bucket it here. Default an unset task_type to "experiment" to match
+    // the create-path default.
+    let experiments = 0;
+    let purchases = 0;
+    let lists = 0;
     for (const exp of payload.experiments) {
+      const type = exp.task.task_type ?? "experiment";
+      if (type === "purchase") purchases += 1;
+      else if (type === "list") lists += 1;
+      else experiments += 1;
       for (const m of exp.methods) methodIds.add(m.record.id);
     }
     return {
       projectName: payload.project.name || payload.manifest.project_name,
-      experiments: payload.experiments.length,
+      experiments,
+      purchases,
+      lists,
       methods: methodIds.size,
       dependencies: payload.dependencies.length,
     };
@@ -168,7 +182,15 @@ export default function ProjectImportDialog({
                 projects are not touched. The original sender keeps their version.
               </p>
               <ul className="space-y-1.5 mb-2">
-                <InventoryRow label="Experiments" value={inventory.experiments} />
+                {inventory.experiments > 0 && (
+                  <InventoryRow label="Experiments" value={inventory.experiments} />
+                )}
+                {inventory.purchases > 0 && (
+                  <InventoryRow label="Purchases" value={inventory.purchases} />
+                )}
+                {inventory.lists > 0 && (
+                  <InventoryRow label="Lists" value={inventory.lists} />
+                )}
                 <InventoryRow label="Methods" value={inventory.methods} />
                 <InventoryRow label="Experiment links" value={inventory.dependencies} />
               </ul>
