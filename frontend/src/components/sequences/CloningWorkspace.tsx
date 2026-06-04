@@ -37,15 +37,22 @@ import {
   type CutLigateResult,
   type LigateFragment,
 } from "@/lib/sequences/cut-ligate";
+import {
+  runGateway,
+  type GatewayResult,
+  type GatewayReaction,
+  type GatewaySubstrate,
+} from "@/lib/sequences/cloning-gateway";
 import type { SequenceRecord } from "@/lib/types";
 
 /** Which assembly chemistry the workspace is driving. */
-type CloneMethod = "overlap" | "restriction" | "golden-gate";
+type CloneMethod = "overlap" | "restriction" | "golden-gate" | "gateway";
 
 const METHOD_LABEL: Record<CloneMethod, string> = {
   overlap: "Overlap (Gibson / NEBuilder)",
   restriction: "Restriction + ligation",
   "golden-gate": "Golden Gate (Type IIS)",
+  gateway: "Gateway (BP / LR)",
 };
 
 /** Type IIS enzymes offered for Golden Gate, and common cutters for restriction. */
@@ -126,6 +133,8 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
   const [method, setMethod] = useState<CloneMethod>("overlap");
   // Enzymes for the cut-ligate methods (restriction / golden-gate).
   const [enzymeNames, setEnzymeNames] = useState<string[]>(["BsaI"]);
+  // Gateway reaction type (BP or LR).
+  const [gatewayReaction, setGatewayReaction] = useState<GatewayReaction>("LR");
   // Overlap sizing. length is the default; Tm is the advanced disclosure.
   const [overlapKind, setOverlapKind] = useState<"length" | "tm">("length");
   const [overlapBp, setOverlapBp] = useState(DEFAULT_OVERLAP_BP);
@@ -161,6 +170,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
       setStep("pick");
       setMethod("overlap");
       setEnzymeNames(["BsaI"]);
+      setGatewayReaction("LR");
       setOverlapKind("length");
       setOverlapBp(DEFAULT_OVERLAP_BP);
       setOverlapTm(48);
@@ -225,6 +235,17 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
     else if (m === "restriction") setEnzymeNames(["EcoRI"]);
   }, []);
 
+  // Resolve the per-fragment circular flag from its library record (pasted
+  // fragments default to linear). Used by the cut-ligate and Gateway engines.
+  const fragmentIsCircular = useCallback(
+    (i: number): boolean => {
+      const p = picked[i];
+      if (!p || p.kind !== "library") return false;
+      return library.find((s: SequenceRecord) => s.id === p.id)?.circular ?? false;
+    },
+    [picked, library],
+  );
+
   // Run the pure OVERLAP engine whenever inputs change (cheap, deterministic).
   const result: AssemblyResult | null = useMemo(() => {
     if (method !== "overlap") return null;
@@ -237,26 +258,47 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
   const cutLigateResult: CutLigateResult | null = useMemo(() => {
     if (method === "overlap") return null;
     if (fragments.length < 1 || fragments.some((f) => !f.seq)) return null;
-    const ligFrags: LigateFragment[] = fragments.map((f, i) => {
-      const p = picked[i];
-      const isCircular =
-        p?.kind === "library"
-          ? (library.find((s: SequenceRecord) => s.id === p.id)?.circular ?? false)
-          : false;
-      return { name: f.name, seq: f.seq, circular: isCircular };
-    });
+    const ligFrags: LigateFragment[] = fragments.map((f, i) => ({
+      name: f.name,
+      seq: f.seq,
+      circular: fragmentIsCircular(i),
+    }));
     return cutAndLigate(ligFrags, {
       enzymeNames,
       mode: method === "golden-gate" ? "golden-gate" : "restriction",
       circularOnly: true,
       allowBlunt: false,
     });
-  }, [method, fragments, enzymeNames, picked, library]);
+  }, [method, fragments, enzymeNames, fragmentIsCircular]);
+
+  // Run the pure GATEWAY engine (BP / LR). Slot 0 is the insert/entry substrate
+  // (an attB-PCR product is linear; an entry clone is circular); slot 1 is the
+  // donor/destination cassette vector (circular). The gene of interest transfers
+  // onto the cassette backbone.
+  const gatewayResult: GatewayResult | null = useMemo(() => {
+    if (method !== "gateway") return null;
+    if (fragments.length < 2 || !fragments[0]?.seq || !fragments[1]?.seq) return null;
+    const insert: GatewaySubstrate = {
+      name: fragments[0].name,
+      seq: fragments[0].seq,
+      circular: fragmentIsCircular(0),
+      features: fragments[0].features ?? [],
+    };
+    const cassette: GatewaySubstrate = {
+      name: fragments[1].name,
+      seq: fragments[1].seq,
+      circular: fragmentIsCircular(1),
+      features: fragments[1].features ?? [],
+    };
+    return runGateway(insert, cassette, gatewayReaction);
+  }, [method, fragments, gatewayReaction, fragmentIsCircular]);
 
   const canReview =
     method === "overlap"
       ? picked.length >= 2 && !resolving && fragments.every((f) => f.seq)
-      : picked.length >= 1 && !resolving && fragments.every((f) => f.seq) && enzymeNames.length > 0;
+      : method === "gateway"
+        ? picked.length === 2 && !resolving && fragments.every((f) => f.seq)
+        : picked.length >= 1 && !resolving && fragments.every((f) => f.seq) && enzymeNames.length > 0;
 
   // --- fragment list editing ---
   const addLibrary = useCallback((rec: SequenceRecord) => {
@@ -345,6 +387,45 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
     }
   }, [cutLigateResult, safeProductIndex, name, activeProjectIds, onSaved]);
 
+  // Save a Gateway product (the desired clone, or the byproduct) as a sequence.
+  const saveGatewayProduct = useCallback(
+    async (index: number) => {
+      const prod = gatewayResult?.products[index];
+      if (!prod) return;
+      setSaving(true);
+      setSaveError(null);
+      try {
+        const fallback =
+          prod.role === "clone"
+            ? gatewayReaction === "BP"
+              ? "Entry clone"
+              : "Expression clone"
+            : "Gateway byproduct";
+        const genbank = productToGenbank(name.trim() || fallback, {
+          seq: prod.seq,
+          circular: prod.circular,
+          features: prod.features,
+        });
+        const rec = await sequencesApi.create({
+          display_name: name.trim() || fallback,
+          genbank,
+          seq_type: "dna",
+          project_ids: activeProjectIds,
+        });
+        if (!rec) {
+          setSaveError("Could not save the construct.");
+          return;
+        }
+        onSaved(rec.id);
+      } catch {
+        setSaveError("Could not save the construct.");
+      } finally {
+        setSaving(false);
+      }
+    },
+    [gatewayResult, gatewayReaction, name, activeProjectIds, onSaved],
+  );
+
   const copyOligos = useCallback(async () => {
     if (!result) return;
     try {
@@ -369,7 +450,9 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
               ? "Overlap assembly (Gibson / NEBuilder HiFi). Join fragments by shared homologous ends."
               : method === "restriction"
                 ? "Restriction + ligation. Cut fragments with one or more enzymes and ligate the compatible ends."
-                : "Golden Gate (Type IIS). One enzyme excises its sites and ligates the parts by defined overhangs, scarlessly."}
+                : method === "golden-gate"
+                  ? "Golden Gate (Type IIS). One enzyme excises its sites and ligates the parts by defined overhangs, scarlessly."
+                  : "Gateway recombination. att-site BP and LR reactions transfer a gene between vectors with no enzyme digestion or ligation."}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -397,7 +480,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
 
       {/* Method tabs (overlap / restriction / golden-gate) */}
       <div className="flex items-center gap-1 border-b border-gray-100 px-5 py-2">
-        {(["overlap", "restriction", "golden-gate"] as CloneMethod[]).map((m) => (
+        {(["overlap", "restriction", "golden-gate", "gateway"] as CloneMethod[]).map((m) => (
           <button
             key={m}
             type="button"
@@ -417,18 +500,26 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
         <div className="grid min-h-0 flex-1 grid-cols-[1fr_22rem] gap-0 overflow-hidden">
           {/* LEFT: ordered fragment list + options */}
           <section className="flex min-h-0 flex-col overflow-y-auto p-5">
-            <h2 className="mb-1 text-body font-semibold text-gray-700">Fragments, in order</h2>
+            <h2 className="mb-1 text-body font-semibold text-gray-700">
+              {method === "gateway" ? "Substrates" : "Fragments, in order"}
+            </h2>
             <p className="mb-3 text-meta text-gray-500">
               {method === "overlap"
                 ? "Order is 5'->3' along the product. For a plasmid put the insert first, then the vector backbone."
-                : "Order does not matter; the engine ligates by compatible ends. Mark library plasmids that should be cut open as circular."}
+                : method === "gateway"
+                  ? gatewayReaction === "BP"
+                    ? "Add two substrates in order. First the attB substrate (your attB-PCR product or attB clone), then the attP donor vector (pDONR)."
+                    : "Add two substrates in order. First the attL entry clone (carries your gene), then the attR destination vector (pDEST)."
+                  : "Order does not matter; the engine ligates by compatible ends. Mark library plasmids that should be cut open as circular."}
             </p>
 
             {picked.length === 0 ? (
               <div className="rounded-md border border-dashed border-gray-300 px-4 py-8 text-center text-body text-gray-400">
                 {method === "overlap"
                   ? "Add two or more fragments from your library or paste a sequence."
-                  : "Add the fragment(s) to cut and ligate, from your library or pasted."}
+                  : method === "gateway"
+                    ? "Add the two substrates for this reaction, from your library or pasted."
+                    : "Add the fragment(s) to cut and ligate, from your library or pasted."}
               </div>
             ) : (
               <ol className="space-y-2">
@@ -502,7 +593,34 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
 
             {/* Options */}
             <div className="mt-6 space-y-4 border-t border-gray-100 pt-4">
-              {method !== "overlap" ? (
+              {method === "gateway" ? (
+                <div>
+                  <span className="mb-1.5 block text-meta font-medium uppercase tracking-wide text-gray-400">
+                    Reaction
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setGatewayReaction("BP")}
+                      className={`rounded-md border px-3 py-1.5 text-meta font-medium ${gatewayReaction === "BP" ? "border-sky-500 bg-sky-50 text-sky-700" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}
+                    >
+                      BP (attB x attP)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setGatewayReaction("LR")}
+                      className={`rounded-md border px-3 py-1.5 text-meta font-medium ${gatewayReaction === "LR" ? "border-sky-500 bg-sky-50 text-sky-700" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}
+                    >
+                      LR (attL x attR)
+                    </button>
+                  </div>
+                  <p className="mt-1 text-meta text-gray-400">
+                    {gatewayReaction === "BP"
+                      ? "attB substrate x attP donor builds an attL entry clone (the ccdB cassette leaves as the byproduct)."
+                      : "attL entry clone x attR destination builds an attB expression clone (the ccdB cassette leaves as the byproduct)."}
+                  </p>
+                </div>
+              ) : method !== "overlap" ? (
                 <div>
                   <span className="mb-1.5 block text-meta font-medium uppercase tracking-wide text-gray-400">
                     {method === "golden-gate" ? "Type IIS enzyme" : "Restriction enzyme(s)"}
@@ -620,18 +738,114 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
               )}
             </div>
             <div className="border-t border-gray-100 p-4">
-              <Tooltip label={canReview ? "Review the junctions and primers before saving" : "Add at least two fragments first"}>
+              <Tooltip
+                label={
+                  canReview
+                    ? "Review the product before saving"
+                    : method === "gateway"
+                      ? "Add the two substrates first"
+                      : "Add at least two fragments first"
+                }
+              >
                 <button
                   type="button"
                   onClick={() => setStep("review")}
                   disabled={!canReview}
                   className="w-full rounded-md bg-sky-600 px-3 py-2 text-body font-medium text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {method === "overlap" ? "Review junctions" : "Cut and ligate"}
+                  {method === "overlap"
+                    ? "Review junctions"
+                    : method === "gateway"
+                      ? "Run recombination"
+                      : "Cut and ligate"}
                 </button>
               </Tooltip>
             </div>
           </aside>
+        </div>
+      ) : method === "gateway" ? (
+        // --- GATEWAY REVIEW STEP (BP / LR) ---
+        <div className="min-h-0 flex-1 overflow-y-auto p-5">
+          {gatewayResult && gatewayResult.products.length > 0 ? (
+            <div className="mx-auto max-w-4xl space-y-5">
+              <label className="block">
+                <span className="mb-1 block text-meta font-medium uppercase tracking-wide text-gray-400">Construct name</span>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder={gatewayReaction === "BP" ? "Entry clone" : "Expression clone"}
+                  className="w-full max-w-md rounded-md border border-gray-200 px-3 py-2 text-body focus:border-sky-400 focus:outline-none"
+                />
+              </label>
+
+              {gatewayResult.warnings.length > 0 ? (
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
+                  <div className="mb-1 flex items-center gap-1.5 text-meta font-semibold text-amber-800">
+                    <WarnIcon className="h-4 w-4" /> Notes
+                  </div>
+                  <ul className="list-inside list-disc space-y-0.5 text-meta text-amber-700">
+                    {gatewayResult.warnings.map((w, i) => <li key={i}>{w}</li>)}
+                  </ul>
+                </div>
+              ) : null}
+
+              {gatewayResult.products.map((prod, i) => (
+                <div key={i} className="rounded-md border border-gray-200 p-4">
+                  <div className="mb-2 flex items-center justify-between">
+                    <h2 className="text-body font-semibold text-gray-700">
+                      {prod.role === "clone"
+                        ? gatewayReaction === "BP"
+                          ? "Entry clone"
+                          : "Expression clone"
+                        : "Byproduct"}
+                    </h2>
+                    <span className="text-meta text-gray-500">
+                      {prod.circular ? "Circular" : "Linear"} · {prod.seq.length.toLocaleString()} bp ·{" "}
+                      {productGc(prod.seq).toFixed(0)}% GC
+                    </span>
+                  </div>
+                  <div className="mb-2 grid grid-cols-2 gap-2">
+                    {prod.attSites.map((att, k) => (
+                      <div key={k} className="rounded bg-gray-50 px-2 py-1.5">
+                        <div className="mb-0.5 font-sans text-meta font-medium text-gray-700">{att.name}</div>
+                        <div className="break-all font-mono text-meta text-gray-600">{att.seq}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-all rounded bg-gray-50 p-2 font-mono text-meta leading-relaxed text-gray-700">
+                    {prod.seq.length > 4000 ? prod.seq.slice(0, 4000) + "\n…" : prod.seq}
+                  </pre>
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => saveGatewayProduct(i)}
+                      disabled={saving}
+                      className="rounded-md bg-sky-600 px-4 py-1.5 text-meta font-medium text-white hover:bg-sky-700 disabled:opacity-50"
+                    >
+                      {saving ? "Saving…" : `Save ${prod.role === "clone" ? "clone" : "byproduct"}`}
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-4">
+                {saveError ? <span className="text-meta text-rose-600">{saveError}</span> : null}
+                <button type="button" onClick={() => setStep("pick")} className="rounded-md border border-gray-200 px-4 py-2 text-body font-medium text-gray-700 hover:bg-gray-100">
+                  Back
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex h-full flex-col items-center justify-center gap-2 text-body text-gray-400">
+              <span>No recombination product from these substrates.</span>
+              {gatewayResult?.warnings.length ? (
+                <ul className="list-inside list-disc text-meta text-amber-600">
+                  {gatewayResult.warnings.map((w, i) => <li key={i}>{w}</li>)}
+                </ul>
+              ) : null}
+            </div>
+          )}
         </div>
       ) : method !== "overlap" ? (
         // --- CUT-LIGATE REVIEW STEP (restriction / golden-gate) ---
