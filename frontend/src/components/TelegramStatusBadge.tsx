@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { readPairing, type TelegramPairing } from "@/lib/telegram/telegram-store";
 import { useTelegramPolling } from "@/lib/telegram/use-telegram-polling";
@@ -68,6 +68,23 @@ export default function TelegramStatusBadge() {
   );
   useEffect(() => subscribeStaleSignal(setStaleSignal), []);
 
+  // Conflict state: the badge collapses to a quiet amber dot, and clicking it
+  // opens a small popover that explains a separate client is polling and
+  // offers a one-click takeover. Popover open/close + click-outside live here
+  // as unconditional hooks (before any early return) per rules of hooks.
+  const [conflictOpen, setConflictOpen] = useState(false);
+  const conflictRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!conflictOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (conflictRef.current && !conflictRef.current.contains(e.target as Node)) {
+        setConflictOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [conflictOpen]);
+
   if (!currentUser) return null;
 
   const paired = !!pairing;
@@ -95,6 +112,12 @@ export default function TelegramStatusBadge() {
   // "calm" === paired and healthy (tone ok, not stale): nothing is wrong,
   // so we render a bare dot with no pill chrome, no label, no name.
   const calm = paired && presentation.tone === "ok" && !staleSignal.isStale;
+
+  // Conflict === a genuinely separate client (another browser profile or
+  // device) is polling the same bot, so this tab stepped aside. Grant asked
+  // for this to be a quiet amber dot rather than a loud "ANOTHER CLIENT IS
+  // USING THIS BOT" pill, with the explanation + takeover behind a click.
+  const isConflict = paired && health === "conflict";
 
   const toneClass =
     presentation.tone === "error"
@@ -142,6 +165,64 @@ export default function TelegramStatusBadge() {
           />
         )}
       </>
+    );
+  }
+
+  if (isConflict) {
+    // Quiet amber dot, same footprint as the calm dot. The detail and the
+    // takeover offer live in a click-opened popover so the header stays calm
+    // (no shouty uppercase pill) while the signal is still discoverable.
+    const conflictHint = `Another client is connected to @${pairing.botUsername}. Click for details.`;
+    return (
+      <div ref={conflictRef} className="relative">
+        <Tooltip label={conflictHint} placement="bottom">
+          <button
+            type="button"
+            onClick={() => setConflictOpen((open) => !open)}
+            aria-label={conflictHint}
+            aria-expanded={conflictOpen}
+            className="flex items-center justify-center w-7 h-7 rounded-full bg-white/75 shadow-sm hover:bg-white transition-colors"
+          >
+            <span className="inline-block w-2 h-2 rounded-full bg-amber-400" />
+          </button>
+        </Tooltip>
+        {conflictOpen && (
+          <div className="absolute right-0 mt-2 w-72 z-50 rounded-lg border border-gray-200 bg-white shadow-lg p-3 text-left">
+            <div className="flex items-start gap-2">
+              <span className="mt-1 inline-block w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
+              <div className="space-y-1">
+                <p className="text-body font-medium text-gray-900">
+                  Another client is using this bot
+                </p>
+                <p className="text-meta text-gray-500 leading-relaxed">
+                  A different browser or device is connected to @
+                  {pairing.botUsername} and is handling its messages, so this tab
+                  stepped aside. Take over to handle Telegram here instead.
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConflictOpen(false)}
+                className="px-2.5 py-1 text-meta font-medium text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+              >
+                Leave it
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  requestTakeover();
+                  setConflictOpen(false);
+                }}
+                className="px-2.5 py-1 text-meta font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                Use this tab
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     );
   }
 
