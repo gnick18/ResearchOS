@@ -24,6 +24,21 @@ export interface BundleAttachment {
   bytes: Uint8Array;
 }
 
+/**
+ * The sender's verified identity, sealed INSIDE the bundle so the recipient can
+ * attribute a received item to a real person rather than the relay's blind key
+ * hash. This is trustworthy because the bundle is sealed to the recipient (only
+ * they can decrypt it) and the send is Ed25519-signed by the sender, so a
+ * tampered email would fail the bundle's integrity check. The relay never sees
+ * these fields, they travel inside the sealed bytes, never to the relay.
+ */
+export interface BundleSender {
+  /** The sender's canonical email, from their sharing identity sidecar. */
+  email: string;
+  /** The sender's key fingerprint (the grouped safety-check string). */
+  fingerprint: string;
+}
+
 /** Everything buildBundle needs. The caller owns identity and timestamps. */
 export interface BuildBundleInput {
   /**
@@ -42,6 +57,12 @@ export interface BuildBundleInput {
   entity: object;
   /** Attached files, preserved byte-for-byte. */
   attachments: BundleAttachment[];
+  /**
+   * The sender's verified identity, embedded so the recipient can show WHO sent
+   * the item, not just a relay key hash. Optional and additive, a bundle built
+   * before this field still imports (the recipient falls back to the hash).
+   */
+  sender?: BundleSender;
 }
 
 /** The result of reading and verifying a bundle. */
@@ -53,6 +74,12 @@ export interface ReadBundleResult {
   entityType: string;
   entity: object;
   attachments: BundleAttachment[];
+  /**
+   * The sender's embedded identity, or undefined for a pre-sender bundle (one
+   * built before the sender block existed). The caller falls back to the relay
+   * key hash for provenance when this is absent.
+   */
+  sender?: BundleSender;
   /** The parsed ro-crate-metadata.json graph. */
   metadata: object;
 }
@@ -64,6 +91,10 @@ export interface ReadBundleResult {
 const RESEARCHOS_VOCAB = "https://researchos.org/ns/crate#";
 
 const RO_CRATE_CONTEXT = "https://w3id.org/ro/crate/1.1/context";
+
+// The @id of the sender contextual entity in the crate graph. Stable so
+// readBundle can recover the sender block by a single lookup.
+const SENDER_ID = "#sender";
 
 // Maps an entity type to its RO-Crate vocabulary term.
 const VOCAB_TERM: Record<EntityType, string> = {
@@ -110,7 +141,7 @@ interface PayloadFile {
  * files. Returns a plain object so the caller can serialize it deterministically.
  */
 function buildRoCrateMetadata(input: BuildBundleInput, fileNames: string[]): object {
-  const { shareUuid, version, modifiedAt, entityType } = input;
+  const { shareUuid, version, modifiedAt, entityType, sender } = input;
 
   const entityJsonPath = `entities/${entityType}.json`;
   const artifactId = `#${entityType}-${shareUuid}`;
@@ -150,11 +181,28 @@ function buildRoCrateMetadata(input: BuildBundleInput, fileNames: string[]): obj
     dateModified: modifiedAt,
     // The raw record plus every attachment belong to this artifact.
     hasPart: dataFilePaths.map((p) => ({ "@id": p })),
+    // The sender's verified identity, linked as the artifact's author when a
+    // sender block was supplied. Omitted on a pre-sender bundle.
+    ...(sender ? { author: { "@id": SENDER_ID } } : {}),
     // TODO(phase>=4): when a bundle is a re-sent update of a prior version,
     // add schema.org isBasedOn here pointing at the prior bundle's artifact
     // (use isBasedOn, NOT isVersionOf, which does not exist on schema.org
     // Dataset). Single-version export for now.
   };
+
+  // The sender contextual entity. A schema.org Person carrying the sender's own
+  // verified email plus a namespaced key fingerprint. Lives in the RO-Crate
+  // metadata, which is covered by the BagIt tag manifest, so it is tamper-
+  // evident along with the rest of the crate. Built only when a sender was
+  // supplied, so old (pre-sender) bundles keep their exact byte layout.
+  const senderEntity = sender
+    ? {
+        "@id": SENDER_ID,
+        "@type": "Person",
+        email: sender.email,
+        "researchos:fingerprint": sender.fingerprint,
+      }
+    : null;
 
   return {
     "@context": [
@@ -188,6 +236,8 @@ function buildRoCrateMetadata(input: BuildBundleInput, fileNames: string[]): obj
       entityFileEntity,
       // One File entity per attachment.
       ...fileEntities,
+      // The sender contextual entity, only when a sender was supplied.
+      ...(senderEntity ? [senderEntity] : []),
     ],
   };
 }
@@ -342,6 +392,23 @@ export async function readBundle(zipBytes: Uint8Array): Promise<ReadBundleResult
     artifactEntity?.["researchos:entityType"] ?? "",
   ) as EntityType | "";
 
+  // Recover the sender block, if this bundle carries one. Absent on a pre-sender
+  // bundle, in which case sender stays undefined and the caller falls back to
+  // the relay key hash for provenance.
+  const senderEntity = graph.find((n) => n["@id"] === SENDER_ID);
+  let sender: BundleSender | undefined;
+  if (senderEntity) {
+    const email =
+      typeof senderEntity.email === "string" ? senderEntity.email : "";
+    const fingerprint =
+      typeof senderEntity["researchos:fingerprint"] === "string"
+        ? (senderEntity["researchos:fingerprint"] as string)
+        : "";
+    if (email || fingerprint) {
+      sender = { email, fingerprint };
+    }
+  }
+
   // Verify every payload file in the manifest. valid stays true only if all
   // present and matching.
   let valid = true;
@@ -382,6 +449,7 @@ export async function readBundle(zipBytes: Uint8Array): Promise<ReadBundleResult
     entityType,
     entity,
     attachments,
+    sender,
     metadata,
   };
 }

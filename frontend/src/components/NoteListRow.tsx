@@ -2,6 +2,7 @@
 
 import type { Note, LabNote } from "@/lib/types";
 import UserAvatar from "@/components/UserAvatar";
+import ReceivedFromBadge from "@/components/ReceivedFromBadge";
 
 interface NoteListRowProps {
   note: Note | LabNote;
@@ -37,6 +38,8 @@ export default function NoteListRow({ note, onClick, isLabMode = false }: NoteLi
     Boolean(note.is_shared) || Boolean(sharedWith && sharedWith.length > 0);
   const entryCount = note.entries?.length ?? 0;
   const commentCount = note.comments?.length ?? 0;
+  // Provenance fields live on Note (not LabNote); narrow before reading.
+  const received = "received_from" in note ? (note as Note) : undefined;
 
   return (
     <div
@@ -77,6 +80,14 @@ export default function NoteListRow({ note, onClick, isLabMode = false }: NoteLi
             <span className="flex-shrink-0 px-2 py-0.5 text-meta bg-emerald-100 text-emerald-700 rounded-full">
               Shared with lab
             </span>
+          )}
+          {received?.received_from && (
+            <ReceivedFromBadge
+              receivedFrom={received.received_from}
+              fingerprint={received.received_from_fingerprint}
+              receivedAt={received.received_at}
+              small
+            />
           )}
         </div>
         {note.description && (

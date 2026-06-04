@@ -35,10 +35,16 @@ vi.mock("@/lib/local-api", () => ({
   },
 }));
 
+vi.mock("@/lib/sharing/identity/sidecar", () => ({
+  readSharingIdentity: vi.fn(),
+}));
+
 import { listImagesInFolder } from "@/lib/attachments/image-folder";
 import { fileService } from "@/lib/file-system/file-service";
 import { notesApi } from "@/lib/local-api";
+import { readSharingIdentity } from "@/lib/sharing/identity/sidecar";
 
+const mockReadSharingIdentity = vi.mocked(readSharingIdentity);
 const mockListImages = vi.mocked(listImagesInFolder);
 const mockReadFileAsBlob = vi.mocked(fileService.readFileAsBlob);
 const mockWriteFileFromBlob = vi.mocked(fileService.writeFileFromBlob);
@@ -175,6 +181,36 @@ describe("buildNoteBundleInput", () => {
     const input = await buildNoteBundleInput(makeNote(), "Grant");
     expect(input.attachments).toEqual([]);
     expect(mockReadFileAsBlob).not.toHaveBeenCalled();
+  });
+
+  it("embeds the owner's verified sender identity from the sidecar", async () => {
+    mockListImages.mockResolvedValue([]);
+    mockReadSharingIdentity.mockResolvedValue({
+      version: 1,
+      email: "owner@lab.edu",
+      x25519PublicKey: "x-pub",
+      ed25519PublicKey: "e-pub",
+      fingerprint: "AB12 CD34 EF56 7890",
+      claimedAt: "2026-06-01T00:00:00.000Z",
+      recoveryConfirmedAt: null,
+    });
+
+    const input = await buildNoteBundleInput(makeNote(), "Grant");
+
+    expect(mockReadSharingIdentity).toHaveBeenCalledWith("Grant");
+    expect(input.sender).toEqual({
+      email: "owner@lab.edu",
+      fingerprint: "AB12 CD34 EF56 7890",
+    });
+  });
+
+  it("omits sender when the owner has not claimed a sharing identity", async () => {
+    mockListImages.mockResolvedValue([]);
+    mockReadSharingIdentity.mockResolvedValue(null);
+
+    const input = await buildNoteBundleInput(makeNote(), "Grant");
+
+    expect(input.sender).toBeUndefined();
   });
 });
 

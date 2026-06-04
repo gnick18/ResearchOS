@@ -66,6 +66,7 @@ import {
   readBundle,
   type BundleAttachment,
   type BuildBundleInput,
+  type BundleSender,
 } from "@/lib/sharing/bundle";
 import { sealToRecipient, openSealed } from "@/lib/sharing/encryption";
 import { decodePublicKey } from "@/lib/sharing/identity/keys";
@@ -340,6 +341,11 @@ export interface ReceiveShareResult {
   entityType: string;
   entity: object;
   attachments: BundleAttachment[];
+  /**
+   * The sender's verified identity, sealed inside the bundle. Undefined on a
+   * pre-sender bundle, in which case the UI falls back to the relay key hash.
+   */
+  sender?: BundleSender;
 }
 
 /**
@@ -387,6 +393,7 @@ export async function receiveShare(
     entityType: result.entityType,
     entity: result.entity,
     attachments: result.attachments,
+    sender: result.sender,
   };
 }
 

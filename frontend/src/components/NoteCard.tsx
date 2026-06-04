@@ -5,6 +5,7 @@ import type { Note, LabNote } from "@/lib/types";
 import { notesApi } from "@/lib/local-api";
 import UserAvatar from "@/components/UserAvatar";
 import AttributionChip from "@/components/AttributionChip";
+import ReceivedFromBadge from "@/components/ReceivedFromBadge";
 
 interface NoteCardProps {
   note: Note | LabNote;
@@ -150,6 +151,19 @@ export default function NoteCard({ note, onClick, isLabMode = false, tourTarget 
       {/* Description */}
       {note.description && (
         <p className="text-body text-gray-500 mb-3 line-clamp-2">{note.description}</p>
+      )}
+
+      {/* Cross-boundary sharing provenance. Renders only on an imported note;
+          provenance fields live on Note (not LabNote), so narrow before reading. */}
+      {"received_from" in note && note.received_from && (
+        <div className="mb-3">
+          <ReceivedFromBadge
+            receivedFrom={note.received_from}
+            fingerprint={note.received_from_fingerprint}
+            receivedAt={note.received_at}
+            small
+          />
+        </div>
       )}
 
       {/* Footer with date and user info */}

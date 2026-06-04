@@ -15,11 +15,15 @@
 // the local key).
 //
 // SENDER LABEL. listInbox returns only a senderEmailHash (the relay is blind, it
-// never sees a plaintext address), and the decrypted bundle is sender-sanitized,
-// it carries no verified plaintext sender email or fingerprint either. So the
-// only stable sender identifier available is the hash. We render a short
-// hash-derived label and use the hash itself for the imported note's provenance
-// fingerprint. We never invent a plaintext email we do not have.
+// never sees a plaintext address). The sealed bundle, however, now carries the
+// sender's own VERIFIED email + key fingerprint inside it (BundleSender, embedded
+// on send from the sender's identity sidecar), which the recipient learns only
+// after they decrypt the bundle in Review. So a row that has not been reviewed
+// yet shows a short hash-derived label, and once Review decrypts a bundle we
+// upgrade that row (and the import provenance) to the real email. A bundle built
+// before the sender block existed has no embedded identity, so it gracefully
+// falls back to the hash everywhere. We never invent a plaintext email we do not
+// have.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -33,6 +37,7 @@ import {
   type InboxItem,
   type ReceiveShareResult,
 } from "@/lib/sharing/relay/client";
+import type { BundleSender } from "@/lib/sharing/bundle";
 import { importNoteBundle } from "@/lib/sharing/note-transfer";
 import { recordNoteHistory } from "@/lib/history";
 import { fileService } from "@/lib/file-system/file-service";
@@ -87,6 +92,13 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
 
   // The bundle currently open in the review modal, plus its decrypted content.
   const [reviewItem, setReviewItem] = useState<InboxItem | null>(null);
+
+  // Real sender identity recovered from a bundle's sealed sender block, keyed by
+  // bundleId. Populated when Review decrypts an item, so a reviewed row upgrades
+  // from the hash label to the verified email. Pre-sender bundles never populate.
+  const [resolvedSenders, setResolvedSenders] = useState<
+    Record<string, BundleSender>
+  >({});
 
   // Keep onCountChange stable across renders without making it a load dependency.
   const onCountChangeRef = useRef(onCountChange);
@@ -246,7 +258,8 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
                     </span>
                   </div>
                   <p className="text-meta text-gray-500 truncate">
-                    {senderLabel(item.senderEmailHash)}
+                    {resolvedSenders[item.bundleId]?.email ??
+                      senderLabel(item.senderEmailHash)}
                   </p>
                   <p className="text-meta text-gray-400">
                     {new Date(item.createdAt).toLocaleString()} ·{" "}
@@ -284,6 +297,11 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
           email={email}
           currentUser={currentUser}
           onClose={() => setReviewItem(null)}
+          onResolveSender={(bundleId, sender) =>
+            setResolvedSenders((prev) =>
+              prev[bundleId] === sender ? prev : { ...prev, [bundleId]: sender },
+            )
+          }
           onImported={(bundleId) => {
             dropRow(bundleId);
             setReviewItem(null);
@@ -319,6 +337,8 @@ interface ReviewImportModalProps {
   onClose: () => void;
   onImported: (bundleId: string) => void;
   onDeclined: (item: InboxItem) => void;
+  /** Bubble the bundle's verified sender block up so the row can upgrade. */
+  onResolveSender: (bundleId: string, sender: BundleSender) => void;
 }
 
 function ReviewImportModal({
@@ -328,11 +348,17 @@ function ReviewImportModal({
   onClose,
   onImported,
   onDeclined,
+  onResolveSender,
 }: ReviewImportModalProps) {
   const [received, setReceived] = useState<ReceiveShareResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+
+  // Keep onResolveSender out of the decrypt effect's deps so the inline parent
+  // callback can't retrigger a re-fetch / re-decrypt on every render.
+  const onResolveSenderRef = useRef(onResolveSender);
+  onResolveSenderRef.current = onResolveSender;
 
   // Fetch + decrypt on mount.
   useEffect(() => {
@@ -342,7 +368,14 @@ function ReviewImportModal({
       setError(null);
       try {
         const result = await receiveShare({ email, bundleId: item.bundleId });
-        if (!cancelled) setReceived(result);
+        if (!cancelled) {
+          setReceived(result);
+          // Upgrade the row to the verified email once we have decrypted the
+          // sender block (a pre-sender bundle leaves result.sender undefined).
+          if (result.sender?.email) {
+            onResolveSenderRef.current(item.bundleId, result.sender);
+          }
+        }
       } catch (err) {
         console.error("[inbox] receiveShare failed", err);
         if (!cancelled) {
@@ -383,11 +416,12 @@ function ReviewImportModal({
     setImporting(true);
     setError(null);
     try {
-      // The sender fingerprint we have is the hash (the only stable sender id on
-      // the wire). senderEmail is the same hash-derived label; we do not have a
-      // verified plaintext email to stamp.
-      const senderFingerprint = item.senderEmailHash;
-      const senderEmail = senderLabel(item.senderEmailHash);
+      // Prefer the verified identity sealed inside the bundle (the sender's own
+      // email + key fingerprint). Fall back to the relay key hash for a
+      // pre-sender bundle that carries no embedded identity.
+      const senderFingerprint =
+        received.sender?.fingerprint || item.senderEmailHash;
+      const senderEmail = received.sender?.email || senderLabel(item.senderEmailHash);
 
       // receiveShare returns a ReceiveShareResult, which is a ReadBundleResult
       // minus the `metadata` field. importNoteBundle only reads valid /
@@ -463,20 +497,29 @@ function ReviewImportModal({
         </div>
 
         <div className="flex-1 overflow-y-auto p-5">
-          {/* Provenance header. Shows the sender (hash-derived) and that
-              ResearchOS verified the bundle opened with the user's key. */}
+          {/* Provenance header. Once decrypted, shows the sender's VERIFIED email
+              from the sealed bundle. Falls back to the relay key hash before
+              decrypt, or for a pre-sender bundle that carries no embedded
+              identity. */}
           <div className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 mb-4">
             <p className="text-meta text-gray-500 mb-1">From</p>
-            <p className="text-body font-medium text-gray-800">
-              {senderLabel(item.senderEmailHash)}
+            <p className="text-body font-medium text-gray-800 break-all">
+              {received?.sender?.email ?? senderLabel(item.senderEmailHash)}
             </p>
-            <p className="text-meta text-gray-400 break-all">
-              key hash {item.senderEmailHash.slice(0, 24)}…
-            </p>
+            {received?.sender?.fingerprint ? (
+              <p className="text-meta text-gray-400 break-all">
+                key fingerprint {received.sender.fingerprint}
+              </p>
+            ) : (
+              <p className="text-meta text-gray-400 break-all">
+                key hash {item.senderEmailHash.slice(0, 24)}…
+              </p>
+            )}
             {received?.valid && (
               <p className="text-meta text-emerald-600 mt-1.5">
-                ResearchOS verified this bundle opened with your key and passed
-                its integrity check.
+                {received?.sender?.email
+                  ? "ResearchOS verified this bundle was sealed to your key, signed by the sender, and passed its integrity check."
+                  : "ResearchOS verified this bundle opened with your key and passed its integrity check."}
               </p>
             )}
           </div>

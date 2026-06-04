@@ -157,6 +157,115 @@ describe("portable bundle engine, tamper detection", () => {
   });
 });
 
+describe("portable bundle engine, sender block", () => {
+  const SENDER = { email: "sender@lab.edu", fingerprint: "AB12 CD34 EF56 7890" };
+
+  it("round-trips an embedded sender identity", async () => {
+    const input: BuildBundleInput = {
+      shareUuid: UUID_NOTE,
+      version: 1,
+      modifiedAt: MODIFIED_AT,
+      entityType: "note",
+      entity: { id: "n", title: "x" },
+      attachments: [{ name: "a.png", bytes: imageA }],
+      sender: SENDER,
+    };
+
+    const result = await readBundle(await buildBundle(input));
+
+    expect(result.valid).toBe(true);
+    expect(result.sender).toEqual(SENDER);
+  });
+
+  it("leaves sender undefined for a bundle built without one (backward compatible)", async () => {
+    const input: BuildBundleInput = {
+      shareUuid: UUID_NOTE,
+      version: 1,
+      modifiedAt: MODIFIED_AT,
+      entityType: "note",
+      entity: { id: "n", title: "x" },
+      attachments: [],
+    };
+
+    const result = await readBundle(await buildBundle(input));
+
+    expect(result.valid).toBe(true);
+    expect(result.sender).toBeUndefined();
+  });
+
+  it("writes the sender as a Person entity and links it as the artifact author", async () => {
+    const input: BuildBundleInput = {
+      shareUuid: UUID_NOTE,
+      version: 1,
+      modifiedAt: MODIFIED_AT,
+      entityType: "note",
+      entity: { id: "n", title: "x" },
+      attachments: [],
+      sender: SENDER,
+    };
+
+    const zip = await JSZip.loadAsync(await buildBundle(input));
+    const meta = JSON.parse(
+      await zip.file(`${UUID_NOTE}/data/ro-crate-metadata.json`)!.async("string"),
+    );
+    const graph = meta["@graph"] as Array<Record<string, unknown>>;
+
+    const sender = graph.find((n) => n["@id"] === "#sender")!;
+    expect(sender["@type"]).toBe("Person");
+    expect(sender.email).toBe(SENDER.email);
+    expect(sender["researchos:fingerprint"]).toBe(SENDER.fingerprint);
+
+    const artifact = graph.find((n) => n["@id"] === `#note-${UUID_NOTE}`)!;
+    expect((artifact.author as { "@id": string })["@id"]).toBe("#sender");
+  });
+
+  it("omits the sender entity entirely when no sender is supplied", async () => {
+    const input: BuildBundleInput = {
+      shareUuid: UUID_NOTE,
+      version: 1,
+      modifiedAt: MODIFIED_AT,
+      entityType: "note",
+      entity: { id: "n", title: "x" },
+      attachments: [],
+    };
+
+    const zip = await JSZip.loadAsync(await buildBundle(input));
+    const meta = JSON.parse(
+      await zip.file(`${UUID_NOTE}/data/ro-crate-metadata.json`)!.async("string"),
+    );
+    const graph = meta["@graph"] as Array<Record<string, unknown>>;
+    expect(graph.find((n) => n["@id"] === "#sender")).toBeUndefined();
+    const artifact = graph.find((n) => n["@id"] === `#note-${UUID_NOTE}`)!;
+    expect(artifact).not.toHaveProperty("author");
+  });
+
+  it("detects tampering with the embedded sender email", async () => {
+    const input: BuildBundleInput = {
+      shareUuid: UUID_NOTE,
+      version: 1,
+      modifiedAt: MODIFIED_AT,
+      entityType: "note",
+      entity: { id: "n", title: "x" },
+      attachments: [],
+      sender: SENDER,
+    };
+
+    const original = await buildBundle(input);
+    const zip = await JSZip.loadAsync(original);
+    // Rewrite the metadata file with a forged sender email. The crate metadata is
+    // a payload file covered by the SHA-512 manifest, so this must flip valid.
+    const metaPath = `${UUID_NOTE}/data/ro-crate-metadata.json`;
+    const metaText = await zip.file(metaPath)!.async("string");
+    const forged = metaText.replace("sender@lab.edu", "attacker@evil.example");
+    expect(forged).not.toBe(metaText);
+    zip.file(metaPath, forged);
+    const tampered = await zip.generateAsync({ type: "uint8array" });
+
+    const result = await readBundle(tampered);
+    expect(result.valid).toBe(false);
+  });
+});
+
 describe("portable bundle engine, metadata", () => {
   it("writes RO-Crate and BagIt metadata with the required fields", async () => {
     const input: BuildBundleInput = {

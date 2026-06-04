@@ -15,6 +15,7 @@ import {
 import { useAppStore } from "@/lib/store";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import NoteCommentsThread from "./NoteCommentsThread";
+import ReceivedFromBadge from "./ReceivedFromBadge";
 import Tooltip from "./Tooltip";
 import { useFileRenamePopup } from "./FileRenamePopup";
 import { useDuplicateResolver } from "./DuplicateUploadDialog";
@@ -1044,6 +1045,18 @@ export default function NoteDetailPopup({
                 >
                   {description || (!readOnly ? "Add a description..." : "")}
                 </p>
+              )}
+              {/* Cross-boundary sharing provenance. Renders only on an imported
+                  note (received_from is stamped at import time), so a native note
+                  shows nothing. Marks WHO sent it, distinct from a native note. */}
+              {note.received_from && (
+                <div className="mt-2">
+                  <ReceivedFromBadge
+                    receivedFrom={note.received_from}
+                    fingerprint={note.received_from_fingerprint}
+                    receivedAt={note.received_at}
+                  />
+                </div>
               )}
               {/* PI Phase 5 — record-level "Edited by PI" notice. */}
               {propReadOnly && note.username && (

@@ -39,9 +39,11 @@ import {
   type BuildBundleInput,
   type ReadBundleResult,
   type BundleAttachment,
+  type BundleSender,
 } from "@/lib/sharing/bundle";
 import { fileService } from "@/lib/file-system/file-service";
 import { listImagesInFolder } from "@/lib/attachments/image-folder";
+import { readSharingIdentity } from "@/lib/sharing/identity/sidecar";
 import { notesApi } from "@/lib/local-api";
 import type { Note, NoteEntry } from "@/lib/types";
 
@@ -150,6 +152,18 @@ export async function buildNoteBundleInput(
     attachments.push({ name: image.name, bytes });
   }
 
+  // Embed the sender's verified identity from their sharing-identity sidecar, so
+  // the recipient can attribute the note to a real person rather than the relay
+  // key hash. Both fields are PUBLIC (the sidecar holds no private keys). This is
+  // safe to ship because the bundle is sealed to the recipient and the send is
+  // Ed25519-signed. If the owner has not claimed a sharing identity, sender stays
+  // undefined and the bundle is a valid pre-sender bundle (recipient falls back
+  // to the hash).
+  const identity = await readSharingIdentity(ownerUsername);
+  const sender: BundleSender | undefined = identity
+    ? { email: identity.email, fingerprint: identity.fingerprint }
+    : undefined;
+
   return {
     // v1: a fresh share identity per send. See the VERSIONING note in the
     // header for the dedupe-on-resend enhancement that supersedes this.
@@ -159,6 +173,7 @@ export async function buildNoteBundleInput(
     entityType: "note",
     entity,
     attachments,
+    sender,
   };
 }
 
