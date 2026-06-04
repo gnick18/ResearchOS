@@ -49,6 +49,11 @@ export interface PrimerDialogRequest {
   seedRange?: { lo: number; hi: number };
   /** Optional default name. */
   seedName?: string;
+  /** menu reorg bot — which flow the dialog OPENS in. "standard" (default) opens
+   *  the type/paste primer flow; "mutagenesis" opens straight into the SDM
+   *  designer so the Primer menu's "Design mutagenesis primer..." lands there
+   *  without the user hunting for the inner mode tab. */
+  initialMode?: "standard" | "mutagenesis";
   onSubmit: (payload: PrimerAddPayload) => void;
   onCancel: () => void;
 }
@@ -131,7 +136,9 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
 
   useEffect(() => {
     if (!request) return;
-    setMode("manual");
+    // menu reorg bot — honor the caller's opening flow ("standard" -> the manual
+    // type/paste primer; "mutagenesis" -> the SDM designer). Default standard.
+    setMode(request.initialMode === "mutagenesis" ? "mutagenesis" : "manual");
     setName(request.seedName ?? "");
     setRaw(sanitizePrimer(request.seedSeq ?? ""));
     setRevComp(false);

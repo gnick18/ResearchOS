@@ -93,6 +93,10 @@ import AnnotateFromReferenceDialog, {
 import DetectFeaturesDialog, {
   type DetectFeaturesRequest,
 } from "./DetectFeaturesDialog";
+// menu reorg bot — the library-level Compare/Align dialog, also surfaced from
+// the editor's new Analyze menu (a second door; the library-header Compare
+// stays). Rendered here with its own open state; not modified.
+import CompareSequencesDialog from "./CompareSequencesDialog";
 import EnzymePickerDialog from "./EnzymePickerDialog";
 import PrimerDialog, { type PrimerDialogRequest } from "./PrimerDialog";
 import PrimerEditorDialog, {
@@ -268,6 +272,18 @@ function IconScissors({ className }: { className?: string }) {
     </svg>
   );
 }
+// menu reorg bot — a magnifier-over-waveform glyph for the new "Analyze"
+// toolbar dropdown (Detect features / Annotate from reference / Compare
+// sequences). Inline SVG, matching the rest of the toolbar icon set.
+function IconAnalyze({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3-3" />
+      <path d="M8 11h1.5l1.5-2.5L13 13l1-2h2" />
+    </svg>
+  );
+}
 function ToolbarButton({
   label,
   onClick,
@@ -412,6 +428,12 @@ export default function SequenceEditView({
   const [annotateRef, setAnnotateRef] =
     useState<AnnotateFromReferenceRequest | null>(null);
   const [detectReq, setDetectReq] = useState<DetectFeaturesRequest | null>(null);
+  // menu reorg bot — the Compare/Align dialog, opened from the new Analyze menu
+  // (a second door into the same library-level dialog the library header opens).
+  const [compareOpen, setCompareOpen] = useState(false);
+  // menu reorg bot — a nonce the Primer menu's "Check specificity..." item bumps
+  // to switch the Primers tab onto its Check (specificity) view directly.
+  const [primersCheckNonce, setPrimersCheckNonce] = useState(0);
   const [selectedFeatureIdx, setSelectedFeatureIdx] = useState<number | null>(null);
   // Phase 2d — the restriction-enzyme picker. `activeEnzymes` is the in-session
   // chosen set (lowercase keys); null means "use the small common default".
@@ -655,19 +677,35 @@ export default function SequenceEditView({
     return out;
   }, [sequence.id, sequence.project_ids, doc.seq, doc.circular]);
 
-  const openPrimerDialog = useCallback(() => {
-    const seedSeq = sel.hasRange ? doc.seq.slice(sel.lo, sel.hi) : "";
-    setPrimerRequest({
-      template: doc.seq,
-      seedSeq,
-      seedName: "",
-      onSubmit: ({ name, primerSeq, site }) => {
-        addPrimerFeature(name, primerSeq, site);
-        setPrimerRequest(null);
-      },
-      onCancel: () => setPrimerRequest(null),
-    });
-  }, [doc.seq, sel, addPrimerFeature]);
+  // menu reorg bot — open the Add-Primer dialog. `mode` picks the flow the dialog
+  // OPENS in: "standard" (type/paste) for "Add Primer...", or "mutagenesis" (SDM)
+  // for the Primer menu's "Design mutagenesis primer..." item. Both seed from the
+  // current selection (bases + range, so the SDM target lands on the selection).
+  const openPrimerDialog = useCallback(
+    (mode: "standard" | "mutagenesis" = "standard") => {
+      const seedSeq = sel.hasRange ? doc.seq.slice(sel.lo, sel.hi) : "";
+      setPrimerRequest({
+        template: doc.seq,
+        seedSeq,
+        seedRange: sel.hasRange ? { lo: sel.lo, hi: sel.hi } : undefined,
+        seedName: "",
+        initialMode: mode,
+        onSubmit: ({ name, primerSeq, site }) => {
+          addPrimerFeature(name, primerSeq, site);
+          setPrimerRequest(null);
+        },
+        onCancel: () => setPrimerRequest(null),
+      });
+    },
+    [doc.seq, sel, addPrimerFeature],
+  );
+
+  // menu reorg bot — jump the Primers tab onto its Check (specificity) view. The
+  // nonce bump re-applies the mode even when the Primers tab is already mounted.
+  const openSpecificityCheck = useCallback(() => {
+    setViewMode("primers");
+    setPrimersCheckNonce((n) => n + 1);
+  }, []);
 
   // The topology toggle in the rail can force a circular plasmid to render as
   // linear; a genuinely linear molecule always renders linear. For a circular
@@ -2082,9 +2120,14 @@ export default function SequenceEditView({
   const selIsPrimer = !!selFeat && (selFeat.type || "").toLowerCase() === "primer_bind";
   const selIsFeature = !!selFeat && !selIsPrimer;
 
+  // menu reorg bot — the Feature menu is now TRUE CRUD only: Add / Edit /
+  // Duplicate / Remove. The analysis engines (Detect / Annotate) moved to the new
+  // Analyze menu, and the per-feature-type show/hide list moved back to the left
+  // rail as a labeled "Feature types" flyout, so this menu no longer mixes three
+  // kinds of action under one verb.
   const featureMenuItems = useMemo<EditMenuItem[]>(() => {
     const idx = selectedFeatureIdx;
-    const items: EditMenuItem[] = [
+    return [
       { id: "feat-add", label: "Add Feature…", enabled: true, onRun: openAddFeature },
       {
         id: "feat-edit",
@@ -2112,62 +2155,49 @@ export default function SequenceEditView({
           if (idx != null) deleteFeatureAt(idx);
         },
       },
-      // annotate-from-reference bot — homology-based feature transfer. Aligns
-      // the open sequence to another in the library and carries its features
-      // over. Its own group so it reads as a distinct action, not a CRUD verb.
-      {
-        id: "feat-annotate-ref",
-        label: "Annotate from Reference…",
-        enabled: true,
-        group: true,
-        onRun: openAnnotateFromReference,
-      },
-      // feature detect bot — scan the open DNA for common protein elements
-      // (fluorescent proteins, resistance markers, fusion + epitope tags) by
-      // translating ORFs on both strands and aligning to the bundled feature DB.
-      {
-        id: "feat-detect-common",
-        label: "Detect common features…",
-        enabled: true,
-        onRun: openDetectFeatures,
-      },
     ];
-    // top menus consolidation bot — the per-feature-type show/hide list relocated
-    // from the rail's FeatureTypesFlyout. One TOGGLE row per distinct type;
-    // `checked` reflects "visible" (NOT in hiddenTypes), `onRun` flips that type's
-    // membership in hiddenTypes (mirrors the old flyout's toggle exactly).
-    if (featureTypes.length > 0) {
-      featureTypes.forEach((k, i) => {
-        items.push({
-          id: `feat-type-${k}`,
-          label: k,
-          enabled: true,
-          checked: !view.hiddenTypes[k],
-          color: colorForType(k),
-          ...(i === 0 ? { group: true } : {}),
-          onRun: () =>
-            setView((v) => ({ ...v, hiddenTypes: { ...v.hiddenTypes, [k]: !v.hiddenTypes[k] } })),
-        });
-      });
-    }
-    return items;
   }, [
     selectedFeatureIdx,
     selIsFeature,
     openAddFeature,
-    openAnnotateFromReference,
-    openDetectFeatures,
     openEditFeature,
     duplicateFeatureAt,
     deleteFeatureAt,
-    featureTypes,
-    view.hiddenTypes,
   ]);
+
+  // menu reorg bot — the new ANALYZE menu: the home for cross-cutting molecule
+  // analysis. Detect + Annotate moved here from the overloaded Feature menu, and
+  // Compare adds a second door into the library-level Compare/Align dialog from
+  // inside the editor. Display-ish, but the apply paths mutate, so edit-only.
+  const analyzeMenuItems = useMemo<EditMenuItem[]>(
+    () => [
+      {
+        id: "analyze-detect",
+        label: "Detect common features…",
+        enabled: true,
+        onRun: openDetectFeatures,
+      },
+      {
+        id: "analyze-annotate-ref",
+        label: "Annotate from reference…",
+        enabled: true,
+        onRun: openAnnotateFromReference,
+      },
+      {
+        id: "analyze-compare",
+        label: "Compare sequences…",
+        enabled: true,
+        group: true,
+        onRun: () => setCompareOpen(true),
+      },
+    ],
+    [openDetectFeatures, openAnnotateFromReference],
+  );
 
   const primerMenuItems = useMemo<EditMenuItem[]>(() => {
     const idx = selectedFeatureIdx;
     return [
-      { id: "primer-add", label: "Add Primer…", enabled: true, onRun: openPrimerDialog },
+      { id: "primer-add", label: "Add Primer…", enabled: true, onRun: () => openPrimerDialog("standard") },
       {
         id: "primer-edit",
         label: "Edit Primer…",
@@ -2194,6 +2224,23 @@ export default function SequenceEditView({
           if (idx != null) deleteFeatureAt(idx);
         },
       },
+      // menu reorg bot — two NAMED primer actions that used to be buried (SDM was
+      // a tab inside Add Primer; specificity was a sub-tab three levels down).
+      // "Design mutagenesis primer..." opens Add-Primer straight into its SDM
+      // mode; "Check specificity..." jumps the Primers tab onto its Check view.
+      {
+        id: "primer-mutagenesis",
+        label: "Design mutagenesis primer…",
+        enabled: true,
+        group: true,
+        onRun: () => openPrimerDialog("mutagenesis"),
+      },
+      {
+        id: "primer-specificity",
+        label: "Check specificity…",
+        enabled: true,
+        onRun: openSpecificityCheck,
+      },
       // top menus consolidation bot — the primer LAYER show/hide, relocated so
       // the Primer menu holds actions AND visibility (mirrors Feature / Enzyme).
       {
@@ -2209,6 +2256,7 @@ export default function SequenceEditView({
     selectedFeatureIdx,
     selIsPrimer,
     openPrimerDialog,
+    openSpecificityCheck,
     openEditPrimer,
     duplicateFeatureAt,
     deleteFeatureAt,
@@ -2477,6 +2525,15 @@ export default function SequenceEditView({
               testId="sequence-primer-button"
               icon={<IconPrimer className="h-4 w-4" />}
             />
+            {/* menu reorg bot — the new Analyze dropdown: Detect features /
+                Annotate from reference / Compare sequences. One calm home for the
+                molecule-level analysis that used to be scattered. */}
+            <EditMenuDropdown
+              items={analyzeMenuItems}
+              label="Analyze"
+              testId="sequence-analyze-button"
+              icon={<IconAnalyze className="h-4 w-4" />}
+            />
           </>
         ) : null}
         {/* top menus consolidation bot — the Enzyme dropdown. Display only (cut
@@ -2520,6 +2577,7 @@ export default function SequenceEditView({
             view={view}
             onViewChange={setView}
             circular={doc.circular}
+            featureTypes={featureTypes}
           />
         ) : null}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
@@ -2796,6 +2854,8 @@ export default function SequenceEditView({
               readOnly={readOnly}
               currentSequenceId={sequence.id}
               loadLibrary={loadLibrary}
+              initialMode="check"
+              initialModeNonce={primersCheckNonce}
             />
           ) : null}
 
@@ -2840,6 +2900,15 @@ export default function SequenceEditView({
 
       {/* feature detect bot — detect common protein features from the bundled DB. */}
       <DetectFeaturesDialog request={detectReq} />
+
+      {/* menu reorg bot — Compare / align two sequences, opened from the Analyze
+          menu. Seeds sequence A with the open molecule (the dialog's own
+          defaultAId); the user picks B. Unmodified shared dialog. */}
+      <CompareSequencesDialog
+        open={compareOpen}
+        onClose={() => setCompareOpen(false)}
+        defaultAId={sequence.id}
+      />
 
       {/* Phase 2d — restriction-enzyme chooser. Applies the active set live. */}
       <EnzymePickerDialog

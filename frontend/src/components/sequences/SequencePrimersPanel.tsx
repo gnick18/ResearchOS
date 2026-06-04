@@ -187,6 +187,13 @@ export interface SequencePrimersPanelProps {
    *  lives in the parent (sequencesApi); the panel only consumes LibrarySequence.
    *  Omit (or return only the current sequence) and the scan still runs. */
   loadLibrary?: () => Promise<LibrarySequence[]>;
+  /** menu reorg bot — which sub-view to JUMP to when the parent bumps
+   *  `initialModeNonce` (the toolbar Primer menu's "Check specificity..." fires
+   *  this so the panel lands on Check instead of the user drilling List ->
+   *  Check). The panel still OPENS on List by default; the jump only happens on a
+   *  nonce bump, so a plain Primers-tab visit is unaffected. */
+  initialMode?: Mode;
+  initialModeNonce?: number;
 }
 
 type Mode = "list" | "design" | "check";
@@ -204,8 +211,17 @@ export default function SequencePrimersPanel({
   readOnly = false,
   currentSequenceId,
   loadLibrary,
+  initialMode,
+  initialModeNonce,
 }: SequencePrimersPanelProps) {
   const [mode, setMode] = useState<Mode>("list");
+  // menu reorg bot — jump to the requested sub-view when the parent bumps the
+  // nonce (the toolbar "Check specificity..." item fires this). This runs on
+  // mount too when the nonce is already non-zero, so opening the Primers tab via
+  // that menu item lands directly on Check; a plain tab visit stays on List.
+  useEffect(() => {
+    if (initialModeNonce && initialMode) setMode(initialMode);
+  }, [initialModeNonce, initialMode]);
   const [params, setParams] = useState<PrimerDesignParams>(DEFAULT_DESIGN_PARAMS);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
