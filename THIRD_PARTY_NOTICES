@@ -14,6 +14,14 @@ in the app at /open-source.
 RUNTIME DEPENDENCIES
 ------------------------------------------------------------------------
 
+@aws-sdk/client-s3@3.1059.0
+  License: Apache-2.0
+  Source:  https://github.com/aws/aws-sdk-js-v3
+
+@aws-sdk/s3-request-presigner@3.1059.0
+  License: Apache-2.0
+  Source:  https://github.com/aws/aws-sdk-js-v3
+
 @codemirror/commands@6.10.3
   License: MIT
   Source:  https://github.com/codemirror/commands
@@ -46,13 +54,40 @@ RUNTIME DEPENDENCIES
   License: MIT
   Source:  https://code.haverbeke.berlin/lezer/markdown
 
+@neondatabase/serverless@1.1.0
+  License: MIT
+  Source:  https://github.com/neondatabase/serverless
+
+@noble/ciphers@2.2.0
+  License: MIT
+  Source:  https://github.com/paulmillr/noble-ciphers
+
+@noble/curves@2.2.0
+  License: MIT
+  Source:  https://github.com/paulmillr/noble-curves
+
+@noble/hashes@2.2.0
+  License: MIT
+  Source:  https://github.com/paulmillr/noble-hashes
+
 @react-pdf/renderer@4.5.1
   License: MIT
   Source:  https://github.com/diegomura/react-pdf
 
+@scure/bip39@2.2.0
+  License: MIT
+  Source:  https://github.com/paulmillr/scure-bip39
+
 @tanstack/react-query@5.100.14
   License: MIT
   Source:  https://github.com/TanStack/query
+
+@upstash/ratelimit@v2.0.8
+  License: MIT
+
+@upstash/redis@1.38.0
+  License: MIT
+  Source:  https://github.com/upstash/redis-js
 
 @vercel/analytics@2.0.1
   License: MIT
@@ -102,6 +137,10 @@ next@16.1.6
   License: MIT
   Source:  https://github.com/vercel/next.js
 
+next-auth@5.0.0-beta.31
+  License: ISC
+  Source:  https://github.com/nextauthjs/next-auth
+
 react@19.2.3
   License: MIT
   Source:  https://github.com/facebook/react
@@ -145,6 +184,10 @@ remark-parse@11.0.0
 remark-rehype@11.1.2
   License: MIT
   Source:  https://github.com/remarkjs/remark-rehype
+
+resend@6.12.4
+  License: MIT
+  Source:  https://github.com/resend/resend-node
 
 turndown@7.2.4
   License: MIT

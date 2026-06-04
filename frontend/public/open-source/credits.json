@@ -1,13 +1,14 @@
 {
-  "generatedAt": "2026-06-03T05:00:59.130Z",
-  "appVersion": "0.2.0",
-  "dependencyCount": 36,
+  "generatedAt": "2026-06-04T06:29:57.336Z",
+  "appVersion": "3.5.0",
+  "dependencyCount": 47,
   "licenseCounts": {
-    "MIT": 31,
-    "Apache-2.0": 2,
+    "Apache-2.0": 4,
+    "MIT": 39,
     "BSD-3-Clause": 1,
     "MPL-2.0": 1,
-    "(MIT OR GPL-3.0-or-later)": 1
+    "(MIT OR GPL-3.0-or-later)": 1,
+    "ISC": 1
   },
   "highlightGroups": [
     {
@@ -242,6 +243,18 @@
   ],
   "dependencies": [
     {
+      "name": "@aws-sdk/client-s3",
+      "version": "3.1059.0",
+      "license": "Apache-2.0",
+      "repo": "https://github.com/aws/aws-sdk-js-v3"
+    },
+    {
+      "name": "@aws-sdk/s3-request-presigner",
+      "version": "3.1059.0",
+      "license": "Apache-2.0",
+      "repo": "https://github.com/aws/aws-sdk-js-v3"
+    },
+    {
       "name": "@codemirror/commands",
       "version": "6.10.3",
       "license": "MIT",
@@ -290,16 +303,58 @@
       "repo": "https://code.haverbeke.berlin/lezer/markdown"
     },
     {
+      "name": "@neondatabase/serverless",
+      "version": "1.1.0",
+      "license": "MIT",
+      "repo": "https://github.com/neondatabase/serverless"
+    },
+    {
+      "name": "@noble/ciphers",
+      "version": "2.2.0",
+      "license": "MIT",
+      "repo": "https://github.com/paulmillr/noble-ciphers"
+    },
+    {
+      "name": "@noble/curves",
+      "version": "2.2.0",
+      "license": "MIT",
+      "repo": "https://github.com/paulmillr/noble-curves"
+    },
+    {
+      "name": "@noble/hashes",
+      "version": "2.2.0",
+      "license": "MIT",
+      "repo": "https://github.com/paulmillr/noble-hashes"
+    },
+    {
       "name": "@react-pdf/renderer",
       "version": "4.5.1",
       "license": "MIT",
       "repo": "https://github.com/diegomura/react-pdf"
     },
     {
+      "name": "@scure/bip39",
+      "version": "2.2.0",
+      "license": "MIT",
+      "repo": "https://github.com/paulmillr/scure-bip39"
+    },
+    {
       "name": "@tanstack/react-query",
       "version": "5.100.14",
       "license": "MIT",
       "repo": "https://github.com/TanStack/query"
+    },
+    {
+      "name": "@upstash/ratelimit",
+      "version": "v2.0.8",
+      "license": "MIT",
+      "repo": null
+    },
+    {
+      "name": "@upstash/redis",
+      "version": "1.38.0",
+      "license": "MIT",
+      "repo": "https://github.com/upstash/redis-js"
     },
     {
       "name": "@vercel/analytics",
@@ -374,6 +429,12 @@
       "repo": "https://github.com/vercel/next.js"
     },
     {
+      "name": "next-auth",
+      "version": "5.0.0-beta.31",
+      "license": "ISC",
+      "repo": "https://github.com/nextauthjs/next-auth"
+    },
+    {
       "name": "react",
       "version": "19.2.3",
       "license": "MIT",
@@ -438,6 +499,12 @@
       "version": "11.1.2",
       "license": "MIT",
       "repo": "https://github.com/remarkjs/remark-rehype"
+    },
+    {
+      "name": "resend",
+      "version": "6.12.4",
+      "license": "MIT",
+      "repo": "https://github.com/resend/resend-node"
     },
     {
       "name": "turndown",
