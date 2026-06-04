@@ -1,12 +1,14 @@
 import Link from "next/link";
 import WikiPage from "@/components/wiki/WikiPage";
 import Callout from "@/components/wiki/Callout";
+import Screenshot from "@/components/wiki/Screenshot";
+import { Steps, Step } from "@/components/wiki/Steps";
 
 export default function TrashFeaturePage() {
   return (
     <WikiPage
       title="Trash &amp; History"
-      intro="A recovery window for deletes. When you delete a note, task, project, method, purchase, goal, lab link, or mass spec protocol, it does not vanish. It moves into a per-user trash folder where it sits for 30 days. Within that window you can restore it back to its original location with one click. After the window passes, an automatic sweep removes it for good."
+      intro="A recovery window for deletes. When you delete a note, task, project, method, purchase, goal, lab link, mass spec protocol, or sequence, it does not vanish. It moves into a per-user trash folder where it sits for 30 days. Within that window you can restore it back to its original location with one click. After the window passes, an automatic sweep removes it for good."
     >
       <h2>Why this exists</h2>
       <p>
@@ -50,11 +52,17 @@ export default function TrashFeaturePage() {
         Open the trash from the small trash-can icon in the top-right corner
         of the header (next to the Settings gear) or from the{" "}
         <Link href="/settings#history-and-trash">Settings &rarr; History &amp; Trash</Link>{" "}
-        section. Each row shows:
+        section. Trashed records are grouped into sections by what they are,
+        so all your deleted notes sit together, all your deleted tasks sit
+        together, and so on. Sequences now show up here too, alongside notes,
+        tasks, projects, methods, purchase items, high-level goals, lab links,
+        and mass spec protocols. A section only appears when it has something
+        in it, so the page stays short when most categories are empty.
       </p>
+      <p>Each row shows:</p>
       <ul>
+        <li>A checkbox for selecting the row (more on that below).</li>
         <li>The record&rsquo;s name (recovered from the original title).</li>
-        <li>A small badge for the entity type.</li>
         <li>Who deleted it and when.</li>
         <li>A countdown until auto-cleanup (&ldquo;Expires in 27 days&rdquo;).</li>
         <li>
@@ -65,8 +73,67 @@ export default function TrashFeaturePage() {
       </ul>
       <p>
         A sort dropdown in the header switches between Newest first (default),
-        Oldest first, and Expiring soon (urgent-cleanup-first).
+        Oldest first, and Expiring soon (urgent-cleanup-first). The sort applies
+        inside each section, so the most relevant rows float to the top of
+        every category at once.
       </p>
+
+      <h2>Selecting and acting in bulk</h2>
+      <p>
+        Cleaning up after a big experiment usually means dealing with more
+        than one stray record at a time. Rather than restoring or deleting
+        rows one by one, you can select several and act on them in a single
+        pass. The checkbox on each row drives the selection, and the checkbox
+        on each section header is a shortcut for selecting everything in that
+        category.
+      </p>
+      <Steps>
+        <Step>
+          <strong>Pick your rows.</strong> Tick the checkbox on any row you
+          want to act on. Selections can span more than one section, so you
+          can grab two notes and a task in the same go.
+        </Step>
+        <Step>
+          <strong>Or grab a whole category.</strong> The checkbox in a section
+          header selects every row in that section at once. When only some of
+          the rows in a section are selected, the header checkbox shows a dash
+          to tell you the section is partly selected rather than fully
+          selected.
+        </Step>
+        <Step>
+          <strong>Act from the bar.</strong> As soon as something is selected,
+          a bar slides in at the top of the list showing how many items are
+          selected. From there you can <strong>Restore</strong> all of them,
+          <strong> Permanent delete</strong> all of them, or
+          <strong> Clear selection</strong> to start over.
+        </Step>
+        <Step>
+          <strong>Confirm a bulk delete.</strong> Restoring in bulk happens
+          right away. A bulk permanent delete is irreversible, so it asks you
+          to confirm in a dialog first, and only then removes the selected
+          records for good.
+        </Step>
+      </Steps>
+      <Screenshot
+        src="/wiki/screenshots/trash-bulk-action-bar.png"
+        alt="Trash page with two rows selected and the bulk action bar showing Restore, Permanent delete, and Clear selection"
+        caption="Selecting rows reveals a bar with Restore, Permanent delete, and Clear selection."
+        width={1440}
+        height={900}
+      />
+      <Callout variant="tip" title="Selections clear themselves up">
+        If a row leaves the trash while it is selected, whether you restored
+        it on its own or the list reloaded, it quietly drops out of the
+        selection. The count in the bar always reflects what is actually still
+        sitting in the trash.
+      </Callout>
+      <Callout variant="warning" title="Bulk restore skips the parent prompt">
+        Restoring a single record asks what to do when its parent is also in
+        the trash (see &ldquo;Restoring with a trashed parent&rdquo; below). A
+        bulk restore does not stop to ask. Each selected record is restored on
+        its own, so if you want a parent and child to come back together,
+        select both of them.
+      </Callout>
 
       <h2>The cleanup window</h2>
       <p>
